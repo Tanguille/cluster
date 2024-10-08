@@ -12,7 +12,8 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: openebs
-    - name: volsync
+    # TODO: Remove this when volsync is setup
+    # - name: volsync
   wait: true
   path: ./kubernetes/apps/media/wizarr/app
   prune: true
