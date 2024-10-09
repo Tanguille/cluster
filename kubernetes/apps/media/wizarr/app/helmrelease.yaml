@@ -1,5 +1,6 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -23,6 +24,7 @@ spec:
     cleanupOnFail: true
     remediation:
       retries: 3
+    timeout: 10m
   uninstall:
     keepHistory: false
 
@@ -36,7 +38,7 @@ spec:
               tag: 4.1.1@sha256:52df19ffa3d4f59e9abc865032bc51c3afd077a88d5a6d50ba4a81d0e8582d9e
             env:
               TZ: ${TIMEZONE}
-              APP_URL: "https://invite.${SECRET_DOMAIN}"
+              APP_URL: "https://wizarr.${SECRET_DOMAIN}"
 
     service:
       app:
@@ -51,7 +53,7 @@ spec:
         annotations:
           external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
         hosts:
-          - host: invite.${SECRET_DOMAIN}
+          - host: wizarr.${SECRET_DOMAIN}
             paths:
               - path: /
                 pathType: Prefix
