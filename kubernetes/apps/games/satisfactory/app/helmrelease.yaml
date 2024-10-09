@@ -1,0 +1,120 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app satisfactory
+
+  namespace: default
+spec:
+  interval: 5m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.5.1
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+      interval: 5m
+  maxHistory: 3
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  dependsOn:
+    - name: rook-ceph-cluster
+      namespace: rook-ceph
+  values:
+    defaultPodOptions:
+      dnsPolicy: ClusterFirstWithHostNet
+      #hostNetwork: true # This is pain, but for some reason the container doesn't seem to reply though LB.
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 6
+        fsGroupChangePolicy: OnRootMismatch
+      nodeSelector:
+        kubernetes.io/arch: amd64
+
+
+    controllers:
+      satisfactory:
+        type: statefulset
+
+        containers:
+          app:
+            image:
+              repository: registry.skysolutions.fi/ghcr.io/wolveix/satisfactory-server
+              tag: v1.8.7
+            env:
+              TZ: ${TIMEZONE}
+              ROOTLESS: "true"
+              AUTOPAUSE: "true"
+              AUTOSAVEINTERVAL: "60"
+              AUTOSAVENUM: "30"
+              AUTOSAVEONDISCONNECT: "true"
+              CRASHREPORT: "false"
+              MAXPLAYERS: "5"
+              MAXTICKRATE: "120" # default is a low 30
+              NETWORKQUALITY: "3" # 0-3, 3 is Ultra (default)
+              TIMEOUT: "300"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities:
+                drop:
+                  - ALL
+            probes:
+              startup:
+                enabled: false
+              liveness:
+                enabled: false
+              readiness:
+                enabled: false
+            resources:
+              requests:
+                memory: 4Gi
+              limits:
+                memory: 8Gi
+
+
+
+    service:
+      app:
+        enabled: true
+        controller: *app
+        type: LoadBalancer
+        externalTrafficPolicy: Cluster
+        ipFamilyPolicy: RequireDualStack
+        ports:
+          game-udp:
+            enabled: true
+            primary: true
+            port: 7777
+            protocol: UDP
+          game-tcp:
+            enabled: true
+            port: 7777
+            protocol: TCP
+
+
+
+    persistence:
+      config:
+        enabled: true
+        # existingClaim: "${VOLSYNC_CLAIM}"
+        globalMounts:
+          - path: /config
+      server-cache:
+        enabled: true
+        existingClaim: "sf-gamedata"
+        globalMounts:
+          - path: /config/gamefiles
