@@ -34,3 +34,24 @@ tasks:
   reset:
     internal: true
     cmd: rm -rf {{.KUBERNETES_DIR}}
+
+  browse-pvc:
+    desc: Browse PersistentVolumeClaims
+    summary: |
+      Args:
+        ns: Namespace to browse PersistentVolumeClaims in (default: default)
+        claim: PersistentVolumeClaim to browse (required)
+    interactive: true
+    cmd: kubectl browse-pvc --context {{.CLUSTER}} --namespace {{.ns}} {{.claim}}
+    vars:
+      ns: '{{.ns | default "default"}}'
+    requires:
+      vars: ["CLUSTER", "claim"]
+
+  delete-failed-pods:
+    desc: Deletes pods with a failed status
+    cmds:
+      - for: ["Evicted", "Failed", "Succeeded"]
+        cmd: kubectl --context {{.CLUSTER}} delete pods --field-selector status.phase={{.ITEM}} -A --ignore-not-found=true
+    requires:
+      vars: ["CLUSTER"]
