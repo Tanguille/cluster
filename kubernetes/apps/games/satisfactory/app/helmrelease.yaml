@@ -4,7 +4,7 @@ kind: HelmRelease
 metadata:
   name: &app satisfactory
 
-  namespace: default
+  namespace: games
 spec:
   interval: 5m
   chart:
@@ -28,7 +28,6 @@ spec:
     keepHistory: false
   dependsOn:
     - name: openebs
-      namespace: openebs
   values:
     defaultPodOptions:
       dnsPolicy: ClusterFirstWithHostNet
