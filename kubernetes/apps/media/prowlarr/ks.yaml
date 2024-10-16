@@ -11,7 +11,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    # - name: volsync
+    - name: volsync
     - name: openebs
   wait: true
   path: ./kubernetes/apps/media/prowlarr/app
@@ -24,4 +24,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      # VOLSYNC_CAPACITY: 500Mi
+      VOLSYNC_CAPACITY: 500Mi
