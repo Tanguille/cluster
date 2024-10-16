@@ -103,11 +103,8 @@ spec:
 
     persistence:
       config:
-        enabled: true
-        type: persistentVolumeClaim
-        storageClass: openebs-zfs
-        accessMode: ReadWriteOnce
-        size: 1Gi
+        existingClaim: *app
+
       tmp:
         type: emptyDir
         medium: Memory
