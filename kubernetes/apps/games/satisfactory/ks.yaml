@@ -12,8 +12,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: openebs
-    # TODO: Remove this when volsync is setup
-    # - name: volsync
+    - name: volsync
   wait: true
   path: ./kubernetes/apps/games/satisfactory/app
   prune: true
@@ -28,5 +27,4 @@ spec:
       APP: *app
       APP_UID: "1000"
       APP_GID: "1000"
-      # TODO: Remove this when volsync is setup
-      # VOLSYNC_CAPACITY: 2Gi
+      VOLSYNC_CAPACITY: 2Gi
