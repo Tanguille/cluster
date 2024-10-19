@@ -29,13 +29,9 @@ spec:
 
           image: openebs/tests-fio
 
-          env:
-            - name: DBENCH_TYPE
-              value: "quick" # Change to "detailed" or "custom" as needed
+          command: ["/bin/bash"]
 
-          command: ["/bin/sh", "-c"]
-
-          args: ["fio /datadir/fio-job-file.fio"] # Adjust this to point to your FIO job file
+          args: ["-c", "while true ;do sleep 50; done"]
 
           volumeMounts:
             - mountPath: /datadir
