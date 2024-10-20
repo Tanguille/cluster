@@ -1,0 +1,74 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+vars:
+  TALHELPER_CLUSTER_DIR: '{{.KUBERNETES_DIR}}/bootstrap/talos/clusterconfig'
+  TALHELPER_CONFIG_FILE: '{{.KUBERNETES_DIR}}/bootstrap/talos/talconfig.yaml'
+
+env:
+  TALOSCONFIG: '{{.TALHELPER_CLUSTER_DIR}}/talosconfig'
+
+tasks:
+
+  upgrade-node:
+    desc: Upgrade Talos on a single node
+    dir: "{{.KUBERNETES_DIR}}/bootstrap/talos"
+    cmds:
+      - talosctl --nodes {{.HOSTNAME}} upgrade --image="factory.talos.dev/installer/{{.SCHEMATIC_ID}}:{{.VERSION}}" --timeout=10m
+      - talosctl --nodes {{.HOSTNAME}} health --wait-timeout=10m --server=false
+    vars:
+      SCHEMATIC_ID:
+        sh: kubectl get node {{.HOSTNAME}} --output=jsonpath='{.metadata.annotations.extensions\.talos\.dev/schematic}'
+    requires:
+      vars: [HOSTNAME, VERSION]
+    preconditions:
+      - msg: Missing talosconfig
+        sh: test -f {{.TALOSCONFIG}}
+      - msg: Unable to retrieve Talos config
+        sh: talosctl config info &>/dev/null
+      - msg: Node not found
+        sh: talosctl --nodes {{.HOSTNAME}} get machineconfig &>/dev/null
+      - msg: Upstream Talos version not found
+        sh: curl -fsSL -o /dev/null --fail https://github.com/siderolabs/talos/releases/tag/{{.VERSION}}
+
+  upgrade-cluster:
+    desc: Upgrade Talos on the whole cluster
+    dir: "{{.KUBERNETES_DIR}}/bootstrap/talos"
+    cmds:
+      - for: { var: HOSTNAMES }
+        task: upgrade-node
+        vars:
+          HOSTNAME: '{{.ITEM}}'
+          VERSION: '{{.VERSION}}'
+    vars:
+      HOSTNAMES:
+        sh: kubectl get nodes --output=jsonpath='{.items[*].metadata.name}'
+    requires:
+      vars: [VERSION]
+
+  upgrade-k8s:
+    desc: Upgrade Kubernetes
+    dir: "{{.KUBERNETES_DIR}}/bootstrap/talos"
+    cmds:
+      - talosctl --nodes {{.CONTROLLER}} upgrade-k8s --to {{.VERSION}}
+    vars:
+      CONTROLLER:
+        sh: talosctl config info --output json | jq --raw-output '.endpoints[]' | shuf -n 1
+    requires:
+      vars: [VERSION]
+    preconditions:
+      - msg: Missing talosconfig
+        sh: test -f {{.TALOSCONFIG}}
+      - msg: Unable to retrieve Talos config
+        sh: talosctl config info &>/dev/null
+      - msg: Node not found
+        sh: talosctl --nodes {{.CONTROLLER}} get machineconfig &>/dev/null
+      - msg: Upstream Kubernetes version not found
+        sh: curl -fsSL -o /dev/null --fail https://github.com/siderolabs/kubelet/releases/tag/{{.VERSION}}
+
+  reset:
+    desc: Resets nodes back to maintenance mode
+    dir: "{{.KUBERNETES_DIR}}/bootstrap/talos"
+    prompt: This will destroy your cluster and reset the nodes back to maintenance mode... continue?
+    cmd: talhelper gencommand reset --config-file {{.TALHELPER_CONFIG_FILE}} --out-dir {{.TALHELPER_CLUSTER_DIR}} --extra-flags="--reboot {{- if eq .CLI_FORCE false }} --system-labels-to-wipe STATE --system-labels-to-wipe EPHEMERAL{{ end }} --graceful=false --wait=false" | bash
