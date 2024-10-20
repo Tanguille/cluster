@@ -43,7 +43,6 @@ spec:
       nodeSelector:
         kubernetes.io/arch: amd64
 
-
     controllers:
       satisfactory:
         type: statefulset
@@ -84,8 +83,6 @@ spec:
               limits:
                 memory: 8Gi
 
-
-
     service:
       app:
         enabled: true
@@ -104,14 +101,9 @@ spec:
             port: 7777
             protocol: TCP
 
-
-
     persistence:
       config:
-        enabled: true
-        existingClaim: "${VOLSYNC_CLAIM}"
-        globalMounts:
-          - path: /config
+        existingClaim: *app
       server-cache:
         enabled: true
         existingClaim: "sf-gamedata"
