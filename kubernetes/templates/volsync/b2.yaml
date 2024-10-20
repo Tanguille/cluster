@@ -34,7 +34,7 @@ spec:
     manual: restore-once
   restic:
     repository: "${APP}-volsync-b2-secret"
-    copyMethod: "${VOLSYNC_COPYMETHOD:-Clone}"
+    copyMethod: Snapshot
     volumeSnapshotClassName: "${VOLSYNC_STORAGECLASS:-openebs-zfs}"
     cacheStorageClassName: "${VOLSYNC_CACHE_SNAPSHOTCLASS:-openebs-hostpath}"
     cacheAccessModes: ["${VOLSYNC_CACHE_ACCESSMODES:-ReadWriteOnce}"]
