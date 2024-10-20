@@ -12,13 +12,11 @@ kubeconform_args=(
     "-strict"
     "-ignore-missing-schemas"
     "-skip"
-    "Secret"
+    "Secret,ReplicationSource,ReplicationDestination"
     "-schema-location"
     "default"
     "-schema-location"
     "https://kubernetes-schemas.pages.dev/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
-    "-skip-kinds"
-    "ReplicationSource,ReplicationDestination"
     "-verbose"
 )
 
