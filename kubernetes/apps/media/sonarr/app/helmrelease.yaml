@@ -112,11 +112,10 @@ spec:
         type: emptyDir
         medium: Memory
 
-    # TODO: Setup NFS for media
-    # media:
-    #   type: nfs
-    #   server: ${TRUENAS_IP}
-    #   path: /mnt/tank/media
-    #   globalMounts:
-    #     - path: /media
-    #       readOnly: false
+    media:
+      type: nfs
+      server: ${TRUENAS_IP}
+      path: /mnt/BIGHDDZ1/Media
+      globalMounts:
+        - path: /media
+          readOnly: false
