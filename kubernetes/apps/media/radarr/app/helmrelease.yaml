@@ -106,15 +106,13 @@ spec:
     persistence:
       config:
         existingClaim: *app
-
       tmp:
         type: emptyDir
         medium: Memory
-
-    media:
-      type: nfs
-      server: ${TRUENAS_IP}
-      path: /mnt/BIGHDDZ1/Media
-      globalMounts:
-        - path: /media
-          readOnly: false
+      media:
+        type: nfs
+        server: ${TRUENAS_IP}
+        path: /mnt/BIGHDDZ1/Media
+        globalMounts:
+          - path: /media
+            readOnly: false
