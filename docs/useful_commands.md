@@ -36,8 +36,8 @@ kubectl get networkpolicies -n <namespace>
 # Get all ingress resources across namespaces
 kubectl get ingress -A
 
-# List all services across namespaces
-kubectl get svc --all-namespaces
+# List all services in a namespace
+kubectl get services -n <namespace>
 
 # Get endpoints across all namespaces
 kubectl get -A endpoints
