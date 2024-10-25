@@ -1,22 +1,11 @@
 # Useful Commands to Debug Kubernetes
 
-# QOL
-
-<https://github.com/ragrag/kubectl-autons>
-
-```bash
-# Auto-namespace
-kubectl autons
-```
-
 ## Pod management
 
 ```bash
 # Restart a deployment
 kubectl rollout restart deployment -n <namespace> <deployment-name>
 
-# Scale a deployment
-kubectl scale deployment -n <namespace> <deployment-name> --replicas=<replicas>
 
 # Create a debugging pod with networking tools
 kubectl run tmp-shell --rm -i --tty --image nicolaka/netshoot -- /bin/bash
@@ -59,12 +48,7 @@ curl http://<service-name>.<namespace>.svc.cluster.local
 
 ## Storage
 
-<https://github.com/clbx/kubectl-browse-pvc>
-
 ```bash
-# Browse PVCs
-kubectl browse-pvc
-
 # Check mounted storage usage
 kubectl exec -it -n <namespace> deployment/<deployment-name> -- df -h /path
 
