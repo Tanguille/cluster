@@ -93,13 +93,13 @@ spec:
             app:
               - path: /config
 
-      # TODO: Add media
-      # media:
-      #   type: nfs
-      #   server: ${TRUENAS_IP}
-      #   path: /mnt/tank/media/download/torrent
-      #   globalMounts:
-      #     - path: /media/download/torrent
+      media:
+        type: nfs
+        server: ${TRUENAS_IP}
+        path: /mnt/BIGHDDZ1/Media
+        globalMounts:
+          - path: /media
+            readOnly: false
 
       addons:
         type: emptyDir
