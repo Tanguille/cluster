@@ -74,3 +74,33 @@ kubectl get pvc --all-namespaces
 # Execute commands in a pod
 kubectl exec -it -n <namespace> deployment/<deployment-name> -- <command>
 ```
+
+## Troubleshooting Failed HelmReleases
+
+When a HelmRelease is stuck or failing to deploy (e.g., qBittorrent case):
+
+```bash
+# 1. Check HelmRelease status and events
+kubectl describe helmrelease <release-name> -n <namespace>
+
+# 2. Delete the failed HelmRelease to allow Flux to redeploy
+kubectl delete helmrelease <release-name> -n <namespace>
+
+# 3. Clean up any lingering resources
+kubectl delete deployment <deployment-name> -n <namespace>
+kubectl delete service <service-name> -n <namespace>
+
+# 4. Force Flux to reconcile and redeploy
+flux reconcile kustomization <kustomization-name> --with-source
+
+# 5. Monitor the new deployment
+kubectl get pods -n <namespace> -w
+```
+
+Common issues to check if problems persist:
+- Resource constraints
+- Volume mount issues
+- Network connectivity
+- Init container configuration
+- Context deadline exceeded errors (pod taking too long to become ready)
+
