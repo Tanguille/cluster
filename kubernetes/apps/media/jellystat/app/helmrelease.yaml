@@ -1,0 +1,88 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app jellystat
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.5.1
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  maxHistory: 3
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  uninstall:
+    keepHistory: false
+
+  values:
+    controllers:
+      jellystat:
+        type: statefulset
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          01-init-db:
+            image:
+              repository: ghcr.io/onedr0p/postgres-init
+              tag: 16
+
+            envFrom:
+              - secretRef:
+                  name: nextcloud-secret
+
+        containers:
+          main:
+            image:
+              repository: docker.io/cyfershepard/jellystat
+              tag: unstable@sha256:ef6bcf7a7d5627ec0f7373e35f45fca3aa417b9cc70cc5b609d15017e47d073c
+
+            env:
+              TZ: ${TIMEZONE}
+
+            envFrom:
+              - secretRef:
+                  name: *app
+
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: &httpPort 3000
+
+    ingress:
+      main:
+        className: internal-nginx
+        annotations:
+          internal-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+        hosts:
+          - host: &host "jellystat.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: main
+                  port: *httpPort
+        tls:
+          - hosts:
+              - *host
+
+    persistence:
+      backup:
+        type: emptyDir
+        advancedMounts:
+          main:
+            main:
+              - path: /app/backend/backup-data
