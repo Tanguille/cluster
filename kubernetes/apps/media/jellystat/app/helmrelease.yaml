@@ -28,7 +28,7 @@ spec:
 
   values:
     controllers:
-      jellystat:
+      main:
         type: statefulset
         annotations:
           reloader.stakater.com/auto: "true"
@@ -37,10 +37,9 @@ spec:
             image:
               repository: ghcr.io/onedr0p/postgres-init
               tag: 16
-
             envFrom:
               - secretRef:
-                  name: nextcloud-secret
+                  name: jellystat-secret
 
         containers:
           main:
