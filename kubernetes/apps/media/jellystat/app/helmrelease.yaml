@@ -63,7 +63,7 @@ spec:
 
     ingress:
       main:
-        className: internal-nginx
+        className: internal
         annotations:
           internal-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         hosts:
@@ -73,7 +73,7 @@ spec:
                 pathType: Prefix
                 service:
                   identifier: main
-                  port: *httpPort
+                  port: 80
         tls:
           - hosts:
               - *host
