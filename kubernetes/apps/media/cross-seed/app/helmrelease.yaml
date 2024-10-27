@@ -73,12 +73,6 @@ spec:
           - path: /config/config.js
             subPath: config.js
             readOnly: true
-      secrets:
-        type: secret
-        name: cross-seed-secret
-        globalMounts:
-          - path: /config/secrets
-            readOnly: true
 
       media:
         type: nfs
