@@ -53,32 +53,6 @@ spec:
                 memory: 128Mi
               limits:
                 memory: 256Mi
-            env:
-              - name: PROWLARR_API_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: cross-seed-secret
-                    key: PROWLARR_API_KEY
-              - name: SONARR_API_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: cross-seed-secret
-                    key: SONARR_API_KEY
-              - name: RADARR_API_KEY
-                valueFrom:
-                  secretKeyRef:
-                    name: cross-seed-secret
-                    key: RADARR_API_KEY
-              - name: QBITTORRENT_USERNAME
-                valueFrom:
-                  secretKeyRef:
-                    name: cross-seed-secret
-                    key: QBITTORRENT_USERNAME
-              - name: QBITTORRENT_PASSWORD
-                valueFrom:
-                  secretKeyRef:
-                    name: cross-seed-secret
-                    key: QBITTORRENT_PASSWORD
 
     service:
       cross-seed:
@@ -113,6 +87,10 @@ spec:
         globalMounts:
           - path: /media
             readOnly: false
+
+    envFrom:
+      - secretRef:
+          name: cross-seed-secret
 
     podSecurityContext:
       runAsUser: 568
