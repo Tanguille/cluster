@@ -45,7 +45,9 @@ module.exports = {
    *      sonarr: ["http://sonarr:8989/?apikey=12345",
    *               "http://sonarr4k:8989/?apikey=12345"],
    */
-  sonarr: `http://sonarr.media.svc.cluster.local/?apikey=${process.env.SONARR_API_KEY}`,
+  sonarr: [
+    `http://sonarr.media.svc.cluster.local/?apikey=${process.env.SONARR_API_KEY}`,
+  ],
 
   /**
    * URL(s) to your Radarr instance(s), included in the same way as torznab
@@ -61,7 +63,9 @@ module.exports = {
    *       radarr: ["http://radarr:7878/?apikey=12345",
    *                "http://radarr4k:7878/?apikey=12345"],
    */
-  radarr: `http://radarr.media.svc.cluster.local/?apikey=${process.env.RADARR_API_KEY}`,
+  radarr: [
+    `http://radarr.media.svc.cluster.local/?apikey=${process.env.RADARR_API_KEY}`,
+  ],
 
   /**
    * Bind to a specific host address.
