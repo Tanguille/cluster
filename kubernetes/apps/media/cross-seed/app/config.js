@@ -248,7 +248,7 @@ module.exports = {
    * This setting does not affect matching episodes from rss and
    * announce.
    */
-  includeSingleEpisodes: true,
+  includeSingleEpisodes: false,
 
   /**
    * Include torrents which are comprised of non-video files.
@@ -301,7 +301,7 @@ module.exports = {
    *
    * This value must be in the range of 2-5 times your excludeRecentSearch
    */
-  excludeOlder: undefined,
+  excludeOlder: "6 days",
 
   /**
    * Exclude torrents which have been searched more recently than this long
