@@ -29,7 +29,7 @@ module.exports = {
    */
   torznab: [
     47, 49, 48, 58, 59, 62, 92, 70, 93,
-  ].map(i => `http://prowlarr.media.svc.cluster.local/api/${i}/api?apikey=$(PROWLARR_API_KEY)`),
+  ].map(i => `http://prowlarr.media.svc.cluster.local/$${i}/api?apikey=$${process.env.PROWLARR_API_KEY}`),
 
   /**
    * URL(s) to your Sonarr instance(s), included in the same way as torznab
@@ -46,7 +46,7 @@ module.exports = {
    *               "http://sonarr4k:8989/?apikey=12345"],
    */
   sonarr: [
-    "http://sonarr.media.svc.cluster.local/?apikey=$(SONARR_API_KEY)",
+    `http://sonarr.media.svc.cluster.local/?apikey=$${process.env.SONARR_API_KEY}`,
   ],
 
   /**
@@ -64,7 +64,7 @@ module.exports = {
    *                "http://radarr4k:7878/?apikey=12345"],
    */
   radarr: [
-    "http://radarr.media.svc.cluster.local/?apikey=$(RADARR_API_KEY)",
+    `http://radarr.media.svc.cluster.local/?apikey=$${process.env.RADARR_API_KEY}`,
   ],
 
   /**
@@ -102,7 +102,7 @@ module.exports = {
    * Supply your username and password inside the url like so:
    * "http://username:password@localhost:8080"
    */
-  qbittorrentUrl: "http://$(QBITTORRENT_USERNAME):$(QBITTORRENT_PASSWORD)@qbittorrent.media.svc.cluster.local",
+  qbittorrentUrl: `http://$${process.env.QBITTORRENT_USERNAME}:$${process.env.QBITTORRENT_PASSWORD}@qbittorrent.media.svc.cluster.local`,
 
   /**
    * The url of your Transmission RPC interface.
