@@ -68,7 +68,7 @@ spec:
       config-file:
         enabled: true
         type: configMap
-        name: cross-seed-config
+        name: cross-seed-config-[hash] # Kustomize will replace [hash] with actual hash
         globalMounts:
           - path: /config/config.js
             subPath: config.js
