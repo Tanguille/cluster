@@ -47,6 +47,11 @@ spec:
               tag: 6.0.0-43
             args:
               - daemon
+
+            envFrom:
+              - secretRef:
+                  name: cross-seed-secret
+
             resources:
               requests:
                 cpu: 10m
@@ -64,9 +69,6 @@ spec:
     persistence:
       config:
         enabled: true
-        type: emptyDir
-      config-file:
-        enabled: true
         type: configMap
         name: cross-seed-config
         globalMounts:
@@ -81,10 +83,6 @@ spec:
         globalMounts:
           - path: /media
             readOnly: false
-
-    envFrom:
-      - secretRef:
-          name: cross-seed-secret
 
     podSecurityContext:
       runAsUser: 568
