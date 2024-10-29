@@ -26,7 +26,7 @@ kind: Ingress
 metadata:
   name: external-service-ingress
   annotations:
-    internal-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+    external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
 spec:
   ingressClassName: internal
   rules:
