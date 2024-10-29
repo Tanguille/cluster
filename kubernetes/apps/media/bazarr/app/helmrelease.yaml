@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: bazarr
+  name: &app bazarr
 spec:
   interval: 30m
   chart:
@@ -24,6 +24,7 @@ spec:
       retries: 3
   dependsOn:
     - name: openebs
+      namespace: openebs-system
     - name: volsync
       namespace: volsync-system
   values:
@@ -74,7 +75,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
     service:
       app:
-        controller: bazarr
+        controller: *app
         ports:
           http:
             port: *port
