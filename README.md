@@ -288,6 +288,42 @@ There might be a situation where you want to destroy your Kubernetes cluster. Th
 task talos:reset # --force
 ```
 
+## 🛠️ Talos and Kubernetes Maintenance
+
+#### ⚙️ Updating Talos node configuration
+
+📍 _Ensure you have updated `talconfig.yaml` and any patches with your updated configuration._
+
+```sh
+# (Re)generate the Talos config
+task talos:generate-config
+# Apply the config to the node
+task talos:apply-config HOSTNAME=? MODE=?
+# e.g. task talos:apply-config HOSTNAME=k8s-0 MODE=reboot
+```
+
+#### ⬆️ Updating Talos and Kubernetes versions
+
+📍 _Ensure the `talosVersion` and `kubernetesVersion` in `talhelper.yaml` are up-to-date with the version you wish to upgrade to._
+
+```sh
+# Upgrade the whole cluster to a newer Talos version
+task talos:upgrade-cluster
+# e.g. task talos:upgrade-cluster
+```
+
+```sh
+# Upgrade node to a newer Talos version
+task talos:upgrade-node HOSTNAME=?
+# e.g. task talos:upgrade HOSTNAME=k8s-0
+```
+
+```sh
+# Upgrade cluster to a newer Kubernetes version
+task talos:upgrade-k8s
+# e.g. task talos:upgrade-k8s
+```
+
 ## 🤖 Renovate
 
 [Renovate](https://www.mend.io/renovate) is a tool that automates dependency management. It is designed to scan your repository around the clock and open PRs for out-of-date dependencies it finds. Common dependencies it can discover are Helm charts, container images, GitHub Actions, Ansible roles... even Flux itself! Merging a PR will cause Flux to apply the update to your cluster.
@@ -342,28 +378,6 @@ Below is a general guide on trying to debug an issue with an resource or applica
 
 Resolving problems that you have could take some tweaking of your YAML manifests in order to get things working, other times it could be a external factor like permissions on NFS. If you are unable to figure out your problem see the help section below.
 
-## ⬆️ Upgrading Talos and Kubernetes
-
-📍 _Ensure the `talosVersion` and `kubernetesVersion` in `talhelper.yaml` are up-to-date with the version you wish to upgrade to._
-
-```sh
-# Upgrade the whole cluster to a newer Talos version
-task talos:upgrade-cluster
-# e.g. task talos:upgrade-cluster
-```
-
-```sh
-# Upgrade node to a newer Talos version
-task talos:upgrade-node HOSTNAME=?
-# e.g. task talos:upgrade HOSTNAME=k8s-0
-```
-
-```sh
-# Upgrade cluster to a newer Kubernetes version
-task talos:upgrade-k8s
-# e.g. task talos:upgrade-k8s
-```
-
 ## 👉 Help
 
 - Make a post in this repository's Github [Discussions](https://github.com/onedr0p/cluster-template/discussions).
@@ -376,6 +390,10 @@ The cluster is your oyster (or something like that). Below are some optional con
 ### Ship it
 
 To browse or get ideas on applications people are running, community member [@whazor](https://github.com/whazor) created [Kubesearch](https://kubesearch.dev) as a creative way to search Flux HelmReleases across Github and Gitlab.
+
+### DNS
+
+Instead of using [k8s_gateway](https://github.com/ori-edge/k8s_gateway) to provide DNS for your applications you might want to check out [external-dns](https://github.com/kubernetes-sigs/external-dns), it has wide support for many different providers such as [Pi-hole](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/pihole.md), [UniFi](https://github.com/kashalls/external-dns-unifi-webhook), [Adguard Home](https://github.com/muhlba91/external-dns-provider-adguard), [Bind](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/rfc2136.md) and more.
 
 ### Storage
 
