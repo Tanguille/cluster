@@ -5,6 +5,10 @@ metadata:
   name: &app jellyfin
   namespace: flux-system
 spec:
+  targetNamespace: media
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
   path: ./kubernetes/apps/media/jellyfin/app
   prune: true
   sourceRef:
