@@ -1,0 +1,100 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2beta1.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app jellyfin
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.5.1
+      interval: 30m
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  upgrade:
+    remediation:
+      strategy: uninstall
+  dependsOn:
+    - name: openebs
+      namespace: openebs-system
+  values:
+    defaultPodOptions:
+      # runtimeClassName: nvidia
+      enableServiceLinks: false
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: "OnRootMismatch"
+        supplementalGroups:
+          - 44
+          - 109
+          - 100
+      annotations:
+        reloader.stakater.com/auto: "true"
+
+    controllers:
+      jellyfin:
+        type: statefulset
+
+        containers:
+          app:
+            image:
+              repository: registry.skysolutions.fi/docker.io/jellyfin/jellyfin
+              tag: 10.10.0
+            env:
+              DOTNET_SYSTEM_IO_DISABLEFILELOCKING: "true"
+              JELLYFIN_FFmpeg__probesize: 50000000
+              JELLYFIN_FFmpeg__analyzeduration: 500000000
+              NVIDIA_VISIBLE_DEVICES: all
+              NVIDIA_DRIVER_CAPABILITIES: all
+            resources:
+              requests:
+                memory: 9248M
+                # nvidia.com/gpu: 1
+              limits:
+                # nvidia.com/gpu: 1
+                memory: 9248M
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+
+    ingress:
+      app:
+        className: external
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
+        hosts:
+          - host: "jellyfin.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
+
+    persistence:
+      config:
+        existingClaim: *app
+        advancedMounts:
+          jellyfin:
+            app:
+              - path: /config
+      library:
+        type: hostPath
+        hostPath: "/var/mnt/merged/"
+        globalMounts:
+          - path: /var/mnt/merged/
+
+      transcode:
+        type: emptyDir
+        globalMounts:
+          - path: /config/transcodes
