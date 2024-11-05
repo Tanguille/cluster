@@ -3,10 +3,10 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: postgres17
+  name: postgres16
 spec:
   instances: 3
-  imageName: ghcr.io/cloudnative-pg/postgresql:17.0-27
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.4-51
   primaryUpdateStrategy: unsupervised
   storage:
     size: 20Gi
@@ -40,7 +40,7 @@ spec:
       endpointURL: "${SECRET_B2_HOST}"
       # Note: serverName version needs to be inclemented
       # when recovering from an existing cnpg cluster
-      serverName: &currentCluster postgres17
+      serverName: &currentCluster postgres16
       s3Credentials:
         accessKeyId:
           name: cloudnative-pg-secret
@@ -52,7 +52,7 @@ spec:
 #   # cluster when recovering from an existing cnpg cluster
 # bootstrap:
 #   recovery:
-#     source: &previousCluster postgres17
+#     source: &previousCluster postgres16
 #   # Note: externalClusters is needed when recovering from an existing cnpg cluster
 #   externalClusters:
 #     - name: *previousCluster
