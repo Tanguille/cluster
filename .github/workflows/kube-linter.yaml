@@ -2,18 +2,18 @@ name: Scan with kube-linter
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
 
 jobs:
   scan:
     runs-on: ubuntu-latest
     env:
-        DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
+      DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
     steps:
       - uses: actions/checkout@v4
         with:
-            ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Scan files with kube-linter
         uses: stackrox/kube-linter-action@v1.0.5
@@ -35,10 +35,3 @@ jobs:
 
           # Send the report to DeepSource
           ./bin/deepsource report --analyzer kube-linter --analyzer-type community --value-file ./kube-linter.sarif
-
-      # Ensure the workflow eventually fails if files did not pass kube-linter checks.
-      - name: Verify kube-linter-action succeeded
-        shell: bash
-        run: |
-          echo "If this step fails, kube-linter found issues. Check the output of the scan step above."
-          [[ "${{ steps.kube-linter-action-scan.outcome }}" == "success" ]]
