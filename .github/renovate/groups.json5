@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "description": ["Dragonfly Operator Group"],
+      "groupName": "Dragonfly Operator",
+      "matchPackagePatterns": ["dragonfly(?:db)?.operator"],
+      "matchDatasources": ["docker", "github-releases"],
+      "group": {
+        "commitMessageTopic": "{{{groupName}}} group"
+      },
+      "separateMinorPatch": true
+    },
+    {
+      "description": ["Flux Group"],
+      "groupName": "Flux",
+      "matchPackagePatterns": ["fluxcd"],
+      "matchDatasources": ["docker", "github-tags"],
+      "versioning": "semver",
+      "group": {
+        "commitMessageTopic": "{{{groupName}}} group"
+      },
+      "separateMinorPatch": true
+    },
+    {
+      "description": ["Talos Group"],
+      "groupName": "Talos",
+      "matchPackagePatterns": ["siderolabs/talosctl", "siderolabs/installer"],
+      "matchDatasources": ["docker"],
+      "group": {
+        "commitMessageTopic": "{{{groupName}}} group"
+      },
+      "separateMinorPatch": true
+    }
+  ]
+}
