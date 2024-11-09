@@ -2,6 +2,18 @@
 
 Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [cluster-template](https://github.com/onedr0p/cluster-template) project where I want to express my gratitude to the community for all the amazing work they have done.
 
+## 📊 Cluster Statistics
+
+![Kubernetes](https://kromgo.tanguille.site/badge/kubernetes_version)
+![Talos](https://kromgo.tanguille.site/badge/talos_version)
+![Nodes](https://kromgo.tanguille.site/badge/cluster_node_count)
+![Pods](https://kromgo.tanguille.site/badge/cluster_pod_count)
+![CPU Usage](https://kromgo.tanguille.site/badge/cluster_cpu_usage)
+![Memory Usage](https://kromgo.tanguille.site/badge/cluster_memory_usage)
+![Power Usage](https://kromgo.tanguille.site/badge/cluster_power_usage)
+![Age](https://kromgo.tanguille.site/badge/cluster_age_days)
+![Uptime](https://kromgo.tanguille.site/badge/cluster_uptime_days)
+
 ## 💥 Reset
 
 There might be a situation where you want to destroy your Kubernetes cluster. The following command will reset your nodes back to maintenance mode, append `--force` to completely format your the Talos installation. Either way the nodes should reboot after the command has run.
