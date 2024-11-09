@@ -88,6 +88,15 @@ spec:
           jellyfin:
             app:
               - path: /config
+
+      media:
+        type: nfs
+        server: ${TRUENAS_IP}
+        path: /mnt/BIGHDDZ1/Media
+        globalMounts:
+          - path: /ext_media
+            readOnly: false
+
       library:
         type: hostPath
         hostPath: "/var/mnt/merged/"
