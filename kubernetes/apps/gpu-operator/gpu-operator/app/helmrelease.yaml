@@ -51,6 +51,10 @@ spec:
         # https://github.com/siderolabs/talos/issues/9271
         - name: CONTAINERD_RESTART_MODE
           value: none
+        - name: CONTAINERD_RUNTIME_CLASS
+          value: nvidia
+        - name: CONTAINERD_SET_AS_DEFAULT
+          value: "true"
       installDir: "/var/nvidia"
     devicePlugin:
       enabled: true
@@ -61,17 +65,7 @@ spec:
       serviceMonitor:
         enabled: true
     validator:
-      enabled: true
-      driver:
-        env:
-          - name: DISABLE_DRIVER_VALIDATION
-            value: "true"
-          - name: NVIDIA_VISIBLE_DEVICES
-            value: "all"
-          - name: NVIDIA_DRIVER_CAPABILITIES
-            value: "compute,utility"
-          - name: NVIDIA_VALIDATE_HOST_DRIVER_ONLY
-            value: "true"
+      enabled: false
     gfd:
       enabled: true
   postRenderers:
