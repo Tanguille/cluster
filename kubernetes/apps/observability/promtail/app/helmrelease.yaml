@@ -3,16 +3,16 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: prometheus-operator-crds
+  name: promtail
 spec:
   interval: 30m
   chart:
     spec:
-      chart: prometheus-operator-crds
-      version: 15.0.0
+      chart: promtail
+      version: 6.16.6
       sourceRef:
         kind: HelmRepository
-        name: prometheus-community
+        name: grafana
         namespace: flux-system
   install:
     remediation:
@@ -21,3 +21,10 @@ spec:
     cleanupOnFail: true
     remediation:
       retries: 3
+  values:
+    fullnameOverride: promtail
+    config:
+      clients:
+        - url: http://loki-headless.observability.svc.cluster.local:3100/loki/api/v1/push
+    serviceMonitor:
+      enabled: true
