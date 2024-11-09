@@ -10,13 +10,13 @@ The features included will depend on the type of configuration you want to use. 
 
 1. **"Flux cluster"** - a Kubernetes cluster deployed on-top of [Talos Linux](https://github.com/siderolabs/talos) with an opinionated implementation of [Flux](https://github.com/fluxcd/flux2) using [GitHub](https://github.com/) as the Git provider and [sops](https://github.com/getsops/sops) to manage secrets.
 
-    - **Required:** Some knowledge of [Containers](https://opencontainers.org/), [YAML](https://yaml.org/), and [Git](https://git-scm.com/).
-    - **Components:** [flux](https://github.com/fluxcd/flux2), [Cilium](https://github.com/cilium/cilium),[cert-manager](https://github.com/cert-manager/cert-manager), [spegel](https://github.com/spegel-org/spegel), [reloader](https://github.com/stakater/Reloader), and [openebs](https://github.com/openebs/openebs).
+   - **Required:** Some knowledge of [Containers](https://opencontainers.org/), [YAML](https://yaml.org/), and [Git](https://git-scm.com/).
+   - **Components:** [flux](https://github.com/fluxcd/flux2), [Cilium](https://github.com/cilium/cilium),[cert-manager](https://github.com/cert-manager/cert-manager), [spegel](https://github.com/spegel-org/spegel), [reloader](https://github.com/stakater/Reloader), and [openebs](https://github.com/openebs/openebs).
 
 2. **"Flux cluster with Cloudflare"** - An addition to "**Flux cluster**" that provides DNS and SSL with [Cloudflare](https://www.cloudflare.com/). [Cloudflare Tunnel](https://www.cloudflare.com/products/tunnel/) is also included to provide external access to certain applications deployed in your cluster.
 
-    - **Required:** A Cloudflare account with a domain managed in your Cloudflare account.
-    - **Components:** [ingress-nginx](https://github.com/kubernetes/ingress-nginx/), [external-dns](https://github.com/kubernetes-sigs/external-dns) and [cloudflared](https://github.com/cloudflare/cloudflared).
+   - **Required:** A Cloudflare account with a domain managed in your Cloudflare account.
+   - **Components:** [ingress-nginx](https://github.com/kubernetes/ingress-nginx/), [external-dns](https://github.com/kubernetes-sigs/external-dns) and [cloudflared](https://github.com/cloudflare/cloudflared).
 
 **Other features include:**
 
@@ -28,14 +28,15 @@ The features included will depend on the type of configuration you want to use. 
 ### System requirements
 
 > [!NOTE]
+>
 > 1. The included behaviour of Talos is that all nodes are able to run workloads, **including** the controller nodes. **Worker nodes** are therefore **optional**.
 > 2. Do you have 3 or more nodes? It is highly recommended to make 3 of them controller nodes for a highly available control plane.
 > 3. Running the cluster on Proxmox VE? My thoughts and recommendations about that are documented [here](https://onedr0p.github.io/home-ops/notes/proxmox-considerations.html).
 
-| Role    | Cores    | Memory        | System Disk               |
-|---------|----------|---------------|---------------------------|
-| Control | 4 _(6*)_ | 8GB _(24GB*)_ | 120GB _(500GB*)_ SSD/NVMe |
-| Worker  | 4 _(6*)_ | 8GB _(24GB*)_ | 120GB _(500GB*)_ SSD/NVMe |
+| Role             | Cores     | Memory         | System Disk                |
+| ---------------- | --------- | -------------- | -------------------------- |
+| Control          | 4 _(6\*)_ | 8GB _(24GB\*)_ | 120GB _(500GB\*)_ SSD/NVMe |
+| Worker           | 4 _(6\*)_ | 8GB _(24GB\*)_ | 120GB _(500GB\*)_ SSD/NVMe |
 | _\* recommended_ |
 
 1. Head over to <https://factory.talos.dev> and follow the instructions which will eventually lead you to download a Talos Linux iso file (or for SBCs the `.raw.xz`). Make sure to note the schematic ID you will need this later on.
@@ -76,48 +77,48 @@ You have two different options for setting up your local workstation.
 
 1. Install the most recent version of [task](https://taskfile.dev/) and [direnv](https://direnv.net/)
 
-    ```sh
-    # Homebrew
-    brew install direnv go-task
-    # or, Arch
-    pacman -S --noconfirm direnv go-task \
-      && ln -sf /usr/bin/go-task /usr/local/bin/task
-    ```
+   ```sh
+   # Homebrew
+   brew install direnv go-task
+   # or, Arch
+   pacman -S --noconfirm direnv go-task \
+     && ln -sf /usr/bin/go-task /usr/local/bin/task
+   ```
 
 2. [Hook `direnv` into your preferred shell](https://direnv.net/docs/hook.html), then run:
 
-    ```sh
-    task workstation:direnv
-    ```
+   ```sh
+   task workstation:direnv
+   ```
 
-    📍 _**Verify** that `direnv` is setup properly by opening a new terminal and `cd`ing into your repository. You should see something like:_
+   📍 _**Verify** that `direnv` is setup properly by opening a new terminal and `cd`ing into your repository. You should see something like:_
 
-    ```sh
-    cd /path/to/repo
-    direnv: loading ... .envrc
-    direnv: export +VIRTUAL_ENV ... ~PATH
-    ```
+   ```sh
+   cd /path/to/repo
+   direnv: loading ... .envrc
+   direnv: export +VIRTUAL_ENV ... ~PATH
+   ```
 
 3. Install the additional **required** CLI tools
 
    📍 _**Not using Homebrew or ArchLinux?** Try using the generic Linux task below, if that fails check out the [Brewfile](.taskfiles/workstation/Brewfile)/[Archfile](.taskfiles/workstation/Archfile) for what CLI tools needed and install them._
 
-    ```sh
-    # Homebrew
-    task workstation:brew
-    # or, Arch with yay/paru
-    task workstation:arch
-    # or, Generic Linux (YMMV, this pulls binaires in to ./bin)
-    task workstation:generic-linux
-    ```
+   ```sh
+   # Homebrew
+   task workstation:brew
+   # or, Arch with yay/paru
+   task workstation:arch
+   # or, Generic Linux (YMMV, this pulls binaires in to ./bin)
+   task workstation:generic-linux
+   ```
 
 4. Setup a Python virual environment by running the following task command.
 
-    📍 _This commands requires Python 3.11+ to be installed._
+   📍 _This commands requires Python 3.11+ to be installed._
 
-    ```sh
-    task workstation:venv
-    ```
+   ```sh
+   task workstation:venv
+   ```
 
 5. Continue on to 🔧 [**Stage 3**](#-stage-3-bootstrap-configuration)
 
@@ -128,35 +129,35 @@ You have two different options for setting up your local workstation.
 
 1. Generate the `config.yaml` from the [config.sample.yaml](./config.sample.yaml) configuration file.
 
-    ```sh
-    task init
-    ```
+   ```sh
+   task init
+   ```
 
 2. Fill out the `config.yaml` configuration file using the comments in that file as a guide.
 
 3. Run the following command which will generate all the files needed to continue.
 
-    ```sh
-    task configure
-    ```
+   ```sh
+   task configure
+   ```
 
 4. Push you changes to git
 
    📍 _**Verify** all the `./kubernetes/**/*.sops.*` files are **encrypted** with SOPS_
 
-    ```sh
-    git add -A
-    git commit -m "Initial commit :rocket:"
-    git push
-    ```
+   ```sh
+   git add -A
+   git commit -m "Initial commit :rocket:"
+   git push
+   ```
 
 ### ⛵ Stage 4: Install Kubernetes
 
 1. Deploy your cluster and bootstrap it. This generates secrets, generates the config files for your nodes and applies them. It bootstraps the cluster afterwards, fetches the kubeconfig file and installs Cilium and kubelet-csr-approver. It finishes with some health checks.
 
-    ```sh
-    task bootstrap:talos
-    ```
+   ```sh
+   task bootstrap:talos
+   ```
 
 2. ⚠️ It might take a while for the cluster to be setup (10+ minutes is normal), during which time you will see a variety of error messages like: "couldn't get current server API group list," "error: no matching resources found", etc. This is a normal. If this step gets interrupted, e.g. by pressing <kbd>Ctrl</kbd> + <kbd>C</kbd>, you likely will need to [nuke the cluster](#-Nuke) before trying again.
 
@@ -166,14 +167,14 @@ You have two different options for setting up your local workstation.
 
 2. Verify the nodes are online
 
-    📍 _If this command **fails** you likely haven't configured `direnv` as [mentioned previously](#non-devcontainer-method) in the guide._
+   📍 _If this command **fails** you likely haven't configured `direnv` as [mentioned previously](#non-devcontainer-method) in the guide._
 
-    ```sh
-    kubectl get nodes -o wide
-    # NAME           STATUS   ROLES                       AGE     VERSION
-    # k8s-0          Ready    control-plane,etcd,master   1h      v1.30.1
-    # k8s-1          Ready    worker                      1h      v1.30.1
-    ```
+   ```sh
+   kubectl get nodes -o wide
+   # NAME           STATUS   ROLES                       AGE     VERSION
+   # k8s-0          Ready    control-plane,etcd,master   1h      v1.30.1
+   # k8s-1          Ready    worker                      1h      v1.30.1
+   ```
 
 3. Continue on to 🔹 [**Stage 6**](#-stage-6-install-flux-in-your-cluster)
 
@@ -181,33 +182,33 @@ You have two different options for setting up your local workstation.
 
 1. Verify Flux can be installed
 
-    ```sh
-    flux check --pre
-    # ► checking prerequisites
-    # ✔ kubectl 1.30.1 >=1.18.0-0
-    # ✔ Kubernetes 1.30.1 >=1.16.0-0
-    # ✔ prerequisites checks passed
-    ```
+   ```sh
+   flux check --pre
+   # ► checking prerequisites
+   # ✔ kubectl 1.30.1 >=1.18.0-0
+   # ✔ Kubernetes 1.30.1 >=1.16.0-0
+   # ✔ prerequisites checks passed
+   ```
 
 2. Install Flux and sync the cluster to the Git repository
 
-    ```sh
-    task bootstrap:flux
-    # namespace/flux-system configured
-    # customresourcedefinition.apiextensions.k8s.io/alerts.notification.toolkit.fluxcd.io created
-    # ...
-    ```
+   ```sh
+   task bootstrap:flux
+   # namespace/flux-system configured
+   # customresourcedefinition.apiextensions.k8s.io/alerts.notification.toolkit.fluxcd.io created
+   # ...
+   ```
 
 3. Verify Flux components are running in the cluster
 
-    ```sh
-    kubectl -n flux-system get pods -o wide
-    # NAME                                       READY   STATUS    RESTARTS   AGE
-    # helm-controller-5bbd94c75-89sb4            1/1     Running   0          1h
-    # kustomize-controller-7b67b6b77d-nqc67      1/1     Running   0          1h
-    # notification-controller-7c46575844-k4bvr   1/1     Running   0          1h
-    # source-controller-7d6875bcb4-zqw9f         1/1     Running   0          1h
-    ```
+   ```sh
+   kubectl -n flux-system get pods -o wide
+   # NAME                                       READY   STATUS    RESTARTS   AGE
+   # helm-controller-5bbd94c75-89sb4            1/1     Running   0          1h
+   # kustomize-controller-7b67b6b77d-nqc67      1/1     Running   0          1h
+   # notification-controller-7c46575844-k4bvr   1/1     Running   0          1h
+   # source-controller-7d6875bcb4-zqw9f         1/1     Running   0          1h
+   ```
 
 ### 🎤 Verification Steps
 
@@ -215,11 +216,11 @@ _Mic check, 1, 2_ - In a few moments applications should be lighting up like Chr
 
 1. Output all the common resources in your cluster.
 
-    📍 _Feel free to use the provided [kubernetes tasks](.taskfiles/Kubernetes/Taskfile.yaml) for validation of cluster resources or continue to get familiar with the `kubectl` and `flux` CLI tools._
+   📍 _Feel free to use the provided [kubernetes tasks](.taskfiles/Kubernetes/Taskfile.yaml) for validation of cluster resources or continue to get familiar with the `kubectl` and `flux` CLI tools._
 
-    ```sh
-    task kubernetes:resources
-    ```
+   ```sh
+   task kubernetes:resources
+   ```
 
 2. ⚠️ It might take `cert-manager` awhile to generate certificates, this is normal so be patient.
 
@@ -239,11 +240,14 @@ The `external-dns` application created in the `networking` namespace will handle
 
 > [!TIP]
 > Below is how to configure a Pi-hole for split DNS. Other platforms should be similar.
+>
 > 1. Apply this file on the Pihole server while substituting the variables
+>
 > ```sh
 > # /etc/dnsmasq.d/99-k8s-gateway-forward.conf
 > server=/${bootstrap_cloudflare.domain}/${bootstrap_cloudflare.gateway_vip}
 > ```
+>
 > 2. Restart dnsmasq on the server.
 > 3. Query an internal-only subdomain from your workstation (any `internal` class ingresses): `dig @${home-dns-server-ip} echo-server-internal.${bootstrap_cloudflare.domain}`. It should resolve to `${bootstrap_cloudflare.ingress_vip}`.
 
@@ -266,17 +270,17 @@ By default Flux will periodically check your git repository for changes. In orde
 
 1. Obtain the webhook path
 
-    📍 _Hook id and path should look like `/hook/12ebd1e363c641dc3c2e430ecf3cee2b3c7a5ac9e1234506f6f5f3ce1230e123`_
+   📍 _Hook id and path should look like `/hook/12ebd1e363c641dc3c2e430ecf3cee2b3c7a5ac9e1234506f6f5f3ce1230e123`_
 
-    ```sh
-    kubectl -n flux-system get receiver github-receiver -o jsonpath='{.status.webhookPath}'
-    ```
+   ```sh
+   kubectl -n flux-system get receiver github-receiver -o jsonpath='{.status.webhookPath}'
+   ```
 
 2. Piece together the full URL with the webhook path appended
 
-    ```text
-    https://flux-webhook.${bootstrap_cloudflare.domain}/hook/12ebd1e363c641dc3c2e430ecf3cee2b3c7a5ac9e1234506f6f5f3ce1230e123
-    ```
+   ```text
+   https://flux-webhook.${bootstrap_cloudflare.domain}/hook/12ebd1e363c641dc3c2e430ecf3cee2b3c7a5ac9e1234506f6f5f3ce1230e123
+   ```
 
 3. Navigate to the settings of your repository on Github, under "Settings/Webhooks" press the "Add webhook" button. Fill in the webhook URL and your `bootstrap_github_webhook_token` secret in `config.yaml`, Content type: `application/json`, Events: Choose Just the push event, and save.
 
@@ -332,43 +336,43 @@ Below is a general guide on trying to debug an issue with an resource or applica
 
 1. Start by checking all Flux Kustomizations & Git Repository & OCI Repository and verify they are healthy.
 
-    ```sh
-    flux get sources oci -A
-    flux get sources git -A
-    flux get ks -A
-    ```
+   ```sh
+   flux get sources oci -A
+   flux get sources git -A
+   flux get ks -A
+   ```
 
 2. Then check all the Flux Helm Releases and verify they are healthy.
 
-    ```sh
-    flux get hr -A
-    ```
+   ```sh
+   flux get hr -A
+   ```
 
 3. Then check the if the pod is present.
 
-    ```sh
-    kubectl -n <namespace> get pods -o wide
-    ```
+   ```sh
+   kubectl -n <namespace> get pods -o wide
+   ```
 
 4. Then check the logs of the pod if its there.
 
-    ```sh
-    kubectl -n <namespace> logs <pod-name> -f
-    # or
-    stern -n <namespace> <fuzzy-name>
-    ```
+   ```sh
+   kubectl -n <namespace> logs <pod-name> -f
+   # or
+   stern -n <namespace> <fuzzy-name>
+   ```
 
 5. If a resource exists try to describe it to see what problems it might have.
 
-    ```sh
-    kubectl -n <namespace> describe <resource> <name>
-    ```
+   ```sh
+   kubectl -n <namespace> describe <resource> <name>
+   ```
 
 6. Check the namespace events
 
-    ```sh
-    kubectl -n <namespace> get events --sort-by='.metadata.creationTimestamp'
-    ```
+   ```sh
+   kubectl -n <namespace> get events --sort-by='.metadata.creationTimestamp'
+   ```
 
 Resolving problems that you have could take some tweaking of your YAML manifests in order to get things working, other times it could be a external factor like permissions on NFS. If you are unable to figure out your problem see the help section below.
 
