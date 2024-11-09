@@ -2,17 +2,6 @@
 
 Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [cluster-template](https://github.com/onedr0p/cluster-template) project where I want to express my gratitude to the community for all the amazing work they have done.
 
-## 📊 Cluster Statistics
-
-[![Talos](https://kromgo.tanguille.site/talos_version?format=badge&style=flat-square&logo=kubernetes&logoColor=white&color=orange&label=talos)](https://www.talos.dev/)&nbsp;
-[![Kubernetes](https://kromgo.tanguille.site/kubernetes_version?format=badge&style=flat-square&logo=kubernetes&logoColor=white&label=k8s)](https://www.talos.dev/)&nbsp;
-[![Nodes](https://kromgo.tanguille.site/cluster_node_count?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
-[![Pods](https://kromgo.tanguille.site/cluster_pod_count?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
-[![CPU](https://kromgo.tanguille.site/cluster_cpu_usage?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
-[![Memory](https://kromgo.tanguille.site/cluster_memory_usage?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
-[![Age](https://kromgo.tanguille.site/cluster_age_days?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
-[![Uptime](https://kromgo.tanguille.site/cluster_uptime_days?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
-
 ## 💥 Reset
 
 There might be a situation where you want to destroy your Kubernetes cluster. The following command will reset your nodes back to maintenance mode, append `--force` to completely format your the Talos installation. Either way the nodes should reboot after the command has run.
