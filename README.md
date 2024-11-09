@@ -4,15 +4,14 @@ Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [
 
 ## 📊 Cluster Statistics
 
-![Kubernetes](https://kromgo.tanguille.site/badge/kubernetes_version)
-![Talos](https://kromgo.tanguille.site/badge/talos_version)
-![Nodes](https://kromgo.tanguille.site/badge/cluster_node_count)
-![Pods](https://kromgo.tanguille.site/badge/cluster_pod_count)
-![CPU Usage](https://kromgo.tanguille.site/badge/cluster_cpu_usage)
-![Memory Usage](https://kromgo.tanguille.site/badge/cluster_memory_usage)
-![Power Usage](https://kromgo.tanguille.site/badge/cluster_power_usage)
-![Age](https://kromgo.tanguille.site/badge/cluster_age_days)
-![Uptime](https://kromgo.tanguille.site/badge/cluster_uptime_days)
+[![Talos](https://kromgo.tanguille.site/talos_version?format=badge)](https://kromgo.tanguille.site/talos_version?format=badge)
+[![Kubernetes](https://kromgo.tanguille.site/kubernetes_version?format=badge)](https://kromgo.tanguille.site/kubernetes_version?format=badge)
+[![Nodes](https://kromgo.tanguille.site/cluster_node_count?format=badge)](https://kromgo.tanguille.site/cluster_node_count?format=badge)
+[![Pods](https://kromgo.tanguille.site/cluster_pod_count?format=badge)](https://kromgo.tanguille.site/cluster_pod_count?format=badge)
+[![CPU](https://kromgo.tanguille.site/cluster_cpu_usage?format=badge)](https://kromgo.tanguille.site/cluster_cpu_usage?format=badge)
+[![Memory](https://kromgo.tanguille.site/cluster_memory_usage?format=badge)](https://kromgo.tanguille.site/cluster_memory_usage?format=badge)
+[![Age](https://kromgo.tanguille.site/cluster_age_days?format=badge)](https://kromgo.tanguille.site/cluster_age_days?format=badge)
+[![Uptime](https://kromgo.tanguille.site/cluster_uptime_days?format=badge)](https://kromgo.tanguille.site/cluster_uptime_days?format=badge)
 
 ## 💥 Reset
 
