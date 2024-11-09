@@ -4,14 +4,14 @@ Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [
 
 ## 📊 Cluster Statistics
 
-[![Talos](https://kromgo.tanguille.site/talos_version?format=badge&style=flat-square&logo=kubernetes&logoColor=white&color=orange&label=talos)](https://www.talos.dev/)
-[![Kubernetes](https://kromgo.tanguille.site/kubernetes_version?format=badge&style=flat-square&logo=kubernetes&logoColor=white&label=k8s)](https://www.talos.dev/)
-[![Nodes](https://kromgo.tanguille.site/cluster_node_count?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)
-[![Pods](https://kromgo.tanguille.site/cluster_pod_count?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)
-[![CPU](https://kromgo.tanguille.site/cluster_cpu_usage?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)
-[![Memory](https://kromgo.tanguille.site/cluster_memory_usage?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)
-[![Age](https://kromgo.tanguille.site/cluster_age_days?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)
-[![Uptime](https://kromgo.tanguille.site/cluster_uptime_days?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)
+[![Talos](https://kromgo.tanguille.site/talos_version?format=badge&style=flat-square&logo=kubernetes&logoColor=white&color=orange&label=talos)](https://www.talos.dev/)&nbsp;
+[![Kubernetes](https://kromgo.tanguille.site/kubernetes_version?format=badge&style=flat-square&logo=kubernetes&logoColor=white&label=k8s)](https://www.talos.dev/)&nbsp;
+[![Nodes](https://kromgo.tanguille.site/cluster_node_count?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
+[![Pods](https://kromgo.tanguille.site/cluster_pod_count?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
+[![CPU](https://kromgo.tanguille.site/cluster_cpu_usage?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
+[![Memory](https://kromgo.tanguille.site/cluster_memory_usage?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
+[![Age](https://kromgo.tanguille.site/cluster_age_days?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
+[![Uptime](https://kromgo.tanguille.site/cluster_uptime_days?format=badge&style=flat-square)](https://github.com/kashalls/kromgo/)&nbsp;
 
 ## 💥 Reset
 
