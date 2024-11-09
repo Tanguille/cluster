@@ -36,6 +36,7 @@ spec:
     operator:
       repository: ghcr.io/jfroy
       version: v24.6.2-ubi8
+      defaultRuntime: containerd
     driver:
       enabled: false
     toolkit:
@@ -61,6 +62,10 @@ spec:
         enabled: true
     validator:
       enabled: true
+      driver:
+        env:
+          - name: DISABLE_DRIVER_VALIDATION
+            value: "true"
     gfd:
       enabled: true
   postRenderers:
