@@ -1,12 +1,11 @@
 ---
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
-version: '3'
+version: "3"
 
 vars:
   KUBECONFORM_SCRIPT: "{{.SCRIPTS_DIR}}/kubeconform.sh"
 
 tasks:
-
   apply-ks:
     desc: Apply a Flux KS for a cluster [PATH=required]
     cmd: >
