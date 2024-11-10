@@ -1,0 +1,188 @@
+---
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app nextcloud
+spec:
+  timeout: 15m
+  interval: 30m
+  chart:
+    spec:
+      chart: nextcloud
+      version: 6.2.2
+      sourceRef:
+        kind: HelmRepository
+        name: nextcloud
+        namespace: flux-system
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    image:
+      flavor: fpm-alpine
+    nginx:
+      enabled: true
+
+    nextcloud:
+      extraInitContainers:
+        - name: init-db
+          image: ghcr.io/onedr0p/postgres-init:16
+          envFrom:
+            - secretRef:
+                name: nextcloud-secret
+
+      extraEnv:
+        - name: REDIS_HOST
+          value: dragonfly.database.svc.cluster.local.
+        - name: REDIS_HOST_PORT
+          value: "6379"
+
+      existingSecret:
+        enabled: true
+        secretName: nextcloud-secret
+        usernameKey: NEXTCLOUD_USERNAME
+        passwordKey: NEXTCLOUD_PASSWORD
+        smtpUsernameKey: SMTP_USERNAME
+        smtpPasswordKey: SMTP_PASSWORD
+        smtpHostKey: SMTP_HOST
+
+      host: nextcloud.${SECRET_DOMAIN}
+
+      mail:
+        enabled: true
+        fromAddress: ${FROM_ADDRESS}
+        domain: gmail.com
+        smtp:
+          host: ${SMTP_HOST}
+          port: 465
+          authtype: LOGIN
+          secure: starttls
+
+      configs:
+        logging.config.php: |-
+          <?php
+          $CONFIG = array (
+            'log_type' => 'file',
+            'logfile' => 'nextcloud.log',
+            'loglevel' => 1,
+            'logdateformat' => 'F d, Y H:i:s'
+            );
+        proxy.config.php: |-
+          <?php
+          $CONFIG = array (
+            'trusted_proxies' => array(
+              0 => '127.0.0.1',
+              1 => '10.96.0.0/16',
+            ),
+            'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
+          );
+        ingress.config.php: |-
+          <?php
+          $CONFIG = array (
+            'overwrite.cli.url' => 'https://cloud.${SECRET_DOMAIN}',
+            'overwriteprotocol' => 'https',
+          );
+        misc.config.php: |-
+          <?php
+          $CONFIG = array (
+            default_phone_region' => 'BE',
+          );
+        preview.config.php: |-
+          <?php
+          $CONFIG = array (
+            'enable_previews' => true,
+          );
+
+    deploymentAnnotations:
+      reloader.stakater.com/auto: "true"
+
+    internalDatabase:
+      enabled: false
+
+    externalDatabase:
+      enabled: true
+      type: postgresql
+      host: postgres16-rw.database.svc.cluster.local:5432
+      database: *app
+      existingSecret:
+        enabled: true
+        secretName: nextcloud-secret
+        usernameKey: INIT_POSTGRES_USER
+        passwordKey: INIT_POSTGRES_PASS
+
+    ingress:
+      enabled: true
+      className: external
+      annotations:
+        external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
+        nginx.ingress.kubernetes.io/proxy-body-size: "10G"
+        nginx.ingress.kubernetes.io/proxy-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+        nginx.ingress.kubernetes.io/server-snippet: |-
+          server_tokens off;
+          proxy_hide_header X-Powered-By;
+          rewrite ^/.well-known/webfinger /index.php/.well-known/webfinger last;
+          rewrite ^/.well-known/nodeinfo /index.php/.well-known/nodeinfo last;
+          rewrite ^/.well-known/host-meta /public.php?service=host-meta last;
+          rewrite ^/.well-known/host-meta.json /public.php?service=host-meta-json;
+          location = /.well-known/carddav {
+            return 301 $scheme://$host/remote.php/dav;
+          }
+          location = /.well-known/caldav {
+            return 301 $scheme://$host/remote.php/dav;
+          }
+          location = /robots.txt {
+            allow all;
+            log_not_found off;
+            access_log off;
+          }
+          location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)/ {
+            deny all;
+          }
+          location ~ ^/(?:autotest|occ|issue|indie|db_|console) {
+            deny all;
+          }
+      path: /
+      pathType: Prefix
+
+    persistence:
+      # Config storage using volsync template PVC
+      config:
+        enabled: true
+        existingClaim: *app
+        globalMounts:
+          - path: /var/www/html/config
+
+      # NFS for user data
+      user-data:
+        type: nfs
+        server: ${TRUENAS_IP}
+        path: /mnt/TanguilleServer/TanguilleSMB/Shared
+        globalMounts:
+          - path: /var/www/html/data
+            readOnly: false
+
+    cronjob:
+      enabled: true
+
+    startupProbe:
+      enabled: true
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 10
+      successThreshold: 1
+
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 4
+        memory: 5Gi
