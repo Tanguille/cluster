@@ -1,0 +1,28 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx-direct
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: ingress-nginx
+      version: 4.11.3
+      sourceRef:
+        kind: HelmRepository
+        name: ingress-nginx
+        namespace: flux-system
+  values:
+    fullnameOverride: ingress-nginx-direct
+    controller:
+      service:
+        annotations:
+          external-dns.alpha.kubernetes.io/hostname: "direct.${SECRET_DOMAIN}"
+        externalTrafficPolicy: Cluster
+      ingressClassResource:
+        name: external-direct
+        default: false
+        controllerValue: k8s.io/direct
+      config:
+        proxy-body-size: "0"
+        client-body-buffer-size: "100M"

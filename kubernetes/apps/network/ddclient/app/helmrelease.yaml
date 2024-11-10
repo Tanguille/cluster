@@ -1,0 +1,39 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ddclient
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.5.1
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  values:
+    controllers:
+      main:
+        containers:
+          app:
+            image:
+              repository: lscr.io/linuxserver/ddclient
+              tag: 3.10.0
+            env:
+              PUID: "568"
+              PGID: "568"
+            resources:
+              requests:
+                cpu: 10m
+                memory: 100Mi
+              limits:
+                memory: 256Mi
+    persistence:
+      config:
+        enabled: true
+        type: configMap
+        name: ddclient-config
+        globalMounts:
+          - path: /config/ddclient.conf
+            subPath: ddclient.conf

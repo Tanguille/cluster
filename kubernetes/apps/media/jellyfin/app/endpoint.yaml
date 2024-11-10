@@ -1,0 +1,9 @@
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: jellyfin-direct
+spec:
+  endpoints:
+    - dnsName: "jellyfin.${SECRET_DOMAIN}"
+      recordType: A
+      targets: ["YOUR.EXTERNAL.IP.ADDRESS"]

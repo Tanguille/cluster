@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ddclient-config
+data:
+  ddclient.conf: |
+    daemon=300
+    ssl=yes
+    use=web, web=checkip.dyndns.org/, web-skip='IP Address'
+    protocol=cloudflare
+    login=${SECRET_CLOUDFLARE_EMAIL}
+    password=${SECRET_CLOUDFLARE_APIKEY}
+    zone=${SECRET_DOMAIN}
+    direct.${SECRET_DOMAIN}

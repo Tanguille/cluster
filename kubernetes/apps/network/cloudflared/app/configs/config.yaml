@@ -7,4 +7,6 @@ ingress:
     service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN}"
     service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+  - hostname: "jellyfin.${SECRET_DOMAIN}"
+    service: http_status:404
   - service: http_status:404
