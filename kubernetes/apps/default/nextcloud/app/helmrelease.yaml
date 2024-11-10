@@ -158,6 +158,8 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /var/www/html/config
+            readOnly: false
+        defaultPermissions: "0750"
 
       # NFS for user data
       user-data:
