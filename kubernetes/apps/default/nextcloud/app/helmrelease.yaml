@@ -99,6 +99,13 @@ spec:
             'enable_previews' => true,
           );
 
+      datadir: /var/www/html/data
+
+      extraSecurityContext:
+        runAsUser: "33"
+        runAsGroup: "33"
+        fsGroup: "33"
+
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
 
@@ -156,6 +163,7 @@ spec:
       config:
         enabled: true
         existingClaim: *app
+        accessMode: ReadWriteOnce
         globalMounts:
           - path: /var/www/html/config
             readOnly: false
@@ -179,10 +187,10 @@ spec:
 
     startupProbe:
       enabled: true
-      initialDelaySeconds: 60
+      initialDelaySeconds: 120
       periodSeconds: 30
       timeoutSeconds: 10
-      failureThreshold: 10
+      failureThreshold: 30
       successThreshold: 1
 
     resources:
@@ -201,3 +209,6 @@ spec:
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups: [10000]
+
+    strategy:
+      type: Recreate
