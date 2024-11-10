@@ -53,3 +53,8 @@ spec:
                 service:
                   identifier: app
                   port: http
+    persistence:
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /app/backend/data
