@@ -39,6 +39,7 @@ spec:
               tag: 1.4.5@sha256:c0bf91443c32f3978777b4ddd2732908f51b157bbe00cd3259b23f7716bb4af7
             env:
               TZ: ${TIMEZONE}
+
             probes:
               liveness: &probes
                 enabled: true
@@ -56,11 +57,15 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+
             resources:
               requests:
                 cpu: 10m
+                memory: 256Mi
               limits:
+                cpu: 1
                 memory: 1Gi
+
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
