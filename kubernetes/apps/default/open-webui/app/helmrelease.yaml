@@ -42,9 +42,9 @@ spec:
             port: 8080
     ingress:
       app:
-        className: internal
+        className: external
         annotations:
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+          external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
         hosts:
           - host: "ollama.${SECRET_DOMAIN}"
             paths:

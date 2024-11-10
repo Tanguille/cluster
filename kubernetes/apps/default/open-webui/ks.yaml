@@ -17,3 +17,9 @@ spec:
   prune: true
   wait: false
   interval: 10m
+  dependsOn:
+    - name: volsync
+  postBuild:
+    substitute:
+      APP: *app
+      VOLSYNC_CAPACITY: 1Gi
