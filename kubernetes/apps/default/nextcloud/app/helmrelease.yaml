@@ -85,7 +85,7 @@ spec:
         ingress.config.php: |-
           <?php
           $CONFIG = array (
-            'overwrite.cli.url' => 'https://cloud.${SECRET_DOMAIN}',
+            'overwrite.cli.url' => 'https://nextcloud.${SECRET_DOMAIN}',
             'overwriteprotocol' => 'https',
           );
         misc.config.php: |-
@@ -167,6 +167,10 @@ spec:
         globalMounts:
           - path: /var/www/html/data
             readOnly: false
+        mountOptions:
+          - nfsvers=4.2
+          - hard
+          - noatime
 
     cronjob:
       enabled: true
@@ -186,3 +190,12 @@ spec:
       limits:
         cpu: 4
         memory: 5Gi
+
+    defaultPodOptions:
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+        runAsNonRoot: true
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        supplementalGroups: [10000]
