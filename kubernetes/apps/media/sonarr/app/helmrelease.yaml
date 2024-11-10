@@ -62,12 +62,12 @@ spec:
                   failureThreshold: 3
               readiness: *probes
             resources:
-              limits:
-                cpu: 2
-                memory: 5Gi
               requests:
                 cpu: 10m
                 memory: 256Mi
+              limits:
+                cpu: 2
+                memory: 4Gi
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
