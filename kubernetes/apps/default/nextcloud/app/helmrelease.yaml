@@ -203,12 +203,10 @@ spec:
 
     defaultPodOptions:
       securityContext:
-        runAsUser: 568
-        runAsGroup: 568
-        runAsNonRoot: true
-        fsGroup: 568
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
         fsGroupChangePolicy: OnRootMismatch
-        supplementalGroups: [10000]
 
     strategy:
       type: Recreate
