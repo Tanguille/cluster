@@ -45,9 +45,7 @@ spec:
               RADARR__UPDATE__BRANCH: develop
               RADARR__AUTH__APIKEY: ${RADARR_API_KEY}
               TZ: ${TIMEZONE}
-            envFrom:
-              - secretRef:
-                  name: radarr-secret
+
             probes:
               liveness: &probes
                 enabled: true
