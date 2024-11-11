@@ -1,8 +1,9 @@
+---
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: democratic-csi
+  name: dcgm-exporter
   namespace: flux-system
 spec:
-  interval: 10m
-  url: "https://democratic-csi.github.io/charts/"
+  interval: 1h
+  url: https://nvidia.github.io/dcgm-exporter/helm-charts
