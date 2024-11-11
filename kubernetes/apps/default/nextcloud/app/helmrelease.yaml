@@ -163,11 +163,10 @@ spec:
       config:
         enabled: true
         existingClaim: *app
-        accessMode: ReadWriteOnce
         globalMounts:
           - path: /var/www/html/config
             readOnly: false
-        defaultPermissions: "0750"
+        defaultPermissions: "0770"
 
       # NFS for user data
       user-data:
