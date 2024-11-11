@@ -73,6 +73,9 @@ spec:
                   port: http
     persistence:
       config:
+        enabled: true
         existingClaim: *app
         globalMounts:
-          - path: /app/
+          - path: /app/data/configs/
+          - path: /data/
+          - path: /app/public/icons/
