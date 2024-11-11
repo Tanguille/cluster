@@ -9,10 +9,12 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 10m
+  interval: 30m
   path: "./kubernetes/apps/observability/exporters/dcgm-exporter/app"
   prune: true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
   wait: true
+  retryInterval: 1m
+  timeout: 5m
