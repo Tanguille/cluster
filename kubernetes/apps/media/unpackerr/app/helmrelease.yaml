@@ -44,9 +44,6 @@ spec:
               UN_RADARR_0_PATHS_0: /media/Downloads/radarr
               UN_RADARR_0_API_KEY: ${RADARR_API_KEY}
               UN_SONARR_0_API_KEY: ${SONARR_API_KEY}
-            envFrom:
-              - secretRef:
-                  name: unpackerr-secret
             probes:
               liveness:
                 enabled: true
