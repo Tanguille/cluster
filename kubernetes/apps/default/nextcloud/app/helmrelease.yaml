@@ -159,7 +159,7 @@ spec:
       pathType: Prefix
 
     persistence:
-      # Config storage using volsync template PVC
+      # Config storage using volsync template PVC (local)
       config:
         enabled: true
         existingClaim: *app
@@ -168,27 +168,20 @@ spec:
             readOnly: false
         defaultPermissions: "0770"
 
-      # NFS for user data
-      user-data:
-        type: nfs
-        server: ${TRUENAS_IP}
-        path: /mnt/TanguilleServer/TanguilleSMB/Shared
-        globalMounts:
-          - path: /var/www/html/data
-            readOnly: false
-        mountOptions:
-          - nfsvers=4.2
-          - hard
-          - noatime
+      # Data directory using NFS
+      nextcloudData:
+        enabled: true
+        existingClaim: nextcloud-nfs
+        accessMode: ReadWriteMany
 
     cronjob:
       enabled: true
 
     startupProbe:
       enabled: true
-      initialDelaySeconds: 120
-      periodSeconds: 30
-      timeoutSeconds: 10
+      initialDelaySeconds: 10
+      periodSeconds: 20
+      timeoutSeconds: 5
       failureThreshold: 30
       successThreshold: 1
 
