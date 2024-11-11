@@ -25,19 +25,14 @@ spec:
     keepHistory: false
   values:
     controllers:
-      main:
-        type: deployment
+      homarr:
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
-          main:
+          app:
             image:
               repository: ghcr.io/ajnart/homarr
               tag: 0.15.7@sha256:a716c56376d0215aa7efcd5fedeb386491bad7988d625d22e20b41a1bd5825da
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
             env:
               DEFAULT_COLOR_SCHEME: dark
               TZ: ${TIMEZONE}
@@ -47,20 +42,19 @@ spec:
                 cpu: 10m
               limits:
                 memory: 128Mi
-        pod:
-          securityContext:
-            runAsUser: 568
-            runAsGroup: 568
-            runAsNonRoot: true
-          topologySpreadConstraints:
-            - maxSkew: 1
-              topologyKey: kubernetes.io/hostname
-              whenUnsatisfiable: DoNotSchedule
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/name: *app
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
+    defaultPodOptions:
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+        runAsNonRoot: true
     service:
-      main:
+      app:
+        controller: *app
         ports:
           http:
             port: 7575
@@ -77,7 +71,6 @@ spec:
                 service:
                   identifier: app
                   port: http
-
     persistence:
       config:
         existingClaim: *app
