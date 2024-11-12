@@ -24,49 +24,9 @@ spec:
   uninstall:
     keepHistory: false
   values:
-    controllers:
-      homarr:
-        annotations:
-          reloader.stakater.com/auto: "true"
-        containers:
-          app:
-            image:
-              repository: ghcr.io/ajnart/homarr
-              tag: 0.15.7@sha256:a716c56376d0215aa7efcd5fedeb386491bad7988d625d22e20b41a1bd5825da
-            env:
-              DEFAULT_COLOR_SCHEME: dark
-              TZ: ${TIMEZONE}
-              DISABLE_ANALYTICS: "true"
-            resources:
-              requests:
-                cpu: 10m
-              limits:
-                memory: 128Mi
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
-              capabilities:
-                drop: ["ALL"]
-            probes:
-              liveness:
-                httpGet:
-                  path: /
-                  port: 7575
-              readiness:
-                httpGet:
-                  path: /
-                  port: 7575
-    defaultPodOptions:
-      securityContext:
-        runAsUser: 568
-        runAsGroup: 568
-        runAsNonRoot: true
-    service:
-      app:
-        controller: *app
-        ports:
-          http:
-            port: *app
+    env:
+      TZ: ${TIMEZONE}
+      DEFAULT_COLOR_SCHEME: dark
     ingress:
       app:
         className: internal
