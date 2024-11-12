@@ -52,18 +52,10 @@ spec:
                 httpGet:
                   path: /
                   port: 7575
-                initialDelaySeconds: 10
-                timeoutSeconds: 3
-                periodSeconds: 10
-                failureThreshold: 5
               readiness:
                 httpGet:
                   path: /
                   port: 7575
-                initialDelaySeconds: 10
-                timeoutSeconds: 3
-                periodSeconds: 10
-                failureThreshold: 5
     defaultPodOptions:
       securityContext:
         runAsUser: 568
