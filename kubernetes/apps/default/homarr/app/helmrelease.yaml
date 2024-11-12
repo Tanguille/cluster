@@ -72,12 +72,18 @@ spec:
                   identifier: app
                   port: http
     persistence:
-      config:
+      homarr-config:
         enabled: true
+        type: pvc
         existingClaim: *app
-        advancedMounts:
-          homarr:
-            app:
-              - path: /app/data/configs
-              - path: /app/database
-              - path: /app/public/icons
+        mountPath: /app/data/configs
+      homarr-database:
+        enabled: true
+        type: pvc
+        existingClaim: *app
+        mountPath: /app/database
+      homarr-icons:
+        enabled: true
+        type: pvc
+        existingClaim: *app
+        mountPath: /app/public/icons
