@@ -48,27 +48,22 @@ spec:
               capabilities:
                 drop: ["ALL"]
             probes:
-              startup:
-                enabled: true
-                spec:
-                  initialDelaySeconds: 0
-                  periodSeconds: 5
-                  timeoutSeconds: 1
-                  failureThreshold: 30
               liveness:
-                enabled: true
-                spec:
-                  initialDelaySeconds: 0
-                  periodSeconds: 10
-                  timeoutSeconds: 1
-                  failureThreshold: 3
+                httpGet:
+                  path: /
+                  port: 7575
+                initialDelaySeconds: 10
+                timeoutSeconds: 3
+                periodSeconds: 10
+                failureThreshold: 5
               readiness:
-                enabled: true
-                spec:
-                  initialDelaySeconds: 0
-                  periodSeconds: 10
-                  timeoutSeconds: 1
-                  failureThreshold: 3
+                httpGet:
+                  path: /
+                  port: 7575
+                initialDelaySeconds: 10
+                timeoutSeconds: 3
+                periodSeconds: 10
+                failureThreshold: 5
     defaultPodOptions:
       securityContext:
         runAsUser: 568
