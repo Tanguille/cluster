@@ -72,11 +72,9 @@ spec:
                   identifier: app
                   port: http
     persistence:
-      data:
-        enabled: true
+      config:
         existingClaim: *app
-        mountPath: /app/data
-      icons:
-        enabled: true
-        type: emptyDir
-        mountPath: /app/public/icons
+        globalMounts:
+          - path: /app/data/configs
+          - path: /app/database
+          - path: /app/public/icons
