@@ -18,9 +18,6 @@ spec:
     worker:
       config:
         sources:
-          pci:
-            deviceClassWhitelist:
-              - "02"
-              - "03"
-              - "0b"
-              - "12"
+          sources: ["pci", "system", "usb"]
+        prometheus:
+          enable: true
