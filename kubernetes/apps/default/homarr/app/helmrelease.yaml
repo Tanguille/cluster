@@ -37,18 +37,25 @@ spec:
           paths:
             - path: /
     persistence:
-      homarr-config:
-        - name: homarr-config
-          enabled: true
-          existingClaim: *app
-          mountPath: /app/data/configs
-      homarr-database:
-        - name: homarr-database
-          enabled: true
-          existingClaim: *app
-          mountPath: /app/database
-      homarr-icons:
-        - name: homarr-icons
-          enabled: true
-          existingClaim: *app
-          mountPath: /app/public/icons
+      - name: homarr-config
+        enabled: true
+        storageClassName: "openebs-zfs"
+        # -- homarr-config access mode
+        accessMode: "ReadWriteOnce"
+        size: "50Mi"
+        # -- homarr-config mount path inside the pod
+        mountPath: "/app/data/configs"
+      - name: homarr-database
+        enabled: true
+        storageClassName: "openebs-zfs"
+        accessMode: "ReadWriteOnce"
+        size: "50Mi"
+        # -- homarr-database mount path inside the pod
+        mountPath: "/app/database"
+      - name: homarr-icons
+        enabled: true
+        storageClassName: "openebs-zfs"
+        accessMode: "ReadWriteOnce"
+        size: "50Mi"
+        # -- homarr-icons mount path inside the pod
+        mountPath: "/app/public/icons"
