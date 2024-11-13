@@ -47,7 +47,7 @@ spec:
         mountPath: "/app/data/configs"
       - name: homarr-database
         enabled: true
-        storageClassName: "openebs-zfs"
+        storageClassName: "openebs-hostpath"
         accessMode: "ReadWriteOnce"
         size: "50Mi"
         # -- homarr-database mount path inside the pod
