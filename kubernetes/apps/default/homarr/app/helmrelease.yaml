@@ -28,28 +28,27 @@ spec:
       TZ: ${TIMEZONE}
       DEFAULT_COLOR_SCHEME: dark
     ingress:
-      app:
-        className: internal
-        annotations:
-          external-dns.alpha.kubernetes.io/target: internal.${SECRET_DOMAIN}
-        hosts:
-          - host: apps.${SECRET_DOMAIN}
-            paths:
-              - path: /
-                pathType: Prefix
-                service:
-                  identifier: app
-                  port: http
+      enabled: true
+      ingressClassName: "internal"
+      annotations:
+        external-dns.alpha.kubernetes.io/target: internal.${SECRET_DOMAIN}
+      hosts:
+        - host: apps.${SECRET_DOMAIN}
+          paths:
+            - path: /
     persistence:
-      - name: homarr-config
-        enabled: true
-        existingClaim: *app
-        mountPath: /app/data/configs
-      - name: homarr-database
-        enabled: true
-        existingClaim: *app
-        mountPath: /app/database
-      - name: homarr-icons
-        enabled: true
-        existingClaim: *app
-        mountPath: /app/public/icons
+      homarr-config:
+        - name: homarr-config
+          enabled: true
+          existingClaim: *app
+          mountPath: /app/data/configs
+      homarr-database:
+        - name: homarr-database
+          enabled: true
+          existingClaim: *app
+          mountPath: /app/database
+      homarr-icons:
+        - name: homarr-icons
+          enabled: true
+          existingClaim: *app
+          mountPath: /app/public/icons
