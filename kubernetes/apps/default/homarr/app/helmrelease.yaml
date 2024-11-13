@@ -43,13 +43,13 @@ spec:
     persistence:
       - name: homarr-config
         enabled: true
-        storageClassName: "local-path"
+        existingClaim: *app
         mountPath: /app/data/configs
       - name: homarr-database
         enabled: true
-        storageClassName: "local-path"
+        existingClaim: *app
         mountPath: /app/database
       - name: homarr-icons
         enabled: true
-        storageClassName: "local-path"
+        existingClaim: *app
         mountPath: /app/public/icons
