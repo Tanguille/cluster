@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/recyclarr/recyclarr/master/schemas/config-schema.json
+
+sonarr:
+  sonarr:
+    base_url: http://sonarr.media.svc.cluster.local
+    api_key: !env_var SONARR_API_KEY
+
+    delete_old_custom_formats: true
+    replace_existing_custom_formats: true
+
+    include:
+      - config: Sonarr_Anime_Custom_Formats.yaml
+      - config: Sonarr_Standard_Custom_Formats.yaml
+
+radarr:
+  radarr:
+    base_url: http://radarr.media.svc.cluster.local
+    api_key: !env_var RADARR_API_KEY
+
+    delete_old_custom_formats: true
+    replace_existing_custom_formats: true
+
+    include:
+      - config: Radarr_Anime_Custom_Formats.yaml
+      - config: Radarr_Standard_Custom_Formats.yaml
