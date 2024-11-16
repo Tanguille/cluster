@@ -77,7 +77,7 @@ spec:
       type: ClusterIP
 
     # Configure DNS upstream to use OPNsense Unbound
-    DNS1: "192.168.0.1" # Replace with your OPNsense IP
+    DNS1: "192.168.0.1" # OPNsenseIP
     DNS2: "1.1.1.1" # Fallback DNS
 
     # Disable DoH since we're using Unbound
@@ -139,6 +139,7 @@ spec:
     extraEnvVars:
       TZ: ${TIMEZONE}
       FTLCONF_LOCAL_IPV4: "${PIHOLE_KUBE}"
+      DNSMASQ_LISTENING: all
 
     # Adlists Configuration
     adlists:
@@ -211,3 +212,22 @@ spec:
 
     # Privileged mode
     privileged: "false"
+
+    # Probes Configuration
+    probes:
+      liveness:
+        enabled: true
+        initialDelaySeconds: 120
+        failureThreshold: 10
+        timeoutSeconds: 10
+        path: /admin/
+        port: http
+        scheme: HTTP
+      readiness:
+        enabled: true
+        initialDelaySeconds: 120
+        failureThreshold: 5
+        timeoutSeconds: 10
+        path: /admin/
+        port: http
+        scheme: HTTP
