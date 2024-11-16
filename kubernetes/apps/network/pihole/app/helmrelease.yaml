@@ -103,6 +103,7 @@ spec:
     ingress:
       app:
         annotations:
+          external-dns.alpha.kubernetes.io/hostname: "pihole.${SECRET_DOMAIN}"
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
         className: internal
         hosts:
