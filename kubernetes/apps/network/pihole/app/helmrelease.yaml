@@ -105,11 +105,9 @@ spec:
       ingressClassName: internal
       annotations:
         external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+      path: /
       hosts:
-        - pihole.${SECRET_DOMAIN}
-      paths:
-        - path: /
-          pathType: Prefix
+        - "pihole.${SECRET_DOMAIN}"
 
     # Resources Configuration
     resources:
