@@ -24,10 +24,10 @@ spec:
       strategy: rollback
       retries: 3
   values:
-    fullnameOverride: external-dns-pihole
+    fullnameOverride: *app
     serviceAccount:
       create: false
-      name: external-dns-pihole
+      name: *app
     provider: pihole
     env:
       - name: EXTERNAL_DNS_PIHOLE_SERVER
