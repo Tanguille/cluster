@@ -4,8 +4,6 @@ kind: Kustomization
 metadata:
   name: &app pihole
   namespace: flux-system
-  labels:
-    substitution.flux.home.arpa/disabled: "true" # Don't substitute so we can bring in secret values
 spec:
   targetNamespace: network
   commonMetadata:
