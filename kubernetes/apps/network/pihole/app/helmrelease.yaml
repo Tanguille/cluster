@@ -102,19 +102,20 @@ spec:
     # Ingress Configuration
     ingress:
       enabled: true
-      className: internal
+      ingressClassName: internal
       annotations:
         external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-      hosts:
+      rules:
         - host: "pihole.${SECRET_DOMAIN}"
-          paths:
-            - path: /
-              pathType: Prefix
-              backend:
-                service:
-                  name: pihole-web
-                  port:
-                    number: 80
+          http:
+            paths:
+              - path: /
+                pathType: Prefix
+                backend:
+                  service:
+                    name: pihole-web
+                    port:
+                      number: 80
 
     # Resources Configuration
     resources:
