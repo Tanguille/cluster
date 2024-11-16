@@ -123,9 +123,10 @@ spec:
     # Persistent Volume Claim Configuration
     persistentVolumeClaim:
       enabled: true
+      storageClass: "openebs-zfs"
       accessModes:
         - ReadWriteOnce
-      size: "2Gi"
+      size: "1Gi"
 
     # Use an existing secret for the admin password
     admin:
