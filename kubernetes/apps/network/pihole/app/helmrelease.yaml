@@ -1,0 +1,216 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: pihole
+  namespace: network
+
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: pihole
+      version: 2.22.0
+      sourceRef:
+        kind: HelmRepository
+        name: mojo2600-charts
+        namespace: flux-system
+      interval: 10m
+
+  install:
+    timeout: 10m
+    replace: true
+    crds: CreateReplace
+    createNamespace: true
+    remediation:
+      retries: 3
+
+  upgrade:
+    remediation:
+      remediateLastFailure: true
+      retries: 3
+      strategy: rollback
+    cleanupOnFail: true
+    crds: CreateReplace
+
+  test:
+    enable: true
+
+  rollback:
+    recreate: true
+    force: true
+    cleanupOnFail: true
+
+  uninstall:
+    keepHistory: false
+
+  maxHistory: 1
+
+  values:
+    image:
+      repository: "pihole/pihole"
+      tag: "2024.07.0@sha256:0def896a596e8d45780b6359dbf82fc8c75ef05b97e095452e67a0a4ccc95377"
+      pullPolicy: IfNotPresent
+
+    replicaCount: 1
+
+    # DNS Service Configuration
+    serviceDns:
+      type: LoadBalancer
+      mixedService: true # Use single service for both TCP/UDP
+      port: 53
+      externalTrafficPolicy: Local
+      loadBalancerIP: "${PIHOLE_KUBE}"
+
+    # Disable DHCP as OPNsense handles this
+    serviceDhcp:
+      enabled: false
+
+    # Web Interface Configuration
+    serviceWeb:
+      http:
+        enabled: true
+      https:
+        enabled: true
+        port: 443
+      type: ClusterIP
+
+    # Configure DNS upstream to use OPNsense Unbound
+    DNS1: "192.168.0.1" # Replace with your OPNsense IP
+    DNS2: "1.1.1.1" # Fallback DNS
+
+    # Disable DoH since we're using Unbound
+    doh:
+      enabled: false
+
+    # Pod DNS Configuration
+    podDnsConfig:
+      enabled: true
+      policy: "None"
+      nameservers:
+        - "192.168.0.1" # OPNsense IP
+        - "1.1.1.1" # Fallback
+
+    # Add required capabilities
+    capabilities:
+      add:
+        - NET_ADMIN
+
+    # Virtual Host Configuration
+    virtualHost: "pihole.${SECRET_DOMAIN}"
+
+    # Ingress Configuration
+    ingress:
+      app:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+        className: internal
+        hosts:
+          - host: "pihole.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+
+    # Resources Configuration
+    resources:
+      {}
+      # limits:
+      #  cpu: 100m
+      #  memory: 128Mi
+      # requests:
+      #  cpu: 100m
+      #  memory: 128Mi
+
+    # Persistent Volume Claim Configuration
+    # persistentVolumeClaim:
+    #   enabled: true
+    #   accessModes:
+    #     - ReadWriteOnce
+    #   size: "2Gi"
+
+    # Use an existing secret for the admin password
+    admin:
+      # Specify an existing secret to use as admin password
+      existingSecret: "pihole-secret"
+      # Specify the key inside the secret to use
+      passwordKey: "PIHOLE_PRIMARY_PASSWORD"
+
+    # Extra environment variables
+    extraEnvVars:
+      TZ: ${TIMEZONE}
+      VIRTUAL_HOST: "pihole.${SECRET_DOMAIN}"
+      FTLCONF_LOCAL_IPV4: "${PIHOLE_KUBE}"
+
+    # Adlists Configuration
+    adlists:
+      - https://raw.githubusercontent.com/PolishFiltersTeam/KADhosts/master/KADhosts.txt
+      - https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Spam/hosts
+      - https://v.firebog.net/hosts/static/w3kbl.txt
+      - https://adaway.org/hosts.txt
+      - https://v.firebog.net/hosts/AdguardDNS.txt
+      - https://v.firebog.net/hosts/Admiral.txt
+      - https://raw.githubusercontent.com/anudeepND/blacklist/master/adservers.txt
+      - https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt
+      - https://v.firebog.net/hosts/Easylist.txt
+      - https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext
+      - https://raw.githubusercontent.com/FadeMind/hosts.extras/master/UncheckyAds/hosts
+      - https://raw.githubusercontent.com/bigdargon/hostsVN/master/hosts
+      - https://v.firebog.net/hosts/Easyprivacy.txt
+      - https://v.firebog.net/hosts/Prigent-Ads.txt
+      - https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.2o7Net/hosts
+      - https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt
+      - https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt
+      - https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareHosts.txt
+      - https://osint.digitalside.it/Threat-Intel/lists/latestdomains.txt
+      - https://s3.amazonaws.com/lists.disconnect.me/simple_malvertising.txt
+      - https://v.firebog.net/hosts/Prigent-Crypto.txt
+      - https://raw.githubusercontent.com/FadeMind/hosts.extras/master/add.Risk/hosts
+      - https://bitbucket.org/ethanr/dns-blacklists/raw/8575c9f96e5b4a1308f2f12394abd86d0927a4a0/bad_lists/Mandiant_APT1_Report_Appendix_D.txt
+      - https://phishing.army/download/phishing_army_blocklist_extended.txt
+      - https://gitlab.com/quidsup/notrack-blocklists/raw/master/notrack-malware.txt
+      - https://v.firebog.net/hosts/RPiList-Malware.txt
+      - https://v.firebog.net/hosts/RPiList-Phishing.txt
+      - https://raw.githubusercontent.com/Spam404/lists/master/main-blacklist.txt
+      - https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts
+      - https://urlhaus.abuse.ch/downloads/hostfile/
+      - https://zerodot1.gitlab.io/CoinBlockerLists/hosts_browser
+
+    # Whitelist Configuration
+    whitelist:
+      {}
+      # If you want to provide whitelisted domains, add them here.
+      # - clients4.google.com
+
+    # Blacklist Configuration
+    blacklist:
+      {}
+      # If you want to have special domains blacklisted, add them here
+      # - *.blackist.com
+
+    # Regex Configuration
+    regex:
+      {}
+      # Add regular expression blacklist items
+      # - (^|\.)facebook\.com$
+
+    # Values for pihole-FTL.conf
+    ftl:
+      # Add values for pihole-FTL.conf
+      MAXDBDAYS: 30
+
+    # Port for HTTP traffic
+    webHttp: "80"
+
+    # Port for HTTPS traffic
+    webHttps: "443"
+
+    # Pod hostname
+    hostname: ""
+
+    # Host network
+    hostNetwork: "false"
+
+    # Privileged mode
+    privileged: "false"
