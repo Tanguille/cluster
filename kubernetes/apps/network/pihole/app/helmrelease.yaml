@@ -18,12 +18,12 @@ spec:
       interval: 10m
 
   install:
-    timeout: 10m
+    timeout: 15m
     replace: true
     crds: CreateReplace
     createNamespace: true
     remediation:
-      retries: 3
+      retries: 5
 
   upgrade:
     remediation:
@@ -217,7 +217,7 @@ spec:
     probes:
       liveness:
         enabled: true
-        initialDelaySeconds: 120
+        initialDelaySeconds: 180
         failureThreshold: 10
         timeoutSeconds: 10
         path: /admin/
@@ -225,9 +225,16 @@ spec:
         scheme: HTTP
       readiness:
         enabled: true
-        initialDelaySeconds: 120
+        initialDelaySeconds: 180
         failureThreshold: 5
         timeoutSeconds: 10
         path: /admin/
         port: http
         scheme: HTTP
+
+  # Add health check configuration
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: pihole
+      namespace: network
