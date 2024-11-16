@@ -210,21 +210,3 @@ spec:
 
     # Privileged mode
     privileged: "false"
-
-    # Probes Configuration
-    probes:
-      liveness:
-        enabled: true
-        type: httpGet
-        initialDelaySeconds: 60
-        failureThreshold: 10
-        timeoutSeconds: 5
-        port: http
-        scheme: HTTP
-      readiness:
-        enabled: true
-        initialDelaySeconds: 60
-        failureThreshold: 3
-        timeoutSeconds: 5
-        port: http
-        scheme: HTTP
