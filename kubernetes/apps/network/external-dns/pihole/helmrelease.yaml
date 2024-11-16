@@ -26,6 +26,7 @@ spec:
   values:
     fullnameOverride: *app
     provider: pihole
+    registry: noop
     env:
       - name: EXTERNAL_DNS_PIHOLE_SERVER
         value: "http://pihole.network.svc.cluster.local"
@@ -35,7 +36,6 @@ spec:
             name: pihole-secret
             key: PIHOLE_PRIMARY_PASSWORD
     extraArgs:
-      - --registry=noop
       - --policy=upsert-only
     policy: sync
     sources: ["ingress", "service"]
