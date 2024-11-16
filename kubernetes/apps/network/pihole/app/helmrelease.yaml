@@ -18,24 +18,23 @@ spec:
       interval: 10m
 
   install:
-    timeout: 15m
+    timeout: 30m
     replace: true
-    crds: CreateReplace
     createNamespace: true
     remediation:
-      retries: 5
-
-  upgrade:
-    remediation:
-      remediateLastFailure: true
       retries: 3
       strategy: uninstall
+
+  upgrade:
+    timeout: 30m
     cleanupOnFail: true
+    remediation:
+      retries: 3
+      strategy: uninstall
     crds: CreateReplace
-    force: true
 
   test:
-    enable: false
+    enable: true
 
   rollback:
     recreate: true
@@ -63,7 +62,7 @@ spec:
       externalTrafficPolicy: Local
       loadBalancerIP: "${PIHOLE_KUBE}"
       annotations:
-        io.cilium/lb-ipam-ips: "${PIHOLE_KUBE}"
+        lbipam.cilium.io/ips: "${PIHOLE_KUBE}"
 
     # Disable DHCP as OPNsense handles this
     serviceDhcp:
