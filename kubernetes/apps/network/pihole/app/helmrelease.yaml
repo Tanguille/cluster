@@ -34,7 +34,7 @@ spec:
     crds: CreateReplace
 
   test:
-    enable: true
+    enable: false
 
   rollback:
     recreate: true
@@ -101,18 +101,21 @@ spec:
 
     # Ingress Configuration
     ingress:
-      app:
-        annotations:
-          external-dns.alpha.kubernetes.io/hostname: "pihole.${SECRET_DOMAIN}"
-          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-        className: internal
-        hosts:
-          - host: "pihole.${SECRET_DOMAIN}"
-            paths:
-              - path: /
+      enabled: true
+      className: internal
+      annotations:
+        external-dns.alpha.kubernetes.io/hostname: "pihole.${SECRET_DOMAIN}"
+        external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+      hosts:
+        - host: "pihole.${SECRET_DOMAIN}"
+          paths:
+            - path: /
+              pathType: Prefix
+              backend:
                 service:
-                  identifier: app
-                  port: http
+                  name: pihole-web
+                  port:
+                    number: 80
 
     # Resources Configuration
     resources:
