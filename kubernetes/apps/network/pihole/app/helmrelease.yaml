@@ -62,6 +62,8 @@ spec:
       port: 53
       externalTrafficPolicy: Local
       loadBalancerIP: "${PIHOLE_KUBE}"
+      annotations:
+        io.cilium/lb-ipam-ips: "${PIHOLE_KUBE}"
 
     # Disable DHCP as OPNsense handles this
     serviceDhcp:
