@@ -70,6 +70,7 @@ spec:
     serviceWeb:
       http:
         enabled: true
+        port: 80
       https:
         enabled: true
         port: 443
@@ -210,9 +211,11 @@ spec:
     # Privileged mode
     privileged: "false"
 
+    # Probes Configuration
     probes:
       liveness:
         enabled: true
+        type: httpGet
         initialDelaySeconds: 60
         failureThreshold: 10
         timeoutSeconds: 5
