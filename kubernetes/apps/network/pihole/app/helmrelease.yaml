@@ -29,9 +29,10 @@ spec:
     remediation:
       remediateLastFailure: true
       retries: 3
-      strategy: rollback
+      strategy: uninstall
     cleanupOnFail: true
     crds: CreateReplace
+    force: true
 
   test:
     enable: false
@@ -231,10 +232,3 @@ spec:
         path: /admin/
         port: http
         scheme: HTTP
-
-  # Add health check configuration
-  healthChecks:
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: pihole
-      namespace: network
