@@ -10,12 +10,17 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  dependsOn:
+    - name: volsync
+      namespace: volsync-system
+    - name: openebs
+      namespace: openebs-system
   path: ./kubernetes/apps/observability/uptime-kuma/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
-  wait: false
+  wait: true
   interval: 30m
   timeout: 5m
   postBuild:
