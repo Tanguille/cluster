@@ -113,13 +113,12 @@ spec:
 
     # Resources Configuration
     resources:
-      {}
-      # limits:
-      #  cpu: 100m
-      #  memory: 128Mi
-      # requests:
-      #  cpu: 100m
-      #  memory: 128Mi
+      requests:
+        memory: 1Gi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
 
     # Persistent Volume Claim Configuration
     persistentVolumeClaim:
@@ -141,6 +140,10 @@ spec:
       TZ: ${TIMEZONE}
       FTLCONF_LOCAL_IPV4: "${PIHOLE_KUBE}"
       DNSMASQ_LISTENING: all
+      DNSMASQ_USER: "pihole"
+      PIHOLE_DNS_: "192.168.0.1#53;1.1.1.1#53"
+      QUERY_LOGGING: "true"
+      FTL_CMD: "no-daemon"
 
     # Adlists Configuration
     adlists:
@@ -232,3 +235,12 @@ spec:
         path: /admin/
         port: http
         scheme: HTTP
+
+    securityContext:
+      capabilities:
+        add:
+          - NET_ADMIN
+          - NET_BIND_SERVICE
+      runAsUser: 999
+      runAsGroup: 999
+      fsGroup: 999
