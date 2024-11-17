@@ -1,0 +1,73 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app uptime-kuma
+  namespace: observability
+spec:
+  interval: 60m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.5.1
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s-helm-charts
+        namespace: flux-system
+      interval: 60m
+  maxHistory: 2
+  install:
+    createNamespace: true
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      main:
+        containers:
+          uptime-kuma:
+            image:
+              repository: louislam/uptime-kuma
+              tag: "1.23.13"
+
+            resources:
+              requests:
+                memory: 400M
+                cpu: 15m
+              limits:
+                memory: 600M
+                cpu: 500m
+
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            enabled: true
+            port: 3001
+
+    ingress:
+      main:
+        annotations:
+          external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
+        className: external
+        hosts:
+          - host: "uptime.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: http
+
+    persistence:
+      config:
+        existingClaim: *app
+        advancedMounts:
+          jellyfin:
+            app:
+              - path: /config
