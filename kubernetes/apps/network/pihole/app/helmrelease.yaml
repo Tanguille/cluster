@@ -144,6 +144,7 @@ spec:
       PIHOLE_DNS_: "192.168.0.1#53;1.1.1.1#53"
       QUERY_LOGGING: "true"
       FTL_CMD: "no-daemon"
+      WEBPASSWORD__FILE: "/etc/pihole/password" # Use file-based password
 
     # Adlists Configuration
     adlists:
@@ -201,6 +202,10 @@ spec:
     ftl:
       # Add values for pihole-FTL.conf
       MAXDBDAYS: 30
+      REFRESH_HOSTNAMES: "IPV4" # Reduce unnecessary PTR lookups
+      CHECK_LOAD: "true" # Monitor system load
+      CHECK_SHMEM: "90" # Monitor shared memory usage
+      PARSE_ARP_CACHE: "true" # Improve client identification
 
     # Port for HTTP traffic
     webHttp: "80"
