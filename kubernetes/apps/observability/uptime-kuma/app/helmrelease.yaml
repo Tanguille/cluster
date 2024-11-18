@@ -17,48 +17,52 @@ spec:
       interval: 60m
   maxHistory: 2
   install:
-    createNamespace: true
     remediation:
       retries: 3
   upgrade:
     cleanupOnFail: true
     remediation:
+      strategy: rollback
       retries: 3
-  uninstall:
-    keepHistory: false
+
   values:
     controllers:
-      main:
+      uptime-kuma:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
-          uptime-kuma:
+          app:
             image:
               repository: louislam/uptime-kuma
               tag: "1.23.15"
-            securityContext:
-              runAsUser: 568
-              runAsGroup: 568
-              fsGroup: 568
-            resources:
-              requests:
-                memory: 400M
-                cpu: 15m
-              limits:
-                memory: 600M
-                cpu: 500m
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+
+    defaultPodOptions:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+        runAsNonRoot: true
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
 
     service:
-      main:
-        controller: main
+      uptime-kuma:
+        controller: *app
         ports:
           http:
-            enabled: true
-            port: 3001
+            port: *port
 
     ingress:
-      main:
+      app:
+        className: external
         annotations:
           external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
-        className: external
         hosts:
           - host: "uptime.${SECRET_DOMAIN}"
             paths:
