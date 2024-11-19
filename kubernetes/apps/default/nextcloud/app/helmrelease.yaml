@@ -100,7 +100,7 @@ spec:
             'enable_previews' => true,
           );
 
-      datadir: /var/www/data
+      datadir: /var/www/html/data
 
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
@@ -163,7 +163,6 @@ spec:
       nextcloudData:
         enabled: true
         existingClaim: nextcloud-pvc
-        mountPath: /var/www/data
 
     cronjob:
       enabled: true
