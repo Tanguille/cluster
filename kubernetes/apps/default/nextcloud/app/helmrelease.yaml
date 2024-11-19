@@ -26,7 +26,7 @@ spec:
   values:
     image:
       flavor: fpm-alpine
-      tag: 29.0-fpm-alpine
+      tag: 29.0.0-fpm-alpine
     nginx:
       enabled: true
 
@@ -37,14 +37,6 @@ spec:
           envFrom:
             - secretRef:
                 name: nextcloud-secret
-        - name: nextcloud-init
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          command: ["sh", "-c", "sleep infinity"]
-          volumeMounts:
-            - name: nextcloud-data
-              mountPath: /var/www/html/data
-            - name: nextcloud-config
-              mountPath: /var/www/html/config
 
       extraEnv:
         - name: REDIS_HOST
@@ -108,6 +100,8 @@ spec:
             'enable_previews' => true,
           );
 
+      datadir: /var/www/data
+
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
 
@@ -162,19 +156,13 @@ spec:
 
     persistence:
       # Config storage using volsync template PVC (local)
-      config:
-        enabled: true
-        existingClaim: *app
-        globalMounts:
-          - path: /var/www/html/config
-            readOnly: false
-        defaultPermissions: "0770"
+      enabled: true
+      existingClaim: *app
 
       # Data directory using NFS
       nextcloudData:
         enabled: true
-        existingClaim: nextcloud-nfs
-        accessMode: ReadWriteMany
+        existingClaim: nextcloud-pvc
 
     cronjob:
       enabled: true
