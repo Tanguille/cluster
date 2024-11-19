@@ -27,11 +27,11 @@ spec:
 
   values:
     controllers:
-      uptime-kuma:
+      main:
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
-          app:
+          main:
             image:
               repository: louislam/uptime-kuma
               tag: "1.23.15"
@@ -52,14 +52,13 @@ spec:
         seccompProfile: { type: RuntimeDefault }
 
     service:
-      app:
-        controller: *app
+      main:
         ports:
           http:
             port: 3001
 
     ingress:
-      app:
+      main:
         className: external
         annotations:
           external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
@@ -69,11 +68,12 @@ spec:
               - path: /
                 pathType: Prefix
                 service:
-                  identifier: app
+                  name: main
                   port: http
 
     persistence:
       config:
+        enabled: true
         existingClaim: *app
         globalMounts:
           - path: /app/data
