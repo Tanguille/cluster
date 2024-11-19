@@ -5,10 +5,9 @@ metadata:
   name: nextcloud-pv
 spec:
   storageClassName: nextcloud-nfs
+  accessModes: ["ReadWriteMany"]
   capacity:
     storage: 500Gi
-  accessModes:
-    - ReadWriteMany
   persistentVolumeReclaimPolicy: Retain
   nfs:
     server: "${TRUENAS_IP}"
