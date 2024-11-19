@@ -1,21 +1,14 @@
 ---
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: nextcloud-nfs
-provisioner: kubernetes.io/no-provisioner
-volumeBindingMode: Immediate
----
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nextcloud-nfs
+  name: nextcloud-pv
 spec:
+  storageClassName: nextcloud-nfs
   capacity:
     storage: 500Gi
   accessModes:
     - ReadWriteMany
-  storageClassName: nextcloud-nfs
   persistentVolumeReclaimPolicy: Retain
   nfs:
     server: "${TRUENAS_IP}"
@@ -24,11 +17,10 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: nextcloud-nfs
-  namespace: default
+  name: nextcloud-pvc
 spec:
-  accessModes: ["ReadWriteMany"]
   storageClassName: nextcloud-nfs
+  accessModes: ["ReadWriteMany"]
   resources:
     requests:
       storage: 500Gi
