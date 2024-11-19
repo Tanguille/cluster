@@ -99,15 +99,6 @@ spec:
           $CONFIG = array (
             'enable_previews' => true,
           );
-        database.config.php: |-
-          <?php
-          $CONFIG = array (
-            'dbhost' => 'postgres16-rw.database.svc.cluster.local:5432',
-            'dbname' => 'nextcloud',
-            'dbuser' => '${INIT_POSTGRES_USER}',
-            'dbpassword' => '${INIT_POSTGRES_PASS}',
-            'dbtype' => 'pgsql',
-          );
 
       datadir: /var/www/data
 
@@ -176,13 +167,13 @@ spec:
     cronjob:
       enabled: true
 
-    # startupProbe:
-    #   enabled: true
-    #   initialDelaySeconds: 10
-    #   periodSeconds: 20
-    #   timeoutSeconds: 5
-    #   failureThreshold: 30
-    #   successThreshold: 1
+    startupProbe:
+      enabled: true
+      initialDelaySeconds: 10
+      periodSeconds: 20
+      timeoutSeconds: 5
+      failureThreshold: 30
+      successThreshold: 1
 
     resources:
       requests:
