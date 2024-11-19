@@ -12,9 +12,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: volsync
-      namespace: volsync-system
     - name: openebs
-      namespace: openebs-system
   path: ./kubernetes/apps/observability/uptime-kuma/app
   prune: true
   sourceRef:
