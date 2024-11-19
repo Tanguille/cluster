@@ -162,9 +162,7 @@ spec:
       # Data directory using NFS
       nextcloudData:
         enabled: true
-        existingClaim: nextcloud-nfs
-        subPath: data
-        mountPath: /var/www/html/data
+        existingClaim: nextcloud-pvc
 
     cronjob:
       enabled: true
