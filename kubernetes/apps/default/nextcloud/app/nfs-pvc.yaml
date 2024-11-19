@@ -1,11 +1,18 @@
 ---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nextcloud-nfs
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: Immediate
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: nextcloud-nfs
 spec:
   capacity:
-    storage: 1Mi
+    storage: 500Gi
   accessModes:
     - ReadWriteMany
   storageClassName: nextcloud-nfs
