@@ -37,6 +37,18 @@ spec:
           envFrom:
             - secretRef:
                 name: nextcloud-secret
+        - name: init-data
+          image: alpine:latest
+          command:
+            - sleep
+            - infinity
+          volumeMounts:
+            - name: nextcloud-data
+              mountPath: /var/www/html/data
+              subPath: data
+            - name: nextcloud-config
+              mountPath: /var/www/html/config
+              subPath: config
 
       extraEnv:
         - name: REDIS_HOST
