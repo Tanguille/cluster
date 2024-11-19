@@ -52,7 +52,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
 
     service:
-      uptime-kuma:
+      app:
         controller: *app
         ports:
           http:
@@ -67,8 +67,9 @@ spec:
           - host: "uptime.${SECRET_DOMAIN}"
             paths:
               - path: /
+                pathType: Prefix
                 service:
-                  identifier: *app
+                  identifier: app
                   port: http
 
     persistence:
