@@ -99,6 +99,15 @@ spec:
           $CONFIG = array (
             'enable_previews' => true,
           );
+        database.config.php: |-
+          <?php
+          $CONFIG = array (
+            'dbhost' => 'postgres16-rw.database.svc.cluster.local:5432',
+            'dbname' => 'nextcloud',
+            'dbuser' => '${INIT_POSTGRES_USER}',
+            'dbpassword' => '${INIT_POSTGRES_PASS}',
+            'dbtype' => 'pgsql',
+          );
 
       datadir: /var/www/data
 
