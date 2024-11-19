@@ -35,10 +35,10 @@ spec:
             image:
               repository: louislam/uptime-kuma
               tag: "1.23.15"
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities: { drop: ["ALL"] }
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
 
     defaultPodOptions:
       automountServiceAccountToken: false
