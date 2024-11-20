@@ -77,17 +77,15 @@ spec:
                   port: http
 
     persistence:
-      app:
-        type: emptyDir
-        globalMounts:
-          - path: /app
-            readOnly: false
-
-      data:
+      config:
         existingClaim: *app
-        globalMounts:
-          - path: /app/Data
-            readOnly: false
+        advancedMounts:
+          fileflows:
+            app:
+              - path: /app
+                readOnly: false
+              - path: /app/Data
+                readOnly: false
 
       logs:
         type: emptyDir
