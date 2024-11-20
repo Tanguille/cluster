@@ -99,6 +99,23 @@ spec:
           $CONFIG = array (
             'enable_previews' => true,
           );
+        notify_push.config.php: |-
+          <?php
+          $CONFIG = array (
+            'notify_push' => [
+              'enable' => true,
+              'base_endpoint' => 'https://nextcloud.${SECRET_DOMAIN}/push',
+            ],
+          );
+        antivirus.config.php: |-
+          <?php
+          $CONFIG = array (
+            'av_mode' => 'daemon',
+            'av_socket' => '/var/run/clamav/clamd.sock',
+            'av_path' => '/usr/bin/clamscan',
+            'av_max_file_size' => -1,
+            'av_infected_action' => 'only_log',
+          );
 
       datadir: /var/www/data
 
@@ -127,6 +144,8 @@ spec:
         nginx.ingress.kubernetes.io/proxy-body-size: "10G"
         nginx.ingress.kubernetes.io/proxy-buffering: "off"
         nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
         nginx.ingress.kubernetes.io/server-snippet: |-
           server_tokens off;
           proxy_hide_header X-Powered-By;
@@ -185,3 +204,9 @@ spec:
 
     strategy:
       type: Recreate
+
+    additionalPackages:
+      - clamav
+      - perl-image-exiftool
+      - ffmpeg
+      - imagemagick
