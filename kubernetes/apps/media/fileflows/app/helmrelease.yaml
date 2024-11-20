@@ -30,9 +30,9 @@ spec:
     defaultPodOptions:
       runtimeClassName: nvidia
       securityContext:
-        runAsUser: 568
-        runAsGroup: 568
-        fsGroup: 568
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups: [10000]
         seccompProfile: { type: RuntimeDefault }
@@ -60,6 +60,8 @@ spec:
               tag: 24.11
             env:
               TZ: ${TIMEZONE}
+              PUID: "568"
+              PGID: "568"
             resources:
               requests:
                 cpu: 10m
