@@ -93,9 +93,11 @@ spec:
     persistence:
       config:
         existingClaim: *app
-        globalMounts:
-          - path: /app/Data
-            readOnly: false
+        advancedMounts:
+          fileflows:
+            app:
+              - path: /app/Data
+                readOnly: false
 
       temp:
         type: emptyDir
