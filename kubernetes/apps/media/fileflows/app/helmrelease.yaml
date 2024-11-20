@@ -80,7 +80,14 @@ spec:
       config:
         existingClaim: *app
         globalMounts:
-          - path: /app/Data
+          - path: /app
+            readOnly: false
+
+      logs:
+        type: emptyDir
+        globalMounts:
+          - path: /app/Logs
+            readOnly: false
 
       media:
         type: nfs
@@ -94,3 +101,4 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /temp
+            readOnly: false
