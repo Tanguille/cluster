@@ -22,6 +22,8 @@ spec:
     - name: openebs
       namespace: openebs-system
   values:
+    annotations:
+      reloader.stakater.com/auto: "true"
     defaultPodOptions:
       runtimeClassName: nvidia
       enableServiceLinks: false
@@ -34,8 +36,6 @@ spec:
           - 44
           - 109
           - 100
-      annotations:
-        reloader.stakater.com/auto: "true"
 
     controllers:
       jellyfin:
@@ -54,11 +54,11 @@ spec:
               NVIDIA_DRIVER_CAPABILITIES: all
             resources:
               requests:
-                memory: 4Gi
+                memory: 2Gi
                 nvidia.com/gpu: 1
               limits:
-                nvidia.com/gpu: 1
                 memory: 8Gi
+                nvidia.com/gpu: 1
 
     service:
       app:
