@@ -56,14 +56,14 @@ spec:
                 nvidia.com/gpu: 1
 
     service:
-      main:
+      fileflows:
         controller: *app
         ports:
           http:
             port: 5000
 
     ingress:
-      main:
+      fileflows:
         className: internal
         annotations:
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
@@ -73,7 +73,7 @@ spec:
               - path: /
                 pathType: Prefix
                 service:
-                  identifier: main
+                  identifier: *app
                   port: http
 
     persistence:
