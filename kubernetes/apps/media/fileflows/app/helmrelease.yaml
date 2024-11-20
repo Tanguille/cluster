@@ -77,16 +77,24 @@ spec:
                   port: http
 
     persistence:
-      data:
+      config:
         existingClaim: *app
-        globalMounts:
-          - path: /app/Data
-            readOnly: false
+        advancedMounts:
+          fileflows:
+            app:
+              - path: /app/Data
+                readOnly: false
 
       logs:
         type: emptyDir
         globalMounts:
           - path: /app/Logs
+            readOnly: false
+
+      temp:
+        type: emptyDir
+        globalMounts:
+          - path: /temp
             readOnly: false
 
       media:
@@ -95,10 +103,4 @@ spec:
         path: /mnt/BIGHDDZ1/Media
         globalMounts:
           - path: /media
-            readOnly: false
-
-      temp:
-        type: emptyDir
-        globalMounts:
-          - path: /temp
             readOnly: false
