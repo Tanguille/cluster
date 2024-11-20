@@ -1,0 +1,96 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app fileflows
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.5.1
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+  maxHistory: 3
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+
+  values:
+    annotations:
+      reloader.stakater.com/auto: "true"
+    defaultPodOptions:
+      runtimeClassName: nvidia
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        supplementalGroups: [10000]
+        seccompProfile: { type: RuntimeDefault }
+
+    controllers:
+      main:
+        containers:
+          app:
+            image:
+              repository: revenz/fileflows
+              tag: 24.11
+            env:
+              TZ: ${TIMEZONE}
+            resources:
+              requests:
+                cpu: 10m
+                memory: 250Mi
+                nvidia.com/gpu: 1
+              limits:
+                memory: 2Gi
+                nvidia.com/gpu: 1
+
+    service:
+      main:
+        controller: *app
+        ports:
+          http:
+            port: 5000
+
+    ingress:
+      main:
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+        hosts:
+          - host: "fileflows.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: main
+                  port: http
+
+    persistence:
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /app/Data
+
+      media:
+        type: nfs
+        server: ${TRUENAS_IP}
+        path: /mnt/BIGHDDZ1/Media
+        globalMounts:
+          - path: /media
+            readOnly: false
+
+      temp:
+        type: emptyDir
+        globalMounts:
+          - path: /temp
