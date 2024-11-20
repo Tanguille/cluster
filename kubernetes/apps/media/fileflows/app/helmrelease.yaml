@@ -30,15 +30,29 @@ spec:
     defaultPodOptions:
       runtimeClassName: nvidia
       securityContext:
-        runAsUser: 568
-        runAsGroup: 568
-        fsGroup: 568
+        runAsUser: 0
+        runAsGroup: 0
+        fsGroup: 0
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups: [10000]
         seccompProfile: { type: RuntimeDefault }
 
     controllers:
       fileflows:
+        initContainers:
+          init-dirs:
+            image:
+              repository: busybox
+              tag: latest
+            command:
+              - sh
+              - -c
+              - |
+                mkdir -p /app/Data /app/Logs /app/ManuallyAdded /temp
+                chown -R 0:0 /app /temp
+            securityContext:
+              runAsUser: 0
+
         containers:
           app:
             image:
@@ -79,19 +93,8 @@ spec:
     persistence:
       config:
         existingClaim: *app
-        advancedMounts:
-          fileflows:
-            app:
-              - path: /app
-                readOnly: false
-              - path: /app/Data
-                readOnly: false
-
-      logs:
-        type: emptyDir
         globalMounts:
-          - path: /app/Logs
-            readOnly: false
+          - path: /app
 
       temp:
         type: emptyDir
