@@ -6,7 +6,7 @@ subsets:
   - addresses:
       - ip: 192.168.0.100
     ports:
-      - port: 80
+      - port: 11080
         name: http
 ---
 apiVersion: v1
@@ -16,7 +16,7 @@ metadata:
 spec:
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: 11080
       name: http
   clusterIP: None
   type: ClusterIP
