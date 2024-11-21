@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: internal-truenas
+subsets:
+  - addresses:
+      - ip: 192.168.0.1
+    ports:
+      - port: 443
+        name: https
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: internal-opnsense
+spec:
+  ports:
+    - port: 443
+      targetPort: 443
+      name: https
+  clusterIP: None
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: external-service-ingress
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: internal
+  rules:
+    - host: opnsense.${SECRET_DOMAIN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: internal-opnsense
+                port:
+                  number: 443
