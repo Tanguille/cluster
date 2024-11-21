@@ -5,7 +5,7 @@ kind: HelmRelease
 metadata:
   name: &app external-dns-opnsense
 spec:
-  interval: 30m
+  interval: 5m
   chart:
     spec:
       chart: external-dns
@@ -61,6 +61,7 @@ spec:
           timeoutSeconds: 5
     extraArgs:
       - --ignore-ingress-tls-spec
+      - --interval=1m
     policy: sync
     sources: ["ingress", "service"]
     txtOwnerId: default
