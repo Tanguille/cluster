@@ -15,7 +15,7 @@ metadata:
   name: internal-truenas
 spec:
   ports:
-    - port: 80
+    - port: 443
       targetPort: 443
       name: https
   clusterIP: None
@@ -27,6 +27,9 @@ metadata:
   name: external-service-ingress
   annotations:
     external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: internal
   rules:
@@ -39,4 +42,4 @@ spec:
               service:
                 name: internal-truenas
                 port:
-                  number: 80
+                  number: 443
