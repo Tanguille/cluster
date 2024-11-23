@@ -62,9 +62,9 @@ spec:
     registry: noop
     extraArgs:
       - --ignore-ingress-tls-spec
-      - --ingress-class=internal
     policy: sync
-    sources: ["ingress", "service"]
+    sources: ["ingress", "service", "crd"]
+    txtOwnerId: k8s-opnsense
     domainFilters: ["${SECRET_DOMAIN}"]
     serviceMonitor:
       enabled: true
