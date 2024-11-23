@@ -32,7 +32,7 @@ spec:
           tag: v0.1.0@sha256:72d4f5c79e515b8a70bb2e48f6472c746671a3ae3d8ad224aa686dd7192e1609
         env:
           - name: OPNSENSE_HOST
-            value: http://192.168.0.1
+            value: https://192.168.0.1
           - name: OPNSENSE_SKIP_TLS_VERIFY
             value: "true" # optional
           - name: LOG_LEVEL
@@ -59,10 +59,11 @@ spec:
             port: http-webhook
           initialDelaySeconds: 10
           timeoutSeconds: 5
+    registry: noop
     extraArgs:
       - --ignore-ingress-tls-spec
     policy: sync
-    sources: ["ingress", "service"]
+    sources: ["ingress", "service", "crd"]
     txtOwnerId: k8s-internal
     txtPrefix: internal.
     domainFilters: ["${SECRET_DOMAIN}"]
