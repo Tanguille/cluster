@@ -1,0 +1,20 @@
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: internal-target
+spec:
+  endpoints:
+    - dnsName: "internal.${SECRET_DOMAIN}"
+      recordType: A
+      targets: ["192.168.0.4"]
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: external-target
+spec:
+  endpoints:
+    - dnsName: "external.${SECRET_DOMAIN}"
+      recordType: A
+      targets: ["192.168.0.6"]
