@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: internal-homeassistant
+subsets:
+  - addresses:
+      - ip: 192.168.0.100
+    ports:
+      - port: 8123
+        name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: internal-homeassistant
+spec:
+  ports:
+    - port: 80
+      targetPort: 8123
+      name: http
+  clusterIP: None
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: external-service-ingress-homeassistant
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: internal
+  rules:
+    - host: homeassistant.${SECRET_DOMAIN}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: internal-homeassistant
+                port:
+                  number: 80
