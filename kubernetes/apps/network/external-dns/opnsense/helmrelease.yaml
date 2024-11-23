@@ -64,8 +64,6 @@ spec:
       - --ignore-ingress-tls-spec
     policy: sync
     sources: ["ingress", "service", "crd"]
-    txtOwnerId: k8s-internal
-    txtPrefix: internal.
     domainFilters: ["${SECRET_DOMAIN}"]
     serviceMonitor:
       enabled: true
