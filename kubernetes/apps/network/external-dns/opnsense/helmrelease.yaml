@@ -63,8 +63,7 @@ spec:
     extraArgs:
       - --ignore-ingress-tls-spec
     policy: sync
-    sources: ["ingress", "service", "crd"]
-    txtOwnerId: k8s-opnsense
+    sources: ["ingress"]
     domainFilters: ["${SECRET_DOMAIN}"]
     serviceMonitor:
       enabled: true
