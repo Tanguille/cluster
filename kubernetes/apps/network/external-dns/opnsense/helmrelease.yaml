@@ -32,7 +32,7 @@ spec:
           tag: main
         env:
           - name: OPNSENSE_HOST
-            value: https://192.168.0.1
+            value: http://192.168.0.1
           - name: OPNSENSE_SKIP_TLS_VERIFY
             value: "true" # optional
           - name: LOG_LEVEL
@@ -64,7 +64,6 @@ spec:
     registry: noop
     extraArgs:
       - --ignore-ingress-tls-spec
-      - --webhook-provider-url=http://external-dns-opnsense-webhook.network.svc.local:8888
     policy: sync
     sources: ["ingress"]
     domainFilters: ["${SECRET_DOMAIN}"]
