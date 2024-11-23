@@ -64,7 +64,7 @@ spec:
     registry: noop
     extraArgs:
       - --ignore-ingress-tls-spec
-      - --webhook-provider-url=http://external-dns-opnsense-webhook:8888
+      - --webhook-provider-url=http://external-dns-opnsense-webhook.network.svc.local:8888
     policy: sync
     sources: ["ingress"]
     domainFilters: ["${SECRET_DOMAIN}"]
