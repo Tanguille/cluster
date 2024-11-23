@@ -62,6 +62,7 @@ spec:
     registry: noop
     extraArgs:
       - --ignore-ingress-tls-spec
+      - --publish-host-ip
     policy: sync
     sources: ["ingress", "service"]
     domainFilters: ["${SECRET_DOMAIN}"]
