@@ -26,41 +26,48 @@ spec:
     fullnameOverride: *app
     provider:
       name: webhook
-      webhook:
-        image:
-          repository: ghcr.io/tanguille/external-dns-opnsense-webhook
-          tag: main
-        env:
-          - name: OPNSENSE_HOST
-            value: http://192.168.0.1
-          - name: OPNSENSE_SKIP_TLS_VERIFY
-            value: "true" # optional
-          - name: LOG_LEVEL
-            value: debug
-          - name: INGRESS_CLASS_MAPPING
-            value: "internal:192.168.0.4,external:192.168.0.6"
-          - name: OPNSENSE_API_KEY
-            valueFrom:
-              secretKeyRef:
-                name: &secret external-dns-opnsense-secret
-                key: api_key
-          - name: OPNSENSE_API_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: *secret
-                key: api_secret
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: http-webhook
-          initialDelaySeconds: 10
-          timeoutSeconds: 5
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: http-webhook
-          initialDelaySeconds: 10
-          timeoutSeconds: 5
+    webhook:
+    image:
+      repository: ghcr.io/tanguille/external-dns-opnsense-webhook
+      tag: main
+    serviceAccount:
+      create: true
+    service:
+      enabled: true
+      type: ClusterIP
+      port: 8888
+    env:
+      env:
+        - name: OPNSENSE_HOST
+          value: https://192.168.0.1
+        - name: OPNSENSE_SKIP_TLS_VERIFY
+          value: "true" # optional
+        - name: LOG_LEVEL
+          value: debug
+        - name: INGRESS_CLASS_MAPPING
+          value: "internal:192.168.0.4,external:192.168.0.6"
+        - name: OPNSENSE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: &secret external-dns-opnsense-secret
+              key: api_key
+        - name: OPNSENSE_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: *secret
+              key: api_secret
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: http-webhook
+        initialDelaySeconds: 10
+        timeoutSeconds: 5
+      readinessProbe:
+        httpGet:
+          path: /readyz
+          port: http-webhook
+        initialDelaySeconds: 10
+        timeoutSeconds: 5
     registry: noop
     extraArgs:
       - --ignore-ingress-tls-spec
