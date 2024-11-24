@@ -1,0 +1,205 @@
+# This is an example configuration file that documents all the options.
+# It will need to be modified for your specific use case.
+# Please refer to the link below for more details on how to set up the configuration file
+# https: //github.com/StuffAnThings/qbit_manage/wiki/Config-Setup
+
+qbt:
+  host: qbittorrent.media.svc.cluster.local
+  user: ${QBITTORRENT_USER}
+  pass: ${QBITTORRENT_PWD}
+
+settings:
+  force_auto_tmm: true # Will force qBittorrent to enable Automatic Torrent Management for each torrent.
+  tracker_error_tag: issue # Will set the tag of any torrents that do not have a working tracker.
+  nohardlinks_tag: noHL # Will set the tag of any torrents with no hardlinks.
+  share_limits_tag: ~share_limit # Will add this tag when applying share limits to provide an easy way to filter torrents by share limit group/priority for each torrent
+  ignoreTags_OnUpdate: # When running tag-update function, it will update torrent tags for a given torrent even if the torrent has at least one or more of the tags defined here. Otherwise torrents will not be tagged if tags exist.
+    - noHL
+    - issue
+    - cross-seed
+  share_limits_min_seeding_time_tag: MinSeedTimeNotReached
+  share_limits_min_num_seeds_tag: MinSeedsNotMet
+  share_limits_last_active_tag: LastActiveLimitNotReached
+  cross_seed_tag: cross-seed
+  cat_filter_completed: true
+  share_limits_filter_completed: true
+  tag_nohardlinks_filter_completed: true
+  force_retag_all: false
+
+directory:
+  root_dir: /downloads/
+  recycle_bin: /downloads/.RecycleBin
+  torrents_dir: /downloads/Torrents/
+  orphaned_dir: /downloads/orphaned_data
+  remote_dir: /downloads/
+  cross_seed:
+
+exclude_patterns:
+  - "**/.DS_Store"
+  - "**/Thumbs.db"
+  - "**/@eaDir"
+  - /downloads/temp /**
+  - /downloads/BT_backup/**
+  - /downloads/completed/**
+  - /downloads/cross-seeds/**
+  - /downloads/links/**
+  - "**/*.!qB"
+  - "** /*_unpackerred"
+  - "**/*.torrent"
+
+tracker:
+  # Mandatory
+  # Tag Parameters
+  # <Tracker URL Keyword>:    # <MANDATORY> This is the keyword in the tracker url. You can define multiple tracker urls by splitting with `|` delimiter
+  # <MANDATORY> Set tag name. Can be a list of tags or a single tag
+  #   tag: <Tag Name>
+  # <OPTIONAL> Set this to the notifiarr react name. This is used to add indexer reactions to the notifications sent by Notifiarr
+  #   notifiarr: <notifiarr indexer>
+  animebytes.tv:
+    tag: AnimeBytes
+    notifiarr: animebytes
+  animetorrents:
+    tag: Animetorrents
+  avistaz:
+    tag:
+      - Avistaz
+      - qBitrr-allowed_seeding
+    notifiarr: avistaz
+  beyond-hd:
+    tag: Beyond-HD
+    notifiarr: beyondhd
+  blutopia:
+    tag: Blutopia
+    notifiarr: blutopia
+  cartoonchaos:
+    tag: CartoonChaos
+  digitalcore:
+    tag:
+      - DigitalCore
+      - qBitrr-allowed_seeding
+    notifiarr: digitalcore
+  gazellegames:
+    tag: GGn
+  hdts:
+    tag: HDTorrents
+  landof.tv:
+    tag: BroadcasTheNet
+    notifiarr: broadcasthenet
+  milkie:
+    tag: Milkie
+    notifiarr: Milkie
+  myanonamouse:
+    tag: MaM
+  passthepopcorn:
+    tag: PassThePopcorn
+    notifiarr: passthepopcorn
+  privatehd:
+    tag: PrivateHD
+    notifiarr:
+  torrentdb:
+    tag: TorrentDB
+    notifiarr: torrentdb
+  torrentleech|tleechreload:
+    tag:
+      - TorrentLeech
+      - qBitrr-allowed_seeding
+    notifiarr: torrentleech
+  tv-vault:
+    tag: TV-Vault
+  iptorrents:
+    tag:
+      - IPTorrents
+      - qBitrr-allowed_seeding
+    notifiarr: IPTorrents
+  alpharatio:
+    tag:
+      - AlphaRatio
+      - qBitrr-allowed_seeding
+    notifiarr: AlphaRatio
+  hdspace|hd-space:
+    tag:
+      - HDSpace
+      - qBitrr-allowed_seeding
+    notifiarr: HDSpace
+  fearnopeer:
+    tag:
+      - FearNoPeer
+      - qBitrr-allowed_seeding
+    notifiarr: FearNoPeer
+  # The "other" key is a special keyword and if defined will tag any other trackers that don't match the above trackers into this tag
+  other:
+    tag: public
+
+nohardlinks:
+  - radarr
+  - tv-sonarr
+  - lidarr
+
+share_limits:
+  please_leave_my_limits_alone:
+    priority: 999
+    include_any_tags:
+      - doesnotexist
+    max_ratio: -1
+    max_seeding_time: -1
+    cleanup: false
+
+recyclebin:
+  # Recycle Bin method of deletion will move files into the recycle bin (Located in /root_dir/.RecycleBin) instead of directly deleting them in qbittorrent
+  # By default the Recycle Bin will be emptied on every run of the qbit_manage script if empty_after_x_days is defined.
+  enabled: true
+  # <OPTIONAL> empty_after_x_days var:
+  # Will automatically remove all files and folders in recycle bin after x days. (Checks every script run)
+  # If this variable is not defined it, the RecycleBin will never be emptied.
+  # WARNING: Setting this variable to 0 will delete all files immediately upon script run!
+  empty_after_x_days: 60
+  # <OPTIONAL> save_torrents var:
+  # If this option is set to true you MUST fill out the torrents_dir in the directory attribute.
+  # This will save a copy of your .torrent and .fastresume file in the recycle bin before deleting it from qbittorrent
+  save_torrents: true
+  # <OPTIONAL> split_by_category var:
+  # This will split the recycle bin folder by the save path defined in the `cat` attribute
+  # and add the base folder name of the recycle bin that was defined in the `recycle_bin` sub-attribute under directory.  split_by_category: false
+  split_by_category: false
+
+orphaned:
+  # Orphaned files are those in the root_dir download directory that are not referenced by any active torrents.
+  # Will automatically remove all files and folders in orphaned data after x days. (Checks every script run)
+  # If this variable is not defined it, the orphaned data will never be emptied.
+  # WARNING: Setting this variable to 0 will delete all files immediately upon script run!
+  empty_after_x_days: 30
+  # File patterns that will not be considered orphaned files. Handy for generated files that aren't part of the torrent but belong with the torrent's files
+  exclude_patterns:
+    - "**/.DS_Store"
+    - "**/Thumbs.db"
+    - "**/@eaDir"
+    - /data/temp/**
+    - /data/BT_backup/**
+    - /data/completed/**
+    - /data/cross-seeds/**
+    - /data/links/**
+    - "**/*.!qB"
+    - "**/*_unpackerred"
+    - "**/*.torrent"
+
+webhooks:
+  error:
+  run_start:
+  run_end:
+  function:
+    cross_seed:
+    recheck:
+    cat_update:
+    tag_update:
+    rem_unregistered:
+    tag_tracker_error:
+    rem_orphaned:
+    tag_nohardlinks:
+    share_limits:
+    cleanup_dirs:
+cat:
+  radarr: /media/Downloads/radarr/
+  tv-sonarr: /media/Downloads/tv-sonarr/
+  lidarr: /media/Downloads/lidarr/
+  manual: /media/Downloads/manual/
+  Downloads: /media/Downloads/
