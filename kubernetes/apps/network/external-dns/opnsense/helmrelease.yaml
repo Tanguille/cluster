@@ -71,7 +71,7 @@ spec:
     registry: noop
     extraArgs:
       - --ignore-ingress-tls-spec
-    policy: sync
+    policy: upsert-only
     sources: ["ingress"]
     domainFilters: ["${SECRET_DOMAIN}"]
     serviceMonitor:
