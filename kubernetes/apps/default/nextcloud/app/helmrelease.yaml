@@ -65,57 +65,27 @@ spec:
           authtype: LOGIN
           secure: starttls
 
-      # configs:
-      #   logging.config.php: |-
-      #     <?php
-      #     $CONFIG = array (
-      #       'log_type' => 'file',
-      #       'logfile' => 'nextcloud.log',
-      #       'loglevel' => 0,
-      #       'logdateformat' => 'F d, Y H:i:s'
-      #       );
-      #   proxy.config.php: |-
-      #     <?php
-      #     $CONFIG = array (
-      #       'trusted_proxies' => array(
-      #         0 => '127.0.0.1',
-      #         1 => '10.96.0.0/16',
-      #       ),
-      #       'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
-      #     );
-      #   ingress.config.php: |-
-      #     <?php
-      #     $CONFIG = array (
-      #       'overwrite.cli.url' => 'https://nextcloud.${SECRET_DOMAIN}',
-      #       'overwriteprotocol' => 'https',
-      #     );
-      #   misc.config.php: |-
-      #     <?php
-      #     $CONFIG = array (
-      #       'default_phone_region' => 'BE',
-      #     );
-      #   preview.config.php: |-
-      #     <?php
-      #     $CONFIG = array (
-      #       'enable_previews' => true,
-      #     );
-      #   notify_push.config.php: |-
-      #     <?php
-      #     $CONFIG = array (
-      #       'notify_push' => [
-      #         'enable' => true,
-      #         'base_endpoint' => 'https://nextcloud.${SECRET_DOMAIN}/push',
-      #       ],
-      #     );
-      #   antivirus.config.php: |-
-      #     <?php
-      #     $CONFIG = array (
-      #       'av_mode' => 'daemon',
-      #       'av_socket' => '/var/run/clamav/clamd.sock',
-      #       'av_path' => '/usr/bin/clamscan',
-      #       'av_max_file_size' => -1,
-      #       'av_infected_action' => 'only_log',
-      #     );
+      configs:
+        proxy.config.php: |-
+          <?php
+          $CONFIG = array (
+            'trusted_proxies' => array(
+              0 => '127.0.0.1',
+              1 => '10.96.0.0/16',
+            ),
+            'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
+          );
+        ingress.config.php: |-
+          <?php
+          $CONFIG = array (
+            'overwrite.cli.url' => 'https://nextcloud.${SECRET_DOMAIN}',
+            'overwriteprotocol' => 'https',
+          );
+        misc.config.php: |-
+          <?php
+          $CONFIG = array (
+            'default_phone_region' => 'BE',
+          );
 
       datadir: /var/www/data
 
@@ -149,9 +119,7 @@ spec:
         nginx.ingress.kubernetes.io/fastcgi-read-timeout: "600"
         nginx.ingress.kubernetes.io/fastcgi-send-timeout: "600"
         nginx.ingress.kubernetes.io/fastcgi-connect-timeout: "60"
-        nginx.ingress.kubernetes.io/server-snippet: |-
-          server_tokens off;
-          proxy_hide_header X-Powered-By;
+        nginx.ingress.kubernetes.io/configuration-snippet: |
           rewrite ^/.well-known/webfinger /index.php/.well-known/webfinger last;
           rewrite ^/.well-known/nodeinfo /index.php/.well-known/nodeinfo last;
           rewrite ^/.well-known/host-meta /public.php?service=host-meta last;
@@ -162,16 +130,24 @@ spec:
           location = /.well-known/caldav {
             return 301 $scheme://$host/remote.php/dav;
           }
-          location = /robots.txt {
-            allow all;
-            log_not_found off;
-            access_log off;
-          }
           location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)/ {
             deny all;
           }
-          location ~ ^/(?:autotest|occ|issue|indie|db_|console) {
+          location ~ ^/(?:\.|autotest|occ|issue|indie|db_|console) {
             deny all;
+          }
+          location ~ ^/(?:index|remote|public|cron|core/ajax/update|status|ocs/v[12]|updater/.+|ocs-provider/.+)\.php(?:$|/) {
+            fastcgi_split_path_info ^(.+\.php)(/.*)$;
+            try_files $fastcgi_script_name =404;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param PATH_INFO $fastcgi_path_info;
+            fastcgi_param modHeadersAvailable true;
+            fastcgi_param front_controller_active true;
+            fastcgi_read_timeout 180;
+            fastcgi_pass php-handler;
+            fastcgi_intercept_errors on;
+            fastcgi_request_buffering off;
           }
       path: /
       pathType: Prefix
