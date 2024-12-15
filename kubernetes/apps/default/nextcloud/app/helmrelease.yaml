@@ -122,9 +122,16 @@ spec:
         logging.config.php: |
           <?php
           $CONFIG = array(
-            'log_type' => 'errorlog',  # Use PHP error_log instead of file
-            'datadirectory' => '/var/www/html/data',
-            'logfile' => '',  # Disable file logging
+            'log_type' => 'errorlog',
+            'logfile' => '',
+            'loglevel' => 2,
+          );
+
+        memories.config.php: |
+          <?php
+          $CONFIG = array(
+            'memories.ffmpeg_path' => '/usr/local/bin/ffmpeg',
+            'memories.ffprobe_path' => '/usr/local/bin/ffprobe'
           );
 
       datadir: /var/www/data
