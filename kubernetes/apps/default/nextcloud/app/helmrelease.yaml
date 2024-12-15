@@ -95,8 +95,9 @@ spec:
         logging.config.php: |-
           <?php
           $CONFIG = array (
-            'log_type' => 'errorlog',
-            'loglevel' => 0,
+            'log_type' => 'file',
+            'logfile' => 'nextcloud.log',
+            'loglevel' => 1,
             'logdateformat' => 'F d, Y H:i:s'
             );
 
