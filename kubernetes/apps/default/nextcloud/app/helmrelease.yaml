@@ -36,12 +36,28 @@ spec:
           envFrom:
             - secretRef:
                 name: nextcloud-secret
+        - name: init-dependencies
+          image: alpine:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache ffmpeg clamav
+              cp /usr/bin/ffmpeg /data/
+              cp /usr/bin/ffprobe /data/
+          volumeMounts:
+            - name: shared-bins
+              mountPath: /data
 
       extraEnv:
         - name: REDIS_HOST
           value: dragonfly.database.svc.cluster.local.
         - name: REDIS_HOST_PORT
           value: "6379"
+        - name: NEXTCLOUD_TRUSTED_DOMAINS
+          value: "nextcloud.${SECRET_DOMAIN}"
+        - name: NEXTCLOUD_UPDATE
+          value: "1"
 
       existingSecret:
         enabled: true
@@ -84,6 +100,24 @@ spec:
           <?php
           $CONFIG = array (
             'default_phone_region' => 'BE',
+          );
+        redis.config.php: |-
+          <?php
+          $CONFIG = array (
+            'memcache.local' => '\\OC\\Memcache\\APCu',
+            'memcache.distributed' => '\\OC\\Memcache\\Redis',
+            'memcache.locking' => '\\OC\\Memcache\\Redis',
+            'redis' => array(
+              'host' => 'dragonfly.database.svc.cluster.local.',
+              'port' => 6379,
+            ),
+          );
+        permissions.config.php: |-
+          <?php
+          $CONFIG = array (
+            'supportedDatabases' => array(
+              'postgresql'
+            ),
           );
 
       datadir: /var/www/data
@@ -148,6 +182,9 @@ spec:
             fastcgi_intercept_errors on;
             fastcgi_request_buffering off;
           }
+        nginx.ingress.kubernetes.io/hsts: "true"
+        nginx.ingress.kubernetes.io/hsts-max-age: "15552000"
+        nginx.ingress.kubernetes.io/hsts-include-subdomains: "true"
       path: /
       pathType: Prefix
 
