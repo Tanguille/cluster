@@ -77,17 +77,6 @@ spec:
           $CONFIG = array (
             'default_phone_region' => 'BE',
           );
-        redis.config.php: |-
-          <?php
-          $CONFIG = array (
-            'memcache.local' => '\\OC\\Memcache\\APCu',
-            'memcache.distributed' => '\\OC\\Memcache\\Redis',
-            'memcache.locking' => '\\OC\\Memcache\\Redis',
-            'redis' => array(
-              'host' => 'dragonfly.database.svc.cluster.local',
-              'port' => 6379,
-            ),
-          );
         permissions.config.php: |-
           <?php
           $CONFIG = array (
