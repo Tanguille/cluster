@@ -29,11 +29,24 @@ spec:
       enabled: true
 
     nextcloud:
+      extraInitContainers:
+        - name: init-db
+          image: ghcr.io/onedr0p/postgres-init:16
+          envFrom:
+            - secretRef:
+                name: nextcloud-secret
+
       extraEnv:
         - name: REDIS_HOST
           value: dragonfly.database.svc.cluster.local
         - name: REDIS_HOST_PORT
           value: "6379"
+        - name: PHP_MEMORY_LIMIT
+          value: "11G"
+        - name: PHP_UPLOAD_LIMIT
+          value: "10G"
+        - name: PHP_POST_MAX_SIZE
+          value: "10G"
 
       existingSecret:
         enabled: true
@@ -76,22 +89,7 @@ spec:
           <?php
           $CONFIG = array (
             'default_phone_region' => 'BE',
-          );
-        permissions.config.php: |-
-          <?php
-          $CONFIG = array (
-            'supportedDatabases' => array(
-              'postgresql'
-            ),
-          );
-        logging.config.php: |
-          <?php
-          $CONFIG = array(
-            'log_type' => 'errorlog',
-            'logfile' => '',
-            'loglevel' => 0,
-            'log.condition' => [],
-            'debug' => false,
+            'maintenance_window_start' => 2,
           );
 
       datadir: /var/www/data
