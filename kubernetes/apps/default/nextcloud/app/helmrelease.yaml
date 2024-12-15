@@ -124,7 +124,9 @@ spec:
           $CONFIG = array(
             'log_type' => 'errorlog',
             'logfile' => '',
-            'loglevel' => 2,
+            'loglevel' => 0,
+            'log.condition' => [],
+            'debug' => false,
           );
 
         memories.config.php: |
@@ -151,6 +153,18 @@ spec:
           post_max_size=16G
           max_execution_time=3600
           max_input_time=3600
+
+      lifecycle:
+        postStartCommand:
+          - su
+          - -s
+          - /bin/sh
+          - www-data
+          - -c
+          - |
+            echo "Verifying ffmpeg installation..."
+            which ffmpeg
+            ffmpeg -version
 
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
