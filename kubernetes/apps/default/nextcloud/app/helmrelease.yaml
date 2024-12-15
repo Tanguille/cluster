@@ -92,16 +92,16 @@ spec:
             'default_phone_region' => 'BE',
             'maintenance_window_start' => 2,
           );
+        logging.config.php: |-
+          <?php
+          $CONFIG = array (
+            'log_type' => 'file',
+            'logfile' => 'nextcloud.log',
+            'loglevel' => 0,
+            'logdateformat' => 'F d, Y H:i:s'
+            );
 
       datadir: /var/www/data
-
-      extraVolumes:
-        - name: shared-bin
-          emptyDir: {}
-
-      extraVolumeMounts:
-        - name: shared-bin
-          mountPath: /usr/local/bin
 
       phpConfigs:
         custom.ini: |
