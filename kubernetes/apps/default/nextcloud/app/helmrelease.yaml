@@ -119,17 +119,12 @@ spec:
               'postgresql'
             ),
           );
-        integrity.config.php: |
+        logging.config.php: |
           <?php
-          $CONFIG = array (
-            'integrity.ignore.missing.app.signature' => [
-              'memories'
-            ],
-            'integrity.excluded.files' => [
-              'nextcloud.log',
-              'ocs/nextcloud.log',
-              'ocs-provider/nextcloud.log'
-            ]
+          $CONFIG = array(
+            'log_type' => 'errorlog',  # Use PHP error_log instead of file
+            'datadirectory' => '/var/www/html/data',
+            'logfile' => '',  # Disable file logging
           );
 
       datadir: /var/www/data
