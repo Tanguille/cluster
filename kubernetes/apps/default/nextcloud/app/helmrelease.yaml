@@ -47,7 +47,8 @@ spec:
               mkdir -p /shared-bin && \
               cp $(which ffmpeg) /shared-bin/ && \
               cp $(which ffprobe) /shared-bin/ && \
-              chmod +rx /shared-bin/*
+              chmod +rx /shared-bin/* && \
+              chown www-data:www-data /shared-bin/*
           volumeMounts:
             - name: shared-bin
               mountPath: /shared-bin
@@ -121,11 +122,14 @@ spec:
         integrity.config.php: |
           <?php
           $CONFIG = array (
-            'integrity.ignore.files' => [
+            'integrity.ignore.missing.app.signature' => [
+              'memories'
+            ],
+            'integrity.excluded.files' => [
               'nextcloud.log',
               'ocs/nextcloud.log',
               'ocs-provider/nextcloud.log'
-            ],
+            ]
           );
 
       datadir: /var/www/data
