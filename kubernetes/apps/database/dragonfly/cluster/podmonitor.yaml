@@ -11,3 +11,10 @@ spec:
   podTargetLabels: ["app"]
   podMetricsEndpoints:
     - port: admin
+      path: /metrics
+      scheme: http
+      interval: 30s
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "^dragonfly_.*"
+          action: keep
