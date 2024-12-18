@@ -233,7 +233,7 @@ module.exports = {
    *
    * If you are a Windows user you need to put double '\' (e.g. "C:\\torrents")
    */
-  torrentDir: "/media/Downloads/Torrents",
+  torrentDir: "/qbittorrent/qBittorrent/BT_backup",
 
   /**
    * Where to save the torrent files that cross-seed finds for you.
