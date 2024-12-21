@@ -179,7 +179,7 @@ module.exports = {
    * We recommend reading the following FAQ entry:
    * https://www.cross-seed.org/docs/basics/faq-troubleshooting#what-linktype-should-i-use
    */
-  linkDir: undefined,
+  linkDir: "/media/Downloads/cross-seed/hardlinks",
 
   /**
    * cross-seed will use links of this type to inject data-based matches into
@@ -240,7 +240,7 @@ module.exports = {
    *
    * If you are a Windows user you need to put double '\' (e.g. "C:\\output")
    */
-  outputDir: "/media/Downloads/cross-seed",
+  outputDir: "/media/Downloads/cross-seed/torrents",
 
   /**
    * Whether to include single episode torrents in a search (not those from
