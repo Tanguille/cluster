@@ -46,7 +46,7 @@ spec:
               QBT_CONFIG: "/config/config.yaml"
               QBT_CAT_UPDATE: false
               QBT_CROSS_SEED: false
-              QBT_DIVIDER: '='
+              QBT_DIVIDER: "="
               QBT_DRY_RUN: false
               QBT_LOG_LEVEL: INFO
               QBT_RECHECK: true
@@ -73,7 +73,12 @@ spec:
             lifecycle:
               postStart:
                 exec:
-                  command: ["/bin/sh", "-c", "cp /secret/config.yaml /config/config.yaml"]
+                  command:
+                    [
+                      "/bin/sh",
+                      "-c",
+                      "cp /secret/config.yaml /config/config.yaml",
+                    ]
 
     defaultPodOptions:
       securityContext:
