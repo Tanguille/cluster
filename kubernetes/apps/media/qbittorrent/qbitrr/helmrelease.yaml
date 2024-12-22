@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: qbitmanage
+  name: qbitrr
 spec:
   interval: 30m
   chart:
@@ -28,59 +28,28 @@ spec:
 
   values:
     controllers:
-      qbitmanage:
-        type: cronjob
-        cronjob:
-          schedule: "*/30 * * * *"
-          timeZone: &timeZone ${TIMEZONE}
-          concurrencyPolicy: Forbid
-          successfulJobsHistory: 1
-          failedJobsHistory: 1
+      qbitrr:
+        type: deployment
         containers:
           app:
             image:
-              repository: ghcr.io/stuffanthings/qbit_manage
-              tag: v4.1.13@sha256:fa623102eeac2c9cda115aa23f7a5bb85af2ab2cffec766b5173c85a073926b9
+              repository: feramance/qbitrr
+              tag: latest
             env:
               TZ: *timeZone
-              QBT_CONFIG: "/config/config.yaml"
-              QBT_CAT_UPDATE: false
-              QBT_CROSS_SEED: false
-              QBT_DIVIDER: '='
-              QBT_DRY_RUN: false
-              QBT_LOG_LEVEL: INFO
-              QBT_RECHECK: true
-              QBT_REM_ORPHANED: true
-              QBT_REM_UNREGISTERED: true
-              QBT_RUN: true
-              QBT_SHARE_LIMITS: false
-              QBT_SKIP_CLEANUP: false
-              QBT_SKIP_QB_VERSION_CHECK: true
-              QBT_TAG_NOHARDLINKS: true
-              QBT_TAG_TRACKER_ERROR: true
-              QBT_TAG_UPDATE: true
-              QBT_WIDTH: 100
             resources:
               requests:
                 cpu: 10m
                 memory: 128Mi
               limits:
                 memory: 1Gi
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
-            lifecycle:
-              postStart:
-                exec:
-                  command: ["/bin/sh", "-c", "cp /secret/config.yaml /config/config.yaml"]
 
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 568
-        runAsGroup: 568
-        fsGroup: 568
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
 
     persistence:
@@ -93,18 +62,19 @@ spec:
 
       config-file:
         type: secret
-        name: qbitmanage-secret
+        name: qbitrr-secret
         globalMounts:
           - path: /secret/config.yaml
             subPath: config.yaml
             readOnly: true
 
-      media:
+      downloads:
         type: nfs
         server: ${TRUENAS_IP}
-        path: /mnt/tank/media/download/torrent
+        path: /mnt/BIGHDDZ1/Media/Downloads
         globalMounts:
-          - path: /media/download/torrent
+          - path: /completed_downloads
+            readOnly: false
 
       qbittorrent:
         existingClaim: qbittorrent
