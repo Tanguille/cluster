@@ -1,0 +1,22 @@
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationDestination
+metadata:
+  name: $APP-manual
+  namespace: $NS
+spec:
+  trigger:
+    manual: $PREVIOUS
+  restic:
+    repository: $APP-volsync-b2-secret
+    copyMethod: Direct
+    destinationPVC: $APP
+    storageClassName: openebs-zfs
+    accessModes: ["ReadWriteOnce"]
+    capacity: 5Gi
+    cacheStorageClassName: openebs-hostpath
+    cacheAccessModes: ["ReadWriteOnce"]
+    cacheCapacity: 8Gi
+    moverSecurityContext:
+      runAsUser: 568
+      runAsGroup: 568
+      fsGroup: 568
