@@ -24,7 +24,10 @@ settings:
   cat_filter_completed: true
   share_limits_filter_completed: true
   tag_nohardlinks_filter_completed: true
+  cat_update_all: true
   force_retag_all: false
+  force_auto_tmm_ignore_tags: []
+  disable_qbt_default_share_limits: false
 
 directory:
   root_dir: /media/Downloads/
@@ -40,10 +43,11 @@ exclude_patterns:
   - "**/@eaDir"
   - /media/Downloads/temp/**
   - /media/Downloads/completed/**
-  - /media/Downloads/cross-seeds/**
+  - /media/Downloads/cross-seed/**
   - /media/Downloads/links/**
+  - /media/Downloads/BT_backup/**
   - "**/*.!qB"
-  - "** /*_unpackerred"
+  - "**/*_unpackerred"
   - "**/*.torrent"
 
 tracker:
@@ -135,10 +139,29 @@ nohardlinks:
   - lidarr
 
 share_limits:
-  please_leave_my_limits_alone:
+  public_trackers:
+    priority: 2
+    include_any_tags:
+      - public
+    max_ratio: 1.0
+    max_seeding_time: 86400 # 24 hours in seconds
+    cleanup: true
+
+  private_trackers:
+    priority: 3
+    include_any_tags:
+      - AnimeBytes
+      - Beyond-HD
+      - Blutopia
+      - PassThePopcorn
+    max_ratio: 3.0
+    max_seeding_time: 1209600 # 14 days in seconds
+    cleanup: true
+
+  unlimited:
     priority: 999
     include_any_tags:
-      - doesnotexist
+      - unlimited
     max_ratio: -1
     max_seeding_time: -1
     cleanup: false
@@ -172,14 +195,15 @@ orphaned:
     - "**/.DS_Store"
     - "**/Thumbs.db"
     - "**/@eaDir"
-    - /data/temp/**
-    - /data/BT_backup/**
-    - /data/completed/**
-    - /data/cross-seeds/**
-    - /data/links/**
+    - /media/Downloads/temp/**
+    - /media/Downloads/BT_backup/**
+    - /media/Downloads/completed/**
+    - /media/Downloads/cross-seed/**
+    - /media/Downloads/links/**
     - "**/*.!qB"
     - "**/*_unpackerred"
     - "**/*.torrent"
+  max_orphaned_files_to_delete: 100
 
 webhooks:
   error:
