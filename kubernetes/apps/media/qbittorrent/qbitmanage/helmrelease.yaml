@@ -9,7 +9,7 @@ spec:
   chart:
     spec:
       chart: app-template
-      version: 3.5.1
+      version: 3.6.0
       sourceRef:
         kind: HelmRepository
         name: bjw-s
@@ -43,7 +43,7 @@ spec:
               tag: v4.1.14@sha256:a64f0781aabe3e66a261c8b21b7192555bc785f178cae40c6e8b88bf9b853c16
             env:
               TZ: *timeZone
-              QBT_CONFIG: "/config/config.yaml"
+              QBT_CONFIG: "/config/config.toml"
               QBT_CAT_UPDATE: true
               QBT_CROSS_SEED: false
               QBT_DIVIDER: "="
@@ -77,7 +77,7 @@ spec:
                     [
                       "/bin/sh",
                       "-c",
-                      "cp /secret/config.yaml /config/config.yaml",
+                      "cp /secret/config.toml /config/config.toml",
                     ]
 
     defaultPodOptions:
