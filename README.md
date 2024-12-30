@@ -12,7 +12,7 @@ task talos:reset # --force
 
 ## 🛠️ Talos and Kubernetes Maintenance
 
-#### ⚙️ Updating Talos node configuration
+### ⚙️ Updating Talos node configuration
 
 📍 _Ensure you have updated `talconfig.yaml` and any patches with your updated configuration._
 
@@ -24,7 +24,7 @@ task talos:apply-node HOSTNAME=? MODE=?
 # e.g. task talos:apply-config HOSTNAME=k8s-0 MODE=auto
 ```
 
-#### ⬆️ Updating Talos and Kubernetes versions
+### ⬆️ Updating Talos and Kubernetes versions
 
 📍 _Ensure the `talosVersion` and `kubernetesVersion` in `talhelper.yaml` are up-to-date with the version you wish to upgrade to._
 
