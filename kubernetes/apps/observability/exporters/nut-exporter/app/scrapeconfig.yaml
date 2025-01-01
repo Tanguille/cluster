@@ -1,0 +1,17 @@
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: truenas-nut
+spec:
+  staticConfigs:
+    - targets:
+        - "${TRUENAS_IP}:9199"
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: truenas-nut
+    - action: replace
+      targetLabel: instance
+      replacement: truenas
