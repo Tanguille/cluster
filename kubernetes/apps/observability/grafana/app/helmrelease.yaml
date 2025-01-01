@@ -123,7 +123,9 @@ spec:
     dashboards:
       default:
         cert-manager:
-          url: https://raw.githubusercontent.com/imusmanmalik/cert-manager-mixin/refs/heads/main/dashboards/overview.json
+          # renovate: depName="Cert-manager-Kubernetes"
+          gnetId: 20842
+          revision: 3
           datasource: Prometheus
         cloudflared:
           # renovate: depName="Cloudflare Tunnels (cloudflared)"
@@ -165,7 +167,9 @@ spec:
           datasource:
             - { name: DS_VICTORIAMETRICS, value: Prometheus }
         nut-exporter:
-          url: https://raw.githubusercontent.com/DRuggeri/nut_exporter/master/dashboard/dashboard.json
+          # renovate: depName="Prometheus NUT Exporter for DRuggeri"
+          gnetId: 19308
+          revision: 3
           datasource: Prometheus
         qbittorrent-exporter:
           url: https://raw.githubusercontent.com/esanchezm/prometheus-qbittorrent-exporter/master/grafana/dashboard.json
