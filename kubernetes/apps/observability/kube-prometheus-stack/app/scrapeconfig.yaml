@@ -8,6 +8,8 @@ spec:
   staticConfigs:
     - targets:
         - expanse.internal:9100
+        - ${TRUENAS_IP}:9100
+
   metricsPath: /metrics
   relabelings:
     - action: replace
