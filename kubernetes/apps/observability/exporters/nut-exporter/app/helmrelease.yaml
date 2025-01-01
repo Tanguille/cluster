@@ -36,6 +36,7 @@ spec:
               NUT_EXPORTER_PASSWORD: ${NUT_PASSWORD}
               NUT_EXPORTER_SERVER: ${TRUENAS_IP}
               NUT_EXPORTER_SERVERPORT: 3493
+              NUT_EXPORTER_VARIABLES: "battery.charge,battery.voltage,battery.voltage.nominal,input.voltage,input.voltage.nominal,ups.load,ups.status,battery.runtime,ups.status"
             envFrom:
               - secretRef:
                   name: nut-exporter-secret
