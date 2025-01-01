@@ -179,7 +179,7 @@ module.exports = {
    * We recommend reading the following FAQ entry:
    * https://www.cross-seed.org/docs/basics/faq-troubleshooting#what-linktype-should-i-use
    */
-  linkDir: "/media/Downloads/cross-seed/hardlinks",
+  linkDirs: ["/media/Downloads/cross-seed/hardlinks"],
 
   /**
    * cross-seed will use links of this type to inject data-based matches into
