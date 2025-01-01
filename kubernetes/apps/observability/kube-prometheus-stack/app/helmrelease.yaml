@@ -57,7 +57,7 @@ spec:
             group_by: ["alertname", "job"]
             group_interval: 10m
             group_wait: 1m
-            receiver: github-webhook
+            receiver: "discord"
             repeat_interval: 12h
             routes:
               - receiver: heartbeat
@@ -69,10 +69,10 @@ spec:
               - receiver: "null"
                 matchers:
                   - alertname =~ "InfoInhibitor"
-              - receiver: github-webhook
-                continue: true
+              - receiver: "discord"
                 matchers:
-                  - severity = "critical"
+                  - severity =~ "warning|critical"
+                continue: true
           inhibit_rules:
             - equal: ["alertname", "namespace"]
               source_matchers:
@@ -85,10 +85,16 @@ spec:
                 - send_resolved: true
                   url: "{{ .HEARTBEAT_URL }}"
             - name: "null"
-            - name: github-webhook
+            - name: "discord"
               webhook_configs:
-                - send_resolved: true
-                  url: "{{ .DISCORD_WEBHOOK_URL }}"
+                - url: "{{ .DISCORD_WEBHOOK_URL }}"
+                  send_resolved: true
+                  title: '{{ template "discord.default.title" . }}'
+                  message: '{{ template "discord.default.message" . }}'
+          templates:
+            - "/etc/alertmanager/config/*.tmpl"
+        configMaps:
+          - alertmanager-discord-template
     kubeApiServer:
       serviceMonitor:
         selector:
