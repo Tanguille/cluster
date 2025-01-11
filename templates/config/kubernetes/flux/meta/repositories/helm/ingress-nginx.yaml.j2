@@ -1,0 +1,14 @@
+<<<<<<<< HEAD:kubernetes/flux/repositories/helm/ingress-nginx.yaml
+========
+#% if cloudflare.enabled %#
+>>>>>>>> upstream/main:templates/config/kubernetes/flux/meta/repositories/helm/ingress-nginx.yaml.j2
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrepository-source-v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: ingress-nginx
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://kubernetes.github.io/ingress-nginx

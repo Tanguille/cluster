@@ -1,0 +1,26 @@
+---
+originRequest:
+  originServerName: "external.${SECRET_DOMAIN}"
+
+ingress:
+  - hostname: "${SECRET_DOMAIN}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+<<<<<<<< HEAD:kubernetes/apps/network/cloudflared/app/configs/config.yaml
+    #% if not bootstrap_cloudflare.acme.production %#
+========
+    #% if not cloudflare.acme.production %#
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/network/cloudflared/app/configs/config.yaml.j2
+    originRequest:
+      noTLSVerify: true
+    #% endif %#
+  - hostname: "*.${SECRET_DOMAIN}"
+    service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
+<<<<<<<< HEAD:kubernetes/apps/network/cloudflared/app/configs/config.yaml
+    #% if not bootstrap_cloudflare.acme.production %#
+========
+    #% if not cloudflare.acme.production %#
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/network/cloudflared/app/configs/config.yaml.j2
+    originRequest:
+      noTLSVerify: true
+    #% endif %#
+  - service: http_status:404

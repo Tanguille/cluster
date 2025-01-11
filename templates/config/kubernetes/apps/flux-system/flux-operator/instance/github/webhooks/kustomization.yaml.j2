@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ./secret.sops.yaml
+<<<<<<<< HEAD:kubernetes/apps/flux-system/webhooks/app/github/kustomization.yaml
+========
+  #% if cloudflare.enabled %#
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/flux-system/flux-operator/instance/github/webhooks/kustomization.yaml.j2
+  - ./ingress.yaml
+  - ./receiver.yaml

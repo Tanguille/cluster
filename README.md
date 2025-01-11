@@ -4,7 +4,7 @@ Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [
 
 ## 💥 Reset
 
-There might be a situation where you want to destroy your Kubernetes cluster. The following command will reset your nodes back to maintenance mode, append `--force` to completely format your the Talos installation. Either way the nodes should reboot after the command has run.
+There might be a situation where you want to destroy your Kubernetes cluster. The following command will reset your nodes back to maintenance mode, append `--force` to completely format your the Talos installation. Either way the nodes should reboot after the command has sucessfully ran.
 
 ```sh
 task talos:reset # --force
@@ -14,7 +14,8 @@ task talos:reset # --force
 
 ### ⚙️ Updating Talos node configuration
 
-📍 _Ensure you have updated `talconfig.yaml` and any patches with your updated configuration._
+> [!IMPORTANT]
+> Ensure you have updated `talconfig.yaml` and any patches with your updated configuration. In some cases you **not only need to apply the configuration but also upgrade talos** to apply new configuration.
 
 ```sh
 # (Re)generate the Talos config
@@ -26,7 +27,8 @@ task talos:apply-node HOSTNAME=? MODE=?
 
 ### ⬆️ Updating Talos and Kubernetes versions
 
-📍 _Ensure the `talosVersion` and `kubernetesVersion` in `talhelper.yaml` are up-to-date with the version you wish to upgrade to._
+> [!IMPORTANT]
+> Ensure the `talosVersion` and `kubernetesVersion` in `talhelper.yaml` are up-to-date with the version you wish to upgrade to.
 
 ```sh
 # Upgrade node to a newer Talos version

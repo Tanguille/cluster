@@ -1,0 +1,107 @@
+---
+autoDirectNodeRoutes: true
+<<<<<<<< HEAD:kubernetes/apps/kube-system/cilium/app/helm-values.yaml
+========
+#% if bgp.enabled %#
+bgpControlPlane:
+  enabled: true
+#% endif %#
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/kube-system/cilium/app/helm-values.yaml.j2
+bpf:
+  masquerade: true
+  # Ref: https://github.com/siderolabs/talos/issues/10002
+  hostLegacyRouting: true
+cgroup:
+  automount:
+    enabled: false
+  hostRoot: /sys/fs/cgroup
+<<<<<<<< HEAD:kubernetes/apps/kube-system/cilium/app/helm-values.yaml
+cluster:
+  id: 1
+  name: "tanguille-cluster"
+cni:
+  exclusive: false
+========
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/kube-system/cilium/app/helm-values.yaml.j2
+# NOTE: devices might need to be set if you have more than one active NIC on your hosts
+# devices: eno+ eth+
+endpointRoutes:
+  enabled: true
+envoy:
+  enabled: false
+dashboards:
+  enabled: true
+hubble:
+  enabled: false
+ipam:
+  mode: kubernetes
+<<<<<<<< HEAD:kubernetes/apps/kube-system/cilium/app/helm-values.yaml
+ipv4NativeRoutingCIDR: "10.69.0.0/16"
+========
+ipv4NativeRoutingCIDR: "#{ pod_network.split(',')[0] }#"
+#% if feature_gates.dual_stack_ipv4_first %#
+ipv6NativeRoutingCIDR: "#{ pod_network.split(',')[1] }#"
+ipv6:
+  enabled: true
+#% endif %#
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/kube-system/cilium/app/helm-values.yaml.j2
+k8sServiceHost: 127.0.0.1
+k8sServicePort: 7445
+kubeProxyReplacement: true
+kubeProxyReplacementHealthzBindAddr: 0.0.0.0:10256
+l2announcements:
+<<<<<<<< HEAD:kubernetes/apps/kube-system/cilium/app/helm-values.yaml
+========
+  #% if ((bgp.enabled) or (feature_gates.dual_stack_ipv4_first)) %#
+  enabled: false # https://github.com/cilium/cilium/issues/28985
+  #% else %#
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/kube-system/cilium/app/helm-values.yaml.j2
+  enabled: true
+loadBalancer:
+  algorithm: maglev
+<<<<<<<< HEAD:kubernetes/apps/kube-system/cilium/app/helm-values.yaml
+  mode: dsr
+========
+  mode: "#{ loadbalancer_mode | default('dsr', true) }#"
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/kube-system/cilium/app/helm-values.yaml.j2
+localRedirectPolicy: true
+operator:
+  replicas: 1
+  rollOutPods: true
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  dashboards:
+    enabled: true
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    trustCRDsExist: true
+rollOutCiliumPods: true
+routingMode: native
+securityContext:
+  capabilities:
+    ciliumAgent:
+      - CHOWN
+      - KILL
+      - NET_ADMIN
+      - NET_RAW
+      - IPC_LOCK
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cleanCiliumState:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+socketLB:
+  hostNamespaceOnly: true
+# Graceful Helmfile to HelmRelease takeover
+commonLabels:
+  helm.toolkit.fluxcd.io/name: cilium
+  helm.toolkit.fluxcd.io/namespace: kube-system
