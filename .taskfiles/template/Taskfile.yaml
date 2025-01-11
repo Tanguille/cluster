@@ -1,15 +1,14 @@
 ---
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
-version: '3'
+version: "3"
 
 vars:
-  MAKEJINJA_CONFIG_FILE: '{{.ROOT_DIR}}/makejinja.toml'
-  TEMPLATE_DIR: '{{.ROOT_DIR}}/templates'
-  TEMPLATE_CONFIG_FILE: '{{.ROOT_DIR}}/config.yaml'
-  TEMPLATE_RESOURCES_DIR: '{{.ROOT_DIR}}/.taskfiles/template/resources'
+  MAKEJINJA_CONFIG_FILE: "{{.ROOT_DIR}}/makejinja.toml"
+  TEMPLATE_DIR: "{{.ROOT_DIR}}/templates"
+  TEMPLATE_CONFIG_FILE: "{{.ROOT_DIR}}/config.yaml"
+  TEMPLATE_RESOURCES_DIR: "{{.ROOT_DIR}}/.taskfiles/template/resources"
 
 tasks:
-
   :init:
     desc: Initialize configuration files
     cmd: mv {{.TEMPLATE_CONFIG_FILE | replace ".yaml" ".sample.yaml"}} {{.TEMPLATE_CONFIG_FILE}}
@@ -27,7 +26,7 @@ tasks:
       - msg: |
           An existing Age key interferes with age key in this repository.
           Rename or delete ~/.config/sops/age/keys.txt
-        sh: '! test -f ~/.config/sops/age/keys.txt'
+        sh: "! test -f ~/.config/sops/age/keys.txt"
 
   generate-age-key:
     desc: Create the Sops Age key
@@ -41,7 +40,7 @@ tasks:
     desc: Template the configuration files
     cmd: makejinja
     env:
-      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONDONTWRITEBYTECODE: "1"
     preconditions:
       - test -f {{.TEMPLATE_CONFIG_FILE}}
       - test -f {{.TEMPLATE_DIR}}/scripts/plugin.py
@@ -90,7 +89,7 @@ tasks:
     vars:
       SED:
         sh: which gsed || which sed
-      TS: '{{now | unixEpoch}}'
+      TS: "{{now | unixEpoch}}"
     preconditions:
       - test -d {{.ROOT_DIR}}/.github/tests
       - test -d {{.ROOT_DIR}}/.taskfiles/template
