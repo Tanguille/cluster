@@ -50,6 +50,12 @@ spec:
               tag: latest
             env:
               SEARXNG_API_URL: http://searxng:8080
+              LOG_LEVEL: debug
+            command: ["/bin/sh", "-c"]
+            args:
+              - |
+                apt-get update && apt-get install -y curl && \
+                yarn start
             resources:
               requests:
                 cpu: 10m
