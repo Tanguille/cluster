@@ -94,6 +94,15 @@ spec:
         className: internal
         annotations:
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+          nginx.ingress.kubernetes.io/proxy-read-timeout: "604800"
+          nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+          nginx.ingress.kubernetes.io/configuration-snippet: |
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            sub_filter "http://127.0.0.1:3001" "http://perplexica.${SECRET_DOMAIN}";
+            sub_filter "ws://127.0.0.1:3001" "ws://perplexica.${SECRET_DOMAIN}";
+            sub_filter_once off;
+            sub_filter_types application/javascript;
         hosts:
           - host: perplexica.${SECRET_DOMAIN}
             paths:
@@ -102,7 +111,7 @@ spec:
                 service:
                   identifier: frontend
                   port: http
-              - path: /undefined
+              - path: /api
                 pathType: Prefix
                 service:
                   identifier: api
