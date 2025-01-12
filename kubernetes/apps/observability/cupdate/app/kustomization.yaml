@@ -6,6 +6,27 @@ resources:
   - https://github.com/AlexGustafsson/cupdate//deploy/overlays/rbac?timeout=120&ref=v0.14.1
   - ./ingress.yaml
 
+patches:
+  - patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: CUPDATE_LOG_LEVEL
+            value: "debug"
+          - name: CUPDATE_PROCESSING_MIN_AGE
+            value: "12h"
+          - name: CUPDATE_PROCESSING_INTERVAL
+            value: "1h"
+          - name: CUPDATE_PROCESSING_ITEMS
+            value: "20"
+          - name: CUPDATE_CACHE_MAX_AGE
+            value: "24h"
+          - name: CUPDATE_KUBERNETES_HOST
+            value: "https://kubernetes.default.svc"
+    target:
+      kind: Deployment
+      name: cupdate
+
 configMapGenerator:
   - name: cupdate-config
     behavior: merge
