@@ -31,9 +31,10 @@ spec:
               repository: bfenski/perplexica-frontend
               tag: latest
             env:
-              NEXT_PUBLIC_API_URL: http://perplexica.${SECRET_DOMAIN}/api
-              NEXT_PUBLIC_WS_URL: ws://perplexica.${SECRET_DOMAIN}/api
+              NEXT_PUBLIC_API_URL: "/api"
+              NEXT_PUBLIC_WS_URL: "ws://perplexica.${SECRET_DOMAIN}/api"
               NEXT_PUBLIC_ENABLE_OLLAMA: "true"
+              NEXT_PUBLIC_OLLAMA_API_URL: "http://ollama.default.svc.cluster.local:11434"
             resources:
               requests:
                 cpu: 10m
