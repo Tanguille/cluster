@@ -1,0 +1,94 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2beta2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app spoolman
+  namespace: default
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 3.6.0
+      interval: 30m
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+
+  values:
+    controllers:
+      spoolman:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/onedr0p/postgres-init
+              tag: 16
+            envFrom:
+              - secretRef:
+                  name: spoolman-secret
+        containers:
+          app:
+            image:
+              repository: ghcr.io/donkie/spoolman
+              tag: 0.21.0
+            env:
+              SPOOLMAN_DB_TYPE: postgres
+              SPOOLMAN_DB_HOST:
+                valueFrom:
+                  secretKeyRef:
+                    name: spoolman-secret
+                    key: INIT_POSTGRES_HOST
+              SPOOLMAN_DB_NAME:
+                valueFrom:
+                  secretKeyRef:
+                    name: spoolman-secret
+                    key: INIT_POSTGRES_DBNAME
+              SPOOLMAN_DB_USERNAME:
+                valueFrom:
+                  secretKeyRef:
+                    name: spoolman-secret
+                    key: INIT_POSTGRES_USER
+              SPOOLMAN_DB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: spoolman-secret
+                    key: INIT_POSTGRES_PASS
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 25m
+                memory: 500M
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: 8000
+
+    ingress:
+      app:
+        className: external
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+        hosts:
+          - host: spoolman.${SECRET_DOMAIN}
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
