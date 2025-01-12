@@ -3,7 +3,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - https://github.com/AlexGustafsson/cupdate//deploy/overlays/rbac?timeout=120&ref=v0.14.1
+  - https://github.com/AlexGustafsson/cupdate//deploy/overlays/rbac?ref=v0.14.1
   - ./ingress.yaml
 
 patches:
@@ -13,16 +13,38 @@ patches:
         value:
           - name: CUPDATE_LOG_LEVEL
             value: "debug"
-          - name: CUPDATE_PROCESSING_MIN_AGE
-            value: "12h"
-          - name: CUPDATE_PROCESSING_INTERVAL
-            value: "1h"
-          - name: CUPDATE_PROCESSING_ITEMS
-            value: "20"
-          - name: CUPDATE_CACHE_MAX_AGE
-            value: "24h"
           - name: CUPDATE_KUBERNETES_HOST
-            value: "http://kubernetes.default.svc"
+            value: "https://kubernetes.default.svc"
+          - name: KUBERNETES_SERVICE_HOST
+            value: "kubernetes.default.svc"
+          - name: KUBERNETES_SERVICE_PORT
+            value: "443"
+      - op: add
+        path: /spec/template/spec/containers/0/volumeMounts
+        value:
+          - name: kube-api-access
+            mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+            readOnly: true
+      - op: add
+        path: /spec/template/spec/volumes
+        value:
+          - name: kube-api-access
+            projected:
+              sources:
+                - serviceAccountToken:
+                    expirationSeconds: 3607
+                    path: token
+                - configMap:
+                    name: kube-root-ca.crt
+                    items:
+                      - key: ca.crt
+                        path: ca.crt
+                - downwardAPI:
+                    items:
+                      - path: namespace
+                        fieldRef:
+                          apiVersion: v1
+                          fieldPath: metadata.namespace
     target:
       kind: Deployment
       name: cupdate
