@@ -53,6 +53,9 @@ patches:
                           fieldPath: metadata.namespace
           - name: data
             emptyDir: {}
+    target:
+      kind: Deployment
+      name: cupdate
 
 configMapGenerator:
   - name: cupdate-config
