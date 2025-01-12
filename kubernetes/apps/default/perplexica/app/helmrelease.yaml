@@ -31,12 +31,9 @@ spec:
               repository: bfenski/perplexica-frontend
               tag: latest
             env:
-              NEXT_PUBLIC_API_URL: "http://perplexica.${SECRET_DOMAIN}"
+              NEXT_PUBLIC_API_URL: "https://perplexica.${SECRET_DOMAIN}/api"
               NEXT_PUBLIC_WS_URL: "ws://perplexica.${SECRET_DOMAIN}"
-              NEXT_PUBLIC_ENABLE_OLLAMA: "true"
-              NEXT_PUBLIC_BASE_PATH: "/api"
-              NEXT_PUBLIC_MODELS_PATH: "/api/models"
-              NEXT_PUBLIC_CONFIG_PATH: "/api/config"
+
             resources:
               requests:
                 cpu: 10m
