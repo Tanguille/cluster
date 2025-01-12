@@ -97,6 +97,7 @@ spec:
         className: internal
         annotations:
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+          nginx.ingress.kubernetes.io/rewrite-target: /$2
         hosts:
           - host: "perplexica.${SECRET_DOMAIN}"
             paths:
@@ -104,6 +105,11 @@ spec:
                 pathType: Prefix
                 service:
                   identifier: frontend
+                  port: http
+              - path: /api(/|$)(.*)
+                pathType: Prefix
+                service:
+                  identifier: api
                   port: http
       api:
         className: internal
