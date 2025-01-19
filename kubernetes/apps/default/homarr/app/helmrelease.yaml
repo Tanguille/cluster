@@ -41,16 +41,22 @@ spec:
     persistence:
       config:
         enabled: true
+        type: pvc
         storageClass: "openebs-zfs"
         accessMode: ReadWriteOnce
         size: 50Mi
+        name: homarr-config
       icons:
         enabled: true
+        type: pvc
         storageClass: "openebs-zfs"
         accessMode: ReadWriteOnce
         size: 50Mi
+        name: homarr-icons
       data:
         enabled: true
+        type: pvc
         storageClass: "openebs-zfs"
         accessMode: ReadWriteOnce
         size: 50Mi
+        name: homarr-data
