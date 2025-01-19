@@ -45,18 +45,17 @@ spec:
         storageClass: "openebs-zfs"
         accessMode: ReadWriteOnce
         size: 50Mi
-        name: homarr-config
+        mountPath: /app/data/configs
       icons:
         enabled: true
         type: pvc
         storageClass: "openebs-zfs"
-        accessMode: ReadWriteOnce
         size: 50Mi
-        name: homarr-icons
+        mountPath: /app/public/icons
       data:
         enabled: true
         type: pvc
         storageClass: "openebs-zfs"
         accessMode: ReadWriteOnce
         size: 50Mi
-        name: homarr-data
+        mountPath: /app/data/configs/custom-icons
