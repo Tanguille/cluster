@@ -9,10 +9,10 @@ spec:
   chart:
     spec:
       chart: homarr
-      version: 1.3.8
+      version: 1.0.0
       sourceRef:
         kind: HelmRepository
-        name: oben01
+        name: homarr-labs
         namespace: flux-system
   install:
     remediation:
@@ -28,34 +28,29 @@ spec:
       TZ: ${TIMEZONE}
       DEFAULT_COLOR_SCHEME: dark
     ingress:
-      enabled: true
-      ingressClassName: "internal"
-      annotations:
-        external-dns.alpha.kubernetes.io/target: internal.${SECRET_DOMAIN}
-      hosts:
-        - host: apps.${SECRET_DOMAIN}
-          paths:
-            - path: /
+      main:
+        enabled: true
+        ingressClassName: "internal"
+        annotations:
+          external-dns.alpha.kubernetes.io/target: internal.${SECRET_DOMAIN}
+        hosts:
+          - host: apps.${SECRET_DOMAIN}
+            paths:
+              - path: /
+                pathType: Prefix
     persistence:
-      - name: homarr-config
+      config:
         enabled: true
-        storageClassName: "openebs-zfs"
-        # -- homarr-config access mode
-        accessMode: "ReadWriteOnce"
-        size: "50Mi"
-        # -- homarr-config mount path inside the pod
-        mountPath: "/app/data/configs"
-      - name: homarr-database
+        storageClass: "openebs-zfs"
+        accessMode: ReadWriteOnce
+        size: 50Mi
+      icons:
         enabled: true
-        storageClassName: "openebs-zfs"
-        accessMode: "ReadWriteOnce"
-        size: "50Mi"
-        # -- homarr-database mount path inside the pod
-        mountPath: "/app/database"
-      - name: homarr-icons
+        storageClass: "openebs-zfs"
+        accessMode: ReadWriteOnce
+        size: 50Mi
+      data:
         enabled: true
-        storageClassName: "openebs-zfs"
-        accessMode: "ReadWriteOnce"
-        size: "50Mi"
-        # -- homarr-icons mount path inside the pod
-        mountPath: "/app/public/icons"
+        storageClass: "openebs-zfs"
+        accessMode: ReadWriteOnce
+        size: 50Mi
