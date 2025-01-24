@@ -43,11 +43,14 @@ spec:
         enabled: true
         existingClaim: homarr-config
         mountPath: /app/data/configs
+        accessMode: ReadWriteOnce
       icons:
         enabled: true
         existingClaim: homarr-icons
         mountPath: /app/public/icons
+        accessMode: ReadWriteOnce
       data:
         enabled: true
         existingClaim: homarr-data
         mountPath: /app/data/configs/custom-icons
+        accessMode: ReadWriteOnce
