@@ -9,7 +9,7 @@ spec:
     schedule: "0 9 * * *"
   restic:
     copyMethod: "${VOLSYNC_COPYMETHOD:-Clone}"
-    pruneIntervalDays: 7
+    pruneIntervalDays: 3
     repository: "${APP}-volsync-b2-secret"
     volumeSnapshotClassName: "${VOLSYNC_STORAGECLASS:-openebs-zfs}"
     cacheCapacity: "${VOLSYNC_CACHE_CAPACITY:-4Gi}"
@@ -22,7 +22,7 @@ spec:
       runAsGroup: 568
       fsGroup: 568
     retain:
-      daily: 7
+      daily: 3
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/volsync.backube/replicationdestination_v1alpha1.json
 apiVersion: volsync.backube/v1alpha1
