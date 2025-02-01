@@ -6,10 +6,57 @@ metadata:
   namespace: database
 data:
   queries: |
+    pg_stat_bgwriter:
+      query: |
+        SELECT checkpoints_timed, checkpoints_req, checkpoint_write_time, 
+               checkpoint_sync_time, buffers_checkpoint, buffers_clean, 
+               maxwritten_clean, buffers_backend, buffers_backend_fsync, 
+               buffers_alloc
+        FROM pg_stat_bgwriter;
+      metrics:
+        - checkpoints_timed
+        - checkpoints_req
+        - checkpoint_write_time
+        - checkpoint_sync_time
+        - buffers_checkpoint
+        - buffers_clean
+        - maxwritten_clean
+        - buffers_backend
+        - buffers_backend_fsync
+        - buffers_alloc
+      database: postgres
+    pg_replication:
+      query: |
+        SELECT CASE WHEN NOT pg_is_in_recovery() THEN 0 ELSE GREATEST (0, EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))) END AS lag,
+               client_addr,
+               state
+        FROM pg_stat_replication;
+      metrics:
+        - lag
+        - client_addr
+        - state
+      database: postgres
+    pg_postmaster:
+      query: |
+        SELECT pg_postmaster_start_time as start_time_seconds from pg_postmaster_start_time();
+      metrics:
+        - start_time_seconds
+      database: postgres
     pg_database:
       query: |
-        SELECT d.datname as name, CASE WHEN pg_catalog.has_database_privilege(d.datname, 'CONNECT')
-        THEN pg_catalog.pg_database_size(d.datname) ELSE 0 END as size_bytes,
-        d.datistemplate as is_template, d.datallowconn as allows_connection, d.datconnlimit as connection_limit,
-        age(d.datfrozenxid) as frozen_xid_age
-        FROM pg_catalog.pg_database d WHERE d.datname = 'postgres'
+        SELECT datname as name,
+               pg_database_size(datname) as size_bytes,
+               datistemplate as is_template,
+               datallowconn as allows_connection,
+               datconnlimit as connection_limit,
+               age(datfrozenxid) as frozen_xid_age
+        FROM pg_database;
+      metrics:
+        - name
+        - size_bytes
+        - is_template
+        - allows_connection
+        - connection_limit
+        - frozen_xid_age
+      database: postgres
+      
