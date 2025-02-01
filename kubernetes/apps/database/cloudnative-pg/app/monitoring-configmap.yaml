@@ -12,4 +12,4 @@ data:
         THEN pg_catalog.pg_database_size(d.datname) ELSE 0 END as size_bytes,
         d.datistemplate as is_template, d.datallowconn as allows_connection, d.datconnlimit as connection_limit,
         age(d.datfrozenxid) as frozen_xid_age
-        FROM pg_catalog.pg_database d WHERE d.datname = 'postgres' 
+        FROM pg_catalog.pg_database d WHERE d.datname = 'postgres'
