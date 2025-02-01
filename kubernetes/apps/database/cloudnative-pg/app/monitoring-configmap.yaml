@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cnpg-monitoring-queries
+  namespace: database
+data:
+  queries: |
+    pg_database:
+      query: |
+        SELECT d.datname as name, CASE WHEN pg_catalog.has_database_privilege(d.datname, 'CONNECT')
+        THEN pg_catalog.pg_database_size(d.datname) ELSE 0 END as size_bytes,
+        d.datistemplate as is_template, d.datallowconn as allows_connection, d.datconnlimit as connection_limit,
+        age(d.datfrozenxid) as frozen_xid_age
+        FROM pg_catalog.pg_database d WHERE d.datname = 'postgres' 
