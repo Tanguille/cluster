@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
@@ -16,13 +17,13 @@ resources:
   - ./k8s-gateway.yaml
   - ./node-feature-discovery.yaml
   - ./nvidia-plugin.yaml
+  - ./controlplaneio.yaml
   - ./metrics-server.yaml
   - ./mojo2600.yaml
   - ./nextcloud.yaml
   - ./oben01.yaml
   - ./openebs.yaml
   - ./piraeus.yaml
-  - ./postfinance.yaml
   - ./prometheus-community.yaml
   - ./spegel.yaml
   - ./stakater.yaml
