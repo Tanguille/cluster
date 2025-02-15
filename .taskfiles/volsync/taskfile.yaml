@@ -109,3 +109,21 @@ tasks:
       PREVIOUS: "{{.PREVIOUS}}"
     requires:
       vars: [CLUSTER, APP, PREVIOUS]
+
+  prune:
+    desc: Prune volsync backups [APP=required]
+    cmds:
+      - kubectl patch replicationsource {{.APP}} --type merge -p '{"spec":{"restic":{"unlock":"{{now | unixEpoch}}"}}}'
+    requires:
+      vars: [APP]
+
+  prune-all:
+    desc: Prune all volsync backups [CLUSTER=main]
+    cmds:
+      - for: { var: SOURCES, split: "\n" }
+        cmd: kubectl --namespace {{splitList "," .ITEM | first}} patch replicationsource {{splitList "," .ITEM | last}} --type merge -p '{"spec":{"restic":{"unlock":"{{now | unixEpoch}}"}}}'
+    vars:
+      SOURCES:
+        sh: kubectl get replicationsources --all-namespaces --no-headers --output=jsonpath='{range .items[*]}{.metadata.namespace},{.metadata.name}{"\n"}{end}'
+    requires:
+      vars: [CLUSTER]
