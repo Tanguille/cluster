@@ -43,14 +43,14 @@ spec:
       homarrDatabase:
         enabled: true
         type: pvc
-        storageClass: local-path
+        storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /app/data/configs
       homarrImages:
         enabled: true
         type: pvc
-        storageClass: local-path
+        storageClass: openebs-hostpath
         accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /images
