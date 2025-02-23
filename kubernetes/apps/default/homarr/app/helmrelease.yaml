@@ -42,11 +42,15 @@ spec:
     persistence:
       homarrDatabase:
         enabled: true
-        existingClaim: homarr-config
-        mountPath: /app/data/configs
+        type: pvc
+        storageClass: local-path
         accessMode: ReadWriteOnce
+        size: 1Gi
+        mountPath: /app/data/configs
       homarrImages:
         enabled: true
-        existingClaim: homarr-icons
-        mountPath: /images
+        type: pvc
+        storageClass: local-path
         accessMode: ReadWriteOnce
+        size: 1Gi
+        mountPath: /images
