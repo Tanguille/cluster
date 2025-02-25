@@ -28,26 +28,26 @@ spec:
       TZ: ${TIMEZONE}
       DEFAULT_COLOR_SCHEME: dark
     ingress:
-      main:
-        enabled: true
-        ingressClassName: "internal"
-        annotations:
-          external-dns.alpha.kubernetes.io/target: internal.${SECRET_DOMAIN}
-        hosts:
-          - host: apps.${SECRET_DOMAIN}
-            paths:
-              - path: /
-                pathType: Prefix
+      enabled: true
+      ingressClassName: "internal"
+      annotations:
+        external-dns.alpha.kubernetes.io/target: internal.${SECRET_DOMAIN}
+      hosts:
+        - host: apps.${SECRET_DOMAIN}
+          paths:
+            - path: /
+              pathType: Prefix
 
     persistence:
       homarrDatabase:
         enabled: true
-        existingClaim: homarr-config
+        storageClassName: openebs-zfs
+        accessMode: ReadWriteOnce
+        size: 1Gi
         mountPath: /app/data/configs
       homarrImages:
         enabled: true
-        type: pvc
-        storageClass: openebs-zfs
+        storageClassName: openebs-zfs
         accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /images
