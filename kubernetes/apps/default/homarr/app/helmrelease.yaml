@@ -38,6 +38,10 @@ spec:
             - path: /
               pathType: Prefix
 
+    envSecrets:
+      dbCredentials:
+        existingSecret: homarr-secret
+
     persistence:
       homarrDatabase:
         enabled: true
