@@ -45,12 +45,14 @@ spec:
     persistence:
       homarrDatabase:
         enabled: true
+        name: homarr-database
         storageClassName: openebs-zfs
         accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /app/data/configs
       homarrImages:
         enabled: true
+        name: homarr-images
         storageClassName: openebs-zfs
         accessMode: ReadWriteOnce
         size: 1Gi
