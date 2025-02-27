@@ -44,6 +44,7 @@ spec:
               tag: v0.5.18
             env:
               OLLAMA_API_BASE_URL: http://ollama.default.svc.cluster.local:11434
+            envFrom: *envFrom
             resources:
               requests:
                 cpu: 500m
