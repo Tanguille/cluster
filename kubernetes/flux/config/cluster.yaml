@@ -8,7 +8,7 @@ metadata:
 spec:
   interval: 30m
   path: ./kubernetes/flux
-  prune: false # revert to true
+  prune: true
   wait: true
   sourceRef:
     kind: GitRepository
@@ -85,10 +85,10 @@ spec:
                 name: cluster-secrets
               - kind: ConfigMap
                 name: cluster-user-settings
-                optional: true
+                optional: false
               - kind: Secret
                 name: cluster-user-secrets
-                optional: true
+                optional: false
       target:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
