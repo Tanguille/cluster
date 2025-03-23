@@ -53,10 +53,10 @@ Host = "http://qbittorrent.media.svc.cluster.local"
 Port = 80
 
 # qBit WebUI Authentication - Can be found in Options > Web UI > Authentication
-UserName = "${QBITTORRENT_USER}"
+UserName = "$QBITTORRENT_USER"
 
 # If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
-Password = "${QBITTORRENT_PWD}"
+Password = "$QBITTORRENT_PWD"
 
 # Set to true to allow qbittorrent v5 (Some API calls will not work as expected due to qbittorrent API issues not qBitrr)
 v5 = true
@@ -69,7 +69,7 @@ Managed = true
 URI = "http://sonarr.media.svc.cluster.local"
 
 # The Servarr API Key, Can be found it Settings > General > Security
-APIKey = "${SONARR_API_KEY}"
+APIKey = "$SONARR_API_KEY"
 
 # Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
 Category = "tv-sonarr"
@@ -142,7 +142,7 @@ SearchOverseerrRequests = true
 OverseerrURI = "http://jellyseerr.media.svc.cluster.local"
 
 # Overseerr's API Key
-OverseerrAPIKey = "${JELLYSEERR_API_KEY}"
+OverseerrAPIKey = "$JELLYSEERR_API_KEY"
 
 # Only process approved requests
 ApprovedOnly = true
@@ -246,7 +246,7 @@ Managed = true
 URI = "http://radarr.media.svc.cluster.local"
 
 # The Servarr API Key, Can be found it Settings > General > Security
-APIKey = "${RADARR_API_KEY}"
+APIKey = "$RADARR_API_KEY"
 
 # Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
 Category = "radarr"
@@ -319,7 +319,7 @@ SearchOverseerrRequests = true
 OverseerrURI = "http://jellyseerr.media.svc.cluster.local"
 
 # Overseerr's API Key
-OverseerrAPIKey = "${JELLYSEERR_API_KEY}"
+OverseerrAPIKey = "$JELLYSEERR_API_KEY"
 
 # Only process approved requests
 ApprovedOnly = true
