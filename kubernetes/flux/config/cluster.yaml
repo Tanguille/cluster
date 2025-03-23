@@ -45,6 +45,9 @@ metadata:
   namespace: flux-system
 spec:
   interval: 30m
+  dependsOn:
+    - name: cluster-shared
+    - name: cluster-settings
   path: ./kubernetes/apps
   prune: true
   sourceRef:
@@ -56,15 +59,11 @@ spec:
       name: sops-age
   postBuild:
     substituteFrom:
-      - kind: ConfigMap
-        name: cluster-settings
-      - kind: Secret
-        name: cluster-secrets
-      - kind: ConfigMap
-        name: cluster-user-settings
+      - name: cluster-settings
+        kind: ConfigMap
         optional: true
-      - kind: Secret
-        name: cluster-user-secrets
+      - name: cluster-secrets
+        kind: Secret
         optional: true
   patches:
     - patch: |-
@@ -79,15 +78,11 @@ spec:
               name: sops-age
           postBuild:
             substituteFrom:
-              - kind: ConfigMap
-                name: cluster-settings
-              - kind: Secret
-                name: cluster-secrets
-              - kind: ConfigMap
-                name: cluster-user-settings
+              - name: cluster-settings
+                kind: ConfigMap
                 optional: false
-              - kind: Secret
-                name: cluster-user-secrets
+              - name: cluster-secrets
+                kind: Secret
                 optional: false
       target:
         group: kustomize.toolkit.fluxcd.io
