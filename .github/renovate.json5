@@ -4,9 +4,10 @@
     "config:recommended",
     "docker:enableMajor",
     ":automergeBranch",
-    ":separatePatchReleases",
+    ":disableRateLimiting",
     ":dependencyDashboard",
     ":semanticCommits",
+    ":timezone(Europe/Brussels)",
     "github>tanguille/cluster//.github/renovate/allowedVersions.json5",
     "github>tanguille/cluster//.github/renovate/autoMerge.json5",
     "github>tanguille/cluster//.github/renovate/commitMessage.json5",
@@ -20,21 +21,17 @@
   dependencyDashboard: true,
   dependencyDashboardTitle: "Renovate Dashboard 🤖",
   suppressNotifications: ["prEditedNotification", "prIgnoreNotification"],
+  onboarding: false,
   rebaseWhen: "conflicted",
-  ignorePaths: ["**/*.sops.*"],
+  requireConfig: "ignored",
+  ignorePaths: ["**/*.sops.*", "**/resources/**"],
   flux: {
-    fileMatch: ["(^|/)kubernetes/.+\\.ya?ml(?:\\.j2)?$"],
+    fileMatch: ["(^|/)kubernetes/.+\\.ya?ml$"],
   },
   "helm-values": {
-    fileMatch: ["(^|/)kubernetes/.+\\.ya?ml(?:\\.j2)?$"],
-  },
-  helmfile: {
-    fileMatch: ["(^|/)helmfile\\.ya?ml(?:\\.j2)?$"],
+    fileMatch: ["(^|/)kubernetes/.+\\.ya?ml$"],
   },
   kubernetes: {
-    fileMatch: ["(^|/)kubernetes/.+\\.ya?ml(?:\\.j2)?$"],
-  },
-  kustomize: {
-    fileMatch: ["(^|/)kustomization\\.ya?ml(?:\\.j2)?$"],
+    fileMatch: ["(^|/)kubernetes/.+\\.ya?ml$"],
   },
 }
