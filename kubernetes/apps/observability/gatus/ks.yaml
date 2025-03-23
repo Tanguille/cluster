@@ -13,7 +13,7 @@ spec:
   dependsOn:
     - name: cloudnative-pg-cluster
   path: ./kubernetes/apps/observability/gatus/app
-  prune: true
+  prune: false # Revert to true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes

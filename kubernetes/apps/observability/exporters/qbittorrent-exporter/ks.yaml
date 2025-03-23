@@ -12,7 +12,7 @@ spec:
   dependsOn:
     - name: qbittorrent
   path: ./kubernetes/apps/observability/exporters/qbittorrent-exporter/app
-  prune: true
+  prune: false # Revert to true
   sourceRef:
     kind: GitRepository
     name: home-kubernetes
