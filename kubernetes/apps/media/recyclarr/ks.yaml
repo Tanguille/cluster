@@ -12,7 +12,7 @@ spec:
       app.kubernetes.io/name: *app
   wait: false
   path: ./kubernetes/apps/media/recyclarr/app
-  prune: false # Revert to true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
