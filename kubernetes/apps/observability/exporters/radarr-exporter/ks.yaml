@@ -12,7 +12,7 @@ spec:
   dependsOn:
     - name: radarr
   path: ./kubernetes/apps/observability/exporters/radarr-exporter/app
-  prune: false # Revert to true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
