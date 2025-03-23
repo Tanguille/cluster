@@ -78,7 +78,7 @@ spec:
               name: sops-age
           postBuild:
             substituteFrom:
-              - name: cluster-settings
+              - name: cluster-user-settings
                 kind: ConfigMap
                 optional: false
               - name: cluster-secrets
