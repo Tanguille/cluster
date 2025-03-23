@@ -3,30 +3,11 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: cluster-shared
-  namespace: flux-system
-spec:
-  interval: 30m
-  path: ./kubernetes/shared
-  prune: false # revert to true
-  wait: true
-  sourceRef:
-    kind: GitRepository
-    name: home-kubernetes
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: cluster-settings
   namespace: flux-system
 spec:
   interval: 30m
-  path: ./kubernetes/main/flux/settings
+  path: ./kubernetes/flux/settings
   prune: true
   wait: true
   sourceRef:
