@@ -12,7 +12,7 @@ spec:
   dependsOn:
     - name: cert-manager-issuers
   path: ./kubernetes/apps/network/ingress-nginx/certificates
-  prune: false # Revert to true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -33,7 +33,7 @@ spec:
   dependsOn:
     - name: ingress-nginx-certificates
   path: ./kubernetes/apps/network/ingress-nginx/internal
-  prune: false # Revert to true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -54,7 +54,7 @@ spec:
   dependsOn:
     - name: ingress-nginx-certificates
   path: ./kubernetes/apps/network/ingress-nginx/external
-  prune: false # Revert to true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
