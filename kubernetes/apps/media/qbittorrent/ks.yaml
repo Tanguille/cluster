@@ -14,7 +14,7 @@ spec:
     - name: volsync
   wait: true
   path: ./kubernetes/apps/media/qbittorrent/qbittorrent
-  prune: false # Revert to true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -40,7 +40,7 @@ spec:
     - name: qbittorrent
   wait: true
   path: ./kubernetes/apps/media/qbittorrent/qbitmanage
-  prune: false # Revert to true
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -66,7 +66,7 @@ spec:
 #     - name: qbittorrent
 #   wait: true
 #   path: ./kubernetes/apps/media/qbittorrent/qbitrr
-#   prune: false # Revert to true
+#   prune: true
 #   sourceRef:
 #     kind: GitRepository
 #     name: flux-system
