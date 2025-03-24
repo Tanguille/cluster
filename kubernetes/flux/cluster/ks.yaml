@@ -49,3 +49,6 @@ spec:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
         labelSelector: substitution.flux.home.arpa/disabled notin (true)
+  dependsOn:
+    - name: cluster-vars
+      namespace: flux-system
