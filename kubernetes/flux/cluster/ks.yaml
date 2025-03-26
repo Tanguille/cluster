@@ -3,29 +3,6 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: cluster
-  namespace: flux-system
-spec:
-  interval: 10m
-  path: ./kubernetes/flux/cluster
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  wait: false
-  postBuild:
-    substituteFrom:
-      - kind: ConfigMap
-        name: cluster-settings
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: cluster-apps
   namespace: flux-system
 spec:
