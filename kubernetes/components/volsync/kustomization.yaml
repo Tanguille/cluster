@@ -1,8 +1,8 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
+kind: Component
 resources:
-  - ./claim.yaml
   - ./b2.yaml
+  - ./claim.yaml
   - ./secret.sops.yaml
