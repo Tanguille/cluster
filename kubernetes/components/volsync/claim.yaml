@@ -1,0 +1,33 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: "openebs-zfs-${VOLSYNC_RECORD_SIZE:-128k}"
+allowVolumeExpansion: true
+parameters:
+  fstype: zfs
+  poolname: speed
+  recordsize: "${VOLSYNC_RECORD_SIZE:-128k}"
+  compression: lz4
+  dedup: off
+  thinprovision: "yes"
+  shared: "yes"
+provisioner: zfs.csi.openebs.io
+volumeBindingMode: Immediate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "${APP}"
+spec:
+  accessModes: ["${VOLSYNC_ACCESSMODES:-ReadWriteOnce}"]
+  dataSourceRef:
+    kind: ReplicationDestination
+    apiGroup: volsync.backube
+    name: "${APP}-dst"
+  resources:
+    requests:
+      storage: "${VOLSYNC_CAPACITY}"
+  storageClassName: "openebs-zfs-${VOLSYNC_RECORD_SIZE:-128k}"
+---
+
