@@ -12,6 +12,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: openebs
+      namespace: openebs-system
   wait: true
   path: ./kubernetes/apps/media/fileflows/app
   prune: true
