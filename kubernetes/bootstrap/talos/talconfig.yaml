@@ -26,6 +26,8 @@ nodes:
     installDisk: "/dev/vda"
     talosImageURL: factory.talos.dev/installer/42dcbb7542e7f2d53beec866d4687f9306cd2b2da3b049fb4872cfc41942723e
     controlPlane: true
+    nodeLabels:
+      nvidia.com/gpu: "true"
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "00:a0:98:01:cc:3f"
@@ -56,6 +58,7 @@ patches:
   - "@./patches/global/openebs-local.yaml"
   - "@./patches/global/sysctl.yaml"
   - "@./patches/global/nvidia.yaml"
+  - "@./patches/global/api-server-audit.yaml"
 
 # Controller patches
 controlPlane:
