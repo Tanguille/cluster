@@ -2,7 +2,7 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: "openebs-zfs"
+  name: "${VOLSYNC_STORAGE_CLASS:-openebs-zfs}"
 allowVolumeExpansion: true
 parameters:
   fstype: zfs
@@ -28,6 +28,6 @@ spec:
   resources:
     requests:
       storage: "${VOLSYNC_CAPACITY}"
-  storageClassName: "openebs-zfs"
+  storageClassName: "${VOLSYNC_STORAGE_CLASS:-openebs-zfs}"
 ---
 
