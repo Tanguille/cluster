@@ -11,7 +11,9 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: openebs
+      namespace: openebs-system
     - name: volsync
+      namespace: volsync-system
   wait: true
   path: ./kubernetes/apps/media/qbittorrent/qbittorrent
   prune: true
