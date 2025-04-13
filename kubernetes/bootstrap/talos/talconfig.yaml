@@ -26,6 +26,8 @@ nodes:
     installDisk: "/dev/vda"
     talosImageURL: factory.talos.dev/installer/42dcbb7542e7f2d53beec866d4687f9306cd2b2da3b049fb4872cfc41942723e
     controlPlane: true
+    nodeLabels:
+      nvidia.com/gpu: "true"
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "00:a0:98:01:cc:3f"
@@ -48,19 +50,17 @@ patches:
         nameservers:
           - 1.1.1.1
           - 1.0.0.1
-  - "@./patches/global/cluster-discovery.yaml"
   - "@./patches/global/containerd.yaml"
   - "@./patches/global/disable-search-domain.yaml"
   - "@./patches/global/hostdns.yaml"
   - "@./patches/global/kubelet.yaml"
   - "@./patches/global/openebs-local.yaml"
   - "@./patches/global/sysctl.yaml"
-  - "@./patches/global/nvidia.yaml"
+  - "@./patches/global/api-server-audit.yaml"
 
 # Controller patches
 controlPlane:
   patches:
-    - "@./patches/controller/api-access.yaml"
     - "@./patches/controller/cluster.yaml"
     - "@./patches/controller/disable-admission-controller.yaml"
     - "@./patches/controller/etcd.yaml"
