@@ -12,7 +12,9 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: volsync
+      namespace: volsync-system
     - name: openebs
+      namespace: openebs-system
   wait: true
   path: ./kubernetes/apps/media/radarr/app
   prune: true
