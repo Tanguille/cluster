@@ -17,7 +17,6 @@ spec:
     remediation:
       strategy: rollback
       retries: 3
-
   values:
     controllers:
       dragonfly-operator:
@@ -63,13 +62,12 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
-
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534
         runAsGroup: 65534
-
+        seccompProfile: { type: RuntimeDefault }
     service:
       app:
         controller: *app
@@ -78,7 +76,6 @@ spec:
             port: *port
           metrics:
             port: 8080
-
     serviceMonitor:
       app:
         serviceName: *app
@@ -88,7 +85,6 @@ spec:
             path: /metrics
             interval: 1m
             scrapeTimeout: 10s
-
     serviceAccount:
       create: true
       name: *app
