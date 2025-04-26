@@ -3,9 +3,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app qbittorrent
-  namespace: flux-system
+  namespace: &namespace media
 spec:
-  targetNamespace: media
+  targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -20,6 +20,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+    namespace: flux-system
   interval: 30m
   timeout: 5m
   postBuild:
@@ -32,9 +33,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app qbitmanage
-  namespace: flux-system
+  namespace: &namespace flux-system
 spec:
-  targetNamespace: media
+  targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -46,6 +47,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+    namespace: flux-system
   interval: 30m
   timeout: 5m
   postBuild:
@@ -58,9 +60,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: &app qbitrr
-  namespace: flux-system
+  namespace: &namespace flux-system
 spec:
-  targetNamespace: media
+  targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
@@ -72,6 +74,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+    namespace: flux-system
   interval: 30m
   timeout: 5m
   postBuild:
