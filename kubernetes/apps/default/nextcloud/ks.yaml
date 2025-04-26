@@ -12,6 +12,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: dragonfly-cluster
+      namespace: database
   path: ./kubernetes/apps/default/nextcloud/app
   prune: true
   sourceRef:

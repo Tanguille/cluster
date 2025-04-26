@@ -11,6 +11,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: sonarr
+      namespace: media
   path: ./kubernetes/apps/observability/exporters/sonarr-exporter/app
   prune: true
   sourceRef:

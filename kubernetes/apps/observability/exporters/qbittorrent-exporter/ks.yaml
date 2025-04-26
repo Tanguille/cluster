@@ -11,6 +11,7 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: qbittorrent
+      namespace: media
   path: ./kubernetes/apps/observability/exporters/qbittorrent-exporter/app
   prune: true
   sourceRef:
