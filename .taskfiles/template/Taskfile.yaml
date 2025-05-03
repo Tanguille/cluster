@@ -1,16 +1,15 @@
 ---
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
-version: '3'
+version: "3"
 
 vars:
-  MAKEJINJA_CONFIG_FILE: '{{.ROOT_DIR}}/makejinja.toml'
-  TEMPLATE_DIR: '{{.ROOT_DIR}}/templates'
-  TEMPLATE_RESOURCES_DIR: '{{.ROOT_DIR}}/.taskfiles/template/resources'
-  TEMPLATE_CONFIG_FILE: '{{.ROOT_DIR}}/cluster.yaml'
-  TEMPLATE_NODE_CONFIG_FILE: '{{.ROOT_DIR}}/nodes.yaml'
+  MAKEJINJA_CONFIG_FILE: "{{.ROOT_DIR}}/makejinja.toml"
+  TEMPLATE_DIR: "{{.ROOT_DIR}}/templates"
+  TEMPLATE_RESOURCES_DIR: "{{.ROOT_DIR}}/.taskfiles/template/resources"
+  TEMPLATE_CONFIG_FILE: "{{.ROOT_DIR}}/cluster.yaml"
+  TEMPLATE_NODE_CONFIG_FILE: "{{.ROOT_DIR}}/nodes.yaml"
 
 tasks:
-
   :init:
     desc: Initialize configuration files
     cmds:
@@ -61,7 +60,7 @@ tasks:
       - task: validate-talos-config
     preconditions:
       - msg: An existing Age key interferes with the age key in this repository, rename or delete ~/.config/sops/age/keys.txt
-        sh: '! test -f ~/.config/sops/age/keys.txt'
+        sh: "! test -f ~/.config/sops/age/keys.txt"
       - msg: File cluster.yaml not found, did you run `task init`?
         sh: test -f {{.TEMPLATE_CONFIG_FILE}}
       - msg: File nodes.yaml not found, did you run `task init`?
@@ -83,7 +82,7 @@ tasks:
     internal: true
     cmd: makejinja
     env:
-      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONDONTWRITEBYTECODE: "1"
     preconditions:
       - test -f {{.TEMPLATE_DIR}}/scripts/plugin.py
       - test -f {{.MAKEJINJA_CONFIG_FILE}}
@@ -114,7 +113,7 @@ tasks:
 
   validate-talos-config:
     internal: true
-    dir: '{{.TALOS_DIR}}'
+    dir: "{{.TALOS_DIR}}"
     cmd: talhelper validate talconfig {{.TALOS_DIR}}/talconfig.yaml
     preconditions:
       - test -f {{.TALOS_DIR}}/talconfig.yaml
@@ -125,7 +124,18 @@ tasks:
     cmds:
       - for:
           matrix:
-            RESOURCE: [certificates, certificaterequests, gitrepositories, helmrepositories, helmreleases, ingresses, kustomizations, nodes, pods]
+            RESOURCE:
+              [
+                certificates,
+                certificaterequests,
+                gitrepositories,
+                helmrepositories,
+                helmreleases,
+                ingresses,
+                kustomizations,
+                nodes,
+                pods,
+              ]
         cmd: kubectl get --all-namespaces {{.ITEM.RESOURCE}}
     preconditions:
       - test -f {{.KUBECONFIG}}
@@ -150,7 +160,7 @@ tasks:
         {{.SED}} -i '/template:/d' {{.ROOT_DIR}}/Taskfile.yaml
       - mv {{.ROOT_DIR}}/.taskfiles/template {{.TIDY_FOLDER}}/.taskfiles/
     vars:
-      TIDY_FOLDER: '{{.PRIVATE_DIR}}/{{now | unixEpoch}}'
+      TIDY_FOLDER: "{{.PRIVATE_DIR}}/{{now | unixEpoch}}"
       SED:
         sh: which gsed || which sed
     preconditions:
