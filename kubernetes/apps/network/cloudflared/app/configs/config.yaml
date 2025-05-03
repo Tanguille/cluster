@@ -4,6 +4,7 @@ originRequest:
 
 ingress:
   - hostname: "${SECRET_DOMAIN}"
+<<<<<<<< HEAD:kubernetes/apps/network/cloudflared/app/configs/config.yaml
     service: https://ingress-nginx-external-controller.network.svc.cluster.local:443
     #% if not bootstrap_cloudflare.acme.production %#
     originRequest:
@@ -15,4 +16,9 @@ ingress:
     originRequest:
       noTLSVerify: true
     #% endif %#
+========
+    service: &svc https://external-ingress-nginx-controller.network.svc.cluster.local:443
+  - hostname: "*.${SECRET_DOMAIN}"
+    service: *svc
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/network/external/cloudflared/configs/config.yaml.j2
   - service: http_status:404
