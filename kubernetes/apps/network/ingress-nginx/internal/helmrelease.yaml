@@ -1,31 +1,40 @@
 ---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: ingress-nginx-internal
+  name: internal-ingress-nginx
 spec:
-  interval: 30m
+  interval: 1h
   chart:
     spec:
       chart: ingress-nginx
+<<<<<<<< HEAD:kubernetes/apps/network/ingress-nginx/internal/helmrelease.yaml
       version: 4.12.1
+========
+      version: 4.12.2
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/network/internal/ingress-nginx/helmrelease.yaml.j2
       sourceRef:
         kind: HelmRepository
         name: ingress-nginx
         namespace: flux-system
   install:
     remediation:
-      retries: 3
+      retries: -1
   upgrade:
     cleanupOnFail: true
     remediation:
       retries: 3
   values:
-    fullnameOverride: ingress-nginx-internal
+    fullnameOverride: internal-ingress-nginx
     controller:
       service:
         annotations:
+<<<<<<<< HEAD:kubernetes/apps/network/ingress-nginx/internal/helmrelease.yaml
           lbipam.cilium.io/ips: "192.168.0.4"
+========
+          lbipam.cilium.io/ips: "#{ cluster_ingress_addr }#"
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/network/internal/ingress-nginx/helmrelease.yaml.j2
         externalTrafficPolicy: Cluster
       ingressClassResource:
         name: internal
@@ -38,13 +47,22 @@ spec:
               operator: In
               values: ["internal"]
       config:
+<<<<<<<< HEAD:kubernetes/apps/network/ingress-nginx/internal/helmrelease.yaml
         annotations-risk-level: Critical # TODO: See if i can remove snippets from ingress at some point
+========
+        allow-snippet-annotations: true
+        annotations-risk-level: Critical
+        block-user-agents: "AdsBot-Google,Amazonbot,anthropic-ai,Applebot-Extended,Bytespider,CCBot,ChatGPT-User,ClaudeBot,Claude-Web,cohere-ai,Diffbot,FacebookBot,FriendlyCrawler,Google-Extended,GoogleOther,GPTBot,img2dataset,omgili,omgilibot,peer39_crawler,peer39_crawler/1.0,PerplexityBot,YouBot," # taken from https://github.com/ai-robots-txt/ai.robots.txt
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/network/internal/ingress-nginx/helmrelease.yaml.j2
         client-body-buffer-size: 100M
         client-body-timeout: 120
         client-header-timeout: 120
         enable-brotli: "true"
+        enable-ocsp: "true"
         enable-real-ip: "true"
-        hsts-max-age: 31449600
+        force-ssl-redirect: "true"
+        hide-headers: Server,X-Powered-By
+        hsts-max-age: "31449600" # quote
         keep-alive-requests: 10000
         keep-alive: 120
         log-format-escape-json: "true"
@@ -57,6 +75,7 @@ spec:
         proxy-body-size: 0
         proxy-buffer-size: 16k
         ssl-protocols: TLSv1.3 TLSv1.2
+        use-forwarded-headers: "true"
       metrics:
         enabled: true
         serviceMonitor:
@@ -64,7 +83,11 @@ spec:
           namespaceSelector:
             any: true
       extraArgs:
+<<<<<<<< HEAD:kubernetes/apps/network/ingress-nginx/internal/helmrelease.yaml
         default-ssl-certificate: "network/${SECRET_DOMAIN/./-}-production-tls"
+========
+        default-ssl-certificate: cert-manager/${SECRET_DOMAIN/./-}-production-tls
+>>>>>>>> upstream/main:templates/config/kubernetes/apps/network/internal/ingress-nginx/helmrelease.yaml.j2
       resources:
         requests:
           cpu: 100m
