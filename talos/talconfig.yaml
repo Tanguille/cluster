@@ -26,6 +26,8 @@ nodes:
       secureboot: false
     talosImageURL: factory.talos.dev/installer/42dcbb7542e7f2d53beec866d4687f9306cd2b2da3b049fb4872cfc41942723e
     controlPlane: true
+    nodeLabels:
+      nvidia.com/gpu: "true"
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "00:16:3e:d1:29:8f"
@@ -46,7 +48,7 @@ patches:
   - "@./patches/global/machine-network.yaml"
   - "@./patches/global/machine-sysctls.yaml"
   - "@./patches/global/machine-time.yaml"
-
+  - "@./patches/global/gpu-worker-patch.yaml"
 # Controller patches
 controlPlane:
   patches:
