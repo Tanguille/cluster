@@ -5,8 +5,10 @@ kind: Kustomization
 namespace: default
 components:
   - ../../components/common
+  - ../../components/repos/app-template
 resources:
   - ./changedetection/ks.yaml
+  - ./echo/ks.yaml
   - ./homarr/ks.yaml
   - ./it-tools/ks.yaml
   - ./nextcloud/ks.yaml

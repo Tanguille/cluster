@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
+---
+clusterName: kubernetes
+
+talosVersion: "${talosVersion}"
+kubernetesVersion: "${kubernetesVersion}"
+
+endpoint: https://192.168.0.3:6443
+additionalApiServerCertSans: &sans
+  - "127.0.0.1"
+  - "192.168.0.3"
+additionalMachineCertSans: *sans
+
+clusterPodNets: ["10.42.0.0/16"]
+clusterSvcNets: ["10.43.0.0/16"]
+
+# Disable built-in CNI to use Cilium
+cniConfig:
+  name: none
+
+nodes:
+  - hostname: "control-1"
+    ipAddress: "192.168.0.2"
+    installDisk: "/dev/nvme1n1"
+    machineSpec:
+      secureboot: false
+    talosImageURL: factory.talos.dev/installer/42dcbb7542e7f2d53beec866d4687f9306cd2b2da3b049fb4872cfc41942723e
+    controlPlane: true
+    nodeLabels:
+      nvidia.com/gpu: "true"
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "00:16:3e:d1:29:8f"
+        dhcp: false
+        addresses:
+          - "192.168.0.2/24"
+        routes:
+          - network: "0.0.0.0/0"
+            gateway: "192.168.0.1"
+        mtu: 1500
+        vip:
+          ip: "192.168.0.3"
+
+# Global patches
+patches:
+  - "@./patches/global/machine-files.yaml"
+  - "@./patches/global/machine-kubelet.yaml"
+  - "@./patches/global/machine-network.yaml"
+  - "@./patches/global/machine-sysctls.yaml"
+  - "@./patches/global/machine-time.yaml"
+
+# Controller patches
+controlPlane:
+  patches:
+    - "@./patches/controller/admission-controller-patch.yaml"
+    - "@./patches/controller/cluster.yaml"
