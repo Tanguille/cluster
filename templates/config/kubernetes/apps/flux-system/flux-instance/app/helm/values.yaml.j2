@@ -1,0 +1,22 @@
+---
+instance:
+  distribution:
+    # renovate: datasource=github-releases depName=controlplaneio-fluxcd/distribution
+    version: 2.5.1
+  cluster:
+    networkPolicy: false
+  components:
+    - source-controller
+    - kustomize-controller
+    - helm-controller
+    - notification-controller
+  sync:
+    kind: GitRepository
+    #% if repository_visibility == 'private' %#
+    url: "ssh://git@github.com/#{ repository_name }#.git"
+    pullSecret: github-deploy-key
+    #% else %#
+    url: "https://github.com/#{ repository_name }#.git"
+    #% endif %#
+    ref: "refs/heads/#{ repository_branch }#"
+    path: kubernetes/flux/cluster
