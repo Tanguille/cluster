@@ -21,7 +21,7 @@ cniConfig:
 nodes:
   - hostname: "control-1"
     ipAddress: "192.168.0.2"
-    installDisk: "/dev/incus_disk1"
+    installDisk: "/dev/incus_root"
     machineSpec:
       secureboot: false
     talosImageURL: factory.talos.dev/installer/61dafdbd2848ffd59366138109873d17477ecc12b5954f08b1f0437fa20926b2
@@ -30,7 +30,7 @@ nodes:
       nvidia.com/gpu: "true"
     networkInterfaces:
       - deviceSelector:
-          hardwareAddr: "00:16:3e:00:e3:da"
+          hardwareAddr: "00:16:3e:97:0e:d8"
         dhcp: false
         addresses:
           - "192.168.0.2/24"
@@ -56,3 +56,4 @@ controlPlane:
   patches:
     - "@./patches/controller/admission-controller-patch.yaml"
     - "@./patches/controller/cluster.yaml"
+    - "@./patches/controller/volsync-patch.yaml"
