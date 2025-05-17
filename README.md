@@ -2,16 +2,6 @@
 
 Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [cluster-template](https://github.com/onedr0p/cluster-template) project where I want to express my gratitude to the community for all the amazing work they have done.
 
-## 💥 Reset
-
-> [!WARNING] > **Resetting** the cluster **multiple times in a short period of time** could lead to being **rate limited by DockerHub or Let's Encrypt**.
-
-There might be a situation where you want to destroy your Kubernetes cluster. The following command will reset your nodes back to maintenance mode.
-
-```sh
-task talos:reset
-```
-
 ## 🛠️ Talos and Kubernetes Maintenance
 
 ### ⚙️ Updating Talos node configuration
