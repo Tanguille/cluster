@@ -1,9 +1,9 @@
 ---
-## yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/ocirepository-source-v1beta2.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app capacitor
+  name: capacitor
 spec:
   interval: 30m
   chartRef:
@@ -37,6 +37,9 @@ spec:
                 memory: 2Gi
                 ephemeral-storage: 2Gi
 
+        serviceAccount:
+          identifier: capacitor
+
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -45,8 +48,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
 
     serviceAccount:
-      create: true
-      name: "capacitor"
+      capacitor: {}
 
     service:
       app:
