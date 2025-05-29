@@ -26,19 +26,19 @@ spec:
               UMASK: "022"
               QBT_WEBUI_PORT: &port 80
               QBT_TORRENTING_PORT: 22852
-            probes:
-              liveness: &probes
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /api/v2/app/version
-                    port: *port
-                  initialDelaySeconds: 0
-                  timeoutSeconds: 10
-                  periodSeconds: 5
-                  failureThreshold: 5
-              readiness: *probes
+            # probes:
+            #   liveness: &probes
+            #     enabled: true
+            #     custom: true
+            #     spec:
+            #       httpGet:
+            #         path: /api/v2/app/version
+            #         port: *port
+            #       initialDelaySeconds: 0
+            #       timeoutSeconds: 10
+            #       periodSeconds: 5
+            #       failureThreshold: 5
+            #   readiness: *probes
             securityContext:
               runAsUser: 568
               runAsGroup: 568
