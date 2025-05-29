@@ -54,6 +54,13 @@ spec:
                 memory: 250M
               limits:
                 memory: 512M
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: *port
+
     ingress:
       app:
         enabled: true
