@@ -15,3 +15,11 @@ instance:
     url: "https://github.com/tanguille/cluster.git"
     ref: "refs/heads/main"
     path: kubernetes/flux/cluster
+  # Disable chart digest tracking
+  patch:
+    - op: add
+      path: /spec/template/spec/containers/0/args/-
+      value: --feature-gates=DisableChartDigestTracking=true
+  target:
+    kind: Deployment
+    name: helm-controller
