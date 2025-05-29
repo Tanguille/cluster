@@ -1,4 +1,20 @@
 ---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1beta2.json
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: OCIRepository
+metadata:
+  name: nextcloud
+spec:
+  interval: 5m
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: 6.6.9
+  url: oci://ghcr.io/home-operations/charts-mirror/nextcloud
+  verify:
+    provider: cosign
+---
 # yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/helmrelease-helm-v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -7,14 +23,9 @@ metadata:
 spec:
   timeout: 15m
   interval: 30m
-  chart:
-    spec:
-      chart: nextcloud
-      version: 6.6.9
-      sourceRef:
-        kind: HelmRepository
-        name: nextcloud
-        namespace: flux-system
+  chartRef:
+    kind: OCIRepository
+    name: nextcloud
   install:
     remediation:
       retries: 3
@@ -29,6 +40,10 @@ spec:
     nginx:
       enabled: true
 
+    phpClientHttpsFix:
+      enabled: true
+      protocol: https
+
     nextcloud:
       extraInitContainers:
         - name: init-db
@@ -41,7 +56,7 @@ spec:
 
       extraEnv:
         - name: REDIS_HOST
-          value: dragonfly.database.svc.cluster.local
+          value: dragonfly.database.svc.cluster.local.
         - name: REDIS_HOST_PORT
           value: "6379"
         - name: PHP_MEMORY_LIMIT
@@ -61,6 +76,7 @@ spec:
         smtpHostKey: SMTP_HOST
 
       host: nextcloud.${SECRET_DOMAIN}
+      containerPort: 80
 
       mail:
         enabled: true
@@ -72,7 +88,21 @@ spec:
           authtype: LOGIN
           secure: starttls
 
+      lifecycle:
+        postStartCommand:
+          - "/bin/sh"
+          - "-c"
+          - "su -s /bin/sh www-data -c 'php occ db:add-missing-indices' || true"
+
       configs:
+        logging.config.php: |-
+          <?php
+          $CONFIG = array (
+            'log_type' => 'file',
+            'logfile' => 'nextcloud.log',
+            'loglevel' => 1,
+            'logdateformat' => 'F d, Y H:i:s'
+            );
         proxy.config.php: |-
           <?php
           $CONFIG = array (
@@ -101,23 +131,7 @@ spec:
             'default_phone_region' => 'BE',
             'maintenance_window_start' => 2,
           );
-        logging.config.php: |-
-          <?php
-          $CONFIG = array (
-            'log_type' => 'errorlog',
-            'loglevel' => 1,
-            'logdateformat' => 'F d, Y H:i:s'
-            );
-
-      datadir: /var/www/data
-
-      phpConfigs:
-        custom.ini: |
-          memory_limit=512M
-          upload_max_filesize=16G
-          post_max_size=16G
-          max_execution_time=3600
-          max_input_time=3600
+        datadir: /var/www/data
 
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
@@ -182,10 +196,10 @@ spec:
 
     startupProbe:
       enabled: true
-      initialDelaySeconds: 30
-      periodSeconds: 20
-      timeoutSeconds: 5
-      failureThreshold: 30
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 10
       successThreshold: 1
 
     resources:
@@ -194,7 +208,4 @@ spec:
         memory: 1Gi
       limits:
         cpu: 4
-        memory: 5Gi
-
-    strategy:
-      type: Recreate
+        memory: 8Gi
