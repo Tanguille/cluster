@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -9,19 +10,21 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/gatus/guarded
+    - ../../../../components/volsync
   dependsOn:
     - name: openebs
       namespace: openebs-system
-    - name: volsync
-      namespace: volsync-system
-  wait: true
-  path: ./kubernetes/apps/media/qbittorrent/qbittorrent
+  wait: false
+  path: ./kubernetes/apps/media/qbittorrent/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  interval: 30m
+  interval: 1h
+  retryInterval: 2m
   timeout: 5m
   postBuild:
     substitute:
@@ -42,7 +45,7 @@ spec:
   dependsOn:
     - name: qbittorrent
   wait: true
-  path: ./kubernetes/apps/media/qbittorrent/qbitmanage
+  path: ./kubernetes/apps/media/qbittorrent/tools/qbitmanage
   prune: true
   sourceRef:
     kind: GitRepository
@@ -69,7 +72,7 @@ spec:
   dependsOn:
     - name: qbittorrent
   wait: true
-  path: ./kubernetes/apps/media/qbittorrent/qbitrr
+  path: ./kubernetes/apps/media/qbittorrent/tools/qbitrr
   prune: true
   sourceRef:
     kind: GitRepository
