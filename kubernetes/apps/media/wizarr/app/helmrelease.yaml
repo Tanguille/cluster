@@ -28,6 +28,8 @@ spec:
             image:
               repository: ghcr.io/wizarrrr/wizarr
               tag: 2025.5.1@sha256:60b140c23748de8b79d427486a406e2f6ba514ba53ba8783059852936e498a15
+            env:
+              TZ: ${TIMEZONE}
             probes:
               liveness: &probes
                 enabled: true
