@@ -25,6 +25,8 @@ spec:
   values:
     controllers:
       wizarr:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -32,17 +34,30 @@ spec:
               tag: 2025.5.1@sha256:60b140c23748de8b79d427486a406e2f6ba514ba53ba8783059852936e498a15
             env:
               TZ: ${TIMEZONE}
-              APP_URL: "https://wizarr.${SECRET_DOMAIN}"
-
-    service:
-      app:
-        controller: *app
-        ports:
-          http:
-            port: 5690
-
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: &port 5690
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: false
+            resources:
+              requests:
+                cpu: 10m
+                memory: 250M
+              limits:
+                memory: 512M
     ingress:
       app:
+        enabled: true
         className: external
         annotations:
           external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
@@ -50,13 +65,13 @@ spec:
           - host: wizarr.${SECRET_DOMAIN}
             paths:
               - path: /
-                pathType: Prefix
                 service:
                   identifier: app
                   port: http
 
     persistence:
       data:
+        enabled: true
         existingClaim: *app
         globalMounts:
           - path: /data/database
