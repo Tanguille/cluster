@@ -2,6 +2,9 @@
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
+components:
+  - ../../../../components/gatus/guarded
+  - ../../../../components/volsync
 metadata:
   name: &app qbittorrent
   namespace: &namespace media
@@ -10,9 +13,6 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  components:
-    - ../../../../components/gatus/guarded
-    - ../../../../components/volsync
   dependsOn:
     - name: openebs
       namespace: openebs-system
@@ -34,6 +34,8 @@ spec:
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
+components:
+  - ../../../../components/volsync
 metadata:
   name: &app qbitmanage
   namespace: &namespace flux-system
@@ -61,6 +63,8 @@ spec:
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
+components:
+  - ../../../../components/volsync
 metadata:
   name: &app qbitrr
   namespace: &namespace flux-system
