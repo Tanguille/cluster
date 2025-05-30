@@ -11,6 +11,11 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   wait: false
+  dependsOn:
+    - name: sonarr
+    - name: radarr
+    - name: openebs
+      namespace: openebs-system
   path: ./kubernetes/apps/media/recyclarr/app
   prune: true
   sourceRef:
