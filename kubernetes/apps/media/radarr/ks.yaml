@@ -11,8 +11,6 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   dependsOn:
-    - name: volsync
-      namespace: volsync-system
     - name: openebs
       namespace: openebs-system
   wait: true
