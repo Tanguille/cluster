@@ -6,11 +6,13 @@ metadata:
   name: &app jellyseerr
   namespace: &namespace media
 spec:
+  path: ./kubernetes/apps/media/jellyseerr/app
   targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/media/jellyseerr/app
+  components:
+    - ../../../../components/volsync
   prune: true
   sourceRef:
     kind: GitRepository

@@ -6,12 +6,19 @@ metadata:
   name: &app recyclarr
   namespace: &namespace media
 spec:
+  path: ./kubernetes/apps/media/recyclarr/app
   targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/volsync
   wait: false
-  path: ./kubernetes/apps/media/recyclarr/app
+  dependsOn:
+    - name: sonarr
+    - name: radarr
+    - name: openebs
+      namespace: openebs-system
   prune: true
   sourceRef:
     kind: GitRepository
