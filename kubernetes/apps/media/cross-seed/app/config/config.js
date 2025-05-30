@@ -29,7 +29,7 @@ module.exports = {
    */
   torznab: [47, 48, 58, 59, 62, 70, 113].map(
     (i) =>
-      `http://prowlarr.media.svc.cluster.local/$${i}/api?apikey=$${process.env.PROWLARR_API_KEY}`,
+      `http://prowlarr.media.svc.cluster.local/$${i}/api?apikey=$${process.env.PROWLARR_API_KEY}`
   ),
 
   /**
@@ -47,7 +47,7 @@ module.exports = {
    *               "http://sonarr4k:8989/?apikey=12345"],
    */
   sonarr: [
-    `http://sonarr.media.svc.cluster.local/?apikey=$${process.env.SONARR_API_KEY}`,
+    `http://sonarr.media.svc.cluster.local/?apikey=$${process.env.SONARR_API_KEY}`
   ],
 
   /**
@@ -65,7 +65,7 @@ module.exports = {
    *                "http://radarr4k:7878/?apikey=12345"],
    */
   radarr: [
-    `http://radarr.media.svc.cluster.local/?apikey=$${process.env.RADARR_API_KEY}`,
+    `http://radarr.media.svc.cluster.local/?apikey=$${process.env.RADARR_API_KEY}`
   ],
 
   /**
@@ -150,7 +150,7 @@ module.exports = {
    * or for Windows users
    *     dataDirs: ["C:\\My Data\\Downloads\\Movies"],
    */
-  dataDirs: ["/media/Downloads/tv-sonarr", "/media/Downloads/radarr"],
+  dataDirs: ['/media/Downloads/tv-sonarr', '/media/Downloads/radarr'],
 
   /**
    * Defines what qBittorrent or Deluge category to set on linked torrents
@@ -160,7 +160,7 @@ module.exports = {
    *
    * Default is "cross-seed-link".
    */
-  linkCategory: "cross-seed",
+  linkCategory: 'cross-seed',
 
   /**
    * If this is specified, cross-seed will create links to matched files in
@@ -179,7 +179,7 @@ module.exports = {
    * We recommend reading the following FAQ entry:
    * https://www.cross-seed.org/docs/basics/faq-troubleshooting#what-linktype-should-i-use
    */
-  linkDirs: ["/media/Downloads/cross-seed/hardlinks"],
+  linkDirs: ['/media/Downloads/cross-seed/hardlinks'],
 
   /**
    * cross-seed will use links of this type to inject data-based matches into
@@ -187,7 +187,7 @@ module.exports = {
    * https://www.cross-seed.org/docs/basics/faq-troubleshooting#what-linktype-should-i-use
    * Options: "symlink", "hardlink".
    */
-  linkType: "hardlink",
+  linkType: 'hardlink',
 
   /**
    * Enabling this will link files using v5's flat folder style.
@@ -214,7 +214,7 @@ module.exports = {
    * We recommend reading the following FAQ entry:
    * https://www.cross-seed.org/docs/basics/faq-troubleshooting#what-linktype-should-i-use
    */
-  matchMode: "safe",
+  matchMode: 'safe',
 
   /**
    * Determines how deep into the specified dataDirs to go to generate new
@@ -233,14 +233,14 @@ module.exports = {
    *
    * If you are a Windows user you need to put double '\' (e.g. "C:\\torrents")
    */
-  torrentDir: "/qbittorrent/qBittorrent/BT_backup",
+  torrentDir: '/qbittorrent/qBittorrent/BT_backup',
 
   /**
    * Where to save the torrent files that cross-seed finds for you.
    *
    * If you are a Windows user you need to put double '\' (e.g. "C:\\output")
    */
-  outputDir: "/media/Downloads/cross-seed/torrents",
+  outputDir: '/media/Downloads/cross-seed/torrents',
 
   /**
    * Whether to include single episode torrents in a search (not those from
@@ -302,7 +302,7 @@ module.exports = {
    *
    * This value must be in the range of 2-5 times your excludeRecentSearch
    */
-  excludeOlder: "6 days",
+  excludeOlder: '6 days',
 
   /**
    * Exclude torrents which have been searched more recently than this long
@@ -314,13 +314,13 @@ module.exports = {
    *
    * This value must be 2-5x less than excludeOlder.
    */
-  excludeRecentSearch: "3 days",
+  excludeRecentSearch: '3 days',
 
   /**
    * Which action to take upon a match being found.
    * Options: "save", "inject".
    */
-  action: "inject",
+  action: 'inject',
 
   /**
    * qBittorrent and Deluge specific.
@@ -341,7 +341,7 @@ module.exports = {
    * "10 minutes"
    * "1 hour"
    */
-  rssCadence: "30 minutes",
+  rssCadence: '30 minutes',
 
   /**
    * Run searches on a schedule.
@@ -352,7 +352,7 @@ module.exports = {
    *
    * This value must be at least 3x less than your excludeRecentSearch
    */
-  searchCadence: "1 day",
+  searchCadence: '1 day',
 
   /**
    * Fail snatch requests that haven't responded after this long.
@@ -361,7 +361,7 @@ module.exports = {
    * "30 seconds"
    * null
    */
-  snatchTimeout: "1min",
+  snatchTimeout: '1min',
 
   /**
    * Fail search requests that haven't responded after this long.
@@ -370,7 +370,7 @@ module.exports = {
    * "30 seconds"
    * null
    */
-  searchTimeout: "2 minutes",
+  searchTimeout: '2 minutes',
 
   /**
    * The number of searches to make in one run/batch.
@@ -398,5 +398,5 @@ module.exports = {
    *    blocklist: ["Release.Name"],
    *    blocklist: ["3317e6485454354751555555366a8308c1e92093"],
    */
-  blockList: undefined,
-};
+  blockList: undefined
+}
