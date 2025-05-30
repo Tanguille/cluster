@@ -1,69 +1,76 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: &app qbittorrent
 spec:
-  interval: 30m
+  interval: 1h
   chartRef:
     kind: OCIRepository
     name: app-template
-
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
   values:
     controllers:
       qbittorrent:
         annotations:
           reloader.stakater.com/auto: "true"
-
         containers:
           app:
-            nameOverride: *app
             image:
               repository: ghcr.io/home-operations/qbittorrent
               tag: 5.1.0@sha256:fe26058628e9eb57b542204b76443b7304ed8820151d51b5c285e1828ca175a0
             env:
-              UMASK: "022"
+              TZ: ${TZ}
               QBT_WEBUI_PORT: &port 80
-              QBT_TORRENTING_PORT: 22852
-            # probes:
-            #   liveness: &probes
-            #     enabled: true
-            #     custom: true
-            #     spec:
-            #       httpGet:
-            #         path: /api/v2/app/version
-            #         port: *port
-            #       initialDelaySeconds: 0
-            #       timeoutSeconds: 10
-            #       periodSeconds: 5
-            #       failureThreshold: 5
-            #   readiness: *probes
+              QBT_TORRENTING_PORT: &torrentPort 50413
             probes:
-              liveness:
-                enabled: false
-              readiness:
-                enabled: false
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v2/app/version
+                    port: *port
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 10
             securityContext:
-              runAsUser: 568
-              runAsGroup: 568
-              runAsNonRoot: true
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
-              capabilities:
-                drop:
-                  - ALL
-
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+              limits:
+                memory: 8Gi
     defaultPodOptions:
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
         fsGroup: 568
-        fsGroupChangePolicy: "OnRootMismatch"
-
+        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         controller: *app
         ports:
           http:
+            primary: true
             port: *port
 
     ingress:
@@ -95,5 +102,5 @@ spec:
           - path: /media
             readOnly: false
 
-      addons:
+      tmp:
         type: emptyDir
