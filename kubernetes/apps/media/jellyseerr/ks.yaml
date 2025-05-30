@@ -2,17 +2,17 @@
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
-components:
-  - ../../../../components/volsync
 metadata:
   name: &app jellyseerr
   namespace: &namespace media
 spec:
+  path: ./kubernetes/apps/media/jellyseerr/app
   targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  path: ./kubernetes/apps/media/jellyseerr/app
+  components:
+    - ../../../../components/volsync
   prune: true
   sourceRef:
     kind: GitRepository

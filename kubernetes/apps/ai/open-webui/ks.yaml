@@ -2,8 +2,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ishioni/CRDs-catalog/main/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
-components:
-  - ../../../components/volsync
 metadata:
   name: &app open-webui
   namespace: &namespace ai
@@ -17,6 +15,8 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../components/volsync
   prune: true
   wait: false
   interval: 10m

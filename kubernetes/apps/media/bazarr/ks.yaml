@@ -2,8 +2,6 @@
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
-components:
-  - ../../../../components/volsync
 metadata:
   name: &app bazarr
   namespace: &namespace media
@@ -12,6 +10,8 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/volsync
   dependsOn:
     - name: openebs
       namespace: openebs-system
