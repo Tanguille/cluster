@@ -39,6 +39,11 @@ spec:
             #       periodSeconds: 5
             #       failureThreshold: 5
             #   readiness: *probes
+            probes:
+              liveness:
+                enabled: false
+              readiness:
+                enabled: false
             securityContext:
               runAsUser: 568
               runAsGroup: 568
