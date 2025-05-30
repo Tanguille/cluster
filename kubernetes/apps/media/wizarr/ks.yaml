@@ -6,17 +6,17 @@ metadata:
   name: &app wizarr
   namespace: &namespace media
 spec:
+  path: ./kubernetes/apps/media/wizarr/app
   targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/volsync
   dependsOn:
     - name: openebs
       namespace: openebs-system
-    - name: volsync
-      namespace: volsync-system
   wait: true
-  path: ./kubernetes/apps/media/wizarr/app
   prune: true
   sourceRef:
     kind: GitRepository
