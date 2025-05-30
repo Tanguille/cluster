@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -14,8 +14,6 @@ spec:
     remediation:
       strategy: uninstall
   values:
-    annotations:
-      reloader.stakater.com/auto: "true"
     defaultPodOptions:
       runtimeClassName: nvidia
       enableServiceLinks: false
@@ -32,7 +30,8 @@ spec:
     controllers:
       jellyfin:
         type: statefulset
-
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -57,10 +56,11 @@ spec:
         controller: *app
         ports:
           http:
-            port: 8096
+            port: &port 8096
 
     ingress:
       app:
+        enabled: true
         className: external
         annotations:
           external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
@@ -68,7 +68,6 @@ spec:
           - host: "jellyfin.${SECRET_DOMAIN}"
             paths:
               - path: /
-                pathType: Prefix
                 service:
                   identifier: app
                   port: http
