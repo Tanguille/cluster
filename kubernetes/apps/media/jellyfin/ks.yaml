@@ -9,6 +9,12 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/volsync
+    - ../../../../components/gatus/external
+  dependsOn:
+    - name: openebs
+      namespace: openebs-system
   path: ./kubernetes/apps/media/jellyfin/app
   prune: true
   sourceRef:

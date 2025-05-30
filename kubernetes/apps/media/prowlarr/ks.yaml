@@ -6,17 +6,17 @@ metadata:
   name: &app prowlarr
   namespace: &namespace media
 spec:
+  path: ./kubernetes/apps/media/prowlarr/app
   targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/volsync
   dependsOn:
-    - name: volsync
-      namespace: volsync-system
     - name: openebs
       namespace: openebs-system
   wait: true
-  path: ./kubernetes/apps/media/prowlarr/app
   prune: true
   sourceRef:
     kind: GitRepository
