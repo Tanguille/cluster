@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -32,8 +32,9 @@ spec:
           app:
             image:
               repository: ghcr.io/heavybullets8/zfs-scrubber
-              tag: 1.0.8@sha256:beb1f8f5766f83430fa4a8ca8d85e0afbc96ea6c33b1b9093254c1a3e23d1099
+              tag: develop@sha256:ecf51c9547e105f8d9c289a0c29a24dd7069028dbaba16912ea5c906c6637dea
             env:
+              ACTION: "all"
               ZFS_POOL: "speed"
               TALOS_VERSION: ${TALOS_VERSION}
             securityContext:
