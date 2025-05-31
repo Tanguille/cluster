@@ -29,6 +29,7 @@ tasks:
   reconcile:
     desc: Force Flux to pull in changes from your Git repository
     cmd: |
+      flux reconcile source git flux-system
       flux reconcile kustomization cluster-meta -n flux-system --with-source
       flux reconcile kustomization cluster-apps -n flux-system --with-source
       flux reconcile kustomization flux-system --with-source
