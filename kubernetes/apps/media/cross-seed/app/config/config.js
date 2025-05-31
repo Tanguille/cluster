@@ -205,7 +205,8 @@ module.exports = {
    * PLEASE READ THE FOLLOWING DOCUMENTATION BEFORE SETTING THIS UP:
    * https://www.cross-seed.org/docs/basics/options#torrentdir
    */
-  torrentDir: "/qbittorrent/qBittorrent/BT_backup",
+  // torrentDir: "/qbittorrent/qBittorrent/BT_backup",
+  torrentDir: null,
   /**
    * With action: "inject", cross-seed will use this directory to retry
    * injections. This directory will be empty nearly all the time.
