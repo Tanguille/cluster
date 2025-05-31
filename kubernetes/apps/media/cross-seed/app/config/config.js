@@ -195,7 +195,7 @@ module.exports = {
    * PLEASE READ THE FOLLOWING DOCUMENTATION BEFORE CHANGING THIS VALUE:
    * https://www.cross-seed.org/docs/tutorials/data-based-matching#setting-up-data-based-matching
    */
-  maxDataDepth: 2,
+  maxDataDepth: 3,
   /**
    * Directory containing your client's internal .torrent files.
    * This is unnecessary with useClientTorrents.
@@ -203,7 +203,7 @@ module.exports = {
    * PLEASE READ THE FOLLOWING DOCUMENTATION BEFORE SETTING THIS UP:
    * https://www.cross-seed.org/docs/basics/options#torrentdir
    */
-  torrentDir: null,
+  torrentDir: "/qbittorrent/qBittorrent/BT_backup",
   /**
    * With action: "inject", cross-seed will use this directory to retry
    * injections. This directory will be empty nearly all the time.
@@ -216,7 +216,7 @@ module.exports = {
    * You do not need to change this from null. It will map into your cross-seed
    * config directory: https://www.cross-seed.org/docs/basics/options#outputdir
    */
-  outputDir: "/media/Downloads/cross-seed/torrents",
+  outputDir: null,
   /**
    * Whether to include single episode torrents in search/webhook/rss.
    *
