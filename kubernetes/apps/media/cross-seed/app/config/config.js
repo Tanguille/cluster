@@ -1,4 +1,4 @@
-"use strict";
+'use strict'
 // If you find yourself always using the same command-line flag, you can set it
 // here as a default. For a complete guide on configuration, please visit:
 // https://www.cross-seed.org
@@ -28,7 +28,7 @@ module.exports = {
    */
   torznab: [47, 48, 58, 59, 62, 70, 113].map(
     (i) =>
-      `http://prowlarr.media.svc.cluster.local/$${i}/api?apikey=$${process.env.PROWLARR_API_KEY}`,
+      `http://prowlarr.media.svc.cluster.local/$${i}/api?apikey=$${process.env.PROWLARR_API_KEY}`
   ),
 
   /**
@@ -39,7 +39,7 @@ module.exports = {
    * They are searched sequentially as they are listed.
    */
   sonarr: [
-    `http://sonarr.media.svc.cluster.local/?apikey=$${process.env.SONARR_API_KEY}`,
+    `http://sonarr.media.svc.cluster.local/?apikey=$${process.env.SONARR_API_KEY}`
   ],
   /**
    * URL(s) to your Radarr instance(s). For benefits and usage, please read:
@@ -49,7 +49,7 @@ module.exports = {
    * They are searched sequentially as they are listed.
    */
   radarr: [
-    `http://radarr.media.svc.cluster.local/?apikey=$${process.env.RADARR_API_KEY}`,
+    `http://radarr.media.svc.cluster.local/?apikey=$${process.env.RADARR_API_KEY}`
   ],
 
   /**
@@ -57,7 +57,7 @@ module.exports = {
    * Example: "127.0.0.1"
    * Default is "0.0.0.0"
    */
-  host: "0.0.0.0",
+  host: '0.0.0.0',
   /**
    * The port you wish to listen on for daemon mode.
    */
@@ -88,7 +88,9 @@ module.exports = {
    * e.g. "qbittorrent:readonly:http://username:password@localhost:8080"
    * https://www.cross-seed.org/docs/basics/options#torrentclients
    */
-  torrentClients: [`http://$${process.env.QBITTORRENT_USERNAME}:$${process.env.QBITTORRENT_PASSWORD}@qbittorrent.media.svc.cluster.local`],
+  torrentClients: [
+    `http://$${process.env.QBITTORRENT_USERNAME}:$${process.env.QBITTORRENT_PASSWORD}@qbittorrent.media.svc.cluster.local`
+  ],
   /**
    * END OF POTENTIALLY SENSITIVE CONFIGURATION OPTIONS
    */
@@ -112,7 +114,7 @@ module.exports = {
    * https://www.cross-seed.org/docs/tutorials/data-based-matching
    * TODO: remove after initial search
    */
-  dataDirs: ["/media/Downloads/tv-sonarr", "/media/Downloads/radarr"],
+  dataDirs: ['/media/Downloads/tv-sonarr', '/media/Downloads/radarr'],
 
   /**
    * Defines what qBittorrent or Deluge category to set on linked torrents
@@ -122,7 +124,7 @@ module.exports = {
    *
    * Default is "cross-seed-link".
    */
-  linkCategory: "cross-seed-link",
+  linkCategory: 'cross-seed-link',
   /**
    * cross-seed will create links to matched files in the specified directories.
    * This is necessary for the best cross seeding experience.
@@ -130,7 +132,7 @@ module.exports = {
    * PLEASE READ THE FOLLOWING DOCUMENTATION BEFORE SETTING THIS UP:
    * https://www.cross-seed.org/docs/tutorials/linking
    */
-  linkDirs: ["/media/Downloads/cross-seed/hardlinks"],
+  linkDirs: ['/media/Downloads/cross-seed/hardlinks'],
 
   /**
    * cross-seed will use links of this type to inject matches into your client.
@@ -138,7 +140,7 @@ module.exports = {
    *
    * https://www.cross-seed.org/docs/tutorials/linking#hardlinks-vs-symlinks-vs-reflinks
    */
-  linkType: "hardlink",
+  linkType: 'hardlink',
   /**
    * Enabling this will link files using v5's flat folder style, not recommended.
    *
@@ -167,7 +169,7 @@ module.exports = {
    * https://www.cross-seed.org/docs/tutorials/partial-matching
    * https://www.cross-seed.org/docs/basics/faq-troubleshooting#my-partial-matches-from-related-searches-are-missing-the-same-data-how-can-i-only-download-it-once
    */
-  matchMode: "partial",
+  matchMode: 'partial',
   /**
    * Skip rechecking on injection if unnecessary. Certain matches, such as partial,
    * will always be rechecked. Set to false to recheck all torrents before resuming.
@@ -202,7 +204,7 @@ module.exports = {
    * PLEASE READ THE FOLLOWING DOCUMENTATION BEFORE SETTING THIS UP:
    * https://www.cross-seed.org/docs/basics/options#torrentdir
    */
-  torrentDir: "/qbittorrent/qBittorrent/BT_backup",
+  torrentDir: '/qbittorrent/qBittorrent/BT_backup',
   /**
    * With action: "inject", cross-seed will use this directory to retry
    * injections. This directory will be empty nearly all the time.
@@ -215,7 +217,7 @@ module.exports = {
    * You do not need to change this from null. It will map into your cross-seed
    * config directory: https://www.cross-seed.org/docs/basics/options#outputdir
    */
-  outputDir: "/media/Downloads/cross-seed/torrents",
+  outputDir: '/media/Downloads/cross-seed/torrents',
   /**
    * Whether to include single episode torrents in search/webhook/rss.
    *
@@ -265,7 +267,7 @@ module.exports = {
    *
    * This value must be in the range of 2-5 times your excludeRecentSearch
    */
-  excludeOlder: "6 days",
+  excludeOlder: '6 days',
 
   /**
    * Exclude torrents or data which has been searched more recently than this
@@ -277,14 +279,14 @@ module.exports = {
    *
    * This value must be 2-5x less than excludeOlder.
    */
-  excludeRecentSearch: "3 days",
+  excludeRecentSearch: '3 days',
   /**
    * Which action to take upon a match being found.
    * Options: "save", "inject".
    *
    * https://www.cross-seed.org/docs/tutorials/injection
    */
-  action: "inject",
+  action: 'inject',
   /**
    * qBittorrent and Deluge specific.
    * Whether to inject using the same labels/categories as the original
@@ -309,7 +311,7 @@ module.exports = {
    * To cross seed new releases as soon as they are uploaded, use announce:
    * https://www.cross-seed.org/docs/tutorials/announce
    */
-  rssCadence: "30 minutes",
+  rssCadence: '30 minutes',
   /**
    * Run searches on a schedule. Set to undefined or null to disable.
    * Minimum of 1 day.
@@ -321,7 +323,7 @@ module.exports = {
    * To trigger a search on download completion, use webhook:
    * https://www.cross-seed.org/docs/tutorials/triggering-searches
    */
-  searchCadence: "1 day",
+  searchCadence: '1 day',
   /**
    * Fail snatch requests that haven't responded after this long.
    * Set to null for an infinite timeout.
@@ -330,7 +332,7 @@ module.exports = {
    * "30 seconds"
    * null
    */
-  snatchTimeout: "30 seconds",
+  snatchTimeout: '30 seconds',
   /**
    * Fail search requests that haven't responded after this long.
    * Set to null for an infinite timeout.
@@ -339,7 +341,7 @@ module.exports = {
    * "2 minutes"
    * null
    */
-  searchTimeout: "2 minutes",
+  searchTimeout: '2 minutes',
   /**
    * The number of searches (unique queries) to make in one run/batch per indexer.
    * If more than this many searches are queued,
@@ -355,6 +357,6 @@ module.exports = {
    * Ignore torrents or data containing these properties:
    * https://www.cross-seed.org/docs/basics/options#blocklist
    */
-  blockList: [],
-};
-//# sourceMappingURL=config.template.cjs.map
+  blockList: []
+}
+// # sourceMappingURL=config.template.cjs.map
