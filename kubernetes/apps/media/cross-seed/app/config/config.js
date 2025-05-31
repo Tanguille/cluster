@@ -88,7 +88,9 @@ module.exports = {
    * e.g. "qbittorrent:readonly:http://username:password@localhost:8080"
    * https://www.cross-seed.org/docs/basics/options#torrentclients
    */
-  torrentClients: [`qbittorrent:http://$${process.env.QBITTORRENT_USERNAME}:$${process.env.QBITTORRENT_PASSWORD}@qbittorrent.media.svc.cluster.local`],
+  torrentClients: [
+    `qbittorrent:http://$${process.env.QBITTORRENT_USERNAME}:$${process.env.QBITTORRENT_PASSWORD}@qbittorrent.media.svc.cluster.local`,
+  ],
   /**
    * END OF POTENTIALLY SENSITIVE CONFIGURATION OPTIONS
    */
