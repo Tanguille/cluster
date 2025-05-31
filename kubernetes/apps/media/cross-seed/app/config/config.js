@@ -26,7 +26,7 @@ module.exports = {
    * append "?apikey=YOUR_PROWLARR_API_KEY". Wrap each URL in quotation marks
    * and separate them with commas, and surround the entire set in brackets.
    */
-  torznab: [47, 48, 58, 59, 62, 70, 113].map(
+  torznab: [47, 48, 58, 59, 62, 70].map(
     (i) =>
       `http://prowlarr.media.svc.cluster.local/$${i}/api?apikey=$${process.env.PROWLARR_API_KEY}`,
   ),
