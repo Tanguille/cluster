@@ -2,18 +2,15 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: comfyui-output
-  labels:
-    type: nfs
+  name: comfyui-nfs
 spec:
-  storageClassName: comfyui-output-storage-class
+  storageClassName: comfyui-nfs
+  accessModes: ["ReadWriteMany"]
   capacity:
-    storage: 1T
-  accessModes:
-    - ReadWriteOnce
+    storage: 500Gi
   nfs:
     server: "${TRUENAS_IP}"
-    path: /mnt/BIGHDDZ1/comfyui/output
+    path: "/mnt/BIGHDDZ1/comfyui/output"
 
 ---
 apiVersion: v1
@@ -22,11 +19,9 @@ metadata:
   name: comfyui-output
   namespace: ai
 spec:
-  accessModes:
-    - ReadWriteOnce
+  storageClassName: comfyui-nfs
+  accessModes: ["ReadWriteMany"]
   volumeMode: Filesystem
   resources:
     requests:
-      storage: 1T
-  volumeName: comfyui-output-pv
-  storageClassName: comfyui-output-storage-class
+      storage: 500Gi
