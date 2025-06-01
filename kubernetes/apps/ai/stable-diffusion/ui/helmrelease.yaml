@@ -1,0 +1,111 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: stable-diffusion
+  namespace: ai
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+    namespace: flux-system
+
+  driftDetection:
+    mode: enabled
+
+  maxHistory: 2
+
+  install:
+    remediation:
+      retries: 3
+
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+
+  uninstall:
+    keepHistory: false
+
+  values:
+    controllers:
+      main:
+        type: statefulset
+        annotations:
+          reloader.stakater.com/auto: "true"
+
+        pod:
+          runtimeClassName: nvidia
+          terminationGracePeriodSeconds: 1
+          securityContext:
+            fsGroup: 1000
+
+        containers:
+          main:
+            image:
+              repository: ghcr.io/gabe565/stable-diffusion/webui
+              tag: 1.10.1@sha256:560089213cb7c923e036a53d439b3070eeb5addd03306456a2779e2a76f7a675
+            args:
+              - --opt-sdp-attention
+              - --upcast-sampling
+              - --no-half
+              - --no-half-vae
+            env:
+              IIB_ACCESS_CONTROL_ALLOWED_PATHS: /app/outputs
+              NVIDIA_VISIBLE_DEVICES: all
+              NVIDIA_DRIVER_CAPABILITIES: all
+
+            resources:
+              requests:
+                cpu: 200m
+                memory: 4Gi
+                nvidia.com/gpu: 1
+              limits:
+                memory: 8Gi
+                nvidia.com/gpu: 1
+
+            probes:
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 90
+                  periodSeconds: 5
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: &httpPort 7860
+
+    ingress:
+      main:
+        enabled: true
+        className: internal
+        hosts:
+          - host: &host stable-diffusion.${SECRET_DOMAIN}
+            paths:
+              - path: /
+                service:
+                  identifier: main
+                  port: *httpPort
+
+    persistence:
+      data:
+        enabled: true
+        existingClaim: stable-diffusion-data-pvc
+        globalMounts:
+          - path: /data
+          - path: /app/repositories
+
+      outputs:
+        enabled: true
+        existingClaim: stable-diffusion-outputs-pvc
+        globalMounts:
+          - path: /app/outputs

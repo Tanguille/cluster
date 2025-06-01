@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: ai
+  name: stable-diffusion-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 64Gi
+  storageClassName: openebs-zfs
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: ai
+  name: stable-diffusion-outputs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 16Gi
+  volumeName: stable-diffusion-outputs-pv
+  storageClassName: openebs-hostpath
