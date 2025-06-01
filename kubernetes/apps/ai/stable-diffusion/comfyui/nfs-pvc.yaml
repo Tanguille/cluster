@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: comfyui-output-pv
+  name: comfyui-output
   labels:
     type: nfs
 spec:
@@ -20,13 +20,13 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   namespace: ai
-  name: comfyui-output-pvc
+  name: comfyui-output
 spec:
   accessModes:
     - ReadWriteOnce
   volumeMode: Filesystem
   resources:
     requests:
-      storage: 4.5T
+      storage: 1T
   volumeName: comfyui-output-pv
   storageClassName: comfyui-output-storage-class
