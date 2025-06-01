@@ -98,9 +98,8 @@ module.exports = {
    * Use the torrents already in your torrent client to find matches.
    * This is the preferred method of cross-seeding, only set to false
    * if you want to EXCLUSIVELY use dataDirs.
-   * TODO: remove after initial search
    */
-  useClientTorrents: false,
+  useClientTorrents: true,
   /**
    * Pause at least this many seconds in between each search. Higher is safer
    * for you and friendlier for trackers.
@@ -113,9 +112,8 @@ module.exports = {
    *
    * PLEASE READ THE FOLLOWING DOCUMENTATION BEFORE SETTING THIS UP:
    * https://www.cross-seed.org/docs/tutorials/data-based-matching
-   * TODO: remove after initial search
    */
-  dataDirs: ["/media/Downloads/tv-sonarr", "/media/Downloads/radarr"],
+  dataDirs: [],
 
   /**
    * Defines what qBittorrent or Deluge category to set on linked torrents
