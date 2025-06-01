@@ -99,13 +99,13 @@ spec:
     persistence:
       data:
         enabled: true
-        existingClaim: stable-diffusion-data-pvc
+        existingClaim: stable-diffusion-data
         globalMounts:
           - path: /data
           - path: /app/repositories
 
       outputs:
         enabled: true
-        existingClaim: stable-diffusion-outputs-pvc
+        existingClaim: stable-diffusion-outputs
         globalMounts:
           - path: /app/outputs

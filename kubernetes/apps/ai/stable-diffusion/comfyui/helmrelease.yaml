@@ -85,13 +85,13 @@ spec:
     persistence:
       workspace:
         enabled: true
-        existingClaim: comfyui-workspace-pvc
+        existingClaim: comfyui-workspace
         globalMounts:
           - path: /workspace
 
       output:
         enabled: true
-        existingClaim: comfyui-output-pvc
+        existingClaim: comfyui-output
         globalMounts:
           - path: /workspace/ComfyUI/output
 
