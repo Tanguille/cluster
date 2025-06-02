@@ -17,16 +17,17 @@ spec:
   postgresql:
     parameters:
       max_connections: "400"
-      shared_buffers: 256MB
+      shared_buffers: 512MB
+      huge_pages: "on"
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
   resources:
     requests:
-      cpu: 100m
-      memory: 1Gi
+      cpu: 500m
     limits:
-      memory: 2Gi
+      memory: 4Gi
+      hugepages-2Mi: 2Gi
   monitoring:
     enablePodMonitor: true
   backup:
@@ -41,7 +42,7 @@ spec:
       endpointURL: "${SECRET_B2_HOST}"
       # Note: serverName version needs to be inclemented
       # when recovering from an existing cnpg cluster
-      serverName: &currentCluster postgres16
+      serverName: &currentCluster postgres16-01
       s3Credentials:
         accessKeyId:
           name: cloudnative-pg-secret
@@ -49,14 +50,14 @@ spec:
         secretAccessKey:
           name: cloudnative-pg-secret
           key: aws-secret-access-key
-#   # Note: previousCluster needs to be set to the name of the previous
-#   # cluster when recovering from an existing cnpg cluster
-# bootstrap:
-#   recovery:
-#     source: &previousCluster postgres16
-#   # Note: externalClusters is needed when recovering from an existing cnpg cluster
-#   externalClusters:
-#     - name: *previousCluster
-#       barmanObjectStore:
-#         <<: *barmanObjectStore
-#         serverName: *previousCluster
+  # Note: previousCluster needs to be set to the name of the previous
+  # cluster when recovering from an existing cnpg cluster
+  bootstrap:
+    recovery:
+      source: &previousCluster postgres16
+  # Note: externalClusters is needed when recovering from an existing cnpg cluster
+  externalClusters:
+    - name: *previousCluster
+      barmanObjectStore:
+        <<: *barmanObjectStore
+        serverName: *previousCluster
