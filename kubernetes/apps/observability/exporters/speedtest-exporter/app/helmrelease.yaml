@@ -1,37 +1,47 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/refs/heads/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app speedtest-exporter
+  name: speedtest-exporter
 spec:
-  interval: 30m
+  interval: 1h
   chartRef:
     kind: OCIRepository
     name: app-template
+    namespace: flux-system
+  driftDetection:
+    mode: enabled
   install:
     remediation:
-      retries: 3
+      retries: -1
   upgrade:
     cleanupOnFail: true
     remediation:
-      strategy: rollback
       retries: 3
   values:
+    configMaps:
+      config:
+        data:
+          config.yaml: |
+            cache: "24h"
     controllers:
       speedtest-exporter:
         containers:
-          app:
+          speedtest-exporter:
             image:
-              repository: ghcr.io/miguelndecarvalho/speedtest-exporter
-              tag: v3.5.4@sha256:f1064d49124c7fc45faabb87c6c876a2fd04e92b3dc14d4b871301217ba30fed
-            env:
-              SPEEDTEST_PORT: &port 9798
+              repository: ghcr.io/heathcliff26/speedtest-exporter
+              tag: v1.0.11
+            args:
+              - -config
+              - /config/config.yaml
             probes:
               liveness:
-                enabled: true
+                enabled: false
               readiness:
-                enabled: true
+                enabled: false
+              startup:
+                enabled: false
             resources:
               requests:
                 cpu: 10m
@@ -39,36 +49,29 @@ spec:
                 memory: 128Mi
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities:
-                drop:
-                  - ALL
-    defaultPodOptions:
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 568
-        runAsGroup: 568
+              capabilities: { drop: ["ALL"] }
+        pod:
+          securityContext:
+            runAsGroup: 1000
+            runAsUser: 1000
+            runAsNonRoot: true
     persistence:
       config:
-        type: emptyDir
-        globalMounts:
-          - path: /.config
+        type: configMap
+        identifier: config
     service:
-      app:
-        controller: *app
+      speedtest-exporter:
+        controller: speedtest-exporter
         ports:
           http:
-            port: *port
+            port: 8080
     serviceMonitor:
-      app:
-        serviceName: *app
+      speedtest-exporter:
+        serviceName: speedtest-exporter
         endpoints:
           - port: http
             scheme: http
             path: /metrics
-            interval: 60m
-            scrapeTimeout: 5m
+            metricRelabelings:
+              - action: labeldrop
+                regex: (pod)
