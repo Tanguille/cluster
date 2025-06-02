@@ -6,16 +6,17 @@ metadata:
   name: &app promtail
   namespace: &namespace observability
 spec:
-  targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
   path: ./kubernetes/apps/observability/promtail/app
   prune: true
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  wait: false
-  interval: 30m
+  targetNamespace: *namespace
   timeout: 5m
+  wait: false
+  interval: 1h
