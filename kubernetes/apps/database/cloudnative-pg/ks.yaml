@@ -12,6 +12,7 @@ spec:
       app.kubernetes.io/name: *app
   path: ./kubernetes/apps/database/cloudnative-pg/app
   prune: true
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -33,8 +34,16 @@ spec:
       app.kubernetes.io/name: *app
   dependsOn:
     - name: cloudnative-pg
+      namespace: database
+  healthCheckExprs:
+    - apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      current: status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')
+      inProgress: status.conditions.exists(c, c.type == 'Ready' && c.status == 'False') && !status.phase.contains('manual intervention')
+      failed: status.phase.contains('manual intervention')
   path: ./kubernetes/apps/database/cloudnative-pg/cluster
   prune: true
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
