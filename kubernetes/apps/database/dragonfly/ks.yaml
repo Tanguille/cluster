@@ -12,6 +12,7 @@ spec:
       app.kubernetes.io/name: *app
   path: ./kubernetes/apps/database/dragonfly/app
   prune: true
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -36,6 +37,7 @@ spec:
       namespace: database
   path: ./kubernetes/apps/database/dragonfly/cluster
   prune: true
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
