@@ -121,6 +121,13 @@ spec:
             options:
               path: /var/lib/grafana/dashboards/nginx-folder
     dashboards:
+      database:
+        cloudnativepg:
+          url: https://raw.githubusercontent.com/cloudnative-pg/grafana-dashboards/refs/heads/main/charts/cluster/grafana-dashboard.json
+          datasource: Prometheus
+        dragonfly:
+          url: https://raw.githubusercontent.com/dragonflydb/dragonfly/refs/heads/main/tools/local/monitoring/grafana/provisioning/dashboards/dragonfly.json
+          datasource: Prometheus
       default:
         cert-manager:
           # renovate: depName="Cert-manager-Kubernetes"
@@ -133,12 +140,6 @@ spec:
           revision: 6
           datasource:
             - { name: DS_PROMETHEUS, value: Prometheus }
-        cloudnativepg:
-          url: https://raw.githubusercontent.com/cloudnative-pg/grafana-dashboards/refs/heads/main/charts/cluster/grafana-dashboard.json
-          datasource: Prometheus
-        dragonfly:
-          url: https://raw.githubusercontent.com/dragonflydb/dragonfly/refs/heads/main/tools/local/monitoring/grafana/provisioning/dashboards/dragonfly.json
-          datasource: Prometheus
         external-dns:
           # renovate: depName="External-dns"
           gnetId: 15038
