@@ -30,13 +30,14 @@ spec:
   values:
     image:
       repository: nvcr.io/nvidia/k8s/dcgm-exporter
-      tag: 3.3.8-3.6.0-ubuntu22.04
+      tag: 4.1.1-4.0.4-ubuntu22.04
     extraEnv:
       NVIDIA_DRIVER_CAPABILITIES: all
       NVIDIA_VISIBLE_DEVICES: all
     runtimeClassName: nvidia
     resources:
       limits:
+        memory: 128Mi
         nvidia.com/gpu: 1
     serviceMonitor:
       interval: 15s
