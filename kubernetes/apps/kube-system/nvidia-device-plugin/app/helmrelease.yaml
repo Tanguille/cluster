@@ -15,6 +15,7 @@ spec:
         name: nvidia
         namespace: flux-system
       interval: 15m
+  # https://github.com/NVIDIA/k8s-device-plugin/blob/main/deployments/helm/nvidia-device-plugin/values.yaml
   install:
     crds: CreateReplace
     remediation:
@@ -38,8 +39,7 @@ spec:
           sharing:
             timeSlicing:
               renameByDefault: false
+              failRequestsGreaterThanOne: false
               resources:
                 - name: nvidia.com/gpu
                   replicas: 6
-    mps:
-      enabled: false
