@@ -2,5 +2,14 @@ machine:
   sysctls:
     fs.inotify.max_user_watches: "1048576" # Watchdog
     fs.inotify.max_user_instances: "8192" # Watchdog
-    net.core.rmem_max: "7500000" # Cloudflared | QUIC
-    net.core.wmem_max: "7500000" # Cloudflared | QUIC
+    net.core.default_qdisc: "fq" # Fair Queuing - improves network fairness and reduces latency
+    net.core.rmem_max: "67108864" # Maximum TCP receive window (64MB) - improves throughput
+    net.core.wmem_max: "67108864" # Maximum TCP send window (64MB) - improves throughput
+    net.ipv4.tcp_congestion_control: "bbr" # BBR congestion control - better performance than cubic
+    net.ipv4.tcp_fastopen: "3" # Enables TCP Fast Open for both client and server
+    net.ipv4.tcp_mtu_probing: "1" # Enables automatic MTU probing for optimal packet size
+    net.ipv4.tcp_rmem: "4096 87380 33554432" # TCP receive buffer sizes (min, default, max)
+    net.ipv4.tcp_wmem: "4096 65536 33554432" # TCP send buffer sizes (min, default, max)
+    net.ipv4.tcp_window_scaling: "1" # Enables TCP window scaling for better throughput
+    user.max_user_namespaces: "11255" # User Namespaces
+    vm.nr_hugepages: "1024" # PostgreSQL
