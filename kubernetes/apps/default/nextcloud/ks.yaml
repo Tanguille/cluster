@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/kustomization-kustomize-v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -11,12 +11,16 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
+    - ../../../../components/gatus/external
     - ../../../../components/volsync
   dependsOn:
+    - name: cloudnative-pg-cluster
+      namespace: database
     - name: dragonfly-cluster
       namespace: database
   path: ./kubernetes/apps/default/nextcloud/app
   prune: true
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -28,4 +32,5 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 50Gi
+      GATUS_SUBDOMAIN: nextcloud
       VOLSYNC_RECORD_SIZE: 1m
