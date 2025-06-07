@@ -45,6 +45,7 @@ spec:
       protocol: https
 
     nextcloud:
+      datadir: /var/www/data
       extraInitContainers:
         - name: init-db
           image: ghcr.io/onedr0p/postgres-init:16
@@ -129,7 +130,6 @@ spec:
             'default_phone_region' => 'BE',
             'maintenance_window_start' => 2,
           );
-        datadir: /var/www/data
 
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
