@@ -118,7 +118,7 @@ spec:
               2 => '127.0.0.1',
             ),
             'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
-          );
+          ); ?>
         ingress.config.php: |-
           <?php
           $CONFIG = array (
@@ -205,7 +205,7 @@ spec:
     resources:
       requests:
         cpu: 500m
-        memory: 1Gi
+        memory: 512Mi
       limits:
         cpu: 4
         memory: 8Gi
