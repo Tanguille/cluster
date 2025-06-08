@@ -1,22 +1,22 @@
 apiVersion: v1
 kind: Endpoints
 metadata:
-  name: internal-avr
+  name: internal-arm
 subsets:
   - addresses:
-      - ip: 192.168.0.101
+      - ip: 192.168.0.27
     ports:
-      - port: 11080
+      - port: 30173
         name: http
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: internal-avr
+  name: internal-arm
 spec:
   ports:
     - port: 80
-      targetPort: 11080
+      targetPort: 30173
       name: http
   clusterIP: None
   type: ClusterIP
@@ -24,7 +24,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: external-service-ingress-avr
+  name: external-service-ingress-arm
   annotations:
     external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
@@ -32,13 +32,13 @@ metadata:
 spec:
   ingressClassName: internal
   rules:
-    - host: avr.${SECRET_DOMAIN}
+    - host: arm.${SECRET_DOMAIN}
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: internal-avr
+                name: internal-arm
                 port:
                   number: 80
