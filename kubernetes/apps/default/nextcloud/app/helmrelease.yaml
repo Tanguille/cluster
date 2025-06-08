@@ -48,7 +48,7 @@ spec:
       datadir: /var/www/data
       extraInitContainers:
         - name: init-db
-          image: ghcr.io/onedr0p/postgres-init:16
+          image: ghcr.io/home-operations/postgres-init:17
           envFrom:
             - secretRef:
                 name: nextcloud-secret
