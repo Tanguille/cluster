@@ -42,7 +42,7 @@ spec:
       endpointURL: "${SECRET_B2_HOST}"
       # Note: serverName version needs to be incremented
       # when recovering from an existing cnpg cluster
-      serverName: &currentCluster postgres16-02
+      serverName: &currentCluster postgres17
       s3Credentials:
         accessKeyId:
           name: cloudnative-pg-secret
@@ -54,7 +54,7 @@ spec:
   # # cluster when recovering from an existing cnpg cluster
   # bootstrap:
   #   recovery:
-  #     source: &previousCluster postgres16-01
+  #     source: &previousCluster postgres17
   # # Note: externalClusters is needed when recovering from an existing cnpg cluster
   # externalClusters:
   #   - name: *previousCluster
