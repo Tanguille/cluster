@@ -1,0 +1,125 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app khoj
+  namespace: ai
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      server:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/khoj-ai/khoj
+              tag: latest
+            env:
+              KHOJ_DEBUG: "False"
+              KHOJ_TERRARIUM_URL: "http://khoj-sandbox.ai.svc.cluster.local:8080"
+              KHOJ_SEARXNG_URL: "http://searxng.default.svc.cluster.local:8080"
+            envFrom:
+              - secretRef:
+                  name: khoj-secret
+            args:
+              - "--host=0.0.0.0"
+              - "--port=42110"
+              - "-vv"
+              - "--anonymous-mode"
+              - "--non-interactive"
+      sandbox:
+        containers:
+          app:
+            image:
+              repository: ghcr.io/khoj-ai/terrarium
+              tag: latest
+            probes:
+              liveness: &sandbox_probes
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - curl
+                      - -f
+                      - http://localhost:8080/health
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 2
+              readiness:
+                <<: *sandbox_probes
+      computer:
+        containers:
+          app:
+            image:
+              repository: ghcr.io/khoj-ai/khoj-computer
+              tag: latest
+
+    service:
+      server:
+        controller: server
+        ports:
+          http:
+            port: 42110
+      database:
+        controller: database
+        ports:
+          postgres:
+            port: 5432
+      sandbox:
+        controller: sandbox
+        ports:
+          http:
+            port: 8080
+      computer:
+        controller: computer
+        ports:
+          vnc:
+            port: 5900
+
+    persistence:
+      config:
+        enabled: true
+        existingClaim: khoj-config
+        advancedMounts:
+          server:
+            app:
+              - path: /root/.khoj
+      models:
+        enabled: true
+        existingClaim: khoj-models
+        advancedMounts:
+          server:
+            app:
+              - path: /root/.cache/torch/sentence_transformers
+              - path: /root/.cache/huggingface
+      db:
+        enabled: true
+        existingClaim: khoj-db
+        advancedMounts:
+          database:
+            app:
+              - path: /var/lib/postgresql/data
+      computer-data:
+        enabled: true
+        existingClaim: khoj-computer
+        advancedMounts:
+          computer:
+            app:
+              - path: /home/operator
