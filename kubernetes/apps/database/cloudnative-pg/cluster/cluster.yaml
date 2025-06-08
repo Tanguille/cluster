@@ -38,8 +38,8 @@ spec:
       wal:
         compression: bzip2
         maxParallel: 8
-      destinationPath: s3://TanguilleServer-cloudnative-pg/
-      endpointURL: "${SECRET_B2_HOST}"
+      destinationPath: s3://cloudnative-pg/
+      endpointURL: "${SECRET_R2_HOST}"
       # Note: serverName version needs to be incremented
       # when recovering from an existing cnpg cluster
       serverName: &currentCluster postgres17
