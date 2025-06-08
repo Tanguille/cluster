@@ -3,6 +3,24 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
+  name: external-arm
+  namespace: &namespace network
+spec:
+  targetNamespace: *namespace
+  path: ./kubernetes/apps/network/external-service/arm
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  interval: 30m
+  timeout: 5m
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
   name: external-avr
   namespace: &namespace network
 spec:
@@ -98,6 +116,24 @@ metadata:
 spec:
   targetNamespace: *namespace
   path: ./kubernetes/apps/network/external-service/scrutiny
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  interval: 30m
+  timeout: 5m
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: external-vaultwarden
+  namespace: &namespace network
+spec:
+  targetNamespace: *namespace
+  path: ./kubernetes/apps/network/external-service/vaultwarden
   prune: true
   sourceRef:
     kind: GitRepository
