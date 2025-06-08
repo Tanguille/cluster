@@ -77,11 +77,6 @@ spec:
         ports:
           http:
             port: 42110
-      database:
-        controller: database
-        ports:
-          postgres:
-            port: 5432
       sandbox:
         controller: sandbox
         ports:
@@ -96,30 +91,8 @@ spec:
     persistence:
       config:
         enabled: true
-        existingClaim: khoj-config
+        existingClaim: *app
         advancedMounts:
           server:
             app:
               - path: /root/.khoj
-      models:
-        enabled: true
-        existingClaim: khoj-models
-        advancedMounts:
-          server:
-            app:
-              - path: /root/.cache/torch/sentence_transformers
-              - path: /root/.cache/huggingface
-      db:
-        enabled: true
-        existingClaim: khoj-db
-        advancedMounts:
-          database:
-            app:
-              - path: /var/lib/postgresql/data
-      computer-data:
-        enabled: true
-        existingClaim: khoj-computer
-        advancedMounts:
-          computer:
-            app:
-              - path: /home/operator
