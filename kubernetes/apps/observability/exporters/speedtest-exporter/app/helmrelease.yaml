@@ -72,3 +72,6 @@ spec:
           - port: http
             scheme: http
             path: /metrics
+            metricRelabelings:
+              - action: labeldrop
+                regex: (pod)
