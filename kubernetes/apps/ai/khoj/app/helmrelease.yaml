@@ -104,3 +104,10 @@ spec:
           server:
             app:
               - path: /root/.khoj
+      computer-data:
+        enabled: true
+        existingClaim: *app
+        advancedMounts:
+          computer:
+            app:
+              - path: /home/operator
