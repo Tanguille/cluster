@@ -3,14 +3,13 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Database
 metadata:
-  name: khoj-db
-  namespace: ai
+  name: khoj
+  namespace: database
 spec:
   name: khoj
   owner: khoj
   cluster:
     name: postgres16
-    namespace: database
   extensions:
     - name: vector
       ensure: present
