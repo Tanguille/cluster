@@ -1,3 +1,4 @@
+---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -105,21 +106,6 @@ spec:
                 service:
                   identifier: app
                   port: http
-    rbac:
-      roles:
-        gatus:
-          type: ClusterRole
-          rules:
-            - apiGroups: [""]
-              resources: ["configmaps", "secrets"]
-              verbs: ["get", "watch", "list"]
-      bindings:
-        gatus:
-          type: ClusterRoleBinding
-          roleRef:
-            identifier: gatus
-          subjects:
-            - identifier: gatus
     serviceAccount:
       gatus: {}
     persistence:
