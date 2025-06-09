@@ -6,21 +6,20 @@ metadata:
   name: &app gatus
   namespace: &namespace observability
 spec:
+  targetNamespace: *namespace
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  interval: 1h
+  dependsOn:
+    - name: cloudnative-pg-cluster
+      namespace: database
   path: ./kubernetes/apps/observability/gatus/app
-  postBuild:
-    substitute:
-      APP: *app
-      GATUS_SUBDOMAIN: status
   prune: true
   retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: *namespace
-  timeout: 5m
   wait: false
+  interval: 30m
+  timeout: 5m
