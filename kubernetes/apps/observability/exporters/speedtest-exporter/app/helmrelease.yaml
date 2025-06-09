@@ -51,6 +51,12 @@ spec:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
         pod:
+          dnsPolicy: None
+          dnsConfig:
+            nameservers:
+              - "1.1.1.1"
+              - "1.0.0.1"
+              - "8.8.8.8"
           securityContext:
             runAsGroup: 1000
             runAsUser: 1000
