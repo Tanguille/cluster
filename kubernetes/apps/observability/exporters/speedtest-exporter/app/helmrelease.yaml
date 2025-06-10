@@ -63,3 +63,7 @@ spec:
             path: /metrics
             interval: 5m
             scrapeTimeout: 2m
+            metricRelabelings:
+              - sourceLabels: [job]
+                targetLabel: job
+                replacement: "integrations/speedtest"
