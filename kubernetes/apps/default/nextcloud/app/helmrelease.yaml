@@ -199,6 +199,10 @@ spec:
 
     cronjob:
       enabled: true
+      schedule: "*/5 * * * *"
+      securityContext:
+        runAsUser: 0 # root user for cron
+        runAsGroup: 0 # root group for cron
 
     podSecurityContext:
       runAsUser: 33 # www-data user
