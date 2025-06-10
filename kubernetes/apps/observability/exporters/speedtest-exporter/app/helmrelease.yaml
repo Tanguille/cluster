@@ -20,6 +20,11 @@ spec:
     remediation:
       retries: 3
   values:
+    configMaps:
+      config:
+        data:
+          config.yaml: |
+            cache: "6h"
     controllers:
       speedtest-exporter:
         containers:
@@ -27,6 +32,9 @@ spec:
             image:
               repository: ghcr.io/heathcliff26/speedtest-exporter
               tag: v1.0.11
+            args:
+              - -config
+              - /config/config.yaml
             probes:
               liveness:
                 enabled: false
@@ -48,6 +56,10 @@ spec:
             runAsGroup: 1000
             runAsUser: 1000
             runAsNonRoot: true
+    persistence:
+      config:
+        type: configMap
+        identifier: config
     service:
       speedtest-exporter:
         controller: speedtest-exporter
