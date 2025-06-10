@@ -91,10 +91,12 @@ spec:
         postStartCommand:
           - "/bin/sh"
           - "-c"
-          - "su www-data -s /usr/local/bin/php -- occ db:add-missing-primary-keys"
-          - "su www-data -s /usr/local/bin/php -- occ db:add-missing-indices"
-          - "su www-data -s /usr/local/bin/php -- occ db:add-missing-columns"
-          - "su www-data -s /usr/local/bin/php -- occ files:cleanup"
+          - |
+            chown -R www-data:www-data /var/www/html/config
+            su www-data -s /usr/local/bin/php -- occ db:add-missing-primary-keys
+            su www-data -s /usr/local/bin/php -- occ db:add-missing-indices
+            su www-data -s /usr/local/bin/php -- occ db:add-missing-columns
+            su www-data -s /usr/local/bin/php -- occ files:cleanup
 
       configs:
         logging.config.php: |-
@@ -197,6 +199,11 @@ spec:
 
     cronjob:
       enabled: true
+
+    securityContext:
+      runAsUser: 33 # www-data user
+      runAsGroup: 33 # www-data group
+      fsGroup: 33
 
     startupProbe:
       enabled: true
