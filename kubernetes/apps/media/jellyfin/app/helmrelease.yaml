@@ -34,6 +34,17 @@ spec:
       jellyfin:
         annotations:
           reloader.stakater.com/auto: "true"
+        initContainers:
+          fix-permissions:
+            image:
+              repository: busybox
+              tag: latest
+            command:
+              - sh
+              - -c
+              - chown -R 568:568 /jellyfin/jellyfin-web
+            securityContext:
+              runAsUser: 0
         containers:
           app:
             image:
