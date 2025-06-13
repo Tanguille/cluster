@@ -1,0 +1,31 @@
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: alertmanager
+  namespace: observability
+spec:
+  route:
+    groupBy: ["alertname", "job"]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 3h
+    receiver: "discord"
+    routes:
+      - receiver: "null"
+        matchers:
+          - name: alertname
+            value: Watchdog
+            matchType: =
+  receivers:
+    - name: "null"
+    - name: "discord"
+      discordConfigs:
+        - apiURL:
+            key: DISCORD_WEBHOOK_URL
+            name: alertmanager-secret
+          title: '{{ template "discord.default.title" . }}'
+          message: '{{ template "discord.default.message" . }}'
+          sendResolved: true
+  templates:
+    - "/etc/alertmanager/configmaps/alertmanager-discord-template/*.tmpl"
