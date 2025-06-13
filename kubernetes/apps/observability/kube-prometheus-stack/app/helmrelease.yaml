@@ -51,6 +51,8 @@ spec:
           name: alertmanager
           global:
             resolveTimeout: 5m
+        configMaps:
+          - alertmanager-discord-template
         externalUrl: https://alertmanager.${SECRET_DOMAIN}
         storage:
           volumeClaimTemplate:
