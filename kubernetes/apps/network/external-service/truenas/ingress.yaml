@@ -1,9 +1,9 @@
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
-  name: &name internal-truenas
+  name: internal-truenas
   labels:
-    kubernetes.io/service-name: *name
+    kubernetes.io/service-name: internal-truenas
 addressType: IPv4
 endpoints:
   - addresses:
@@ -16,7 +16,7 @@ ports:
 apiVersion: v1
 kind: Service
 metadata:
-  name: *name
+  name: internal-truenas
 spec:
   ports:
     - port: 443
@@ -44,6 +44,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: *name
+                name: internal-truenas
                 port:
                   number: 443
