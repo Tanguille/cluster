@@ -40,36 +40,69 @@ spec:
             name: alertmanager-secret
             key: DISCORD_WEBHOOK_URL
           title: |-
-            {{- if eq .Status "firing" }}🔥 **FIRING**{{- else }}✅ **RESOLVED**{{- end }} - {{ .GroupLabels.alertname }}
+            {{- if ne .Annotations.description "" }}
+            {{ .Annotations.description }}
+            {{- else if ne .Annotations.summary "" }}
+            {{ .Annotations.summary }}
+            {{- else }}
+            ""
+            {{- end }}
           message: |-
             {{- range .Alerts }}
-            ## {{ .Labels.alertname }}
 
-            **Severity:** {{ .Labels.severity }}
-
-            {{- if ne .Annotations.description "" }}
-            **Description:** {{ .Annotations.description }}
-            {{- else if ne .Annotations.summary "" }}
-            **Summary:** {{ .Annotations.summary }}
-            {{- else if ne .Annotations.message "" }}
-            **Message:** {{ .Annotations.message }}
+            {{- if eq .Labels.severity "critical" }}
+            🚨 **Severity:** `CRITICAL` 🚨
+            {{- else if eq .Labels.severity "warning" }}
+            ⚠️ **Severity:** `WARNING` ⚠️
+            {{- else if eq .Labels.severity "info" }}
+            ℹ️ **Severity:** `INFO` ℹ️
             {{- else }}
-            Alert has been triggered
+            📊 **Severity:** `{{ .Labels.severity }}`
             {{- end }}
 
-            **Details:**
+            {{- if ne .Annotations.message "" }}
+            💬 **Message:**
+            {{ .Annotations.message }}
+            {{- else }}
+            🔔 Alert has been triggered
+            {{- end }}
+
+            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+            🏷️ **Alert Details:**
             {{- if .Labels.namespace }}
-            • **Namespace:** `{{ .Labels.namespace }}`
+            📦 **Namespace:** `{{ .Labels.namespace }}`
             {{- end }}
             {{- if .Labels.pod }}
-            • **Pod:** `{{ .Labels.pod }}`
+            🐳 **Pod:** `{{ .Labels.pod }}`
             {{- end }}
             {{- if .Labels.job }}
-            • **Job:** `{{ .Labels.job }}`
+            ⚙️ **Job:** `{{ .Labels.job }}`
             {{- end }}
             {{- if .Labels.instance }}
-            • **Instance:** `{{ .Labels.instance }}`
+            🖥️ **Instance:** `{{ .Labels.instance }}`
+            {{- end }}
+            {{- if .Labels.container }}
+            📋 **Container:** `{{ .Labels.container }}`
+            {{- end }}
+            {{- if .Labels.service }}
+            🔗 **Service:** `{{ .Labels.service }}`
             {{- end }}
 
-            **Started:** <t:{{ .StartsAt.Unix }}:F>
+            ⏰ **Timeline:**
+            {{- if eq .Status "firing" }}
+            🔥 **Started:** <t:{{ .StartsAt.Unix }}:F> (<t:{{ .StartsAt.Unix }}:R>)
+            {{- else }}
+            ✅ **Resolved:** <t:{{ .EndsAt.Unix }}:F> (<t:{{ .EndsAt.Unix }}:R>)
+            🕐 **Duration:** {{ .StartsAt.Unix | humanizeDuration .EndsAt.Unix }}
+            {{- end }}
+
+            {{- if eq .Status "firing" }}
+            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            🚨 **Action Required** 🚨
+            {{- else }}
+            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            ✨ **All Clear** ✨
+            {{- end }}
+
             {{- end }}
