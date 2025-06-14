@@ -22,8 +22,8 @@ spec:
       runtimeClassName: nvidia
       enableServiceLinks: false
       securityContext:
-        runAsUser: 568
-        runAsGroup: 568
+        runAsUser: 0
+        runAsGroup: 0
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups:
@@ -40,6 +40,19 @@ spec:
             image:
               repository: ghcr.io/jellyfin/jellyfin
               tag: 10.10.7@sha256:e4d1dc5374344446a3a78e43dd211247f22afba84ea2e5a13cbe1a94e1ff2141
+            command:
+              - sh
+              - -c
+              - |
+                echo "=== Fixing Jellyfin web permissions for plugins ==="
+                if [ -f /jellyfin/jellyfin-web/index.html ]; then
+                  chown 568:568 /jellyfin/jellyfin-web/index.html
+                  echo "Fixed permissions for /jellyfin/jellyfin-web/index.html"
+                else
+                  echo "Warning: /jellyfin/jellyfin-web/index.html not found"
+                fi
+                echo "=== Switching to user 568 and starting Jellyfin ==="
+                exec gosu 568:568 /jellyfin/jellyfin --datadir /config --cachedir /cache
             env:
               TZ: ${TIMEZONE}
               DOTNET_SYSTEM_IO_DISABLEFILELOCKING: "true"
@@ -76,35 +89,6 @@ spec:
               limits:
                 memory: 10Gi
                 nvidia.com/gpu: 1
-        initContainers:
-          init-permission:
-            image:
-              repository: ghcr.io/jellyfin/jellyfin
-              tag: 10.10.7@sha256:e4d1dc5374344446a3a78e43dd211247f22afba84ea2e5a13cbe1a94e1ff2141
-            command:
-              - sh
-              - -c
-              - |
-                echo "=== Checking mounted directories ==="
-                ls -la /
-                echo "=== Checking /config directory ==="
-                ls -la /config || echo "/config not found"
-                echo "=== Checking /ext_media directory ==="
-                ls -la /ext_media || echo "/ext_media not found"
-                echo "=== Checking /jellyfin directory ==="
-                ls -la /jellyfin || echo "/jellyfin not found"
-                echo "=== Changing ownership of jellyfin-web files ==="
-                if [ -f /jellyfin/jellyfin-web/index.html ]; then
-                  chown 568:568 /jellyfin/jellyfin-web/index.html
-                  echo "Changed ownership of /jellyfin/jellyfin-web/index.html to 568:568"
-                else
-                  echo "/jellyfin/jellyfin-web/index.html not found"
-                fi
-                echo "=== Final permissions check ==="
-                ls -la /jellyfin/jellyfin-web/index.html || echo "File not found"
-                id
-            securityContext:
-              runAsUser: 0
     service:
       app:
         controller: jellyfin
@@ -132,8 +116,6 @@ spec:
         advancedMounts:
           jellyfin:
             app:
-              - path: /config
-            init-permission:
               - path: /config
 
       media:
