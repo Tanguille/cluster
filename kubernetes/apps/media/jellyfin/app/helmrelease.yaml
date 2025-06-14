@@ -22,8 +22,8 @@ spec:
       runtimeClassName: nvidia
       enableServiceLinks: false
       securityContext:
-        runAsUser: 568
-        runAsGroup: 568
+        runAsUser: 0
+        runAsGroup: 0
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups:
@@ -51,8 +51,8 @@ spec:
                 else
                   echo "Warning: /jellyfin/jellyfin-web/index.html not found"
                 fi
-                echo "=== Starting Jellyfin ==="
-                exec /jellyfin/jellyfin --datadir /config --cachedir /cache
+                echo "=== Switching to user 568 and starting Jellyfin ==="
+                exec su-exec 568:568 /jellyfin/jellyfin --datadir /config --cachedir /cache
             env:
               TZ: ${TIMEZONE}
               DOTNET_SYSTEM_IO_DISABLEFILELOCKING: "true"
@@ -79,11 +79,6 @@ spec:
                 spec:
                   failureThreshold: 30
                   periodSeconds: 10
-            securityContext:
-              allowPrivilegeEscalation: true
-              capabilities:
-                add: ["CHOWN"]
-                drop: ["ALL"]
             resources:
               requests:
                 memory: 1Gi
