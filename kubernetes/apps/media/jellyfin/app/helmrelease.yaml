@@ -84,7 +84,19 @@ spec:
             command:
               - sh
               - -c
-              - ls -la
+              - |
+                echo "=== Checking mounted directories ==="
+                ls -la /
+                echo "=== Checking /config directory ==="
+                ls -la /config || echo "/config not found"
+                echo "=== Checking /config/jellyfin directory ==="
+                ls -la /config/jellyfin || echo "/config/jellyfin not found"
+                echo "=== Checking /jellyfin directory ==="
+                ls -la /jellyfin || echo "/jellyfin not found"
+                echo "=== Checking /ext_media directory ==="
+                ls -la /ext_media || echo "/ext_media not found"
+                echo "=== Checking permissions ==="
+                id
             securityContext:
               runAsUser: 0
     service:
@@ -114,6 +126,8 @@ spec:
         advancedMounts:
           jellyfin:
             app:
+              - path: /config
+            init-permission:
               - path: /config
 
       media:
