@@ -45,7 +45,6 @@ spec:
             {{- range .Alerts }}
             ## {{ .Labels.alertname }}
 
-            **Status:** {{ .Status }}
             **Severity:** {{ .Labels.severity }}
 
             {{- if ne .Annotations.description "" }}
@@ -59,27 +58,18 @@ spec:
             {{- end }}
 
             **Details:**
-            {{- if .Labels.job }}
-            • **Job:** `{{ .Labels.job }}`
-            {{- end }}
-            {{- if .Labels.instance }}
-            • **Instance:** `{{ .Labels.instance }}`
-            {{- end }}
             {{- if .Labels.namespace }}
             • **Namespace:** `{{ .Labels.namespace }}`
             {{- end }}
             {{- if .Labels.pod }}
             • **Pod:** `{{ .Labels.pod }}`
             {{- end }}
-            {{- if .Labels.prometheus }}
-            • **Prometheus:** `{{ .Labels.prometheus }}`
+            {{- if .Labels.job }}
+            • **Job:** `{{ .Labels.job }}`
+            {{- end }}
+            {{- if .Labels.instance }}
+            • **Instance:** `{{ .Labels.instance }}`
             {{- end }}
 
             **Started:** <t:{{ .StartsAt.Unix }}:F>
-            {{- if .GeneratorURL }}
-
-            [🔗 View in Prometheus]({{ .GeneratorURL }})
-            {{- end }}
-
-            ---
             {{- end }}
