@@ -1,9 +1,9 @@
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
-  name: external-homeassistant
+  name: &name external-homeassistant
   labels:
-    kubernetes.io/service-name: external-homeassistant
+    kubernetes.io/service-name: *name
 addressType: IPv4
 endpoints:
   - addresses:
@@ -16,7 +16,7 @@ ports:
 apiVersion: v1
 kind: Service
 metadata:
-  name: external-homeassistant
+  name: *name
 spec:
   ports:
     - port: 80
@@ -42,6 +42,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: external-homeassistant
+                name: *name
                 port:
                   number: 80
