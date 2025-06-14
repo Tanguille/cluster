@@ -40,12 +40,15 @@ spec:
             name: alertmanager-secret
             key: DISCORD_WEBHOOK_URL
           title: |-
+            {{- range .Alerts }}
             {{- if ne .Annotations.description "" }}
             {{ .Annotations.description }}
             {{- else if ne .Annotations.summary "" }}
             {{ .Annotations.summary }}
             {{- else }}
-            ""
+            Alert: {{ .Labels.alertname }}
+            {{- end }}
+            {{- break }}
             {{- end }}
           message: |-
             {{- range .Alerts }}
