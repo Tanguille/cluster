@@ -1,9 +1,9 @@
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
-  name: &name internal-opnsense
+  name: internal-opnsense
   labels:
-    kubernetes.io/service-name: *name
+    kubernetes.io/service-name: internal-opnsense
 addressType: IPv4
 endpoints:
   - addresses:
@@ -16,7 +16,7 @@ ports:
 apiVersion: v1
 kind: Service
 metadata:
-  name: *name
+  name: internal-opnsense
 spec:
   ports:
     - port: 443
@@ -44,6 +44,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: *name
+                name: internal-opnsense
                 port:
                   number: 443

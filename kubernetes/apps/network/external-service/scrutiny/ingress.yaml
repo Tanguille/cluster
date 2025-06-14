@@ -1,9 +1,9 @@
 apiVersion: discovery.k8s.io/v1
 kind: EndpointSlice
 metadata:
-  name: &name external-scrutiny
+  name: external-scrutiny
   labels:
-    kubernetes.io/service-name: *name
+    kubernetes.io/service-name: external-scrutiny
 addressType: IPv4
 endpoints:
   - addresses:
@@ -16,7 +16,7 @@ ports:
 apiVersion: v1
 kind: Service
 metadata:
-  name: *name
+  name: external-scrutiny
 spec:
   ports:
     - port: 80
@@ -43,6 +43,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: *name
+                name: external-scrutiny
                 port:
                   number: 80
