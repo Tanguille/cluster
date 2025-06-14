@@ -46,7 +46,7 @@ spec:
             ## {{ .Labels.alertname }}
 
             **Status:** {{ .Status }}
-            **Severity:** {{ .Labels.severity | default "unknown" }}
+            **Severity:** {{ .Labels.severity }}
 
             {{- if ne .Annotations.description "" }}
             **Description:** {{ .Annotations.description }}
