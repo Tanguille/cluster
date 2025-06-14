@@ -79,8 +79,8 @@ spec:
         initContainers:
           init-permission:
             image:
-              repository: busybox
-              tag: latest
+              repository: ghcr.io/jellyfin/jellyfin
+              tag: 10.10.7@sha256:e4d1dc5374344446a3a78e43dd211247f22afba84ea2e5a13cbe1a94e1ff2141
             command:
               - sh
               - -c
@@ -89,13 +89,19 @@ spec:
                 ls -la /
                 echo "=== Checking /config directory ==="
                 ls -la /config || echo "/config not found"
-                echo "=== Checking /config/jellyfin directory ==="
-                ls -la /config/jellyfin || echo "/config/jellyfin not found"
-                echo "=== Checking /jellyfin directory ==="
-                ls -la /jellyfin || echo "/jellyfin not found"
                 echo "=== Checking /ext_media directory ==="
                 ls -la /ext_media || echo "/ext_media not found"
-                echo "=== Checking permissions ==="
+                echo "=== Checking /jellyfin directory ==="
+                ls -la /jellyfin || echo "/jellyfin not found"
+                echo "=== Changing ownership of jellyfin-web files ==="
+                if [ -f /jellyfin/jellyfin-web/index.html ]; then
+                  chown 568:568 /jellyfin/jellyfin-web/index.html
+                  echo "Changed ownership of /jellyfin/jellyfin-web/index.html to 568:568"
+                else
+                  echo "/jellyfin/jellyfin-web/index.html not found"
+                fi
+                echo "=== Final permissions check ==="
+                ls -la /jellyfin/jellyfin-web/index.html || echo "File not found"
                 id
             securityContext:
               runAsUser: 0
