@@ -40,63 +40,46 @@ spec:
             name: alertmanager-secret
             key: DISCORD_WEBHOOK_URL
           title: |-
-            {{- if eq .Status "firing" }}🔥 FIRING{{- else }}✅ RESOLVED{{- end }} - {{ .GroupLabels.alertname | title }}
+            {{- if eq .Status "firing" }}🔥 **FIRING**{{- else }}✅ **RESOLVED**{{- end }} - {{ .GroupLabels.alertname }}
           message: |-
-            {
-              "embeds": [
-                {{- range $i, $alert := .Alerts }}
-                {{- if $i }},{{- end }}
-                {
-                  "title": "{{ $alert.Labels.alertname }}",
-                  "description": "{{- if ne $alert.Annotations.description "" }}{{ $alert.Annotations.description }}{{- else if ne $alert.Annotations.summary "" }}{{ $alert.Annotations.summary }}{{- else if ne $alert.Annotations.message "" }}{{ $alert.Annotations.message }}{{- else }}Alert triggered{{- end }}",
-                  "color": {{- if eq $alert.Status "firing" }}{{- if eq $alert.Labels.severity "critical" }}15158332{{- else if eq $alert.Labels.severity "warning" }}16776960{{- else }}3447003{{- end }}{{- else }}3066993{{- end }},
-                  "fields": [
-                    {
-                      "name": "🎯 Status",
-                      "value": "{{ $alert.Status | upper }}",
-                      "inline": true
-                    },
-                    {
-                      "name": "⚠️ Severity",
-                      "value": "{{ $alert.Labels.severity | default "unknown" | upper }}",
-                      "inline": true
-                    },
-                    {
-                      "name": "🏷️ Job",
-                      "value": "{{ $alert.Labels.job | default "unknown" }}",
-                      "inline": true
-                    }
-                    {{- if $alert.Labels.instance }},
-                    {
-                      "name": "🖥️ Instance",
-                      "value": "`{{ $alert.Labels.instance }}`",
-                      "inline": true
-                    }
-                    {{- end }}
-                    {{- if $alert.Labels.namespace }},
-                    {
-                      "name": "📦 Namespace",
-                      "value": "`{{ $alert.Labels.namespace }}`",
-                      "inline": true
-                    }
-                    {{- end }}
-                    {{- if $alert.Labels.pod }},
-                    {
-                      "name": "🐳 Pod",
-                      "value": "`{{ $alert.Labels.pod }}`",
-                      "inline": true
-                    }
-                    {{- end }}
-                  ],
-                  "timestamp": "{{ $alert.StartsAt.Format "2006-01-02T15:04:05Z07:00" }}",
-                  "footer": {
-                    "text": "Prometheus Alert • {{ $alert.Labels.prometheus | default "cluster" }}",
-                    "icon_url": "https://prometheus.io/assets/prometheus_logo-cb55bb5c346.png"
-                  }
-                  {{- if $alert.GeneratorURL }},
-                  "url": "{{ $alert.GeneratorURL }}"
-                  {{- end }}
-                }
-                {{- end }}
-              ]
-            }
+            {{- range .Alerts }}
+            ## {{ .Labels.alertname }}
+
+            **Status:** {{ .Status | upper }}
+            **Severity:** {{ .Labels.severity | default "unknown" | upper }}
+
+            {{- if ne .Annotations.description "" }}
+            **Description:** {{ .Annotations.description }}
+            {{- else if ne .Annotations.summary "" }}
+            **Summary:** {{ .Annotations.summary }}
+            {{- else if ne .Annotations.message "" }}
+            **Message:** {{ .Annotations.message }}
+            {{- else }}
+            Alert has been triggered
+            {{- end }}
+
+            **Details:**
+            {{- if .Labels.job }}
+            • **Job:** `{{ .Labels.job }}`
+            {{- end }}
+            {{- if .Labels.instance }}
+            • **Instance:** `{{ .Labels.instance }}`
+            {{- end }}
+            {{- if .Labels.namespace }}
+            • **Namespace:** `{{ .Labels.namespace }}`
+            {{- end }}
+            {{- if .Labels.pod }}
+            • **Pod:** `{{ .Labels.pod }}`
+            {{- end }}
+            {{- if .Labels.prometheus }}
+            • **Prometheus:** `{{ .Labels.prometheus }}`
+            {{- end }}
+
+            **Started:** <t:{{ .StartsAt.Unix }}:F>
+            {{- if .GeneratorURL }}
+
+            [🔗 View in Prometheus]({{ .GeneratorURL }})
+            {{- end }}
+
+            ---
+            {{- end }}
