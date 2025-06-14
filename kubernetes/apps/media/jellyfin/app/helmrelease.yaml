@@ -52,7 +52,16 @@ spec:
                   echo "Warning: /jellyfin/jellyfin-web/index.html not found"
                 fi
                 echo "=== Switching to user 568 and starting Jellyfin ==="
-                exec su-exec 568:568 /jellyfin/jellyfin --datadir /config --cachedir /cache
+                # Try different user-switching tools in order of preference
+                if command -v setpriv >/dev/null 2>&1; then
+                  exec setpriv --reuid=568 --regid=568 --clear-groups /jellyfin/jellyfin --datadir /config --cachedir /cache
+                else
+                  # Fallback: ensure user exists and use su
+                  if ! id 568 >/dev/null 2>&1; then
+                    adduser -D -u 568 -g 568 jellyfin 2>/dev/null || true
+                  fi
+                  exec su -s /bin/sh -c 'exec /jellyfin/jellyfin --datadir /config --cachedir /cache' "#568"
+                fi
             env:
               TZ: ${TIMEZONE}
               DOTNET_SYSTEM_IO_DISABLEFILELOCKING: "true"
