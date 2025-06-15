@@ -43,24 +43,20 @@ spec:
             {{- if eq .Status "firing" }}🚨 **ALERT FIRING** 🚨{{- else }}✅ **ALERT RESOLVED** ✅{{- end }}
           message: |-
             {{- range .Alerts }}
-            {{- if eq .Status "firing" }}
-            > 🔥 **{{ .Labels.alertname }}** is currently **FIRING**
-            {{- else }}
-            > ✅ **{{ .Labels.alertname }}** has been **RESOLVED**
-            {{- end }}
 
             {{- if eq .Labels.severity "critical" }}
-            🚨 **Severity:** `CRITICAL` 🚨
+            🚨 > **Severity:** `CRITICAL` 🚨
             {{- else if eq .Labels.severity "warning" }}
-            ⚠️ **Severity:** `WARNING` ⚠️
+            ⚠️ > **Severity:** `WARNING` ⚠️
             {{- else if eq .Labels.severity "info" }}
-            ℹ️ **Severity:** `INFO` ℹ️
+            ℹ️ > **Severity:** `INFO` ℹ️
             {{- else }}
-            📊 **Severity:** `{{ .Labels.severity }}`
+            📊 > **Severity:** `{{ .Labels.severity }}`
             {{- end }}
 
             {{- if ne .Annotations.description "" }}
             📝 **Description:**
+
             ```
             {{ .Annotations.description }}
             ```
@@ -78,7 +74,7 @@ spec:
             🔔 Alert has been triggered
             {{- end }}
 
-            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
             **Alert Details:**
             {{- if .Labels.namespace }}
