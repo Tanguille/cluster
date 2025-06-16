@@ -45,11 +45,11 @@ spec:
             {{- range .Alerts }}
 
             {{- if eq .Labels.severity "critical" }}
-            > 🚨 **Severity:** `CRITICAL` 🚨
+            🚨 **Severity:** `CRITICAL`
             {{- else if eq .Labels.severity "warning" }}
-            > ⚠️ **Severity:** `WARNING` ⚠️
+            ⚠️ **Severity:** `WARNING`
             {{- else if eq .Labels.severity "info" }}
-            > ℹ️ **Severity:** `INFO` ℹ️
+            ℹ️ **Severity:** `INFO`
             {{- else }}
             > 📊 **Severity:** `{{ .Labels.severity }}`
             {{- end }}
