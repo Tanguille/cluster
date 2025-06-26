@@ -19,15 +19,12 @@ radarr:
     replace_existing_custom_formats: true
 
     quality_profiles:
-      - name: Bluray-2160p
-      - name: WEB-2160p
+      - name: Main
 
     include:
       - template: radarr-quality-definition-movie
       - template: radarr-quality-profile-uhd-bluray-web
       - template: radarr-custom-formats-uhd-bluray-web
-      - template: radarr-quality-profile-web-2160p
-      - template: radarr-custom-formats-web-2160p
 
     custom_formats:
       # Movie Versions
@@ -41,7 +38,7 @@ radarr:
           - eecf3a857724171f968a66cb5719e152 # IMAX
           - 9f6cbff8cfe4ebbc1bde14c7b7bec0de # IMAX Enhanced
         assign_scores_to:
-          - name: Bluray-2160p
+          - name: Main
 
       # Advanced Audio Formats
       - trash_ids:
@@ -60,8 +57,7 @@ radarr:
           - 240770601cc226190c367ef59aba7463 # AAC
           - c2998bd0d90ed5621d8df281e839436e # DD
         assign_scores_to:
-          - name: Bluray-2160p
-          - name: WEB-2160p
+          - name: Main
 
       # HDR Formats (For compatible displays)
       - trash_ids:
@@ -77,8 +73,7 @@ radarr:
           - 08d6d8834ad9ec87b1dc7ec8148e7a1f # PQ
           - 9364dd386c9b4a1100dde8264690add7 # HLG
         assign_scores_to:
-          - name: Bluray-2160p
-          - name: WEB-2160p
+          - name: Main
 
       # Unwanted formats
       - trash_ids:
@@ -94,16 +89,12 @@ radarr:
           - 5c44f52a8714fdd79bb4d98e2673be1f # Retags
           - f537cf427b64c38c8e36298f657e4828 # Scene
         assign_scores_to:
-          - name: Bluray-2160p
-            score: -10000
-          - name: WEB-2160p
+          - name: Main
             score: -10000
 
       # Allow x265 for 4K releases (WEB-2160p allows x265, UHD Bluray + WEB neutral)
       - trash_ids:
           - dc98083864ea246d05a42df0d05f81cc # x265
         assign_scores_to:
-          - name: Bluray-2160p
-            score: 0
-          - name: WEB-2160p
+          - name: Main
             score: 0
