@@ -26,23 +26,11 @@ radarr:
       - template: radarr-quality-profile-uhd-bluray-web
       - template: radarr-custom-formats-uhd-bluray-web
 
+    # Custom Formats: https://recyclarr.dev/wiki/yaml/config-reference/custom-formats/
     custom_formats:
-      # Movie Versions
+      # Audio
       - trash_ids:
-          - 570bc9ebecd92723d2d21500f4be314c # Remaster
-          - eca37840c13c6ef2dd0262b141a5482f # 4K Remaster
-          - e0c07d59beb37348e975a930d5e50319 # Criterion Collection
-          - 9d27d9d2181838f76dee150882bdc58c # Masters of Cinema
-          - db9b4c4b53d312a3ca5f1378f6440fc9 # Vinegar Syndrome
-          - 957d0f44b592285f26449575e8b1167e # Special Edition
-          - eecf3a857724171f968a66cb5719e152 # IMAX
-          - 9f6cbff8cfe4ebbc1bde14c7b7bec0de # IMAX Enhanced
-        assign_scores_to:
-          - name: UHD Bluray + WEB
-
-      # Advanced Audio Formats
-      - trash_ids:
-          - 496f355514737f7d83bf7aa4d24f8169 # TrueHD ATMOS
+          - 496f355514737f7d83bf7aa4d24f8169 # TrueHD Atmos
           - 2f22d89048b01681dde8afe203bf2e95 # DTS X
           - 417804f7f2c4308c1f4c5d380d4c4475 # ATMOS (undefined)
           - 1af239278386be2919e1bcee0bde047e # DD+ ATMOS
@@ -59,41 +47,47 @@ radarr:
         assign_scores_to:
           - name: UHD Bluray + WEB
 
-      # HDR Formats (For compatible displays)
+      # Movie Versions
       - trash_ids:
-          - c53085ddbd027d9624b320627748612f # DV (HDR10+)
-          - e23edd2482476e595fb990b12e7c609c # DV (HDR10)
-          - 58d6a88f13e2db7f5059c41047876f00 # DV
-          - 55d53828b9d81cbe20b02efd00aa0efd # DV HLG
-          - a3e19f8f627608af0211acd02bf89735 # DV SDR
-          - b974a6cd08c1066250f1f177d7aa1225 # HDR10+
-          - dfb86d5941bc9075d6af23b09c2aeecd # HDR10
-          - e61e28db95d22bedcadf030b8f156d96 # HDR
-          - 2a4d9069cc1fe3242ff9bdaebed239bb # HDR (undefined)
-          - 08d6d8834ad9ec87b1dc7ec8148e7a1f # PQ
-          - 9364dd386c9b4a1100dde8264690add7 # HLG
+          - 570bc9ebecd92723d2d21500f4be314c # Remaster
+          - eca37840c13c6ef2dd0262b141a5482f # 4K Remaster
+          - e0c07d59beb37348e975a930d5e50319 # Criterion Collection
+          - 9d27d9d2181838f76dee150882bdc58c # Masters of Cinema
+          - db9b4c4b53d312a3ca5f1378f6440fc9 # Vinegar Syndrome
+          - 957d0f44b592285f26449575e8b1167e # Special Edition
+          - eecf3a857724171f968a66cb5719e152 # IMAX
+          - 9f6cbff8cfe4ebbc1bde14c7b7bec0de # IMAX Enhanced
         assign_scores_to:
           - name: UHD Bluray + WEB
 
-      # Unwanted formats
+      # Optional
       - trash_ids:
-          - ed38b889b31be83fda192888e2286d83 # BR-DISK
-          - 90a6f9a284dff5103f6346090e6280c8 # LQ
-          - b8cd450cbfa689c0259a01d9e29ba3d6 # 3D
-          - 0a3f082873eb454bde444150b70253cc # Extras
-          - cae4ca30163749b891686f95532519bd # AV1
           - b6832f586342ef70d9c128d40c07b872 # Bad Dual Groups
+          - cc444569854e9de0b084ab2b8b1532b2 # Black and White Editions
           - ae9b7c9ebde1f3bd336a8cbd1ec4c5e5 # No-RlsGroup
           - 7357cf5161efbf8c4d5d0c30b4815ee2 # Obfuscated
           - 5c44f52a8714fdd79bb4d98e2673be1f # Retags
           - f537cf427b64c38c8e36298f657e4828 # Scene
         assign_scores_to:
           - name: UHD Bluray + WEB
-            score: -10000
 
-      # Allow x265 for 4K releases
+      # Allow x265 HD releases with HDR/DV
       - trash_ids:
-          - dc98083864ea246d05a42df0d05f81cc # x265
+          - dc98083864ea246d05a42df0d05f81cc # x265 (HD)
         assign_scores_to:
           - name: UHD Bluray + WEB
             score: 0
+      - trash_ids:
+          - 839bea857ed2c0a8e084f3cbdbd65ecb # x265 (no HDR/DV)
+        assign_scores_to:
+          - name: UHD Bluray + WEB
+
+      - trash_ids:
+          # Comment out the next line if you and all of your users' setups are fully DV compatible
+          - 923b6abef9b17f937fab56cfcf89e1f1 # DV (WEBDL)
+
+          # HDR10+ Boost - Uncomment the next two lines if any of your devices DO support HDR10+
+          - b17886cb4158d9fea189859409975758 # HDR10Plus Boost
+          - 55a5b50cb416dea5a50c4955896217ab # DV HDR10+ Boost
+        assign_scores_to:
+          - name: UHD Bluray + WEB
