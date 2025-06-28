@@ -18,6 +18,9 @@ spec:
   wait: true
   interval: 30m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: arm
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -38,6 +41,9 @@ spec:
   wait: true
   interval: 30m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: avr
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -58,6 +64,9 @@ spec:
   wait: true
   interval: 30m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: homeassistant
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -78,6 +87,9 @@ spec:
   wait: true
   interval: 30m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: ipmi
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -98,6 +110,9 @@ spec:
   wait: true
   interval: 30m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: opnsense
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -118,6 +133,9 @@ spec:
   wait: true
   interval: 30m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: truenas
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -138,6 +156,9 @@ spec:
   wait: true
   interval: 30m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: scrutiny
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -158,3 +179,6 @@ spec:
   wait: true
   interval: 30m
   timeout: 5m
+  postBuild:
+    substitute:
+      APP: vaultwarden
