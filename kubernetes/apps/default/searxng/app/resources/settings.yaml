@@ -1,0 +1,48 @@
+---
+use_default_settings: true
+
+server:
+  limiter: true
+  image_proxy: true
+  method: GET # https://github.com/searxng/searxng/pull/3619
+
+redis:
+  url: redis://dragonfly.database.svc.cluster.local:6379?db=10
+
+search:
+  autocomplete: duckduckgo
+
+general:
+  instance_name: TangeniusSearch
+
+ui:
+  static_use_hash: true
+  default_theme: simple
+  theme_args:
+    simple_style: dark
+  infinite_scroll: true
+  results_on_new_tab: true
+
+enabled_plugins:
+  - Basic Calculator
+  - Hash plugin
+  - Hostnames plugin
+  - Open Access DOI rewrite
+  - Self Informations
+  - Tracker URL remover
+  - Unit converter plugin
+
+hostnames:
+  high_priority:
+    - (.*)\/blog\/(.*)
+    - (.*\.)?wikipedia.org$
+    - (.*\.)?github.com$
+    - (.*\.)?reddit.com$
+    - (.*\.)?linuxserver.io$
+    - (.*\.)?docker.com$
+    - (.*\.)?archlinux.org$
+    - (.*\.)?stackoverflow.com$
+    - (.*\.)?askubuntu.com$
+    - (.*\.)?superuser.com$
+  remove:
+    - (.*\.)?access.redhat.com$

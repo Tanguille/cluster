@@ -24,21 +24,66 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/searxng/searxng
-              tag: latest
+              repository: ghcr.io/searxng/searxng
+              tag: 2025.6.10-c081447@sha256:491d23da58f89764a9d89db98dd80318cb90c1a1d498d7e684cf1ef7ac63b5f5
+            command:
+              - /usr/local/searxng/venv/bin/uwsgi
+              - --master
+              - /usr/local/searxng/.template/uwsgi.ini
+            env:
+              BASE_URL: https://search.${CLUSTER_DOMAIN}
+              UWSGI_WORKERS: "1"
+            envFrom:
+              - secretRef:
+                  name: searxng-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: &port 8080
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              runAsUser: 977
+              runAsGroup: 977
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+                add:
+                  - CHOWN
+                  - SETGID
+                  - SETUID
+                  - DAC_OVERRIDE
             resources:
               requests:
                 cpu: 10m
-                memory: 128Mi
               limits:
-                cpu: 500m
-                memory: 1Gi
+                memory: 3Gi
+    pod:
+      securityContext:
+        fsGroup: 977
+    defaultPodOptions:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: *app
     service:
       app:
-        controller: *app
+        controller: app
         ports:
           http:
-            port: 8080
+            port: *port
     ingress:
       app:
         className: internal
@@ -57,11 +102,16 @@ spec:
         type: configMap
         name: searxng-config
         advancedMounts:
-          searxng:
+          app:
             app:
               - path: /etc/searxng/settings.yml
                 subPath: settings.yml
-                readOnly: true
               - path: /etc/searxng/limiter.toml
                 subPath: limiter.toml
-                readOnly: true
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          app:
+            app:
+              - path: /etc/searxng
+              - path: /tmp
