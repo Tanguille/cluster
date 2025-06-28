@@ -48,12 +48,10 @@ spec:
         accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /appdata/db
-        volumeClaimName: homarr-database
       homarrImages:
         enabled: true
         storageClassName: openebs-zfs
         accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /images
-        volumeClaimName: homarr-images
         subPath: images
