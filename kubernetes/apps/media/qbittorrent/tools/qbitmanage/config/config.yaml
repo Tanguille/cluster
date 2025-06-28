@@ -13,6 +13,10 @@ settings:
   tracker_error_tag: issue # Will set the tag of any torrents that do not have a working tracker.
   nohardlinks_tag: noHL # Will set the tag of any torrents with no hardlinks.
   share_limits_tag: ~share_limit # Will add this tag when applying share limits to provide an easy way to filter torrents by share limit group/priority for each torrent
+  stalled_tag: stalled # Will set the tag of any torrents that are stalled
+  rem_unregistered_filter_completed: true # Will filter completed torrents when removing unregistered torrents
+  tag_stalled_torrents: true # Will tag torrents that are stalled
+  rem_unregistered_ignore_list: [] # List of torrents to ignore when removing unregistered torrents
   ignoreTags_OnUpdate: # When running tag-update function, it will update torrent tags for a given torrent even if the torrent has at least one or more of the tags defined here. Otherwise torrents will not be tagged if tags exist.
     - noHL
     - issue
@@ -34,6 +38,7 @@ directory:
   recycle_bin: /media/Downloads/.RecycleBin
   orphaned_dir: /media/Downloads/orphaned_data
   remote_dir: /media/Downloads/
+  torrents_dir: /media/Downloads/.torrents/ # Only used when recyclebin save_torrents is enabled (currently disabled)
   cross_seed:
 
 exclude_patterns:
