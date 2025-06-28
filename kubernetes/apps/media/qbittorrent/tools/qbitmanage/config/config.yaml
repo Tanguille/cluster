@@ -75,7 +75,7 @@ tracker:
     notifiarr: blutopia
   cartoonchaos:
     tag: CartoonChaos
-  digitalcore:
+  digitalcore|prxy.digitalcore:
     tag:
       - DigitalCore
       - qBitrr-allowed_seeding
@@ -135,11 +135,10 @@ tracker:
 nohardlinks:
   - radarr
   - tv-sonarr
-  - lidarr
 
 share_limits:
   public_trackers:
-    priority: 2
+    priority: 1
     include_any_tags:
       - public
     max_ratio: 1.0
@@ -147,22 +146,31 @@ share_limits:
     cleanup: true
 
   private_trackers:
-    priority: 3
+    priority: 2
     include_any_tags:
       - AnimeBytes
+      - Animetorrents
+      - Avistaz
       - Beyond-HD
       - Blutopia
+      - CartoonChaos
+      - DigitalCore
+      - GGn
+      - HDTorrents
+      - BroadcasTheNet
+      - Milkie
+      - MaM
       - PassThePopcorn
-    max_ratio: 3.0
-    max_seeding_time: 1209600 # 14 days in seconds
-    cleanup: true
-
-  unlimited:
-    priority: 999
-    include_any_tags:
-      - unlimited
-    max_ratio: -1
-    max_seeding_time: -1
+      - PrivateHD
+      - TorrentDB
+      - TorrentLeech
+      - TV-Vault
+      - IPTorrents
+      - AlphaRatio
+      - HDSpace
+      - FearNoPeer
+    max_ratio: -1 # Unlimited ratio
+    max_seeding_time: -1 # Unlimited seeding time
     cleanup: false
 
 recyclebin:
@@ -191,14 +199,11 @@ orphaned:
   empty_after_x_days: 30
   # File patterns that will not be considered orphaned files. Handy for generated files that aren't part of the torrent but belong with the torrent's files
   exclude_patterns:
-    - "**/.DS_Store"
     - "**/Thumbs.db"
     - "**/@eaDir"
     - /media/Downloads/temp/**
-    - /media/Downloads/BT_backup/**
-    - /media/Downloads/completed/**
     - /media/Downloads/cross-seed/**
-    - /media/Downloads/links/**
+    - /media/Downloads/cross-seed-link/**
     - "**/*.!qB"
     - "**/*_unpackerred"
     - "**/*.torrent"
@@ -222,6 +227,5 @@ webhooks:
 cat:
   radarr: /media/Downloads/radarr/
   tv-sonarr: /media/Downloads/tv-sonarr/
-  lidarr: /media/Downloads/lidarr/
   manual: /media/Downloads/manual/
   Downloads: /media/Downloads/
