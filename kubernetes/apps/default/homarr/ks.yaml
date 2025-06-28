@@ -10,6 +10,8 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/gatus/external
   path: ./kubernetes/apps/default/homarr/app
   prune: true
   sourceRef:
@@ -24,4 +26,3 @@ spec:
       APP: *app
       # TODO: Implement volsync
       # VOLSYNC_CAPACITY: 1Gi
-      # VOLSYNC_RECORD_SIZE: 1m
