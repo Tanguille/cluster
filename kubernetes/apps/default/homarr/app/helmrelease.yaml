@@ -44,16 +44,16 @@ spec:
     persistence:
       homarrDatabase:
         enabled: true
-        existingClaim: homarr-database
-        name: homarr-database
         storageClassName: openebs-zfs
+        accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /appdata/db
+        volumeClaimName: homarr-database
       homarrImages:
         enabled: true
-        existingClaim: homarr-images
-        name: homarr-images
         storageClassName: openebs-zfs
+        accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /images
+        volumeClaimName: homarr-images
         subPath: images
