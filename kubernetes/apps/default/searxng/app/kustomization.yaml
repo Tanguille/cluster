@@ -6,7 +6,7 @@ resources:
   - ./helmrelease.yaml
   - ./secret.sops.yaml
 configMapGenerator:
-  - name: searxng-config
+  - name: searxng-configmap
     files:
       - settings.yml=./resources/settings.yaml
       - limiter.toml=./resources/limiter.toml
