@@ -44,10 +44,12 @@ spec:
     persistence:
       homarrDatabase:
         enabled: true
-        existingClaim: homarr
+        existingClaim: homarr-database
+        storageClassName: openebs-zfs
         mountPath: /appdata/db
       homarrImages:
         enabled: true
-        existingClaim: homarr
+        existingClaim: homarr-images
+        storageClassName: openebs-zfs
         mountPath: /images
         subPath: images
