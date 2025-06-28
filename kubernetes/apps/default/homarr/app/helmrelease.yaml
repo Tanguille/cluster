@@ -46,10 +46,12 @@ spec:
         enabled: true
         existingClaim: homarr-database
         storageClassName: openebs-zfs
+        size: 1Gi
         mountPath: /appdata/db
       homarrImages:
         enabled: true
         existingClaim: homarr-images
         storageClassName: openebs-zfs
+        size: 1Gi
         mountPath: /images
         subPath: images
