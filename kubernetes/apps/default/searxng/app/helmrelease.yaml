@@ -14,18 +14,22 @@ spec:
     remediation:
       retries: 3
   upgrade:
+    cleanupOnFail: true
     remediation:
       strategy: rollback
       retries: 3
   values:
     controllers:
-      searxng:
-        strategy: Recreate
+      app:
+        replicas: 1
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2025.6.10-c081447@sha256:491d23da58f89764a9d89db98dd80318cb90c1a1d498d7e684cf1ef7ac63b5f5
+              tag: 2025.6.25-8757655@sha256:2ae57bba39cab585f5c7a1223dd51eb6494fa6febd67b871d4bddf52fce08f16
             command:
               - /usr/local/searxng/venv/bin/uwsgi
               - --master
@@ -80,7 +84,7 @@ spec:
               app.kubernetes.io/name: *app
     service:
       app:
-        controller: searxng
+        controller: app
         ports:
           http:
             port: *port
@@ -102,7 +106,7 @@ spec:
         type: configMap
         name: searxng-config
         advancedMounts:
-          searxng:
+          app:
             app:
               - path: /etc/searxng/settings.yml
                 subPath: settings.yml
@@ -111,7 +115,7 @@ spec:
       tmp:
         type: emptyDir
         advancedMounts:
-          searxng:
+          app:
             app:
               - path: /etc/searxng
               - path: /tmp
