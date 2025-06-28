@@ -35,6 +35,7 @@ spec:
               tag: v4.4.0@sha256:2e44210001996bfde32bbd07e994df392f14ed77546597ff57a1769f21e488ba
             env:
               TZ: *timeZone
+              TMPDIR: "/tmp"
               QBT_CONFIG: "/config/config.yaml"
               QBT_CAT_UPDATE: true
               QBT_CROSS_SEED: false
@@ -87,6 +88,11 @@ spec:
         globalMounts:
           - path: /app/config
           - path: /config
+
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
 
       config-file:
         type: secret
