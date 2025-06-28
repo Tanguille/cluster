@@ -33,9 +33,6 @@ spec:
             env:
               BASE_URL: https://search.${CLUSTER_DOMAIN}
               UWSGI_WORKERS: "1"
-            envFrom:
-              - secretRef:
-                  name: searxng-secret
             probes:
               liveness: &probes
                 enabled: true
