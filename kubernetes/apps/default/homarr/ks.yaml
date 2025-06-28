@@ -12,6 +12,7 @@ spec:
       app.kubernetes.io/name: *app
   components:
     - ../../../../components/gatus/guarded
+    - ../../../../components/volsync
   path: ./kubernetes/apps/default/homarr/app
   prune: true
   sourceRef:
@@ -25,5 +26,4 @@ spec:
     substitute:
       APP: *app
       GATUS_SUBDOMAIN: apps
-      # TODO: Implement volsync
-      # VOLSYNC_CAPACITY: 1Gi
+      VOLSYNC_CAPACITY: 1Gi
