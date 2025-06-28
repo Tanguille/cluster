@@ -93,7 +93,7 @@ spec:
         className: internal
         annotations:
           external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
-          nginx.ingress.kubernetes.io/proxy-set-headers: "default/searxng-proxy-headers"
+          nginx.ingress.kubernetes.io/proxy-set-headers: "default/searxng"
         hosts:
           - host: "searxng.${SECRET_DOMAIN}"
             paths:
