@@ -77,7 +77,7 @@ spec:
               app.kubernetes.io/name: *app
     service:
       app:
-        controller: app
+        controller: searxng
         ports:
           http:
             port: *port
@@ -99,7 +99,7 @@ spec:
         type: configMap
         name: searxng-config
         advancedMounts:
-          app:
+          searxng:
             app:
               - path: /etc/searxng/settings.yml
                 subPath: settings.yml
@@ -108,7 +108,7 @@ spec:
       tmp:
         type: emptyDir
         advancedMounts:
-          app:
+          searxng:
             app:
               - path: /etc/searxng
               - path: /tmp
