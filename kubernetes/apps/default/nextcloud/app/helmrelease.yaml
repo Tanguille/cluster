@@ -132,6 +132,22 @@ spec:
           $CONFIG = array (
             'default_phone_region' => 'BE',
             'maintenance_window_start' => 2,
+            'debug' => false,
+            'loglevel' => 2,
+          );
+        caching.config.php: |-
+          <?php
+          $CONFIG = array (
+            'memcache.local' => '\\OC\\Memcache\\APCu',
+            'memcache.distributed' => '\\OC\\Memcache\\Redis',
+            'memcache.locking' => '\\OC\\Memcache\\Redis',
+            'filelocking.enabled' => true,
+            'redis' => array(
+              'host' => 'dragonfly.database.svc.cluster.local.',
+              'port' => 6379,
+              'timeout' => 0.0,
+              'password' => '',
+            ),
           );
 
     deploymentAnnotations:
