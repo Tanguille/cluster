@@ -46,6 +46,21 @@ spec:
 
     nextcloud:
       datadir: /var/www/data
+
+      # Use latest default configurations from the image
+      defaultConfigs:
+        .htaccess: true
+        redis.config.php: true
+        apache-pretty-urls.config.php: true
+        apcu.config.php: true
+        apps.config.php: true
+        autoconfig.php: true
+        smtp.config.php: true
+        reverse-proxy.config.php: true
+        s3.config.php: true
+        swift.config.php: true
+        upgrade-disable-web.config.php: true
+
       extraInitContainers:
         - name: init-db
           image: ghcr.io/home-operations/postgres-init:17
@@ -111,10 +126,22 @@ spec:
         postStartCommand:
           - "/bin/sh"
           - "-c"
-          - "su -s /bin/sh www-data -c 'php occ db:add-missing-indices' || true"
-          - "su -s /bin/sh www-data -c 'php occ db:add-missing-primary-keys' || true"
-          - "su -s /bin/sh www-data -c 'php occ db:add-missing-columns' || true"
-          - "su -s /bin/sh www-data -c 'php occ files:cleanup' || true"
+          - |
+            # Wait for Nextcloud to be ready
+            while [ ! -f /var/www/html/config/config.php ]; do sleep 1; done
+
+            # Update default configs to latest versions
+            echo "Updating default configurations..."
+            cp -f /usr/src/nextcloud/config/*.php /var/www/html/config/ 2>/dev/null || true
+
+            # Run maintenance commands
+            su -s /bin/sh www-data -c 'php occ maintenance:update:htaccess' || true
+            su -s /bin/sh www-data -c 'php occ db:add-missing-indices' || true
+            su -s /bin/sh www-data -c 'php occ db:add-missing-primary-keys' || true
+            su -s /bin/sh www-data -c 'php occ db:add-missing-columns' || true
+            su -s /bin/sh www-data -c 'php occ files:cleanup' || true
+
+            echo "Configuration update completed"
 
       configs:
         logging.config.php: |-
@@ -273,8 +300,8 @@ spec:
 
     resources:
       requests:
-        cpu: 1000m
-        memory: 512Mi
+        cpu: 1
+        memory: 1Gi
       limits:
         cpu: 4
         memory: 6Gi
