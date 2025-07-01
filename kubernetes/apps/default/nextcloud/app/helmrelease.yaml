@@ -59,11 +59,31 @@ spec:
         - name: REDIS_HOST_PORT
           value: "6379"
         - name: PHP_MEMORY_LIMIT
-          value: "11G"
+          value: "2G"
         - name: PHP_UPLOAD_LIMIT
           value: "10G"
         - name: PHP_POST_MAX_SIZE
           value: "10G"
+        # PHP-FPM Performance Tuning
+        - name: PHP_FPM_PM
+          value: "dynamic"
+        - name: PHP_FPM_PM_MAX_CHILDREN
+          value: "120"
+        - name: PHP_FPM_PM_START_SERVERS
+          value: "12"
+        - name: PHP_FPM_PM_MIN_SPARE_SERVERS
+          value: "6"
+        - name: PHP_FPM_PM_MAX_SPARE_SERVERS
+          value: "18"
+        - name: PHP_FPM_PM_MAX_REQUESTS
+          value: "500"
+        # OPcache optimization
+        - name: OPCACHE_MEMORY_CONSUMPTION
+          value: "256"
+        - name: OPCACHE_MAX_ACCELERATED_FILES
+          value: "20000"
+        - name: OPCACHE_REVALIDATE_FREQ
+          value: "60"
 
       existingSecret:
         enabled: true
@@ -149,6 +169,35 @@ spec:
               'password' => '',
             ),
           );
+        performance.config.php: |-
+          <?php
+          $CONFIG = array (
+            'enable_previews' => true,
+            'enabledPreviewProviders' => array(
+              'OC\\Preview\\PNG',
+              'OC\\Preview\\JPEG',
+              'OC\\Preview\\GIF',
+              'OC\\Preview\\BMP',
+              'OC\\Preview\\XBitmap',
+              'OC\\Preview\\MP3',
+              'OC\\Preview\\TXT',
+              'OC\\Preview\\MarkDown',
+              'OC\\Preview\\Movie',
+              'OC\\Preview\\PDF',
+            ),
+            'preview_max_x' => 2048,
+            'preview_max_y' => 2048,
+            'preview_max_scale_factor' => 1,
+            'preview_concurrency_new' => 4,
+            'preview_concurrency_all' => 4,
+            'jpeg_quality' => 60,
+            'filesystem_check_changes' => 0,
+            'part_file_in_storage' => false,
+            'check_for_working_wellknown_setup' => false,
+            'check_for_working_htaccess' => false,
+            'htaccess.RewriteBase' => '/',
+            'bulkupload.enabled' => false,
+          );
 
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
@@ -224,8 +273,8 @@ spec:
 
     resources:
       requests:
-        cpu: 500m
+        cpu: 1000m
         memory: 512Mi
       limits:
         cpu: 4
-        memory: 8Gi
+        memory: 6Gi
