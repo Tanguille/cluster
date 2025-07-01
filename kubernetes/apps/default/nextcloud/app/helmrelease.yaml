@@ -67,24 +67,6 @@ spec:
           envFrom:
             - secretRef:
                 name: nextcloud-secret
-        - name: fix-permissions
-          image: alpine:latest
-          command:
-            - sh
-            - -c
-            - |
-              echo "Fixing volume permissions for www-data (33:33)..."
-              chown -R 33:33 /var/www/html || true
-              chown -R 33:33 /var/www/data || true
-              echo "Permissions fixed"
-          volumeMounts:
-            - name: nextcloud-main
-              mountPath: /var/www/html
-            - name: nextcloud-data
-              mountPath: /var/www/data
-          securityContext:
-            runAsUser: 0 # Run as root to fix permissions
-
       extraEnv:
         - name: REDIS_HOST
           value: dragonfly.database.svc.cluster.local.
