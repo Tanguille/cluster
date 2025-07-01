@@ -67,6 +67,23 @@ spec:
           envFrom:
             - secretRef:
                 name: nextcloud-secret
+        - name: fix-permissions
+          image: alpine:latest
+          command:
+            - sh
+            - -c
+            - |
+              echo "Fixing volume permissions for www-data (33:33)..."
+              chown -R 33:33 /var/www/html || true
+              chown -R 33:33 /var/www/data || true
+              echo "Permissions fixed"
+          volumeMounts:
+            - name: nextcloud-main
+              mountPath: /var/www/html
+            - name: nextcloud-data
+              mountPath: /var/www/data
+          securityContext:
+            runAsUser: 0 # Run as root to fix permissions
 
       extraEnv:
         - name: REDIS_HOST
@@ -130,9 +147,19 @@ spec:
             # Wait for Nextcloud to be ready
             while [ ! -f /var/www/html/config/config.php ]; do sleep 1; done
 
+            # Fix file ownership for cron jobs
+            echo "Fixing file permissions for cron..."
+            chown -R www-data:www-data /var/www/html/config/
+            chown -R www-data:www-data /var/www/html/data/
+            chown -R www-data:www-data /var/www/html/apps/
+            chown -R www-data:www-data /var/www/html/custom_apps/ 2>/dev/null || true
+            chmod -R 755 /var/www/html/config/
+            chmod 644 /var/www/html/config/config.php
+
             # Update default configs to latest versions
             echo "Updating default configurations..."
             cp -f /usr/src/nextcloud/config/*.php /var/www/html/config/ 2>/dev/null || true
+            chown www-data:www-data /var/www/html/config/*.php 2>/dev/null || true
 
             # Run maintenance commands
             su -s /bin/sh www-data -c 'php occ maintenance:update:htaccess' || true
@@ -289,6 +316,12 @@ spec:
 
     cronjob:
       enabled: true
+
+    # Security context to ensure proper permissions
+    podSecurityContext:
+      runAsUser: 33 # www-data user ID
+      runAsGroup: 33 # www-data group ID
+      fsGroup: 33 # Ensure volumes are accessible by www-data
 
     startupProbe:
       enabled: true
