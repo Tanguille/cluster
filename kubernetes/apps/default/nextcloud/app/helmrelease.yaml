@@ -289,12 +289,6 @@ spec:
     cronjob:
       enabled: true
 
-    # Security context to ensure proper permissions
-    podSecurityContext:
-      runAsUser: 33 # www-data user ID
-      runAsGroup: 33 # www-data group ID
-      fsGroup: 33 # Ensure volumes are accessible by www-data
-
     startupProbe:
       enabled: true
       initialDelaySeconds: 60
