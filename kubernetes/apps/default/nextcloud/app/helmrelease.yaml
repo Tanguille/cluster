@@ -67,6 +67,7 @@ spec:
           envFrom:
             - secretRef:
                 name: nextcloud-secret
+
       extraEnv:
         - name: REDIS_HOST
           value: dragonfly.database.svc.cluster.local.
@@ -75,7 +76,7 @@ spec:
         - name: PHP_MEMORY_LIMIT
           value: "2G"
         - name: PHP_UPLOAD_LIMIT
-          value: "10G"
+          value: "16G"
         - name: PHP_POST_MAX_SIZE
           value: "10G"
         # PHP-FPM Performance Tuning
@@ -126,31 +127,24 @@ spec:
           - "/bin/sh"
           - "-c"
           - |
-            # Wait for Nextcloud to be ready
-            while [ ! -f /var/www/html/config/config.php ]; do sleep 1; done
-
-            # Fix file ownership for cron jobs
-            echo "Fixing file permissions for cron..."
-            chown -R www-data:www-data /var/www/html/config/
-            chown -R www-data:www-data /var/www/html/data/
-            chown -R www-data:www-data /var/www/html/apps/
-            chown -R www-data:www-data /var/www/html/custom_apps/ 2>/dev/null || true
-            chmod -R 755 /var/www/html/config/
-            chmod 644 /var/www/html/config/config.php
-
-            # Update default configs to latest versions
-            echo "Updating default configurations..."
-            cp -f /usr/src/nextcloud/config/*.php /var/www/html/config/ 2>/dev/null || true
-            chown www-data:www-data /var/www/html/config/*.php 2>/dev/null || true
-
-            # Run maintenance commands
-            su -s /bin/sh www-data -c 'php occ maintenance:update:htaccess' || true
+            su -s /bin/sh www-data -c 'php occ maintenance:repair --include-expensive' || true
+            su -s /bin/sh www-data -c 'php occ files:scan --all' || true
+            su -s /bin/sh www-data -c 'php occ files:cleanup' || true
             su -s /bin/sh www-data -c 'php occ db:add-missing-indices' || true
             su -s /bin/sh www-data -c 'php occ db:add-missing-primary-keys' || true
             su -s /bin/sh www-data -c 'php occ db:add-missing-columns' || true
-            su -s /bin/sh www-data -c 'php occ files:cleanup' || true
 
-            echo "Configuration update completed"
+      phpConfigs:
+        www.conf: |
+          [www]
+          user = www-data
+          group = www-data
+          listen = 127.0.0.1:9000
+          pm = dynamic
+          pm.max_children = 50
+          pm.start_servers = 12
+          pm.min_spare_servers = 6
+          pm.max_spare_servers = 18
 
       configs:
         logging.config.php: |-
@@ -176,7 +170,7 @@ spec:
               2 => '127.0.0.1',
             ),
             'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
-          ); ?>
+          );
         ingress.config.php: |-
           <?php
           $CONFIG = array (
@@ -210,16 +204,18 @@ spec:
           $CONFIG = array (
             'enable_previews' => true,
             'enabledPreviewProviders' => array(
-              'OC\\Preview\\PNG',
-              'OC\\Preview\\JPEG',
-              'OC\\Preview\\GIF',
-              'OC\\Preview\\BMP',
-              'OC\\Preview\\XBitmap',
-              'OC\\Preview\\MP3',
-              'OC\\Preview\\TXT',
-              'OC\\Preview\\MarkDown',
-              'OC\\Preview\\Movie',
-              'OC\\Preview\\PDF',
+              'OC\Preview\PNG',
+              'OC\Preview\JPEG',
+              'OC\Preview\GIF',
+              'OC\Preview\BMP',
+              'OC\Preview\XBitmap',
+              'OC\Preview\MP3',
+              'OC\Preview\TXT',
+              'OC\Preview\MarkDown',
+              'OC\Preview\OpenDocument',
+              'OC\Preview\Krita',
+              'OC\Preview\HEIC',
+              'OC\Preview\PDF',
             ),
             'preview_max_x' => 2048,
             'preview_max_y' => 2048,
@@ -257,7 +253,7 @@ spec:
       className: external
       annotations:
         external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
-        nginx.ingress.kubernetes.io/proxy-body-size: 20480m
+        nginx.ingress.kubernetes.io/proxy-body-size: "16G"
         nginx.ingress.kubernetes.io/proxy-connect-timeout: "20"
         nginx.ingress.kubernetes.io/proxy-read-timeout: "14400"
         nginx.ingress.kubernetes.io/proxy-send-timeout: "14400"
@@ -319,4 +315,4 @@ spec:
         memory: 1Gi
       limits:
         cpu: 4
-        memory: 6Gi
+        memory: 8Gi
