@@ -110,6 +110,13 @@ spec:
       host: nextcloud.${SECRET_DOMAIN}
       containerPort: 80
 
+      # Security context to run as www-data user
+      securityContext:
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        runAsNonRoot: true
+
       mail:
         enabled: true
         fromAddress: ${FROM_ADDRESS}
@@ -302,10 +309,3 @@ spec:
       limits:
         cpu: 4
         memory: 8Gi
-
-    # Security context to run as www-data user
-    securityContext:
-      runAsUser: 33
-      runAsGroup: 33
-      fsGroup: 33
-      runAsNonRoot: true
