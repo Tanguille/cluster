@@ -44,21 +44,6 @@ spec:
 
     nextcloud:
       datadir: /var/www/data
-
-      # Use latest default configurations from the image
-      defaultConfigs:
-        .htaccess: true
-        redis.config.php: true
-        apache-pretty-urls.config.php: true
-        apcu.config.php: true
-        apps.config.php: true
-        autoconfig.php: true
-        smtp.config.php: true
-        reverse-proxy.config.php: true
-        s3.config.php: true
-        swift.config.php: true
-        upgrade-disable-web.config.php: true
-
       extraInitContainers:
         - name: init-db
           image: ghcr.io/home-operations/postgres-init:17
@@ -72,7 +57,7 @@ spec:
         - name: REDIS_HOST_PORT
           value: "6379"
         - name: PHP_MEMORY_LIMIT
-          value: "2G"
+          value: "8G"
         - name: PHP_UPLOAD_LIMIT
           value: "16G"
         - name: PHP_POST_MAX_SIZE
@@ -109,13 +94,6 @@ spec:
 
       host: nextcloud.${SECRET_DOMAIN}
       containerPort: 80
-
-      # Security context to run as www-data user
-      securityContext:
-        runAsUser: 33
-        runAsGroup: 33
-        fsGroup: 33
-        runAsNonRoot: true
 
       mail:
         enabled: true
@@ -267,6 +245,8 @@ spec:
           /.well-known/host-meta.json /public.php?service=host-meta-json;
           /.well-known/carddav $scheme://$host/remote.php/dav redirect=301;
           /.well-known/caldav $scheme://$host/remote.php/dav redirect=301;
+        nginx.ingress.kubernetes.io/configuration-snippet: |-
+          more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
         nginx.ingress.kubernetes.io/server-snippet: |
           location = /robots.txt {
             return 200 "User-agent: *\nDisallow: /\n";
