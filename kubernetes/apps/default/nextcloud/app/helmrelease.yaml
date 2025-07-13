@@ -105,6 +105,13 @@ spec:
           authtype: LOGIN
           secure: starttls
 
+      # Security context to run as www-data user
+      securityContext:
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        runAsNonRoot: true
+
       lifecycle:
         postStartCommand:
           - "/bin/sh"
