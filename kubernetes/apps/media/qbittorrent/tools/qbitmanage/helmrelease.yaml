@@ -21,20 +21,15 @@ spec:
   values:
     controllers:
       qbitmanage:
-        type: cronjob
-        cronjob:
-          schedule: "0 * * * *"
-          timeZone: &timeZone ${TIMEZONE}
-          concurrencyPolicy: Forbid
-          successfulJobsHistory: 1
-          failedJobsHistory: 1
+        replicas: 1
+        strategy: RollingUpdate
         containers:
           app:
             image:
               repository: ghcr.io/stuffanthings/qbit_manage
-              tag: v4.4.0@sha256:2e44210001996bfde32bbd07e994df392f14ed77546597ff57a1769f21e488ba
+              tag: v4.5.0@sha256:ab9fc1318e18aaca965c87a0c60ae94ad8a45c47fa57b5c112259dae8b2e971f
             env:
-              TZ: *timeZone
+              TZ: ${TIMEZONE}
               TMPDIR: "/tmp"
               QBT_CONFIG: "/config/config.yaml"
               QBT_CAT_UPDATE: true
@@ -53,6 +48,11 @@ spec:
               QBT_TAG_TRACKER_ERROR: true
               QBT_TAG_UPDATE: true
               QBT_WIDTH: 100
+              # Web UI configuration
+              QBT_WEBUI_ENABLED: true
+              QBT_WEBUI_PORT: &port 8080
+              QBT_WEBUI_HOST: "0.0.0.0"
+              QBT_SCHEDULE: "0 * * * *" # Run every hour
             resources:
               requests:
                 cpu: 10m
@@ -80,6 +80,27 @@ spec:
         runAsGroup: 568
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
+
+    service:
+      app:
+        controller: qbitmanage
+        ports:
+          http:
+            port: *port
+
+    ingress:
+      app:
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+        hosts:
+          - host: "qbitmanage.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  identifier: app
+                  port: http
 
     persistence:
       app:
