@@ -1,0 +1,74 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app dumbassets
+spec:
+  interval: 15m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+    namespace: flux-system
+  maxHistory: 3
+  install:
+    createNamespace: true
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  uninstall:
+    keepHistory: false
+  values:
+    controllers:
+      app:
+        containers:
+          main:
+            image:
+              repository: dumbwareio/dumbassets
+              tag: 1.0.11@sha256:286af5b8586e437549336ee6647eb02af445d52df4b51960ed11ca2c1491fb52
+
+            env:
+              NODE_ENV: production
+              DEBUG: false
+              SITE_TITLE: "DumbAssets"
+              BASE_URL: "https://dumbassets.${SECRET_DOMAIN}"
+              DUMBASSETS_PIN: 1234
+              ALLOWED_ORIGINS: "*"
+              CURRENCY_CODE: "EUR"
+              CURRENCY_LOCALE: "nl-BE"
+
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
+
+    service:
+      app:
+        controller: app
+        ports:
+          http:
+            port: &port 3000
+
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - name: *app
+                port: *port
+
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /app/data
