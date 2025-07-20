@@ -1,7 +1,21 @@
 # This is an example configuration file that documents all the options.
 # It will need to be modified for your specific use case.
 # Please refer to the link below for more details on how to set up the configuration file
-# https: //github.com/StuffAnThings/qbit_manage/wiki/Config-Setup
+# https://github.com/StuffAnThings/qbit_manage/wiki/Config-Setup
+
+commands:
+  # The commands defined below will OVERRIDE any commands used in command line and docker env variables.
+  dry_run: True
+  recheck: True
+  cat_update: True
+  tag_update: True
+  rem_unregistered: True
+  tag_tracker_error: True
+  rem_orphaned: True
+  tag_nohardlinks: True
+  share_limits: True
+  skip_qb_version_check: False
+  skip_cleanup: False
 
 qbt:
   host: qbittorrent.media.svc.cluster.local
@@ -9,50 +23,50 @@ qbt:
   pass: ${QBITTORRENT_PWD}
 
 settings:
-  force_auto_tmm: true # Will force qBittorrent to enable Automatic Torrent Management for each torrent.
+  force_auto_tmm: True # Will force qBittorrent to enable Automatic Torrent Management for each torrent.
+  force_auto_tmm_ignore_tags: #Torrents with these tags will be ignored when force_auto_tmm is enabled.
+    - cross-seed
   tracker_error_tag: issue # Will set the tag of any torrents that do not have a working tracker.
   nohardlinks_tag: noHL # Will set the tag of any torrents with no hardlinks.
+  stalled_tag: stalledDL # Will set the tag of any torrents stalled downloading.
   share_limits_tag: ~share_limit # Will add this tag when applying share limits to provide an easy way to filter torrents by share limit group/priority for each torrent
-  stalled_tag: stalled # Will set the tag of any torrents that are stalled
-  rem_unregistered_filter_completed: true # Will filter completed torrents when removing unregistered torrents
-  tag_stalled_torrents: true # Will tag torrents that are stalled
-  rem_unregistered_ignore_list: [] # List of torrents to ignore when removing unregistered torrents
-  ignoreTags_OnUpdate: # When running tag-update function, it will update torrent tags for a given torrent even if the torrent has at least one or more of the tags defined here. Otherwise torrents will not be tagged if tags exist.
-    - noHL
-    - issue
-    - cross-seed
-  share_limits_min_seeding_time_tag: MinSeedTimeNotReached
-  share_limits_min_num_seeds_tag: MinSeedsNotMet
-  share_limits_last_active_tag: LastActiveLimitNotReached
-  cross_seed_tag: cross-seed
-  cat_filter_completed: true
-  share_limits_filter_completed: true
-  tag_nohardlinks_filter_completed: true
-  cat_update_all: true
-  force_retag_all: false
-  force_auto_tmm_ignore_tags: []
-  disable_qbt_default_share_limits: false
+  share_limits_min_seeding_time_tag: MinSeedTimeNotReached # Tag to be added to torrents that have not yet reached the minimum seeding time
+  share_limits_min_num_seeds_tag: MinSeedsNotMet # Tag to be added to torrents that have not yet reached the minimum number of seeds
+  share_limits_last_active_tag: LastActiveLimitNotReached # Tag to be added to torrents that have not yet reached the last active limit
+  cat_filter_completed: True # Filters for completed torrents only when running cat_update command
+  share_limits_filter_completed: True # Filters for completed torrents only when running share_limits command
+  tag_nohardlinks_filter_completed: True # Filters for completed torrents only when running tag_nohardlinks command
+  rem_unregistered_filter_completed: False # Filters for completed torrents only when running rem_unregistered command
+  cat_update_all: True # Checks and updates all torrent categories if set to True when running cat_update command, otherwise only update torrents that are uncategorized
+  disable_qbt_default_share_limits: True # Allows QBM to handle share limits by disabling qBittorrents default Share limits. Only active when the share_limits command is set to True
+  tag_stalled_torrents: True # Tags any downloading torrents that are stalled with the `stalledDL` tag when running the tag_update command
+  rem_unregistered_ignore_list: # Ignores a list of words found in the status of the tracker when running rem_unregistered command and will not remove the torrent if matched
+    - example placeholder words
+    - ignore if found
 
 directory:
+  # Do not remove these
+  # root_dir var: </your/path/here/>  # Root downloads directory used to check for orphaned files, noHL, and RecycleBin.
+  # <OPTIONAL> remote_dir var: </your/path/here/>  # Path of docker host mapping of root_dir.
+  # remote_dir must be set if you're running qbit_manage locally and qBittorrent/cross_seed is in a docker
+  # remote_dir should not be set if qbit_manage is running in a container
+  # <OPTIONAL> recycle_bin var: </your/path/here/>   # Path of the RecycleBin folder. Default location is set to remote_dir/.RecycleBin
+  # <OPTIONAL> torrents_dir var: </your/path/here/>  # Path of the your qbittorrent torrents directory. Required for `save_torrents` attribute in recyclebin
+  # <OPTIONAL> orphaned_dir var: </your/path/here/>  # Path of the the Orphaned Data folder. This is similar to RecycleBin, but only for orphaned data.
   root_dir: /media/Downloads/
-  recycle_bin: /media/Downloads/.RecycleBin
   orphaned_dir: /media/Downloads/orphaned_data
-  remote_dir: /media/Downloads/
-  torrents_dir: /media/Downloads/.torrents/ # Only used when recyclebin save_torrents is enabled (currently disabled)
   cross_seed:
 
-exclude_patterns:
-  - "**/.DS_Store"
-  - "**/Thumbs.db"
-  - "**/@eaDir"
-  - /media/Downloads/temp/**
-  - /media/Downloads/completed/**
-  - /media/Downloads/cross-seed/**
-  - /media/Downloads/links/**
-  - /media/Downloads/BT_backup/**
-  - "**/*.!qB"
-  - "**/*_unpackerred"
-  - "**/*.torrent"
+cat:
+  # Category & Path Parameters
+  # All save paths in qbittorent must be populated below.
+  # If you want to leave a save_path as uncategorized you can use the key 'Uncategorized' as the name of the category.
+  # You can use Unix filename pattern matching as well when specifying the save_path
+  # <Category Name> : <save_path>  # Path of your save directory.
+  radarr: /media/Downloads/radarr/
+  tv-sonarr: /media/Downloads/tv-sonarr/
+  manual: /media/Downloads/manual/
+  Downloads: /media/Downloads/
 
 tracker:
   # Mandatory
@@ -60,6 +74,8 @@ tracker:
   # <Tracker URL Keyword>:    # <MANDATORY> This is the keyword in the tracker url. You can define multiple tracker urls by splitting with `|` delimiter
   # <MANDATORY> Set tag name. Can be a list of tags or a single tag
   #   tag: <Tag Name>
+  # <OPTIONAL> Set the category based on tracker URL. This category option takes priority over the category defined by save directory
+  #   cat: <Category Name>
   # <OPTIONAL> Set this to the notifiarr react name. This is used to add indexer reactions to the notifications sent by Notifiarr
   #   notifiarr: <notifiarr indexer>
   animebytes.tv:
@@ -142,6 +158,10 @@ nohardlinks:
   - tv-sonarr
 
 share_limits:
+  # Control how torrent share limits are set depending on the priority of your grouping
+  # Each torrent will be matched with the share limit group with the highest priority that meets the group filter criteria.
+  # Each torrent can only be matched with one share limit group
+  # This variable is mandatory and is a text defining the name of your grouping. This can be any string you want
   public_trackers:
     priority: 1
     include_any_tags:
@@ -179,7 +199,7 @@ share_limits:
     cleanup: false
 
 recyclebin:
-  # Recycle Bin method of deletion will move files into the recycle bin (Located in /root_dir/.RecycleBin) instead of directly deleting them in qbittorrent
+  # Recycle Bin method of deletion will move files into the recycle bin (Located in /root_dir/.RecycleBin) instead of directly deleting them in qbit
   # By default the Recycle Bin will be emptied on every run of the qbit_manage script if empty_after_x_days is defined.
   enabled: true
   # <OPTIONAL> empty_after_x_days var:
@@ -193,7 +213,7 @@ recyclebin:
   save_torrents: false
   # <OPTIONAL> split_by_category var:
   # This will split the recycle bin folder by the save path defined in the `cat` attribute
-  # and add the base folder name of the recycle bin that was defined in the `recycle_bin` sub-attribute under directory.  split_by_category: false
+  # and add the base folder name of the recycle bin that was defined in the `recycle_bin` sub-attribute under directory.
   split_by_category: false
 
 orphaned:
@@ -206,12 +226,16 @@ orphaned:
   exclude_patterns:
     - "**/Thumbs.db"
     - "**/@eaDir"
-    - /media/Downloads/temp/**
+    - /media/Downloads/.RecycleBin/**
     - /media/Downloads/cross-seed/**
     - /media/Downloads/cross-seed-link/**
+    - /media/Downloads/manual/**
+    - /media/Downloads/orphaned_data/**
     - "**/*.!qB"
     - "**/*_unpackerred"
     - "**/*.torrent"
+    - "**/*.r[0-9][0-9]"
+    - "**/*.part"
   max_orphaned_files_to_delete: 100
 
 webhooks:
@@ -229,8 +253,3 @@ webhooks:
     tag_nohardlinks:
     share_limits:
     cleanup_dirs:
-cat:
-  radarr: /media/Downloads/radarr/
-  tv-sonarr: /media/Downloads/tv-sonarr/
-  manual: /media/Downloads/manual/
-  Downloads: /media/Downloads/
