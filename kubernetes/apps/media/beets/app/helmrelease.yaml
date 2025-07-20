@@ -81,13 +81,8 @@ spec:
         type: nfs
         server: ${TRUENAS_IP}
         path: /mnt/TanguilleServer/TanguilleSMB/Media/Music
-        advancedMounts:
-          beets:
-            app:
-              - path: /downloads
-                subPath: Downloads/soulseek/complete
-              - path: /tracks
-                subPath: Library/Tracks
+        globalMounts:
+          - path: /media
       config-file:
         type: configMap
         name: beets-configmap
