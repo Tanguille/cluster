@@ -280,6 +280,11 @@ spec:
 
     cronjob:
       enabled: true
+      securityContext:
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        runAsNonRoot: true
 
     startupProbe:
       enabled: true
