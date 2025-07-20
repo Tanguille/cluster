@@ -279,12 +279,7 @@ spec:
         existingClaim: nextcloud-pvc
 
     cronjob:
-      enabled: true
-      securityContext:
-        runAsUser: 33
-        runAsGroup: 33
-        fsGroup: 33
-        runAsNonRoot: true
+      enabled: false
 
     startupProbe:
       enabled: true

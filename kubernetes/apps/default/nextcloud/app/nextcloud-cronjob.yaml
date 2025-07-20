@@ -1,0 +1,128 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nextcloud-cronjob
+  namespace: default
+  labels:
+    app.kubernetes.io/name: nextcloud-cronjob
+    app.kubernetes.io/instance: nextcloud
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: nextcloud-cronjob
+            app.kubernetes.io/instance: nextcloud
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 33
+            runAsGroup: 33
+            fsGroup: 33
+            runAsNonRoot: true
+          containers:
+            - name: nextcloud-cron
+              image: nextcloud:31.0.7-fpm-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  echo "Starting Nextcloud cron job at $(date)"
+                  php -f /var/www/html/cron.php
+                  echo "Nextcloud cron job completed at $(date)"
+              env:
+                - name: POSTGRES_HOST
+                  value: postgres16-rw.database.svc.cluster.local:5432
+                - name: POSTGRES_DB
+                  value: nextcloud
+                - name: POSTGRES_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud-secret
+                      key: INIT_POSTGRES_USER
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud-secret
+                      key: INIT_POSTGRES_PASS
+                - name: NEXTCLOUD_ADMIN_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud-secret
+                      key: NEXTCLOUD_USERNAME
+                - name: NEXTCLOUD_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: nextcloud-secret
+                      key: NEXTCLOUD_PASSWORD
+                - name: NEXTCLOUD_TRUSTED_DOMAINS
+                  value: nextcloud.${SECRET_DOMAIN}
+                - name: NEXTCLOUD_DATA_DIR
+                  value: /var/www/data
+                - name: REDIS_HOST
+                  value: dragonfly.database.svc.cluster.local.
+                - name: REDIS_HOST_PORT
+                  value: "6379"
+              volumeMounts:
+                - name: nextcloud-main
+                  mountPath: /var/www/
+                  subPath: root
+                - name: nextcloud-main
+                  mountPath: /var/www/html
+                  subPath: html
+                - name: nextcloud-data
+                  mountPath: /var/www/data
+                  subPath: data
+                - name: nextcloud-main
+                  mountPath: /var/www/html/config
+                  subPath: config
+                - name: nextcloud-main
+                  mountPath: /var/www/html/custom_apps
+                  subPath: custom_apps
+                - name: nextcloud-main
+                  mountPath: /var/www/tmp
+                  subPath: tmp
+                - name: nextcloud-main
+                  mountPath: /var/www/html/themes
+                  subPath: themes
+                - name: nextcloud-config
+                  mountPath: /var/www/html/config/caching.config.php
+                  subPath: caching.config.php
+                - name: nextcloud-config
+                  mountPath: /var/www/html/config/ingress.config.php
+                  subPath: ingress.config.php
+                - name: nextcloud-config
+                  mountPath: /var/www/html/config/logging.config.php
+                  subPath: logging.config.php
+                - name: nextcloud-config
+                  mountPath: /var/www/html/config/misc.config.php
+                  subPath: misc.config.php
+                - name: nextcloud-config
+                  mountPath: /var/www/html/config/performance.config.php
+                  subPath: performance.config.php
+                - name: nextcloud-config
+                  mountPath: /var/www/html/config/proxy.config.php
+                  subPath: proxy.config.php
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: nextcloud-main
+              persistentVolumeClaim:
+                claimName: nextcloud
+            - name: nextcloud-data
+              persistentVolumeClaim:
+                claimName: nextcloud-pvc
+            - name: nextcloud-config
+              configMap:
+                name: nextcloud-config
