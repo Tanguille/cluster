@@ -48,11 +48,10 @@ spec:
               QBT_TAG_TRACKER_ERROR: true
               QBT_TAG_UPDATE: true
               QBT_WIDTH: 100
-              # Web UI configuration
-              QBT_WEBUI_ENABLED: true
-              QBT_WEBUI_PORT: &port 8080
-              QBT_WEBUI_HOST: "0.0.0.0"
               QBT_SCHEDULE: "0 * * * *" # Run every hour
+              # Web UI configuration
+              QBT_WEB_SERVER: true
+              QBT_PORT: &port 8080
             resources:
               requests:
                 cpu: 10m
