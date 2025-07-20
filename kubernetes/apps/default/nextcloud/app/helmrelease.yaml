@@ -77,7 +77,7 @@ spec:
           value: "500"
         # OPcache optimization
         - name: OPCACHE_MEMORY_CONSUMPTION
-          value: "256"
+          value: "512"
         - name: OPCACHE_MAX_ACCELERATED_FILES
           value: "20000"
         - name: OPCACHE_REVALIDATE_FREQ
@@ -117,6 +117,7 @@ spec:
           - "/bin/sh"
           - "-c"
           - |
+            echo "Waiting for Nextcloud to be ready..."
             su -s /bin/sh www-data -c 'php occ maintenance:repair --include-expensive' || true
             su -s /bin/sh www-data -c 'php occ files:scan --all' || true
             su -s /bin/sh www-data -c 'php occ files:cleanup' || true
@@ -254,6 +255,11 @@ spec:
           /.well-known/caldav $scheme://$host/remote.php/dav redirect=301;
         nginx.ingress.kubernetes.io/configuration-snippet: |-
           more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
+          more_set_headers "X-Content-Type-Options: nosniff";
+          more_set_headers "X-Frame-Options: SAMEORIGIN";
+          more_set_headers "X-Permitted-Cross-Domain-Policies: none";
+          more_set_headers "X-Robots-Tag: noindex, nofollow";
+          more_set_headers "Referrer-Policy: no-referrer";
         nginx.ingress.kubernetes.io/server-snippet: |
           location = /robots.txt {
             return 200 "User-agent: *\nDisallow: /\n";
