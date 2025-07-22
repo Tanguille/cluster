@@ -1,0 +1,96 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app music-assistant
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: app-template
+      version: 4.1.2
+      interval: 30m
+      sourceRef:
+        kind: HelmRepository
+        name: bjw-s
+        namespace: flux-system
+
+  values:
+    controllers:
+      music-assistant:
+        annotations:
+          reloader.stakater.com/auto: "true"
+
+        containers:
+          app:
+            image:
+              repository: ghcr.io/music-assistant/server
+              tag: 2.5.5
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 47m
+                memory: 512Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: &httpPort 8095
+          stream:
+            port: 8097
+          http2:
+            port: 1780
+          snapserver-player:
+            port: 1704
+          snapserver-control:
+            port: 1705
+          squeeze-cli:
+            port: 9090
+          squeeze-rpc:
+            port: 9000
+          squeeze-slimproto:
+            port: 3483
+    ingress:
+      app:
+        enabled: true
+        className: internal
+        annotations:
+          external-dns.alpha.kubernetes.io/target: "internal.${CLUSTER_DOMAIN}"
+        hosts:
+          - host: "music-assistant.${SECRET_DOMAIN}"
+            paths:
+              - path: /
+                service:
+                  identifier: app
+                  port: *httpPort
+
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /data
+            subPath: data
+      media:
+        type: nfs
+        server: ${TRUENAS_IP}
+        path: /mnt/TanguilleServer/TanguilleSMB/Media/Music
+        globalMounts:
+          - path: /media/music
+            subPath: music
+      tmp:
+        type: emptyDir
