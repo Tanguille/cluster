@@ -3,7 +3,6 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
   name: homarr-labs
-  namespace: flux-system
 spec:
   interval: 30m
   layerSelector:
@@ -23,7 +22,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: homarr-labs
-    namespace: flux-system
   install:
     remediation:
       retries: 3
