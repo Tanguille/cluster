@@ -120,32 +120,16 @@ spec:
             editable: true
             options:
               path: /var/lib/grafana/dashboards/kubernetes-folder
-          - name: nginx
+          - name: network
             orgId: 1
-            folder: nginx
+            folder: network
             type: file
             disableDeletion: false
             editable: true
             options:
-              path: /var/lib/grafana/dashboards/nginx-folder
+              path: /var/lib/grafana/dashboards/network-folder
     dashboards:
       default:
-        cert-manager:
-          # renovate: depName="Cert-manager-Kubernetes"
-          gnetId: 20842
-          revision: 3
-          datasource: Prometheus
-        cloudflared:
-          # renovate: depName="Cloudflare Tunnels (cloudflared)"
-          gnetId: 17457
-          revision: 6
-          datasource:
-            - { name: DS_PROMETHEUS, value: Prometheus }
-        external-dns:
-          # renovate: depName="External-dns"
-          gnetId: 15038
-          revision: 3
-          datasource: Prometheus
         exportarr:
           url: https://raw.githubusercontent.com/onedr0p/exportarr/master/examples/grafana/dashboard2.json
           datasource:
@@ -165,12 +149,6 @@ spec:
           revision: 1
           datasource:
             - { name: DS_VICTORIAMETRICS, value: Prometheus }
-        opnsense:
-          # renovate: depName="OPNsense"
-          gnetId: 21113
-          revision: 1
-          datasource:
-            - { name: DS_PROMETHEUS-K0, value: Prometheus }
         nut-exporter:
           # renovate: depName="Prometheus NUT Exporter for DRuggeri"
           gnetId: 19308
@@ -184,12 +162,6 @@ spec:
           datasource: Prometheus
         qbittorrent-exporter:
           url: https://raw.githubusercontent.com/esanchezm/prometheus-qbittorrent-exporter/master/grafana/dashboard.json
-          datasource:
-            - { name: DS_PROMETHEUS, value: Prometheus }
-        speedtest-exporter:
-          # renovate: depName="Speedtest Dashboard"
-          gnetId: 20115
-          revision: 1
           datasource:
             - { name: DS_PROMETHEUS, value: Prometheus }
         unpackerr:
@@ -223,11 +195,6 @@ spec:
           gnetId: 15761
           revision: 19
           datasource: Prometheus
-        kubernetes-coredns:
-          # renovate: depName="Kubernetes / System / CoreDNS"
-          gnetId: 15762
-          revision: 20
-          datasource: Prometheus
         kubernetes-global:
           # renovate: depName="Kubernetes / Views / Global"
           gnetId: 15757
@@ -253,13 +220,41 @@ spec:
           gnetId: 11454
           revision: 14
           datasource: Prometheus
-      nginx:
+      network:
+        cert-manager:
+          # renovate: depName="Cert-manager-Kubernetes"
+          gnetId: 20842
+          revision: 3
+          datasource: Prometheus
+        cloudflared:
+          # renovate: depName="Cloudflare Tunnels (cloudflared)"
+          gnetId: 17457
+          revision: 6
+          datasource:
+            - { name: DS_PROMETHEUS, value: Prometheus }
+        external-dns:
+          # renovate: depName="External-dns"
+          gnetId: 15038
+          revision: 3
+          datasource: Prometheus
         nginx:
           url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/grafana/dashboards/nginx.json
           datasource: Prometheus
         nginx-request-handling-performance:
           url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/grafana/dashboards/request-handling-performance.json
           datasource: Prometheus
+        speedtest-exporter:
+          # renovate: depName="Speedtest Dashboard"
+          gnetId: 20115
+          revision: 1
+          datasource:
+            - { name: DS_PROMETHEUS, value: Prometheus }
+        opnsense:
+          # renovate: depName="OPNsense"
+          gnetId: 21113
+          revision: 1
+          datasource:
+            - { name: DS_PROMETHEUS-K0, value: Prometheus }
 
     sidecar:
       image:
