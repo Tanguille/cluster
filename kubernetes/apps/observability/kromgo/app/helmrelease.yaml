@@ -69,10 +69,6 @@ spec:
       app:
         annotations:
           external-dns.alpha.kubernetes.io/target: external.${SECRET_DOMAIN}
-          nginx.ingress.kubernetes.io/cors-allow-origin: "*"
-          nginx.ingress.kubernetes.io/cors-allow-methods: "GET, OPTIONS"
-          nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
-          nginx.ingress.kubernetes.io/cors-expose-headers: "Content-Length,Content-Range"
         className: external
         hosts:
           - host: "kromgo.${SECRET_DOMAIN}"
