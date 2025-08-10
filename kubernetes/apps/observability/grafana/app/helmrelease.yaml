@@ -33,7 +33,7 @@ spec:
       retries: 3
   values:
     extraInitContainers:
-      - name: 01-init-db
+      - name: init-db
         image: ghcr.io/home-operations/postgres-init:17
         envFrom:
           - secretRef:
