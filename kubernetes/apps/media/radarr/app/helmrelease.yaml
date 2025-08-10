@@ -25,8 +25,19 @@ spec:
       radarr:
         annotations:
           reloader.stakater.com/auto: "true"
+        initContainers:
+          01-init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: 17
+            envFrom:
+              - secretRef:
+                  name: radarr-secret
         containers:
           app:
+            envFrom:
+              - secretRef:
+                  name: radarr-secret
             image:
               repository: ghcr.io/home-operations/radarr
               tag: 5.27.3.10153@sha256:1bf822eaf3d944dc994656c3a712a89df0d88f5f46731af4fccc90c5e0333167
@@ -40,6 +51,13 @@ spec:
               RADARR__UPDATE__BRANCH: develop
               RADARR__AUTH__APIKEY: ${RADARR_API_KEY}
               TZ: ${TIMEZONE}
+              # PostgreSQL Database Configuration
+              RADARR__DB__TYPE: postgresql
+              RADARR__DB__HOST: ${POSTGRES_IP}
+              RADARR__DB__PORT: ${POSTGRES_PORT}
+              RADARR__DB__NAME: ${POSTGRES_DB}
+              RADARR__DB__USER: ${POSTGRES_USER}
+              RADARR__DB__PASSWORD: ${POSTGRES_PASSWORD}
 
             probes:
               liveness: &probes
