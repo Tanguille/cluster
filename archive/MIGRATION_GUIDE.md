@@ -11,6 +11,7 @@ This guide will help you migrate your Radarr instance from SQLite to PostgreSQL 
 ## Migration Overview
 
 The migration process involves:
+
 1. **Backup** - Create a backup of your current SQLite database
 2. **Configuration Update** - Update Radarr to use PostgreSQL (init container handles DB creation)
 3. **Data Migration** - Use pgloader to transfer data from SQLite to PostgreSQL
@@ -29,6 +30,7 @@ ls -la kubernetes/apps/media/radarr/
 ```
 
 You should see:
+
 - `secret.sops.yaml` - PostgreSQL credentials (encrypted)
 - `helmrelease.yaml` - Updated Radarr configuration with init container
 - `kustomization.yaml` - Updated to include the secret
@@ -169,18 +171,18 @@ kubectl exec -it -n media deployment/radarr -- env | grep RADARR__DB
 ### Common Issues
 
 1. **Database Connection Errors**
-   - Verify PostgreSQL credentials in the secret
-   - Check that the init container completed successfully
-   - Ensure the PostgreSQL service is accessible from the media namespace
+    - Verify PostgreSQL credentials in the secret
+    - Check that the init container completed successfully
+    - Ensure the PostgreSQL service is accessible from the media namespace
 
 2. **Migration Failures**
-   - Check pgloader logs for specific error messages
-   - Verify the SQLite database is accessible
-   - Ensure sufficient disk space for the migration
+    - Check pgloader logs for specific error messages
+    - Verify the SQLite database is accessible
+    - Ensure sufficient disk space for the migration
 
 3. **Sequence Errors**
-   - Run the sequence update commands manually
-   - Check that all tables were migrated correctly
+    - Run the sequence update commands manually
+    - Check that all tables were migrated correctly
 
 ### Rollback Plan
 
