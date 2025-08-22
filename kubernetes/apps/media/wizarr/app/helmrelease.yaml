@@ -9,8 +9,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  driftDetection:
-    mode: enabled
   install:
     remediation:
       retries: -1
@@ -19,14 +17,6 @@ spec:
     remediation:
       retries: 3
   values:
-    defaultPodOptions:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
-        seccompProfile: { type: RuntimeDefault }
     controllers:
       wizarr:
         annotations:
@@ -39,6 +29,8 @@ spec:
             env:
               TZ: ${TIMEZONE}
               UV_CACHE_DIR: /tmp/.uv-cache
+              PUID: &uid 1000
+              PGID: &gid 1000
             probes:
               liveness:
                 enabled: true
@@ -53,13 +45,12 @@ spec:
               allowPrivilegeEscalation: false
             resources:
               requests:
-                cpu: 10m
-                memory: 250M
+                cpu: 15m
+                memory: 180M
               limits:
-                memory: 512M
+                memory: 300M
     service:
       app:
-        controller: *app
         ports:
           http:
             port: &port 5690
