@@ -45,9 +45,6 @@ spec:
                 mkdir -p /workspace/ComfyUI/temp /workspace/ComfyUI/custom_nodes/ComfyUI-Manager/.cache
                 chown -R 1000:1000 /workspace
                 chmod -R 755 /workspace
-            volumeMounts:
-              - name: workspace
-                mountPath: /workspace
 
         containers:
           app:
