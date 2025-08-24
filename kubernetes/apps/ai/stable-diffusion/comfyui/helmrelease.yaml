@@ -33,19 +33,6 @@ spec:
         pod:
           runtimeClassName: nvidia
 
-        initContainers:
-          fix-permissions:
-            image:
-              repository: busybox
-              tag: latest
-            command:
-              - sh
-              - -c
-              - |
-                mkdir -p /workspace/ComfyUI/temp /workspace/ComfyUI/custom_nodes/ComfyUI-Manager/.cache
-                chown -R 1000:1000 /workspace
-                chmod -R 755 /workspace
-
         containers:
           app:
             image:
@@ -63,9 +50,7 @@ spec:
               PROVISIONING_SCRIPT: "https://raw.githubusercontent.com/ai-dock/comfyui/main/config/provisioning/flux.sh"
 
             securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
-              fsGroup: 1000
+              privileged: true
 
             resources:
               requests:
