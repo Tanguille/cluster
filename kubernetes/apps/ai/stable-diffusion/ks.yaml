@@ -3,24 +3,6 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: stable-diffusion
-  namespace: &namespace ai
-spec:
-  interval: 30m
-  targetNamespace: *namespace
-  path: ./kubernetes/apps/ai/stable-diffusion/ui
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  wait: false
-
----
-# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: comfyui
   namespace: &namespace ai
 spec:
