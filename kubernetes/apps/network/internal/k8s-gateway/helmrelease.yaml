@@ -41,3 +41,24 @@ spec:
         lbipam.cilium.io/ips: "192.168.0.10"
       externalTrafficPolicy: Cluster
     watchedResources: ["Ingress", "Service"]
+    corefile: |
+      .:53 {
+          errors
+          health {
+              lameduck 5s
+          }
+          ready
+          kubernetes cluster.local in-addr.arpa ip6.arpa {
+              pods insecure
+              fallthrough in-addr.arpa ip6.arpa
+              ttl 30
+          }
+          k8s_gateway ${SECRET_DOMAIN}
+          forward ${SECRET_WG_SUBDOMAIN}.${SECRET_DOMAIN} 1.1.1.1
+          prometheus :9153
+          forward . 1.1.1.1 1.0.0.1
+          cache 30
+          loop
+          reload
+          loadbalance
+      }
