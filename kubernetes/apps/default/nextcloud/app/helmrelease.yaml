@@ -117,8 +117,6 @@ spec:
           - "/bin/sh"
           - "-c"
           - |
-            echo "Installing missing dependencies..."
-            apk add --no-cache exiftool perl-image-exiftool ffmpeg
             echo "Waiting for Nextcloud to be ready..."
             su -s /bin/sh www-data -c 'php occ maintenance:repair --include-expensive' || true
             su -s /bin/sh www-data -c 'php occ files:scan --all' || true
