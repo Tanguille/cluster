@@ -2,7 +2,5 @@ machine:
   features:
     kubernetesTalosAPIAccess:
       enabled: true
-      allowedRoles:
-        - os:admin
-      allowedKubernetesNamespaces:
-        - actions-runner-system
+      allowedRoles: ["os:admin"]
+      allowedKubernetesNamespaces: [actions-runner-system]
