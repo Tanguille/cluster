@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: nginx-internal
+  name: internal-ingress-nginx
 spec:
   interval: 30m
   chartRef:
@@ -18,7 +18,7 @@ spec:
       strategy: rollback
       retries: 3
   values:
-    fullnameOverride: nginx-internal
+    fullnameOverride: internal-ingress-nginx
     controller:
       replicaCount: 2
       annotations:
