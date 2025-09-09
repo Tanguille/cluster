@@ -22,7 +22,7 @@ spec:
     controller:
       replicaCount: 2
       annotations:
-        secret.reloader.stakater.com/reload: "${SECRET_DOMAIN//./-}-tls"
+        secret.reloader.stakater.com/reload: "${SECRET_DOMAIN/./-}-production-tls"
       service:
         annotations:
           external-dns.alpha.kubernetes.io/hostname: "external.${SECRET_DOMAIN}"
