@@ -55,8 +55,8 @@ metadata:
   namespace: network
 spec:
   targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: external-service-httproute-opnsense
-  tls:
+    - group: ""
+      kind: Service
+      name: internal-opnsense
+  backendTLS:
     insecureSkipVerify: true
