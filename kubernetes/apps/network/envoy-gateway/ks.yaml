@@ -3,21 +3,15 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app grafana
-  namespace: &namespace observability
+  name: &app envoy-gateway
+  namespace: &namespace network
 spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  components:
-    - ../../../../components/gatus/guarded
   interval: 1h
-  path: ./kubernetes/apps/observability/grafana/app
-  postBuild:
-    substitute:
-      APP: *app
+  path: ./kubernetes/apps/network/envoy-gateway/app
   prune: true
-  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
