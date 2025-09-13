@@ -6,6 +6,8 @@ namespace: network
 components:
   - ../../components/common
 resources:
-  - ./external/ks.yaml
+  - ./cloudflared/ks.yaml
+  - ./cloudflare-dns/ks.yaml
+  - ./envoy-gateway/ks.yaml
   - ./external-service/ks.yaml
-  - ./internal/ks.yaml
+  - ./k8s-gateway/ks.yaml
