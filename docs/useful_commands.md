@@ -44,8 +44,8 @@ kubectl describe -n <namespace> deployment/<deployment-name>
 # List all network policies in a namespace
 kubectl get networkpolicies -n <namespace>
 
-# Get all ingress resources across namespaces
-kubectl get ingress -A
+# Get all httproute resources across namespaces
+kubectl get httproute -A
 
 # List all services in a namespace
 kubectl get services -n <namespace>

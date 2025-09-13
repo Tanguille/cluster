@@ -37,15 +37,7 @@ spec:
     env:
       TZ: ${TIMEZONE}
     ingress:
-      enabled: true
-      ingressClassName: "internal"
-      annotations:
-        external-dns.alpha.kubernetes.io/target: internal.${SECRET_DOMAIN}
-      hosts:
-        - host: apps.${SECRET_DOMAIN}
-          paths:
-            - path: /
-              pathType: Prefix
+      enabled: false
 
     envSecrets:
       dbCredentials:

@@ -78,19 +78,14 @@ spec:
             port: 9000
           squeeze-slimproto:
             port: 3483
-    ingress:
+    route:
       app:
-        enabled: true
-        className: internal
-        annotations:
-          external-dns.alpha.kubernetes.io/target: "internal.${CLUSTER_DOMAIN}"
-        hosts:
-          - host: "music-assistant.${SECRET_DOMAIN}"
-            paths:
-              - path: /
-                service:
-                  identifier: app
-                  port: *httpPort
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
 
     persistence:
       data:
