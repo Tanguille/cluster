@@ -32,24 +32,20 @@ spec:
   clusterIP: None
   type: ClusterIP
 ---
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
 metadata:
-  name: external-service-httproute-ipmi
+  name: external-service-tlsroute-ipmi
   annotations:
     external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
 spec:
   parentRefs:
     - name: envoy-internal
       namespace: network
-      sectionName: https
+      sectionName: tls-passthrough
   hostnames:
     - ipmi.${SECRET_DOMAIN}
   rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+    - backendRefs:
         - name: internal-ipmi
-          port: 80
+          port: 443

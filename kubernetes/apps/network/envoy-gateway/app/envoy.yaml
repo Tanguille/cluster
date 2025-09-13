@@ -106,6 +106,14 @@ spec:
           - kind: Secret
             name: ${SECRET_DOMAIN/./-}-production-tls
             namespace: cert-manager
+    - name: tls-passthrough
+      protocol: TLS
+      port: 8443
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        mode: Passthrough
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/envoyproxy/gateway/refs/heads/main/charts/gateway-helm/crds/generated/gateway.envoyproxy.io_clienttrafficpolicies.yaml
 apiVersion: gateway.envoyproxy.io/v1alpha1
