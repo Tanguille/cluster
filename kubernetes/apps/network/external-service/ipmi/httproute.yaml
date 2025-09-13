@@ -13,6 +13,9 @@ ports:
   - port: 443
     name: https
     protocol: TCP
+  - port: 80
+    name: http
+    protocol: TCP
 ---
 apiVersion: v1
 kind: Service
@@ -23,6 +26,9 @@ spec:
     - port: 443
       targetPort: 443
       name: https
+    - port: 80
+      targetPort: 80
+      name: http
   clusterIP: None
   type: ClusterIP
 ---
@@ -46,17 +52,4 @@ spec:
             value: /
       backendRefs:
         - name: internal-ipmi
-          port: 443
----
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: BackendTrafficPolicy
-metadata:
-  name: ipmi-backend-tls
-  namespace: network
-spec:
-  targetRefs:
-    - group: ""
-      kind: Service
-      name: internal-ipmi
-  backendTLS:
-    insecureSkipVerify: true
+          port: 80
