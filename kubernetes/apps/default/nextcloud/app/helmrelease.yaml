@@ -236,43 +236,7 @@ spec:
         passwordKey: INIT_POSTGRES_PASS
 
     ingress:
-      enabled: true
-      className: external
-      annotations:
-        external-dns.alpha.kubernetes.io/target: "external.${SECRET_DOMAIN}"
-        nginx.ingress.kubernetes.io/proxy-body-size: "16G"
-        nginx.ingress.kubernetes.io/proxy-connect-timeout: "20"
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "14400"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "14400"
-        nginx.ingress.kubernetes.io/proxy-buffering: "off"
-        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-        nginx.org/proxy-hide-headers: "X-Powered-By"
-        nginx.org/server-tokens: "off"
-        nginx.org/rewrites: |
-          /.well-known/webfinger /index.php/.well-known/webfinger;
-          /.well-known/nodeinfo /index.php/.well-known/nodeinfo;
-          /.well-known/host-meta /public.php?service=host-meta;
-          /.well-known/host-meta.json /public.php?service=host-meta-json;
-          /.well-known/carddav $scheme://$host/remote.php/dav redirect=301;
-          /.well-known/caldav $scheme://$host/remote.php/dav redirect=301;
-        nginx.ingress.kubernetes.io/configuration-snippet: |-
-          more_set_headers "X-Content-Type-Options: nosniff";
-          more_set_headers "X-Frame-Options: SAMEORIGIN";
-          more_set_headers "X-Permitted-Cross-Domain-Policies: none";
-          more_set_headers "X-Robots-Tag: noindex, nofollow";
-          more_set_headers "Referrer-Policy: no-referrer";
-        nginx.ingress.kubernetes.io/server-snippet: |
-          location = /robots.txt {
-            return 200 "User-agent: *\nDisallow: /\n";
-          }
-          location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)/ {
-            deny all;
-          }
-          location ~ ^/(?:autotest|occ|issue|indie|db_|console) {
-            deny all;
-          }
-      path: /
-      pathType: Prefix
+      enabled: false
 
     persistence:
       # Config storage using volsync template PVC (local)
