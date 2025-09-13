@@ -1,11 +1,11 @@
 ---
 ingress:
-  - hostname: turbo.ac
+  - hostname: ${SECRET_DOMAIN}
     originRequest:
-      originServerName: turbo.ac
+      originServerName: ${SECRET_DOMAIN}
     service: https://envoy-external.network.svc.cluster.local:443
-  - hostname: "*.turbo.ac"
+  - hostname: "*.${SECRET_DOMAIN}"
     originRequest:
-      originServerName: external.turbo.ac
+      originServerName: external.${SECRET_DOMAIN}
     service: https://envoy-external.network.svc.cluster.local:443
   - service: http_status:404
