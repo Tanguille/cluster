@@ -26,37 +26,20 @@ spec:
   clusterIP: None
   type: ClusterIP
 ---
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
 metadata:
-  name: external-service-httproute-opnsense
+  name: external-service-tlsroute-opnsense
   annotations:
     external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
 spec:
   parentRefs:
     - name: envoy-internal
       namespace: network
-      sectionName: https
+      sectionName: tls-passthrough
   hostnames:
     - opnsense.${SECRET_DOMAIN}
   rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+    - backendRefs:
         - name: internal-opnsense
           port: 443
----
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: BackendTrafficPolicy
-metadata:
-  name: opnsense-backend-tls
-  namespace: network
-spec:
-  targetRefs:
-    - group: ""
-      kind: Service
-      name: internal-opnsense
-  backendTLS:
-    insecureSkipVerify: true
