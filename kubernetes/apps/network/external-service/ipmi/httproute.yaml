@@ -47,3 +47,16 @@ spec:
       backendRefs:
         - name: internal-ipmi
           port: 443
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: ipmi-backend-tls
+  namespace: network
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: external-service-httproute-ipmi
+  tls:
+    insecureSkipVerify: true
