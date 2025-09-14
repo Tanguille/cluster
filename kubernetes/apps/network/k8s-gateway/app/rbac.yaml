@@ -5,7 +5,8 @@ metadata:
   name: k8s-gateway-gateway-permission
 rules:
   - apiGroups: ["gateway.networking.k8s.io"]
-    resources: ["gateways", "httproutes", "tlsroutes", "referencegrants", "grpcroutes"]
+    resources:
+      ["gateways", "httproutes", "tlsroutes", "referencegrants", "grpcroutes"]
     verbs: ["get", "watch", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
