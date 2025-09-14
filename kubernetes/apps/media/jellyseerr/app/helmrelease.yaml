@@ -28,8 +28,21 @@ spec:
             env:
               TZ: ${TIMEZONE}
               PORT: &port 5055
+              NODE_ENV: production
+              LOG_LEVEL: info
             probes:
               liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /status
+                    port: *port
+                  initialDelaySeconds: 60
+                  periodSeconds: 60
+                  timeoutSeconds: 15
+                  failureThreshold: 10
+              readiness:
                 enabled: true
                 custom: true
                 spec:
@@ -39,7 +52,7 @@ spec:
                   initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 10
-                  failureThreshold: 5
+                  failureThreshold: 3
             resources:
               requests:
                 cpu: 10m
