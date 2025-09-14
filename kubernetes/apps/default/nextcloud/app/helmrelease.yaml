@@ -254,6 +254,11 @@ spec:
       concurrencyPolicy: Forbid
       successfulJobsHistoryLimit: 1
       failedJobsHistoryLimit: 1
+      securityContext:
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        runAsNonRoot: true
       resources:
         requests:
           cpu: 10m
