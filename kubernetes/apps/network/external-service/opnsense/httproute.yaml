@@ -37,8 +37,6 @@ spec:
     - name: envoy-internal-tls
       namespace: network
       sectionName: tls
-  hostnames:
-    - opnsense.${SECRET_DOMAIN}
   rules:
     - backendRefs:
         - name: internal-opnsense
