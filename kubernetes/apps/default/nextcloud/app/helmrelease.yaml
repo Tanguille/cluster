@@ -249,7 +249,18 @@ spec:
         existingClaim: nextcloud-pvc
 
     cronjob:
-      enabled: false
+      enabled: true
+      schedule: "*/5 * * * *"
+      concurrencyPolicy: Forbid
+      successfulJobsHistoryLimit: 1
+      failedJobsHistoryLimit: 1
+      resources:
+        requests:
+          cpu: 10m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
 
     startupProbe:
       enabled: true
