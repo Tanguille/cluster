@@ -43,8 +43,6 @@ spec:
     - name: envoy-internal-tls
       namespace: network
       sectionName: tls
-  hostnames:
-    - ipmi.${SECRET_DOMAIN}
   rules:
     - backendRefs:
         - name: internal-ipmi
