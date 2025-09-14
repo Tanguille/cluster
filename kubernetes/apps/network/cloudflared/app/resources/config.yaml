@@ -1,10 +1,6 @@
 ---
 ingress:
-  - hostname: ${SECRET_DOMAIN}
-    originRequest:
-      originServerName: ${SECRET_DOMAIN}
-    service: https://envoy-external.network.svc.cluster.local:443
-  - hostname: "*.${SECRET_DOMAIN}"
+  - hostname: external.${SECRET_DOMAIN}
     originRequest:
       originServerName: external.${SECRET_DOMAIN}
     service: https://envoy-external.network.svc.cluster.local:443
