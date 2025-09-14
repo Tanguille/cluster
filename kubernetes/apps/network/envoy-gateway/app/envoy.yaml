@@ -74,6 +74,24 @@ spec:
           - kind: Secret
             name: ${SECRET_DOMAIN/./-}-production-tls
             namespace: cert-manager
+    - name: ipmi-tls
+      protocol: TLS
+      port: 443
+      hostname: "ipmi.${SECRET_DOMAIN}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        mode: Passthrough
+    - name: opnsense-tls
+      protocol: TLS
+      port: 443
+      hostname: "opnsense.${SECRET_DOMAIN}"
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        mode: Passthrough
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1
