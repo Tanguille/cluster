@@ -23,12 +23,10 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/fallenbagel/jellyseerr
-              tag: "2.7.3"
+              repository: fallenbagel/jellyseerr
+              tag: 2.7.3
             env:
               TZ: ${TIMEZONE}
-              PORT: &port 5055
-              NODE_ENV: production
               LOG_LEVEL: info
             probes:
               liveness: &probes
@@ -37,19 +35,23 @@ spec:
                 spec:
                   httpGet:
                     path: /api/v1/status
-                    port: *port
+                    port: &port 5055
                   initialDelaySeconds: 0
                   periodSeconds: 10
                   timeoutSeconds: 1
                   failureThreshold: 3
               readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 10m
-                memory: 256Mi
+                memory: 250Mi
               limits:
                 cpu: 2
-                memory: 4Gi
+                memory: 1Gi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -59,6 +61,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups: [10000]
         seccompProfile: { type: RuntimeDefault }
+
     service:
       app:
         controller: *app
