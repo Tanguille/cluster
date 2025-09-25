@@ -31,6 +31,26 @@ spec:
       limits:
         memory: 1024Mi
         nvidia.com/gpu: 1
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: nvidia.com/gpu.present
+                  operator: Exists
     serviceMonitor:
       interval: 15s
       honorLabels: true
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "DCGM_FI_DEV_GPU_UTIL|DCGM_FI_DEV_GPU_TEMP|DCGM_FI_DEV_POWER_USAGE"
+          targetLabel: __tmp_drop_pod
+          replacement: "true"
+        - sourceLabels: [__tmp_drop_pod]
+          regex: "true"
+          action: labeldrop
+          targetLabel: pod
