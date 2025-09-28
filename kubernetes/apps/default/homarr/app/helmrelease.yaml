@@ -9,7 +9,7 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 5.13.0
+    tag: 6.0.0
   url: oci://ghcr.io/homarr-labs/charts/homarr
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2beta2.json
@@ -38,6 +38,22 @@ spec:
       TZ: ${TIMEZONE}
     ingress:
       enabled: false
+    httpRoute:
+      enabled: true
+      parentRefs:
+        - name: envoy-internal
+          namespace: network
+          sectionName: https
+      hostnames:
+        - apps.${SECRET_DOMAIN}
+      rules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /
+          backendRefs:
+            - name: homarr
+              port: 80
 
     envSecrets:
       dbCredentials:
