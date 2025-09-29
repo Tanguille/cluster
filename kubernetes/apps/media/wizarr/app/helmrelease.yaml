@@ -25,12 +25,12 @@ spec:
           app:
             image:
               repository: ghcr.io/wizarrrr/wizarr
-              tag: 2025.9.1@sha256:b3bf6d81a59d0d1b0fef7cb757b529012173ea084e865310e045508f4b33c2a7
+              tag: 2025.9.7@sha256:e62eb37b7514427be0439fdde8bdf76054d4defa
             env:
               TZ: ${TIMEZONE}
               UV_CACHE_DIR: /tmp/.uv-cache
-              PUID: &uid 1000
-              PGID: &gid 1000
+              PUID: 1000
+              PGID: 1000
             probes:
               liveness:
                 enabled: true
@@ -53,7 +53,7 @@ spec:
       app:
         ports:
           http:
-            port: &port 5690
+            port: 5690
 
     route:
       app:
