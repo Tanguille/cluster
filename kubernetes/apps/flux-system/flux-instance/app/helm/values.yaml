@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
 instance:
   distribution:
     # renovate: datasource=github-releases depName=controlplaneio-fluxcd/distribution
@@ -15,11 +16,6 @@ instance:
     url: https://github.com/tanguille/cluster.git
     ref: refs/heads/main
     path: kubernetes/flux/cluster
-    interval: 1h
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: flux
-  kustomize:
     patches:
       - # Enable in-memory kustomize builds
         patch: |-
