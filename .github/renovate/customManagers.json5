@@ -35,9 +35,9 @@
       description: [
         "Process CloudNative-PG imageName fields in Kubernetes YAML files",
       ],
-      managerFilePatterns: ["(^|/)kubernetes/.+\\.ya?ml$"],
+      managerFilePatterns: ["/\\.yaml(?:\\.j2)?$/"],
       matchStrings: [
-        "imageName:\\s*(?<depName>[^:]+):(?<currentValue>[^@\\s]+)",
+        "imageName:\\s*(?<depName>[^:]+):(?<currentValue>[^@\\s]+)(@(?<currentDigest>sha256:[a-f0-9]+))?",
       ],
       datasourceTemplate: "docker",
     },
