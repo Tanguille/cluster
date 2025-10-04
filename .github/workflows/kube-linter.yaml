@@ -13,12 +13,12 @@ jobs:
     env:
       DEEPSOURCE_DSN: ${{ secrets.DEEPSOURCE_DSN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Scan files with kube-linter
-        uses: stackrox/kube-linter-action@v1.0.7
+        uses: stackrox/kube-linter-action@87802a2f4e01abebb3ee3c67a3002fea71f6eae5 # v1.0.7
         id: kube-linter-action-scan
         with:
           directory: kubernetes
