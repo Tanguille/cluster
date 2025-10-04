@@ -3,11 +3,11 @@
   customManagers: [
     {
       customType: "regex",
-      description: ["Process annotated dependencies"],
+      description: "Process annotated dependencies",
       managerFilePatterns: [
-        "/(^|/).+\\.env$/",
-        "/(^|/).+\\.sh$/",
-        "/(^|/).+\\.ya?ml(?:\\.j2)?$/",
+        "/\\.env(?:\\.j2)?$/",
+        "/\\.sh(?:\\.j2)?$/",
+        "/\\.yaml(?:\\.j2)?$/",
       ],
       matchStrings: [
         // # renovate: datasource=github-releases depName=k3s-io/k3s
@@ -22,6 +22,13 @@
         "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.+/(?<currentValue>(v|\\d)[^/]+)",
       ],
       datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
+    },
+    {
+      customType: "regex",
+      description: "Process OCI dependencies",
+      managerFilePatterns: ["/\\.yaml(?:\\.j2)?$/"],
+      matchStrings: ["oci://(?<depName>[^:]+):(?<currentValue>\\S+)"],
+      datasourceTemplate: "docker",
     },
     {
       customType: "regex",
