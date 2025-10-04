@@ -30,10 +30,9 @@
       ],
       managerFilePatterns: ["(^|/)kubernetes/.+\\.ya?ml$"],
       matchStrings: [
-        "imageName:\\s*(?<depName>[^\\s]+):(?<currentValue>[^\\s@]+)(@(?<currentDigest>sha256:[a-f0-9]+))?",
+        "imageName:\\s*(?<depName>[^:]+):(?<currentValue>[^@\\s]+)",
       ],
       datasourceTemplate: "docker",
-      extractVersionTemplate: "^(?<version>.*)$",
     },
   ],
 }
