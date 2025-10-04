@@ -19,7 +19,11 @@ spec:
       max_connections: "400"
       shared_buffers: 512MB
       huge_pages: "on"
-      io_method: "io_uring"
+      # io_method: "io_uring" # Disabled: CloudNativePG runs PostgreSQL containers with capabilities: { drop: ["ALL"] }
+      # which prevents io_uring from working. io_uring requires specific Linux capabilities (SYS_RESOURCE)
+      # that CloudNativePG doesn't grant for security reasons. The worker method provides similar
+      # asynchronous I/O performance using dedicated worker processes instead of io_uring.
+      io_method: "worker"
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
