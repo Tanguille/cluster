@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/externaldns.k8s.io/dnsendpoint_v1alpha1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/externaldns.k8s.io/dnsendpoint_v1alpha1.json
 apiVersion: externaldns.k8s.io/v1alpha1
 kind: DNSEndpoint
 metadata:
@@ -8,9 +8,7 @@ spec:
   endpoints:
     - dnsName: ${SECRET_DOMAIN}
       recordType: CNAME
-      targets:
-        - 2a03cc15-eff3-4c5c-a7c5-97877e5b8231.cfargotunnel.com
-    - dnsName: external.${SECRET_DOMAIN}
+      targets: ["2a03cc15-eff3-4c5c-a7c5-97877e5b8231.cfargotunnel.com"]
+    - dnsName: internal.${SECRET_DOMAIN}
       recordType: CNAME
-      targets:
-        - 2a03cc15-eff3-4c5c-a7c5-97877e5b8231.cfargotunnel.com
+      targets: ["2a03cc15-eff3-4c5c-a7c5-97877e5b8231.cfargotunnel.com"]
