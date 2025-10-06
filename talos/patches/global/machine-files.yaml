@@ -2,7 +2,7 @@ machine:
   files:
     - op: create
       path: /etc/cri/conf.d/20-customization.part
-      content: |-
+      content: |
         [plugins."io.containerd.cri.v1.images"]
           discard_unpacked_layers = false
         [plugins."io.containerd.cri.v1.runtime"]
