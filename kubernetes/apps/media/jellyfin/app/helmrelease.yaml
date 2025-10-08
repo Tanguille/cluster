@@ -70,6 +70,10 @@ spec:
               JELLYFIN_FFmpeg__fflags: "+genpts+discardcorrupt"
               NVIDIA_VISIBLE_DEVICES: all
               NVIDIA_DRIVER_CAPABILITIES: all
+              # Memory management for .NET
+              DOTNET_GCHeapHardLimit: "0x300000000"
+              DOTNET_GCAllowVeryLargeObjects: "1"
+              DOTNET_GCLOHThreshold: "100000"
             probes:
               liveness: &probes
                 enabled: true
@@ -93,7 +97,7 @@ spec:
                 memory: 1Gi
                 nvidia.com/gpu: 1
               limits:
-                memory: 8Gi
+                memory: 12Gi
                 nvidia.com/gpu: 1
     service:
       app:
