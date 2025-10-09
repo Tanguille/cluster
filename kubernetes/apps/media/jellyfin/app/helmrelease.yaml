@@ -65,9 +65,16 @@ spec:
             env:
               TZ: ${TIMEZONE}
               DOTNET_SYSTEM_IO_DISABLEFILELOCKING: "true"
-              JELLYFIN_FFmpeg__probesize: 32000000
-              JELLYFIN_FFmpeg__analyzeduration: 200000000
-              JELLYFIN_FFmpeg__fflags: "+genpts+discardcorrupt"
+              # FFmpeg configuration for better media processing
+              JELLYFIN_FFmpeg__probesize: 100000000
+              JELLYFIN_FFmpeg__analyzeduration: 1000000000
+              JELLYFIN_FFmpeg__fflags: "+genpts+discardcorrupt+fastseek"
+              JELLYFIN_FFmpeg__threads: "4"
+              JELLYFIN_FFmpeg__hwaccel: "cuda"
+              # Timeout settings
+              JELLYFIN_FFmpeg__timeout: "60000"
+              JELLYFIN_FFmpeg__imageExtractionTimeout: "60000"
+              # GPU configuration
               NVIDIA_VISIBLE_DEVICES: all
               NVIDIA_DRIVER_CAPABILITIES: all
               # Memory management for .NET
