@@ -32,31 +32,17 @@ spec:
   clusterIP: None
   type: ClusterIP
 ---
-apiVersion: gateway.envoyproxy.io/v1alpha1
-kind: BackendTrafficPolicy
-metadata:
-  name: ipmi-backend-policy
-spec:
-  targetRefs:
-    - group: ""
-      kind: Service
-      name: internal-ipmi
-      namespace: network
-  tls:
-    verify: false
-    sni: ipmi.${SECRET_DOMAIN}
----
 apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+kind: TCPRoute
 metadata:
-  name: external-service-httproute-ipmi
+  name: external-service-tcproute-ipmi
   annotations:
-    external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
+    external-dns.alpha.kubernetes.io/target: "internal-tls.${SECRET_DOMAIN}"
 spec:
   parentRefs:
-    - name: envoy-internal
+    - name: envoy-internal-tls
       namespace: network
-      sectionName: https
+      sectionName: tls
   hostnames:
     - ipmi.${SECRET_DOMAIN}
   rules:
