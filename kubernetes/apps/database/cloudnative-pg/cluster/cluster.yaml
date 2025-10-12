@@ -4,6 +4,8 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: postgres16
+  annotations:
+    cnpg.io/skipEmptyWalArchiveCheck: "enabled"
 spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:18.0-standard-trixie@sha256:eb1d4866b579e8dc49658ca8e23e978097e3d897143b3e3f3206a12ed2d112bb
   instances: 3
@@ -36,26 +38,14 @@ spec:
       hugepages-2Mi: 2Gi
   monitoring:
     enablePodMonitor: true
-  backup:
-    retentionPolicy: 30d
-    barmanObjectStore: &barmanObjectStore
-      data:
-        compression: bzip2
-      wal:
-        compression: bzip2
-        maxParallel: 8
-      destinationPath: s3://cloudnative-pg/
-      endpointURL: "${SECRET_R2_HOST}"
-      # Note: serverName version needs to be incremented
-      # when recovering from an existing cnpg cluster
-      serverName: &currentCluster postgres17
-      s3Credentials:
-        accessKeyId:
-          name: cloudnative-pg-secret
-          key: aws-access-key-id
-        secretAccessKey:
-          name: cloudnative-pg-secret
-          key: aws-secret-access-key
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters: &barmanParameters
+        barmanObjectName: r2
+        # Note: serverName version needs to be incremented
+        # when recovering from an existing cnpg cluster
+        serverName: postgres17
   # Note: previousCluster needs to be set to the name of the previous
   # cluster when recovering from an existing cnpg cluster
   bootstrap:
@@ -64,6 +54,8 @@ spec:
   # Note: externalClusters is needed when recovering from an existing cnpg cluster
   externalClusters:
     - name: *previousCluster
-      barmanObjectStore:
-        <<: *barmanObjectStore
-        serverName: *previousCluster
+      plugin:
+        enabled: true
+        isWALArchiver: false
+        name: barman-cloud.cloudnative-pg.io
+        parameters: *barmanParameters
