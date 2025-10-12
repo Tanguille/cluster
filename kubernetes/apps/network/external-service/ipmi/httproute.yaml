@@ -44,8 +44,7 @@ spec:
       namespace: network
   tls:
     verify: false
-    alpnProtocols:
-      - http/1.1
+    sni: ipmi.${SECRET_DOMAIN}
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
