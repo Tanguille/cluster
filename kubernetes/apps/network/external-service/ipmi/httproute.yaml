@@ -33,17 +33,17 @@ spec:
   type: ClusterIP
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TLSRoute
+kind: HTTPRoute
 metadata:
-  name: external-service-tlsroute-ipmi
+  name: external-service-httproute-ipmi
   annotations:
-    external-dns.alpha.kubernetes.io/target: "internal-tls.${SECRET_DOMAIN}"
+    external-dns.alpha.kubernetes.io/target: "internal.${SECRET_DOMAIN}"
     gateway.envoyproxy.io/backend-tls-skip-verify: "true"
 spec:
   parentRefs:
-    - name: envoy-internal-tls
+    - name: envoy-internal
       namespace: network
-      sectionName: tls
+      sectionName: https
   hostnames:
     - ipmi.${SECRET_DOMAIN}
   rules:
