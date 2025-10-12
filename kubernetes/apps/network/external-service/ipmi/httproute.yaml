@@ -38,6 +38,7 @@ metadata:
   name: external-service-tlsroute-ipmi
   annotations:
     external-dns.alpha.kubernetes.io/target: "internal-tls.${SECRET_DOMAIN}"
+    gateway.envoyproxy.io/backend-tls-skip-verify: "true"
 spec:
   parentRefs:
     - name: envoy-internal-tls
