@@ -3,51 +3,89 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app cloudnative-pg
+  name: cloudnative-pg
   namespace: &namespace database
 spec:
   targetNamespace: *namespace
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
   path: ./kubernetes/apps/database/cloudnative-pg/app
-  prune: true
-  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  wait: true
+  prune: true
+  wait: false
   interval: 30m
-  timeout: 15m
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app cloudnative-pg-cluster
+  name: cloudnative-pg-barman-cloud
   namespace: &namespace database
 spec:
   targetNamespace: *namespace
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
   dependsOn:
-    - name: cloudnative-pg
-      namespace: database
-  healthCheckExprs:
-    - apiVersion: postgresql.cnpg.io/v1
-      kind: Cluster
-      current: status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')
-      inProgress: status.conditions.exists(c, c.type == 'Ready' && c.status == 'False') && !status.phase.contains('manual intervention')
-      failed: status.phase.contains('manual intervention')
-  path: ./kubernetes/apps/database/cloudnative-pg/cluster
-  prune: true
-  retryInterval: 2m
+    - name: cert-manager
+      namespace: cert-manager
+  path: ./kubernetes/apps/database/cloudnative-pg/barman-cloud
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
+  prune: true
   wait: true
   interval: 30m
-  timeout: 15m
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cloudnative-pg-cluster
+  namespace: &namespace database
+spec:
+  targetNamespace: *namespace
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  path: ./kubernetes/apps/database/cloudnative-pg/cluster
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  dependsOn:
+    - name: cloudnative-pg
+      namespace: *namespace
+    - name: cloudnative-pg-barman-cloud
+      namespace: *namespace
+    - name: openebs
+      namespace: openebs-system
+  prune: true
+  wait: false
+  interval: 30m
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
