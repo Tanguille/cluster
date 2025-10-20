@@ -40,7 +40,7 @@ spec:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-                - key: nvidia.com/gpu.present
+                - key: extensions.talos.dev/nvidia-container-toolkit-production
                   operator: Exists
     serviceMonitor:
       interval: 15s
