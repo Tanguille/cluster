@@ -51,12 +51,6 @@ spec:
                 else
                   echo "Warning: /jellyfin/jellyfin-web/index.html not found"
                 fi
-                echo "=== Ensuring data directory exists and has proper permissions ==="
-                mkdir -p /config/data
-                chown -R 568:568 /config
-                chmod -R 755 /config
-                echo "=== Checking disk space ==="
-                df -h /config
                 echo "=== Switching to user 568 and starting Jellyfin ==="
                 # Try different user-switching tools in order of preference
                 if command -v setpriv >/dev/null 2>&1; then
