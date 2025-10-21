@@ -65,6 +65,8 @@ spec:
             env:
               TZ: ${TIMEZONE}
               DOTNET_SYSTEM_IO_DISABLEFILELOCKING: "true"
+              # SQLite concurrency configuration - fixes database locking issues
+              JELLYFIN_LOCKING_BEHAVIOR: "Optimistic"
               # FFmpeg configuration for better media processing
               JELLYFIN_FFmpeg__probesize: 100000000
               JELLYFIN_FFmpeg__analyzeduration: 1000000000
