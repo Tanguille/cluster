@@ -1,0 +1,12 @@
+---
+# GitOps-compliant node labels for OpenEBS compatibility
+# This patch ensures required topology labels are applied to all nodes
+# without requiring NFD (Node Feature Discovery)
+machine:
+  nodeLabels:
+    # NFD-compatible topology labels for OpenEBS ZFS CSI driver compatibility
+    feature.node.kubernetes.io/pci-0300_10de.present: "true"
+    feature.node.kubernetes.io/pci-0300_1af4.present: "true"
+    feature.node.kubernetes.io/system-os_release.ID: "talos"
+    # GPU label for applications
+    nvidia.com/gpu: "true"
