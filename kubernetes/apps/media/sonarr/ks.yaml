@@ -3,20 +3,15 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app sonarr
+  name: sonarr
   namespace: &namespace media
 spec:
   path: ./kubernetes/apps/media/sonarr/app
   targetNamespace: *namespace
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
   components:
     - ../../../../components/volsync
     - ../../../../components/gatus/guarded
-  dependsOn:
-    - name: openebs
-      namespace: openebs-system
+
   wait: true
   prune: true
   sourceRef:
@@ -24,8 +19,6 @@ spec:
     name: flux-system
     namespace: flux-system
   interval: 30m
-  timeout: 5m
   postBuild:
     substitute:
-      APP: *app
       VOLSYNC_CAPACITY: 6Gi
