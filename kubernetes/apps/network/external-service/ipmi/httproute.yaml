@@ -32,7 +32,7 @@ spec:
   clusterIP: None
   type: ClusterIP
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TCPRoute
 metadata:
   name: external-service-tcproute-ipmi
@@ -43,8 +43,6 @@ spec:
     - name: envoy-internal-tls
       namespace: network
       sectionName: tls
-  hostnames:
-    - ipmi.${SECRET_DOMAIN}
   rules:
     - backendRefs:
         - name: internal-ipmi
