@@ -24,18 +24,10 @@ spec:
   chartRef:
     kind: OCIRepository
     name: nextcloud
-  install:
-    remediation:
-      retries: 3
-  upgrade:
-    cleanupOnFail: true
-    remediation:
-      strategy: rollback
-      retries: 3
+
   values:
     image:
       flavor: fpm-alpine
-      tag: 32.0.0-fpm-alpine
     nginx:
       enabled: true
 
