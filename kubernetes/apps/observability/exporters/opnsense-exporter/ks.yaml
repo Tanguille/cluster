@@ -3,12 +3,9 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app opnsense-exporter
+  name: opnsense-exporter
   namespace: &namespace observability
 spec:
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
   interval: 30m
   path: ./kubernetes/apps/observability/exporters/opnsense-exporter/app
   prune: true
@@ -17,5 +14,4 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  timeout: 5m
   wait: true

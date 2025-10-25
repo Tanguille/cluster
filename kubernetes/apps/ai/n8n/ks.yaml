@@ -3,16 +3,12 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &appname n8n
+  name: n8n
   namespace: &namespace ai
 spec:
   targetNamespace: *namespace
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *appname
   interval: 30m
-  timeout: 5m
-  path: "./kubernetes/apps/ai/n8n/app"
+  path: ./kubernetes/apps/ai/n8n/app
   prune: true
   sourceRef:
     kind: GitRepository
@@ -27,7 +23,6 @@ spec:
     - ../../../../components/gatus/guarded
   postBuild:
     substitute:
-      APP: *appname
       APP_UID: "1000"
       APP_GID: "1000"
       VOLSYNC_CAPACITY: 5Gi

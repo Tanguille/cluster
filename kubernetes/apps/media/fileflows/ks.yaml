@@ -3,19 +3,13 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app fileflows
+  name: fileflows
   namespace: &namespace media
 spec:
   targetNamespace: *namespace
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
   components:
     - ../../../../components/volsync
     - ../../../../components/gatus/guarded
-  dependsOn:
-    - name: openebs
-      namespace: openebs-system
   wait: true
   path: ./kubernetes/apps/media/fileflows/app
   prune: true
@@ -24,8 +18,6 @@ spec:
     name: flux-system
     namespace: flux-system
   interval: 30m
-  timeout: 5m
   postBuild:
     substitute:
-      APP: *app
       VOLSYNC_CAPACITY: 2Gi

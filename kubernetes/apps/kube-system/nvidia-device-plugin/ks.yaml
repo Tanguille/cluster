@@ -3,13 +3,10 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app nvidia-device-plugin
+  name: nvidia-device-plugin
   namespace: &namespace kube-system
 spec:
   targetNamespace: *namespace
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
   path: ./kubernetes/apps/kube-system/nvidia-device-plugin/app
   prune: true
   retryInterval: 2m
@@ -19,4 +16,3 @@ spec:
     namespace: flux-system
   wait: false
   interval: 30m
-  timeout: 5m

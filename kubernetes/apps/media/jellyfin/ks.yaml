@@ -3,19 +3,13 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app jellyfin
+  name: jellyfin
   namespace: &namespace media
 spec:
   targetNamespace: *namespace
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
   components:
     - ../../../../components/volsync
     - ../../../../components/gatus/external
-  dependsOn:
-    - name: openebs
-      namespace: openebs-system
   path: ./kubernetes/apps/media/jellyfin/app
   prune: true
   sourceRef:
@@ -24,8 +18,6 @@ spec:
     namespace: flux-system
   interval: 30m
   retryInterval: 1m
-  timeout: 5m
   postBuild:
     substitute:
-      APP: *app
       VOLSYNC_CAPACITY: 30Gi
