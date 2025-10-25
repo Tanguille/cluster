@@ -34,7 +34,9 @@ spec:
   parentRefs:
     - name: envoy-external
       namespace: network
-
+annotations:
+  gatus.home-operations.com/endpoint: |-
+    conditions: ["[STATUS] == 200"
   hostnames:
     - homeassistant.${SECRET_DOMAIN}
   rules:

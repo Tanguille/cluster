@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.envoyproxy.io/envoyproxy_v1alpha1.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/envoyproxy/gateway/refs/heads/main/charts/gateway-helm/crds/generated/gateway.envoyproxy.io_envoyproxies.yaml
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
@@ -21,7 +21,7 @@ spec:
             limits:
               memory: 1Gi
       envoyService:
-        externalTrafficPolicy: Cluster
+        externalTrafficPolicy: Local
   shutdown:
     drainTimeout: 180s
   telemetry:
@@ -50,12 +50,16 @@ metadata:
   name: envoy-external
   annotations:
     external-dns.alpha.kubernetes.io/target: &hostname external.${SECRET_DOMAIN}
+    gatus.home-operations.com/endpoint: |-
+      client:
+        dns-resolver: tcp://1.1.1.1:53
+      group: external
 spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
       external-dns.alpha.kubernetes.io/hostname: *hostname
-      lbipam.cilium.io/ips: "192.168.0.6"
+      lbipam.cilium.io/ips: 192.168.0.6
   listeners:
     - name: http
       protocol: HTTP
@@ -73,7 +77,6 @@ spec:
         certificateRefs:
           - kind: Secret
             name: ${SECRET_DOMAIN/./-}-production-tls
-            namespace: cert-manager
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1
@@ -82,12 +85,18 @@ metadata:
   name: envoy-internal
   annotations:
     external-dns.alpha.kubernetes.io/target: &hostname internal.${SECRET_DOMAIN}
+    gatus.home-operations.com/endpoint: |-
+      group: internal
+      guarded: true
+      ui:
+        hide-hostname: true
+        hide-url: true
 spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
       external-dns.alpha.kubernetes.io/hostname: *hostname
-      lbipam.cilium.io/ips: "192.168.0.4"
+      lbipam.cilium.io/ips: 192.168.0.4
   listeners:
     - name: http
       protocol: HTTP
@@ -105,7 +114,6 @@ spec:
         certificateRefs:
           - kind: Secret
             name: ${SECRET_DOMAIN/./-}-production-tls
-            namespace: cert-manager
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1
@@ -114,12 +122,18 @@ metadata:
   name: envoy-internal-tls
   annotations:
     external-dns.alpha.kubernetes.io/target: &hostname-tls internal-tls.${SECRET_DOMAIN}
+    gatus.home-operations.com/endpoint: |-
+      group: internal
+      guarded: true
+      ui:
+        hide-hostname: true
+        hide-url: true
 spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
       external-dns.alpha.kubernetes.io/hostname: *hostname-tls
-      lbipam.cilium.io/ips: "192.168.0.7"
+      lbipam.cilium.io/ips: 192.168.0.7
   listeners:
     - name: tls
       protocol: TLS
@@ -136,12 +150,18 @@ kind: BackendTrafficPolicy
 metadata:
   name: envoy
 spec:
-  targetSelectors:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
   compression:
     - type: Brotli
     - type: Gzip
+  connection:
+    bufferLimit: 8Mi
+  targetSelectors:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+  tcpKeepalive: {}
+  timeout:
+    http:
+      requestTimeout: 0s
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/envoyproxy/gateway/refs/heads/main/charts/gateway-helm/crds/generated/gateway.envoyproxy.io_clienttrafficpolicies.yaml
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -152,10 +172,21 @@ spec:
   clientIPDetection:
     xForwardedFor:
       numTrustedHops: 1
-  # http3: {}
+  connection:
+    bufferLimit: 4Mi
+    maxAcceptPerSocketEvent: 0
+  http2:
+    initialStreamWindowSize: 512Ki
+    initialConnectionWindowSize: 8Mi
+    onInvalidMessage: TerminateStream
+  http3: {}
   targetSelectors:
     - group: gateway.networking.k8s.io
       kind: Gateway
+  tcpKeepalive: {}
+  timeout:
+    http:
+      requestReceivedTimeout: 0s
   tls:
     minVersion: "1.2"
     alpnProtocols:

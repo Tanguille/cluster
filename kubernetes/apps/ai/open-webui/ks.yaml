@@ -16,9 +16,7 @@ spec:
     namespace: flux-system
   components:
     - ../../../../components/volsync
-    - ../../../../components/gatus/external
   postBuild:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 1Gi
-      GATUS_SUBDOMAIN: ollama
