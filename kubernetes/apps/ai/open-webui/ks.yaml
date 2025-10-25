@@ -3,29 +3,21 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app open-webui
+  name: open-webui
   namespace: &namespace ai
 spec:
+  interval: 10m
   path: ./kubernetes/apps/ai/open-webui/app
   targetNamespace: *namespace
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  commonMetadata:
-    labels:
-      app.kubernetes.io/name: *app
   components:
     - ../../../../components/volsync
     - ../../../../components/gatus/external
-  prune: true
-  wait: false
-  interval: 10m
-  dependsOn:
-    - name: volsync
-      namespace: volsync-system
   postBuild:
     substitute:
-      APP: *app
       VOLSYNC_CAPACITY: 1Gi
       GATUS_SUBDOMAIN: ollama

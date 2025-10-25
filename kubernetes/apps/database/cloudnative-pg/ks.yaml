@@ -7,10 +7,6 @@ metadata:
   namespace: &namespace database
 spec:
   targetNamespace: *namespace
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
   path: ./kubernetes/apps/database/cloudnative-pg/app
   sourceRef:
     kind: GitRepository
@@ -20,11 +16,6 @@ spec:
   wait: false
   interval: 30m
   retryInterval: 1m
-  timeout: 5m
-  postBuild:
-    substituteFrom:
-      - name: cluster-secrets
-        kind: Secret
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -34,10 +25,6 @@ metadata:
   namespace: &namespace database
 spec:
   targetNamespace: *namespace
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
   dependsOn:
     - name: cert-manager
       namespace: cert-manager
@@ -50,11 +37,6 @@ spec:
   wait: true
   interval: 30m
   retryInterval: 1m
-  timeout: 5m
-  postBuild:
-    substituteFrom:
-      - name: cluster-secrets
-        kind: Secret
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -64,10 +46,6 @@ metadata:
   namespace: &namespace database
 spec:
   targetNamespace: *namespace
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
   path: ./kubernetes/apps/database/cloudnative-pg/cluster
   sourceRef:
     kind: GitRepository
@@ -84,8 +62,3 @@ spec:
   wait: false
   interval: 30m
   retryInterval: 1m
-  timeout: 5m
-  postBuild:
-    substituteFrom:
-      - name: cluster-secrets
-        kind: Secret
