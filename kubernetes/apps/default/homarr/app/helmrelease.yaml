@@ -22,15 +22,7 @@ spec:
   chartRef:
     kind: OCIRepository
     name: homarr-labs
-  install:
-    remediation:
-      retries: 3
-  upgrade:
-    cleanupOnFail: true
-    remediation:
-      retries: 3
-  uninstall:
-    keepHistory: false
+
   values:
     rbac:
       enabled: true
