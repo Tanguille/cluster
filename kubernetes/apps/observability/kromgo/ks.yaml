@@ -6,13 +6,8 @@ metadata:
   name: kromgo
   namespace: &namespace observability
 spec:
-  components:
-    - ../../../../components/gatus/external
   interval: 1h
   path: ./kubernetes/apps/observability/kromgo/app
-  postBuild:
-    substitute:
-      GATUS_PATH: /talos_version
   prune: true
   retryInterval: 2m
   sourceRef:
