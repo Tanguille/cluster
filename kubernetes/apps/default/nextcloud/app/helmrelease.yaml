@@ -5,7 +5,7 @@ kind: HelmRelease
 metadata:
   name: &app nextcloud
 spec:
-  timeout: 30m
+  timeout: 15m
   interval: 30m
   chartRef:
     kind: OCIRepository
@@ -35,12 +35,16 @@ spec:
           value: dragonfly.database.svc.cluster.local.
         - name: REDIS_HOST_PORT
           value: "6379"
+        - name: REDIS_SESSION_LOCKING_ENABLED
+          value: "1"
+        - name: REDIS_SESSION_LOCK_WAIT_TIME
+          value: "20000"
         - name: PHP_MEMORY_LIMIT
-          value: "8G"
+          value: "2048M"
         - name: PHP_UPLOAD_LIMIT
-          value: "16G"
+          value: "2048M"
         - name: PHP_POST_MAX_SIZE
-          value: "10G"
+          value: "2048M"
         # PHP-FPM Performance Tuning
         - name: PHP_FPM_PM
           value: "dynamic"
