@@ -6,7 +6,6 @@ metadata:
   name: jellyfin
 spec:
   interval: 1h
-  timeout: 5m
   chartRef:
     kind: OCIRepository
     name: app-template
@@ -120,7 +119,6 @@ spec:
         parentRefs:
           - name: envoy-external
             namespace: network
-            sectionName: https
 
     persistence:
       config:

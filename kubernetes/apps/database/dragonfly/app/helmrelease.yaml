@@ -1,18 +1,4 @@
 ---
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: OCIRepository
-metadata:
-  name: dragonfly-operator
-spec:
-  interval: 5m
-  layerSelector:
-    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
-    operation: copy
-  ref:
-    tag: v1.3.0
-  url: oci://ghcr.io/dragonflydb/dragonfly-operator/helm/dragonfly-operator
----
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -25,33 +11,6 @@ spec:
     name: dragonfly-operator
   driftDetection:
     mode: enabled
-  install:
-    crds: CreateReplace
-    remediation:
-      retries: -1
-  upgrade:
-    cleanupOnFail: true
-    crds: CreateReplace
-    remediation:
-      retries: 3
   values:
-    # serviceMonitor:
-    #   enabled: true
     grafanaDashboard:
       enabled: true
-  postRenderers:
-    - kustomize:
-        patches:
-          # TODO: remove when upstream fix is released
-          # https://github.com/dragonflydb/dragonfly-operator/pull/305
-          - target:
-              group: apps
-              version: v1
-              kind: Deployment
-              name: dragonfly-operator
-              namespace: dragonfly-operator-system
-            patch: |
-              - op: remove
-                path: /spec/template/spec/containers/1/args/0
-              - op: remove
-                path: /spec/template/spec/containers/1/args/0
