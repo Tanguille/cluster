@@ -54,13 +54,11 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app qbitrr
+  name: qbitrr
   namespace: &namespace media
 spec:
   path: ./kubernetes/apps/media/qbittorrent/tools/qbitrr
   targetNamespace: *namespace
-  components:
-    - ../../../../../components/volsync
   dependsOn:
     - name: qbittorrent
   wait: true
@@ -70,7 +68,3 @@ spec:
     name: flux-system
     namespace: flux-system
   interval: 30m
-  postBuild:
-    substitute:
-      APP: *app
-      VOLSYNC_CAPACITY: 5Gi
