@@ -43,7 +43,6 @@ spec:
         globalMounts:
           - path: /app/config
           - path: /config/.config
-          - path: /config/qBitManager
 
       config-file:
         type: secret
@@ -52,6 +51,15 @@ spec:
           - path: /config/.config/config.toml
             subPath: config.toml
             readOnly: true
+
+      qbitmanager:
+        type: persistentVolumeClaim
+        storageClass: openebs-hostpath
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        globalMounts:
+          - path: /config/qBitManager
+            readOnly: false
 
       downloads:
         type: nfs
