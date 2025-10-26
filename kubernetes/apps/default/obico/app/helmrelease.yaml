@@ -10,16 +10,37 @@ spec:
     name: app-template
   interval: 1h
   values:
-    server:
-      image:
-        repository: ghcr.io/gabe565/obico/web
-        tag: latest@sha256:83d62882b989ba938661265910944a5378aac76e9026f12afa84938ca3dbad3b
-      env:
-        REDIS_URL: redis://dragonfly-cluster.database.svc.cluster.local:6379/4
-      persistence:
-        data:
-          enabled: true
-          existingClaim: *app
+    controllers:
+      server:
+        containers:
+          app:
+            image:
+              repository: ghcr.io/gabe565/obico/web
+              tag: latest@sha256:83d62882b989ba938661265910944a5378aac76e9026f12afa84938ca3dbad3b
+            env:
+              REDIS_URL: redis://dragonfly-cluster.database.svc.cluster.local:6379/4
+      ml-api:
+        pod:
+          runtimeClassName: nvidia
+          nodeSelector:
+            nvidia.com/gpu.present: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/gabe565/obico/ml-api
+              tag: latest@sha256:846de5ce02ad29fc720bdabc88baefd3f56702f4b5aa5c2f7b938d0bb2d27073
+            resources:
+              requests:
+                cpu: "1"
+              limits:
+                nvidia.com/gpu: "1"
+                memory: 8Gi
+
+    persistence:
+      data:
+        enabled: true
+        existingClaim: *app
+
     service:
       server:
         controller: server
@@ -33,18 +54,6 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-    ml-api:
-      image:
-        repository: ghcr.io/gabe565/obico/ml-api
-        tag: latest@sha256:846de5ce02ad29fc720bdabc88baefd3f56702f4b5aa5c2f7b938d0bb2d27073
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      resources:
-        requests:
-          cpu: "1"
-        limits:
-          nvidia.com/gpu: "1"
-          memory: 8Gi
+
     redis:
       enabled: false
