@@ -20,9 +20,8 @@ spec:
         data:
           enabled: true
           existingClaim: *app
-
     route:
-      main:
+      server:
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
