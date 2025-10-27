@@ -34,7 +34,7 @@ kind: HTTPRoute
 metadata:
   name: nextcloud
   annotations:
-    gatus.home-operations.com/conditions: "[STATUS] < 400"
+    gatus.home-operations.com/path: "/status.php"
 spec:
   parentRefs:
     - name: envoy-external
