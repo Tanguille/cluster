@@ -34,11 +34,12 @@ kind: HTTPRoute
 metadata:
   name: nextcloud
   annotations:
-    gatus.home-operations.com/path: "/status.php"
+    gatus.home-operations.com/enabled: "false"
 spec:
   parentRefs:
     - name: envoy-external
       namespace: network
+      sectionName: https
   hostnames:
     - "nextcloud.${SECRET_DOMAIN}"
   rules:
