@@ -16,21 +16,12 @@ spec:
         repository: ghcr.io/gabe565/obico/web
         tag: latest@sha256:83d62882b989ba938661265910944a5378aac76e9026f12afa84938ca3dbad3b
       env:
+        DJANGO_SITE_ID: "1"
         REDIS_URL: redis://dragonfly-cluster.database.svc.cluster.local:6379/4
       persistence:
         data:
           enabled: true
           existingClaim: *app
-        globalMounts:
-          - path: /data
-
-      route:
-        server:
-          hostnames:
-            - "{{ .Release.Name }}.${SECRET_DOMAIN}"
-          parentRefs:
-            - name: envoy-internal
-              namespace: network
     ml-api:
       image:
         repository: ghcr.io/gabe565/obico/ml-api
