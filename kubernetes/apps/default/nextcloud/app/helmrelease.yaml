@@ -13,8 +13,8 @@ spec:
 
   values:
     image:
-      flavor: fpm-alpine
-      tag: 32.0.1-fpm-alpine
+      flavor: fpm
+      tag: 32.0.1-fpm
     nginx:
       enabled: true
 
@@ -88,18 +88,18 @@ spec:
 
       lifecycle:
         postStartCommand:
-          - "/bin/sh"
+          - "/bin/bash"
           - "-c"
           - |
             echo "Installing missing dependencies..."
-            apk add --no-cache exiftool perl-image-exiftool ffmpeg > /dev/null 2>&1 || echo "Failed to install packages"
+            apt-get update && apt-get install -y --no-install-recommends exiftool ffmpeg > /dev/null 2>&1 || echo "Failed to install packages"
             echo "Waiting for Nextcloud to be ready..."
-            su -s /bin/sh www-data -c 'php occ maintenance:repair --include-expensive' || true
-            su -s /bin/sh www-data -c 'php occ files:scan --all' || true
-            su -s /bin/sh www-data -c 'php occ files:cleanup' || true
-            su -s /bin/sh www-data -c 'php occ db:add-missing-indices' || true
-            su -s /bin/sh www-data -c 'php occ db:add-missing-primary-keys' || true
-            su -s /bin/sh www-data -c 'php occ db:add-missing-columns' || true
+            su -s /bin/bash www-data -c 'php occ maintenance:repair --include-expensive' || true
+            su -s /bin/bash www-data -c 'php occ files:scan --all' || true
+            su -s /bin/bash www-data -c 'php occ files:cleanup' || true
+            su -s /bin/bash www-data -c 'php occ db:add-missing-indices' || true
+            su -s /bin/bash www-data -c 'php occ db:add-missing-primary-keys' || true
+            su -s /bin/bash www-data -c 'php occ db:add-missing-columns' || true
 
       phpConfigs:
         www.conf: |
