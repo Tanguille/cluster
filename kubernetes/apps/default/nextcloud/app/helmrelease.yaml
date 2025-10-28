@@ -30,20 +30,6 @@ spec:
           envFrom:
             - secretRef:
                 name: nextcloud-secret
-        - name: fix-permissions
-          image: nextcloud:32.0.1-fpm
-          securityContext:
-            runAsUser: 0
-            runAsGroup: 0
-          command:
-            - /bin/bash
-            - -c
-            - |
-              chown -R 33:33 /usr/local/etc/php/conf.d/
-              chmod -R 755 /usr/local/etc/php/conf.d/
-          volumeMounts:
-            - name: nextcloud-phpconfig
-              mountPath: /usr/local/etc/php/conf.d
 
       extraEnv:
         - name: REDIS_HOST
@@ -93,11 +79,10 @@ spec:
           authtype: LOGIN
           secure: starttls
 
-      # Security context to run as www-data user
-      # Removing runAsNonRoot to allow entrypoint to set up files
+      # Security context - allow root for entrypoint, then drops to www-data
       securityContext:
-        runAsUser: 33
-        runAsGroup: 33
+        runAsUser: 0
+        runAsGroup: 0
         fsGroup: 33
 
       lifecycle:
