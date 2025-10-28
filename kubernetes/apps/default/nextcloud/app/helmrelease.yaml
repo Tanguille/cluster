@@ -30,6 +30,20 @@ spec:
           envFrom:
             - secretRef:
                 name: nextcloud-secret
+        - name: fix-permissions
+          image: nextcloud:32.0.1-fpm
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+          command:
+            - /bin/bash
+            - -c
+            - |
+              chown -R 33:33 /usr/local/etc/php/conf.d/
+              chmod -R 755 /usr/local/etc/php/conf.d/
+          volumeMounts:
+            - name: nextcloud-phpconfig
+              mountPath: /usr/local/etc/php/conf.d
 
       extraEnv:
         - name: REDIS_HOST
