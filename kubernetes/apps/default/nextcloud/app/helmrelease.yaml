@@ -80,11 +80,11 @@ spec:
           secure: starttls
 
       # Security context to run as www-data user
+      # Removing runAsNonRoot to allow entrypoint to set up files
       securityContext:
         runAsUser: 33
         runAsGroup: 33
         fsGroup: 33
-        runAsNonRoot: true
 
       lifecycle:
         postStartCommand:
