@@ -37,6 +37,12 @@ spec:
         - name: REDIS_HOST_PORT
           value: "6379"
         # PHP-FPM Performance Tuning
+        - name: PHP_MEMORY_LIMIT
+          value: "11G"
+        - name: PHP_UPLOAD_LIMIT
+          value: "10G"
+        - name: PHP_POST_MAX_SIZE
+          value: "10G"
         - name: PHP_FPM_PM
           value: "dynamic"
         - name: PHP_FPM_PM_MAX_CHILDREN
@@ -90,9 +96,15 @@ spec:
           - "/bin/bash"
           - "-c"
           - |
-            echo "Installing missing dependencies..."
-            apt-get update && apt-get install -y --no-install-recommends exiftool ffmpeg > /dev/null 2>&1 || echo "Failed to install packages"
-            echo "Waiting for Nextcloud to be ready..."
+            echo "Installing dependencies..."
+            apt-get update && apt-get install -y --no-install-recommends \
+              libopenblas-dev \
+              liblapack-dev \
+              libimage-exiftool-perl \
+              ffmpeg \
+              nodejs \
+              npm
+            echo "Dependencies installed, waiting for Nextcloud to be ready..."
             su -s /bin/bash www-data -c 'php occ maintenance:repair --include-expensive' || true
             su -s /bin/bash www-data -c 'php occ files:scan --all' || true
             su -s /bin/bash www-data -c 'php occ files:cleanup' || true
