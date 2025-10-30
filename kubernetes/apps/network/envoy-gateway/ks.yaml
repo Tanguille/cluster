@@ -6,6 +6,9 @@ metadata:
   name: envoy-gateway
   namespace: &namespace network
 spec:
+  dependsOn:
+    - name: cert-manager
+      namespace: cert-manager
   interval: 1h
   path: ./kubernetes/apps/network/envoy-gateway/app
   prune: true
