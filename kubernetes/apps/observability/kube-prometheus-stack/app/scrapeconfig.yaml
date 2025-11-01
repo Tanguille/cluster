@@ -9,10 +9,25 @@ metadata:
 spec:
   staticConfigs:
     - targets:
-        - expanse.internal:9100
         - ${TRUENAS_IP}:9100
         - 192.168.0.1:9100 # opnsense
-
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name smartctl-exporter
+  labels:
+    prometheus: kube-prometheus-stack
+spec:
+  staticConfigs:
+    - targets:
+        - ${TRUENAS_IP}:9633
   metricsPath: /metrics
   relabelings:
     - action: replace
