@@ -43,11 +43,3 @@ endpoints:
     interval: 1m
     conditions:
       - "[CONNECTED] == true"
-
-  - name: Nextcloud
-    group: external
-    url: https://nextcloud.tanguille.site/status.php
-    interval: 1m
-    timeout: 10s
-    conditions:
-      - "[STATUS] == 200"
