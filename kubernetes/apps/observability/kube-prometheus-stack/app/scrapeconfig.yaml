@@ -4,8 +4,6 @@ apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
   name: &name node-exporter
-  labels:
-    prometheus: kube-prometheus-stack
 spec:
   staticConfigs:
     - targets:
@@ -22,8 +20,6 @@ apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
   name: &name smartctl-exporter
-  labels:
-    prometheus: kube-prometheus-stack
 spec:
   staticConfigs:
     - targets:
