@@ -3,12 +3,12 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app cloudflare-dns
+  name: &app external-dns
 spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
-    name: cloudflare-dns
+    name: external-dns
 
   values:
     fullnameOverride: *app
@@ -17,7 +17,7 @@ spec:
       - name: CF_API_TOKEN
         valueFrom:
           secretKeyRef:
-            name: &secret cloudflare-dns-secret
+            name: &secret external-dns-secret
             key: api-token
     extraArgs:
       - --cloudflare-dns-records-per-page=1000
@@ -34,6 +34,5 @@ spec:
     serviceMonitor:
       enabled: true
       namespaceSelector: {}
-      jobLabel: external-dns
     podAnnotations:
       secret.reloader.stakater.com/reload: *secret
