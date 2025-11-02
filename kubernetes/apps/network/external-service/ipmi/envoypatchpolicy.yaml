@@ -1,0 +1,23 @@
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyPatchPolicy
+metadata:
+  name: ipmi-alpn-patch
+  namespace: network
+spec:
+  type: JSONPatch
+  priority: 1
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: external-service-httproute-ipmi
+    namespace: network
+  jsonPatches:
+    - type: type.googleapis.com/envoy.config.cluster.v3.Cluster
+      name: network_internal-ipmi_443_https
+      operation:
+        op: replace
+        path: /transport_socket/typed_config/upstream_tls_context/alpn_protocols
+        value:
+          - http/1.1
+
