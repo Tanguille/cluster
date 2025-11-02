@@ -29,6 +29,10 @@ endpoints:
     interval: 1m
     conditions:
       - "[CONNECTED] == true"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
 
   - name: Google
     group: connectivity
@@ -36,6 +40,10 @@ endpoints:
     interval: 1m
     conditions:
       - "[CONNECTED] == true"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
 
   - name: Quad9
     group: connectivity
@@ -43,3 +51,7 @@ endpoints:
     interval: 1m
     conditions:
       - "[CONNECTED] == true"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
