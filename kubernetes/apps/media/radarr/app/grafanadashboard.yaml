@@ -3,6 +3,23 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
+  name: radarr
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  datasources:
+    - datasourceName: prometheus
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 12896
+    revision: 1
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
   name: radarr-exporter
 spec:
   allowCrossNamespaceImport: true
@@ -13,3 +30,4 @@ spec:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
   url: https://raw.githubusercontent.com/onedr0p/exportarr/master/examples/grafana/dashboard1.json
+
