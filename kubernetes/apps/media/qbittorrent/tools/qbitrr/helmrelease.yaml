@@ -23,6 +23,16 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
 
+        initContainers:
+          copy-config:
+            image:
+              repository: busybox
+              tag: latest
+            command:
+              - sh
+              - -c
+              - cp /secret/config.toml /config/config.toml
+
         containers:
           app:
             image:
@@ -66,7 +76,7 @@ spec:
         type: secret
         name: qbitrr-secret
         globalMounts:
-          - path: /config/config.toml
+          - path: /secret/config.toml
             subPath: config.toml
             readOnly: true
 
