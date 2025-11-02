@@ -13,7 +13,7 @@ spec:
     name: envoy-internal
   jsonPatches:
     - type: type.googleapis.com/envoy.config.cluster.v3.Cluster
-      name: network_internal-ipmi_443
+      name: network/internal-ipmi:443
       operation:
         op: replace
         path: /transport_socket/typed_config/upstream_tls_context/alpn_protocols
