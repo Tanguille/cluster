@@ -11,7 +11,6 @@ spec:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: external-service-httproute-ipmi
-    namespace: network
   jsonPatches:
     - type: type.googleapis.com/envoy.config.cluster.v3.Cluster
       name: network_internal-ipmi_443_https
@@ -20,4 +19,3 @@ spec:
         path: /transport_socket/typed_config/upstream_tls_context/alpn_protocols
         value:
           - http/1.1
-
