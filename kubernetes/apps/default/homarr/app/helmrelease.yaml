@@ -32,22 +32,17 @@ spec:
     ingress:
       enabled: false
     podSecurityContext:
-      fsGroup: 1000
+      fsGroup: 0
     securityContext:
-      runAsUser: 1000
-      runAsGroup: 1000
+      runAsUser: 0
+      runAsGroup: 0
       allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
-        add:
-          - NET_BIND_SERVICE
     httproute:
       enabled: true
       parentRefs:
         - name: envoy-internal
           namespace: network
-          sectionName: http
+          sectionName: https
 
       hostnames:
         - apps.${SECRET_DOMAIN}
