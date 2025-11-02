@@ -3,7 +3,7 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: sonarr-exporter
+  name: sonarr
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
@@ -12,4 +12,6 @@ spec:
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
-  url: https://raw.githubusercontent.com/onedr0p/exportarr/master/examples/grafana/dashboard2.json
+  grafanaCom:
+    id: 12530
+    revision: 2
