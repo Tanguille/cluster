@@ -13,8 +13,9 @@
       customType: "regex",
       managerFilePatterns: ["/(^|/)kubernetes/.+\\.ya?ml$/"],
       matchStrings: [
-        "metadata:\\s*name:\\s+(?<depName>[^\\n]+)[\\s\\S]*?grafanaCom:\\n(?<indentation>\\s+)id: (?<packageName>\\d+)\\n(?<revisionIndentation>\\s+)revision: (?<currentValue>\\d+)",
+        "grafanaCom:\\s*\\n(?<indentation>\\s+)id:\\s+(?<packageName>\\d+)\\s*\\n(?<revisionIndentation>\\s+)revision:\\s+(?<currentValue>\\d+)",
       ],
+      depNameTemplate: "{{packageName}}",
       autoReplaceStringTemplate: "grafanaCom:\n{{{indentation}}}id: {{{packageName}}}\n{{{revisionIndentation}}}revision: {{{newValue}}}",
       datasourceTemplate: "custom.grafana-dashboards",
       versioningTemplate: "regex:^(?<major>\\d+)$",
