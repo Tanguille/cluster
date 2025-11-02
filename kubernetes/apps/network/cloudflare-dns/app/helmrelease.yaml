@@ -33,7 +33,6 @@ spec:
     domainFilters: ["${SECRET_DOMAIN}"]
     serviceMonitor:
       enabled: true
-      labels:
-        release: kube-prometheus-stack
+      namespaceSelector: {}
     podAnnotations:
       secret.reloader.stakater.com/reload: *secret
