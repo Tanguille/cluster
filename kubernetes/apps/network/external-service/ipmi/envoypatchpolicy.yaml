@@ -9,8 +9,8 @@ spec:
   priority: 1
   targetRef:
     group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    name: external-service-httproute-ipmi
+    kind: Gateway
+    name: envoy-internal
   jsonPatches:
     - type: type.googleapis.com/envoy.config.cluster.v3.Cluster
       name: network_internal-ipmi_443
