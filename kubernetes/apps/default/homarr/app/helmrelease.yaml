@@ -31,11 +31,23 @@ spec:
       TZ: ${TIMEZONE}
     ingress:
       enabled: false
+    podSecurityContext:
+      fsGroup: 1000
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+        add:
+          - NET_BIND_SERVICE
     httproute:
       enabled: true
       parentRefs:
         - name: envoy-internal
           namespace: network
+          sectionName: http
 
       hostnames:
         - apps.${SECRET_DOMAIN}
@@ -65,4 +77,3 @@ spec:
         accessMode: ReadWriteOnce
         size: 1Gi
         mountPath: /images
-        subPath: images
