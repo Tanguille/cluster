@@ -37,6 +37,12 @@ spec:
       runAsUser: 0
       runAsGroup: 0
       allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+        add:
+          - NET_BIND_SERVICE
+          - NET_RAW
     httproute:
       enabled: true
       parentRefs:
