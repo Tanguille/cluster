@@ -13,7 +13,7 @@ spec:
     name: external-service-httproute-ipmi
   jsonPatches:
     - type: type.googleapis.com/envoy.config.cluster.v3.Cluster
-      name: network_internal-ipmi_443_https
+      name: network_internal-ipmi_443
       operation:
         op: replace
         path: /transport_socket/typed_config/upstream_tls_context/alpn_protocols
