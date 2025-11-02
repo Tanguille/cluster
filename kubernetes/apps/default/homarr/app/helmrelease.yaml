@@ -37,6 +37,9 @@ spec:
       runAsUser: 0
       runAsGroup: 0
       allowPrivilegeEscalation: false
+      capabilities:
+        add:
+          - NET_RAW
     httproute:
       enabled: true
       parentRefs:
