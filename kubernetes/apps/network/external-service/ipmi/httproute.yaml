@@ -32,6 +32,22 @@ spec:
   clusterIP: None
   type: ClusterIP
 ---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: ipmi-backend-policy
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: external-service-httproute-ipmi
+    namespace: network
+  connection:
+    bufferLimit: 1Mi
+  timeout:
+    tcp:
+      connectTimeout: 10s
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
