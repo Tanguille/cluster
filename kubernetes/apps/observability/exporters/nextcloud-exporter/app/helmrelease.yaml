@@ -21,6 +21,9 @@ spec:
             env:
               NEXTCLOUD_SERVER: http://nextcloud.default.svc.cluster.local
               NEXTCLOUD_LISTEN_ADDRESS: 9205
+            envFrom:
+              - secretRef:
+                  name: nextcloud-exporter-secret
             probes:
               liveness:
                 enabled: true
