@@ -19,7 +19,7 @@ spec:
               repository: ghcr.io/xperimental/nextcloud-exporter
               tag: 0.9.0
             env:
-              NEXTCLOUD_SERVER: http://nextcloud.default.svc.cluster.local
+              NEXTCLOUD_SERVER: http://nextcloud.default.svc.cluster.local:8080
               NEXTCLOUD_LISTEN_ADDRESS: ":9205"
             envFrom:
               - secretRef:
