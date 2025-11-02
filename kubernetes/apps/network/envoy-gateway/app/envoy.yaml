@@ -54,6 +54,10 @@ metadata:
       client:
         dns-resolver: tcp://1.1.1.1:53
       group: external
+      alerts:
+        - type: discord
+          enabled: true
+          send-on-resolved: true
 spec:
   gatewayClassName: envoy
   infrastructure:
