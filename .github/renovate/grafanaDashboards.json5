@@ -4,20 +4,22 @@
     "grafana-dashboards": {
       defaultRegistryUrlTemplate: "https://grafana.com/api/dashboards/{{packageName}}",
       format: "json",
-      transformTemplates: ['{"releases":[{"version": $string(revision)}]}'],
+      transformTemplates: [
+        '{"releases":[{"version": $string(revision)}], "sourceDirectory": name}',
+      ],
     },
   },
   customManagers: [
     {
       description: "Process Grafana dashboards",
       customType: "regex",
-      managerFilePatterns: ["/(^|/)kubernetes/.+\\.ya?ml$/"],
+      managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
       matchStrings: [
-        "grafanaCom:[^\\n]*\\n[^\\n]*id:\\s+(?<packageName>\\d+)[^\\n]*\\n[^\\n]*revision:\\s+(?<currentValue>\\d+)",
+        "grafanaCom:\\s*\\n\\s*id:\\s*(?<depName>\\d+)\\s*\\n\\s*revision:\\s*(?<currentValue>\\d+)",
       ],
-      depNameTemplate: "{{packageName}}",
       datasourceTemplate: "custom.grafana-dashboards",
       versioningTemplate: "regex:^(?<major>\\d+)$",
+      autoReplaceStringTemplate: "grafanaCom:\n    id: {{depName}}\n    revision: {{newValue}}",
     },
   ],
   packageRules: [
@@ -26,7 +28,7 @@
       automerge: true,
       automergeType: "branch",
       commitMessageExtra: "({{currentVersion}} ➔ {{newVersion}})",
-      commitMessageTopic: "dashboard {{depName}}",
+      commitMessageTopic: "dashboard {{sourceDirectory}}",
       ignoreTests: true,
       matchDatasources: ["custom.grafana-dashboards"],
       matchUpdateTypes: ["major"],
