@@ -15,11 +15,11 @@
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
       matchStrings: [
-        "grafanaCom:\\s*\\n\\s*id:\\s*(?<depName>\\d+)\\s*\\n\\s*revision:\\s*(?<currentValue>\\d+)",
+        "grafanaCom:\\s*\\n\\s*id:\\s*(?<packageName>\\d+)\\s*\\n\\s*revision:\\s*(?<currentValue>\\d+)",
       ],
       datasourceTemplate: "custom.grafana-dashboards",
       versioningTemplate: "regex:^(?<major>\\d+)$",
-      autoReplaceStringTemplate: "grafanaCom:\n    id: {{depName}}\n    revision: {{newValue}}",
+      autoReplaceStringTemplate: "grafanaCom:\n    id: {{packageName}}\n    revision: {{newValue}}",
     },
   ],
   packageRules: [
