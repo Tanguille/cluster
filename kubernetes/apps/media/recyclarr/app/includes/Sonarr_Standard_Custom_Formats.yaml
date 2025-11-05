@@ -60,19 +60,6 @@ custom_formats:
       - 1efe8da11bfd74fbbcd4d8117ddb9213 # STAN
       - 0ac24a2a68a9700bcb7eeca8e5cd644c # iT
 
-      # HDR Formats
-      - 6d0d8de7b57e35518ac0308b0ddf404e # DV
-      - 7878c33f1963fefb3d6c8657d46c2f0a # DV HDR10
-      - 2b239ed870daba8126a53bd5dc8dc1c8 # DV HDR10+
-      - 1f733af03141f068a540eec352589a89 # DV HLG
-      - 27954b0a80aab882522a88a4d9eae1cd # DV SDR
-      - 3e2c4e748b64a1a1118e0ea3f4cf6875 # HDR
-      - bb019e1cd00f304f80971c965de064dc # HDR (undefined)
-      - 3497799d29a085e2ac2df9d468413c94 # HDR10
-      - a3d82cbef5039f8d295478d28a887159 # HDR10+
-      - 17e889ce13117940092308f48b48b45b # HLG
-      - 2a7e3be05d3861d6df7171ec74cad727 # PQ
-
       # HQ Source Groups
       - d6819cba26b1a6508138d25fb5e32293 # HD Bluray Tier 01
       - c2216b7b8aa545dc1ce8388c618f8d57 # HD Bluray Tier 02
@@ -104,8 +91,6 @@ custom_formats:
       - 32b367365729d530ca1c124a0b180c64 # Bad Dual Groups
       - ef4963043b0987f8485bc9106f16db38 # DV (Disk)
       - 9b27ab6498ec0f31a3353992e19434ca # DV (WEBDL)
-      - 385e9e8581d33133c3961bdcdeffb7b4 # DV HDR10+ Boost
-      - 0dad0a507451acddd754fe6dc3a7f5e7 # HDR10+ Boost
       - 1bd69272e23c5e6c5b1d6c8a36fce95e # HFR
       - 82d40da2bc6923f41e14394075dd4b03 # No-RlsGroup
       - e1a997ddb54e3ecbfe06341ad323c458 # Obfuscated
@@ -117,7 +102,6 @@ custom_formats:
 
       # Optional Streaming Services
       - 43b3cf48cb385cd3eac608ee6bca7f09 # UHD Streaming Boost
-      - d2d299244a92b8a52d4921ce3897a256 # UHD Streaming Cut
 
       # Series Versions
       - 3a4127d8aa781b44120d907f2cd62627 # Hybrid
@@ -141,6 +125,31 @@ custom_formats:
   # Multi
   - trash_ids:
       - 7ba05c6e0e14e793538174c679126996 # Multi
+    assign_scores_to:
+      - name: Main
+        score: -10000
+
+  # HDR Formats
+  - trash_ids:
+      - 505d871304820ba7106b693be6fe4a9e # HDR
+    assign_scores_to:
+      - name: Main
+        score: 500
+
+  - trash_ids:
+      - 7c3a61a9c6cb04f52f1544be6d44a026 # DV Boost
+    assign_scores_to:
+      - name: Main
+        score: 1000
+
+  - trash_ids:
+      - 0c4b99df9206d2cfac3c05ab897dd62a # HDR10+ Boost
+    assign_scores_to:
+      - name: Main
+        score: 100
+
+  - trash_ids:
+      - 9b27ab6498ec0f31a3353992e19434ca # DV (w/o HDR fallback)
     assign_scores_to:
       - name: Main
         score: -10000
