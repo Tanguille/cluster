@@ -54,9 +54,9 @@ spec:
         - &hsts
           type: ResponseHeaderModifier
           responseHeaderModifier:
-            add:
-              - name: strict-transport-security
-                value: max-age=31536000
+            set:
+              - name: Strict-Transport-Security
+                value: max-age=31536000; includeSubDomains; preload
     - matches:
         - path:
             type: PathPrefix
