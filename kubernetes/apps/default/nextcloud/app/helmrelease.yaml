@@ -121,6 +121,11 @@ spec:
           pm.start_servers = 12
           pm.min_spare_servers = 6
           pm.max_spare_servers = 18
+          request_terminate_timeout = 600
+        php.ini: |
+          max_execution_time = 600
+          default_socket_timeout = 300
+          curl.cainfo = /etc/ssl/certs/ca-certificates.crt
 
       configs:
         logging.config.php: |-
