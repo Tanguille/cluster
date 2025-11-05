@@ -3,12 +3,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ./helmrelease.yaml
+  - helmrelease.yaml
 configMapGenerator:
   - name: recyclarr-configmap
     files:
       - ./config/recyclarr.yaml
       - ./includes/Sonarr_Anime_Custom_Formats.yaml
       - ./includes/Sonarr_Standard_Custom_Formats.yaml
+      - ./includes/Radarr_Standard_Custom_Formats.yaml
 generatorOptions:
   disableNameSuffixHash: true
