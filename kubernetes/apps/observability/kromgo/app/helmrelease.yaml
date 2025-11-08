@@ -73,6 +73,12 @@ spec:
           - backendRefs:
               - identifier: app
                 port: *port
+            filters:
+              - type: ResponseHeaderModifier
+                responseHeaderModifier:
+                  set:
+                    - name: Content-Type
+                      value: application/json
     persistence:
       config-file:
         type: configMap
