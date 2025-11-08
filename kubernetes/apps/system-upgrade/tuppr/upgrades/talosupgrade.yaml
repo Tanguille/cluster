@@ -11,6 +11,18 @@ spec:
   policy:
     rebootMode: powercycle
   healthChecks:
+    - apiVersion: v1
+      kind: Node
+      expr: |-
+        status.conditions.exists(c, c.type == "Ready" && c.status == "True")
+    - apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      expr: |-
+        status.phase in ['Cluster in healthy state']
+    - apiVersion: dragonflydb.io/v1alpha1
+      kind: Dragonfly
+      expr: |-
+        status.phase in ['Ready']
     - apiVersion: volsync.backube/v1alpha1
       kind: ReplicationSource
       expr: |-
