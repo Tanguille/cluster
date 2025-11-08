@@ -28,7 +28,11 @@ spec:
     manageCRDs: true
     replicaCount: 1
     metrics:
-      disableAuth: true
+      disableAuth: false
+      tlsSecret: volsync-metrics-tls
+      kubeRbacProxy:
+        extraArgs:
+          - --logtostderr=false
     podSecurityContext:
       runAsNonRoot: true
       runAsUser: 1000
