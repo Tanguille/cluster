@@ -7,9 +7,10 @@ spec:
   trigger:
     manual: $PREVIOUS
   restic:
-    repository: $APP-volsync-b2-secret
+    repository: $APP-volsync-secret
     copyMethod: Direct
-    destinationPVC: $APP
+    # destinationPVC is not used when using volume population via dataSourceRef
+    # The PVC will be populated automatically by VolSync's volume populator
     storageClassName: openebs-zfs
     accessModes: ["ReadWriteOnce"]
     capacity: 5Gi
