@@ -62,9 +62,7 @@ spec:
     persistence:
       homarrDatabase:
         enabled: true
-        storageClassName: openebs-zfs
-        accessMode: ReadWriteOnce
-        size: 1Gi
+        existingClaim: homarr-database
         mountPath: /appdata/db
       homarrImages:
         enabled: true
