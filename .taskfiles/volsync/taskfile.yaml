@@ -63,37 +63,71 @@ tasks:
       - flux --namespace {{.NS}} suspend helmrelease {{.APP}}
       - kubectl --namespace {{.NS}} scale {{.CONTROLLER}}/{{.APP}} --replicas 0
       - kubectl --namespace {{.NS}} wait pod --for=delete --selector="app.kubernetes.io/name={{.APP}}" --timeout=5m
-      # Delete existing PVC
-      - kubectl --namespace {{.NS}} delete pvc {{.APP}} --wait=true
-      # Create restore PVC
+      # Remove finalizers from PVC before deletion (prevents stuck Terminating state)
+      - kubectl --namespace {{.NS}} patch pvc {{.APP}} -p '{"metadata":{"finalizers":[]}}' --type=merge 2>&1 || true
+      # Delete existing PVC (ignore if it doesn't exist)
+      - kubectl --namespace {{.NS}} delete pvc {{.APP}} --wait=true 2>&1 || true
+      # Trigger existing ReplicationDestination to restore
+      - kubectl --namespace {{.NS}} patch replicationdestination {{.APP}}-dst -p '{"spec":{"trigger":{"manual":"{{.PREVIOUS}}"}}}' --type=merge
+      # Wait for ReplicationDestination to complete and have a snapshot ready
       - |
-        cat <<EOF | kubectl apply -f -
-        apiVersion: v1
-        kind: PersistentVolumeClaim
-        metadata:
-          name: {{.APP}}
-          namespace: {{.NS}}
-        spec:
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 5Gi
-          storageClassName: openebs-zfs
-          dataSourceRef:
-            kind: ReplicationDestination
-            apiGroup: volsync.backube
-            name: {{.APP}}-dst
-        EOF
-      # Restore
+        echo "Waiting for ReplicationDestination to be ready..."
+        for i in {1..60}; do
+          SYNC_STATUS=$(kubectl --namespace {{.NS}} get replicationdestination {{.APP}}-dst -o jsonpath='{.status.conditions[?(@.type=="Synchronizing")].status}' 2>/dev/null || echo "")
+          SNAPSHOT=$(kubectl --namespace {{.NS}} get replicationdestination {{.APP}}-dst -o jsonpath='{.status.latestImage.name}' 2>/dev/null || echo "")
+          if [ "$SYNC_STATUS" = "False" ] && [ -n "$SNAPSHOT" ] && echo "$SNAPSHOT" | grep -q volsync; then
+            echo "ReplicationDestination ready with snapshot: $SNAPSHOT"
+            break
+          fi
+          if [ "$SYNC_STATUS" = "True" ]; then
+            echo "ReplicationDestination is synchronizing, waiting for completion..."
+          else
+            echo "Waiting for ReplicationDestination (status: $SYNC_STATUS, snapshot: $SNAPSHOT)..."
+          fi
+          sleep 5
+        done
+      # Get snapshot restoreSize to match the PVC size and create PVC
       - |
-        export APP={{.APP}}
-        export NS={{.NS}}
-        export PREVIOUS={{.PREVIOUS}}
-        envsubst < {{.VOLSYNC_RESOURCES_DIR}}/replicationdestination.yaml.j2 | \
-        kubectl apply --server-side --filename -
-      - until kubectl --namespace {{.NS}} get job/volsync-dst-{{.APP}}-manual &>/dev/null; do sleep 5; done
-      - kubectl --namespace {{.NS}} wait job/volsync-dst-{{.APP}}-manual --for=condition=complete --timeout=120m
-      - kubectl --namespace {{.NS}} delete replicationdestination {{.APP}}-manual
+        SNAPSHOT_NAME=$(kubectl --namespace {{.NS}} get replicationdestination {{.APP}}-dst -o jsonpath='{.status.latestImage.name}' 2>/dev/null || echo "")
+        RESTORE_SIZE="5Gi"  # Default fallback
+        if [ -n "$SNAPSHOT_NAME" ]; then
+          echo "Found snapshot: $SNAPSHOT_NAME"
+          RESTORE_SIZE_RAW=$(kubectl --namespace {{.NS}} get volumesnapshot "$SNAPSHOT_NAME" -o jsonpath='{.status.restoreSize}' 2>/dev/null || echo "")
+          if [ -n "$RESTORE_SIZE_RAW" ]; then
+            # Check if it's already in human-readable format (contains letters)
+            if echo "$RESTORE_SIZE_RAW" | grep -qE '[a-zA-Z]'; then
+              RESTORE_SIZE="$RESTORE_SIZE_RAW"
+            # Check if it's a number (bytes)
+            elif echo "$RESTORE_SIZE_RAW" | grep -qE '^[0-9]+$'; then
+              # Convert bytes to Gi (rough approximation, rounding up)
+              RESTORE_SIZE_BYTES=$RESTORE_SIZE_RAW
+              RESTORE_SIZE_GI=$(( (RESTORE_SIZE_BYTES + 1073741823) / 1073741824 ))
+              # Minimum 1Gi
+              if [ $RESTORE_SIZE_GI -lt 1 ]; then
+                RESTORE_SIZE_GI=1
+              fi
+              RESTORE_SIZE="${RESTORE_SIZE_GI}Gi"
+            else
+              echo "Warning: Could not parse restoreSize '$RESTORE_SIZE_RAW', using default 5Gi"
+            fi
+          else
+            echo "Warning: Snapshot $SNAPSHOT_NAME has no restoreSize, using default 5Gi"
+          fi
+        else
+          echo "Warning: No snapshot found, using default 5Gi"
+        fi
+        echo "Using restore size: $RESTORE_SIZE"
+        if [ -z "$RESTORE_SIZE" ]; then
+          echo "ERROR: RESTORE_SIZE is empty, aborting"
+          exit 1
+        fi
+        # Create restore PVC with dataSourceRef pointing to existing ReplicationDestination
+        # Use printf to build YAML to avoid heredoc variable expansion issues
+        printf 'apiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: {{.APP}}\n  namespace: {{.NS}}\nspec:\n  accessModes: ["ReadWriteOnce"]\n  resources:\n    requests:\n      storage: %s\n  storageClassName: openebs-zfs\n  dataSourceRef:\n    kind: ReplicationDestination\n    apiGroup: volsync.backube\n    name: {{.APP}}-dst\n' "$RESTORE_SIZE" | kubectl apply -f -
+      # Wait for volume population to complete (PVC to be Bound)
+      - until kubectl --namespace {{.NS}} get pvc {{.APP}} -o jsonpath='{.status.phase}' | grep -q Bound; do sleep 10; echo "Waiting for PVC to bind..."; done
+      # Wait for ReplicationDestination to complete
+      - until kubectl --namespace {{.NS}} get replicationdestination {{.APP}}-dst -o jsonpath='{.status.conditions[?(@.type=="Synchronizing")].status}' | grep -q False; do sleep 10; echo "Waiting for restore to complete..."; done
       # Resume
       - flux --namespace flux-system resume kustomization {{.APP}}
       - flux --namespace {{.NS}} resume helmrelease {{.APP}}
