@@ -2,6 +2,16 @@
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 version: "3"
 
+env:
+  talosVersion:
+    sh: yq '.spec.talos.version' {{.ROOT_DIR}}/kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml
+  kubernetesVersion:
+    sh: yq '.spec.kubernetes.version' {{.ROOT_DIR}}/kubernetes/apps/system-upgrade/tuppr/upgrades/kubernetesupgrade.yaml
+
+vars:
+  TALOS_UPGRADE_FILE: "{{.ROOT_DIR}}/kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml"
+  KUBERNETES_UPGRADE_FILE: "{{.ROOT_DIR}}/kubernetes/apps/system-upgrade/tuppr/upgrades/kubernetesupgrade.yaml"
+
 tasks:
   encrypt:
     desc: Encrypt all Kubernetes SOPS secrets
@@ -25,7 +35,9 @@ tasks:
       - test -f {{.ROOT_DIR}}/.sops.yaml
       - test -f {{.SOPS_AGE_KEY_FILE}}
       - test -f {{.TALOS_DIR}}/talconfig.yaml
-      - which talhelper talosctl sops
+      - test -f {{.TALOS_UPGRADE_FILE}}
+      - test -f {{.KUBERNETES_UPGRADE_FILE}}
+      - which talhelper talosctl sops yq
 
   apps:
     desc: Bootstrap apps into the Talos cluster

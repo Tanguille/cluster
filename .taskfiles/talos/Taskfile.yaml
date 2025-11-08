@@ -2,6 +2,16 @@
 # yaml-language-server: $schema=https://taskfile.dev/schema.json
 version: "3"
 
+env:
+  talosVersion:
+    sh: yq '.spec.talos.version' {{.ROOT_DIR}}/kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml
+  kubernetesVersion:
+    sh: yq '.spec.kubernetes.version' {{.ROOT_DIR}}/kubernetes/apps/system-upgrade/tuppr/upgrades/kubernetesupgrade.yaml
+
+vars:
+  TALOS_UPGRADE_FILE: "{{.ROOT_DIR}}/kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml"
+  KUBERNETES_UPGRADE_FILE: "{{.ROOT_DIR}}/kubernetes/apps/system-upgrade/tuppr/upgrades/kubernetesupgrade.yaml"
+
 tasks:
   generate-config:
     desc: Generate Talos configuration
@@ -11,7 +21,9 @@ tasks:
       - test -f {{.TALOS_DIR}}/talconfig.yaml
       - test -f {{.ROOT_DIR}}/.sops.yaml
       - test -f {{.SOPS_AGE_KEY_FILE}}
-      - which talhelper
+      - test -f {{.TALOS_UPGRADE_FILE}}
+      - test -f {{.KUBERNETES_UPGRADE_FILE}}
+      - which talhelper yq
 
   apply-node:
     desc: Apply Talos config to a node [IP=required]
@@ -25,35 +37,34 @@ tasks:
       - talosctl --nodes {{.IP}} get machineconfig
       - talosctl config info
       - test -f {{.TALOSCONFIG}}
+      - test -f {{.TALOS_UPGRADE_FILE}}
+      - test -f {{.KUBERNETES_UPGRADE_FILE}}
       - which talhelper talosctl yq
 
   upgrade-node:
     desc: Upgrade Talos on a single node [IP=required]
     dir: "{{.TALOS_DIR}}"
-    cmd: talhelper gencommand upgrade --node {{.IP}} --extra-flags "--image='{{.TALOS_IMAGE}}:{{.TALOS_VERSION}}' --timeout=15m" | bash
+    cmd: talhelper gencommand upgrade --node {{.IP}} --extra-flags "--image='{{.TALOS_IMAGE}}:$talosVersion' --timeout=15m" | bash
     vars:
       TALOS_IMAGE:
         sh: yq '.nodes[] | select(.ipAddress == "{{.IP}}") | .talosImageURL' {{.TALOS_DIR}}/talconfig.yaml
-      TALOS_VERSION:
-        sh: yq '.talosVersion' {{.TALOS_DIR}}/talenv.yaml
     requires:
       vars: [IP]
     preconditions:
       - talosctl --nodes {{.IP}} get machineconfig
       - talosctl config info
       - test -f {{.TALOSCONFIG}}
+      - test -f {{.TALOS_UPGRADE_FILE}}
       - which kubectl talhelper talosctl yq
 
   upgrade-k8s:
     desc: Upgrade Kubernetes
     dir: "{{.TALOS_DIR}}"
-    cmd: talhelper gencommand upgrade-k8s --extra-flags "--to '{{.KUBERNETES_VERSION}}'" | bash
-    vars:
-      KUBERNETES_VERSION:
-        sh: yq '.kubernetesVersion' {{.TALOS_DIR}}/talenv.yaml
+    cmd: talhelper gencommand upgrade-k8s --extra-flags "--to '$kubernetesVersion'" | bash
     preconditions:
       - talosctl config info
       - test -f {{.TALOSCONFIG}}
+      - test -f {{.KUBERNETES_UPGRADE_FILE}}
       - which talhelper talosctl yq
 
   reset:
