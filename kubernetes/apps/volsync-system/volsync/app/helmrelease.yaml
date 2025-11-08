@@ -15,18 +15,6 @@ spec:
     replicaCount: 1
     metrics:
       disableAuth: false
-      kubeRbacProxy:
-        extraArgs:
-          - --tls-cert-file=/etc/tls/tls.crt
-          - --tls-private-key-file=/etc/tls/tls.key
-        extraVolumeMounts:
-          - name: tls
-            mountPath: /etc/tls
-            readOnly: true
-        extraVolumes:
-          - name: tls
-            secret:
-              secretName: volsync-metrics-tls
     podSecurityContext:
       runAsNonRoot: true
       runAsUser: 1000
