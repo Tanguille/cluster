@@ -27,7 +27,6 @@ Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [
 [![Pod-Count](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_pod_count&style=flat-square&label=Pods)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
 [![CPU-Usage](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_cpu_usage&style=flat-square&label=CPU)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
 [![Memory-Usage](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_memory_usage&style=flat-square&label=Memory)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
-[![Power-Usage](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_power_usage&style=flat-square&label=Power)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
 [![Alerts](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_alert_count&style=flat-square&label=Alerts)](https://github.com/kashalls/kromgo)
 
 </div>
