@@ -2,6 +2,36 @@
 
 Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [cluster-template](https://github.com/onedr0p/cluster-template) project where I want to express my gratitude to the community for all the amazing work they have done.
 
+## Stats
+
+<div align="center">
+
+[![Talos](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Ftalos_version&style=for-the-badge&logo=talos&logoColor=white&color=blue&label=%20)](https://talos.dev)&nbsp;&nbsp;
+[![Kubernetes](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fkubernetes_version&style=for-the-badge&logo=kubernetes&logoColor=white&color=blue&label=%20)](https://kubernetes.io)&nbsp;&nbsp;
+[![Flux](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fflux_version&style=for-the-badge&logo=flux&logoColor=white&color=blue&label=%20)](https://fluxcd.io)&nbsp;&nbsp;
+
+</div>
+
+<div align="center">
+
+[![Status-Page](https://img.shields.io/endpoint?url=https%3A%2F%2Fstatus.k13.dev%2Fapi%2Fv1%2Fendpoints%2Fbuddy_status-page%2Fhealth%2Fbadge.shields&style=for-the-badge&logo=statuspage&logoColor=white&label=Status%20Page)](https://status.tanguille.site)&nbsp;&nbsp;
+[![Alertmanager](https://img.shields.io/endpoint?url=https%3A%2F%2Fstatus.k13.dev%2Fapi%2Fv1%2Fendpoints%2Fbuddy_heartbeat%2Fhealth%2Fbadge.shields&style=for-the-badge&logo=prometheus&logoColor=white&label=Alertmanager)](https://status.tanguille.site)
+
+</div>
+
+<div align="center">
+
+[![Age-Days](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_age_days&style=flat-square&label=Age)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
+[![Uptime-Days](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_uptime_days&style=flat-square&label=Uptime)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
+[![Node-Count](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_node_count&style=flat-square&label=Nodes)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
+[![Pod-Count](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_pod_count&style=flat-square&label=Pods)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
+[![CPU-Usage](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_cpu_usage&style=flat-square&label=CPU)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
+[![Memory-Usage](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_memory_usage&style=flat-square&label=Memory)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
+[![Power-Usage](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_power_usage&style=flat-square&label=Power)](https://github.com/kashalls/kromgo)&nbsp;&nbsp;
+[![Alerts](https://img.shields.io/endpoint?url=https%3A%2F%2Fkromgo.tanguille.site%2Fcluster_alert_count&style=flat-square&label=Alerts)](https://github.com/kashalls/kromgo)
+
+</div>
+
 ## 🛠️ Talos and Kubernetes Maintenance
 
 ### ⚙️ Updating Talos node configuration
@@ -101,10 +131,10 @@ and [synology-csi](https://github.com/SynologyOpenSource/synology-csi).
 
 If this repo is too hot to handle or too cold to hold check out these following projects.
 
-- [ajaykumar4/cluster-template](https://github.com/ajaykumar4/cluster-template) - _A template for deploying a Talos Kubernetes cluster including Argo for GitOps_
-- [khuedoan/homelab](https://github.com/khuedoan/homelab) - _Fully automated homelab from empty disk to running services with a single command._
-- [ricsanfre/pi-cluster](https://github.com/ricsanfre/pi-cluster) - _Pi Kubernetes Cluster. Homelab kubernetes cluster automated with Ansible and FluxCD_
-- [techno-tim/k3s-ansible](https://github.com/techno-tim/k3s-ansible) - _The easiest way to bootstrap a self-hosted High Availability Kubernetes cluster. A fully automated HA k3s etcd install with kube-vip, MetalLB, and more. Build. Destroy. Repeat._
+-   [ajaykumar4/cluster-template](https://github.com/ajaykumar4/cluster-template) - _A template for deploying a Talos Kubernetes cluster including Argo for GitOps_
+-   [khuedoan/homelab](https://github.com/khuedoan/homelab) - _Fully automated homelab from empty disk to running services with a single command._
+-   [ricsanfre/pi-cluster](https://github.com/ricsanfre/pi-cluster) - _Pi Kubernetes Cluster. Homelab kubernetes cluster automated with Ansible and FluxCD_
+-   [techno-tim/k3s-ansible](https://github.com/techno-tim/k3s-ansible) - _The easiest way to bootstrap a self-hosted High Availability Kubernetes cluster. A fully automated HA k3s etcd install with kube-vip, MetalLB, and more. Build. Destroy. Repeat._
 
 ## 🤝 Thanks
 
