@@ -10,7 +10,7 @@ Truenas VM:
 
 - CPU = AMD RYZEN 5800X => 6 cores for talos
 - RAM = 128GB DDR4 => 48GB for talos
-- GPU = NVIDIA RTX 2070 => Full passthrough
+- GPU = NVIDIA RTX 2070 => Full passthrough for talos
 
 ## Stats
 
