@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app recyclarr
+  name: recyclarr
 spec:
   interval: 30m
   chartRef:
@@ -54,7 +54,10 @@ spec:
 
     persistence:
       config:
-        existingClaim: *app
+        type: persistentVolumeClaim
+        storageClass: openebs-zfs
+        accessMode: ReadWriteOnce
+        size: 1Gi
 
       config-files:
         type: configMap
