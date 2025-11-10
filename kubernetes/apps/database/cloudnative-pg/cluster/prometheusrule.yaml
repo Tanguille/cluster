@@ -9,6 +9,42 @@ metadata:
     role: alert-rules
 spec:
   groups:
+    - name: cnpg_metric_aliases
+      interval: 30s
+      rules:
+        # Map CNPG metrics to standard PostgreSQL metric names for dashboard compatibility
+        - record: pg_stat_database_blks_hit
+          expr: cnpg_pg_stat_database_blks_hit
+        - record: pg_stat_database_blks_read
+          expr: cnpg_pg_stat_database_blks_read
+        - record: pg_stat_database_tup_returned
+          expr: cnpg_pg_stat_database_tup_returned
+        - record: pg_stat_database_tup_fetched
+          expr: cnpg_pg_stat_database_tup_fetched
+        - record: pg_stat_database_tup_inserted
+          expr: cnpg_pg_stat_database_tup_inserted
+        - record: pg_stat_database_tup_updated
+          expr: cnpg_pg_stat_database_tup_updated
+        - record: pg_stat_database_tup_deleted
+          expr: cnpg_pg_stat_database_tup_deleted
+        - record: pg_stat_database_conflicts
+          expr: cnpg_pg_stat_database_conflicts
+        - record: pg_stat_database_deadlocks
+          expr: cnpg_pg_stat_database_deadlocks
+        - record: pg_stat_database_xact_commit
+          expr: cnpg_pg_stat_database_xact_commit
+        - record: pg_stat_database_xact_rollback
+          expr: cnpg_pg_stat_database_xact_rollback
+        - record: pg_stat_database_temp_files
+          expr: cnpg_pg_stat_database_temp_files
+        - record: pg_stat_database_temp_bytes
+          expr: cnpg_pg_stat_database_temp_bytes
+        - record: pg_stat_database_blk_read_time
+          expr: cnpg_pg_stat_database_blk_read_time
+        - record: pg_stat_database_blk_write_time
+          expr: cnpg_pg_stat_database_blk_write_time
+        - record: pg_database_size_bytes
+          expr: cnpg_pg_database_size_bytes
     - name: cloudnative-pg.rules
       rules:
         - alert: LongRunningTransaction
