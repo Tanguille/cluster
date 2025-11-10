@@ -1,17 +1,4 @@
 ---
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: OCIRepository
-metadata:
-  name: homarr-labs
-spec:
-  interval: 30m
-  layerSelector:
-    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
-    operation: copy
-  ref:
-    tag: 8.2.2
-  url: oci://ghcr.io/homarr-labs/charts/homarr
----
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2beta2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -23,6 +10,23 @@ spec:
   chartRef:
     kind: OCIRepository
     name: homarr-labs
+  postRenderers:
+    - kustomize:
+        patchesStrategicMerge:
+          - |-
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: homarr
+            spec:
+              template:
+                spec:
+                  initContainers:
+                    - name: init-db
+                      image: ghcr.io/home-operations/postgres-init:17
+                      envFrom:
+                        - secretRef:
+                            name: homarr-secret
 
   values:
     rbac:
@@ -55,15 +59,20 @@ spec:
             - name: homarr
               port: 7575
 
+    database:
+      type: postgresql
+
     envSecrets:
       dbCredentials:
         existingSecret: homarr-secret
+        dbUrlKey: db-url
+      dbEncryption:
+        existingSecret: homarr-secret
+        key: db-encryption-key
 
     persistence:
       homarrDatabase:
-        enabled: true
-        existingClaim: homarr-database
-        mountPath: /appdata/db
+        enabled: false
       homarrImages:
         enabled: true
         storageClassName: openebs-zfs
