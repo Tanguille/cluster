@@ -7,8 +7,6 @@ metadata:
   namespace: &namespace default
 spec:
   targetNamespace: *namespace
-  components:
-    - ../../../../components/volsync
   path: ./kubernetes/apps/default/homarr/app
   prune: true
   sourceRef:
@@ -18,19 +16,3 @@ spec:
   wait: false
   interval: 30m
   timeout: 15m
-  postBuild:
-    substitute:
-      APP: homarr-database
-      VOLSYNC_CAPACITY: 1Gi
-      VOLSYNC_STORAGECLASS: openebs-hostpath
-  patches:
-    - patch: |-
-        apiVersion: v1
-        kind: PersistentVolumeClaim
-        metadata:
-          name: homarr-database
-          annotations:
-            helm.sh/resource-policy: keep
-      target:
-        kind: PersistentVolumeClaim
-        name: homarr-database
