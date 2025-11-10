@@ -23,6 +23,19 @@ spec:
   chartRef:
     kind: OCIRepository
     name: homarr-labs
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: PersistentVolumeClaim
+              name: homarr-database
+            patch: |-
+              - op: remove
+                path: /metadata
+              - op: remove
+                path: /spec
+              - op: remove
+                path: /status
 
   values:
     rbac:
