@@ -23,30 +23,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: homarr-labs
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: PersistentVolumeClaim
-              name: homarr-database
-            patch: |-
-              apiVersion: v1
-              kind: PersistentVolumeClaim
-              metadata:
-                name: homarr-database
-                annotations:
-                  helm.sh/resource-policy: keep
-              spec:
-                accessModes:
-                  - ReadWriteOnce
-                storageClassName: openebs-hostpath
-                resources:
-                  requests:
-                    storage: 1Gi
-                dataSourceRef:
-                  apiGroup: volsync.backube
-                  kind: ReplicationDestination
-                  name: homarr-database-dst
 
   values:
     rbac:
