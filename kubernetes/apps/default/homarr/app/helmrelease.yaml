@@ -12,21 +12,24 @@ spec:
     name: homarr-labs
   postRenderers:
     - kustomize:
-        patchesStrategicMerge:
-          - |-
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
+        patches:
+          - target:
+              kind: Deployment
               name: homarr
-            spec:
-              template:
-                spec:
-                  initContainers:
-                    - name: init-db
-                      image: ghcr.io/home-operations/postgres-init:17
-                      envFrom:
-                        - secretRef:
-                            name: homarr-secret
+            patch: |-
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: homarr
+              spec:
+                template:
+                  spec:
+                    initContainers:
+                      - name: init-db
+                        image: ghcr.io/home-operations/postgres-init:17
+                        envFrom:
+                          - secretRef:
+                              name: homarr-secret
 
   values:
     rbac:
