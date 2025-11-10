@@ -23,3 +23,14 @@ spec:
       APP: homarr-database
       VOLSYNC_CAPACITY: 1Gi
       VOLSYNC_STORAGECLASS: openebs-hostpath
+  patches:
+    - patch: |-
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: homarr-database
+          annotations:
+            helm.sh/resource-policy: keep
+      target:
+        kind: PersistentVolumeClaim
+        name: homarr-database
