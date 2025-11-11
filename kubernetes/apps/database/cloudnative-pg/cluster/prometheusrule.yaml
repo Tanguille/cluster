@@ -91,6 +91,11 @@ spec:
         # This records 1 when any cnpg metric exists for the instance, and sets job to pg_exporter for compatibility
         - record: pg_up
           expr: label_replace((count by (instance) (cnpg_pg_stat_database_blks_read) > 0), "job", "pg_exporter", "instance", "(.*)")
+        # Provide additional common job aliases used by community dashboards
+        - record: pg_up
+          expr: label_replace((count by (instance) (cnpg_pg_stat_database_blks_read) > 0), "job", "postgres-exporter", "instance", "(.*)")
+        - record: pg_up
+          expr: label_replace((count by (instance) (cnpg_pg_stat_database_blks_read) > 0), "job", "postgres", "instance", "(.*)")
     - name: cloudnative-pg.rules
       rules:
         - alert: LongRunningTransaction
