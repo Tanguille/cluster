@@ -12,20 +12,3 @@ spec:
   configMapRef:
     name: cnpg-grafana-dashboard
     key: cnp.json
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: postgresql-monitoring
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 24298
-    revision: 3
