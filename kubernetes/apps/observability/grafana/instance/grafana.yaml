@@ -8,6 +8,8 @@ metadata:
     grafana.internal/instance: grafana
 spec:
   config:
+    database:
+      type: postgres
     analytics:
       check_for_updates: "false"
       check_for_plugin_updates: "false"
@@ -36,6 +38,12 @@ spec:
         type: Recreate
       template:
         spec:
+          initContainers:
+            - name: init-db
+              image: ghcr.io/home-operations/postgres-init:17
+              envFrom:
+                - secretRef:
+                    name: &secret grafana-db-secret
           containers:
             - name: grafana
               env:
@@ -44,6 +52,9 @@ spec:
                     secretKeyRef:
                       name: grafana-admin-password-secret
                       key: GF_SECURITY_ADMIN_PASSWORD
+              envFrom:
+                - secretRef:
+                    name: *secret
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
@@ -54,16 +65,4 @@ spec:
             runAsGroup: 1000
             fsGroup: 1000
             fsGroupChangePolicy: OnRootMismatch
-          volumes:
-            - name: grafana-data
-              persistentVolumeClaim:
-                claimName: grafana-pvc
-  persistentVolumeClaim:
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 10Gi
-      storageClassName: openebs-zfs
   disableDefaultSecurityContext: All
