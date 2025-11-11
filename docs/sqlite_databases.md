@@ -50,6 +50,13 @@ This file lists all SQLite databases found across the cluster, organized by name
 - **PostgreSQL Support**: ❌ No (SQLite only)
 - **Notes**: Torrent metadata database - qBittorrent only supports SQLite
 
+### fileflows
+
+- **Path**: `/app/Data/Data/FileFlows.sqlite`
+- **Status**: ⏳ Not planned because it will be scheduled on a single node anyways
+- **PostgreSQL Support**: ✅ Yes (requires valid license)
+- **Notes**: FileFlows supports PostgreSQL and MySQL, but requires a Personal or Commercial license. Personal Free plan is limited to SQLite only. Configuration is done through the web console (Settings > Database), not environment variables.
+
 ### wizarr
 
 - **Path**: `/data/database/database.db`
