@@ -106,11 +106,6 @@ Resolving problems that you have could take some tweaking of your YAML manifests
 
 To browse or get ideas on applications people are running, community member [@whazor](https://github.com/whazor) created [Kubesearch](https://kubesearch.dev) as a creative way to search Flux HelmReleases across Github and Gitlab.
 
-### Storage
-
-The included CSI (openebs in local-hostpath mode) is a great start for storage but soon you might find you need more features like replicated block storage, or to connect to a NFS/SMB/iSCSI server. If you need any of those features be sure to check out the projects like [rook-ceph](https://github.com/rook/rook), [longhorn](https://github.com/longhorn/longhorn), [openebs](https://github.com/openebs/openebs), [democratic-csi](https://github.com/democratic-csi/democratic-csi), [csi-driver-nfs](https://github.com/kubernetes-csi/csi-driver-nfs),
-and [synology-csi](https://github.com/SynologyOpenSource/synology-csi).
-
 ## 🤝 Thanks
 
 Big shout out to all the contributors, sponsors and everyone else who has helped on this project.
