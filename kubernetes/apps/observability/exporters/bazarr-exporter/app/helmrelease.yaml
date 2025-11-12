@@ -27,7 +27,11 @@ spec:
             env:
               PORT: &port 9707
               URL: http://bazarr.media.svc.cluster.local:80
-              APIKEY: ${BAZARR_API_KEY}
+              API_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: bazarr-exporter-secret
+                    key: BAZARR_API_KEY
             probes:
               liveness:
                 enabled: true
