@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app scraparr
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+    namespace: flux-system
+
+  values:
+    defaultPodOptions:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+
+    controllers:
+      scraparr:
+        defaultContainerOptions:
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+
+        annotations:
+          reloader.stakater.com/auto: "true"
+
+        containers:
+          app:
+            image:
+              repository: ghcr.io/thecfu/scraparr
+              tag: 2.2.5@sha256:cfe07f005aa6e93221dd0bb540600aaa51ea1215968595806863f9df3dc3b26c
+            env:
+              BAZARR_URL: http://bazarr.media.svc.cluster.local
+              JELLYFIN_URL: http://jellyfin.media.svc.cluster.local
+              JELLYSEERR_URL: http://jellyseerr.media.svc.cluster.local
+              JELLYSEERR_API_KEY: ${JELLYSEERR_API_KEY}
+              PROWLARR_URL: http://prowlarr.media.svc.cluster.local
+              PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+              RADARR_URL: http://radarr.media.svc.cluster.local
+              RADARR_API_KEY: ${RADARR_API_KEY}
+              SONARR_URL: http://sonarr.media.svc.cluster.local
+              SONARR_API_KEY: ${SONARR_API_KEY}
+            envFrom:
+              - secretRef:
+                  name: scraparr-secret
+
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /metrics
+                    port: &port 7100
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+            resources:
+              requests:
+                cpu: 10m
+                memory: 50Mi
+              limits:
+                memory: 100Mi
+
+    serviceMonitor:
+      metrics:
+        enabled: true
+        serviceName: *app
+        endpoints:
+          - port: metrics
+            scheme: http
+            path: /metrics
+            interval: 1m
+            scrapeTimeout: 10s
+
+    service:
+      app:
+        controller: *app
+        ports:
+          metrics:
+            port: *port
