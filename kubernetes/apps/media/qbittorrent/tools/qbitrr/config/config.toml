@@ -5,20 +5,26 @@ ConsoleLevel = "INFO"
 # Enable logging to files
 Logging = true
 
-# Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path
+# Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path (Please note, replace all '\' with '/')
 CompletedDownloadFolder = "/completed_downloads"
 
-# Folder to check for free space. Usually the same as CompletedDownloadFolder
+#The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)
+FreeSpace = "500G"
+
+# Folder where the free space handler will check for free space (Please note, replace all '\' with '/')
 FreeSpaceFolder = "/completed_downloads"
 
-#The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable)
-FreeSpace = "300G"
+# Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)
+AutoPauseResume = true
 
 # Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)
 NoInternetSleepTimer = 15
 
 # Time to sleep between reprocessing torrents (in seconds: 600 = 10 Minutes)
-LoopSleepTimer = 10
+LoopSleepTimer = 5
+
+# Time to sleep between posting search commands (in seconds: 600 = 10 Minutes)
+SearchLoopDelay = -1
 
 # Add torrents to this category to mark them as failed
 FailedCategory = "failed"
@@ -26,9 +32,12 @@ FailedCategory = "failed"
 # Add torrents to this category to trigger them to be rechecked properly
 RecheckCategory = "recheck"
 
+# Tagless operation
+Tagless = false
+
 # Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
 # Only applicable to Re-check and failed categories
-IgnoreTorrentsYoungerThan = 180
+IgnoreTorrentsYoungerThan = 600
 
 # URL to be pinged to check if you have a valid internet connection
 # These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings.
@@ -36,36 +45,55 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 
 # FFprobe auto updates, binaries are downloaded from https://ffbinaries.com/downloads
 # If this is disabled and you want ffprobe to work
-# Ensure that you add the binary for your platform into ~/qBitrr/qBitManager
+# Ensure that you add the ffprobe binary to the folder"/config/qBitManager/ffprobe.exe"
+# If no `ffprobe` binary is found in the folder above all ffprobe functionality will be disabled.
 # By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`
 FFprobeAutoUpdate = true
 
+# Automatically attempt to update qBitrr on a schedule
+AutoUpdateEnabled = false
+# Cron expression describing when to check for updates (default weekly at 03:00 on Sunday)
+AutoUpdateCron = "0 3 * * 0"
+
+[WebUI]
+# WebUI listen host (default 0.0.0.0)
+Host = "0.0.0.0"
+
+# WebUI listen port (default 6969)
+Port = 6969
+
+# Enable live updates for Arr views
+LiveArr = true
+
+# Group Sonarr episodes by series in views
+GroupSonarr = true
+
+# WebUI theme (light or dark)
+Theme = "dark"
+
 [qBit]
-# If this is enable qBitrr can run in a headless mode where it will only process searches.
+# If this is enabled qBitrr can run in headless mode where it will only process searches.
 # If media search is enabled in their individual categories
 # This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit
 Disabled = false
 
-# qBit WebUI Port - Can be found in Options > Web UI (called "IP Address")
-Host = "http://qbittorrent.media.svc.cluster.local"
+# qBittorrent WebUI url/ip - Can be found in Options > Web UI (called "IP Address")
+Host = "qbittorrent.media.svc.cluster.local"
 
-# qBit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)
+# qBittorrent WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)
 Port = 80
 
-# qBit WebUI Authentication - Can be found in Options > Web UI > Authentication
+# qBittorrent WebUI Authentication - Can be found in Options > Web UI > Authentication
 UserName = "$QBITTORRENT_USER"
 
 # If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
 Password = "$QBITTORRENT_PWD"
 
-# Set to true to allow qbittorrent v5 (Some API calls will not work as expected due to qbittorrent API issues not qBitrr)
-v5 = true
-
 [Sonarr-TV]
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
 URI = "http://sonarr.media.svc.cluster.local"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -81,10 +109,10 @@ ReSearch = true
 importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RssSyncTimer = 1
+RssSyncTimer = 5
 
 # Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RefreshDownloadsTimer = 1
+RefreshDownloadsTimer = 5
 
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
@@ -97,13 +125,16 @@ ArrErrorCodesToBlocklist = [
 
 
 [Sonarr-TV.EntrySearch]
-# All these settings depends on SearchMissing being True and access to the Servarr database file.
+# All these settings depends on SearchMissing being True
 
 # Should search for Missing files?
 SearchMissing = true
 
 # Should search for specials episodes? (Season 00)
 AlsoSearchSpecials = false
+
+# Should search for unmonitored episodes/series?
+Unmonitored = false
 
 # Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)
 # Sonarr has a hardcoded cap of 3 simultaneous tasks
@@ -118,17 +149,37 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 600
 
-# Search movies which already have a file in the database in hopes of finding a better quality version.
+# Search movies which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = true
 
 # Do a quality unmet search for existing entries.
 QualityUnmetSearch = true
 
+# Do a minimum custom format score unmet search for existing entries.
+CustomFormatUnmetSearch = true
+
+# Automatically remove torrents that do not mee the minimum custom format score.
+ForceMinimumCustomFormat = false
+
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
 
-# Search by series instead of by episode
-SearchBySeries = true
+# Use Temp profile for missing
+UseTempForMissing = false
+
+# Don't change back to main profile
+KeepTempProfile = false
+
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
+MainQualityProfile = []
+
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
+TempQualityProfile = []
+
+# Search mode: true (always series search), false (always episode search), or 'smart' (automatic)
+# Smart mode: uses series search for entire seasons/series, episode search for single episodes
+# (Series search ignores QualityUnmetSearch and CustomFormatUnmetSearch settings)
+SearchBySeries = "smart"
 
 # Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
 PrioritizeTodaysReleases = true
@@ -188,12 +239,11 @@ FileExtensionAllowlist = [
   ".parts",
 ]
 
-
 # Auto delete files that can't be playable (i.e .exe, .png)
 AutoDelete = true
 
 # Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
-IgnoreTorrentsYoungerThan = 180
+IgnoreTorrentsYoungerThan = 600
 
 # Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)
 # Note that if you set the MaximumETA on a tracker basis that value is favoured over this value
@@ -204,6 +254,12 @@ MaximumDeletablePercentage = 0.99
 
 # Ignore slow torrents.
 DoNotRemoveSlow = true
+
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+StalledDelay = 15
+
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
+ReSearchStalled = false
 
 [Sonarr-TV.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
@@ -221,13 +277,17 @@ UploadRateLimitPerTorrent = -1
 # Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
 MaxUploadRatio = -1
 
-# Set the maximum seeding time for torrents
+# Set the maximum seeding time in seconds for torrents
 # Set this value to -1 to disabled it
 # Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
 MaxSeedingTime = -1
 
+# Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)
+RemoveTorrent = -1
+
 # Enable if you want to remove dead trackers
 RemoveDeadTrackers = false
+
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
 RemoveTrackerWithMessage = [
   "skipping tracker announce (unreachable)",
@@ -242,7 +302,7 @@ RemoveTrackerWithMessage = [
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
 URI = "http://radarr.media.svc.cluster.local"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -258,10 +318,10 @@ ReSearch = true
 importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RssSyncTimer = 1
+RssSyncTimer = 5
 
 # Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RefreshDownloadsTimer = 1
+RefreshDownloadsTimer = 5
 
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
@@ -273,13 +333,13 @@ ArrErrorCodesToBlocklist = [
 ]
 
 [Radarr.EntrySearch]
-# All these settings depends on SearchMissing being True and access to the Servarr database file.
+# All these settings depends on SearchMissing being True
 
 # Should search for Missing files?
 SearchMissing = true
 
-# Should search for specials episodes? (Season 00)
-AlsoSearchSpecials = false
+# Should search for unmonitored movies?
+Unmonitored = false
 
 # Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)
 # Radarr has a default of 3 simultaneous tasks, which can be increased up to 10 tasks
@@ -297,7 +357,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 600
 
-# Search movies which already have a file in the database in hopes of finding a better quality version.
+# Search movies which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
@@ -306,8 +366,23 @@ QualityUnmetSearch = true
 # Do a minimum custom format score unmet search for existing entries.
 CustomFormatUnmetSearch = true
 
+# Automatically remove torrents that do not mee the minimum custom format score.
+ForceMinimumCustomFormat = false
+
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
+
+# Use Temp profile for missing
+UseTempForMissing = false
+
+# Don't change back to main profile
+KeepTempProfile = false
+
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
+MainQualityProfile = []
+
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
+TempQualityProfile = []
 
 
 [Radarr.EntrySearch.Overseerr]
@@ -369,7 +444,7 @@ FileExtensionAllowlist = [
 AutoDelete = true
 
 # Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
-IgnoreTorrentsYoungerThan = 180
+IgnoreTorrentsYoungerThan = 600
 
 # Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)
 # Note that if you set the MaximumETA on a tracker basis that value is favoured over this value
@@ -381,10 +456,16 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+StalledDelay = 15
+
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
+ReSearchStalled = false
+
 [Radarr.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
 # Set this value to -1 to disabled it
-# Note that if you set the DownloadRateLimit on a tracker basis that value is avoured over this value
+# Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value
 DownloadRateLimitPerTorrent = -1
 
 # Set the maximum allowed upload rate for torrents
@@ -397,10 +478,13 @@ UploadRateLimitPerTorrent = -1
 # Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
 MaxUploadRatio = -1
 
-# Set the maximum seeding time for torrents
+# Set the maximum seeding time in seconds for torrents
 # Set this value to -1 to disabled it
 # Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
 MaxSeedingTime = -1
+
+# Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)
+RemoveTorrent = -1
 
 # Enable if you want to remove dead trackers
 RemoveDeadTrackers = false
