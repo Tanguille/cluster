@@ -23,18 +23,6 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
 
-        initContainers:
-          copy-config:
-            image:
-              repository: alpine
-              tag: latest
-            command:
-              - sh
-              - -c
-              - |
-                apk add --no-cache gettext
-                envsubst < /secret/config.toml > /config/config.toml
-
         containers:
           app:
             image:
@@ -75,10 +63,10 @@ spec:
             readOnly: false
 
       config-file:
-        type: secret
-        name: qbitrr-secret
+        type: configMap
+        name: qbitrr-config
         globalMounts:
-          - path: /secret/config.toml
+          - path: /config/config.toml
             subPath: config.toml
             readOnly: true
 
