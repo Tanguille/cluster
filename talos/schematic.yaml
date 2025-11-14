@@ -1,3 +1,5 @@
+# Truenas VM
+# 585f6235ae374d0363ebfdf54133d56dc3b1bb0ac01cb0abbd15971cdc4b089a
 ---
 customization:
   extraKernelArgs:
@@ -13,4 +15,22 @@ customization:
       - siderolabs/nvidia-container-toolkit-production
       - siderolabs/nvidia-open-gpu-kernel-modules-production
       - siderolabs/qemu-guest-agent
+      - siderolabs/zfs
+# Chuwi ubox
+# 646bcf0601e9157caf7beb5f10b14bcf20248e2d1259d4a25996f14e53954ec3
+---
+customization:
+  extraKernelArgs:
+    - talos.platform=metal
+    - apparmor=0
+    - init_on_alloc=0
+    - init_on_free=0
+    - talos.auditd.disabled=1
+    - -selinux
+    - amd_pstate=active
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/amdgpu
+      - siderolabs/amd-ucode
+      - siderolabs/nvme-cli
       - siderolabs/zfs
