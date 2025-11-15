@@ -10,6 +10,9 @@ spec:
   targetNamespace: *namespace
   components:
     - ../../../../components/volsync
+  dependsOn:
+    - name: volsync
+      namespace: volsync-system
   wait: true
   prune: true
   sourceRef:
