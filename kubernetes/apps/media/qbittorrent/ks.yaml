@@ -10,6 +10,9 @@ spec:
   targetNamespace: *namespace
   components:
     - ../../../../components/volsync
+  dependsOn:
+    - name: volsync
+      namespace: volsync-system
   wait: false
   prune: true
   sourceRef:
@@ -37,6 +40,8 @@ spec:
   components:
     - ../../../../../components/volsync
   dependsOn:
+    - name: volsync
+      namespace: volsync-system
     - name: qbittorrent
   wait: true
   prune: true

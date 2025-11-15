@@ -9,6 +9,9 @@ spec:
   targetNamespace: *namespace
   components:
     - ../../../../components/volsync
+  dependsOn:
+    - name: volsync
+      namespace: volsync-system
   path: ./kubernetes/apps/default/dumbassets/app
   prune: true
   sourceRef:
