@@ -65,10 +65,21 @@ spec:
         retentionSize: 50GB
         resources:
           requests:
-            cpu: 150m
+            cpu: 250m
             memory: 1Gi
           limits:
+            cpu: 2000m
             memory: 2Gi
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: In
+                      values:
+                        - control-1
         storageSpec:
           volumeClaimTemplate:
             spec:
