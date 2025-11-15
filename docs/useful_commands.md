@@ -195,6 +195,55 @@ kubectl exec -it nextcloud-[pod-id] -c nextcloud -- \
     su -s /bin/sh www-data -c "php occ maintenance:mode --off"
 ```
 
+## Talos Network Interface Speeds
+
+To check the speed of network interfaces on Talos nodes:
+
+```bash
+# Check interface speeds for a specific node
+talosctl --nodes <node-ip> get links -o yaml | grep -E "id:|speedMbit:|operationalState: up"
+
+# Check all nodes (simple script)
+for node_ip in 192.168.0.11 192.168.0.12 192.168.0.13; do
+  echo "=== Node: $node_ip ==="
+  talosctl --nodes $node_ip get links -o yaml 2>/dev/null | \
+    awk '
+      BEGIN { name=""; speed=""; state=""; type="" }
+      /^    id:/ { name=$2 }
+      /^    type:/ { type=$2 }
+      /^    speedMbit:/ { speed=$2 }
+      /^    operationalState:/ { state=$2 }
+      /^---$/ {
+        if (name && state == "up" && type == "ether" && !match(name, /^lxc/)) {
+          if (speed == "" || speed == "4294967295") {
+            printf "  %-20s %s\n", name, "N/A (virtual/unknown)"
+          } else {
+            printf "  %-20s %s Mbps\n", name, speed
+          }
+        }
+        name=""; speed=""; state=""; type=""
+      }
+      END {
+        if (name && state == "up" && type == "ether" && !match(name, /^lxc/)) {
+          if (speed == "" || speed == "4294967295") {
+            printf "  %-20s %s\n", name, "N/A (virtual/unknown)"
+          } else {
+            printf "  %-20s %s Mbps\n", name, speed
+          }
+        }
+      }
+    ' | sort
+  echo ""
+done
+```
+
+### Notes
+
+- The `speedMbit` field shows the interface speed in Mbps
+- Value `4294967295` typically indicates a virtual interface or unknown speed
+- Physical interfaces will show their actual link speed (e.g., 1000, 2500, 10000)
+- Cilium virtual interfaces (cilium_host, cilium_net) may show speeds but are virtual
+
 ## Talos Upgrades
 
 When upgrading a single-node Talos cluster, you may encounter permission issues with node draining. The solution is to use the `--stage` flag which stages the upgrade to be performed after a reboot, avoiding the drain operation:
