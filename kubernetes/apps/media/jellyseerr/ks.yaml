@@ -11,6 +11,9 @@ spec:
 
   components:
     - ../../../../components/volsync
+  dependsOn:
+    - name: volsync
+      namespace: volsync-system
   prune: true
   sourceRef:
     kind: GitRepository
