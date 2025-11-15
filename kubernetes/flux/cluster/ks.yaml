@@ -6,19 +6,19 @@ metadata:
   name: cluster-apps
   namespace: flux-system
 spec:
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+  deletionPolicy: WaitForTermination
+  interval: 1h
   path: ./kubernetes/apps
   prune: true
-  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
   wait: false
-  interval: 30m
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
   postBuild:
     substituteFrom:
       - name: cluster-settings
@@ -76,4 +76,3 @@ spec:
       target:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
-        labelSelector: substitution.flux.home.arpa/disabled notin (true)

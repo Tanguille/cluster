@@ -13,6 +13,14 @@ spec:
   values:
     defaultPodOptions:
       runtimeClassName: nvidia
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nvidia.com/gpu
+                    operator: In
+                    values: ["true"]
     controllers:
       app:
         type: deployment

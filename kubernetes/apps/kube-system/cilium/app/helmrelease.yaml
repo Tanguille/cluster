@@ -9,6 +9,7 @@ spec:
     kind: OCIRepository
     name: cilium
   interval: 1h
+
   values:
     autoDirectNodeRoutes: true
     bandwidthManager:
@@ -54,7 +55,7 @@ spec:
         enabled: true
         serviceMonitor:
           enabled: true
-      replicas: 1
+      replicas: 2
       rollOutPods: true
     pmtuDiscovery:
       enabled: true

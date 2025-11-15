@@ -14,6 +14,14 @@ spec:
     defaultPodOptions:
       runtimeClassName: nvidia
       enableServiceLinks: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nvidia.com/gpu
+                    operator: In
+                    values: ["true"]
       securityContext:
         runAsUser: 0
         runAsGroup: 0
