@@ -48,6 +48,16 @@ spec:
                 memory: 2Gi
 
     defaultPodOptions:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - control-1
       securityContext:
         runAsNonRoot: true
         runAsUser: 568

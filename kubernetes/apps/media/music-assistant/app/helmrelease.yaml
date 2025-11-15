@@ -12,6 +12,16 @@ spec:
 
   values:
     defaultPodOptions:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - control-1
       securityContext:
         runAsUser: 0
         runAsGroup: 0
