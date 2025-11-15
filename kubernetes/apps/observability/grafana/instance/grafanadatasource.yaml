@@ -15,6 +15,12 @@ spec:
     access: proxy
     isDefault: true
     url: http://prometheus-operated.observability.svc.cluster.local:9090
+    jsonData:
+      httpMethod: POST
+      queryTimeout: 60s
+      timeInterval: 15s
+      seriesLimit: 40000
+    editable: true
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadatasource_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
