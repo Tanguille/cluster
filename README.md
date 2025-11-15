@@ -43,9 +43,7 @@ This is a 3-node control plane Kubernetes cluster running on Talos Linux. All no
 
 ### Control Plane 1
 
-**Hardware:** TrueNAS VM
-**IP:** 192.168.0.11
-**Hostname:** control-1
+TrueNAS VM:
 
 - **CPU:** AMD Ryzen 5800X → 6 cores allocated to Talos
 - **RAM:** 128GB DDR4 → 48GB allocated to Talos
