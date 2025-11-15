@@ -5,10 +5,10 @@ clusterName: kubernetes
 talosVersion: "${talosVersion}"
 kubernetesVersion: "${kubernetesVersion}"
 
-endpoint: https://192.168.0.3:6443
+endpoint: https://192.168.0.2:6443
 additionalApiServerCertSans: &sans
   - "127.0.0.1"
-  - "192.168.0.3"
+  - "192.168.0.2"
 additionalMachineCertSans: *sans
 
 clusterPodNets: ["10.42.0.0/16"]
@@ -20,7 +20,7 @@ cniConfig:
 
 nodes:
   - hostname: "control-1"
-    ipAddress: "192.168.0.2"
+    ipAddress: "192.168.0.11"
     installDisk: "/dev/vda"
     machineSpec:
       secureboot: false
@@ -31,13 +31,51 @@ nodes:
           hardwareAddr: "00:16:3e:97:0e:d8"
         dhcp: false
         addresses:
-          - "192.168.0.2/24"
+          - "192.168.0.11/24"
         routes:
           - network: "0.0.0.0/0"
             gateway: "192.168.0.1"
         mtu: 1500
         vip:
-          ip: "192.168.0.3"
+          ip: "192.168.0.2"
+  - hostname: "control-2"
+    ipAddress: "192.168.0.12"
+    installDisk: "/dev/nvme0n1"
+    machineSpec:
+      secureboot: false
+    talosImageURL: factory.talos.dev/installer/646bcf0601e9157caf7beb5f10b14bcf20248e2d1259d4a25996f14e53954ec3
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "84:47:09:6d:0d:2f"
+        dhcp: false
+        addresses:
+          - "192.168.0.12/24"
+        routes:
+          - network: "0.0.0.0/0"
+            gateway: "192.168.0.1"
+        mtu: 1500
+        vip:
+          ip: "192.168.0.2"
+  - hostname: "control-3"
+    ipAddress: "192.168.0.13"
+    installDisk: "/dev/nvme0n1"
+    machineSpec:
+      secureboot: false
+    talosImageURL: factory.talos.dev/installer/646bcf0601e9157caf7beb5f10b14bcf20248e2d1259d4a25996f14e53954ec3
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "84:47:09:6d:18:a4"
+        dhcp: false
+        addresses:
+          - "192.168.0.13/24"
+        routes:
+          - network: "0.0.0.0/0"
+            gateway: "192.168.0.1"
+        mtu: 1500
+        vip:
+          ip: "192.168.0.2"
 
 # Global patches
 patches:
@@ -46,7 +84,6 @@ patches:
   - "@./patches/global/machine-network.yaml"
   - "@./patches/global/machine-sysctls.yaml"
   - "@./patches/global/machine-time.yaml"
-  - "@./patches/global/gpu-worker-patch.yaml"
   - "@./patches/global/zfs-patch.yaml"
   - "@./patches/global/node-labels-patch.yaml"
 

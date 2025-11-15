@@ -1,0 +1,14 @@
+machine:
+  kernel:
+    modules:
+      - name: nvidia
+      - name: nvidia_uvm
+      - name: nvidia_drm
+      - name: nvidia_modeset
+  sysctls:
+    net.core.bpf_jit_harden: 1
+  nodeLabels:
+    # GPU label for applications
+    nvidia.com/gpu: "true"
+    # NFD-compatible label for NVIDIA GPU
+    feature.node.kubernetes.io/pci-0300_10de.present: "true"
