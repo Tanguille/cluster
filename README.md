@@ -1,16 +1,6 @@
 # Cluster
 
-Welcome to my fluxcd kubernetes cluster running on talos. This is based on the [cluster-template](https://github.com/onedr0p/cluster-template) project where I want to express my gratitude to the community for all the amazing work they have done.
-
-## Nodes
-
-### Control 1
-
-Truenas VM:
-
-- CPU = AMD RYZEN 5800X => 6 cores for talos
-- RAM = 128GB DDR4 => 48GB for talos
-- GPU = NVIDIA RTX 2070 => Full passthrough for talos
+Welcome to my `fluxcd` kubernetes cluster running on `talos`. This is based on the [cluster-template](https://github.com/onedr0p/cluster-template) project where I want to express my gratitude to the community for all the amazing work they have done.
 
 ## Stats
 
@@ -41,71 +31,33 @@ Truenas VM:
 
 </div>
 
-## 🛠️ Talos and Kubernetes Maintenance
+## Architecture
 
-### ⚙️ Updating Talos node configuration
+This is a 3-node control plane Kubernetes cluster running on Talos Linux. All nodes serve as both control plane and worker nodes.
 
-> [!TIP]
-> Ensure you have updated `talconfig.yaml` and any patches with your updated configuration. In some cases (schematic change) you **not only need to apply the configuration but also upgrade talos** to apply new configuration.
+- **CNI:** Cilium
+- **Storage:** OpenEBS (hostpath) with ZFS support
+- **Networking:** Cloudflare Tunnel, External DNS, Envoy Gateway
 
-```sh
-# (Re)generate the Talos config
-task talos:generate-config
-# Apply the config to the node
-task talos:apply-node IP=? MODE=?
-# e.g. task talos:apply-node IP=10.10.10.10 MODE=auto
-```
+## Nodes
 
-## 🐛 Debugging
+### Control Plane 1
 
-Below is a general guide on trying to debug an issue with an resource or application. For example, if a workload/resource is not showing up or a pod has started but in a `CrashLoopBackOff` or `Pending` state. These steps do not include a way to fix the problem as the problem could be one of many different things.
+**Hardware:** TrueNAS VM
+**IP:** 192.168.0.11
+**Hostname:** control-1
 
-1. Check if the Flux resources are up-to-date and in a ready state:
+- **CPU:** AMD Ryzen 5800X → 6 cores allocated to Talos
+- **RAM:** 128GB DDR4 → 48GB allocated to Talos
+- **GPU:** NVIDIA RTX 2070 → Full passthrough to Talos
+- **Networking:** 10G NIC running at 2.5Gbps
+- **Storage:** `/dev/vda` 500GB ZFS ZVOL
 
-    📍 _Run `task reconcile` to force Flux to sync your Git repository state_
+### Control Plane 2 & 3
 
-    ```sh
-    flux get sources oci -A
-    flux get sources git -A
-    flux get ks -A
-    ```
+Chuwi Ubox:
 
-2. Then check all the Flux Helm Releases and verify they are healthy.
-
-    ```sh
-    flux get hr -A
-    ```
-
-3. Do you see the pod of the workload you are debugging:
-
-    ```sh
-    kubectl -n <namespace> get pods -o wide
-    ```
-
-4. Check the logs of the pod if its there:
-
-    ```sh
-    kubectl -n <namespace> logs <pod-name> -f
-    ```
-
-5. If a resource exists try to describe it to see what problems it might have:
-
-    ```sh
-    kubectl -n <namespace> describe <resource> <name>
-    ```
-
-6. Check the namespace events:
-
-    ```sh
-    kubectl -n <namespace> get events --sort-by='.metadata.creationTimestamp'
-    ```
-
-Resolving problems that you have could take some tweaking of your YAML manifests in order to get things working, other times it could be a external factor like permissions on NFS.
-
-### Ship it
-
-To browse or get ideas on applications people are running, community member [@whazor](https://github.com/whazor) created [Kubesearch](https://kubesearch.dev) as a creative way to search Flux HelmReleases across Github and Gitlab.
-
-## 🤝 Thanks
-
-Big shout out to all the contributors, sponsors and everyone else who has helped on this project.
+- CPU = AMD RYZEN 6600H (6 cores)
+- RAM = 16GB DDR5
+- GPU = AMD Radeon 660M (APU)
+- NETWORKING = 2x 2.5Gbps NICs (1 used)
