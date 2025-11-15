@@ -7,6 +7,9 @@ metadata:
   namespace: &namespace media
 spec:
   targetNamespace: *namespace
+  dependsOn:
+    - name: cloudnative-pg-cluster
+      namespace: database
   wait: false
   path: ./kubernetes/apps/media/jellystat/app
   prune: true

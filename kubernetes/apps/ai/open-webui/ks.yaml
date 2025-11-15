@@ -19,6 +19,8 @@ spec:
   dependsOn:
     - name: volsync
       namespace: volsync-system
+    - name: cloudnative-pg-cluster
+      namespace: database
   postBuild:
     substitute:
       APP: *app

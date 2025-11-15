@@ -12,6 +12,8 @@ spec:
   dependsOn:
     - name: volsync
       namespace: volsync-system
+    - name: cloudnative-pg-cluster
+      namespace: database
   path: ./kubernetes/apps/media/bazarr/app
   prune: true
   sourceRef:
