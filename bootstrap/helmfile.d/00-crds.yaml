@@ -13,7 +13,7 @@ helmDefaults:
   postRenderer: bash
   postRendererArgs:
     - -c
-    - yq ea -e 'select(.kind == "CustomResourceDefinition")'
+    - yq eval-all --exit-status 'select(.kind == "CustomResourceDefinition")'
 
 releases:
   - name: external-dns

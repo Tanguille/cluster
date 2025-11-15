@@ -9,10 +9,10 @@ spec:
     # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
     version: v1.34.2
   healthChecks:
-    # - apiVersion: v1
-    #   kind: Node
-    #   expr: |-
-    #     status.conditions.exists(c, c.type == "Ready" && c.status == "True")
+    - apiVersion: v1
+      kind: Node
+      expr: |-
+        status.conditions.exists(c, c.type == "Ready" && c.status == "True")
     - apiVersion: postgresql.cnpg.io/v1
       kind: Cluster
       expr: |-

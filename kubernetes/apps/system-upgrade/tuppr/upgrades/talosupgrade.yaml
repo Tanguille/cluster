@@ -11,10 +11,10 @@ spec:
   policy:
     rebootMode: powercycle
   healthChecks:
-    # - apiVersion: v1
-    #   kind: Node
-    #   expr: |-
-    #     status.conditions.exists(c, c.type == "Ready" && c.status == "True")
+    - apiVersion: v1
+      kind: Node
+      expr: |-
+        status.conditions.exists(c, c.type == "Ready" && c.status == "True")
     - apiVersion: postgresql.cnpg.io/v1
       kind: Cluster
       expr: |-

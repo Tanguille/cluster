@@ -3,6 +3,15 @@
 version: "3"
 
 tasks:
+  encrypt:
+    desc: Encrypt all Kubernetes SOPS secrets
+    cmd: |
+      find "{{.KUBERNETES_DIR}}" -type f -name "*.sops.*" | while read -r file; do
+          if sops filestatus "${file}" | jq --exit-status ".encrypted == false" &>/dev/null; then
+              sops --encrypt --in-place "${file}"
+          fi
+      done
+
   resources:
     desc: Gather common resources in your cluster, useful when asking for support
     cmds:
