@@ -33,6 +33,16 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
 
+        initContainers:
+          configure:
+            image:
+              repository: ghcr.io/dmfrey/bash
+              tag: 5.2.26-alpine3.20
+            command:
+              - "/usr/local/bin/bash"
+              - -c
+              - envsubst < /config-template/config.toml > /config/config.toml
+
         containers:
           app:
             image:
@@ -72,12 +82,12 @@ spec:
           - path: /config
             readOnly: false
 
-      config-file:
+      config-template:
         type: configMap
         name: qbitrr-config
         globalMounts:
-          - path: /config/config.toml
-            subPath: config.toml
+          - path: /config-template
+            readOnly: true
 
       downloads:
         type: nfs
