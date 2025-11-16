@@ -44,7 +44,7 @@ spec:
               - envsubst < /config-template/config.toml > /config/config.toml
             envFrom:
               - secretRef:
-                  name: cluster -secrets
+                  name: qbitrr-secrets
 
         containers:
           app:
