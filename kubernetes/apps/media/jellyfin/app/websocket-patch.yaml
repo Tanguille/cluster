@@ -15,8 +15,10 @@ spec:
   jsonPatches:
     # Disable stream idle timeout for WebSocket connections
     # This prevents Envoy from closing idle WebSocket connections
-    - type: type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+    # We patch the Listener and navigate to HttpConnectionManager within it
+    - type: type.googleapis.com/envoy.config.listener.v3.Listener
+      name: default
       operation:
         op: replace
-        path: /stream_idle_timeout
+        path: /filter_chains/0/filters/0/typed_config/stream_idle_timeout
         value: "0s"
