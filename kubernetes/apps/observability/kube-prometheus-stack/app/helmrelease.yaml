@@ -23,6 +23,7 @@ spec:
         alertmanagerConfiguration:
           name: alertmanager
         externalUrl: https://alertmanager.${SECRET_DOMAIN}
+        replicas: 2
         storage:
           volumeClaimTemplate:
             spec:
@@ -70,16 +71,6 @@ spec:
           limits:
             cpu: 2000m
             memory: 2Gi
-        affinity:
-          nodeAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-              - weight: 100
-                preference:
-                  matchExpressions:
-                    - key: kubernetes.io/hostname
-                      operator: In
-                      values:
-                        - control-1
         storageSpec:
           volumeClaimTemplate:
             spec:
@@ -91,6 +82,9 @@ spec:
       fullnameOverride: node-exporter
     kube-state-metrics:
       fullnameOverride: kube-state-metrics
+      replicas: 2
+    prometheusOperator:
+      replicas: 2
     grafana:
       enabled: false
       forceDeployDashboards: true
