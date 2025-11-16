@@ -20,9 +20,6 @@ spec:
       masquerade: true
       preallocateMaps: true
       tproxy: true
-      # Increase connection tracking timeouts for long-lived connections (WebSockets)
-      ctTCPTimeout: "3h"
-      ctAnyTimeout: "1h"
     bpfClockProbe: true
     bgpControlPlane:
       enabled: true
@@ -54,7 +51,7 @@ spec:
       enabled: false
     loadBalancer:
       algorithm: maglev
-      mode: dsr
+      mode: hybrid # Changed from dsr to hybrid for better WebSocket support
     localRedirectPolicy: true
     operator:
       dashboards:
