@@ -20,6 +20,9 @@ spec:
       masquerade: true
       preallocateMaps: true
       tproxy: true
+      # Increase connection tracking timeouts for long-lived connections (WebSockets)
+      ctTCPTimeout: "3h"
+      ctAnyTimeout: "1h"
     bpfClockProbe: true
     bgpControlPlane:
       enabled: true
@@ -35,6 +38,8 @@ spec:
     endpointRoutes:
       enabled: true
     envoy:
+      enabled: false
+    gatewayAPI:
       enabled: false
     hubble:
       enabled: false
