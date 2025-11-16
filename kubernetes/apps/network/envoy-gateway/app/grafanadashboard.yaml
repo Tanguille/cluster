@@ -18,7 +18,7 @@ spec:
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: envoy-proxy-monitoring
+  name: envoy-proxy
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
@@ -31,42 +31,4 @@ spec:
       inputName: DS_AFRANET_PROMETHEUS
   grafanaCom:
     id: 23239
-    revision: 1
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: envoy-proxy-classic
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS-04
-  grafanaCom:
-    id: 6693
-    revision: 1
----
-# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: envoy-proxy-alternative
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS-04
-  grafanaCom:
-    id: 21329
     revision: 1
