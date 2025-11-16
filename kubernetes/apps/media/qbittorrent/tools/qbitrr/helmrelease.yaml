@@ -38,10 +38,18 @@ spec:
             image:
               repository: ghcr.io/dmfrey/bash
               tag: 5.2.26-alpine3.20
+            securityContext:
+              runAsUser: 0
+              runAsGroup: 0
             command:
               - "/usr/local/bin/bash"
               - -c
-              - envsubst < /config-template/config.toml > /config/config.toml
+              - |
+                mkdir -p /config
+                chown -R 1000:1000 /config
+                envsubst < /config-template/config.toml > /config/config.toml
+                chown 1000:1000 /config/config.toml
+                chmod 644 /config/config.toml
             envFrom:
               - secretRef:
                   name: qbitrr-secrets
