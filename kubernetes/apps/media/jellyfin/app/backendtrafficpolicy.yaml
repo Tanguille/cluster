@@ -15,8 +15,6 @@ spec:
   circuitBreaker:
     maxConnections: 1000
     maxPendingRequests: 500
-    maxRequests: 1000
-    maxRetries: 3
   # TCP keepalive for long-lived connections (WebSockets, streaming)
   tcpKeepalive: {}
   # Extended timeouts for media streaming and WebSocket connections
@@ -24,15 +22,6 @@ spec:
     http:
       # No request timeout for streaming connections (0s = disabled)
       requestTimeout: 0s
-  # Retry policy for transient failures (but not for streaming requests)
-  retry:
-    attempts: 3
-    perTryTimeout: 5s
-    retryOn:
-      - 5xx
-      - reset
-      - connect-failure
-      - refused-stream
   targetRef:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
