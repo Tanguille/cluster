@@ -22,6 +22,11 @@ spec:
     http:
       # No request timeout for streaming connections (0s = disabled)
       requestTimeout: 0s
+      # Stream idle timeout - prevents WebSocket connections from being closed due to inactivity
+      streamIdleTimeout: 0s
+    tcp:
+      # Connection idle timeout - prevents long-lived connections from timing out
+      idleTimeout: 0s
   targetRef:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
