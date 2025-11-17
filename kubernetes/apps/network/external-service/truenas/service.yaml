@@ -4,10 +4,9 @@ kind: Service
 metadata:
   name: internal-truenas
 spec:
-  type: ClusterIP
   ports:
-    - name: https
-      protocol: TCP
-      port: 443
+    - port: 443
       targetPort: 443
-      appProtocol: https
+      name: https
+  clusterIP: None
+  type: ClusterIP
