@@ -14,5 +14,7 @@ spec:
     - ipmi.${SECRET_DOMAIN}
   rules:
     - backendRefs:
-        - name: internal-ipmi
+        - group: ""
+          kind: Service
+          name: internal-ipmi
           port: 443
