@@ -9,7 +9,7 @@ spec:
       namespace: network
 
   hostnames:
-    - "truenas.${SECRET_DOMAIN}"
+    - truenas.${SECRET_DOMAIN}
   rules:
     - matches:
         - path:
@@ -17,4 +17,4 @@ spec:
             value: /
       backendRefs:
         - name: internal-truenas
-          port: 80
+          port: 443
