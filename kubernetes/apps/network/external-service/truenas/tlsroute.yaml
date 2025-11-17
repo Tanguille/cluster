@@ -1,0 +1,19 @@
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: external-service-tlsroute-truenas
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "internal-tls.${SECRET_DOMAIN}"
+spec:
+  parentRefs:
+    - name: envoy-internal-tls
+      namespace: network
+      sectionName: tls
+  hostnames:
+    - truenas.${SECRET_DOMAIN}
+  rules:
+    - backendRefs:
+        - name: internal-truenas
+          port: 443
+
