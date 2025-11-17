@@ -1,0 +1,19 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io_backendtlspolicy_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: ipmi-backend-tls
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: internal-ipmi
+  validation:
+    # Certificate CN is www.ami.com (from openssl output)
+    hostname: www.ami.com
+    # Use the self-signed CA certificate from the Secret
+    caCertificateRefs:
+      - name: ipmi-ca-certificate
+        group: ""
+        kind: Secret
