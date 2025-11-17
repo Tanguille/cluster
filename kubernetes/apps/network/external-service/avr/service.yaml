@@ -4,9 +4,9 @@ kind: Service
 metadata:
   name: internal-avr
 spec:
+  type: ClusterIP
+  clusterIP: None
   ports:
     - port: 80
       targetPort: 11080
       name: http
-  clusterIP: None
-  type: ClusterIP

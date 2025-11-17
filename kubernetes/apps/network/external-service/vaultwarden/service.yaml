@@ -4,9 +4,9 @@ kind: Service
 metadata:
   name: internal-vaultwarden
 spec:
+  type: ClusterIP
+  clusterIP: None
   ports:
     - port: 80
       targetPort: 30032
       name: http
-  clusterIP: None
-  type: ClusterIP
