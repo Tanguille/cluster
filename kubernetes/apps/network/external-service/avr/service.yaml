@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: internal-avr
+spec:
+  ports:
+    - port: 80
+      targetPort: 11080
+      name: http
+  clusterIP: None
+  type: ClusterIP
+
