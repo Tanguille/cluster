@@ -14,6 +14,8 @@ spec:
     - truenas.${SECRET_DOMAIN}
   rules:
     - backendRefs:
-        - name: internal-truenas
+        - group: ""
+          kind: Service
+          name: internal-truenas
           port: 443
 
