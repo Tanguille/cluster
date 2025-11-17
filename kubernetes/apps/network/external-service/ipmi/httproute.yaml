@@ -16,5 +16,7 @@ spec:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: internal-ipmi
+        - name: ipmi-backend
+          group: gateway.envoyproxy.io
+          kind: Backend
           port: 443
