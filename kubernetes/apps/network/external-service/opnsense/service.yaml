@@ -4,9 +4,9 @@ kind: Service
 metadata:
   name: internal-opnsense
 spec:
+  type: ClusterIP
+  clusterIP: None
   ports:
     - port: 443
       targetPort: 443
       name: https
-  clusterIP: None
-  type: ClusterIP

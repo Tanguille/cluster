@@ -4,9 +4,9 @@ kind: Service
 metadata:
   name: external-homeassistant
 spec:
+  type: ClusterIP
+  clusterIP: None
   ports:
     - port: 80
       targetPort: 8123
       name: http
-  clusterIP: None
-  type: ClusterIP
