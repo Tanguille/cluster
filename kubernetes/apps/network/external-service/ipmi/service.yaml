@@ -5,10 +5,8 @@ metadata:
   name: internal-ipmi
 spec:
   type: ClusterIP
+  clusterIP: None
   ports:
-    - name: https
-      protocol: TCP
-      port: 443
+    - port: 443
       targetPort: 443
-      appProtocol: https
-
+      name: https
