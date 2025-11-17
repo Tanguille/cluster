@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: internal-ipmi
+spec:
+  type: ClusterIP
+  ports:
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 443
+      appProtocol: https
+
