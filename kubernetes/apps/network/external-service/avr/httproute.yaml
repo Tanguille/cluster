@@ -1,31 +1,4 @@
 ---
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: internal-avr
-  labels:
-    kubernetes.io/service-name: internal-avr
-addressType: IPv4
-endpoints:
-  - addresses:
-      - 192.168.0.101
-ports:
-  - port: 11080
-    name: http
-    protocol: TCP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: internal-avr
-spec:
-  ports:
-    - port: 80
-      targetPort: 11080
-      name: http
-  clusterIP: None
-  type: ClusterIP
----
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
