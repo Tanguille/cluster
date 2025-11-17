@@ -1,0 +1,15 @@
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: external-homeassistant
+  labels:
+    kubernetes.io/service-name: external-homeassistant
+addressType: IPv4
+endpoints:
+  - addresses:
+      - 192.168.0.16
+ports:
+  - port: 8123
+    name: http
+    protocol: TCP
