@@ -4,9 +4,9 @@ kind: Service
 metadata:
   name: internal-ntopg
 spec:
+  type: ClusterIP
+  clusterIP: None
   ports:
     - port: 80
       targetPort: 3000
       name: http
-  clusterIP: None
-  type: ClusterIP
