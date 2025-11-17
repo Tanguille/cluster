@@ -4,9 +4,9 @@ kind: Service
 metadata:
   name: internal-arm
 spec:
+  type: ClusterIP
+  clusterIP: None
   ports:
     - port: 80
       targetPort: 30173
       name: http
-  clusterIP: None
-  type: ClusterIP
