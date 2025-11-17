@@ -1,31 +1,4 @@
 ---
-apiVersion: discovery.k8s.io/v1
-kind: EndpointSlice
-metadata:
-  name: internal-arm
-  labels:
-    kubernetes.io/service-name: internal-arm
-addressType: IPv4
-endpoints:
-  - addresses:
-      - ${TRUENAS_IP}
-ports:
-  - port: 30173
-    name: http
-    protocol: TCP
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: internal-arm
-spec:
-  ports:
-    - port: 80
-      targetPort: 30173
-      name: http
-  clusterIP: None
-  type: ClusterIP
----
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
