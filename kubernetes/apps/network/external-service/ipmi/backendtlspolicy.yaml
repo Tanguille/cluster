@@ -10,9 +10,6 @@ spec:
       kind: Service
       name: internal-ipmi
   validation:
-    # Certificate CN is www.ami.com (from openssl output)
-    hostname: www.ami.com
-    # Use the self-signed CA certificate from the Secret
     caCertificateRefs:
       - name: ipmi-ca-certificate
         group: ""
