@@ -1,0 +1,13 @@
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: ipmi-backend
+  namespace: network
+spec:
+  endpoints:
+    - fqdn:
+        hostname: internal-ipmi.network.svc.cluster.local
+        port: 443
+  tls:
+    insecureSkipVerify: true
