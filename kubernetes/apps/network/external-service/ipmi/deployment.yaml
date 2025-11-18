@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: nginx:alpine
+          image: nginx:1.29-alpine@sha256:b3c656d55d7ad751196f21b7fd2e8d4da9cb430e32f646adcf92441b72f82b14
           ports:
             - containerPort: 80
               name: http
@@ -27,6 +27,39 @@ spec:
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
               readOnly: true
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - SETGID
+                - SETUID
+                - NET_BIND_SERVICE
+            readOnlyRootFilesystem: false # nginx needs write access to /var/cache and /var/run
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               cpu: 10m
@@ -34,10 +67,17 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       volumes:
         - name: nginx-config
           configMap:
             name: ipmi-nginx-config
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -46,32 +86,68 @@ metadata:
   namespace: network
 data:
   nginx.conf: |
-    error_log /var/log/nginx/error.log debug;
+    error_log /var/log/nginx/error.log warn;
 
     events {
       worker_connections 1024;
     }
 
     http {
+      # Basic settings
       access_log /var/log/nginx/access.log;
+      keepalive_timeout 65;
+      keepalive_requests 100;
+      client_max_body_size 10m;
 
+      # Upstream backend
       upstream ipmi_backend {
         server 192.168.0.45:443;
       }
 
       server {
         listen 80;
+        server_name _;
 
+        # Health check endpoint for Kubernetes probes
+        location /healthz {
+          access_log off;
+          return 200 "healthy\n";
+          add_header Content-Type text/plain;
+        }
+
+        # Main proxy location
         location / {
           proxy_pass https://ipmi_backend;
+
+          # SSL/TLS settings for backend connection
           proxy_ssl_server_name on;
           proxy_ssl_name www.ami.com;  # Use the correct SNI that IPMI expects
-          proxy_ssl_verify off;  # Skip certificate verification
+          proxy_ssl_verify off;  # Skip certificate verification (IPMI has self-signed cert)
           proxy_ssl_protocols TLSv1.2;
+          proxy_ssl_session_reuse on;
+
+          # Headers
           proxy_set_header Host $host;
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto https;
+          proxy_set_header Connection "";
+
+          # Timeouts
+          proxy_connect_timeout 10s;
+          proxy_send_timeout 60s;
+          proxy_read_timeout 60s;
+
+          # Buffer settings
+          proxy_buffering on;
+          proxy_buffer_size 4k;
+          proxy_buffers 8 4k;
+          proxy_busy_buffers_size 8k;
+
+          # Error handling
+          proxy_next_upstream error timeout invalid_header http_500 http_502 http_503;
+          proxy_next_upstream_tries 2;
+          proxy_next_upstream_timeout 5s;
         }
       }
     }
