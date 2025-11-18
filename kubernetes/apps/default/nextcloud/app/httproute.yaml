@@ -49,19 +49,11 @@ spec:
         - path:
             type: PathPrefix
             value: /
-      filters:
-        - &hsts
-          type: ResponseHeaderModifier
-          responseHeaderModifier:
-            set:
-              - name: Strict-Transport-Security
-                value: max-age=15552000; includeSubDomains
     - matches:
         - path:
             type: PathPrefix
             value: /.well-known/webfinger
       filters:
-        - *hsts
         - type: URLRewrite # TODO do better after https://github.com/kubernetes-sigs/gateway-api/issues/2177
           urlRewrite:
             path:
@@ -74,7 +66,6 @@ spec:
             type: PathPrefix
             value: /.well-known/nodeinfo
       filters:
-        - *hsts
         - type: URLRewrite
           urlRewrite:
             path:
@@ -86,7 +77,6 @@ spec:
             type: Exact
             value: /.well-known/host-meta
       filters:
-        - *hsts
         - type: URLRewrite
           urlRewrite:
             path:
@@ -98,7 +88,6 @@ spec:
             type: Exact
             value: /.well-known/host-meta.json
       filters:
-        - *hsts
         - type: URLRewrite
           urlRewrite:
             path:
@@ -110,7 +99,6 @@ spec:
             type: PathPrefix
             value: /.well-known/caldav
       filters:
-        - *hsts
         - type: URLRewrite
           urlRewrite:
             path:
@@ -122,7 +110,6 @@ spec:
             type: PathPrefix
             value: /.well-known/carddav
       filters:
-        - *hsts
         - type: URLRewrite
           urlRewrite:
             path:
