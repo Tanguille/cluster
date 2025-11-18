@@ -5,7 +5,8 @@ metadata:
   name: internal-ipmi
 spec:
   type: ClusterIP
-  clusterIP: None
+  selector:
+    app: ipmi-proxy
   ports:
     - port: 443
       targetPort: 443
