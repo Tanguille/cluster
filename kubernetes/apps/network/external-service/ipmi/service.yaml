@@ -5,9 +5,12 @@ metadata:
   name: internal-ipmi
 spec:
   type: ClusterIP
+  ipFamilyPolicy: SingleStack
+  ipFamilies:
+    - IPv4
   selector:
     app: ipmi-proxy
   ports:
-    - port: 443
-      targetPort: 443
-      name: https
+    - port: 80
+      targetPort: 80
+      name: http

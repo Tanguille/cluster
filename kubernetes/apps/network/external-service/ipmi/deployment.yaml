@@ -20,8 +20,8 @@ spec:
         - name: nginx
           image: nginx:alpine
           ports:
-            - containerPort: 443
-              name: https
+            - containerPort: 80
+              name: http
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
@@ -46,16 +46,31 @@ metadata:
   namespace: network
 data:
   nginx.conf: |
+    error_log /var/log/nginx/error.log debug;
+    access_log /var/log/nginx/access.log;
+
     events {
       worker_connections 1024;
     }
 
-    stream {
-      # True TLS Passthrough - just forward raw TCP without any TLS handling
+    http {
+      upstream ipmi_backend {
+        server 192.168.0.45:443;
+      }
+
       server {
-        listen 443;
-        proxy_pass 192.168.0.45:443;
-        proxy_connect_timeout 10s;
-        proxy_timeout 300s;
+        listen 80;
+
+        location / {
+          proxy_pass https://ipmi_backend;
+          proxy_ssl_server_name on;
+          proxy_ssl_name www.ami.com;  # Use the correct SNI that IPMI expects
+          proxy_ssl_verify off;  # Skip certificate verification
+          proxy_ssl_protocols TLSv1.2;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto https;
+        }
       }
     }
