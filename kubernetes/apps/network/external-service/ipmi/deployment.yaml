@@ -1,0 +1,61 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ipmi-nginx-proxy
+  namespace: network
+  labels:
+    app: ipmi-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ipmi-proxy
+  template:
+    metadata:
+      labels:
+        app: ipmi-proxy
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 443
+              name: https
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: ipmi-nginx-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ipmi-nginx-config
+  namespace: network
+data:
+  nginx.conf: |
+    events {
+      worker_connections 1024;
+    }
+
+    stream {
+      # True TLS Passthrough - just forward raw TCP without any TLS handling
+      server {
+        listen 443;
+        proxy_pass 192.168.0.45:443;
+        proxy_connect_timeout 10s;
+        proxy_timeout 300s;
+      }
+    }
