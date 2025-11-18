@@ -27,6 +27,9 @@ spec:
       tag: 32.0.1-fpm
     nginx:
       enabled: true
+      config:
+        headers:
+          "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
 
     phpClientHttpsFix:
       enabled: true
