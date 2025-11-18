@@ -4,10 +4,6 @@ kind: Service
 metadata:
   name: internal-ipmi
 spec:
-  type: ClusterIP
-  ipFamilyPolicy: SingleStack
-  ipFamilies:
-    - IPv4
   selector:
     app: ipmi-proxy
   ports:
