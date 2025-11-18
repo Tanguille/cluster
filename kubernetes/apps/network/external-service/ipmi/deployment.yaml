@@ -47,13 +47,14 @@ metadata:
 data:
   nginx.conf: |
     error_log /var/log/nginx/error.log debug;
-    access_log /var/log/nginx/access.log;
 
     events {
       worker_connections 1024;
     }
 
     http {
+      access_log /var/log/nginx/access.log;
+
       upstream ipmi_backend {
         server 192.168.0.45:443;
       }
