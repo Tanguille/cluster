@@ -74,3 +74,13 @@ tasks:
     cmd: talhelper gencommand reset --extra-flags="--reboot {{- if eq .CLI_FORCE false }} --system-labels-to-wipe STATE --system-labels-to-wipe EPHEMERAL{{ end }} --graceful=false --wait=false" | bash
     preconditions:
       - which talhelper
+
+  build-schematic:
+    desc: Build a Talos schematic via Factory API [SCHEMATIC_FILE=required]
+    cmd: |
+      curl -X POST --data-binary @{{.SCHEMATIC_FILE}} https://factory.talos.dev/schematics | jq -r '.id'
+    requires:
+      vars: [SCHEMATIC_FILE]
+    preconditions:
+      - which curl jq
+      - test -f {{.SCHEMATIC_FILE}}
