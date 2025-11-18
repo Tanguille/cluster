@@ -28,6 +28,8 @@ nodes:
     controlPlane: true
     patches:
       - "@./patches/control-1/nvidia-gpu.yaml"
+      - "@./patches/control-1/zfs.yaml"
+      - "@./patches/control-1/labels.yaml"
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "00:16:3e:97:0e:d8"
@@ -45,7 +47,7 @@ nodes:
     installDisk: "/dev/nvme0n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/646bcf0601e9157caf7beb5f10b14bcf20248e2d1259d4a25996f14e53954ec3
+    talosImageURL: factory.talos.dev/installer/a38170dc72bb44e3e7ba715b796d6582d05f44f4ae00d9841a952869cbf5e77d
     controlPlane: true
     networkInterfaces:
       - deviceSelector:
@@ -64,7 +66,7 @@ nodes:
     installDisk: "/dev/nvme0n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/646bcf0601e9157caf7beb5f10b14bcf20248e2d1259d4a25996f14e53954ec3
+    talosImageURL: factory.talos.dev/installer/a38170dc72bb44e3e7ba715b796d6582d05f44f4ae00d9841a952869cbf5e77d
     controlPlane: true
     networkInterfaces:
       - deviceSelector:
@@ -86,11 +88,9 @@ patches:
   - "@./patches/global/machine-network.yaml"
   - "@./patches/global/machine-sysctls.yaml"
   - "@./patches/global/machine-time.yaml"
-  - "@./patches/global/zfs-patch.yaml"
-  - "@./patches/global/node-labels-patch.yaml"
 
 # Controller patches
 controlPlane:
   patches:
     - "@./patches/controller/cluster.yaml"
-    - "@./patches/controller/kubernetes-talos-api-access-patch.yaml"
+    - "@./patches/controller/kubernetes-talos-api-access.yaml"

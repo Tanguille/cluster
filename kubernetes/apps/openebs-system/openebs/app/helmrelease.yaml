@@ -43,6 +43,8 @@ spec:
       enabled: true
       zfsNode:
         encrKeysDir: /var/openebs/keys
+        nodeSelector:
+          storage.zfs/available: "true"
       crds:
         zfsLocalPv:
           enabled: true
