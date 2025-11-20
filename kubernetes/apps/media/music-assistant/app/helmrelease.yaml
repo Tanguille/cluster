@@ -52,10 +52,10 @@ spec:
             resources:
               requests:
                 cpu: 47m
-                memory: 512Mi
+                memory: 256Mi
               limits:
                 cpu: 500m
-                memory: 512Mi
+                memory: 1Gi
 
     service:
       app:
@@ -99,3 +99,4 @@ spec:
           - path: /media/music
       tmp:
         type: emptyDir
+        medium: Memory
