@@ -94,8 +94,8 @@ spec:
             subPath: repository.config
       repository:
         type: nfs
-        server: expanse.internal
-        path: /mnt/eros/VolsyncKopia
+        server: ${TRUENAS_IP}
+        path: /mnt/TanguilleServer/VolsyncKopia
         globalMounts:
           - path: /repository
       tmpfs:
