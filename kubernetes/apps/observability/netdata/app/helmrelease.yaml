@@ -16,6 +16,24 @@ spec:
         kind: HelmRepository
         name: netdata
 
+  valuesFrom:
+    - kind: Secret
+      name: &secret netdata-secret
+      valuesKey: CLAIM_TOKEN
+      targetPath: parent.claiming.token
+    - kind: Secret
+      name: *secret
+      valuesKey: CLAIM_ROOMS
+      targetPath: parent.claiming.rooms
+    - kind: Secret
+      name: *secret
+      valuesKey: CLAIM_TOKEN
+      targetPath: k8sState.claiming.token
+    - kind: Secret
+      name: *secret
+      valuesKey: CLAIM_ROOMS
+      targetPath: k8sState.claiming.rooms
+
   values:
     image:
       repository: ghcr.io/netdata/netdata
@@ -26,17 +44,6 @@ spec:
 
     parent:
       enabled: true
-      env:
-        - name: NETDATA_CLAIM_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: netdata-secret
-              key: CLAIM_TOKEN
-        - name: NETDATA_CLAIM_ROOMS
-          valueFrom:
-            secretKeyRef:
-              name: netdata-secret
-              key: CLAIM_ROOMS
       claiming:
         enabled: true
       alarms:
@@ -55,16 +62,5 @@ spec:
       persistence:
         enabled: true
         storageclass: "openebs-hostpath"
-      env:
-        - name: NETDATA_CLAIM_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: netdata-secret
-              key: CLAIM_TOKEN
-        - name: NETDATA_CLAIM_ROOMS
-          valueFrom:
-            secretKeyRef:
-              name: netdata-secret
-              key: CLAIM_ROOMS
       claiming:
         enabled: true
