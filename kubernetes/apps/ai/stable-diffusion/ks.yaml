@@ -15,3 +15,12 @@ spec:
     name: flux-system
     namespace: flux-system
   wait: false
+  components:
+    - ../../../../components/cpu-scaler
+  postBuild:
+    substitute:
+      APP: comfyui
+      NAMESPACE: *namespace
+      KIND: StatefulSet
+      MAX_REPLICAS: "1"
+      CPU_THRESHOLD: "5"
