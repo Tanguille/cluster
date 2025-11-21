@@ -28,6 +28,14 @@ spec:
     - kind: Secret
       name: *secret
       valuesKey: CLAIM_TOKEN
+      targetPath: child.claiming.token
+    - kind: Secret
+      name: *secret
+      valuesKey: CLAIM_ROOMS
+      targetPath: child.claiming.rooms
+    - kind: Secret
+      name: *secret
+      valuesKey: CLAIM_TOKEN
       targetPath: k8sState.claiming.token
     - kind: Secret
       name: *secret
@@ -54,11 +62,12 @@ spec:
         fsGroup: 201
 
     child:
-      enabled: false
+      enabled: true
+      claiming:
+        enabled: true
 
     k8sState:
       enabled: true
-      daemonset: true
       persistence:
         enabled: false
       claiming:
