@@ -26,16 +26,19 @@ spec:
 
     parent:
       enabled: true
+      env:
+        - name: NETDATA_CLAIM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: netdata-secret
+              key: CLAIM_TOKEN
+        - name: NETDATA_CLAIM_ROOMS
+          valueFrom:
+            secretKeyRef:
+              name: netdata-secret
+              key: CLAIM_ROOMS
       claiming:
         enabled: true
-        token:
-          existingSecret:
-            name: netdata-secret
-            key: CLAIM_TOKEN
-        rooms:
-          existingSecret:
-            name: netdata-secret
-            key: CLAIM_ROOMS
       alarms:
         storageclass: "openebs-hostpath"
       database:
@@ -52,13 +55,16 @@ spec:
       persistence:
         enabled: true
         storageclass: "openebs-hostpath"
+      env:
+        - name: NETDATA_CLAIM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: netdata-secret
+              key: CLAIM_TOKEN
+        - name: NETDATA_CLAIM_ROOMS
+          valueFrom:
+            secretKeyRef:
+              name: netdata-secret
+              key: CLAIM_ROOMS
       claiming:
         enabled: true
-        token:
-          existingSecret:
-            name: netdata-secret
-            key: CLAIM_TOKEN
-        rooms:
-          existingSecret:
-            name: netdata-secret
-            key: CLAIM_ROOMS
