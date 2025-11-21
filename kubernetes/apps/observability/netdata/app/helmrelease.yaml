@@ -25,22 +25,6 @@ spec:
       name: *secret
       valuesKey: CLAIM_ROOMS
       targetPath: parent.claiming.rooms
-    - kind: Secret
-      name: *secret
-      valuesKey: CLAIM_TOKEN
-      targetPath: child.claiming.token
-    - kind: Secret
-      name: *secret
-      valuesKey: CLAIM_ROOMS
-      targetPath: child.claiming.rooms
-    - kind: Secret
-      name: *secret
-      valuesKey: CLAIM_TOKEN
-      targetPath: k8sState.claiming.token
-    - kind: Secret
-      name: *secret
-      valuesKey: CLAIM_ROOMS
-      targetPath: k8sState.claiming.rooms
 
   values:
     image:
@@ -64,11 +48,11 @@ spec:
     child:
       enabled: true
       claiming:
-        enabled: true
+        enabled: false
 
     k8sState:
       enabled: true
       persistence:
         enabled: false
       claiming:
-        enabled: true
+        enabled: false
