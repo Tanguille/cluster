@@ -11,7 +11,7 @@ spec:
     kind: Deployment
     name: open-webui
   minReplicaCount: 0
-  maxReplicaCount: 2
+  maxReplicaCount: 1
   cooldownPeriod: 300
   idleReplicaCount: 0
   advanced:
@@ -31,7 +31,6 @@ spec:
               value: 1
               periodSeconds: 60
   triggers:
-    # Primary trigger: Scale to 0 if neither Ollama nor ComfyUI is available
     - type: prometheus
       metadata:
         serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
@@ -41,8 +40,3 @@ spec:
           count(kube_pod_status_ready{namespace="ai", pod=~"comfyui.*", condition="true"} == 1)
         threshold: "1"
         activationThreshold: "0"
-    # Secondary trigger: Scale based on CPU usage when backend is available
-    - type: cpu
-      metadata:
-        type: Utilization
-        value: "5"
