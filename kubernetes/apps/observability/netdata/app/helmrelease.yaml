@@ -30,9 +30,13 @@ spec:
         storageclass: "openebs-hostpath"
       database:
         storageclass: "openebs-hostpath"
+      securityContext:
+        fsGroup: 201
 
     child:
       enabled: false
 
     k8sState:
       enabled: true
+      daemonset: true
+      storageclass: "openebs-hostpath"
