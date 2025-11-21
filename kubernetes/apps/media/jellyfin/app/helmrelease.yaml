@@ -161,6 +161,11 @@ spec:
                 subPath: transcode
               - path: /cache
                 subPath: cache
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          jellyfin:
+            app:
               - path: /config/log
                 subPath: log
               - path: /tmp
