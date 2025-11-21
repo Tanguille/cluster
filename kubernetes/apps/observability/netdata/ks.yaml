@@ -14,3 +14,14 @@ spec:
     name: flux-system
     namespace: flux-system
   interval: 30m
+  patches:
+    - patch: |-
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: netdata-k8s-state-varlib
+        spec:
+          storageClassName: openebs-hostpath
+      target:
+        kind: PersistentVolumeClaim
+        name: netdata-k8s-state-varlib
