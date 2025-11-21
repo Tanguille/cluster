@@ -20,27 +20,11 @@ spec:
     - kind: Secret
       name: &secret netdata-secret
       valuesKey: CLAIM_TOKEN
-      targetPath: parent.claiming.token
-    - kind: Secret
-      name: *secret
-      valuesKey: CLAIM_ROOMS
-      targetPath: parent.claiming.rooms
-    - kind: Secret
-      name: *secret
-      valuesKey: CLAIM_TOKEN
       targetPath: child.claiming.token
     - kind: Secret
       name: *secret
       valuesKey: CLAIM_ROOMS
       targetPath: child.claiming.rooms
-    - kind: Secret
-      name: *secret
-      valuesKey: CLAIM_TOKEN
-      targetPath: k8sState.claiming.token
-    - kind: Secret
-      name: *secret
-      valuesKey: CLAIM_ROOMS
-      targetPath: k8sState.claiming.rooms
 
   values:
     image:
@@ -53,7 +37,7 @@ spec:
     parent:
       enabled: true
       claiming:
-        enabled: true
+        enabled: false
       alarms:
         storageclass: "openebs-hostpath"
       database:
@@ -71,4 +55,4 @@ spec:
       persistence:
         enabled: false
       claiming:
-        enabled: true
+        enabled: false
