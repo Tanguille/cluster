@@ -20,9 +20,14 @@ spec:
       namespace: volsync-system
   components:
     - ../../../../components/volsync
+    - ../../../../components/cpu-scaler
   postBuild:
     substitute:
       APP: *app
       APP_UID: "1000"
       APP_GID: "1000"
       VOLSYNC_CAPACITY: 5Gi
+      NAMESPACE: *namespace
+      KIND: Deployment
+      MAX_REPLICAS: "1"
+      CPU_THRESHOLD: "5"

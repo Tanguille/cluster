@@ -32,6 +32,17 @@ spec:
               UN_RADARR_0_API_KEY: ${RADARR_API_KEY}
               UN_SONARR_0_API_KEY: ${SONARR_API_KEY}
             probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /metrics
+                    port: 5656
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  timeoutSeconds: 3
+                  failureThreshold: 20
               liveness:
                 enabled: true
               readiness:
