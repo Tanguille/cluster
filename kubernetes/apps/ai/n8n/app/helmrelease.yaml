@@ -49,6 +49,34 @@ spec:
                   secretKeyRef:
                     name: n8n-secret
                     key: N8N_ENCRYPTION_KEY
+            probes:
+              startup: &probeBase
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &httpGet
+                    path: /healthz
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+                  timeoutSeconds: 3
+                  failureThreshold: 30
+              liveness:
+                <<: *probeBase
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                <<: *probeBase
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
             resources:
               requests:
                 cpu: 5m

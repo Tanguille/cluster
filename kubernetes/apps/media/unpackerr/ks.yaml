@@ -15,3 +15,12 @@ spec:
     name: flux-system
     namespace: flux-system
   interval: 30m
+  components:
+    - ../../../../components/cpu-scaler
+  postBuild:
+    substitute:
+      APP: unpackerr
+      NAMESPACE: *namespace
+      KIND: Deployment
+      MAX_REPLICAS: "1"
+      CPU_THRESHOLD: "10"
