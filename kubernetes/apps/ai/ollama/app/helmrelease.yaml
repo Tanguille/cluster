@@ -38,16 +38,13 @@ spec:
               OLLAMA_ORIGINS: "*"
               OLLAMA_MODELS: /models
             probes:
-              &probeBase
-              enabled: true
-              custom: true
-              &httpGet
-              path: /api/tags
-              port: 11434
-              startup:
-                <<: *probeBase
+              startup: &probeBase
+                enabled: true
+                custom: true
                 spec:
-                  httpGet: *httpGet
+                  httpGet: &httpGet
+                    path: /api/tags
+                    port: 11434
                   initialDelaySeconds: 10
                   periodSeconds: 5
                   timeoutSeconds: 3

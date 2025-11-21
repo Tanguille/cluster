@@ -50,16 +50,13 @@ spec:
                     name: n8n-secret
                     key: N8N_ENCRYPTION_KEY
             probes:
-              &probeBase
-              enabled: true
-              custom: true
-              &httpGet
-              path: /healthz
-              port: *port
-              startup:
-                <<: *probeBase
+              startup: &probeBase
+                enabled: true
+                custom: true
                 spec:
-                  httpGet: *httpGet
+                  httpGet: &httpGet
+                    path: /healthz
+                    port: *port
                   initialDelaySeconds: 10
                   periodSeconds: 5
                   timeoutSeconds: 3

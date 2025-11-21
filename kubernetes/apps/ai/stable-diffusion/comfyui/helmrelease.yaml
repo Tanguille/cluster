@@ -53,16 +53,13 @@ spec:
               SERVERLESS: "false"
               PROVISIONING_SCRIPT: "https://raw.githubusercontent.com/ai-dock/comfyui/main/config/provisioning/flux.sh"
             probes:
-              &probeBase
-              enabled: true
-              custom: true
-              &httpGet
-              path: /
-              port: 8188
-              startup:
-                <<: *probeBase
+              startup: &probeBase
+                enabled: true
+                custom: true
                 spec:
-                  httpGet: *httpGet
+                  httpGet: &httpGet
+                    path: /
+                    port: 8188
                   initialDelaySeconds: 15
                   periodSeconds: 5
                   timeoutSeconds: 3
