@@ -14,12 +14,3 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  components:
-    - ../../../../components/cpu-scaler
-  postBuild:
-    substitute:
-      APP: ollama
-      NAMESPACE: *namespace
-      KIND: Deployment
-      MAX_REPLICAS: "1"
-      CPU_THRESHOLD: "5"
