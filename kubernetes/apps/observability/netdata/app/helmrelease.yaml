@@ -26,6 +26,16 @@ spec:
 
     parent:
       enabled: true
+      claiming:
+        enabled: true
+        token:
+          existingSecret:
+            name: netdata-secret
+            key: CLAIM_TOKEN
+        rooms:
+          existingSecret:
+            name: netdata-secret
+            key: CLAIM_ROOMS
       alarms:
         storageclass: "openebs-hostpath"
       database:
@@ -42,3 +52,13 @@ spec:
       persistence:
         enabled: true
         storageclass: "openebs-hostpath"
+      claiming:
+        enabled: true
+        token:
+          existingSecret:
+            name: netdata-secret
+            key: CLAIM_TOKEN
+        rooms:
+          existingSecret:
+            name: netdata-secret
+            key: CLAIM_ROOMS
