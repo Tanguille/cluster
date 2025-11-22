@@ -124,3 +124,24 @@ spec:
                 expr: node_zfs_zpool_state{state!="online"} > 0
                 labels:
                   severity: critical
+      hpa-rules:
+        groups:
+          - name: hpa
+            rules:
+              # Custom KubeHpaMaxedOut that excludes nfs-scaler HPAs (which are designed to run at max 1 replica)
+              - alert: KubeHpaMaxedOut
+                annotations:
+                  summary: HPA {{ $labels.namespace }}/{{ $labels.horizontalpodautoscaler }} has maxed out at {{ $value }} replicas
+                  description: |-
+                    HPA {{ $labels.namespace }}/{{ $labels.horizontalpodautoscaler }} has maxed out and cannot scale further. Current replicas: {{ $value }}
+                expr: |
+                  (
+                    kube_horizontalpodautoscaler_status_current_replicas{horizontalpodautoscaler=~"keda-hpa-.*"}
+                    ==
+                    kube_horizontalpodautoscaler_spec_max_replicas{horizontalpodautoscaler=~"keda-hpa-.*"}
+                  )
+                  and
+                  kube_horizontalpodautoscaler_spec_max_replicas{horizontalpodautoscaler=~"keda-hpa-.*"} > 1
+                for: 15m
+                labels:
+                  severity: warning
