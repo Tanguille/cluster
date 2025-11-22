@@ -234,6 +234,3 @@ if [ ${#SOURCE_DETAILS[@]} -gt 0 ]; then
         echo "  $detail"
     done | head -20
 fi
-
-echo ""
-print_info "Grafana Dashboard: https://grafana.tanguille.site/d/cdp5agkgn4yrkc"
