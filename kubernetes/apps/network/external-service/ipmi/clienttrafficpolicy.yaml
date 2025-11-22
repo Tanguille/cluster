@@ -1,0 +1,21 @@
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: ipmi-websocket-client
+  namespace: network
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: external-service-httproute-ipmi
+  http2:
+    allowConnect: false
+  http3: {}
+  timeout:
+    http:
+      requestReceivedTimeout: 0s
+  connection:
+    bufferLimit: 16Mi
+  tcpKeepalive: {}
+
