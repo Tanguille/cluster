@@ -39,3 +39,26 @@ spec:
     - targetLabel: service
       replacement: blackbox-exporter
       action: replace
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/probe_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: loadbalancer-ips
+spec:
+  module: tcp_connect
+  prober:
+    url: blackbox-exporter.observability.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static:
+        - 192.168.0.3:53 # k8s-gateway
+        - 192.168.0.4:443 # envoy-internal
+        - 192.168.0.6:443 # envoy-external
+        - 192.168.0.7:443 # envoy-internal-tls
+  interval: 30s
+  scrapeTimeout: 5s
+  metricRelabelings:
+    - targetLabel: service
+      replacement: blackbox-exporter
+      action: replace
