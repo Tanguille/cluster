@@ -161,3 +161,12 @@ tasks:
         sh: kubectl get replicationsources --all-namespaces --no-headers --output=jsonpath='{range .items[*]}{.metadata.namespace},{.metadata.name}{"\n"}{end}'
     requires:
       vars: [CLUSTER]
+
+  stats:
+    desc: Show VolSync/Kopia repository statistics [CLUSTER=main]
+    cmds:
+      - bash {{.ROOT_DIR}}/.taskfiles/volsync/stats.sh
+    requires:
+      vars: [CLUSTER]
+    preconditions:
+      - which kubectl jq bc
