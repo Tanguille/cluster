@@ -143,7 +143,8 @@ data:
           proxy_ssl_session_reuse on;
 
           # Headers
-          proxy_set_header Host $http_host;
+          # Use IPMI IP as Host header - matches direct IP access behavior
+          proxy_set_header Host 192.168.0.45;
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto https;
