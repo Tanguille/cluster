@@ -53,6 +53,8 @@ spec:
         - alert: LanProbeFailed
           expr: |-
             probe_success{service="blackbox-exporter"} == 0
+            and
+            up{service="blackbox-exporter"} == 1
           for: 15m
           labels:
             severity: critical
