@@ -1,0 +1,45 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cilium-loadbalancer-rules
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: cilium
+spec:
+  groups:
+    - name: cilium.loadbalancer.rules
+      interval: 30s
+      rules:
+        - alert: LoadBalancerIPUnreachable
+          expr: |
+            probe_success{job="probe/loadbalancer-ips",service="blackbox-exporter"} == 0
+          for: 5m
+          annotations:
+            summary: LoadBalancer IP {{ $labels.instance }} is unreachable
+            description: >-
+              LoadBalancer IP {{ $labels.instance }} has been unreachable for more than 5 minutes.
+              This may indicate a Cilium L2 announcement issue after node restarts.
+          labels:
+            severity: critical
+            component: cilium
+            type: loadbalancer
+
+        - alert: LoadBalancerIPNotAnnounced
+          expr: |
+            (
+              probe_success{job="probe/loadbalancer-ips",service="blackbox-exporter"} == 0
+              and
+              kube_service_status_load_balancer_ingress{namespace="network"} == 1
+            )
+          for: 10m
+          annotations:
+            summary: LoadBalancer IP {{ $labels.instance }} is assigned but not reachable
+            description: >-
+              LoadBalancer IP {{ $labels.instance }} is assigned to a service but not reachable.
+              This likely indicates a Cilium L2 announcement failure. Check Cilium operator logs.
+          labels:
+            severity: critical
+            component: cilium
+            type: loadbalancer
