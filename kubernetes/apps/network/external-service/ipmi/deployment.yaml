@@ -114,7 +114,7 @@ data:
 
       # Upstream backend
       upstream ipmi_backend {
-        server ${IPMI_IP}:443;
+        server 192.168.0.45:443;
       }
 
       server {
@@ -144,7 +144,7 @@ data:
 
           # Headers
           # Use IPMI IP as Host header - matches direct IP access behavior
-          proxy_set_header Host ${IPMI_IP};
+          proxy_set_header Host 192.168.0.45;
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto https;
