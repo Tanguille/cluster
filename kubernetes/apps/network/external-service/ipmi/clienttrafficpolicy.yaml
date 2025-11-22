@@ -9,13 +9,9 @@ spec:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: external-service-httproute-ipmi
-  http2:
-    allowConnect: false
-  http3: {}
   timeout:
     http:
       requestReceivedTimeout: 0s
   connection:
     bufferLimit: 16Mi
   tcpKeepalive: {}
-
