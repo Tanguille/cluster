@@ -11,11 +11,11 @@ spec:
   targets:
     staticConfig:
       static:
-        - 192.168.0.45 # ipmi
-        - 192.168.0.1 # opnsense
-        - 192.168.0.11
-        - 192.168.0.12
-        - 192.168.0.13
+        - ${IPMI_IP}
+        - ${OPNSENSE_IP}
+        - ${CLUSTER_NODE_1_IP}
+        - ${CLUSTER_NODE_2_IP}
+        - ${CLUSTER_NODE_3_IP}
         - ${TRUENAS_IP}
   metricRelabelings:
     - targetLabel: service
@@ -44,6 +44,26 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
+  name: k8s-gateway-dns
+spec:
+  module: dns_a
+  prober:
+    url: blackbox-exporter.observability.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static:
+        - ${K8S_GATEWAY_IP}
+  interval: 30s
+  scrapeTimeout: 5s
+  metricRelabelings:
+    - targetLabel: service
+      replacement: blackbox-exporter
+      action: replace
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/probe_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
   name: loadbalancer-ips
 spec:
   module: tcp_connect
@@ -52,10 +72,9 @@ spec:
   targets:
     staticConfig:
       static:
-        - 192.168.0.3:53 # k8s-gateway
-        - 192.168.0.4:443 # envoy-internal
-        - 192.168.0.6:443 # envoy-external
-        - 192.168.0.7:443 # envoy-internal-tls
+        - ${ENVOY_INTERNAL_IP}:443
+        - ${ENVOY_EXTERNAL_IP}:443
+        - ${ENVOY_INTERNAL_TLS_IP}:443
   interval: 30s
   scrapeTimeout: 5s
   metricRelabelings:
