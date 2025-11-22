@@ -9,10 +9,9 @@ spec:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: external-service-httproute-ipmi
-    namespace: network
   timeout:
     http:
-      requestTimeout: 0s # No timeout for long-lived WebSocket connections
+      requestTimeout: 0s
   connection:
-    bufferLimit: 16Mi # Increased buffer for WebSocket streams
+    bufferLimit: 16Mi
   tcpKeepalive: {}
