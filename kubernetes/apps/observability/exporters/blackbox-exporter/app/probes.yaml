@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/probe_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: lan-icmp
+spec:
+  module: icmp
+  prober:
+    url: blackbox-exporter.observability.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static:
+        - 192.168.0.45 # ipmi
+        - 192.168.0.1 # opnsense
+        - 192.168.0.11
+        - 192.168.0.12
+        - 192.168.0.13
+        - ${TRUENAS_IP}
+  metricRelabelings:
+    - targetLabel: service
+      replacement: blackbox-exporter
+      action: replace
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/probe_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: lan-tcp
+spec:
+  module: tcp_connect
+  prober:
+    url: blackbox-exporter.observability.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static:
+        - ${TRUENAS_IP}:2049 # nfs
+  metricRelabelings:
+    - targetLabel: service
+      replacement: blackbox-exporter
+      action: replace
