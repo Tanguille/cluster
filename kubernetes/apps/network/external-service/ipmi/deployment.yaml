@@ -99,6 +99,12 @@ data:
       keepalive_requests 100;
       client_max_body_size 10m;
 
+      # WebSocket connection upgrade mapping
+      map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+      }
+
       # Upstream backend
       upstream ipmi_backend {
         server 192.168.0.45:443;
@@ -119,6 +125,9 @@ data:
         location / {
           proxy_pass https://ipmi_backend;
 
+          # HTTP version for WebSocket support
+          proxy_http_version 1.1;
+
           # SSL/TLS settings for backend connection
           proxy_ssl_server_name on;
           proxy_ssl_name www.ami.com;  # Use the correct SNI that IPMI expects
@@ -131,18 +140,19 @@ data:
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto https;
-          proxy_set_header Connection "";
 
-          # Timeouts
+          # WebSocket support - detect upgrade requests
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection $connection_upgrade;
+
+          # Timeouts - increased for long-lived WebSocket connections
           proxy_connect_timeout 10s;
-          proxy_send_timeout 60s;
-          proxy_read_timeout 60s;
+          proxy_send_timeout 3600s;  # Increased for KVM sessions
+          proxy_read_timeout 3600s;  # Increased for KVM sessions
 
-          # Buffer settings
-          proxy_buffering on;
+          # Buffer settings - disable buffering for WebSocket streams
+          proxy_buffering off;
           proxy_buffer_size 4k;
-          proxy_buffers 8 4k;
-          proxy_busy_buffers_size 8k;
 
           # Error handling
           proxy_next_upstream error timeout invalid_header http_500 http_502 http_503;
