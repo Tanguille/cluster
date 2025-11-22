@@ -143,8 +143,7 @@ data:
           proxy_ssl_session_reuse on;
 
           # Headers
-          # Use SNI hostname for Host header - ASRock Rack IPMI expects this
-          proxy_set_header Host www.ami.com;
+          proxy_set_header Host $http_host;
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto https;
@@ -154,8 +153,8 @@ data:
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
 
-          # Additional headers for IPMI compatibility
-          proxy_set_header Origin "";
+          # Remove Origin header if empty (some IPMI implementations are picky)
+          proxy_set_header Origin $http_origin;
 
           # Timeouts - increased for long-lived WebSocket connections
           proxy_connect_timeout 30s;
