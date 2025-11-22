@@ -44,8 +44,15 @@ spec:
     k8sServicePort: 7445
     kubeProxyReplacement: true
     kubeProxyReplacementHealthzBindAddr: 0.0.0.0:10256
+    k8sClientRateLimit:
+      qps: 50
+      burst: 100
     l2announcements:
       enabled: true
+      leaseDuration: 15s
+      leaseRenewDeadline: 5s
+      leaseRetryPeriod: 2s
+    devices: "ens+"
     loadBalancer:
       algorithm: maglev
       mode: dsr
