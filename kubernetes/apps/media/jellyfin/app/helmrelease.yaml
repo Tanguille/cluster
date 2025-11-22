@@ -112,7 +112,7 @@ spec:
                 memory: 1Gi
                 nvidia.com/gpu: 1
               limits:
-                memory: 20Gi
+                memory: 16Gi
                 nvidia.com/gpu: 1
     service:
       app:
@@ -151,21 +151,22 @@ spec:
         globalMounts:
           - path: /var/mnt/merged/
 
-      tmpfs:
+      cache:
         type: emptyDir
         medium: Memory
         advancedMounts:
           jellyfin:
             app:
-              - path: /config/transcode
-                subPath: transcode
               - path: /cache
                 subPath: cache
-      tmp:
+
+      tmpfs:
         type: emptyDir
         advancedMounts:
           jellyfin:
             app:
+              - path: /config/transcode
+                subPath: transcode
               - path: /config/log
                 subPath: log
               - path: /tmp
