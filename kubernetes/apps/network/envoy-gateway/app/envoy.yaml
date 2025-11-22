@@ -3,7 +3,7 @@
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
-  name: &name envoy
+  name: envoy
 spec:
   logging:
     level:
@@ -11,10 +11,7 @@ spec:
   provider:
     type: Kubernetes
     kubernetes:
-      envoyDeployment:
-        replicas: 3
-        strategy:
-          type: RollingUpdate
+      envoyDaemonSet:
         container:
           imageRepository: mirror.gcr.io/envoyproxy/envoy
           resources:
@@ -23,14 +20,6 @@ spec:
               memory: 256Mi
             limits:
               memory: 1Gi
-        pod:
-          topologySpreadConstraints:
-            - maxSkew: 1
-              topologyKey: kubernetes.io/hostname
-              whenUnsatisfiable: DoNotSchedule
-              labelSelector:
-                matchLabels:
-                  app.kubernetes.io/name: *name
       envoyService:
         externalTrafficPolicy: Local
   shutdown:
