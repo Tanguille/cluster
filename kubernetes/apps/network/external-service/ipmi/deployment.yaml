@@ -5,16 +5,16 @@ metadata:
   name: ipmi-nginx-proxy
   namespace: network
   labels:
-    app: ipmi-proxy
+    app: &name ipmi-proxy
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: ipmi-proxy
+      app: *name
   template:
     metadata:
       labels:
-        app: ipmi-proxy
+        app: *name
     spec:
       containers:
         - name: nginx
@@ -67,6 +67,13 @@ spec:
             limits:
               cpu: 100m
               memory: 128Mi
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: *name
       securityContext:
         seccompProfile:
           type: RuntimeDefault
@@ -147,14 +154,20 @@ data:
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
 
+          # Additional headers for IPMI compatibility
+          proxy_set_header Origin "";
+
           # Timeouts - increased for long-lived WebSocket connections
-          proxy_connect_timeout 10s;
+          proxy_connect_timeout 30s;
           proxy_send_timeout 3600s;  # Increased for KVM sessions
           proxy_read_timeout 3600s;  # Increased for KVM sessions
 
           # Buffer settings - disable buffering for WebSocket streams
           proxy_buffering off;
           proxy_buffer_size 4k;
+
+          # Don't rewrite the request URI
+          proxy_redirect off;
 
           # Error handling
           proxy_next_upstream error timeout invalid_header http_500 http_502 http_503;
