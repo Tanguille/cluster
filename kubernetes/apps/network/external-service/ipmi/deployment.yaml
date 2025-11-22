@@ -136,10 +136,12 @@ data:
           proxy_ssl_session_reuse on;
 
           # Headers
-          proxy_set_header Host $host;
+          # Use SNI hostname for Host header - ASRock Rack IPMI expects this
+          proxy_set_header Host www.ami.com;
           proxy_set_header X-Real-IP $remote_addr;
           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
           proxy_set_header X-Forwarded-Proto https;
+          proxy_set_header X-Forwarded-Host $host;
 
           # WebSocket support - detect upgrade requests
           proxy_set_header Upgrade $http_upgrade;
