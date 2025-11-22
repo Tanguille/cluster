@@ -9,6 +9,8 @@ spec:
     group: gateway.networking.k8s.io
     kind: HTTPRoute
     name: external-service-httproute-ipmi
+  # Disable compression - interferes with WebSocket connections
+  compression: []
   timeout:
     http:
       requestTimeout: 0s
