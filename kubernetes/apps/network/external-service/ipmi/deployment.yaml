@@ -21,9 +21,7 @@ spec:
           image: nginx:1.29-alpine@sha256:b3c656d55d7ad751196f21b7fd2e8d4da9cb430e32f646adcf92441b72f82b14
           ports:
             - containerPort: 80
-              name: https # Changed to https as we are streaming encrypted traffic
-            - containerPort: 8080
-              name: http-health
+              name: http
           volumeMounts:
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
@@ -36,7 +34,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: http-health
+              port: http
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 3
@@ -44,7 +42,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /healthz
-              port: http-health
+              port: http
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 2
@@ -101,26 +99,52 @@ data:
       worker_connections 1024;
     }
 
-    # HTTP block removed - switching to TCP stream for transparency
-    stream {
-        upstream ipmi_backend {
-            server 192.168.0.45:443;
-        }
-
-        server {
-            listen 80;  # Actually 443 traffic, but container port is 80
-            proxy_pass ipmi_backend;
-            proxy_buffer_size 16k;
-        }
-    }
-
     http {
-        server {
-            listen 8080;
-            location /healthz {
-                access_log off;
-                return 200 "healthy\n";
-                add_header Content-Type text/plain;
-            }
+      access_log /var/log/nginx/access.log;
+      keepalive_timeout 65;
+      client_max_body_size 10m;
+
+      # WebSocket connection upgrade mapping
+      map $http_upgrade $connection_upgrade {
+        default Upgrade;
+        '' close;
+      }
+
+      upstream ipmi_backend {
+        server 192.168.0.45:443;
+      }
+
+      server {
+        listen 80;
+        server_name _;
+
+        location /healthz {
+          access_log off;
+          return 200 "healthy\n";
+          add_header Content-Type text/plain;
         }
+
+        location / {
+          proxy_pass https://ipmi_backend;
+          proxy_http_version 1.1;
+
+          # Minimal SSL config - let IPMI handle it
+          proxy_ssl_verify off;
+          proxy_ssl_server_name off;
+
+          # Minimal headers - only what's absolutely necessary
+          proxy_set_header Host 192.168.0.45;
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection $connection_upgrade;
+
+          # Long timeouts for WebSocket
+          proxy_connect_timeout 30s;
+          proxy_send_timeout 3600s;
+          proxy_read_timeout 3600s;
+
+          # No buffering for WebSocket
+          proxy_buffering off;
+          proxy_redirect off;
+        }
+      }
     }
