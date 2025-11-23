@@ -115,6 +115,15 @@ spec:
               nodejs \
               npm
             echo "Dependencies installed, waiting for Nextcloud to be ready..."
+            # Verify ffmpeg is accessible
+            if command -v ffmpeg >/dev/null 2>&1; then
+              echo "ffmpeg found at: $(which ffmpeg)"
+              # Configure ffmpeg path for Nextcloud previews and Memories app
+              su -s /bin/bash www-data -c 'php occ config:system:set preview_ffmpeg_path --value="/usr/bin/ffmpeg"' || true
+              echo "ffmpeg path configured for Nextcloud"
+            else
+              echo "WARNING: ffmpeg not found in PATH"
+            fi
             su -s /bin/bash www-data -c 'php occ maintenance:repair --include-expensive' || true
             su -s /bin/bash www-data -c 'php occ files:scan --all' || true
             su -s /bin/bash www-data -c 'php occ files:cleanup' || true
