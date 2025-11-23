@@ -4,12 +4,8 @@ kind: Service
 metadata:
   name: internal-ipmi
 spec:
-  selector:
-    app: ipmi-proxy
+  # No selector - uses EndpointSlice to point directly to IPMI
   ports:
-    - port: 80
-      targetPort: 80
+    - port: 443
+      targetPort: 443
       name: https
-    - port: 8080
-      targetPort: 8080
-      name: http-health
