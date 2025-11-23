@@ -4,7 +4,8 @@ kind: Service
 metadata:
   name: internal-ipmi
 spec:
-  # No selector - uses EndpointSlice to point directly to IPMI
+  type: ClusterIP
+  clusterIP: None
   ports:
     - port: 443
       targetPort: 443
