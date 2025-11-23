@@ -78,57 +78,25 @@ tracker:
   #   cat: <Category Name>
   # <OPTIONAL> Set this to the notifiarr react name. This is used to add indexer reactions to the notifications sent by Notifiarr
   #   notifiarr: <notifiarr indexer>
-  animebytes.tv:
-    tag: AnimeBytes
-    notifiarr: animebytes
-  animetorrents:
-    tag: Animetorrents
-  avistaz:
-    tag:
-      - Avistaz
-      - qBitrr-allowed_seeding
-    notifiarr: avistaz
-  beyond-hd:
-    tag: Beyond-HD
-    notifiarr: beyondhd
   blutopia:
-    tag: Blutopia
-    notifiarr: blutopia
-  cartoonchaos:
-    tag: CartoonChaos
+    tag:
+      - Blutopia
+      - qBitrr-allowed_seeding
   digitalcore|prxy.digitalcore:
     tag:
       - DigitalCore
       - qBitrr-allowed_seeding
     notifiarr: digitalcore
-  gazellegames:
-    tag: GGn
-  hdts:
-    tag: HDTorrents
-  landof.tv:
-    tag: BroadcasTheNet
-    notifiarr: broadcasthenet
   milkie:
     tag: Milkie
     notifiarr: Milkie
   myanonamouse:
     tag: MaM
-  passthepopcorn:
-    tag: PassThePopcorn
-    notifiarr: passthepopcorn
-  privatehd:
-    tag: PrivateHD
-    notifiarr:
-  torrentdb:
-    tag: TorrentDB
-    notifiarr: torrentdb
   torrentleech|tleechreload:
     tag:
       - TorrentLeech
       - qBitrr-allowed_seeding
     notifiarr: torrentleech
-  tv-vault:
-    tag: TV-Vault
   iptorrents:
     tag:
       - IPTorrents
@@ -149,6 +117,16 @@ tracker:
       - FearNoPeer
       - qBitrr-allowed_seeding
     notifiarr: FearNoPeer
+  thegeeks|the-geeks:
+    tag: TheGeeks
+  upload.cx:
+    tag:
+      - Upload.cx
+      - qBitrr-allowed_seeding
+  localhost.stackoverflow.tech:
+    tag:
+      - StackOverflow
+      - qBitrr-allowed_seeding
   # The "other" key is a special keyword and if defined will tag any other trackers that don't match the above trackers into this tag
   other:
     tag: public
@@ -173,27 +151,15 @@ share_limits:
   private_trackers:
     priority: 2
     include_any_tags:
-      - AnimeBytes
-      - Animetorrents
-      - Avistaz
-      - Beyond-HD
-      - Blutopia
-      - CartoonChaos
-      - DigitalCore
-      - GGn
-      - HDTorrents
-      - BroadcasTheNet
-      - Milkie
-      - MaM
-      - PassThePopcorn
-      - PrivateHD
-      - TorrentDB
-      - TorrentLeech
-      - TV-Vault
-      - IPTorrents
       - AlphaRatio
-      - HDSpace
+      - Blutopia
+      - DigitalCore
       - FearNoPeer
+      - TheGeeks
+      - IPTorrents
+      - StackOverflow
+      - TorrentLeech
+      - Upload.cx
     max_ratio: -1 # Unlimited ratio
     max_seeding_time: -1 # Unlimited seeding time
     cleanup: false
