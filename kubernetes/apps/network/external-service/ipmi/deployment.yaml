@@ -108,7 +108,7 @@ data:
 
       # WebSocket connection upgrade mapping
       map $http_upgrade $connection_upgrade {
-        default upgrade;
+        default Upgrade;
         '' close;
       }
 
@@ -154,8 +154,8 @@ data:
           proxy_set_header Upgrade $http_upgrade;
           proxy_set_header Connection $connection_upgrade;
 
-          # Remove Origin header if empty (some IPMI implementations are picky)
-          proxy_set_header Origin $http_origin;
+          # Spoof Origin to match the backend IP to satisfy strict CSRF/WebSocket checks
+          proxy_set_header Origin https://192.168.0.45;
 
           # Timeouts - increased for long-lived WebSocket connections
           proxy_connect_timeout 30s;
