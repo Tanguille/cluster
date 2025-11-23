@@ -136,8 +136,7 @@ data:
           proxy_http_version 1.1;
 
           # SSL/TLS settings for backend connection
-          proxy_ssl_server_name on;
-          proxy_ssl_name www.ami.com;  # Use the correct SNI that IPMI expects
+          proxy_ssl_server_name off;  # Disable SNI to avoid potential mismatch with Host header
           proxy_ssl_verify off;  # Skip certificate verification (IPMI has self-signed cert)
           proxy_ssl_protocols TLSv1.2;
           proxy_ssl_session_reuse on;
