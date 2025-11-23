@@ -56,7 +56,7 @@ TrueNAS VM:
 Chuwi Ubox:
 
 - **CPU:** AMD Ryzen 6600H (6 cores)
-- **RAM:** 16GB DDR5
+- **RAM:** 32GB DDR5
 - **GPU:** AMD Radeon 660M (APU)
 - **Networking:** 2x 2.5Gbps NICs (1 used)
 - **Storage:** `/dev/nvme0n1` 500GB NVMe
