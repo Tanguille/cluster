@@ -106,48 +106,7 @@ spec:
       lifecycle:
         postStartCommand:
           - "/bin/bash"
-          - "-c"
-          - |
-            echo "Installing system dependencies..."
-            apt-get update && apt-get install -y --no-install-recommends \
-              libimage-exiftool-perl \
-              ffmpeg \
-              nodejs \
-              npm \
-              || echo "WARNING: Failed to install some dependencies"
-
-            echo "Waiting for Nextcloud to be ready..."
-            # Wait for Nextcloud to be fully initialized (max 60 seconds)
-            for i in {1..30}; do
-              if su -s /bin/sh www-data -c "php occ status" >/dev/null 2>&1; then
-                echo "Nextcloud is ready"
-                break
-              fi
-              echo "Waiting for Nextcloud... ($i/30)"
-              sleep 2
-            done
-
-            # Configure ffmpeg if available
-            if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
-              FFMPEG_PATH=$(which ffmpeg)
-              FFPROBE_PATH=$(which ffprobe)
-              echo "ffmpeg found at: $FFMPEG_PATH"
-              echo "ffprobe found at: $FFPROBE_PATH"
-
-              # Configure ffmpeg path for Nextcloud previews
-              su -s /bin/sh www-data -c "php occ config:system:set preview_ffmpeg_path --value=\"/usr/bin/ffmpeg\"" || true
-
-              # Configure Memories-specific ffmpeg and ffprobe paths
-              su -s /bin/sh www-data -c "php occ config:app:set memories vod.ffmpeg --value=\"/usr/bin/ffmpeg\"" || true
-              su -s /bin/sh www-data -c "php occ config:app:set memories vod.ffprobe --value=\"/usr/bin/ffprobe\"" || true
-
-              echo "ffmpeg paths configured for Nextcloud and Memories"
-
-              # Run Memories video setup to finalize configuration
-              su -s /bin/sh www-data -c "php occ memories:video-setup" || true
-            else
-              echo "WARNING: ffmpeg or ffprobe not found in PATH"
-            fi
+          - "/scripts/post-start.sh"
 
       phpConfigs:
         www.conf: |
@@ -165,6 +124,11 @@ spec:
           max_execution_time = 600
           default_socket_timeout = 300
           curl.cainfo = /etc/ssl/certs/ca-certificates.crt
+          extension=imagick
+          extension=exif
+          extension=intl
+          extension=gd
+          memory_limit = 8G
 
       configs:
         logging.config.php: |-
@@ -237,6 +201,10 @@ spec:
               'OC\Preview\Krita',
               'OC\Preview\HEIC',
               'OC\Preview\PDF',
+              'OC\Preview\TIFF',
+              'OC\Preview\SVG',
+              'OC\Preview\MP4',
+              'OC\Preview\Movie',
             ),
             'preview_max_x' => 2048,
             'preview_max_y' => 2048,
@@ -286,6 +254,17 @@ spec:
       timeoutSeconds: 10
       failureThreshold: 10
       successThreshold: 1
+
+    extraVolumes:
+      - name: scripts
+        configMap:
+          name: nextcloud-scripts
+          defaultMode: 0755
+
+    extraVolumeMounts:
+      - name: scripts
+        mountPath: /scripts
+        readOnly: true
 
     resources:
       requests:
