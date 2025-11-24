@@ -52,16 +52,17 @@ spec:
     loadBalancer:
       algorithm: maglev
       mode: dsr
-    localRedirectPolicy: true
+    localRedirectPolicies:
+      enabled: true
     operator:
+      replicas: 2
+      rollOutPods: true
       dashboards:
         enabled: true
       prometheus:
         enabled: true
         serviceMonitor:
           enabled: true
-      replicas: 2
-      rollOutPods: true
     pmtuDiscovery:
       enabled: true
     prometheus:
@@ -91,3 +92,6 @@ spec:
           - NET_ADMIN
           - SYS_ADMIN
           - SYS_RESOURCE
+    socketLB:
+      enabled: true
+      hostNamespaceOnly: true
