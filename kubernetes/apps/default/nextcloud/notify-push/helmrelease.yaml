@@ -82,14 +82,14 @@ spec:
                     name: nextcloud-secret
                     key: INIT_POSTGRES_PASS
               - name: LOG
-                value: "debug"
+                value: "info"
             resources:
               requests:
                 cpu: 10m
-                memory: 32Mi
+                memory: 64Mi
               limits:
-                cpu: 100m
-                memory: 128Mi
+                cpu: 200m
+                memory: 256Mi
             probes:
               liveness: &probes
                 enabled: true
