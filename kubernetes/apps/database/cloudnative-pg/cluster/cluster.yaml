@@ -35,8 +35,8 @@ spec:
       # min_wal_size: Default 80MB, increased to reduce WAL recycling overhead
       min_wal_size: 512MB
       # I/O tuning for SSD storage (openebs-hostpath)
-      random_page_cost: 1.1 # Default 4.0 (HDD-oriented), lowered for SSD
-      effective_io_concurrency: 200 # Default 16, increased for SSD parallelism
+      random_page_cost: "1.2" # Default 4.0 (HDD-oriented), lowered for SSD
+      effective_io_concurrency: "50" # Default 16, increased for SSD parallelism
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
