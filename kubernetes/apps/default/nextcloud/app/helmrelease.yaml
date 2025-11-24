@@ -108,6 +108,17 @@ spec:
           - "/bin/bash"
           - "/scripts/post-start.sh"
 
+      extraVolumes:
+        - name: scripts
+          configMap:
+            name: nextcloud-scripts
+            defaultMode: 0755
+
+      extraVolumeMounts:
+        - name: scripts
+          mountPath: /scripts
+          readOnly: true
+
       phpConfigs:
         www.conf: |
           [www]
@@ -254,17 +265,6 @@ spec:
       timeoutSeconds: 10
       failureThreshold: 10
       successThreshold: 1
-
-    extraVolumes:
-      - name: scripts
-        configMap:
-          name: nextcloud-scripts
-          defaultMode: 0755
-
-    extraVolumeMounts:
-      - name: scripts
-        mountPath: /scripts
-        readOnly: true
 
     resources:
       requests:
