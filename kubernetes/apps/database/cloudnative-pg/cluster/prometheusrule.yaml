@@ -65,3 +65,30 @@ spec:
           for: 1m
           labels:
             severity: warning
+        - alert: SlowQuery
+          annotations:
+            description: Query on pod {{ $labels.pod }} has been running for more than 30 seconds
+            summary: A query is taking longer than 30 seconds to execute
+          expr: |-
+            cnpg_backends_max_tx_duration_seconds > 30
+          for: 1m
+          labels:
+            severity: info
+        - alert: VerySlowQuery
+          annotations:
+            description: Query on pod {{ $labels.pod }} has been running for more than 60 seconds
+            summary: A query is taking longer than 60 seconds to execute
+          expr: |-
+            cnpg_backends_max_tx_duration_seconds > 60
+          for: 1m
+          labels:
+            severity: warning
+        - alert: SlowQueryHighFrequency
+          annotations:
+            description: Pod {{ $labels.pod }} has multiple slow queries (avg duration > 5s) occurring frequently
+            summary: Multiple slow queries detected on this pod
+          expr: |-
+            rate(cnpg_backends_max_tx_duration_seconds[5m]) > 5
+          for: 5m
+          labels:
+            severity: warning
