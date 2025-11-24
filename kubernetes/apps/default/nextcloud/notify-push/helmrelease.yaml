@@ -47,9 +47,7 @@ spec:
               - name: PORT
                 value: "7867"
               - name: NEXTCLOUD_URL
-                value: "https://nextcloud.${SECRET_DOMAIN}"
-              - name: REDIS_URL
-                value: "redis://dragonfly.database.svc.cluster.local:6379"
+                value: "http://nextcloud.default.svc.cluster.local:8080"
               - name: LOG
                 value: "warn"
             resources:
