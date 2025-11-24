@@ -10,3 +10,10 @@ resources:
   - nfs-pvc.yaml
   - httproute.yaml
   - ocirepository.yaml
+configMapGenerator:
+  - name: nextcloud-scripts
+    files:
+      - scripts/post-start.sh
+      - scripts/nextcloud-cron.sh
+generatorOptions:
+  disableNameSuffixHash: true
