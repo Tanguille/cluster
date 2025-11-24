@@ -85,21 +85,21 @@ spec:
                 value: "info"
             resources:
               requests:
-                cpu: 20m
-                memory: 128Mi
+                cpu: 10m
+                memory: 32Mi
               limits:
-                cpu: 200m
-                memory: 512Mi
+                cpu: 100m
+                memory: 128Mi
             probes:
               liveness: &probes
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
-                    path: /health
+                    path: /push/test/cookie
                     port: 7867
-                  initialDelaySeconds: 30
-                  periodSeconds: 10
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 3
               readiness: *probes
