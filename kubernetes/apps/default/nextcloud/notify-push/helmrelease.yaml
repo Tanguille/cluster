@@ -39,7 +39,7 @@ spec:
                 chmod +x /usr/local/bin/notify_push
                 echo "Starting notify_push..."
                 # Construct DATABASE_URL from environment variables
-                export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}"
+                export DATABASE_URL="postgres://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@$${POSTGRES_HOST}/$${POSTGRES_DB}"
                 exec /usr/local/bin/notify_push
             ports:
               - name: http
