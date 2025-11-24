@@ -6,8 +6,8 @@ apt-get update && apt-get install -y --no-install-recommends \
   libimage-exiftool-perl \
   ffmpeg \
   imagemagick \
-  libmagickcore-6.q16-6-extra \
-  libmagickwand-6.q16-6 \
+  libmagickcore-7.q16-10-extra \
+  libmagickwand-7.q16-10 \
   nodejs \
   npm \
   || echo "WARNING: Failed to install some dependencies"
