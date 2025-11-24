@@ -18,8 +18,27 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/nextcloud/notify_push
-              tag: v1.2.1
+              repository: alpine
+              tag: "3.19"
+            command:
+              - /bin/sh
+              - -c
+              - |
+                set -e
+                ARCH=$(uname -m)
+                case "$ARCH" in
+                  x86_64) BINARY="notify_push-x86_64-unknown-linux-musl" ;;
+                  aarch64) BINARY="notify_push-aarch64-unknown-linux-musl" ;;
+                  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+                esac
+                echo "Downloading notify_push v1.2.1 for $ARCH..."
+                apk add --no-cache wget ca-certificates
+                wget -q -O /usr/local/bin/notify_push \
+                  "https://github.com/nextcloud/notify_push/releases/download/v1.2.1/$BINARY" || \
+                  (echo "Failed to download binary"; exit 1)
+                chmod +x /usr/local/bin/notify_push
+                echo "Starting notify_push..."
+                exec /usr/local/bin/notify_push
             ports:
               - name: http
                 containerPort: 7867
