@@ -42,6 +42,14 @@ spec:
   hostnames:
     - "nextcloud.${SECRET_DOMAIN}"
   rules:
+    # Route /push/ to notify_push service (must be before catch-all route)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /push/
+      backendRefs:
+        - name: notify-push
+          port: 7867
     - backendRefs: &backendRef
         - name: nextcloud
           port: 8080
