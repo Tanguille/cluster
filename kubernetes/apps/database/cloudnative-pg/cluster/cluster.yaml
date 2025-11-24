@@ -26,6 +26,17 @@ spec:
       # that CloudNativePG doesn't grant for security reasons. The worker method provides similar
       # asynchronous I/O performance using dedicated worker processes instead of io_uring.
       io_method: "worker"
+      # Memory tuning (with 4Gi total - 2Gi hugepages = ~2Gi available)
+      # work_mem: Default 4MB, increased to 8MB for better sort/hash performance with 400 max_connections
+      work_mem: 8MB
+      # maintenance_work_mem: Default 64MB, increased to 256MB for faster VACUUM/CREATE INDEX operations
+      maintenance_work_mem: 256MB
+      # WAL tuning - keeping max_wal_size at default (1GB) to avoid S3 archiving spikes
+      # min_wal_size: Default 80MB, increased to reduce WAL recycling overhead
+      min_wal_size: 512MB
+      # I/O tuning for SSD storage (openebs-hostpath)
+      random_page_cost: 1.1 # Default 4.0 (HDD-oriented), lowered for SSD
+      effective_io_concurrency: 200 # Default 16, increased for SSD parallelism
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
