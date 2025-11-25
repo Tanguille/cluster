@@ -33,14 +33,14 @@ spec:
               - name: FACE_MODEL
                 value: "4"
               - name: GUNICORN_WORKERS
-                value: "8"
+                value: "6"
             resources:
               requests:
                 cpu: 500m
                 memory: 2Gi
               limits:
                 cpu: 4
-                memory: 18Gi
+                memory: 14Gi
             probes:
               liveness: &probes
                 enabled: true
