@@ -48,6 +48,7 @@ spec:
       prometheusSpec:
         externalUrl: https://prometheus.${SECRET_DOMAIN}
         version: v2.55.1 # override 'unsupported Prometheus version' error
+        serviceDiscoveryRole: EndpointSlice
         image:
           registry: docker.io
           repository: prompp/prompp
