@@ -1,0 +1,62 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: facerecognition
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      facerecognition:
+        replicas: 1
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: matiasdelellis/facerecognition-external-model
+              tag: v0.2.0
+            ports:
+              - name: http
+                containerPort: 5000
+                protocol: TCP
+            env:
+              - name: API_KEY
+                valueFrom:
+                  secretKeyRef:
+                    name: nextcloud-secret
+                    key: FACERECOGNITION_API_KEY
+              - name: FACE_MODEL
+                value: "4"
+              - name: GUNICORN_WORKERS
+                value: "4"
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                cpu: 4
+                memory: 8Gi
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /welcome
+                    port: 5000
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+    service:
+      app:
+        controller: facerecognition
+        ports:
+          http:
+            port: 5000

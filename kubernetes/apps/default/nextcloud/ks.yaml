@@ -56,3 +56,25 @@ spec:
     namespace: flux-system
   wait: false
   interval: 30m
+---
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: facerecognition
+  namespace: &namespace default
+spec:
+  targetNamespace: *namespace
+  components:
+    - ../../../../components/common
+  dependsOn:
+    - name: nextcloud
+  path: ./kubernetes/apps/default/nextcloud/facerecognition
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: false
+  interval: 30m
