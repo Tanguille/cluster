@@ -57,4 +57,48 @@ if [ "$MINUTE" = "00" ] && [ "$HOUR" = "03" ] && [ "$(date +%u)" = "7" ]; then
   fi
 fi
 
+# Run Recognize face clustering weekly (Sunday at 4 AM UTC)
+# This is expensive and should run after Memories places setup
+if [ "$MINUTE" = "00" ] && [ "$HOUR" = "04" ] && [ "$(date +%u)" = "7" ]; then
+  if php occ app:list | grep -q "recognize"; then
+    echo "Running Recognize face clustering..."
+    php occ recognize:cluster-faces || echo "WARNING: recognize:cluster-faces failed" >&2
+  fi
+fi
+
+# Run Recognize classification daily (at 3:30 AM UTC, after files:scan and Memories places setup)
+# This processes new files for face recognition and tagging
+# Using --retry flag to only process untagged images (more efficient)
+if [ "$MINUTE" = "30" ] && [ "$HOUR" = "03" ]; then
+  if php occ app:list | grep -q "recognize"; then
+    echo "Running Recognize classification for new files..."
+    php occ recognize:classify --retry || echo "WARNING: recognize:classify failed" >&2
+  fi
+fi
+
+# Run Face Recognition background job (every 15 minutes as recommended by maintainer)
+# Default order: clustering first (Step 5), then new face detection (Steps 6-8)
+# New photos are analyzed in one run and grouped in the next run
+# Manual sorting/naming is preserved - the app won't overwrite manually configured faces
+# The job will stop after 15 minutes (timeout) and continue in the next run
+# This distributes the load and prevents the job from running indefinitely
+if [ "$((MINUTE % 15))" = "0" ]; then
+  if php occ app:list | grep -q "facerecognition"; then
+    echo "Running Face Recognition background job (will stop after 15 minutes)..."
+    # The app has internal locking (LockTask) to prevent concurrent execution
+    # If a previous job is still running, this will fail gracefully due to the lock
+    php occ face:background_job --timeout 900 || echo "WARNING: face:background_job failed (may be locked by another instance)" >&2
+  fi
+fi
+
+# Run Face Recognition album sync (every hour at minute 15)
+# This syncs photo albums in the Photos app with recognized faces
+# Albums are editable in Photos app, but changes are reverted on next sync
+if [ "$MINUTE" = "15" ]; then
+  if php occ app:list | grep -q "facerecognition"; then
+    echo "Running Face Recognition album sync..."
+    php occ face:sync-albums || echo "WARNING: face:sync-albums failed" >&2
+  fi
+fi
+
 echo "Nextcloud cron job completed at $(date)"
