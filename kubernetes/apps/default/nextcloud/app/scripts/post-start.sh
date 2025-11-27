@@ -38,6 +38,8 @@ configure_tool_path() {
 echo "=== Post-start script started at $(date) ==="
 echo "Installing system dependencies..."
 
+export DEBIAN_FRONTEND=noninteractive
+
 # Try to install packages, but don't fail the entire script if some are missing
 if ! apt-get update; then
   echo "ERROR: apt-get update failed" >&2
@@ -45,8 +47,7 @@ if ! apt-get update; then
 fi
 
 # Install packages one by one to see which ones fail
-# Note: Package names may vary by Debian version
-for pkg in libimage-exiftool-perl ffmpeg imagemagick libmagickcore-7.q16-10-extra libmagickwand-7.q16-10 nodejs npm; do
+for pkg in libimage-exiftool-perl ffmpeg imagemagick libmagickcore-7.q16-10 libmagickwand-7.q16-10 nodejs npm; do
   echo "Installing $pkg..."
   if apt-get install -y --no-install-recommends "$pkg" 2>&1; then
     echo "Successfully installed $pkg"
