@@ -48,6 +48,9 @@ spec:
           value: dragonfly.database.svc.cluster.local
         - name: REDIS_HOST_PORT
           value: "6379"
+        # Ensure system binaries are in PATH for proc_open (helps with Memories app)
+        - name: PATH
+          value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
         # PHP-FPM Performance Tuning
         - name: PHP_MEMORY_LIMIT
           value: "8G"
@@ -272,4 +275,4 @@ spec:
         memory: 500Mi
       limits:
         cpu: 4
-        memory: 4Gi
+        memory: 8Gi
