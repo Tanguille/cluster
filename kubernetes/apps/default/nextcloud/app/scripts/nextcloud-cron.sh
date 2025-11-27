@@ -4,6 +4,29 @@ set -u  # Fail on undefined variables
 # Change to Nextcloud directory (required for occ commands)
 cd /var/www/html || { echo "ERROR: Cannot cd to /var/www/html" >&2; exit 1; }
 
+# Helper function to run occ commands with error handling
+run_occ() {
+  local cmd="$1"
+  local warning_msg="${2:-${cmd} failed}"
+  php occ $cmd || echo "WARNING: $warning_msg" >&2
+}
+
+# Helper function to check if an app is installed
+app_installed() {
+  php occ app:list | grep -q "$1"
+}
+
+# Helper function to run occ command if app is installed
+run_if_app_installed() {
+  local app="$1"
+  local cmd="$2"
+  local msg="${3:-Running $app operation...}"
+  if app_installed "$app"; then
+    echo "$msg"
+    run_occ "$cmd"
+  fi
+}
+
 echo "Starting Nextcloud cron job at $(date)"
 
 # Run standard Nextcloud cron (every 5 minutes)
@@ -17,19 +40,15 @@ fi
 # Note: Container timezone may be UTC, adjust hour accordingly
 MINUTE=$(date +%M)
 HOUR=$(date +%H)
+DAY_OF_WEEK=$(date +%u)
 
 # Run database maintenance and cleanup every hour (at minute 0)
 if [ "$MINUTE" = "00" ]; then
   echo "Running hourly maintenance operations..."
-
-  # Database maintenance (safe to run, adds missing indices/keys/columns)
-  php occ db:add-missing-indices || echo "WARNING: db:add-missing-indices failed" >&2
-  php occ db:add-missing-primary-keys || echo "WARNING: db:add-missing-primary-keys failed" >&2
-  php occ db:add-missing-columns || echo "WARNING: db:add-missing-columns failed" >&2
-
-  # File cleanup (removes orphaned file entries)
-  php occ files:cleanup || echo "WARNING: files:cleanup failed" >&2
-
+  run_occ "db:add-missing-indices"
+  run_occ "db:add-missing-primary-keys"
+  run_occ "db:add-missing-columns"
+  run_occ "files:cleanup"
 fi
 
 # Run very expensive operations less frequently (once per day at 2 AM UTC)
@@ -37,42 +56,20 @@ fi
 # Adjust the hour if needed (0-23) - note this is UTC time
 if [ "$MINUTE" = "00" ] && [ "$HOUR" = "02" ]; then
   echo "Running daily expensive maintenance operations..."
-
-  php occ maintenance:repair --include-expensive || echo "WARNING: maintenance:repair failed" >&2
-
-  php occ files:scan --all || echo "WARNING: files:scan --all failed" >&2
-
-  # Run Memories indexing (if Memories app is installed)
-  if php occ app:list | grep -q "memories"; then
-    echo "Running Memories indexing..."
-    php occ memories:index || echo "WARNING: memories:index failed" >&2
-  fi
+  run_occ "maintenance:repair --include-expensive"
+  run_occ "files:scan --all"
+  run_if_app_installed "memories" "memories:index" "Running Memories indexing..."
 fi
 
 # Run Memories places setup weekly (Sunday at 3 AM UTC)
-if [ "$MINUTE" = "00" ] && [ "$HOUR" = "03" ] && [ "$(date +%u)" = "7" ]; then
-  if php occ app:list | grep -q "memories"; then
-    echo "Running Memories places setup..."
-    php occ memories:places-setup || echo "WARNING: memories:places-setup failed" >&2
-  fi
+if [ "$MINUTE" = "00" ] && [ "$HOUR" = "03" ] && [ "$DAY_OF_WEEK" = "7" ]; then
+  run_if_app_installed "memories" "memories:places-setup" "Running Memories places setup..."
 fi
 
 # Run Recognize face clustering weekly (Sunday at 4 AM UTC)
 # This is expensive and should run after Memories places setup
-if [ "$MINUTE" = "00" ] && [ "$HOUR" = "04" ] && [ "$(date +%u)" = "7" ]; then
-  if php occ app:list | grep -q "recognize"; then
-    echo "Running Recognize face clustering..."
-    php occ recognize:cluster-faces || echo "WARNING: recognize:cluster-faces failed" >&2
-  fi
-fi
-
-# Run Recognize classification regularly to queue background jobs
-# This processes new files for face recognition, object detection, audio, and video tagging
-# Using --retry flag to only process untagged files (more efficient)
-# Run every 5 minutes (when cron runs) to keep the queue populated
-if php occ app:list | grep -q "recognize"; then
-  echo "Running Recognize classification to queue background jobs..."
-  php occ recognize:classify --retry || echo "WARNING: recognize:classify failed" >&2
+if [ "$MINUTE" = "00" ] && [ "$HOUR" = "04" ] && [ "$DAY_OF_WEEK" = "7" ]; then
+  run_if_app_installed "recognize" "recognize:cluster-faces" "Running Recognize face clustering..."
 fi
 
 # Run Face Recognition background job (every 15 minutes as recommended by maintainer)
@@ -82,11 +79,11 @@ fi
 # The job will stop after 15 minutes (timeout) and continue in the next run
 # This distributes the load and prevents the job from running indefinitely
 if [ "$((MINUTE % 15))" = "0" ]; then
-  if php occ app:list | grep -q "facerecognition"; then
+  if app_installed "facerecognition"; then
     echo "Running Face Recognition background job (will stop after 15 minutes)..."
     # The app has internal locking (LockTask) to prevent concurrent execution
     # If a previous job is still running, this will fail gracefully due to the lock
-    php occ face:background_job --timeout 900 || echo "WARNING: face:background_job failed (may be locked by another instance)" >&2
+    run_occ "face:background_job --timeout 900" "face:background_job failed (may be locked by another instance)"
   fi
 fi
 
@@ -94,10 +91,7 @@ fi
 # This syncs photo albums in the Photos app with recognized faces
 # Albums are editable in Photos app, but changes are reverted on next sync
 if [ "$MINUTE" = "15" ]; then
-  if php occ app:list | grep -q "facerecognition"; then
-    echo "Running Face Recognition album sync..."
-    php occ face:sync-albums || echo "WARNING: face:sync-albums failed" >&2
-  fi
+  run_if_app_installed "facerecognition" "face:sync-albums" "Running Face Recognition album sync..."
 fi
 
 echo "Nextcloud cron job completed at $(date)"
