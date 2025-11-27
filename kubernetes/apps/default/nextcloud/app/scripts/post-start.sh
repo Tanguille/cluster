@@ -9,7 +9,7 @@ apt-get update && apt-get install -y --no-install-recommends \
   libmagickcore-7.q16-10-extra \
   libmagickwand-7.q16-10 \
   nodejs \
-  npm \
+  npm
 
 echo "Waiting for Nextcloud to be ready..."
 # Wait for Nextcloud to be fully initialized (max 60 seconds)
