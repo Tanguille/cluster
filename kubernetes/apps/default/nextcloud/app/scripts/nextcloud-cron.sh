@@ -66,14 +66,13 @@ if [ "$MINUTE" = "00" ] && [ "$HOUR" = "04" ] && [ "$(date +%u)" = "7" ]; then
   fi
 fi
 
-# Run Recognize classification daily (at 3:30 AM UTC, after files:scan and Memories places setup)
-# This processes new files for face recognition and tagging
-# Using --retry flag to only process untagged images (more efficient)
-if [ "$MINUTE" = "30" ] && [ "$HOUR" = "03" ]; then
-  if php occ app:list | grep -q "recognize"; then
-    echo "Running Recognize classification for new files..."
-    php occ recognize:classify --retry || echo "WARNING: recognize:classify failed" >&2
-  fi
+# Run Recognize classification regularly to queue background jobs
+# This processes new files for face recognition, object detection, audio, and video tagging
+# Using --retry flag to only process untagged files (more efficient)
+# Run every 5 minutes (when cron runs) to keep the queue populated
+if php occ app:list | grep -q "recognize"; then
+  echo "Running Recognize classification to queue background jobs..."
+  php occ recognize:classify --retry || echo "WARNING: recognize:classify failed" >&2
 fi
 
 # Run Face Recognition background job (every 15 minutes as recommended by maintainer)
