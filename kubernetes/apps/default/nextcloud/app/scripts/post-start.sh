@@ -1,5 +1,10 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
+
+# Log all output to a file for debugging (create log dir if needed)
+LOG_FILE="/var/log/post-start.log"
+mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
+exec > >(tee -a "$LOG_FILE") 2>&1
 
 # Helper function to run occ commands as www-data
 run_occ() {
@@ -30,15 +35,25 @@ configure_tool_path() {
   fi
 }
 
+echo "=== Post-start script started at $(date) ==="
 echo "Installing system dependencies..."
-apt-get update && apt-get install -y --no-install-recommends \
-  libimage-exiftool-perl \
-  ffmpeg \
-  imagemagick \
-  libmagickcore-7.q16-10-extra \
-  libmagickwand-7.q16-10 \
-  nodejs \
-  npm
+
+# Try to install packages, but don't fail the entire script if some are missing
+if ! apt-get update; then
+  echo "ERROR: apt-get update failed" >&2
+  exit 1
+fi
+
+# Install packages one by one to see which ones fail
+# Note: Package names may vary by Debian version
+for pkg in libimage-exiftool-perl ffmpeg imagemagick libmagickcore-7.q16-10-extra libmagickwand-7.q16-10 nodejs npm; do
+  echo "Installing $pkg..."
+  if apt-get install -y --no-install-recommends "$pkg" 2>&1; then
+    echo "Successfully installed $pkg"
+  else
+    echo "WARNING: Failed to install $pkg (package may not exist or have a different name)" >&2
+  fi
+done
 
 echo "Waiting for Nextcloud to be ready..."
 # Wait for Nextcloud to be fully initialized (max 60 seconds)
