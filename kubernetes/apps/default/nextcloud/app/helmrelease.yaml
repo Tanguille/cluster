@@ -35,6 +35,18 @@ spec:
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
+        serverBlockCustom: |
+          client_max_body_size 10G;
+          client_body_timeout 300s;
+          fastcgi_buffers 64 4K;
+          fastcgi_read_timeout 3600s;
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
 
     phpClientHttpsFix:
       enabled: true
@@ -42,6 +54,11 @@ spec:
 
     nextcloud:
       datadir: /var/www/data
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
       extraInitContainers:
         - name: init-db
           image: ghcr.io/home-operations/postgres-init:18
@@ -260,7 +277,20 @@ spec:
         existingClaim: nextcloud-pvc
 
     cronjob:
-      enabled: false
+      enabled: true
+      schedule: "*/5 * * * *"
+      command:
+        - /bin/sh
+        - /scripts/nextcloud-cron.sh
+      extraVolumes:
+        - name: scripts
+          configMap:
+            name: nextcloud-scripts
+            defaultMode: 0755
+      extraVolumeMounts:
+        - name: scripts
+          mountPath: /scripts
+          readOnly: true
 
     startupProbe:
       enabled: true
