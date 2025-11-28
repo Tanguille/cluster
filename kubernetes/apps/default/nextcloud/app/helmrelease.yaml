@@ -54,8 +54,6 @@ spec:
 
     nextcloud:
       datadir: /var/www/data
-      cron:
-        enabled: false
       strategy:
         type: RollingUpdate
         rollingUpdate:
@@ -280,19 +278,21 @@ spec:
 
     cronjob:
       enabled: true
-      schedule: "*/5 * * * *"
-      command:
-        - /bin/sh
-        - /scripts/nextcloud-cron.sh
-      extraVolumes:
-        - name: scripts
-          configMap:
-            name: nextcloud-scripts
-            defaultMode: 0755
-      extraVolumeMounts:
-        - name: scripts
-          mountPath: /scripts
-          readOnly: true
+      type: cronjob
+      cronjob:
+        schedule: "*/5 * * * *"
+        command:
+          - /bin/sh
+          - /scripts/nextcloud-cron.sh
+        extraVolumes:
+          - name: scripts
+            configMap:
+              name: nextcloud-scripts
+              defaultMode: 0755
+        extraVolumeMounts:
+          - name: scripts
+            mountPath: /scripts
+            readOnly: true
 
     startupProbe:
       enabled: true
