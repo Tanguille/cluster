@@ -284,6 +284,10 @@ spec:
         command:
           - /bin/sh
           - /scripts/nextcloud-cron.sh
+        securityContext:
+          runAsUser: 33
+          runAsGroup: 33
+          runAsNonRoot: true
         extraVolumes:
           - name: scripts
             configMap:
