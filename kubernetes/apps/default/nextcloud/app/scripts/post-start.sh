@@ -1,38 +1,41 @@
 #!/bin/bash
 set -u
 
-# Setup dual logging: stdout/stderr for postStart hook + log file
 LOG_FILE="/var/log/post-start.log"
 mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
 
-# Function to output to both stdout and log file
 log() {
+  local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
   echo "$*"
-  echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG_FILE" 2>/dev/null || true
+  echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 run_occ() {
-  su -s /bin/sh www-data -c "cd /var/www/html && php occ $*" 2>/dev/null || true
+  local cmd="cd /var/www/html && php occ"
+  for arg in "$@"; do
+    cmd="$cmd $(printf '%q' "$arg")"
+  done
+  su -s /bin/sh www-data -c "$cmd" 2>/dev/null || true
 }
 
 set_config() {
   local type="$1"
   shift
-  run_occ "config:$type:set $*"
+  run_occ "config:$type:set" "$@"
 }
 
-configure_tool() {
+find_tool() {
   local tool="$1"
-  local key="$2"
-  local type="${3:-system}"
-  command -v "$tool" >/dev/null 2>&1 && set_config "$type" "$key" --value="$(command -v "$tool")"
+  local path
+  path=$(command -v "$tool" 2>/dev/null)
+  [ -n "$path" ] && echo "$path" && return
+  find /usr/bin /usr/local/bin -maxdepth 2 -name "$tool" -type f -executable 2>/dev/null | head -1
 }
 
-log "=== Post-start script started at $(date) ==="
-log "Installing system dependencies..."
+log "=== Post-start script started ==="
 
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
+apt-get update -qq || log "WARNING: apt-get update failed"
 
 for pkg in libimage-exiftool-perl ffmpeg imagemagick libmagickcore-7.q16-10 libmagickwand-7.q16-10 nodejs npm; do
   if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
@@ -47,15 +50,23 @@ for i in {1..30}; do
     log "Nextcloud is ready"
     break
   fi
-  [ $i -eq 30 ] && log "WARNING: Nextcloud not ready after 60 seconds"
-  sleep 2
+  [ "$i" -lt 30 ] && sleep 2
 done
+[ "$i" -eq 30 ] && log "WARNING: Nextcloud not ready after 60 seconds"
 
 
 
-# Configure tools and settings
-configure_tool "convert" "preview_imagick_path" "system"
-configure_tool "exiftool" "memories exiftool" "app"
+log "Configuring tools..."
+tool_path=$(find_tool "convert")
+[ -n "$tool_path" ] && set_config "system" "preview_imagick_path" --value="$tool_path"
+
+tool_path=$(find_tool "exiftool")
+if [ -n "$tool_path" ]; then
+  log "Found exiftool at $tool_path"
+  set_config "app" "memories exiftool" --value="$tool_path"
+else
+  log "WARNING: exiftool not found"
+fi
 
 if run_occ "status" >/dev/null 2>&1; then
   set_config "app" "memories enable_transitions" --value="yes"
@@ -63,4 +74,4 @@ if run_occ "status" >/dev/null 2>&1; then
   set_config "app" "memories preview_max_y" --value="2048"
 fi
 
-log "=== Post-start script completed at $(date) ==="
+log "=== Post-start script completed ==="

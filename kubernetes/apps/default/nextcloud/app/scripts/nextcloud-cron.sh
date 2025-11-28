@@ -72,6 +72,11 @@ if [ "$MINUTE" = "00" ] && [ "$HOUR" = "04" ] && [ "$DAY_OF_WEEK" = "7" ]; then
   run_if_app_installed "recognize" "recognize:cluster-faces" "Running Recognize face clustering..."
 fi
 
+# Run Recognize background job (every 5 minutes to process queued files)
+# This processes face recognition, object detection, landmark recognition, and audio tagging queues
+# The app has internal locking to prevent concurrent execution
+run_if_app_installed "recognize" "recognize:background_job" "Running Recognize background job..."
+
 # Run Face Recognition background job (every 15 minutes as recommended by maintainer)
 # Default order: clustering first (Step 5), then new face detection (Steps 6-8)
 # New photos are analyzed in one run and grouped in the next run
