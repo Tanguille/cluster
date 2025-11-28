@@ -29,6 +29,11 @@ run_if_app_installed() {
 
 echo "Starting Nextcloud cron job at $(date)"
 
+if ! run_occ "status" >/dev/null 2>&1; then
+  echo "WARNING: Nextcloud not ready, skipping cron job" >&2
+  exit 0
+fi
+
 # Run standard Nextcloud cron (every 5 minutes)
 # This is the main cron job that Nextcloud requires
 if ! php -f /var/www/html/cron.php; then
