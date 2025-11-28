@@ -24,6 +24,12 @@ spec:
                     - control-1
     image:
       flavor: fpm
+
+    lifecycle:
+      postStartCommand:
+        - "/bin/bash"
+        - "/scripts/post-start.sh"
+
     nginx:
       enabled: true
       config:
@@ -105,11 +111,6 @@ spec:
         runAsUser: 0
         runAsGroup: 0
         fsGroup: 33
-
-      lifecycle:
-        postStartCommand:
-          - "/bin/bash"
-          - "/scripts/post-start.sh"
 
       extraVolumes:
         - name: scripts
