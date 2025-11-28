@@ -75,7 +75,7 @@ fi
 # Run Recognize background job (every 5 minutes to process queued files)
 # This processes face recognition, object detection, landmark recognition, and audio tagging queues
 # The app has internal locking to prevent concurrent execution
-run_if_app_installed "recognize" "recognize:background_job" "Running Recognize background job..."
+run_if_app_installed "recognize" "recognize:recrawl" "Running Recognize background job..."
 
 # Run Face Recognition background job (every 15 minutes as recommended by maintainer)
 # Default order: clustering first (Step 5), then new face detection (Steps 6-8)
