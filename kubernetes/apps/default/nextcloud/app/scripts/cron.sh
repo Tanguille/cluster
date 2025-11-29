@@ -1,5 +1,5 @@
-#!/bin/sh
-set -u  # Fail on undefined variables
+#!/bin/bash
+set -u
 
 # Change to Nextcloud directory (required for occ commands)
 cd /var/www/html || { echo "ERROR: Cannot cd to /var/www/html" >&2; exit 1; }
@@ -8,7 +8,7 @@ cd /var/www/html || { echo "ERROR: Cannot cd to /var/www/html" >&2; exit 1; }
 run_occ() {
   local cmd="$1"
   local warning_msg="${2:-${cmd} failed}"
-  php occ $cmd || echo "WARNING: $warning_msg" >&2
+  php occ "$cmd" || echo "WARNING: $warning_msg" >&2
 }
 
 # Helper function to check if an app is installed
