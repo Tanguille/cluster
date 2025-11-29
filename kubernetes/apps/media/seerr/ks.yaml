@@ -3,25 +3,20 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app jellyseerr
+  name: &app seerr
   namespace: &namespace media
 spec:
-  path: ./kubernetes/apps/media/jellyseerr/app
-  targetNamespace: *namespace
-
   components:
     - ../../../../components/volsync
-  dependsOn:
-    - name: volsync
-      namespace: volsync-system
+  interval: 1h
+  path: ./kubernetes/apps/media/seerr/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
+  targetNamespace: *namespace
   wait: false
-  interval: 30m
-  retryInterval: 1m
   postBuild:
     substitute:
       APP: *app
