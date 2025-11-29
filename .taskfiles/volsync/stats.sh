@@ -36,19 +36,19 @@ print_info() {
 size_to_bytes() {
     local size=$1
     if [[ $size =~ ^([0-9.]+)Ti$ ]]; then
-        echo "$(echo "${BASH_REMATCH[1]} * 1099511627776" | bc | cut -d. -f1)"
+        echo "${BASH_REMATCH[1]} * 1099511627776" | bc | cut -d. -f1
     elif [[ $size =~ ^([0-9.]+)Gi$ ]]; then
-        echo "$(echo "${BASH_REMATCH[1]} * 1073741824" | bc | cut -d. -f1)"
+        echo "${BASH_REMATCH[1]} * 1073741824" | bc | cut -d. -f1
     elif [[ $size =~ ^([0-9.]+)Mi$ ]]; then
-        echo "$(echo "${BASH_REMATCH[1]} * 1048576" | bc | cut -d. -f1)"
+        echo "${BASH_REMATCH[1]} * 1048576" | bc | cut -d. -f1
     elif [[ $size =~ ^([0-9.]+)Ki$ ]]; then
-        echo "$(echo "${BASH_REMATCH[1]} * 1024" | bc | cut -d. -f1)"
+        echo "${BASH_REMATCH[1]} * 1024" | bc | cut -d. -f1
     elif [[ $size =~ ^([0-9.]+)G$ ]]; then
-        echo "$(echo "${BASH_REMATCH[1]} * 1000000000" | bc | cut -d. -f1)"
+        echo "${BASH_REMATCH[1]} * 1000000000" | bc | cut -d. -f1
     elif [[ $size =~ ^([0-9.]+)M$ ]]; then
-        echo "$(echo "${BASH_REMATCH[1]} * 1000000" | bc | cut -d. -f1)"
+        echo "${BASH_REMATCH[1]} * 1000000" | bc | cut -d. -f1
     elif [[ $size =~ ^([0-9.]+)K$ ]]; then
-        echo "$(echo "${BASH_REMATCH[1]} * 1000" | bc | cut -d. -f1)"
+        echo "${BASH_REMATCH[1]} * 1000" | bc | cut -d. -f1
     else
         echo "$size"
     fi
@@ -63,13 +63,13 @@ format_bytes() {
     fi
 
     if [ "$bytes" -ge 1099511627776 ]; then
-        echo "$(echo "scale=2; $bytes / 1099511627776" | bc)Ti"
+        echo "scale=2; $bytes / 1099511627776" | bc | sed 's/$/Ti/'
     elif [ "$bytes" -ge 1073741824 ]; then
-        echo "$(echo "scale=2; $bytes / 1073741824" | bc)Gi"
+        echo "scale=2; $bytes / 1073741824" | bc | sed 's/$/Gi/'
     elif [ "$bytes" -ge 1048576 ]; then
-        echo "$(echo "scale=2; $bytes / 1048576" | bc)Mi"
+        echo "scale=2; $bytes / 1048576" | bc | sed 's/$/Mi/'
     elif [ "$bytes" -ge 1024 ]; then
-        echo "$(echo "scale=2; $bytes / 1024" | bc)Ki"
+        echo "scale=2; $bytes / 1024" | bc | sed 's/$/Ki/'
     else
         echo "${bytes}B"
     fi
