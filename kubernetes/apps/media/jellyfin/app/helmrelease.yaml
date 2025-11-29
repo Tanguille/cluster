@@ -41,6 +41,7 @@ spec:
 
     controllers:
       jellyfin:
+        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -112,7 +113,7 @@ spec:
                 memory: 1Gi
                 nvidia.com/gpu: 1
               limits:
-                memory: 16Gi
+                memory: 8Gi
                 nvidia.com/gpu: 1
     service:
       app:
@@ -151,20 +152,13 @@ spec:
         globalMounts:
           - path: /var/mnt/merged/
 
-      cache:
-        type: emptyDir
-        medium: Memory
-        advancedMounts:
-          jellyfin:
-            app:
-              - path: /cache
-                subPath: cache
-
       tmpfs:
         type: emptyDir
         advancedMounts:
           jellyfin:
             app:
+              - path: /cache
+                subPath: cache
               - path: /config/transcode
                 subPath: transcode
               - path: /config/log
