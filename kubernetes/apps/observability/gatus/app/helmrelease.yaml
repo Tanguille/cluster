@@ -13,6 +13,7 @@ spec:
     controllers:
       gatus:
         type: statefulset
+        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
