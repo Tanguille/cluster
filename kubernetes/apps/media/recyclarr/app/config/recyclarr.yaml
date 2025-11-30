@@ -14,22 +14,38 @@ radarr:
           until_quality: Bluray-2160p
         qualities:
           - name: Bluray-2160p
+            min: 30Gi
+            max: 80Gi
           - name: WEB 2160p
+            min: 15Gi
+            max: 50Gi
             qualities:
               - WEBDL-2160p
               - WEBRip-2160p
           - name: Remux-1080p
+            min: 20Gi
+            max: 40Gi
           - name: Bluray-1080p
+            min: 8Gi
+            max: 30Gi
           - name: WEB 1080p
+            min: 4Gi
+            max: 15Gi
             qualities:
               - WEBDL-1080p
               - WEBRip-1080p
           - name: Bluray-720p
+            min: 4Gi
+            max: 12Gi
           - name: WEB 720p
+            min: 2Gi
+            max: 8Gi
             qualities:
               - WEBDL-720p
               - WEBRip-720p
           - name: DVD
+            min: 1Gi
+            max: 8Gi
 
     include:
       - template: radarr-quality-definition-movie
