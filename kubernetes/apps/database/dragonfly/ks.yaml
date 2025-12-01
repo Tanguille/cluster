@@ -9,7 +9,8 @@ spec:
   targetNamespace: *namespace
   path: ./kubernetes/apps/database/dragonfly/app
   prune: true
-  retryInterval: 2m
+  retryInterval: 1m
+  timeout: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -29,7 +30,8 @@ spec:
     - name: dragonfly
   path: ./kubernetes/apps/database/dragonfly/cluster
   prune: true
-  retryInterval: 2m
+  retryInterval: 30s
+  timeout: 5m
   sourceRef:
     kind: GitRepository
     name: flux-system
