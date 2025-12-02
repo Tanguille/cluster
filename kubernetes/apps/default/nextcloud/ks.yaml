@@ -45,9 +45,11 @@ spec:
     - ../../../../components/common
   dependsOn:
     - name: nextcloud
+      readyExpr: >
+        dep.status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True') &&
+        dep.metadata.generation == dep.status.observedGeneration
   path: ./kubernetes/apps/default/nextcloud/notify-push
   prune: true
-  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -67,9 +69,11 @@ spec:
     - ../../../../components/common
   dependsOn:
     - name: nextcloud
+      readyExpr: >
+        dep.status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True') &&
+        dep.metadata.generation == dep.status.observedGeneration
   path: ./kubernetes/apps/default/nextcloud/facerecognition
   prune: true
-  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
