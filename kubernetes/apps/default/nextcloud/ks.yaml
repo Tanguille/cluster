@@ -45,9 +45,6 @@ spec:
     - ../../../../components/common
   dependsOn:
     - name: nextcloud
-      readyExpr: >
-        dep.status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True') &&
-        dep.metadata.generation == dep.status.observedGeneration
   path: ./kubernetes/apps/default/nextcloud/notify-push
   prune: true
   sourceRef:
@@ -69,9 +66,6 @@ spec:
     - ../../../../components/common
   dependsOn:
     - name: nextcloud
-      readyExpr: >
-        dep.status.conditions.filter(e, e.type == 'Ready').all(e, e.status == 'True') &&
-        dep.metadata.generation == dep.status.observedGeneration
   path: ./kubernetes/apps/default/nextcloud/facerecognition
   prune: true
   sourceRef:
