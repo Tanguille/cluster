@@ -56,4 +56,3 @@ After configuring OPNsense and applying the Cilium BGP configuration:
 - Verify node IPs are correct
 - Check Cilium logs: `kubectl logs -n kube-system -l name=cilium-operator`
 - Check BGP status in Cilium: `kubectl get ciliumbgppeeringpolicy bgp-peering-policy -o yaml`
-
