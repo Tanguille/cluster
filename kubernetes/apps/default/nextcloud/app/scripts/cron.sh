@@ -93,7 +93,7 @@ if [ "$((MINUTE % 15))" = "0" ]; then
     echo "Running Face Recognition background job (will stop after 15 minutes)..."
     # The app has internal locking (LockTask) to prevent concurrent execution
     # If a previous job is still running, this will fail gracefully due to the lock
-    run_occ "face:background_job --timeout 900" "face:background_job failed (may be locked by another instance)"
+    run_occ "face:background_job" "face:background_job failed (may be locked by another instance)"
   fi
 fi
 
