@@ -15,9 +15,10 @@ spec:
           divisor: 1Mi
   args:
     - --maxmemory=$(MAX_MEMORY)Mi
-    - --proactor_threads=2
+    - --cache_mode=true
     - --cluster_mode=emulated
     - --lock_on_hashtags
+    - --proactor_threads=4
     - --default_lua_flags=allow-undeclared-keys
     - --admin_port=9999
   resources:
