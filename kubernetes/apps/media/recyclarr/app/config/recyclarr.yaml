@@ -37,27 +37,35 @@ radarr:
         - name: Bluray-2160p
           min: 30720
           max: 81920
+          preferred: 61440
         - name: WEB 2160p
           min: 15360
           max: 51200
+          preferred: 40960
         - name: Remux-1080p
           min: 20480
           max: 40960
+          preferred: 30720
         - name: Bluray-1080p
           min: 8192
           max: 30720
+          preferred: 20480
         - name: WEB 1080p
           min: 4096
           max: 15360
+          preferred: 10240
         - name: Bluray-720p
           min: 4096
           max: 12288
+          preferred: 8192
         - name: WEB 720p
           min: 2048
           max: 8192
+          preferred: 5120
         - name: DVD
           min: 1024
           max: 8192
+          preferred: 4096
 
     include:
       - template: radarr-quality-definition-movie
