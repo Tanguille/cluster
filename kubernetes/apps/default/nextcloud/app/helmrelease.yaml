@@ -74,32 +74,6 @@ spec:
         # Ensure system binaries are in PATH for proc_open (helps with Memories app)
         - name: PATH
           value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-        # PHP-FPM Performance Tuning
-        - name: PHP_MEMORY_LIMIT
-          value: "8G"
-        - name: PHP_UPLOAD_LIMIT
-          value: "10G"
-        - name: PHP_POST_MAX_SIZE
-          value: "10G"
-        - name: PHP_FPM_PM
-          value: "dynamic"
-        - name: PHP_FPM_PM_MAX_CHILDREN
-          value: "120"
-        - name: PHP_FPM_PM_START_SERVERS
-          value: "12"
-        - name: PHP_FPM_PM_MIN_SPARE_SERVERS
-          value: "6"
-        - name: PHP_FPM_PM_MAX_SPARE_SERVERS
-          value: "18"
-        - name: PHP_FPM_PM_MAX_REQUESTS
-          value: "500"
-        # OPcache optimization
-        - name: OPCACHE_MEMORY_CONSUMPTION
-          value: "512"
-        - name: OPCACHE_MAX_ACCELERATED_FILES
-          value: "20000"
-        - name: OPCACHE_REVALIDATE_FREQ
-          value: "60"
 
       existingSecret:
         enabled: true
@@ -147,10 +121,10 @@ spec:
           group = www-data
           listen = 127.0.0.1:9000
           pm = dynamic
-          pm.max_children = 50
-          pm.start_servers = 12
-          pm.min_spare_servers = 6
-          pm.max_spare_servers = 18
+          pm.max_children = 4
+          pm.start_servers = 4
+          pm.min_spare_servers = 2
+          pm.max_spare_servers = 4
           request_terminate_timeout = 600
         php.ini: |
           max_execution_time = 600
@@ -161,6 +135,9 @@ spec:
           extension=intl
           extension=gd
           memory_limit = 8G
+          opcache.memory_consumption = 512
+          opcache.max_accelerated_files = 20000
+          opcache.revalidate_freq = 60
 
       configs:
         logging.config.php: |-
@@ -281,6 +258,9 @@ spec:
       type: cronjob
       cronjob:
         schedule: "*/5 * * * *"
+        ttlSecondsAfterFinished: 3600
+        failedJobsHistoryLimit: 1
+        successfulJobsHistoryLimit: 2
         command:
           - /bin/sh
           - /scripts/cron.sh
@@ -312,4 +292,4 @@ spec:
         memory: 500Mi
       limits:
         cpu: 4
-        memory: 8Gi
+        memory: 12Gi
