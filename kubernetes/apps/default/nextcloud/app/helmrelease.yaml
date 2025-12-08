@@ -125,6 +125,7 @@ spec:
           pm.start_servers = 4
           pm.min_spare_servers = 2
           pm.max_spare_servers = 4
+          pm.max_requests = 800
           request_terminate_timeout = 600
         php.ini: |
           max_execution_time = 600
@@ -261,6 +262,9 @@ spec:
         ttlSecondsAfterFinished: 3600
         failedJobsHistoryLimit: 1
         successfulJobsHistoryLimit: 2
+        env:
+          - name: MAIL_FROM_ADDRESS
+            value: ${FROM_ADDRESS}
         command:
           - /bin/sh
           - /scripts/cron.sh
