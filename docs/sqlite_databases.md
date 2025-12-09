@@ -4,19 +4,11 @@ This file lists all SQLite databases found across the cluster, organized by name
 
 ## Namespace: media
 
-### bazarr
-
-- **Path**: `/config/db/bazarr.db`
-- **Status**: ⏳ Not migrated
-- **PostgreSQL Support**: ✅ Yes
-- **Notes**: Uses different env var format than Servarr apps (`POSTGRES_ENABLED`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`)
-- **Migration**: Requires manual database creation + pgloader for data migration
-
 ### cross-seed
 
 - **Path**: `/config/cross-seed.db`
 - **Status**: ⏳ Not migrated
-- **PostgreSQL Support**: ❓ Unknown - needs verification
+- **PostgreSQL Support**: ❌ No (SQLite only)
 - **Notes**: Cross-seeding tool for Radarr/Sonarr
 
 ### jellyfin
@@ -61,18 +53,8 @@ This file lists all SQLite databases found across the cluster, organized by name
 
 - **Path**: `/data/database/database.db`
 - **Status**: ⏳ Not migrated
-- **PostgreSQL Support**: ❓ Unknown - needs verification
+- **PostgreSQL Support**: ❌ No (SQLite only)
 - **Notes**: User management database for Jellyfin
-
-## Namespace: ai
-
-### n8n
-
-- **Path**: Not found in standard locations (likely in `/home/node/.n8n`)
-- **Status**: ⏳ Not migrated
-- **PostgreSQL Support**: ✅ Yes (native support)
-- **Notes**: Uses `DB_SQLITE_VACUUM_ON_STARTUP` and `DB_SQLITE_POOL_SIZE` env vars, not worth to migrate since I barely use it
-- **Migration**: Requires PostgreSQL env vars (`DB_TYPE=postgresdb`, `DB_POSTGRESDB_HOST`, `DB_POSTGRESDB_DATABASE`, etc.)
 
 ## Namespace: default
 
@@ -95,27 +77,15 @@ This file lists all SQLite databases found across the cluster, organized by name
 
 ### PostgreSQL Support Status
 
-#### ✅ Supports PostgreSQL (Can Migrate)
-
-1. **bazarr** - ✅ Supports PostgreSQL (since v1.1.5-beta.8)
-   - Uses env vars: `POSTGRES_ENABLED`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD`
-   - Requires manual database creation + pgloader migration
-2. **n8n** - ✅ Supports PostgreSQL (native support)
-   - Uses env vars: `DB_TYPE=postgresdb`, `DB_POSTGRESDB_HOST`, `DB_POSTGRESDB_DATABASE`, etc.
-   - Note: User marked as "not worth migrating" (low usage)
-
 #### ❌ Does NOT Support PostgreSQL (Cannot Migrate)
 
 1. **jellyfin** - ❌ No PostgreSQL support (waiting for feature)
    - Playback reporting and introskipper plugins use SQLite only
 2. **qbittorrent** - ❌ SQLite only (no PostgreSQL support)
 3. **trilium** - ❌ SQLite only (no PostgreSQL support)
-
-#### ❓ Unknown PostgreSQL Support (Needs Verification)
-
-1. **cross-seed** - ❓ Unknown - needs verification
-2. **music-assistant** - ❓ Unknown - needs verification
-3. **wizarr** - ❓ Unknown - needs verification
+4. **cross-seed** - ❌ SQLite only (no PostgreSQL support)
+5. **music-assistant** - ❌ SQLite only (no PostgreSQL support)
+6. **wizarr** - ❌ SQLite only (no PostgreSQL support)
 
 ### Notes
 
