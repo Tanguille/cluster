@@ -8,7 +8,7 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  interval: 1h
+  interval: 15m
   values:
     controllers:
       kopia:
@@ -17,8 +17,8 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/home-operations/kopia
-              tag: 0.22.3@sha256:eeebd12fd4b3a9c25b9f711fff32454f62e2d5e2d431ab6806ad21c52f414807
+              repository: ghcr.io/joryirving/kopia
+              tag: 0.22.3@sha256:2e18ecdb07d4901994bc64d688f2b60c46108a7d0f57e524dff6a834dbf152f6
             env:
               KOPIA_WEB_ENABLED: true
               KOPIA_WEB_PORT: &port 80
@@ -54,8 +54,8 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsGroup: 100
+        fsGroup: 100
         fsGroupChangePolicy: OnRootMismatch
     service:
       app:
@@ -64,8 +64,7 @@ spec:
             port: *port
     route:
       app:
-        hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-internal
             namespace: network
@@ -92,6 +91,7 @@ spec:
         globalMounts:
           - path: /config/repository.config
             subPath: repository.config
+            readOnly: true
       repository:
         type: nfs
         server: ${TRUENAS_IP}
