@@ -21,9 +21,6 @@ spec:
             image:
               repository: ghcr.io/heathcliff26/speedtest-exporter
               tag: v1.3.0
-            args:
-              - -config
-              - /config/config.yaml
             probes:
               liveness:
                 enabled: false
@@ -44,10 +41,6 @@ spec:
             runAsGroup: 1000
             runAsUser: 1000
             runAsNonRoot: true
-    persistence:
-      config:
-        type: configMap
-        identifier: config
     service:
       speedtest-exporter:
         controller: speedtest-exporter
