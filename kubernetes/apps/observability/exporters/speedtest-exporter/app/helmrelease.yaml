@@ -40,6 +40,7 @@ spec:
           securityContext:
             runAsGroup: 1000
             runAsUser: 1000
+            fsGroup: 1000
             runAsNonRoot: true
     service:
       speedtest-exporter:
@@ -60,3 +61,10 @@ spec:
               - sourceLabels: [job]
                 targetLabel: job
                 replacement: "integrations/speedtest"
+    persistence:
+      cache:
+        type: emptyDir
+        advancedMounts:
+          speedtest-exporter:
+            speedtest-exporter:
+              - path: /cache
