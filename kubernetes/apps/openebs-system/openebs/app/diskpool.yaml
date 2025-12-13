@@ -22,11 +22,7 @@ metadata:
 spec:
   node: control-2
   # AirDisk 512GB SSD (nvme0n1 - spare drive)
-  # WWID: nvme.1e4b-51454e343735573031313031385031313239-4169724469736b20353132474220535344-00000001
-  disks:
-    [
-      "/dev/disk/by-id/nvme-1e4b-51454e343735573031313031385031313239-4169724469736b20353132474220535344-00000001",
-    ]
+  disks: ["/dev/disk/by-id/nvme-AirDisk_512GB_SSD_QEN475W011018P1129"]
 ---
 apiVersion: openebs.io/v1beta3
 kind: DiskPool
@@ -36,8 +32,4 @@ metadata:
 spec:
   node: control-3
   # AirDisk 512GB SSD (nvme1n1)
-  # WWID: nvme.1e4b-51454e343735573030353135305031313239-4169724469736b20353132474220535344-00000001
-  disks:
-    [
-      "/dev/disk/by-id/nvme-1e4b-51454e343735573030353135305031313239-4169724469736b20353132474220535344-00000001",
-    ]
+  disks: ["/dev/disk/by-id/nvme-AirDisk_512GB_SSD_QEN475W005150P1129"]
