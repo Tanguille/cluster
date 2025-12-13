@@ -24,12 +24,19 @@ spec:
       io_engine:
         nodeSelector:
           openebs.io/engine: mayastor
+        # coreList is the ONLY way to limit CPU usage
+        # Mayastor uses busy polling which bypasses Kubernetes CPU limits
+        # The -l argument in the pod args controls which cores are used
+        # Setting this to [4] limits it to 1 core instead of 2
+        coreList: [4]
         resources:
           requests:
-            cpu: 100m
+            cpu: "1"
+            memory: "1Gi"
+            hugepages-2Mi: 2Gi
           limits:
-            cpu: 1
-            memory: 1Gi
+            cpu: "1"
+            memory: "1Gi"
             hugepages-2Mi: 2Gi
       etcd:
         persistence:
