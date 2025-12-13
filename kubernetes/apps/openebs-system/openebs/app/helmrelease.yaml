@@ -24,8 +24,7 @@ spec:
       io_engine:
         nodeSelector:
           openebs.io/engine: mayastor
-        cpuCount: 1
-        coreList: [3]
+        envcontext: "iova-mode=pa"
       etcd:
         persistence:
           enabled: true
