@@ -24,6 +24,12 @@ spec:
       io_engine:
         nodeSelector:
           openebs.io/engine: mayastor
+          requests:
+            cpu: 100m
+          limits:
+            cpu: 1
+            memory: 1Gi
+            hugepages-2Mi: 2Gi
       etcd:
         persistence:
           enabled: true
