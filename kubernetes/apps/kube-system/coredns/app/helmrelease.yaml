@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -13,13 +13,13 @@ spec:
     fullnameOverride: coredns
     image:
       repository: mirror.gcr.io/coredns/coredns
+    replicaCount: 2
     k8sAppLabelOverride: kube-dns
     serviceAccount:
       create: true
     service:
       name: kube-dns
-      clusterIP: "10.43.0.10"
-    replicaCount: 2
+      clusterIP: 10.43.0.10
     servers:
       - zones:
           - zone: .
