@@ -1,10 +1,10 @@
 machine:
   network:
     nameservers:
-      - 1.1.1.1
-      - 1.0.0.1
+      - 192.168.0.1 # OPNsense Unbound
+      - 1.1.1.1 # Cloudflare DNS fallback
   features:
     hostDNS:
       enabled: true
       resolveMemberNames: true
-      forwardKubeDNSToHost: true
+      forwardKubeDNSToHost: false
