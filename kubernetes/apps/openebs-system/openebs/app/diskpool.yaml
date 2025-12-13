@@ -1,0 +1,43 @@
+---
+# Mayastor DiskPools for all three control plane nodes
+# Note: Device paths will need to be verified after ZVOL creation for control-1
+# and stable device IDs should be used from /dev/disk/by-id/ for all nodes
+
+apiVersion: openebs.io/v1beta2
+kind: DiskPool
+metadata:
+  name: pool-control-1
+  namespace: openebs-system
+spec:
+  node: control-1
+  # ZVOL from TrueNAS (vdc - 537GB)
+  # WWID: AvfDV3Mq
+  disks: ["/dev/disk/by-id/virtio-AvfDV3Mq"]
+---
+apiVersion: openebs.io/v1beta2
+kind: DiskPool
+metadata:
+  name: pool-control-2
+  namespace: openebs-system
+spec:
+  node: control-2
+  # AirDisk 512GB SSD (nvme0n1 - spare drive)
+  # WWID: nvme.1e4b-51454e343735573031313031385031313239-4169724469736b20353132474220535344-00000001
+  disks:
+    [
+      "/dev/disk/by-id/nvme-1e4b-51454e343735573031313031385031313239-4169724469736b20353132474220535344-00000001",
+    ]
+---
+apiVersion: openebs.io/v1beta2
+kind: DiskPool
+metadata:
+  name: pool-control-3
+  namespace: openebs-system
+spec:
+  node: control-3
+  # AirDisk 512GB SSD (nvme1n1)
+  # WWID: nvme.1e4b-51454e343735573030353135305031313239-4169724469736b20353132474220535344-00000001
+  disks:
+    [
+      "/dev/disk/by-id/nvme-1e4b-51454e343735573030353135305031313239-4169724469736b20353132474220535344-00000001",
+    ]
