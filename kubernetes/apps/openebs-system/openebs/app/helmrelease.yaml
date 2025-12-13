@@ -24,6 +24,10 @@ spec:
       io_engine:
         nodeSelector:
           openebs.io/engine: mayastor
+      etcd:
+        persistence:
+          enabled: true
+          storageClass: openebs-hostpath
     loki:
       enabled: false
     alloy:
