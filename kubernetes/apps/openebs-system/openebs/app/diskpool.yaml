@@ -3,7 +3,7 @@
 # Note: Device paths will need to be verified after ZVOL creation for control-1
 # and stable device IDs should be used from /dev/disk/by-id/ for all nodes
 
-apiVersion: openebs.io/v1beta2
+apiVersion: openebs.io/v1beta3
 kind: DiskPool
 metadata:
   name: pool-control-1
@@ -14,7 +14,7 @@ spec:
   # WWID: AvfDV3Mq
   disks: ["/dev/disk/by-id/virtio-AvfDV3Mq"]
 ---
-apiVersion: openebs.io/v1beta2
+apiVersion: openebs.io/v1beta3
 kind: DiskPool
 metadata:
   name: pool-control-2
@@ -28,7 +28,7 @@ spec:
       "/dev/disk/by-id/nvme-1e4b-51454e343735573031313031385031313239-4169724469736b20353132474220535344-00000001",
     ]
 ---
-apiVersion: openebs.io/v1beta2
+apiVersion: openebs.io/v1beta3
 kind: DiskPool
 metadata:
   name: pool-control-3
