@@ -24,12 +24,10 @@ nodes:
     installDisk: "/dev/vda"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/9b3e16c22ad85296cb6b63d344104e78c5df5359aaad4dd18b61886db2d16438
+    talosImageURL: factory.talos.dev/installer/c8074f1e77e2f4ce278647e55ac9f60869e48d616592790a2bfe8b4aa0392904
     controlPlane: true
     patches:
       - "@./patches/control-1/nvidia-gpu.yaml"
-      - "@./patches/control-1/zfs.yaml"
-      - "@./patches/control-1/labels.yaml"
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "00:16:3e:97:0e:d8"
@@ -85,7 +83,6 @@ nodes:
 patches:
   - "@./patches/global/machine-files.yaml"
   - "@./patches/global/machine-kubelet.yaml"
-  - "@./patches/global/machine-lvm.yaml"
   - "@./patches/global/machine-network.yaml"
   - "@./patches/global/machine-sysctls.yaml"
   - "@./patches/global/machine-time.yaml"
