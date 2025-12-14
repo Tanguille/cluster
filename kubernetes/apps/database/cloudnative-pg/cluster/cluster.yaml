@@ -12,7 +12,7 @@ spec:
   primaryUpdateStrategy: unsupervised
   storage:
     size: 20Gi
-    storageClass: openebs-hostpath
+    storageClass: openebs-lvm
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
@@ -43,7 +43,7 @@ spec:
       autovacuum_vacuum_cost_limit: "2000"
       autovacuum_vacuum_cost_delay: "5ms"
       default_statistics_target: "200"
-      # I/O tuning for NVMe (openebs-hostpath)
+      # I/O tuning for NVMe/LVM (openebs-lvm)
       random_page_cost: "1.1" # Default 4.0 (HDD-oriented), lowered for SSD/NVMe
       effective_io_concurrency: "200" # Default 16, increased for NVMe parallelism
   nodeMaintenanceWindow:
