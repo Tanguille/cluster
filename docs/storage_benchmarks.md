@@ -34,6 +34,34 @@ Keep in mind these are not scientific benchmarks, since the cluster is not dedic
 
 For hardware specifications, see the [README](../README.md).
 
+## FIO Commands Used
+
+All benchmarks use the same fio commands with the following test scenarios:
+
+**Sequential Write Test (1MB blocks, 4 jobs):**
+
+```bash
+fio --name=seq-write --filename=/volume/test-seq-write --size=10G --rw=write --bs=1M --iodepth=16 --numjobs=4 --direct=1 --sync=0 --runtime=30 --time_based --group_reporting
+```
+
+**Sequential Read Test (1MB blocks, 4 jobs):**
+
+```bash
+fio --name=seq-read --filename=/volume/test-seq-write --size=10G --rw=read --bs=1M --iodepth=16 --numjobs=4 --direct=1 --sync=0 --runtime=30 --time_based --group_reporting
+```
+
+**Random Write Test (4KB blocks, 16 jobs):**
+
+```bash
+fio --name=rand-write --filename=/volume/test-rand-write --size=10G --rw=randwrite --bs=4k --iodepth=32 --numjobs=16 --direct=1 --sync=0 --runtime=30 --time_based --group_reporting
+```
+
+**Random Read Test (4KB blocks, 16 jobs):**
+
+```bash
+fio --name=rand-read --filename=/volume/test-rand-write --size=10G --rw=randread --bs=4k --iodepth=32 --numjobs=16 --direct=1 --sync=0 --runtime=30 --time_based --group_reporting
+```
+
 ---
 
 ## OpenEBS Mayastor (Single Replica)
