@@ -14,16 +14,7 @@ spec:
     engines:
       local:
         lvm:
-          enabled: true
-          lvmNode:
-            nodeSelector:
-              storage.lvm/available: "true"
-          crds:
-            lvmLocalPv:
-              enabled: true
-            csi:
-              volumeSnapshots:
-                enabled: true
+          enabled: false
         zfs:
           enabled: true
       replicated:
