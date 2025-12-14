@@ -19,16 +19,7 @@ spec:
           enabled: true
       replicated:
         mayastor:
-          enabled: true
-    mayastor:
-      io_engine:
-        nodeSelector:
-          openebs.io/engine: mayastor
-        envcontext: "iova-mode=pa"
-      etcd:
-        persistence:
-          enabled: true
-          storageClass: mayastor-etcd-localpv
+          enabled: false
     loki:
       enabled: false
     alloy:
@@ -38,7 +29,7 @@ spec:
     openebs-crds:
       csi:
         volumeSnapshots:
-          enabled: true
+          enabled: false
     localpv-provisioner:
       localpv:
         image:
