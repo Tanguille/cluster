@@ -56,8 +56,17 @@ spec:
               set -euo pipefail
 
               # Install LVM tools (only if not present - cached after first run)
+              # Note: apk may show errors about /etc/lvm (mounted from host), but tools will still install
               if ! command -v vgs &>/dev/null; then
-                apk add --no-cache --quiet lvm2 util-linux coreutils
+                # Suppress non-fatal errors about /etc/lvm (host mount prevents config file updates)
+                # These errors occur because /etc/lvm is mounted from host, but tools still install
+                apk add --no-cache --quiet lvm2 util-linux coreutils 2>&1 | grep -vE "(failed to rename|errors updating)" || true
+                # Verify tools are actually available (apk may exit non-zero due to config file errors)
+                if ! command -v vgs &>/dev/null || ! command -v pvcreate &>/dev/null || ! command -v vgcreate &>/dev/null; then
+                  echo "✗ ERROR: Failed to install LVM tools"
+                  exit 1
+                fi
+                echo "✓ LVM tools installed successfully"
               fi
 
               # Check if VG already exists
@@ -118,11 +127,14 @@ spec:
                   # Skip if this is the base device itself (shouldn't happen, but be safe)
                   [ "$part_name" = "$dev_name" ] && continue
 
-                  # Check if partition name starts with device name (handles nvme0n1 -> nvme0n1p1)
-                  case "$part_name" in
-                    ${dev_name}*) ;;
-                    *) continue ;;  # Not a partition of this device
-                  esac
+              # Check if partition name starts with device name (handles nvme0n1 -> nvme0n1p1)
+              case "$part_name" in
+                ${dev_name}*)
+                  # This is a partition of our device, continue to check if it's in use
+                  ;;
+                *)
+                  continue ;;  # Not a partition of this device, skip
+              esac
 
                   part_dev="/dev/$part_name"
                   # If partition is mounted, device is in use
