@@ -2,19 +2,13 @@ cluster:
   allowSchedulingOnControlPlanes: true
   apiServer:
     admissionControl:
-      - name: PodSecurity
-        configuration:
-          apiVersion: pod-security.admission.config.k8s.io/v1beta1
-          kind: PodSecurityConfiguration
-          exemptions:
-            namespaces:
-              - openebs-system
+      $$patch: delete
+    disablePodSecurityPolicy: true
     extraArgs:
       # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
       enable-aggregator-routing: true
-      feature-gates: MutatingAdmissionPolicy=true
+      feature-gates: ImageVolume=true,MutatingAdmissionPolicy=true
       runtime-config: admissionregistration.k8s.io/v1beta1=true
-    disablePodSecurityPolicy: true
   controllerManager:
     extraArgs:
       bind-address: 0.0.0.0
