@@ -21,13 +21,47 @@
     "**/*.json5": "json5"
   },
   "files.trimTrailingWhitespace": true,
+  "material-icon-theme.files.associations": {
+    "*.gotmpl": "smarty",
+    "*.sops.yaml": "lock",
+    "helmfile.yaml": "helm",
+    "kubeconfig": "kubernetes",
+    "talosconfig": "kubernetes"
+  },
+  "material-icon-theme.folders.associations": {
+    // top level
+    ".github/workflows": "ci",
+    ".private": "archive",
+    ".renovate": "robot",
+    "bootstrap": "seeders",
+    "bootstrap/helmfile.d": "helm",
+    "flux": "pipe",
+    "talos": "linux",
+    // namespaces
+    "actions-runner-system": "github",
+    "cert-manager": "guard",
+    "default": "home",
+    "external-secrets": "secure",
+    "flux-system": "pipe",
+    "kube-system": "kubernetes",
+    "network": "connection",
+    "observability": "event",
+    "openebs-system": "base",
+    "rook-ceph": "dump",
+    "system-upgrade": "update",
+    "volsync-system": "aws"
+  },
   "sops.defaults.ageKeyFile": "age.key",
   "vs-kubernetes": {
-    "vs-kubernetes.kubeconfig": "/home/tanguille/cluster/kubeconfig",
-    "vs-kubernetes.knownKubeconfigs": ["/home/tanguille/cluster/kubeconfig"]
+    "vs-kubernetes.kubeconfig": "./kubeconfig",
+    "vs-kubernetes.knownKubeconfigs": ["./kubeconfig"]
   },
+  "window.zoomLevel": 0,
   "yaml.schemaStore.enable": true,
   "yaml.schemas": {
     "kubernetes": "./kubernetes/**/*.yaml"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "bluebrown.yamlfmt"
   }
 }
