@@ -75,7 +75,7 @@ spec:
         statefulset:
           volumeClaimTemplates:
             - name: config
-              storageClass: openebs-hostpath
+              storageClass: ceph-block
               accessMode: ReadWriteOnce
               size: 5Gi
     defaultPodOptions:
