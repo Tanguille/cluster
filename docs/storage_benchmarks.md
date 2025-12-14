@@ -4,6 +4,10 @@ This document contains performance benchmarks comparing OpenEBS Mayastor, OpenEB
 
 ## Test Methodology
 
+This document contains two sets of benchmarks:
+
+### fio Benchmarks (10GB Test Size)
+
 All benchmarks were performed using `fio` (Flexible I/O Tester) with the following test scenarios:
 
 1. **Sequential Write**: 1MB blocks, 4 parallel jobs, 30 second runtime
@@ -11,7 +15,11 @@ All benchmarks were performed using `fio` (Flexible I/O Tester) with the followi
 3. **Random Write**: 4KB blocks, 16 parallel jobs, 30 second runtime
 4. **Random Read**: 4KB blocks, 16 parallel jobs, 30 second runtime
 
-All tests use direct I/O (`direct=1`) to bypass page cache and measure true storage performance.
+All tests use direct I/O (`direct=1`) to bypass page cache and measure true storage performance. Test file size: 10GB.
+
+### kbench Benchmarks (30GB Test Size)
+
+Some storage backends were also tested using `kbench` (Longhorn's Kubernetes storage benchmarking tool) with a 30GB test size. kbench uses standardized fio configurations and provides a consistent testing methodology. kbench provides average latency only (not percentiles).
 
 Keep in mind these are not scientific benchmarks, since the cluster is not dedicated to the benchmarks there were random other workloads running on the cluster. This is just a rough idea of the performance of the storage solutions and it's intrinsic characteristics to make a decision on what to use when.
 
@@ -26,7 +34,9 @@ Keep in mind these are not scientific benchmarks, since the cluster is not dedic
     - control-3: AirDisk 512GB SSD
   - **ZFS**: OpenEBS ZFS LocalPV on ZFS pool "speed"
   - **Ceph**: Rook Ceph with RBD (block storage) and CephFS
-- **Volume Size**: 20Gi for all tests
+- **Volume Size**:
+  - fio tests: 20Gi volumes with 10GB test files
+  - kbench tests: 33Gi volumes with 30GB test files
 - **Date**: December 13-14, 2025
 - **Mayastor CPU Configuration**:
   - **2-core tests**: Default configuration with 2 CPU cores per IO engine
@@ -34,7 +44,142 @@ Keep in mind these are not scientific benchmarks, since the cluster is not dedic
 
 For hardware specifications, see the [README](../README.md).
 
-## FIO Commands Used
+## kbench Benchmark Results (30GB Test Size)
+
+**Note**: These results were obtained using `kbench` (Longhorn's Kubernetes storage benchmarking tool).
+
+### OpenEBS ZFS LocalPV (kbench)
+
+**StorageClass**: `openebs-zfs`
+**Test Size**: 30GB
+**Test Node**: control-1
+
+#### Sequential Write
+
+- **Throughput**: 86 MiB/s (90 MB/s)
+- **IOPS**: 19,712
+- **Average Latency**: 0.018 ms (18 usec)
+
+#### Sequential Read
+
+- **Throughput**: 561 MiB/s (588 MB/s)
+- **IOPS**: 6,960
+- **Average Latency**: 0.137 ms
+
+#### Random Write (4KB blocks)
+
+- **Throughput**: 81 MiB/s (85 MB/s)
+- **IOPS**: 1,337
+- **Average Latency**: 0.893 ms
+
+#### Random Read (4KB blocks)
+
+- **Throughput**: 500 MiB/s (524 MB/s)
+- **IOPS**: 4,889
+- **Average Latency**: 0.203 ms
+
+### Rook Ceph (RBD - Block Storage) (kbench)
+
+**StorageClass**: `ceph-block`
+**Test Size**: 30GB
+**Test Node**: control-1
+
+#### Sequential Write
+
+- **Throughput**: 168 MiB/s (176 MB/s)
+- **IOPS**: 3,848
+- **Average Latency**: 8.645 ms
+
+#### Sequential Read
+
+- **Throughput**: 650 MiB/s (681 MB/s)
+- **IOPS**: 7,395
+- **Average Latency**: 0.275 ms
+
+#### Random Write (4KB blocks)
+
+- **Throughput**: 183 MiB/s (192 MB/s)
+- **IOPS**: 3,699
+- **Average Latency**: 9.284 ms
+
+#### Random Read (4KB blocks)
+
+- **Throughput**: 760 MiB/s (797 MB/s)
+- **IOPS**: 27,464
+- **Average Latency**: 0.316 ms
+
+### Rook Ceph (CephFS - Filesystem Storage) (kbench)
+
+**StorageClass**: `ceph-filesystem`
+**Test Size**: 30GB
+**Test Node**: control-1
+
+#### Sequential Write
+
+- **Throughput**: 166 MiB/s (174 MB/s)
+- **IOPS**: 3,844
+- **Average Latency**: 8.630 ms
+
+#### Sequential Read
+
+- **Throughput**: 820 MiB/s (860 MB/s)
+- **IOPS**: 7,654
+- **Average Latency**: 0.275 ms
+
+#### Random Write (4KB blocks)
+
+- **Throughput**: 178 MiB/s (186 MB/s)
+- **IOPS**: 3,650
+- **Average Latency**: 9.274 ms
+
+#### Random Read (4KB blocks)
+
+- **Throughput**: 761 MiB/s (798 MB/s)
+- **IOPS**: 29,208
+- **Average Latency**: 0.311 ms
+
+---
+
+## kbench Performance Comparison
+
+| Metric | ZFS | Ceph RBD | CephFS | Winner | Difference |
+|--------|-----|----------|--------|--------|------------|
+| **Sequential Write** | 86 MiB/s | 168 MiB/s | 166 MiB/s | **Ceph RBD** | **1.95x faster** |
+| **Sequential Read** | 561 MiB/s | 650 MiB/s | 820 MiB/s | **CephFS** | **1.46x faster** |
+| **Random Write IOPS** | 1,337 | 3,699 | 3,650 | **Ceph RBD** | **2.77x faster** |
+| **Random Read IOPS** | 4,889 | 27,464 | 29,208 | **CephFS** | **5.98x faster** |
+| **Sequential Write Latency** | 0.018 ms | 8.645 ms | 8.630 ms | **ZFS** | **480x lower** |
+| **Sequential Read Latency** | 0.137 ms | 0.275 ms | 0.275 ms | **ZFS** | **2.0x lower** |
+| **Random Write Latency** | 0.893 ms | 9.284 ms | 9.274 ms | **ZFS** | **10.4x lower** |
+| **Random Read Latency** | 0.203 ms | 0.316 ms | 0.311 ms | **ZFS** | **1.56x lower** |
+
+### kbench Key Findings
+
+**ZFS Advantages:**
+
+- **Ultra-low latency across all operations**: 10-480x lower latency than Ceph solutions
+- **Best sequential write latency**: 0.018 ms (18 usec) - 480x lower than Ceph
+- **Consistent low latency**: Best latency for all I/O patterns
+- **Trade-off**: Lower throughput and IOPS compared to Ceph solutions
+
+**Ceph RBD Advantages:**
+
+- **Best sequential write throughput**: 168 MiB/s (1.95x faster than ZFS)
+- **Good sequential read**: 650 MiB/s (16% faster than ZFS)
+- **High random write IOPS**: 3,699 (2.77x higher than ZFS)
+- **High random read IOPS**: 27,464 (5.6x higher than ZFS)
+- **Trade-off**: Much higher latency (8-10x higher) than ZFS
+
+**CephFS Advantages:**
+
+- **Best sequential read throughput**: 820 MiB/s (1.46x faster than Ceph RBD, 1.46x faster than ZFS)
+- **Best random read IOPS**: 29,208 (6x higher than ZFS, 6% higher than Ceph RBD)
+- **ReadWriteMany support**: Can be mounted by multiple pods simultaneously
+- **Trade-off**: Similar high latency to Ceph RBD (8-10x higher than ZFS)
+
+## FIO
+
+### FIO Commands Used
 
 All benchmarks use the same fio commands with the following test scenarios:
 
@@ -61,8 +206,6 @@ fio --name=rand-write --filename=/volume/test-rand-write --size=10G --rw=randwri
 ```bash
 fio --name=rand-read --filename=/volume/test-rand-write --size=10G --rw=randread --bs=4k --iodepth=32 --numjobs=16 --direct=1 --sync=0 --runtime=30 --time_based --group_reporting
 ```
-
----
 
 ## OpenEBS Mayastor (Single Replica)
 
@@ -309,11 +452,12 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 
 ### Sequential Read (1MB blocks, 4 jobs)
 
-- **Throughput**: 6,906 MiB/s (7,242 MB/s)
-- **IOPS**: 6,906
+- **Throughput**: 6,906 MiB/s (7,242 MB/s) ⚠️ *Likely cached*
+- **IOPS**: 6,906 ⚠️ *Likely cached*
 - **Average Latency**: 0.58 ms
 - **50th Percentile Latency**: 0.18 ms
 - **99th Percentile Latency**: 7.18 ms
+- **Note**: Read 202GiB from a 10GB file, indicating cache hits
 
 ### Random Write (4KB blocks, 16 jobs)
 
@@ -325,11 +469,12 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 
 ### Random Read (4KB blocks, 16 jobs)
 
-- **Throughput**: 6,537 MiB/s (6,855 MB/s)
-- **IOPS**: 1,674,000 (1.67M IOPS)
+- **Throughput**: 6,537 MiB/s (6,855 MB/s) ⚠️ *Likely cached*
+- **IOPS**: 1,674,000 (1.67M IOPS) ⚠️ *Likely cached*
 - **Average Latency**: 0.009 ms (8.9 usec)
 - **50th Percentile Latency**: 0.0019 ms (1.9 usec)
 - **99th Percentile Latency**: 0.212 ms (212 usec)
+- **Note**: Read 192GiB from a 10GB file, indicating cache hits
 
 ---
 
@@ -377,18 +522,16 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 
 ## Performance Comparison
 
-**Note**: Results are from benchmarks using separate test files and 20Gi volumes to ensure fair, complete comparisons.
-
 | Metric | Mayastor (Single) | Mayastor (3-Replica) | ZFS | Ceph RBD | CephFS | Winner | Difference |
 |--------|------------------|---------------------|-----|----------|--------|--------|------------|
 | **Sequential Write** | 2,158 MiB/s | 129 MiB/s | 132 MiB/s | 94.6 MiB/s | 127 MiB/s | **Mayastor (Single)** | **22.8x faster** |
-| **Sequential Read** | 3,573 MiB/s | 2,784 MiB/s | 4,711 MiB/s | 6,906 MiB/s | 867 MiB/s | **Ceph RBD** | **1.5x faster** |
+| **Sequential Read** | 3,573 MiB/s | 2,784 MiB/s | 4,711 MiB/s | 6,906 MiB/s ⚠️ | 867 MiB/s | **Ceph RBD** ⚠️ | **1.5x faster** (cached) |
 | **Random Write IOPS** | 32,000 | 5,030 | 9,237 | 862 | 953 | **Mayastor (Single)** | **37.1x faster** |
-| **Random Read IOPS** | 102,000 | 265,000 | 59,300 | 1,674,000 | 22,200 | **Ceph RBD** | **75.5x faster** |
+| **Random Read IOPS** | 102,000 | 265,000 | 59,300 | 1,674,000 ⚠️ | 22,200 | **Ceph RBD** ⚠️ | **75.5x faster** (cached) |
 | **Random Write Latency (p50)** | 0.33 ms | 0.96 ms | 0.052 ms | 15 ms | 14 ms | **ZFS** | **269x lower** |
-| **Random Read Latency (p50)** | 0.17 ms | 0.0026 ms | 0.21 ms | 0.0019 ms | 0.60 ms | **Ceph RBD** | **1.4x lower** |
+| **Random Read Latency (p50)** | 0.17 ms | 0.0026 ms | 0.21 ms | 0.0019 ms ⚠️ | 0.60 ms | **Ceph RBD** ⚠️ | **1.4x lower** (cached) |
 | **Sequential Write Latency (p50)** | 1.35 ms | 31 ms | 9.9 ms | 31 ms | 30 ms | **Mayastor (Single)** | **22x lower** |
-| **Sequential Read Latency (p50)** | 1.07 ms | 0.1 ms | 0.59 ms | 0.18 ms | 5 ms | **Mayastor (3-Replica)** | **50x lower** |
+| **Sequential Read Latency (p50)** | 1.07 ms | 0.1 ms | 0.59 ms | 0.18 ms ⚠️ | 5 ms | **Mayastor (3-Replica)** | **50x lower** |
 
 ---
 
@@ -457,9 +600,10 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 
 **RBD (Block Storage):**
 
-- **Exceptional Sequential Read Performance**: 6,906 MiB/s (1.5x faster than ZFS, 1.9x faster than Mayastor single-replica)
-- **Ultra-High Random Read IOPS**: 1,674,000 IOPS (6.3x higher than Mayastor 3-replica, 28x higher than ZFS)
+- **Exceptional Sequential Read Performance**: 6,906 MiB/s ⚠️ *Likely cached* (1.5x faster than ZFS, 1.9x faster than Mayastor single-replica)
+- **Ultra-High Random Read IOPS**: 1,674,000 IOPS ⚠️ *Likely cached* (6.3x higher than Mayastor 3-replica, 28x higher than ZFS)
 - **Ultra-Low Random Read Latency**: 0.0019 ms (1.4x lower than Mayastor 3-replica, 110x lower than ZFS)
+- **⚠️ Cache Warning**: Read performance numbers are likely inflated due to Ceph's internal cache serving data after write tests
 - **High Availability**: Built-in 3-replica replication with automatic failover
 - **Enterprise-Grade**: Mature, production-tested distributed storage system
 - **Scalability**: Can scale to thousands of nodes and petabytes of storage
@@ -473,9 +617,10 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 
 **Choose Ceph RBD when:**
 
-- **Ultra-high random read performance** - 1.67M IOPS (6.3x higher than Mayastor 3-replica, 28x higher than ZFS)
+- **Ultra-high random read performance** - 1.67M IOPS ⚠️ *Likely cached* (6.3x higher than Mayastor 3-replica, 28x higher than ZFS)
 - **Ultra-low random read latency** - 0.0019 ms (1.4x lower than Mayastor 3-replica)
-- **Exceptional sequential read performance** - 6,906 MiB/s (best among all tested solutions)
+- **Exceptional sequential read performance** - 6,906 MiB/s ⚠️ *Likely cached* (best among all tested solutions)
+- **Note**: Read performance numbers are likely inflated due to Ceph's cache. Actual disk performance would be lower.
 - **High availability and scalability** - enterprise-grade distributed storage with automatic replication
 - **Multi-protocol support** - need both block (RBD) and filesystem (CephFS) access
 - **Large-scale deployments** - can scale to thousands of nodes
