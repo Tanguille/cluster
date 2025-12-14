@@ -27,7 +27,7 @@ spec:
       containers:
         - name: lvm-setup
           # Alpine is small and LVM install is fast; script is idempotent so only runs once
-          image: alpine:3.19
+          image: alpine:3.23
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
