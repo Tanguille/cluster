@@ -2,8 +2,6 @@
 
 This document contains performance benchmarks comparing OpenEBS Mayastor, OpenEBS ZFS, and Rook Ceph storage solutions.
 
-For hardware specifications, see the [README](../README.md).
-
 ## Test Methodology
 
 All benchmarks were performed using `fio` (Flexible I/O Tester) with the following test scenarios:
@@ -33,6 +31,8 @@ Keep in mind these are not scientific benchmarks, since the cluster is not dedic
 - **Mayastor CPU Configuration**:
   - **2-core tests**: Default configuration with 2 CPU cores per IO engine
   - **1-core tests**: Optimized configuration with `cpuCount: 1` and `coreList: [3]` to reduce CPU usage by 50%
+
+For hardware specifications, see the [README](../README.md).
 
 ---
 

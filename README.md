@@ -36,8 +36,8 @@ Welcome to my `fluxcd` kubernetes cluster running on `talos`. This is based on t
 This is a 3-node control plane Kubernetes cluster running on Talos Linux. All nodes serve as both control plane and worker nodes.
 
 - **CNI:** Cilium
-- **Storage:** OpenEBS mayastor, hostpath, zfs
-- **Networking:** Cloudflare Tunnel, External DNS, Envoy Gateway
+- **Storage:** Rook Ceph + OpenEBS Hostpath (migrating away from OpenEBS ZFS)
+- **Networking:** Cloudflare Tunnel, External DNS, Envoy Gateway, k8s-gateway
 
 ## Nodes
 
@@ -52,7 +52,7 @@ TrueNAS VM:
 - **Storage:** Samsung PM983 2TB nvme
   - Boot ZVOL: 500GB
   - ZFS ZVOL: 500GB
-  - Mayastor ZVOL: 500GB
+  - Ceph ZVOL: 500GB
 
 ### Control Plane 2 & 3
 
