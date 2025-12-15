@@ -75,7 +75,8 @@ spec:
         nodes:
           - name: control-1
             devices:
-              - name: /dev/disk/by-id/virtio-AvfDV3Mq
+              - name: /dev/disk/by-id/virtio-AvfDV3Mq  # Old zvol (to be removed after migration)
+              - name: /dev/disk/by-id/virtio-ZF6YrnfZ  # New optimized zvol
             config:
               osdsPerDevice: "1"
           - name: control-2
