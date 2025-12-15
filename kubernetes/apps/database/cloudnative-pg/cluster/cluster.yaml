@@ -19,8 +19,8 @@ spec:
   postgresql:
     parameters:
       max_connections: "400"
-      shared_buffers: 2GB
-      effective_cache_size: 4GB
+      shared_buffers: 1GB
+      effective_cache_size: 3GB
       huge_pages: "try"
       # io_method: "io_uring" # Disabled: CloudNativePG runs PostgreSQL containers with capabilities: { drop: ["ALL"] }
       # which prevents io_uring from working. io_uring requires specific Linux capabilities (SYS_RESOURCE)
@@ -52,7 +52,7 @@ spec:
   resources:
     requests:
       cpu: 500m
-      memory: 2Gi
+      memory: 1Gi
     limits:
       cpu: 4
       memory: 8Gi
