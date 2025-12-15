@@ -36,11 +36,6 @@ spec:
                 containerPort: 18089
               - name: zmq
                 containerPort: 18083
-            securityContext:
-              # allow fixuid (setuid binary) to run; required by simple-monerod image
-              allowPrivilegeEscalation: true
-              readOnlyRootFilesystem: false
-              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 1
@@ -49,9 +44,6 @@ spec:
                 memory: 8Gi
     defaultPodOptions:
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
     service:
