@@ -19,11 +19,16 @@ spec:
               repository: ghcr.io/sethforprivacy/p2pool
               tag: latest
             args:
-              - "--host=monerod.default.svc.cluster.local"
-              - "--rpc-port=18089"
-              - "--wallet=$(P2POOL_WALLET_ADDRESS)"
-              - "--stratum=0.0.0.0:3333"
-              - "--p2p=0.0.0.0:37888"
+              - "--host"
+              - "monerod.default.svc.cluster.local"
+              - "--rpc-port"
+              - "18089"
+              - "--wallet"
+              - "$(P2POOL_WALLET_ADDRESS)"
+              - "--stratum"
+              - "0.0.0.0:3333"
+              - "--p2p"
+              - "0.0.0.0:37888"
               - "--mini"
               # optional: reduce RAM
               # - "--light-mode"

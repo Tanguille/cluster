@@ -37,7 +37,8 @@ spec:
               - name: zmq
                 containerPort: 18083
             securityContext:
-              allowPrivilegeEscalation: false
+              # allow fixuid (setuid binary) to run; required by simple-monerod image
+              allowPrivilegeEscalation: true
               readOnlyRootFilesystem: false
               capabilities: { drop: ["ALL"] }
             resources:
