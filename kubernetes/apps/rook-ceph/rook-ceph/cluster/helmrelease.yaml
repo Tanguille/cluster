@@ -68,7 +68,7 @@ spec:
       resources:
         osd:
           requests:
-            cpu: 750m
+            cpu: 1
             memory: 4Gi
           limits:
             memory: 6Gi
@@ -104,7 +104,11 @@ spec:
         spec:
           failureDomain: host
           replicated:
-            size: 3
+            size: 2
+            minSize: 1
+          parameters:
+            compression_mode: aggressive
+            compression_algorithm: zstd
         storageClass:
           enabled: true
           name: ceph-block
@@ -136,11 +140,16 @@ spec:
         spec:
           metadataPool:
             replicated:
-              size: 3
+              size: 2
+              minSize: 1
           dataPools:
             - failureDomain: host
               replicated:
-                size: 3
+                size: 2
+                minSize: 1
+              parameters:
+                compression_mode: aggressive
+                compression_algorithm: zstd
               name: data0
           metadataServer:
             activeCount: 1
