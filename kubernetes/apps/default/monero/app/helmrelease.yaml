@@ -69,7 +69,9 @@ spec:
             targetPort: zmq
     persistence:
       data:
-        accessMode: ReadWriteOnce
+        type: persistentVolumeClaim
+        storageClass: ceph-filesystem
+        accessMode: ReadWriteMany
         size: 200Gi
         retain: true
         globalMounts:
