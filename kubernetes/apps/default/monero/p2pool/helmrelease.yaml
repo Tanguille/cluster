@@ -72,7 +72,8 @@ spec:
             targetPort: p2p
     persistence:
       data:
-        accessMode: ReadWriteOnce
+        storageClass: ceph-filesystem
+        accessMode: ReadWriteMany
         size: 10Gi
         retain: true
         globalMounts:
