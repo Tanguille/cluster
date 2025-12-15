@@ -68,9 +68,18 @@ spec:
       resources:
         osd:
           requests:
+            cpu: 750m
             memory: 2Gi
           limits:
             memory: 6Gi
+        mon:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        mgr:
+          requests:
+            cpu: 250m
+            memory: 1Gi
       storage:
         useAllNodes: false
         useAllDevices: false
