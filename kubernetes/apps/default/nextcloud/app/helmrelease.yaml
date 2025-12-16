@@ -262,6 +262,15 @@ spec:
         ttlSecondsAfterFinished: 3600
         failedJobsHistoryLimit: 1
         successfulJobsHistoryLimit: 2
+        affinity:
+          podAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: nextcloud
+                    app.kubernetes.io/instance: nextcloud
+                    app.kubernetes.io/component: app
+                topologyKey: kubernetes.io/hostname
         env:
           - name: MAIL_FROM_ADDRESS
             value: ${FROM_ADDRESS}
