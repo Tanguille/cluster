@@ -41,8 +41,6 @@ metadata:
   namespace: &namespace default
 spec:
   targetNamespace: *namespace
-  components:
-    - ../../../../components/common
   dependsOn:
     - name: nextcloud
   path: ./kubernetes/apps/default/nextcloud/notify-push
@@ -62,8 +60,6 @@ metadata:
   namespace: &namespace default
 spec:
   targetNamespace: *namespace
-  components:
-    - ../../../../components/common
   dependsOn:
     - name: nextcloud
   path: ./kubernetes/apps/default/nextcloud/facerecognition
