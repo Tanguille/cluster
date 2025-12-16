@@ -9,6 +9,13 @@
 kubectl autons <command>
 ```
 
+## Generate schematic
+
+```bash
+curl -X POST --data-binary @talos/schematic.yaml \
+        https://factory.talos.dev/schematics
+```
+
 ## Pod management
 
 ```bash
@@ -243,28 +250,3 @@ done
 - Value `4294967295` typically indicates a virtual interface or unknown speed
 - Physical interfaces will show their actual link speed (e.g., 1000, 2500, 10000)
 - Cilium virtual interfaces (cilium_host, cilium_net) may show speeds but are virtual
-
-## Talos Upgrades
-
-When upgrading a single-node Talos cluster, you may encounter permission issues with node draining. The solution is to use the `--stage` flag which stages the upgrade to be performed after a reboot, avoiding the drain operation:
-
-```bash
-# Stage a Talos upgrade for single-node clusters
-talosctl --nodes <node-name> upgrade \
-  --image="factory.talos.dev/installer/<schematic-id>:<version>" \
-  --stage \
-  --force
-
-# Example:
-talosctl --nodes control-1 upgrade \
-  --image="factory.talos.dev/installer/42dcbb7542e7f2d53beec866d4687f9306cd2b2da3b049fb4872cfc41942723e:v1.9.1" \
-  --stage \
-  --force
-```
-
-### Notes
-
-- The `--stage` flag is helpful for single-node clusters to avoid drain permission issues
-- `--force` is needed to skip etcd health checks which would fail on single-node setups
-- Don't use `--timeout` as it only applies to `--debug` or `--wait` operations
-- Always ensure you have proper backups before upgrading
