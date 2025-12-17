@@ -39,10 +39,11 @@ spec:
                 containerPort: 18083
             resources:
               requests:
-                cpu: 1
-                memory: 2Gi
+                cpu: 200m
+                memory: 1Gi
               limits:
-                memory: 6Gi
+                cpu: 1
+                memory: 4Gi
     defaultPodOptions:
       securityContext:
         fsGroup: 1000
