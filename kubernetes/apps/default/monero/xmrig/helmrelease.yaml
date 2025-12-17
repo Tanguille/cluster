@@ -24,13 +24,31 @@ spec:
               - "p2pool.default.svc.cluster.local:3333"
               - "-k"
               - "--coin=monero"
+              # Prefer huge pages (2Mi) and try 1Gi pages (falls back automatically).
+              - "--huge-pages"
+              - "--randomx-1gb-pages"
+              # Ryzen 5 6600H is 6C/12T; RandomX typically prefers ~physical cores.
+              - "--cpu-max-threads-hint=50"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
+                add: ["IPC_LOCK"]
             resources:
               requests:
-                cpu: "2"
+                cpu: 4
                 memory: 2Gi
               limits:
-                cpu: "4"
+                cpu: 4
                 memory: 4Gi
+                hugepages-2Mi: 3Gi
+    persistence:
+      tmp:
+        type: emptyDir
+        medium: Memory
+        globalMounts:
+          - path: /tmp
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
