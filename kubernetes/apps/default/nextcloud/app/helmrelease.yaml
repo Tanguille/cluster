@@ -55,10 +55,7 @@ spec:
     nextcloud:
       datadir: /var/www/data
       strategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxSurge: 1
-          maxUnavailable: 0
+        type: Recreate
       extraInitContainers:
         - name: init-db
           image: ghcr.io/home-operations/postgres-init:18
