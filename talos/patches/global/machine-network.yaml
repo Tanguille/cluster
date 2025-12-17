@@ -2,7 +2,8 @@ machine:
   network:
     nameservers:
       - 192.168.0.1 # OPNsense Unbound
-      - 1.1.1.1 # Cloudflare DNS fallback
+      - 1.1.1.1 # Cloudflare
+      - 8.8.8.8 # Google
   features:
     hostDNS:
       enabled: true
