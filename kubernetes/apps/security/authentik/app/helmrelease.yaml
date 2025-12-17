@@ -1,0 +1,70 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: authentik
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: authentik
+  interval: 1h
+  values:
+    global:
+      deploymentAnnotations:
+        reloader.stakater.com/auto: "true"
+      env:
+        - name: AUTHENTIK_LISTEN__TRUSTED_PROXY_CIDRS
+          value: 10.42.0.0/16
+        - name: AUTHENTIK_STORAGE__MEDIA__BACKEND
+          value: file
+      envFrom:
+        - secretRef:
+            name: authentik-secret
+      volumeMounts:
+        - name: media
+          mountPath: /media
+          subPath: media
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: authentik
+    #geoip:
+    #  enabled: true
+    #  existingSecret:
+    #    secretName: authentik-secret
+    #    accountId: GEOIP_ACCOUNT_ID
+    #    licenseKey: GEOIP_LICENSE_KEY
+    prometheus:
+      rules:
+        enabled: true
+    server:
+      metrics:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+      resources:
+        requests:
+          cpu: 20m
+          memory: 512Mi
+        limits:
+          memory: 1Gi
+      route:
+        main:
+          enabled: true
+          hostnames:
+            - auth.hyde.services
+          parentRefs:
+            - name: envoy-cloudflare
+              namespace: network
+    worker:
+      metrics:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+      resources:
+        requests:
+          cpu: 50m
+          memory: 1Gi
+        limits:
+          memory: 2Gi

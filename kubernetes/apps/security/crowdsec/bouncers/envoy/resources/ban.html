@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Access Denied</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      :root {
+        --bg: rgba(51, 118, 208);
+        --text: #ffffff;
+        --surface: rgba(0, 0, 0, 0.15);
+        --surface-2: rgba(0, 0, 0, 0.25);
+        --outline: rgba(255, 255, 255, 0.28);
+        --radius-lg: 16px;
+        --radius-md: 12px;
+        --elev-1: 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 3px rgba(0, 0, 0, 0.12);
+        --elev-2: 0 3px 6px rgba(0, 0, 0, 0.22), 0 2px 4px rgba(0, 0, 0, 0.12);
+        --elev-3: 0 6px 10px rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.12);
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme]) {
+          --bg: rgba(76, 148, 245);
+          --text: #000000;
+          --surface: rgba(255, 255, 255, 0.3);
+          --surface-2: rgba(255, 255, 255, 0.25);
+          --outline: rgba(0, 0, 0, 0.18);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background-color: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", "Segoe UI Symbol", "Calibri", Roboto, Arial,
+          Helvetica, sans-serif;
+        line-height: 1.4;
+        overflow-x: hidden;
+      }
+
+      .main {
+        min-height: 100%;
+        display: grid;
+        align-content: center;
+        justify-items: start;
+        padding: clamp(20px, 4vw, 48px);
+        gap: clamp(20px, 4vw, 32px);
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .emoji {
+        font-size: clamp(72px, 15vw, 160px);
+        user-select: none;
+      }
+
+      h1 {
+        margin: 0 0 clamp(8px, 2vw, 12px);
+        font-weight: 700;
+        font-size: clamp(24px, 4vw, 42px);
+        letter-spacing: 0.2px;
+        line-height: 1.1;
+        color: var(--text);
+      }
+
+      .lede {
+        margin: 0;
+        font-size: clamp(16px, 2.8vw, 22px);
+        color: var(--text);
+        line-height: 1.5;
+        font-weight: 400;
+      }
+
+      .layout {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: clamp(16px, 3vw, 24px);
+      }
+
+      @media (min-width: 768px) {
+        .layout {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (min-width: 1024px) {
+        .layout {
+          gap: 28px;
+        }
+      }
+
+      .card {
+        position: relative;
+        background: var(--surface);
+        border-radius: var(--radius-lg);
+        padding: clamp(16px, 4vw, 24px) clamp(18px, 4vw, 28px);
+        box-shadow: var(--elev-1);
+        border: 1px solid var(--outline);
+        transition: transform 0.18s ease, box-shadow 0.18s ease,
+          border-color 0.18s ease, background-color 0.18s ease;
+        will-change: transform, box-shadow;
+        overflow: clip;
+      }
+
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.06);
+        pointer-events: none;
+      }
+
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme]) .card::before {
+          background: rgba(255, 255, 255, 0.1);
+        }
+      }
+
+      .card:hover {
+        box-shadow: var(--elev-2);
+      }
+      .card:active {
+        box-shadow: var(--elev-1);
+      }
+
+      .card:focus-within {
+        box-shadow: var(--elev-3);
+        border-color: rgba(0, 0, 0, 0.25);
+      }
+
+      .card h2 {
+        margin: 0 0 clamp(12px, 3vw, 16px);
+        font-size: clamp(14px, 3.5vw, 18px);
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text);
+      }
+
+      .kv {
+        display: grid;
+        grid-template-columns: clamp(0px, 16vw, 110px) 1fr;
+        gap: clamp(6px, 2vw, 10px) clamp(12px, 3vw, 18px);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: clamp(13px, 3vw, 15px);
+        color: var(--text);
+        word-break: break-word;
+        white-space: pre-wrap;
+        line-height: 1.45;
+      }
+
+      @media (max-width: 480px) {
+        .kv {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+        .kv .k {
+          font-weight: 700;
+          margin-top: 8px;
+        }
+        .kv .k:first-child {
+          margin-top: 0;
+        }
+      }
+
+      .btn {
+        appearance: none;
+        border: 1px solid var(--outline);
+        background: var(--surface-2);
+        color: var(--text);
+        padding: clamp(12px, 3vw, 14px) clamp(16px, 4vw, 20px);
+        border-radius: var(--radius-md);
+        font-weight: 700;
+        cursor: pointer;
+        font-size: clamp(14px, 3.5vw, 16px);
+        min-height: 44px;
+        min-width: 44px;
+        transition: transform 0.08s ease, box-shadow 0.18s ease, filter 0.18s ease,
+          border-color 0.18s ease, background-color 0.18s ease;
+        box-shadow: var(--elev-1);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn:hover {
+        box-shadow: var(--elev-2);
+      }
+      .btn:active {
+        transform: translateY(1px);
+        box-shadow: var(--elev-1);
+      }
+      .btn:focus {
+        outline: 2px solid rgba(0, 0, 0, 0.25);
+        outline-offset: 2px;
+      }
+      .btn:focus:not(:focus-visible) {
+        outline: none;
+      }
+
+      .actions {
+        display: flex;
+        gap: clamp(8px, 2vw, 12px);
+        flex-wrap: wrap;
+        margin-top: clamp(12px, 3vw, 16px);
+      }
+
+      @media (max-width: 480px) {
+        .actions {
+          flex-direction: column;
+        }
+        .actions .btn {
+          width: 100%;
+          text-align: center;
+        }
+      }
+
+      .blink {
+        position: relative;
+        display: inline-block;
+      }
+      .blink::after {
+        content: "|";
+        margin-left: 6px;
+        animation: caret 1.2s steps(1, end) infinite;
+        color: var(--text);
+      }
+
+      @keyframes caret {
+        0%,
+        49% {
+          opacity: 1;
+        }
+        50%,
+        100% {
+          opacity: 0;
+        }
+      }
+
+      .help-list {
+        margin: 0 0 clamp(6px, 2vw, 8px) clamp(16px, 4vw, 20px);
+        padding: 0;
+        line-height: 1.5;
+      }
+
+      .help-list li {
+        margin-bottom: clamp(8px, 2vw, 12px);
+        font-size: clamp(14px, 3.2vw, 16px);
+      }
+      .help-list li:last-child {
+        margin-bottom: 0;
+      }
+
+      .help-list code {
+        background: rgba(255, 255, 255, 0.15);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.9em;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+
+      ::selection {
+        background: rgba(0, 0, 0, 0.2);
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="main" role="main" aria-labelledby="page-title">
+      <div>
+        <div class="emoji" aria-hidden="true">:(</div>
+        <h1 id="page-title" class="blink">Request Rejected</h1>
+        <p class="lede">This request was blocked by an automated security policy.</p>
+      </div>
+
+      <div class="layout">
+        <section class="card" aria-labelledby="summary-title">
+          <h2 id="summary-title">Summary</h2>
+          <div class="kv" id="summary-kv">
+            {{ with .Action }}{{ if ne . "ban" }}<div class="k">Action</div><div class="v">{{ . }}</div>{{ end }}{{ end }}
+            {{ with .Reason }}{{ if ne . "ban" }}<div class="k">Reason</div><div class="v">{{ . }}</div>{{ end }}{{ end }}
+            {{ with .IP }}<div class="k">Client IP</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Timestamp }}<div class="k">Timestamp</div><div class="v">{{ . }}</div>{{ end }}
+          </div>
+          <div class="actions">
+            <button id="retryBtn" class="btn" type="button">Retry</button>
+          </div>
+        </section>
+
+        {{ with .Decision }}
+        <section class="card" aria-labelledby="decision-title">
+          <h2 id="decision-title">Decision</h2>
+          <div class="kv" id="decision-kv">
+            {{ with .Scenario }}<div class="k">Scenario</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Origin }}<div class="k">Origin</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Scope }}<div class="k">Scope</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Value }}<div class="k">Value</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Duration }}<div class="k">Duration</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Until }}<div class="k">Until</div><div class="v">{{ . }}</div>{{ end }}
+          </div>
+        </section>
+        {{ end }}
+
+        {{ with .Request }}
+        <section class="card" aria-labelledby="request-title">
+          <h2 id="request-title">Request</h2>
+          <div class="kv" id="request-kv">
+            {{ with .Method }}<div class="k">Method</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .URL }}<div class="k">URL</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Scheme }}<div class="k">Scheme</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Host }}<div class="k">Host</div><div class="v">{{ . }}</div>{{ end }}
+            {{ with .Path }}<div class="k">Path</div><div class="v">{{ . }}</div>{{ end }}
+        {{ with .Protocol }}<div class="k">Protocol</div><div class="v">{{ . }}</div>{{ end }}
+          </div>
+        </section>
+        {{ end }}
+  </body>
+</html>
