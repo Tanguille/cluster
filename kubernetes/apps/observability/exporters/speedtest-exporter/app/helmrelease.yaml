@@ -21,6 +21,8 @@ spec:
             image:
               repository: ghcr.io/heathcliff26/speedtest-exporter
               tag: v1.3.2
+            env:
+              OOKLA_EULA_GDPR: "true"
             probes:
               liveness:
                 enabled: false
@@ -33,7 +35,7 @@ spec:
                 cpu: 10m
                 memory: 64Mi
               limits:
-                memory: 512Mi
+                memory: 128Mi
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
