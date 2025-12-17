@@ -27,8 +27,8 @@ spec:
               # Prefer huge pages (2Mi) and try 1Gi pages (falls back automatically).
               - "--huge-pages"
               - "--randomx-1gb-pages"
-              # Ryzen 5 6600H is 6C/12T; RandomX typically prefers ~physical cores.
-              - "--cpu-max-threads-hint=50"
+              # Keep CPU usage bounded: ~4 threads on a 12-thread node.
+              - "--cpu-max-threads-hint=34"
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
