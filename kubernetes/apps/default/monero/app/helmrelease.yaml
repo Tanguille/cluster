@@ -26,7 +26,9 @@ spec:
               - "--no-igd"
               - "--zmq-pub=tcp://0.0.0.0:18083"
               - "--enable-dns-blocklist"
+              - "--db-sync-mode=fastest:async:1000000000bytes"
               - "--prune-blockchain"
+              - "--sync-pruned-blocks"
             ports:
               - name: p2p
                 containerPort: 18080
@@ -39,7 +41,7 @@ spec:
                 cpu: 1
                 memory: 2Gi
               limits:
-                memory: 4Gi
+                memory: 6Gi
     defaultPodOptions:
       securityContext:
         fsGroup: 1000
