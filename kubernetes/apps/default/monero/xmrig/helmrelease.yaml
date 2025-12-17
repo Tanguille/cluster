@@ -12,7 +12,6 @@ spec:
   values:
     controllers:
       xmrig:
-        strategy: RollingUpdate
         replicas: 2
         containers:
           app:
@@ -40,6 +39,7 @@ spec:
               requests:
                 cpu: 4
                 memory: 128Mi
+                hugepages-2Mi: 2Gi
               limits:
                 cpu: 4
                 memory: 1Gi
