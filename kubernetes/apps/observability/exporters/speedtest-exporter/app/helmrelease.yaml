@@ -31,8 +31,9 @@ spec:
             resources:
               requests:
                 cpu: 10m
+                memory: 64Mi
               limits:
-                memory: 256Mi
+                memory: 512Mi
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
@@ -55,8 +56,8 @@ spec:
           - port: http
             scheme: http
             path: /metrics
-            interval: 5m
-            scrapeTimeout: 2m
+            interval: 10m
+            scrapeTimeout: 5m
             metricRelabelings:
               - sourceLabels: [job]
                 targetLabel: job
