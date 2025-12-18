@@ -12,7 +12,7 @@ spec:
   values:
     controllers:
       xmrig:
-        replicas: 2
+        replicas: 3
         containers:
           app:
             image:
@@ -50,16 +50,16 @@ spec:
         globalMounts:
           - path: /tmp
     defaultPodOptions:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: NotIn
-                    values:
-                      - control-1
+      # affinity:
+      #   nodeAffinity:
+      #     preferredDuringSchedulingIgnoredDuringExecution:
+      #       - weight: 100
+      #         preference:
+      #           matchExpressions:
+      #             - key: kubernetes.io/hostname
+      #               operator: NotIn
+      #               values:
+      #                 - control-1
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
