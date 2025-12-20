@@ -16,7 +16,7 @@ spec:
         - alert: XmrigReplicaCountChanged
           expr: |
             changes(kube_deployment_status_replicas{deployment="xmrig",namespace="web3"}[2m]) > 0
-          for: 0s  # Fire immediately on change
+          for: 0s # Fire immediately on change
           annotations:
             summary: "xmrig deployment replica count changed"
             description: |
@@ -35,7 +35,7 @@ spec:
             kube_deployment_status_replicas_ready{deployment="xmrig",namespace="web3"} == 0
             AND
             kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 5m > 0
-          for: 2m  # Wait 2 minutes to avoid false positives during scaling
+          for: 2m # Wait 2 minutes to avoid false positives during scaling
           annotations:
             summary: "xmrig deployment scaled to 0 replicas"
             description: |
