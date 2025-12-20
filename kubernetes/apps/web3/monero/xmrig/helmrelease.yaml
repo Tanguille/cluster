@@ -49,6 +49,11 @@ spec:
         medium: Memory
         globalMounts:
           - path: /tmp
+      hugepages:
+        type: emptyDir
+        medium: HugePages
+        globalMounts:
+          - path: /dev/hugepages
     defaultPodOptions:
       # affinity:
       #   nodeAffinity:
