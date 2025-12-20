@@ -15,13 +15,14 @@ spec:
         containers:
           app:
             image:
-              repository: miningcontainers/xmrig
-              tag: latest
+              repository: ghcr.io/xmrig/xmrig
+              tag: latest@sha256:961035c43ad5f6ce574cbdfddcf9fdf15f8550e4054be7bf447c0fc7489c0ce6
             args:
               - "-o"
               - "p2pool.web3.svc.cluster.local:3333"
               - "-k"
               - "--coin=monero"
+              - "-u x+50000"
               # Prefer huge pages (2Mi) and try 1Gi pages (falls back automatically).
               - "--huge-pages"
               - "--randomx-1gb-pages"
