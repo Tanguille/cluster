@@ -29,3 +29,23 @@ spec:
     - action: replace
       targetLabel: job
       replacement: *app
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &app homeassistant
+spec:
+  staticConfigs:
+    - targets:
+        - ${HOME_ASSISTANT_IP}:8123
+  metricsPath: /api/prometheus
+  scrapeInterval: 60s
+  authorization:
+    credentials:
+      name: homeassistant-prometheus-token
+      key: token
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *app
