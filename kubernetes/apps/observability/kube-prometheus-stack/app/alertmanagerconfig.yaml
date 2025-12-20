@@ -78,6 +78,9 @@ spec:
             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
             **Alert Details:**
+            {{- if .Labels.node }}
+            🖥️ **Node:** `{{ .Labels.node }}`
+            {{- end }}
             {{- if .Labels.namespace }}
             Namespace: `{{ .Labels.namespace }}`
             {{- end }}
