@@ -17,7 +17,7 @@ spec:
           expr: |
             (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} -
              kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 2m) > 0
-          for: 1s  # Fire almost immediately on change
+          for: 1s # Fire almost immediately on change
           annotations:
             summary: "xmrig deployment scaled up"
             description: |
@@ -33,7 +33,7 @@ spec:
           expr: |
             (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} -
              kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 2m) < 0
-          for: 1s  # Fire almost immediately on change
+          for: 1s # Fire almost immediately on change
           annotations:
             summary: "xmrig deployment scaled down"
             description: |
@@ -50,7 +50,7 @@ spec:
             kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} == 0
             AND
             (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 5m) > 0
-          for: 2m  # Wait 2 minutes to avoid false positives during scaling
+          for: 2m # Wait 2 minutes to avoid false positives during scaling
           annotations:
             summary: "xmrig deployment scaled to 0 replicas"
             description: |
