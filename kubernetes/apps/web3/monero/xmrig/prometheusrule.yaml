@@ -12,17 +12,34 @@ spec:
     - name: xmrig.rules
       interval: 30s
       rules:
-        # Alert when xmrig replica count changes (scales up or down)
-        - alert: XmrigReplicaCountChanged
+        # Alert when xmrig scales up (replicas increased)
+        - alert: XmrigScaledUp
           expr: |
-            changes(kube_deployment_status_replicas{deployment="xmrig",namespace="web3"}[2m]) > 0
-          for: 0s  # Fire immediately on change
+            (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} -
+             kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 2m) > 0
+          for: 1s  # Fire almost immediately on change
           annotations:
-            summary: "xmrig deployment replica count changed"
+            summary: "xmrig deployment scaled up"
             description: |
-              xmrig deployment in namespace web3 replica count changed.
+              xmrig deployment scaled up.
               Current replicas: {{ $value }}
-              Current power: {{ hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"} }}W
+              This indicates excess solar power is available for mining.
+          labels:
+            severity: info
+            component: autoscaling
+
+        # Alert when xmrig scales down (replicas decreased)
+        - alert: XmrigScaledDown
+          expr: |
+            (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} -
+             kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 2m) < 0
+          for: 1s  # Fire almost immediately on change
+          annotations:
+            summary: "xmrig deployment scaled down"
+            description: |
+              xmrig deployment scaled down.
+              Current replicas: {{ $value }}
+              This indicates insufficient solar power for mining.
           labels:
             severity: info
             component: autoscaling
@@ -32,15 +49,12 @@ spec:
           expr: |
             kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} == 0
             AND
-            kube_deployment_status_replicas_ready{deployment="xmrig",namespace="web3"} == 0
-            AND
-            kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 5m > 0
+            (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 5m) > 0
           for: 2m  # Wait 2 minutes to avoid false positives during scaling
           annotations:
             summary: "xmrig deployment scaled to 0 replicas"
             description: |
               All xmrig miners have been stopped (scaled to 0).
-              Current power consumption: {{ hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"} }}W
               This means you're consuming power from the grid, not exporting solar power.
           labels:
             severity: info
@@ -51,14 +65,13 @@ spec:
           expr: |
             kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} > 0
             AND
-            kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 5m == 0
+            (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 5m) == 0
           for: 1m
           annotations:
             summary: "xmrig deployment scaled up from 0"
             description: |
-              xmrig miners have been started (scaled from 0 to {{ kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} }}).
-              Current replicas: {{ kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} }}
-              Current power export: {{ clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[2m]), 0) }}W
+              xmrig miners have been started (scaled from 0 to {{ $value }}).
+              Current replicas: {{ $value }}
               This means you have excess solar power available!
           labels:
             severity: info
