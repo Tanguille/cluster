@@ -30,8 +30,7 @@ spec:
               - "--p2p"
               - "0.0.0.0:37888"
               - "--mini"
-              # optional: reduce RAM
-              # - "--light-mode"
+              - "--light-mode"
             env:
               - name: P2POOL_WALLET_ADDRESS
                 valueFrom:
@@ -49,10 +48,10 @@ spec:
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
-                cpu: 200m
-                memory: 3Gi
+                cpu: 100m
+                memory: 600Mi
               limits:
-                memory: 4Gi
+                memory: 1Gi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
