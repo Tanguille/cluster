@@ -4,9 +4,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: monerod
-  namespace: &namespace default
+  namespace: &namespace web3
 spec:
-  path: ./kubernetes/apps/default/monero/app
+  path: ./kubernetes/apps/web3/monero/app
   targetNamespace: *namespace
   wait: false
   prune: true
@@ -22,9 +22,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: p2pool
-  namespace: &namespace default
+  namespace: &namespace web3
 spec:
-  path: ./kubernetes/apps/default/monero/p2pool
+  path: ./kubernetes/apps/web3/monero/p2pool
   targetNamespace: *namespace
   dependsOn:
     - name: monerod
@@ -42,9 +42,9 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: xmrig
-  namespace: &namespace default
+  namespace: &namespace web3
 spec:
-  path: ./kubernetes/apps/default/monero/xmrig
+  path: ./kubernetes/apps/web3/monero/xmrig
   targetNamespace: *namespace
   dependsOn:
     - name: p2pool
