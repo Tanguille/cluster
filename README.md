@@ -46,7 +46,7 @@ This is a 3-node control plane Kubernetes cluster running on Talos Linux. All no
 TrueNAS VM:
 
 - **CPU:** AMD Ryzen 5800X → 6 cores allocated to Talos
-- **RAM:** 128GB DDR4 → 48GB allocated to Talos
+- **RAM:** 128GB DDR4 → 32GB allocated to Talos
 - **GPU:** NVIDIA RTX 2070 → Full passthrough to Talos
 - **Networking:** 10G NIC running at 2.5Gbps
 - **Storage:** Samsung PM983 2TB nvme
