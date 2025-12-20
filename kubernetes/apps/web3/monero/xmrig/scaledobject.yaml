@@ -13,35 +13,35 @@ spec:
     kind: Deployment
     name: xmrig
   minReplicaCount: 0
-  maxReplicaCount: 3  # One miner per node (3 nodes total)
-  cooldownPeriod: 180  # 3 minutes cooldown (reduced for solar responsiveness)
-  pollingInterval: 60  # Check every 60 seconds
+  maxReplicaCount: 3 # One miner per node (3 nodes total)
+  cooldownPeriod: 180 # 3 minutes cooldown (reduced for solar responsiveness)
+  pollingInterval: 60 # Check every 60 seconds
   advanced:
     restoreToOriginalReplicaCount: false
     horizontalPodAutoscalerConfig:
       behavior:
         scaleDown:
           # Scale down more quickly when solar power drops
-          stabilizationWindowSeconds: 180  # 3 minutes (reduced from 5)
+          stabilizationWindowSeconds: 180 # 3 minutes (reduced from 5)
           policies:
             - type: Percent
-              value: 100  # Can scale down all at once if needed
+              value: 100 # Can scale down all at once if needed
               periodSeconds: 60
             - type: Pods
-              value: 1  # Or scale down 1 pod at a time
+              value: 1 # Or scale down 1 pod at a time
               periodSeconds: 60
-          selectPolicy: Min  # Use the more conservative (slower) policy
+          selectPolicy: Min # Use the more conservative (slower) policy
         scaleUp:
           # Scale up quickly when solar power is available
-          stabilizationWindowSeconds: 60  # 1 minute before scaling up
+          stabilizationWindowSeconds: 60 # 1 minute before scaling up
           policies:
             - type: Percent
-              value: 100  # Can double replicas if needed
+              value: 100 # Can double replicas if needed
               periodSeconds: 60
             - type: Pods
-              value: 1  # Or add 1 pod at a time
+              value: 1 # Or add 1 pod at a time
               periodSeconds: 60
-          selectPolicy: Max  # Use the more aggressive (faster) policy
+          selectPolicy: Max # Use the more aggressive (faster) policy
   triggers:
     - type: prometheus
       metadata:
@@ -52,6 +52,6 @@ spec:
         # When power is positive (consuming), this returns 0 (scale to 0)
         # Using avg_over_time to smooth out rapid fluctuations
         query: clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[2m]), 0)
-        threshold: "50"  # 50W per replica (each miner consumes ~50W)
-        activationThreshold: "25"  # Start scaling when at least 25W exported
+        threshold: "50" # 50W per replica (each miner consumes ~50W)
+        activationThreshold: "25" # Start scaling when at least 25W exported
         ignoreNullValues: "true"
