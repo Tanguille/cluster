@@ -77,11 +77,11 @@ spec:
         mon:
           requests:
             cpu: "500m"
-            memory: "1Gi"
+            memory: "512Mi"
         mgr:
           requests:
             cpu: "500m"
-            memory: "1Gi"
+            memory: "512Mi"
           limits:
             memory: "2Gi"
       storage:
@@ -170,10 +170,10 @@ spec:
                       app.kubernetes.io/part-of: *cephFileSystemName
             resources:
               requests:
-                cpu: 100m
-                memory: 1Gi
+                cpu: "100m"
+                memory: "256Mi"
               limits:
-                memory: 4Gi
+                memory: "4Gi"
         storageClass:
           enabled: true
           isDefault: false
