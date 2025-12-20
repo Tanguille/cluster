@@ -16,7 +16,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/simple-monerod
-              tag: latest
+              tag: latest@sha256:83a4a02065429d99ef30570534dda6358faa03df01d5ebb8cd8f900de79a5c77
             args:
               - "--data-dir=/home/monero/.bitmonero"
               - "--log-file=/var/log/monero/monerod.log"
@@ -28,6 +28,9 @@ spec:
               - "--enforce-dns-checkpointing"
               - "--enable-dns-blocklist"
               - "--out-peers=32"
+              - "--in-peers=64"
+              - "--add-priority-node=p2pmd.xmrvsbeast.com:18080"
+              - "--add-priority-node=nodes.hashvault.pro:18080"
               - "--prune-blockchain"
               - "--sync-pruned-blocks"
             ports:

@@ -17,7 +17,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/p2pool
-              tag: latest
+              tag: latest@sha256:856c48acc99369e880d833bb4b3d1a0a866179dc85f2ee941a039767b257b425
             args:
               - "--host"
               - "monerod.web3.svc.cluster.local"
@@ -30,6 +30,10 @@ spec:
               - "--nano"
               - "--p2p"
               - "0.0.0.0:37890"
+              - "--out-peers"
+              - "32"
+              - "--in-peers"
+              - "64"
               - "--light-mode"
             env:
               - name: P2POOL_WALLET_ADDRESS
