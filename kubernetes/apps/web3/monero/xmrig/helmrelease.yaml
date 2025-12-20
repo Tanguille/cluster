@@ -12,7 +12,6 @@ spec:
   values:
     controllers:
       xmrig:
-        replicas: 1
         containers:
           app:
             image:
@@ -56,16 +55,28 @@ spec:
         globalMounts:
           - path: /dev/hugepages
     defaultPodOptions:
-      # affinity:
-      #   nodeAffinity:
-      #     preferredDuringSchedulingIgnoredDuringExecution:
-      #       - weight: 100
-      #         preference:
-      #           matchExpressions:
-      #             - key: kubernetes.io/hostname
-      #               operator: NotIn
-      #               values:
-      #                 - control-1
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            # Prefer control-2 and control-3 (more power efficient)
+            # Only use control-1 when all 3 replicas are needed
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - control-2
+                      - control-3
+        podAntiAffinity: # one replica per node
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - xmrig
+              topologyKey: kubernetes.io/hostname
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
