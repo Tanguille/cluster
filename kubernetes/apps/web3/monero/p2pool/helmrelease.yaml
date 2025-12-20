@@ -27,9 +27,9 @@ spec:
               - "$(P2POOL_WALLET_ADDRESS)"
               - "--stratum"
               - "0.0.0.0:3333"
-              - "--p2p"
-              - "0.0.0.0:37888"
               - "--nano"
+              - "--p2p"
+              - "0.0.0.0:37890"
               - "--light-mode"
             env:
               - name: P2POOL_WALLET_ADDRESS
@@ -41,7 +41,7 @@ spec:
               - name: stratum
                 containerPort: 3333
               - name: p2p
-                containerPort: 37888
+                containerPort: 37890
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
@@ -61,13 +61,13 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
     service:
       p2pool:
-        type: ClusterIP
+        type: LoadBalancer
         ports:
           stratum:
             port: 3333
             targetPort: stratum
           p2p:
-            port: 37888
+            port: 37890
             targetPort: p2p
     persistence:
       data:
