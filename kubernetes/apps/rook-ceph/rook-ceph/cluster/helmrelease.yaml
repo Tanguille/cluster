@@ -70,18 +70,20 @@ spec:
       resources:
         osd:
           requests:
-            cpu: 500m
-            memory: 3Gi
+            cpu: "500m"
+            memory: "3Gi"
           limits:
-            memory: 6Gi
+            memory: "6Gi"
         mon:
           requests:
-            cpu: 500m
-            memory: 1Gi
+            cpu: "500m"
+            memory: "1Gi"
         mgr:
           requests:
-            cpu: 500m
-            memory: 3Gi
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            memory: "2Gi"
       storage:
         useAllNodes: false
         useAllDevices: false
