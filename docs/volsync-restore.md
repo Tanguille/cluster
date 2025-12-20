@@ -250,6 +250,48 @@ Large restores can take 10-30 minutes. Be patient and monitor the ReplicationDes
 
    If the PVC exists but no snapshot was created, this indicates VolSync completed the restore but failed to create the snapshot. In this case, you may need to check Ceph CSI driver logs or VolSync controller logs for snapshot creation errors.
 
+### Issue: Sync error on CephFS after restore completes
+
+**Symptoms**:
+
+- Restore completes successfully (data is restored)
+- Error: `sync: error syncing '/restore/data': Invalid argument`
+- `latestMoverStatus.result` is `Successful`
+- `latestImage` is not updated (still points to old snapshot)
+
+**Cause**: Known issue with CephFS and the `sync` command. The restore operation completes successfully, but the sync command fails, preventing snapshot creation.
+
+**Solution**:
+
+1. **Manual snapshot workaround**: Since the restore completes successfully, manually create a snapshot from the restore destination PVC:
+
+   ```bash
+   # Get the restore destination PVC name
+   RESTORE_PVC=$(kubectl get pvc -n <namespace> | grep <app>-dst-dest | awk '{print $1}')
+
+   # Create a manual snapshot
+   cat <<EOF | kubectl apply -f -
+   apiVersion: snapshot.storage.k8s.io/v1
+   kind: VolumeSnapshot
+   metadata:
+     name: volsync-<app>-dst-dest-manual-$(date +%s | cut -c1-12)
+     namespace: <namespace>
+     labels:
+       app.kubernetes.io/created-by: volsync
+   spec:
+     source:
+       persistentVolumeClaimName: ${RESTORE_PVC}
+     volumeSnapshotClassName: csi-ceph-filesystem
+   EOF
+
+   # Wait for snapshot to be ready
+   kubectl wait --for=jsonpath='{.status.readyToUse}'=true volumesnapshot/<snapshot-name> -n <namespace> --timeout=120s
+   ```
+
+2. **Update ReplicationDestination status** (if needed): The manual snapshot can be used to create the PVC, but the ReplicationDestination's `latestImage` won't update automatically. The restore destination PVC contains the restored data and can be used directly.
+
+3. **Prevention**: The CephFS storage class has been configured with mount options (`noatime`, `_netdev`) that may help reduce sync issues. These are applied to new PVCs.
+
 ## Key Points
 
 1. **Always suspend the kustomization** before starting a restore
