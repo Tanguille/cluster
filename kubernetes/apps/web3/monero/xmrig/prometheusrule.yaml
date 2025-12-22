@@ -15,6 +15,8 @@ spec:
         # Alert when xmrig scales up (replicas increased)
         - alert: XmrigScaledUp
           expr: |
+            kube_deployment_status_replicas{deployment="xmrig",namespace="web3"}
+            and
             (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} -
              kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 2m) > 0
           for: 1s # Fire almost immediately on change
@@ -31,6 +33,8 @@ spec:
         # Alert when xmrig scales down (replicas decreased)
         - alert: XmrigScaledDown
           expr: |
+            kube_deployment_status_replicas{deployment="xmrig",namespace="web3"}
+            and
             (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} -
              kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 2m) < 0
           for: 1s # Fire almost immediately on change
@@ -44,35 +48,4 @@ spec:
             severity: info
             component: autoscaling
 
-        # Alert when xmrig scales to 0 (all miners stopped)
-        - alert: XmrigScaledToZero
-          expr: |
-            kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} == 0
-            AND
-            (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 5m) > 0
-          for: 2m # Wait 2 minutes to avoid false positives during scaling
-          annotations:
-            summary: "xmrig deployment scaled to 0 replicas"
-            description: |
-              All xmrig miners have been stopped (scaled to 0).
-              This means you're consuming power from the grid, not exporting solar power.
-          labels:
-            severity: info
-            component: autoscaling
 
-        # Alert when xmrig scales up from 0 (miners started)
-        - alert: XmrigScaledFromZero
-          expr: |
-            kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} > 0
-            AND
-            (kube_deployment_status_replicas{deployment="xmrig",namespace="web3"} offset 5m) == 0
-          for: 1m
-          annotations:
-            summary: "xmrig deployment scaled up from 0"
-            description: |
-              xmrig miners have been started (scaled from 0 to {{ $value }}).
-              Current replicas: {{ $value }}
-              This means you have excess solar power available!
-          labels:
-            severity: info
-            component: autoscaling
