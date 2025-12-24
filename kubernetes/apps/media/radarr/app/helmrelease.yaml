@@ -4,7 +4,6 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: &app radarr
-  namespace: media
 spec:
   interval: 15m
   chartRef:
@@ -57,7 +56,7 @@ spec:
               readiness: *probes
             resources:
               requests:
-                cpu: 500m
+                cpu: 50m
                 memory: 256Mi
               limits:
                 cpu: 2
