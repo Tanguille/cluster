@@ -5,7 +5,7 @@ kind: Cluster
 metadata:
   name: postgres16
   annotations:
-    cnpg.io/skipEmptyWalArchiveCheck: "enabled"
+    cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:18.1-standard-trixie@sha256:3c9e3ddf7fcbff25ed45248924317f3c7ef712272df5e3469d2f1c871bee8283
   instances: 3
@@ -46,6 +46,16 @@ spec:
       # I/O tuning for NVMe/LVM (openebs-lvm)
       random_page_cost: "1.1" # Default 4.0 (HDD-oriented), lowered for SSD/NVMe
       effective_io_concurrency: "200" # Default 16, increased for NVMe parallelism
+    shared_preload_libraries:
+      - "vchord.so"
+    extensions:
+      - name: vchord
+        image:
+          reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.0.0
+        dynamic_library_path:
+          - /usr/lib/postgresql/18/lib
+        extension_control_path:
+          - /usr/share/postgresql/18/
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true
@@ -60,7 +70,7 @@ spec:
   monitoring:
     enablePodMonitor: true
   plugins:
-    - name: barman-cloud.cloudnative-pg.io
+    - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters: &barmanParameters
         barmanObjectName: r2
@@ -78,5 +88,5 @@ spec:
       plugin:
         enabled: true
         isWALArchiver: false
-        name: barman-cloud.cloudnative-pg.io
+        name: *plugin
         parameters: *barmanParameters
