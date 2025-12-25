@@ -70,8 +70,8 @@ spec:
               - -c
               - |
                 mkdir -p /tmp/nginx/cache/client_temp /tmp/nginx/cache/proxy_temp /tmp/nginx/cache/fastcgi_temp /tmp/nginx/cache/uwsgi_temp /tmp/nginx/cache/scgi_temp && \
-                sed -i 's|/var/cache/nginx|/tmp/nginx/cache|g' /etc/nginx/nginx.conf && \
-                exec nginx -c /etc/nginx/nginx.conf -g 'daemon off;'
+                sed 's|/var/cache/nginx|/tmp/nginx/cache|g' /etc/nginx/nginx.conf > /tmp/nginx/nginx.conf && \
+                exec nginx -c /tmp/nginx/nginx.conf -g 'daemon off;'
             ports:
               - name: web
                 containerPort: 80
