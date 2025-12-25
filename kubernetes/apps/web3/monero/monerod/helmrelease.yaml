@@ -53,7 +53,8 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
     service:
       monerod:
-        type: ClusterIP
+        type: LoadBalancer
+        externalTrafficPolicy: Local
         ports:
           p2p:
             port: 18080
