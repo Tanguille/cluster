@@ -55,6 +55,8 @@ spec:
       monerod:
         type: LoadBalancer
         externalTrafficPolicy: Local
+        annotations:
+          lbipam.cilium.io/ips: 192.168.0.8
         ports:
           p2p:
             port: 18080
