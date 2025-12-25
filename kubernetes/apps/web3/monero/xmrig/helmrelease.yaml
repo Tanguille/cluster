@@ -27,22 +27,22 @@ spec:
               # Prefer huge pages (2Mi) and try 1Gi pages (falls back automatically).
               - "--huge-pages"
               - "--randomx-1gb-pages"
-              # Keep CPU usage bounded: ~4 threads on a 12-thread node.
-              - "--threads=8"
+              # Keep CPU usage bounded: ~6 threads on a 12-thread node.
+              - "--threads=6"
               - "--cpu-priority=1"
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities:
                 drop: ["ALL"]
-                add: ["IPC_LOCK", "SYS_RAWIO"]
+                add: ["IPC_LOCK"]
             resources:
               requests:
-                cpu: 8
+                cpu: 6
                 memory: 32Mi
                 hugepages-2Mi: 3Gi
               limits:
-                cpu: 8
+                cpu: 6
                 memory: 128Mi
                 hugepages-2Mi: 3Gi
     persistence:
