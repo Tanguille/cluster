@@ -120,7 +120,8 @@ spec:
         type: configMap
         name: "{{ .Release.Name }}-dashboard"
         globalMounts:
-          - path: /usr/share/nginx/html
+          - path: /usr/share/nginx/html/index.html
+            subPath: index.html
       nginx-config:
         type: configMap
         name: "{{ .Release.Name }}-nginx-config"
