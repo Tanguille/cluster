@@ -35,6 +35,9 @@ spec:
               - "--in-peers"
               - "64"
               - "--light-mode"
+              - "--data-api"
+              - "/var/lib/p2pool/api"
+              - "--local-api"
             env:
               - name: P2POOL_WALLET_ADDRESS
                 valueFrom:
@@ -57,6 +60,17 @@ spec:
               limits:
                 cpu: 500m
                 memory: 800Mi
+          web:
+            image:
+              repository: nginx:alpine
+              tag: latest
+            ports:
+              - name: web
+                containerPort: 80
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -75,6 +89,9 @@ spec:
           p2p:
             port: 37890
             targetPort: p2p
+          web:
+            port: 80
+            targetPort: web
     persistence:
       data:
         storageClass: ceph-filesystem
@@ -83,3 +100,7 @@ spec:
         retain: true
         globalMounts:
           - path: /home/p2pool
+      api:
+        type: emptyDir
+        globalMounts:
+          - path: /var/lib/p2pool/api
