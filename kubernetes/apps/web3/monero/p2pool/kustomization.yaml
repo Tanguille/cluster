@@ -6,3 +6,9 @@ resources:
   - helmrelease.yaml
   - secret.sops.yaml
   - httproute.yaml
+configMapGenerator:
+  - name: p2pool-dashboard
+    files:
+      - index.html=./resources/index.html
+generatorOptions:
+  disableNameSuffixHash: true
