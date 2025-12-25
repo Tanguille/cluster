@@ -160,6 +160,19 @@
             <div class="stat-title">Current Effort</div>
             <div class="stat-value" id="current-effort">0.000%</div>
           </div>
+          <div class="stat-card">
+            <div class="stat-title">Blocks Found</div>
+            <div class="stat-value" id="blocks-found">0</div>
+            <div class="stat-unit">total</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Last Share Found</div>
+            <div class="stat-value" id="last-share-time">Never</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Last Block Found</div>
+            <div class="stat-value" id="last-block-time">Never</div>
+          </div>
         </div>
         <div class="workers-section">
           <div class="workers-title">Connected Miners</div>
@@ -211,6 +224,21 @@
         }
       }
 
+      function formatTime(timestamp) {
+        if (!timestamp || timestamp === 0) return "Never";
+        const date = new Date(timestamp * 1000);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMins < 1) return "Just now";
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        return `${diffDays}d ago`;
+      }
+
       function updateUI() {
         document.getElementById("last-update").textContent =
           new Date().toLocaleTimeString();
@@ -251,6 +279,17 @@
           statsData.current_effort
             ? statsData.current_effort.toFixed(3) + "%"
             : "0.000%";
+
+        document.getElementById("blocks-found").textContent =
+          poolStats.totalBlocksFound || 0;
+
+        document.getElementById("last-share-time").textContent = formatTime(
+          statsData.last_share_found_time
+        );
+
+        document.getElementById("last-block-time").textContent = formatTime(
+          poolStats.lastBlockFoundTime
+        );
 
         const workersList = document.getElementById("workers-list");
         if (statsData.workers && statsData.workers.length > 0) {
