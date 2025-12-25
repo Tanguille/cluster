@@ -67,13 +67,8 @@ spec:
             command:
               - nginx
             args:
-              - -c
-              - /etc/nginx/nginx.conf
               - -g
               - daemon off;
-            env:
-              - name: NGINX_ENVSUBST_TEMPLATE_DIR
-                value: /etc/nginx/templates
             ports:
               - name: web
                 containerPort: 80
@@ -115,6 +110,10 @@ spec:
         globalMounts:
           - path: /var/lib/p2pool/api
           - path: /usr/share/nginx/html
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
       dashboard-html:
         type: configMap
         name: "{{ .Release.Name }}-dashboard"
@@ -125,5 +124,5 @@ spec:
         type: configMap
         name: "{{ .Release.Name }}-nginx-config"
         globalMounts:
-          - path: /etc/nginx/templates/nginx.conf
+          - path: /etc/nginx/nginx.conf
             subPath: nginx.conf
