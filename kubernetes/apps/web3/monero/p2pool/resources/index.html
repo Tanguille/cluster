@@ -262,7 +262,13 @@
               const hashrate = parseInt(parts[1]) || 0;
               const totalHashes = parseInt(parts[2]) || 0;
               const port = parts[3] || "";
-              const name = parts[4] || ipPort;
+              let name = parts[4] || ipPort;
+
+              // Improve miner name - if it's just "x" or empty, use IP address
+              if (!name || name === "x" || name.trim() === "") {
+                const ip = ipPort.split(":")[0];
+                name = `Miner @ ${ip}`;
+              }
 
               return `<div class="worker-item" style="margin: 5px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
                         <strong>${name}</strong> -
