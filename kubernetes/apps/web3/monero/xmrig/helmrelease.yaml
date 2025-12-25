@@ -28,7 +28,7 @@ spec:
               - "--huge-pages"
               - "--randomx-1gb-pages"
               # Keep CPU usage bounded: ~4 threads on a 12-thread node.
-              - "--cpu-max-threads-hint=34"
+              - "--threads=4"
               - "--cpu-priority=1"
             securityContext:
               allowPrivilegeEscalation: false
