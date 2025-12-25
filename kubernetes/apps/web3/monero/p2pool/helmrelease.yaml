@@ -62,16 +62,14 @@ spec:
                 memory: 800Mi
           web:
             image:
-              repository: nginx
-              tag: 1.29.4-alpine3.23
+              repository: python
+              tag: 3.14-alpine
             command:
-              - sh
+              - python3
             args:
-              - -c
-              - |
-                mkdir -p /tmp/nginx/cache/client_temp /tmp/nginx/cache/proxy_temp /tmp/nginx/cache/fastcgi_temp /tmp/nginx/cache/uwsgi_temp /tmp/nginx/cache/scgi_temp && \
-                sed 's|/var/cache/nginx|/tmp/nginx/cache|g' /etc/nginx/nginx.conf > /tmp/nginx/nginx.conf && \
-                exec nginx -c /tmp/nginx/nginx.conf -g 'daemon off;'
+              - -m
+              - http.server
+              - "80"
             ports:
               - name: web
                 containerPort: 80
