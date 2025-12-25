@@ -17,7 +17,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/p2pool
-              tag: latest@sha256:07ca9a16af667e6802d1dda37fb6377d3f60b700828ef7a6457454c4efbdf52c
+              tag: v4.13@sha256:07ca9a16af667e6802d1dda37fb6377d3f60b700828ef7a6457454c4efbdf52c
             args:
               - "--host"
               - "monerod.web3.svc.cluster.local"
@@ -62,8 +62,8 @@ spec:
                 memory: 800Mi
           web:
             image:
-              repository: nginx:alpine
-              tag: latest
+              repository: nginx
+              tag: 1.28.1-alpine3.23
             ports:
               - name: web
                 containerPort: 80
