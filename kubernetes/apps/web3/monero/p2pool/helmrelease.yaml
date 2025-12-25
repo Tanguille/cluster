@@ -64,12 +64,17 @@ spec:
             image:
               repository: nginx
               tag: 1.28.1-alpine3.23
+            command:
+              - sh
+            args:
+              - -c
+              - mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp /var/cache/nginx/scgi_temp /tmp/nginx && exec nginx -c /etc/nginx/nginx.conf -g 'daemon off;'
             ports:
               - name: web
                 containerPort: 80
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
+              readOnlyRootFilesystem: false
               capabilities: { drop: ["ALL"] }
     defaultPodOptions:
       securityContext:
