@@ -65,13 +65,12 @@ spec:
               repository: python
               tag: 3.14-alpine
             command:
-              - python3
+              - sh
             args:
-              - -m
-              - http.server
-              - "80"
-              - -d
-              - /usr/share/nginx/html
+              - -c
+              - |
+                cp /config /usr/share/nginx/html/index.html && \
+                python3 -m http.server 80 -d /usr/share/nginx/html
             ports:
               - name: web
                 containerPort: 80
@@ -113,3 +112,9 @@ spec:
         globalMounts:
           - path: /var/lib/p2pool/api
           - path: /usr/share/nginx/html
+      dashboard-html:
+        type: configMap
+        name: "{{ .Release.Name }}-dashboard"
+        globalMounts:
+          - path: /config
+            subPath: index.html
