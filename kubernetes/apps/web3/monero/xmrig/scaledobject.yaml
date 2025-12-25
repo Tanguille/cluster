@@ -12,7 +12,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: xmrig
-  minReplicaCount: 3 # TODO: Harcode temporarily
+  minReplicaCount: 0
   maxReplicaCount: 3 # One miner per node (3 nodes total)
   cooldownPeriod: 180 # 3 minutes cooldown (reduced for solar responsiveness)
   pollingInterval: 60 # Check every 60 seconds
