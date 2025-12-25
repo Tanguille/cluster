@@ -107,8 +107,10 @@ spec:
         retain: true
         globalMounts:
           - path: /home/p2pool
-      api:
-        type: emptyDir
+      shared-api-data:
+        storageClass: ceph-filesystem
+        accessMode: ReadWriteMany
+        size: 1Gi
         globalMounts:
           - path: /var/lib/p2pool/api
           - path: /usr/share/nginx/html
