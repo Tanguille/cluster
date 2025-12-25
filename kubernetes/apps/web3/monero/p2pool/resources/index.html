@@ -227,8 +227,10 @@
           poolStatusText.textContent = "Inactive";
         }
 
+        // Pool stats are nested under pool_statistics
+        const poolStats = poolData.pool_statistics || {};
         document.getElementById("network-hashrate").textContent =
-          networkData.hashRate ? formatHashrate(networkData.hashRate) : "0 H/s";
+          poolStats.hashRate ? formatHashrate(poolStats.hashRate) : "0 H/s";
 
         document.getElementById("user-hashrate-24h").textContent =
           statsData.hashrate_24h
@@ -242,8 +244,6 @@
         document.getElementById("connections").textContent =
           statsData.connections || 0;
 
-        // Pool stats are nested under pool_statistics
-        const poolStats = poolData.pool_statistics || {};
         document.getElementById("reward-share").textContent =
           statsData.block_reward_share_percent
             ? statsData.block_reward_share_percent.toFixed(3) + "%"
