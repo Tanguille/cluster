@@ -18,3 +18,5 @@ configMapGenerator:
       - nginx.conf=./resources/nginx.conf
 generatorOptions:
   disableNameSuffixHash: true
+  annotations:
+    configmap.reloader.stakater.com/reload: "p2pool"
