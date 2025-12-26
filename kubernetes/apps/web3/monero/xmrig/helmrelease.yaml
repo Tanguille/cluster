@@ -26,9 +26,10 @@ spec:
               # Prefer huge pages (2Mi) and try 1Gi pages (falls back automatically).
               - "--huge-pages"
               - "--randomx-1gb-pages"
-              # Keep CPU usage bounded: ~4 threads on a 12-thread node.
-              - "--threads=4"
+              # Low CPU priority to ensure other workloads take precedence
               - "--cpu-priority=1"
+              # Let xmrig auto-detect and use all available CPU cores
+              # Kubernetes CPU limits will throttle usage when other pods need resources
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -41,7 +42,7 @@ spec:
                 memory: 32Mi
                 hugepages-2Mi: 3Gi
               limits:
-                cpu: 4
+                cpu: 8  # Allow up to 8 cores when available
                 memory: 128Mi
                 hugepages-2Mi: 3Gi
     persistence:
