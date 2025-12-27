@@ -15,10 +15,10 @@ spec:
     updateMode: Auto
   resourcePolicy:
     containerPolicies:
-    - containerName: app
-      minAllowed:
-        cpu: 1
-      maxAllowed:
-        cpu: 8
-      controlledResources: ["cpu"]
-      controlledValues: RequestsAndLimits
+      - containerName: app
+        minAllowed:
+          cpu: 1
+        maxAllowed:
+          cpu: 8
+        controlledResources: ["cpu"]
+        controlledValues: RequestsAndLimits
