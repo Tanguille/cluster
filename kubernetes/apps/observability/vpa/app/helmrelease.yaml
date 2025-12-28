@@ -16,11 +16,9 @@ spec:
     recommender:
       enabled: true
       extraArgs:
-        storage: prometheus
-        prometheus-address: http://prometheus-operated.observability.svc.cluster.local:9090
-        target-cpu-percentile: 0.99
-        recommendation-margin-fraction: 0.05
-        cpu-histogram-decay-half-life: 3m
+        - --storage=prometheus
+        - --prometheus-address=http://prometheus-operated.observability.svc.cluster.local:9090
+        - --cpu-histogram-decay-half-life=1h
     updater:
       enabled: true
     admissionController:
