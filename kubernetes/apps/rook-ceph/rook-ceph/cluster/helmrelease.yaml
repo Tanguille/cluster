@@ -36,6 +36,8 @@ spec:
           # Network optimization for 2.5Gbps
           ms_osd_compress_min_size: "1024"
           ms_osd_compression_algorithm: snappy
+        mgr:
+          rbd_stats_pools: "*"  # Enable RBD statistics for all pools
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
       crashCollector:
