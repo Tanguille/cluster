@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: crowdsec-envoy-bouncer
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  interval: 1h
+  values:
+    controllers:
+      crowdsec-envoy-bouncer:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        strategy: RollingUpdate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/kdwils/envoy-proxy-bouncer
+              tag: v0.4.2@sha256:0a47fb3e6ea79213ce8936acb2bd55a2a6e5b84cb7b057932a652f7e0324ff44
+            env:
+              ENVOY_BOUNCER_BOUNCER_BANSTATUSCODE: 418
+              ENVOY_BOUNCER_BOUNCER_ENABLED: true
+              ENVOY_BOUNCER_BOUNCER_LAPIURL: http://crowdsec-service.security.svc.cluster.local:8080
+              ENVOY_BOUNCER_BOUNCER_METRICS: true
+              ENVOY_BOUNCER_TEMPLATES_DENIEDTEMPLATEPATH: /ban.html
+              ENVOY_BOUNCER_TRUSTEDPROXIES: 192.168.0.0/24,10.42.0.0/16
+              ENVOY_BOUNCER_WAF_APPSECURL: http://crowdsec-appsec-service.security.svc.cluster.local:7422
+              ENVOY_BOUNCER_WAF_ENABLED: true
+            envFrom:
+              - secretRef:
+                  name: crowdsec-envoy-bouncer-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 128Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+    service:
+      app:
+        ports:
+          http:
+            port: 8080
+    persistence:
+      ban:
+        type: configMap
+        name: "{{ .Release.Name }}-configmap"
+        globalMounts:
+          - path: /ban.html
+            subPath: ban.html
