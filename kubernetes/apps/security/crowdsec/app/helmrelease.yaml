@@ -11,6 +11,12 @@ spec:
   interval: 1h
   values:
     container_runtime: containerd
+    initContainers:
+      - name: init-db
+        image: ghcr.io/home-operations/postgres-init:18
+        envFrom:
+          - secretRef:
+              name: *secret
     secrets:
       externalSecret:
         name: &secret crowdsec-secret
@@ -105,12 +111,6 @@ spec:
     lapi:
       strategy:
         type: RollingUpdate
-      initContainers:
-        - name: init-db
-          image: ghcr.io/home-operations/postgres-init:18
-          envFrom:
-            - secretRef:
-                name: *secret
       env:
         - name: TZ
           value: ${TIMEZONE}
