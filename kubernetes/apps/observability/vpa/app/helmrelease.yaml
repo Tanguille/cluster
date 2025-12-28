@@ -18,6 +18,8 @@ spec:
       extraArgs:
         storage: prometheus
         prometheus-address: http://prometheus-operated.observability.svc.cluster.local:9090
+        cpu-percentile: 0.95
+        cpu-histogram-decay-half-life: 6m
     updater:
       enabled: true
     admissionController:
