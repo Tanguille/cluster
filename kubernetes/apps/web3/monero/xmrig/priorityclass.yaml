@@ -3,7 +3,7 @@ apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: low-priority-mining
-value: -1000  # Negative priority - lowest priority, below all default workloads
+value: -1000 # Negative priority - lowest priority, below all default workloads
 globalDefault: false
 description: "Lowest priority class for mining workloads that use only spare CPU"
 preemptionPolicy: PreemptLowerPriority
