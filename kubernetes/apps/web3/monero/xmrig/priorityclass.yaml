@@ -3,7 +3,7 @@ apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: low-priority-mining
-value: 1000  # Low priority but above placeholder pods
+value: 1000 # Low priority but above placeholder pods
 globalDefault: false
 description: "Low priority class for mining workloads that can use spare CPU"
 preemptionPolicy: PreemptLowerPriority
