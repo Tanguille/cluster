@@ -35,13 +35,16 @@ spec:
       checkpoint_timeout: 15min
       checkpoint_completion_target: "0.9"
       wal_compression: "zstd"
-      # Autovacuum tuned for many small/medium DBs
-      autovacuum_vacuum_scale_factor: "0.05"
-      autovacuum_analyze_scale_factor: "0.02"
-      autovacuum_vacuum_threshold: "20"
-      autovacuum_analyze_threshold: "10"
+      # Autovacuum tuned for many small/medium DBs with XID age protection
+      autovacuum_vacuum_scale_factor: "0.02"
+      autovacuum_analyze_scale_factor: "0.01"
+      autovacuum_vacuum_threshold: "50"
+      autovacuum_analyze_threshold: "25"
       autovacuum_vacuum_cost_limit: "2000"
-      autovacuum_vacuum_cost_delay: "5ms"
+      autovacuum_vacuum_cost_delay: "2ms"
+      autovacuum_freeze_max_age: "100000000"
+      vacuum_freeze_min_age: "50000000"
+      vacuum_freeze_table_age: "75000000"
       default_statistics_target: "200"
       # I/O tuning for NVMe/LVM (openebs-lvm)
       random_page_cost: "1.1" # Default 4.0 (HDD-oriented), lowered for SSD/NVMe
