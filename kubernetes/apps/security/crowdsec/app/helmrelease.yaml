@@ -13,7 +13,7 @@ spec:
     container_runtime: containerd
     secrets:
       externalSecret:
-        name: crowdsec-secret
+        name: &secret crowdsec-secret
         csLapiSecretKey: CROWDSEC_LAPI_SECRET
         registrationTokenKey: REGISTRATION_TOKEN
     config:
@@ -105,6 +105,12 @@ spec:
     lapi:
       strategy:
         type: RollingUpdate
+      initContainers:
+        - name: init-db
+          image: ghcr.io/home-operations/postgres-init:18
+          envFrom:
+            - secretRef:
+                name: *secret
       env:
         - name: TZ
           value: ${TIMEZONE}
@@ -112,7 +118,7 @@ spec:
           value: cluster
       envFrom:
         - secretRef:
-            name: crowdsec-secret
+            name: *secret
       persistentVolume:
         data:
           enabled: false
