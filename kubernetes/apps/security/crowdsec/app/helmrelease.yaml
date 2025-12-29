@@ -10,26 +10,26 @@ spec:
     name: crowdsec
   interval: 1h
   postRenderers:
-    - kustomize:
-        patches:
-          - patch: |-
-              - op: add
-                path: /spec/template/spec/initContainers
-                value:
-                - name: init-db
-                  image: ghcr.io/home-operations/postgres-init:18
-                  envFrom:
-                  - secretRef:
-                      name: crowdsec-secret
-                  resources:
-                    requests:
-                      cpu: 10m
-                      memory: 32Mi
-                    limits:
-                      memory: 64Mi
-            target:
-              kind: Deployment
-              group: apps
+  - kustomize:
+      patches:
+      - patch: |-
+          - op: add
+            path: /spec/template/spec/initContainers
+            value:
+            - name: init-db
+              image: ghcr.io/home-operations/postgres-init:18
+              envFrom:
+              - secretRef:
+                  name: crowdsec-secret
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+        target:
+          kind: Deployment
+          group: apps
   values:
     container_runtime: containerd
     config:
@@ -177,25 +177,9 @@ spec:
           appsec_config: crowdsecurity/appsec-default
           labels:
             type: appsec
-      extraVolumes:
-        - name: local-api-credentials
-          secret:
-            secretName: crowdsec-lapi-secrets
-      extraVolumeMounts:
-        - name: local-api-credentials
-          mountPath: /tmp_config/local_api_credentials.yaml
-          subPath: local_api_credentials.yaml
       env:
-        - name: APPSEC_CONFIGS
-          value: crowdsecurity/appsec-default
         - name: COLLECTIONS
-          value: >-
-            crowdsecurity/appsec-generic-rules
-            crowdsecurity/appsec-virtual-patching
-        - name: TZ
-          value: ${TIMEZONE}
-        - name: LOCAL_API_URL
-          value: http://crowdsec-service.security:8080
+          value: crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
       metrics:
         enabled: true
         serviceMonitor:
