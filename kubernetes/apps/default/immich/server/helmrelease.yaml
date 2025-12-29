@@ -36,9 +36,17 @@ spec:
             args:
               - |
                 echo "🔧 Applying VectorChord compatibility patches..."
-                sed -i "s/VECTORCHORD_VERSION_RANGE = '>=0.3 <0.6'/VECTORCHORD_VERSION_RANGE = '>=0.3 <2'/g" /usr/src/app/server/dist/constants.js && echo "✓ VectorChord JS patch applied"
-                sed -i 's/VECTORCHORD_VERSION_RANGE = ">=0.3 <0.6"/VECTORCHORD_VERSION_RANGE = ">=0.3 <2"/g' /usr/src/app/server/dist/constants.d.ts && echo "✓ VectorChord TS patch applied"
-                echo "🎯 Patches applied successfully"
+                mkdir -p /usr/src/app/server/dist
+                # Copy all dist files to the shared volume
+                cp -r /usr/src/app/server/dist/* /usr/src/app/server/dist/ 2>/dev/null || echo "Copying dist files..."
+                # Apply patches
+                sed -i "s/VECTORCHORD_VERSION_RANGE = '>=0.3 <0.6'/VECTORCHORD_VERSION_RANGE = '>=0.3 <2'/g" /usr/src/app/server/dist/constants.js
+                sed -i 's/VECTORCHORD_VERSION_RANGE = ">=0.3 <0.6"/VECTORCHORD_VERSION_RANGE = ">=0.3 <2"/g' /usr/src/app/server/dist/constants.d.ts
+                echo "✓ VectorChord patches applied successfully"
+                echo "Patched constants.js:"
+                grep "VECTORCHORD_VERSION_RANGE" /usr/src/app/server/dist/constants.js
+                echo "Patched constants.d.ts:"
+                grep "VECTORCHORD_VERSION_RANGE" /usr/src/app/server/dist/constants.d.ts
           init-db:
             image:
               repository: ghcr.io/home-operations/postgres-init
@@ -107,3 +115,8 @@ spec:
         existingClaim: immich-library
         globalMounts:
           - path: /mnt/library
+      dist:
+        enabled: true
+        type: emptyDir
+        globalMounts:
+          - path: /usr/src/app/server/dist
