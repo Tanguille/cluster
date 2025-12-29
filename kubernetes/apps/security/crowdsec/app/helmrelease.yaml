@@ -9,6 +9,27 @@ spec:
     kind: OCIRepository
     name: crowdsec
   interval: 1h
+  postRenderers:
+  - kustomize:
+      patches:
+      - patch: |-
+          - op: add
+            path: /spec/template/spec/initContainers
+            value:
+            - name: init-db
+              image: ghcr.io/home-operations/postgres-init:18
+              envFrom:
+              - secretRef:
+                  name: crowdsec-secret
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  memory: 64Mi
+        target:
+          kind: Deployment
+          group: apps
   values:
     container_runtime: containerd
     config:
