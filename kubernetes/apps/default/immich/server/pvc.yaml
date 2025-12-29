@@ -1,13 +1,25 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.26.1-standalone-strict/persistentvolumeclaim-v1.json
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-data-pv
+spec:
+  storageClassName: immich-nfs
+  accessModes: ["ReadWriteMany"]
+  capacity:
+    storage: 7Ti
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: "${TRUENAS_IP}"
+    path: "/mnt/TanguilleServer/TanguilleSMB"
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: immich-data
 spec:
-  accessModes:
-    - ReadWriteOnce
+  storageClassName: immich-nfs
+  accessModes: ["ReadWriteMany"]
   resources:
     requests:
-      storage: 30Gi
-  storageClassName: ceph-filesystem # TODO: temporary, will be changed to nfs
+      storage: 7Ti
