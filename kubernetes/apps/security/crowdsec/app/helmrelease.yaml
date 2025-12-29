@@ -10,35 +10,20 @@ spec:
     name: crowdsec
   interval: 1h
   postRenderers:
-    - kustomize:
-        patches:
-          - patch: |-
-              - op: add
-                path: /spec/template/spec/initContainers
-                value:
-                - name: init-db
-                  image: ghcr.io/home-operations/postgres-init:18
-                  envFrom:
-                  - secretRef:
-                      name: crowdsec-secret
-                  resources:
-                    requests:
-                      cpu: 10m
-                      memory: 32Mi
-                    limits:
-                      memory: 64Mi
-            target:
-              kind: Deployment
-              group: apps
-          - patch: |-
-              - op: replace
-                path: /spec/template/spec/containers/0/command
-                value:
-                - ./docker_start.sh
-            target:
-              kind: Deployment
-              name: crowdsec-appsec
-              group: apps
+  - kustomize:
+      patches:
+      - patch: |-
+          - op: add
+            path: /spec/template/spec/initContainers
+            value:
+            - name: init-db
+              image: ghcr.io/home-operations/postgres-init:18
+              envFrom:
+              - secretRef:
+                  name: crowdsec-secret
+        target:
+          kind: Deployment
+          group: apps
   values:
     container_runtime: containerd
     config:
@@ -174,6 +159,8 @@ spec:
           enabled: true
     appsec:
       enabled: true
+      command:
+        - ./docker_start.sh
       acquisitions:
         - source: appsec
           listen_addr: "0.0.0.0:7422"
