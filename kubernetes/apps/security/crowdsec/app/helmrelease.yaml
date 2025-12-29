@@ -105,14 +105,6 @@ spec:
         api:
           client:
             unregister_on_exit: true
-      appsec_config.yaml.local: |-
-        api:
-          client:
-            unregister_on_exit: true
-      local_api_credentials.yaml: |-
-        url: http://crowdsec-service.security:8080
-        login: appsec
-        password: $${REGISTRATION_TOKEN}
       profiles.yaml: |-
         name: default_ip_remediation
         debug: false
@@ -169,8 +161,6 @@ spec:
           enabled: true
     appsec:
       enabled: true
-      strategy:
-        type: RollingUpdate
       acquisitions:
         - source: appsec
           listen_addr: "0.0.0.0:7422"
@@ -178,14 +168,6 @@ spec:
           appsec_config: crowdsecurity/appsec-default
           labels:
             type: appsec
-      extraVolumes:
-        - name: local-api-credentials
-          secret:
-            secretName: crowdsec-lapi-secrets
-      extraVolumeMounts:
-        - name: local-api-credentials
-          mountPath: /tmp_config/local_api_credentials.yaml
-          subPath: local_api_credentials.yaml
       env:
         - name: APPSEC_CONFIGS
           value: crowdsecurity/appsec-default
