@@ -16,12 +16,7 @@ spec:
         image: ghcr.io/home-operations/postgres-init:18
         envFrom:
           - secretRef:
-              name: *secret
-    secrets:
-      externalSecret:
-        name: &secret crowdsec-secret
-        csLapiSecretKey: CROWDSEC_LAPI_SECRET
-        registrationTokenKey: REGISTRATION_TOKEN
+              name: &secret crowdsec-secret
     config:
       parsers:
         s01-parse:
