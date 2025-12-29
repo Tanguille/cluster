@@ -11,12 +11,6 @@ spec:
   interval: 1h
   values:
     container_runtime: containerd
-    extraInitContainers:
-      - name: init-db
-        image: ghcr.io/home-operations/postgres-init:18
-        envFrom:
-          - secretRef:
-              name: &secret crowdsec-secret
     config:
       parsers:
         s01-parse:
@@ -117,7 +111,7 @@ spec:
           value: "5432"
       envFrom:
         - secretRef:
-            name: *secret
+            name: crowdsec-secret
       persistentVolume:
         data:
           enabled: false
