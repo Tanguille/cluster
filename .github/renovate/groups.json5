@@ -58,5 +58,15 @@
       },
       minimumGroupSize: 2,
     },
+    {
+      description: "StreamyStats Group",
+      groupName: "streamystats",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/streamystats-v2-/"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+      minimumGroupSize: 2,
+    },
   ],
 }
