@@ -14,8 +14,8 @@ spec:
   values:
     defaultPodOptions:
       securityContext:
-        runAsUser: 568
-        runAsGroup: 568
+        runAsUser: 0  # Run as root for patching
+        runAsGroup: 0
         fsGroup: 568
     controllers:
       immich-server:
@@ -50,8 +50,8 @@ spec:
                 grep -q "VECTORCHORD_VERSION_RANGE.*<2" /usr/src/app/server/dist/constants.js && echo "JS patch successful" || echo "JS patch failed"
                 grep -q "VECTORCHORD_VERSION_RANGE.*<2" /usr/src/app/server/dist/constants.d.ts && echo "TS patch successful" || echo "TS patch failed"
 
-                echo "Starting Immich server..."
-                exec tini -- /bin/bash /usr/src/app/server/bin/start.sh
+                echo "Dropping privileges and starting Immich server..."
+                exec setpriv --reuid=568 --regid=568 --init-groups tini -- /bin/bash /usr/src/app/server/bin/start.sh
             resources:
               requests:
                 cpu: 100m
