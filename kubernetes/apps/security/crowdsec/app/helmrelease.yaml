@@ -10,20 +10,20 @@ spec:
     name: crowdsec
   interval: 1h
   postRenderers:
-  - kustomize:
-      patches:
-      - patch: |-
-          - op: add
-            path: /spec/template/spec/initContainers
-            value:
-            - name: init-db
-              image: ghcr.io/home-operations/postgres-init:18
-              envFrom:
-              - secretRef:
-                  name: crowdsec-secret
-        target:
-          kind: Deployment
-          group: apps
+    - kustomize:
+        patches:
+          - patch: |-
+              - op: add
+                path: /spec/template/spec/initContainers
+                value:
+                - name: init-db
+                  image: ghcr.io/home-operations/postgres-init:18
+                  envFrom:
+                  - secretRef:
+                      name: crowdsec-secret
+            target:
+              kind: Deployment
+              group: apps
   values:
     container_runtime: containerd
     config:
