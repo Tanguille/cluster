@@ -33,8 +33,11 @@ spec:
             args:
               - |
                 echo "🔧 Applying VectorChord compatibility patches..."
-                sed -i "s/VECTORCHORD_VERSION_RANGE = '>=0.3 <0.6'/VECTORCHORD_VERSION_RANGE = '>=0.3 <2'/g" /usr/src/app/server/dist/constants.js && echo "✓ VectorChord JS patch applied"
-                sed -i 's/VECTORCHORD_VERSION_RANGE = ">=0.3 <0.6"/VECTORCHORD_VERSION_RANGE = ">=0.3 <2"/g' /usr/src/app/server/dist/constants.d.ts && echo "✓ VectorChord TS patch applied"
+                ls -la /usr/src/app/server/dist/constants.*
+                sed -i "s/VECTORCHORD_VERSION_RANGE = '>=0.3 <0.6'/VECTORCHORD_VERSION_RANGE = '>=0.3 <2'/g" /usr/src/app/server/dist/constants.js && echo "✓ VectorChord JS patch applied" || echo "✗ JS patch failed"
+                sed -i 's/VECTORCHORD_VERSION_RANGE = ">=0.3 <0.6"/VECTORCHORD_VERSION_RANGE = ">=0.3 <2"/g' /usr/src/app/server/dist/constants.d.ts && echo "✓ VectorChord TS patch applied" || echo "✗ TS patch failed"
+                echo "Checking patched files:"
+                grep -n "VECTORCHORD_VERSION_RANGE" /usr/src/app/server/dist/constants.js /usr/src/app/server/dist/constants.d.ts || echo "Pattern not found"
                 echo "🎯 Patches applied successfully"
           init-db:
             image:
