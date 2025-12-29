@@ -1,0 +1,14 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Role
+metadata:
+  name: crowdsec-role
+spec:
+  cluster:
+    name: postgres16
+  name: crowdsec
+  passwordSecret:
+    name: crowdsec-secret
+    key: INIT_POSTGRES_PASS
+  login: true
+  ensure: present
