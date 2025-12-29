@@ -133,12 +133,6 @@ spec:
       envFrom:
       - secretRef:
           name: crowdsec-secret
-      volumes:
-      - name: crowdsec-local-api-creds
-        emptyDir: {}
-      volumeMounts:
-      - name: crowdsec-local-api-creds
-        mountPath: /var/lib/crowdsec/data/
       persistentVolume:
         data:
           enabled: false
@@ -178,27 +172,27 @@ spec:
       strategy:
         type: RollingUpdate
       acquisitions:
-      - source: appsec
-        listen_addr: "0.0.0.0:7422"
-        path: /
-        appsec_config: crowdsecurity/appsec-default
-        labels:
-          type: appsec
+        - source: appsec
+          listen_addr: "0.0.0.0:7422"
+          path: /
+          appsec_config: crowdsecurity/appsec-default
+          labels:
+            type: appsec
       env:
-      - name: APPSEC_CONFIGS
-        value: crowdsecurity/appsec-default
-      - name: COLLECTIONS
-        value: >-
-          crowdsecurity/appsec-generic-rules
-          crowdsecurity/appsec-virtual-patching
-      - name: TZ
-        value: ${TIMEZONE}
-      - name: LOCAL_API_URL
-        value: http://crowdsec-service.security:8080
-      - name: DISABLE_LOCAL_API
-        value: "true"
-      - name: DISABLE_ONLINE_API
-        value: "true"
+        - name: APPSEC_CONFIGS
+          value: crowdsecurity/appsec-default
+        - name: COLLECTIONS
+          value: >-
+            crowdsecurity/appsec-generic-rules
+            crowdsecurity/appsec-virtual-patching
+        - name: TZ
+          value: ${TIMEZONE}
+        - name: LOCAL_API_URL
+          value: http://crowdsec-service.security:8080
+        - name: DISABLE_LOCAL_API
+          value: "true"
+        - name: DISABLE_ONLINE_API
+          value: "true"
       metrics:
         enabled: true
         serviceMonitor:
