@@ -29,6 +29,18 @@ spec:
             image:
               repository: ghcr.io/immich-app/immich-server
               tag: v2.4.1
+            command:
+              - /bin/bash
+              - -c
+              - |
+                set -eo pipefail
+                set -x
+
+                sed -e "s:VECTORCHORD_VERSION_RANGE = '>=0.3 <0.6':VECTORCHORD_VERSION_RANGE = '>=0.3 <2':g" -i /usr/src/app/server/dist/constants.js
+
+                sed -e 's:VECTORCHORD_VERSION_RANGE = ">=0.3 <0.6":VECTORCHORD_VERSION_RANGE = ">=0.3 <2":g' -i /usr/src/app/server/dist/constants.d.ts
+
+                exec tini -- /bin/bash /usr/src/app/server/bin/start.sh
             resources:
               requests:
                 cpu: 100m
