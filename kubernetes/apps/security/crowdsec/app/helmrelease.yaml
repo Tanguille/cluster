@@ -109,6 +109,10 @@ spec:
         api:
           client:
             unregister_on_exit: true
+      local_api_credentials.yaml: |-
+        url: http://crowdsec-service.security:8080
+        login: appsec
+        password: $${REGISTRATION_TOKEN}
       profiles.yaml: |-
         name: default_ip_remediation
         debug: false
