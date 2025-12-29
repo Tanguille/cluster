@@ -12,6 +12,11 @@ spec:
     name: app-template
 
   values:
+    defaultPodOptions:
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
     controllers:
       immich-server:
         strategy: RollingUpdate
