@@ -158,29 +158,4 @@ spec:
         serviceMonitor:
           enabled: true
     appsec:
-      enabled: true
-      command:
-        - ./docker_start.sh
-      acquisitions:
-        - source: appsec
-          listen_addr: "0.0.0.0:7422"
-          path: /
-          appsec_config: crowdsecurity/appsec-default
-          labels:
-            type: appsec
-      env:
-        - name: COLLECTIONS
-          value: >-
-            crowdsecurity/appsec-generic-rules
-            crowdsecurity/appsec-virtual-patching
-        - name: TZ
-          value: ${TIMEZONE}
-        - name: ENROLL_INSTANCE_NAME
-          value: cluster-appsec
-      envFrom:
-        - secretRef:
-            name: *secret
-      metrics:
-        enabled: true
-        serviceMonitor:
-          enabled: true
+      enabled: false
