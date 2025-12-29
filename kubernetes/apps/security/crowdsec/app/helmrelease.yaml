@@ -76,15 +76,15 @@ spec:
           server:
             auto_registration:
               enabled: true
-              token: ${REGISTRATION_TOKEN}
+              token: $${REGISTRATION_TOKEN}
               allowed_ranges:
                 - 10.42.0.0/16
         db_config:
           type: postgresql
-          user: ${DB_USERNAME}
-          password: ${DB_PASSWORD}
-          db_name: ${DB_NAME}
-          host: ${DB_HOST}
+          user: $${DB_USERNAME}
+          password: $${DB_PASSWORD}
+          db_name: $${DB_NAME}
+          host: $${DB_HOST}
           port: 5432
       agent_config.yaml.local: |-
         api:
