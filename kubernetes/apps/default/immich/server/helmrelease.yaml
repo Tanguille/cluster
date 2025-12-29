@@ -14,6 +14,7 @@ spec:
   values:
     controllers:
       immich-server:
+        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
@@ -82,7 +83,7 @@ spec:
     route:
       main:
         hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+          - "immich.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-internal
             namespace: network
