@@ -93,8 +93,13 @@ spec:
               - name: immich-server
                 port: 2283
     persistence:
-      data:
+      upload:
         enabled: true
-        existingClaim: immich-data
+        existingClaim: immich-upload
         globalMounts:
           - path: /usr/src/app/upload
+      library:
+        enabled: true
+        existingClaim: immich-library
+        globalMounts:
+          - path: /mnt/library

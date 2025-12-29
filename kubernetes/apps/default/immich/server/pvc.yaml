@@ -1,8 +1,9 @@
 ---
+# PV for Immich external library (user pictures)
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: immich-data-pv
+  name: immich-library-pv
 spec:
   storageClassName: immich-nfs
   accessModes: ["ReadWriteMany"]
@@ -13,10 +14,23 @@ spec:
     server: "${TRUENAS_IP}"
     path: "/mnt/TanguilleServer/TanguilleSMB"
 ---
+# PVC for Immich upload location (app data: thumbnails, encoded videos, etc.)
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: immich-data
+  name: immich-upload
+spec:
+  storageClassName: ceph-filesystem
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 100Gi
+---
+# PVC for Immich external library (user pictures)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-library
 spec:
   storageClassName: immich-nfs
   accessModes: ["ReadWriteMany"]
