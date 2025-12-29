@@ -126,7 +126,7 @@ spec:
           value: "5432"
       envFrom:
         - secretRef:
-            name: crowdsec-secret
+            name: &secret crowdsec-secret
       persistentVolume:
         data:
           enabled: false
@@ -170,7 +170,16 @@ spec:
             type: appsec
       env:
         - name: COLLECTIONS
-          value: crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+          value: >-
+            crowdsecurity/appsec-generic-rules
+            crowdsecurity/appsec-virtual-patching
+        - name: TZ
+          value: ${TIMEZONE}
+        - name: ENROLL_INSTANCE_NAME
+          value: cluster-appsec
+      envFrom:
+        - secretRef:
+            name: *secret
       metrics:
         enabled: true
         serviceMonitor:
