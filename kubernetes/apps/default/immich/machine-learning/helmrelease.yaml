@@ -56,9 +56,9 @@ spec:
           http:
             port: 3003
     persistence:
-      data:
+      upload:
         enabled: true
-        existingClaim: immich-data
+        existingClaim: immich-upload
         globalMounts:
           - path: /usr/src/app/upload
       cache:
