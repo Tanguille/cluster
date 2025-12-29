@@ -178,6 +178,14 @@ spec:
           appsec_config: crowdsecurity/appsec-default
           labels:
             type: appsec
+      extraVolumes:
+        - name: local-api-credentials
+          configMap:
+            name: crowdsec
+      extraVolumeMounts:
+        - name: local-api-credentials
+          mountPath: /tmp_config/local_api_credentials.yaml
+          subPath: local_api_credentials.yaml
       env:
         - name: APPSEC_CONFIGS
           value: crowdsecurity/appsec-default
