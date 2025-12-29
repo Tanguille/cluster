@@ -11,8 +11,8 @@ spec:
   timeout: 5m
   prune: true
   components:
-    - ../../../../../components/nfs-scaler
-  path: ./kubernetes/apps/default/immich/server/app
+    - ../../../../components/nfs-scaler
+  path: ./kubernetes/apps/default/immich/server
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -30,7 +30,7 @@ spec:
   retryInterval: 2m
   timeout: 5m
   prune: true
-  path: ./kubernetes/apps/default/immich/machine-learning/app
+  path: ./kubernetes/apps/default/immich/machine-learning
   sourceRef:
     kind: GitRepository
     name: flux-system
