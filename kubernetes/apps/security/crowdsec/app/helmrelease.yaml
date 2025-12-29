@@ -180,8 +180,8 @@ spec:
             type: appsec
       extraVolumes:
         - name: local-api-credentials
-          configMap:
-            name: crowdsec
+          secret:
+            secretName: crowdsec-lapi-secrets
       extraVolumeMounts:
         - name: local-api-credentials
           mountPath: /tmp_config/local_api_credentials.yaml
