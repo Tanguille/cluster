@@ -81,7 +81,7 @@ spec:
           server:
             auto_registration:
               enabled: true
-              token: "${REGISTRATION_TOKEN}"
+              token: !ENV ${REGISTRATION_TOKEN}
               allowed_ranges:
                 - 10.42.0.0/16
         db_config:
