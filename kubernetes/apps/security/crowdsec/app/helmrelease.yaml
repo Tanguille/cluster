@@ -11,7 +11,7 @@ spec:
   interval: 1h
   values:
     container_runtime: containerd
-    initContainers:
+    extraInitContainers:
       - name: init-db
         image: ghcr.io/home-operations/postgres-init:18
         envFrom:
@@ -111,6 +111,10 @@ spec:
           value: ${TIMEZONE}
         - name: ENROLL_INSTANCE_NAME
           value: cluster
+        - name: DB_TYPE
+          value: postgresql
+        - name: DB_PORT
+          value: "5432"
       envFrom:
         - secretRef:
             name: *secret
