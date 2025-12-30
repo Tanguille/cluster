@@ -29,11 +29,11 @@ spec:
               - "$(P2POOL_WALLET_ADDRESS)"
               - "--stratum"
               - "0.0.0.0:3333"
-              - "--mini"
+              - "--nano"
               - "--p2p"
-              - "0.0.0.0:37888"
+              - "0.0.0.0:37890"
               - "--addpeers"
-              - "65.21.227.114:37888,168.119.137.28:37888"
+              - "65.21.227.114:37890,168.119.137.28:37890"
               - "--out-peers"
               - "32"
               - "--in-peers"
@@ -100,7 +100,7 @@ spec:
             port: 3333
             targetPort: stratum
           p2p:
-            port: 37888
+            port: 37890
             targetPort: p2p
           web:
             port: 80
