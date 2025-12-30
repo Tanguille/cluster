@@ -10,6 +10,7 @@ spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:18.1-standard-trixie@sha256:41f9a260001593d35730675504327fe357b196ed6d18fdac45732c5700cb7fec
   instances: 3
   primaryUpdateStrategy: unsupervised
+  primaryUpdateMethod: switchover
   storage:
     size: 20Gi
     storageClass: openebs-hostpath
@@ -54,9 +55,11 @@ spec:
     extensions:
       - name: vchord
         image:
+          # renovate: datasource=docker depName=ghcr.io/tensorchord/vchord-scratch
           reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.0.0
       - name: vector
         image:
+          # renovate: datasource=docker depName=ghcr.io/tensorchord/vchord-scratch
           reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.0.0
         dynamic_library_path:
           - /usr/lib/postgresql/18/lib
