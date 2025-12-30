@@ -68,5 +68,15 @@
       },
       minimumGroupSize: 2,
     },
+    {
+      description: "CloudNativePG Barman Cloud Group",
+      groupName: "cloudnative-pg-barman-cloud",
+      matchDatasources: ["docker", "github-releases"],
+      matchPackageNames: ["/cloudnative-pg/plugin-barman-cloud/"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+      minimumGroupSize: 2,
+    },
   ],
 }
