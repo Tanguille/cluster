@@ -21,15 +21,13 @@ spec:
             args:
               - "-o"
               - "p2pool.web3.svc.cluster.local:3333"
+              - "-u"
+              - "x+5000"
               - "-k"
               - "--coin=monero"
               # Prefer huge pages (2Mi) and try 1Gi pages (falls back automatically).
               - "--huge-pages"
               - "--randomx-1gb-pages"
-              # Low CPU priority to ensure other workloads take precedence
-              - "--cpu-priority=1"
-              # Let xmrig auto-detect and use all available CPU cores
-              # Kubernetes CPU limits will throttle usage when other pods need resources
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
