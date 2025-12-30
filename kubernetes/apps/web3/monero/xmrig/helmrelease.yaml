@@ -25,9 +25,8 @@ spec:
               - "x+5000"
               - "-k"
               - "--coin=monero"
-              # Prefer huge pages (2Mi) and try 1Gi pages (falls back automatically).
+              # Prefer huge pages (2Mi)
               - "--huge-pages"
-              - "--randomx-1gb-pages"
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
