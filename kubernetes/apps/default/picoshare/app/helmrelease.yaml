@@ -58,4 +58,6 @@ spec:
             namespace: network
     persistence:
       data:
-        existingClaim: "{{ .Release.Name }}"
+        storageClass: ceph-filesystem
+        accessMode: ReadWriteMany
+        size: 100Gi
