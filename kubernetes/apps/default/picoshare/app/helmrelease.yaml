@@ -58,6 +58,7 @@ spec:
             namespace: network
     persistence:
       data:
+        enabled: true
         storageClass: ceph-filesystem
-        accessMode: ReadWriteMany
+        accessMode: ReadWriteOnce
         size: 100Gi
