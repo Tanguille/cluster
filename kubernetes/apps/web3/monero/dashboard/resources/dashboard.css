@@ -129,9 +129,120 @@ select#earnPeriod {
 }
 
 
+/* Mining Statistics Section */
+.stats-section {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.stats-section h2 {
+    text-align: center;
+    color: #4CAF50;
+    margin-bottom: 2rem;
+    font-size: 2rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: #1e1e1e;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.stat-card .stat-title {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #4CAF50;
+}
+
+.stat-card .stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #e0e0e0;
+}
+
+.stat-card .stat-unit {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    color: #aaa;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-active {
+    background: #4caf50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.status-inactive {
+    background: #f44336;
+    box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+}
+
+.workers-section {
+    background: #1e1e1e;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.workers-title {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    color: #4CAF50;
+    border-bottom: 1px solid rgba(76, 175, 80, 0.3);
+    padding-bottom: 0.5rem;
+}
+
+.worker-item {
+    margin: 0.5rem 0;
+    padding: 0.75rem;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    border-left: 3px solid #4CAF50;
+}
+
+.worker-item strong {
+    color: #4CAF50;
+}
+
+.no-workers {
+    text-align: center;
+    opacity: 0.7;
+    font-style: italic;
+    color: #888;
+}
+
 /* Mobile adjustments */
 @media (max-width: 600px) {
     .card { padding: 0.75rem; }
     .big { font-size: 1.25rem; }
     .sub, .small-stat, .stat { font-size: 0.85rem; }
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    .stat-card { padding: 0.75rem; }
+    .stat-card .stat-value { font-size: 1.25rem; }
 }

@@ -1,82 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>P2Pool Dashboard</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <title>P2Pool Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="dashboard.css" />
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
-</head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+  </head>
 
-<body>
+  <body>
+    <header>
+      <h1>P2Pool Dashboard</h1>
+    </header>
 
-<header>
-  <h1>P2Pool Dashboard</h1>
-</header>
+    <main class="grid">
+      <!-- HASHRATE -->
+      <div class="card">
+        <h2>Your Hashrate</h2>
 
-<main class="grid">
+        <div class="big" id="myHashrate">Loading…</div>
+        <div class="sub">Pool share: <span id="poolShare">–</span></div>
 
-<!-- HASHRATE -->
-<div class="card">
-  <h2>Your Hashrate</h2>
+        <canvas id="hashrateChart"></canvas>
+      </div>
 
-  <div class="big" id="myHashrate">Loading…</div>
-  <div class="sub">
-    Pool share: <span id="poolShare">–</span>
-  </div>
+      <!-- EARNINGS -->
+      <div class="card">
+        <h2>Estimated Earnings</h2>
 
-  <canvas id="hashrateChart"></canvas>
-</div>
+        <div class="big" id="earnXMR">Loading…</div>
+        <div class="sub" id="earnEUR">Loading…</div>
 
-<!-- EARNINGS -->
-<div class="card">
-  <h2>Estimated Earnings</h2>
+        <select id="earnPeriod">
+          <option value="hour">per hour</option>
+          <option value="day" selected>per day</option>
+          <option value="week">per week</option>
+          <option value="month">per month</option>
+          <option value="year">per year</option>
+        </select>
 
-  <div class="big" id="earnXMR">Loading…</div>
-  <div class="sub" id="earnEUR">Loading…</div>
+        <div class="bottom-stats">
+          <div class="stat">
+            <span>Payout interval</span>
+            <span id="payoutInterval">Loading…</span>
+          </div>
+          <div class="small-stat">
+            Network hashrate: <span id="netHashrate">–</span>
+          </div>
+          <div class="small-stat">
+            Pool hashrate: <span id="poolHashrate">–</span>
+          </div>
+          <div class="small-stat">
+            Block reward: <span id="blockReward">–</span> XMR
+          </div>
+        </div>
+      </div>
 
-  <select id="earnPeriod">
-    <option value="hour">per hour</option>
-    <option value="day" selected>per day</option>
-    <option value="week">per week</option>
-    <option value="month">per month</option>
-    <option value="year">per year</option>
-  </select>
+      <!-- PRICE -->
+      <div class="card">
+        <h2>XMR Price</h2>
 
-  <div class="bottom-stats">
-    <div class="stat">
-      <span>Payout interval</span>
-      <span id="payoutInterval">Loading…</span>
-    </div>
-    <div class="small-stat">
-      Network hashrate: <span id="netHashrate">–</span>
-    </div>
-    <div class="small-stat">
-      Pool hashrate: <span id="poolHashrate">–</span>
-    </div>
-    <div class="small-stat">
-      Block reward: <span id="blockReward">–</span> XMR
-    </div>
-  </div>
-</div>
+        <div class="big" id="price">Loading…</div>
 
-<!-- PRICE -->
-<div class="card">
-  <h2>XMR Price</h2>
+        <canvas id="priceChart"></canvas>
+      </div>
+    </main>
 
-  <div class="big" id="price">Loading…</div>
+    <!-- MINING STATISTICS -->
+    <section class="stats-section">
+      <h2>Mining Statistics</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-title">Pool Status</div>
+          <div class="stat-value">
+            <span class="status-indicator" id="pool-status"></span>
+            <span id="pool-status-text">Unknown</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Your Hashrate (24h)</div>
+          <div class="stat-value" id="user-hashrate-24h">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Shares Found</div>
+          <div class="stat-value" id="shares-found">0</div>
+          <div class="stat-unit">total</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Shares Failed</div>
+          <div class="stat-value" id="shares-failed">0</div>
+          <div class="stat-unit">total</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Active Connections</div>
+          <div class="stat-value" id="connections">0</div>
+          <div class="stat-unit">miners</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Block Reward Share</div>
+          <div class="stat-value" id="reward-share">0.000%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Current Effort</div>
+          <div class="stat-value" id="current-effort">0.000%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Blocks Found</div>
+          <div class="stat-value" id="blocks-found">0</div>
+          <div class="stat-unit">total</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Last Share Found</div>
+          <div class="stat-value" id="last-share-time">Never</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">Last Block Found</div>
+          <div class="stat-value" id="last-block-time">Never</div>
+        </div>
+      </div>
 
-  <canvas id="priceChart"></canvas>
-</div>
+      <div class="workers-section">
+        <div class="workers-title">Connected Miners</div>
+        <div id="workers-list" class="no-workers">No miners connected</div>
+      </div>
+    </section>
 
-</main>
-
-<footer>Made by XanderTheDev</footer>
-
-<script src="dashboard.js"></script>
-</body>
+    <script src="dashboard.js"></script>
+  </body>
 </html>

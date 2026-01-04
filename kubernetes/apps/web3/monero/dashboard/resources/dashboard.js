@@ -13,6 +13,21 @@ function scaleHashrate(v){
     return Math.round(v)+" H/s";
 }
 
+function formatTime(timestamp) {
+    if (!timestamp || timestamp === 0) return "Never";
+    const date = new Date(timestamp * 1000);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+}
+
 async function fetchJSON(url){
     const r = await fetch(url);
     if(!r.ok) throw new Error(url);
@@ -156,6 +171,65 @@ async function updateStats(){
         document.getElementById("poolHashrate").textContent = scaleHashrate(poolHash);
         document.getElementById("netHashrate").textContent = scaleHashrate(netHash);
         document.getElementById("blockReward").textContent = blockReward.toFixed(6);
+
+        // Update mining statistics
+        document.getElementById("user-hashrate-24h").textContent = scaleHashrate(stratumData.hashrate_24h || 0);
+        document.getElementById("shares-found").textContent = stratumData.shares_found || 0;
+        document.getElementById("shares-failed").textContent = stratumData.shares_failed || 0;
+        document.getElementById("connections").textContent = stratumData.connections || 0;
+
+        document.getElementById("reward-share").textContent = stratumData.block_reward_share_percent ?
+            stratumData.block_reward_share_percent.toFixed(3) + "%" : "0.000%";
+
+        document.getElementById("current-effort").textContent = stratumData.current_effort ?
+            stratumData.current_effort.toFixed(3) + "%" : "0.000%";
+
+        document.getElementById("blocks-found").textContent = pool.totalBlocksFound || 0;
+
+        // Update status indicator
+        const poolStatus = document.getElementById("pool-status");
+        const poolStatusText = document.getElementById("pool-status-text");
+        if (stratumData.connections > 0) {
+            poolStatus.className = "status-indicator status-active";
+            poolStatusText.textContent = "Active";
+        } else {
+            poolStatus.className = "status-indicator status-inactive";
+            poolStatusText.textContent = "Inactive";
+        }
+
+        // Update timestamps
+        document.getElementById("last-share-time").textContent = formatTime(stratumData.last_share_found_time);
+        document.getElementById("last-block-time").textContent = formatTime(pool.lastBlockFoundTime);
+
+        // Update worker list
+        const workersList = document.getElementById("workers-list");
+        if (stratumData.workers && stratumData.workers.length > 0) {
+            const workersHtml = stratumData.workers
+                .map((workerStr) => {
+                    // Parse p2pool worker format: "ip:port,hashrate,total_hashes,port,name"
+                    const parts = workerStr.split(",");
+                    const ipPort = parts[0] || "Unknown";
+                    const hashrate = parseInt(parts[1]) || 0;
+                    const totalHashes = parseInt(parts[2]) || 0;
+                    const port = parts[3] || "";
+                    let name = parts[4] || ipPort;
+
+                    // Improve miner name - if it's just "x" or empty, use IP address
+                    if (!name || name === "x" || name.trim() === "") {
+                        const ip = ipPort.split(":")[0];
+                        name = `Miner @ ${ip}`;
+                    }
+
+                    return `<div class="worker-item">
+                        <strong>${name}</strong> -
+                        ${scaleHashrate(hashrate)}
+                    </div>`;
+                })
+                .join("");
+            workersList.innerHTML = workersHtml;
+        } else {
+            workersList.innerHTML = '<div class="no-workers">No miners connected</div>';
+        }
 
         const poolShare = (myHash/poolHash)*100;
         document.getElementById("poolShare").textContent = poolShare.toFixed(4)+"%";
