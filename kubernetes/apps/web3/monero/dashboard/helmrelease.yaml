@@ -62,6 +62,10 @@ spec:
         globalMounts:
           - path: /usr/share/nginx/html/index.html
             subPath: dashboard.html
+          - path: /usr/share/nginx/html/dashboard.css
+            subPath: dashboard.css
+          - path: /usr/share/nginx/html/dashboard.js
+            subPath: dashboard.js
       nginx-config:
         type: configMap
         name: "dashboard-nginx-config"
