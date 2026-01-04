@@ -1,0 +1,137 @@
+/* Reset & base */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #121212;
+    color: #e0e0e0;
+}
+
+header {
+    text-align: center;
+    padding: 1rem;
+    background: #1f1f1f;
+}
+
+h1 { 
+    margin: 0; 
+    color: #4CAF50; 
+}
+
+main.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+}
+
+.card {
+    background: #1e1e1e;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card h2 {
+    margin-top: 0;
+    font-size: 1.2rem;
+    color: #4CAF50;
+}
+
+.big {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 0.5rem 0;
+}
+
+.sub, .small-stat, .stat {
+    font-size: 0.9rem;
+    margin: 0.25rem 0;
+}
+
+canvas {
+    margin-top: 0.5rem;
+    border-radius: 8px;
+}
+
+/* Dropdown styling */
+select#earnPeriod {
+    padding: 0.3rem 0.6rem;
+    background: #2b2b2b;
+    color: #e0e0e0;
+    border: 1px solid #4CAF50;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    appearance: none;
+}
+
+select#earnPeriod::-ms-expand {
+    display: none;
+}
+
+/* Footer */
+footer {
+    width: 100%;
+    text-align: center;
+    padding: 1rem;
+    background: #1f1f1f;
+    color: #888;
+    font-size: 0.85rem;
+    margin-top: 1rem;
+}
+
+/* --- Estimated Earnings Card Tweaks --- */
+.card {
+    background: #1e1e1e;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* keep top content together */
+}
+
+#earnXMR {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.1rem;
+}
+
+#earnEUR {
+    font-size: 1rem;
+    color: #aaa;
+    display: block;
+    margin-bottom: 0.3rem; /* smaller spacing, closer to XMR */
+}
+
+select#earnPeriod {
+    padding: 0.3rem 0.6rem;
+    background: #2b2b2b;
+    color: #e0e0e0;
+    border: 1px solid #4CAF50;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    appearance: none;
+}
+
+/* Bottom stats pinned at the bottom */
+.bottom-stats {
+    margin-top: auto; /* pushes this block to the bottom of card */
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.85rem;
+    color: #ccc;
+}
+
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+    .card { padding: 0.75rem; }
+    .big { font-size: 1.25rem; }
+    .sub, .small-stat, .stat { font-size: 0.85rem; }
+}

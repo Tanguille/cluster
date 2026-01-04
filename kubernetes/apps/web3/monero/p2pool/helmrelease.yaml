@@ -64,24 +64,6 @@ spec:
               limits:
                 cpu: 500m
                 memory: 800Mi
-          web:
-            image:
-              repository: nginx
-              tag: 1.29-alpine
-            command:
-              - sh
-            args:
-              - -c
-              - |
-                mkdir -p /tmp/nginx && \
-                nginx -g 'daemon off;';
-            ports:
-              - name: web
-                containerPort: 80
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
-              capabilities: { drop: ["ALL"] }
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -102,9 +84,6 @@ spec:
           p2p:
             port: 37890
             targetPort: p2p
-          web:
-            port: 80
-            targetPort: web
     persistence:
       data:
         storageClass: ceph-filesystem
@@ -119,20 +98,7 @@ spec:
         size: 1Gi
         globalMounts:
           - path: /var/lib/p2pool/api
-          - path: /usr/share/nginx/html
       tmp:
         type: emptyDir
         globalMounts:
           - path: /tmp
-      dashboard-html:
-        type: configMap
-        name: "{{ .Release.Name }}-dashboard"
-        globalMounts:
-          - path: /usr/share/nginx/html/index.html
-            subPath: index.html
-      nginx-config:
-        type: configMap
-        name: "{{ .Release.Name }}-nginx-config"
-        globalMounts:
-          - path: /etc/nginx/nginx.conf
-            subPath: nginx.conf

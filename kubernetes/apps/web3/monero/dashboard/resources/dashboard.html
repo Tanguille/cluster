@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>P2Pool Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="dashboard.css">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+</head>
+
+<body>
+
+<header>
+  <h1>P2Pool Dashboard</h1>
+</header>
+
+<main class="grid">
+
+<!-- HASHRATE -->
+<div class="card">
+  <h2>Your Hashrate</h2>
+
+  <div class="big" id="myHashrate">Loading…</div>
+  <div class="sub">
+    Pool share: <span id="poolShare">–</span>
+  </div>
+
+  <canvas id="hashrateChart"></canvas>
+</div>
+
+<!-- EARNINGS -->
+<div class="card">
+  <h2>Estimated Earnings</h2>
+
+  <div class="big" id="earnXMR">Loading…</div>
+  <div class="sub" id="earnEUR">Loading…</div>
+
+  <select id="earnPeriod">
+    <option value="hour">per hour</option>
+    <option value="day" selected>per day</option>
+    <option value="week">per week</option>
+    <option value="month">per month</option>
+    <option value="year">per year</option>
+  </select>
+
+  <div class="bottom-stats">
+    <div class="stat">
+      <span>Payout interval</span>
+      <span id="payoutInterval">Loading…</span>
+    </div>
+    <div class="small-stat">
+      Network hashrate: <span id="netHashrate">–</span>
+    </div>
+    <div class="small-stat">
+      Pool hashrate: <span id="poolHashrate">–</span>
+    </div>
+    <div class="small-stat">
+      Block reward: <span id="blockReward">–</span> XMR
+    </div>
+  </div>
+</div>
+
+<!-- PRICE -->
+<div class="card">
+  <h2>XMR Price</h2>
+
+  <div class="big" id="price">Loading…</div>
+
+  <canvas id="priceChart"></canvas>
+</div>
+
+</main>
+
+<footer>Made by XanderTheDev</footer>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
