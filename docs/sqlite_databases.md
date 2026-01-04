@@ -25,16 +25,6 @@ This file lists all SQLite databases found across the cluster, organized by name
 - **Status**: ⏳ Not migrated
 - **Notes**: Backup file (not active)
 
-### music-assistant
-
-- **Path**: `/data/library.db`
-- **Status**: ⏳ Not migrated
-- **PostgreSQL Support**: ❓ Unknown - needs verification
-- **Notes**: Main library database
-- **Path**: `/data/.cache/cache.db`
-- **Status**: ⏳ Not migrated
-- **Notes**: Cache database
-
 ### qbittorrent
 
 - **Path**: `/config/qBittorrent/torrents.db`
@@ -84,8 +74,7 @@ This file lists all SQLite databases found across the cluster, organized by name
 2. **qbittorrent** - ❌ SQLite only (no PostgreSQL support)
 3. **trilium** - ❌ SQLite only (no PostgreSQL support)
 4. **cross-seed** - ❌ SQLite only (no PostgreSQL support)
-5. **music-assistant** - ❌ SQLite only (no PostgreSQL support)
-6. **wizarr** - ❌ SQLite only (no PostgreSQL support)
+5. **wizarr** - ❌ SQLite only (no PostgreSQL support)
 
 ### Notes
 
