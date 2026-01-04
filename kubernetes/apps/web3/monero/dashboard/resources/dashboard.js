@@ -179,10 +179,10 @@ async function updateStats() {
     document.getElementById("connections").textContent = stratumData.connections || 0;
 
     document.getElementById("reward-share").textContent = stratumData.block_reward_share_percent ?
-      stratumData.block_reward_share_percent.toFixed(3) + "%" : "0.000%";
+      `${stratumData.block_reward_share_percent.toFixed(3)}%` : "0.000%";
 
     document.getElementById("current-effort").textContent = stratumData.current_effort ?
-      stratumData.current_effort.toFixed(3) + "%" : "0.000%";
+      `${stratumData.current_effort.toFixed(3)}%` : "0.000%";
 
     document.getElementById("blocks-found").textContent = pool.totalBlocksFound || 0;
 
@@ -230,7 +230,7 @@ async function updateStats() {
     }
 
     const poolShare = (myHash / poolHash) * 100;
-    document.getElementById("poolShare").textContent = poolShare.toFixed(4) + "%";
+    document.getElementById("poolShare").textContent = `${poolShare.toFixed(4)}%`;
 
     // Get price and store in history
     const price = await getXmrPrice();
