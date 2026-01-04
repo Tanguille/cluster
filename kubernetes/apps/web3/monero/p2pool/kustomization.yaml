@@ -5,18 +5,3 @@ kind: Kustomization
 resources:
   - helmrelease.yaml
   - secret.sops.yaml
-  - httproute.yaml
-configMapGenerator:
-  - name: p2pool-dashboard
-    files:
-      - index.html=./resources/index.html
-    options:
-      annotations:
-        kustomize.toolkit.fluxcd.io/substitute: disabled
-  - name: p2pool-nginx-config
-    files:
-      - nginx.conf=./resources/nginx.conf
-generatorOptions:
-  disableNameSuffixHash: true
-  annotations:
-    configmap.reloader.stakater.com/reload: "p2pool"
