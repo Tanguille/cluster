@@ -51,9 +51,7 @@ spec:
             targetPort: web
     persistence:
       shared-api-data:
-        storageClass: ceph-filesystem
-        accessMode: ReadWriteMany
-        size: 1Gi
+        existingClaim: p2pool-shared-api-data
         globalMounts:
           - path: /var/lib/p2pool/api
       dashboard-html:
