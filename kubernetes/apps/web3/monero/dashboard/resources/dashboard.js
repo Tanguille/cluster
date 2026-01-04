@@ -1,7 +1,7 @@
 let history = { timestamps: [], myHash: [], price: [] };
 let hashrateChart, priceChart;
 let currentRangeHours = 24;
-const STORAGE_KEY = 'p2pool_history';
+const STORAGE_KEY = "p2pool_history";
 const MAX_HISTORY_AGE = 7 * 24 * 3600 * 1000; // 7 days in milliseconds
 
 const PERIOD_MULT = { hour: 1 / 24, day: 1, week: 7, month: 30, year: 365 };
@@ -42,7 +42,7 @@ function loadHistory() {
       history = JSON.parse(stored);
       // Clean old data
       const cutoff = Date.now() - MAX_HISTORY_AGE;
-      const idx = history.timestamps.findIndex(t => t >= cutoff / 1000);
+      const idx = history.timestamps.findIndex((t) => t >= cutoff / 1000);
       if (idx > 0) {
         history.timestamps = history.timestamps.slice(idx);
         history.myHash = history.myHash.slice(idx);
@@ -50,7 +50,7 @@ function loadHistory() {
       }
     }
   } catch (error) {
-    console.warn('Failed to load history:', error);
+    console.warn("Failed to load history:", error);
     history = { timestamps: [], myHash: [], price: [] };
   }
 }
@@ -60,18 +60,20 @@ function saveHistory() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
   } catch (error) {
-    console.warn('Failed to save history:', error);
+    console.warn("Failed to save history:", error);
   }
 }
 
 function sliceHistory(hours) {
   const cutoff = Date.now() / 1000 - hours * 3600;
-  const idx = history.timestamps.findIndex(timestamp => timestamp >= cutoff);
+  const idx = history.timestamps.findIndex((timestamp) => timestamp >= cutoff);
   const startIndex = idx === -1 ? 0 : idx;
   return {
-    labels: history.timestamps.slice(startIndex).map(timestamp => timestamp * 1000),
+    labels: history.timestamps
+      .slice(startIndex)
+      .map((timestamp) => timestamp * 1000),
     myHash: history.myHash.slice(startIndex),
-    price: history.price.slice(startIndex)
+    price: history.price.slice(startIndex),
   };
 }
 
@@ -84,15 +86,15 @@ function updateCharts() {
       type: "line",
       data: {
         labels: historyData.labels,
-        datasets: [{ label: "Your Hashrate", data: historyData.myHash }]
+        datasets: [{ label: "Your Hashrate", data: historyData.myHash }],
       },
       options: {
         scales: {
           x: { type: "time" },
-          y: { ticks: { callback: scaleHashrate } }
+          y: { ticks: { callback: scaleHashrate } },
         },
-        elements: { point: { radius: 0 }, line: { tension: 0.25 } }
-      }
+        elements: { point: { radius: 0 }, line: { tension: 0.25 } },
+      },
     });
   } else {
     hashrateChart.data.labels = historyData.labels;
@@ -106,12 +108,12 @@ function updateCharts() {
       type: "line",
       data: {
         labels: historyData.labels,
-        datasets: [{ label: "XMR Price (EUR)", data: historyData.price }]
+        datasets: [{ label: "XMR Price (EUR)", data: historyData.price }],
       },
       options: {
         scales: { x: { type: "time" } },
-        elements: { point: { radius: 0 }, line: { tension: 0.25 } }
-      }
+        elements: { point: { radius: 0 }, line: { tension: 0.25 } },
+      },
     });
   } else {
     priceChart.data.labels = historyData.labels;
@@ -126,7 +128,7 @@ async function getXmrPrice() {
   const apis = [
     "https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=eur",
     "https://api.kraken.com/0/public/Ticker?pair=XMREUR",
-    "https://api.price2sheet.com/json/xmr/eur"
+    "https://api.price2sheet.com/json/xmr/eur",
   ];
 
   for (const api of apis) {
@@ -137,11 +139,11 @@ async function getXmrPrice() {
       const data = await response.json();
       let price = 0;
 
-      if (api.includes('coingecko')) {
+      if (api.includes("coingecko")) {
         price = data.monero.eur;
-      } else if (api.includes('kraken')) {
+      } else if (api.includes("kraken")) {
         price = parseFloat(data.result.XXMRZEUR.c[0]);
-      } else if (api.includes('price2sheet')) {
+      } else if (api.includes("price2sheet")) {
         price = data.price;
       }
 
@@ -159,7 +161,7 @@ async function updateStats() {
     const [stratumData, pool, network] = await Promise.all([
       fetchJSON("/local/stratum"),
       fetchJSON("/pool/stats"),
-      fetchJSON("/network/stats")
+      fetchJSON("/network/stats"),
     ]);
 
     const myHash = stratumData.hashrate_15m || stratumData.hashrate_1m || 0;
@@ -168,23 +170,34 @@ async function updateStats() {
     const blockReward = network.reward / 1e12;
 
     document.getElementById("myHashrate").textContent = scaleHashrate(myHash);
-    document.getElementById("poolHashrate").textContent = scaleHashrate(poolHash);
+    document.getElementById("poolHashrate").textContent =
+      scaleHashrate(poolHash);
     document.getElementById("netHashrate").textContent = scaleHashrate(netHash);
     document.getElementById("blockReward").textContent = blockReward.toFixed(6);
 
     // Update mining statistics
-    document.getElementById("user-hashrate-24h").textContent = scaleHashrate(stratumData.hashrate_24h || 0);
-    document.getElementById("shares-found").textContent = stratumData.shares_found || 0;
-    document.getElementById("shares-failed").textContent = stratumData.shares_failed || 0;
-    document.getElementById("connections").textContent = stratumData.connections || 0;
+    document.getElementById("user-hashrate-24h").textContent = scaleHashrate(
+      stratumData.hashrate_24h || 0,
+    );
+    document.getElementById("shares-found").textContent =
+      stratumData.shares_found || 0;
+    document.getElementById("shares-failed").textContent =
+      stratumData.shares_failed || 0;
+    document.getElementById("connections").textContent =
+      stratumData.connections || 0;
 
-    document.getElementById("reward-share").textContent = stratumData.block_reward_share_percent ?
-      `${stratumData.block_reward_share_percent.toFixed(3)}%` : "0.000%";
+    document.getElementById("reward-share").textContent =
+      stratumData.block_reward_share_percent
+        ? `${stratumData.block_reward_share_percent.toFixed(3)}%`
+        : "0.000%";
 
-    document.getElementById("current-effort").textContent = stratumData.current_effort ?
-      `${stratumData.current_effort.toFixed(3)}%` : "0.000%";
+    document.getElementById("current-effort").textContent =
+      stratumData.current_effort
+        ? `${stratumData.current_effort.toFixed(3)}%`
+        : "0.000%";
 
-    document.getElementById("blocks-found").textContent = pool.totalBlocksFound || 0;
+    document.getElementById("blocks-found").textContent =
+      pool.totalBlocksFound || 0;
 
     // Update status indicator
     const poolStatus = document.getElementById("pool-status");
@@ -198,8 +211,12 @@ async function updateStats() {
     }
 
     // Update timestamps
-    document.getElementById("last-share-time").textContent = formatTime(stratumData.last_share_found_time);
-    document.getElementById("last-block-time").textContent = formatTime(pool.lastBlockFoundTime);
+    document.getElementById("last-share-time").textContent = formatTime(
+      stratumData.last_share_found_time,
+    );
+    document.getElementById("last-block-time").textContent = formatTime(
+      pool.lastBlockFoundTime,
+    );
 
     // Update worker list
     const workersList = document.getElementById("workers-list");
@@ -226,11 +243,13 @@ async function updateStats() {
         .join("");
       workersList.innerHTML = workersHtml;
     } else {
-      workersList.innerHTML = '<div class="no-workers">No miners connected</div>';
+      workersList.innerHTML =
+        '<div class="no-workers">No miners connected</div>';
     }
 
     const poolShare = (myHash / poolHash) * 100;
-    document.getElementById("poolShare").textContent = `${poolShare.toFixed(4)}%`;
+    document.getElementById("poolShare").textContent =
+      `${poolShare.toFixed(4)}%`;
 
     // Get price and store in history
     const price = await getXmrPrice();
@@ -253,7 +272,8 @@ async function updateStats() {
     const period = document.getElementById("earnPeriod").value;
     const xmr = xmrPerDay * PERIOD_MULT[period];
     document.getElementById("earnXMR").textContent = `${xmr.toFixed(6)} XMR`;
-    document.getElementById("earnEUR").textContent = `≈ €${(xmr * price).toFixed(2)}`;
+    document.getElementById("earnEUR").textContent =
+      `≈ €${(xmr * price).toFixed(2)}`;
 
     // Payout interval
     const moneroBlockTime = 120;
@@ -262,8 +282,8 @@ async function updateStats() {
     const hoursPayout = Math.floor(etaSeconds / 3600);
     const minutesPayout = Math.floor((etaSeconds % 3600) / 60);
     const secondsPayout = Math.floor(etaSeconds % 60);
-    document.getElementById("payoutInterval").textContent = `${hoursPayout}h ${minutesPayout}m ${secondsPayout}s`;
-
+    document.getElementById("payoutInterval").textContent =
+      `${hoursPayout}h ${minutesPayout}m ${secondsPayout}s`;
   } catch (error) {
     console.error("Error fetching stats:", error);
   }
