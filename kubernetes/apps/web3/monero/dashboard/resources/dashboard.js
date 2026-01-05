@@ -1,178 +1,365 @@
-let history = { timestamps: [], myHash: [], price: [] };
-let hashrateChart, priceChart;
-let currentRangeHours = 24;
-const STORAGE_KEY = "p2pool_history";
-const MAX_HISTORY_AGE = 7 * 24 * 3600 * 1000; // 7 days in milliseconds
+// ==============================
+// GLOBAL VARIABLES
+// ==============================
+let history;             // Holds historical mining and price data
+let hashrateChart;       // Chart.js instance for the user's hashrate chart
+let priceChart;          // Chart.js instance for the XMR price chart
+let currentRangeHours = 24; // Default time range for charts (24 hours)
+let observerConfig = null;
+let observerBase = null;
+let observerWallet = null;
 
+// Conversion multipliers for earnings periods
 const PERIOD_MULT = { hour: 1 / 24, day: 1, week: 7, month: 30, year: 365 };
 
-function scaleHashrate(hashrateValue) {
-  if (hashrateValue >= 1e9) return `${(hashrateValue / 1e9).toFixed(2)} GH/s`;
-  if (hashrateValue >= 1e6) return `${(hashrateValue / 1e6).toFixed(2)} MH/s`;
-  if (hashrateValue >= 1e3) return `${(hashrateValue / 1e3).toFixed(2)} kH/s`;
-  return `${Math.round(hashrateValue)} H/s`;
+// ==============================
+// P2POOL OBSERVER CONFIG
+// ==============================
+const MAX_RECENT_PAYMENTS = 5;
+
+// ==============================
+// HELPER FUNCTIONS
+// ==============================
+
+/**
+ * Converts a hashrate value to a human-readable string with units
+ * @param {number} v - hashrate in H/s
+ * @returns {string} formatted hashrate
+ */
+function scaleHashrate(v) {
+  if (v >= 1e9) return (v / 1e9).toFixed(2) + " GH/s";
+  if (v >= 1e6) return (v / 1e6).toFixed(2) + " MH/s";
+  if (v >= 1e3) return (v / 1e3).toFixed(2) + " kH/s";
+  return Math.round(v) + " H/s";
 }
 
-function formatTime(timestamp) {
-  if (!timestamp || timestamp === 0) return "Never";
-  const date = new Date(timestamp * 1000);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
+// Format date in DD/MM/YYYY HH:MM:SS
+function formatDate24(date) {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0'); // month is 0-indexed
+  const y = date.getFullYear();
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const s = String(date.getSeconds()).padStart(2, '0');
+  return `${d}/${m}/${y} ${h}:${min}:${s}`;
 }
 
+// Find out relative time compared to timestamp
+function formatRelativeTime(ts) {
+  const diff = Math.floor(Date.now() / 1000 - ts);
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+/**
+ * Fetch JSON data from a URL, throwing an error if request fails
+ * @param {string} url - endpoint to fetch
+ * @returns {Promise<Object>} JSON response
+ */
 async function fetchJSON(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(url);
   return response.json();
 }
 
-// Load history from localStorage
-function loadHistory() {
+async function loadObserverConfig() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      history = JSON.parse(stored);
-      // Clean old data
-      const cutoff = Date.now() - MAX_HISTORY_AGE;
-      const idx = history.timestamps.findIndex((t) => t >= cutoff / 1000);
-      if (idx > 0) {
-        history.timestamps = history.timestamps.slice(idx);
-        history.myHash = history.myHash.slice(idx);
-        history.price = history.price.slice(idx);
-      }
+    const cfg = await fetchJSON("/observer_config");
+    if (!cfg.wallet || !cfg.observers || cfg.observers.length === 0) {
+      return null;
     }
-  } catch (error) {
-    console.warn("Failed to load history:", error);
-    history = { timestamps: [], myHash: [], price: [] };
+    observerConfig = cfg;
+    observerWallet = cfg.wallet;
+    observerBase = cfg.observers[0]; // default to first enabled observer
+    return cfg;
+  } catch (e) {
+    console.warn("Observer config unavailable");
+    return null;
   }
 }
 
-// Save history to localStorage
-function saveHistory() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-  } catch (error) {
-    console.warn("Failed to save history:", error);
-  }
-}
+/**
+ * Slice historical data to only include the last X hours
+ * @param {number} hours - number of hours to include
+ * @param {Object} hist - history object
+ * @returns {Object} sliced history with labels and datasets
+ */
+function sliceHistory(hours, hist) {
+  const now = Date.now() / 1000;
+  const cutoff = now - hours * 3600;
+  const idx = hist.timestamps.findIndex(t => t >= cutoff);
+  const i = idx === -1 ? 0 : idx;
 
-function sliceHistory(hours) {
-  const cutoff = Date.now() / 1000 - hours * 3600;
-  const idx = history.timestamps.findIndex((timestamp) => timestamp >= cutoff);
-  const startIndex = idx === -1 ? 0 : idx;
   return {
-    labels: history.timestamps
-      .slice(startIndex)
-      .map((timestamp) => timestamp * 1000),
-    myHash: history.myHash.slice(startIndex),
-    price: history.price.slice(startIndex),
+    labels: hist.timestamps.slice(i).map(t => t * 1000), // JS timestamps in ms
+    myHash: hist.myHash.slice(i),
+    poolHash: hist.poolHash.slice(i),
+    netHash: hist.netHash.slice(i),
+    price: hist.price.slice(i)
   };
 }
 
-function updateCharts() {
-  const historyData = sliceHistory(currentRangeHours);
+/**
+ * Compute a moving average over a given time window
+ * @param {number[]} timestamps - array of timestamps in seconds
+ * @param {number[]} values - array of corresponding values
+ * @param {number} windowSeconds - window size in seconds
+ * @returns {number[]} smoothed values array
+ */
+function movingAverage(timestamps, values, windowSeconds = 600) {
+  if (!timestamps || !values || timestamps.length === 0) return 0;
 
-  // HASHRATE CHART
+  let smoothed = [];
+  for (let i = 0; i < values.length; i++) {
+    const start = timestamps[i] - windowSeconds;
+    let sum = 0, count = 0;
+    for (let j = 0; j <= i; j++) {
+      if (timestamps[j] >= start) {
+        sum += values[j];
+        count++;
+      }
+    }
+    smoothed.push(count ? sum / count : values[i]);
+  }
+  return smoothed.at(-1); // return the latest smoothed value
+}
+
+// ==============================
+// CHART INITIALIZATION & UPDATES
+// ==============================
+async function updateRecentPayments() {
+  if (!observerBase || !observerWallet) {
+    document.getElementById("paymentsStatus").textContent = "Observer not configured";
+    document.getElementById("totalEarned").textContent = "–";
+    return;
+  }
+  const statusEl = document.getElementById("paymentsStatus");
+  const totalEl = document.getElementById("totalEarned");
+  const tbody = document.querySelector("#paymentsTable tbody");
+
+  try {
+    const payouts = await fetchJSON(
+      `${observerBase}/payouts/${observerWallet}`
+    );
+
+    if (!Array.isArray(payouts) || payouts.length === 0) {
+      statusEl.textContent = "No payouts yet";
+      totalEl.textContent = "0.000000 XMR";
+      tbody.innerHTML = "";
+      return;
+    }
+
+    // Sort newest first
+    payouts.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Lifetime total
+    let totalXMR = 0;
+    for (const p of payouts) {
+      totalXMR += p.coinbase_reward / 1e12;
+    }
+
+    const priceEUR = history.price.at(-1) || 0;
+
+    if (typeof priceEUR === "number") {
+      totalEl.textContent =
+        `${totalXMR.toFixed(6)} XMR (€${(totalXMR * priceEUR).toFixed(2)})`;
+    } else {
+      totalEl.textContent = `${totalXMR.toFixed(6)} XMR`;
+    }
+
+    // Recent payouts table
+    tbody.innerHTML = "";
+    for (const p of payouts.slice(0, MAX_RECENT_PAYMENTS)) {
+      const tr = document.createElement("tr");
+
+      const timeTd = document.createElement("td");
+      timeTd.textContent = formatRelativeTime(p.timestamp);
+
+      const xmr = p.coinbase_reward / 1e12;
+
+      const amtTd = document.createElement("td");
+      amtTd.style.textAlign = "right";
+      amtTd.textContent = xmr.toFixed(6);
+
+      const eurTd = document.createElement("td");
+      eurTd.style.textAlign = "right";
+
+      if (typeof priceEUR === "number") {
+        eurTd.textContent = (xmr * priceEUR).toFixed(2);
+      } else {
+        eurTd.textContent = "–";
+      }
+
+      tr.appendChild(timeTd);
+      tr.appendChild(amtTd);
+      tr.appendChild(eurTd);
+      tbody.appendChild(tr);
+    }
+
+    statusEl.textContent = `Showing last ${Math.min(MAX_RECENT_PAYMENTS, payouts.length)} payouts`;
+
+  } catch (e) {
+    console.error("Observer payouts error:", e);
+    statusEl.textContent = "Payout data unavailable";
+    totalEl.textContent = "–";
+    tbody.innerHTML = "";
+  }
+}
+
+async function updateSharesCard() {
+  try {
+    if (!observerWallet || !observerBase) return; // fallback
+
+    // Fetch payouts & shares
+    const [payouts, shares] = await Promise.all([
+      fetchJSON(`${observerBase}/payouts/${observerWallet}`),
+      fetchJSON(`${observerBase}/shares?miner=${observerWallet}`)
+    ]);
+
+    // Determine last payout timestamp
+    const lastPayoutTS = payouts?.length ? payouts[0].timestamp : 0;
+
+    // Filter shares after last payout
+    const sharesAfter = shares.filter(s => s.timestamp > lastPayoutTS);
+
+    // Counts
+    const sharesSince = sharesAfter.length;
+    const unclesSince = sharesAfter.filter(s => s.inclusion === 0).length;
+
+    const totalShares = shares.length;
+    const totalUncles = shares.filter(s => s.inclusion === 0).length;
+
+    // Update DOM
+    document.getElementById("sharesSinceLastPayout").textContent = sharesSince;
+    document.getElementById("unclesSinceLastPayout").textContent = unclesSince;
+
+    document.getElementById("totalSharesMined").textContent = `Total shares: ${totalShares}`;
+    document.getElementById("totalUnclesMined").textContent = `Total uncles: ${totalUncles}`;
+
+  } catch (e) {
+    console.error("Error updating Shares & Uncles card:", e);
+    // fallback display
+    document.getElementById("sharesSinceLastPayout").textContent = "–";
+    document.getElementById("unclesSinceLastPayout").textContent = "–";
+    document.getElementById("totalSharesMined").textContent = "–";
+    document.getElementById("totalUnclesMined").textContent = "–";
+  }
+}
+
+
+function updateCharts() {
+  if (!history) return;
+  const d = sliceHistory(currentRangeHours, history);
+
+  // --- HASHRATE CHART ---
   if (!hashrateChart) {
     hashrateChart = new Chart(document.getElementById("hashrateChart"), {
       type: "line",
-      data: {
-        labels: historyData.labels,
-        datasets: [{ label: "Your Hashrate", data: historyData.myHash }],
-      },
+      data: { labels: d.labels, datasets: [{ label: "Your Hashrate", data: d.myHash }] },
       options: {
         scales: {
-          x: { type: "time" },
-          y: { ticks: { callback: scaleHashrate } },
+          x: {
+            type: "time",
+            time: {
+              tooltipFormat: "dd/MM/yyyy HH:mm:ss", // tooltip format on hover
+              displayFormats: {
+                hour: "dd/MM/yyyy HH:mm",   // x-axis label when zoomed out
+                minute: "dd/MM/yyyy HH:mm"
+              }
+            }
+          },
+          y: { ticks: { callback: scaleHashrate } }
         },
-        elements: { point: { radius: 0 }, line: { tension: 0.25 } },
-      },
+        elements: { point: { radius: 0 }, line: { tension: 0.25 } }
+      }
+
     });
   } else {
-    hashrateChart.data.labels = historyData.labels;
-    hashrateChart.data.datasets[0].data = historyData.myHash;
+    hashrateChart.data.labels = d.labels;
+    hashrateChart.data.datasets[0].data = d.myHash;
     hashrateChart.update();
   }
 
-  // PRICE CHART
+  // --- PRICE CHART ---
   if (!priceChart) {
     priceChart = new Chart(document.getElementById("priceChart"), {
       type: "line",
-      data: {
-        labels: historyData.labels,
-        datasets: [{ label: "XMR Price (EUR)", data: historyData.price }],
-      },
+      data: { labels: d.labels, datasets: [{ label: "XMR Price (EUR)", data: d.price }] },
       options: {
-        scales: { x: { type: "time" } },
-        elements: { point: { radius: 0 }, line: { tension: 0.25 } },
-      },
+        scales: {
+          x: {
+            type: "time",
+            time: {
+              tooltipFormat: "dd/MM/yyyy HH:mm:ss", // tooltip on hover
+              displayFormats: {
+                hour: "dd/MM/yyyy HH:mm",  // x-axis label when zoomed out
+                minute: "dd/MM/yyyy HH:mm"
+              }
+            }
+          }
+        },
+        elements: { point: { radius: 0 }, line: { tension: 0.25 } }
+      }
     });
   } else {
-    priceChart.data.labels = historyData.labels;
-    priceChart.data.datasets[0].data = historyData.price;
+    priceChart.data.labels = d.labels;
+    priceChart.data.datasets[0].data = d.price;
     priceChart.update();
   }
 }
 
-// Fetch XMR price from multiple APIs
-async function getXmrPrice() {
-  // Try multiple APIs with fallback
-  const apis = [
-    "https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=eur",
-    "https://api.kraken.com/0/public/Ticker?pair=XMREUR",
-    "https://api.price2sheet.com/json/xmr/eur",
-  ];
-
-  for (const api of apis) {
-    try {
-      const response = await fetch(api);
-      if (!response.ok) continue;
-
-      const data = await response.json();
-      let price = 0;
-
-      if (api.includes("coingecko")) {
-        price = data.monero.eur;
-      } else if (api.includes("kraken")) {
-        price = parseFloat(data.result.XXMRZEUR.c[0]);
-      } else if (api.includes("price2sheet")) {
-        price = data.price;
-      }
-
-      if (price > 0) return price;
-    } catch (error) {
-      continue;
-    }
-  }
-  return 0;
-}
-
+// ==============================
+// UPDATE DASHBOARD STATISTICS
+// ==============================
 async function updateStats() {
   try {
-    // Fetch all data
-    const [stratumData, pool, network] = await Promise.all([
+    // Fetch all required data in parallel
+    const [stratumData, xmrig, pool, network, thresholdObj, hist] = await Promise.all([
       fetchJSON("/local/stratum"),
+      fetchJSON("/xmrig_summary"),
       fetchJSON("/pool/stats"),
       fetchJSON("/network/stats"),
+      fetchJSON("/min_payment_threshold"),
+      fetchJSON("/stats_log.json")
     ]);
 
-    const myHash = stratumData.hashrate_15m || stratumData.hashrate_1m || 0;
-    const poolHash = pool.pool_statistics.hashRate;
-    const netHash = network.difficulty / 120;
-    const blockReward = network.reward / 1e12;
+    history = hist;
+    updateCharts();
 
-    document.getElementById("myHashrate").textContent = scaleHashrate(myHash);
-    document.getElementById("poolHashrate").textContent =
-      scaleHashrate(poolHash);
-    document.getElementById("netHashrate").textContent = scaleHashrate(netHash);
+    // --- INSTANTANEOUS VALUES ---
+    const instMyHash = xmrig.hashrate.total[0];
+    const instPoolHash = pool.pool_statistics.hashRate;
+    const instNetHash = network.difficulty / 120; // approx network hashrate
+    const blockReward = network.reward / 1e12;
+    const minPaymentThreshold = thresholdObj.minPaymentThreshold;
+
+    // Determine averaging window (max 24h)
+    const now = Date.now() / 1000;
+    let avgWindowHours = 24;
+    if (history && history.timestamps.length > 0) {
+      const earliest = history.timestamps[0];
+      const availableHours = (now - earliest) / 3600;
+      if (availableHours < 24) avgWindowHours = availableHours;
+      if (avgWindowHours <= 0) avgWindowHours = 0;
+    }
+
+    // Compute moving averages over 10-minute intervals
+    let avgMyHash = instMyHash;
+    let avgPoolHash = instPoolHash;
+    let avgNetHash = instNetHash;
+    if (avgWindowHours > 0) {
+      const sliced = sliceHistory(avgWindowHours, history);
+      avgMyHash = movingAverage(sliced.labels.map(t => t / 1000), sliced.myHash, 600);
+      avgPoolHash = movingAverage(sliced.labels.map(t => t / 1000), sliced.poolHash, 600);
+      avgNetHash = movingAverage(sliced.labels.map(t => t / 1000), sliced.netHash, 600);
+    }
+
+    // --- UPDATE DOM ELEMENTS ---
+    document.getElementById("myHashrate").textContent = scaleHashrate(instMyHash);
+    document.getElementById("poolHashrate").textContent = scaleHashrate(instPoolHash);
+    document.getElementById("netHashrate").textContent = scaleHashrate(instNetHash);
     document.getElementById("blockReward").textContent = blockReward.toFixed(6);
 
     // Update mining statistics
@@ -247,54 +434,105 @@ async function updateStats() {
         '<div class="no-workers">No miners connected</div>';
     }
 
-    const poolShare = (myHash / poolHash) * 100;
-    document.getElementById("poolShare").textContent =
-      `${poolShare.toFixed(4)}%`;
+    // Pool share percentage
+    const poolShare = (instMyHash / instPoolHash) * 100;
+    document.getElementById("poolShare").textContent = poolShare.toFixed(4) + "%";
 
-    // Get price and store in history
-    const price = await getXmrPrice();
-    document.getElementById("price").textContent = `€${price.toFixed(2)}`;
+    // Latest XMR price
+    const priceEUR = history.price.at(-1) || 0;
+    document.getElementById("price").textContent = "€" + priceEUR.toFixed(2);
 
-    // Store historical data
-    const now = Date.now() / 1000;
-    history.timestamps.push(now);
-    history.myHash.push(myHash);
-    history.price.push(price);
-    saveHistory();
-
-    // Update charts
-    updateCharts();
-
-    // Earnings
+    // --- ESTIMATED EARNINGS ---
     const blocksPerDay = 720;
-    const myNetShare = myHash / netHash;
-    const xmrPerDay = myNetShare * blocksPerDay * blockReward;
+    const myNetShareAvg = avgMyHash / avgNetHash;
+    const xmrPerDayAvg = myNetShareAvg * blocksPerDay * blockReward;
     const period = document.getElementById("earnPeriod").value;
-    const xmr = xmrPerDay * PERIOD_MULT[period];
-    document.getElementById("earnXMR").textContent = `${xmr.toFixed(6)} XMR`;
-    document.getElementById("earnEUR").textContent =
-      `≈ €${(xmr * price).toFixed(2)}`;
+    const xmr = xmrPerDayAvg * PERIOD_MULT[period];
+    const eur = xmr * priceEUR;
 
-    // Payout interval
-    const moneroBlockTime = 120;
-    const fracPool = myHash / poolHash;
-    const etaSeconds = moneroBlockTime / (fracPool || 1);
-    const hoursPayout = Math.floor(etaSeconds / 3600);
-    const minutesPayout = Math.floor((etaSeconds % 3600) / 60);
-    const secondsPayout = Math.floor(etaSeconds % 60);
-    document.getElementById("payoutInterval").textContent =
-      `${hoursPayout}h ${minutesPayout}m ${secondsPayout}s`;
-  } catch (error) {
-    console.error("Error fetching stats:", error);
+    // Update #earnXMR while preserving tooltip
+    const earnXMRDiv = document.getElementById("earnXMR");
+    earnXMRDiv.textContent = xmr.toFixed(6) + " XMR";
+
+    document.getElementById("earnEUR").textContent = `≈ €${eur.toFixed(2)}`;
+
+    // Ensure tooltip exists
+    let earnTooltip = document.getElementById("earnTooltip");
+    if (!earnTooltip) {
+      earnTooltip = document.createElement("span");
+      earnTooltip.id = "earnTooltip";
+      earnTooltip.className = "tooltip-icon";
+      earnTooltip.textContent = "ⓘ";
+      earnXMRDiv.appendChild(earnTooltip);
+    }
+
+    // Tooltip shows moving averages
+    const avgWindowLabel = avgWindowHours >= 24 ? "24h moving average" : `${avgWindowHours.toFixed(1)}h moving average`;
+    earnTooltip.title = `Estimated earnings based on ${avgWindowLabel}.
+Avg your hashrate: ${scaleHashrate(avgMyHash)}
+Avg pool hashrate: ${scaleHashrate(avgPoolHash)}
+Avg network hashrate: ${scaleHashrate(avgNetHash)}`;
+
+    // Earnings legend text
+    const legendText = avgWindowHours >= 24 ? "Based on 24h moving average" : `Based on ${avgWindowHours.toFixed(1)}h moving average`;
+    document.getElementById("earnLegend").textContent = legendText;
+
+    // Last refreshed timestamp
+    const date = new Date();
+    document.getElementById("lastRefreshed").textContent = `Last refreshed: ${formatDate24(date)}`;
+
+    // --- PAYOUT INTERVAL CALCULATION (adjusted for pool size) ---
+    const poolBlocksPerDay = blocksPerDay * (avgPoolHash / avgNetHash); // expected pool blocks per day
+    const xmrPerBlock = (avgMyHash / avgPoolHash) * blockReward; // your expected XMR per pool block
+
+    // Expected total XMR per day
+    const expectedXMRPerDay = poolBlocksPerDay * xmrPerBlock;
+
+    // Average days per payout to reach minPaymentThreshold
+    const avgDaysPerPayout = expectedXMRPerDay > 0 ? minPaymentThreshold / expectedXMRPerDay : Infinity;
+
+    // Expected payouts per day
+    const expectedPayoutsPerDay = isFinite(avgDaysPerPayout) && avgDaysPerPayout > 0 ? (1 / avgDaysPerPayout) : 0;
+
+    // Interval in hours
+    const intervalHours = isFinite(avgDaysPerPayout) ? (avgDaysPerPayout * 24).toFixed(1) : "N/A";
+    const intervalText = `${expectedPayoutsPerDay.toFixed(2)} payouts/day (~${intervalHours}h/payout)`;
+    document.getElementById("payoutInterval").textContent = intervalText;
+
+    const tooltipIcon = document.querySelector(".bottom-stats .tooltip-icon");
+    if (tooltipIcon) {
+      tooltipIcon.title = `Average payout interval: ~${intervalHours} hours
+Your actual payouts can be shorter or longer, depending on mining luck.`;
+    }
+
+    // Update dashboard to show recent payments
+    updateRecentPayments();
+
+    // Update dashboard to show recent shares
+    updateSharesCard();
+
+  } catch (e) {
+    console.error("Error fetching stats:", e);
   }
 }
 
-// Dropdown for earnings
+// Update stats when user changes the earnings period dropdown
 document.getElementById("earnPeriod").onchange = updateStats;
 
+// ==============================
+// INITIALIZATION
+// Fetch historical data and start periodic updates
+// ==============================
 (async () => {
-  loadHistory();
+  try {
+    history = await fetchJSON("/stats_log.json");
+  } catch (e) {
+    history = null;
+  }
+
+  await loadObserverConfig();
+
   updateCharts();
   updateStats();
-  setInterval(updateStats, 30000); // Update every 30 seconds instead of 5
+  setInterval(updateStats, 5000); // refresh stats every 5 seconds
 })();
