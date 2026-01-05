@@ -458,7 +458,7 @@ async function updateStats() {
     // Pool share percentage
     const poolShare = (instMyHash / instPoolHash) * 100;
     document.getElementById("poolShare").textContent =
-      poolShare.toFixed(4) + "%";
+      `${poolShare.toFixed(4)}%`;
 
     // Latest XMR price
     const priceEUR = history.price.at(-1) || 0;
