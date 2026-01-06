@@ -46,12 +46,12 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
-        # Query: Use 2-minute average to smooth out solar power fluctuations
+        # Query: Use 15-minute average to smooth out solar power fluctuations
         # Invert power value and clamp to 0 minimum
         # When power is negative (exporting), this returns positive value for scaling
         # When power is positive (consuming), this returns 0 (scale to 0)
         # Using avg_over_time to smooth out rapid fluctuations
-        query: clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[2m]), 0)
+        query: clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0)
         threshold: "50" # 50W per replica (each miner consumes ~50W)
         activationThreshold: "25" # Start scaling when at least 25W exported
         ignoreNullValues: "true"
