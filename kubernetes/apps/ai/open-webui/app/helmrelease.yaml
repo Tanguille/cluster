@@ -31,6 +31,8 @@ spec:
               OLLAMA_BASE_URL: http://ollama.ai.svc.cluster.local:11434
               COMFYUI_BASE_URL: http://comfyui.ai.svc.cluster.local:8188
               ENABLE_IMAGE_GENERATION: True
+              JWT_EXPIRES_IN: "7d"
+              CORS_ALLOW_ORIGIN: "https://ollama.${SECRET_DOMAIN}"
             envFrom: *envFrom
             resources:
               requests:
