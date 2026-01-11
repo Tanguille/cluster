@@ -14,15 +14,24 @@ async function fetchData() {
     if (networkResponse.ok) networkData = await networkResponse.json();
     if (poolResponse.ok) poolData = await poolResponse.json();
 
-    updateUI();
-    document.getElementById("error").style.display = "none";
-    document.getElementById("loading").style.display = "none";
-    document.getElementById("stats").style.display = "block";
+    // Only update UI if we have at least some data
+    if (statsData || networkData || poolData) {
+      updateUI();
+      const errorEl = document.getElementById("error");
+      const loadingEl = document.getElementById("loading");
+      const statsEl = document.getElementById("stats");
+
+      if (errorEl) errorEl.style.display = "none";
+      if (loadingEl) loadingEl.style.display = "none";
+      if (statsEl) statsEl.style.display = "block";
+    }
   } catch (error) {
     console.error("Error fetching data:", error);
-    document.getElementById("error").textContent =
-      "Failed to load mining data. Retrying...";
-    document.getElementById("error").style.display = "block";
+    const errorEl = document.getElementById("error");
+    if (errorEl) {
+      errorEl.textContent = "Failed to load mining data. Retrying...";
+      errorEl.style.display = "block";
+    }
   }
 }
 
@@ -52,55 +61,74 @@ function formatTime(timestamp) {
 }
 
 function updateUI() {
-  document.getElementById("last-update").textContent =
-    new Date().toLocaleTimeString();
+  const lastUpdateEl = document.getElementById("last-update");
+  if (lastUpdateEl) {
+    lastUpdateEl.textContent = new Date().toLocaleTimeString();
+  }
 
   const poolStatus = document.getElementById("pool-status");
   const poolStatusText = document.getElementById("pool-status-text");
-  if (statsData.connections > 0) {
-    poolStatus.className = "status-indicator status-active";
-    poolStatusText.textContent = "Active";
-  } else {
-    poolStatus.className = "status-indicator status-inactive";
-    poolStatusText.textContent = "Inactive";
+  if (poolStatus && poolStatusText) {
+    if (statsData.connections > 0) {
+      poolStatus.className = "status-indicator status-active";
+      poolStatusText.textContent = "Active";
+    } else {
+      poolStatus.className = "status-indicator status-inactive";
+      poolStatusText.textContent = "Inactive";
+    }
   }
 
   // Pool stats are nested under pool_statistics
   const poolStats = poolData.pool_statistics || {};
-  document.getElementById("network-hashrate").textContent = poolStats.hashRate
-    ? formatHashrate(poolStats.hashRate)
-    : "0 H/s";
+  const networkHashrateEl = document.getElementById("network-hashrate");
+  if (networkHashrateEl) {
+    networkHashrateEl.textContent = poolStats.hashRate
+      ? formatHashrate(poolStats.hashRate)
+      : "0 H/s";
+  }
 
-  document.getElementById("user-hashrate-24h").textContent =
-    statsData.hashrate_24h ? formatHashrate(statsData.hashrate_24h) : "0 H/s";
+  const userHashrate24hEl = document.getElementById("user-hashrate-24h");
+  if (userHashrate24hEl) {
+    userHashrate24hEl.textContent = statsData.hashrate_24h
+      ? formatHashrate(statsData.hashrate_24h)
+      : "0 H/s";
+  }
 
-  document.getElementById("shares-found").textContent =
-    statsData.shares_found || 0;
-  document.getElementById("shares-failed").textContent =
-    statsData.shares_failed || 0;
-  document.getElementById("connections").textContent =
-    statsData.connections || 0;
+  const sharesFoundEl = document.getElementById("shares-found");
+  if (sharesFoundEl) sharesFoundEl.textContent = statsData.shares_found || 0;
 
-  document.getElementById("reward-share").textContent =
-    statsData.block_reward_share_percent
+  const sharesFailedEl = document.getElementById("shares-failed");
+  if (sharesFailedEl) sharesFailedEl.textContent = statsData.shares_failed || 0;
+
+  const connectionsEl = document.getElementById("connections");
+  if (connectionsEl) connectionsEl.textContent = statsData.connections || 0;
+
+  const rewardShareEl = document.getElementById("reward-share");
+  if (rewardShareEl) {
+    rewardShareEl.textContent = statsData.block_reward_share_percent
       ? statsData.block_reward_share_percent.toFixed(3) + "%"
       : "0.000%";
+  }
 
-  document.getElementById("current-effort").textContent =
-    statsData.current_effort
+  const currentEffortEl = document.getElementById("current-effort");
+  if (currentEffortEl) {
+    currentEffortEl.textContent = statsData.current_effort
       ? statsData.current_effort.toFixed(3) + "%"
       : "0.000%";
+  }
 
-  document.getElementById("blocks-found").textContent =
-    poolStats.totalBlocksFound || 0;
+  const blocksFoundEl = document.getElementById("blocks-found");
+  if (blocksFoundEl) blocksFoundEl.textContent = poolStats.totalBlocksFound || 0;
 
-  document.getElementById("last-share-time").textContent = formatTime(
-    statsData.last_share_found_time,
-  );
+  const lastShareTimeEl = document.getElementById("last-share-time");
+  if (lastShareTimeEl) {
+    lastShareTimeEl.textContent = formatTime(statsData.last_share_found_time);
+  }
 
-  document.getElementById("last-block-time").textContent = formatTime(
-    poolStats.lastBlockFoundTime,
-  );
+  const lastBlockTimeEl = document.getElementById("last-block-time");
+  if (lastBlockTimeEl) {
+    lastBlockTimeEl.textContent = formatTime(poolStats.lastBlockFoundTime);
+  }
 
   const workersList = document.getElementById("workers-list");
   if (statsData.workers && statsData.workers.length > 0) {
@@ -123,9 +151,7 @@ function updateUI() {
         return `<div class="worker-item" style="margin: 5px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
                   <strong>${name}</strong> -
                   ${formatHashrate(hashrate)} -
-                  Shares: ${statsData.shares_found || 0}/${
-                    statsData.shares_failed || 0
-                  }
+                  Shares: ${statsData.shares_found || 0}/${statsData.shares_failed || 0}
               </div>`;
       })
       .join("");
