@@ -118,7 +118,8 @@ function updateUI() {
   }
 
   const blocksFoundEl = document.getElementById("blocks-found");
-  if (blocksFoundEl) blocksFoundEl.textContent = poolStats.totalBlocksFound || 0;
+  if (blocksFoundEl)
+    blocksFoundEl.textContent = poolStats.totalBlocksFound || 0;
 
   const lastShareTimeEl = document.getElementById("last-share-time");
   if (lastShareTimeEl) {
