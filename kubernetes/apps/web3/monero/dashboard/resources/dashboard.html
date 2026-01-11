@@ -1,238 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>P2Pool Dashboard</title>
-
-  <!-- Favicon for browser tab -->
-  <link rel="icon" type="image/png" href="favicon.png">
-
-  <!-- Responsive design for mobile and tablet -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- Main stylesheet -->
-  <link rel="stylesheet" href="dashboard.css">
-
-  <!-- Chart.js library for rendering charts -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <!-- Luxon for date/time handling in charts -->
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
-  <!-- Adapter to integrate Luxon with Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
-</head>
-
-<body>
-
-<header>
-  <!-- Dashboard title displayed at the top -->
-  <h1>P2Pool Dashboard</h1>
-</header>
-
-<main class="grid">
-  <!-- Main grid container holding dashboard cards -->
-
-  <!-- ==========================
-       HASHRATE CARD
-       Displays user's mining hashrate and pool share
-       Includes a real-time chart
-       ========================== -->
-  <div class="card">
-    <h2>Your Hashrate</h2>
-
-    <!-- Large display of user's current hashrate -->
-    <div class="big" id="myHashrate">Loading…</div>
-
-    <!-- Subtext showing user's contribution to the pool -->
-    <div class="sub">
-      Pool share: <span id="poolShare">–</span>
-    </div>
-
-    <!-- Chart showing hashrate trends over time -->
-    <canvas id="hashrateChart"></canvas>
-  </div>
-
-  <!-- ==========================
-       EARNINGS CARD
-       Displays estimated mining earnings
-       Allows selection of period (hour/day/week/etc.)
-       Includes tooltips, payout info, and network stats
-       ========================== -->
-  <div class="card">
-    <h2>Estimated Earnings</h2>
-
-    <!-- Large display of estimated XMR earnings -->
-    <div class="big" id="earnXMR">
-      Loading…
-      <!-- Tooltip icon for additional info -->
-      <span class="tooltip-icon" id="earnTooltip">ⓘ</span>
-    </div>
-
-    <!-- Equivalent earnings in EUR -->
-    <div class="sub" id="earnEUR">Loading…</div>
-
-    <!-- Earnings chart legend or summary info -->
-    <div class="small-stat" id="earnLegend">–</div>
-
-    <!-- Timestamp of last data refresh -->
-    <div class="small-stat" id="lastRefreshed">–</div>
-
-    <!-- Dropdown to select the earnings period -->
-    <select id="earnPeriod">
-      <option value="hour">per hour</option>
-      <option value="day" selected>per day</option>
-      <option value="week">per week</option>
-      <option value="month">per month</option>
-      <option value="year">per year</option>
-    </select>
-
-    <!-- Additional statistics displayed at the bottom -->
-    <div class="bottom-stats">
-      <!-- Payout interval info with tooltip -->
-      <div class="stat">
-        <span>Payout Interval:</span>
-        <span id="payoutInterval">Loading…</span>
-        <span class="tooltip-icon">ⓘ</span>
-      </div>
-
-      <!-- Current network hashrate -->
-      <div class="small-stat">
-        Network hashrate: <span id="netHashrate">–</span>
-      </div>
-
-      <!-- Current pool hashrate -->
-      <div class="small-stat">
-        Pool hashrate: <span id="poolHashrate">–</span>
-      </div>
-
-      <!-- Current block reward in XMR -->
-      <div class="small-stat">
-        Block reward: <span id="blockReward">–</span> XMR
-      </div>
-    </div>
-  </div>
-
-  <!-- ==========================
-     RECENT PAYMENTS CARD
-     Displays actual p2pool payouts
-     ========================== -->
-  <div class="card">
-    <h2>Recent Payments</h2>
-
-    <div class="big" id="totalEarned">Loading…</div>
-    <div class="sub">Total earned</div>
-
-    <div id="paymentsStatus" class="small-stat">Loading…</div>
-
-    <table id="paymentsTable" style="width:100%; margin-top:0.5rem; border-collapse: collapse;">
-      <thead>
-        <tr style="color:#aaa; font-size:0.8rem;">
-          <th style="text-align:left;">Time</th>
-          <th style="text-align:right;">Amount (XMR)</th>
-          <th style="text-align:right;">Amount (€)</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <!-- ==========================
-       XMR PRICE CARD
-       Displays current XMR price
-       Includes a price chart
-       ========================== -->
-  <div class="card">
-    <h2>XMR Price</h2>
-
-    <!-- Large display of current XMR price -->
-    <div class="big" id="price">Loading…</div>
-
-    <!-- Chart showing price trends over time -->
-    <canvas id="priceChart"></canvas>
-  </div>
-
-  <!-- ==========================
-       RECENT SHARES CARD
-       Displays recent p2pool shares
-       ========================== -->
-  <div class="card" id="sharesCard">
-        <h2>Shares & Uncles</h2>
-
-        <div class="big">
-                Shares: <span id="sharesSinceLastPayout">–</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>P2Pool Dashboard</title>
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>P2Pool Mining Dashboard</h1>
+      <div id="loading" class="loading">Loading mining statistics...</div>
+      <div id="error" class="error" style="display: none"></div>
+      <div id="stats" style="display: none">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-title">Pool Status</div>
+            <div class="stat-value">
+              <span class="status-indicator" id="pool-status"></span>
+              <span id="pool-status-text">Unknown</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Network Hashrate</div>
+            <div class="stat-value" id="network-hashrate">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Your Hashrate (24h)</div>
+            <div class="stat-value" id="user-hashrate-24h">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Shares Found</div>
+            <div class="stat-value" id="shares-found">0</div>
+            <div class="stat-unit">total</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Shares Failed</div>
+            <div class="stat-value" id="shares-failed">0</div>
+            <div class="stat-unit">total</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Active Connections</div>
+            <div class="stat-value" id="connections">0</div>
+            <div class="stat-unit">miners</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Block Reward Share</div>
+            <div class="stat-value" id="reward-share">0.000%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Current Effort</div>
+            <div class="stat-value" id="current-effort">0.000%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Blocks Found</div>
+            <div class="stat-value" id="blocks-found">0</div>
+            <div class="stat-unit">total</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Last Share Found</div>
+            <div class="stat-value" id="last-share-time">Never</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Last Block Found</div>
+            <div class="stat-value" id="last-block-time">Never</div>
+          </div>
         </div>
-        <div class="sub-sub">Shares since the last payout</div>
-        <div class="big">
-                Uncles: <span id="unclesSinceLastPayout">–</span>
-        </div>
-        <div class="sub-sub">Uncles since the last payout</div>
-        <br></br>
-        <div class=bottom-stats>
-                <div class="small-stat" id="totalSharesMined">–</div>
-                <div class="small-stat" id="totalUnclesMined">–</div>
-        </div>
-  </div>
-
-   <!-- MINING STATISTICS -->
-   <section class="stats-section">
-    <h2>Mining Statistics</h2>
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-title">Pool Status</div>
-        <div class="stat-value">
-          <span class="status-indicator" id="pool-status"></span>
-          <span id="pool-status-text">Unknown</span>
+        <div class="workers-section">
+          <div class="workers-title">Connected Miners</div>
+          <div id="workers-list" class="no-workers">No miners connected</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-title">Your Hashrate (24h)</div>
-        <div class="stat-value" id="user-hashrate-24h">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Shares Found</div>
-        <div class="stat-value" id="shares-found">0</div>
-        <div class="stat-unit">total</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Shares Failed</div>
-        <div class="stat-value" id="shares-failed">0</div>
-        <div class="stat-unit">total</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Active Connections</div>
-        <div class="stat-value" id="connections">0</div>
-        <div class="stat-unit">miners</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Block Reward Share</div>
-        <div class="stat-value" id="reward-share">0.000%</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Current Effort</div>
-        <div class="stat-value" id="current-effort">0.000%</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Blocks Found</div>
-        <div class="stat-value" id="blocks-found">0</div>
-        <div class="stat-unit">total</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Last Share Found</div>
-        <div class="stat-value" id="last-share-time">Never</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-title">Last Block Found</div>
-        <div class="stat-value" id="last-block-time">Never</div>
+      <div class="refresh-info">
+        Auto-refreshing every 30 seconds • Last updated:
+        <span id="last-update">Never</span>
       </div>
     </div>
-
-    <div class="workers-section">
-      <div class="workers-title">Connected Miners</div>
-      <div id="workers-list" class="no-workers">No miners connected</div>
-    </div>
-  </section>
-</main>
-
-<!-- Main JavaScript handling data fetching and charts -->
-<script src="dashboard.js"></script>
-</body>
+    <script src="dashboard.js"></script>
+  </body>
 </html>

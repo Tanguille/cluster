@@ -1,250 +1,66 @@
-/* ==============================
-   RESET & BASE STYLING
-   Applies global styles to body and headings
-   ============================== */
-body {
-  margin: 0; /* remove default margin */
-  font-family: Arial, sans-serif; /* set default font */
-  background: #121212; /* dark background */
-  color: #e0e0e0; /* light text for contrast */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-header {
-  text-align: center; /* center-align header text */
-  padding: 1rem; /* spacing inside header */
-  background: #1f1f1f; /* slightly lighter dark background */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: #ffffff;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 h1 {
-  margin: 0; /* remove default margin */
-  color: #4caf50; /* green accent color */
-}
-
-/* ==============================
-   SMALL TEXT / LEGEND STYLING
-   Used for earnings legend and refresh timestamps
-   ============================== */
-#earnLegend,
-#lastRefreshed {
-  color: #aaa; /* muted gray color */
-  font-size: 0.8rem; /* smaller than normal text */
-  margin-top: 0.1rem; /* slight spacing from above element */
-}
-
-/* ==============================
-   TOOLTIP ICON STYLING
-   Small "ⓘ" icons next to data fields
-   ============================== */
-.tooltip-icon {
-  display: inline-block; /* behave like text but block spacing allowed */
-  margin-left: 2px; /* small gap from preceding text */
-  color: #4caf50; /* green color matching theme */
-  font-weight: normal; /* ensure not bold */
-  font-size: 0.7rem; /* fixed small size */
-  vertical-align: super; /* align as superscript */
-  cursor: default; /* regular arrow cursor */
-}
-
-/* Hover effect for tooltip icons */
-.tooltip-icon:hover {
-  color: #81c784; /* lighter green on hover */
-}
-
-/* ==============================
-   MAIN GRID LAYOUT
-   Dashboard cards layout using CSS Grid
-   ============================== */
-main.grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(280px, 1fr)); /* max 4 columns */
-  gap: 1rem;
-  padding: 1rem;
-  margin: auto;
-  justify-content: center;
-}
-
-/* ==============================
-   CARD STYLING
-   Generic styling for all dashboard cards
-   ============================== */
-.card {
-  background: #1e1e1e; /* card background slightly lighter than page */
-  padding: 1rem; /* inner spacing */
-  border-radius: 12px; /* rounded corners */
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* subtle shadow for depth */
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between; /* space out content vertically */
-}
-
-/* Card header styling */
-.card h2 {
-  margin-top: 0;
-  font-size: 1.2rem;
-  color: #4caf50; /* green headings */
-}
-
-/* Large values inside cards (e.g., hashrate, earnings) */
-.big {
-  font-size: 1.5rem;
-  font-weight: bold;
-  margin: 0.5rem 0;
-}
-
-/* Subtext inside cards */
-.sub,
-.small-stat,
-.stat {
-  font-size: 0.9rem;
-  margin: 0.25rem 0;
-}
-
-/* SubSubText™ inside cards */
-.sub-sub {
-  font-size: 0.6rem;
-  margin: 0.125rem 0;
-}
-
-/* Chart canvas styling */
-canvas {
-  margin-top: 0.5rem;
-  border-radius: 8px;
-}
-
-/* ==============================
-   DROPDOWN STYLING
-   Earnings period selector
-   ============================== */
-select#earnPeriod {
-  padding: 0.3rem 0.6rem;
-  background: #2b2b2b; /* match dark theme */
-  color: #e0e0e0;
-  border: 1px solid #4caf50;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
-  appearance: none; /* remove default browser styling */
-}
-
-/* Remove default dropdown arrow in IE */
-select#earnPeriod::-ms-expand {
-  display: none;
-}
-
-/* ==============================
-   FOOTER STYLING
-   ============================== */
-footer {
-  width: 100%;
   text-align: center;
-  padding: 1rem;
-  background: #1f1f1f;
-  color: #888; /* muted gray */
-  font-size: 0.85rem;
-  margin-top: 1rem;
-}
-
-/* ==============================
-   EARNINGS CARD SPECIFIC STYLING
-   Overrides for estimated earnings display
-   ============================== */
-.card {
-  justify-content: flex-start; /* align top content together */
-}
-
-#earnXMR {
-  font-size: 2rem; /* emphasize XMR amount */
-  font-weight: bold;
-  margin-bottom: 0.1rem;
-}
-
-#earnEUR {
-  font-size: 1rem;
-  color: #aaa; /* muted text for secondary info */
-  display: block;
-  margin-bottom: 0.3rem; /* closer spacing to main XMR value */
-}
-
-/* Bottom stats pinned at bottom of card */
-.bottom-stats {
-  margin-top: auto; /* push to bottom */
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.85rem;
-  color: #ccc; /* lighter text */
-}
-
-/* ==============================
-   MOBILE RESPONSIVENESS
-   Adjust card sizes and text for small screens
-   ============================== */
-@media (max-width: 600px) {
-  .card {
-    padding: 0.75rem;
-  }
-  .big {
-    font-size: 1.25rem;
-  }
-  .sub,
-  .small-stat,
-  .stat {
-    font-size: 0.85rem;
-  }
-}
-
-/* Mining Statistics Section */
-.stats-section {
-  max-width: 1200px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-}
-
-.stats-section h2 {
-  text-align: center;
-  color: #4caf50;
-  margin-bottom: 2rem;
-  font-size: 2rem;
+  margin-bottom: 30px;
+  font-size: 2.5em;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
 }
 
 .stat-card {
-  background: #2a2a2a !important;
-  padding: 1rem;
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border: 2px solid #4caf50;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.3s ease;
 }
 
-.stat-card .stat-title {
-  font-size: 0.9rem;
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+
+.stat-title {
+  font-size: 0.9em;
   opacity: 0.8;
-  margin-bottom: 0.5rem;
+  margin-bottom: 5px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #4caf50;
 }
 
-.stat-card .stat-value {
-  font-size: 1.5rem;
+.stat-value {
+  font-size: 2em;
   font-weight: bold;
-  margin-bottom: 0.5rem;
-  color: #e0e0e0;
+  margin-bottom: 10px;
 }
 
-.stat-card .stat-unit {
-  font-size: 0.8rem;
+.stat-unit {
+  font-size: 0.8em;
   opacity: 0.7;
-  color: #aaa;
 }
 
 .status-indicator {
@@ -265,36 +81,52 @@ footer {
   box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
 }
 
+.refresh-info {
+  text-align: center;
+  opacity: 0.7;
+  font-size: 0.9em;
+  margin-top: 20px;
+}
+
+.loading {
+  text-align: center;
+  padding: 50px;
+  font-size: 1.2em;
+}
+
+.error {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid #f44336;
+  border-radius: 10px;
+  padding: 15px;
+  margin: 20px 0;
+  text-align: center;
+}
+
 .workers-section {
-  background: #1e1e1e;
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 20px;
+  margin-top: 20px;
 }
 
 .workers-title {
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-  color: #4caf50;
-  border-bottom: 1px solid rgba(76, 175, 80, 0.3);
-  padding-bottom: 0.5rem;
-}
-
-.worker-item {
-  margin: 0.5rem 0;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  border-left: 3px solid #4caf50;
-}
-
-.worker-item strong {
-  color: #4caf50;
+  font-size: 1.5em;
+  margin-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding-bottom: 10px;
 }
 
 .no-workers {
   text-align: center;
   opacity: 0.7;
   font-style: italic;
-  color: #888;
+}
+
+.worker-item {
+  margin: 5px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
 }
