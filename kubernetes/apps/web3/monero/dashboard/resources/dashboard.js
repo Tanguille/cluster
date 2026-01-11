@@ -4,12 +4,11 @@ let poolData = {};
 
 async function fetchData() {
   try {
-    const [statsResponse, networkResponse, poolResponse] =
-      await Promise.all([
-        fetch("/local/stratum"),
-        fetch("/network/stats"),
-        fetch("/pool/stats"),
-      ]);
+    const [statsResponse, networkResponse, poolResponse] = await Promise.all([
+      fetch("/local/stratum"),
+      fetch("/network/stats"),
+      fetch("/pool/stats"),
+    ]);
 
     if (statsResponse.ok) statsData = await statsResponse.json();
     if (networkResponse.ok) networkData = await networkResponse.json();
@@ -68,13 +67,12 @@ function updateUI() {
 
   // Pool stats are nested under pool_statistics
   const poolStats = poolData.pool_statistics || {};
-  document.getElementById("network-hashrate").textContent =
-    poolStats.hashRate ? formatHashrate(poolStats.hashRate) : "0 H/s";
+  document.getElementById("network-hashrate").textContent = poolStats.hashRate
+    ? formatHashrate(poolStats.hashRate)
+    : "0 H/s";
 
   document.getElementById("user-hashrate-24h").textContent =
-    statsData.hashrate_24h
-      ? formatHashrate(statsData.hashrate_24h)
-      : "0 H/s";
+    statsData.hashrate_24h ? formatHashrate(statsData.hashrate_24h) : "0 H/s";
 
   document.getElementById("shares-found").textContent =
     statsData.shares_found || 0;
@@ -125,15 +123,15 @@ function updateUI() {
         return `<div class="worker-item" style="margin: 5px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
                   <strong>${name}</strong> -
                   ${formatHashrate(hashrate)} -
-                  Shares: ${statsData.shares_found || 0}/${statsData.shares_failed || 0
-          }
+                  Shares: ${statsData.shares_found || 0}/${
+                    statsData.shares_failed || 0
+                  }
               </div>`;
       })
       .join("");
     workersList.innerHTML = workersHtml;
   } else {
-    workersList.innerHTML =
-      '<div class="no-workers">No miners connected</div>';
+    workersList.innerHTML = '<div class="no-workers">No miners connected</div>';
   }
 }
 
