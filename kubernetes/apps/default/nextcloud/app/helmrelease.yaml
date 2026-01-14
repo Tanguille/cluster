@@ -48,10 +48,6 @@ spec:
           cpu: 200m
           memory: 128Mi
 
-    phpClientHttpsFix:
-      enabled: true
-      protocol: https
-
     nextcloud:
       datadir: /var/www/data
       strategy:
@@ -271,6 +267,8 @@ spec:
         env:
           - name: MAIL_FROM_ADDRESS
             value: ${FROM_ADDRESS}
+          - name: PHP_MEMORY_LIMIT
+            value: "8G"
         command:
           - /bin/sh
           - /scripts/cron.sh
