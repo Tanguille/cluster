@@ -201,7 +201,10 @@ async function updateRecentPayments() {
       totalXMR += p.coinbase_reward / 1e12;
     }
 
-    const priceEUR = history.price.at(-1) || 0;
+    const priceEUR =
+      history && history.price && history.price.length > 0
+        ? history.price[history.price.length - 1]
+        : 0;
 
     if (typeof priceEUR === "number") {
       totalEl.textContent = `${totalXMR.toFixed(6)} XMR`;
@@ -617,41 +620,42 @@ function updateOldDashboardStats(poolData) {
 }
 
 async function updateStats() {
-  // Fetch all required data in parallel with individual error handling
-  const [xmrig, poolData, network, thresholdObj, hist, oldStats] =
-    await Promise.allSettled([
-      fetchJSON("/xmrig_summary").catch((e) => {
-        console.error("Failed to fetch xmrig_summary:", e);
-        return null;
-      }),
-      fetchJSON("/pool/stats").catch((e) => {
-        console.error("Failed to fetch pool/stats:", e);
-        return null;
-      }),
-      fetchJSON("/network/stats").catch((e) => {
-        console.error("Failed to fetch network/stats:", e);
-        return null;
-      }),
-      fetchJSON("/min_payment_threshold").catch((e) => {
-        console.error("Failed to fetch min_payment_threshold:", e);
-        return { minPaymentThreshold: 0.01 };
-      }),
-      fetchJSON("/stats_log.json").catch((e) => {
-        console.error("Failed to fetch stats_log.json:", e);
-        return null;
-      }),
-      fetch("/local/stratum")
-        .then((r) => (r.ok ? r.json() : {}))
-        .catch(() => ({})),
-    ]).then((results) =>
-      results.map((r) => (r.status === "fulfilled" ? r.value : r.reason)),
-    );
+  try {
+    // Fetch all required data in parallel with individual error handling
+    const [xmrig, poolData, network, thresholdObj, hist, oldStats] =
+      await Promise.allSettled([
+        fetchJSON("/xmrig_summary").catch((e) => {
+          console.error("Failed to fetch xmrig_summary:", e);
+          return null;
+        }),
+        fetchJSON("/pool/stats").catch((e) => {
+          console.error("Failed to fetch pool/stats:", e);
+          return null;
+        }),
+        fetchJSON("/network/stats").catch((e) => {
+          console.error("Failed to fetch network/stats:", e);
+          return null;
+        }),
+        fetchJSON("/min_payment_threshold").catch((e) => {
+          console.error("Failed to fetch min_payment_threshold:", e);
+          return { minPaymentThreshold: 0.01 };
+        }),
+        fetchJSON("/stats_log.json").catch((e) => {
+          console.error("Failed to fetch stats_log.json:", e);
+          return null;
+        }),
+        fetch("/local/stratum")
+          .then((r) => (r.ok ? r.json() : {}))
+          .catch(() => ({})),
+      ]).then((results) =>
+        results.map((r) => (r.status === "fulfilled" ? r.value : r.reason)),
+      );
 
-  // Extract values from Promise.allSettled results
-  const xmrigData = xmrig;
-  const networkData = network;
-  const threshold = thresholdObj;
-  history = hist;
+    // Extract values from Promise.allSettled results
+    const xmrigData = xmrig;
+    const networkData = network;
+    const threshold = thresholdObj;
+    history = hist;
 
   // Update charts if we have history
   if (history) {
@@ -683,7 +687,7 @@ async function updateStats() {
   let avgMyHash = instMyHash;
   let avgPoolHash = instPoolHash;
   let avgNetHash = instNetHash;
-  if (avgWindowHours > 0) {
+  if (avgWindowHours > 0 && history) {
     const sliced = sliceHistory(avgWindowHours, history);
     avgMyHash = movingAverage(
       sliced.labels.map((t) => t / 1000),
@@ -718,7 +722,10 @@ async function updateStats() {
     poolShare > 0 ? `${poolShare.toFixed(4)}%` : "–";
 
   // Latest XMR price
-  const priceEUR = history.price.at(-1) || 0;
+  const priceEUR =
+    history && history.price && history.price.length > 0
+      ? history.price[history.price.length - 1]
+      : 0;
   document.getElementById("price").textContent = `€${priceEUR.toFixed(2)}`;
 
   // --- ESTIMATED EARNINGS ---
@@ -848,26 +855,26 @@ Your actual payouts can be shorter or longer, depending on mining luck.`;
     totalXMR,
   );
 
-  // Update old dashboard stats
-  updateOldDashboardStats(poolData);
-} catch (e) {
-  console.error("Error in updateStats:", e);
-  // Update UI with error indicators instead of leaving "Loading..."
-  const errorElements = [
-    "myHashrate",
-    "poolHashrate",
-    "netHashrate",
-    "price",
-    "earnXMR",
-    "earnEUR",
-  ];
-  errorElements.forEach((id) => {
-    const el = document.getElementById(id);
-    if (el && el.textContent === "Loading…") {
-      el.textContent = "Error";
-    }
-  });
-}
+    // Update old dashboard stats
+    updateOldDashboardStats(poolData);
+  } catch (e) {
+    console.error("Error in updateStats:", e);
+    // Update UI with error indicators instead of leaving "Loading..."
+    const errorElements = [
+      "myHashrate",
+      "poolHashrate",
+      "netHashrate",
+      "price",
+      "earnXMR",
+      "earnEUR",
+    ];
+    errorElements.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el && el.textContent === "Loading…") {
+        el.textContent = "Error";
+      }
+    });
+  }
 }
 
 // Update stats when user changes the earnings period dropdown
