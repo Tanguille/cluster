@@ -1,9 +1,9 @@
 // ==============================
 // GLOBAL VARIABLES
 // ==============================
-let history;             // Holds historical mining and price data
-let hashrateChart;       // Chart.js instance for the user's hashrate chart
-let priceChart;          // Chart.js instance for the XMR price chart
+let history; // Holds historical mining and price data
+let hashrateChart; // Chart.js instance for the user's hashrate chart
+let priceChart; // Chart.js instance for the XMR price chart
 let currentRangeHours = 24; // Default time range for charts (24 hours)
 let observerConfig = null;
 let observerBase = null;
@@ -36,19 +36,19 @@ function scaleHashrate(v) {
 
 // Format date in DD/MM/YYYY HH:MM:SS
 function formatDate24(date) {
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0'); // month is 0-indexed
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0"); // month is 0-indexed
   const year = date.getFullYear();
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
 }
 
 function formatDate24Hours(date) {
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
 }
 
@@ -97,15 +97,15 @@ async function loadObserverConfig() {
 function sliceHistory(hours, hist) {
   const now = Date.now() / 1000;
   const cutoff = now - hours * 3600;
-  const idx = hist.timestamps.findIndex(t => t >= cutoff);
+  const idx = hist.timestamps.findIndex((t) => t >= cutoff);
   const i = idx === -1 ? 0 : idx;
 
   return {
-    labels: hist.timestamps.slice(i).map(t => t * 1000), // JS timestamps in ms
+    labels: hist.timestamps.slice(i).map((t) => t * 1000), // JS timestamps in ms
     myHash: hist.myHash.slice(i),
     poolHash: hist.poolHash.slice(i),
     netHash: hist.netHash.slice(i),
-    price: hist.price.slice(i)
+    price: hist.price.slice(i),
   };
 }
 
@@ -122,7 +122,8 @@ function movingAverage(timestamps, values, windowSeconds = 600) {
   let smoothed = [];
   for (let i = 0; i < values.length; i++) {
     const start = timestamps[i] - windowSeconds;
-    let sum = 0, count = 0;
+    let sum = 0,
+      count = 0;
     for (let j = 0; j <= i; j++) {
       if (timestamps[j] >= start) {
         sum += values[j];
@@ -147,7 +148,7 @@ async function getWindowStartTimestamp() {
 
   // Step 2: Fetch exactly that many recent shares
   const sharesInWindow = await fetchJSON(
-    `${observerBase}/shares?limit=${windowDepth}`
+    `${observerBase}/shares?limit=${windowDepth}`,
   );
 
   if (!sharesInWindow || sharesInWindow.length === 0) {
@@ -167,7 +168,8 @@ async function getWindowStartTimestamp() {
 // ==============================
 async function updateRecentPayments() {
   if (!observerBase || !observerWallet) {
-    document.getElementById("paymentsStatus").textContent = "Observer not configured";
+    document.getElementById("paymentsStatus").textContent =
+      "Observer not configured";
     document.getElementById("totalEarned").textContent = "–";
     return;
   }
@@ -178,7 +180,7 @@ async function updateRecentPayments() {
 
   try {
     const payouts = await fetchJSON(
-      `${observerBase}/payouts/${observerWallet}`
+      `${observerBase}/payouts/${observerWallet}`,
     );
 
     if (!Array.isArray(payouts) || payouts.length === 0) {
@@ -202,8 +204,7 @@ async function updateRecentPayments() {
     const priceEUR = history.price.at(-1) || 0;
 
     if (typeof priceEUR === "number") {
-      totalEl.textContent =
-        `${totalXMR.toFixed(6)} XMR`;
+      totalEl.textContent = `${totalXMR.toFixed(6)} XMR`;
       totalEurEl.textContent = `≈ €${(totalXMR * priceEUR).toFixed(2)}`;
     } else {
       totalEl.textContent = `${totalXMR.toFixed(6)} XMR`;
@@ -257,29 +258,30 @@ async function updateSharesCard() {
     // Fetch payouts & shares
     const [payouts, shares] = await Promise.all([
       fetchJSON(`${observerBase}/payouts/${observerWallet}`),
-      fetchJSON(`${observerBase}/shares?miner=${observerWallet}`)
+      fetchJSON(`${observerBase}/shares?miner=${observerWallet}`),
     ]);
 
     // Determine last payout timestamp
     const lastPayoutTS = payouts?.length ? payouts[0].timestamp : 0;
 
     // Filter shares after last payout
-    const sharesAfter = shares.filter(s => s.timestamp > lastPayoutTS);
+    const sharesAfter = shares.filter((s) => s.timestamp > lastPayoutTS);
 
     // Counts
     const sharesSince = sharesAfter.length;
-    const unclesSince = sharesAfter.filter(s => s.inclusion === 0).length;
+    const unclesSince = sharesAfter.filter((s) => s.inclusion === 0).length;
 
     const totalShares = shares.length;
-    const totalUncles = shares.filter(s => s.inclusion === 0).length;
+    const totalUncles = shares.filter((s) => s.inclusion === 0).length;
 
     // Update DOM
     document.getElementById("sharesSinceLastPayout").textContent = sharesSince;
     document.getElementById("unclesSinceLastPayout").textContent = unclesSince;
 
-    document.getElementById("totalSharesMined").textContent = `Total shares: ${totalShares}`;
-    document.getElementById("totalUnclesMined").textContent = `Total uncles: ${totalUncles}`;
-
+    document.getElementById("totalSharesMined").textContent =
+      `Total shares: ${totalShares}`;
+    document.getElementById("totalUnclesMined").textContent =
+      `Total uncles: ${totalUncles}`;
   } catch (e) {
     console.error("Error updating Shares & Uncles card:", e);
     // fallback display
@@ -291,18 +293,33 @@ async function updateSharesCard() {
   }
 }
 
-async function updateWindowLuck(pplnsWeight, avgPoolHashPPLNS, avgMyHashPPLNS, windowStart, windowDuration, priceEUR, blockReward) {
+async function updateWindowLuck(
+  pplnsWeight,
+  avgPoolHashPPLNS,
+  avgMyHashPPLNS,
+  windowStart,
+  windowDuration,
+  priceEUR,
+  blockReward,
+) {
   try {
     if (!observerWallet || !observerBase) return null;
 
     // Step 1: Get all shares (most recent first)
-    const shares = (await fetchJSON(`${observerBase}/shares?miner=${observerWallet}`)).sort((a, b) => a.timestamp - b.timestamp); // oldest → newest
+    const shares = (
+      await fetchJSON(`${observerBase}/shares?miner=${observerWallet}`)
+    ).sort((a, b) => a.timestamp - b.timestamp); // oldest → newest
 
     // Step 3: Filter your shares to only those in the current PPLNS window
-    const myWindowShares = shares.filter(share => share.timestamp >= windowStart);
+    const myWindowShares = shares.filter(
+      (share) => share.timestamp >= windowStart,
+    );
 
     // Step 4: Sum difficulty of your shares
-    const totalDifficulty = myWindowShares.reduce((sum, share) => sum + share.difficulty, 0);
+    const totalDifficulty = myWindowShares.reduce(
+      (sum, share) => sum + share.difficulty,
+      0,
+    );
 
     // Step 5: Your share of total window
     const difficultyShare = totalDifficulty / pplnsWeight;
@@ -313,7 +330,9 @@ async function updateWindowLuck(pplnsWeight, avgPoolHashPPLNS, avgMyHashPPLNS, w
 
     // Get current pool effort
     const poolInfo = await fetchJSON(`${observerBase}/pool_info`);
-    const lastBlockTimestamp = (await fetchJSON(`${observerBase}/found_blocks?limit=1`))[0].main_block.timestamp;
+    const lastBlockTimestamp = (
+      await fetchJSON(`${observerBase}/found_blocks?limit=1`)
+    )[0].main_block.timestamp;
     const currentEffort = poolInfo.sidechain.effort.current;
     const avgCurrentEffort = poolInfo.sidechain.effort.average200;
 
@@ -323,7 +342,6 @@ async function updateWindowLuck(pplnsWeight, avgPoolHashPPLNS, avgMyHashPPLNS, w
     const accumulatedXMR = difficultyShare * blockReward;
     const accumulatedEUR = accumulatedXMR * priceEUR;
     const pplnsStart = new Date(windowStart * 1000);
-
 
     // Ensure tooltip exists
     const luckFactorDiv = document.getElementById("luckFactor");
@@ -347,20 +365,30 @@ current PPLNS window divided by your actual moving average
 also multiplied by the pool luck (derrived from the pool effort).
 `;
 
-    document.getElementById("luckFactor").textContent = betterLuckFactor.toFixed(2);
-    document.getElementById("xmrThisWindow").textContent = accumulatedXMR.toFixed(12);
-    document.getElementById("eurThisWindow").textContent = `≈ €${accumulatedEUR.toFixed(2)}`;
-    document.getElementById("dayHash").textContent = scaleHashrate(myWindowHash);
-    document.getElementById("pplnsStart").textContent = formatDate24Hours(pplnsStart);
-    document.getElementById("currentEffort").textContent = currentEffort.toFixed(2);
-
+    document.getElementById("luckFactor").textContent =
+      betterLuckFactor.toFixed(2);
+    document.getElementById("xmrThisWindow").textContent =
+      accumulatedXMR.toFixed(12);
+    document.getElementById("eurThisWindow").textContent =
+      `≈ €${accumulatedEUR.toFixed(2)}`;
+    document.getElementById("dayHash").textContent =
+      scaleHashrate(myWindowHash);
+    document.getElementById("pplnsStart").textContent =
+      formatDate24Hours(pplnsStart);
+    document.getElementById("currentEffort").textContent =
+      currentEffort.toFixed(2);
   } catch (e) {
     console.error("Error updating PPLNS Window Luck card:", e);
     return null;
   }
 }
 
-async function updateTrueLuck(startedMiningTimestamp, newestPayoutTime, xmrPerDayAvg, totalXMR) {
+async function updateTrueLuck(
+  startedMiningTimestamp,
+  newestPayoutTime,
+  xmrPerDayAvg,
+  totalXMR,
+) {
   try {
     const luckFactorDiv = document.getElementById("trueLuckFactor");
     let luckTooltip = document.getElementById("trueLuckTooltip");
@@ -386,7 +414,9 @@ That's also why it is called the estimated true luck factor.
     // Calculate time window
     const timeWindow = newestPayoutTime - startedMiningTimestamp;
     if (timeWindow <= 0 || Number.isNaN(startedMiningTimestamp)) {
-      await Promise.reject("Start of mining was after last payment or there has not been a payment yet");
+      await Promise.reject(
+        "Start of mining was after last payment or there has not been a payment yet",
+      );
     }
 
     // Calculate expected amount of XMR in the time window
@@ -395,8 +425,8 @@ That's also why it is called the estimated true luck factor.
 
     // Calculate estimated true luck factor
     const trueLuckFactor = totalXMR / expectedXMR;
-    document.getElementById("trueLuckFactor").textContent = trueLuckFactor.toFixed(2);
-
+    document.getElementById("trueLuckFactor").textContent =
+      trueLuckFactor.toFixed(2);
   } catch (e) {
     console.error("Error updating Estimated True Luck card:", e);
     return null;
@@ -411,7 +441,10 @@ function updateCharts() {
   if (!hashrateChart) {
     hashrateChart = new Chart(document.getElementById("hashrateChart"), {
       type: "line",
-      data: { labels: d.labels, datasets: [{ label: "Your Hashrate", data: d.myHash }] },
+      data: {
+        labels: d.labels,
+        datasets: [{ label: "Your Hashrate", data: d.myHash }],
+      },
       options: {
         scales: {
           x: {
@@ -419,16 +452,15 @@ function updateCharts() {
             time: {
               tooltipFormat: "dd/MM/yyyy HH:mm:ss", // tooltip format on hover
               displayFormats: {
-                hour: "dd/MM/yyyy HH:mm",   // x-axis label when zoomed out
-                minute: "dd/MM/yyyy HH:mm"
-              }
-            }
+                hour: "dd/MM/yyyy HH:mm", // x-axis label when zoomed out
+                minute: "dd/MM/yyyy HH:mm",
+              },
+            },
           },
-          y: { ticks: { callback: scaleHashrate } }
+          y: { ticks: { callback: scaleHashrate } },
         },
-        elements: { point: { radius: 0 }, line: { tension: 0.25 } }
-      }
-
+        elements: { point: { radius: 0 }, line: { tension: 0.25 } },
+      },
     });
   } else {
     hashrateChart.data.labels = d.labels;
@@ -440,7 +472,10 @@ function updateCharts() {
   if (!priceChart) {
     priceChart = new Chart(document.getElementById("priceChart"), {
       type: "line",
-      data: { labels: d.labels, datasets: [{ label: "XMR Price (EUR)", data: d.price }] },
+      data: {
+        labels: d.labels,
+        datasets: [{ label: "XMR Price (EUR)", data: d.price }],
+      },
       options: {
         scales: {
           x: {
@@ -448,21 +483,20 @@ function updateCharts() {
             time: {
               tooltipFormat: "dd/MM/yyyy HH:mm:ss", // tooltip on hover
               displayFormats: {
-                hour: "dd/MM/yyyy HH:mm",  // x-axis label when zoomed out
-                minute: "dd/MM/yyyy HH:mm"
-              }
-            }
-          }
+                hour: "dd/MM/yyyy HH:mm", // x-axis label when zoomed out
+                minute: "dd/MM/yyyy HH:mm",
+              },
+            },
+          },
         },
-        elements: { point: { radius: 0 }, line: { tension: 0.25 } }
-      }
+        elements: { point: { radius: 0 }, line: { tension: 0.25 } },
+      },
     });
   } else {
     priceChart.data.labels = d.labels;
     priceChart.data.datasets[0].data = d.price;
     priceChart.update();
   }
-
 }
 
 // ==============================
@@ -512,14 +546,17 @@ function updateOldDashboardStats(poolData) {
 
   // Shares Found/Failed
   const sharesFoundEl = document.getElementById("shares-found");
-  if (sharesFoundEl) sharesFoundEl.textContent = oldStatsData.shares_found || "–";
+  if (sharesFoundEl)
+    sharesFoundEl.textContent = oldStatsData.shares_found || "–";
 
   const sharesFailedEl = document.getElementById("shares-failed");
-  if (sharesFailedEl) sharesFailedEl.textContent = oldStatsData.shares_failed || "–";
+  if (sharesFailedEl)
+    sharesFailedEl.textContent = oldStatsData.shares_failed || "–";
 
   // Active Connections
   const connectionsEl = document.getElementById("connections");
-  if (connectionsEl) connectionsEl.textContent = oldStatsData.connections || "–";
+  if (connectionsEl)
+    connectionsEl.textContent = oldStatsData.connections || "–";
 
   // Block Reward Share
   const rewardShareEl = document.getElementById("reward-share");
@@ -532,18 +569,23 @@ function updateOldDashboardStats(poolData) {
   // Blocks Found
   const blocksFoundEl = document.getElementById("blocks-found");
   if (blocksFoundEl && poolData) {
-    blocksFoundEl.textContent = poolData.pool_statistics?.totalBlocksFound || "–";
+    blocksFoundEl.textContent =
+      poolData.pool_statistics?.totalBlocksFound || "–";
   }
 
   // Last Share/Block Found
   const lastShareTimeEl = document.getElementById("last-share-time");
   if (lastShareTimeEl && oldStatsData) {
-    lastShareTimeEl.textContent = formatTime(oldStatsData.last_share_found_time);
+    lastShareTimeEl.textContent = formatTime(
+      oldStatsData.last_share_found_time,
+    );
   }
 
   const lastBlockTimeEl = document.getElementById("last-block-time");
   if (lastBlockTimeEl && poolData) {
-    lastBlockTimeEl.textContent = formatTime(poolData.pool_statistics?.lastBlockFoundTime);
+    lastBlockTimeEl.textContent = formatTime(
+      poolData.pool_statistics?.lastBlockFoundTime,
+    );
   }
 
   // Connected Miners
@@ -576,16 +618,18 @@ function updateOldDashboardStats(poolData) {
 
 async function updateStats() {
   try {
-
     // Fetch all required data in parallel (including old dashboard data)
-    const [xmrig, poolData, network, thresholdObj, hist, oldStats] = await Promise.all([
-      fetchJSON("/xmrig_summary"),
-      fetchJSON("/pool/stats"),
-      fetchJSON("/network/stats"),
-      fetchJSON("/min_payment_threshold"),
-      fetchJSON("/stats_log.json"),
-      fetch("/local/stratum").then(r => r.ok ? r.json() : {}).catch(() => ({}))
-    ]);
+    const [xmrig, poolData, network, thresholdObj, hist, oldStats] =
+      await Promise.all([
+        fetchJSON("/xmrig_summary"),
+        fetchJSON("/pool/stats"),
+        fetchJSON("/network/stats"),
+        fetchJSON("/min_payment_threshold"),
+        fetchJSON("/stats_log.json"),
+        fetch("/local/stratum")
+          .then((r) => (r.ok ? r.json() : {}))
+          .catch(() => ({})),
+      ]);
 
     history = hist;
     updateCharts();
@@ -613,20 +657,36 @@ async function updateStats() {
     let avgNetHash = instNetHash;
     if (avgWindowHours > 0) {
       const sliced = sliceHistory(avgWindowHours, history);
-      avgMyHash = movingAverage(sliced.labels.map(t => t / 1000), sliced.myHash, (avgWindowHours * 3600));
-      avgPoolHash = movingAverage(sliced.labels.map(t => t / 1000), sliced.poolHash, (avgWindowHours * 3600));
-      avgNetHash = movingAverage(sliced.labels.map(t => t / 1000), sliced.netHash, (avgWindowHours * 3600));
+      avgMyHash = movingAverage(
+        sliced.labels.map((t) => t / 1000),
+        sliced.myHash,
+        avgWindowHours * 3600,
+      );
+      avgPoolHash = movingAverage(
+        sliced.labels.map((t) => t / 1000),
+        sliced.poolHash,
+        avgWindowHours * 3600,
+      );
+      avgNetHash = movingAverage(
+        sliced.labels.map((t) => t / 1000),
+        sliced.netHash,
+        avgWindowHours * 3600,
+      );
     }
 
     // --- UPDATE DOM ELEMENTS ---
-    document.getElementById("myHashrate").textContent = scaleHashrate(instMyHash);
-    document.getElementById("poolHashrate").textContent = scaleHashrate(instPoolHash);
-    document.getElementById("netHashrate").textContent = scaleHashrate(instNetHash);
+    document.getElementById("myHashrate").textContent =
+      scaleHashrate(instMyHash);
+    document.getElementById("poolHashrate").textContent =
+      scaleHashrate(instPoolHash);
+    document.getElementById("netHashrate").textContent =
+      scaleHashrate(instNetHash);
     document.getElementById("blockReward").textContent = blockReward.toFixed(6);
 
     // Pool share percentage
     const poolShare = (instMyHash / instPoolHash) * 100;
-    document.getElementById("poolShare").textContent = `${poolShare.toFixed(4)}%`;
+    document.getElementById("poolShare").textContent =
+      `${poolShare.toFixed(4)}%`;
 
     // Latest XMR price
     const priceEUR = history.price.at(-1) || 0;
@@ -657,26 +717,34 @@ async function updateStats() {
     }
 
     // Tooltip shows moving averages
-    const avgWindowLabel = avgWindowHours >= 24 ? "24h moving average" : `${avgWindowHours.toFixed(1)}h moving average`;
+    const avgWindowLabel =
+      avgWindowHours >= 24
+        ? "24h moving average"
+        : `${avgWindowHours.toFixed(1)}h moving average`;
     earnTooltip.title = `Estimated earnings based on ${avgWindowLabel}.
 Avg your hashrate: ${scaleHashrate(avgMyHash)}
 Avg pool hashrate: ${scaleHashrate(avgPoolHash)}
 Avg network hashrate: ${scaleHashrate(avgNetHash)}`;
 
     // Earnings legend text
-    const legendText = avgWindowHours >= 24 ? "Based on 24h moving average" : `Based on ${avgWindowHours.toFixed(1)}h moving average`;
+    const legendText =
+      avgWindowHours >= 24
+        ? "Based on 24h moving average"
+        : `Based on ${avgWindowHours.toFixed(1)}h moving average`;
     document.getElementById("earnLegend").textContent = legendText;
 
     // Last refreshed timestamp
     const date = new Date();
-    document.getElementById("lastRefreshed").textContent = `Last refreshed: ${formatDate24(date)}`;
+    document.getElementById("lastRefreshed").textContent =
+      `Last refreshed: ${formatDate24(date)}`;
 
     // --- PAYOUT INTERVAL CALCULATION (adjusted for pool size) ---
     const poolBlocksPerDay = blocksPerDay * (avgPoolHash / avgNetHash); // expected pool blocks per day
     const xmrPerBlock = (avgMyHash / avgPoolHash) * blockReward; // your expected XMR per pool block
 
     // Interval in hours
-    const intervalHours = xmrPerBlock > 0 ? minPaymentThreshold / xmrPerBlock * 24 : "N/A";
+    const intervalHours =
+      xmrPerBlock > 0 ? (minPaymentThreshold / xmrPerBlock) * 24 : "N/A";
 
     const intervalText = `~${intervalHours.toFixed(1)}h/payout`;
     document.getElementById("payoutInterval").textContent = intervalText;
@@ -711,29 +779,43 @@ Your actual payouts can be shorter or longer, depending on mining luck.`;
       const sliced = sliceHistory(avgWindowSeconds / 3600, history); // sliceHistory expects hours
       // compute 10-minute (600s) moving average
       avgMyHashPPLNS = movingAverage(
-        sliced.labels.map(t => t / 1000), // timestamps in seconds
+        sliced.labels.map((t) => t / 1000), // timestamps in seconds
         sliced.myHash,
-        avgWindowSeconds
+        avgWindowSeconds,
       );
       avgPoolHashPPLNS = movingAverage(
-        sliced.labels.map(t => t / 1000),
+        sliced.labels.map((t) => t / 1000),
         sliced.poolHash,
-        avgWindowSeconds
+        avgWindowSeconds,
       );
     }
 
     // Update window Luck card
-    updateWindowLuck(pplnsWeight, avgPoolHashPPLNS, avgMyHashPPLNS, windowStart, windowDuration, priceEUR, blockReward);
+    updateWindowLuck(
+      pplnsWeight,
+      avgPoolHashPPLNS,
+      avgMyHashPPLNS,
+      windowStart,
+      windowDuration,
+      priceEUR,
+      blockReward,
+    );
 
     // Update True Luck Card
     const startedMining = document.getElementById("startedMining").value;
-    const startedMiningTimestamp = Math.floor(new Date(startedMining).getTime() / 1000);
-    updateTrueLuck(startedMiningTimestamp, newestPayoutTime, xmrPerDayAvg, totalXMR);
+    const startedMiningTimestamp = Math.floor(
+      new Date(startedMining).getTime() / 1000,
+    );
+    updateTrueLuck(
+      startedMiningTimestamp,
+      newestPayoutTime,
+      xmrPerDayAvg,
+      totalXMR,
+    );
 
     // Update old dashboard stats
     oldStatsData = oldStats; // Store for old dashboard stats
     updateOldDashboardStats(poolData);
-
   } catch (e) {
     console.error("Error fetching stats:", e);
   }
