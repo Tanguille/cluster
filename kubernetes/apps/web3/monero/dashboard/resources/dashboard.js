@@ -414,7 +414,7 @@ That's also why it is called the estimated true luck factor.
     // Calculate time window
     const timeWindow = newestPayoutTime - startedMiningTimestamp;
     if (timeWindow <= 0 || Number.isNaN(startedMiningTimestamp)) {
-      await Promise.reject(
+      throw new Error(
         "Start of mining was after last payment or there has not been a payment yet",
       );
     }
