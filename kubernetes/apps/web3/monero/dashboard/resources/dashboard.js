@@ -669,205 +669,205 @@ async function updateStats() {
   const blockReward = networkData?.reward ? networkData.reward / 1e12 : 0;
   const minPaymentThreshold = threshold?.minPaymentThreshold || 0.01;
 
-    // Determine averaging window (max 24h)
-    const now = Date.now() / 1000;
-    let avgWindowHours = 24;
-    if (history && history.timestamps.length > 0) {
-      const earliest = history.timestamps[0];
-      const availableHours = (now - earliest) / 3600;
-      if (availableHours < 24) avgWindowHours = availableHours;
-      if (avgWindowHours <= 0) avgWindowHours = 0;
-    }
+  // Determine averaging window (max 24h)
+  const now = Date.now() / 1000;
+  let avgWindowHours = 24;
+  if (history && history.timestamps.length > 0) {
+    const earliest = history.timestamps[0];
+    const availableHours = (now - earliest) / 3600;
+    if (availableHours < 24) avgWindowHours = availableHours;
+    if (avgWindowHours <= 0) avgWindowHours = 0;
+  }
 
-    // Compute moving averages over 10-minute intervals
-    let avgMyHash = instMyHash;
-    let avgPoolHash = instPoolHash;
-    let avgNetHash = instNetHash;
-    if (avgWindowHours > 0) {
-      const sliced = sliceHistory(avgWindowHours, history);
-      avgMyHash = movingAverage(
-        sliced.labels.map((t) => t / 1000),
-        sliced.myHash,
-        avgWindowHours * 3600,
-      );
-      avgPoolHash = movingAverage(
-        sliced.labels.map((t) => t / 1000),
-        sliced.poolHash,
-        avgWindowHours * 3600,
-      );
-      avgNetHash = movingAverage(
-        sliced.labels.map((t) => t / 1000),
-        sliced.netHash,
-        avgWindowHours * 3600,
-      );
-    }
+  // Compute moving averages over 10-minute intervals
+  let avgMyHash = instMyHash;
+  let avgPoolHash = instPoolHash;
+  let avgNetHash = instNetHash;
+  if (avgWindowHours > 0) {
+    const sliced = sliceHistory(avgWindowHours, history);
+    avgMyHash = movingAverage(
+      sliced.labels.map((t) => t / 1000),
+      sliced.myHash,
+      avgWindowHours * 3600,
+    );
+    avgPoolHash = movingAverage(
+      sliced.labels.map((t) => t / 1000),
+      sliced.poolHash,
+      avgWindowHours * 3600,
+    );
+    avgNetHash = movingAverage(
+      sliced.labels.map((t) => t / 1000),
+      sliced.netHash,
+      avgWindowHours * 3600,
+    );
+  }
 
-    // --- UPDATE DOM ELEMENTS ---
-    document.getElementById("myHashrate").textContent =
-      scaleHashrate(instMyHash);
-    document.getElementById("poolHashrate").textContent =
-      scaleHashrate(instPoolHash);
-    document.getElementById("netHashrate").textContent =
-      scaleHashrate(instNetHash);
-    document.getElementById("blockReward").textContent = blockReward.toFixed(6);
+  // --- UPDATE DOM ELEMENTS ---
+  document.getElementById("myHashrate").textContent =
+    scaleHashrate(instMyHash);
+  document.getElementById("poolHashrate").textContent =
+    scaleHashrate(instPoolHash);
+  document.getElementById("netHashrate").textContent =
+    scaleHashrate(instNetHash);
+  document.getElementById("blockReward").textContent = blockReward.toFixed(6);
 
-    // Pool share percentage
-    const poolShare =
-      instPoolHash > 0 ? (instMyHash / instPoolHash) * 100 : 0;
-    document.getElementById("poolShare").textContent =
-      poolShare > 0 ? `${poolShare.toFixed(4)}%` : "–";
+  // Pool share percentage
+  const poolShare =
+    instPoolHash > 0 ? (instMyHash / instPoolHash) * 100 : 0;
+  document.getElementById("poolShare").textContent =
+    poolShare > 0 ? `${poolShare.toFixed(4)}%` : "–";
 
-    // Latest XMR price
-    const priceEUR = history.price.at(-1) || 0;
-    document.getElementById("price").textContent = `€${priceEUR.toFixed(2)}`;
+  // Latest XMR price
+  const priceEUR = history.price.at(-1) || 0;
+  document.getElementById("price").textContent = `€${priceEUR.toFixed(2)}`;
 
-    // --- ESTIMATED EARNINGS ---
-    const blocksPerDay = 720;
-    const myNetShareAvg =
-      avgNetHash > 0 ? avgMyHash / avgNetHash : 0;
-    const xmrPerDayAvg = myNetShareAvg * blocksPerDay * blockReward;
-    const period = document.getElementById("earnPeriod").value;
-    const xmr = xmrPerDayAvg * PERIOD_MULT[period];
-    const eur = xmr * priceEUR;
+  // --- ESTIMATED EARNINGS ---
+  const blocksPerDay = 720;
+  const myNetShareAvg =
+    avgNetHash > 0 ? avgMyHash / avgNetHash : 0;
+  const xmrPerDayAvg = myNetShareAvg * blocksPerDay * blockReward;
+  const period = document.getElementById("earnPeriod").value;
+  const xmr = xmrPerDayAvg * PERIOD_MULT[period];
+  const eur = xmr * priceEUR;
 
-    // Update #earnXMR while preserving tooltip
-    const earnXMRDiv = document.getElementById("earnXMR");
-    earnXMRDiv.textContent = `${xmr.toFixed(6)} XMR`;
+  // Update #earnXMR while preserving tooltip
+  const earnXMRDiv = document.getElementById("earnXMR");
+  earnXMRDiv.textContent = `${xmr.toFixed(6)} XMR`;
 
-    document.getElementById("earnEUR").textContent = `≈ €${eur.toFixed(2)}`;
+  document.getElementById("earnEUR").textContent = `≈ €${eur.toFixed(2)}`;
 
-    // Ensure tooltip exists
-    let earnTooltip = document.getElementById("earnTooltip");
-    if (!earnTooltip) {
-      earnTooltip = document.createElement("span");
-      earnTooltip.id = "earnTooltip";
-      earnTooltip.className = "tooltip-icon";
-      earnTooltip.textContent = "ⓘ";
-      earnXMRDiv.appendChild(earnTooltip);
-    }
+  // Ensure tooltip exists
+  let earnTooltip = document.getElementById("earnTooltip");
+  if (!earnTooltip) {
+    earnTooltip = document.createElement("span");
+    earnTooltip.id = "earnTooltip";
+    earnTooltip.className = "tooltip-icon";
+    earnTooltip.textContent = "ⓘ";
+    earnXMRDiv.appendChild(earnTooltip);
+  }
 
-    // Tooltip shows moving averages
-    const avgWindowLabel =
-      avgWindowHours >= 24
-        ? "24h moving average"
-        : `${avgWindowHours.toFixed(1)}h moving average`;
-    earnTooltip.title = `Estimated earnings based on ${avgWindowLabel}.
+  // Tooltip shows moving averages
+  const avgWindowLabel =
+    avgWindowHours >= 24
+      ? "24h moving average"
+      : `${avgWindowHours.toFixed(1)}h moving average`;
+  earnTooltip.title = `Estimated earnings based on ${avgWindowLabel}.
 Avg your hashrate: ${scaleHashrate(avgMyHash)}
 Avg pool hashrate: ${scaleHashrate(avgPoolHash)}
 Avg network hashrate: ${scaleHashrate(avgNetHash)}`;
 
-    // Earnings legend text
-    const legendText =
-      avgWindowHours >= 24
-        ? "Based on 24h moving average"
-        : `Based on ${avgWindowHours.toFixed(1)}h moving average`;
-    document.getElementById("earnLegend").textContent = legendText;
+  // Earnings legend text
+  const legendText =
+    avgWindowHours >= 24
+      ? "Based on 24h moving average"
+      : `Based on ${avgWindowHours.toFixed(1)}h moving average`;
+  document.getElementById("earnLegend").textContent = legendText;
 
-    // Last refreshed timestamp
-    const date = new Date();
-    document.getElementById("lastRefreshed").textContent =
-      `Last refreshed: ${formatDate24(date)}`;
+  // Last refreshed timestamp
+  const date = new Date();
+  document.getElementById("lastRefreshed").textContent =
+    `Last refreshed: ${formatDate24(date)}`;
 
-    // --- PAYOUT INTERVAL CALCULATION (adjusted for pool size) ---
-    const poolBlocksPerDay =
-      avgNetHash > 0
-        ? blocksPerDay * (avgPoolHash / avgNetHash)
-        : 0; // expected pool blocks per day
-    const xmrPerBlock =
-      avgPoolHash > 0 ? (avgMyHash / avgPoolHash) * blockReward : 0; // your expected XMR per pool block
+  // --- PAYOUT INTERVAL CALCULATION (adjusted for pool size) ---
+  const poolBlocksPerDay =
+    avgNetHash > 0
+      ? blocksPerDay * (avgPoolHash / avgNetHash)
+      : 0; // expected pool blocks per day
+  const xmrPerBlock =
+    avgPoolHash > 0 ? (avgMyHash / avgPoolHash) * blockReward : 0; // your expected XMR per pool block
 
-    // Interval in hours
-    const intervalHours =
-      xmrPerBlock > 0 ? (minPaymentThreshold / xmrPerBlock) * 24 : "N/A";
+  // Interval in hours
+  const intervalHours =
+    xmrPerBlock > 0 ? (minPaymentThreshold / xmrPerBlock) * 24 : "N/A";
 
-    const intervalText = `~${intervalHours.toFixed(1)}h/payout`;
-    document.getElementById("payoutInterval").textContent = intervalText;
+  const intervalText = `~${intervalHours.toFixed(1)}h/payout`;
+  document.getElementById("payoutInterval").textContent = intervalText;
 
-    const tooltipIcon = document.querySelector(".bottom-stats .tooltip-icon");
-    if (tooltipIcon) {
-      tooltipIcon.title = `Average payout interval: ~${intervalHours.toFixed(1)} hours
+  const tooltipIcon = document.querySelector(".bottom-stats .tooltip-icon");
+  if (tooltipIcon) {
+    tooltipIcon.title = `Average payout interval: ~${intervalHours.toFixed(1)} hours
 Your actual payouts can be shorter or longer, depending on mining luck.`;
-    }
-
-    // Update dashboard to show recent payments
-    const [newestPayoutTime, totalXMR] = await updateRecentPayments();
-
-    // Update dashboard to show recent shares
-    updateSharesCard();
-
-    // Calculate moving average hashrates since start of PPLNS Window
-    const pplnsWeight =
-      poolData?.pool_statistics?.pplnsWeight || poolData?.pool_statistics?.pplns_weight || 0;
-    const windowStart = await getWindowStartTimestamp();
-    const windowEnd = Date.now() / 1000; // current timestamp in seconds
-    const windowDuration = windowEnd - windowStart; // seconds
-    let avgWindowSeconds = windowDuration; // start with actual PPLNS window
-    if (history && history.timestamps.length > 0) {
-      const earliest = history.timestamps[0] / 1000; // convert ms → s
-      const availableSeconds = windowEnd - earliest;
-      avgWindowSeconds = Math.min(avgWindowSeconds, availableSeconds);
-    }
-    let avgMyHashPPLNS = instMyHash;
-    let avgPoolHashPPLNS = instPoolHash;
-
-    if (avgWindowSeconds > 0 && history && history.timestamps.length > 0) {
-      const sliced = sliceHistory(avgWindowSeconds / 3600, history); // sliceHistory expects hours
-      // compute 10-minute (600s) moving average
-      avgMyHashPPLNS = movingAverage(
-        sliced.labels.map((t) => t / 1000), // timestamps in seconds
-        sliced.myHash,
-        avgWindowSeconds,
-      );
-      avgPoolHashPPLNS = movingAverage(
-        sliced.labels.map((t) => t / 1000),
-        sliced.poolHash,
-        avgWindowSeconds,
-      );
-    }
-
-    // Update window Luck card
-    updateWindowLuck(
-      pplnsWeight,
-      avgPoolHashPPLNS,
-      avgMyHashPPLNS,
-      windowStart,
-      windowDuration,
-      priceEUR,
-      blockReward,
-    );
-
-    // Update True Luck Card
-    const startedMining = document.getElementById("startedMining").value;
-    const startedMiningTimestamp = Math.floor(
-      new Date(startedMining).getTime() / 1000,
-    );
-    updateTrueLuck(
-      startedMiningTimestamp,
-      newestPayoutTime,
-      xmrPerDayAvg,
-      totalXMR,
-    );
-
-    // Update old dashboard stats
-    updateOldDashboardStats(poolData);
-  } catch (e) {
-    console.error("Error in updateStats:", e);
-    // Update UI with error indicators instead of leaving "Loading..."
-    const errorElements = [
-      "myHashrate",
-      "poolHashrate",
-      "netHashrate",
-      "price",
-      "earnXMR",
-      "earnEUR",
-    ];
-    errorElements.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el && el.textContent === "Loading…") {
-        el.textContent = "Error";
-      }
-    });
   }
+
+  // Update dashboard to show recent payments
+  const [newestPayoutTime, totalXMR] = await updateRecentPayments();
+
+  // Update dashboard to show recent shares
+  updateSharesCard();
+
+  // Calculate moving average hashrates since start of PPLNS Window
+  const pplnsWeight =
+    poolData?.pool_statistics?.pplnsWeight || poolData?.pool_statistics?.pplns_weight || 0;
+  const windowStart = await getWindowStartTimestamp();
+  const windowEnd = Date.now() / 1000; // current timestamp in seconds
+  const windowDuration = windowEnd - windowStart; // seconds
+  let avgWindowSeconds = windowDuration; // start with actual PPLNS window
+  if (history && history.timestamps.length > 0) {
+    const earliest = history.timestamps[0] / 1000; // convert ms → s
+    const availableSeconds = windowEnd - earliest;
+    avgWindowSeconds = Math.min(avgWindowSeconds, availableSeconds);
+  }
+  let avgMyHashPPLNS = instMyHash;
+  let avgPoolHashPPLNS = instPoolHash;
+
+  if (avgWindowSeconds > 0 && history && history.timestamps.length > 0) {
+    const sliced = sliceHistory(avgWindowSeconds / 3600, history); // sliceHistory expects hours
+    // compute 10-minute (600s) moving average
+    avgMyHashPPLNS = movingAverage(
+      sliced.labels.map((t) => t / 1000), // timestamps in seconds
+      sliced.myHash,
+      avgWindowSeconds,
+    );
+    avgPoolHashPPLNS = movingAverage(
+      sliced.labels.map((t) => t / 1000),
+      sliced.poolHash,
+      avgWindowSeconds,
+    );
+  }
+
+  // Update window Luck card
+  updateWindowLuck(
+    pplnsWeight,
+    avgPoolHashPPLNS,
+    avgMyHashPPLNS,
+    windowStart,
+    windowDuration,
+    priceEUR,
+    blockReward,
+  );
+
+  // Update True Luck Card
+  const startedMining = document.getElementById("startedMining").value;
+  const startedMiningTimestamp = Math.floor(
+    new Date(startedMining).getTime() / 1000,
+  );
+  updateTrueLuck(
+    startedMiningTimestamp,
+    newestPayoutTime,
+    xmrPerDayAvg,
+    totalXMR,
+  );
+
+  // Update old dashboard stats
+  updateOldDashboardStats(poolData);
+} catch (e) {
+  console.error("Error in updateStats:", e);
+  // Update UI with error indicators instead of leaving "Loading..."
+  const errorElements = [
+    "myHashrate",
+    "poolHashrate",
+    "netHashrate",
+    "price",
+    "earnXMR",
+    "earnEUR",
+  ];
+  errorElements.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && el.textContent === "Loading…") {
+      el.textContent = "Error";
+    }
+  });
+}
 }
 
 // Update stats when user changes the earnings period dropdown
