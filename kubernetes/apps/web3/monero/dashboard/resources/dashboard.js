@@ -617,29 +617,57 @@ function updateOldDashboardStats(poolData) {
 }
 
 async function updateStats() {
-  try {
-    // Fetch all required data in parallel (including old dashboard data)
-    const [xmrig, poolData, network, thresholdObj, hist, oldStats] =
-      await Promise.all([
-        fetchJSON("/xmrig_summary"),
-        fetchJSON("/pool/stats"),
-        fetchJSON("/network/stats"),
-        fetchJSON("/min_payment_threshold"),
-        fetchJSON("/stats_log.json"),
-        fetch("/local/stratum")
-          .then((r) => (r.ok ? r.json() : {}))
-          .catch(() => ({})),
-      ]);
+  // Fetch all required data in parallel with individual error handling
+  const [xmrig, poolData, network, thresholdObj, hist, oldStats] =
+    await Promise.allSettled([
+      fetchJSON("/xmrig_summary").catch((e) => {
+        console.error("Failed to fetch xmrig_summary:", e);
+        return null;
+      }),
+      fetchJSON("/pool/stats").catch((e) => {
+        console.error("Failed to fetch pool/stats:", e);
+        return null;
+      }),
+      fetchJSON("/network/stats").catch((e) => {
+        console.error("Failed to fetch network/stats:", e);
+        return null;
+      }),
+      fetchJSON("/min_payment_threshold").catch((e) => {
+        console.error("Failed to fetch min_payment_threshold:", e);
+        return { minPaymentThreshold: 0.01 };
+      }),
+      fetchJSON("/stats_log.json").catch((e) => {
+        console.error("Failed to fetch stats_log.json:", e);
+        return null;
+      }),
+      fetch("/local/stratum")
+        .then((r) => (r.ok ? r.json() : {}))
+        .catch(() => ({})),
+    ]).then((results) =>
+      results.map((r) => (r.status === "fulfilled" ? r.value : r.reason)),
+    );
 
-    history = hist;
+  // Extract values from Promise.allSettled results
+  const xmrigData = xmrig;
+  const networkData = network;
+  const threshold = thresholdObj;
+  history = hist;
+
+  // Update charts if we have history
+  if (history) {
     updateCharts();
+  }
 
-    // --- INSTANTANEOUS VALUES ---
-    const instMyHash = xmrig.hashrate.total[0];
-    const instPoolHash = pool.pool_statistics.hashRate;
-    const instNetHash = network.difficulty / 120; // approx network hashrate
-    const blockReward = network.reward / 1e12;
-    const minPaymentThreshold = thresholdObj.minPaymentThreshold;
+  // --- INSTANTANEOUS VALUES with fallbacks ---
+  const instMyHash =
+    xmrigData?.hashrate?.total?.[0] || xmrigData?.hashrate?.total || 0;
+  const instPoolHash =
+    poolData?.pool_statistics?.hashRate || poolData?.pool_statistics?.hashrate || 0;
+  const instNetHash = networkData?.difficulty
+    ? networkData.difficulty / 120
+    : 0; // approx network hashrate
+  const blockReward = networkData?.reward ? networkData.reward / 1e12 : 0;
+  const minPaymentThreshold = threshold?.minPaymentThreshold || 0.01;
 
     // Determine averaging window (max 24h)
     const now = Date.now() / 1000;
@@ -684,9 +712,10 @@ async function updateStats() {
     document.getElementById("blockReward").textContent = blockReward.toFixed(6);
 
     // Pool share percentage
-    const poolShare = (instMyHash / instPoolHash) * 100;
+    const poolShare =
+      instPoolHash > 0 ? (instMyHash / instPoolHash) * 100 : 0;
     document.getElementById("poolShare").textContent =
-      `${poolShare.toFixed(4)}%`;
+      poolShare > 0 ? `${poolShare.toFixed(4)}%` : "–";
 
     // Latest XMR price
     const priceEUR = history.price.at(-1) || 0;
@@ -694,7 +723,8 @@ async function updateStats() {
 
     // --- ESTIMATED EARNINGS ---
     const blocksPerDay = 720;
-    const myNetShareAvg = avgMyHash / avgNetHash;
+    const myNetShareAvg =
+      avgNetHash > 0 ? avgMyHash / avgNetHash : 0;
     const xmrPerDayAvg = myNetShareAvg * blocksPerDay * blockReward;
     const period = document.getElementById("earnPeriod").value;
     const xmr = xmrPerDayAvg * PERIOD_MULT[period];
@@ -739,8 +769,12 @@ Avg network hashrate: ${scaleHashrate(avgNetHash)}`;
       `Last refreshed: ${formatDate24(date)}`;
 
     // --- PAYOUT INTERVAL CALCULATION (adjusted for pool size) ---
-    const poolBlocksPerDay = blocksPerDay * (avgPoolHash / avgNetHash); // expected pool blocks per day
-    const xmrPerBlock = (avgMyHash / avgPoolHash) * blockReward; // your expected XMR per pool block
+    const poolBlocksPerDay =
+      avgNetHash > 0
+        ? blocksPerDay * (avgPoolHash / avgNetHash)
+        : 0; // expected pool blocks per day
+    const xmrPerBlock =
+      avgPoolHash > 0 ? (avgMyHash / avgPoolHash) * blockReward : 0; // your expected XMR per pool block
 
     // Interval in hours
     const intervalHours =
@@ -762,7 +796,8 @@ Your actual payouts can be shorter or longer, depending on mining luck.`;
     updateSharesCard();
 
     // Calculate moving average hashrates since start of PPLNS Window
-    const pplnsWeight = pool.pool_statistics.pplnsWeight;
+    const pplnsWeight =
+      poolData?.pool_statistics?.pplnsWeight || poolData?.pool_statistics?.pplns_weight || 0;
     const windowStart = await getWindowStartTimestamp();
     const windowEnd = Date.now() / 1000; // current timestamp in seconds
     const windowDuration = windowEnd - windowStart; // seconds
@@ -814,10 +849,24 @@ Your actual payouts can be shorter or longer, depending on mining luck.`;
     );
 
     // Update old dashboard stats
-    oldStatsData = oldStats; // Store for old dashboard stats
     updateOldDashboardStats(poolData);
   } catch (e) {
-    console.error("Error fetching stats:", e);
+    console.error("Error in updateStats:", e);
+    // Update UI with error indicators instead of leaving "Loading..."
+    const errorElements = [
+      "myHashrate",
+      "poolHashrate",
+      "netHashrate",
+      "price",
+      "earnXMR",
+      "earnEUR",
+    ];
+    errorElements.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el && el.textContent === "Loading…") {
+        el.textContent = "Error";
+      }
+    });
   }
 }
 
