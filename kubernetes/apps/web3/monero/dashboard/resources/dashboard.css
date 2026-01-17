@@ -58,7 +58,7 @@ h1 {
    ========================================================= */
 main.grid {
     display: grid;
-    grid-template-columns: repeat(10, 1fr);
+    grid-template-columns: repeat(12, 1fr);
     gap: 1rem;
     padding: 1rem;
     width: 100%;          /* fills available space */
@@ -120,24 +120,19 @@ main.grid {
    GRID POSITIONS
    ========================================================= */
 
-/* Top row */
-#hashrateCard { grid-column: 1 / 6; grid-row: 1; }
-#priceCard    { grid-column: 6 / 11; grid-row: 1; }
+/* Top row - Charts take full width, split 50/50 */
+#hashrateCard { grid-column: 1 / 7; grid-row: 1; }
+#priceCard    { grid-column: 7 / 13; grid-row: 1; }
 
-/* Bottom row */
+/* Second row */
 #paymentsCard { grid-column: 1 / 4; grid-row: 2; }
-#earningsCard { grid-column: 8 / 10; grid-row: 2; }
-#sharesCard   { grid-column: 10 / 11; grid-row: 2; }
-
-/* Combined Luck Card Grid */
-#combinedLuckCard {
-    grid-column: 4 / 8; /* span 2 columns for better width */
-    grid-row: 2;
-}
+#combinedLuckCard { grid-column: 4 / 9; grid-row: 2; }
+#earningsCard { grid-column: 9 / 11; grid-row: 2; }
+#sharesCard   { grid-column: 11 / 13; grid-row: 2; }
 
 /* Third row - Old dashboard stats */
-#poolStatusCard { grid-column: 1 / 7; grid-row: 3; }
-#workersCard    { grid-column: 7 / 11; grid-row: 3; }
+#poolStatusCard { grid-column: 1 / 8; grid-row: 3; }
+#workersCard    { grid-column: 8 / 13; grid-row: 3; }
 
 #combinedLuckCard .luck-grid {
     display: grid;
