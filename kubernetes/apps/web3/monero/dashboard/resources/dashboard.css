@@ -3,24 +3,24 @@
    Global styles for body and headings
    ========================================================= */
 body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #121212;
-    color: #e0e0e0;
-    overflow-x: hidden; /* prevent horizontal scroll */
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #121212;
+  color: #e0e0e0;
+  overflow-x: hidden; /* prevent horizontal scroll */
 }
 
 header {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem;
-    background: #1f1f1f;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+  background: #1f1f1f;
 }
 
 h1 {
-    margin: 0;
-    color: #4CAF50;
+  margin: 0;
+  color: #4caf50;
 }
 
 /* =========================================================
@@ -29,9 +29,9 @@ h1 {
    ========================================================= */
 #earnLegend,
 #lastRefreshed {
-    color: #aaa;
-    font-size: 0.8rem;
-    margin-top: 0.1rem;
+  color: #aaa;
+  font-size: 0.8rem;
+  margin-top: 0.1rem;
 }
 
 /* =========================================================
@@ -39,17 +39,17 @@ h1 {
    Small “ⓘ” icons next to data fields
    ========================================================= */
 .tooltip-icon {
-    display: inline-block;
-    margin-left: 2px;
-    color: #4CAF50;
-    font-weight: normal;
-    font-size: 0.7rem;
-    vertical-align: super;
-    cursor: default;
+  display: inline-block;
+  margin-left: 2px;
+  color: #4caf50;
+  font-weight: normal;
+  font-size: 0.7rem;
+  vertical-align: super;
+  cursor: default;
 }
 
 .tooltip-icon:hover {
-    color: #81C784;
+  color: #81c784;
 }
 
 /* =========================================================
@@ -57,14 +57,14 @@ h1 {
    Dashboard cards layout using CSS Grid
    ========================================================= */
 main.grid {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: 1rem;
-    padding: 1rem;
-    width: 100%;          /* fills available space */
-    max-width: 150rem;    /* caps the grid width on large desktops */
-    margin: 0 auto;       /* centers the grid */
-    box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  width: 100%; /* fills available space */
+  max-width: 150rem; /* caps the grid width on large desktops */
+  margin: 0 auto; /* centers the grid */
+  box-sizing: border-box;
 }
 
 /* =========================================================
@@ -72,48 +72,48 @@ main.grid {
    Generic styling for all dashboard cards
    ========================================================= */
 .card {
-    background: #1e1e1e;
-    padding: 1rem;
-    border-radius: 12px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    box-sizing: border-box;
-    max-width: 100%;
+  background: #1e1e1e;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 
 .card h2 {
-    margin-top: 0;
-    font-size: 1.2rem;
-    color: #4CAF50;
+  margin-top: 0;
+  font-size: 1.2rem;
+  color: #4caf50;
 }
 
 /* Large numeric values */
 .big {
-    font-size: 1.5rem;
-    font-weight: bold;
-    margin: 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0.5rem 0;
 }
 
 .big-med {
-    font-size: 1.2rem;
-    font-weight: bold;
-    margin: 0.4rem 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0.4rem 0;
 }
 
 /* Smaller info text */
 .sub,
 .small-stat,
 .stat {
-    font-size: 0.9rem;
-    margin: 0.25rem 0;
+  font-size: 0.9rem;
+  margin: 0.25rem 0;
 }
 
 .sub-sub {
-    font-size: 0.6rem;
-    margin: 0.125rem 0;
-    color: #aaa;
+  font-size: 0.6rem;
+  margin: 0.125rem 0;
+  color: #aaa;
 }
 
 /* =========================================================
@@ -121,52 +121,76 @@ main.grid {
    ========================================================= */
 
 /* Top row - Charts take full width, split 50/50 */
-#hashrateCard { grid-column: 1 / 7; grid-row: 1; }
-#priceCard    { grid-column: 7 / 13; grid-row: 1; }
+#hashrateCard {
+  grid-column: 1 / 7;
+  grid-row: 1;
+}
+#priceCard {
+  grid-column: 7 / 13;
+  grid-row: 1;
+}
 
 /* Second row */
-#paymentsCard { grid-column: 1 / 4; grid-row: 2; }
-#combinedLuckCard { grid-column: 4 / 9; grid-row: 2; }
-#earningsCard { grid-column: 9 / 11; grid-row: 2; }
-#sharesCard   { grid-column: 11 / 13; grid-row: 2; }
+#paymentsCard {
+  grid-column: 1 / 4;
+  grid-row: 2;
+}
+#combinedLuckCard {
+  grid-column: 4 / 9;
+  grid-row: 2;
+}
+#earningsCard {
+  grid-column: 9 / 11;
+  grid-row: 2;
+}
+#sharesCard {
+  grid-column: 11 / 13;
+  grid-row: 2;
+}
 
 /* Third row - Old dashboard stats */
-#poolStatusCard { grid-column: 1 / 8; grid-row: 3; }
-#workersCard    { grid-column: 8 / 13; grid-row: 3; }
+#poolStatusCard {
+  grid-column: 1 / 8;
+  grid-row: 3;
+}
+#workersCard {
+  grid-column: 8 / 13;
+  grid-row: 3;
+}
 
 #combinedLuckCard .luck-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* two sections side by side */
-    gap: 1rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* two sections side by side */
+  gap: 1rem;
 }
 
 /* Individual sections inside combined card */
 #combinedLuckCard .luck-section {
-    background: #2a2a2a;
-    padding: 0.75rem;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+  background: #2a2a2a;
+  padding: 0.75rem;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 /* Section headings */
 #combinedLuckCard .luck-section h3 {
-    margin: 0;
-    font-size: 1rem;
-    color: #4CAF50;
+  margin: 0;
+  font-size: 1rem;
+  color: #4caf50;
 }
 
 /* Adjust input inside the combined card */
 #combinedLuckCard input#startedMining {
-    margin-top: 0.3rem;
-    width: 85%;
+  margin-top: 0.3rem;
+  width: 85%;
 }
 
 /* Canvas Styling */
 canvas {
-    margin-top: 0.5rem;
-    border-radius: 8px;
+  margin-top: 0.5rem;
+  border-radius: 8px;
 }
 
 /* =========================================================
@@ -174,18 +198,18 @@ canvas {
    Earnings period selector
    ========================================================= */
 select#earnPeriod {
-    padding: 0.3rem 0.6rem;
-    background: #2b2b2b;
-    color: #e0e0e0;
-    border: 1px solid #4CAF50;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
-    appearance: none; /* remove default browser styling */
+  padding: 0.3rem 0.6rem;
+  background: #2b2b2b;
+  color: #e0e0e0;
+  border: 1px solid #4caf50;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  appearance: none; /* remove default browser styling */
 }
 
 select#earnPeriod::-ms-expand {
-    display: none;
+  display: none;
 }
 
 /* =========================================================
@@ -193,46 +217,46 @@ select#earnPeriod::-ms-expand {
    Match dropdown menu style
    ========================================================= */
 input#startedMining {
-    padding: 0.3rem 0.6rem;
-    background: #2b2b2b;
-    color: #e0e0e0;
-    border: 1px solid #4CAF50;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: #2b2b2b;
+  color: #e0e0e0;
+  border: 1px solid #4caf50;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
 
-    /* remove inner spinner/arrows in Chrome/Edge */
-    -webkit-appearance: none;
-    appearance: none;
+  /* remove inner spinner/arrows in Chrome/Edge */
+  -webkit-appearance: none;
+  appearance: none;
 
-    /* text cursor and selection styling */
-    caret-color: #4CAF50;
+  /* text cursor and selection styling */
+  caret-color: #4caf50;
 }
 
 input#startedMining::-webkit-inner-spin-button,
 input#startedMining::-webkit-clear-button {
-    -webkit-appearance: none;
-    margin: 0;
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 /* optional: hover/focus styling */
 input#startedMining:focus {
-    outline: none;
-    border-color: #76ff03;
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+  outline: none;
+  border-color: #76ff03;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
 /* =========================================================
    FOOTER STYLING
    ========================================================= */
 footer {
-    width: 100%;
-    text-align: center;
-    padding: 1rem;
-    background: #1f1f1f;
-    color: #888;
-    font-size: 0.85rem;
-    margin-top: 1rem;
+  width: 100%;
+  text-align: center;
+  padding: 1rem;
+  background: #1f1f1f;
+  color: #888;
+  font-size: 0.85rem;
+  margin-top: 1rem;
 }
 
 /* =========================================================
@@ -240,174 +264,189 @@ footer {
    Overrides for estimated earnings display
    ========================================================= */
 #earnXMR {
-    font-size: 2rem;
-    font-weight: bold;
-    margin-bottom: 0.1rem;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 0.1rem;
 }
 
 #earnEUR {
-    font-size: 1rem;
-    color: #aaa;
-    display: block;
-    margin-top: 0.05rem;
-    margin-bottom: 0.7rem;
+  font-size: 1rem;
+  color: #aaa;
+  display: block;
+  margin-top: 0.05rem;
+  margin-bottom: 0.7rem;
 }
 
 #eurThisWindow {
-    font-size: 0.75rem;
-    color: #aaa;
-    margin-top: 0.05rem;
-    margin-bottom: 0.7rem;
+  font-size: 0.75rem;
+  color: #aaa;
+  margin-top: 0.05rem;
+  margin-bottom: 0.7rem;
 }
 
 #totalEurEarned {
-    font-size: 1rem;
-    color: #aaa;
-    margin: 0;
+  font-size: 1rem;
+  color: #aaa;
+  margin: 0;
 }
 
 #paymentsCard .total-block {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .bottom-stats {
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    font-size: 0.85rem;
-    color: #ccc;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  color: #ccc;
 }
 
 /* =========================================================
    MOBILE RESPONSIVENESS
    ========================================================= */
 @media (max-width: 600px) {
+  /* Stack grid into single column */
+  main.grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    max-width: 100%;
+  }
 
-    /* Stack grid into single column */
-    main.grid {
-        grid-template-columns: 1fr;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        max-width: 100%;
-    }
+  /* Override grid positions to auto for stacking */
+  #hashrateCard,
+  #priceCard,
+  #paymentsCard,
+  #earningsCard,
+  #sharesCard,
+  #combinedLuckCard,
+  #poolStatusCard,
+  #workersCard {
+    grid-column: auto;
+    grid-row: auto;
+  }
 
-    /* Override grid positions to auto for stacking */
-    #hashrateCard,
-    #priceCard,
-    #paymentsCard,
-    #earningsCard,
-    #sharesCard,
-    #combinedLuckCard,
-    #poolStatusCard,
-    #workersCard {
-        grid-column: auto;
-        grid-row: auto;
-    }
+  /* Card adjustments */
+  .card {
+    padding: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+  }
 
-    /* Card adjustments */
-    .card {
-        padding: 0.75rem;
-        width: 100%;
-        max-width: 100%;
-    }
+  /* Text scaling */
+  h1 {
+    font-size: 1.5rem;
+  }
+  .card h2 {
+    font-size: 1rem;
+  }
+  .big {
+    font-size: 1.25rem;
+  }
+  .big-med {
+    font-size: 1rem;
+  }
+  .sub,
+  .small-stat,
+  .stat {
+    font-size: 0.85rem;
+  }
+  #earnXMR {
+    font-size: 1.5rem;
+  }
+  #earnEUR {
+    font-size: 0.9rem;
+  }
+  #eurThisWindow {
+    font-size: 0.7rem;
+  }
 
-    /* Text scaling */
-    h1 { font-size: 1.5rem; }
-    .card h2 { font-size: 1rem; }
-    .big  { font-size: 1.25rem; }
-    .big-med { font-size: 1rem; }
-    .sub,
-    .small-stat,
-    .stat { font-size: 0.85rem; }
-    #earnXMR { font-size: 1.5rem; }
-    #earnEUR { font-size: 0.9rem; }
-    #eurThisWindow { font-size: 0.7rem; }
+  /* Combined Luck Card sections stack vertically */
+  #combinedLuckCard .luck-grid {
+    grid-template-columns: 1fr;
+  }
 
-    /* Combined Luck Card sections stack vertically */
-    #combinedLuckCard .luck-grid {
-        grid-template-columns: 1fr;
-    }
+  #combinedLuckCard .luck-section {
+    padding: 0.5rem;
+  }
 
-    #combinedLuckCard .luck-section {
-        padding: 0.5rem;
-    }
-
-    /* Inputs & dropdowns full width */
-    input#startedMining,
-    select#earnPeriod {
-        width: 100%;
-        font-size: 0.9rem;
-    }
+  /* Inputs & dropdowns full width */
+  input#startedMining,
+  select#earnPeriod {
+    width: 100%;
+    font-size: 0.9rem;
+  }
 }
 
 /* =========================================================
    OLD DASHBOARD STATS CARD STYLING
    ========================================================= */
 .stat-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
 }
 
 .stat-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .stat-label {
-    font-size: 0.85rem;
-    color: #aaa;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+  font-size: 0.85rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .stat-item .stat-value {
-    font-size: 1.1rem;
-    font-weight: bold;
-    color: #e0e0e0;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #e0e0e0;
 }
 
 .status-indicator {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 6px;
-    vertical-align: middle;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
 }
 
 .status-active {
-    background: #4CAF50;
-    box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
+  background: #4caf50;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.5);
 }
 
 .status-inactive {
-    background: #f44336;
-    box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
+  background: #f44336;
+  box-shadow: 0 0 8px rgba(244, 67, 54, 0.5);
 }
 
 .workers-list {
-    margin-top: 0.5rem;
-    max-height: 300px;
-    overflow-y: auto;
+  margin-top: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .worker-item {
-    margin: 5px 0;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 5px;
-    font-size: 0.9rem;
+  margin: 5px 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
+  font-size: 0.9rem;
 }
 
 .no-workers {
-    text-align: center;
-    opacity: 0.7;
-    font-style: italic;
-    padding: 1rem;
+  text-align: center;
+  opacity: 0.7;
+  font-style: italic;
+  padding: 1rem;
 }
