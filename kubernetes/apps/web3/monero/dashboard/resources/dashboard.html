@@ -1,80 +1,260 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>P2Pool Dashboard</title>
-    <link rel="stylesheet" href="dashboard.css" />
-  </head>
-  <body>
-    <div class="container">
-      <h1>P2Pool Mining Dashboard</h1>
-      <div id="loading" class="loading">Loading mining statistics...</div>
-      <div id="error" class="error" style="display: none"></div>
-      <div id="stats" style="display: none">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-title">Pool Status</div>
-            <div class="stat-value">
-              <span class="status-indicator" id="pool-status"></span>
-              <span id="pool-status-text">Unknown</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Network Hashrate</div>
-            <div class="stat-value" id="network-hashrate">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Your Hashrate (24h)</div>
-            <div class="stat-value" id="user-hashrate-24h">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Shares Found</div>
-            <div class="stat-value" id="shares-found">0</div>
-            <div class="stat-unit">total</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Shares Failed</div>
-            <div class="stat-value" id="shares-failed">0</div>
-            <div class="stat-unit">total</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Active Connections</div>
-            <div class="stat-value" id="connections">0</div>
-            <div class="stat-unit">miners</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Block Reward Share</div>
-            <div class="stat-value" id="reward-share">0.000%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Current Effort</div>
-            <div class="stat-value" id="current-effort">0.000%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Blocks Found</div>
-            <div class="stat-value" id="blocks-found">0</div>
-            <div class="stat-unit">total</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Last Share Found</div>
-            <div class="stat-value" id="last-share-time">Never</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Last Block Found</div>
-            <div class="stat-value" id="last-block-time">Never</div>
-          </div>
-        </div>
-        <div class="workers-section">
-          <div class="workers-title">Connected Miners</div>
-          <div id="workers-list" class="no-workers">No miners connected</div>
-        </div>
+
+<head>
+  <meta charset="UTF-8">
+  <title>P2Pool Dashboard</title>
+
+  <!-- Favicon for browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <!-- Responsive design for mobile and tablet -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Main stylesheet -->
+  <link rel="stylesheet" href="dashboard.css">
+
+  <!-- Chart.js library for rendering charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <!-- Luxon for date/time handling in charts -->
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+  <!-- Adapter to integrate Luxon with Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+</head>
+
+<body>
+
+  <header>
+    <!-- Dashboard title displayed at the top -->
+    <h1>P2Pool Dashboard</h1>
+  </header>
+
+  <main class="grid">
+
+    <!-- ==========================
+       HASHRATE CARD (Top row)
+       ========================== -->
+    <div class="card" id="hashrateCard">
+      <h2>Your Hashrate</h2>
+      <div class="big" id="myHashrate">Loading…</div>
+      <div class="sub">
+        Pool share: <span id="poolShare">–</span>
       </div>
-      <div class="refresh-info">
-        Auto-refreshing every 30 seconds • Last updated:
-        <span id="last-update">Never</span>
+      <canvas id="hashrateChart"></canvas>
+    </div>
+
+
+    <!-- ==========================
+       XMR PRICE CARD (Top row)
+       ========================== -->
+    <div class="card" id="priceCard">
+      <h2>XMR Price</h2>
+      <div class="big" id="price">Loading…</div>
+      <canvas id="priceChart"></canvas>
+    </div>
+
+    <!-- ==========================
+       RECENT PAYMENTS CARD (middle row)
+       ========================== -->
+    <div class="card" id="paymentsCard">
+      <div class="total-block">
+        <h2>Recent Payments</h2>
+        <div class="sub">Total earned</div>
+        <div class="big" id="totalEarned">Loading…</div>
+        <div class="sub" id="totalEurEarned">–</div>
+      </div>
+      <div id="paymentsStatus" class="small-stat">Loading…</div>
+      <table id="paymentsTable" style="width:100%; margin-top:0.5rem; border-collapse: collapse;">
+        <thead>
+          <tr style="color:#aaa; font-size:0.8rem;">
+            <th style="text-align:left;">Time</th>
+            <th style="text-align:right;">Amount (XMR)</th>
+            <th style="text-align:right;">Amount (€)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- ==========================
+       EARNINGS CARD (middle row)
+       ========================== -->
+    <div class="card" id="earningsCard">
+      <h2>Estimated Earnings</h2>
+      <div class="big" id="earnXMR">
+        Loading…
+        <span class="tooltip-icon" id="earnTooltip">ⓘ</span>
+      </div>
+      <div class="sub" id="earnEUR">Loading…</div>
+      <div class="small-stat" id="earnLegend">–</div>
+      <div class="small-stat" id="lastRefreshed">–</div>
+      <select id="earnPeriod">
+        <option value="hour">per hour</option>
+        <option value="day" selected>per day</option>
+        <option value="week">per week</option>
+        <option value="month">per month</option>
+        <option value="year">per year</option>
+      </select>
+      <div class="bottom-stats">
+        <div class="stat">
+          <span>Payout Interval:</span>
+          <span id="payoutInterval">Loading…</span>
+          <span class="tooltip-icon">ⓘ</span>
+        </div>
+        <div class="small-stat">
+          Network hashrate: <span id="netHashrate">–</span>
+        </div>
+        <div class="small-stat">
+          Pool hashrate: <span id="poolHashrate">–</span>
+        </div>
+        <div class="small-stat">
+          Block reward: <span id="blockReward">–</span> XMR
+        </div>
       </div>
     </div>
-    <script src="dashboard.js"></script>
-  </body>
+
+    <!-- ==========================
+       SHARES & UNCLES CARD (middle row)
+       ========================== -->
+    <div class="card" id="sharesCard">
+      <h2>Shares & Uncles</h2>
+      <div class="big">
+        Shares: <span id="sharesSinceLastPayout">–</span>
+      </div>
+      <div class="sub-sub">Shares since the last payout</div>
+      <div class="big">
+        Uncles: <span id="unclesSinceLastPayout">–</span>
+      </div>
+      <div class="sub-sub">Uncles since the last payout</div>
+      <br>
+      <div class="bottom-stats">
+        <div class="small-stat" id="totalSharesMined">–</div>
+        <div class="small-stat" id="totalUnclesMined">–</div>
+      </div>
+    </div>
+
+    <!-- ==========================
+     COMBINED LUCK CARD
+  ========================== -->
+    <div class="card" id="combinedLuckCard">
+      <h2>Luck Overview</h2>
+      <div class="luck-grid">
+
+        <!-- PPLNS Window Luck -->
+        <div class="luck-section" id="pplnsLuck">
+          <h3>PPLNS Window Luck</h3>
+          <div class="big"><span id="luckFactor">–</span>⨯
+            <span class="tooltip-icon" id="luckTooltip">ⓘ</span>
+          </div>
+          <div class="big-med">Accumulated XMR:</div>
+          <div class="sub"><span id="xmrThisWindow">0.000000</span> XMR</div>
+          <div class="sub" id="eurThisWindow">–</div>
+          <div class="sub-sub" id="luckInfo">
+            Only true if pool mines expected blocks based on net share this window and avg pool effort; minimum payout
+            0.00027 XMR
+          </div>
+          <div class="bottom-stats">
+            <div class="small-stat">Start of PPLNS window: <span id="pplnsStart">Loading...</span></div>
+            <div class="small-stat">PPLNS Window Hashrate: <span id="dayHash">–</span></div>
+            <div class="small-stat">Current pool effort: <span id="currentEffort">–</span>%</div>
+          </div>
+        </div>
+
+        <!-- Estimated True Luck -->
+        <div class="luck-section" id="trueLuck">
+          <h3>Estimated True Luck</h3>
+          <div class="big"><span id="trueLuckFactor">–</span>⨯
+            <span class="tooltip-icon" id="trueLuckTooltip">ⓘ</span>
+          </div>
+          <div class="sub-sub" id="trueLuckInfo">
+            Longer time windows reduce accuracy; uses a 24h moving average of hashrates.
+          </div>
+          <br>
+          <label for="startedMining">Mining since (with current 24h avg H/s)?</label>
+          <input type="datetime-local" id="startedMining" name="startedMining">
+          <script>
+            document.addEventListener('DOMContentLoaded', () => {
+              const input = document.getElementById('startedMining');
+
+              // Load saved value from localStorage
+              const savedDate = localStorage.getItem('startedMining');
+              if (savedDate) {
+                input.value = savedDate;
+              }
+
+              // Save value whenever user changes it
+              input.addEventListener('input', () => {
+                if (input.value) {
+                  localStorage.setItem('startedMining', input.value);
+                }
+              });
+            });
+          </script>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==========================
+       POOL STATUS & STATS CARD (from old dashboard)
+       ========================== -->
+    <div class="card" id="poolStatusCard">
+      <h2>Pool Status & Statistics</h2>
+      <div class="stat-row">
+        <div class="stat-item">
+          <div class="stat-label">Pool Status</div>
+          <div class="stat-value">
+            <span class="status-indicator" id="pool-status"></span>
+            <span id="pool-status-text">Unknown</span>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Your Hashrate (24h)</div>
+          <div class="stat-value" id="user-hashrate-24h">–</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Shares Found (Total)</div>
+          <div class="stat-value" id="shares-found">–</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Shares Failed (Total)</div>
+          <div class="stat-value" id="shares-failed">–</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Active Connections</div>
+          <div class="stat-value" id="connections">–</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Block Reward Share</div>
+          <div class="stat-value" id="reward-share">–</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Blocks Found (Total)</div>
+          <div class="stat-value" id="blocks-found">–</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Last Share Found</div>
+          <div class="stat-value" id="last-share-time">–</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Last Block Found</div>
+          <div class="stat-value" id="last-block-time">–</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================
+       CONNECTED MINERS CARD (from old dashboard)
+       ========================== -->
+    <div class="card" id="workersCard">
+      <h2>Connected Miners</h2>
+      <div id="workers-list" class="workers-list">Loading…</div>
+    </div>
+
+  </main>
+
+  <!-- Main JavaScript handling data fetching and charts -->
+  <script src="dashboard.js"></script>
+</body>
+
 </html>
