@@ -32,6 +32,38 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
               capabilities: { drop: ["ALL"] }
+          dashboard-server:
+            image:
+              repository: python
+              tag: 3.11-slim
+            command:
+              - sh
+            args:
+              - -c
+              - |
+                cp /config/server.py /tmp/server.py && \
+                chmod +x /tmp/server.py && \
+                python3 /tmp/server.py --port 8080 --data-dir /var/lib/p2pool/api --wallet "$(P2POOL_WALLET_ADDRESS)" --nano-p2pool
+            env:
+              - name: P2POOL_WALLET_ADDRESS
+                valueFrom:
+                  secretKeyRef:
+                    name: p2pool-wallet
+                    key: address
+            ports:
+              - name: dashboard-api
+                containerPort: 8080
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: 100m
+                memory: 256Mi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -61,6 +93,15 @@ spec:
             subPath: dashboard.css
           - path: /usr/share/nginx/html/dashboard.js
             subPath: dashboard.js
+          - path: /usr/share/nginx/html/favicon.png
+            subPath: favicon.png
+      dashboard-server-script:
+        type: configMap
+        name: "dashboard-server-script"
+        globalMounts:
+          - path: /config/server.py
+            subPath: server.py
+            readOnly: true
       nginx-config:
         type: configMap
         name: "dashboard-nginx-config"

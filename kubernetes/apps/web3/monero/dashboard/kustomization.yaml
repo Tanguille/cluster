@@ -11,11 +11,18 @@ configMapGenerator:
       - dashboard.html=./resources/dashboard.html
       - dashboard.css=./resources/dashboard.css
       - dashboard.js=./resources/dashboard.js
+      - favicon.png=./resources/favicon.png
     options:
       annotations:
         kustomize.toolkit.fluxcd.io/substitute: disabled
   - name: dashboard-nginx-config
     files:
       - nginx.conf=./resources/nginx.conf
+  - name: dashboard-server-script
+    files:
+      - server.py=./resources/server.py
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
 generatorOptions:
   disableNameSuffixHash: true

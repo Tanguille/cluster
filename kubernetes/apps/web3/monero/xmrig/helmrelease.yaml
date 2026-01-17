@@ -27,6 +27,9 @@ spec:
               - "--coin=monero"
               # Prefer huge pages (2Mi)
               - "--huge-pages"
+              # Enable HTTP API for dashboard
+              - "--http-port=42000"
+              - "--http-host=0.0.0.0"
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -83,3 +86,10 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+    service:
+      xmrig:
+        type: ClusterIP
+        ports:
+          http-api:
+            port: 42000
+            targetPort: 42000
