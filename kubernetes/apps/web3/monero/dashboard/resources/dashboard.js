@@ -201,10 +201,7 @@ async function updateRecentPayments() {
       totalXMR += p.coinbase_reward / 1e12;
     }
 
-    const priceEUR =
-      history && history.price && history.price.length > 0
-        ? history.price[history.price.length - 1]
-        : 0;
+    const priceEUR = history?.price?.[history.price.length - 1] || 0;
 
     if (typeof priceEUR === "number") {
       totalEl.textContent = `${totalXMR.toFixed(6)} XMR`;
@@ -656,6 +653,7 @@ async function updateStats() {
     const networkData = network;
     const threshold = thresholdObj;
     history = hist;
+    oldStatsData = oldStats || {};
 
     // Update charts if we have history
     if (history) {
@@ -723,10 +721,7 @@ async function updateStats() {
       poolShare > 0 ? `${poolShare.toFixed(4)}%` : "–";
 
     // Latest XMR price
-    const priceEUR =
-      history && history.price && history.price.length > 0
-        ? history.price[history.price.length - 1]
-        : 0;
+    const priceEUR = history?.price?.[history.price.length - 1] || 0;
     document.getElementById("price").textContent = `€${priceEUR.toFixed(2)}`;
 
     // --- ESTIMATED EARNINGS ---
@@ -776,8 +771,6 @@ Avg network hashrate: ${scaleHashrate(avgNetHash)}`;
       `Last refreshed: ${formatDate24(date)}`;
 
     // --- PAYOUT INTERVAL CALCULATION (adjusted for pool size) ---
-    const poolBlocksPerDay =
-      avgNetHash > 0 ? blocksPerDay * (avgPoolHash / avgNetHash) : 0; // expected pool blocks per day
     const xmrPerBlock =
       avgPoolHash > 0 ? (avgMyHash / avgPoolHash) * blockReward : 0; // your expected XMR per pool block
 
