@@ -25,8 +25,9 @@ spec:
           - name: envoy-internal
             namespace: network
     cephClusterSpec:
-      cephVersion:
-        image: quay.io/ceph/ceph:v20.2.0
+      cephImage:
+        repository: quay.io/ceph/ceph
+        tag: v20.2.0
       cephConfig:
         global:
           bdev_enable_discard: "true" # quote
