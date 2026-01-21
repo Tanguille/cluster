@@ -24,10 +24,10 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
+    cephImage:
+      repository: quay.io/ceph/ceph
+      tag: v20.2.0
     cephClusterSpec:
-      cephImage:
-        repository: quay.io/ceph/ceph
-        tag: v20.2.0
       cephConfig:
         global:
           bdev_enable_discard: "true" # quote
