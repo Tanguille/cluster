@@ -23,7 +23,7 @@ spec:
       kind: Dragonfly
       expr: |-
         status.phase in ['Ready']
-    - apiVersion: volsync.backube/v1alpha1
-      kind: ReplicationSource
-      expr: |-
-        status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
+    # - apiVersion: volsync.backube/v1alpha1
+    #   kind: ReplicationSource
+    #   expr: |-
+    #     status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
