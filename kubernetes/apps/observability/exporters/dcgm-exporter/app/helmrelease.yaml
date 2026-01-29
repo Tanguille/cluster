@@ -13,6 +13,9 @@ spec:
     name: dcgm-exporter
 
   values:
+    image:
+      repository: mirror.gcr.io/nvidia/dcgm-exporter
+      tag: 4.5.1-4.8.0-distroless
     extraEnv:
       NVIDIA_DRIVER_CAPABILITIES: all
       NVIDIA_VISIBLE_DEVICES: all
