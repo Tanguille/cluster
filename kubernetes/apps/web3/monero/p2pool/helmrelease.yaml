@@ -12,6 +12,8 @@ spec:
   values:
     controllers:
       p2pool:
+        annotations:
+          reloader.stakater.com/auto: "true"
         strategy: RollingUpdate
         containers:
           app:

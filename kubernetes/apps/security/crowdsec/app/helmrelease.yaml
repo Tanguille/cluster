@@ -25,6 +25,8 @@ spec:
               kind: Deployment
               group: apps
   values:
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
     container_runtime: containerd
     config:
       parsers:
@@ -126,7 +128,7 @@ spec:
           value: "5432"
       envFrom:
         - secretRef:
-            name: &secret crowdsec-secret
+            name: crowdsec-secret
       persistentVolume:
         data:
           enabled: false

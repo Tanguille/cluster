@@ -20,6 +20,8 @@ spec:
             - name: envoy-internal
               namespace: network
       alertmanagerSpec:
+        podAnnotations:
+          reloader.stakater.com/auto: "true"
         alertmanagerConfiguration:
           name: alertmanager
         externalUrl: https://alertmanager.${SECRET_DOMAIN}
@@ -45,6 +47,8 @@ spec:
             - name: envoy-internal
               namespace: network
       prometheusSpec:
+        podAnnotations:
+          reloader.stakater.com/auto: "true"
         externalUrl: https://prometheus.${SECRET_DOMAIN}
         version: v2.55.1 # override 'unsupported Prometheus version' error
         serviceDiscoveryRole: EndpointSlice
