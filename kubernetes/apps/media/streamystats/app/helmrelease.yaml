@@ -13,13 +13,15 @@ spec:
   values:
     controllers:
       frontend:
+        annotations:
+          reloader.stakater.com/auto: "true"
         strategy: RollingUpdate
         initContainers: &init
           init-db:
             image:
               repository: ghcr.io/home-operations/postgres-init
               tag: 18
-            envFrom: &envFrom
+            envFrom:
               - secretRef:
                   name: streamystats-secret
           migrate:
@@ -61,6 +63,8 @@ spec:
               limits:
                 memory: 1Gi
       job-server:
+        annotations:
+          reloader.stakater.com/auto: "true"
         strategy: RollingUpdate
         initContainers: *init
         containers:

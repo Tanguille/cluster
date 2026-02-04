@@ -11,6 +11,8 @@ spec:
   interval: 1h
   values:
     fullnameOverride: blackbox-exporter
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
     securityContext:
       readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
