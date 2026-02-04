@@ -17,9 +17,14 @@ spec:
       bbr: true
     bpf:
       datapathMode: netkit-l2
+      # Per-CPU distributed LRU + larger map ratio (tuning guide; kernel >= 6.8)
+      distributedLRU:
+        enabled: true
+      mapDynamicSizeRatio: 0.04
       masquerade: true
       preallocateMaps: true
-      tproxy: true
+    # Use jiffies for CT map (tuning guide)
+    bpfClockProbe: true
     cgroup:
       automount:
         enabled: false
@@ -33,8 +38,6 @@ spec:
     endpointRoutes:
       enabled: true
     envoy:
-      enabled: false
-    gatewayAPI:
       enabled: false
     hubble:
       enabled: false
