@@ -20,7 +20,7 @@ spec:
       # Per-CPU distributed LRU + larger map ratio (tuning guide; kernel >= 6.8)
       distributedLRU:
         enabled: true
-      mapDynamicSizeRatio: 0.08
+      mapDynamicSizeRatio: 0.04
       masquerade: true
       preallocateMaps: true
     # Use jiffies for CT map (tuning guide)
@@ -29,8 +29,11 @@ spec:
       automount:
         enabled: false
       hostRoot: /sys/fs/cgroup
+    cni:
+      exclusive: false
     dashboards:
       enabled: true
+    enableIPv4BIGTCP: true
     enableIPv6: false
     endpointRoutes:
       enabled: true
