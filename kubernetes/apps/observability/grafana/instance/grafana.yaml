@@ -47,6 +47,13 @@ spec:
           containers:
             - name: grafana
               image: grafana/grafana:12.3.3
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 256Mi
+                limits:
+                  cpu: 100m
+                  memory: 1Gi
               env:
                 - name: GF_SECURITY_ADMIN_PASSWORD
                   valueFrom:
