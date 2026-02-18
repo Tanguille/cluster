@@ -34,12 +34,32 @@ spec:
               JWT_EXPIRES_IN: "7d"
               CORS_ALLOW_ORIGIN: "https://ollama.${SECRET_DOMAIN}"
             envFrom: *envFrom
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec: &probes
+                  httpGet:
+                    path: /api/version
+                    port: 8080
+                  timeoutSeconds: 10
+                  failureThreshold: 3
+                  initialDelaySeconds: 30
+                  periodSeconds: 15
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  <<: *probes
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
             resources:
               requests:
                 cpu: 500m
                 memory: 500Mi
               limits:
-                memory: 2Gi
+                cpu: 4
+                memory: 4Gi
     service:
       app:
         controller: *app
