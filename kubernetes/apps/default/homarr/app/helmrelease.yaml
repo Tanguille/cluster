@@ -38,6 +38,9 @@ spec:
       reloader.stakater.com/auto: "true"
     env:
       TZ: ${TIMEZONE}
+      REDIS_IS_EXTERNAL: "true"
+      REDIS_HOST: dragonfly.database.svc.cluster.local
+      REDIS_PORT: "6379"
     ingress:
       enabled: false
     podSecurityContext:
