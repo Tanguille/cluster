@@ -36,6 +36,7 @@ spec:
               requests:
                 cpu: 10m
               limits:
+                cpu: 100m
                 memory: 64Mi
             restartPolicy: Always
         containers:
@@ -70,7 +71,9 @@ spec:
             resources:
               requests:
                 cpu: 100m
+                memory: 256Mi
               limits:
+                cpu: 100m
                 memory: 256Mi
         statefulset:
           volumeClaimTemplates:
