@@ -75,6 +75,14 @@ spec:
         existingSecret: homarr-secret
         key: db-encryption-key
 
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        cpu: 200m
+        memory: 1Gi
+
     persistence:
       homarrDatabase:
         enabled: false
