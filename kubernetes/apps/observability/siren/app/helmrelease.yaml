@@ -20,7 +20,7 @@ spec:
               tag: 1.4.22@sha256:1cabcb07ee3f622e627467ed4883dd6a193fac0cc765109598728208c5e6dd3b
             env:
               TZ: ${TIMEZONE}
-              ALERTMANAGER_BASE_URL: http://alertmanager.monitoring.svc.cluster.local:9093
+              ALERTMANAGER_BASE_URL: http://kube-prometheus-stack-alertmanager.observability.svc.cluster.local:9093
               PORT: &port 3000
             probes:
               liveness:
