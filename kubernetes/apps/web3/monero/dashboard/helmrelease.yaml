@@ -87,6 +87,13 @@ spec:
           web:
             port: 80
             targetPort: web
+    route:
+      dashboard:
+        hostnames:
+          - p2pool.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
     persistence:
       shared-api-data:
         existingClaim: p2pool-shared-api-data
