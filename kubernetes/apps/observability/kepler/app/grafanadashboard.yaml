@@ -9,7 +9,141 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  datasources:
-    - datasourceName: prometheus
-      inputName: datasource
-  url: https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/compose/default/grafana/dashboards/latest/dashboard.json
+  # Inline JSON using the actual metric names from Kepler release-0.8.0.
+  # The upstream dashboard uses kepler_node_cpu_watts / kepler_container_cpu_watts
+  # which don't exist in this version. Our cluster exposes:
+  #   kepler_node_package_joules_total, kepler_node_core_joules_total,
+  #   kepler_node_dram_joules_total, kepler_container_joules_total, etc.
+  # Power (watts) = rate(joules_total[5m])
+  json: |
+    {
+      "title": "Kepler Power Consumption",
+      "uid": "kepler-power",
+      "description": "Node and container power from Kepler (release-0.8.0) using joules_total counters",
+      "refresh": "30s",
+      "schemaVersion": 38,
+      "tags": ["kepler", "power", "energy"],
+      "timezone": "browser",
+      "panels": [
+        {
+          "id": 1,
+          "title": "Cluster Total Power (W)",
+          "type": "stat",
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "sum(rate(kepler_node_package_joules_total{job=\"kepler\"}[5m]))",
+            "refId": "A"
+          }],
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background"},
+          "fieldConfig": {"defaults": {"unit": "watt", "thresholds": {"mode": "absolute", "steps": [{"color": "green"},{"color": "yellow","value": 100},{"color": "red","value": 300}]}}}
+        },
+        {
+          "id": 2,
+          "title": "Node Power Breakdown (W)",
+          "type": "stat",
+          "gridPos": {"h": 4, "w": 18, "x": 6, "y": 0},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "sum by (instance) (rate(kepler_node_package_joules_total{job=\"kepler\"}[5m]))",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }],
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "horizontal", "textMode": "auto", "colorMode": "background"},
+          "fieldConfig": {"defaults": {"unit": "watt"}}
+        },
+        {
+          "id": 3,
+          "title": "Node Total Power Over Time (W)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum by (instance) (rate(kepler_node_package_joules_total{job=\"kepler\"}[5m]))",
+              "legendFormat": "{{instance}} package",
+              "refId": "A"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum by (instance) (rate(kepler_node_core_joules_total{job=\"kepler\"}[5m]))",
+              "legendFormat": "{{instance}} core",
+              "refId": "B"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum by (instance) (rate(kepler_node_dram_joules_total{job=\"kepler\"}[5m]))",
+              "legendFormat": "{{instance}} dram",
+              "refId": "C"
+            }
+          ],
+          "fieldConfig": {"defaults": {"unit": "watt", "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}}}
+        },
+        {
+          "id": 4,
+          "title": "Top 10 Containers by Power (W)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "topk(10, sum by (container_name, namespace) (rate(kepler_container_joules_total{job=\"kepler\", container_name!~\"POD|pause\"}[5m])))",
+            "legendFormat": "{{namespace}}/{{container_name}}",
+            "refId": "A"
+          }],
+          "fieldConfig": {"defaults": {"unit": "watt", "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2}}}
+        },
+        {
+          "id": 5,
+          "title": "Top 10 Containers by Power — Current (W)",
+          "type": "bargauge",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [{
+            "datasource": {"type": "prometheus", "uid": "prometheus"},
+            "expr": "topk(10, sum by (container_name, namespace) (rate(kepler_container_joules_total{job=\"kepler\", container_name!~\"POD|pause\"}[5m])))",
+            "legendFormat": "{{namespace}}/{{container_name}}",
+            "refId": "A",
+            "instant": true
+          }],
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "horizontal", "displayMode": "gradient"},
+          "fieldConfig": {"defaults": {"unit": "watt"}}
+        },
+        {
+          "id": 6,
+          "title": "Node Core vs DRAM vs Uncore Energy Split (current W)",
+          "type": "piechart",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(kepler_node_core_joules_total{job=\"kepler\"}[5m]))",
+              "legendFormat": "Core",
+              "refId": "A",
+              "instant": true
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(kepler_node_dram_joules_total{job=\"kepler\"}[5m]))",
+              "legendFormat": "DRAM",
+              "refId": "B",
+              "instant": true
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(kepler_node_uncore_joules_total{job=\"kepler\"}[5m]))",
+              "legendFormat": "Uncore",
+              "refId": "C",
+              "instant": true
+            }
+          ],
+          "options": {"reduceOptions": {"calcs": ["lastNotNull"]}},
+          "fieldConfig": {"defaults": {"unit": "watt"}}
+        }
+      ],
+      "time": {"from": "now-1h", "to": "now"}
+    }
