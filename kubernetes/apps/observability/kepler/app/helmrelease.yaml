@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kepler
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: kepler
+      version: 0.6.1
+      sourceRef:
+        kind: HelmRepository
+        name: kepler
+  values:
+    serviceMonitor:
+      enabled: true
+      labels:
+        prometheus: kube-prometheus-stack
+    tolerations:
+      - operator: Exists
+    resources:
+      requests:
+        cpu: 100m
+        memory: 200Mi
+      limits:
+        cpu: 200m
+        memory: 400Mi
