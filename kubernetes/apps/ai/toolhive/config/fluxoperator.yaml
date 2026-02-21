@@ -13,23 +13,23 @@ spec:
   env:
     - name: KUBECONFIG
       value: /kubeconfig/kubeconfig
-  volumeMounts:
-    - name: kubeconfig
-      mountPath: /kubeconfig
-      readOnly: true
-  volumes:
-    - name: kubeconfig
-      secret:
-        secretName: toolhive-secrets
-        items:
-          - key: KUBECONFIG
-            path: kubeconfig
   toolConfigRef:
     name: *name
   podTemplateSpec:
     spec:
+      volumes:
+        - name: kubeconfig
+          secret:
+            secretName: toolhive-secrets
+            items:
+              - key: KUBECONFIG
+                path: kubeconfig
       containers:
         - name: mcp
+          volumeMounts:
+            - name: kubeconfig
+              mountPath: /kubeconfig
+              readOnly: true
           resources:
             limits:
               cpu: "1000m"
