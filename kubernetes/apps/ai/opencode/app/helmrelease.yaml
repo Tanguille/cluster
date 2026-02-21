@@ -21,7 +21,7 @@ spec:
           app:
             image:
               repository: ghcr.io/anomalyco/opencode
-              tag: latest
+              tag: v1.2.10@sha256:559fa33b8120849fb1a182e3f877882f72e400f15c7cbc5e03a00729633e4fa6
             env:
               TZ: ${TIMEZONE}
             command:
@@ -34,9 +34,9 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &probe
                     path: /
-                    port: 4096
+                    port: &port 4096
                   initialDelaySeconds: 10
                   periodSeconds: 30
                   timeoutSeconds: 5
@@ -45,9 +45,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /
-                    port: 4096
+                  httpGet: *probe
                   initialDelaySeconds: 5
                   periodSeconds: 10
                   timeoutSeconds: 3
@@ -65,7 +63,7 @@ spec:
         controller: app
         ports:
           http:
-            port: 4096
+            port: *port
 
     route:
       app:
