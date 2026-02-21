@@ -1,0 +1,24 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: karakeep
+  namespace: ai
+stringData:
+  KARAKEEP_API_KEY: ENC[AES256_GCM,data:UogJvuiNLMw=,iv:vuT+J06S4vlGE+rI+xWCMYpix80/+p/3jaSihV0P7VQ=,tag:aQlYa+2QDBJRBy0DO8TzZQ==,type:str]
+sops:
+  age:
+    - recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+      enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAzaFNRYUxrUFg2bHNzS3VN
+        TWRMYlFHOEZKS3J3YW1TZzJGVUtFWDUxcndZCk1UcnNmOFpHWlNORmdwVFlrL2ty
+        djZqdGcyYUhiSi9CRzdEK0dDZDRIaXcKLS0tIE5FL25QWFowTU84U2ZnNUtBOURh
+        eXR3ZDVJTVZZZy9aTHU4a1A3VHNrNlkK1LDYaTIyzHwZAuOiEEnr9NUsZ7FfSnSd
+        nNbXh3exsMa51dG2FBJa/6pxTNN5c1ssCEsgc3Ji5YPrxkFe5u6MFg==
+        -----END AGE ENCRYPTED FILE-----
+  lastmodified: "2026-02-21T12:29:01Z"
+  mac: ENC[AES256_GCM,data:G0is4o4J5YmQLszdKtv5fLIA2Bzrf2W1g3I9MiGMWt70N1dWnrBPzkmLhxVnA13z5+PdhLdi/WHwsnRd85E896lZZLLCh5H9B969n62n7dOIWlu5vuRH1q9wflQrQ6zSfolTO1oFj/36eYjVJPq0oHa47HixFBsqKSI7QO5V9EQ=,iv:0xmLjBxnxjsRX0yqW+bUJHOlJG9me8X013ZfKk4VURc=,tag:Tlrd3qUVb9Si94VrIdxz8g==,type:str]
+  encrypted_regex: ^(data|stringData)$
+  mac_only_encrypted: true
+  version: 3.11.0
