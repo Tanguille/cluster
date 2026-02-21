@@ -1,0 +1,163 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2beta2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app karakeep
+  namespace: default
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: karakeep
+  interval: 30m
+
+  values:
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: {type: RuntimeDefault}
+    controllers:
+      karakeep:
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          karakeep:
+            image:
+              repository: ghcr.io/karakeep/karakeep
+              tag: "v4.6.2"
+            env:
+              TZ: ${TIMEZONE}
+              NEXTAUTH_SECRET:
+                valueFrom:
+                  secretKeyRef:
+                    name: karakeep
+                    key: encryption_key
+              DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres.${POSTGRES_NAMESPACE}.svc.cluster.local:5432/karakeep?sslmode=disable"
+              MEILI_URL: "http://meilisearch:7700"
+              MEILI_MASTER_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: karakeep
+                    key: meilisearch_master_key
+              URL: "https://karakeep.${SECRET_DOMAIN}"
+              CHROME_URL: "http://chrome:3000"
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: &port 3000
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+      chrome:
+        strategy: Recreate
+        containers:
+          chrome:
+            image:
+              repository: ghcr.io/ulrichschreiber/puppeteer-chromium
+              tag: "latest"
+            env:
+              TZ: ${TIMEZONE}
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+      meilisearch:
+        strategy: Recreate
+        containers:
+          meilisearch:
+            image:
+              repository: getmeili/meilisearch
+              tag: "v1.11"
+            env:
+              TZ: ${TIMEZONE}
+              MEILI_MASTER_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: karakeep
+                    key: meilisearch_master_key
+              MEILI_DB_PATH: /meili_data/data.ms
+              MEILI_ENV: production
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: &port 7700
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+    service:
+      main:
+        controller: karakeep
+        ports:
+          http:
+            port: *port
+
+    ingress:
+      main:
+        enabled: true
+        className: internal
+        annotations:
+          nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+        hosts:
+          - host: karakeep.${SECRET_DOMAIN}
+            paths:
+              - path: /
+                pathType: Prefix
+                service: karakeep
+                port: 3000
+
+    persistence:
+      data:
+        existingClaim: karakeep
+        globalMounts:
+          - path: /data
