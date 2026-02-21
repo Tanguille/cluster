@@ -14,7 +14,3 @@ spec:
   kepler:
     config:
       logLevel: info
-      # Fallback for nodes without RAPL (e.g. control-1 VM on TrueNAS). Kepler uses fake
-      # meter only when hardware sensors are unavailable; other nodes keep using RAPL.
-      additionalConfigMaps:
-        - name: kepler-vm-fallback
