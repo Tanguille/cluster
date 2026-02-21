@@ -65,9 +65,36 @@ mise install           # Install all tools defined in .mise.toml
 mise exec -- helm ...  # Run tools without global installation
 ```
 
-Required tools: flux, helm, kubectl, kustomize, sops, age, talhelper, talosctl, yq, jq, kubeconform, yamlfmt
+Required tools: flux, helm, kubectl, kustomize, sops, age, talhelper, talosctl, yq, jq, kubeconform, yamlfmt, pre-commit
+
+## Pre-Commit Hooks
+
+This project uses pre-commit hooks to validate changes before commit. Install with:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+### Available Hooks
+
+- **detect-secrets**: Scans for plaintext secrets (requires baseline: `detect-secrets scan --update .secrets.baseline`)
+- **kubeconform**: Validates Kubernetes manifests
+- **yamlfmt**: Checks YAML formatting
+- **secret-domain-check**: Ensures no hardcoded domains (must use `${SECRET_DOMAIN}`)
+- **shellcheck**: Validates shell scripts
+
+Run hooks manually:
+```bash
+pre-commit run --all-files
+```
 
 ## Code Style Guidelines
+
+### URLs and Domains
+- **Never hardcode domains** - Always use `${SECRET_DOMAIN}` variable for URLs
+- The `${SECRET_DOMAIN}` variable is defined in `cluster-secrets.sops.yaml` and substituted by Flux
+- Example: `https://grafana.${SECRET_DOMAIN}` instead of `https://grafana.tanguille.site`
 
 ### YAML Files
 - **Indent:** 2 spaces (NOT tabs)
