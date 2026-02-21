@@ -9,4 +9,7 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
+  datasources:
+    - datasourceName: prometheus
+      inputName: datasource
   url: "https://raw.githubusercontent.com/sustainable-computing-io/kepler/refs/heads/main/compose/default/grafana/dashboards/latest/dashboard.json"
