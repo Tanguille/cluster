@@ -1,0 +1,15 @@
+---
+# PowerMonitor CR: operator deploys Kepler (DaemonSet + Service) in namespace "power-monitor".
+# Name must be "power-monitor" (enforced by operator).
+apiVersion: kepler.system.sustainable.computing.io/v1alpha1
+kind: PowerMonitor
+metadata:
+  name: power-monitor
+  labels:
+    app.kubernetes.io/name: powermonitor
+    app.kubernetes.io/instance: powermonitor
+    app.kubernetes.io/part-of: kepler-operator
+spec:
+  kepler:
+    config:
+      logLevel: info
