@@ -1,0 +1,28 @@
+---
+# Grants list/watch/get on PVCs for DefaultEvictor pod protection logic.
+# Required for descheduler chart < 0.36; upstream added this to the chart in #1836 (Feb 2026).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: descheduler-pvc
+  labels:
+    app.kubernetes.io/name: descheduler
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: descheduler-pvc
+  labels:
+    app.kubernetes.io/name: descheduler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: descheduler-pvc
+subjects:
+  - kind: ServiceAccount
+    name: descheduler
+    namespace: kube-system
