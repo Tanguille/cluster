@@ -12,7 +12,8 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: powermonitor
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/managed-by: kepler-operator
   endpoints:
     - port: http
       relabelings:
