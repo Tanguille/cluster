@@ -10,7 +10,7 @@ spec:
   groupRef: mcp-tools
   env:
     - name: GRAFANA_URL
-      value: https://grafana.tanguille.site
+      value: https://grafana.${SECRET_DOMAIN}
     - name: GRAFANA_AUTH
       valueFrom:
         secretKeyRef:

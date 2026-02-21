@@ -5,7 +5,7 @@ metadata:
   name: &name flux-operator
   namespace: ai
 spec:
-  image: ghcr.io/tbxark/flux-operator-mcp:latest
+  image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.41.1
   transport: stdio
   groupRef: mcp-tools
   args:
@@ -20,7 +20,10 @@ spec:
   volumes:
     - name: kubeconfig
       secret:
-        secretName: toolhive-kubeconfig
+        secretName: toolhive-secrets
+        items:
+          - key: KUBECONFIG
+            path: kubeconfig
   toolConfigRef:
     name: *name
   podTemplateSpec:

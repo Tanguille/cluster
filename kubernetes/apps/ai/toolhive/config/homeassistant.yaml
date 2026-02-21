@@ -10,7 +10,7 @@ spec:
   groupRef: mcp-tools
   args:
     - --stateless
-    - https://homeassistant.tanguille.site/api/mcp
+    - https://homeassistant.${SECRET_DOMAIN}/api/mcp
   env:
     - name: API_ACCESS_TOKEN
       valueFrom:
