@@ -1,0 +1,53 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: &name flux-operator
+  namespace: ai
+spec:
+  image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.41.1
+  transport: stdio
+  groupRef: mcp-tools
+  args:
+    - serve
+  env:
+    - name: KUBECONFIG
+      value: /kubeconfig/kubeconfig
+  volumeMounts:
+    - name: kubeconfig
+      mountPath: /kubeconfig
+      readOnly: true
+  volumes:
+    - name: kubeconfig
+      secret:
+        secretName: toolhive-secrets
+        items:
+          - key: KUBECONFIG
+            path: kubeconfig
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "256Mi"
+            requests:
+              cpu: "10m"
+              memory: "110Mi"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 200Mi
+    requests:
+      cpu: 10m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: flux-operator
+  namespace: ai
+spec: {}
