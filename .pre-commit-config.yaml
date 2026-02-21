@@ -1,0 +1,70 @@
+# See https://pre-commit.com for more information
+# Install with: pip install pre-commit && pre-commit install
+repos:
+  # Standard hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  # Secret detection
+  - repo: https://github.com/trufflesecurity/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - --baseline
+          - .secrets.baseline
+          - --exclude-files
+          - bootstrap/.*
+
+  # Kubernetes validation (using kubeconform - already in project)
+  - repo: local
+    hooks:
+      - id: kubeconform
+        name: Validate Kubernetes manifests
+        entry: kubeconform
+        args:
+          - -strict
+          - -original-location
+          - kubernetes/
+        language: system
+        types: [yaml]
+        pass_filenames: false
+
+  # YAML formatting check
+  - repo: local
+    hooks:
+      - id: yamlfmt-check
+        name: Check YAML formatting
+        entry: yamlfmt
+        args:
+          - --dry
+          - kubernetes/
+        language: system
+        types: [yaml]
+        pass_filenames: false
+
+  # Custom: Check for hardcoded domains that should use ${SECRET_DOMAIN}
+  - repo: local
+    hooks:
+      - id: secret-domain-check
+        name: Check for hardcoded secret domains
+        entry: scripts/check-hardcoded-domains.sh
+        language: system
+        types: [yaml]
+        pass_filenames: false
+
+  # Shell script validation
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        types: [executeable]
+        types_or: [shell, bash]

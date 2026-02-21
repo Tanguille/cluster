@@ -1,0 +1,67 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: toolhive-operator-crds
+  namespace: ai
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: toolhive-operator
+  interval: 1h
+  path: ./kubernetes/apps/ai/toolhive/crds
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: ai
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: toolhive-operator
+  namespace: ai
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: toolhive-operator
+  dependsOn:
+    - name: toolhive-operator-crds
+  interval: 1h
+  path: ./kubernetes/apps/ai/toolhive/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: ai
+  timeout: 5m
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: toolhive
+  namespace: ai
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: toolhive
+  dependsOn:
+    - name: toolhive-operator
+  interval: 1h
+  path: ./kubernetes/apps/ai/toolhive/config
+  postBuild:
+    substitute:
+      APP: toolhive
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: ai
+  timeout: 5m
