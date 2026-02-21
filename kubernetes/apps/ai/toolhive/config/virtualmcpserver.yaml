@@ -1,0 +1,16 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
+  name: tools-gateway
+  namespace: ai
+spec:
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  config:
+    groupRef: mcp-tools
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"
