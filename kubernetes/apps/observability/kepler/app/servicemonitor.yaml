@@ -1,0 +1,21 @@
+---
+# This ServiceMonitor exists solely to make the upstream Grafana dashboard work out-of-the-box.
+# The dashboard expects job="kepler-latest", but the operator uses job="power-monitor".
+# By creating a second scrape that relabels the job, the dashboard populates automatically
+# without needing to maintain a 2500-line JSON file in this repo.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kepler-dashboard-compat
+  labels:
+    prometheus: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: powermonitor
+  endpoints:
+    - port: http
+      relabelings:
+        - action: replace
+          targetLabel: job
+          replacement: kepler-latest
