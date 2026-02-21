@@ -11,11 +11,6 @@ spec:
   env:
     - name: GRAFANA_URL
       value: https://grafana.${SECRET_DOMAIN}
-    - name: GRAFANA_AUTH
-      valueFrom:
-        secretKeyRef:
-          name: toolhive-secrets
-          key: GRAFANA_API_KEY
   toolConfigRef:
     name: *name
   podTemplateSpec:
