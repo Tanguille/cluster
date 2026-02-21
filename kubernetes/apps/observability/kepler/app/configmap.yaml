@@ -1,0 +1,14 @@
+---
+# Enables power reporting on nodes without RAPL (e.g. VMs like control-1 on TrueNAS).
+# Kepler uses this only when hardware sensors are unavailable; nodes with RAPL keep real data.
+# See: https://sustainable-computing.io/kepler-operator/configuration/ (troubleshooting)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kepler-vm-fallback
+  namespace: observability
+data:
+  config.yaml: |
+    dev:
+      fake-cpu-meter:
+        enabled: true
