@@ -1,0 +1,46 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: &name homeassistant
+  namespace: ai
+spec:
+  image: ghcr.io/sparfenyuk/mcp-proxy:latest
+  transport: streamablehttp
+  groupRef: mcp-tools
+  args:
+    - --stateless
+    - https://homeassistant.${SECRET_DOMAIN}/api/mcp
+  env:
+    - name: API_ACCESS_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: toolhive-secrets
+          key: HOMEASSISTANT_API_TOKEN
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "110Mi"
+            requests:
+              cpu: "10m"
+              memory: "110Mi"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 100Mi
+    requests:
+      cpu: 10m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: homeassistant
+  namespace: ai
+spec: {}
