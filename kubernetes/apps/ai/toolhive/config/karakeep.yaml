@@ -1,0 +1,64 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: &name karakeep
+  namespace: ai
+spec:
+  image: ghcr.io/karakeep-app/karakeep-mcp:latest
+  transport: stdio
+  groupRef: mcp-tools
+  env:
+    - name: KARAKEEP_API_ADDR
+      value: http://karakeep.default.svc.cluster.local
+  secrets:
+    - name: toolhive-secrets
+      key: KARAKEEP_API_KEY
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "100Mi"
+            requests:
+              cpu: "10m"
+              memory: "100Mi"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 100Mi
+    requests:
+      cpu: 10m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: karakeep
+  namespace: ai
+spec:
+  toolsOverride:
+    add-bookmark-to-list:
+      name: add_bookmark_to_list
+    attach-tag-to-bookmark:
+      name: attach_tag_to_bookmark
+    create-bookmark:
+      name: create_bookmark
+    create-list:
+      name: create_list
+    detach-tag-from-bookmark:
+      name: detach_tag_from_bookmark
+    get-bookmark:
+      name: get_bookmark
+    get-bookmark-content:
+      name: get_bookmark_content
+    get-lists:
+      name: get_lists
+    remove-bookmark-from-list:
+      name: remove_bookmark_from_list
+    search-bookmarks:
+      name: search_bookmarks
