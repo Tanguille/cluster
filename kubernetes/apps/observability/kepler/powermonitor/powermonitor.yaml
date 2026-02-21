@@ -1,6 +1,7 @@
 ---
-# PowerMonitor CR: operator deploys Kepler (DaemonSet + Service) in namespace "power-monitor".
+# PowerMonitor CR: operator deploys Kepler (DaemonSet + Service) in observability namespace.
 # Name must be "power-monitor" (enforced by operator).
+# Applied by a separate Kustomization with dependsOn: kepler so CRDs exist first.
 apiVersion: kepler.system.sustainable.computing.io/v1alpha1
 kind: PowerMonitor
 metadata:

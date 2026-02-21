@@ -10,6 +10,9 @@ spec:
     kind: OCIRepository
     name: kepler-operator
   values:
+    namespace: &namespace observability
+    operator:
+      deploymentNamespace: *namespace
     metrics:
       serviceMonitor:
         enabled: true
