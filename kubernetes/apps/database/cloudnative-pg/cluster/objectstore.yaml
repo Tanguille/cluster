@@ -3,11 +3,11 @@
 apiVersion: barmancloud.cnpg.io/v1
 kind: ObjectStore
 metadata:
-  name: r2
+  name: ceph-objectstore
 spec:
   configuration:
-    endpointURL: "${SECRET_R2_HOST}"
-    destinationPath: s3://cloudnative-pg/
+    endpointURL: http://rook-ceph-rgw-ceph-objectstore.rook-ceph.svc.cluster.local:80
+    destinationPath: s3://cnpg-backups/
     s3Credentials:
       accessKeyId:
         name: cloudnative-pg-secret
@@ -20,4 +20,4 @@ spec:
     wal:
       compression: zstd
       maxParallel: 4
-  retentionPolicy: 14d
+  retentionPolicy: 30d

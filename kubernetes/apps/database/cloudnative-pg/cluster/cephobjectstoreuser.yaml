@@ -1,0 +1,20 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/ceph.rook.io/cephobjectstoreuser_v1.json
+apiVersion: ceph.rook.io/v1
+kind: CephObjectStoreUser
+metadata:
+  name: cnpg-backup
+  namespace: rook-ceph
+spec:
+  store: ceph-objectstore
+  displayName: "CNPG Backup User"
+  quotas:
+    maxBuckets: 10
+    maxSize: "500Gi"
+  keys:
+    - accessKeyRef:
+        name: cnpg-s3-secret
+        key: aws-access-key-id
+      secretKeyRef:
+        name: cnpg-s3-secret
+        key: aws-secret-access-key
