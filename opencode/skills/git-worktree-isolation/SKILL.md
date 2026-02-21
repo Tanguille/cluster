@@ -1,19 +1,11 @@
-# Skill: git-worktree-isolation
+---
+name: git-worktree-isolation
+description: Use git worktrees for isolated, parallel work. Creates temporary worktrees for independent agent tasks without affecting the main working directory. Always use this skill for any task that involves making changes to the repository to ensure: (1) Parallel agent work is isolated and doesn't conflict, (2) Experimental changes don't affect the main working directory, (3) The agent can work independently without coordination, (4) Easy cleanup when done.
+---
 
-## Description
+# Git Worktree Isolation
 
-Use git worktrees for isolated, parallel work. Creates temporary worktrees for independent agent tasks without affecting the main working directory.
-
-## When to use
-
-**Always use this skill for any task that involves making changes to the repository.** This ensures:
-
-- Parallel agent work is isolated and doesn't conflict
-- Experimental changes don't affect the main working directory
-- The agent can work independently without coordination
-- Easy cleanup when done
-
-## How to create a worktree
+## Create Worktree
 
 ```bash
 # Ensure base branch is up to date
@@ -24,14 +16,14 @@ git pull origin <branch>
 # List existing worktrees
 git worktree list
 
-# Create a detached worktree and checkout the target branch
+# Create a detached worktree
 git worktree add -b <branch> --detach work/isolated-<task>-<timestamp> <branch>
 
 # Navigate to the worktree
 cd work/isolated-<task>-<timestamp>
 ```
 
-## Validation workflow
+## Validate
 
 ```bash
 # Format YAML (use specific paths per project conventions)
@@ -54,10 +46,10 @@ cd /path/to/main/repo
 # Remove the worktree
 git worktree remove work/isolated-<task>-<timestamp>
 
-# Optionally delete the branch
+# Delete the branch
 git branch -D <branch>
 ```
 
 ## Permission
 
-To grant all agents access automatically, add "git-worktree-isolation" to `opencode.json`'s `"allow"` section.
+Add "git-worktree-isolation" to `opencode.json`'s `"allow"` section to grant all agents automatic access.
