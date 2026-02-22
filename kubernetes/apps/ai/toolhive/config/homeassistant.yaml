@@ -12,6 +12,7 @@ spec:
     - https://homeassistant.${SECRET_DOMAIN}/api/mcp
     - --transport=streamablehttp
     - --stateless
+    - --no-verify-ssl
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
