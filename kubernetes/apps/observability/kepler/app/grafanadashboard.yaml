@@ -13,3 +13,18 @@ spec:
     - datasourceName: prometheus
       inputName: datasource
   url: "https://raw.githubusercontent.com/sustainable-computing-io/kepler-operator/main/hack/dashboard/assets/kepler/dashboard.json"
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: kepler-overview
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  datasources:
+    - datasourceName: prometheus
+      inputName: datasource
+  url: "https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/compose/default/grafana/dashboards/latest/dashboard.json"
