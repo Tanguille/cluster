@@ -9,9 +9,14 @@ spec:
   transport: streamable-http
   groupRef: mcp-tools
   args:
+    - --port=8080
+    - --host=0.0.0.0
+    - --stateless
+    - --pass-environment
+    - --
+    - mcp-proxy
     - https://homeassistant.${SECRET_DOMAIN}/api/mcp
     - --transport=streamablehttp
-    - --stateless
     - --no-verify-ssl
   secrets:
     - name: toolhive-secrets
@@ -23,15 +28,6 @@ spec:
     spec:
       containers:
         - name: mcp
-          # mcp-proxy in stdio→StreamableHTTP mode exits when the client session ends (by design).
-          # Keep the container running by restarting the proxy in a loop so the pod stays Ready.
-          command:
-            - /bin/sh
-            - -c
-            - |
-              while true; do
-                mcp-proxy 'https://homeassistant.${SECRET_DOMAIN}/api/mcp' --transport=streamablehttp --stateless --no-verify-ssl || true
-              done
           resources:
             limits:
               cpu: "500m"
