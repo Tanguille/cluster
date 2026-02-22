@@ -31,7 +31,6 @@ spec:
             - |
               while true; do
                 mcp-proxy 'https://homeassistant.${SECRET_DOMAIN}/api/mcp' --transport=streamablehttp --stateless --no-verify-ssl || true
-                sleep 5
               done
           resources:
             limits:
