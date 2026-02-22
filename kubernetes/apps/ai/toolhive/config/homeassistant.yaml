@@ -23,6 +23,16 @@ spec:
     spec:
       containers:
         - name: mcp
+          # mcp-proxy in stdio→StreamableHTTP mode exits when the client session ends (by design).
+          # Keep the container running by restarting the proxy in a loop so the pod stays Ready.
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                mcp-proxy 'https://homeassistant.${SECRET_DOMAIN}/api/mcp' --transport=streamablehttp --stateless --no-verify-ssl || true
+                sleep 5
+              done
           resources:
             limits:
               cpu: "500m"
