@@ -84,6 +84,14 @@ spec:
                   storage: 110Gi  # headroom over retentionSize (100GB) for compaction/WAL
     prometheus-node-exporter:
       fullnameOverride: node-exporter
+    nodeExporter:
+      operatingSystems:
+        linux:
+          enabled: true
+        aix:
+          enabled: false
+        darwin:
+          enabled: false
     kube-state-metrics:
       fullnameOverride: kube-state-metrics
     prometheusOperator:
