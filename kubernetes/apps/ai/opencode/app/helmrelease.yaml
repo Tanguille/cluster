@@ -28,13 +28,7 @@ spec:
             command:
               - sh
               - -c
-              - cp /config-src/opencode.jsonc /home/opencode/.config/opencode/opencode.jsonc
-            volumeMounts:
-              - name: config
-                mountPath: /home/opencode/.config/opencode
-              - name: config-file
-                mountPath: /config-src
-                readOnly: true
+              - cp /config/opencode.jsonc /home/opencode/.config/opencode/opencode.jsonc
         containers:
           app:
             image:
@@ -104,6 +98,4 @@ spec:
         type: configMap
         name: *config
         globalMounts:
-          - path: /home/opencode/.config/opencode/opencode.jsonc
-            subPath: opencode.jsonc
-            readOnly: true
+          - path: /config
