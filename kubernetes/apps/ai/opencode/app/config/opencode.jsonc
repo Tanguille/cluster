@@ -8,7 +8,7 @@
   "mcp": {
     "toolhive": {
       "type": "remote",
-      "url": "https://mcp.tanguille.site/mcp",
+      "url": "https://mcp.${SECRET_DOMAIN}/mcp",
       "enabled": true
     }
   },
@@ -17,7 +17,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ollama",
       "options": {
-        "baseURL": "https://ollama.tanguille.site/ollama/v1",
+        "baseURL": "https://ollama.${SECRET_DOMAIN}/ollama/v1",
         "apiKey": "{env:OLLAMA_API_KEY}"
       },
       "models": {
