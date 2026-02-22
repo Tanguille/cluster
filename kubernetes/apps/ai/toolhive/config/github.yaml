@@ -1,0 +1,43 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: &name github
+  namespace: ai
+spec:
+  image: ghcr.io/github/github-mcp-server:latest
+  transport: stdio
+  groupRef: mcp-tools
+  args:
+    - stdio
+  secrets:
+    - name: toolhive-secrets
+      key: GITHUB_PERSONAL_ACCESS_TOKEN
+      targetEnvName: GITHUB_PERSONAL_ACCESS_TOKEN
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "10m"
+              memory: "128Mi"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 200Mi
+    requests:
+      cpu: 10m
+      memory: 128Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: github
+  namespace: ai
+spec: {}
