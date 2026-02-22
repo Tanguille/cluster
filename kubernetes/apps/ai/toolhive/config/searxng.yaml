@@ -9,8 +9,9 @@ spec:
   transport: stdio
   groupRef: mcp-tools
   env:
+    # Service in default namespace exposes port 8080 (see searxng HelmRelease).
     - name: SEARXNG_URL
-      value: http://searxng.default.svc.cluster.local
+      value: http://searxng.default.svc.cluster.local:8080
   toolConfigRef:
     name: *name
   podTemplateSpec:
