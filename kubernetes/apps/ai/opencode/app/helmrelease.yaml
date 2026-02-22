@@ -17,6 +17,23 @@ spec:
         strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
+        initContainers:
+          copy-config:
+            image:
+              repository: busybox
+              tag: 1.37
+            securityContext:
+              runAsUser: 0
+            command:
+              - sh
+              - -c
+              - cp /config-src/opencode.jsonc /home/opencode/.config/opencode/opencode.jsonc
+            volumeMounts:
+              - name: config
+                mountPath: /home/opencode/.config/opencode
+              - name: config-file
+                mountPath: /config-src
+                readOnly: true
         containers:
           app:
             image:
