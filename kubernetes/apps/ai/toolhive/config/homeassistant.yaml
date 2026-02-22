@@ -9,9 +9,9 @@ spec:
   transport: streamable-http
   groupRef: mcp-tools
   args:
+    - https://homeassistant.${SECRET_DOMAIN}/api/mcp
     - --transport=streamablehttp
     - --stateless
-    - https://homeassistant.${SECRET_DOMAIN}/api/mcp
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
