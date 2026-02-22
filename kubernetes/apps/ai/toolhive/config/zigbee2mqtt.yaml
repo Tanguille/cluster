@@ -1,0 +1,60 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: &name zigbee2mqtt
+  namespace: ai
+spec:
+  image: ichbinder/mcp2zigbee2mqtt:latest
+  transport: stdio
+  groupRef: mcp-tools
+  env:
+    - name: MQTT_BASE_TOPIC
+      value: zigbee2mqtt
+    - name: LOG_LEVEL
+      value: info
+    - name: DB_PATH
+      value: /data/zigbee2mqtt.db
+  secrets:
+    - name: toolhive-secrets
+      key: MQTT_BROKER_URL
+      targetEnvName: MQTT_BROKER_URL
+    - name: toolhive-secrets
+      key: MQTT_USERNAME
+      targetEnvName: MQTT_USERNAME
+    - name: toolhive-secrets
+      key: MQTT_PASSWORD
+      targetEnvName: MQTT_PASSWORD
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      volumes:
+        - name: data
+          emptyDir: {}
+      containers:
+        - name: mcp
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+            requests:
+              cpu: "10m"
+              memory: "128Mi"
+  resources:
+    limits:
+      cpu: 200m
+      memory: 200Mi
+    requests:
+      cpu: 10m
+      memory: 128Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: zigbee2mqtt
+  namespace: ai
+spec: {}
