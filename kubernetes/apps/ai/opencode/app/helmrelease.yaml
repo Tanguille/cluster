@@ -17,6 +17,7 @@ spec:
         strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
+          configmap.reloader.stakater.com/reload: &config opencode-config
         initContainers:
           copy-config:
             image:
@@ -101,7 +102,7 @@ spec:
           - path: /home/opencode/.config/opencode
       config-file:
         type: configMap
-        name: opencode-config
+        name: *config
         globalMounts:
           - path: /home/opencode/.config/opencode/opencode.jsonc
             subPath: opencode.jsonc
