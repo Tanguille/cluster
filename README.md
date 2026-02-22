@@ -55,5 +55,5 @@ Chuwi Ubox:
 - **GPU:** AMD Radeon 660M (APU)
 - **Networking:** 2x 2.5Gbps NICs (1 used)
 - **Storage:**
-  - Boot: Micron 7450 Pro 1TB nvme (1 currently broken and replaced by Samsung 980 Pro 1TB nvme)
-  - Ceph: AirDisk 500GB SSD
+  - Boot: Micron 7450 Pro (control-2: 500GB, control-3: 1TB) nvme
+  - Ceph: (control-2: Samsung 980 Pro 1TB nvme, control-3: AirDisk 500GB SSD)
