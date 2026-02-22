@@ -15,12 +15,7 @@ spec:
     config:
       logLevel: info
     deployment:
-      # Explicit tolerations only (override operator default "tolerate all"). control-1 is
-      # tainted kepler-exclude=true:NoSchedule so it won't get a pod.
-      tolerations:
-        - key: node-role.kubernetes.io/control-plane
-          operator: Exists
-          effect: NoSchedule
-        - key: node-role.kubernetes.io/master
-          operator: Exists
-          effect: NoSchedule
+      # Only run on nodes with kepler-node=true (control-2, control-3)
+      nodeSelector:
+        kubernetes.io/os: linux
+        kepler-node: "true"
