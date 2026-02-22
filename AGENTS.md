@@ -11,6 +11,7 @@ This is a **GitOps-based Kubernetes cluster repository** running on Talos Linux.
 - `bootstrap/` - Bootstrap Helmfile configurations
 - `.taskfiles/` - Task definitions for automation
 - `.github/workflows/` - CI/CD workflows
+- `docs/` - Operational and procedural docs; **`docs/useful_commands.md`** for Flux, kubectl, Talos and troubleshooting commands
 
 ## Build/Lint/Test Commands
 
