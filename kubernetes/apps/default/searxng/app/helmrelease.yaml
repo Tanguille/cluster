@@ -26,6 +26,8 @@ spec:
               - /usr/local/searxng/venv/bin/uwsgi
               - --master
               - /usr/local/searxng/.template/uwsgi.ini
+              - --listen
+              - "256"
             env:
               BASE_URL: https://search.${CLUSTER_DOMAIN}
               UWSGI_WORKERS: "1"
