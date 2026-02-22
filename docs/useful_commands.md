@@ -1,219 +1,196 @@
-# Useful Commands to Debug Kubernetes
+# Useful Commands for Kubernetes / Talos
 
-## QOL
+Short reference for debugging and day-to-day ops. Prefer **GitOps**: change manifests in Git and run `task reconcile` rather than editing resources in-cluster.
 
-<https://github.com/ragrag/kubectl-autons>
+---
+
+## Flux / GitOps
 
 ```bash
-# Auto-namespace
-kubectl autons <command>
+# List tasks (primary entry point)
+task
+
+# Pull latest from Git and reconcile (preferred after config changes)
+task reconcile
+
+# Reconcile a single Kustomization with source
+flux reconcile kustomization <name> --with-source
+
+# Reconcile GitRepository (refresh from remote)
+flux reconcile source git flux-system
+
+# Status overview
+flux get kustomizations
+flux get helmreleases -A
 ```
 
-## Generate schematic
+---
+
+## Talos
+
+```bash
+# Generate Talos config (from talconfig)
+task talos:generate-config
+
+# Apply config to a node / upgrade node / upgrade Kubernetes
+task talos:apply-node IP=<node-ip>
+task talos:upgrade-node IP=<node-ip>
+task talos:upgrade-k8s
+```
+
+**Generate schematic (image factory):**
 
 ```bash
 curl -X POST --data-binary @talos/schematic.yaml \
-        https://factory.talos.dev/schematics
+  https://factory.talos.dev/schematics
 ```
 
-## Pod management
+---
+
+## Pods & workloads
 
 ```bash
-# Restart a deployment
-kubectl rollout restart deployment -n <namespace> <deployment-name>
+# Restart deployment (e.g. after ConfigMap change)
+kubectl rollout restart deployment/<name> -n <ns>
+kubectl rollout status deployment/<name> -n <ns>
 
-# Scale a deployment
-kubectl scale deployment -n <namespace> <deployment-name> --replicas=<replicas>
+# Scale
+kubectl scale deployment/<name> -n <ns> --replicas=<n>
 
-# Create a debugging pod with networking tools
-kubectl run tmp-shell --rm -i --tty --image nicolaka/netshoot -- /bin/bash
+# Debug pod with networking tools (exit with Ctrl+D or 'exit')
+kubectl run tmp-shell --rm -i --tty --image nicolaka/netshoot -n <ns> -- /bin/bash
 
-# Delete a pod
-kubectl delete pod <pod-name>
+# Logs
+kubectl logs -n <ns> deployment/<name> -f
+kubectl logs -n <ns> <pod-name> -c <container> --tail=100
+
+# Inspect
+kubectl describe pod -n <ns> <pod-name>
+kubectl get pod -n <ns> <pod-name> -o yaml
 ```
 
-## Logs
-
-```bash
-# Stream logs from a deployment
-kubectl logs -n <namespace> deployment/<deployment-name> -f
-
-# View deployment logs
-kubectl logs -n <namespace> deployment/<deployment-name>
-
-# Get detailed information about a deployment
-kubectl describe -n <namespace> deployment/<deployment-name>
-```
+---
 
 ## Networking
 
 ```bash
-# List all network policies in a namespace
-kubectl get networkpolicies -n <namespace>
+# Services and backends (prefer EndpointSlices; slice names are <svc>-<suffix>)
+kubectl get svc -n <ns>
+kubectl get endpointslice -n <ns> -l kubernetes.io/service-name=<service-name>
 
-# Get all httproute resources across namespaces
+# HTTPRoutes (Gateway API)
 kubectl get httproute -A
 
-# List all services in a namespace
-kubectl get services -n <namespace>
+# NetworkPolicies
+kubectl get networkpolicies -n <ns>
 
-# Get endpoints across all namespaces
-kubectl get -A endpoints
-
-# Test internal service connectivity from debug pod
-curl http://<service-name>.<namespace>.svc.cluster.local
+# From inside a pod: test service DNS
+curl http://<service>.<ns>.svc.cluster.local
 ```
 
-## Storage
+---
 
-<https://github.com/clbx/kubectl-browse-pvc>
+## Storage & exec
 
 ```bash
-# Browse PVCs
-kubectl browse-pvc
+# PVCs
+kubectl get pvc -A
 
-# Check mounted storage usage
-kubectl exec -it -n <namespace> deployment/<deployment-name> -- df -h /path
+# Mount usage inside a pod
+kubectl exec -n <ns> deployment/<name> -- df -h /path
 
-# List persistent volume claims
-kubectl get pvc --all-namespaces
-
-# Execute commands in a pod
-kubectl exec -it -n <namespace> deployment/<deployment-name> -- <command>
+# Run a command in a pod (replace deployment/<name> with pod name if needed)
+kubectl exec -it -n <ns> deployment/<name> -- /bin/sh
 ```
 
-## Troubleshooting Failed HelmReleases
+Optional: [kubectl-browse-pvc](https://github.com/clbx/kubectl-browse-pvc) to browse PVCs.
 
-When a HelmRelease is stuck or failing to deploy (e.g., qBittorrent case):
+---
+
+## Troubleshooting failed HelmReleases
+
+Prefer fixing the cause in Git (values, chart version, dependencies) and running `task reconcile`. If a release is stuck and you need to force recreation:
 
 ```bash
-# 1. Check HelmRelease status and events
-kubectl describe helmrelease <release-name> -n <namespace>
+# 1. Inspect status and events
+kubectl describe helmrelease <name> -n <ns>
 
-# 2. Delete the failed HelmRelease to allow Flux to redeploy
-kubectl delete helmrelease <release-name> -n <namespace>
+# 2. (Optional) Delete the HelmRelease so Flux recreates it on next reconcile
+kubectl delete helmrelease <name> -n <ns>
 
-# 3. Clean up any lingering resources
-kubectl delete deployment <deployment-name> -n <namespace>
-kubectl delete service <service-name> -n <namespace>
-
-# 4. Force Flux to reconcile and redeploy
-flux reconcile kustomization <kustomization-name> --with-source
-
-# 5. Monitor the new deployment
-kubectl get pods -n <namespace> -w
+# 3. Reconcile and watch
+flux reconcile kustomization <parent-ks> --with-source
+kubectl get pods -n <ns> -w
 ```
 
-## Connecting Manually to a PostgreSQL Database
+Avoid deleting other resources (Deployment, Service) that are owned by the HelmRelease; Flux/Helm will manage them.
 
-To connect manually to a CNPG PostgreSQL database using the secrets generated by the PostgreSQL operator, follow these steps:
+---
 
-1. **Retrieve the Application Credentials:**
-   Get the username and password from the `-app` secret:
+## PostgreSQL (CNPG)
 
-    ```bash
-    # Get the username
-    kubectl get secret -n database <cluster-name>-app -o jsonpath='{.data.username}' | base64 -d
-
-    # Get the password
-    kubectl get secret -n database <cluster-name>-app -o jsonpath='{.data.password}' | base64 -d
-    ```
-
-2. **Connect to the Database:**
-   Use the retrieved credentials to connect to the PostgreSQL database using `psql`. Replace `<app-username>` and `<app-database-name>` with the actual values:
-
-    ```bash
-    psql -h <cluster-name>-rw.database.svc.cluster.local -U <app-username> -d <app-database-name> -W
-    ```
-
-    You will be prompted to enter the password.
-
-### Notes
-
-- The `-app` credentials should be used for application-level access, while the `-superuser` credentials are for administrative tasks only.
-
-## Nextcloud Database Restore Process
-
-When restoring a Nextcloud PostgreSQL database in Kubernetes:
-
-1. **Create a debugging pod with database access:**
+**Application credentials** (from `-app` secret):
 
 ```bash
-kubectl run tmp-shell --rm -i --tty --image nicolaka/netshoot -- /bin/bash
+kubectl get secret -n database <cluster-name>-app -o jsonpath='{.data.username}' | base64 -d
+kubectl get secret -n database <cluster-name>-app -o jsonpath='{.data.password}' | base64 -d
 ```
 
-2. **Connect to PostgreSQL as postgres user:**
+**Connect with psql:**
 
 ```bash
-# Connect to the database
-psql -h postgres16-rw.database.svc.cluster.local -U postgres -d nextcloud
-
-# Grant all necessary permissions to nextcloud user
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO nextcloud;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO nextcloud;
-GRANT ALL PRIVILEGES ON SCHEMA public TO nextcloud;
-ALTER USER nextcloud CREATEDB;
-GRANT CONNECT ON DATABASE nextcloud TO nextcloud;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO nextcloud;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO nextcloud;
+psql -h <cluster-name>-rw.database.svc.cluster.local -U <app-username> -d <app-database-name> -W
 ```
 
-3. **Restore database backup:**
+Use `-app` for application access; reserve `-superuser` for admin.
+
+---
+
+## Nextcloud: database restore
+
+1. **Debug pod with DB access:**
+
+   ```bash
+   kubectl run tmp-shell --rm -i --tty --image nicolaka/netshoot -n default -- /bin/bash
+   ```
+
+2. **Connect as postgres and fix permissions if needed:**
+
+   ```bash
+   psql -h postgres16-rw.database.svc.cluster.local -U postgres -d nextcloud
+   # e.g. GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO nextcloud;
+   ```
+
+3. **Restore backup:**
+
+   ```bash
+   pg_restore -h postgres16-rw.database.svc.cluster.local -U nextcloud -d nextcloud \
+     --clean --if-exists --no-owner --no-privileges --no-tablespaces --no-comments \
+     <backup-file>.sql
+   ```
+
+4. **After restore: data-fingerprint (and optionally turn off maintenance mode):**
+
+   ```bash
+   kubectl exec -it <nextcloud-pod> -n default -c nextcloud -- \
+     su -s /bin/sh www-data -c "php occ maintenance:data-fingerprint"
+   # If you enabled maintenance mode: php occ maintenance:mode --off
+   ```
+
+Tip: put Nextcloud in maintenance mode during restore (`php occ maintenance:mode --on` / `--off`).
+
+---
+
+## Talos: network interface speeds
 
 ```bash
-# Drop and recreate database if needed
-PGPASSWORD="password" psql -h [server] -U [username] -d template1 -c "DROP DATABASE \"nextcloud\";"
-PGPASSWORD="password" psql -h [server] -U [username] -d template1 -c "CREATE DATABASE \"nextcloud\";"
-
-# Restore from backup
-pg_restore -h postgres16-rw.database.svc.cluster.local \
-    -U nextcloud \
-    -d nextcloud \
-    --clean \
-    --if-exists \
-    --no-owner \
-    --no-privileges \
-    --no-tablespaces \
-    --no-comments \
-    <backup-file>.sql
-```
-
-4. **After restore is complete, update Nextcloud data fingerprint:**
-
-```bash
-kubectl exec -it nextcloud-[pod-id] -c nextcloud -- \
-    su -s /bin/sh www-data -c "php occ maintenance:data-fingerprint"
-```
-
-### Important Notes
-
-- Always verify database permissions after restore
-- The nextcloud user needs full privileges on the database
-- Run maintenance:data-fingerprint after restore to help clients recover
-- Consider putting Nextcloud in maintenance mode during restore:
-
-```bash
-# Enable maintenance mode
-kubectl exec -it nextcloud-[pod-id] -c nextcloud -- \
-    su -s /bin/sh www-data -c "php occ maintenance:mode --on"
-
-# Disable maintenance mode
-kubectl exec -it nextcloud-[pod-id] -c nextcloud -- \
-    su -s /bin/sh www-data -c "php occ maintenance:mode --off"
-```
-
-## Talos Network Interface Speeds
-
-To check the speed of network interfaces on Talos nodes:
-
-```bash
-# Check interface speeds for a specific node
+# One node
 talosctl --nodes <node-ip> get links -o yaml | grep -E "id:|speedMbit:|operationalState: up"
 
-# Check all nodes (simple script)
+# All nodes (script)
 for node_ip in 192.168.0.11 192.168.0.12 192.168.0.13; do
   echo "=== Node: $node_ip ==="
-  talosctl --nodes $node_ip get links -o yaml 2>/dev/null | \
+  talosctl --nodes "$node_ip" get links -o yaml 2>/dev/null | \
     awk '
       BEGIN { name=""; speed=""; state=""; type="" }
       /^    id:/ { name=$2 }
@@ -222,21 +199,15 @@ for node_ip in 192.168.0.11 192.168.0.12 192.168.0.13; do
       /^    operationalState:/ { state=$2 }
       /^---$/ {
         if (name && state == "up" && type == "ether" && !match(name, /^lxc/)) {
-          if (speed == "" || speed == "4294967295") {
-            printf "  %-20s %s\n", name, "N/A (virtual/unknown)"
-          } else {
-            printf "  %-20s %s Mbps\n", name, speed
-          }
+          if (speed == "" || speed == "4294967295") printf "  %-20s %s\n", name, "N/A (virtual/unknown)"
+          else printf "  %-20s %s Mbps\n", name, speed
         }
         name=""; speed=""; state=""; type=""
       }
       END {
         if (name && state == "up" && type == "ether" && !match(name, /^lxc/)) {
-          if (speed == "" || speed == "4294967295") {
-            printf "  %-20s %s\n", name, "N/A (virtual/unknown)"
-          } else {
-            printf "  %-20s %s Mbps\n", name, speed
-          }
+          if (speed == "" || speed == "4294967295") printf "  %-20s %s\n", name, "N/A (virtual/unknown)"
+          else printf "  %-20s %s Mbps\n", name, speed
         }
       }
     ' | sort
@@ -244,9 +215,5 @@ for node_ip in 192.168.0.11 192.168.0.12 192.168.0.13; do
 done
 ```
 
-### Notes
-
-- The `speedMbit` field shows the interface speed in Mbps
-- Value `4294967295` typically indicates a virtual interface or unknown speed
-- Physical interfaces will show their actual link speed (e.g., 1000, 2500, 10000)
-- Cilium virtual interfaces (cilium_host, cilium_net) may show speeds but are virtual
+- `speedMbit`: link speed in Mbps; `4294967295` usually means virtual/unknown.
+- Physical NICs show real speeds (e.g. 1000, 2500, 10000).
