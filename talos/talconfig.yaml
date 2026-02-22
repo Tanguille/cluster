@@ -24,7 +24,7 @@ nodes:
     installDisk: "/dev/vda"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/c8074f1e77e2f4ce278647e55ac9f60869e48d616592790a2bfe8b4aa0392904
+    talosImageURL: factory.talos.dev/installer/0c544398f7d997fb2489308b8c8334a4c3c07b574e67918342fc769da2ab87c1
     controlPlane: true
     patches:
       - "@./patches/control-1/nvidia-gpu.yaml"
@@ -42,10 +42,10 @@ nodes:
           ip: "192.168.0.2"
   - hostname: "control-2"
     ipAddress: "192.168.0.12"
-    installDisk: "/dev/nvme0n1"
+    installDisk: "/dev/nvme1n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/a38170dc72bb44e3e7ba715b796d6582d05f44f4ae00d9841a952869cbf5e77d
+    talosImageURL: factory.talos.dev/installer/7afb59ad38a2e279afd0a7d2ca841becef7521856b55d140cffdf3459d8d3707
     controlPlane: true
     patches:
       - "@./patches/kepler-node.yaml"
@@ -66,7 +66,7 @@ nodes:
     installDisk: "/dev/nvme0n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/a38170dc72bb44e3e7ba715b796d6582d05f44f4ae00d9841a952869cbf5e77d
+    talosImageURL: factory.talos.dev/installer/7afb59ad38a2e279afd0a7d2ca841becef7521856b55d140cffdf3459d8d3707
     controlPlane: true
     patches:
       - "@./patches/kepler-node.yaml"
