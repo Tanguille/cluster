@@ -1,4 +1,10 @@
 machine:
+  kubelet:
+    extraConfig:
+      registerWithTaints:
+        - key: kepler-exclude
+          value: "true"
+          effect: NoSchedule
   kernel:
     modules:
       - name: nvidia
