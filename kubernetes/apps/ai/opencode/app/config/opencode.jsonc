@@ -8,7 +8,7 @@
   "mcp": {
     "toolhive": {
       "type": "remote",
-      "url": "https://mcp.${SECRET_DOMAIN}/mcp",
+      "url": "http://vmcp-tools-gateway.ai.svc.cluster.local:4483/mcp",
       "enabled": true
     }
   },
@@ -17,7 +17,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "Ollama",
       "options": {
-        "baseURL": "https://ollama.${SECRET_DOMAIN}/ollama/v1",
+        "baseURL": "http://ollama.ai.svc.cluster.local:11434/v1",
         "apiKey": "{env:OLLAMA_API_KEY}"
       },
       "models": {
