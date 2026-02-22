@@ -6,17 +6,16 @@ metadata:
   namespace: ai
 spec:
   image: ghcr.io/sparfenyuk/mcp-proxy:latest
-  transport: streamablehttp
+  transport: streamable-http
   groupRef: mcp-tools
   args:
+    - --transport=streamablehttp
     - --stateless
     - https://homeassistant.${SECRET_DOMAIN}/api/mcp
-  env:
-    - name: API_ACCESS_TOKEN
-      valueFrom:
-        secretKeyRef:
-          name: toolhive-secrets
-          key: HOMEASSISTANT_API_TOKEN
+  secrets:
+    - name: toolhive-secrets
+      key: HOMEASSISTANT_API_TOKEN
+      targetEnvName: API_ACCESS_TOKEN
   toolConfigRef:
     name: *name
   podTemplateSpec:

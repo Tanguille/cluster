@@ -1,0 +1,37 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "cc-safety-net",
+    "@tarquinen/opencode-dcp@latest",
+    "oh-my-opencode-slim"
+  ],
+  "mcp": {
+    "toolhive": {
+      "type": "remote",
+      "url": "https://mcp.${SECRET_DOMAIN}/mcp",
+      "enabled": true
+    }
+  },
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama",
+      "options": {
+        "baseURL": "https://ollama.${SECRET_DOMAIN}/ollama/v1",
+        "apiKey": "{env:OLLAMA_API_KEY}"
+      },
+      "models": {
+        "gpt-oss:latest": {
+          "name": "GPT OSS 20b"
+        }
+      }
+    },
+    "lmstudio": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LM Studio",
+      "options": {
+        "baseURL": "http://192.168.0.26:1234/v1"
+      }
+    }
+  }
+}

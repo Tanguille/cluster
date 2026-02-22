@@ -1,0 +1,5 @@
+# Nodes that run in-cluster Kepler (control-2, control-3). control-1 is excluded (VM, no RAPL)
+# and is the only GPU node — do not taint it or GPU workloads will fail to schedule.
+machine:
+  nodeLabels:
+    kepler-node: "true"

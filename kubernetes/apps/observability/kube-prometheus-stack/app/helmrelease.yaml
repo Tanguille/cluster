@@ -66,7 +66,7 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         scrapeConfigSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
-        retention: 365d
+        retention: 90d
         retentionSize: 100GB
         resources:
           requests:
@@ -81,7 +81,7 @@ spec:
               storageClassName: ceph-block
               resources:
                 requests:
-                  storage: 100Gi
+                  storage: 110Gi  # headroom over retentionSize (100GB) for compaction/WAL
     prometheus-node-exporter:
       fullnameOverride: node-exporter
     kube-state-metrics:
