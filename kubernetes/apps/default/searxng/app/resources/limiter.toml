@@ -1,0 +1,12 @@
+# Allow in-cluster clients (e.g. ToolHive MCP pod) so they are not treated as bots.
+# Requests from these IPs get unrestricted access; other IPs still go through bot detection.
+# See: https://docs.searxng.org/admin/searx.limiter.html
+
+[botdetection.ip_lists]
+pass_ip = [
+  "10.0.0.0/8",     # Kubernetes pod CIDR (common)
+  "172.16.0.0/12",  # Private range
+  "192.168.0.0/16", # Private range
+  "100.64.0.0/10",  # Cilium / shared address space
+  "fe80::/10",      # IPv6 link-local
+]
