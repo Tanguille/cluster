@@ -10,7 +10,7 @@ spec:
   groupRef: mcp-tools
   env:
     - name: GRAFANA_URL
-      value: https://grafana.${SECRET_DOMAIN}
+      value: http://grafana-service.observability.svc.cluster.local:3000
   toolConfigRef:
     name: *name
   podTemplateSpec:
