@@ -8,6 +8,9 @@ spec:
   image: mcp/grafana:latest
   transport: stdio
   groupRef: mcp-tools
+  args:
+    - "-t"
+    - "stdio"
   env:
     - name: GRAFANA_URL
       value: http://grafana-service.observability.svc.cluster.local:3000
