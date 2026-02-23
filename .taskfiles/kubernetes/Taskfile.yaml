@@ -12,6 +12,7 @@ tasks:
           fi
       done
 
+
   resources:
     desc: Gather common resources in your cluster, useful when asking for support
     cmds:
@@ -29,6 +30,13 @@ tasks:
         pods
     preconditions:
       - test -f {{.KUBECONFIG}}
+      - which kubectl
+
+  debug-toolhive-mcp:
+    desc: Collect status and logs for ToolHive MCP servers (HA, Grafana, SearXNG) for debugging
+    cmd: "{{.ROOT_DIR}}/.taskfiles/kubernetes/debug-toolhive-mcp.sh"
+    preconditions:
+      - test -f {{.ROOT_DIR}}/kubeconfig
       - which kubectl
 
   # https://docs.github.com/en/enterprise-cloud@latest/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller/deploying-runner-scale-sets-with-actions-runner-controller#upgrading-arc
