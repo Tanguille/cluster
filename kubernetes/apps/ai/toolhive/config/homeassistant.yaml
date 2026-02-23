@@ -25,17 +25,25 @@ spec:
         - name: mcp
           command:
             - ha-mcp-web
+          livenessProbe:
+            httpGet: &probe
+              path: /mcp
+              port: 8086
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: *probe
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
-            requests:
+            requests: &requests
               cpu: 10m
               memory: 64Mi
             limits:
               cpu: 1
               memory: 256Mi
   resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
+    requests: *requests
     limits:
       cpu: 200m
       memory: 128Mi
