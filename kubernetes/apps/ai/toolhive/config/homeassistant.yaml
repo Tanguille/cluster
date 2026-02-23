@@ -5,39 +5,32 @@ metadata:
   name: &name homeassistant
   namespace: ai
 spec:
-  image: ghcr.io/sparfenyuk/mcp-proxy:latest
+  image: ghcr.io/homeassistant-ai/ha-mcp:latest
   transport: streamable-http
   groupRef: mcp-tools
-  args:
-    - https://homeassistant.${SECRET_DOMAIN}/api/mcp
-    - --transport=streamablehttp
-    - --stateless
-    - --no-verify-ssl
+  mcpPort: 8086
+  env:
+    - name: HOMEASSISTANT_URL
+      value: https://homeassistant.${SECRET_DOMAIN}
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
-      targetEnvName: API_ACCESS_TOKEN
+      targetEnvName: HOMEASSISTANT_TOKEN
   toolConfigRef:
     name: *name
   podTemplateSpec:
     spec:
       containers:
         - name: mcp
-          # ToolHive expects stdio to the container; mcp-proxy client mode exits after each session. Restart immediately (no sleep) to minimize 502 window.
           command:
-            - /bin/sh
-            - -c
-            - |
-              while true; do
-                mcp-proxy 'https://homeassistant.${SECRET_DOMAIN}/api/mcp' --transport=streamablehttp --stateless --no-verify-ssl || true
-              done
+            - ha-mcp-web
           resources:
             requests:
               cpu: 10m
               memory: 64Mi
             limits:
               cpu: 1
-              memory: 128Mi
+              memory: 256Mi
   resources:
     requests:
       cpu: 10m
