@@ -26,13 +26,12 @@ spec:
           command:
             - ha-mcp-web
           livenessProbe:
-            httpGet: &probe
-              path: /mcp
+            tcpSocket: &probe
               port: 8086
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
-            httpGet: *probe
+            tcpSocket: *probe
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
