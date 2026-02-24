@@ -85,28 +85,6 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          # Rewrite /session/* to /Lw/session/* so client requests without /Lw get the SPA from app.opencode.ai proxy
-          - matches:
-              - path:
-                  type: PathPrefix
-                  value: /session
-            filters:
-              - type: URLRewrite
-                urlRewrite:
-                  path:
-                    type: ReplacePrefixMatch
-                    replacePrefixMatch: /Lw/session
-            backendRefs:
-              - identifier: app
-                port: http
-          - matches:
-              - path:
-                  type: PathPrefix
-                  value: /
-            backendRefs:
-              - identifier: app
-                port: http
 
     persistence:
       config:
