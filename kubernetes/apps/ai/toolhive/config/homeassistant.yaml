@@ -6,28 +6,20 @@ metadata:
   namespace: ai
 spec:
   image: ghcr.io/homeassistant-ai/ha-mcp:latest@sha256:0a19e114f98bccefff448031dde1e11a73660e195e2323c3a31f2f5ec05ba660
-  transport: streamable-http
+  transport: stdio
   groupRef: mcp-tools
-  endpointPrefix: /mcp
-  mcpPort: 8086
-  env:
-    - name: HOMEASSISTANT_URL
-      value: https://homeassistant.${SECRET_DOMAIN}
-  secrets:
-    - name: toolhive-secrets
-      key: HOMEASSISTANT_API_TOKEN
-      targetEnvName: HOMEASSISTANT_TOKEN
   toolConfigRef:
     name: *name
   podTemplateSpec:
     spec:
       containers:
         - name: mcp
-          command:
-            - ha-mcp-web
+          env:
+            - name: HOMEASSISTANT_URL
+              value: https://homeassistant.${SECRET_DOMAIN}
           livenessProbe:
             tcpSocket: &probe
-              port: 8086
+              port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
