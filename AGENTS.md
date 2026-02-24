@@ -167,6 +167,12 @@ For any K8s changes:
    flux-local test --all-namespaces --enable-helm --path kubernetes/flux/cluster
    ```
 
+## Communication
+
+- **Keep agents concise** - If a response would be too long, reference other sources (docs, code, previous context) instead of repeating
+- **Always ask first** - Never push anything without explicit user confirmation
+- **Multi-line fixes = PR** - If a fix changes more than one line, create a pull request instead of direct commits
+
 ## Safety and permissions
 
 - **Allowed without prompt:** Read files, list dirs, run validation (kubeconform, yamlfmt, shellcheck), run flux-local test/diff, format/lint.
