@@ -22,15 +22,6 @@ spec:
                 secretKeyRef:
                   name: toolhive-secrets
                   key: HOMEASSISTANT_API_TOKEN
-          livenessProbe:
-            tcpSocket: &probe
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          readinessProbe:
-            tcpSocket: *probe
-            initialDelaySeconds: 5
-            periodSeconds: 10
           resources:
             requests: &requests
               cpu: 10m
