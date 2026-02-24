@@ -19,6 +19,11 @@ spec:
           env:
             - name: HOMEASSISTANT_URL
               value: https://homeassistant.${SECRET_DOMAIN}
+            - name: HOMEASSISTANT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: homeassistant
+                  key: token
           livenessProbe:
             tcpSocket: &probe
               port: 8080
