@@ -22,8 +22,8 @@ spec:
             - name: HOMEASSISTANT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: homeassistant
-                  key: token
+                  name: toolhive-secrets
+                  key: HOMEASSISTANT_API_TOKEN
           livenessProbe:
             tcpSocket: &probe
               port: 8080
