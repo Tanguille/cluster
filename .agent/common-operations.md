@@ -1,10 +1,12 @@
 # Common Operations
 
-**When to use:** add app, new application, upgrade, SOPS, secrets, encrypt.
+**When to use:** add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, volsync, snapshot.
 
 Step-by-step procedures for frequent cluster tasks.
 
-## Adding a new application TODO: make skill
+## Adding a new application
+
+Use **add-app-to-cluster** skill for full procedure.
 
 1. Create namespace in `kubernetes/components/common/`
 2. Add OCIRepository if external
@@ -19,3 +21,11 @@ Step-by-step procedures for frequent cluster tasks.
 3. Or create with: `sops <file>.yaml` (edits encrypted)
 
 Never commit plaintext secrets or the age key. Use placeholders so I can add the secrets manually.
+
+## Debugging
+
+Use **debug-cluster** skill for structured 5-Whys analysis and troubleshooting.
+
+## Backup & Restore
+
+Use **backup-restore** skill for VolSync Kopia operations.
