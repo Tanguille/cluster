@@ -1,0 +1,57 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cnpg-backup-sync
+spec:
+  schedule: "0 */6 * * *" # Every 6 hours
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: rclone
+              image: rclone/rclone:1.68
+              args:
+                - sync
+                - ceph:cnpg-backups
+                - /truenas/cnpg-backups
+                - --transfers=4
+                - --checkers=8
+                - --fast-list
+                - -v
+              env:
+                - name: RCLONE_CONFIG_CEPH_TYPE
+                  value: s3
+                - name: RCLONE_CONFIG_CEPH_PROVIDER
+                  value: Ceph
+                - name: RCLONE_CONFIG_CEPH_ENDPOINT
+                  value: http://rook-ceph-rgw-ceph-objectstore.rook-ceph.svc.cluster.local:80
+                - name: RCLONE_CONFIG_CEPH_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: cloudnative-pg-secret
+                      key: aws-access-key-id
+                - name: RCLONE_CONFIG_CEPH_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: cloudnative-pg-secret
+                      key: aws-secret-access-key
+              volumeMounts:
+                - name: truenas
+                  mountPath: /truenas
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+          volumes:
+            - name: truenas
+              nfs:
+                server: "${TRUENAS_IP}"
+                path: /mnt/TanguilleServer/cnpg-backups
+          restartPolicy: OnFailure

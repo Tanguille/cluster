@@ -197,4 +197,36 @@ spec:
       name: csi-ceph-filesystem
       isDefault: false
       deletionPolicy: Delete
-    cephObjectStores: []
+    cephObjectStores:
+      - name: ceph-objectstore
+        spec:
+          metadataPool:
+            failureDomain: host
+            replicated:
+              size: 2 # Metadata stays replicated (better for small I/O)
+          dataPool:
+            failureDomain: host
+            erasureCoded:
+              dataChunks: 2 # Reed-Solomon: 2 data chunks
+              codingChunks: 1 # Reed-Solomon: 1 coding chunk
+            parameters:
+              compression_mode: aggressive
+              compression_algorithm: zstd
+          preservePoolsOnDelete: true
+          gateway:
+            port: 80
+            instances: 1
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+          healthCheck:
+            bucket:
+              disabled: false
+              interval: 60s
+        storageClass:
+          enabled: true
+          name: ceph-bucket
+          reclaimPolicy: Delete
