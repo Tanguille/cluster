@@ -15,19 +15,6 @@ spec:
       app:
         annotations:
           reloader.stakater.com/auto: "true"
-        networkPolicy:
-          enabled: true
-          egress:
-            - to:
-                - namespaceSelector: {}
-              ports:
-                - protocol: TCP
-                  port: 443
-            - to:
-                - namespaceSelector: {}
-              ports:
-                - protocol: TCP
-                  port: 80
         initContainers:
           copy-config:
             image:
