@@ -24,9 +24,6 @@ spec:
       containers:
         - name: mcp
           command: ["fastmcp", "run", "fastmcp-http.json"]
-          env:
-            - name: HOMEASSISTANT_URL
-              value: *url
           resources:
             requests: &requests
               cpu: 10m
