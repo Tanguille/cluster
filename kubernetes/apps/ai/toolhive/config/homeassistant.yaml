@@ -12,7 +12,7 @@ spec:
   groupRef: homeassistant
   env:
     - name: HOMEASSISTANT_URL
-      value: &url http://external-homeassistant.network.svc.cluster.local
+      value: http://external-homeassistant.network.svc.cluster.local
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
@@ -43,20 +43,54 @@ metadata:
   name: homeassistant
   namespace: ai
 spec:
-  # Drop redundant ha_ prefix for all tools (server is already homeassistant)
+  # Strip prefix "ha_" (server is already homeassistant). Generated: ./scripts/generate-toolhive-ha-overrides.sh yaml
   toolsOverride:
+    ha_add_todo_item:
+      name: add_todo_item
+    ha_backup_create:
+      name: backup_create
+    ha_backup_restore:
+      name: backup_restore
+    ha_bulk_control:
+      name: bulk_control
+    ha_call_service:
+      name: call_service
+    ha_check_config:
+      name: check_config
+    ha_config_delete_dashboard:
+      name: config_delete_dashboard
     ha_config_delete_dashboard_resource:
       name: config_delete_dashboard_resource
+    ha_config_get_automation:
+      name: config_get_automation
+    ha_config_get_calendar_events:
+      name: config_get_calendar_events
+    ha_config_get_dashboard:
+      name: config_get_dashboard
     ha_config_get_label:
       name: config_get_label
     ha_config_get_script:
       name: config_get_script
     ha_config_info:
       name: config_info
+    ha_config_list_areas:
+      name: config_list_areas
     ha_config_list_dashboard_resources:
       name: config_list_dashboard_resources
+    ha_config_list_floors:
+      name: config_list_floors
     ha_config_list_groups:
       name: config_list_groups
+    ha_config_list_helpers:
+      name: config_list_helpers
+    ha_config_remove_area:
+      name: config_remove_area
+    ha_config_remove_automation:
+      name: config_remove_automation
+    ha_config_remove_calendar_event:
+      name: config_remove_calendar_event
+    ha_config_remove_floor:
+      name: config_remove_floor
     ha_config_remove_group:
       name: config_remove_group
     ha_config_remove_helper:
@@ -65,26 +99,90 @@ spec:
       name: config_remove_label
     ha_config_remove_script:
       name: config_remove_script
+    ha_config_set_area:
+      name: config_set_area
+    ha_config_set_automation:
+      name: config_set_automation
+    ha_config_set_calendar_event:
+      name: config_set_calendar_event
+    ha_config_set_dashboard:
+      name: config_set_dashboard
     ha_config_set_dashboard_resource:
       name: config_set_dashboard_resource
+    ha_config_set_floor:
+      name: config_set_floor
     ha_config_set_group:
       name: config_set_group
+    ha_config_set_helper:
+      name: config_set_helper
     ha_config_set_label:
       name: config_set_label
     ha_config_set_script:
       name: config_set_script
+    ha_create_config_entry_helper:
+      name: create_config_entry_helper
+    ha_create_zone:
+      name: create_zone
+    ha_dashboard_find_card:
+      name: dashboard_find_card
+    ha_deep_search:
+      name: deep_search
     ha_delete_config_entry:
       name: delete_config_entry
+    ha_delete_file:
+      name: delete_file
+    ha_delete_zone:
+      name: delete_zone
+    ha_eval_template:
+      name: eval_template
+    ha_get_addon:
+      name: get_addon
+    ha_get_automation_traces:
+      name: get_automation_traces
+    ha_get_blueprint:
+      name: get_blueprint
+    ha_get_bulk_status:
+      name: get_bulk_status
+    ha_get_camera_image:
+      name: get_camera_image
+    ha_get_card_documentation:
+      name: get_card_documentation
+    ha_get_dashboard_guide:
+      name: get_dashboard_guide
     ha_get_device:
       name: get_device
+    ha_get_domain_docs:
+      name: get_domain_docs
     ha_get_entity:
       name: get_entity
+    ha_get_entity_exposure:
+      name: get_entity_exposure
+    ha_get_helper_schema:
+      name: get_helper_schema
     ha_get_history:
       name: get_history
     ha_get_integration:
       name: get_integration
+    ha_get_logbook:
+      name: get_logbook
+    ha_get_operation_status:
+      name: get_operation_status
+    ha_get_overview:
+      name: get_overview
+    ha_get_state:
+      name: get_state
+    ha_get_states:
+      name: get_states
     ha_get_statistics:
       name: get_statistics
+    ha_get_system_health:
+      name: get_system_health
+    ha_get_todo:
+      name: get_todo
+    ha_get_updates:
+      name: get_updates
+    ha_get_zone:
+      name: get_zone
     ha_hacs_add_repository:
       name: hacs_add_repository
     ha_hacs_download:
@@ -97,15 +195,41 @@ spec:
       name: hacs_repository_info
     ha_hacs_search:
       name: hacs_search
+    ha_import_blueprint:
+      name: import_blueprint
+    ha_install_mcp_tools:
+      name: install_mcp_tools
+    ha_list_files:
+      name: list_files
+    ha_list_services:
+      name: list_services
+    ha_read_file:
+      name: read_file
+    ha_reload_core:
+      name: reload_core
     ha_remove_device:
       name: remove_device
+    ha_remove_todo_item:
+      name: remove_todo_item
     ha_rename_entity:
       name: rename_entity
     ha_rename_entity_and_device:
       name: rename_entity_and_device
+    ha_report_issue:
+      name: report_issue
+    ha_restart:
+      name: restart
+    ha_search_entities:
+      name: search_entities
     ha_set_entity:
       name: set_entity
     ha_set_integration_enabled:
       name: set_integration_enabled
     ha_update_device:
       name: update_device
+    ha_update_todo_item:
+      name: update_todo_item
+    ha_update_zone:
+      name: update_zone
+    ha_write_file:
+      name: write_file
