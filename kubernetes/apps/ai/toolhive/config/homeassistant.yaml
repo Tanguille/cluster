@@ -42,4 +42,70 @@ kind: MCPToolConfig
 metadata:
   name: homeassistant
   namespace: ai
-spec: {}
+spec:
+  # Drop redundant ha_ prefix for all tools (server is already homeassistant)
+  toolsOverride:
+    ha_config_delete_dashboard_resource:
+      name: config_delete_dashboard_resource
+    ha_config_get_label:
+      name: config_get_label
+    ha_config_get_script:
+      name: config_get_script
+    ha_config_info:
+      name: config_info
+    ha_config_list_dashboard_resources:
+      name: config_list_dashboard_resources
+    ha_config_list_groups:
+      name: config_list_groups
+    ha_config_remove_group:
+      name: config_remove_group
+    ha_config_remove_helper:
+      name: config_remove_helper
+    ha_config_remove_label:
+      name: config_remove_label
+    ha_config_remove_script:
+      name: config_remove_script
+    ha_config_set_dashboard_resource:
+      name: config_set_dashboard_resource
+    ha_config_set_group:
+      name: config_set_group
+    ha_config_set_label:
+      name: config_set_label
+    ha_config_set_script:
+      name: config_set_script
+    ha_delete_config_entry:
+      name: delete_config_entry
+    ha_get_device:
+      name: get_device
+    ha_get_entity:
+      name: get_entity
+    ha_get_history:
+      name: get_history
+    ha_get_integration:
+      name: get_integration
+    ha_get_statistics:
+      name: get_statistics
+    ha_hacs_add_repository:
+      name: hacs_add_repository
+    ha_hacs_download:
+      name: hacs_download
+    ha_hacs_info:
+      name: hacs_info
+    ha_hacs_list_installed:
+      name: hacs_list_installed
+    ha_hacs_repository_info:
+      name: hacs_repository_info
+    ha_hacs_search:
+      name: hacs_search
+    ha_remove_device:
+      name: remove_device
+    ha_rename_entity:
+      name: rename_entity
+    ha_rename_entity_and_device:
+      name: rename_entity_and_device
+    ha_set_entity:
+      name: set_entity
+    ha_set_integration_enabled:
+      name: set_integration_enabled
+    ha_update_device:
+      name: update_device
