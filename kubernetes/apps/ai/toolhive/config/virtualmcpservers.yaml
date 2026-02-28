@@ -31,10 +31,11 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
+# Named "ha" to avoid Deployment name collision with MCPServer "homeassistant" (operator creates Deployment = name)
 apiVersion: toolhive.stacklok.dev/v1alpha1
 kind: VirtualMCPServer
 metadata:
-  name: homeassistant
+  name: ha
   namespace: ai
 spec:
   incomingAuth:
