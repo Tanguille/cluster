@@ -6,7 +6,9 @@ metadata:
   namespace: ai
 spec:
   image: ghcr.io/homeassistant-ai/ha-mcp:latest@sha256:ba288f5958e02bf3642f72086bd7799b4b663e3c2f522fdd4cb6a7faa2702a02
-  transport: stdio
+  transport: streamable-http
+  mcpPort: 8086
+  proxyPort: 8080
   groupRef: homeassistant
   env:
     - name: HOMEASSISTANT_URL
@@ -21,6 +23,7 @@ spec:
     spec:
       containers:
         - name: mcp
+          command: ["fastmcp", "run", "fastmcp-http.json"]
           env:
             - name: HOMEASSISTANT_URL
               value: *url
