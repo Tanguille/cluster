@@ -21,7 +21,7 @@ spec:
         runAsNonRoot: true
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
-        seccompProfile: { type: RuntimeDefault }
+        seccompProfile: {type: RuntimeDefault}
 
     controllers:
       prowlarr:
@@ -72,11 +72,11 @@ spec:
                 memory: 512Mi
               limits:
                 cpu: 2
-                memory: 3Gi
+                memory: 4Gi
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
 
     service:
       app:
