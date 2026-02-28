@@ -14,11 +14,16 @@ customization:
     - -selinux
     - cpufreq.default_governor=performance
     - amd_pstate=active
+    - intel_iommu=on
+    - iommu=pt
+    - mitigations=off
+    - security=none
   systemExtensions:
     officialExtensions:
       - siderolabs/nvidia-container-toolkit-production
       - siderolabs/nvidia-open-gpu-kernel-modules-production
       - siderolabs/qemu-guest-agent
+      - siderolabs/nfsrahead
 # Chuwi ubox
 # 7afb59ad38a2e279afd0a7d2ca841becef7521856b55d140cffdf3459d8d3707
 ---
@@ -32,7 +37,10 @@ customization:
     - talos.dashboard.disabled=1
     - -selinux
     - amd_pstate=active
+    - mitigations=off
+    - security=none
   systemExtensions:
     officialExtensions:
       - siderolabs/amdgpu
       - siderolabs/amd-ucode
+      - siderolabs/nfsrahead
