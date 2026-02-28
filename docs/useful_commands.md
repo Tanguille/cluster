@@ -38,12 +38,13 @@ task talos:upgrade-node IP=<node-ip>
 task talos:upgrade-k8s
 ```
 
-**Generate schematic (image factory):**
+**Update schematics (build both from `talos/schematic.yaml` and write installer URLs into `talconfig.yaml`):**
 
 ```bash
-curl -X POST --data-binary @talos/schematic.yaml \
-  https://factory.talos.dev/schematics
+task talos:schematics-update
 ```
+
+Then run `task talos:generate-config` and apply or upgrade nodes as needed.
 
 ---
 
