@@ -76,7 +76,7 @@ tasks:
       - which talhelper
 
   build-schematic:
-    desc: Build a Talos schematic via Factory API [SCHEMATIC_FILE=required]
+    desc: Build a single schematic via Factory API (use schematics-update for both) [SCHEMATIC_FILE=required]
     cmd: |
       curl -X POST --data-binary @{{.SCHEMATIC_FILE}} https://factory.talos.dev/schematics | jq -r '.id'
     requires:
@@ -84,3 +84,12 @@ tasks:
     preconditions:
       - which curl jq
       - test -f {{.SCHEMATIC_FILE}}
+
+  schematics-update:
+    desc: Build both schematics from schematic.yaml and update talconfig.yaml with new installer URLs
+    cmd: TALOS_DIR="{{.TALOS_DIR}}" "{{.ROOT_DIR}}/scripts/talos-schematics-update.sh"
+    preconditions:
+      - which curl jq yq
+      - test -f {{.TALOS_DIR}}/schematic.yaml
+      - test -f {{.TALOS_DIR}}/talconfig.yaml
+      - test -f {{.ROOT_DIR}}/scripts/talos-schematics-update.sh
