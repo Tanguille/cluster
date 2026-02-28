@@ -8,20 +8,19 @@ spec:
   image: ghcr.io/homeassistant-ai/ha-mcp:latest@sha256:ba288f5958e02bf3642f72086bd7799b4b663e3c2f522fdd4cb6a7faa2702a02
   transport: stdio
   groupRef: homeassistant
+  env:
+    - name: HOMEASSISTANT_URL
+      value: https://homeassistant.${SECRET_DOMAIN}
+  secrets:
+    - name: toolhive-secrets
+      key: HOMEASSISTANT_API_TOKEN
+      targetEnvName: HOMEASSISTANT_TOKEN
   toolConfigRef:
     name: *name
   podTemplateSpec:
     spec:
       containers:
         - name: mcp
-          env:
-            - name: HOMEASSISTANT_URL
-              value: https://homeassistant.${SECRET_DOMAIN}
-            - name: HOMEASSISTANT_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: toolhive-secrets
-                  key: HOMEASSISTANT_API_TOKEN
           resources:
             requests: &requests
               cpu: 10m
