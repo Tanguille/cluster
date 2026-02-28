@@ -9,8 +9,9 @@ spec:
   transport: stdio
   groupRef: homeassistant
   env:
+    # In-cluster URL to avoid external DNS/hairpinning and SECRET_DOMAIN substitution
     - name: HOMEASSISTANT_URL
-      value: https://homeassistant.${SECRET_DOMAIN}
+      value: http://external-homeassistant.network.svc.cluster.local
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
