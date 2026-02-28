@@ -14,7 +14,7 @@ This file follows the **[AGENTS.md format](https://agents.md)** (plain Markdown,
 |--------------------------|--------------------------------------------------------------------------------------|-------------------------------------------|
 | `learned-preferences.md` | revert, undo, resources, memory, CPU, MCP vs shell                                   | User preferences and tool-choice guidance |
 | `learned-workspace.md`   | HTTPRoute, ToolHive, MCPServer, Flux substituteFrom, Talos, Reloader, in-cluster URL | Workspace and CRD facts                   |
-| `common-operations.md`   | add app, new application, upgrade, SOPS, secrets, encrypt                            | Procedures: add app, upgrade, secrets     |
+| `common-operations.md`   | add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, volsync, snapshot | Procedures: add app, upgrade, secrets, debug, backup |
 
 Load a file only when the task matches its triggers. Single source of truth—update here for continual-learning.
 
