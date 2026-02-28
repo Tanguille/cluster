@@ -1,0 +1,80 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
+  name: flux
+  namespace: ai
+spec:
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  config:
+    groupRef: flux
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
+  name: observability
+  namespace: ai
+spec:
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  config:
+    groupRef: observability
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
+  name: homeassistant
+  namespace: ai
+spec:
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  config:
+    groupRef: homeassistant
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
+  name: search
+  namespace: ai
+spec:
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  config:
+    groupRef: search
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
+  name: resources
+  namespace: ai
+spec:
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  config:
+    groupRef: resources
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"
