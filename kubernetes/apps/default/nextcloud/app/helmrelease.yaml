@@ -107,10 +107,20 @@ spec:
           configMap:
             name: nextcloud-scripts
             defaultMode: 0755
+        - name: replica-config
+          secret:
+            secretName: nextcloud-secret
+            items:
+              - key: replica.config.php
+                path: replica.config.php
 
       extraVolumeMounts:
         - name: scripts
           mountPath: /scripts
+          readOnly: true
+        - name: replica-config
+          mountPath: /var/www/html/config/replica.config.php
+          subPath: replica.config.php
           readOnly: true
 
       phpConfigs:
@@ -220,19 +230,6 @@ spec:
             'preview_concurrency_new' => 4,
             'preview_concurrency_all' => 4,
             'jpeg_quality' => 60,
-          );
-        replica.config.php: |-
-          <?php
-          $CONFIG = array (
-            'dbreplica' => array(
-              array(
-                'host' => 'pgbouncer-ro.database.svc.cluster.local',
-                'port' => 5432,
-                'user' => '${INIT_POSTGRES_USER}',
-                'password' => '${INIT_POSTGRES_PASS}',
-                'dbname' => '${INIT_POSTGRES_DBNAME}',
-              ),
-            ),
           );
 
     deploymentAnnotations:
