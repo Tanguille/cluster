@@ -22,6 +22,8 @@ Use **add-app-to-cluster** skill for full procedure.
 
 Never commit plaintext secrets or the age key. Use placeholders so I can add the secrets manually.
 
+Post-quantum age (age1pq1) is supported; see [sops-post-quantum.md](../docs/sops-post-quantum.md) for testing and migration.
+
 ## Debugging
 
 Use **debug-cluster** skill for structured 5-Whys analysis and troubleshooting.
