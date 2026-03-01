@@ -1,6 +1,6 @@
 # SOPS post-quantum (age PQC)
 
-This repo uses age post-quantum (recipients `age1pq1...`) with SOPS. Flux in-cluster decryption supports it when kustomize-controller is built with SOPS 3.12+ and age 1.3+.
+This repo might use age post-quantum (recipients `age1pq1...`) with SOPS soon. Flux in-cluster decryption supports it when kustomize-controller is built with SOPS 3.12+ and age 1.3+.
 
 ## Requirements
 

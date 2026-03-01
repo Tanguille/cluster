@@ -142,16 +142,16 @@ For hardware specifications, see the [README](../README.md).
 
 ## kbench Performance Comparison
 
-| Metric | ZFS | Ceph RBD | CephFS | Winner | Difference |
-|--------|-----|----------|--------|--------|------------|
-| **Sequential Write** | 86 MiB/s | 168 MiB/s | 166 MiB/s | **Ceph RBD** | **1.95x faster** |
-| **Sequential Read** | 561 MiB/s | 650 MiB/s | 820 MiB/s | **CephFS** | **1.46x faster** |
-| **Random Write IOPS** | 1,337 | 3,699 | 3,650 | **Ceph RBD** | **2.77x faster** |
-| **Random Read IOPS** | 4,889 | 27,464 | 29,208 | **CephFS** | **5.98x faster** |
-| **Sequential Write Latency** | 0.018 ms | 8.645 ms | 8.630 ms | **ZFS** | **480x lower** |
-| **Sequential Read Latency** | 0.137 ms | 0.275 ms | 0.275 ms | **ZFS** | **2.0x lower** |
-| **Random Write Latency** | 0.893 ms | 9.284 ms | 9.274 ms | **ZFS** | **10.4x lower** |
-| **Random Read Latency** | 0.203 ms | 0.316 ms | 0.311 ms | **ZFS** | **1.56x lower** |
+| Metric                       | ZFS       | Ceph RBD  | CephFS    | Winner       | Difference       |
+|------------------------------|-----------|-----------|-----------|--------------|------------------|
+| **Sequential Write**         | 86 MiB/s  | 168 MiB/s | 166 MiB/s | **Ceph RBD** | **1.95x faster** |
+| **Sequential Read**          | 561 MiB/s | 650 MiB/s | 820 MiB/s | **CephFS**   | **1.46x faster** |
+| **Random Write IOPS**        | 1,337     | 3,699     | 3,650     | **Ceph RBD** | **2.77x faster** |
+| **Random Read IOPS**         | 4,889     | 27,464    | 29,208    | **CephFS**   | **5.98x faster** |
+| **Sequential Write Latency** | 0.018 ms  | 8.645 ms  | 8.630 ms  | **ZFS**      | **480x lower**   |
+| **Sequential Read Latency**  | 0.137 ms  | 0.275 ms  | 0.275 ms  | **ZFS**      | **2.0x lower**   |
+| **Random Write Latency**     | 0.893 ms  | 9.284 ms  | 9.274 ms  | **ZFS**      | **10.4x lower**  |
+| **Random Read Latency**      | 0.203 ms  | 0.316 ms  | 0.311 ms  | **ZFS**      | **1.56x lower**  |
 
 ### kbench Key Findings
 
@@ -288,16 +288,16 @@ fio --name=rand-read --filename=/volume/test-rand-write --size=10G --rw=randread
 
 ### CPU Optimization Comparison (1 Core vs 2 Cores)
 
-| Metric | 2 Cores | 1 Core | Performance Impact | CPU Savings |
-|--------|---------|--------|-------------------|-------------|
-| **Sequential Write** | 2,158 MiB/s | 133 MiB/s | **16.2x slower** | **50% CPU reduction** |
-| **Sequential Read** | 3,573 MiB/s | 1,369 MiB/s | **2.6x slower** | **50% CPU reduction** |
-| **Random Write IOPS** | 32,000 | 15,000 | **2.1x slower** | **50% CPU reduction** |
-| **Random Read IOPS** | 102,000 | 13,100 | **7.8x slower** | **50% CPU reduction** |
-| **Sequential Write Latency (p50)** | 1.35 ms | 16 ms | **11.9x higher** | **50% CPU reduction** |
-| **Sequential Read Latency (p50)** | 1.07 ms | 0.16 ms | **6.7x lower** | **50% CPU reduction** |
-| **Random Write Latency (p50)** | 0.33 ms | 0.44 ms | **1.3x higher** | **50% CPU reduction** |
-| **Random Read Latency (p50)** | 0.17 ms | 0.60 ms | **3.5x higher** | **50% CPU reduction** |
+| Metric                             | 2 Cores     | 1 Core      | Performance Impact | CPU Savings           |
+|------------------------------------|-------------|-------------|--------------------|-----------------------|
+| **Sequential Write**               | 2,158 MiB/s | 133 MiB/s   | **16.2x slower**   | **50% CPU reduction** |
+| **Sequential Read**                | 3,573 MiB/s | 1,369 MiB/s | **2.6x slower**    | **50% CPU reduction** |
+| **Random Write IOPS**              | 32,000      | 15,000      | **2.1x slower**    | **50% CPU reduction** |
+| **Random Read IOPS**               | 102,000     | 13,100      | **7.8x slower**    | **50% CPU reduction** |
+| **Sequential Write Latency (p50)** | 1.35 ms     | 16 ms       | **11.9x higher**   | **50% CPU reduction** |
+| **Sequential Read Latency (p50)**  | 1.07 ms     | 0.16 ms     | **6.7x lower**     | **50% CPU reduction** |
+| **Random Write Latency (p50)**     | 0.33 ms     | 0.44 ms     | **1.3x higher**    | **50% CPU reduction** |
+| **Random Read Latency (p50)**      | 0.17 ms     | 0.60 ms     | **3.5x higher**    | **50% CPU reduction** |
 
 **Key Findings:**
 
@@ -313,16 +313,16 @@ fio --name=rand-read --filename=/volume/test-rand-write --size=10G --rw=randread
 
 When Mayastor is limited to 1 CPU core, its performance characteristics change significantly compared to ZFS:
 
-| Metric | Mayastor (1 Core) | ZFS | Winner | Difference |
-|--------|------------------|-----|--------|------------|
-| **Sequential Write** | 133 MiB/s | 132 MiB/s | **Tie** | 1.0x (essentially equal) |
-| **Sequential Read** | 1,369 MiB/s | 4,711 MiB/s | **ZFS** | **3.4x faster** |
-| **Random Write IOPS** | 15,000 | 9,237 | **Mayastor (1 Core)** | **1.6x faster** |
-| **Random Read IOPS** | 13,100 | 59,300 | **ZFS** | **4.5x faster** |
-| **Sequential Write Latency (p50)** | 16 ms | 9.9 ms | **ZFS** | 1.6x lower |
-| **Sequential Read Latency (p50)** | 0.16 ms | 0.59 ms | **Mayastor (1 Core)** | **3.7x lower** |
-| **Random Write Latency (p50)** | 0.44 ms | 0.052 ms | **ZFS** | **8.5x lower** |
-| **Random Read Latency (p50)** | 0.60 ms | 0.21 ms | **ZFS** | **2.9x lower** |
+| Metric                             | Mayastor (1 Core) | ZFS         | Winner                | Difference               |
+|------------------------------------|-------------------|-------------|-----------------------|--------------------------|
+| **Sequential Write**               | 133 MiB/s         | 132 MiB/s   | **Tie**               | 1.0x (essentially equal) |
+| **Sequential Read**                | 1,369 MiB/s       | 4,711 MiB/s | **ZFS**               | **3.4x faster**          |
+| **Random Write IOPS**              | 15,000            | 9,237       | **Mayastor (1 Core)** | **1.6x faster**          |
+| **Random Read IOPS**               | 13,100            | 59,300      | **ZFS**               | **4.5x faster**          |
+| **Sequential Write Latency (p50)** | 16 ms             | 9.9 ms      | **ZFS**               | 1.6x lower               |
+| **Sequential Read Latency (p50)**  | 0.16 ms           | 0.59 ms     | **Mayastor (1 Core)** | **3.7x lower**           |
+| **Random Write Latency (p50)**     | 0.44 ms           | 0.052 ms    | **ZFS**               | **8.5x lower**           |
+| **Random Read Latency (p50)**      | 0.60 ms           | 0.21 ms     | **ZFS**               | **2.9x lower**           |
 
 **Key Findings:**
 
@@ -522,16 +522,16 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 
 ## Performance Comparison
 
-| Metric | Mayastor (Single) | Mayastor (3-Replica) | ZFS | Ceph RBD | CephFS | Winner | Difference |
-|--------|------------------|---------------------|-----|----------|--------|--------|------------|
-| **Sequential Write** | 2,158 MiB/s | 129 MiB/s | 132 MiB/s | 94.6 MiB/s | 127 MiB/s | **Mayastor (Single)** | **22.8x faster** |
-| **Sequential Read** | 3,573 MiB/s | 2,784 MiB/s | 4,711 MiB/s | 6,906 MiB/s ⚠️ | 867 MiB/s | **Ceph RBD** ⚠️ | **1.5x faster** (cached) |
-| **Random Write IOPS** | 32,000 | 5,030 | 9,237 | 862 | 953 | **Mayastor (Single)** | **37.1x faster** |
-| **Random Read IOPS** | 102,000 | 265,000 | 59,300 | 1,674,000 ⚠️ | 22,200 | **Ceph RBD** ⚠️ | **75.5x faster** (cached) |
-| **Random Write Latency (p50)** | 0.33 ms | 0.96 ms | 0.052 ms | 15 ms | 14 ms | **ZFS** | **269x lower** |
-| **Random Read Latency (p50)** | 0.17 ms | 0.0026 ms | 0.21 ms | 0.0019 ms ⚠️ | 0.60 ms | **Ceph RBD** ⚠️ | **1.4x lower** (cached) |
-| **Sequential Write Latency (p50)** | 1.35 ms | 31 ms | 9.9 ms | 31 ms | 30 ms | **Mayastor (Single)** | **22x lower** |
-| **Sequential Read Latency (p50)** | 1.07 ms | 0.1 ms | 0.59 ms | 0.18 ms ⚠️ | 5 ms | **Mayastor (3-Replica)** | **50x lower** |
+| Metric                             | Mayastor (Single) | Mayastor (3-Replica) | ZFS         | Ceph RBD      | CephFS    | Winner                   | Difference                |
+|------------------------------------|-------------------|----------------------|-------------|---------------|-----------|--------------------------|---------------------------|
+| **Sequential Write**               | 2,158 MiB/s       | 129 MiB/s            | 132 MiB/s   | 94.6 MiB/s    | 127 MiB/s | **Mayastor (Single)**    | **22.8x faster**          |
+| **Sequential Read**                | 3,573 MiB/s       | 2,784 MiB/s          | 4,711 MiB/s | 6,906 MiB/s ⚠️ | 867 MiB/s | **Ceph RBD** ⚠️           | **1.5x faster** (cached)  |
+| **Random Write IOPS**              | 32,000            | 5,030                | 9,237       | 862           | 953       | **Mayastor (Single)**    | **37.1x faster**          |
+| **Random Read IOPS**               | 102,000           | 265,000              | 59,300      | 1,674,000 ⚠️   | 22,200    | **Ceph RBD** ⚠️           | **75.5x faster** (cached) |
+| **Random Write Latency (p50)**     | 0.33 ms           | 0.96 ms              | 0.052 ms    | 15 ms         | 14 ms     | **ZFS**                  | **269x lower**            |
+| **Random Read Latency (p50)**      | 0.17 ms           | 0.0026 ms            | 0.21 ms     | 0.0019 ms ⚠️   | 0.60 ms   | **Ceph RBD** ⚠️           | **1.4x lower** (cached)   |
+| **Sequential Write Latency (p50)** | 1.35 ms           | 31 ms                | 9.9 ms      | 31 ms         | 30 ms     | **Mayastor (Single)**    | **22x lower**             |
+| **Sequential Read Latency (p50)**  | 1.07 ms           | 0.1 ms               | 0.59 ms     | 0.18 ms ⚠️     | 5 ms      | **Mayastor (3-Replica)** | **50x lower**             |
 
 ---
 
