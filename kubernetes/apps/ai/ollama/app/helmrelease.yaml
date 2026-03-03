@@ -31,18 +31,21 @@ spec:
           app:
             image:
               repository: docker.io/ollama/ollama
-              tag: 0.17.5
+              tag: "0.17.5"
             env:
               TZ: ${TIMEZONE}
-              LIBVA_DRIVER_NAME: nvidia
+              CUDA_VISIBLE_DEVICES: "0"
               OLLAMA_HOST: "0.0.0.0"
-              OLLAMA_CONTEXT_LENGTH: "65536"
               OLLAMA_ORIGINS: "*"
               OLLAMA_MODELS: /models
+              OLLAMA_CONTEXT_LENGTH: "65536"
+              OLLAMA_NUM_PARALLEL: "1"
               OLLAMA_LOAD_TIMEOUT: "10m"
-              OLLAMA_GPU_OVERHEAD: "2147483648"
               OLLAMA_KEEP_ALIVE: "15m"
-              OLLAMA_FLASH_ATTENTION: "true"
+              # Flash Attention (docs.ollama.com/faq): set to 1 to enable
+              OLLAMA_FLASH_ATTENTION: "1"
+              # K/V cache (docs.ollama.com/faq): q8_0 uses ~1/2 memory of f16, minimal quality impact
+              OLLAMA_KV_CACHE_TYPE: "q8_0"
             probes:
               startup: &probeBase
                 enabled: true
@@ -73,8 +76,8 @@ spec:
                   failureThreshold: 3
             resources:
               requests:
-                cpu: 200m
-                memory: 256Mi
+                cpu: 500m
+                memory: 2Gi
                 nvidia.com/gpu: 1
               limits:
                 cpu: 8
