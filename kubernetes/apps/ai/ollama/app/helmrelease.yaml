@@ -35,11 +35,11 @@ spec:
             env:
               TZ: ${TIMEZONE}
               LIBVA_DRIVER_NAME: nvidia
-              OLLAMA_CONTEXT_LENGTH: 32768
+              OLLAMA_CONTEXT_LENGTH: 65536
               OLLAMA_HOST: 0.0.0.0
               OLLAMA_ORIGINS: "*"
               OLLAMA_MODELS: /models
-              OLLAMA_NUM_PARALLEL: "4"
+              OLLAMA_NUM_PARALLEL: "2"
             probes:
               startup: &probeBase
                 enabled: true
