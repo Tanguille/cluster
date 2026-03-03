@@ -17,3 +17,4 @@ Stable, non-sensitive facts about this cluster and tooling.
 - For one-shot privileged pods (e.g. disk zap), use a YAML manifest and `kubectl apply -f`; `kubectl run --overrides` with complex JSON often fails with "Invalid JSON Patch".
 - When re-running the same one-shot pod (e.g. zap), delete the pod first (`kubectl delete pod <name> --ignore-not-found`) then apply; pod spec is largely immutable.
 - CloudNative-PG postgres16 and barman-cloud plugin run in namespace `database`; the plugin Deployment is named `barman-cloud-plugin-barman-cloud` (Service is `barman-cloud`). To re-add a missing instance after its join job was deleted, delete that instance's PVC then force-reconcile so the operator creates a new PVC and join job.
+- ToolHive: VirtualMCPServer and MCPServer must not share the same name in the same namespace (both create a Deployment with that name; use e.g. VirtualMCPServer `ha` when MCPServer is `homeassistant` to avoid collision).
