@@ -19,7 +19,6 @@ spec:
   enableSuperuserAccess: true
   postgresql:
     parameters:
-      full_page_writes: "off" # Safe with PLP: no torn pages → less WAL, better throughput
       max_connections: "200"
       shared_buffers: 1GB
       effective_cache_size: 4GB
