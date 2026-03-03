@@ -12,7 +12,7 @@ spec:
   groupRef: homeassistant
   env:
     - name: HOMEASSISTANT_URL
-      value: http://external-homeassistant.network.svc.cluster.local
+      value: http://${HOME_ASSISTANT_IP}
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
