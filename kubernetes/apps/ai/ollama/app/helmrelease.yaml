@@ -59,7 +59,8 @@ spec:
                   timeoutSeconds: 3
                   failureThreshold: 30
               liveness:
-                <<: *probeBase
+                enabled: true
+                custom: true
                 spec:
                   httpGet: *httpGet
                   initialDelaySeconds: 30
@@ -67,7 +68,8 @@ spec:
                   timeoutSeconds: 5
                   failureThreshold: 3
               readiness:
-                <<: *probeBase
+                enabled: true
+                custom: true
                 spec:
                   httpGet: *httpGet
                   initialDelaySeconds: 10

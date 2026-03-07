@@ -29,13 +29,13 @@ Learned preferences and workspace facts live in `.agent/learned-preferences.md` 
 
 **GitOps-based Kubernetes cluster** on Talos Linux; FluxCD for reconciliation. Changes go through this repo, not direct cluster edits.
 
-**Structure:** `kubernetes/` (manifests, HelmReleases), `talos/` (machine configs), `docs/` (useful_commands, common-operations), `.agent/` (on-demand context).
+**Structure:** `kubernetes/` (manifests, HelmReleases), `talos/` (machine configs), `docs/` (useful_commands), `.agent/` (on-demand context).
 
 ## Commands (summary)
 
 - **Task:** `task`, `task reconcile`, `task talos:generate-config`, `task talos:apply-node IP=...`, `task talos:upgrade-node IP=...`
 - **Validate:** `kubeconform -strict -original-location kubernetes/`, `yamlfmt -w kubernetes/`, `shellcheck scripts/*.sh`
-- **Flux local (PRs):** `flux-local test --all-namespaces --enable-helm --path kubernetes/flux/cluster`
+
 - **Tools:** mise; run via `mise exec -- <cmd>` (flux, helm, kubectl, kustomize, sops, age, talhelper, talosctl, yq, jq, kubeconform, yamlfmt).
 
 ## Code style (short)
