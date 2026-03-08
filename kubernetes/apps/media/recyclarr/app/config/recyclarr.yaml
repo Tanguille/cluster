@@ -4,7 +4,6 @@ radarr:
   radarr:
     base_url: http://radarr.media.svc.cluster.local
     api_key: !env_var RADARR_API_KEY
-    delete_old_custom_formats: true
 
     quality_definition:
       type: movie
@@ -26,12 +25,12 @@ radarr:
 
     include:
       - config: Radarr_Standard_Custom_Formats.yaml
+        select_all: true
 
 sonarr:
   sonarr:
     base_url: http://sonarr.media.svc.cluster.local
     api_key: !env_var SONARR_API_KEY
-    delete_old_custom_formats: true
 
     quality_definition:
       type: series
@@ -67,4 +66,6 @@ sonarr:
 
     include:
       - config: Sonarr_Anime_Custom_Formats.yaml
+        select_all: true
       - config: Sonarr_Standard_Custom_Formats.yaml
+        select_all: true
