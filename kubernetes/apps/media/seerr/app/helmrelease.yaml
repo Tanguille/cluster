@@ -15,7 +15,6 @@ spec:
       seerr:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: RollingUpdate
         containers:
           app:
             image:
@@ -40,7 +39,7 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
-              capabilities: { drop: ["ALL"] }
+              capabilities: {drop: ["ALL"]}
             resources:
               requests:
                 cpu: 10m
@@ -60,7 +59,7 @@ spec:
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups: [10000]
-        seccompProfile: { type: RuntimeDefault }
+        seccompProfile: {type: RuntimeDefault}
 
     service:
       app:
