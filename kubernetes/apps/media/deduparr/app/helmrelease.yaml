@@ -28,14 +28,11 @@ spec:
               DEDUPARR_SERVICE__PORT: &port 80
               DEDUPARR_RADARR_MOVIES_ENABLED: true
               DEDUPARR_RADARR_MOVIES_URL: http://radarr.media.svc.cluster.local
+              DEDUPARR_RADARR_MOVIES_API_KEY: ${RADARR_API_KEY}
               DEDUPARR_SONARR_SERIES_ENABLED: true
               DEDUPARR_SONARR_SERIES_URL: http://sonarr.media.svc.cluster.local
+              DEDUPARR_SONARR_SERIES_API_KEY: ${SONARR_API_KEY}
               TZ: ${TIMEZONE}
-              RADARR_API_KEY: ${RADARR_API_KEY}
-              SONARR_API_KEY: ${SONARR_API_KEY}
-            envFrom:
-              - secretRef:
-                  name: "{{ .Release.Name }}-secret"
             probes:
               liveness:
                 enabled: true
