@@ -12,15 +12,14 @@ spec:
 
   values:
     controllers:
-      *app :
-        strategy: RollingUpdate
+      *app:
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: ghcr.io/dgtlmoon/changedetection.io
-              tag: "0.53.5"
+              tag: "0.54.4"
             env:
               PORT: &port 5000
             resources:

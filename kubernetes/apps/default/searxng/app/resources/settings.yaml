@@ -2,14 +2,22 @@
 use_default_settings: true
 
 server:
-  limiter: false
+  limiter: true
   image_proxy: true
   method: GET # https://github.com/searxng/searxng/pull/3619
 
 redis:
   url: redis://dragonfly.database.svc.cluster.local:6379?db=10
 
+# Limiter needs valkey (Redis-compatible); use same Dragonfly with a different db.
+valkey:
+  url: redis://dragonfly.database.svc.cluster.local:6379/11
+
 search:
+  # Allow JSON so API/MCP clients (e.g. mcp-searxng) can use format=json; otherwise they get 403.
+  formats:
+    - html
+    - json
   autocomplete: duckduckgo
 
 general:

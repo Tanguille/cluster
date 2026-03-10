@@ -1,0 +1,43 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: &name grafana
+  namespace: ai
+spec:
+  image: mcp/grafana:latest
+  transport: stdio
+  groupRef: observability
+  args:
+    - "-t"
+    - "stdio"
+  env:
+    - name: GRAFANA_URL
+      value: http://grafana-service.observability.svc.cluster.local:3000
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 110Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: grafana
+  namespace: ai
+spec: {}

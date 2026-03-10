@@ -1,169 +1,56 @@
 # AGENTS.md - Agent Coding Guidelines
 
+This file follows the **[AGENTS.md format](https://agents.md)**. Keep this file **short** (~50–80 lines); detailed and learned context lives in **`.agent/`** and is loaded **on demand** by trigger (see table below). Do not paste long bullet lists here—use smaller, task-specific docs so context stays relevant.
+
+## Tool use and context
+
+- **Prefer MCP tools over raw shell** when an MCP tool exists for the task. Use bash only when no suitable MCP tool exists or for one-off local commands.
+- **Use ToolHive MCP servers instead of raw kubectl** when the task involves:
+  - **flux** — reconcile, Kustomization/HelmRelease state, cluster/operator tasks (use flux tools, not `kubectl`/`flux reconcile` in shell).
+  - **observability** — Grafana dashboards, Prometheus/metrics (use observability tools).
+  - **homeassistant** — Home Assistant control, entities, automations (use homeassistant tools).
+  - **resources** — GitHub, sequential thinking, KaraKeep bookmarks (use resources tools).
+  - **search** — web search (use search tools).
+  For debugging (e.g. pod logs), use the MCP `get_kubernetes_logs` tool when available rather than `kubectl logs` in the shell.
+- **Load only the `.agent/` file(s) whose triggers match the task.** Do not load all `.agent/*.md` upfront.
+
+### .agent/ (load on demand)
+
+| File                     | Trigger keywords                                                                                                            | Purpose                                              |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
+| `learned-preferences.md` | revert, undo, resources, memory, CPU, MCP vs shell                                                                          | User preferences and tool-choice guidance            |
+| `learned-workspace.md`   | HTTPRoute, ToolHive, MCPServer, Flux, Talos, Reloader, in-cluster URL, Rook, RBAC, zap                                      | Workspace and CRD facts                              |
+| `common-operations.md`   | add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, volsync, snapshot | Procedures: add app, upgrade, secrets, debug, backup |
+| `worktree-isolation.md`  | worktree, isolated work, parallel agent, experimental branch, feature branch                                                | Git worktree procedure for isolated changes          |
+
+Learned preferences and workspace facts live in `.agent/learned-preferences.md` and `.agent/learned-workspace.md`. Update those files (or run continual-learning); do not duplicate long lists here.
+
 ## Overview
 
-This is a **GitOps-based Kubernetes cluster repository** running on Talos Linux. It uses FluxCD for GitOps reconciliation. Most changes should be made through this repository rather than directly to the cluster.
+**GitOps-based Kubernetes cluster** on Talos Linux; FluxCD for reconciliation. Changes go through this repo, not direct cluster edits.
 
-## Project Structure
+**Structure:** `kubernetes/` (manifests, HelmReleases), `talos/` (machine configs), `docs/` (useful_commands), `.agent/` (on-demand context).
 
-- `kubernetes/` - Kubernetes manifests (FluxCD Kustomizations, HelmReleases)
-- `talos/` - Talos Linux machine configs
-- `bootstrap/` - Bootstrap Helmfile configurations
-- `.taskfiles/` - Task definitions for automation
-- `.github/workflows/` - CI/CD workflows
+## Commands (summary)
 
-## Build/Lint/Test Commands
+- **Task:** `task`, `task reconcile`, `task talos:generate-config`, `task talos:apply-node IP=...`, `task talos:upgrade-node IP=...`
+- **Validate:** `kubeconform -strict -original-location kubernetes/`, `yamlfmt -w kubernetes/`, `shellcheck scripts/*.sh`
 
-### Task Runner (Primary)
-```bash
-task                           # List all available tasks
-task reconcile                 # Force Flux to pull changes from Git
-```
+- **Tools:** mise; run via `mise exec -- <cmd>` (flux, helm, kubectl, kustomize, sops, age, talhelper, talosctl, yq, jq, kubeconform, yamlfmt).
 
-### Kubernetes Tasks
-```bash
-task kubernetes:encrypt        # Encrypt all Kubernetes SOPS secrets
-task kubernetes:resources      # Gather cluster resources for support
-```
+## Code style (short)
 
-### Talos Tasks
-```bash
-task talos:generate-config     # Generate Talos configuration
-task talos:apply-node IP=...   # Apply Talos config to a node
-task talos:upgrade-node IP=... # Upgrade Talos on a single node
-task talos:upgrade-k8s         # Upgrade Kubernetes
-```
+- URLs: use `${SECRET_DOMAIN}` (never hardcode domains). YAML: 2 spaces, LF, `yamlfmt`, DRY with anchors. Secrets: SOPS only; never commit plaintext or age.key. K8s: lowercase-dashes; resources in `kubernetes/apps/<app>/<type>/` with `ks.yaml`. Shell: `set -euo pipefail`, shellcheck.
 
-### Linting/Validation
+## Safety and permissions
 
-**YAML Formatting** (yamlfmt):
-```bash
-yamlfmt -w kubernetes/          # Format YAML files (excludes *.sops.yaml)
-```
+- **Allowed without prompt:** Read files, list dirs, validation (kubeconform, yamlfmt, shellcheck), flux-local test/diff, format/lint.
+- **Ask first:** Git push (including force), applying to live cluster (`task reconcile`, `flux reconcile`, `talos apply`), decrypting/editing SOPS secrets, deleting resources.
 
-**Kubernetes Validation**:
-```bash
-kubeconform -strict -original-location kubernetes/
-```
+## When stuck
 
-**Shell Scripts** (shellcheck):
-```bash
-shellcheck scripts/*.sh
-```
+- Ask a clarifying question, propose a short plan, or open a draft PR with notes. Do not push large speculative changes without confirmation.
 
-**Flux Local Testing** (for PRs):
-```bash
-flux-local test --all-namespaces --enable-helm --path kubernetes/flux/cluster
-flux-local diff helmrelease --path kubernetes/flux/cluster
-```
+## PR / commit checklist
 
-### Environment Setup
-
-This project uses **mise** for tool management:
-```bash
-mise install           # Install all tools defined in .mise.toml
-mise exec -- helm ...  # Run tools without global installation
-```
-
-Required tools: flux, helm, kubectl, kustomize, sops, age, talhelper, talosctl, yq, jq, kubeconform, yamlfmt
-
-## Code Style Guidelines
-
-### YAML Files
-- **Indent:** 2 spaces (NOT tabs)
-- **Line endings:** LF (Unix)
-- **Trailing whitespace:** Trimmed
-- **Final newline:** Required
-- **Document start:** `---` at start of YAML files
-- **Formatting:** Use `yamlfmt` to auto-format
-
-### Secrets (SOPS)
-- **Never commit plaintext secrets**
-- Use `sops` for encrypted secrets (Age encryption)
-- Encrypted files use `.sops.yaml` or `.sops.json` extension
-- Key file: `age.key` (do not commit)
-- Edit encrypted files with: `sops <file>`
-
-### Kubernetes Resources
-
-**Naming Conventions:**
-- Use lowercase with dashes: `my-resource-name`
-- HelmReleases: `<app>-<namespace>` pattern
-- Namespaces: lowercase, descriptive
-- Labels: consistent `app.kubernetes.io/name`, `app.kubernetes.io/instance`
-
-**Resource Structure:**
-```yaml
-apiVersion: <group>/<version>
-kind: <ResourceType>
-metadata:
-  name: <resource-name>
-  namespace: <namespace>
-spec:
-  # Resource-specific configuration
-```
-
-**Flux Integration:**
-- Place resources in `kubernetes/apps/<app>/<type>/`
-- Use Kustomization overlays for environment differences
-- Include `ks.yaml` for Flux Kustomization definitions
-
-### GitOps Principles
-
-1. **All changes via Git** - Never modify cluster resources directly
-2. **Declarative manifests** - Define desired state, not imperative steps
-3. **Drift detection** - Flux will detect and revert manual changes
-4. **Reconciliation** - Use `task reconcile` to trigger Flux sync
-
-### Shell Scripts
-- Use `#!/usr/bin/env bash` shebang
-- 4-space indentation
-- Use `set -euo pipefail`
-- Check: `shellcheck` before committing
-
-### Documentation
-- Markdown files: 4-space indent
-- Keep README.md updated for major changes
-- Document manual procedures in `docs/`
-
-## Error Handling
-
-- **Preconditions:** Use Taskfile preconditions to verify prerequisites
-- **Secrets:** Fail early if SOPS keys missing (`test -f age.key`)
-- **Validation:** Run kubeconform before committing K8s changes
-
-## Common Operations
-
-### Adding New Application
-1. Create namespace in `kubernetes/components/common/`
-2. Add HelmRepository if external
-3. Create app in `kubernetes/apps/<app>/`
-4. Add Kustomization in appropriate `ks.yaml`
-5. Run validation: `kubeconform -strict kubernetes/`
-
-### Upgrading Applications
-1. Update `image.tag` in HelmRelease or kustomization.yaml
-2. Commit and push changes
-3. Flux will auto-reconcile (or run `task reconcile`)
-
-### Secrets Management
-1. Create unencrypted file first
-2. Encrypt with: `sops --encrypt --in-place <file>`
-3. Or create with: `sops <file>.yaml` (edits encrypted)
-
-## Testing Changes
-
-For any K8s changes:
-1. Validate: `kubeconform -strict kubernetes/`
-2. Format: `yamlfmt -w kubernetes/`
-3. Test locally (if flux-local available):
-   ```bash
-   flux-local test --all-namespaces --path kubernetes/flux/cluster
-   ```
-
-## Important Notes
-
-- This is infrastructure-as-code; changes affect production
-- Always review diffs before committing
-- Use flux-local in PRs to catch issues early
-- Never commit secrets or the age.key file
+- **Title:** [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat(scope): description`). Lint/validate green before commit; diff small and focused. Never commit secrets or age.key; do not force push unless the user asked for it.

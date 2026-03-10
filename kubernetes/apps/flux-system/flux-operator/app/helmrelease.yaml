@@ -13,5 +13,16 @@ spec:
     serviceMonitor:
       create: true
     web:
+      config:
+        authentication:
+          type: Anonymous
+          anonymous:
+            username: flux
+            groups:
+              - flux-admin
       networkPolicy:
         create: false
+    manager:
+      resources:
+        limits:
+          memory: 512Mi

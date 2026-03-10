@@ -13,14 +13,13 @@ spec:
   values:
     controllers:
       wizarr:
-        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: ghcr.io/wizarrrr/wizarr
-              tag: latest@sha256:83fc0b50985d196226b7c28a27062a1c4e63124a5d6d2448710aee222637b79e
+              tag: latest@sha256:855e2a9a98eb18ffee26f321aac5a58712bcb04a537f10c21b95d191f9407588
             env:
               TZ: ${TIMEZONE}
               UV_CACHE_DIR: /tmp/.uv-cache

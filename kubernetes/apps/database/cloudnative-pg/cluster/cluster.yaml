@@ -7,7 +7,7 @@ metadata:
   annotations:
     cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.2-standard-trixie@sha256:adfbebaa19b30ea972eb98be8876dcc09deb1b4fba5d83ac2b7f814fb903d68b
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.3-standard-trixie@sha256:77c63fce273e7af67d59c49026604e7eca9f2dc69066ce7045db600d99c6bf1e
   instances: 3
   primaryUpdateStrategy: unsupervised
   primaryUpdateMethod: switchover
@@ -19,37 +19,40 @@ spec:
   enableSuperuserAccess: true
   postgresql:
     parameters:
-      max_connections: "400"
+      max_connections: "200"
       shared_buffers: 1GB
-      effective_cache_size: 3GB
+      effective_cache_size: 4GB
       huge_pages: "try"
-      # io_method: "io_uring" # Disabled: CloudNativePG runs PostgreSQL containers with capabilities: { drop: ["ALL"] }
-      # which prevents io_uring from working. io_uring requires specific Linux capabilities (SYS_RESOURCE)
-      # that CloudNativePG doesn't grant for security reasons. The worker method provides similar
-      # asynchronous I/O performance using dedicated worker processes instead of io_uring.
+      # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
       io_method: "worker"
+      # work_mem: 200 conn × 12MB × 1 op ≈ 2.4GB peak; fits in 8Gi. Heavy 2-op bursts can spike; SET work_mem per session if needed.
       work_mem: 12MB
-      maintenance_work_mem: 512MB
+      maintenance_work_mem: 1GB # Vector/pgvector index builds and autovacuum; raise per-session for huge CREATE INDEX
+      max_parallel_maintenance_workers: "8" # Faster CREATE INDEX (pgvector HNSW, vchord vchordrq); default 2
+      max_parallel_workers_per_gather: "4" # Parallel vector/search queries when not index-only; default 2
       # WAL tuning for fewer checkpoints/archives
       min_wal_size: 2GB
       max_wal_size: 8GB
       checkpoint_timeout: 15min
       checkpoint_completion_target: "0.9"
+      checkpoint_warning: "60" # Seconds; log if checkpoints happen closer (increase max_wal_size if frequent)
       wal_compression: "zstd"
+      wal_buffers: 64MB
       # Autovacuum tuned for many small/medium DBs with XID age protection
       autovacuum_vacuum_scale_factor: "0.02"
       autovacuum_analyze_scale_factor: "0.01"
       autovacuum_vacuum_threshold: "50"
       autovacuum_analyze_threshold: "25"
-      autovacuum_vacuum_cost_limit: "2000"
-      autovacuum_vacuum_cost_delay: "2ms"
+      autovacuum_vacuum_cost_limit: "2000" # Default 200; higher = faster autovacuum (NVMe can take it)
+      autovacuum_vacuum_cost_delay: "1ms" # Default 2ms; lower on NVMe so autovacuum finishes sooner
       autovacuum_freeze_max_age: "100000000"
       vacuum_freeze_min_age: "50000000"
       vacuum_freeze_table_age: "75000000"
       default_statistics_target: "200"
-      # I/O tuning for NVMe/LVM (openebs-lvm)
-      random_page_cost: "1.1" # Default 4.0 (HDD-oriented), lowered for SSD/NVMe
+      random_page_cost: "1.1" # Default 4.0 (HDD-oriented); 1.1 favors index scans on NVMe
       effective_io_concurrency: "200" # Default 16, increased for NVMe parallelism
+      maintenance_io_concurrency: "200" # VACUUM/ANALYZE/CREATE INDEX parallelism on NVMe
+    # Extensions: vchord needs shared_preload_libraries; CNPG sets logging_collector=on (vchord logs). Per-session: hnsw.ef_search (pgvector), vchordrq.probes / vchordrq.epsilon (vchord).
     shared_preload_libraries:
       - "vchord.so"
     extensions:
@@ -75,7 +78,7 @@ spec:
     limits:
       cpu: 2
       memory: 8Gi
-      hugepages-2Mi: 2Gi
+      hugepages-2Mi: 1Gi
   monitoring:
     enablePodMonitor: true
   plugins:
