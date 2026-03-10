@@ -30,6 +30,30 @@ spec:
       targetLabel: job
       replacement: *app
 ---
+# Kepler on TrueNAS (control-1 VM host). Scrapes host port 28284 (compose maps 28284:28282).
+# See docs/kepler-truenas.md.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: kepler-truenas
+spec:
+  staticConfigs:
+    - targets:
+        - ${TRUENAS_IP}:28284
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: power-monitor
+    - action: replace
+      targetLabel: instance
+      replacement: control-1
+  metricRelabelings:
+    - action: replace
+      targetLabel: node_name
+      replacement: control-1
+---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig

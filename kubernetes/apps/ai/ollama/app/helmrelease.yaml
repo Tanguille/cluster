@@ -24,22 +24,27 @@ spec:
     controllers:
       app:
         type: deployment
-        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: docker.io/ollama/ollama
-              tag: 0.16.3
+              tag: "0.17.7"
             env:
               TZ: ${TIMEZONE}
-              LIBVA_DRIVER_NAME: nvidia
-              OLLAMA_CONTEXT_LENGTH: 32768
-              OLLAMA_HOST: 0.0.0.0
+              # Don't set CUDA_VISIBLE_DEVICES: log warns "if GPUs not correctly discovered, unset and try again"; single-GPU pod has one device anyway
+              OLLAMA_HOST: "0.0.0.0"
               OLLAMA_ORIGINS: "*"
               OLLAMA_MODELS: /models
-              OLLAMA_NUM_PARALLEL: "4"
+              OLLAMA_CONTEXT_LENGTH: "65536"
+              OLLAMA_NUM_PARALLEL: "1"
+              OLLAMA_LOAD_TIMEOUT: "10m"
+              OLLAMA_GPU_OVERHEAD: "1073741824"
+              OLLAMA_KEEP_ALIVE: "15m"
+              OLLAMA_FLASH_ATTENTION: "1"
+              # K/V cache (docs.ollama.com/faq): q8_0 uses ~1/2 memory of f16, minimal quality impact
+              OLLAMA_KV_CACHE_TYPE: "q8_0"
             probes:
               startup: &probeBase
                 enabled: true
@@ -68,12 +73,10 @@ spec:
                   periodSeconds: 10
                   timeoutSeconds: 5
                   failureThreshold: 3
-            securityContext:
-              privileged: true
             resources:
               requests:
-                cpu: 200m
-                memory: 256Mi
+                cpu: 500m
+                memory: 2Gi
                 nvidia.com/gpu: 1
               limits:
                 cpu: 8

@@ -24,7 +24,7 @@ nodes:
     installDisk: "/dev/vda"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/c8074f1e77e2f4ce278647e55ac9f60869e48d616592790a2bfe8b4aa0392904
+    talosImageURL: factory.talos.dev/installer/fc72c84f360f7f43b89a3656c3e099c437e13944162a2acd9dd21530a79df5c5
     controlPlane: true
     patches:
       - "@./patches/control-1/nvidia-gpu.yaml"
@@ -42,11 +42,13 @@ nodes:
           ip: "192.168.0.2"
   - hostname: "control-2"
     ipAddress: "192.168.0.12"
-    installDisk: "/dev/nvme0n1"
+    installDisk: "/dev/nvme1n1"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/a38170dc72bb44e3e7ba715b796d6582d05f44f4ae00d9841a952869cbf5e77d
+    talosImageURL: factory.talos.dev/installer/1fd419f5873a6e96fcd35ad1f849c02b53578eb39922041b24ab475fccd99780
     controlPlane: true
+    patches:
+      - "@./patches/kepler-node.yaml"
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "84:47:09:6d:0d:2f"
@@ -61,11 +63,13 @@ nodes:
           ip: "192.168.0.2"
   - hostname: "control-3"
     ipAddress: "192.168.0.13"
-    installDisk: "/dev/nvme0n1"
+    installDisk: "/dev/disk/by-id/nvme-Micron_7450_MTFDKBA480TFR_241548387F46"
     machineSpec:
       secureboot: false
-    talosImageURL: factory.talos.dev/installer/a38170dc72bb44e3e7ba715b796d6582d05f44f4ae00d9841a952869cbf5e77d
+    talosImageURL: factory.talos.dev/installer/1fd419f5873a6e96fcd35ad1f849c02b53578eb39922041b24ab475fccd99780
     controlPlane: true
+    patches:
+      - "@./patches/kepler-node.yaml"
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "84:47:09:6d:18:a4"

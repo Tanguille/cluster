@@ -55,7 +55,7 @@ spec:
         image:
           registry: mirror.gcr.io
           repository: prompp/prompp
-          tag: 0.7.5
+          tag: 0.7.6
         securityContext:
           runAsNonRoot: true
           runAsUser: 64535
@@ -66,8 +66,8 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         scrapeConfigSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
-        retention: 365d
-        retentionSize: 100GB
+        retention: 180d
+        retentionSize: 190GB
         resources:
           requests:
             cpu: 250m
@@ -81,9 +81,17 @@ spec:
               storageClassName: ceph-block
               resources:
                 requests:
-                  storage: 100Gi
+                  storage: 200Gi # headroom over retentionSize for compaction/WAL
     prometheus-node-exporter:
       fullnameOverride: node-exporter
+    nodeExporter:
+      operatingSystems:
+        linux:
+          enabled: false
+        aix:
+          enabled: false
+        darwin:
+          enabled: false
     kube-state-metrics:
       fullnameOverride: kube-state-metrics
     prometheusOperator:

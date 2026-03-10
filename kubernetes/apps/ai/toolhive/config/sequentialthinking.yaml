@@ -1,0 +1,37 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: &name sequentialthinking
+  namespace: ai
+spec:
+  image: mcp/sequentialthinking:latest
+  transport: stdio
+  groupRef: resources
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 110Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: sequentialthinking
+  namespace: ai
+spec: {}

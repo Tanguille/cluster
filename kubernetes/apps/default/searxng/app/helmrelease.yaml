@@ -26,6 +26,8 @@ spec:
               - /usr/local/searxng/venv/bin/uwsgi
               - --master
               - /usr/local/searxng/.template/uwsgi.ini
+              - --listen
+              - "256"
             env:
               BASE_URL: https://search.${CLUSTER_DOMAIN}
               UWSGI_WORKERS: "1"
@@ -61,7 +63,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 256Mi
+                memory: 128Mi
               limits:
                 cpu: 100m
                 memory: 1Gi
@@ -99,6 +101,8 @@ spec:
             app:
               - path: /etc/searxng/settings.yml
                 subPath: settings.yml
+              - path: /etc/searxng/limiter.toml
+                subPath: limiter.toml
       tmp:
         type: emptyDir
         medium: Memory

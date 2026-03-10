@@ -16,7 +16,6 @@ spec:
       app:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: RollingUpdate
         containers:
           main:
             image:
@@ -36,7 +35,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 128Mi
+                memory: 64Mi
               limits:
                 cpu: 100m
                 memory: 256Mi
