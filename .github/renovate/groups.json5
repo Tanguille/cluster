@@ -78,5 +78,15 @@
       },
       minimumGroupSize: 2,
     },
+    {
+      description: "Toolhive operator and CRDs group",
+      groupName: "toolhive",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+      minimumGroupSize: 2,
+    },
   ],
 }
