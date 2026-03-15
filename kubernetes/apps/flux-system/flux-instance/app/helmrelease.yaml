@@ -156,7 +156,7 @@ spec:
             target:
               kind: Deployment
               name: helm-controller
-            - # Default to retry on failure and disable chart digest tracking
+          - # Default to retry on failure and disable chart digest tracking
             patch: |-
               - op: add
                 path: /spec/template/spec/containers/0/args/-
