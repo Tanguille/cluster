@@ -8,6 +8,12 @@ spec:
   enabled: true
   trigger:
     schedule: 30 3,15 * * *
+  moverVolumes:
+    - mountPath: repository
+      volumeSource:
+        nfs:
+          path: /mnt/TanguilleServer/VolsyncKopia
+          server: "${TRUENAS_IP}"
   repository:
     repository: volsync-maintenance-secret
   podSecurityContext:
