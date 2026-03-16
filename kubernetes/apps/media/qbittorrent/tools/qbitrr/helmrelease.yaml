@@ -22,9 +22,10 @@ spec:
                     operator: In
                     values:
                       - control-1
+      # Root required so qbitrr entrypoint (gosu) can run
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
+        runAsUser: 0
+        runAsGroup: 0
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
 
@@ -32,28 +33,6 @@ spec:
       qbitrr:
         annotations:
           reloader.stakater.com/auto: "true"
-
-        initContainers:
-          configure:
-            image:
-              repository: alpine
-              tag: 3.23
-            securityContext:
-              runAsUser: 0
-              runAsGroup: 0
-            command:
-              - "/bin/sh"
-              - -c
-              - |
-                apk add --no-cache e2fsprogs-extra gettext > /dev/null
-                mkdir -p /config
-                chown -R 1000:1000 /config
-                envsubst < /config-template/config.toml > /config/config.toml
-                chown 0:0 /config/config.toml
-                chattr +i /config/config.toml
-            envFrom:
-              - secretRef:
-                  name: qbitrr-secrets
 
         containers:
           app:
@@ -105,11 +84,12 @@ spec:
           - path: /config
             readOnly: false
 
-      config-template:
+      config-file:
         type: configMap
         name: qbitrr-config
         globalMounts:
-          - path: /config-template
+          - path: /config/config.toml
+            subPath: config.toml
             readOnly: true
 
       downloads:
