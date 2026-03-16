@@ -36,20 +36,21 @@ spec:
         initContainers:
           configure:
             image:
-              repository: ghcr.io/dmfrey/bash
-              tag: 5.2.26-alpine3.20
+              repository: alpine
+              tag: 3.23
             securityContext:
               runAsUser: 0
               runAsGroup: 0
             command:
-              - "/usr/local/bin/bash"
+              - "/bin/sh"
               - -c
               - |
+                apk add --no-cache e2fsprogs-extra gettext > /dev/null
                 mkdir -p /config
                 chown -R 1000:1000 /config
                 envsubst < /config-template/config.toml > /config/config.toml
                 chown 0:0 /config/config.toml
-                chmod 444 /config/config.toml
+                chattr +i /config/config.toml
             envFrom:
               - secretRef:
                   name: qbitrr-secrets
@@ -60,8 +61,8 @@ spec:
               repository: docker.io/feramance/qbitrr
               tag: v5.10.1
             securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
+              runAsUser: 0
+              runAsGroup: 0
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities:
@@ -69,6 +70,8 @@ spec:
                 add: ["SETUID", "SETGID"]
             env:
               TZ: ${TIMEZONE}
+              PUID: "1000"
+              PGID: "1000"
             resources:
               requests:
                 cpu: 10m
