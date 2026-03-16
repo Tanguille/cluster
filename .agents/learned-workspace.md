@@ -4,7 +4,7 @@
 
 Stable, non-sensitive facts about this cluster and tooling.
 
-- For continual-learning (or mining transcripts): update `.agent/learned-preferences.md` and `.agent/learned-workspace.md` only; do not add learned sections to AGENTS.md (it stays short and points to .agent/ for on-demand context).
+- For continual-learning (or mining transcripts): update `.agents/learned-preferences.md` and `.agents/learned-workspace.md` only; do not add learned sections to AGENTS.md (it stays short and points to .agents/ for on-demand context).
 
 - Use in-cluster service URLs (e.g. `http://service.namespace.svc.cluster.local:port`) for pod-to-pod calls (e.g. OpenCode → MCP gateway, OpenCode → Ollama) to avoid external DNS or hairpinning.
 - Annotate deployments with Reloader (e.g. `reloader.stakater.com/auto: "true"`) so pods restart when referenced ConfigMaps change.
@@ -18,6 +18,8 @@ Stable, non-sensitive facts about this cluster and tooling.
 - When re-running the same one-shot pod (e.g. zap), delete the pod first (`kubectl delete pod <name> --ignore-not-found`) then apply; pod spec is largely immutable.
 - CloudNative-PG postgres16 and barman-cloud plugin run in namespace `database`; the plugin Deployment is named `barman-cloud-plugin-barman-cloud` (Service is `barman-cloud`). To re-add a missing instance after its join job was deleted, delete that instance's PVC then force-reconcile so the operator creates a new PVC and join job.
 - ToolHive: VirtualMCPServer and MCPServer must not share the same name in the same namespace (both create a Deployment with that name; use e.g. VirtualMCPServer `ha` when MCPServer is `homeassistant` to avoid collision).
+- With ceph-block (RWO) storage, use Deployment strategy Recreate; RollingUpdate is not supported.
+- app-template chart default deployment strategy is Recreate.
 
 ## Recyclarr Config
 
