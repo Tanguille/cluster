@@ -48,8 +48,8 @@ spec:
                 mkdir -p /config
                 chown -R 1000:1000 /config
                 envsubst < /config-template/config.toml > /config/config.toml
-                chown 1000:1000 /config/config.toml
-                chmod 644 /config/config.toml
+                chown 0:0 /config/config.toml
+                chmod 444 /config/config.toml
             envFrom:
               - secretRef:
                   name: qbitrr-secrets
@@ -60,8 +60,8 @@ spec:
               repository: docker.io/feramance/qbitrr
               tag: v5.10.1
             securityContext:
-              runAsUser: 0
-              runAsGroup: 0
+              runAsUser: 1000
+              runAsGroup: 1000
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities:
