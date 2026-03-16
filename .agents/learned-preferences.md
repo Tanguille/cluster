@@ -10,3 +10,4 @@ Maintained from session feedback. Prefer git revert, don't undo user changes, on
 - When adjusting cluster resources (e.g. memory overcommit), only modify workloads that already have an explicit resources block; do not add new resources blocks to workloads that rely on chart defaults.
 - When adding or fixing an app, match how other similar apps in the repo handle config and secrets (e.g. cluster-secrets); do not introduce a different pattern (e.g. moving the app's Kustomization to another namespace) unless that is the established pattern.
 - For Flux reconciles and cluster diagnostics, use ToolHive flux-operator MCP tools (e.g. reconcile_flux_kustomization, get_kubernetes_logs) when available instead of raw kubectl.
+- Avoid running containers as root when not necessary.
