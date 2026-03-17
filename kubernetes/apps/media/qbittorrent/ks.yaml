@@ -11,9 +11,6 @@ spec:
   components:
     - ../../../../components/volsync
     - ../../../../components/nfs-scaler
-  dependsOn:
-    - name: volsync
-      namespace: volsync-system
   wait: false
   prune: true
   sourceRef:
@@ -42,8 +39,6 @@ spec:
     - ../../../../../components/volsync
     - ../../../../../components/nfs-scaler
   dependsOn:
-    - name: volsync
-      namespace: volsync-system
     - name: qbittorrent
   wait: true
   prune: true
