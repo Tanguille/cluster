@@ -26,7 +26,7 @@ spec:
       runAsGroup: ${VOLSYNC_PGID:=568}
       fsGroup: ${VOLSYNC_PGID:=568}
     moverVolumes:
-      - mountPath: /repository  # match Kopia secret path; home-ops uses secret path /mnt/repository instead
+      - mountPath: repository
         volumeSource:
           nfs:
             path: /mnt/TanguilleServer/VolsyncKopia
