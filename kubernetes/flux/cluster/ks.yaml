@@ -75,3 +75,5 @@ spec:
       target:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
+        # Only apply default substituteFrom to Kustomizations that don't opt out (qbitrr uses its own ks.yaml)
+        labelSelector: "flux.toolkit.fluxcd.io/substitute-from notin (skip)"

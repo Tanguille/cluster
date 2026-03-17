@@ -1,116 +1,171 @@
 ---
 name: debug-cluster
 description: |
-  Diagnose and resolve Kubernetes cluster issues using structured debugging. Use when:
-  - Debugging pod failures, CrashLoopBackOff, OOM kills
-  - Flux reconciliation issues, HelmRelease failures
-  - Service unreachable, network issues
-  - Cluster anomalies, node issues
-  Includes 5-Whys root cause analysis, ToolHive MCP integration, and Talos commands for rare cases.
-  Note: Most issues only need kubectl commands - use Talos commands only when explicitly needed.
+  Diagnose and resolve Kubernetes cluster issues. Use when: pod failures (CrashLoopBackOff, OOM),
+  Flux/HelmRelease reconciliation failures, services unreachable, node issues. Uses 5-Whys root cause
+  analysis; delegate 5-Whys or log analysis to subagents when useful. Prefer ToolHive MCP; use Talos only when needed.
 ---
 
 # Debug Cluster
 
-Structured debugging with 5-Whys root cause analysis.
+Structured debugging with parallel fact gathering and subagent-powered root cause analysis.
 
-## Workflow
+## When to Delegate to Subagents
 
-### 1. Gather Facts
+| Task | Approach | Reason |
+|------|----------|--------|
+| 5-Whys root cause analysis | **Subagent spawn** | Complex, iterative reasoning |
+| Log pattern analysis | **Subagent spawn** | Independent, time-consuming |
+| Simple status checks | **Inline** | Fast, direct |
+| Resource retrieval | **Inline** | Direct MCP/kubectl calls |
 
-Use ToolHive MCP when available:
+---
+
+## Quick Diagnosis
+
+### 1. Gather Facts (PARALLEL)
+
+Spawn subagent for logs while checking status inline:
+
 ```
-get_kubernetes_resources (pods, deployments, services in namespace)
-get_kubernetes_logs (pod logs, previous container logs)
-get_flux_instance (Flux objects, Kustomization/HelmRelease status)
+PARALLEL:
+- get_kubernetes_resources (pods, deployments, services, events)
+- get_kubernetes_logs (current + previous containers)
+- get_flux_instance (if Flux issue)
 ```
 
-Or kubectl:
+Or kubectl fallback:
+
 ```bash
 kubectl get pods -n <ns> -o wide
-kubectl describe pod <pod> -n <ns>
-kubectl logs <pod> -n <ns> --previous
 kubectl get events -n <ns> --sort-by='.lastTimestamp'
+kubectl describe pod <pod> -n <ns>
 ```
+
+---
 
 ### 2. Identify Symptoms
 
-Common patterns:
-- **CrashLoopBackOff**: Check `kubectl describe`, logs, previous container
-- **OOMKilled**: Check `kubectl get pod -o yaml` for `lastState.terminated.exitCode: 137`
-- **ImagePullBackOff**: Check image name, registry auth
-- **Pending**: Check node resources, PV binding
-- **Flux not reconciling**: Check `flux get all -A`, GitRepository status
+| Symptom | Check |
+|---------|-------|
+| CrashLoopBackOff | `describe pod`, logs, previous container |
+| OOMKilled | `get pod -o yaml` → `exitCode: 137` |
+| ImagePullBackOff | image name, registry auth, secrets |
+| Pending | node resources, taints, PV binding |
+| Flux stuck | `flux get all -A`, GitRepository status |
 
-### 3. Apply 5-Whys
+---
 
-Drill to root cause:
-1. Why is the pod failing? → Container keeps restarting
-2. Why is it restarting? → Exit code 1
-3. Why exit code 1? → Cannot connect to database
-4. Why cannot connect? → Wrong connection string in ConfigMap
-5. Why wrong string? → Git commit had typo → Fix in Git
+## 5-Whys Analysis Subagent
 
-### 4. Propose Fix
+When root cause isn't obvious, spawn subagent:
 
-Prefer GitOps (fix in repo) over manual intervention:
-- Update manifests in Git → `task reconcile`
-- Or delete stuck resource → Flux recreates
-- Avoid `kubectl edit` unless testing
-
-### 5. Validate
-
-```bash
-kubectl get pods -n <ns>
-flux get helmreleases -A
 ```
+background_task:
+  agent: "debug-analyzer"
+  description: "5-Whys root cause analysis for <issue>"
+  prompt: |
+    Analyze this K8s issue using 5-Whys:
+
+    Facts gathered:
+    - Pod: <name> in namespace <ns>
+    - Status: <status>
+    - Events: <key events>
+    - Logs: <relevant log lines>
+
+    Apply 5-Whys:
+    1. Why is <symptom> happening?
+    2. Why <answer to 1>?
+    3. Why <answer to 2>?
+    4. Why <answer to 3>?
+    5. Why <answer to 4>? → Root cause
+
+    Output: Root cause + fix recommendation
+```
+
+Example 5-Whys chain:
+
+1. Why pod failing? → Container restarts
+2. Why restarting? → Exit code 1
+3. Why exit 1? → Cannot connect to DB
+4. Why no connection? → Wrong ConfigMap value
+5. Why wrong value? → Git typo → **Fix in Git**
+
+---
+
+## Fix Patterns
+
+Prefer GitOps fixes:
+
+| Issue | GitOps Fix |
+|-------|------------|
+| Config not applied | Add `reloader.stakater.com/auto: "true"` annotation |
+| HelmRelease stuck | Delete HR, Flux recreates |
+| Image wrong | Fix in values.yaml, commit |
+| PVC issues | Check storage class, events |
+
+Avoid `kubectl edit` except for testing.
 
 ## Flux Debugging
 
-```bash
-# Check Flux status
-flux get all -A --status-selector ready=false
+Find failing resources:
 
-# Reconcile specific resource
+```bash
+flux get all -A --status-selector ready=false
+```
+
+Reconcile with source:
+
+```bash
 flux reconcile kustomization <name> --with-source
 flux reconcile source git flux-system
-
-# Check GitRepository
-flux get sources gitrepository
 ```
 
-## Talos Debugging (Rare)
+Use MCP when available:
 
-Most issues don't need Talos. Only use when:
-- Node not ready
-- kubelet issues
-- Kernel panic
+- `get_flux_instance` for overview
+- `reconcile_flux_kustomization` for manual trigger
+
+## Talos (Rare Cases Only)
+
+Only use when: node NotReady, kubelet issues, kernel panics.
+
+Check Kubernetes pods on node:
 
 ```bash
-# Node status
 talosctl --nodes <ip> get kubernetespods
-
-# System logs
-talosctl --nodes <ip> logs --namespace=kubelet
-
-# dmesg
-talosctl --nodes <ip> dmesg
-
-# Service status
-talosctl --nodes <ip> services
 ```
 
-## Common Fix Patterns
+Check kubelet logs:
 
-| Issue | Fix |
-|-------|-----|
-| ConfigMap change not applied | Annotate with `reloader.stakater.com/auto: "true"` or `kubectl rollout restart` |
-| HelmRelease stuck | Delete HelmRelease (Flux recreates) |
-| PVC stuck | Check events, storage class |
-| ImagePullBackOff | Check image name, registry secrets |
+```bash
+talosctl --nodes <ip> logs --namespace=kubelet
+```
+
+Check kernel messages:
+
+```bash
+talosctl --nodes <ip> dmesg
+```
+
+## Validation
+
+Verify pod status:
+
+```bash
+kubectl get pods -n <ns>
+```
+
+Verify Flux releases:
+
+```bash
+flux get helmreleases -A
+```
+
+---
 
 ## Related
 
-- **backup-restore**: For PVC/data recovery
-- **useful_commands.md**: Quick kubectl reference
-- **AGENTS.md**: Validation commands (`kubeconform`, `flux-local test`)
+- **backup-restore**: PVC/data recovery
+- **add-app-to-cluster**: Deploying new apps
+- **AGENTS.md**: `kubeconform`, validation commands

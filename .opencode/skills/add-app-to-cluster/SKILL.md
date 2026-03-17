@@ -1,56 +1,94 @@
 ---
 name: add-app-to-cluster
-description: |
-  Add a new application to the Kubernetes cluster using GitOps with FluxCD. Use when:
-  - User asks to add, install, or deploy a new app to the cluster
-  - User wants to deploy a Helm chart via Flux
-  - Setting up a new service/application in the cluster
+description: |-
+  Deploy new applications to the Kubernetes cluster via FluxCD GitOps. Creates HelmReleases, Kustomizations, and namespace configs following repo conventions.
+
+  user: "Deploy jellyfin" → Create HelmRelease with app-template, HTTPRoute, and persistence
+  user: "Add uptime-kuma" → Deploy with probes, route, and resource limits
+  user: "Install prometheus exporter" → Create HelmRelease with custom scrape config
+
+  Capabilities: Namespace selection, HelmRelease templating, HTTPRoute setup, validation (kubeconform), Flux reconciliation.
+
+  Use proactively when: User mentions deploying, installing, adding, or setting up any application/service.
 ---
 
 # Add App to Cluster
 
-This skill adds a new application to the Kubernetes cluster using FluxCD GitOps.
+Deploy applications to the Kubernetes cluster using FluxCD GitOps patterns.
+
+## When to Delegate to Subagents
+
+**PARALLEL (independent tasks):**
+
+- Research on kubesearch.dev - Spawn subagent with minimal context (app name, namespace preference)
+- Multiple unrelated app deployments - Each can be a separate subagent
+
+**SEQUENTIAL (dependencies):**
+
+- Validation → Must complete after file creation
+- PR creation → Must complete after validation passes
+
+**INLINE (simple, fast tasks):**
+
+- Single file edits (< 5 lines)
+- Reading existing files for reference
+- Adding to kustomization.yaml resources list
 
 ## Workflow
 
-### 1. Research Existing Installations
+### 1. Research (Delegate to Subagent)
 
-Before creating from scratch, check **https://kubesearch.dev** for existing FluxCD/Helm installations of the app:
+Spawn a subagent to research the application before proceeding.
 
-1. Search for the app name on kubesearch.dev
-2. Find installations matching our setup style (FluxCD + app-template or similar)
-3. Use the closest match as reference/starting point
-4. Adapt values to match our patterns (security, resources, routes)
+```
+Spawn subagent with:
+- App name
+- Preferred namespace (if mentioned)
+- Task: Search kubesearch.dev for FluxCD + Helm installations
+- Return: Best reference URL + key values to adapt
+```
 
-### 2. Create Isolated Worktree
+**Subagent context (minimal):**
 
-Use the **git-worktree-isolation** skill to create an isolated branch.
+```yaml
+app_name: "<app-name>"
+namespace: "<namespace>"  # or ask user
+output: Find kubesearch.dev reference + key configuration values
+```
+
+### 2. Create Worktree
+
+```bash
+git worktree add ../<app-name>-worktree -b feat/add-<app-name>
+cd ../<app-name>-worktree
+```
 
 ### 3. Determine Namespace
 
-Choose or create a namespace based on app purpose:
+Choose based on app purpose:
 
-- `default` - General apps
-- `network` - Networking tools (proxies, gateways)
-- `observability` - Monitoring, logging, metrics
-- `media` - Media servers, storage
-- `database` - Databases
-- `security` - Security tools
-- Or create new namespace folder if needed
+| Namespace | Purpose |
+|-----------|---------|
+| `default` | General apps |
+| `network` | Proxies, gateways |
+| `observability` | Monitoring, metrics |
+| `media` | Media servers |
+| `database` | Databases |
+| `security` | Security tools |
 
-### 3. Create App Structure
-
-Create the following structure under `kubernetes/apps/<namespace>/<app-name>/`:
+### 4. Create Structure
 
 ```
-<app-name>/
+kubernetes/apps/<namespace>/<app-name>/
 ├── ks.yaml              # Flux Kustomization
 └── app/
-    ├── helmrelease.yaml # Helm release configuration
+    ├── helmrelease.yaml
     └── kustomization.yaml
 ```
 
-### 4. Create ks.yaml
+### 5. Files
+
+**ks.yaml:**
 
 ```yaml
 ---
@@ -71,7 +109,7 @@ spec:
   wait: false
 ```
 
-### 5. Create app/kustomization.yaml
+**app/kustomization.yaml:**
 
 ```yaml
 ---
@@ -83,9 +121,7 @@ resources:
   - ./helmrelease.yaml
 ```
 
-### 6. Create helmrelease.yaml
-
-Use the **app-template** chart (recommended for most apps):
+**app/helmrelease.yaml** (app-template):
 
 ```yaml
 ---
@@ -144,7 +180,7 @@ spec:
             namespace: network
 ```
 
-### 7. Add to Namespace Kustomization
+### 6. Update Namespace Kustomization
 
 Add to `kubernetes/apps/<namespace>/kustomization.yaml`:
 
@@ -153,40 +189,40 @@ resources:
   - ./<app-name>/ks.yaml
 ```
 
-### 8. Validate
+### 7. Validate
 
 ```bash
-# Format YAML
-yamlfmt -w kubernetes/
-
-# Validate Kubernetes manifests
 kubeconform -strict kubernetes/
-
-# Test Flux reconciliation
-flux-local test --all-namespaces --enable-helm --path kubernetes/flux/cluster
 ```
 
-### 9. Create PR
+### 8. Create PR
 
-Create a PR with a clear title following Conventional Commits:
-
+```bash
+git add .
+git commit -m "feat(<namespace>): add <app-name>"
+git push -u origin feat/add-<app-name>
+gh pr create --title "feat(<namespace>): add <app-name>" --body "Deploy <app-name> to <namespace> namespace"
 ```
-feat(<namespace>): add <app-name>
-```
 
-## Tips
+## Anti-Patterns
 
-- **Check kubesearch.dev first** - Find existing FluxCD installations to use as reference
-- **Follow established patterns** - Don't deviate from existing app structures in the repo
-- **Validation required** - Always run validation before creating PR
-- **Image source**: Most apps are on Docker Hub or GHCR
-- **Port**: Check the app's default port (80, 8080, 3000, etc.)
-- **Route**: Remove `route` section if no internal URL needed
-- **Persistence**: Add `persistence` section if app needs storage
-- **Examples**: See existing apps in `kubernetes/apps/default/` for reference
+**DON'T:**
 
-## Related Skills & Resources
+- Deploy without checking kubesearch.dev for existing configs
+- Skip validation before PR
+- Use `cd` + commands in bash tool (use `workdir` param)
+- Create new namespace without confirming with user
+- Hardcode domains (use `${SECRET_DOMAIN}`)
 
-- **git-worktree-isolation** - For creating isolated branches
-- **skill-creator** - For best practices on skill design
-- **flux-operator AGENTS.md** - Reference: https://github.com/controlplaneio-fluxcd/flux-operator/blob/main/AGENTS.md
+## Quick Reference
+
+| Task | Command |
+|------|---------|
+| Validate | `kubeconform -strict kubernetes/` |
+| Reconcile | `flux reconcile kustomization <name>` |
+| Check logs | `kubectl logs -n <ns> deployment/<app>` |
+
+## Related
+
+- git-worktree-isolation skill
+- flux-operator AGENTS.md
