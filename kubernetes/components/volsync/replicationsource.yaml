@@ -18,7 +18,7 @@ spec:
       runAsGroup: ${VOLSYNC_PGID:=568}
       fsGroup: ${VOLSYNC_PGID:=568}
     moverVolumes:
-      - mountPath: /repository  # perfectra1n mounts relative at /mnt/<path>; use absolute so volume is at /repository and matches Kopia secret (home-ops uses secret path /mnt/repository instead)
+      - mountPath: repository
         volumeSource:
           nfs:
             path: /mnt/TanguilleServer/VolsyncKopia
