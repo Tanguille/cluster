@@ -1,14 +1,20 @@
 ---
 name: backup-restore
-description: |
-  Manage VolSync Kopia-based backups and restores for Kubernetes PersistentVolumes.
-  Use when: creating backups, restoring from backup, checking backup status, scheduling,
-  or disaster recovery. This cluster uses Kopia mover (NOT restic).
+description: |-
+  Manage VolSync Kopia-based backups/restores for Kubernetes PVs.
+  
+  user: "check backup status for app X" → list ReplicationSources, describe conditions
+  user: "restore from backup" → find snapshot, create restore PVC with VolumePopulator
+  user: "trigger manual backup" → annotate with volsync.backube/sync=true
+  user: "backup failing" → spawn debug-cluster subagent for mover pod logs
+  
+  Use proactively when: user mentions backups, restores, snapshots, ReplicationSource,
+  ReplicationDestination, PVC recovery, or disaster recovery scenarios.
+  
+  This cluster uses Kopia mover (NOT restic).
 ---
 
 # Backup & Restore (VolSync + Kopia)
-
-This cluster uses VolSync with Kopia mover for backups.
 
 ## Quick Reference
 
@@ -16,41 +22,45 @@ This cluster uses VolSync with Kopia mover for backups.
 |-----------|---------|
 | List backups | `kubectl get replicationsources -A` |
 | List restores | `kubectl get replicationdestinations -A` |
-| Trigger sync | Annotate: `kubectl annotate rs/<name> volsync.backube/sync=true --overwrite` |
-| Check status | `kubectl get rs <name> -n <ns> -o yaml` |
+| Trigger sync | `kubectl annotate rs/<name> volsync.backube/sync=true --overwrite` |
+| Check status | `kubectl describe replicationsource <name> -n <ns>` |
 
-## Check Backup Status
+---
+
+## Check Status
 
 ```bash
-# All ReplicationSources
+# All apps
 kubectl get replicationsources -A
 
 # Specific app
-kubectl get replicationsource <app> -n <namespace> -o yaml
+kubectl describe replicationsource <app> -n <namespace>
 
 # Check conditions
-kubectl describe replicationsource <app> -n <namespace>
+kubectl get rs <app> -n <namespace> -o yaml
 ```
 
 ## Trigger Manual Sync
 
 ```bash
-# Annotate to trigger immediate sync
 kubectl annotate replicationsource/<name> -n <namespace> volsync.backube/sync=true --overwrite
-
-# Or use kubectl patch
-kubectl patch replicationsource <name> -n <namespace> -p '{"metadata":{"annotations":{"volsync.backube/sync":"true"}}}' --type=merge
 ```
 
 ## Restore from Backup
 
-1. **Find the snapshot**:
+### Step 1: Find Snapshot
+
+Locate the available snapshot in the ReplicationDestination status.
+
 ```bash
 kubectl get replicationdestination <app> -n <namespace> -o yaml
-# Look at status.latestImage
+# Look for status.latestImage
 ```
 
-2. **Create restore PVC** (using VolumePopulator):
+### Step 2: Create Restore PVC
+
+Create a new PVC that references the ReplicationDestination as its data source.
+
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -61,7 +71,6 @@ spec:
   dataSourceRef:
     kind: ReplicationDestination
     name: <app>
-    namespace: <namespace>
   accessModes: ["ReadWriteOnce"]
   storageClassName: <storage-class>
   resources:
@@ -69,18 +78,12 @@ spec:
       storage: <size>
 ```
 
-3. **Apply**:
-```bash
-kubectl apply -f restore-pvc.yaml
-```
+---
 
 ## Create New Backup
 
-Reference existing patterns in `kubernetes/components/volsync/`:
-- `replicationsource.yaml` - Backup definition
-- `replicationdestination.yaml` - Restore definition
+Reference patterns in `kubernetes/components/volsync/`:
 
-Key fields:
 ```yaml
 apiVersion: volsync.backube/v1alpha1
 kind: ReplicationSource
@@ -90,7 +93,7 @@ metadata:
 spec:
   sourcePVC: <pvc-name>
   trigger:
-    schedule: "0 2 * * *"  # Cron: daily at 2am
+    schedule: "0 2 * * *"
   kopia:
     repository: <app>-volsync-secret
     volumeSnapshotClassName: csi-ceph-blockpool
@@ -100,25 +103,66 @@ spec:
 
 ## Privileged Movers
 
-Some apps need privileged movers. Add annotation to PVC:
+Add to PVC for apps requiring privileged movers:
+
 ```yaml
 metadata:
   annotations:
     volsync.backube/privileged-movers: "true"
 ```
 
+---
+
+## When to Delegate
+
+### Spawn debug-cluster subagent when:
+
+- Backup failures requiring mover pod logs
+- Multiple apps affected simultaneously
+- Unknown root cause suspected
+
+### Spawn backup-restore subagent when:
+
+- PARALLEL: Status checks across multiple apps (spawn one per app)
+- SEQUENTIAL: Restore flow depends on finding snapshot first
+
+### Inline vs Delegate Decision:
+
+| Scenario | Action |
+|----------|--------|
+| Single status check | Inline |
+| Multiple app checks | PARALLEL subagents |
+| Restore operation | SEQUENTIAL: find snapshot → restore |
+| Debug unknown failure | Delegate to debug-cluster |
+
+### Subagent Spawn Example:
+
+```
+background_task(
+  agent="backup-restore",
+  description="Check backup status for app1",
+  prompt="Check ReplicationSource status for app1 in namespace..."
+)
+```
+
+---
+
 ## Troubleshooting
 
-**Backup failing**:
-- Check repository secret exists
-- Check storage class available
-- Check mover pod logs: `kubectl logs -n volsync-system -l app.kubernetes.io/name=volsync`
+Spawn **debug-cluster** subagent for:
 
-**Restore not working**:
-- Verify snapshot exists in ReplicationDestination
-- Check PVC dataSourceRef matches ReplicationDestination name
+- Mover pod logs: `kubectl logs -n volsync-system -l app.kubernetes.io/name=volsync`
+- Repository secret validation
+- Storage class availability issues
+- Unexplained backup failures
 
-## Related
+### Quick checks (inline):
 
-- **debug-cluster**: For debugging backup issues
+- Repository secret exists: `kubectl get secret <app>-volsync-secret -n <ns>`
+- Snapshot exists in ReplicationDestination status
+- PVC dataSourceRef matches ReplicationDestination name
+
+## Related Skills
+
+- **debug-cluster**: Complex backup debugging
 - **docs/useful_commands.md**: General kubectl reference
