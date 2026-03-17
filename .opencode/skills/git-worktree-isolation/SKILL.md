@@ -1,6 +1,15 @@
 ---
 name: git-worktree-isolation
-description: Use git worktrees for isolated, parallel work. Creates temporary worktrees for independent agent tasks without affecting the main working directory. Always use this skill for any task that involves making changes to the repository to ensure: (1) Parallel agent work is isolated and doesn't conflict, (2) Experimental changes don't affect the main working directory, (3) The agent can work independently without coordination, (4) Easy cleanup when done.
+description: |-
+  Use git worktrees for isolated, parallel work. Creates temporary worktrees for
+  independent agent tasks without affecting the main working directory.
+
+  Use proactively when:
+  - user: "work on feature X" → create worktree, work in isolation
+  - user: "experiment with Y" → worktree to avoid main branch pollution
+  - user: "parallel task" → separate worktree for concurrent work
+
+  Triggers: worktree, isolated work, parallel agent, experimental branch, feature branch
 ---
 
 # Git Worktree Isolation
@@ -8,47 +17,84 @@ description: Use git worktrees for isolated, parallel work. Creates temporary wo
 ## Create Worktree
 
 ```bash
-# Ensure base branch is up to date
 git fetch origin
+```
+
+```bash
 git checkout <branch>
+```
+
+```bash
 git pull origin <branch>
+```
 
-# List existing worktrees
+```bash
 git worktree list
+```
 
-# Create a detached worktree
+```bash
 git worktree add -b <branch> --detach work/isolated-<task>-<timestamp> <branch>
+```
 
-# Navigate to the worktree
+```bash
 cd work/isolated-<task>-<timestamp>
 ```
 
 ## Validate
 
+Validate Kubernetes manifests:
+
 ```bash
-# Format YAML (use specific paths per project conventions)
-yamlfmt -w kubernetes/
-yamlfmt -w .
-
-# Validate Kubernetes manifests
 kubeconform -strict kubernetes/
+```
 
-# Test Flux reconciliation
+Test Flux reconciliation:
+
+```bash
 flux-local test --all-namespaces --enable-helm kubernetes/flux/cluster
 ```
 
 ## Cleanup
 
+**Delegate to subagent for cleanup operations**:
+
 ```bash
-# Navigate out of worktree first
+background_task(agent="git-cleanup", description="Remove worktree and branch", prompt="Cleanup git worktree at work/isolated-<task>-<timestamp> and delete branch <branch>")
+```
+
+Or manual cleanup:
+
+Navigate out of worktree first:
+
+```bash
 cd /path/to/main/repo
+```
 
-# Remove the worktree
+Remove the worktree:
+
+```bash
 git worktree remove work/isolated-<task>-<timestamp>
+```
 
-# Delete the branch
+Delete the branch:
+
+```bash
 git branch -D <branch>
 ```
+
+## When to Delegate
+
+| Task | Delegate? | Notes |
+
+|------|-----------|-------|
+
+| Simple worktree creation | No | Inline in main agent |
+
+| Validation/tests | Yes | Can run parallel via subagent |
+
+| Cleanup (remove worktree/branch) | Yes | Spawn subagent, don't block main flow |
+
+| Multiple worktrees | Yes | Parallel creation via subagent |
 
 ## Permission
 
