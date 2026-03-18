@@ -59,8 +59,8 @@ if command -v kubeconform &> /dev/null; then
             tar xz -C "$FLUX_SCHEMAS" 2>/dev/null || true
     fi
     
-    if find "${REPO_ROOT}/kubernetes" -name "*.yaml" -type f | \
-        xargs kubeconform -strict -ignore-missing-schemas \
+    if find "${REPO_ROOT}/kubernetes" -name "*.yaml" -type f -print0 | \
+        xargs -0 kubeconform -strict -ignore-missing-schemas \
             -schema-location default \
             -schema-location "${FLUX_SCHEMAS}/{{ .ResourceKind }}_{{ .ResourceAPIVersion }}.json" \
             > /dev/null 2>&1; then
@@ -98,7 +98,7 @@ echo "[4/6] Shell Script Validation..."
 SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f 2>/dev/null | head -20)
 if [ -n "$SHELL_SCRIPTS" ]; then
     if command -v shellcheck &> /dev/null; then
-        if shellcheck $SHELL_SCRIPTS > /dev/null 2>&1; then
+        if shellcheck "$SHELL_SCRIPTS" > /dev/null 2>&1; then
             pass "shellcheck passed"
         else
             fail "shellcheck found issues"
