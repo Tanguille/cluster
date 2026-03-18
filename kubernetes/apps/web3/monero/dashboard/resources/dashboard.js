@@ -62,7 +62,7 @@ const state = {
 // ==============================
 // DOM ELEMENT CACHE
 // ==============================
-let DOM = {};
+const DOM = {};
 
 function cacheDOMElements() {
   const ids = [
@@ -635,7 +635,6 @@ async function updateWindowLuck(
     const luckFactor = avgMyHashPPLNS > 0 ? myWindowHash / avgMyHashPPLNS : 0;
 
     const poolInfo = await fetchJSON(`${state.observerBase}/pool_info`);
-    const foundBlocks = await fetchJSON(`${state.observerBase}/found_blocks?limit=1`);
 
     const avgCurrentEffort = poolInfo?.sidechain?.effort?.average200 || 100;
     const betterLuckFactor = avgCurrentEffort > 0 ? luckFactor * (1 / (avgCurrentEffort / 100)) : luckFactor;
@@ -664,7 +663,7 @@ also multiplied by the pool luck (derived from the pool effort).
   }
 }
 
-async function updateTrueLuck(
+function updateTrueLuck(
   startedMiningTimestamp,
   newestPayoutTime,
   xmrPerDayAvg,
@@ -957,7 +956,7 @@ async function updateStats() {
     if (startedMining) {
       const startedMiningTimestamp = Math.floor(new Date(startedMining).getTime() / 1000);
       if (!Number.isNaN(startedMiningTimestamp)) {
-        await updateTrueLuck(startedMiningTimestamp, newestPayoutTime, earnings.xmrPerDayAvg, totalXMR);
+        updateTrueLuck(startedMiningTimestamp, newestPayoutTime, earnings.xmrPerDayAvg, totalXMR);
       }
     }
 
