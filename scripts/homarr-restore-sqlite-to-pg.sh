@@ -62,7 +62,11 @@ check_backup() {
     echo "❌ Backup file not found: $BACKUP_FILE"
     exit 1
   fi
-  echo "📁 Backup: $BACKUP_FILE ($(ls -lh "$BACKUP_FILE" | awk '{print $5}'))"
+  local size
+  size=$(find "$BACKUP_FILE" -printf '%s' 2>/dev/null || stat -c '%s' "$BACKUP_FILE" 2>/dev/null || echo "unknown")
+  local size_human
+  size_human=$(numfmt --to=iec-i --suffix=B "$size" 2>/dev/null || echo "${size} bytes")
+  echo "📁 Backup: $BACKUP_FILE ($size_human)"
 }
 
 scale_homarr() {
@@ -156,10 +160,10 @@ run_pgloader_transient() {
   kubectl run -n "$HOMARR_NS" "$pod_name" --restart=Never --image=ghcr.io/roxedus/pgloader --command -- sleep 3600
   kubectl wait --for=condition=ready pod/"$pod_name" -n "$HOMARR_NS" --timeout=120s
   kubectl cp -n "$HOMARR_NS" "$BACKUP_FILE" "$pod_name:/tmp/homarr.db.backup"
+  local pgloader_cmd="pgloader --type sqlite --with 'include drop' --with 'create tables' --with 'reset sequences' /tmp/homarr.db.backup 'postgresql://${user}:${pass}@${host}:${port}/${db}'"
   kubectl exec -n "$HOMARR_NS" "$pod_name" -- env \
     PGHOST="$host" PGPORT="$port" PGUSER="$user" PGPASSWORD="$pass" PGDATABASE="$db" \
-    bash -c 'pgloader --type sqlite --with "include drop" --with "create tables" --with "reset sequences" \
-      /tmp/homarr.db.backup "postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE"'
+    bash -c "$pgloader_cmd"
   local rc=$?
   kubectl delete pod -n "$HOMARR_NS" "$pod_name" --wait=true --ignore-not-found=true 2>/dev/null || true
   if [[ $rc -ne 0 ]]; then
