@@ -50,11 +50,10 @@ spec:
               - -c
               - |
                 set -eu
-                id=1000
                 mkdir -p /config
-                chown -R "${id}:${id}" /config
+                chown -R 1000:1000 /config
                 envsubst < /config-template/config.toml > /config/config.toml
-                chown "${id}:${id}" /config/config.toml
+                chown 1000:1000 /config/config.toml
                 chmod 644 /config/config.toml
             envFrom:
               - secretRef:
