@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: qbitrr
+  name: &app qbitrr
 spec:
   interval: 30m
   chartRef:
@@ -22,35 +22,79 @@ spec:
                     operator: In
                     values:
                       - control-1
-      # Root required so qbitrr entrypoint (gosu) can run
       securityContext:
-        runAsUser: 0
-        runAsGroup: 0
-        fsGroup: 1000
+        runAsUser: &uid 1000
+        runAsGroup: *uid
+        fsGroup: *uid
         fsGroupChangePolicy: OnRootMismatch
+      # Graceful SQLite / WAL checkpoint on SIGTERM (upstream recommends ~30s before SIGKILL)
+      terminationGracePeriodSeconds: 30
 
     controllers:
       qbitrr:
         annotations:
           reloader.stakater.com/auto: "true"
 
+        initContainers:
+          configure:
+            # steinbrueckri/envsubst: public Dockerfile (Alpine + gettext at build); no runtime apk (works without egress to Alpine mirrors).
+            # https://github.com/steinbrueckri/envsubst — pin digest after pull: docker inspect --format='{{index .RepoDigests 0}}' steinbrueckri/envsubst:v2.1.1
+            image:
+              repository: docker.io/steinbrueckri/envsubst
+              tag: v2.1.1
+            securityContext:
+              runAsUser: 0
+              runAsGroup: 0
+            command:
+              - /bin/sh
+              - -c
+              - |
+                set -eu
+                id=1000
+                mkdir -p /config
+                chown -R "${id}:${id}" /config
+                envsubst < /config-template/config.toml > /config/config.toml
+                chown "${id}:${id}" /config/config.toml
+                chmod 644 /config/config.toml
+            envFrom:
+              - secretRef:
+                  name: qbitrr-secrets
+
         containers:
           app:
             image:
               repository: docker.io/feramance/qbitrr
               tag: v5.10.1
+            # Skip docker-entrypoint.sh (gosu/setuid). Init already chowns /config; run as 1000 like upstream `user: "1000:1000"`.
+            command: ["/usr/bin/tini", "--"]
+            args: ["python", "-m", "qBitrr.main"]
             securityContext:
-              runAsUser: 0
-              runAsGroup: 0
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities:
-                drop: ["ALL"]
-                add: ["SETUID", "SETGID"]
+              capabilities: { drop: ["ALL"] }
             env:
               TZ: ${TIMEZONE}
-              PUID: "1000"
-              PGID: "1000"
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: &port 6969
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 2
+                  failureThreshold: 3
+              readiness: *probe
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  periodSeconds: 5
+                  failureThreshold: 30
             resources:
               requests:
                 cpu: 10m
@@ -61,10 +105,10 @@ spec:
 
     service:
       app:
-        controller: qbitrr
+        controller: *app
         ports:
           http:
-            port: 6969
+            port: *port
 
     route:
       app:
@@ -84,12 +128,11 @@ spec:
           - path: /config
             readOnly: false
 
-      config-file:
+      config-template:
         type: configMap
         name: qbitrr-config
         globalMounts:
-          - path: /config/config.toml
-            subPath: config.toml
+          - path: /config-template
             readOnly: true
 
       downloads:
