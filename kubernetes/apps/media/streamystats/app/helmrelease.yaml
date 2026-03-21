@@ -23,19 +23,17 @@ spec:
               tag: 18
             envFrom:
               - secretRef:
-                  name: streamystats-secret
+                  name: &secret streamystats-secret
         containers:
           main:
             image:
               repository: ghcr.io/fredrikburmester/streamystats-nextjs
               tag: v2.18.0@sha256:06fb359ad7968d42a5b58421bb3c0ea81142271cf9411f44470dd877a49d7d83
             env:
-              DATABASE_URL:
-                valueFrom:
-                  secretKeyRef:
-                    name: streamystats-secret
-                    key: DATABASE_URL
               JOB_SERVER_URL: http://streamystats-job-server:3005
+            envFrom:
+              - secretRef:
+                  name: *secret
             probes:
               liveness: &probes
                 enabled: true
@@ -67,12 +65,10 @@ spec:
               repository: ghcr.io/fredrikburmester/streamystats-job-server
               tag: v2.18.0@sha256:def1912f321ed4414635894786fea192f423006d04116287f3cfc5949116823d
             env:
-              DATABASE_URL:
-                valueFrom:
-                  secretKeyRef:
-                    name: streamystats-secret
-                    key: DATABASE_URL
               HOST: 0.0.0.0
+            envFrom:
+              - secretRef:
+                  name: *secret
             probes:
               liveness: &probes
                 enabled: true
