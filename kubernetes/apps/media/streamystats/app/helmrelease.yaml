@@ -49,10 +49,10 @@ spec:
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
-                cpu: 100m
-                memory: 112Mi
+                cpu: 250m
+                memory: 256Mi
               limits:
-                cpu: 100m
+                cpu: 2
                 memory: 1Gi
       job-server:
         annotations:
@@ -118,3 +118,18 @@ spec:
           - backendRefs:
               - identifier: frontend
                 port: *fPort
+
+    persistence:
+      # Next.js image optimization + prerender cache (readOnlyRootFilesystem cannot mkdir .next/cache)
+      cache:
+        type: emptyDir
+        advancedMounts:
+          frontend:
+            main:
+              - path: /app/apps/nextjs-app/.next/cache
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          frontend:
+            main:
+              - path: /tmp
