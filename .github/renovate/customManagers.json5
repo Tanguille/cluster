@@ -10,16 +10,11 @@
         "/\\.yaml(?:\\.j2)?$/",
       ],
       matchStrings: [
-        // # renovate: datasource=docker depName=ghcr.io/prometheus-operator/prometheus-operator
-        // https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.80.0/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagerconfigs.yaml
-        "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.+/(?<currentValue>(v|\\d)[^/]+)",
-        // # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
-        //   kubernetes:
-        //     version: v1.34.1
-        // # renovate: datasource=docker depName=ghcr.io/siderolabs/installer
-        //   talos:
-        //     version: v1.11.5
-        "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)( repository=(?<registryUrl>\\S+))?\\n(?:[^\\n]*\\n)*?\\s+version:\\s+(?<currentValue>\\S+)",
+        // # renovate: datasource=github-releases depName=foo/bar
+        // foobar_version: v1.0.0
+        // # renovate: datasource=docker depName=ghcr.io/foo/bar
+        // FOOBAR_VERSION=v1.0.0
+        "datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.+(:\\s|=)(&\\S+\\s)?(?<currentValue>\\S+)",
       ],
       datasourceTemplate: "{{#if datasource}}{{{datasource}}}{{else}}github-releases{{/if}}",
     },
