@@ -2,9 +2,39 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   packageRules: [
     {
+      description: "Changelog links for Flux manager upgrades",
+      matchManagers: ["flux"],
+      changelogUrl: "{{#if url}}{{{url}}}{{else}}{{{sourceUrl}}}/releases/tag/{{{newVersion}}}{{/if}}",
+    },
+    {
+      description: "Changelog links for Kubernetes manager upgrades",
+      matchManagers: ["kubernetes"],
+      changelogUrl: "{{#if url}}{{{url}}}{{else}}{{{sourceUrl}}}/releases/tag/{{{newVersion}}}{{/if}}",
+    },
+    {
+      description: "Changelog links for Helm values manager upgrades",
+      matchManagers: ["helm-values"],
+      changelogUrl: "{{#if url}}{{{url}}}{{else}}{{{sourceUrl}}}/releases/tag/{{{newVersion}}}{{/if}}",
+    },
+    {
+      description: "Changelog links for Helmfile manager upgrades",
+      matchManagers: ["helmfile"],
+      changelogUrl: "{{#if url}}{{{url}}}{{else}}{{{sourceUrl}}}/releases/tag/{{{newVersion}}}{{/if}}",
+    },
+    {
+      description: "Changelog links for GitHub Actions manager upgrades",
+      matchManagers: ["github-actions"],
+      changelogUrl: "{{#if url}}{{{url}}}{{else}}{{{sourceUrl}}}/releases/tag/{{{newVersion}}}{{/if}}",
+    },
+    {
       description: "Changelog URL for Cloudflared",
       matchPackageNames: ["cloudflared"],
       changelogUrl: "https://github.com/cloudflare/cloudflared/blob/master/RELEASE_NOTES",
+    },
+    {
+      description: "Changelog URL for Spegel",
+      matchPackageNames: ["/spegel/"],
+      changelogUrl: "https://github.com/spegel-org/spegel/blob/main/CHANGELOG.md",
     },
   ],
 }
