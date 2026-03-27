@@ -2,7 +2,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: moltis
+  name: &app moltis
 spec:
   interval: 30m
   chartRef:
@@ -108,12 +108,12 @@ spec:
                 cpu: 10m
                 memory: 64Mi
               limits:
-                cpu: 2000m
+                cpu: 2
                 memory: 2Gi
 
     service:
       app:
-        controller: moltis
+        controller: *app
         ports:
           http:
             port: 80
@@ -134,7 +134,7 @@ spec:
     persistence:
       data:
         enabled: true
-        existingClaim: moltis
+        existingClaim: *app
         globalMounts:
           - path: /config
             subPath: config
