@@ -1,0 +1,147 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app moltis
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+
+    controllers:
+      moltis:
+        type: statefulset
+
+        initContainers:
+          daemon:
+            image:
+              repository: docker
+              tag: 29.3.0-dind@sha256:1ba18449911d01f477a3fc104123c85d677addc60701b14b3fcb5381f9c4a537
+            restartPolicy: Always
+            securityContext:
+              privileged: true
+            env:
+              - name: DOCKER_TLS_CERTDIR
+                value: /certs
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["docker", "info"]
+                  periodSeconds: 2
+                  timeoutSeconds: 3
+                  failureThreshold: 60
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["docker", "info"]
+                  periodSeconds: 5
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["docker", "info"]
+                  periodSeconds: 20
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+
+        containers:
+          app:
+            image:
+              repository: ghcr.io/moltis-org/moltis
+              tag: 0.10.18@sha256:b155dd370fd26d5ea7286ea41011fcfec5ea6effd93486dd0809e310f02ec9bc
+            args:
+              - --bind
+              - "[::]"
+              - --port
+              - "13131"
+              - --no-tls
+            env:
+              TZ: ${TIMEZONE}
+              MOLTIS_BEHIND_PROXY: "true"
+              MOLTIS_CONFIG_DIR: /config
+              MOLTIS_DATA_DIR: /data
+              MOLTIS_WEBAUTHN_RP_ID: "{{ .Release.Name }}.${SECRET_DOMAIN}"
+              MOLTIS_WEBAUTHN_ORIGIN: "https://{{ .Release.Name }}.${SECRET_DOMAIN}"
+              DOCKER_HOST: tcp://localhost:2376
+              DOCKER_CERT_PATH: /certs/client
+              DOCKER_TLS_VERIFY: "1"
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: &port 13131
+                  initialDelaySeconds: 10
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 3
+              readiness: *probe
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: 2
+                memory: 2Gi
+
+    service:
+      app:
+        controller: *app
+        ports:
+          http:
+            port: 80
+            targetPort: *port
+
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 80
+
+    persistence:
+      data:
+        enabled: true
+        existingClaim: *app
+        globalMounts:
+          - path: /config
+            subPath: config
+          - path: /data
+            subPath: data
+
+      tmp:
+        type: emptyDir
+      certs:
+        type: emptyDir
