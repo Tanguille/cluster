@@ -75,7 +75,7 @@ spec:
             env:
               TZ: ${TIMEZONE}
               MOLTIS_BEHIND_PROXY: "true"
-              MOLTIS_AUTH__DISABLED: "true"
+              MOLTIS_AUTH_DISABLED: "true"
               MOLTIS_CONFIG_DIR: /config
               MOLTIS_DATA_DIR: /data
               MOLTIS_WEBAUTHN_RP_ID: "{{ .Release.Name }}.${SECRET_DOMAIN}"
