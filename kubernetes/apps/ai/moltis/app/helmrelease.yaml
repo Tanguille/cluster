@@ -2,7 +2,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app moltis
+  name: moltis
 spec:
   interval: 30m
   chartRef:
@@ -25,7 +25,7 @@ spec:
           daemon:
             image:
               repository: docker
-              tag: 29.3.0-dind@sha256:1ba18449911d01f477a3fc104123c85d677addc60701b14b3fcb5381f9c4a537
+              tag: 29.3.1-dind@sha256:4d90f1f6c400315c2dba96d3ec93c01e64198395cbba04f79d12adce4f737029
             restartPolicy: Always
             securityContext:
               privileged: true
@@ -36,7 +36,7 @@ spec:
               startup:
                 enabled: true
                 custom: true
-                spec:
+                spec: &probeSpec
                   exec:
                     command: ["docker", "info"]
                   periodSeconds: 2
@@ -46,8 +46,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  exec:
-                    command: ["docker", "info"]
+                  <<: *probeSpec
                   periodSeconds: 5
                   timeoutSeconds: 3
                   failureThreshold: 3
@@ -55,8 +54,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  exec:
-                    command: ["docker", "info"]
+                  <<: *probeSpec
                   periodSeconds: 20
                   timeoutSeconds: 3
                   failureThreshold: 3
@@ -66,20 +64,14 @@ spec:
             image:
               repository: ghcr.io/moltis-org/moltis
               tag: 0.10.18@sha256:b155dd370fd26d5ea7286ea41011fcfec5ea6effd93486dd0809e310f02ec9bc
-            args:
-              - --bind
-              - "[::]"
-              - --port
-              - "13131"
-              - --no-tls
             env:
               TZ: ${TIMEZONE}
-              MOLTIS_BEHIND_PROXY: "true"
-              MOLTIS_AUTH_DISABLED: "true"
-              MOLTIS_CONFIG_DIR: /configmoltis
+              MOLTIS_BEHIND_PROXY: true
+              MOLTIS_NO_TLS: true
+              MOLTIS_CONFIG_DIR: /config
               MOLTIS_DATA_DIR: /data
-              MOLTIS_WEBAUTHN_RP_ID: "{{ .Release.Name }}.${SECRET_DOMAIN}"
-              MOLTIS_WEBAUTHN_ORIGIN: "https://{{ .Release.Name }}.${SECRET_DOMAIN}"
+              MOLTIS_WEBAUTHN_RP_ID: "{{ .Release.Name }}.${SECRET_DOMAIN_INTERNAL}"
+              MOLTIS_WEBAUTHN_ORIGIN: "https://{{ .Release.Name }}.${SECRET_DOMAIN_INTERNAL}"
               DOCKER_HOST: tcp://localhost:2376
               DOCKER_CERT_PATH: /certs/client
               DOCKER_TLS_VERIFY: "1"
@@ -111,10 +103,15 @@ spec:
               limits:
                 cpu: 2
                 memory: 2Gi
-
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
-        controller: *app
         ports:
           http:
             port: 80
@@ -133,26 +130,19 @@ spec:
                 port: 80
 
     persistence:
-      data:
-        enabled: true
-        existingClaim: *app
+      config:
+        existingClaim: "{{ .Release.Name }}"
         globalMounts:
           - path: /config
             subPath: config
           - path: /data
             subPath: data
-
-      tmp:
+      tmpfs:
         type: emptyDir
-      certs:
-        type: emptyDir
-
-    additionalVolumes:
-      - name: moltis-config
-        configMap:
-          name: moltis-config
-
-    additionalVolumeMounts:
-      - name: moltis-config
-        mountPath: /configmoltis
-        readOnly: true
+        globalMounts:
+          - path: /certs
+            subPath: certs
+          - path: /home/moltis/.docker
+            subPath: home
+          - path: /tmp
+            subPath: tmp
