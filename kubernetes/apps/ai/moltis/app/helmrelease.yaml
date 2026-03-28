@@ -11,11 +11,18 @@ spec:
 
   values:
     defaultPodOptions:
+      # DinD must run as root; do not set pod-level runAsUser/runAsNonRoot (app container sets UID 1000).
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      # Linux equivalent of docker --add-host=host.docker.internal:host-gateway for browser sandboxes
+      # when DinD publishes ports on the pod network namespace.
+      hostAliases:
+        - ip: 127.0.0.1
+          hostnames:
+            - host.docker.internal
 
     controllers:
       moltis:
@@ -29,6 +36,8 @@ spec:
             restartPolicy: Always
             securityContext:
               privileged: true
+              runAsUser: 0
+              runAsGroup: 0
             env:
               - name: DOCKER_TLS_CERTDIR
                 value: /certs
@@ -72,6 +81,8 @@ spec:
               MOLTIS_DATA_DIR: /data
               MOLTIS_WEBAUTHN_RP_ID: "{{ .Release.Name }}.${SECRET_DOMAIN_INTERNAL}"
               MOLTIS_WEBAUTHN_ORIGIN: "https://{{ .Release.Name }}.${SECRET_DOMAIN_INTERNAL}"
+              MOLTIS_TOOLS__EXEC__SANDBOX__HOST_DATA_DIR: /data
+              MOLTIS_TOOLS__BROWSER__CONTAINER_HOST: host.docker.internal
               DOCKER_HOST: tcp://localhost:2376
               DOCKER_CERT_PATH: /certs/client
               DOCKER_TLS_VERIFY: "1"
@@ -103,13 +114,6 @@ spec:
               limits:
                 cpu: 2
                 memory: 2Gi
-    defaultPodOptions:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         ports:
