@@ -5,3 +5,10 @@ namespace: ai
 
 resources:
   - ./helmrelease.yaml
+
+configMapGenerator:
+  - name: moltis-config
+    files:
+      - moltis.toml=resources/moltis.toml
+generatorOptions:
+  disableNameSuffixHash: true

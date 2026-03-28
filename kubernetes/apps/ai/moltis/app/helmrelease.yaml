@@ -146,3 +146,13 @@ spec:
         type: emptyDir
       certs:
         type: emptyDir
+
+    additionalVolumes:
+      - name: moltis-config
+        configMap:
+          name: moltis-config
+
+    additionalVolumeMounts:
+      - name: moltis-config
+        mountPath: /config
+        readOnly: true
