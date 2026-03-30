@@ -23,9 +23,6 @@ spec:
         - ip: 127.0.0.1
           hostnames:
             - host.docker.internal
-      dnsConfig:
-        nameservers:
-          - 192.168.0.1
 
     controllers:
       moltis:
@@ -75,7 +72,7 @@ spec:
           app:
             image:
               repository: ghcr.io/moltis-org/moltis
-              tag: 0.10.18@sha256:b155dd370fd26d5ea7286ea41011fcfec5ea6effd93486dd0809e310f02ec9bc
+              tag: 20260328.03@sha256:6b73557e2a10c6b6d11ec6f9e316cbdd7f2cc94f57c1bd768a91804a2922f2c8
             env:
               TZ: ${TIMEZONE}
               MOLTIS_BEHIND_PROXY: true
