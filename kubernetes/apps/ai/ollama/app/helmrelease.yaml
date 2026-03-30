@@ -36,7 +36,7 @@ spec:
               # Don't set CUDA_VISIBLE_DEVICES: log warns "if GPUs not correctly discovered, unset and try again"; single-GPU pod has one device anyway
               OLLAMA_HOST: "0.0.0.0"
               OLLAMA_ORIGINS: "*"
-              OLLAMA_CONTEXT_LENGTH: "32768"
+              OLLAMA_CONTEXT_LENGTH: "100000"
               OLLAMA_MODELS: /models
               OLLAMA_FLASH_ATTENTION: "1"
               # K/V cache (docs.ollama.com/faq): q8_0 uses ~1/2 memory of f16, minimal quality impact
