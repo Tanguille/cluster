@@ -1,4 +1,5 @@
 ---
+# Flux Kustomization for qbitrr — substitution and deps live here (no cluster-apps substituteFrom patch).
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -22,3 +23,7 @@ spec:
   postBuild:
     substitute:
       APP: *app
+    substituteFrom:
+      - kind: Secret
+        name: qbitrr-secrets
+        optional: false
