@@ -11,24 +11,22 @@ spec:
   instances: 3
   primaryUpdateMethod: switchover
   storage:
-    size: 20Gi
+    size: 30Gi
     storageClass: openebs-hostpath
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
   postgresql:
     parameters:
+      wal_level: replica
       max_connections: "200"
       shared_buffers: 1GB
       effective_cache_size: 4GB
       huge_pages: "try"
       # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
       io_method: "worker"
-      # work_mem: 200 conn × 12MB × 1 op ≈ 2.4GB peak; fits in 8Gi. Heavy 2-op bursts can spike; SET work_mem per session if needed.
-      work_mem: 12MB
-      # Parallel CREATE INDEX splits this across workers
+      work_mem: 10MB
       maintenance_work_mem: 1GB
-      # Match max_parallel_* to spec.resources.limits.cpu so parallel seq/index scans use real cores.
       max_parallel_workers: "4"
       max_parallel_maintenance_workers: "4"
       max_parallel_workers_per_gather: "4"
@@ -39,7 +37,7 @@ spec:
       checkpoint_completion_target: "0.9"
       checkpoint_warning: "60" # Seconds; log if checkpoints happen closer (increase max_wal_size if frequent)
       wal_compression: "zstd"
-      wal_buffers: 32MB
+      wal_buffers: 16MB
       # Autovacuum tuned for many small/medium DBs with XID age protection
       autovacuum_vacuum_scale_factor: "0.02"
       autovacuum_analyze_scale_factor: "0.01"
@@ -55,7 +53,7 @@ spec:
       effective_io_concurrency: "200" # Default 16, increased for NVMe parallelism
       maintenance_io_concurrency: "200" # VACUUM/ANALYZE/CREATE INDEX parallelism on NVMe
       # pg_stat_statements: requires shared_preload_libraries entry below; triggers rolling restart on first apply.
-      pg_stat_statements.max: "10000"
+      pg_stat_statements.max: "7500"
       pg_stat_statements.track: "top"
     # vchord needs shared_preload_libraries; CNPG sets logging_collector=on (vchord logs). Per-session: hnsw.ef_search (pgvector), vchordrq.probes / vchordrq.epsilon (vchord).
     shared_preload_libraries:
@@ -97,14 +95,14 @@ spec:
         serverName: postgres18
   # Note: previousCluster needs to be set to the name of the previous
   # cluster when recovering from an existing cnpg cluster
-  bootstrap:
-    recovery:
-      source: &previousCluster postgres18
-  # Note: externalClusters is needed when recovering from an existing cnpg cluster
-  externalClusters:
-    - name: *previousCluster
-      plugin:
-        enabled: true
-        isWALArchiver: false
-        name: *plugin
-        parameters: *barmanParameters
+  # bootstrap:
+  #   recovery:
+  #     source: &previousCluster postgres18
+  # # Note: externalClusters is needed when recovering from an existing cnpg cluster
+  # externalClusters:
+  #   - name: *previousCluster
+  #     plugin:
+  #       enabled: true
+  #       isWALArchiver: false
+  #       name: *plugin
+  #       parameters: *barmanParameters
