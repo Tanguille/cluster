@@ -1,19 +1,15 @@
 ---
-# Flux Kustomization for qbitrr — substitution and deps live here (no cluster-apps substituteFrom patch).
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: qbitrr
-  namespace: media
-  labels:
-    # Opt out of cluster-apps default substituteFrom so we can use cluster + app secrets
-    flux.toolkit.fluxcd.io/substitute-from: skip
+  name: &app qbitrr
+  namespace: &namespace media
 spec:
   components:
     - ../../../../../components/nfs-scaler
   path: ./kubernetes/apps/media/qbittorrent/tools/qbitrr
-  targetNamespace: media
+  targetNamespace: *namespace
   dependsOn:
     - name: qbittorrent
   wait: true
@@ -25,14 +21,4 @@ spec:
   interval: 30m
   postBuild:
     substitute:
-      APP: qbitrr
-    substituteFrom:
-      - kind: ConfigMap
-        name: cluster-settings
-        optional: false
-      - kind: Secret
-        name: cluster-secrets
-        optional: false
-      - kind: Secret
-        name: qbitrr-secrets
-        optional: false
+      APP: *app
