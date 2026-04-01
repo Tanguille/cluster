@@ -9,7 +9,6 @@ metadata:
 spec:
   imageName: ghcr.io/cloudnative-pg/postgresql:18.3-standard-trixie@sha256:7196b9272014355c9d2904ab2a055dfcdffca91fb31323c0d95dfac3ca60d7b0
   instances: 3
-  primaryUpdateStrategy: unsupervised
   primaryUpdateMethod: switchover
   storage:
     size: 20Gi
@@ -27,9 +26,12 @@ spec:
       io_method: "worker"
       # work_mem: 200 conn × 12MB × 1 op ≈ 2.4GB peak; fits in 8Gi. Heavy 2-op bursts can spike; SET work_mem per session if needed.
       work_mem: 12MB
-      maintenance_work_mem: 1GB # Vector/pgvector index builds and autovacuum; raise per-session for huge CREATE INDEX
-      max_parallel_maintenance_workers: "8" # Faster CREATE INDEX (pgvector HNSW, vchord vchordrq); default 2
-      max_parallel_workers_per_gather: "4" # Parallel vector/search queries when not index-only; default 2
+      # Parallel CREATE INDEX splits this across workers
+      maintenance_work_mem: 1GB
+      # Match max_parallel_* to spec.resources.limits.cpu so parallel seq/index scans use real cores.
+      max_parallel_workers: "4"
+      max_parallel_maintenance_workers: "4"
+      max_parallel_workers_per_gather: "4"
       # WAL tuning for fewer checkpoints/archives
       min_wal_size: 2GB
       max_wal_size: 8GB
@@ -37,7 +39,7 @@ spec:
       checkpoint_completion_target: "0.9"
       checkpoint_warning: "60" # Seconds; log if checkpoints happen closer (increase max_wal_size if frequent)
       wal_compression: "zstd"
-      wal_buffers: 64MB
+      wal_buffers: 32MB
       # Autovacuum tuned for many small/medium DBs with XID age protection
       autovacuum_vacuum_scale_factor: "0.02"
       autovacuum_analyze_scale_factor: "0.01"
@@ -52,9 +54,13 @@ spec:
       random_page_cost: "1.1" # Default 4.0 (HDD-oriented); 1.1 favors index scans on NVMe
       effective_io_concurrency: "200" # Default 16, increased for NVMe parallelism
       maintenance_io_concurrency: "200" # VACUUM/ANALYZE/CREATE INDEX parallelism on NVMe
-    # Extensions: vchord needs shared_preload_libraries; CNPG sets logging_collector=on (vchord logs). Per-session: hnsw.ef_search (pgvector), vchordrq.probes / vchordrq.epsilon (vchord).
+      # pg_stat_statements: requires shared_preload_libraries entry below; triggers rolling restart on first apply.
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "top"
+    # vchord needs shared_preload_libraries; CNPG sets logging_collector=on (vchord logs). Per-session: hnsw.ef_search (pgvector), vchordrq.probes / vchordrq.epsilon (vchord).
     shared_preload_libraries:
       - "vchord.so"
+      - "pg_stat_statements"
     extensions:
       - name: vchord
         image:
@@ -73,10 +79,10 @@ spec:
     reusePVC: true
   resources:
     requests:
-      cpu: 300m
-      memory: 1Gi
+      cpu: 1
+      memory: 2Gi
     limits:
-      cpu: 2
+      cpu: 4
       memory: 8Gi
       hugepages-2Mi: 1Gi
   monitoring:
