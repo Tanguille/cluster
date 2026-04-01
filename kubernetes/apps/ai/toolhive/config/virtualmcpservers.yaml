@@ -67,6 +67,22 @@ spec:
 apiVersion: toolhive.stacklok.dev/v1alpha1
 kind: VirtualMCPServer
 metadata:
+  name: database
+  namespace: ai
+spec:
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  config:
+    groupRef: database
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
   name: resources
   namespace: ai
 spec:
