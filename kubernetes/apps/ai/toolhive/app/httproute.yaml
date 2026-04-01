@@ -113,3 +113,26 @@ spec:
         - path:
             type: PathPrefix
             value: /
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mcp-database
+  namespace: ai
+spec:
+  hostnames:
+    - mcp-database.${SECRET_DOMAIN}
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: envoy-internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: vmcp-database
+          port: 4483
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
