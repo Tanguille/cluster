@@ -1,0 +1,44 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: &name postgres-mcp
+  namespace: ai
+spec:
+  # renovate: datasource=docker depName=crystaldba/postgres-mcp
+  image: crystaldba/postgres-mcp:latest
+  transport: stdio
+  groupRef: database
+  args:
+    - "--access-mode=restricted"
+  secrets:
+    - name: toolhive-secrets
+      key: POSTGRES_MCP_DATABASE_URI
+      targetEnvName: DATABASE_URI
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: postgres-mcp
+  namespace: ai
+spec: {}
