@@ -94,7 +94,6 @@ function cacheDOMElements() {
     "dayHash",
     "pplnsStart",
     "currentEffort",
-    "startedMining",
     "pool-status",
     "pool-status-text",
     "user-hashrate-24h",
@@ -657,7 +656,7 @@ function initializePriceChart(slicedHistoryData) {
 // PAYMENTS & SHARES FUNCTIONS
 // ==============================
 
-async function updateRecentPayments() {
+async function updateRecentPayments(payouts) {
   if (!state.observerBase || !state.observerWallet) {
     setTextContent("paymentsStatus", "Observer not configured");
     setTextContent("totalEarned", "–");
@@ -667,10 +666,6 @@ async function updateRecentPayments() {
   const tbody = DOM.paymentsTable?.querySelector("tbody");
 
   try {
-    const payouts = await fetchJSON(
-      `${state.observerBase}/payouts/${state.observerWallet}`,
-    );
-
     if (!Array.isArray(payouts) || payouts.length === 0) {
       setTextContent("paymentsStatus", "No payouts yet");
       setTextContent("totalEarned", "0.000000 XMR");
@@ -729,30 +724,33 @@ async function updateRecentPayments() {
   }
 }
 
-async function updateSharesCard() {
+async function updateSharesCard(shares, payouts) {
   if (!state.observerWallet || !state.observerBase) {
     updateSharesDisplay("–", "–", "–", "–");
     return;
   }
 
   try {
-    const [payouts, shares] = await Promise.all([
-      fetchJSON(`${state.observerBase}/payouts/${state.observerWallet}`),
-      fetchJSON(`${state.observerBase}/shares?miner=${state.observerWallet}`),
-    ]);
-
     if (!Array.isArray(payouts) || !Array.isArray(shares)) {
       throw new Error("Invalid response data");
     }
 
     const lastPayoutTS = payouts.length > 0 ? payouts[0].timestamp : 0;
-    const sharesAfter = shares.filter((s) => s.timestamp > lastPayoutTS);
-    const unclesAfter = sharesAfter.filter((s) => s.inclusion === 0);
 
-    const sharesSince = sharesAfter.length;
-    const unclesSince = unclesAfter.length;
+    let sharesSince = 0;
+    let unclesSince = 0;
+    let totalUncles = 0;
+
+    for (const share of shares) {
+      const isUncle = share.inclusion === 0;
+      if (isUncle) totalUncles++;
+      if (share.timestamp > lastPayoutTS) {
+        sharesSince++;
+        if (isUncle) unclesSince++;
+      }
+    }
+
     const totalShares = shares.length;
-    const totalUncles = shares.filter((s) => s.inclusion === 0).length;
 
     updateSharesDisplay(sharesSince, unclesSince, totalShares, totalUncles);
   } catch {
@@ -777,6 +775,7 @@ function updateSharesDisplay(
 // ==============================
 
 async function updateWindowLuck(
+  shares,
   pplnsWeight,
   avgPoolHashPPLNS,
   avgMyHashPPLNS,
@@ -788,9 +787,6 @@ async function updateWindowLuck(
   if (!state.observerWallet || !state.observerBase) return;
 
   try {
-    const shares = await fetchJSON(
-      `${state.observerBase}/shares?miner=${state.observerWallet}`,
-    );
     if (!Array.isArray(shares)) throw new Error("Invalid shares data");
 
     shares.sort((a, b) => a.timestamp - b.timestamp);
@@ -855,45 +851,63 @@ function updateTrueLuck(
   xmrPerDayAvg,
   totalXMR,
 ) {
-  try {
-    setTooltipContent(
-      "trueLuckTooltip",
-      `
-The estimated true luck factor is based on how much you have
-been paid out since you started mining divided by how much you
-were expected to earn in that time. But the longer the time window,
-the less accurate it is, because the way the expected amount is
-calculated is using (max 24h) moving average hashrates. But if
-they have changed in a significant way from when you started
-mining up until now, the true luck factor could be less accurate.
-That's also why it is called the estimated true luck factor.
-    `.trim(),
-    );
+  const reset = () => {
+    setTextContent("trueLuckFactor", "–");
+    setTextContent("trueLuckWindow", "–");
+  };
 
+  try {
     if (
       !isPositiveNumber(newestPayoutTime) ||
       !isPositiveNumber(startedMiningTimestamp)
     ) {
-      throw new Error("Invalid timestamps");
+      reset();
+      return;
     }
 
     const timeWindow = newestPayoutTime - startedMiningTimestamp;
     if (timeWindow <= 0) {
-      throw new Error("Invalid time window");
+      reset();
+      return;
     }
 
+    // Cap window at 7 days — beyond that, 24h avg extrapolation is meaningless
+    const MAX_WINDOW_DAYS = 7;
     const timeWindowDays = timeWindow / CONFIG.SECONDS_PER_DAY;
-    const expectedXMR = xmrPerDayAvg * timeWindowDays;
+    const cappedWindowDays = Math.min(timeWindowDays, MAX_WINDOW_DAYS);
+    const expectedXMR = xmrPerDayAvg * cappedWindowDays;
 
     if (expectedXMR <= 0) {
-      throw new Error("Invalid expected XMR");
+      reset();
+      return;
     }
 
     const trueLuckFactor = totalXMR / expectedXMR;
     setTextContent("trueLuckFactor", trueLuckFactor.toFixed(2));
+
+    // Show the time window context so users understand accuracy
+    const displayDays = Math.min(timeWindowDays, MAX_WINDOW_DAYS);
+    const displayHours = displayDays * 24;
+    const windowText =
+      displayHours < 1
+        ? `${Math.round(timeWindow / 60)}m window`
+        : displayHours < 24
+          ? `${displayHours.toFixed(1)}h window`
+          : `${displayDays.toFixed(1)}d window`;
+    setTextContent("trueLuckWindow", windowText);
+
+    setTooltipContent(
+      "trueLuckTooltip",
+      `
+Estimated true luck: total payouts divided by expected earnings
+over the same period. Expected earnings use a 24h moving average
+of hashrates, so accuracy decreases the further back the window
+goes. Shows "–" if no payouts yet or not enough data.
+    `.trim(),
+    );
   } catch (error) {
     console.error("Error updating Estimated True Luck card:", error);
-    setTextContent("trueLuckFactor", "–");
+    reset();
   }
 }
 
@@ -1206,11 +1220,19 @@ async function updateStats() {
     );
     updateEarningsTooltip(avgMyHash, avgPoolHash, avgNetHash, avgWindowHours);
 
+    // Fetch observer data once — shared by payments, shares, and luck
+    const [payouts, shares] = state.observerBase && state.observerWallet
+      ? await Promise.all([
+          fetchJSON(`${state.observerBase}/payouts/${state.observerWallet}`),
+          fetchJSON(`${state.observerBase}/shares?miner=${state.observerWallet}`),
+        ])
+      : [null, null];
+
     // Update payments
-    const [newestPayoutTime, totalXMR] = await updateRecentPayments();
+    const [newestPayoutTime, totalXMR] = await updateRecentPayments(payouts);
 
     // Update shares
-    await updateSharesCard();
+    await updateSharesCard(shares, payouts);
 
     // Calculate PPLNS window data
     const pplnsWeight =
@@ -1234,6 +1256,7 @@ async function updateStats() {
 
     // Update luck cards
     await updateWindowLuck(
+      shares,
       pplnsWeight,
       avgPoolHashPPLNS,
       avgMyHashPPLNS,
@@ -1243,19 +1266,15 @@ async function updateStats() {
       blockReward,
     );
 
-    const startedMining = DOM.startedMining?.value;
-    if (startedMining) {
-      const startedMiningTimestamp = Math.floor(
-        new Date(startedMining).getTime() / 1000,
+    // Update true luck — auto-detect mining start from history data
+    if (state.history && Array.isArray(state.history.timestamps) && state.history.timestamps.length > 0) {
+      const historyStart = state.history.timestamps[0];
+      updateTrueLuck(
+        historyStart,
+        newestPayoutTime,
+        earnings.xmrPerDayAvg,
+        totalXMR,
       );
-      if (!Number.isNaN(startedMiningTimestamp)) {
-        updateTrueLuck(
-          startedMiningTimestamp,
-          newestPayoutTime,
-          earnings.xmrPerDayAvg,
-          totalXMR,
-        );
-      }
     }
 
     // Update old dashboard stats
@@ -1309,25 +1328,6 @@ function cleanup() {
 // INITIALIZATION
 // ==============================
 
-/**
- * Set up localStorage persistence for the "Mining since" date input
- */
-function setupStartedMiningInput() {
-  const input = DOM.startedMining;
-  if (!input) return;
-
-  const savedDate = localStorage.getItem("startedMining");
-  if (savedDate) {
-    input.value = savedDate;
-  }
-
-  input.addEventListener("input", () => {
-    if (input.value) {
-      localStorage.setItem("startedMining", input.value);
-    }
-  });
-}
-
 async function initialize() {
   cacheDOMElements();
 
@@ -1347,9 +1347,6 @@ async function initialize() {
   if (DOM.earnPeriod) {
     DOM.earnPeriod.addEventListener("change", handleEarnPeriodChange);
   }
-
-  // Setup localStorage for started mining input
-  setupStartedMiningInput();
 
   // Initialize charts and stats
   initializeCharts();
