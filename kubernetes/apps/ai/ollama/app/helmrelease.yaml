@@ -3,7 +3,6 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: ollama
-  namespace: ai
 spec:
   interval: 30m
   chartRef:
@@ -23,14 +22,13 @@ spec:
                     values: ["true"]
     controllers:
       app:
-        type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
-              repository: docker.io/ollama/ollama
-              tag: "0.20.0"
+              repository: ollama/ollama
+              tag: 0.20.0
             env:
               TZ: ${TIMEZONE}
               # Don't set CUDA_VISIBLE_DEVICES: log warns "if GPUs not correctly discovered, unset and try again"; single-GPU pod has one device anyway
