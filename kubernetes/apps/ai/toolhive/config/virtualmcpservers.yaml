@@ -95,3 +95,21 @@ spec:
       conflictResolution: prefix
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: VirtualMCPServer
+metadata:
+  name: unified
+  namespace: ai
+spec:
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  embeddingServerRef:
+    name: toolhive-embeddings
+  config:
+    groupRef: all
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"

@@ -1,0 +1,293 @@
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: postgres-mcp-opt
+  namespace: ai
+spec:
+  image: crystaldba/postgres-mcp:latest
+  transport: stdio
+  groupRef: all
+  args:
+    - "--access-mode=restricted"
+  secrets:
+    - name: toolhive-secrets
+      key: POSTGRES_MCP_DATABASE_URI
+      targetEnvName: DATABASE_URI
+  toolConfigRef:
+    name: postgres-mcp
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: homeassistant-opt
+  namespace: ai
+spec:
+  image: ghcr.io/homeassistant-ai/ha-mcp:7.2.0@sha256:84c744da96ae519822c321ef0f0a1348ec36b7797a70bc04b9bcc67de3402aa2
+  transport: streamable-http
+  mcpPort: 8086
+  proxyPort: 8080
+  groupRef: all
+  env:
+    - name: HOMEASSISTANT_URL
+      value: http://${HOME_ASSISTANT_IP}:8123
+  secrets:
+    - name: toolhive-secrets
+      key: HOMEASSISTANT_API_TOKEN
+      targetEnvName: HOMEASSISTANT_TOKEN
+  toolConfigRef:
+    name: homeassistant
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          command: ["fastmcp", "run", "fastmcp-http.json"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 1
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: flux-operator-opt
+  namespace: ai
+spec:
+  image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.45.1
+  transport: stdio
+  groupRef: all
+  args:
+    - serve
+  env:
+    - name: KUBECONFIG
+      value: /kubeconfig/kubeconfig
+  toolConfigRef:
+    name: flux-operator
+  podTemplateSpec:
+    spec:
+      volumes:
+        - name: kubeconfig
+          secret:
+            secretName: toolhive-secrets
+            items:
+              - key: KUBECONFIG
+                path: kubeconfig
+      containers:
+        - name: mcp
+          volumeMounts:
+            - name: kubeconfig
+              mountPath: /kubeconfig
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 1
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 200Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: grafana-opt
+  namespace: ai
+spec:
+  image: mcp/grafana:latest
+  transport: stdio
+  groupRef: all
+  args:
+    - "-t"
+    - "stdio"
+  env:
+    - name: GRAFANA_URL
+      value: http://grafana-service.observability.svc.cluster.local:3000
+  toolConfigRef:
+    name: grafana
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 110Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: searxng-opt
+  namespace: ai
+spec:
+  image: ghcr.io/rcdailey/mcp-searxng:0.8.0
+  transport: stdio
+  groupRef: all
+  env:
+    - name: SEARXNG_URL
+      value: http://searxng.default.svc.cluster.local:8080
+  toolConfigRef:
+    name: searxng
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 110Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: github-opt
+  namespace: ai
+spec:
+  image: ghcr.io/github/github-mcp-server:latest
+  transport: stdio
+  groupRef: all
+  args:
+    - stdio
+  secrets:
+    - name: toolhive-secrets
+      key: GITHUB_PERSONAL_ACCESS_TOKEN
+      targetEnvName: GITHUB_PERSONAL_ACCESS_TOKEN
+  toolConfigRef:
+    name: github
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 200Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: karakeep-opt
+  namespace: ai
+spec:
+  image: ghcr.io/karakeep-app/karakeep-mcp:latest
+  transport: stdio
+  groupRef: all
+  env:
+    - name: KARAKEEP_API_ADDR
+      value: http://karakeep.default.svc.cluster.local:3000
+  secrets:
+    - name: toolhive-secrets
+      key: KARAKEEP_API_KEY
+  toolConfigRef:
+    name: karakeep
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 100Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: sequentialthinking-opt
+  namespace: ai
+spec:
+  image: mcp/sequentialthinking:latest
+  transport: stdio
+  groupRef: all
+  toolConfigRef:
+    name: sequentialthinking
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 110Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
