@@ -160,7 +160,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/monerod_stats":
             self.proxy_monerod()
         elif self.path == "/xmrig_summary":
-            self.proxy(XMRIG_API_URL)
+            self.proxy_xmrig()
         elif self.path == "/stats_log.json":
             self.serve_log()
         elif self.path == "/min_payment_threshold":
@@ -172,6 +172,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def proxy_xmrig(self):
+        """Proxy xmrig summary with graceful fallback when miner is scaled to 0.
+
+        XMRig uses KEDA ScaledObject with minReplicaCount: 0 — when no excess
+        solar power, the pod scales down and has no endpoints. Instead of
+        crashing with ConnectionRefusedError, return a 503 JSON response.
+        """
+        try:
+            with urllib.request.urlopen(XMRIG_API_URL, timeout=5) as r:
+                data = r.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            self.send_json_error(f"XMRig miner offline: {e}", 503)
+
     def proxy(self, url):
         """Fetch JSON from a local service and return to client"""
         with urllib.request.urlopen(url, timeout=5) as r:
@@ -182,7 +199,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def proxy_monerod(self):
-        """Send a get_info RPC call to monerod and return JSON"""
+        """Send a get_info RPC call to monerod and return JSON.
+
+        Returns 503 JSON if monerod is unreachable instead of crashing."""
         payload = json.dumps({
             "jsonrpc": "2.0",
             "id": "0",
@@ -193,11 +212,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             data=payload,
             headers={"Content-Type": "application/json"}
         )
-        with urllib.request.urlopen(req, timeout=5) as r:
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(r.read())
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(r.read())
+        except Exception as e:
+            self.send_json_error(f"Monerod unavailable: {e}", 503)
 
     def serve_log(self):
         """Serve in-memory rolling log as JSON"""

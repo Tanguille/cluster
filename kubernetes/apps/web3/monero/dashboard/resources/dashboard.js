@@ -723,7 +723,8 @@ async function updateRecentPayments(payouts, priceEUR) {
     );
 
     return [newestPayoutTime, totalXMR];
-  } catch {
+  } catch (error) {
+    console.error("Error updating recent payments:", error);
     setTextContent("paymentsStatus", "Payout data unavailable");
     setTextContent("totalEarned", "–");
     if (tbody) tbody.innerHTML = "";
@@ -761,7 +762,8 @@ async function updateSharesCard(shares, payouts) {
     const totalShares = shares.length;
 
     updateSharesDisplay(sharesSince, unclesSince, totalShares, totalUncles);
-  } catch {
+  } catch (error) {
+    console.error("Error updating shares card:", error);
     updateSharesDisplay("–", "–", "–", "–");
   }
 }
@@ -1164,7 +1166,8 @@ async function updateStats() {
     }
 
     // Extract instantaneous values
-    const instMyHash = extractXMRigHashrate(xmrigData);
+    const xmrigOnline = isValidObject(xmrigData);
+    const instMyHash = xmrigOnline ? extractXMRigHashrate(xmrigData) : 0;
     const instPoolHash = extractPoolHashrate(poolData);
     const instNetHash = calculateNetworkHashrate(networkData);
     const blockReward =
