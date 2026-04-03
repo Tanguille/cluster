@@ -21,7 +21,7 @@ spec:
       wal_level: replica
       max_connections: "200"
       shared_buffers: 1GB
-      effective_cache_size: 4GB
+      effective_cache_size: 6GB
       huge_pages: "try"
       # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
       io_method: "worker"
@@ -37,7 +37,7 @@ spec:
       checkpoint_completion_target: "0.9"
       checkpoint_warning: "60" # Seconds; log if checkpoints happen closer (increase max_wal_size if frequent)
       wal_compression: "zstd"
-      wal_buffers: 16MB
+      wal_buffers: 32MB
       # Autovacuum tuned for many small/medium DBs with XID age protection
       autovacuum_vacuum_scale_factor: "0.02"
       autovacuum_analyze_scale_factor: "0.01"
