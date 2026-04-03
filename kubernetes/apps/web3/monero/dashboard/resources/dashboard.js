@@ -31,6 +31,7 @@ const CONFIG = {
   DEFAULT_MIN_PAYMENT: 0.01,
   REFRESH_INTERVAL_MS: 5000,
   MOVING_AVERAGE_WINDOW_SECONDS: 600,
+  OBSERVER_SHARES_LIMIT: 10000,
 
   // Hashrate scaling thresholds
   HASHRATE_SCALE: {
@@ -439,7 +440,7 @@ async function getWindowStartTimestamp() {
   if (!state.observerBase) return Date.now() / 1000;
 
   try {
-    const newestShare = await fetchJSON(`${state.observerBase}/shares?limit=1`);
+    const newestShare = await fetchJSON(`/observer/shares?limit=1`);
     if (!Array.isArray(newestShare) || newestShare.length === 0) {
       console.warn("No shares returned from API");
       return Date.now() / 1000;
@@ -451,7 +452,7 @@ async function getWindowStartTimestamp() {
     }
 
     const sharesInWindow = await fetchJSON(
-      `${state.observerBase}/shares?limit=${windowDepth}`,
+      `/observer/shares?limit=${windowDepth}`,
     );
     if (!Array.isArray(sharesInWindow) || sharesInWindow.length === 0) {
       console.warn("No shares returned for PPLNS window");
@@ -464,6 +465,14 @@ async function getWindowStartTimestamp() {
     console.warn("Failed to get window start timestamp");
     return Date.now() / 1000;
   }
+}
+
+/**
+ * Check if observer API is configured and ready to use.
+ * @returns {boolean}
+ */
+function isObserverReady() {
+  return !!state.observerWallet && !!state.observerBase;
 }
 
 // ==============================
@@ -656,8 +665,8 @@ function initializePriceChart(slicedHistoryData) {
 // PAYMENTS & SHARES FUNCTIONS
 // ==============================
 
-async function updateRecentPayments(payouts) {
-  if (!state.observerBase || !state.observerWallet) {
+async function updateRecentPayments(payouts, priceEUR) {
+  if (!isObserverReady()) {
     setTextContent("paymentsStatus", "Observer not configured");
     setTextContent("totalEarned", "–");
     return [null, 0];
@@ -673,15 +682,13 @@ async function updateRecentPayments(payouts) {
       return [null, 0];
     }
 
-    payouts.sort((a, b) => b.timestamp - a.timestamp);
-    const newestPayoutTime = payouts[0].timestamp;
+    const sortedPayouts = [...payouts].sort((a, b) => b.timestamp - a.timestamp);
+    const newestPayoutTime = sortedPayouts[0].timestamp;
 
-    const totalXMR = payouts.reduce(
+    const totalXMR = sortedPayouts.reduce(
       (sum, p) => sum + p.coinbase_reward / CONFIG.ATOMIC_UNITS_PER_XMR,
       0,
     );
-    const priceEUR =
-      state.history?.price?.[state.history.price.length - 1] || 0;
 
     setTextContent("totalEarned", `${totalXMR.toFixed(6)} XMR`);
     setTextContent(
@@ -693,7 +700,7 @@ async function updateRecentPayments(payouts) {
 
     // Update table
     if (tbody) {
-      tbody.innerHTML = payouts
+      tbody.innerHTML = sortedPayouts
         .slice(0, CONFIG.PPLNS_WINDOW_MAX_SHARES)
         .map((p) => {
           const xmr = p.coinbase_reward / CONFIG.ATOMIC_UNITS_PER_XMR;
@@ -712,7 +719,7 @@ async function updateRecentPayments(payouts) {
 
     setTextContent(
       "paymentsStatus",
-      `Showing last ${Math.min(CONFIG.PPLNS_WINDOW_MAX_SHARES, payouts.length)} payouts`,
+      `Showing last ${Math.min(CONFIG.PPLNS_WINDOW_MAX_SHARES, sortedPayouts.length)} payouts`,
     );
 
     return [newestPayoutTime, totalXMR];
@@ -725,14 +732,15 @@ async function updateRecentPayments(payouts) {
 }
 
 async function updateSharesCard(shares, payouts) {
-  if (!state.observerWallet || !state.observerBase) {
+  if (!isObserverReady()) {
     updateSharesDisplay("–", "–", "–", "–");
     return;
   }
 
   try {
     if (!Array.isArray(payouts) || !Array.isArray(shares)) {
-      throw new Error("Invalid response data");
+      updateSharesDisplay("–", "–", "–", "–");
+      return;
     }
 
     const lastPayoutTS = payouts.length > 0 ? payouts[0].timestamp : 0;
@@ -784,14 +792,17 @@ async function updateWindowLuck(
   priceEUR,
   blockReward,
 ) {
-  if (!state.observerWallet || !state.observerBase) return;
+  if (!isObserverReady()) return;
 
   try {
-    if (!Array.isArray(shares)) throw new Error("Invalid shares data");
+    if (!Array.isArray(shares)) {
+      console.error("Invalid shares data in updateWindowLuck");
+      return;
+    }
 
-    shares.sort((a, b) => a.timestamp - b.timestamp);
+    const sortedShares = [...shares].sort((a, b) => a.timestamp - b.timestamp);
 
-    const myWindowShares = shares.filter(
+    const myWindowShares = sortedShares.filter(
       (share) => share.timestamp >= windowStart,
     );
     const totalDifficulty = myWindowShares.reduce(
@@ -804,7 +815,7 @@ async function updateWindowLuck(
       windowDuration > 0 ? totalDifficulty / windowDuration : 0;
     const luckFactor = avgMyHashPPLNS > 0 ? myWindowHash / avgMyHashPPLNS : 0;
 
-    const poolInfo = await fetchJSON(`${state.observerBase}/pool_info`);
+    const poolInfo = await fetchJSON(`/observer/pool_info`);
 
     const avgCurrentEffort = poolInfo?.sidechain?.effort?.average200 || 100;
     const betterLuckFactor =
@@ -1225,18 +1236,19 @@ async function updateStats() {
     // so we fetch all recent shares and filter client-side.
     const [payouts, allShares] = state.observerBase && state.observerWallet
       ? await Promise.all([
-          fetchJSON(`${state.observerBase}/payouts/${state.observerWallet}`),
-          fetchJSON(`${state.observerBase}/shares?limit=10000`),
+          fetchJSON(`/observer/payouts/${state.observerWallet}`),
+          fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`),
         ])
       : [null, null];
 
     // Filter shares to only this miner's
+    // Note: API returns `miner` as a numeric ID, so we match on `miner_address`
     const minerShares = Array.isArray(allShares)
-      ? allShares.filter((s) => s.miner === state.observerWallet)
+      ? allShares.filter((s) => s.miner_address === state.observerWallet)
       : [];
 
     // Update payments
-    const [newestPayoutTime, totalXMR] = await updateRecentPayments(payouts);
+    const [newestPayoutTime, totalXMR] = await updateRecentPayments(payouts, priceEUR);
 
     // Update shares
     await updateSharesCard(minerShares, payouts);

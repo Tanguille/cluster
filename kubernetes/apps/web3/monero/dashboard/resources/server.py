@@ -167,6 +167,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.serve_threshold()
         elif self.path == "/observer_config":
             self.serve_observer_config()
+        elif self.path.startswith("/observer/"):
+            self.proxy_observer_api()
         else:
             super().do_GET()
 
@@ -223,6 +225,40 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
+
+    def proxy_observer_api(self):
+        """Proxy requests to p2pool.observer API to avoid CORS issues in browser.
+
+        Routes:
+          - /observer/shares?limit=10000          → {base}/shares?limit=10000
+          - /observer/payouts/{wallet}            → {base}/payouts/{wallet}
+          - /observer/pool_info                   → {base}/pool_info
+        """
+        if not OBSERVER_DOMAINS:
+            self.send_json_error("Observer not configured", 503)
+            return
+
+        base = OBSERVER_DOMAINS[0]
+        # Map /observer/... to the actual API path
+        api_path = self.path[len("/observer/"):]  # e.g. "shares?limit=1" or "payouts/..."
+        url = f"{base}/{api_path}"
+
+        try:
+            with urllib.request.urlopen(url, timeout=15) as r:
+                data = r.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as e:
+            self.send_json_error(f"Observer API error: {e}", 502)
+
+    def send_json_error(self, message, status_code):
+        """Send a JSON error response."""
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"error": message}).encode())
 
 # ==============================
 # LOGGING FUNCTIONS
