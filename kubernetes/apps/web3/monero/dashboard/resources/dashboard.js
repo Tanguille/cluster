@@ -51,7 +51,6 @@ const state = {
   hashrateChart: null,
   priceChart: null,
   currentRangeHours: CONFIG.DEFAULT_RANGE_HOURS,
-  observerConfig: null,
   observerBase: null,
   observerWallet: null,
   oldStatsData: {},
@@ -168,6 +167,15 @@ function scaleHashrate(hashrate) {
 }
 
 /**
+ * Pads a number to 2 digits with leading zero
+ * @param {number} n - number to pad
+ * @returns {string}
+ */
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+/**
  * Formats a date as DD/MM/YYYY HH:MM:SS
  * @param {Date} date - date to format
  * @returns {string}
@@ -177,8 +185,7 @@ function formatDate24(date) {
     return "Invalid date";
   }
 
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 }
 
 /**
@@ -191,21 +198,32 @@ function formatDate24Hours(date) {
     return "Invalid time";
   }
 
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 }
 
 /**
  * Formats relative time (e.g., "5m ago")
  * @param {number} timestamp - Unix timestamp in seconds
+ * @param {Object} opts - options for edge-case labels
+ * @param {string} [opts.zeroLabel="Never"] - label for null/zero timestamps
+ * @param {string} [opts.invalidLabel="Unknown"] - label for invalid timestamps
+ * @param {(diff: number) => string} [opts.underMinute] - formatter for <60s; default: `${diff}s ago`
  * @returns {string}
  */
-function formatRelativeTime(timestamp) {
-  if (!isPositiveNumber(timestamp)) return "Unknown";
+function formatRelativeTime(timestamp, opts = {}) {
+  const {
+    zeroLabel = "Never",
+    invalidLabel = "Unknown",
+    underMinute,
+  } = opts;
+
+  if (!timestamp || timestamp === 0) return zeroLabel;
+  if (!isPositiveNumber(timestamp)) return invalidLabel;
 
   const diff = Math.floor(Date.now() / 1000 - timestamp);
 
-  if (diff < CONFIG.SECONDS_PER_MINUTE) return `${diff}s ago`;
+  if (diff < CONFIG.SECONDS_PER_MINUTE)
+    return underMinute ? underMinute(diff) : `${diff}s ago`;
   if (diff < CONFIG.SECONDS_PER_HOUR)
     return `${Math.floor(diff / CONFIG.SECONDS_PER_MINUTE)}m ago`;
   if (diff < CONFIG.SECONDS_PER_DAY)
@@ -214,25 +232,16 @@ function formatRelativeTime(timestamp) {
 }
 
 /**
- * Formats time difference from now
+ * Formats time difference from now (legacy alias with "Just now" / "Invalid" labels)
  * @param {number} timestamp - Unix timestamp in seconds
  * @returns {string}
  */
 function formatTime(timestamp) {
-  if (!timestamp || timestamp === 0) return "Never";
-
-  const date = new Date(timestamp * 1000);
-  if (Number.isNaN(date.getTime())) return "Invalid";
-
-  const diffMs = Date.now() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
+  return formatRelativeTime(timestamp, {
+    zeroLabel: "Never",
+    invalidLabel: "Invalid",
+    underMinute: () => "Just now",
+  });
 }
 
 /**
@@ -374,21 +383,19 @@ function calculateMovingAverages(
   instPoolHash,
   instNetHash,
 ) {
+  const fallback = {
+    avgMyHash: instMyHash,
+    avgPoolHash: instPoolHash,
+    avgNetHash: instNetHash,
+  };
+
   if (windowHours <= 0 || !historyData) {
-    return {
-      avgMyHash: instMyHash,
-      avgPoolHash: instPoolHash,
-      avgNetHash: instNetHash,
-    };
+    return fallback;
   }
 
   const sliced = sliceHistory(windowHours, historyData);
   if (!sliced) {
-    return {
-      avgMyHash: instMyHash,
-      avgPoolHash: instPoolHash,
-      avgNetHash: instNetHash,
-    };
+    return fallback;
   }
 
   const windowSeconds = windowHours * CONFIG.SECONDS_PER_HOUR;
@@ -420,9 +427,8 @@ async function loadObserverConfig() {
       return null;
     }
 
-    state.observerConfig = cfg;
-    state.observerWallet = cfg.wallet;
     state.observerBase = cfg.observers[0];
+    state.observerWallet = cfg.wallet;
     return cfg;
   } catch {
     console.warn("Observer config unavailable");
@@ -470,29 +476,128 @@ function setTextContent(elementId, text) {
   if (el) el.textContent = text;
 }
 
-function createTooltipIfNeeded(containerId, tooltipId, content) {
-  const container = DOM[containerId];
-  if (!container) return null;
-
-  let tooltip = document.getElementById(tooltipId);
-  if (!tooltip) {
-    tooltip = document.createElement("span");
-    tooltip.id = tooltipId;
-    tooltip.className = "tooltip-icon";
-    tooltip.textContent = "ⓘ";
-    container.appendChild(tooltip);
-  }
-
-  if (content) {
+/**
+ * Sets the title on an existing tooltip element.
+ * @param {string} tooltipId - id of the tooltip element
+ * @param {string} content - tooltip text
+ */
+function setTooltipContent(tooltipId, content) {
+  const tooltip = document.getElementById(tooltipId);
+  if (tooltip && content) {
     tooltip.title = content;
   }
-
-  return tooltip;
 }
 
 // ==============================
 // CHART FUNCTIONS
 // ==============================
+
+/**
+ * Shared Chart.js options used by both hashrate and price charts.
+ * Override yTicks or tooltipCallbacks as needed.
+ */
+function sharedChartOptions(overrides = {}) {
+  const { yTicks, tooltipCallbacks } = overrides;
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#111827",
+        titleColor: "#e5e7eb",
+        bodyColor: "#9ca3af",
+        borderColor: "#1f2937",
+        borderWidth: 1,
+        padding: 10,
+        displayColors: false,
+        ...(tooltipCallbacks ? { callbacks: tooltipCallbacks } : {}),
+      },
+    },
+    scales: {
+      x: {
+        type: "time",
+        time: {
+          tooltipFormat: "dd/MM/yyyy HH:mm:ss",
+          displayFormats: {
+            hour: "dd/MM/yyyy HH:mm",
+            minute: "dd/MM/yyyy HH:mm",
+          },
+        },
+        grid: {
+          color: "rgba(31, 41, 55, 0.5)",
+          drawBorder: false,
+        },
+        ticks: {
+          color: "#6b7280",
+          font: { size: 10 },
+          maxTicksLimit: 6,
+        },
+      },
+      y: {
+        ...(yTicks ? { ticks: yTicks } : {}),
+        grid: {
+          color: "rgba(31, 41, 55, 0.5)",
+          drawBorder: false,
+        },
+      },
+    },
+    interaction: {
+      intersect: false,
+      mode: "index",
+    },
+  };
+}
+
+/**
+ * Shared dataset config for line charts.
+ */
+function lineDataset(label, data) {
+  return {
+    label,
+    data,
+    borderColor: "#ef4444",
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderWidth: 1.5,
+    fill: true,
+    tension: 0.3,
+    pointRadius: 0,
+    pointHoverRadius: 4,
+    pointHoverBackgroundColor: "#ef4444",
+  };
+}
+
+/**
+ * Creates or updates a Chart.js instance.
+ * @param {HTMLCanvasElement} canvas
+ * @param {Object} state - state object
+ * @param {string} stateKey - key in state (e.g. 'hashrateChart')
+ * @param {Object} chartConfig - { label, data, yTicks, tooltipCallbacks }
+ */
+function initOrUpdateChart(canvas, state, stateKey, chartConfig) {
+  if (!canvas) return;
+
+  const config = {
+    type: "line",
+    data: {
+      labels: chartConfig.labels,
+      datasets: [lineDataset(chartConfig.label, chartConfig.data)],
+    },
+    options: sharedChartOptions({
+      yTicks: chartConfig.yTicks,
+      tooltipCallbacks: chartConfig.tooltipCallbacks,
+    }),
+  };
+
+  if (!state[stateKey]) {
+    state[stateKey] = new Chart(canvas, config);
+  } else {
+    state[stateKey].data.labels = chartConfig.labels;
+    state[stateKey].data.datasets[0].data = chartConfig.data;
+    state[stateKey].update();
+  }
+}
 
 function initializeCharts() {
   if (!state.history) return;
@@ -512,81 +617,37 @@ function initializeCharts() {
 }
 
 function initializeHashrateChart(slicedHistoryData) {
-  const canvas = DOM.hashrateChart;
-  if (!canvas) return;
-
   try {
-    if (!state.hashrateChart) {
-      state.hashrateChart = new Chart(canvas, {
-        type: "line",
-        data: {
-          labels: slicedHistoryData.labels,
-          datasets: [
-            { label: "Your Hashrate", data: slicedHistoryData.myHash },
-          ],
-        },
-        options: {
-          scales: {
-            x: {
-              type: "time",
-              time: {
-                tooltipFormat: "dd/MM/yyyy HH:mm:ss",
-                displayFormats: {
-                  hour: "dd/MM/yyyy HH:mm",
-                  minute: "dd/MM/yyyy HH:mm",
-                },
-              },
-            },
-            y: { ticks: { callback: scaleHashrate } },
-          },
-          elements: { point: { radius: 0 }, line: { tension: 0.25 } },
-        },
-      });
-    } else {
-      state.hashrateChart.data.labels = slicedHistoryData.labels;
-      state.hashrateChart.data.datasets[0].data = slicedHistoryData.myHash;
-      state.hashrateChart.update();
-    }
+    initOrUpdateChart(DOM.hashrateChart, state, "hashrateChart", {
+      label: "Your Hashrate",
+      data: slicedHistoryData.myHash,
+      labels: slicedHistoryData.labels,
+      yTicks: {
+        callback: scaleHashrate,
+        color: "#6b7280",
+        font: { size: 10 },
+      },
+    });
   } catch (error) {
     console.error("Failed to initialize hashrate chart:", error);
   }
 }
 
 function initializePriceChart(slicedHistoryData) {
-  const canvas = DOM.priceChart;
-  if (!canvas) return;
-
   try {
-    if (!state.priceChart) {
-      state.priceChart = new Chart(canvas, {
-        type: "line",
-        data: {
-          labels: slicedHistoryData.labels,
-          datasets: [
-            { label: "XMR Price (EUR)", data: slicedHistoryData.price },
-          ],
-        },
-        options: {
-          scales: {
-            x: {
-              type: "time",
-              time: {
-                tooltipFormat: "dd/MM/yyyy HH:mm:ss",
-                displayFormats: {
-                  hour: "dd/MM/yyyy HH:mm",
-                  minute: "dd/MM/yyyy HH:mm",
-                },
-              },
-            },
-          },
-          elements: { point: { radius: 0 }, line: { tension: 0.25 } },
-        },
-      });
-    } else {
-      state.priceChart.data.labels = slicedHistoryData.labels;
-      state.priceChart.data.datasets[0].data = slicedHistoryData.price;
-      state.priceChart.update();
-    }
+    initOrUpdateChart(DOM.priceChart, state, "priceChart", {
+      label: "XMR Price (EUR)",
+      data: slicedHistoryData.price,
+      labels: slicedHistoryData.labels,
+      yTicks: {
+        callback: (v) => `€${v.toFixed(2)}`,
+        color: "#6b7280",
+        font: { size: 10 },
+      },
+      tooltipCallbacks: {
+        label: (ctx) => `€${ctx.parsed.y.toFixed(2)}`,
+      },
+    });
   } catch (error) {
     console.error("Failed to initialize price chart:", error);
   }
@@ -646,8 +707,8 @@ async function updateRecentPayments() {
           return `
           <tr>
             <td>${formatRelativeTime(p.timestamp)}</td>
-            <td style="text-align: right">${xmr.toFixed(6)}</td>
-            <td style="text-align: right">${eurValue}</td>
+            <td class="cell-right">${xmr.toFixed(6)}</td>
+            <td class="cell-right">${eurValue}</td>
           </tr>
         `;
         })
@@ -686,9 +747,10 @@ async function updateSharesCard() {
 
     const lastPayoutTS = payouts.length > 0 ? payouts[0].timestamp : 0;
     const sharesAfter = shares.filter((s) => s.timestamp > lastPayoutTS);
+    const unclesAfter = sharesAfter.filter((s) => s.inclusion === 0);
 
     const sharesSince = sharesAfter.length;
-    const unclesSince = sharesAfter.filter((s) => s.inclusion === 0).length;
+    const unclesSince = unclesAfter.length;
     const totalShares = shares.length;
     const totalUncles = shares.filter((s) => s.inclusion === 0).length;
 
@@ -757,8 +819,7 @@ async function updateWindowLuck(
     const accumulatedXMR = difficultyShare * blockReward;
     const accumulatedEUR = accumulatedXMR * priceEUR;
 
-    createTooltipIfNeeded(
-      "luckFactor",
+    setTooltipContent(
       "luckTooltip",
       `
 Luck factor is based on your performance in the
@@ -795,8 +856,7 @@ function updateTrueLuck(
   totalXMR,
 ) {
   try {
-    createTooltipIfNeeded(
-      "trueLuckFactor",
+    setTooltipContent(
       "trueLuckTooltip",
       `
 The estimated true luck factor is based on how much you have
@@ -914,8 +974,9 @@ function updateWorkersList() {
           : `Miner @ ${ipPort.split(":")[0]}`;
 
       return `
-      <div class="worker-item" style="margin: 5px 0; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 5px;">
-        <strong>${name}</strong> - ${scaleHashrate(hashrate)} - Shares: ${state.oldStatsData?.shares_found ?? 0}/${state.oldStatsData?.shares_failed ?? 0}
+      <div class="worker-item">
+        <span class="worker-name">${name}</span>
+        <span class="worker-hash">${scaleHashrate(hashrate)}</span>
       </div>
     `;
     })
@@ -944,9 +1005,7 @@ async function fetchDashboardData() {
     fetchJSON("/network/stats"),
     fetchJSON("/min_payment_threshold"),
     fetchJSON("/stats_log.json"),
-    fetch("/local/stratum")
-      .then((r) => (r.ok ? r.json() : {}))
-      .catch(() => ({})),
+    fetchJSON("/local/stratum"),
   ]);
 
   return results.map((r) => (r.status === "fulfilled" ? r.value : null));
@@ -1015,8 +1074,7 @@ function updateEarningsTooltip(
       ? "24h moving average"
       : `${avgWindowHours.toFixed(1)}h moving average`;
 
-  createTooltipIfNeeded(
-    "earnXMR",
+  setTooltipContent(
     "earnTooltip",
     `
 Estimated earnings based on ${avgWindowLabel}.
@@ -1251,6 +1309,25 @@ function cleanup() {
 // INITIALIZATION
 // ==============================
 
+/**
+ * Set up localStorage persistence for the "Mining since" date input
+ */
+function setupStartedMiningInput() {
+  const input = DOM.startedMining;
+  if (!input) return;
+
+  const savedDate = localStorage.getItem("startedMining");
+  if (savedDate) {
+    input.value = savedDate;
+  }
+
+  input.addEventListener("input", () => {
+    if (input.value) {
+      localStorage.setItem("startedMining", input.value);
+    }
+  });
+}
+
 async function initialize() {
   cacheDOMElements();
 
@@ -1270,6 +1347,9 @@ async function initialize() {
   if (DOM.earnPeriod) {
     DOM.earnPeriod.addEventListener("change", handleEarnPeriodChange);
   }
+
+  // Setup localStorage for started mining input
+  setupStartedMiningInput();
 
   // Initialize charts and stats
   initializeCharts();
