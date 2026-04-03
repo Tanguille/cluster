@@ -27,6 +27,10 @@
   <header>
     <!-- Dashboard title displayed at the top -->
     <h1>P2Pool Dashboard</h1>
+    <div class="header-status">
+      <span class="status-dot"></span>
+      <span>Mining Performance Monitor</span>
+    </div>
   </header>
 
   <main class="grid">
@@ -64,12 +68,12 @@
         <div class="sub" id="totalEurEarned">–</div>
       </div>
       <div id="paymentsStatus" class="small-stat">Loading…</div>
-      <table id="paymentsTable" style="width:100%; margin-top:0.5rem; border-collapse: collapse;">
+      <table id="paymentsTable">
         <thead>
-          <tr style="color:#aaa; font-size:0.8rem;">
-            <th style="text-align:left;">Time</th>
-            <th style="text-align:right;">Amount (XMR)</th>
-            <th style="text-align:right;">Amount (€)</th>
+          <tr>
+            <th>Time</th>
+            <th>Amount (XMR)</th>
+            <th>Amount (€)</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -126,7 +130,6 @@
         Uncles: <span id="unclesSinceLastPayout">–</span>
       </div>
       <div class="sub-sub">Uncles since the last payout</div>
-      <br>
       <div class="bottom-stats">
         <div class="small-stat" id="totalSharesMined">–</div>
         <div class="small-stat" id="totalUnclesMined">–</div>
@@ -169,27 +172,8 @@
           <div class="sub-sub" id="trueLuckInfo">
             Longer time windows reduce accuracy; uses a 24h moving average of hashrates.
           </div>
-          <br>
           <label for="startedMining">Mining since (with current 24h avg H/s)?</label>
           <input type="datetime-local" id="startedMining" name="startedMining">
-          <script>
-            document.addEventListener('DOMContentLoaded', () => {
-              const input = document.getElementById('startedMining');
-
-              // Load saved value from localStorage
-              const savedDate = localStorage.getItem('startedMining');
-              if (savedDate) {
-                input.value = savedDate;
-              }
-
-              // Save value whenever user changes it
-              input.addEventListener('input', () => {
-                if (input.value) {
-                  localStorage.setItem('startedMining', input.value);
-                }
-              });
-            });
-          </script>
         </div>
 
       </div>
