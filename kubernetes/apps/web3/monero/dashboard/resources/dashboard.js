@@ -1221,18 +1221,25 @@ async function updateStats() {
     updateEarningsTooltip(avgMyHash, avgPoolHash, avgNetHash, avgWindowHours);
 
     // Fetch observer data once — shared by payments, shares, and luck
-    const [payouts, shares] = state.observerBase && state.observerWallet
+    // Note: p2pool.observer /shares does NOT support ?miner= filter,
+    // so we fetch all recent shares and filter client-side.
+    const [payouts, allShares] = state.observerBase && state.observerWallet
       ? await Promise.all([
           fetchJSON(`${state.observerBase}/payouts/${state.observerWallet}`),
-          fetchJSON(`${state.observerBase}/shares?miner=${state.observerWallet}`),
+          fetchJSON(`${state.observerBase}/shares?limit=10000`),
         ])
       : [null, null];
+
+    // Filter shares to only this miner's
+    const minerShares = Array.isArray(allShares)
+      ? allShares.filter((s) => s.miner === state.observerWallet)
+      : [];
 
     // Update payments
     const [newestPayoutTime, totalXMR] = await updateRecentPayments(payouts);
 
     // Update shares
-    await updateSharesCard(shares, payouts);
+    await updateSharesCard(minerShares, payouts);
 
     // Calculate PPLNS window data
     const pplnsWeight =
@@ -1256,7 +1263,7 @@ async function updateStats() {
 
     // Update luck cards
     await updateWindowLuck(
-      shares,
+      minerShares,
       pplnsWeight,
       avgPoolHashPPLNS,
       avgMyHashPPLNS,
