@@ -5,6 +5,12 @@ metadata:
   name: flux
   namespace: ai
 spec:
+  replicas: 2
+  sessionStorage:
+    provider: redis
+    address: dragonfly.database.svc.cluster.local:6379
+    db: 0
+    keyPrefix: "thv:vmcp:flux:session:"
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
@@ -21,6 +27,12 @@ metadata:
   name: observability
   namespace: ai
 spec:
+  replicas: 2
+  sessionStorage:
+    provider: redis
+    address: dragonfly.database.svc.cluster.local:6379
+    db: 0
+    keyPrefix: "thv:vmcp:observability:session:"
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
@@ -38,6 +50,12 @@ metadata:
   name: ha
   namespace: ai
 spec:
+  replicas: 2
+  sessionStorage:
+    provider: redis
+    address: dragonfly.database.svc.cluster.local:6379
+    db: 0
+    keyPrefix: "thv:vmcp:ha:session:"
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
@@ -54,6 +72,12 @@ metadata:
   name: search
   namespace: ai
 spec:
+  replicas: 2
+  sessionStorage:
+    provider: redis
+    address: dragonfly.database.svc.cluster.local:6379
+    db: 0
+    keyPrefix: "thv:vmcp:search:session:"
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
@@ -70,6 +94,12 @@ metadata:
   name: database
   namespace: ai
 spec:
+  replicas: 2
+  sessionStorage:
+    provider: redis
+    address: dragonfly.database.svc.cluster.local:6379
+    db: 0
+    keyPrefix: "thv:vmcp:database:session:"
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
@@ -86,6 +116,12 @@ metadata:
   name: resources
   namespace: ai
 spec:
+  replicas: 2
+  sessionStorage:
+    provider: redis
+    address: dragonfly.database.svc.cluster.local:6379
+    db: 0
+    keyPrefix: "thv:vmcp:resources:session:"
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
@@ -102,6 +138,12 @@ metadata:
   name: unified
   namespace: ai
 spec:
+  replicas: 2
+  sessionStorage:
+    provider: redis
+    address: dragonfly.database.svc.cluster.local:6379
+    db: 0
+    keyPrefix: "thv:vmcp:unified:session:"
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
