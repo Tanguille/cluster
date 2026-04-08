@@ -19,7 +19,7 @@ spec:
           app:
             image:
               repository: ghcr.io/xperimental/nextcloud-exporter
-              tag: 0.9.1
+              tag: 0.9.1@sha256:3e90a38976516444d05f5f6758e5d572ca559b69ad3005ec4029786e9daf9129
             env:
               NEXTCLOUD_SERVER: http://nextcloud.default.svc.cluster.local:8080
               NEXTCLOUD_LISTEN_ADDRESS: ":9205"
@@ -34,8 +34,8 @@ spec:
             resources:
               requests:
                 cpu: 10m
+                memory: 64Mi
               limits:
-                cpu: 100m
                 memory: 128Mi
             securityContext:
               allowPrivilegeEscalation: false

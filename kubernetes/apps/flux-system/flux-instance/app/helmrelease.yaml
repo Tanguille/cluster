@@ -156,7 +156,9 @@ spec:
             target:
               kind: Deployment
               name: helm-controller
-          - # Default to retry on failure and disable chart digest tracking
+          - # DefaultToRetryOnFailure: automatically retry failed HelmReleases rather than requiring manual intervention.
+            # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
+            # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
             patch: |-
               - op: add
                 path: /spec/template/spec/containers/0/args/-

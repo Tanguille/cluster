@@ -19,7 +19,7 @@ spec:
           web:
             image:
               repository: nginx
-              tag: 1.29-alpine
+              tag: 1.29-alpine@sha256:e7257f1ef28ba17cf7c248cb8ccf6f0c6e0228ab9c315c152f9c203cd34cf6d1
             resources:
               requests:
                 cpu: 10m
@@ -44,7 +44,7 @@ spec:
           dashboard-server:
             image:
               repository: python
-              tag: 3.14-slim
+              tag: 3.14-slim@sha256:fb83750094b46fd6b8adaa80f66e2302ecbe45d513f6cece637a841e1025b4ca
             command:
               - sh
             args:

@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/simple-monerod
-              tag: latest@sha256:ed9299d73634a13f10de85e63d104276bf5e4ce5175ee4cc16f64f4bbeacbbd4
+              tag: v0.18.4.6@sha256:ed9299d73634a13f10de85e63d104276bf5e4ce5175ee4cc16f64f4bbeacbbd4
             args:
               - "--data-dir=/home/monero/.bitmonero"
               - "--log-file=/var/log/monero/monerod.log"
@@ -50,6 +50,34 @@ spec:
               limits:
                 cpu: 500m
                 memory: 1Gi
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /get_info
+                    port: 18089
+                  periodSeconds: 30
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /get_info
+                    port: 18089
+                  periodSeconds: 10
+                  failureThreshold: 3
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /get_info
+                    port: 18089
+                  failureThreshold: 60
+                  periodSeconds: 10
     defaultPodOptions:
       securityContext:
         fsGroup: 1000
@@ -60,6 +88,8 @@ spec:
         externalTrafficPolicy: Local
         annotations:
           lbipam.cilium.io/ips: 192.168.0.8
+        loadBalancerSourceRanges:
+          - ${LAN_CIDR}
         ports:
           p2p:
             port: 18080

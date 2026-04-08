@@ -28,7 +28,7 @@ spec:
           app:
             image:
               repository: ollama/ollama
-              tag: 0.20.3
+              tag: 0.20.3@sha256:87d71eb588a28c747094ca5d011392a3790f6ea9bd9c87594780ad7c65cc7ed1
             env:
               TZ: ${TIMEZONE}
               # Don't set CUDA_VISIBLE_DEVICES: log warns "if GPUs not correctly discovered, unset and try again"; single-GPU pod has one device anyway
@@ -67,6 +67,13 @@ spec:
                   periodSeconds: 10
                   timeoutSeconds: 5
                   failureThreshold: 3
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - sleep 5
             resources:
               requests:
                 cpu: 500m

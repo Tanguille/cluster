@@ -89,7 +89,7 @@ spec:
               enabled: true
               token: $${REGISTRATION_TOKEN}
               allowed_ranges:
-                - 10.42.0.0/16
+                - ${POD_CIDR}
         db_config:
           type: postgresql
           user: $${DB_USERNAME}

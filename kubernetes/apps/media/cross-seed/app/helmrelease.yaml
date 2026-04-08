@@ -41,7 +41,7 @@ spec:
           main:
             image:
               repository: ghcr.io/cross-seed/cross-seed
-              tag: 6.13.6
+              tag: 6.13.6@sha256:e2bf5b593e4e7d699e6242423ad7966190cd52ba8eefafdfdbb0cb5b0b609b96
             args:
               - daemon
 
@@ -56,6 +56,25 @@ spec:
               limits:
                 cpu: 500m
                 memory: 256Mi
+
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 2468
+                  periodSeconds: 10
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 2468
+                  failureThreshold: 30
+                  periodSeconds: 5
 
     service:
       cross-seed:
@@ -84,11 +103,3 @@ spec:
         globalMounts:
           - path: /media
             readOnly: false
-
-    podSecurityContext:
-      runAsUser: 568
-      runAsGroup: 568
-      fsGroup: 568
-      fsGroupChangePolicy: "OnRootMismatch"
-      supplementalGroups:
-        - 100

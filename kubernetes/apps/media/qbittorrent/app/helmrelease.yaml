@@ -41,6 +41,13 @@ spec:
                 spec:
                   failureThreshold: 30
                   periodSeconds: 10
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - sleep 5
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

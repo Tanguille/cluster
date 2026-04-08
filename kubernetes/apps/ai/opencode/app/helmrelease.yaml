@@ -3,7 +3,6 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: &app opencode
-  namespace: ai
 spec:
   interval: 30m
   chartRef:
@@ -20,7 +19,7 @@ spec:
           copy-config:
             image:
               repository: busybox
-              tag: 1.37
+              tag: 1.37.0@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
             securityContext:
               runAsUser: 0
             command:

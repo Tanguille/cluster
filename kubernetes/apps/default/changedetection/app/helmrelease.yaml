@@ -12,14 +12,14 @@ spec:
 
   values:
     controllers:
-      *app:
+      changedetection:
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: ghcr.io/dgtlmoon/changedetection.io
-              tag: "0.54.4"
+              tag: 0.54.4@sha256:78a25eb5637f4842472f3e3f667e2f3e63c5a1cdf86aa2600884c54c6c0ea4b5
             env:
               PORT: &port 5000
             resources:
@@ -29,6 +29,17 @@ spec:
               limits:
                 cpu: 100m
                 memory: 256Mi
+
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
     service:
       app:
         controller: *app

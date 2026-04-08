@@ -387,7 +387,10 @@ spec:
             - path:
                 type: PathPrefix
                 value: /console
-          backendRefs: [] # No backend = deny # TODO do better after https://github.com/kubernetes-sigs/gateway-api/issues/2826
+          # Empty backendRefs acts as a deny-all for these paths. Gateway API does not yet support a
+          # dedicated deny/reject action — track https://github.com/kubernetes-sigs/gateway-api/issues/2826
+          # for a proper solution; replace this workaround once that feature is available.
+          backendRefs: []
 
     persistence:
       # Config storage using volsync template PVC (local)
