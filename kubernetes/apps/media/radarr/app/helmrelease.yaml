@@ -48,11 +48,15 @@ spec:
                   httpGet:
                     path: /ping
                     port: *port
-                  initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 5
               readiness: *probes
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
             resources:
               requests:
                 cpu: 50m
@@ -60,6 +64,13 @@ spec:
               limits:
                 cpu: 2
                 memory: 1Gi
+            lifecycle:
+              preStop:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - sleep 5
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

@@ -9,7 +9,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-    namespace: flux-system
 
   values:
     controllers:
@@ -27,10 +26,12 @@ spec:
               DEBUG: false
               SITE_TITLE: "DumbAssets"
               BASE_URL: "https://dumbassets.${SECRET_DOMAIN}"
-              DUMBASSETS_PIN: 1234
               ALLOWED_ORIGINS: "*"
               CURRENCY_CODE: "EUR"
               CURRENCY_LOCALE: "nl-BE"
+            envFrom:
+              - secretRef:
+                  name: dumbassets-secret
 
             resources:
               requests:
@@ -39,6 +40,17 @@ spec:
               limits:
                 cpu: 100m
                 memory: 256Mi
+
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
 
     service:
       app:

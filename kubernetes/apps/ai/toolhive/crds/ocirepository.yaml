@@ -3,7 +3,6 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
   name: toolhive-operator-crds
-  namespace: ai
 spec:
   interval: 1h
   layerSelector:
@@ -11,4 +10,5 @@ spec:
     operation: copy
   ref:
     tag: 0.15.0
+    digest: sha256:98bec7957c3ff72f2e28e827b9518b065b72b242a1844a90df48c0c20a0eefc5
   url: oci://ghcr.io/stacklok/toolhive/toolhive-operator-crds

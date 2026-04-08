@@ -26,7 +26,7 @@ spec:
             namespace: network
     cephImage:
       repository: quay.io/ceph/ceph
-      tag: v20.2.1
+      tag: v20.2.1@sha256:0bae386bc859cd9a05b804d1ca16cca8853a64f90809044e2bf43095419dc337
     cephClusterSpec:
       cephConfig:
         global:
@@ -63,9 +63,9 @@ spec:
         provider: host
         addressRanges:
           public:
-            - 192.168.0.0/24
+            - ${LAN_CIDR}
           cluster:
-            - 192.168.0.0/24
+            - ${LAN_CIDR}
         connections:
           requireMsgr2: true
       resources:

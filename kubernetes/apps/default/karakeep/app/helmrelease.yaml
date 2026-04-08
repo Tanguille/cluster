@@ -4,13 +4,11 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: karakeep
-  namespace: default
 spec:
   interval: 30m
   chartRef:
     kind: OCIRepository
     name: app-template
-    namespace: flux-system
 
   values:
     defaultPodOptions:
@@ -30,7 +28,7 @@ spec:
           app:
             image:
               repository: ghcr.io/karakeep-app/karakeep
-              tag: 0.31.0
+              tag: 0.31.0@sha256:20754dbdafb11dfe288bbb1c2342a7855081b08ea069e86fcf2d4a2d945d3653
             env:
               BROWSER_WEB_URL: http://karakeep-chrome.default.svc.cluster.local:9222
               CRAWLER_DOWNLOAD_BANNER_IMAGE: true
@@ -85,7 +83,7 @@ spec:
           app:
             image:
               repository: gcr.io/zenika-hub/alpine-chrome
-              tag: "124"
+              tag: "124@sha256:1a0046448e0bb6c275c88f86e01faf0de62b02ec8572901256ada0a8c08be23f"
             command:
               - chromium-browser
             args:
@@ -130,7 +128,7 @@ spec:
           app:
             image:
               repository: docker.io/getmeili/meilisearch
-              tag: v1.41.0
+              tag: v1.41.0@sha256:860fa4baed04ae1c235de870edab0c8006227546dea1bbb6411fbfc5e27cf1db
             args:
               - /bin/meilisearch
               - --experimental-dumpless-upgrade
