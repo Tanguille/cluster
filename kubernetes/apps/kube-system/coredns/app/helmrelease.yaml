@@ -19,7 +19,7 @@ spec:
       create: true
     service:
       name: kube-dns
-      clusterIP: 10.43.0.10
+      clusterIP: ${COREDNS_IP}
     servers:
       - zones:
           - zone: .
@@ -53,6 +53,9 @@ spec:
           - name: log
             configBlock: |-
               class error
+    pdb:
+      enabled: true
+      minAvailable: 1
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
@@ -60,6 +63,14 @@ spec:
             - matchExpressions:
                 - key: node-role.kubernetes.io/control-plane
                   operator: Exists
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: coredns
     tolerations:
       - key: CriticalAddonsOnly
         operator: Exists

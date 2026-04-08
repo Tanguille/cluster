@@ -17,43 +17,11 @@ spec:
           reloader.stakater.com/auto: "true"
         containers:
           app:
+            # No official image; using icewind1991/notify_push (Nextcloud contributor).
+            # Track https://github.com/nextcloud/notify_push for an official image.
             image:
-              repository: alpine
-              tag: 3.23
-            command:
-              - /bin/sh
-              - -c
-              - |
-                set -e
-                ARCH=$(uname -m)
-                case "$ARCH" in
-                  x86_64) BINARY="notify_push-x86_64-unknown-linux-musl" ;;
-                  aarch64) BINARY="notify_push-aarch64-unknown-linux-musl" ;;
-                  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
-                esac
-                echo "Downloading notify_push v1.2.1 for $ARCH..."
-                apk add --no-cache wget ca-certificates
-                wget -q -O /usr/local/bin/notify_push \
-                  "https://github.com/nextcloud/notify_push/releases/download/v1.2.1/$BINARY" || \
-                  (echo "Failed to download binary"; exit 1)
-                chmod +x /usr/local/bin/notify_push
-                echo "Starting notify_push..."
-                # Construct DATABASE_URL from environment variables
-                export DATABASE_URL="postgres://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@$${POSTGRES_HOST}/$${POSTGRES_DB}"
-                echo "Environment variables:"
-                echo "  PORT=$${PORT}"
-                echo "  NEXTCLOUD_URL=$${NEXTCLOUD_URL}"
-                echo "  REDIS_URL=$${REDIS_URL}"
-                echo "  DATABASE_PREFIX=$${DATABASE_PREFIX}"
-                echo "  POSTGRES_HOST=$${POSTGRES_HOST}"
-                echo "  POSTGRES_DB=$${POSTGRES_DB}"
-                echo "  POSTGRES_USER=$${POSTGRES_USER}"
-                echo "  DATABASE_URL=postgres://$${POSTGRES_USER}:***@$${POSTGRES_HOST}/$${POSTGRES_DB}"
-                echo "Running notify_push..."
-                /usr/local/bin/notify_push || {
-                  echo "notify_push exited with code $?"
-                  exit 1
-                }
+              repository: icewind1991/notify_push
+              tag: 1.3.1@sha256:c2970d5dc0c5bba029384ee676fffff6eb7f2ea7efe2af8a6a55ed119f5dac9e
             ports:
               - name: http
                 containerPort: 7867
@@ -67,10 +35,6 @@ spec:
                 value: "redis://dragonfly.database.svc.cluster.local:6379"
               - name: DATABASE_PREFIX
                 value: "oc_"
-              - name: POSTGRES_HOST
-                value: "pgbouncer-rw.database.svc.cluster.local:5432"
-              - name: POSTGRES_DB
-                value: "nextcloud"
               - name: POSTGRES_USER
                 valueFrom:
                   secretKeyRef:
@@ -81,6 +45,8 @@ spec:
                   secretKeyRef:
                     name: nextcloud-secret
                     key: INIT_POSTGRES_PASS
+              - name: DATABASE_URL
+                value: "postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@pgbouncer-rw.database.svc.cluster.local:5432/nextcloud"
               - name: LOG
                 value: "info"
             resources:
@@ -98,11 +64,19 @@ spec:
                   httpGet:
                     path: /push/test/cookie
                     port: 7867
-                  initialDelaySeconds: 10
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 3
               readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /push/test/cookie
+                    port: 7867
+                  failureThreshold: 30
+                  periodSeconds: 5
     service:
       app:
         controller: notify-push

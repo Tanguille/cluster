@@ -8,10 +8,17 @@ spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
-    name: metrics-server
+    name: &name metrics-server
 
   values:
     replicas: 2
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: *name
     args:
       - --kubelet-insecure-tls
       - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname

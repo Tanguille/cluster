@@ -26,7 +26,7 @@ spec:
               ENVOY_BOUNCER_BOUNCER_LAPIURL: http://crowdsec-service.security.svc.cluster.local:8080
               ENVOY_BOUNCER_BOUNCER_METRICS: true
               ENVOY_BOUNCER_TEMPLATES_DENIEDTEMPLATEPATH: /ban.html
-              ENVOY_BOUNCER_TRUSTEDPROXIES: 192.168.0.0/24,10.42.0.0/16
+              ENVOY_BOUNCER_TRUSTEDPROXIES: ${LAN_CIDR},${POD_CIDR}
               ENVOY_BOUNCER_WAF_APPSECURL: http://crowdsec-appsec-service.security.svc.cluster.local:7422
               ENVOY_BOUNCER_WAF_ENABLED: true
             envFrom:
