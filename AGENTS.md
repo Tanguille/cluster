@@ -1,39 +1,52 @@
 # AGENTS.md - Agent Coding Guidelines
 
-This file follows the **[AGENTS.md format](https://agents.md)**. Keep it **short** (~50–80 lines). Detailed context lives in **`.agents/`** and is loaded **on demand** by trigger (see table below).
+Follow the **[AGENTS.md format](https://agents.md)**. Keep this file short (~50-80 lines); load detailed context from `.agents/` only when task triggers match.
 
 ## Overview
 
-**GitOps-based Kubernetes cluster** on Talos Linux; FluxCD for reconciliation. Changes go through this repo, not direct cluster edits.
+**GitOps-based Kubernetes cluster** on Talos Linux with FluxCD reconciliation. Make changes through this repo; avoid direct cluster edits.
 
-**Structure:** `kubernetes/` (manifests, HelmReleases), `talos/` (machine configs), `docs/` (useful_commands), `.agents/` (on-demand context). **Tool versions:** `.mise.toml`.
+**Structure:** `kubernetes/` (manifests, HelmReleases), `talos/` (machine configs), `docs/` (runbooks), `.agents/` (on-demand context).
+**Tool versions:** `.mise.toml`.
 
 ## Commands (run these first)
 
-- **Task:** `mise exec -- task reconcile`, `mise exec -- task talos:generate-config`, `mise exec -- task talos:apply-node IP=...`, `mise exec -- task talos:upgrade-node IP=...`
-- **Validate (run before commit):** `mise exec -- kubeconform -strict kubernetes/`, `mise exec -- shellcheck scripts/*.sh`
-- **Tools:** flux, helm, kubectl, kustomize, sops, age, talhelper, talosctl, yq, jq, kubeconform, shellcheck — all via `mise exec -- <cmd>`.
+- **Task runner:** `mise exec -- task reconcile`, `mise exec -- task talos:generate-config`, `mise exec -- task talos:apply-node IP=...`, `mise exec -- task talos:upgrade-node IP=...`
+- **Validate before commit:** `mise exec -- kubeconform -strict kubernetes/`, `mise exec -- shellcheck scripts/*.sh`
+- **Tooling:** run `flux`, `helm`, `kubectl`, `kustomize`, `sops`, `age`, `talhelper`, `talosctl`, `yq`, `jq`, `kubeconform`, `shellcheck` via `mise exec -- <cmd>`.
 
 ## Tool use and context
 
-- **Prefer MCP tools over raw shell** when an MCP tool exists. Use bash only when no suitable MCP tool or for one-off local commands.
-- **Use ToolHive MCP servers instead of raw kubectl** for: **flux** (reconcile, Kustomization/HelmRelease), **observability** (Grafana, Prometheus), **homeassistant**, **resources**, **search**. For pod logs use MCP `get_kubernetes_logs` when available.
-- **Load only the `.agents/` file(s) whose triggers match the task.** Do not load all `.agents/*.md` upfront.
+- **Prefer tools over memory:** when a tool can provide current data, use it first. Hedge only on tool errors, ambiguity, or empty results.
+- **ToolHive workflow is mandatory when available:** if both `find_tool` and `call_tool` exist, always use this sequence:
+  1. Run `find_tool` with a relevant query.
+  2. Identify the correct tool name and required parameters from the result.
+  3. Run `call_tool` with those parameters.
+  4. Interpret the result and respond naturally; never return raw JSON/tool output.
+- **Load context on demand:** read only `.agents/` files whose trigger keywords match the task; do not preload all files.
 
 ### .agents/ (load on demand)
 
-| File                     | Trigger keywords                                                                                                            | Purpose                                              |
-|--------------------------|-----------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------|
-| `learned-preferences.md` | revert, undo, resources, memory, CPU, MCP vs shell                                                                          | User preferences and tool-choice guidance            |
-| `learned-workspace.md`   | HTTPRoute, ToolHive, MCPServer, Flux, Talos, Reloader, in-cluster URL, Rook, RBAC, zap                                      | Workspace and CRD facts                              |
-| `common-operations.md`   | add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, volsync, snapshot | Procedures: add app, upgrade, secrets, debug, backup |
-| `worktree-isolation.md`  | worktree, isolated work, parallel agent, experimental branch, feature branch                                                | Git worktree procedure for isolated changes          |
+- `learned-preferences.md`: use for revert/undo, resource usage, MCP vs shell, `find_tool`/`call_tool`, and confidence guidance.
+- `learned-workspace.md`: use for HTTPRoute, ToolHive, MCPServer, Flux, Talos, Reloader, in-cluster URLs, Rook, RBAC, and zap context.
+- `common-operations.md`: use for app add/upgrade, SOPS/secrets, debugging/logs, and backup/restore/volsync procedures.
 
-Learned preferences and workspace facts: `.agents/learned-preferences.md`, `.agents/learned-workspace.md`. Update those (or run continual-learning); do not duplicate long lists here.
+`learned-preferences.md` and `learned-workspace.md` are authoritative and updated by continual learning.
+
+**ToolHive operator/CRD upgrades:** follow `.agents/skills/toolhive-upgrades/SKILL.md` (OpenSkills registry: `toolhive-upgrades`). That workflow requires a **code-reviewer subagent** pass before declaring the upgrade complete.
+
+## Learned User Preferences
+
+- Prefer fixing root causes (disk headroom, capacity, correct config) over silencing alerts or only lowering warning thresholds.
 
 ## Code style
 
-- URLs: use `${SECRET_DOMAIN}` (never hardcode domains). YAML: 2 spaces, LF, DRY with anchors. Secrets: SOPS only; never commit plaintext or age.key. K8s: lowercase-dashes; resources in `kubernetes/apps/<app>/<type>/` with `ks.yaml`. Shell: `set -euo pipefail`, shellcheck.
+- URLs: use `${SECRET_DOMAIN}`; never hardcode domains.
+- YAML: 2-space indent, LF endings. Use anchors (`&`, `*`) only within one `---` document (Kustomize does not resolve across documents).
+- For `*-opt` `MCPServer` objects, keep them in the same file as the primary and fully duplicate `spec` (no cross-document `<<:`/`*spec_anchor`).
+- Secrets: SOPS only; never commit plaintext secrets or `age.key`.
+- Kubernetes naming: lowercase-dashes; place resources in `kubernetes/apps/<app>/<type>/` with `ks.yaml`.
+- Shell scripts: `set -euo pipefail` and pass `shellcheck`.
 
 ## Safety and permissions (three-tier)
 
@@ -43,8 +56,9 @@ Learned preferences and workspace facts: `.agents/learned-preferences.md`, `.age
 
 ## When stuck
 
-Ask a clarifying question, propose a short plan, or open a draft PR with notes. Do not push large speculative changes without confirmation.
+Ask a clarifying question, propose a short plan, or open a draft PR with notes. Avoid large speculative changes without confirmation.
 
 ## PR / commit checklist
 
-- **Title:** [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat(scope): description`). Run Validate commands above; keep diff small and focused.
+- **Title:** [Conventional Commits](https://www.conventionalcommits.org/) (for example `feat(scope): description`).
+- Run validation commands above and keep diffs small and focused.
