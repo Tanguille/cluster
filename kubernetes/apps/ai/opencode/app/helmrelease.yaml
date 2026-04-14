@@ -50,26 +50,26 @@ spec:
                   httpGet: &probe
                     path: /
                     port: &port 4096
-                  initialDelaySeconds: 10
+                  initialDelaySeconds: 30
                   periodSeconds: 30
-                  timeoutSeconds: 5
-                  failureThreshold: 3
+                  timeoutSeconds: 10
+                  failureThreshold: 5
               readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet: *probe
-                  initialDelaySeconds: 5
+                  initialDelaySeconds: 15
                   periodSeconds: 10
-                  timeoutSeconds: 3
-                  failureThreshold: 3
+                  timeoutSeconds: 5
+                  failureThreshold: 6
             resources:
               requests:
                 cpu: 100m
-                memory: 128Mi
+                memory: 256Mi
               limits:
-                cpu: 500m
-                memory: 512Mi
+                cpu: 1
+                memory: 2Gi
 
     service:
       app:
