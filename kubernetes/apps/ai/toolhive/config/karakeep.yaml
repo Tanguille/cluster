@@ -37,6 +37,43 @@ spec:
       memory: 100Mi
 ---
 apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: karakeep-opt
+  namespace: ai
+spec:
+  image: ghcr.io/karakeep-app/karakeep-mcp:latest
+  transport: stdio
+  groupRef:
+    name: all
+  env:
+    - name: KARAKEEP_API_ADDR
+      value: http://karakeep.default.svc.cluster.local:3000
+  secrets:
+    - name: toolhive-secrets
+      key: KARAKEEP_API_KEY
+  toolConfigRef:
+    name: karakeep
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 100Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
 kind: MCPToolConfig
 metadata:
   name: karakeep
