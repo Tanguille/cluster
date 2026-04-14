@@ -7,13 +7,15 @@ metadata:
 spec:
   image: ghcr.io/homeassistant-ai/ha-mcp:7.2.0@sha256:8e6d3fda8053bc7a5d9d1f4020d6bbda14fc66e24f9871c43f0cdad1e0562cb4
   transport: streamable-http
-  mcpPort: 8086
+  mcpPort: &port 8086
   proxyPort: 8080
   groupRef:
     name: homeassistant
   env:
     - name: HOMEASSISTANT_URL
       value: http://${HOME_ASSISTANT_IP}:8123
+    - name: FASTMCP_HOST
+      value: "0.0.0.0"
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
@@ -25,6 +27,20 @@ spec:
       containers:
         - name: mcp
           command: ["fastmcp", "run", "fastmcp-http.json"]
+          ports:
+            - name: mcp
+              containerPort: *port
+          startupProbe:
+            tcpSocket:
+              port: *port
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: *port
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 3
           resources:
             requests: &requests
               cpu: 10m
