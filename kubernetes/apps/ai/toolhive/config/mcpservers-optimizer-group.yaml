@@ -7,7 +7,8 @@ metadata:
 spec:
   image: crystaldba/postgres-mcp:latest
   transport: stdio
-  groupRef: all
+  groupRef:
+    name: all
   args:
     - "--access-mode=restricted"
   secrets:
@@ -45,7 +46,8 @@ spec:
   transport: streamable-http
   mcpPort: 8086
   proxyPort: 8080
-  groupRef: all
+  groupRef:
+    name: all
   env:
     - name: HOMEASSISTANT_URL
       value: http://${HOME_ASSISTANT_IP}:8123
@@ -83,7 +85,8 @@ metadata:
 spec:
   image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.46.0
   transport: stdio
-  groupRef: all
+  groupRef:
+    name: all
   args:
     - serve
   env:
@@ -129,7 +132,8 @@ metadata:
 spec:
   image: mcp/grafana:latest
   transport: stdio
-  groupRef: all
+  groupRef:
+    name: all
   args:
     - "-t"
     - "stdio"
@@ -165,7 +169,8 @@ metadata:
 spec:
   image: ghcr.io/rcdailey/mcp-searxng:0.8.0
   transport: stdio
-  groupRef: all
+  groupRef:
+    name: all
   env:
     - name: SEARXNG_URL
       value: http://searxng.default.svc.cluster.local:8080
@@ -198,7 +203,8 @@ metadata:
 spec:
   image: ghcr.io/github/github-mcp-server:latest
   transport: stdio
-  groupRef: all
+  groupRef:
+    name: all
   args:
     - stdio
   secrets:
@@ -234,7 +240,8 @@ metadata:
 spec:
   image: ghcr.io/karakeep-app/karakeep-mcp:latest
   transport: stdio
-  groupRef: all
+  groupRef:
+    name: all
   env:
     - name: KARAKEEP_API_ADDR
       value: http://karakeep.default.svc.cluster.local:3000
@@ -270,7 +277,8 @@ metadata:
 spec:
   image: mcp/sequentialthinking:latest
   transport: stdio
-  groupRef: all
+  groupRef:
+    name: all
   toolConfigRef:
     name: sequentialthinking
   podTemplateSpec:

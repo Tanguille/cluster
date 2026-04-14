@@ -9,7 +9,8 @@ spec:
   transport: streamable-http
   mcpPort: 8086
   proxyPort: 8080
-  groupRef: homeassistant
+  groupRef:
+    name: homeassistant
   env:
     - name: HOMEASSISTANT_URL
       value: http://${HOME_ASSISTANT_IP}:8123
