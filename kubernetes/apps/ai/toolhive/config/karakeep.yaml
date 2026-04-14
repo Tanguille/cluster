@@ -7,7 +7,8 @@ metadata:
 spec:
   image: ghcr.io/karakeep-app/karakeep-mcp:latest
   transport: stdio
-  groupRef: resources
+  groupRef:
+    name: resources
   env:
     - name: KARAKEEP_API_ADDR
       value: http://karakeep.default.svc.cluster.local:3000

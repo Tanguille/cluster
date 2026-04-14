@@ -14,8 +14,9 @@ spec:
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
+  groupRef:
+    name: flux
   config:
-    groupRef: flux
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
@@ -36,8 +37,9 @@ spec:
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
+  groupRef:
+    name: observability
   config:
-    groupRef: observability
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
@@ -59,8 +61,9 @@ spec:
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
+  groupRef:
+    name: homeassistant
   config:
-    groupRef: homeassistant
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
@@ -81,8 +84,9 @@ spec:
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
+  groupRef:
+    name: search
   config:
-    groupRef: search
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
@@ -103,8 +107,9 @@ spec:
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
+  groupRef:
+    name: database
   config:
-    groupRef: database
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
@@ -125,8 +130,9 @@ spec:
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
+  groupRef:
+    name: resources
   config:
-    groupRef: resources
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
@@ -149,8 +155,9 @@ spec:
   serviceType: ClusterIP
   embeddingServerRef:
     name: toolhive-embeddings
+  groupRef:
+    name: all
   config:
-    groupRef: all
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:

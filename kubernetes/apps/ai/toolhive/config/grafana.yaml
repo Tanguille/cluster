@@ -7,7 +7,8 @@ metadata:
 spec:
   image: mcp/grafana:latest
   transport: stdio
-  groupRef: observability
+  groupRef:
+    name: observability
   args:
     - "-t"
     - "stdio"
