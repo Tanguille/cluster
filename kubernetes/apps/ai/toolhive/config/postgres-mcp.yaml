@@ -7,7 +7,8 @@ metadata:
 spec:
   image: crystaldba/postgres-mcp:latest
   transport: stdio
-  groupRef: database
+  groupRef:
+    name: database
   args:
     - "--access-mode=restricted"
   secrets:
