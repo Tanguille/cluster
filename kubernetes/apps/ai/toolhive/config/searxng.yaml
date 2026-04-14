@@ -35,6 +35,41 @@ spec:
       memory: 100Mi
 ---
 apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: searxng-opt
+  namespace: ai
+spec:
+  image: ghcr.io/rcdailey/mcp-searxng:0.8.0
+  transport: stdio
+  groupRef:
+    name: all
+  env:
+    # Service in default namespace exposes port 8080 (see searxng HelmRelease).
+    - name: SEARXNG_URL
+      value: http://searxng.default.svc.cluster.local:8080
+  toolConfigRef:
+    name: searxng
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 110Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
 kind: MCPToolConfig
 metadata:
   name: searxng
