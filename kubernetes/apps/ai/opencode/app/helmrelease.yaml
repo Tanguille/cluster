@@ -23,6 +23,7 @@ spec:
             env:
               TZ: ${TIMEZONE}
               HOME: /home/opencode
+              OPENCODE_CONFIG: /config/opencode.jsonc
             envFrom:
               - secretRef:
                   name: opencode-secret
@@ -84,5 +85,5 @@ spec:
         type: configMap
         name: opencode-config
         globalMounts:
-          - path: /home/opencode/.config/opencode/opencode.jsonc
+          - path: /config/opencode.jsonc
             subPath: opencode.jsonc
