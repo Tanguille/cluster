@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   review:
-    runs-on: self-hosted
+    runs-on: cluster-runner
     if: ${{ github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - name: Checkout
