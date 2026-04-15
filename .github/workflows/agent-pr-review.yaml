@@ -1,0 +1,36 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Agent PR Review
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: cluster-runner
+    if: ${{ github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Run reviewer
+        uses: joryirving/pr-reviewer-action@1c0483d41f1200845a82db146c275fb930169af7 # v1.0.2
+        with:
+          github_token: ${{ github.token }}
+          ai_base_url: http://ollama.ai.svc.cluster.local:11434/v1
+          ai_model: qwen3.5:9b
+          standards_file: AGENTS.md
+          publish_review_comment: "true"
