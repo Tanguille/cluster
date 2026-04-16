@@ -10,6 +10,9 @@ spec:
     kind: OCIRepository
     name: app-template
   maxHistory: 3
+  valuesFrom:
+    - kind: ConfigMap
+      name: affinity-control-1
 
   values:
     controllers:
@@ -82,16 +85,6 @@ spec:
     defaultPodOptions:
       automountServiceAccountToken: false
       enableServiceLinks: false
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - control-1
       securityContext:
         runAsUser: 568
         runAsGroup: 568
