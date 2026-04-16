@@ -9,6 +9,9 @@ spec:
     kind: OCIRepository
     name: app-template
   interval: 1h
+  valuesFrom:
+    - kind: ConfigMap
+      name: affinity-control-1
   values:
     controllers:
       qbittorrent:
@@ -60,16 +63,6 @@ spec:
                 cpu: 1
                 memory: 4Gi
     defaultPodOptions:
-      affinity:
-        nodeAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              preference:
-                matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - control-1
       securityContext:
         runAsNonRoot: true
         runAsUser: 568
