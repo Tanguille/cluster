@@ -9,6 +9,9 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  valuesFrom:
+    - kind: ConfigMap
+      name: affinity-control-1
 
   values:
     defaultPodOptions:
@@ -60,9 +63,9 @@ spec:
               # turbo3: 4.9x KV compression, near-lossless. Required for a
               # 100k context to fit alongside Q8_0 weights on a 12GB GPU.
               - --cache-type-k
-              - turbo3
+              - turbo3_0
               - --cache-type-v
-              - turbo3
+              - turbo3_0
             probes:
               startup: &probeBase
                 enabled: true
