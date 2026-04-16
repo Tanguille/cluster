@@ -32,22 +32,37 @@ spec:
               tag: buildcache-cuda12-amd64@sha256:9498ead835eb29aa538a19bbffbf46a1307e58912233abaa87b310267dc80d0e
             env:
               TZ: ${TIMEZONE}
+              # Direct HuggingFace downloads onto the PVC so multi-GB GGUF
+              # files survive pod restarts.
+              HF_HOME: /cache
             command:
               - /app/llama-server
             args:
               - --host
               - 0.0.0.0
               - --port
-              - "11434"
-              - --model
-              - /models/model.gguf
+              - "8080"
+              - -hf
+              - bartowski/Qwen_Qwen3.5-9B-GGUF:Q8_0
+              # Unified KV cache shared across slots: a single active request
+              # can use the full 120k; when all 4 slots are busy each gets
+              # ~30k — still ample for any GitOps PR review.
               - --ctx-size
-              - "100000"
+              - "120000"
+              - --parallel
+              - "4"
+              # Offload all transformer layers to the GPU; sentinel, llama.cpp
+              # caps at the actual layer count.
+              - --n-gpu-layers
+              - "9999"
               - --flash-attn
+              - "on"
+              # turbo3: 4.9x KV compression, near-lossless. Required for a
+              # 100k context to fit alongside Q8_0 weights on a 12GB GPU.
               - --cache-type-k
-              - turbo4_0
+              - turbo3
               - --cache-type-v
-              - turbo4_0
+              - turbo3
             probes:
               startup: &probeBase
                 enabled: true
@@ -55,11 +70,13 @@ spec:
                 spec:
                   httpGet: &httpGet
                     path: /health
-                    port: 11434
+                    port: 8080
                   initialDelaySeconds: 10
                   periodSeconds: 5
                   timeoutSeconds: 3
-                  failureThreshold: 60
+                  # First boot pulls ~10GB from HuggingFace before /health
+                  # responds; 180 x 5s = 15min accommodates slow links.
+                  failureThreshold: 180
               liveness:
                 <<: *probeBase
                 spec:
@@ -67,7 +84,9 @@ spec:
                   initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  failureThreshold: 3
+                  # /health shares the HTTP thread pool with inference; a
+                  # 100k-token prefill can block it for 60-90s.
+                  failureThreshold: 6
               readiness:
                 <<: *probeBase
                 spec:
@@ -79,7 +98,7 @@ spec:
             resources:
               requests:
                 cpu: 500m
-                memory: 1Gi
+                memory: 2Gi
                 nvidia.com/gpu: 1
               limits:
                 cpu: 8
@@ -91,7 +110,8 @@ spec:
         controller: app
         ports:
           http:
-            port: 11434
+            port: 80
+            targetPort: 8080
 
     persistence:
       cache:
