@@ -1,0 +1,101 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: llama-server
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      runtimeClassName: nvidia
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nvidia.com/gpu
+                    operator: In
+                    values: ["true"]
+    controllers:
+      app:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/thetom/llama-cpp-turboquant
+              tag: buildcache-cuda12-amd64@sha256:9498ead835eb29aa538a19bbffbf46a1307e58912233abaa87b310267dc80d0e
+            env:
+              TZ: ${TIMEZONE}
+            command:
+              - /app/llama-server
+            args:
+              - --host
+              - 0.0.0.0
+              - --port
+              - "11434"
+              - --model
+              - /models/model.gguf
+              - --ctx-size
+              - "100000"
+              - --flash-attn
+              - --cache-type-k
+              - turbo4_0
+              - --cache-type-v
+              - turbo4_0
+            probes:
+              startup: &probeBase
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &httpGet
+                    path: /health
+                    port: 11434
+                  initialDelaySeconds: 10
+                  periodSeconds: 5
+                  timeoutSeconds: 3
+                  failureThreshold: 60
+              liveness:
+                <<: *probeBase
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                <<: *probeBase
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 6
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+                nvidia.com/gpu: 1
+              limits:
+                cpu: 8
+                memory: 12Gi
+                nvidia.com/gpu: 1
+
+    service:
+      app:
+        controller: app
+        ports:
+          http:
+            port: 11434
+
+    persistence:
+      cache:
+        enabled: true
+        existingClaim: llama-server
+        globalMounts:
+          - path: /cache
