@@ -30,7 +30,7 @@ jobs:
         uses: joryirving/pr-reviewer-action@1c0483d41f1200845a82db146c275fb930169af7 # v1.0.2
         with:
           github_token: ${{ github.token }}
-          ai_base_url: http://ollama.ai.svc.cluster.local:11434/v1
-          ai_model: qwen3.5:9b
+          ai_base_url: http://llama-server.ai.svc.cluster.local/v1
+          ai_model: bartowski/Qwen_Qwen3.5-9B-GGUF:Q8_0
           standards_file: AGENTS.md
           publish_review_comment: "true"
