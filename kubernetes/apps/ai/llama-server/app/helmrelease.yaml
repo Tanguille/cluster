@@ -59,9 +59,9 @@ spec:
               - "9999"
               - --flash-attn
               - "on"
-              # TurboQuant KV (turbo3): strong compression for long context on 12GB VRAM.
+              # TurboQuant CUDA fork only supports turbo quant on V cache; K must be q8_0.
               - --cache-type-k
-              - turbo3_0
+              - q8_0
               - --cache-type-v
               - turbo3_0
             probes:
