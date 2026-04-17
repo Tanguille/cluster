@@ -45,25 +45,61 @@ spec:
               - 0.0.0.0
               - --port
               - "8080"
+              - --alias
+              - self-hosted
               - -hf
-              - bartowski/Qwen_Qwen3.5-9B-GGUF:Q8_0
-              # Unified KV cache shared across slots: a single active request
-              # can use the full 120k; when all 4 slots are busy each gets
+              - unsloth/Qwen3.5-9B-GGUF:Q8_0
+              - --jinja
+              # Small Qwen3.5 overthinks and leaks tool-call XML inside <think>
+              # (llama.cpp #20837). Disable reasoning parsing for agent flows.
+              - --reasoning-format
+              - none
+              - --kv-unified
               - --ctx-size
               - "120000"
               - --parallel
               - "4"
-              # Offload all transformer layers to the GPU; sentinel, llama.cpp
-              # caps at the actual layer count.
               - --n-gpu-layers
               - "9999"
               - --flash-attn
               - "on"
-              # TurboQuant CUDA fork only supports turbo quant on V cache; K must be q8_0.
+              # TurboQuant CUDA fork only supports turbo quant on V cache;
+              # K must stay q8_0.
               - --cache-type-k
               - q8_0
               - --cache-type-v
               - turbo3_0
+              # Qwen3.5's hybrid DeltaNet+Attention breaks llama.cpp's
+              # context-shift eviction; error on overflow instead of silently
+              # corrupting SSM state.
+              - --no-context-shift
+              # Periodic KV snapshots: when the hybrid recurrent state
+              # invalidates ("forcing full prompt re-processing due to ... SWA
+              # or hybrid/recurrent memory" in the logs), restore from the
+              # nearest checkpoint instead of re-prefilling from scratch.
+              # Unsloth's long-ctx guidance for Qwen3.5 hybrid.
+              - --ctx-checkpoints
+              - "128"
+              - --checkpoint-every-n-tokens
+              - "4096"
+              # Match the cgroup CPU limit; default picks host cores which is
+              # wrong under Kubernetes resource limits.
+              - --threads
+              - "8"
+              - --threads-batch
+              - "8"
+              # Qwen3.5 instruct-mode sampling (no thinking) per the model card.
+              - --temp
+              - "0.7"
+              - --top-p
+              - "0.8"
+              - --top-k
+              - "20"
+              - --min-p
+              - "0"
+              - --presence-penalty
+              - "1.5"
+              - --metrics
             probes:
               startup: &probeBase
                 enabled: true
