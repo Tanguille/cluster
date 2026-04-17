@@ -32,7 +32,7 @@ spec:
           app:
             image:
               repository: ghcr.io/turbo-tan/llama.cpp-tq3
-              tag: server-cuda13@sha256:20a8cda27ce52321f3b688a65de9a27be69183314494ebfeb8b3dc9407d711d7
+              tag: server-cuda12@sha256:9e601549ed91334a84b2f0274f47e359c9941f5e8f182662c76b8a48ebb9bb58
             env:
               TZ: ${TIMEZONE}
               # Direct HuggingFace downloads onto the PVC so multi-GB GGUF
@@ -49,7 +49,6 @@ spec:
               - bartowski/Qwen_Qwen3.5-9B-GGUF:Q8_0
               # Unified KV cache shared across slots: a single active request
               # can use the full 120k; when all 4 slots are busy each gets
-              # ~30k — still ample for any GitOps PR review.
               - --ctx-size
               - "120000"
               - --parallel
