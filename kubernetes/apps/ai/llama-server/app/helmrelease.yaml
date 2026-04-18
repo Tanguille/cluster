@@ -56,32 +56,30 @@ spec:
               - none
               - --kv-unified
               - --ctx-size
-              - "120000"
+              - "100000"
               - --parallel
-              - "4"
+              - "2"
               - --n-gpu-layers
               - "9999"
               - --flash-attn
               - "on"
-              # TurboQuant CUDA fork only supports turbo quant on V cache;
-              # K must stay q8_0.
+              # q8_0 K + turbo3_0 V keeps KV at ~1.2 GiB for 100k ctx; q8/q8
+              # would need ~1.6 GiB and doesn't fit after pinning the
+              # embedding matrix on a 12 GiB card.
               - --cache-type-k
               - q8_0
               - --cache-type-v
               - turbo3_0
+              # Unsloth's Qwen3.5-9B GGUF carries a 248k-vocab embedding
+              # (~1 GiB) that auto-fit leaves on CPU, forcing every output
+              # projection through PCIe (measured ~2 t/s generation). Pin it
+              # to the GPU.
+              - --override-tensor
+              - token_embd.weight=CUDA0
               # Qwen3.5's hybrid DeltaNet+Attention breaks llama.cpp's
               # context-shift eviction; error on overflow instead of silently
               # corrupting SSM state.
               - --no-context-shift
-              # Periodic KV snapshots: when the hybrid recurrent state
-              # invalidates ("forcing full prompt re-processing due to ... SWA
-              # or hybrid/recurrent memory" in the logs), restore from the
-              # nearest checkpoint instead of re-prefilling from scratch.
-              # Unsloth's long-ctx guidance for Qwen3.5 hybrid.
-              - --ctx-checkpoints
-              - "128"
-              - --checkpoint-every-n-tokens
-              - "4096"
               # Match the cgroup CPU limit; default picks host cores which is
               # wrong under Kubernetes resource limits.
               - --threads
