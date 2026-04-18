@@ -26,79 +26,53 @@ spec:
                     values: ["true"]
     controllers:
       app:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
-              repository: ghcr.io/turbo-tan/llama.cpp-tq3
-              tag: server-cuda12@sha256:9e601549ed91334a84b2f0274f47e359c9941f5e8f182662c76b8a48ebb9bb58
+              repository: ghcr.io/ggml-org/llama.cpp
+              tag: server-cuda@sha256:59c573293f125517851cf3a5e7cd209d353acf21c0f0559252cb1784084a145b
             env:
               TZ: ${TIMEZONE}
-              # Direct HuggingFace downloads onto the PVC so multi-GB GGUF
-              # files survive pod restarts.
+              # Keep multi-GB GGUF downloads on the PVC across pod restarts.
               HF_HOME: /cache
             command:
               - /app/llama-server
             args:
               - --host
               - 0.0.0.0
-              - --port
-              - "8080"
               - --alias
               - self-hosted
               - -hf
-              - unsloth/Qwen3.5-9B-GGUF:Q8_0
+              - unsloth/Qwen3.5-9B-GGUF:UD-Q5_K_XL
               - --jinja
-              # Small Qwen3.5 overthinks and leaks tool-call XML inside <think>
-              # (llama.cpp #20837). Disable reasoning parsing for agent flows.
-              - --reasoning-format
-              - none
-              - --kv-unified
               - --ctx-size
-              - "120000"
+              - "100000"
               - --parallel
-              - "4"
+              - "2"
               - --n-gpu-layers
               - "9999"
-              - --flash-attn
-              - "on"
-              # TurboQuant CUDA fork only supports turbo quant on V cache;
-              # K must stay q8_0.
               - --cache-type-k
               - q8_0
               - --cache-type-v
-              - turbo3_0
-              # Qwen3.5's hybrid DeltaNet+Attention breaks llama.cpp's
-              # context-shift eviction; error on overflow instead of silently
-              # corrupting SSM state.
+              - q8_0
+              # Pin the 248k-vocab embedding to GPU; otherwise the output
+              # projection traverses PCIe once per generated token.
+              - --override-tensor
+              - token_embd\.weight=CUDA0
+              # Hybrid DeltaNet+Attention: context-shift corrupts SSM state.
               - --no-context-shift
-              # Periodic KV snapshots: when the hybrid recurrent state
-              # invalidates ("forcing full prompt re-processing due to ... SWA
-              # or hybrid/recurrent memory" in the logs), restore from the
-              # nearest checkpoint instead of re-prefilling from scratch.
-              # Unsloth's long-ctx guidance for Qwen3.5 hybrid.
-              - --ctx-checkpoints
-              - "128"
-              - --checkpoint-every-n-tokens
-              - "4096"
-              # Match the cgroup CPU limit; default picks host cores which is
-              # wrong under Kubernetes resource limits.
+              # Default reads host cores, ignoring the cgroup CPU limit.
               - --threads
-              - "8"
+              - "4"
               - --threads-batch
-              - "8"
-              # Qwen3.5 instruct-mode sampling (no thinking) per the model card.
+              - "4"
+              # Unsloth "precise coding" preset.
               - --temp
-              - "0.7"
+              - "0.6"
               - --top-p
-              - "0.8"
+              - "0.95"
               - --top-k
               - "20"
-              - --min-p
-              - "0"
-              - --presence-penalty
-              - "1.5"
               - --metrics
             probes:
               startup: &probeBase
@@ -111,8 +85,7 @@ spec:
                   initialDelaySeconds: 10
                   periodSeconds: 5
                   timeoutSeconds: 3
-                  # First boot pulls ~10GB from HuggingFace before /health
-                  # responds; 180 x 5s = 15min accommodates slow links.
+                  # First boot downloads ~8 GiB; 180 x 5s = 15 min.
                   failureThreshold: 180
               liveness:
                 <<: *probeBase
@@ -121,8 +94,8 @@ spec:
                   initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  # /health shares the HTTP thread pool with inference; a
-                  # 100k-token prefill can block it for 60-90s.
+                  # /health shares the HTTP pool with inference; tolerate
+                  # stalls during long prefills.
                   failureThreshold: 6
               readiness:
                 <<: *probeBase
@@ -138,7 +111,7 @@ spec:
                 memory: 2Gi
                 nvidia.com/gpu: 1
               limits:
-                cpu: 8
+                cpu: 4
                 memory: 12Gi
                 nvidia.com/gpu: 1
 
