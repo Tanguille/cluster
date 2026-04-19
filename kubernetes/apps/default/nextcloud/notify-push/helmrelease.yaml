@@ -56,13 +56,14 @@ spec:
               limits:
                 cpu: 50m
                 memory: 96Mi
+            # /push/test/cookie returns 400 until Nextcloud notify_push is fully configured; TCP
+            # checks that the daemon is listening (see github.com/nextcloud/notify_push/issues/324).
             probes:
               liveness: &probes
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /push/test/cookie
+                  tcpSocket:
                     port: 7867
                   periodSeconds: 30
                   timeoutSeconds: 5
@@ -72,11 +73,11 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /push/test/cookie
+                  tcpSocket:
                     port: 7867
                   failureThreshold: 30
                   periodSeconds: 5
+                  timeoutSeconds: 5
     service:
       app:
         controller: notify-push
