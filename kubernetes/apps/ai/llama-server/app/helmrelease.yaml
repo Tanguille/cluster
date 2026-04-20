@@ -29,59 +29,19 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/ggml-org/llama.cpp
-              tag: server-cuda@sha256:66664a81cd0476baa150a6063dfb1054e44f99d5f5b09f9094aae6dc68fc8247
+              repository: ghcr.io/mostlygeek/llama-swap
+              tag: cuda@sha256:5533c89b4a7e894f7614a038250591375cec7b5bbb04847ab6744323fc3819ec
             env:
               TZ: ${TIMEZONE}
+              # HF_HOME is read by child llama-server processes; keeps GGUFs on PVC.
               HF_HOME: /cache
             command:
-              - /app/llama-server
+              - /app/llama-swap
             args:
-              - --host
-              - 0.0.0.0
-              - --alias
-              - self-hosted
-              - -hf
-              - unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q3_K_XL
-              - --jinja
-              # fit-target 512 MiB headroom tolerates CUDA compute-buffer growth
-              # during first prefill at ubatch 1024; 256 MiB crashes on 11.8 GiB
-              # effective VRAM.
-              - --fit-ctx
-              - "160000"
-              - --fit-target
-              - "512"
-              # Two slots: lets moltis and opencode/pr-reviewer overlap without
-              # serialising one behind the other's prefill.
-              - --parallel
-              - "2"
-              - --cache-type-k
-              - q8_0
-              - --cache-type-v
-              - q8_0
-              # Prevent paging stalls mid-generation on the CPU-side experts.
-              - --no-mmap
-              # 1024 matches the 12 GiB VRAM class; 2048 crowds compute buffers
-              # and forces --fit to push more experts to CPU, hurting decode.
-              - --batch-size
-              - "1024"
-              - --ubatch-size
-              - "1024"
-              # Gemma 4 uses alternating sliding-window + global attention;
-              # full SWA cache avoids truncation on restored slots.
-              - --swa-full
-              # Persist slot state across pod restarts. --cache-reuse is
-              # omitted because Gemma 4's shared KV cache breaks it (#21468).
-              - --slot-save-path
-              - /cache/slots
-              # Unsloth "precise coding" preset (top-p 0.95 matches default).
-              - --temp
-              - "0.6"
-              - --top-k
-              - "20"
-              - --min-p
-              - "0.0"
-              - --metrics
+              - -config
+              - /app/config.yaml
+              - -listen
+              - 0.0.0.0:8080
             probes:
               startup: &probeBase
                 enabled: true
@@ -90,11 +50,11 @@ spec:
                   httpGet: &httpGet
                     path: /health
                     port: 8080
-                  initialDelaySeconds: 10
+                  initialDelaySeconds: 5
                   periodSeconds: 5
                   timeoutSeconds: 3
-                  # First boot downloads ~13 GiB; 180 x 5s = 15 min.
-                  failureThreshold: 180
+                  # llama-swap starts in < 5 s; no model load at pod start.
+                  failureThreshold: 12
               liveness:
                 <<: *probeBase
                 spec:
@@ -102,17 +62,15 @@ spec:
                   initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  # /health shares the HTTP pool with inference; tolerate
-                  # stalls during long prefills.
-                  failureThreshold: 6
+                  failureThreshold: 3
               readiness:
                 <<: *probeBase
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 10
+                  initialDelaySeconds: 5
                   periodSeconds: 10
-                  timeoutSeconds: 5
-                  failureThreshold: 6
+                  timeoutSeconds: 3
+                  failureThreshold: 3
             resources:
               requests:
                 cpu: 1
@@ -137,3 +95,10 @@ spec:
         existingClaim: llama-server
         globalMounts:
           - path: /cache
+      config:
+        type: configMap
+        name: llama-server-config
+        globalMounts:
+          - path: /app/config.yaml
+            subPath: config.yaml
+            readOnly: true
