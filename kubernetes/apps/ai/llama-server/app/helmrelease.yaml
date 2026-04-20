@@ -33,7 +33,6 @@ spec:
               tag: server-cuda@sha256:66664a81cd0476baa150a6063dfb1054e44f99d5f5b09f9094aae6dc68fc8247
             env:
               TZ: ${TIMEZONE}
-              # Keep multi-GB GGUF downloads on the PVC across pod restarts.
               HF_HOME: /cache
             command:
               - /app/llama-server
@@ -48,8 +47,6 @@ spec:
               # fit-target 512 MiB headroom tolerates CUDA compute-buffer growth
               # during first prefill at ubatch 1024; 256 MiB crashes on 11.8 GiB
               # effective VRAM.
-              - --fit
-              - "on"
               - --fit-ctx
               - "160000"
               - --fit-target
@@ -64,7 +61,6 @@ spec:
               - q8_0
               # Prevent paging stalls mid-generation on the CPU-side experts.
               - --no-mmap
-              - --mlock
               # 1024 matches the 12 GiB VRAM class; 2048 crowds compute buffers
               # and forces --fit to push more experts to CPU, hurting decode.
               - --batch-size
@@ -78,11 +74,9 @@ spec:
               # omitted because Gemma 4's shared KV cache breaks it (#21468).
               - --slot-save-path
               - /cache/slots
-              # Unsloth "precise coding" preset.
+              # Unsloth "precise coding" preset (top-p 0.95 matches default).
               - --temp
               - "0.6"
-              - --top-p
-              - "0.95"
               - --top-k
               - "20"
               - --min-p
@@ -121,15 +115,11 @@ spec:
                   failureThreshold: 6
             resources:
               requests:
-                cpu: 4
-                memory: 4Gi
+                cpu: 1
+                memory: 1Gi
                 nvidia.com/gpu: 1
               limits:
-                # Leave 2 cores for rook-ceph OSDs and kube-apiserver on the
-                # 8-core control node during MoE dispatch bursts.
                 cpu: 6
-                # mlocked experts (~3.7 GiB) + KV overflow + compute buffers
-                # at 160k ctx / ubatch 1024 peak near 18 GiB in prefill.
                 memory: 20Gi
                 nvidia.com/gpu: 1
 
