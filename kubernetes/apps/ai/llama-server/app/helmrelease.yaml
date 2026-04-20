@@ -26,54 +26,23 @@ spec:
                     values: ["true"]
     controllers:
       app:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
-              repository: ghcr.io/ggml-org/llama.cpp
-              tag: server-cuda@sha256:66664a81cd0476baa150a6063dfb1054e44f99d5f5b09f9094aae6dc68fc8247
+              repository: ghcr.io/mostlygeek/llama-swap
+              tag: cuda@sha256:5533c89b4a7e894f7614a038250591375cec7b5bbb04847ab6744323fc3819ec
             env:
               TZ: ${TIMEZONE}
-              # Keep multi-GB GGUF downloads on the PVC across pod restarts.
               HF_HOME: /cache
             command:
-              - /app/llama-server
+              - /app/llama-swap
             args:
-              - --host
-              - 0.0.0.0
-              - --alias
-              - self-hosted
-              - -hf
-              - unsloth/Qwen3.5-9B-GGUF:UD-Q5_K_XL
-              - --jinja
-              - --ctx-size
-              - "160000"
-              - --parallel
-              - "4"
-              - --n-gpu-layers
-              - "9999"
-              - --cache-type-k
-              - q8_0
-              - --cache-type-v
-              - q8_0
-              # Pin the 248k-vocab embedding to GPU; otherwise the output
-              # projection traverses PCIe once per generated token.
-              - --override-tensor
-              - token_embd\.weight=CUDA0
-              # Hybrid DeltaNet+Attention: context-shift corrupts SSM state.
-              - --no-context-shift
-              # Default reads host cores, ignoring the cgroup CPU limit.
-              - --threads
-              - "4"
-              - --threads-batch
-              - "4"
-              # Unsloth "precise coding" preset.
-              - --temp
-              - "0.6"
-              - --top-p
-              - "0.95"
-              - --top-k
-              - "20"
-              - --metrics
+              - -config
+              - /app/config.yaml
+              - -listen
+              - 0.0.0.0:8080
             probes:
               startup: &probeBase
                 enabled: true
@@ -81,12 +50,12 @@ spec:
                 spec:
                   httpGet: &httpGet
                     path: /health
-                    port: 8080
-                  initialDelaySeconds: 10
+                    port: &port 8080
+                  initialDelaySeconds: 5
                   periodSeconds: 5
                   timeoutSeconds: 3
-                  # First boot downloads ~8 GiB; 180 x 5s = 15 min.
-                  failureThreshold: 180
+                  # llama-swap starts in < 5 s; no model load at pod start.
+                  failureThreshold: 12
               liveness:
                 <<: *probeBase
                 spec:
@@ -94,25 +63,23 @@ spec:
                   initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  # /health shares the HTTP pool with inference; tolerate
-                  # stalls during long prefills.
-                  failureThreshold: 6
+                  failureThreshold: 3
               readiness:
                 <<: *probeBase
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 10
+                  initialDelaySeconds: 5
                   periodSeconds: 10
-                  timeoutSeconds: 5
-                  failureThreshold: 6
+                  timeoutSeconds: 3
+                  failureThreshold: 3
             resources:
               requests:
-                cpu: 500m
-                memory: 2Gi
+                cpu: 1
+                memory: 1Gi
                 nvidia.com/gpu: 1
               limits:
-                cpu: 4
-                memory: 12Gi
+                cpu: 6
+                memory: 20Gi
                 nvidia.com/gpu: 1
 
     service:
@@ -121,7 +88,7 @@ spec:
         ports:
           http:
             port: 80
-            targetPort: 8080
+            targetPort: *port
 
     persistence:
       cache:
@@ -129,3 +96,10 @@ spec:
         existingClaim: llama-server
         globalMounts:
           - path: /cache
+      config:
+        type: configMap
+        name: llama-server-config
+        globalMounts:
+          - path: /app/config.yaml
+            subPath: config.yaml
+            readOnly: true
