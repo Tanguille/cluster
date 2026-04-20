@@ -26,6 +26,8 @@ spec:
                     values: ["true"]
     controllers:
       app:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -33,7 +35,6 @@ spec:
               tag: cuda@sha256:5533c89b4a7e894f7614a038250591375cec7b5bbb04847ab6744323fc3819ec
             env:
               TZ: ${TIMEZONE}
-              # HF_HOME is read by child llama-server processes; keeps GGUFs on PVC.
               HF_HOME: /cache
             command:
               - /app/llama-swap
