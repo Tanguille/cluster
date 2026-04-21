@@ -2,8 +2,8 @@
 # Single GPU: only one model runs at a time — llama-swap stops the running
 # child before starting the next when a request selects a different model.
 
-# seconds; upper bound for a cold load (large MoE + --no-mmap full RAM copy)
-# to report ready. Default 120s is too tight for our ~60s load + warmup.
+# seconds; upper bound for a cold load (large MoE mmap warmup + first-token
+# page-fault round-trips from PVC). Default 120s is too tight for MoE models.
 healthCheckTimeout: 900
 
 macros:
@@ -20,26 +20,30 @@ macros:
 
 models:
   gemma-4:
-    # 15 min idle unloads; next request reloads (~60s cold start from /cache PVC).
+    # 26B-A4B MoE. -ot exps=CPU pins expert FFN weights to CPU; mmap lets
+    # the OS page cache hold hot experts (sparse MoE access = most pages
+    # fault once and stay warm). Attention/router/KV live on the 4070.
+    # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
+    # -fmoe / -rtr are ik_llama.cpp-specific (fused MoE FFN / runtime repack).
     ttl: 900
-    aliases:
-      - self-hosted
-    # --n-gpu-layers omitted intentionally: MoE (26B total / 4B active per token)
-    # stays fast on partial CPU offload; llama.cpp auto-picks layers to fit VRAM.
     cmd: >
       /app/llama-server
       --port $${PORT}
       $${common}
-      -hf unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q3_K_XL
-      --fit-ctx 100000
-      --fit-target 512
+      -hf unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_M
+      --ctx-size 131072
       --parallel 2
-      --no-mmap
+      --n-gpu-layers 99
+      --override-tensor exps=CPU
       --batch-size 1024
       --ubatch-size 1024
+      --threads 6
+      --threads-batch 6
       --swa-full
       --slot-save-path /cache/slots
       --min-p 0.0
+      -fmoe
+      -rtr
 
   qwen-3.5:
     ttl: 900
@@ -58,20 +62,29 @@ models:
       --top-p 0.95
 
   qwen-3.6:
+    # 35B-A3B MoE. -ot exps=CPU pins expert FFN weights (~18 GB) to CPU; mmap
+    # lets the OS page cache hold hot experts in RAM (sparse MoE access = most
+    # pages fault once and stay warm). Attention/router/KV live on the 4070.
     # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
-    # -fmoe is ik_llama.cpp-specific (fused MoE FFN; not in mainline llama.cpp).
+    # -fmoe / -rtr are ik_llama.cpp-specific (fused MoE FFN / runtime repack).
     ttl: 900
+    aliases:
+      - self-hosted
     cmd: >
       /app/llama-server
-      --port ${PORT}
-      ${common}
+      --port $${PORT}
+      $${common}
       -hf unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_M
-      --fit-ctx 100000
-      --fit-target 512
+      --ctx-size 131072
       --parallel 2
-      --no-mmap
+      --n-gpu-layers 99
+      --override-tensor exps=CPU
       --batch-size 1024
       --ubatch-size 1024
+      --threads 6
+      --threads-batch 6
       --slot-save-path /cache/slots
+      --top-p 0.95
       --min-p 0.0
       -fmoe
+      -rtr
