@@ -164,8 +164,13 @@ Agent role: provide the full list of keys and the commands; hand over for user t
 
 ## Status
 
-- [x] Task 1: Scaffold homepage app — **IN PROGRESS**
-- [ ] Task 2: Deploy and verify blank dashboard
+- [x] Task 1: Scaffold homepage app — **DONE** (commit `82de1256b`)
+- [ ] Task 2: Deploy and verify blank dashboard — **DEFERRED** (user opted to stack annotation work on the same branch; verification happens once after all commits)
+- [x] Task 3: Tier 1 media annotations — **DONE** (commit `50f79fa26`; unpackerr uses Service annotations, no HTTPRoute added)
+- [x] Task 4: Tier 1 ai/default/observability/security — **DONE** (commit `0b55afb87`; immich skipped — commented out; crowdsec added to services.yaml; grafana annotations on raw HTTPRoute)
+- [ ] Task 5: Tier 2 tile annotations — **IN PROGRESS**
+- [ ] Task 6: Populate real API keys in SOPS secret
+- [ ] Task 7: Final verification + doc pass
 - [ ] Task 3: Tier 1 annotations — Media
 - [ ] Task 4: Tier 1 annotations — AI + default + observability + security
 - [ ] Task 5: Tier 2 tile annotations
