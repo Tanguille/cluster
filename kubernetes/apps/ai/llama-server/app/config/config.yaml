@@ -58,11 +58,8 @@ models:
       --top-p 0.95
 
   qwen-3.6:
-    # 35B-A3B MoE (3B active per token): generation throughput is bound by
-    # active params, so expected to outpace gemma-4's 4B-active on the same HW.
-    # UD-Q4_K_M (not _XL) is ~22.1 GB and avoids the f16 tensors that
-    # ik_llama.cpp refuses to load; 12 GB in VRAM, ~10 GB spills to RAM.
-    # -fmoe: ik_llama.cpp's fused MoE FFN ops.
+    # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
+    # -fmoe is ik_llama.cpp-specific (fused MoE FFN; not in mainline llama.cpp).
     ttl: 900
     cmd: >
       /app/llama-server
