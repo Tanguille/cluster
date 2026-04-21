@@ -56,3 +56,25 @@ models:
       --threads 4
       --threads-batch 4
       --top-p 0.95
+
+  qwen-3.6:
+    # 35B-A3B MoE (3B active per token): generation throughput is bound by
+    # active params, so expected to outpace gemma-4's 4B-active on the same HW.
+    # UD-Q4_K_M (not _XL) is ~22.1 GB and avoids the f16 tensors that
+    # ik_llama.cpp refuses to load; 12 GB in VRAM, ~10 GB spills to RAM.
+    # -fmoe: ik_llama.cpp's fused MoE FFN ops.
+    ttl: 900
+    cmd: >
+      /app/llama-server
+      --port ${PORT}
+      ${common}
+      -hf unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_M
+      --fit-ctx 100000
+      --fit-target 512
+      --parallel 2
+      --no-mmap
+      --batch-size 1024
+      --ubatch-size 1024
+      --slot-save-path /cache/slots
+      --min-p 0.0
+      -fmoe
