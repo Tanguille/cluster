@@ -7,9 +7,10 @@
 healthCheckTimeout: 900
 
 macros:
-  # Shared flags; ${PORT} is llama-swap's per-model auto-assigned port.
+  # Shared flags. ${PORT} must appear literally in each model's cmd — llama-swap
+  # validates its presence before macro expansion, so it can't live in here.
   common: >
-    --host 127.0.0.1 --port ${PORT}
+    --host 127.0.0.1
     --jinja
     --cache-type-k q8_0 --cache-type-v q8_0
     --temp 0.6 --top-k 20
@@ -25,6 +26,7 @@ models:
     # stays fast on partial CPU offload; llama.cpp auto-picks layers to fit VRAM.
     cmd: >
       /app/llama-server
+      --port ${PORT}
       ${common}
       -hf unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q3_K_XL
       --fit-ctx 100000
@@ -41,6 +43,7 @@ models:
     ttl: 900
     cmd: >
       /app/llama-server
+      --port ${PORT}
       ${common}
       -hf unsloth/Qwen3.5-9B-GGUF:UD-Q5_K_XL
       --ctx-size 160000
