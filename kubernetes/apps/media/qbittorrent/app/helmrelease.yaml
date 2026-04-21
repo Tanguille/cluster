@@ -76,6 +76,16 @@ spec:
             port: *port
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: qBittorrent
+          gethomepage.dev/description: Torrent client
+          gethomepage.dev/group: Downloaders
+          gethomepage.dev/icon: qbittorrent.png
+          gethomepage.dev/widget.type: qbittorrent
+          gethomepage.dev/widget.url: http://qbittorrent.media.svc.cluster.local
+          gethomepage.dev/widget.username: "{{`{{HOMEPAGE_VAR_QBITTORRENT_USERNAME}}`}}"
+          gethomepage.dev/widget.password: "{{`{{HOMEPAGE_VAR_QBITTORRENT_PASSWORD}}`}}"
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

@@ -76,6 +76,14 @@ spec:
     service:
       app:
         controller: *app
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Unpackerr
+          gethomepage.dev/description: Archive extraction daemon
+          gethomepage.dev/group: Processing
+          gethomepage.dev/icon: unpackerr.png
+          gethomepage.dev/widget.type: unpackerr
+          gethomepage.dev/widget.url: http://unpackerr.media.svc.cluster.local:5656
         ports:
           http:
             port: 5656
