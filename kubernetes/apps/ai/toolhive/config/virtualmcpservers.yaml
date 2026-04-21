@@ -1,5 +1,5 @@
 ---
-apiVersion: toolhive.stacklok.dev/v1alpha1
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: flux
@@ -22,7 +22,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
-apiVersion: toolhive.stacklok.dev/v1alpha1
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: observability
@@ -46,7 +46,7 @@ spec:
         prefixFormat: "{workload}_"
 ---
 # Named "ha" to avoid Deployment name collision with MCPServer "homeassistant" (operator creates Deployment = name)
-apiVersion: toolhive.stacklok.dev/v1alpha1
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: ha
@@ -69,7 +69,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
-apiVersion: toolhive.stacklok.dev/v1alpha1
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: search
@@ -92,7 +92,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
-apiVersion: toolhive.stacklok.dev/v1alpha1
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: database
@@ -115,7 +115,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
-apiVersion: toolhive.stacklok.dev/v1alpha1
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: resources
@@ -138,7 +138,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
-apiVersion: toolhive.stacklok.dev/v1alpha1
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: unified
