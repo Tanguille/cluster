@@ -1,0 +1,21 @@
+---
+# Static tiles for services that cannot be auto-discovered from k8s annotations.
+# Everything behind envoy-internal (HTTPRoute) is picked up via per-app gethomepage.dev/* annotations.
+# These three live behind envoy-internal-tls (TLSRoute), which homepage does not discover.
+
+- External:
+    - TrueNAS:
+        icon: truenas-scale.png
+        href: https://truenas.${SECRET_DOMAIN}
+        description: Storage & NFS
+        siteMonitor: https://truenas.${SECRET_DOMAIN}
+    - OPNsense:
+        icon: opnsense.png
+        href: https://opnsense.${SECRET_DOMAIN}
+        description: Router / firewall
+        siteMonitor: https://opnsense.${SECRET_DOMAIN}
+    - IPMI:
+        icon: mdi-server-network-#ffffff
+        href: https://ipmi.${SECRET_DOMAIN}
+        description: Out-of-band management
+        siteMonitor: https://ipmi.${SECRET_DOMAIN}
