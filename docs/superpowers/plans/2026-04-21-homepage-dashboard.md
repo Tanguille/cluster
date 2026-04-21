@@ -176,8 +176,3 @@ Agent role: provide the full list of keys and the commands; hand over for user t
 
 - **Branch base drift:** `feat/homepage-dashboard` was created from a commit that main has since advanced past (two further llama-server fixes). Rebase onto `origin/main` before PR to keep history linear. One foreign commit (`f45fb1d73` — llama-server cu12-swap-4417 fix by user) is currently on this branch but not on main; verify whether it's been superseded by `a14a4f044` before rebase.
 - **Helm rendering of `{{ }}` in annotation values:** the 19 Tier 1 apps using bjw-s `app-template` escape `{{HOMEPAGE_VAR_X}}` as `{{`{{HOMEPAGE_VAR_X}}`}}` because app-template re-renders `route.*.annotations` values via `tpl`. Raw HTTPRoute (grafana) and services.yaml/widgets.yaml (no Helm rendering) use the unescaped form. Double-check at first deploy that widget.key values are the literal `{{HOMEPAGE_VAR_*}}` string in the live HTTPRoute object.
-- [ ] Task 3: Tier 1 annotations — Media
-- [ ] Task 4: Tier 1 annotations — AI + default + observability + security
-- [ ] Task 5: Tier 2 tile annotations
-- [ ] Task 6: Populate real API keys in SOPS secret
-- [ ] Task 7: Final verification + doc pass
