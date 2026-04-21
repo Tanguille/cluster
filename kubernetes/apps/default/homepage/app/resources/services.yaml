@@ -1,7 +1,8 @@
 ---
 # Static tiles for services that cannot be auto-discovered from k8s annotations.
 # Everything behind envoy-internal (HTTPRoute) is picked up via per-app gethomepage.dev/* annotations.
-# These three live behind envoy-internal-tls (TLSRoute), which homepage does not discover.
+# Entries here are for services that either live behind TLSRoute (not discoverable) or
+# use a chart that exposes no annotation surface.
 
 - External:
     - TrueNAS:
@@ -19,3 +20,13 @@
         href: https://ipmi.${SECRET_DOMAIN}
         description: Out-of-band management
         siteMonitor: https://ipmi.${SECRET_DOMAIN}
+
+- Security:
+    - CrowdSec:
+        icon: crowdsec.png
+        description: Community IPS (LAPI)
+        widget:
+          type: crowdsec
+          url: http://crowdsec-service.security.svc.cluster.local:8080
+          username: "{{HOMEPAGE_VAR_CROWDSEC_USERNAME}}"
+          password: "{{HOMEPAGE_VAR_CROWDSEC_PASSWORD}}"
