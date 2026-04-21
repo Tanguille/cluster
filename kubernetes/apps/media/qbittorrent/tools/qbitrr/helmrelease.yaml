@@ -56,7 +56,7 @@ spec:
           app:
             image:
               repository: docker.io/feramance/qbitrr
-              tag: v5.10.1
+              tag: v5.11.1
             # Skip docker-entrypoint.sh (gosu/setuid). Init already chowns /config; run as 1000 like upstream `user: "1000:1000"`.
             command: ["/usr/bin/tini", "--"]
             args: ["python", "-m", "qBitrr.main"]
