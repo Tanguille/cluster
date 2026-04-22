@@ -62,12 +62,17 @@ models:
       --top-p 0.95
 
   qwen-3.6:
-    # 35B-A3B MoE. Layer-range override keeps experts for blocks 0-9 on the
-    # 4070 (≈3 GB VRAM) and pins blocks 10-99 to CPU + mmap page cache. This
-    # shifts the memory-bandwidth-bound token path onto VRAM for early layers.
+    # 35B-A3B MoE (40 layers: 10 gated-attention + 30 GDN, MoE in every layer).
+    # --n-cpu-moe 29 keeps experts of layers 0-28 on CPU + leaves 11 layers'
+    # experts on GPU (≈8.8 GB VRAM). ubatch 2048 needs ~1 GB more compute
+    # buffer than 1024 — fits in 12 GB 4070 with ~2 GB headroom for KV growth.
     # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
     # -rtr is ik_llama.cpp-specific (runtime tensor repack for fused kernels).
-    ttl: 900
+    # --mlock prevents kernel from reclaiming model pages under node memory
+    # pressure from co-tenant workloads (ollama, moltis).
+    # preserve_thinking carries thinking traces across turns (Qwen3.6 trained
+    # for this) — improves KV reuse and decision consistency in agentic loops.
+    ttl: 3600
     aliases:
       - self-hosted
     cmd: >
@@ -79,12 +84,13 @@ models:
       --ctx-size 131072
       --parallel 2
       --n-gpu-layers 99
-      --override-tensor blk\.(1[0-9]|[2-9][0-9])\.ffn_.*_exps\.weight=CPU
-      --batch-size 1024
-      --ubatch-size 1024
+      --n-cpu-moe 29
+      --ubatch-size 2048
       --threads 6
       --threads-batch 6
       --slot-save-path /cache/slots
       --top-p 0.95
       --min-p 0.0
+      --mlock
+      --chat-template-kwargs {"preserve_thinking":true}
       -rtr
