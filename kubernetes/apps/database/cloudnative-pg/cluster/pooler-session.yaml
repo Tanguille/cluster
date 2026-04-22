@@ -1,6 +1,6 @@
 ---
 # Session-mode RW pooler for apps that cannot use transaction pooling (e.g. Ecto named
-# prepared statements). Service: pgbouncer-session.database.svc.cluster.local:5432
+# prepared statements, advisory locks). Service: pgbouncer-session.database.svc.cluster.local:5432
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
 metadata:
@@ -8,13 +8,19 @@ metadata:
 spec:
   cluster:
     name: postgres16
-  instances: 3
+  instances: 2
   type: rw
   pgbouncer:
     poolMode: session
+    # Session mode: 1 backend per connected client for the whole session.
+    # max_db_connections is per Postgres database per pod; per-DB ceiling through
+    # this Pooler = instances × max_db_connections below. Recalculate when either changes.
+    # Same-DB overlap with pgbouncer-rw is explained in pooler.yaml.
     parameters:
-      max_client_conn: "1000"
-      default_pool_size: "50"
+      max_client_conn: "500"
+      default_pool_size: "10"
+      min_pool_size: "0"
+      max_db_connections: "10"
       server_idle_timeout: "300"
       server_login_retry: "5"
       query_wait_timeout: "5"

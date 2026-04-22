@@ -19,18 +19,21 @@ spec:
   postgresql:
     parameters:
       wal_level: replica
-      max_connections: "200"
+      # Observed backends ~60; 100 fits pool caps + replication / autovacuum / admin.
+      max_connections: "100"
       shared_buffers: 1GB
       effective_cache_size: 6GB
       huge_pages: "try"
       # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
       io_method: "worker"
-      work_mem: 10MB
+      work_mem: 16MB
       # Drop sessions idle inside a transaction so xmin does not stall VACUUM / grow bloat (ORM/pool leaks).
       idle_in_transaction_session_timeout: "600000"
-      maintenance_work_mem: 1GB
+      # 512MB × max_parallel_maintenance_workers(2) caps peak VACUUM/CREATE INDEX
+      # burst at ~1GB instead of ~4GB. Fine for our largest tables.
+      maintenance_work_mem: 512MB
       max_parallel_workers: "4"
-      max_parallel_maintenance_workers: "4"
+      max_parallel_maintenance_workers: "2"
       max_parallel_workers_per_gather: "4"
       # WAL tuning for fewer checkpoints/archives
       min_wal_size: 2GB
@@ -82,10 +85,10 @@ spec:
   resources:
     requests:
       cpu: 1
-      memory: 2Gi
+      memory: 1Gi
     limits:
       cpu: 4
-      memory: 8Gi
+      memory: 4Gi
       hugepages-2Mi: 1Gi
   monitoring:
     enablePodMonitor: true
