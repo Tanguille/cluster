@@ -63,9 +63,11 @@ models:
 
   qwen-3.6:
     # 35B-A3B MoE (40 layers: 10 gated-attention + 30 GDN, MoE in every layer).
-    # --n-cpu-moe 29 keeps experts of layers 0-28 on CPU + leaves 11 layers'
-    # experts on GPU (≈8.8 GB VRAM). ubatch 2048 needs ~1 GB more compute
-    # buffer than 1024 — fits in 12 GB 4070 with ~2 GB headroom for KV growth.
+    # --n-cpu-moe 30 keeps experts of layers 0-29 on CPU + leaves 10 layers'
+    # experts on GPU (≈8 GB VRAM). ubatch 2048 needs ~1 GB more compute buffer
+    # than 1024 → ~9 GB total active. n-cpu-moe 29 + ubatch 2048 OOM'd
+    # CUDA at 185 MB free during compute-buffer alloc (init 250 result=11);
+    # 30 leaves ~600 MB headroom for KV growth + safe ubatch 2048 alloc.
     # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
     # -rtr is ik_llama.cpp-specific (runtime tensor repack for fused kernels);
     # already disables mmap so weights live in anon RSS (kernel can't easily
@@ -85,7 +87,7 @@ models:
       --ctx-size 131072
       --parallel 2
       --n-gpu-layers 99
-      --n-cpu-moe 29
+      --n-cpu-moe 30
       --ubatch-size 2048
       --threads 6
       --threads-batch 6
