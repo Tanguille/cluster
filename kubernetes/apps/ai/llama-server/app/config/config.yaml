@@ -24,7 +24,7 @@ models:
     # the OS page cache hold hot experts (sparse MoE access = most pages
     # fault once and stay warm). Attention/router/KV live on the 4070.
     # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
-    # -fmoe / -rtr are ik_llama.cpp-specific (fused MoE FFN / runtime repack).
+    # -rtr is ik_llama.cpp-specific (runtime tensor repack for fused kernels).
     ttl: 900
     cmd: >
       /app/llama-server
@@ -62,11 +62,11 @@ models:
       --top-p 0.95
 
   qwen-3.6:
-    # 35B-A3B MoE. -ot exps=CPU pins expert FFN weights (~18 GB) to CPU; mmap
-    # lets the OS page cache hold hot experts in RAM (sparse MoE access = most
-    # pages fault once and stay warm). Attention/router/KV live on the 4070.
+    # 35B-A3B MoE. Layer-range override keeps experts for blocks 0-9 on the
+    # 4070 (≈3 GB VRAM) and pins blocks 10-99 to CPU + mmap page cache. This
+    # shifts the memory-bandwidth-bound token path onto VRAM for early layers.
     # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
-    # -fmoe / -rtr are ik_llama.cpp-specific (fused MoE FFN / runtime repack).
+    # -rtr is ik_llama.cpp-specific (runtime tensor repack for fused kernels).
     ttl: 900
     aliases:
       - self-hosted
@@ -79,7 +79,7 @@ models:
       --ctx-size 131072
       --parallel 2
       --n-gpu-layers 99
-      --override-tensor exps=CPU
+      --override-tensor blk\.(1[0-9]|[2-9][0-9])\.ffn_.*_exps\.weight=CPU
       --batch-size 1024
       --ubatch-size 1024
       --threads 6
