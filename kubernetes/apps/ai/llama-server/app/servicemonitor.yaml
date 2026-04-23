@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/servicemonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: llama-server
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: llama-server
+      app.kubernetes.io/instance: llama-server
+  endpoints:
+    # llama-swap proxies the active child's Prometheus endpoint under
+    # /upstream/<model>/metrics. Only one model is hot at a time on our
+    # single 12 GB GPU, so we hard-code the default alias `qwen-3.6`.
+    # When the slot is cold, the scrape 404s — that's expected, the
+    # dashboard simply shows no data until a model loads.
+    - port: http
+      path: /upstream/qwen-3.6/metrics
+      interval: 1m
+      scrapeTimeout: 10s
+  # llama.cpp's /metrics exposition uses OpenMetrics-ish text/plain without
+  # an explicit content-type version header; force the legacy protocol so
+  # Prometheus doesn't reject it under strict negotiation.
+  fallbackScrapeProtocol: PrometheusText0.0.4

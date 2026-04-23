@@ -9,10 +9,18 @@ components:
 resources:
   - helmrelease.yaml
   - pvc.yaml
+  - servicemonitor.yaml
+  - grafanadashboard.yaml
 
 configMapGenerator:
   - name: llama-server-config
     files:
       - config/config.yaml
+  - name: llama-server-dashboard
+    files:
+      - dashboard/llama-server.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
 generatorOptions:
   disableNameSuffixHash: true
