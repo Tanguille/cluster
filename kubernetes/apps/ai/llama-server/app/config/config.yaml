@@ -19,48 +19,6 @@ macros:
     --metrics
 
 models:
-  gemma-4:
-    # 26B-A4B MoE. -ot exps=CPU pins expert FFN weights to CPU; mmap lets
-    # the OS page cache hold hot experts (sparse MoE access = most pages
-    # fault once and stay warm). Attention/router/KV live on the 4070.
-    # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
-    # -rtr is ik_llama.cpp-specific (runtime tensor repack for fused kernels).
-    ttl: 900
-    cmd: >
-      /app/llama-server
-      --port $${PORT}
-      $${common}
-      --hf-repo unsloth/gemma-4-26B-A4B-it-GGUF
-      --hf-file gemma-4-26B-A4B-it-UD-Q4_K_M.gguf
-      --ctx-size 131072
-      --parallel 2
-      --n-gpu-layers 99
-      --override-tensor exps=CPU
-      --batch-size 1024
-      --ubatch-size 1024
-      --threads 6
-      --threads-batch 6
-      --slot-save-path /cache/slots
-      --min-p 0.0
-      -rtr
-
-  qwen-3.5:
-    ttl: 900
-    cmd: >
-      /app/llama-server
-      --port $${PORT}
-      $${common}
-      --hf-repo unsloth/Qwen3.5-9B-GGUF
-      --hf-file Qwen3.5-9B-UD-Q5_K_XL.gguf
-      --ctx-size 160000
-      --parallel 4
-      --n-gpu-layers 9999
-      --override-tensor token_embd\.weight=CUDA0
-      --no-context-shift
-      --threads 4
-      --threads-batch 4
-      --top-p 0.95
-
   qwen-3.6:
     # 35B-A3B MoE (40 layers: 10 gated-attention + 30 GDN, MoE in every layer).
     # --n-cpu-moe 30 keeps experts of layers 0-29 on CPU + leaves 10 layers'
@@ -85,7 +43,7 @@ models:
       --hf-repo unsloth/Qwen3.6-35B-A3B-GGUF
       --hf-file Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
       --ctx-size 131072
-      --parallel 2
+      --parallel 1
       --n-gpu-layers 99
       --n-cpu-moe 30
       --ubatch-size 2048
