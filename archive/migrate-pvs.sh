@@ -153,53 +153,28 @@ ensure_zfs_driver() {
         return 1
     fi
 
-    # Check if node has the required label
-    local node_label
-    node_label=$(kubectl get node "$ZFS_NODE" -o jsonpath='{.metadata.labels.storage\.zfs/available}' 2>/dev/null || echo "")
-
-    if [[ "$node_label" != "true" ]]; then
-        log_warning "Node $ZFS_NODE is not labeled with storage.zfs/available=true"
-        log_info "Labeling node to enable ZFS driver pods..."
-
-        if $DRY_RUN; then
-            log_info "[DRY-RUN] Would label: kubectl label node $ZFS_NODE storage.zfs/available=true --overwrite"
-        else
-            if kubectl label node "$ZFS_NODE" storage.zfs/available=true --overwrite 2>/dev/null; then
-                log_success "Node labeled"
-
-                # Wait for ZFS driver pods to start
-                log_info "Waiting for ZFS CSI driver pods to start..."
-                local wait_count=0
-                while [[ $wait_count -lt 60 ]]; do
-                    zfs_pods=$(kubectl get pods -n openebs-system -l app=zfs-localpv --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
-                    zfs_pods=${zfs_pods:-0}   # Default to 0 if empty
-                    # Force to integer
-                    zfs_pods=$((10#$zfs_pods))
-                    if [[ $zfs_pods -gt 0 ]]; then
-                        log_success "ZFS CSI driver pods are running ($zfs_pods pod(s))"
-                        return 0
-                    fi
-                    sleep 2
-                    ((wait_count++))
-                    if [[ $((wait_count % 10)) -eq 0 ]]; then
-                        log_info "  Still waiting... (${wait_count}s)"
-                    fi
-                done
-
-                log_warning "ZFS driver pods did not start within 120s"
-                log_warning "Migration may fail if driver is not available"
-                log_info "Check: kubectl get pods -n openebs-system -l app=zfs-localpv"
-            else
-                log_error "Failed to label node"
-                return 1
-            fi
+    log_warning "ZFS CSI driver pods are not running (no dependency on node label storage.zfs/available)."
+    log_info "Waiting briefly for ZFS CSI driver pods (chart / operator may still be reconciling)..."
+    local wait_count=0
+    while [[ $wait_count -lt 60 ]]; do
+        zfs_pods=$(kubectl get pods -n openebs-system -l app=zfs-localpv --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l | tr -d '[:space:]')
+        zfs_pods=${zfs_pods:-0}
+        zfs_pods=$((10#$zfs_pods))
+        if [[ $zfs_pods -gt 0 ]]; then
+            log_success "ZFS CSI driver pods are running ($zfs_pods pod(s))"
+            return 0
         fi
-    else
-        log_info "Node is labeled, but ZFS pods are not running"
-        log_warning "ZFS may be disabled or pods failed to start"
-        log_warning "Check: kubectl get pods -n openebs-system -l app=zfs-localpv"
-        log_warning "Check: kubectl get helmrelease -n openebs-system openebs"
-    fi
+        sleep 2
+        ((wait_count++))
+        if [[ $((wait_count % 10)) -eq 0 ]]; then
+            log_info "  Still waiting... (${wait_count}s)"
+        fi
+    done
+
+    log_warning "ZFS driver pods did not start within 120s"
+    log_warning "Migration may fail if driver is not available"
+    log_info "Check: kubectl get pods -n openebs-system -l app=zfs-localpv"
+    log_info "Check: kubectl get helmrelease -n openebs-system openebs"
 
     echo ""
 }
