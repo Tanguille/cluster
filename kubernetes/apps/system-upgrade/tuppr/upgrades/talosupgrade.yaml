@@ -15,10 +15,10 @@ spec:
       kind: Node
       expr: |-
         status.conditions.exists(c, c.type == "Ready" && c.status == "True")
-    # - apiVersion: postgresql.cnpg.io/v1
-    #   kind: Cluster
-    #   expr: |-
-    #     status.phase in ['Cluster in healthy state']
+    - apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      expr: |-
+        status.phase in ['Cluster in healthy state']
     - apiVersion: dragonflydb.io/v1alpha1
       kind: Dragonfly
       expr: |-
