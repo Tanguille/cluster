@@ -19,18 +19,18 @@ spec:
   postgresql:
     parameters:
       wal_level: replica
-      # Observed backends ~60; 100 fits pool caps + replication / autovacuum / admin.
-      max_connections: "100"
+      # Cluster-wide cap: backends stack per database + overlap if one DB uses both rw poolers.
+      # Keep above Σ(pooler instances × max_db_connections) for worst-case same-DB paths + replication/autovacuum/admin.
+      max_connections: "150"
       shared_buffers: 1GB
       effective_cache_size: 6GB
       huge_pages: "try"
       # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
       io_method: "worker"
       work_mem: 16MB
-      # Drop sessions idle inside a transaction so xmin does not stall VACUUM / grow bloat (ORM/pool leaks).
+      # End idle-in-xact sessions so xmin can advance (ORM leaks, forgotten BEGIN).
       idle_in_transaction_session_timeout: "600000"
-      # 512MB × max_parallel_maintenance_workers(2) caps peak VACUUM/CREATE INDEX
-      # burst at ~1GB instead of ~4GB. Fine for our largest tables.
+      # Peak maintenance memory ≈ maintenance_work_mem × max_parallel_maintenance_workers (here ~1GB).
       maintenance_work_mem: 512MB
       max_parallel_workers: "4"
       max_parallel_maintenance_workers: "2"
@@ -40,29 +40,32 @@ spec:
       max_wal_size: 8GB
       checkpoint_timeout: 15min
       checkpoint_completion_target: "0.9"
-      checkpoint_warning: "60" # Seconds; log if checkpoints happen closer (increase max_wal_size if frequent)
+      # Seconds; log if checkpoints occur more often than this (raise max_wal_size if noisy).
+      checkpoint_warning: "60"
       wal_compression: "zstd"
       wal_buffers: 32MB
-      # Autovacuum tuned for many small/medium DBs with XID age protection
+      # Many small DBs: more aggressive autovacuum + freeze than defaults.
       autovacuum_vacuum_scale_factor: "0.02"
       autovacuum_analyze_scale_factor: "0.01"
       autovacuum_vacuum_threshold: "50"
       autovacuum_analyze_threshold: "25"
-      # Insert-heavy tables (e.g. high-volume upserts): autovacuum sooner on insert fraction → better vis map / freeze vs default 0.2.
+      # Insert-heavy tables: vacuum sooner on insert fraction (visibility / freeze).
       autovacuum_vacuum_insert_scale_factor: "0.05"
-      autovacuum_vacuum_cost_limit: "2000" # Default 200; higher = faster autovacuum (NVMe can take it)
-      autovacuum_vacuum_cost_delay: "1ms" # Default 2ms; lower on NVMe so autovacuum finishes sooner
+      # Higher limit / lower delay than defaults to finish autovacuum sooner on NVMe.
+      autovacuum_vacuum_cost_limit: "2000"
+      autovacuum_vacuum_cost_delay: "1ms"
       autovacuum_freeze_max_age: "100000000"
       vacuum_freeze_min_age: "50000000"
       vacuum_freeze_table_age: "75000000"
       default_statistics_target: "200"
-      random_page_cost: "1.1" # Default 4.0 (HDD-oriented); 1.1 favors index scans on NVMe
-      effective_io_concurrency: "200" # Default 16, increased for NVMe parallelism
-      maintenance_io_concurrency: "200" # VACUUM/ANALYZE/CREATE INDEX parallelism on NVMe
-      # pg_stat_statements: requires shared_preload_libraries entry below; triggers rolling restart on first apply.
+      # NVMe-oriented planner / I/O (lower random_page_cost, higher *_io_concurrency).
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      maintenance_io_concurrency: "200"
+      # Listed in shared_preload_libraries below; first enable rolls the cluster.
       pg_stat_statements.max: "7500"
       pg_stat_statements.track: "top"
-    # vchord needs shared_preload_libraries; CNPG sets logging_collector=on (vchord logs). Per-session: hnsw.ef_search (pgvector), vchordrq.probes / vchordrq.epsilon (vchord).
+    # vchord.so required for vchord; pg_stat_statements matches parameters above.
     shared_preload_libraries:
       - "vchord.so"
       - "pg_stat_statements"
@@ -97,15 +100,12 @@ spec:
       isWALArchiver: true
       parameters: &barmanParameters
         barmanObjectName: r2
-        # Note: serverName version needs to be incremented
-        # when recovering from an existing cnpg cluster
+        # Bump when restoring from an existing CNPG cluster (new logical server id for backups).
         serverName: postgres18
-  # Note: previousCluster needs to be set to the name of the previous
-  # cluster when recovering from an existing cnpg cluster
+  # Recovery from prior cluster: set previousCluster, uncomment bootstrap + externalClusters, align serverName.
   # bootstrap:
   #   recovery:
   #     source: &previousCluster postgres18
-  # # Note: externalClusters is needed when recovering from an existing cnpg cluster
   # externalClusters:
   #   - name: *previousCluster
   #     plugin:
