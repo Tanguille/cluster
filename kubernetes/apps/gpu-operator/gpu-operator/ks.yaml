@@ -3,16 +3,16 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: dcgm-exporter
-  namespace: &namespace observability
+  name: gpu-operator
+  namespace: &namespace gpu-operator
 spec:
   targetNamespace: *namespace
-  interval: 30m
-  path: "./kubernetes/apps/observability/exporters/dcgm-exporter/app"
+  path: ./kubernetes/apps/gpu-operator/gpu-operator/app
   prune: true
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  wait: true
-  retryInterval: 2m
+  wait: false
+  interval: 30m
