@@ -1,0 +1,11 @@
+---
+# Privileged PSA + same annotations as components/common/namespace.yaml (Flux applies this path after parent).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpu-operator
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+    volsync.backube/privileged-movers: "true"
