@@ -22,6 +22,9 @@ spec:
               tag: latest@sha256:220f3e174c006e9565798d11669b4a3b637061f225e6988548051c6e99085b79
             env:
               TZ: ${TIMEZONE}
+              # Upstream detects Docker via /.dockerenv (absent on containerd/Talos)
+              # and falls back to platformdirs $HOME/.local/share. Redirect via XDG.
+              XDG_DATA_HOME: /data
             probes:
               liveness:
                 enabled: true
