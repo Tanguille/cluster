@@ -10,6 +10,9 @@ spec:
     name: victoria-logs
   interval: 1h
   values:
+    global:
+      image:
+        registry: quay.io
     fullnameOverride: victoria-logs
     server:
       persistentVolume:
@@ -40,3 +43,5 @@ spec:
         enabled: true
     dashboards:
       enabled: true
+      grafanaOperator:
+        enabled: true
