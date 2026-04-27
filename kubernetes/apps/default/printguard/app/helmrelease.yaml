@@ -50,8 +50,9 @@ spec:
                 spec:
                   tcpSocket:
                     port: *port
-                  failureThreshold: 30
-                  periodSeconds: 5
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
             resources:
               requests:
                 cpu: 50m
@@ -90,3 +91,10 @@ spec:
         size: 10Gi
         globalMounts:
           - path: /data
+      model:
+        existingClaim: "{{ .Release.Name }}"
+        advancedMounts:
+          printguard:
+            app:
+              - path: /usr/local/lib/python3.11/site-packages/printguard/model
+                subPath: models
