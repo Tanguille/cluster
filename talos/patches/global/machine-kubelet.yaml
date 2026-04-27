@@ -1,6 +1,8 @@
 machine:
   kubelet:
     extraConfig:
+      enableSystemLogHandler: true
+      enableSystemLogQuery: true
       maxPods: 200
       serializeImagePulls: false
     nodeIP:
