@@ -1,8 +1,8 @@
 # Generate a schematic for a Talos node
 # curl -X POST --data-binary @talos/schematic.yaml \
 #  https://factory.talos.dev/schematics
-# Truenas VM
-# 0c544398f7d997fb2489308b8c8334a4c3c07b574e67918342fc769da2ab87c1
+# Truenas VM (control-1)
+# 680e946fc81d07d5e8bfab832686b844ef3fc5b940a20e20aebb4e93b1b72a31
 ---
 customization:
   extraKernelArgs:
@@ -14,7 +14,6 @@ customization:
     - -selinux
     - cpufreq.default_governor=performance
     - amd_pstate=active
-    - intel_iommu=on
     - iommu=pt
     - mitigations=off
     - security=none
@@ -25,8 +24,8 @@ customization:
       - siderolabs/nvidia-open-gpu-kernel-modules-production
       - siderolabs/qemu-guest-agent
       - siderolabs/nfsrahead
-# Chuwi ubox
-# 7afb59ad38a2e279afd0a7d2ca841becef7521856b55d140cffdf3459d8d3707
+# Chuwi ubox (control-2/3)
+# 1fd419f5873a6e96fcd35ad1f849c02b53578eb39922041b24ab475fccd99780
 ---
 customization:
   extraKernelArgs:
