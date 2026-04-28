@@ -90,6 +90,18 @@ spec:
             port: 80
             targetPort: *port
 
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 80
+
     persistence:
       cache:
         enabled: true
