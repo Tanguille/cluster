@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Evidence hooks for joryirving/pr-reviewer-action (.github/pr-review-providers.json).
 # Emit JSON with severity so evidence_blocker_enforcement can map failures to request_changes.
-# Uses jq and shellcheck from PATH (install on the runner via apt or bake into the image).
+# Uses jq and shellcheck.
 #
 # Note: Full-tree kubeconform is not used here — Flux/Talos HelmRelease and raw configs fail
 # kubeconform even with -ignore-missing-schemas; that would block every PR. Use shellcheck
