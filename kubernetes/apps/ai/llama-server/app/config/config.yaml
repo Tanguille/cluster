@@ -26,7 +26,7 @@ models:
     # than 1024 → ~9 GB total active. n-cpu-moe 29 + ubatch 2048 OOM'd
     # CUDA at 185 MB free during compute-buffer alloc (init 250 result=11);
     # 30 leaves ~600 MB headroom for KV growth + safe ubatch 2048 alloc.
-    # UD-Q4_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
+    # UD-Q3_K_M (not _XL) — avoids f16 tensors ik_llama.cpp refuses to load.
     # -rtr is ik_llama.cpp-specific (runtime tensor repack for fused kernels);
     # already disables mmap so weights live in anon RSS (kernel can't easily
     # reclaim them, making --mlock redundant — and the container ulimit -l
@@ -41,7 +41,7 @@ models:
       --port $${PORT}
       $${common}
       --hf-repo unsloth/Qwen3.6-35B-A3B-GGUF
-      --hf-file Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+      --hf-file Qwen3.6-35B-A3B-UD-Q3_K_M.gguf
       --ctx-size 131072
       --parallel 1
       --n-gpu-layers 99
