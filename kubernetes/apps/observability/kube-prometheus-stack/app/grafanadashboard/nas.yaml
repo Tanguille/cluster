@@ -3,16 +3,16 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: smartctl-exporter
+  name: zfs
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: hardware
+  folder: nas
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
   grafanaCom:
-    id: 22604
+    id: 24987
     revision: 2
