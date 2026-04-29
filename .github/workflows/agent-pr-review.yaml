@@ -26,11 +26,48 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Ensure jq and shellcheck
+        run: |
+          set -euo pipefail
+          need=()
+          command -v jq >/dev/null 2>&1 || need+=(jq)
+          command -v shellcheck >/dev/null 2>&1 || need+=(shellcheck)
+          if ((${#need[@]} == 0)); then
+            exit 0
+          fi
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "::error::jq and/or shellcheck missing and apt-get not available; install them on the runner image" >&2
+            exit 1
+          fi
+          export DEBIAN_FRONTEND=noninteractive
+          if command -v sudo >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends "${need[@]}"
+          else
+            apt-get update -qq
+            apt-get install -y --no-install-recommends "${need[@]}"
+          fi
+
       - name: Run reviewer
         uses: joryirving/pr-reviewer-action@314812092cf2243a3813501a61ff0794aa5e0c63 # v1.0.12
         with:
           github_token: ${{ github.token }}
           ai_base_url: http://llama-server.ai.svc.cluster.local/v1
           ai_model: self-hosted
-          standards_file: AGENTS.md
           publish_review_comment: "true"
+          allowed_source_hosts: "github.com,api.github.com,raw.githubusercontent.com,gitlab.com,registry.terraform.io,artifacthub.io,www.talos.dev,talos.dev,fluxcd.io,kubernetes.io,cilium.io"
+          evidence_providers_file: .github/pr-review-providers.json
+          evidence_provider_timeout_sec: "120"
+          evidence_provider_max_output_bytes: "50000"
+          evidence_blocker_enforcement: "true"
+          # Tool harness (one planning round, then synthesis)
+          tool_mode: plan_execute_once
+          tool_max_requests: "4"
+          tool_planning_timeout_sec: "90"
+          tool_planning_max_context_bytes: "50000"
+          tool_planning_max_tokens: "400"
+          tool_max_response_bytes: "12000"
+          tool_allowed_gh_api_repos: "siderolabs/talos,siderolabs/kubelet,fluxcd/flux2,cilium/cilium,cilium/tetragon"
+          tool_request_timeout_sec: "25"
+          tool_failure_enforcement: "true"
+          tool_min_successful_requests: "1"
