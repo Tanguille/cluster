@@ -3,30 +3,30 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: kepler
+  name: kubernetes-hpa
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: hardware
+  folder: autoscaling
   datasources:
     - datasourceName: prometheus
-      inputName: datasource
-  url: "https://raw.githubusercontent.com/sustainable-computing-io/kepler-operator/main/hack/dashboard/assets/kepler/dashboard.json"
+      inputName: DS_PROMETHEUS
+  url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-hpa.json
 ---
 # yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/grafana.integreatly.org/grafanadashboard_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: kepler-overview
+  name: kubernetes-pdb
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: hardware
+  folder: autoscaling
   datasources:
     - datasourceName: prometheus
-      inputName: datasource
-  url: "https://raw.githubusercontent.com/sustainable-computing-io/kepler/main/compose/default/grafana/dashboards/latest/dashboard.json"
+      inputName: DS_PROMETHEUS
+  url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-pdb.json
