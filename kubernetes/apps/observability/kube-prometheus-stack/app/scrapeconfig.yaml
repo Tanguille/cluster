@@ -73,3 +73,33 @@ spec:
     - action: replace
       targetLabel: job
       replacement: *app
+---
+# prometheus-klipper-exporter multi-target `/probe` scrape (modules per upstream README).
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &job klipper
+spec:
+  staticConfigs:
+    - targets:
+        - klipper-exporter.observability.svc.cluster.local:9101
+  metricsPath: /probe
+  scrapeInterval: 15s
+  scrapeTimeout: 10s
+  params:
+    target:
+      - "${KLIPPER_MOONRAKER_TARGET}"
+    modules:
+      - process_stats
+      - job_queue
+      - system_info
+      - network_stats
+      - directory_info
+      - printer_objects
+      - history
+      - mmu
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *job
