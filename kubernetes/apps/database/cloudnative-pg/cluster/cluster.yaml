@@ -23,7 +23,7 @@ spec:
       # Keep above Σ(pooler instances × max_db_connections) for worst-case same-DB paths + replication/autovacuum/admin.
       max_connections: "150"
       shared_buffers: 1GB
-      effective_cache_size: 6GB
+      effective_cache_size: 4GB
       huge_pages: "try"
       # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
       io_method: "worker"
@@ -88,7 +88,7 @@ spec:
   resources:
     requests:
       cpu: 1
-      memory: 1Gi
+      memory: 512Mi
     limits:
       cpu: 4
       memory: 4Gi
