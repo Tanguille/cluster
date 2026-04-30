@@ -79,11 +79,8 @@ spec:
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
-  name: &job klipper
+  name: klipper
 spec:
-  staticConfigs:
-    - targets:
-        - 192.168.0.95:80
   metricsPath: /probe
   scrapeInterval: 15s
   scrapeTimeout: 10s
@@ -96,6 +93,9 @@ spec:
       - printer_objects
       - job_queue
       - history
+  staticConfigs:
+    - targets:
+        - "192.168.0.95:80"
       labels:
         printer: centauri_carbon
   relabelings:
