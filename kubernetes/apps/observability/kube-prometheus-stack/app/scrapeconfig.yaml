@@ -88,18 +88,20 @@ spec:
   scrapeInterval: 15s
   scrapeTimeout: 10s
   params:
-    target:
-      - "${KLIPPER_MOONRAKER_TARGET}"
     modules:
       - process_stats
-      - job_queue
       - system_info
       - network_stats
       - directory_info
       - printer_objects
+      - job_queue
       - history
-      - mmu
-  relabelings:
-    - action: replace
-      targetLabel: job
-      replacement: *job
+  static_configs:
+    - targets: ['192.168.0.95:80']
+      labels:
+        printer: centauri_carbon
+  relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
