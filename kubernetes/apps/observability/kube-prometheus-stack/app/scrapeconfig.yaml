@@ -83,7 +83,7 @@ metadata:
 spec:
   staticConfigs:
     - targets:
-        - klipper-exporter.observability.svc.cluster.local:9101
+        - 192.168.0.95:80
   metricsPath: /probe
   scrapeInterval: 15s
   scrapeTimeout: 10s
@@ -96,12 +96,15 @@ spec:
       - printer_objects
       - job_queue
       - history
-  static_configs:
-    - targets: ['192.168.0.95:80']
       labels:
         printer: centauri_carbon
   relabelings:
-    - source_labels: [__address__]
-      target_label: __param_target
-    - source_labels: [__param_target]
-      target_label: instance
+    - action: replace
+      sourceLabels: [__address__]
+      targetLabel: __param_target
+    - action: replace
+      sourceLabels: [__param_target]
+      targetLabel: instance
+    - action: replace
+      targetLabel: __address__
+      replacement: klipper-exporter.observability.svc.cluster.local:9101
