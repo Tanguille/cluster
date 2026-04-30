@@ -100,7 +100,7 @@ spec:
     - targets: ['192.168.0.95:80']
       labels:
         printer: centauri_carbon
-  relabel_configs:
+  relabelings:
     - source_labels: [__address__]
       target_label: __param_target
     - source_labels: [__param_target]
