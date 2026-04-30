@@ -3,8 +3,16 @@ machine:
     extraConfig:
       enableSystemLogHandler: true
       enableSystemLogQuery: true
+      evictionHard:
+        memory.available: 1Gi
+      kubeReserved:
+        cpu: 500m
+        memory: 2Gi
       maxPods: 200
       serializeImagePulls: false
+      systemReserved:
+        cpu: 500m
+        memory: 1Gi
     nodeIP:
       validSubnets:
         - 192.168.0.0/24
