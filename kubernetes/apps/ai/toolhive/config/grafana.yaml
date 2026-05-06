@@ -79,4 +79,46 @@ metadata:
   name: grafana
   namespace: ai
 spec:
-  toolsFilter: []
+  # Self-hosted Grafana OSS with Prometheus + Alertmanager only.
+  # Excludes Grafana Cloud features (Incident, OnCall, Sift, Assertions),
+  # Pyroscope tools (no Pyroscope datasource), Loki tools (no Loki datasource),
+  # and Sift-backed helpers (find_error_pattern_logs, find_slow_requests).
+  toolsFilter:
+    # Datasources
+    - list_datasources
+    - get_datasource_by_uid
+    - get_datasource_by_name
+    # Prometheus
+    - query_prometheus
+    - query_prometheus_histogram
+    - list_prometheus_metric_names
+    - list_prometheus_metric_metadata
+    - list_prometheus_label_names
+    - list_prometheus_label_values
+    # Alerting (Grafana-managed alerts + Alertmanager datasource)
+    - list_alert_rules
+    - get_alert_rule_by_uid
+    - create_alert_rule
+    - update_alert_rule
+    - delete_alert_rule
+    - list_alert_groups
+    - get_alert_group
+    - list_contact_points
+    # Dashboards and folders
+    - search_dashboards
+    - get_dashboard_by_uid
+    - get_dashboard_summary
+    - get_dashboard_property
+    - get_dashboard_panel_queries
+    - update_dashboard
+    - search_folders
+    - create_folder
+    - get_panel_image
+    - generate_deeplink
+    # Annotations
+    - get_annotations
+    - get_annotation_tags
+    - create_annotation
+    - update_annotation
+    - patch_annotation
+    - create_graphite_annotation
