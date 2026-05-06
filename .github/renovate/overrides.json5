@@ -8,6 +8,12 @@
       versioning: "regex:^pg(?<compatibility>\\d+)-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
     },
     {
+      description: "ik_llama.cpp: tags like cu13-swap-4435 (cuXX channel + monotonic build)",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/ikawrakow/ik-llama-cpp"],
+      versioning: "regex:^cu(?<compatibility>\\d+)-swap-(?<patch>\\d+)$",
+    },
+    {
       description: "Override Helmfile Dependency Name",
       matchDatasources: ["docker"],
       matchManagers: ["helmfile"],
