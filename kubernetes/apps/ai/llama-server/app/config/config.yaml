@@ -6,6 +6,8 @@
 # page-fault round-trips from PVC). Default 120s is too tight for MoE models.
 healthCheckTimeout: 900
 
+logToStdout: both
+
 macros:
   # Shared flags. $${PORT} must appear literally in each model's cmd — llama-swap
   # validates its presence before macro expansion, so it can't live in here.
@@ -42,7 +44,7 @@ models:
       $${common}
       --hf-repo unsloth/Qwen3.6-35B-A3B-GGUF
       --hf-file Qwen3.6-35B-A3B-UD-Q3_K_M.gguf
-      --ctx-size 131072
+      --ctx-size 262144
       --parallel 1
       --n-gpu-layers 99
       --n-cpu-moe 30
@@ -55,3 +57,31 @@ models:
       --chat-template-kwargs '{"preserve_thinking":true}'
       --defer-experts
       -rtr
+
+  qwen3-embedding:
+    # Qwen3-Embedding-0.6B (decoder-only, last-token pooling per the model card).
+    # F16 over Q8 — at 0.6B, weight redundancy is low and quantization noise
+    # leaks straight into the output vector geometry, hurting cosine-similarity
+    # ranking quality. F16 is only ~1.2 GB so the VRAM saving from quantizing
+    # isn't worth the precision loss. Does not use the `common` macro because
+    # --jinja / --temp / --top-k are irrelevant for embedding mode and
+    # --cache-type-* only buys memory in chat decode.
+    # ctx 8k matches Streamystats' movie-metadata snippets with headroom; ubatch
+    # equal to ctx-size means a whole document encodes in one forward pass.
+    # Short TTL: bulk-embed bursts keep it warm, then it unloads so the 35B chat
+    # model can come back without forcing another long no-mmap reload on idle.
+    ttl: 600
+    cmd: >
+      /app/llama-server
+      --port $${PORT}
+      --host 127.0.0.1
+      --metrics
+      --embeddings
+      --pooling last
+      --hf-repo Qwen/Qwen3-Embedding-0.6B-GGUF
+      --hf-file Qwen3-Embedding-0.6B-f16.gguf
+      --ctx-size 8192
+      --batch-size 8192
+      --ubatch-size 8192
+      --n-gpu-layers 99
+      --threads 4
