@@ -13,10 +13,16 @@ macros:
   # validates its presence before macro expansion, so it can't live in here.
   # The doubled `$$` escapes Flux Kustomization postBuild envsubst; the rendered
   # ConfigMap contains literal `${PORT}` / `${common}` for llama-swap to resolve.
+  # KV cache: q4_0 K + V with Hadamard transforms (-khad/-vhad) is the
+  # ik_llama.cpp maintainer's answer to "TurboQuant" (PRs #1034/#1527/#1547).
+  # Halves KV memory at 256k ctx vs q8_0 (≈5 GiB → ≈2.6 GiB), at ~+0.04 PPL
+  # cost per his Gemma-4 perplexity tests in PR #1599. Hadamard requires FA,
+  # which the runtime engages implicitly with quantized cache.
   common: >
     --host 127.0.0.1
     --jinja
-    --cache-type-k q8_0 --cache-type-v q8_0
+    --cache-type-k q4_0 --cache-type-v q4_0
+    -khad -vhad
     --temp 0.6 --top-k 20
     --metrics
 
