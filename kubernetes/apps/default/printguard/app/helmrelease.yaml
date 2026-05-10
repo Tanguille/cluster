@@ -28,6 +28,7 @@ spec:
                 mkdir -p /data/tmp /data/cache/huggingface/hub
                 chown -R 1000:1000 /data/tmp /data/cache
             securityContext:
+              runAsNonRoot: false
               runAsUser: 0
           # huggingface_hub chmod step creates tmp_* under site-packages/printguard/ (sibling of
           # model/); that path is root-owned in the image. Seed a writable tree on the PVC once.
@@ -47,6 +48,7 @@ spec:
                 fi
                 chown -R 1000:1000 /pkg
             securityContext:
+              runAsNonRoot: false
               runAsUser: 0
         containers:
           app:
