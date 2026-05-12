@@ -15,28 +15,14 @@
       minimumGroupSize: 2,
     },
     {
-      description: "Dragonfly Operator Group",
-      groupName: "Dragonfly Operator",
-      matchDatasources: ["docker", "github-releases"],
-      matchPackageNames: ["/dragonflydb/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      separateMinorPatch: true,
-    },
-    {
       description: "Flux Operator Group",
       groupName: "flux-operator",
       matchDatasources: ["docker"],
-      matchPackageNames: [
-        "/flux-operator/",
-        "/flux-instance/",
-        "/flux-operator-manifests/",
-      ],
+      matchPackageNames: ["/flux-operator/", "/flux-instance/"],
       group: {
         commitMessageTopic: "{{{groupName}}} group",
       },
-      minimumGroupSize: 3,
+      minimumGroupSize: 2,
     },
     {
       description: "Rook-Ceph Group",
