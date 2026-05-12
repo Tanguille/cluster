@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://gateway.networking.k8s.io/v1/httproute.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: obico
+spec:
+  hostnames:
+    - obico.${SECRET_DOMAIN}
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+  rules:
+    - backendRefs:
+        - name: obico-server
+          port: 3334

@@ -1,0 +1,66 @@
+---
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: obico
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: obico
+  interval: 30m
+  timeout: 15m
+
+  values:
+    server:
+      controller:
+        strategy: Recreate
+      image:
+        tag: sha-9b73caa7b373e89fd23bf2fed646e629ee602640
+      env:
+        ACCOUNT_ALLOW_SIGN_UP: "True"
+        CSRF_TRUSTED_ORIGINS: "https://obico.${SECRET_DOMAIN}"
+        REDIS_URL: "redis://dragonfly.database.svc.cluster.local:6379"
+        SITE_IS_PUBLIC: "False"
+        SITE_USES_HTTPS: "True"
+        SOCIAL_LOGIN: "False"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+        limits:
+          memory: 1Gi
+      additionalContainers:
+        tasks:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+      persistence:
+        data:
+          enabled: true
+          storageClass: ceph-block
+          accessMode: ReadWriteOnce
+          size: 10Gi
+        media:
+          enabled: true
+          storageClass: ceph-block
+          accessMode: ReadWriteOnce
+          size: 20Gi
+
+    ml-api:
+      image:
+        tag: sha-9b73caa7b373e89fd23bf2fed646e629ee602640
+      env:
+        DEBUG: "False"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+        limits:
+          memory: 1Gi
+
+    redis:
+      enabled: false
