@@ -3,14 +3,14 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: victoria-metrics
+  name: &app victoria-metrics
 spec:
   chartRef:
     kind: OCIRepository
-    name: victoria-metrics
+    name: *app
   interval: 1h
   values:
-    fullnameOverride: victoria-metrics
+    fullnameOverride: *app
     global:
       image:
         registry: quay.io
@@ -52,6 +52,7 @@ spec:
             uid: victoriametrics
             type: prometheus
             access: proxy
+            url: &vmsingleUrl http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
             isDefault: false
             jsonData:
               httpMethod: POST
@@ -62,7 +63,9 @@ spec:
         datasources:
           - name: VictoriaMetrics Alertmanager
             uid: vmalertmanager
+            type: alertmanager
             access: proxy
+            url: &vmalertmanagerUrl http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
             jsonData:
               implementation: prometheus
 
@@ -107,7 +110,7 @@ spec:
         enabled: true
         hostnames:
           - vmalertmanager.${SECRET_DOMAIN}
-        parentRefs:
+        parentRefs: &internalParentRefs
           - name: envoy-internal
             namespace: network
       spec:
@@ -123,7 +126,7 @@ spec:
         storage:
           volumeClaimTemplate:
             spec:
-              storageClassName: ceph-block
+              storageClassName: &blockStorageClass ceph-block
               resources:
                 requests:
                   storage: 1Gi
@@ -135,18 +138,16 @@ spec:
         enabled: true
         hostnames:
           - vmalert.${SECRET_DOMAIN}
-        parentRefs:
-          - name: envoy-internal
-            namespace: network
+        parentRefs: *internalParentRefs
       spec:
         datasource:
-          url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+          url: *vmsingleUrl
         extraArgs:
           "external.url": https://vmalert.${SECRET_DOMAIN}
         notifier:
-          url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
+          url: *vmalertmanagerUrl
         remoteRead:
-          url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+          url: *vmsingleUrl
         remoteWrite:
           url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428/api/v1/write
         resources:
@@ -184,9 +185,7 @@ spec:
         enabled: true
         hostnames:
           - vmsingle.${SECRET_DOMAIN}
-        parentRefs:
-          - name: envoy-internal
-            namespace: network
+        parentRefs: *internalParentRefs
       spec:
         retentionPeriod: 365d
         resources:
@@ -202,4 +201,4 @@ spec:
           resources:
             requests:
               storage: 200Gi
-          storageClassName: ceph-block
+          storageClassName: *blockStorageClass
