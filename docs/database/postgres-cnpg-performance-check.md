@@ -4,7 +4,7 @@ Use this after tuning (e.g. NVMe/PLP, work_mem, autovacuum) to see if performanc
 
 ## 1. VictoriaMetrics VMSingle (PromQL)
 
-Port-forward then query, or use Grafana Explore with the VictoriaMetrics datasource:
+Port-forward VMSingle directly, or use Grafana Explore with the canonical `prometheus` datasource now backed by VictoriaMetrics/VMSingle:
 
 ```bash
 kubectl port-forward -n observability svc/vmsingle-victoria-metrics 8428:8428
@@ -79,7 +79,7 @@ Interpretation:
 
 When the **observability** MCP server is connected, use `grafana_query_prometheus` to run the same PromQL as in section 1.
 
-**Setup:** Resolve the VictoriaMetrics datasource UID (e.g. `grafana_list_datasources` with `type: "prometheus"` or `grafana_get_datasource_by_name` with `name: "vmsingle-victoria-metrics"`).
+**Setup:** Resolve the canonical `prometheus` datasource UID (e.g. `grafana_list_datasources` with `type: "prometheus"` or `grafana_get_datasource_by_name` with `name: "prometheus"`), which is backed by VictoriaMetrics/VMSingle after PR2.
 
 **Tool:** `grafana_query_prometheus` with:
 
