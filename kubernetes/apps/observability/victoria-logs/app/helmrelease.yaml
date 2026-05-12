@@ -13,8 +13,12 @@ spec:
     global:
       image:
         registry: quay.io
-    fullnameOverride: victoria-logs
+    dashboards:
+      enabled: true
+      grafanaOperator:
+        enabled: true
     server:
+      fullnameOverride: victoria-logs
       persistentVolume:
         enabled: true
         storageClassName: ceph-block
@@ -27,21 +31,5 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        extraRules:
-          - filters:
-              - type: RequestRedirect
-                requestRedirect:
-                  path:
-                    type: ReplaceFullPath
-                    replaceFullPath: /select/vmui/
-                  statusCode: 302
-            matches:
-              - path:
-                  type: Exact
-                  value: /
       serviceMonitor:
-        enabled: true
-    dashboards:
-      enabled: true
-      grafanaOperator:
         enabled: true
