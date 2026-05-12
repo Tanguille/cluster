@@ -1,16 +1,16 @@
 # Check PostgreSQL (CloudNative-PG) performance after tuning
 
-Use this after tuning (e.g. NVMe/PLP, work_mem, autovacuum) to see if performance improved. Run from a machine with `kubectl` and cluster access, or use the **observability** MCP (Grafana/Prometheus) when connected.
+Use this after tuning (e.g. NVMe/PLP, work_mem, autovacuum) to see if performance improved. Run from a machine with `kubectl` and cluster access, or use the **observability** MCP (Grafana/VictoriaMetrics) when connected.
 
-## 1. Prometheus (PromQL)
+## 1. VictoriaMetrics VMSingle (PromQL)
 
-Port-forward then query, or use Grafana Explore with datasource `prometheus`:
+Port-forward then query, or use Grafana Explore with the VictoriaMetrics datasource:
 
 ```bash
-kubectl port-forward -n observability svc/prometheus-operated 9090:9090
+kubectl port-forward -n observability svc/vmsingle-victoria-metrics 8428:8428
 ```
 
-Then open `http://localhost:9090` and run these in the Graph/Query UI.
+Then open `http://localhost:8428` and run these in the Graph/Query UI.
 
 **Cache hit ratio** (higher is better; aim > 99%):
 
@@ -79,11 +79,11 @@ Interpretation:
 
 When the **observability** MCP server is connected, use `grafana_query_prometheus` to run the same PromQL as in section 1.
 
-**Setup:** Resolve the Prometheus datasource UID (e.g. `grafana_list_datasources` with `type: "prometheus"` or `grafana_get_datasource_by_name` with `name: "prometheus"`). Typical UID: `prometheus`.
+**Setup:** Resolve the VictoriaMetrics datasource UID (e.g. `grafana_list_datasources` with `type: "prometheus"` or `grafana_get_datasource_by_name` with `name: "vmsingle-victoria-metrics"`).
 
 **Tool:** `grafana_query_prometheus` with:
 
-- `datasourceUid`: `"prometheus"` (or the UID from the step above)
+- `datasourceUid`: the UID from the step above
 - `expr`: one of the PromQL expressions below
 - `startTime`: `"now"` for current snapshot
 - `queryType`: `"instant"` for a single point, or `"range"` for a trend
