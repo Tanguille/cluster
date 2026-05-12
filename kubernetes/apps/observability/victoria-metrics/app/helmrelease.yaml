@@ -1,0 +1,205 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: victoria-metrics
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: victoria-metrics
+  interval: 1h
+  values:
+    fullnameOverride: victoria-metrics
+    global:
+      image:
+        registry: quay.io
+
+    victoria-metrics-operator:
+      crds:
+        cleanup:
+          enabled: false
+      operator:
+        enable_converter_ownership: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+
+    defaultDashboards:
+      grafanaOperator:
+        enabled: true
+        spec:
+          instanceSelector:
+            matchLabels:
+              grafana.internal/instance: grafana
+          allowCrossNamespaceImport: true
+
+    defaultDatasources:
+      grafanaOperator:
+        enabled: true
+        spec:
+          instanceSelector:
+            matchLabels:
+              grafana.internal/instance: grafana
+          allowCrossNamespaceImport: true
+      victoriametrics:
+        datasources:
+          - name: VictoriaMetrics
+            uid: victoriametrics
+            type: prometheus
+            access: proxy
+            isDefault: false
+            jsonData:
+              httpMethod: POST
+              queryTimeout: 60s
+              timeInterval: 15s
+              seriesLimit: 40000
+      alertmanager:
+        datasources:
+          - name: VictoriaMetrics Alertmanager
+            uid: vmalertmanager
+            access: proxy
+            jsonData:
+              implementation: prometheus
+
+    defaultRules:
+      create: false
+
+    grafana:
+      enabled: false
+      forceDeployDatasource: true
+
+    prometheus-node-exporter:
+      enabled: false
+    kube-state-metrics:
+      enabled: false
+
+    coreDns:
+      enabled: false
+    kubeApiServer:
+      enabled: false
+    kubeControllerManager:
+      enabled: false
+    kubeEtcd:
+      enabled: false
+    kubelet:
+      enabled: false
+    kubeProxy:
+      enabled: false
+    kubeScheduler:
+      enabled: false
+
+    alertmanager:
+      enabled: true
+      useManagedConfig: false
+      config:
+        route:
+          receiver: blackhole
+        receivers:
+          - name: blackhole
+      monzoTemplate:
+        enabled: false
+      route:
+        enabled: true
+        hostnames:
+          - vmalertmanager.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+      spec:
+        selectAllByDefault: false
+        externalURL: https://vmalertmanager.${SECRET_DOMAIN}
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        storage:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: ceph-block
+              resources:
+                requests:
+                  storage: 1Gi
+
+    vmalert:
+      enabled: true
+      remoteWriteVMAgent: false
+      route:
+        enabled: true
+        hostnames:
+          - vmalert.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+      spec:
+        datasource:
+          url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+        extraArgs:
+          "external.url": https://vmalert.${SECRET_DOMAIN}
+        notifier:
+          url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
+        remoteRead:
+          url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+        remoteWrite:
+          url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428/api/v1/write
+        resources:
+          requests:
+            cpu: 25m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+    vmagent:
+      enabled: true
+      rbac:
+        namespaced: false
+      spec:
+        selectAllByDefault: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1
+            memory: 1Gi
+        extraArgs:
+          promscrape.dropOriginalLabels: "true"
+          promscrape.maxScrapeSize: 50MiB
+          promscrape.streamParse: "true"
+
+    vmauth:
+      enabled: false
+
+    vmsingle:
+      enabled: true
+      route:
+        enabled: true
+        hostnames:
+          - vmsingle.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+      spec:
+        retentionPeriod: 365d
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 2
+            memory: 2Gi
+        storage:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 200Gi
+          storageClassName: ceph-block
