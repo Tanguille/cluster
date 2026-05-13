@@ -4,6 +4,33 @@ kind: ConfigMap
 metadata:
   name: moonraker-obico-config
 data:
+  entrypoint.py: |
+    import logging
+    import runpy
+    import sys
+
+    from moonraker_obico.moonraker_conn import MoonrakerConn
+
+    _logger = logging.getLogger('obico.moonraker_conn')
+    _find_all_installed_plugins = MoonrakerConn.find_all_installed_plugins
+
+
+    def find_all_installed_plugins(self):
+        try:
+            return _find_all_installed_plugins(self)
+        except Exception:
+            _logger.warning(
+                'Ignoring unsupported Moonraker update-manager status response',
+                exc_info=True,
+            )
+            return []
+
+
+    MoonrakerConn.find_all_installed_plugins = find_all_installed_plugins
+
+    sys.argv[0] = 'moonraker_obico.app'
+    runpy.run_module('moonraker_obico.app', run_name='__main__')
+
   # Static config rendered into the writable runtime file on each pod start.
   # The init container preserves auth_token written by the Obico link flow.
   moonraker-obico.cfg: |
@@ -12,7 +39,7 @@ data:
 
     [moonraker]
     host = 192.168.0.95
-    port = 7125
+    port = 80
 
     [webcam]
     stream_mode = mjpeg_webrtc
