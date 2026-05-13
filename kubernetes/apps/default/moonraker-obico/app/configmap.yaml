@@ -4,9 +4,8 @@ kind: ConfigMap
 metadata:
   name: moonraker-obico-config
 data:
-  # Seed-only config. The link flow writes auth_token back into the PVC copy at
-  # /opt/printer_data/config/moonraker-obico.cfg, so later changes here require
-  # manually merging the PVC file or deleting it before restart.
+  # Static config rendered into the writable runtime file on each pod start.
+  # The init container preserves auth_token written by the Obico link flow.
   moonraker-obico.cfg: |
     [server]
     url = https://obico.${SECRET_DOMAIN}

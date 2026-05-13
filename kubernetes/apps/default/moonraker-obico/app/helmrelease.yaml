@@ -28,7 +28,7 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
-          seed-config:
+          render-config:
             image:
               repository: docker.io/library/busybox
               tag: 1.37.0@sha256:d82f458899c9696cb26a7c02d5568f81c8c8223f8661bb2a7988b269c8b9051e
@@ -36,9 +36,34 @@ spec:
               - /bin/sh
               - -ec
               - |
-                # Preserve auth_token written by the Obico link flow.
-                if [ ! -f /opt/printer_data/config/moonraker-obico.cfg ]; then
-                  cp /config-seed/moonraker-obico.cfg /opt/printer_data/config/moonraker-obico.cfg
+                config_file=/opt/printer_data/config/moonraker-obico.cfg
+                token="$(awk '
+                  /^\[server\]/ { in_server=1; next }
+                  /^\[/ { in_server=0 }
+                  in_server {
+                    line=$0
+                    sub(/^[[:space:]]*/, "", line)
+                    if (line ~ /^auth_token[[:space:]]*=/) {
+                      sub(/^auth_token[[:space:]]*=[[:space:]]*/, "", line)
+                      print line
+                      exit
+                    }
+                  }
+                ' "${config_file}" 2>/dev/null || true)"
+
+                awk -v token="${token}" '
+                  { print }
+                  /^\[server\]/ && token != "" && !done {
+                    print "auth_token = " token
+                    done=1
+                  }
+                ' /config-template/moonraker-obico.cfg > "${config_file}.tmp"
+                mv "${config_file}.tmp" "${config_file}"
+
+                if [ -n "${token}" ]; then
+                  echo "Rendered config and preserved auth_token"
+                else
+                  echo "Rendered config without auth_token; run link flow"
                 fi
             securityContext:
               runAsNonRoot: true
@@ -80,7 +105,7 @@ spec:
         size: 1Gi
         advancedMounts:
           moonraker-obico:
-            seed-config:
+            render-config:
               - path: /opt/printer_data/config
             app:
               - path: /opt/printer_data/config
@@ -102,11 +127,11 @@ spec:
           moonraker-obico:
             app:
               - path: /tmp
-      config-seed:
+      config-template:
         type: configMap
         name: moonraker-obico-config
         advancedMounts:
           moonraker-obico:
-            seed-config:
-              - path: /config-seed/moonraker-obico.cfg
+            render-config:
+              - path: /config-template/moonraker-obico.cfg
                 subPath: moonraker-obico.cfg
