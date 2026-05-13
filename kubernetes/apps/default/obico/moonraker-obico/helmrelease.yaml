@@ -37,7 +37,7 @@ spec:
               - -ec
               - |
                 config_file=/opt/printer_data/config/moonraker-obico.cfg
-                token="$(awk '
+                token="`awk '
                   /^\[server\]/ { in_server=1; next }
                   /^\[/ { in_server=0 }
                   in_server {
@@ -49,18 +49,18 @@ spec:
                       exit
                     }
                   }
-                ' "${config_file}" 2>/dev/null || true)"
+                ' "$config_file" 2>/dev/null || true`"
 
-                awk -v token="${token}" '
+                awk -v token="$token" '
                   { print }
                   /^\[server\]/ && token != "" && !done {
                     print "auth_token = " token
                     done=1
                   }
-                ' /config-template/moonraker-obico.cfg > "${config_file}.tmp"
-                mv "${config_file}.tmp" "${config_file}"
+                ' /config-template/moonraker-obico.cfg > "$config_file.tmp"
+                mv "$config_file.tmp" "$config_file"
 
-                if [ -n "${token}" ]; then
+                if [ -n "$token" ]; then
                   echo "Rendered config and preserved auth_token"
                 else
                   echo "Rendered config without auth_token; run link flow"
