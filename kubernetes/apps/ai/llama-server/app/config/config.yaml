@@ -41,6 +41,8 @@ models:
     # of 8 MB would block mlock anyway without CAP_IPC_LOCK on the pod).
     # preserve_thinking carries thinking traces across turns (Qwen3.6 trained
     # for this) — improves KV reuse and decision consistency in agentic loops.
+    # ngram-simple is draftless speculative decoding: low VRAM risk versus MTP
+    # while preserving the long-context / high-ubatch profile.
     ttl: 3600
     aliases:
       - self-hosted
@@ -62,6 +64,7 @@ models:
       --min-p 0.0
       --chat-template-kwargs '{"preserve_thinking":true}'
       --defer-experts
+      --spec-type ngram-simple
       -rtr
 
   qwen3-embedding:
