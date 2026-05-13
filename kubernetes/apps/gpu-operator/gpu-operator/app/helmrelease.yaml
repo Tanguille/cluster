@@ -21,6 +21,12 @@ spec:
       driverInstallDir: /usr/local
     dcgmExporter:
       env:
+        # Keep the default collector profile that includes DCP metrics such as
+        # DCGM_FI_PROF_PIPE_TENSOR_ACTIVE (tensor core utilization).
+        - name: DCGM_EXPORTER_COLLECTORS
+          value: /etc/dcgm-exporter/dcp-metrics-included.csv
+        - name: DCGM_EXPORTER_KUBERNETES
+          value: "true"
         - name: NVIDIA_DRIVER_CAPABILITIES
           value: all
         - name: NVIDIA_VISIBLE_DEVICES
