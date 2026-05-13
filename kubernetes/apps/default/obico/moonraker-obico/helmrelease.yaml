@@ -1,0 +1,137 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app moonraker-obico
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+    controllers:
+      moonraker-obico:
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          render-config:
+            image:
+              repository: docker.io/library/busybox
+              tag: 1.37.0@sha256:d82f458899c9696cb26a7c02d5568f81c8c8223f8661bb2a7988b269c8b9051e
+            command:
+              - /bin/sh
+              - -ec
+              - |
+                config_file=/opt/printer_data/config/moonraker-obico.cfg
+                token="$(awk '
+                  /^\[server\]/ { in_server=1; next }
+                  /^\[/ { in_server=0 }
+                  in_server {
+                    line=$0
+                    sub(/^[[:space:]]*/, "", line)
+                    if (line ~ /^auth_token[[:space:]]*=/) {
+                      sub(/^auth_token[[:space:]]*=[[:space:]]*/, "", line)
+                      print line
+                      exit
+                    }
+                  }
+                ' "${config_file}" 2>/dev/null || true)"
+
+                awk -v token="${token}" '
+                  { print }
+                  /^\[server\]/ && token != "" && !done {
+                    print "auth_token = " token
+                    done=1
+                  }
+                ' /config-template/moonraker-obico.cfg > "${config_file}.tmp"
+                mv "${config_file}.tmp" "${config_file}"
+
+                if [ -n "${token}" ]; then
+                  echo "Rendered config and preserved auth_token"
+                else
+                  echo "Rendered config without auth_token; run link flow"
+                fi
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+        containers:
+          app:
+            image:
+              repository: ghcr.io/thespaghettidetective/moonraker-obico
+              tag: v2.2.0@sha256:4a25728074e684a7a2296c7c801d345d1c9112132957575ec4e6a69075ab95a9
+            command:
+              - /opt/venv/bin/python
+            args:
+              - -m
+              - moonraker_obico.app
+              - -c
+              - /opt/printer_data/config/moonraker-obico.cfg
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+            resources:
+              requests:
+                cpu: 25m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+
+    persistence:
+      config:
+        enabled: true
+        storageClass: ceph-block
+        accessMode: ReadWriteOnce
+        size: 1Gi
+        advancedMounts:
+          moonraker-obico:
+            render-config:
+              - path: /opt/printer_data/config
+            app:
+              - path: /opt/printer_data/config
+      logs:
+        type: emptyDir
+        advancedMounts:
+          moonraker-obico:
+            app:
+              - path: /opt/printer_data/logs
+      janus-runtime:
+        type: emptyDir
+        advancedMounts:
+          moonraker-obico:
+            app:
+              - path: /opt/moonraker-obico/moonraker_obico/bin/janus/runtime
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          moonraker-obico:
+            app:
+              - path: /tmp
+      config-template:
+        type: configMap
+        name: moonraker-obico-config
+        advancedMounts:
+          moonraker-obico:
+            render-config:
+              - path: /config-template/moonraker-obico.cfg
+                subPath: moonraker-obico.cfg
