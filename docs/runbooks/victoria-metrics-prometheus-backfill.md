@@ -120,7 +120,7 @@ Expected: `"status":"success"` and non-empty historical results for the retained
 
 ## Cleanup
 
-- Disable the Prometheus admin API again.
+- Disable the Prometheus admin API again, reconcile the change, and verify the live/rendered config no longer has `enableAdminAPI: true` (or that it is false/absent).
 - Save vmctl Job logs, then delete temporary Job resources.
 - Delete the clone PVC and `VolumeSnapshot` after validation succeeds.
 - Remove any temporary import manifests once the data is confirmed.
