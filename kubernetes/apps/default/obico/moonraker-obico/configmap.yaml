@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moonraker-obico-config
+data:
+  # Static config rendered into the writable runtime file on each pod start.
+  # The init container preserves auth_token written by the Obico link flow.
+  moonraker-obico.cfg: |
+    [server]
+    url = https://obico.${SECRET_DOMAIN}
+
+    [moonraker]
+    host = 192.168.0.95
+    port = 80
+
+    [webcam]
+    stream_mode = mjpeg_webrtc
+    snapshot_url = http://192.168.0.95:8080/?action=snapshot
+    stream_url = http://192.168.0.95:8080/?action=stream
+
+    [tunnel]
+    dest_host = 192.168.0.95
+    dest_port = 80
+    dest_is_ssl = False
+
+    [logging]
+    path = /opt/printer_data/logs/moonraker-obico.log
+    level = INFO
