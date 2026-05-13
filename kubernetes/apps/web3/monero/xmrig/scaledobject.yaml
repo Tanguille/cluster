@@ -45,7 +45,7 @@ spec:
   triggers:
     - type: prometheus
       metadata:
-        serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
+        serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
         # Query: Use 15-minute average to smooth out solar power fluctuations
         # Invert power value and clamp to 0 minimum
         # When power is negative (exporting), this returns positive value for scaling
