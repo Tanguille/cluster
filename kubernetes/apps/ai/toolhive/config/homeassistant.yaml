@@ -16,6 +16,8 @@ spec:
       value: http://${HOME_ASSISTANT_IP}:8123
     - name: FASTMCP_HOST
       value: "0.0.0.0"
+    - name: TMPDIR
+      value: /tmp
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
@@ -24,9 +26,15 @@ spec:
     name: *name
   podTemplateSpec:
     spec:
+      volumes:
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: mcp
           command: ["fastmcp", "run", "fastmcp-http.json"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           ports:
             - name: mcp
               containerPort: *port
@@ -71,6 +79,8 @@ spec:
       value: http://${HOME_ASSISTANT_IP}:8123
     - name: FASTMCP_HOST
       value: "0.0.0.0"
+    - name: TMPDIR
+      value: /tmp
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
@@ -79,9 +89,15 @@ spec:
     name: homeassistant
   podTemplateSpec:
     spec:
+      volumes:
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: mcp
           command: ["fastmcp", "run", "fastmcp-http.json"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           ports:
             - name: mcp
               containerPort: 8086
