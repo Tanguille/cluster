@@ -1,0 +1,25 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: moonraker-obico-config
+data:
+  # Seed-only config. The link flow writes auth_token back into the PVC copy at
+  # /opt/printer_data/config/moonraker-obico.cfg, so later changes here require
+  # manually merging the PVC file or deleting it before restart.
+  moonraker-obico.cfg: |
+    [server]
+    url = https://obico.${SECRET_DOMAIN}
+
+    [moonraker]
+    host = 192.168.0.95
+    port = 80
+
+    [webcam]
+    stream_mode = mjpeg_webrtc
+    snapshot_url = http://192.168.0.95:8080/?action=snapshot
+    stream_url = http://192.168.0.95:8080/?action=stream
+
+    [logging]
+    path = /opt/printer_data/logs/moonraker-obico.log
+    level = INFO
