@@ -10,8 +10,10 @@ Replace `VOLD`, `VNEW`, and paste `git diff --stat` / audit output. Send as the 
 
 **Version jump:** `VOLD` → `VNEW` (OCI `ref.tag` on both `toolhive-operator` and `toolhive-operator-crds` must match `VNEW`).
 
-**Release:** <https://github.com/stacklok/toolhive/releases/tag/VNEW>
-**Compare:** <https://github.com/stacklok/toolhive/compare/VOLD...VNEW>
+**Release:** <https://github.com/stacklok/toolhive/releases/tag/VNEW> (when `VNEW` is a shipped tag)
+**Compare tags:** <https://github.com/stacklok/toolhive/compare/VOLD...VNEW>
+**Upstream currency:** **`VERSION`** on **`main`** plus **`compare`** URLs — **`VNEW` must include leading `v`** for GitHub (Flux pins omit it). Examples (same refs):  
+<https://github.com/stacklok/toolhive/compare/main...vNEW> · <https://github.com/stacklok/toolhive/compare/vNEW...main>
 
 ### Diff summary
 

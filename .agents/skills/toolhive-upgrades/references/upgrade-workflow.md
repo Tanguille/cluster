@@ -1,6 +1,18 @@
 # ToolHive upgrade workflow (reference)
 
-## Compare two versions
+## Compare pinned tag to `main` (normalize `v`, read `VERSION`)
+
+**Flux `ref.tag`** is usually **`X.Y.Z`** without **`v`**; GitHub tags are **`vX.Y.Z`**. Wrong refs invalidate **`compare`** URLs.
+
+1. Run **`bash .agents/skills/toolhive-upgrades/scripts/upstream-pin-vs-main.sh`** — prints **`VERSION`** on **`main`**, **`VERSION`** at **`vPIN`**, **Latest Release**, and both compares below.
+
+2. Use **both** links from that script (same refs, opposite directions):
+   - **`main...vPIN`** — relationship when **`main`** is base and **`vPIN`** is head (GitHub **`ahead_by` / `behind_by`** labels vary — pair with **`VERSION`** lines).
+   - **`vPIN...main`** — inverse direction.
+
+Semver **numbers** (`VERSION` files) beat guessing from **`ahead_by`** alone.
+
+## Compare two released tags
 
 - Full diff: `https://github.com/stacklok/toolhive/compare/vOLD...vNEW`
 - Release page: `https://github.com/stacklok/toolhive/releases/tag/vNEW`
