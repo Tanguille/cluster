@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app moonraker-obico
+  name: moonraker-obico
 spec:
   interval: 30m
   chartRef:
@@ -96,6 +96,29 @@ spec:
                 memory: 128Mi
               limits:
                 memory: 512Mi
+          moonraker-proxy:
+            image:
+              repository: docker.io/library/nginx
+              tag: 1.29.3-alpine@sha256:b3c656d55d7ad751196f21b7fd2e8d4da9cb430e32f646adcf92441b72f82b14
+            command:
+              - nginx
+            args:
+              - -c
+              - /config/nginx.conf
+              - -g
+              - daemon off;
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+            resources:
+              requests:
+                cpu: 5m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
 
     persistence:
       config:
@@ -127,6 +150,8 @@ spec:
           moonraker-obico:
             app:
               - path: /tmp
+            moonraker-proxy:
+              - path: /tmp
       config-template:
         type: configMap
         name: moonraker-obico-config
@@ -135,3 +160,7 @@ spec:
             render-config:
               - path: /config-template/moonraker-obico.cfg
                 subPath: moonraker-obico.cfg
+            moonraker-proxy:
+              - path: /config/nginx.conf
+                subPath: nginx.conf
+                readOnly: true
