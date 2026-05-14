@@ -25,6 +25,8 @@ metadata:
 spec:
   dependsOn:
     - name: grafana
+    - name: prometheus-operator-crds
+      namespace: observability
   interval: 1h
   path: ./kubernetes/apps/observability/grafana/instance
   prune: true
