@@ -22,12 +22,12 @@ export NS=observability
 export PROM_PVC="<prometheus-data-pvc>"
 export SNAPSHOT_CLASS=csi-ceph-blockpool
 export STORAGE_CLASS=ceph-block
-export CLONE_SIZE=200Gi
+export CLONE_SIZE="<match-source-prometheus-pvc-size>"
 export IMPORT_END=2026-05-12T21:20:00Z
 export VM_ADDR=http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
 ```
 
-Create the Prometheus TSDB snapshot after temporarily enabling Prometheus admin API through GitOps and reconciling kube-prometheus-stack:
+Create the Prometheus TSDB snapshot before decommissioning the legacy Prometheus instance. After the migration removes Prometheus, this runbook can only import from an already-created TSDB snapshot clone:
 
 ```bash
 $K kubectl -n "$NS" port-forward svc/prometheus-operated 9090:9090 >/tmp/prometheus-port-forward.log 2>&1 &
@@ -123,7 +123,7 @@ spec:
             - prometheus
             - -s
             - --disable-progress-bar
-            - --prom-snapshot=/prometheus/snapshots/${PROM_SNAPSHOT}
+            - --prom-snapshot=/prometheus/prometheus-db/snapshots/${PROM_SNAPSHOT}
             - --prom-concurrency=2
             - --vm-concurrency=1
             - --prom-filter-time-end=${IMPORT_END}
@@ -164,7 +164,7 @@ spec:
             - prometheus
             - -s
             - --disable-progress-bar
-            - --prom-snapshot=/prometheus/snapshots/${PROM_SNAPSHOT}
+            - --prom-snapshot=/prometheus/prometheus-db/snapshots/${PROM_SNAPSHOT}
             - --prom-concurrency=4
             - --vm-concurrency=2
             - --prom-filter-time-end=${IMPORT_END}
@@ -207,11 +207,11 @@ $K kubectl -n "$NS" delete volumesnapshot prometheus-tsdb-snapshot --ignore-not-
 /home/tanguille/.local/bin/mise exec -- env KUBECONFIG=/home/tanguille/cluster/kubeconfig kubectl -n observability get svc prometheus-operated vmsingle-victoria-metrics
 ```
 
-Record the Prometheus PVC name, storage class, and any Ceph snapshot class discovered above.
+Record the Prometheus PVC name, storage class, size, and any Ceph snapshot class discovered above. The clone PVC request must be at least the source PVC size; in this cluster the live Prometheus PVC was 300Gi.
 
 ## Snapshot creation
 
-During the approved maintenance window, temporarily enable the Prometheus admin API in `kubernetes/apps/observability/kube-prometheus-stack/app/helmrelease.yaml`, reconcile, then create a TSDB snapshot:
+During the approved maintenance window, temporarily enable the Prometheus admin API before decommissioning the legacy Prometheus instance, reconcile, then create a TSDB snapshot:
 
 ```bash
 /home/tanguille/.local/bin/mise exec -- env KUBECONFIG=/home/tanguille/cluster/kubeconfig kubectl -n observability port-forward svc/prometheus-operated 9090:9090
@@ -263,7 +263,7 @@ Run a one-off job with `victoriametrics/vmctl:v1.143.0`:
 ```bash
 vmctl prometheus -s \
   --disable-progress-bar \
-  --prom-snapshot=/prometheus/snapshots/<snapshot-name> \
+  --prom-snapshot=/prometheus/prometheus-db/snapshots/<snapshot-name> \
   --prom-concurrency=2 \
   --vm-concurrency=1 \
   --prom-filter-time-end=2026-05-12T21:20:00Z \
@@ -281,7 +281,7 @@ After the narrow import validates, rerun without the label filter:
 ```bash
 vmctl prometheus -s \
   --disable-progress-bar \
-  --prom-snapshot=/prometheus/snapshots/<snapshot-name> \
+  --prom-snapshot=/prometheus/prometheus-db/snapshots/<snapshot-name> \
   --prom-concurrency=4 \
   --vm-concurrency=2 \
   --prom-filter-time-end=2026-05-12T21:20:00Z \
