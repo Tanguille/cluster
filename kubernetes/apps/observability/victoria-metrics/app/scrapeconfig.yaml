@@ -1,0 +1,110 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &app node-exporter
+spec:
+  staticConfigs:
+    - targets:
+        - ${TRUENAS_IP}:9100
+        - ${OPNSENSE_IP}:9100
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *app
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &app smartctl-exporter
+spec:
+  staticConfigs:
+    - targets:
+        - ${TRUENAS_IP}:9633
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *app
+---
+# Kepler on TrueNAS (control-1 VM host). Scrapes host port 28284 (compose maps 28284:28282).
+# See docs/kepler-truenas.md.
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: kepler-truenas
+spec:
+  staticConfigs:
+    - targets:
+        - ${TRUENAS_IP}:28284
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: power-monitor
+    - action: replace
+      targetLabel: instance
+      replacement: control-1
+  metricRelabelings:
+    - action: replace
+      targetLabel: node_name
+      replacement: control-1
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &app homeassistant
+spec:
+  staticConfigs:
+    - targets:
+        - ${HOME_ASSISTANT_IP}:8123
+  metricsPath: /api/prometheus
+  scrapeInterval: 60s
+  authorization:
+    credentials:
+      name: homeassistant-prometheus-token
+      key: token
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *app
+---
+# prometheus-klipper-exporter multi-target `/probe` scrape (modules per upstream README).
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: klipper
+spec:
+  metricsPath: /probe
+  scrapeInterval: 15s
+  scrapeTimeout: 10s
+  params:
+    modules:
+      - process_stats
+      - system_info
+      - network_stats
+      - directory_info
+      - printer_objects
+      - job_queue
+      - history
+  staticConfigs:
+    - targets:
+        - "192.168.0.95:80"
+      labels:
+        printer: centauri_carbon
+  relabelings:
+    - action: replace
+      sourceLabels: [__address__]
+      targetLabel: __param_target
+    - action: replace
+      sourceLabels: [__param_target]
+      targetLabel: instance
+    - action: replace
+      targetLabel: __address__
+      replacement: klipper-exporter.observability.svc.cluster.local:9101
