@@ -38,6 +38,11 @@ data:
           return 200 '{"result":{"busy":false,"github_rate_limit":0,"github_requests_remaining":0,"github_limit_reset_time":0,"version_info":{}}}';
         }
 
+        location = /machine/device_power/devices {
+          default_type application/json;
+          return 200 '{"result":{"devices":[]}}';
+        }
+
         location / {
           proxy_set_header Host 192.168.0.95;
           proxy_set_header Upgrade $http_upgrade;
@@ -61,8 +66,10 @@ data:
 
     [webcam]
     stream_mode = mjpeg_webrtc
-    snapshot_url = http://192.168.0.95:8080/?action=snapshot
-    stream_url = http://192.168.0.95:8080/?action=stream
+    resolution = 640x480
+    target_fps = 10
+    snapshot_url = http://192.168.0.95/webcam/?action=snapshot
+    stream_url = http://192.168.0.95/webcam/?action=stream
 
     [tunnel]
     dest_host = 192.168.0.95
