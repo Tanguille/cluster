@@ -3,14 +3,14 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: node-exporter
+  name: &app node-exporter
 spec:
   chartRef:
     kind: OCIRepository
-    name: node-exporter
+    name: *app
   interval: 1h
   values:
-    fullnameOverride: node-exporter
+    fullnameOverride: *app
     prometheus:
       monitor:
         enabled: true
