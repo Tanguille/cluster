@@ -23,6 +23,7 @@ export PROM_PVC="<prometheus-data-pvc>"
 export SNAPSHOT_CLASS=csi-ceph-blockpool
 export STORAGE_CLASS=ceph-block
 export CLONE_SIZE="<match-source-prometheus-pvc-size>"
+export PROM_TSDB_DIR="prometheus-db"
 export IMPORT_END=2026-05-12T21:20:00Z
 export VM_ADDR=http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
 ```
@@ -123,7 +124,7 @@ spec:
             - prometheus
             - -s
             - --disable-progress-bar
-            - --prom-snapshot=/prometheus/prometheus-db/snapshots/${PROM_SNAPSHOT}
+            - --prom-snapshot=/prometheus/${PROM_TSDB_DIR}/snapshots/${PROM_SNAPSHOT}
             - --prom-concurrency=2
             - --vm-concurrency=1
             - --prom-filter-time-end=${IMPORT_END}
@@ -164,7 +165,7 @@ spec:
             - prometheus
             - -s
             - --disable-progress-bar
-            - --prom-snapshot=/prometheus/prometheus-db/snapshots/${PROM_SNAPSHOT}
+            - --prom-snapshot=/prometheus/${PROM_TSDB_DIR}/snapshots/${PROM_SNAPSHOT}
             - --prom-concurrency=4
             - --vm-concurrency=2
             - --prom-filter-time-end=${IMPORT_END}
@@ -208,6 +209,7 @@ $K kubectl -n "$NS" delete volumesnapshot prometheus-tsdb-snapshot --ignore-not-
 ```
 
 Record the Prometheus PVC name, storage class, size, and any Ceph snapshot class discovered above. The clone PVC request must be at least the source PVC size; in this cluster the live Prometheus PVC was 300Gi.
+Also record the TSDB directory name inside the mounted PVC. In this cluster the cloned PVC contains `prometheus-db/snapshots/<snapshot-name>`, so `PROM_TSDB_DIR=prometheus-db`; other Prometheus layouts may use a different directory.
 
 ## Snapshot creation
 
@@ -263,7 +265,7 @@ Run a one-off job with `victoriametrics/vmctl:v1.143.0`:
 ```bash
 vmctl prometheus -s \
   --disable-progress-bar \
-  --prom-snapshot=/prometheus/prometheus-db/snapshots/<snapshot-name> \
+  --prom-snapshot=/prometheus/<tsdb-directory>/snapshots/<snapshot-name> \
   --prom-concurrency=2 \
   --vm-concurrency=1 \
   --prom-filter-time-end=2026-05-12T21:20:00Z \
@@ -281,7 +283,7 @@ After the narrow import validates, rerun without the label filter:
 ```bash
 vmctl prometheus -s \
   --disable-progress-bar \
-  --prom-snapshot=/prometheus/prometheus-db/snapshots/<snapshot-name> \
+  --prom-snapshot=/prometheus/<tsdb-directory>/snapshots/<snapshot-name> \
   --prom-concurrency=4 \
   --vm-concurrency=2 \
   --prom-filter-time-end=2026-05-12T21:20:00Z \
