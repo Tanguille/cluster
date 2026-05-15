@@ -49,22 +49,23 @@
       "id": 1,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "textMode": "value",
+        "wideLayout": true
       },
       "pluginVersion": "11.0.0",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:prompt_tokens_seconds",
-          "legendFormat": "Prompt tokens/second",
+          "expr": "max without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:prompt_tokens_seconds)",
+          "legendFormat": "Prefill",
           "refId": "A"
         }
       ],
@@ -91,22 +92,23 @@
       "id": 2,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
           "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "textMode": "value",
+        "wideLayout": true
       },
       "pluginVersion": "11.0.0",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:predicted_tokens_seconds",
-          "legendFormat": "Decode tokens/second",
+          "expr": "max without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:predicted_tokens_seconds)",
+          "legendFormat": "Decode",
           "refId": "A"
         }
       ],
@@ -145,27 +147,28 @@
       "id": 3,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "horizontal",
         "reduceOptions": {
           "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
-        "textMode": "value_and_name"
+        "textMode": "value_and_name",
+        "wideLayout": true
       },
       "pluginVersion": "11.0.0",
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:requests_processing",
+          "expr": "sum without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:requests_processing)",
           "legendFormat": "Processing",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:requests_deferred",
+          "expr": "sum without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:requests_deferred)",
           "legendFormat": "Deferred",
           "refId": "B"
         }
@@ -213,7 +216,8 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:kv_cache_usage_ratio",
+          "expr": "max without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:kv_cache_usage_ratio)",
+          "legendFormat": "KV cache",
           "refId": "A"
         }
       ],
@@ -269,14 +273,14 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:prompt_tokens_seconds",
-          "legendFormat": "Prompt tokens/second (gauge)",
+          "expr": "max without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:prompt_tokens_seconds)",
+          "legendFormat": "Prefill",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:predicted_tokens_seconds",
-          "legendFormat": "Decode tokens/second (gauge)",
+          "expr": "max without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:predicted_tokens_seconds)",
+          "legendFormat": "Decode",
           "refId": "B"
         }
       ],
@@ -340,7 +344,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:kv_cache_usage_ratio",
+          "expr": "max without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:kv_cache_usage_ratio)",
           "legendFormat": "KV cache usage",
           "refId": "A"
         }
@@ -391,7 +395,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:kv_cache_tokens",
+          "expr": "sum without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:kv_cache_tokens)",
           "legendFormat": "KV cache tokens",
           "refId": "A"
         }
@@ -443,14 +447,14 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:requests_processing",
-          "legendFormat": "processing",
+          "expr": "sum without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:requests_processing)",
+          "legendFormat": "Processing",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:requests_deferred",
-          "legendFormat": "deferred",
+          "expr": "sum without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:requests_deferred)",
+          "legendFormat": "Deferred",
           "refId": "B"
         }
       ],
@@ -507,13 +511,13 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:prompt_tokens_total",
+          "expr": "sum without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:prompt_tokens_total)",
           "legendFormat": "prompt tokens",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "llamacpp:tokens_predicted_total",
+          "expr": "sum without(endpoint, instance, job, namespace, pod, prometheus, service) (llamacpp:tokens_predicted_total)",
           "legendFormat": "predicted tokens",
           "refId": "B"
         }
