@@ -13,6 +13,8 @@ spec:
   values:
     defaultPodOptions:
       automountServiceAccountToken: false
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
