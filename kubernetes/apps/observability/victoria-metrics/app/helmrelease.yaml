@@ -323,6 +323,10 @@ spec:
       spec:
         extraArgs:
           requestBufferSize: "65536"
+        managedMetadata:
+          labels:
+            operated-prometheus: "true"
+            self-monitor: "true"
         unauthorizedUserAccessSpec:
           url_map:
             - src_paths:
