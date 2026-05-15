@@ -14,7 +14,7 @@ spec:
     uid: prometheus
     access: proxy
     isDefault: true
-    url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+    url: http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
     jsonData:
       httpMethod: POST
       queryTimeout: 60s
@@ -37,4 +37,4 @@ spec:
     access: proxy
     jsonData:
       implementation: prometheus
-    url: http://alertmanager-operated.observability.svc.cluster.local:9093
+    url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
