@@ -104,6 +104,15 @@ spec:
         spec:
           interval: 60s
           scrapeTimeout: 50s
+          relabelConfigs:
+            - action: labelmap
+              regex: __meta_kubernetes_node_label_(.+)
+            - sourceLabels: [__metrics_path__]
+              targetLabel: metrics_path
+            - targetLabel: job
+              replacement: kubelet
+            - action: labeldrop
+              regex: (beta_kubernetes_io_.*|extensions_talos_dev_.*|feature_node_kubernetes_io_.*|nvidia_com_.*|openebs_io_.*|kepler_node)
 
     kubeControllerManager:
       vmScrape:
@@ -305,10 +314,6 @@ spec:
           limits:
             cpu: 1
             memory: 1Gi
-        extraArgs:
-          promscrape.dropOriginalLabels: "true"
-          promscrape.maxScrapeSize: 50MiB
-          promscrape.streamParse: "true"
 
     vmauth:
       enabled: true
@@ -335,29 +340,26 @@ spec:
       enabled: true
       route:
         enabled: true
-        hostnames:
-          - vmsingle.${SECRET_DOMAIN}
+        hostnames: ["vmsingle.${SECRET_DOMAIN}"]
         parentRefs: *internalParentRefs
       spec:
         retentionPeriod: 365d
         resources:
           requests:
             cpu: 250m
-            memory: 512Mi
+            memory: 1Gi
           limits:
             cpu: 2
             memory: 4Gi
         storage:
-          accessModes:
-            - ReadWriteOnce
+          accessModes: [ReadWriteOnce]
           resources:
             requests:
               storage: 200Gi
           storageClassName: *blockStorageClass
 
-    additionalVictoriaMetricsMap:
+    extraRules:
       dockerhub-rules:
-        create: true
         groups:
           - name: dockerhub
             rules:
@@ -368,7 +370,6 @@ spec:
                 labels:
                   severity: critical
       oom-rules:
-        create: true
         groups:
           - name: oom
             rules:
@@ -378,14 +379,3 @@ spec:
                 expr: (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
                 labels:
                   severity: critical
-      zfs-rules:
-        create: true
-        groups:
-          - name: zfs
-            rules:
-              - alert: ZfsUnexpectedPoolState
-                annotations:
-                  summary: ZFS pool {{$labels.zpool}} on {{$labels.instance}} is in a unexpected state {{$labels.state}}
-                expr: node_zfs_zpool_state{state!="online"} > 0
-                labels:
-                  severity: warning
