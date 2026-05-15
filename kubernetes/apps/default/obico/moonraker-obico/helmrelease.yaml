@@ -32,7 +32,7 @@ spec:
         initContainers:
           render-config:
             image:
-              repository: docker.io/library/busybox
+              repository: busybox
               tag: 1.37.0@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
             command:
               - /bin/sh
@@ -100,7 +100,7 @@ spec:
                 memory: 512Mi
           moonraker-proxy:
             image:
-              repository: docker.io/library/nginx
+              repository: nginx
               tag: 1.31.0-alpine@sha256:dc48b7a872a79fb541ba5081d320b11b549231bc63ba465a7495afaa7d2ebcb8
             command:
               - nginx
