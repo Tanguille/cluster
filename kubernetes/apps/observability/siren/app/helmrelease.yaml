@@ -20,7 +20,7 @@ spec:
               tag: 1.4.36@sha256:4c9ff4bf78c3923af488c89e7bd6af0b558e8323cd8eff2c448d083c73c65f84
             env:
               TZ: ${TIMEZONE}
-              ALERTMANAGER_BASE_URL: http://kube-prometheus-stack-alertmanager.observability.svc.cluster.local:9093
+              ALERTMANAGER_BASE_URL: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
               PORT: &port 3000
             probes:
               liveness:

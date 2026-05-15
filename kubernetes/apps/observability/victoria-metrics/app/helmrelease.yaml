@@ -52,7 +52,7 @@ spec:
             uid: victoriametrics
             type: prometheus
             access: proxy
-            url: &vmsingleUrl http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+            url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
             isDefault: false
             jsonData:
               httpMethod: POST
@@ -70,7 +70,9 @@ spec:
               implementation: prometheus
 
     defaultRules:
-      create: false
+      rules:
+        etcdMemberCommunicationSlow:
+          create: false
 
     grafana:
       enabled: false
@@ -81,29 +83,137 @@ spec:
     kube-state-metrics:
       enabled: false
 
-    coreDns:
-      enabled: false
-    kubeApiServer:
-      enabled: false
     kubeControllerManager:
-      enabled: false
+      vmScrape:
+        spec:
+          endpoints:
+            - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+              port: http-metrics
+              scheme: https
+              tlsConfig:
+                insecureSkipVerify: true
     kubeEtcd:
-      enabled: false
-    kubelet:
-      enabled: false
+      service:
+        selector:
+          component: kube-apiserver # etcd runs on control plane nodes
+        port: 2381
+        targetPort: 2381
+      vmScrape:
+        spec:
+          endpoints:
+            - scheme: http
     kubeProxy:
       enabled: false
     kubeScheduler:
-      enabled: false
+      vmScrape:
+        spec:
+          endpoints:
+            - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+              port: http-metrics
+              scheme: https
+              tlsConfig:
+                insecureSkipVerify: true
 
     alertmanager:
       enabled: true
-      useManagedConfig: false
+      useManagedConfig: true
       config:
         route:
-          receiver: blackhole
+          group_by: ["alertname", "job"]
+          group_interval: 5m
+          group_wait: 1m
+          receiver: discord
+          repeat_interval: 12h
+          routes:
+            - receiver: blackhole
+              matchers:
+                - alertname = InfoInhibitor
+            - receiver: discord
+              matchers:
+                - severity = critical
+        inhibit_rules:
+          - equal: ["alertname", "namespace"]
+            source_matchers:
+              - severity = "critical"
+            target_matchers:
+              - severity = "warning"
         receivers:
           - name: blackhole
+          - name: discord
+            discord_configs:
+              - webhook_url_secret:
+                  name: alertmanager-secret
+                  key: DISCORD_WEBHOOK_URL
+                title: |-
+                  {{- if eq .Status "firing" }}🚨 **ALERT FIRING** 🚨{{- else }}✅ **ALERT RESOLVED** ✅{{- end }}
+                message: |-
+                  {{- range .Alerts }}
+
+                  {{- if eq .Labels.severity "critical" }}
+                  🚨 **Severity:** `CRITICAL`
+                  {{- else if eq .Labels.severity "warning" }}
+                  ⚠️ **Severity:** `WARNING`
+                  {{- else if eq .Labels.severity "info" }}
+                  ℹ️ **Severity:** `INFO`
+                  {{- else }}
+                  > 📊 **Severity:** `{{ .Labels.severity }}`
+                  {{- end }}
+
+                  {{- if ne .Annotations.description "" }}
+                  📝 **Description:**
+
+                  ```
+                  {{ .Annotations.description }}
+                  ```
+                  {{- else if ne .Annotations.summary "" }}
+                  📋 **Summary:**
+                  ```
+                  {{ .Annotations.summary }}
+                  ```
+                  {{- else if ne .Annotations.message "" }}
+                  💬 **Message:**
+                  ```
+                  {{ .Annotations.message }}
+                  ```
+                  {{- else }}
+                  🔔 Alert has been triggered
+                  {{- end }}
+
+                  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+                  **Alert Details:**
+                  {{- if .Labels.node }}
+                  🖥️ **Node:** `{{ .Labels.node }}`
+                  {{- end }}
+                  {{- if .Labels.namespace }}
+                  Namespace: `{{ .Labels.namespace }}`
+                  {{- end }}
+                  {{- if .Labels.pod }}
+                  Pod: `{{ .Labels.pod }}`
+                  {{- end }}
+                  {{- if .Labels.job }}
+                  Job: `{{ .Labels.job }}`
+                  {{- end }}
+                  {{- if .Labels.instance }}
+                  Instance: `{{ .Labels.instance }}`
+                  {{- end }}
+                  {{- if .Labels.container }}
+                  Container: `{{ .Labels.container }}`
+                  {{- end }}
+                  {{- if .Labels.service }}
+                  Service: `{{ .Labels.service }}`
+                  {{- end }}
+
+                  ⏰ **Timeline:**
+                  {{- if eq .Status "firing" }}
+                  🔥 Started: <t:{{ .StartsAt.Unix }}:F> (<t:{{ .StartsAt.Unix }}:R>)
+                  {{- else }}
+                  ✅ Resolved: <t:{{ .EndsAt.Unix }}:F> (<t:{{ .EndsAt.Unix }}:R>)
+                  🕐 Duration: {{ .StartsAt | since | humanizeDuration }}
+                  {{- end }}
+
+                  {{- end }}
+                send_resolved: true
       monzoTemplate:
         enabled: false
       route:
@@ -114,7 +224,7 @@ spec:
           - name: envoy-internal
             namespace: network
       spec:
-        selectAllByDefault: false
+        selectAllByDefault: true
         externalURL: https://vmalertmanager.${SECRET_DOMAIN}
         image:
           repository: quay.io/prometheus/alertmanager
@@ -143,13 +253,13 @@ spec:
         parentRefs: *internalParentRefs
       spec:
         datasource:
-          url: *vmsingleUrl
+          url: *vmqueryUrl
         extraArgs:
           "external.url": https://vmalert.${SECRET_DOMAIN}
         notifier:
           url: *vmalertmanagerUrl
         remoteRead:
-          url: *vmsingleUrl
+          url: *vmqueryUrl
         remoteWrite:
           url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428/api/v1/write
         resources:
@@ -179,7 +289,22 @@ spec:
           promscrape.streamParse: "true"
 
     vmauth:
-      enabled: false
+      enabled: true
+      spec:
+        extraArgs:
+          requestBufferSize: "65536"
+        unauthorizedUserAccessSpec:
+          url_map:
+            - src_paths:
+                - /api/v1/query.*
+                - /api/v1/labels.*
+                - /api/v1/series.*
+                - /api/v1/metadata.*
+                - /api/v1/label/.*
+              url_prefix: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+            - src_paths:
+                - /select/logsql/.*
+              url_prefix: http://victoria-logs.observability.svc.cluster.local:9428
 
     vmsingle:
       enabled: true
@@ -204,3 +329,38 @@ spec:
             requests:
               storage: 200Gi
           storageClassName: *blockStorageClass
+
+    additionalVictoriaMetricsMap:
+      dockerhub-rules:
+        create: true
+        groups:
+          - name: dockerhub
+            rules:
+              - alert: DockerhubRateLimitRisk
+                annotations:
+                  summary: There are {{ $value }} containers pulling from Dockerhub. This may lead to rate limiting.
+                expr: count(time() - container_last_seen{image=~"(docker.io).*",container!=""} < 30) > 100
+                labels:
+                  severity: critical
+      oom-rules:
+        create: true
+        groups:
+          - name: oom
+            rules:
+              - alert: OomKilled
+                annotations:
+                  summary: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has been OOMKilled {{ $value }} times in the last 10 minutes.
+                expr: (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
+                labels:
+                  severity: critical
+      zfs-rules:
+        create: true
+        groups:
+          - name: zfs
+            rules:
+              - alert: ZfsUnexpectedPoolState
+                annotations:
+                  summary: ZFS pool {{$labels.zpool}} on {{$labels.instance}} is in a unexpected state {{$labels.state}}
+                expr: node_zfs_zpool_state{state!="online"} > 0
+                labels:
+                  severity: warning
