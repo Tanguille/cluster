@@ -83,6 +83,28 @@ spec:
     kube-state-metrics:
       enabled: false
 
+    kubelet:
+      enabled: true
+      vmScrapes:
+        cadvisor:
+          enabled: true
+          spec:
+            path: /metrics/cadvisor
+        kubelet:
+          spec: {}
+        probes:
+          enabled: true
+          spec:
+            path: /metrics/probes
+        resources:
+          enabled: true
+          spec:
+            path: /metrics/resource
+      vmScrape:
+        spec:
+          interval: 60s
+          scrapeTimeout: 50s
+
     kubeControllerManager:
       vmScrape:
         spec:
@@ -290,6 +312,9 @@ spec:
 
     vmauth:
       enabled: true
+      labels:
+        operated-prometheus: "true"
+        self-monitor: "true"
       spec:
         extraArgs:
           requestBufferSize: "65536"
