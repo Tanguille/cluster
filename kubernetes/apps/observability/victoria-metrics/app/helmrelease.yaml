@@ -176,14 +176,12 @@ spec:
                   name: alertmanager-secret
                   key: DISCORD_WEBHOOK_URL
                 username: Alertmanager
-                content: |-
-                  {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} `{{ .Status | toUpper }}` {{ with .CommonLabels.alertname }}**{{ . }}**{{ else }}alert group{{ end }} — {{ len .Alerts.Firing }} firing, {{ len .Alerts.Resolved }} resolved
                 title: |-
-                  {{ if eq .Status "firing" }}🚨 {{ len .Alerts.Firing }} firing{{ else }}✅ {{ len .Alerts.Resolved }} resolved{{ end }}{{ with .CommonLabels.alertname }} — {{ . }}{{ end }}
+                  {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} {{ with .CommonLabels.alertname }}{{ . }}{{ else }}Alert group{{ end }}
                 message: |-
-                  {{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} **Status:** `{{ .Status | toUpper }}`
                   📊 **Severity:** `{{ with .CommonLabels.severity }}{{ . | toUpper }}{{ else }}UNKNOWN{{ end }}`
-                  🔔 **Alerts:** `{{ len .Alerts.Firing }} firing` • `{{ len .Alerts.Resolved }} resolved`
+
+                  🔔 **State:** `{{ len .Alerts.Firing }} firing` • `{{ len .Alerts.Resolved }} resolved`
 
                   {{ with .CommonAnnotations.description }}📝 **Description**
                   ```text
@@ -196,13 +194,12 @@ spec:
                   {{ printf "%.1800s" . }}{{ if gt (len .) 1800 }}…{{ end }}
                   ```{{ else }}No description was provided.{{ end }}{{ end }}{{ end }}
 
-                  🏷️ **Group labels**
-                  {{ range .GroupLabels.SortedPairs }}`{{ .Name }}={{ .Value }}` {{ end }}
                   🎯 **Affected targets**
-                  {{ range $i, $alert := .Alerts }}{{ if lt $i 5 }}• {{ with $alert.Labels.namespace }}`{{ . }}`/{{ end }}{{ if $alert.Labels.pod }}`{{ $alert.Labels.pod }}`{{ else if $alert.Labels.instance }}`{{ $alert.Labels.instance }}`{{ else if $alert.Labels.node }}`{{ $alert.Labels.node }}`{{ else if $alert.Labels.job }}`{{ $alert.Labels.job }}`{{ else if $alert.Labels.alertname }}`{{ $alert.Labels.alertname }}`{{ else }}`unknown target`{{ end }}{{ if eq $alert.Status "resolved" }} — resolved <t:{{ $alert.EndsAt.Unix }}:R>{{ else }} — firing since <t:{{ $alert.StartsAt.Unix }}:R>{{ end }}{{ with $alert.GeneratorURL }} — [source]({{ . }}){{ end }}
+                  {{ range $i, $alert := .Alerts }}{{ if lt $i 5 }}• {{ with $alert.Labels.namespace }}`{{ . }}`/{{ end }}{{ if $alert.Labels.pod }}`{{ $alert.Labels.pod }}`{{ else if $alert.Labels.instance }}`{{ $alert.Labels.instance }}`{{ else if $alert.Labels.node }}`{{ $alert.Labels.node }}`{{ else if $alert.Labels.job }}`{{ $alert.Labels.job }}`{{ else if $alert.Labels.alertname }}`{{ $alert.Labels.alertname }}`{{ else }}`unknown target`{{ end }}
+                  ↳ {{ if eq $alert.Status "resolved" }}resolved <t:{{ $alert.EndsAt.Unix }}:R>{{ else }}firing since <t:{{ $alert.StartsAt.Unix }}:R>{{ end }}{{ with $alert.GeneratorURL }} · [source]({{ . }}){{ end }}
+
                   {{ end }}{{ end }}{{ if gt (len .Alerts) 5 }}…and more alerts in this group.
                   {{ end }}
-                  {{ if eq .Status "firing" }}⏰ First listed alert started: <t:{{ (index .Alerts 0).StartsAt.Unix }}:F>{{ else }}⏰ First listed alert resolved: <t:{{ (index .Alerts 0).EndsAt.Unix }}:F>{{ end }}
                 send_resolved: true
       monzoTemplate:
         enabled: false
@@ -246,6 +243,7 @@ spec:
           url: *vmqueryUrl
         extraArgs:
           "external.url": https://vmalert.${SECRET_DOMAIN}
+          "rule.evalDelay": 1m
         notifier:
           url: *vmalertmanagerUrl
         remoteRead:
