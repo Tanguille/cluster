@@ -33,7 +33,7 @@ spec:
             # steinbrueckri/envsubst: public Dockerfile (Alpine + gettext at build); no runtime apk (works without egress to Alpine mirrors).
             # https://github.com/steinbrueckri/envsubst — pin digest after pull: docker inspect --format='{{index .RepoDigests 0}}' steinbrueckri/envsubst:v2.1.1
             image:
-              repository: docker.io/steinbrueckri/envsubst
+              repository: steinbrueckri/envsubst
               tag: v2.1.2
             securityContext:
               runAsUser: 0
@@ -55,7 +55,7 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/feramance/qbitrr
+              repository: feramance/qbitrr
               tag: v5.12.1
             # Skip docker-entrypoint.sh (gosu/setuid). Init already chowns /config; run as 1000 like upstream `user: "1000:1000"`.
             command: ["/usr/bin/tini", "--"]
