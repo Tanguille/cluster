@@ -175,75 +175,34 @@ spec:
               - webhook_url_secret:
                   name: alertmanager-secret
                   key: DISCORD_WEBHOOK_URL
+                username: Alertmanager
+                content: |-
+                  {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} `{{ .Status | toUpper }}` {{ with .CommonLabels.alertname }}**{{ . }}**{{ else }}alert group{{ end }} — {{ len .Alerts.Firing }} firing, {{ len .Alerts.Resolved }} resolved
                 title: |-
-                  {{- if eq .Status "firing" }}🚨 **ALERT FIRING** 🚨{{- else }}✅ **ALERT RESOLVED** ✅{{- end }}
+                  {{ if eq .Status "firing" }}🚨 {{ len .Alerts.Firing }} firing{{ else }}✅ {{ len .Alerts.Resolved }} resolved{{ end }}{{ with .CommonLabels.alertname }} — {{ . }}{{ end }}
                 message: |-
-                  {{- range .Alerts }}
+                  {{ if eq .Status "firing" }}🔥{{ else }}✅{{ end }} **Status:** `{{ .Status | toUpper }}`
+                  📊 **Severity:** `{{ with .CommonLabels.severity }}{{ . | toUpper }}{{ else }}UNKNOWN{{ end }}`
+                  🔔 **Alerts:** `{{ len .Alerts.Firing }} firing` • `{{ len .Alerts.Resolved }} resolved`
 
-                  {{- if eq .Labels.severity "critical" }}
-                  🚨 **Severity:** `CRITICAL`
-                  {{- else if eq .Labels.severity "warning" }}
-                  ⚠️ **Severity:** `WARNING`
-                  {{- else if eq .Labels.severity "info" }}
-                  ℹ️ **Severity:** `INFO`
-                  {{- else }}
-                  > 📊 **Severity:** `{{ .Labels.severity }}`
-                  {{- end }}
+                  {{ with .CommonAnnotations.description }}📝 **Description**
+                  ```text
+                  {{ printf "%.1800s" . }}{{ if gt (len .) 1800 }}…{{ end }}
+                  ```{{ else }}{{ with .CommonAnnotations.summary }}📋 **Summary**
+                  ```text
+                  {{ printf "%.1800s" . }}{{ if gt (len .) 1800 }}…{{ end }}
+                  ```{{ else }}{{ with .CommonAnnotations.message }}💬 **Message**
+                  ```text
+                  {{ printf "%.1800s" . }}{{ if gt (len .) 1800 }}…{{ end }}
+                  ```{{ else }}No description was provided.{{ end }}{{ end }}{{ end }}
 
-                  {{- if ne .Annotations.description "" }}
-                  📝 **Description:**
-
-                  ```
-                  {{ .Annotations.description }}
-                  ```
-                  {{- else if ne .Annotations.summary "" }}
-                  📋 **Summary:**
-                  ```
-                  {{ .Annotations.summary }}
-                  ```
-                  {{- else if ne .Annotations.message "" }}
-                  💬 **Message:**
-                  ```
-                  {{ .Annotations.message }}
-                  ```
-                  {{- else }}
-                  🔔 Alert has been triggered
-                  {{- end }}
-
-                  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-                  **Alert Details:**
-                  {{- if .Labels.node }}
-                  🖥️ **Node:** `{{ .Labels.node }}`
-                  {{- end }}
-                  {{- if .Labels.namespace }}
-                  Namespace: `{{ .Labels.namespace }}`
-                  {{- end }}
-                  {{- if .Labels.pod }}
-                  Pod: `{{ .Labels.pod }}`
-                  {{- end }}
-                  {{- if .Labels.job }}
-                  Job: `{{ .Labels.job }}`
-                  {{- end }}
-                  {{- if .Labels.instance }}
-                  Instance: `{{ .Labels.instance }}`
-                  {{- end }}
-                  {{- if .Labels.container }}
-                  Container: `{{ .Labels.container }}`
-                  {{- end }}
-                  {{- if .Labels.service }}
-                  Service: `{{ .Labels.service }}`
-                  {{- end }}
-
-                  ⏰ **Timeline:**
-                  {{- if eq .Status "firing" }}
-                  🔥 Started: <t:{{ .StartsAt.Unix }}:F> (<t:{{ .StartsAt.Unix }}:R>)
-                  {{- else }}
-                  ✅ Resolved: <t:{{ .EndsAt.Unix }}:F> (<t:{{ .EndsAt.Unix }}:R>)
-                  🕐 Duration: {{ .StartsAt | since | humanizeDuration }}
-                  {{- end }}
-
-                  {{- end }}
+                  🏷️ **Group labels**
+                  {{ range .GroupLabels.SortedPairs }}`{{ .Name }}={{ .Value }}` {{ end }}
+                  🎯 **Affected targets**
+                  {{ range $i, $alert := .Alerts }}{{ if lt $i 5 }}• {{ with $alert.Labels.namespace }}`{{ . }}`/{{ end }}{{ if $alert.Labels.pod }}`{{ $alert.Labels.pod }}`{{ else if $alert.Labels.instance }}`{{ $alert.Labels.instance }}`{{ else if $alert.Labels.node }}`{{ $alert.Labels.node }}`{{ else if $alert.Labels.job }}`{{ $alert.Labels.job }}`{{ else if $alert.Labels.alertname }}`{{ $alert.Labels.alertname }}`{{ else }}`unknown target`{{ end }}{{ if eq $alert.Status "resolved" }} — resolved <t:{{ $alert.EndsAt.Unix }}:R>{{ else }} — firing since <t:{{ $alert.StartsAt.Unix }}:R>{{ end }}{{ with $alert.GeneratorURL }} — [source]({{ . }}){{ end }}
+                  {{ end }}{{ end }}{{ if gt (len .Alerts) 5 }}…and more alerts in this group.
+                  {{ end }}
+                  {{ if eq .Status "firing" }}⏰ First listed alert started: <t:{{ (index .Alerts 0).StartsAt.Unix }}:F>{{ else }}⏰ First listed alert resolved: <t:{{ (index .Alerts 0).EndsAt.Unix }}:F>{{ end }}
                 send_resolved: true
       monzoTemplate:
         enabled: false
@@ -381,5 +340,11 @@ spec:
                 annotations:
                   summary: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has been OOMKilled {{ $value }} times in the last 10 minutes.
                 expr: (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
+                labels:
+                  severity: critical
+              - alert: OomStorm
+                annotations:
+                  summary: Node {{ $labels.instance }} had {{ $value }} container OOM events in the last 10 minutes.
+                expr: sum by (instance) (increase(container_oom_events_total[10m])) > 5
                 labels:
                   severity: critical
