@@ -32,7 +32,7 @@ spec:
         - alert: HelmReleaseReconciliationFailure
           expr: |-
             gotk_resource_info{customresource_kind="HelmRelease", ready!="True"} == 1
-          for: 5m
+          for: 15m
           annotations:
             summary: >-
               HelmRelease {{ $labels.name }} in {{ $labels.exported_namespace }} is not ready
@@ -42,7 +42,7 @@ spec:
         - alert: KustomizationReconciliationFailure
           expr: |-
             gotk_resource_info{customresource_kind="Kustomization", ready!="True"} == 1
-          for: 5m
+          for: 15m
           annotations:
             summary: >-
               Kustomization {{ $labels.name }} in {{ $labels.exported_namespace }} is not ready

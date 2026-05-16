@@ -151,8 +151,8 @@ spec:
       config:
         route:
           group_by: ["alertname", "job"]
-          group_interval: 5m
-          group_wait: 1m
+          group_interval: 15m
+          group_wait: 3m
           receiver: discord
           repeat_interval: 12h
           routes:
@@ -334,6 +334,7 @@ spec:
                 annotations:
                   summary: There are {{ $value }} containers pulling from Dockerhub. This may lead to rate limiting.
                 expr: count(time() - container_last_seen{image=~"(docker.io).*",container!=""} < 30) > 100
+                for: 15m
                 labels:
                   severity: critical
       oom-rules:
@@ -350,5 +351,6 @@ spec:
                 annotations:
                   summary: Node {{ $labels.instance }} had {{ $value }} container OOM events in the last 10 minutes.
                 expr: sum by (instance) (increase(container_oom_events_total[10m])) > 5
+                for: 5m
                 labels:
                   severity: critical
