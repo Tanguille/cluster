@@ -179,24 +179,30 @@ spec:
                 title: |-
                   {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} {{ with .CommonLabels.alertname }}{{ . }}{{ else }}Alert group{{ end }}
                 message: |-
+
                   📊 **Severity:** `{{ with .CommonLabels.severity }}{{ . | toUpper }}{{ else }}UNKNOWN{{ end }}`
 
                   🔔 **State:** `{{ len .Alerts.Firing }} firing` • `{{ len .Alerts.Resolved }} resolved`
 
                   {{ with .CommonAnnotations.description }}📝 **Description**
+
                   ```text
                   {{ printf "%.1800s" . }}{{ if gt (len .) 1800 }}…{{ end }}
                   ```{{ else }}{{ with .CommonAnnotations.summary }}📋 **Summary**
+
                   ```text
                   {{ printf "%.1800s" . }}{{ if gt (len .) 1800 }}…{{ end }}
                   ```{{ else }}{{ with .CommonAnnotations.message }}💬 **Message**
+
                   ```text
                   {{ printf "%.1800s" . }}{{ if gt (len .) 1800 }}…{{ end }}
                   ```{{ else }}No description was provided.{{ end }}{{ end }}{{ end }}
 
                   🎯 **Affected targets**
+
                   {{ range $i, $alert := .Alerts }}{{ if lt $i 5 }}• {{ with $alert.Labels.namespace }}`{{ . }}`/{{ end }}{{ if $alert.Labels.pod }}`{{ $alert.Labels.pod }}`{{ else if $alert.Labels.instance }}`{{ $alert.Labels.instance }}`{{ else if $alert.Labels.node }}`{{ $alert.Labels.node }}`{{ else if $alert.Labels.job }}`{{ $alert.Labels.job }}`{{ else if $alert.Labels.alertname }}`{{ $alert.Labels.alertname }}`{{ else }}`unknown target`{{ end }}
-                  ↳ {{ if eq $alert.Status "resolved" }}resolved <t:{{ $alert.EndsAt.Unix }}:R>{{ else }}firing since <t:{{ $alert.StartsAt.Unix }}:R>{{ end }}{{ with $alert.GeneratorURL }} · [source]({{ . }}){{ end }}
+                  ↳ {{ if eq $alert.Status "resolved" }}resolved <t:{{ $alert.EndsAt.Unix }}:R>{{ else }}firing since <t:{{ $alert.StartsAt.Unix }}:R>{{ end }}
+                  {{ with $alert.GeneratorURL }}↳ [source]({{ . }}){{ end }}
 
                   {{ end }}{{ end }}{{ if gt (len .Alerts) 5 }}…and more alerts in this group.
                   {{ end }}
