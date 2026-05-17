@@ -349,8 +349,8 @@ spec:
                   severity: critical
               - alert: OomStorm
                 annotations:
-                  summary: Node {{ $labels.instance }} had {{ $value }} container OOM events in the last 10 minutes.
-                expr: sum by (instance) (increase(container_oom_events_total[10m])) > 5
+                  summary: Node {{ $labels.instance }} had {{ $value }} Kubernetes container OOM events in the last 10 minutes.
+                expr: sum by (instance) (increase(container_oom_events_total{container!="",namespace!="",pod!=""}[10m])) > 5
                 for: 5m
                 labels:
                   severity: critical
