@@ -12,7 +12,7 @@ spec:
   endpoints:
     # llama-swap proxies the active child's Prometheus endpoint under
     # /upstream/<model>/metrics. Only one model is hot at a time on our
-    # single 12 GB GPU, so we hard-code the default alias `qwen-3.6`.
+    # single 8 GB GPU, so we hard-code the default alias `qwen-3.6`.
     # When the slot is cold, the scrape 404s — that's expected, the
     # dashboard simply shows no data until a model loads.
     - port: http
