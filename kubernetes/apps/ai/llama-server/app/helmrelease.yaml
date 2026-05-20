@@ -31,18 +31,22 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/ikawrakow/ik-llama-cpp
-              tag: cu13-swap-4520@sha256:d856bb5407f8713481e0df8538fb07ffd2f36bc242eeb9e4a1da088f2392c260
+              repository: ghcr.io/ggml-org/llama.cpp
+              tag: server-cuda@sha256:4e13f8776c715ee613fa35cb33bdae8d3ed2829d2fb460567637797a319393df
             env:
               TZ: ${TIMEZONE}
-              HF_HOME: /cache
-            command:
-              - /app/llama-swap
+              LLAMA_CACHE: /cache
             args:
-              - -config
-              - /app/config.yaml
-              - -listen
-              - 0.0.0.0:8080
+              - --host
+              - 0.0.0.0
+              - --port
+              - "8080"
+              - --models-preset
+              - /app/models.ini
+              - --models-max
+              - "1"
+              - --metrics
+              - --slots
             probes:
               startup: &probeBase
                 enabled: true
@@ -54,7 +58,7 @@ spec:
                   initialDelaySeconds: 5
                   periodSeconds: 5
                   timeoutSeconds: 3
-                  # llama-swap starts in < 5 s; no model load at pod start.
+                  # llama.cpp router starts quickly; model load happens on first request.
                   failureThreshold: 12
               liveness:
                 <<: *probeBase
@@ -112,6 +116,6 @@ spec:
         type: configMap
         name: llama-server-config
         globalMounts:
-          - path: /app/config.yaml
-            subPath: config.yaml
+          - path: /app/models.ini
+            subPath: models.ini
             readOnly: true
