@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "llama.cpp / llama-swap inference metrics, scraped from the active upstream child via /upstream/<model>/metrics.",
+  "description": "llama.cpp router inference metrics, scraped from /metrics?model=qwen-3.6 without autoloading the model.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -584,7 +584,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "description": "VRAM used (MiB). Full is ~12 GiB on RTX 4070.",
+      "description": "VRAM used (MiB). Full is ~8 GiB on RTX 2070.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -689,7 +689,7 @@
   ],
   "refresh": "1m",
   "schemaVersion": 39,
-  "tags": ["ai", "llama-server", "llama-cpp", "llama-swap"],
+  "tags": ["ai", "llama-server", "llama-cpp"],
   "templating": {
     "list": [
       {
