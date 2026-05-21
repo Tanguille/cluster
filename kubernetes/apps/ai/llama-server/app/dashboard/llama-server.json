@@ -582,7 +582,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "description": "VRAM used (MiB). Full is ~8 GiB on RTX 2070.",
+      "description": "VRAM used/free in GiB. Full is ~8 GiB on RTX 2070.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -600,7 +600,7 @@
             "mode": "absolute",
             "steps": [{ "color": "green", "value": null }]
           },
-          "unit": "deckmbytes"
+          "unit": "suffix: GiB"
         },
         "overrides": []
       },
@@ -619,13 +619,13 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "DCGM_FI_DEV_FB_USED",
+          "expr": "DCGM_FI_DEV_FB_USED / 1024",
           "legendFormat": "{{Hostname}} gpu{{gpu}} used",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "DCGM_FI_DEV_FB_FREE",
+          "expr": "DCGM_FI_DEV_FB_FREE / 1024",
           "legendFormat": "{{Hostname}} gpu{{gpu}} free",
           "refId": "B"
         }
