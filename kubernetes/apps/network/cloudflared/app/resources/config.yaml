@@ -1,13 +1,17 @@
 ---
 ingress:
   - hostname: ${SECRET_DOMAIN}
-    originRequest: &originRequest
+    originRequest:
       http2Origin: true
       keepAliveTimeout: 3600s
       originServerName: external.${SECRET_DOMAIN}
       tcpKeepAlive: 7200s
-    service: &svc https://envoy-external.network.svc.cluster.local:443
+    service: https://envoy-external.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN}"
-    originRequest: *originRequest
-    service: *svc
+    originRequest:
+      http2Origin: true
+      keepAliveTimeout: 3600s
+      originServerName: external.${SECRET_DOMAIN}
+      tcpKeepAlive: 7200s
+    service: https://envoy-external.network.svc.cluster.local:443
   - service: http_status:404
