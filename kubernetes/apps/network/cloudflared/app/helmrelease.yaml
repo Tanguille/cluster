@@ -25,9 +25,6 @@ spec:
             env:
               NO_AUTOUPDATE: true
               TUNNEL_METRICS: 0.0.0.0:8080
-              TUNNEL_ORIGIN_ENABLE_HTTP2: true
-              TUNNEL_POST_QUANTUM: true
-              TUNNEL_TRANSPORT_PROTOCOL: quic
             envFrom:
               - secretRef:
                   name: "{{ .Release.Name }}-secret"
@@ -68,8 +65,8 @@ spec:
               app.kubernetes.io/name: cloudflared
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65534
-        runAsGroup: 65534
+        runAsUser: 1000
+        runAsGroup: 1000
     service:
       app:
         ports:
