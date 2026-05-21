@@ -11,7 +11,8 @@ spec:
   provider:
     type: Kubernetes
     kubernetes:
-      envoyDaemonSet:
+      envoyDeployment:
+        replicas: 2
         container:
           image: mirror.gcr.io/envoyproxy/envoy:v1.38.0
           # imageRepository: mirror.gcr.io/envoyproxy/envoy
