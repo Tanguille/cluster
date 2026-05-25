@@ -1,23 +1,7 @@
 ---
 name: pr-review
 description: |-
-  Run 6-phase parallel PR reviews for GitOps Kubernetes. Spawns subagents for YAML format,
-  naming, best practices, security, architecture, and validation. Delegates focused tasks to
-  prevent context pollution. Produces severity-graded findings with actionable summaries.
-  Isolates each review by PR number to prevent collisions. Also reviews local git diff
-  before commit (local-changes identifier).
-
-  Use proactively for: PRs adding/modifying K8s apps, Flux resources, HelmReleases,
-  infrastructure changes, pre-CI validation needs, or local git diff review before commit.
-
-  Examples:
-  - user: "Review this PR" → spawn 6 subagents in parallel, aggregate findings
-  - user: "Check my app config" → delegate to best-practices subagent
-  - user: "Are secrets encrypted?" → delegate to security subagent
-  - user: "Validate before CI" → spawn local validation subagent
-  - user: "Check phase 3 only" → single subagent for specific phase
-  - user: "Review my local changes" → review git diff with local-changes identifier
-  - user: "Check what I'm about to commit" → review staged/unstaged changes
+  Use when reviewing GitOps Kubernetes PRs or local diffs that add or modify apps, Flux Kustomizations, HelmReleases, infrastructure manifests, secrets, scripts, or validation workflows. Use for requests like "review this PR", "check my app config", "are secrets encrypted?", "validate before CI", "review local changes", or "what am I about to commit?".
 ---
 
 # PR Review Skill
@@ -52,8 +36,8 @@ Spawn specialized subagents to review GitOps Kubernetes PRs. Each phase runs ind
 - **URLs**: `${SECRET_DOMAIN}` template (never hardcode)
 - **Secrets**: SOPS encryption (`.sops.yaml` config), never plaintext
 - **Naming**: lowercase-dashes for resources, kebab-case files
-- **Format**: YAML 2-space indent, LF, `yamllint`
-- **Validation**: `kubeconform -strict`, `kustomize build`, `flux build`
+- **Format**: YAML 2-space indent, LF, no trailing whitespace
+- **Validation**: `mise exec -- kubeconform -strict kubernetes/`; run `mise exec -- shellcheck scripts/*.sh` when scripts change; use `kustomize build`/flux-local for focused checks when applicable
 
 ## Quick Start
 
@@ -127,7 +111,7 @@ Use these files as input to the same 6-phase review process.
 
 ### 2. Launch Subagents (PARALLEL)
 
-Spawn ALL 6 subagents in ONE message with `subagent_type: "general"`:
+Spawn ALL 6 subagents in ONE message using available OpenCode reviewer agents. Prefer `explorer` for fast file/search/format/naming/validation discovery and `oracle` for best-practices, security, and architecture judgment.
 
 ```
 Task: pr-review-phase-1
@@ -145,7 +129,7 @@ Each subagent gets clean context - no need to pass full SKILL.md. Just phase-spe
 **Spawn with:**
 
 ```yaml
-subagent_type: general
+subagent_type: explorer
 description: PR Review Phase 1: YAML Format
 prompt: |
   Review YAML formatting for PR.
@@ -164,7 +148,7 @@ prompt: |
   1. Check 2-space indentation on all YAML
   2. Verify no tabs
   3. Check trailing whitespace
-  4. Run: yamllint -c .yamllint.yaml kubernetes/
+  4. Check changed YAML for tabs and trailing whitespace; do not require yamllint unless the repo has a yamllint config
 
   OUTPUT to .opencode/pr-review/pr-${PR_ID}/phase-1-yaml-format.md:
 
@@ -192,7 +176,7 @@ prompt: |
 **Spawn with:**
 
 ```yaml
-subagent_type: general
+subagent_type: explorer
 description: PR Review Phase 2: Naming Conventions
 prompt: |
   Review naming conventions for PR.
@@ -218,7 +202,7 @@ prompt: |
 **Spawn with:**
 
 ```yaml
-subagent_type: general
+subagent_type: oracle
 description: PR Review Phase 3: Best Practices
 prompt: |
   Review HelmRelease best practices for PR.
@@ -252,7 +236,7 @@ prompt: |
 **Spawn with:**
 
 ```yaml
-subagent_type: general
+subagent_type: oracle
 description: PR Review Phase 4: Security
 prompt: |
   Review security for GitOps Kubernetes PR.
@@ -280,7 +264,7 @@ prompt: |
 **Spawn with:**
 
 ```yaml
-subagent_type: general
+subagent_type: oracle
 description: PR Review Phase 5: Architecture
 prompt: |
   Review architecture patterns for GitOps Kubernetes PR.
@@ -306,31 +290,31 @@ prompt: |
 **Spawn with:**
 
 ```yaml
-subagent_type: general
+subagent_type: explorer
 description: PR Review Phase 6: Validation
 prompt: |
   Run validation tools for GitOps Kubernetes PR.
 
   TOOLS:
 
-  - yamllint: YAML syntax
-  - kubeconform: K8s schemas
-  - kustomize build: Kustomization validity
-  - flux build: Flux reconciliation
+  - kubeconform: K8s schemas (required)
+  - shellcheck: shell scripts when changed
+  - kustomize build: focused Kustomization validity when useful
+  - flux-local: Flux dry-run/test when available and relevant
 
   COMMANDS:
 
-  - yamllint -c .yamllint.yaml kubernetes/
-  - kubeconform -strict kubernetes/
-  - kustomize build kubernetes/apps/<namespace>/<app>/
-  - flux build kustomization <name> --path <path>
+  - mise exec -- kubeconform -strict kubernetes/
+  - mise exec -- shellcheck scripts/*.sh  # only when scripts changed
+  - mise exec -- kustomize build kubernetes/apps/<namespace>/<app>/
+  - mise exec -- flux-local test --all-namespaces --enable-helm kubernetes/flux/cluster  # if flux-local is available
 
   TASKS:
 
-  1. Run yamllint on changed YAML
-  2. Run kubeconform
-  3. Run kustomize build
-  4. Run flux build
+  1. Run kubeconform through mise
+  2. Run shellcheck through mise if shell scripts changed
+  3. Run focused kustomize build for changed app paths when useful
+  4. Run flux-local dry-run/test if available; otherwise report that it was unavailable
 
   OUTPUT to .opencode/pr-review/pr-${PR_ID}/phase-6-validation.md.
 ```

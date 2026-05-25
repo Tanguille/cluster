@@ -10,6 +10,18 @@ description: |
 
 Structured debugging with parallel fact gathering and subagent-powered root cause analysis.
 
+## Tool Order
+
+Follow the repo ToolHive rule when available:
+
+1. Use `find_tool` with a relevant query.
+2. Use `call_tool` with the selected tool and required parameters.
+3. Interpret the result; do not paste raw JSON to the user.
+
+If ToolHive unified gateway is unavailable, prefer Flux/Kubernetes MCP tools. Use `kubectl`, `flux`, or `talosctl` only as fallbacks or when they provide data the MCP tools cannot.
+
+Run CLI tooling through `mise exec --`.
+
 ## When to Delegate to Subagents
 
 | Task | Approach | Reason |
@@ -34,12 +46,12 @@ PARALLEL:
 - get_flux_instance (if Flux issue)
 ```
 
-Or kubectl fallback:
+Or CLI fallback:
 
 ```bash
-kubectl get pods -n <ns> -o wide
-kubectl get events -n <ns> --sort-by='.lastTimestamp'
-kubectl describe pod <pod> -n <ns>
+mise exec -- kubectl get pods -n <ns> -o wide
+mise exec -- kubectl get events -n <ns> --sort-by='.lastTimestamp'
+mise exec -- kubectl describe pod <pod> -n <ns>
 ```
 
 ---
@@ -60,27 +72,25 @@ kubectl describe pod <pod> -n <ns>
 
 When root cause isn't obvious, spawn subagent:
 
-```
-background_task:
-  agent: "debug-analyzer"
-  description: "5-Whys root cause analysis for <issue>"
-  prompt: |
-    Analyze this K8s issue using 5-Whys:
+Delegate to @oracle with this prompt:
 
-    Facts gathered:
-    - Pod: <name> in namespace <ns>
-    - Status: <status>
-    - Events: <key events>
-    - Logs: <relevant log lines>
+```text
+Analyze this K8s issue using 5-Whys:
 
-    Apply 5-Whys:
-    1. Why is <symptom> happening?
-    2. Why <answer to 1>?
-    3. Why <answer to 2>?
-    4. Why <answer to 3>?
-    5. Why <answer to 4>? → Root cause
+Facts gathered:
+- Pod: <name> in namespace <ns>
+- Status: <status>
+- Events: <key events>
+- Logs: <relevant log lines>
 
-    Output: Root cause + fix recommendation
+Apply 5-Whys:
+1. Why is <symptom> happening?
+2. Why <answer to 1>?
+3. Why <answer to 2>?
+4. Why <answer to 3>?
+5. Why <answer to 4>? → Root cause
+
+Output: Root cause + fix recommendation
 ```
 
 Example 5-Whys chain:
@@ -111,15 +121,17 @@ Avoid `kubectl edit` except for testing.
 Find failing resources:
 
 ```bash
-flux get all -A --status-selector ready=false
+mise exec -- flux get all -A --status-selector ready=false
 ```
 
 Reconcile with source:
 
 ```bash
-flux reconcile kustomization <name> --with-source
-flux reconcile source git flux-system
+mise exec -- flux reconcile kustomization <name> -n <namespace> --with-source
+mise exec -- flux reconcile source git flux-system -n flux-system
 ```
+
+Ask before running live reconciliation commands.
 
 Use MCP when available:
 
@@ -133,19 +145,19 @@ Only use when: node NotReady, kubelet issues, kernel panics.
 Check Kubernetes pods on node:
 
 ```bash
-talosctl --nodes <ip> get kubernetespods
+mise exec -- talosctl --nodes <ip> get kubernetespods
 ```
 
 Check kubelet logs:
 
 ```bash
-talosctl --nodes <ip> logs --namespace=kubelet
+mise exec -- talosctl --nodes <ip> logs --namespace=kubelet
 ```
 
 Check kernel messages:
 
 ```bash
-talosctl --nodes <ip> dmesg
+mise exec -- talosctl --nodes <ip> dmesg
 ```
 
 ## Validation
@@ -153,13 +165,13 @@ talosctl --nodes <ip> dmesg
 Verify pod status:
 
 ```bash
-kubectl get pods -n <ns>
+mise exec -- kubectl get pods -n <ns>
 ```
 
 Verify Flux releases:
 
 ```bash
-flux get helmreleases -A
+mise exec -- flux get helmreleases -A
 ```
 
 ---

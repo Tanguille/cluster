@@ -79,17 +79,17 @@ Always cross-reference with:
 ## Validation Command Pattern
 
 ```bash
-# Syntax
-yamllint -c .yamllint.yaml .
-
 # Schema
-kubeconform -strict -ignore-missing-schemas kubernetes/
+mise exec -- kubeconform -strict kubernetes/
 
-# Build
-kustomize build kubernetes/apps/<namespace>/<app>/
+# Shell scripts, when changed
+mise exec -- shellcheck scripts/*.sh
 
-# Flux
-flux build kustomization <name> --path <path>
+# Focused build
+mise exec -- kustomize build kubernetes/apps/<namespace>/<app>/
+
+# Flux dry-run/test, when available
+mise exec -- flux-local test --all-namespaces --enable-helm kubernetes/flux/cluster
 ```
 
 ## When Uncertain

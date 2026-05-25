@@ -137,13 +137,7 @@ metadata:
 
 ### Subagent Spawn Example:
 
-```
-background_task(
-  agent="backup-restore",
-  description="Check backup status for app1",
-  prompt="Check ReplicationSource status for app1 in namespace..."
-)
-```
+Ask @explorer to check backup status for read-only multi-app inventory, or @oracle/debug-cluster for unclear failure analysis. Keep restore creation in the main thread because it changes cluster state and needs approval.
 
 ---
 
@@ -151,7 +145,7 @@ background_task(
 
 Spawn **debug-cluster** subagent for:
 
-- Mover pod logs: `kubectl logs -n volsync-system -l app.kubernetes.io/name=volsync`
+- Mover pod logs: `mise exec -- kubectl logs -n volsync-system -l app.kubernetes.io/name=volsync`
 - Repository secret validation
 - Storage class availability issues
 - Unexplained backup failures

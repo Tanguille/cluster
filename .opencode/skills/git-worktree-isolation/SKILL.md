@@ -16,59 +16,43 @@ description: |-
 
 ## Create Worktree
 
+First check whether you are already in a task-specific worktree. If yes, do not create another one.
+
+Check status before creating a worktree:
+
 ```bash
 git fetch origin
-```
-
-```bash
-git checkout <branch>
-```
-
-```bash
-git pull origin <branch>
-```
-
-```bash
 git worktree list
+git status --short
 ```
 
-```bash
-git worktree add -b <branch> --detach work/isolated-<task>-<timestamp> <branch>
-```
+Create a branch from the chosen base branch:
 
 ```bash
-cd work/isolated-<task>-<timestamp>
+git worktree add -b <new-branch> work/isolated-<task>-<timestamp> origin/<base-branch>
 ```
+
+Use the Bash tool `workdir` parameter for subsequent commands. Do not use `cd` in bash commands.
 
 ## Validate
 
 Validate Kubernetes manifests:
 
 ```bash
-kubeconform -strict kubernetes/
+mise exec -- kubeconform -strict kubernetes/
 ```
 
 Test Flux reconciliation:
 
 ```bash
-flux-local test --all-namespaces --enable-helm kubernetes/flux/cluster
+mise exec -- flux-local test --all-namespaces --enable-helm kubernetes/flux/cluster
 ```
 
 ## Cleanup
 
-**Delegate to subagent for cleanup operations**:
+Before cleanup, ask @explorer to inspect git worktree status and report whether `work/isolated-<task>-<timestamp>` and branch `<branch>` are safe to remove. The subagent must not delete anything.
 
-```bash
-background_task(agent="git-cleanup", description="Remove worktree and branch", prompt="Cleanup git worktree at work/isolated-<task>-<timestamp> and delete branch <branch>")
-```
-
-Or manual cleanup:
-
-Navigate out of worktree first:
-
-```bash
-cd /path/to/main/repo
-```
+Or manual cleanup from the main repository workdir:
 
 Remove the worktree:
 
@@ -92,7 +76,7 @@ git branch -D <branch>
 
 | Validation/tests | Yes | Can run parallel via subagent |
 
-| Cleanup (remove worktree/branch) | Yes | Spawn subagent, don't block main flow |
+| Cleanup (remove worktree/branch) | Optional | Ask @explorer to inspect safety first; perform deletion yourself after review |
 
 | Multiple worktrees | Yes | Parallel creation via subagent |
 
