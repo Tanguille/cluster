@@ -51,7 +51,10 @@ spec:
         # When power is negative (exporting), this returns positive value for scaling
         # When power is positive (consuming), this returns 0 (scale to 0)
         # Using avg_over_time to smooth out rapid fluctuations
-        query: clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0)
+        # Cap the metric at the physical maximum (3 nodes * 50W) so the HPA
+        # does not report itself as maxed out when surplus power exceeds what
+        # the fixed-size miner pool can consume.
+        query: clamp_max(clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0), 150)
         threshold: "50" # 50W per replica (each miner consumes ~50W)
         activationThreshold: "25" # Start scaling when at least 25W exported
         ignoreNullValues: "true"
