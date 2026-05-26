@@ -411,6 +411,7 @@ spec:
       type: cronjob
       cronjob:
         schedule: "*/5 * * * *"
+        concurrencyPolicy: Forbid
         ttlSecondsAfterFinished: 3600
         failedJobsHistoryLimit: 1
         successfulJobsHistoryLimit: 2
