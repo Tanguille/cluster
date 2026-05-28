@@ -10,16 +10,7 @@ spec:
       app.kubernetes.io/name: llama-server
       app.kubernetes.io/instance: llama-server
   endpoints:
-    # llama.cpp router exposes per-model metrics via /metrics?model=...
-    # Keep autoload=false so Prometheus does not cold-load the 35B chat model.
-    - port: http
+    - port: metrics
       path: /metrics
-      params:
-        model: [qwen-3.6]
-        autoload: ["false"]
       interval: 1m
       scrapeTimeout: 10s
-  # llama.cpp's /metrics exposition uses OpenMetrics-ish text/plain without
-  # an explicit content-type version header; force the legacy protocol so
-  # Prometheus doesn't reject it under strict negotiation.
-  fallbackScrapeProtocol: PrometheusText0.0.4

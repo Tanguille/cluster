@@ -85,6 +85,58 @@ spec:
                 cpu: 8
                 memory: 26Gi
                 nvidia.com/gpu: 1
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+          metrics-gate:
+            image:
+              repository: docker.io/library/python
+              tag: 3.13-alpine@sha256:420cd0bf0f3998275875e02ecd5808168cf0843cbb4d3c536432f729247b2acc
+            command:
+              - python3
+              - /scripts/llama-metrics-gate.py
+            env:
+              LLAMA_BASE_URL: http://127.0.0.1:8080
+              LLAMA_MODEL: qwen-3.6
+              LLAMA_UPSTREAM_TIMEOUT: "5"
+              LLAMA_EXPORTER_PORT: "9108"
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 9108
+                  initialDelaySeconds: 5
+                  periodSeconds: 30
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 9108
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 5m
+                memory: 32Mi
+              limits:
+                cpu: 50m
+                memory: 96Mi
 
     service:
       app:
@@ -93,6 +145,9 @@ spec:
           http:
             port: 80
             targetPort: *port
+          metrics:
+            port: 9108
+            targetPort: 9108
 
     route:
       app:
@@ -110,12 +165,24 @@ spec:
       cache:
         enabled: true
         existingClaim: llama-server
-        globalMounts:
-          - path: /cache
+        advancedMounts:
+          app:
+            app:
+              - path: /cache
       config:
         type: configMap
         name: llama-server-config
-        globalMounts:
-          - path: /app/models.ini
-            subPath: models.ini
-            readOnly: true
+        advancedMounts:
+          app:
+            app:
+              - path: /app/models.ini
+                subPath: models.ini
+                readOnly: true
+      metrics-gate-script:
+        type: configMap
+        name: llama-metrics-gate
+        advancedMounts:
+          app:
+            metrics-gate:
+              - path: /scripts
+                readOnly: true
