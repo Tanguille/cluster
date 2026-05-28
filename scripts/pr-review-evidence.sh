@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Evidence hooks for joryirving/pr-reviewer-action (.github/pr-review-providers.json).
+# Evidence hooks for misospace/pr-reviewer-action (.github/pr-review-providers.json).
 # Emit JSON with severity so evidence_blocker_enforcement can map failures to request_changes.
 # Uses jq and shellcheck.
 #
