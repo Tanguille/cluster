@@ -97,6 +97,7 @@ spec:
     route:
       app:
         hostnames:
+          - search.${SECRET_DOMAIN}
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-internal
@@ -111,15 +112,16 @@ spec:
             app:
               - path: /etc/searxng/settings.yml
                 subPath: settings.yml
+                readOnly: true
               - path: /etc/searxng/limiter.toml
                 subPath: limiter.toml
+                readOnly: true
       tmp:
         type: emptyDir
         medium: Memory
         advancedMounts:
           app:
             app:
-              - path: /etc/searxng
               - path: /tmp
       cache:
         type: emptyDir
