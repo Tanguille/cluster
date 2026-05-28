@@ -39,12 +39,9 @@ spec:
             env:
               TZ: ${TIMEZONE}
               HERMES_HOME: /opt/data
-              API_SERVER_ENABLED: true
-              API_SERVER_HOST: 0.0.0.0
-              API_SERVER_PORT: &port 8642
-            envFrom:
-              - secretRef:
-                  name: hermes-secret
+              HERMES_DASHBOARD: true
+              HERMES_DASHBOARD_HOST: 0.0.0.0
+              HERMES_DASHBOARD_PORT: &dashboardPort 9119
             probes:
               startup:
                 enabled: true
@@ -52,7 +49,7 @@ spec:
                 spec:
                   httpGet: &httpGet
                     path: /health
-                    port: *port
+                    port: &port 8642
                   initialDelaySeconds: 10
                   periodSeconds: 5
                   timeoutSeconds: 5
@@ -89,7 +86,7 @@ spec:
         ports:
           http:
             port: 80
-            targetPort: *port
+            targetPort: *dashboardPort
 
     route:
       app:
