@@ -1,9 +1,8 @@
 # See: https://docs.searxng.org/admin/searx.limiter.html
 
 [botdetection]
-# Envoy and in-cluster callers use private Pod/Service ranges. Trust them so
-# public requests are limited by the real X-Forwarded-For client IP instead of
-# the gateway pod IP.
+# Envoy uses private Pod/Service ranges. Trust these proxies so public requests
+# are limited by the real X-Forwarded-For client IP instead of the gateway pod IP.
 trusted_proxies = [
   "127.0.0.0/8",
   "::1",
@@ -16,14 +15,3 @@ trusted_proxies = [
 
 [botdetection.ip_limit]
 link_token = true
-
-[botdetection.ip_lists]
-# Allow direct in-cluster clients (for example ToolHive MCP) while still
-# applying bot detection to public users extracted from X-Forwarded-For.
-pass_ip = [
-  "10.0.0.0/8",
-  "172.16.0.0/12",
-  "192.168.0.0/16",
-  "100.64.0.0/10",
-  "fd00::/8",
-]
