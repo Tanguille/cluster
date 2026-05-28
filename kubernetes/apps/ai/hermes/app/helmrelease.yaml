@@ -41,7 +41,7 @@ spec:
               HERMES_HOME: /opt/data
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_HOST: 0.0.0.0
-              HERMES_DASHBOARD_PORT: &dashboardPort 9119
+              HERMES_DASHBOARD_PORT: &port 9119
             probes:
               startup:
                 enabled: true
@@ -49,7 +49,7 @@ spec:
                 spec:
                   httpGet: &httpGet
                     path: /health
-                    port: &port 8642
+                    port: *port
                   initialDelaySeconds: 10
                   periodSeconds: 5
                   timeoutSeconds: 5
@@ -86,7 +86,7 @@ spec:
         ports:
           http:
             port: 80
-            targetPort: *dashboardPort
+            targetPort: *port
 
     route:
       app:
