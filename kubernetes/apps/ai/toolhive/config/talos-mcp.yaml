@@ -1,0 +1,112 @@
+---
+apiVersion: talos.dev/v1alpha1
+kind: ServiceAccount
+metadata:
+  name: talos-mcp
+  namespace: ai
+spec:
+  roles: ["os:admin"]
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: &name talos-mcp
+  namespace: ai
+spec:
+  image: node:24-alpine
+  transport: stdio
+  groupRef:
+    name: talos
+  args:
+    - -y
+    - talos-mcp@2.4.1
+  env:
+    - name: TALOSCONFIG
+      value: /var/run/secrets/talos.dev/talosconfig
+    - name: TALOS_MCP_READ_ONLY
+      value: "true"
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      volumes:
+        - name: talos
+          secret:
+            secretName: talos-mcp
+      containers:
+        - name: mcp
+          command: ["npx"]
+          volumeMounts:
+            - name: talos
+              mountPath: /var/run/secrets/talos.dev
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: talos-mcp-opt
+  namespace: ai
+spec:
+  image: node:24-alpine
+  transport: stdio
+  groupRef:
+    name: all
+  args:
+    - -y
+    - talos-mcp@2.4.1
+  env:
+    - name: TALOSCONFIG
+      value: /var/run/secrets/talos.dev/talosconfig
+    - name: TALOS_MCP_READ_ONLY
+      value: "true"
+  toolConfigRef:
+    name: talos-mcp
+  podTemplateSpec:
+    spec:
+      volumes:
+        - name: talos
+          secret:
+            secretName: talos-mcp
+      containers:
+        - name: mcp
+          command: ["npx"]
+          volumeMounts:
+            - name: talos
+              mountPath: /var/run/secrets/talos.dev
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: talos-mcp
+  namespace: ai
+spec:
+  toolsFilter: []

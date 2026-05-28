@@ -45,7 +45,8 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
-# Named "ha" to avoid Deployment name collision with MCPServer "homeassistant" (operator creates Deployment = name)
+# Named "ha" to avoid Deployment name collision with MCPServer "homeassistant"
+# (operator creates Deployment = name).
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
@@ -132,6 +133,29 @@ spec:
   serviceType: ClusterIP
   groupRef:
     name: resources
+  config:
+    aggregation:
+      conflictResolution: prefix
+      conflictResolutionConfig:
+        prefixFormat: "{workload}_"
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: VirtualMCPServer
+metadata:
+  name: talos
+  namespace: ai
+spec:
+  replicas: 2
+  sessionStorage:
+    provider: redis
+    address: dragonfly.database.svc.cluster.local:6379
+    db: 0
+    keyPrefix: "thv:vmcp:talos:session:"
+  incomingAuth:
+    type: anonymous
+  serviceType: ClusterIP
+  groupRef:
+    name: talos
   config:
     aggregation:
       conflictResolution: prefix
