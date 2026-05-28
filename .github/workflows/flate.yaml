@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Image Pull
+name: Flate
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   filter:
-    name: Image Pull - Filter
+    name: Flate - Filter
     runs-on: ubuntu-latest
     outputs:
       changed-files: ${{ steps.changed-files.outputs.changed_files }}
@@ -26,13 +26,18 @@ jobs:
         with:
           patterns: kubernetes/**/*
 
-  extract:
+  flate:
     if: ${{ needs.filter.outputs.changed-files != '[]' }}
     needs: filter
-    name: Image Pull - Extract Images
+    name: Flate
     runs-on: ubuntu-latest
-    outputs:
-      images: ${{ steps.extract.outputs.images }}
+    permissions:
+      contents: read
+      pull-requests: write
+    strategy:
+      matrix:
+        resource: ["helmrelease", "kustomization"]
+      fail-fast: false
     steps:
       - name: Checkout Pull Request Branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -53,38 +58,37 @@ jobs:
           tool_versions: |
             github:home-operations/flate latest
 
-      - name: Extract Images
-        id: extract
+      - name: Run flate test
+        env:
+          RESOURCE: ${{ matrix.resource }}
+        run: flate test "$RESOURCE" --path ./pull --path-orig ./default
+
+      - name: Run flate diff
+        id: diff
+        env:
+          RESOURCE: ${{ matrix.resource }}
         run: |
           {
-            echo 'images<<EOF'
-            flate diff images --output json --path ./pull --path-orig ./default
+            echo 'diff<<EOF'
+            flate diff "$RESOURCE" --path ./pull --path-orig ./default
             echo 'EOF'
           } >> $GITHUB_OUTPUT
 
-  pull:
-    if: ${{ needs.extract.outputs.images != '[]' }}
-    needs: extract
-    name: Image Pull - Pull Images
-    runs-on: cluster-runner
-    strategy:
-      matrix:
-        image: ${{ fromJSON(needs.extract.outputs.images) }}
-      max-parallel: 4
-      fail-fast: false
-    steps:
-      - name: Install talosctl
-        run: curl -fsSL https://talos.dev/install | sh
-
-      - name: Pull Image
-        env:
-          IMAGE: ${{ matrix.image }}
-        run: talosctl --nodes "$NODE" image pull "$IMAGE"
+      - if: ${{ steps.diff.outputs.diff != '' }}
+        name: Add Comment
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          header: ${{ github.event.pull_request.number }}/kubernetes/${{ matrix.resource }}
+          message: |
+            ```diff
+            ${{ steps.diff.outputs.diff }}
+            ```
 
   success:
     if: ${{ !cancelled() }}
-    needs: pull
-    name: Image Pull - Success
+    needs: [flate]
+    name: Flate - Success
     runs-on: ubuntu-latest
     steps:
       - name: Any jobs failed?
