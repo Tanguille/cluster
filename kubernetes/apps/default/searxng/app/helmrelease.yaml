@@ -22,15 +22,13 @@ spec:
             image:
               repository: ghcr.io/searxng/searxng
               tag: 2026.5.26-0037d43d8@sha256:1a9d21346437a41ddfc2286968026dddece1d4d0721625cffa2c3b00bb2f9cf3
-            command:
-              - /usr/local/searxng/venv/bin/uwsgi
-              - --master
-              - /usr/local/searxng/.template/uwsgi.ini
-              - --listen
-              - "256"
             env:
-              BASE_URL: https://search.${CLUSTER_DOMAIN}
-              UWSGI_WORKERS: "1"
+              FORCE_OWNERSHIP: "false"
+              GRANIAN_HOST: "::"
+              GRANIAN_PORT: "8080"
+              SEARXNG_BASE_URL: https://search.${SECRET_DOMAIN}
+              SEARXNG_PORT: "8080"
+              SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
             envFrom:
               - secretRef:
                   name: searxng-secret
@@ -47,11 +45,22 @@ spec:
                   timeoutSeconds: 1
                   failureThreshold: 3
               readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: *port
+                  failureThreshold: 30
+                  periodSeconds: 5
             securityContext:
               runAsUser: 977
               runAsGroup: 977
+              runAsNonRoot: true
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
+              seccompProfile: { type: RuntimeDefault }
               capabilities:
                 drop:
                   - ALL
@@ -71,6 +80,7 @@ spec:
       securityContext:
         fsGroup: 977
     defaultPodOptions:
+      enableServiceLinks: false
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -111,3 +121,9 @@ spec:
             app:
               - path: /etc/searxng
               - path: /tmp
+      cache:
+        type: emptyDir
+        advancedMounts:
+          app:
+            app:
+              - path: /var/cache/searxng
