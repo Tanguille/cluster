@@ -1,10 +1,17 @@
 # See: https://docs.searxng.org/admin/searx.limiter.html
 
-[botdetection.ip_lists]
-pass_ip = [
-  "10.0.0.0/8",     # Kubernetes pod CIDR (common)
-  "172.16.0.0/12",  # Private range
-  "192.168.0.0/16", # Private range
-  "100.64.0.0/10",  # Cilium / shared address space
-  "fe80::/10",      # IPv6 link-local
+[botdetection]
+# Envoy uses private Pod/Service ranges. Trust these proxies so public requests
+# are limited by the real X-Forwarded-For client IP instead of the gateway pod IP.
+trusted_proxies = [
+  "127.0.0.0/8",
+  "::1",
+  "10.0.0.0/8",
+  "172.16.0.0/12",
+  "192.168.0.0/16",
+  "100.64.0.0/10",
+  "fd00::/8",
 ]
+
+[botdetection.ip_limit]
+link_token = true

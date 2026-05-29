@@ -6,12 +6,9 @@ server:
   image_proxy: true
   method: GET # https://github.com/searxng/searxng/pull/3619
 
-redis:
-  url: redis://dragonfly.database.svc.cluster.local:6379?db=10
-
 # Limiter needs valkey (Redis-compatible); use same Dragonfly with a different db.
 valkey:
-  url: redis://dragonfly.database.svc.cluster.local:6379/11
+  url: valkey://dragonfly.database.svc.cluster.local:6379/11
 
 search:
   # Allow JSON so API/MCP clients (e.g. mcp-searxng) can use format=json; otherwise they get 403.
@@ -24,21 +21,31 @@ general:
   instance_name: TangeniusSearch
 
 ui:
+  query_in_title: false
+  url_formatting: pretty
   static_use_hash: true
   default_theme: simple
   theme_args:
     simple_style: dark
-  infinite_scroll: true
   results_on_new_tab: true
 
-enabled_plugins:
-  - Basic Calculator
-  - Hash plugin
-  - Hostnames plugin
-  - Open Access DOI rewrite
-  - Self Informations
-  - Tracker URL remover
-  - Unit converter plugin
+plugins:
+  searx.plugins.calculator.SXNGPlugin:
+    active: true
+  searx.plugins.hash_plugin.SXNGPlugin:
+    active: true
+  searx.plugins.hostnames.SXNGPlugin:
+    active: true
+  searx.plugins.infinite_scroll.SXNGPlugin:
+    active: true
+  searx.plugins.oa_doi_rewrite.SXNGPlugin:
+    active: true
+  searx.plugins.self_info.SXNGPlugin:
+    active: true
+  searx.plugins.tracker_url_remover.SXNGPlugin:
+    active: true
+  searx.plugins.unit_converter.SXNGPlugin:
+    active: true
 
 hostnames:
   high_priority:
