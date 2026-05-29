@@ -36,7 +36,6 @@ spec:
   targetNamespace: *namespace
 
   components:
-    - ../../../../../components/volsync
     - ../../../../../components/nfs-scaler
   dependsOn:
     - name: qbittorrent
@@ -50,4 +49,3 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 5Gi
