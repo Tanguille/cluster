@@ -3,9 +3,8 @@
 # Emit JSON with severity so evidence_blocker_enforcement can map failures to request_changes.
 # Uses jq and shellcheck.
 #
-# Note: Full-tree kubeconform is not used here — Flux/Talos HelmRelease and raw configs fail
-# kubeconform even with -ignore-missing-schemas; that would block every PR. Use shellcheck
-# for reliable CI-style signal; add targeted commands if you introduce dedicated validation scripts.
+# Shellcheck on scripts/*.sh is the reliable CI-style signal for this repo.
+# Add targeted commands if you introduce dedicated validation scripts.
 set -u
 set -o pipefail
 

@@ -12,7 +12,11 @@ Use **add-app-to-cluster** skill for full procedure.
 2. Add OCIRepository if external
 3. Create app in `kubernetes/apps/<app>/`
 4. Add Kustomization in appropriate `ks.yaml`
-5. Run validation: `mise exec -- kubeconform -strict kubernetes/`
+5. Run validation on the new app (`<namespace>`, `<app-name>`):
+   - `mise exec -- yamllint -c .yamllint.yaml kubernetes/apps/<namespace>/<app-name>/`
+   - `mise exec -- kustomize build kubernetes/apps/<namespace>/<app-name>/`
+   - `mise exec -- shellcheck scripts/*.sh`
+   - Or: `bash .agents/skills/pr-review/scripts/validate-pr.sh`
 
 ## Secrets management (SOPS)
 

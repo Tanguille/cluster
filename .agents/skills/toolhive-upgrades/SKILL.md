@@ -43,8 +43,7 @@ Stay ahead of **ToolHive** churn: each minor often changes CRD shapes, Helm valu
 3. **Bump pins** — Same **X.Y.Z** on both OCI `ref.tag` values unless upstream documents otherwise.
 4. **Patch manifests** — Apply renames, structs, and removals from the release; avoid drive-by edits.
 5. **Audit** — `bash .agents/skills/toolhive-upgrades/scripts/audit-toolhive-yaml.sh` (requires `rg`). Fix or document false positives.
-6. **Validate** — `mise exec -- kubeconform -strict kubernetes/` (expect Flux/CRD/SOPS noise without extra schemas); `mise exec -- shellcheck` on touched shell. For ToolHive-only YAML without bundled CRD schemas:
-   `mise exec -- kubeconform -strict -ignore-missing-schemas -ignore-filename-pattern 'secret\.sops\.yaml' kubernetes/apps/ai/toolhive/`.
+6. **Validate** — `mise exec -- shellcheck` on touched shell.
 7. **Subagent review (blocking)** — [Review gate](#review-gate-subagent-required-before-done). Do **not** call the upgrade done until **PASS**.
 8. **Cluster reconcile order** — CRD release before operator; **ask user** before live apply (`AGENTS.md`).
 

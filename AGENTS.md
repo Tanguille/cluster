@@ -12,8 +12,8 @@ Follow the **[AGENTS.md format](https://agents.md)**. Keep this file short (~50-
 ## Commands (run these first)
 
 - **Task runner:** `mise exec -- task reconcile`, `mise exec -- task talos:generate-config`, `mise exec -- task talos:apply-node IP=...`, `mise exec -- task talos:upgrade-node IP=...`
-- **Validate before commit:** `mise exec -- kubeconform -strict kubernetes/`, `mise exec -- shellcheck scripts/*.sh`
-- **Tooling:** run `flux`, `helm`, `kubectl`, `kustomize`, `sops`, `age`, `talhelper`, `talosctl`, `yq`, `jq`, `kubeconform`, `shellcheck` via `mise exec -- <cmd>`.
+- **Validate before commit:** `bash .agents/skills/pr-review/scripts/validate-pr.sh` (yamllint, kustomize, shellcheck); minimum `mise exec -- shellcheck scripts/*.sh`
+- **Tooling:** run `flux`, `helm`, `kubectl`, `kustomize`, `sops`, `age`, `talhelper`, `talosctl`, `yq`, `jq`, `shellcheck` via `mise exec -- <cmd>`.
 
 ## Tool use and context
 
@@ -50,7 +50,7 @@ Follow the **[AGENTS.md format](https://agents.md)**. Keep this file short (~50-
 
 ## Safety and permissions (three-tier)
 
-- **Always:** Read files, list dirs, validation (kubeconform, shellcheck), flux-local test/diff, format/lint.
+- **Always:** Read files, list dirs, validation (shellcheck), flux-local test/diff, format/lint.
 - **Ask first:** Git push (always ask before any push), push to main, force push, applying to live cluster (`task reconcile`, `flux reconcile`, `talos apply`), decrypting/editing SOPS secrets, deleting resources.
 - **Never:** Commit secrets or age.key (no exceptions).
 
