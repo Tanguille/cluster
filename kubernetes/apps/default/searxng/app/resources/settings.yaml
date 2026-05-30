@@ -63,8 +63,7 @@ hostnames:
     - (.*\.)?access.redhat.com$
 
 engines:
-  # Onion/Tor engines fail to initialize without a Tor proxy. Keep them disabled
-  # unless this deployment gets Tor egress support.
+  # Onion/Tor engines fail to initialize without a Tor proxy.
   - name: ahmia
     disabled: true
   - name: torch
