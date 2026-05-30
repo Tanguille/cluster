@@ -71,7 +71,7 @@ flux get all -A --status-selector ready=false
 flux reconcile kustomization <name> --with-source
 ```
 
-MCP when available: `get_flux_instance`, `reconcile_flux_kustomization`.
+MCP when available: `get_flux_instance`, `reconcile_flux_kustomization`. ToolHive tools are group-prefixed in-session (e.g. `flux-operator_reconcile_flux_kustomization`); resolve the real name from the session tool list before calling.
 
 ## Talos (rare)
 
