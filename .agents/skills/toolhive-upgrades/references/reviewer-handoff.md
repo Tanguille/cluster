@@ -12,7 +12,7 @@ Replace `VOLD`, `VNEW`, and paste `git diff --stat` / audit output. Send as the 
 
 **Release:** <https://github.com/stacklok/toolhive/releases/tag/VNEW> (when `VNEW` is a shipped tag)
 **Compare tags:** <https://github.com/stacklok/toolhive/compare/VOLD...VNEW>
-**Upstream currency:** **`VERSION`** on **`main`** plus **`compare`** URLs — **`VNEW` must include leading `v`** for GitHub (Flux pins omit it). Examples (same refs):  
+**Upstream currency:** **`VERSION`** on **`main`** plus **`compare`** URLs — **`VNEW` must include leading `v`** for GitHub (Flux pins omit it). Examples (same refs):
 <https://github.com/stacklok/toolhive/compare/main...vNEW> · <https://github.com/stacklok/toolhive/compare/vNEW...main>
 
 ### Diff summary
@@ -29,7 +29,7 @@ Replace `VOLD`, `VNEW`, and paste `git diff --stat` / audit output. Send as the 
 2. Both OCIRepositories use `ref.tag: VNEW` (and match each other unless upstream documents an exception).
 3. No plaintext secrets; no unrelated churn outside ToolHive + agreed docs.
 4. If `helmrelease.yaml` values changed: types match chart (e.g. `operator.env` is a list of `{name,value}`).
-5. Local validation (kubeconform / shellcheck) is credible for this diff.
+5. Local validation (shellcheck) is credible for this diff.
 
 **Verdict:** **PASS** (no blockers) or **FAIL** (list blockers; implementer fixes and re-invokes you once).
 
