@@ -40,7 +40,7 @@ TrueNAS VM:
 
 - **CPU:** AMD Ryzen 5800X → 6 cores allocated to Talos
 - **RAM:** 128GB DDR4 → 48GB allocated to Talos
-- **GPU:** NVIDIA RTX 4070 → Full passthrough to Talos
+- **GPU:** NVIDIA RTX 2070 → Full passthrough to Talos
 - **Networking:** 10G NIC running at 2.5Gbps
 - **Storage:** Samsung PM983 2TB nvme
   - Boot ZVOL: 500GB
