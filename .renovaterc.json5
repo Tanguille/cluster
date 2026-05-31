@@ -120,6 +120,16 @@
       },
       minimumGroupSize: 2,
     },
+    // Versioning overrides
+    {
+      description: "Mixed-segment tags (p2pool v4.15/v4.15.1, hermes v2026.5.29/v2026.5.29.2); docker versioning skips patch bumps",
+      matchDatasources: ["docker"],
+      matchPackageNames: [
+        "ghcr.io/sethforprivacy/p2pool",
+        "nousresearch/hermes-agent",
+      ],
+      versioning: "loose",
+    },
     // Labeling rules
     {
       matchUpdateTypes: ["major"],

@@ -62,7 +62,6 @@ When reviewing PRs, verify against current best practices by researching:
 Research current validation tooling:
 
 - yamllint - YAML syntax validation
-- kubeconform - Kubernetes schema validation
 - kustomize - Build and validation
 - flux CLI - Build and reconciliation testing
 - Local scripts for repository-specific checks
@@ -81,9 +80,6 @@ Always cross-reference with:
 ```bash
 # Syntax
 yamllint -c .yamllint.yaml .
-
-# Schema
-kubeconform -strict -ignore-missing-schemas kubernetes/
 
 # Build
 kustomize build kubernetes/apps/<namespace>/<app>/
