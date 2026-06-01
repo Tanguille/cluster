@@ -39,42 +39,32 @@ jobs:
         resource: ["helmrelease", "kustomization"]
       fail-fast: false
     steps:
-      - name: Checkout Pull Request Branch
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          path: pull
-          persist-credentials: false
+          fetch-depth: 0
 
-      - name: Checkout Default Branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          path: default
-          persist-credentials: false
+      - name: Install Flate
+        uses: home-operations/flate/action@90c0478740457fe22b4063a5c51689045c721f57 # 0.1.36
 
-      - name: Setup Mise
-        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
-        with:
-          tool_versions: |
-            github:home-operations/flate latest
-
-      - name: Run flate test
+      - name: Run Flate
+        id: flate
         env:
-          RESOURCE: ${{ matrix.resource }}
-        run: flate test "$RESOURCE" --path ./pull --path-orig ./default
+          FLATE_PATH: ./kubernetes/flux/cluster
+        run: |-
+          echo 'diff<<EOF' >> $GITHUB_OUTPUT
+          flate diff ${{ matrix.resource }} >> $GITHUB_OUTPUT
+          echo 'EOF' >> $GITHUB_OUTPUT
 
-      - name: Run flate diff
-        id: diff
-        env:
-          RESOURCE: ${{ matrix.resource }}
-        run: |
-          {
-            echo 'diff<<EOF'
-            flate diff "$RESOURCE" --path ./pull --path-orig ./default
-            echo 'EOF'
-          } >> $GITHUB_OUTPUT
+      - if: ${{ steps.flate.outputs.diff != '' }}
+        name: Generate Token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.BOT_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
 
-      - if: ${{ steps.diff.outputs.diff != '' }}
+      - if: ${{ steps.flate.outputs.diff != '' }}
         name: Add Comment
         uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
         with:
@@ -82,12 +72,12 @@ jobs:
           header: ${{ github.event.pull_request.number }}/kubernetes/${{ matrix.resource }}
           message: |
             ```diff
-            ${{ steps.diff.outputs.diff }}
+            ${{ steps.flate.outputs.diff }}
             ```
 
   success:
     if: ${{ !cancelled() }}
-    needs: [flate]
+    needs: flate
     name: Flate - Success
     runs-on: ubuntu-latest
     steps:
