@@ -24,16 +24,6 @@ Welcome to my `fluxcd` kubernetes cluster running on `talos`. This is based on t
 
 </div>
 
-<div align="center">
-
-[Live metrics gallery](https://kromgo.tanguille.site/) ·
-[CPU graph](https://kromgo.tanguille.site/graphs/cluster_cpu_usage?last=24h) ·
-[Memory graph](https://kromgo.tanguille.site/graphs/cluster_memory_usage?last=24h) ·
-[Pods graph](https://kromgo.tanguille.site/graphs/cluster_pod_count?last=24h) ·
-[Alerts graph](https://kromgo.tanguille.site/graphs/cluster_alert_count?last=24h)
-
-</div>
-
 ## Architecture
 
 This is a 3-node control plane Kubernetes cluster running on Talos Linux. All nodes serve as both control plane and worker nodes.
