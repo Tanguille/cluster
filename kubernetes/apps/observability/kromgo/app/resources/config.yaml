@@ -1,85 +1,104 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/kashalls/kromgo/main/config.schema.json
-badge:
-  font: Verdana.ttf
-  size: 12
+# yaml-language-server: $schema=https://raw.githubusercontent.com/home-operations/kromgo/main/config.schema.json
 
-metrics:
-  - name: talos_version
-    query: label_replace(node_os_info{name="Talos"}, "version_id", "$1", "version_id", "v(.+)")
-    label: version_id
+gallery:
+  enabled: true
+
+cache:
+  enabled: true
+  maxAge: 300
+
+defaults:
+  badge:
+    font: dejavu-sans
+    size: 11
+    style: flat-square
+    labelColor: "#374151"
+  graph:
+    maxDuration: 7d
+    width: 800
+    height: 240
+    legend: true
+    theme: catppuccin-mocha
+
+badges:
+  - id: talos_version
     title: Talos
+    icon: mdi:server
+    query: label_replace(node_os_info{name="Talos"}, "version_id", "$1", "version_id", "v(.+)")
+    valueExpr: 'labels[?"version_id"].orValue("unknown")'
 
-  - name: kubernetes_version
-    query: label_replace(kubernetes_build_info{service="kubernetes"}, "git_version", "$1", "git_version", "v(.+)")
-    label: git_version
+  - id: kubernetes_version
     title: Kubernetes
+    icon: si:kubernetes
+    query: label_replace(kubernetes_build_info{service="kubernetes"}, "git_version", "$1", "git_version", "v(.+)")
+    valueExpr: 'labels[?"git_version"].orValue("unknown")'
 
-  - name: flux_version
-    query: label_replace(flux_instance_info, "revision", "$1", "revision", "v(.+)@sha256:.+")
-    label: revision
+  - id: flux_version
     title: Flux
+    icon: mdi:sync
+    query: label_replace(flux_instance_info, "revision", "$1", "revision", "v(.+)@sha256:.+")
+    valueExpr: 'labels[?"revision"].orValue("unknown")'
 
-  - name: cluster_node_count
-    query: count(count by (node) (kube_node_status_condition{condition="Ready"}))
-    colors:
-      - { color: "green", min: 0, max: 9999 }
+  - id: cluster_node_count
     title: Nodes
+    icon: mdi:server-network
+    query: count(count by (node) (kube_node_status_condition{condition="Ready"}))
+    valueExpr: 'string(int(result))'
+    colorExpr: 'result >= 1.0 ? "green" : "red"'
 
-  - name: cluster_pod_count
-    query: sum(kube_pod_status_phase{phase="Running"})
-    colors:
-      - { color: "green", min: 0, max: 9999 }
+  - id: cluster_pod_count
     title: Pods
+    icon: mdi:cube-outline
+    query: sum(kube_pod_status_phase{phase="Running"})
+    valueExpr: 'humanizeCommas(result)'
+    colorExpr: 'result >= 1.0 ? "green" : "red"'
 
-  - name: cluster_cpu_usage
-    query: round(avg(instance:node_cpu_utilisation:rate5m{pod!=""}) * 100, 0.1)
-    suffix: "%"
-    colors:
-      - { color: "green", min: 0, max: 35 }
-      - { color: "orange", min: 36, max: 75 }
-      - { color: "red", min: 76, max: 9999 }
+  - id: cluster_cpu_usage
     title: CPU
+    icon: mdi:cpu-64-bit
+    query: round(avg(instance:node_cpu_utilisation:rate5m{pod!=""}) * 100, 0.1)
+    valueExpr: 'math.isNaN(result) ? "n/a" : humanizeFloat(result) + "%"'
+    colorExpr: 'colorScale(result, [35.0, 75.0], ["green", "orange", "red"])'
 
-  - name: cluster_memory_usage
-    query: round(sum(node_memory_MemTotal_bytes{pod!=""} - node_memory_MemAvailable_bytes{pod!=""}) / sum(node_memory_MemTotal_bytes{pod!=""}) * 100, 0.1)
-    suffix: "%"
-    colors:
-      - { color: green, min: 0, max: 35 }
-      - { color: orange, min: 36, max: 75 }
-      - { color: red, min: 76, max: 9999 }
+  - id: cluster_memory_usage
     title: Memory
+    icon: mdi:memory
+    query: round(sum(node_memory_MemTotal_bytes{pod!=""} - node_memory_MemAvailable_bytes{pod!=""}) / sum(node_memory_MemTotal_bytes{pod!=""}) * 100, 0.1)
+    valueExpr: 'math.isNaN(result) ? "n/a" : humanizeFloat(result) + "%"'
+    colorExpr: 'colorScale(result, [35.0, 75.0], ["green", "orange", "red"])'
 
-  - name: cluster_power_usage
-    query: round(upsHighPrecOutputLoad, 0.1)
-    suffix: "w"
-    colors:
-      - { color: "green", min: 0, max: 400 }
-      - { color: "orange", min: 401, max: 750 }
-      - { color: "red", min: 751, max: 9999 }
-    title: Power
-
-  - name: cluster_age_days
-    query: round((time() - min(kube_node_created) ) / 86400)
-    suffix: "d"
-    colors:
-      - { color: "green", min: 0, max: 180 }
-      - { color: "orange", min: 181, max: 360 }
-      - { color: "red", min: 361, max: 9999 }
+  - id: cluster_age_days
     title: Age
+    icon: mdi:calendar-clock
+    query: round((time() - min(kube_node_created) ) / 86400)
+    valueExpr: 'humanizeFloat(result) + "d"'
+    colorExpr: 'colorScale(result, [181.0, 361.0], ["green", "orange", "red"])'
 
-  - name: cluster_uptime_days
-    query: round(avg(node_time_seconds{pod!=""} - node_boot_time_seconds{pod!=""}) / 86400)
-    suffix: "d"
-    colors:
-      - { color: "green", min: 0, max: 180 }
-      - { color: "orange", min: 181, max: 360 }
-      - { color: "red", min: 361, max: 9999 }
+  - id: cluster_uptime_days
     title: Uptime
+    icon: mdi:timer-outline
+    query: round(avg(node_time_seconds{pod!=""} - node_boot_time_seconds{pod!=""}) / 86400)
+    valueExpr: 'humanizeFloat(result) + "d"'
+    colorExpr: 'colorScale(result, [181.0, 361.0], ["green", "orange", "red"])'
 
-  - name: cluster_alert_count
-    query: alertmanager_alerts{state="active"} - 1 # Ignore Watchdog
-    colors:
-      - { color: "green", min: 0, max: 0 }
-      - { color: "red", min: 1, max: 9999 }
+  - id: cluster_alert_count
     title: Alerts
+    icon: mdi:alert-outline
+    query: clamp_min((max(alertmanager_alerts{state="active"}) or vector(0)) - 1, 0)
+    valueExpr: 'math.isNaN(result) ? "0" : humanizeCommas(result)'
+    colorExpr: 'result > 0.0 ? "red" : "green"'
+
+graphs:
+  - id: cluster_cpu_usage
+    title: CPU
+    query: round(avg(instance:node_cpu_utilisation:rate5m{pod!=""}) * 100, 0.1)
+  - id: cluster_memory_usage
+    title: Memory
+    query: round(sum(node_memory_MemTotal_bytes{pod!=""} - node_memory_MemAvailable_bytes{pod!=""}) / sum(node_memory_MemTotal_bytes{pod!=""}) * 100, 0.1)
+  - id: cluster_pod_count
+    title: Pods
+    query: sum(kube_pod_status_phase{phase="Running"})
+  - id: cluster_alert_count
+    title: Alerts
+    query: clamp_min((max(alertmanager_alerts{state="active"}) or vector(0)) - 1, 0)
