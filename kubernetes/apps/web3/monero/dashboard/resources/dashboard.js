@@ -211,11 +211,7 @@ function formatDate24Hours(date) {
  * @returns {string}
  */
 function formatRelativeTime(timestamp, opts = {}) {
-  const {
-    zeroLabel = "Never",
-    invalidLabel = "Unknown",
-    underMinute,
-  } = opts;
+  const { zeroLabel = "Never", invalidLabel = "Unknown", underMinute } = opts;
 
   if (!timestamp || timestamp === 0) return zeroLabel;
   if (!isPositiveNumber(timestamp)) return invalidLabel;
@@ -682,7 +678,9 @@ async function updateRecentPayments(payouts, priceEUR) {
       return [null, 0];
     }
 
-    const sortedPayouts = [...payouts].sort((a, b) => b.timestamp - a.timestamp);
+    const sortedPayouts = [...payouts].sort(
+      (a, b) => b.timestamp - a.timestamp,
+    );
     const newestPayoutTime = sortedPayouts[0].timestamp;
 
     const totalXMR = sortedPayouts.reduce(
@@ -1237,12 +1235,13 @@ async function updateStats() {
     // Fetch observer data once — shared by payments, shares, and luck
     // Note: p2pool.observer /shares does NOT support ?miner= filter,
     // so we fetch all recent shares and filter client-side.
-    const [payouts, allShares] = state.observerBase && state.observerWallet
-      ? await Promise.all([
-          fetchJSON(`/observer/payouts/${state.observerWallet}`),
-          fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`),
-        ])
-      : [null, null];
+    const [payouts, allShares] =
+      state.observerBase && state.observerWallet
+        ? await Promise.all([
+            fetchJSON(`/observer/payouts/${state.observerWallet}`),
+            fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`),
+          ])
+        : [null, null];
 
     // Filter shares to only this miner's
     // Note: API returns `miner` as a numeric ID, so we match on `miner_address`
@@ -1251,7 +1250,10 @@ async function updateStats() {
       : [];
 
     // Update payments
-    const [newestPayoutTime, totalXMR] = await updateRecentPayments(payouts, priceEUR);
+    const [newestPayoutTime, totalXMR] = await updateRecentPayments(
+      payouts,
+      priceEUR,
+    );
 
     // Update shares
     await updateSharesCard(minerShares, payouts);
@@ -1289,7 +1291,11 @@ async function updateStats() {
     );
 
     // Update true luck — auto-detect mining start from history data
-    if (state.history && Array.isArray(state.history.timestamps) && state.history.timestamps.length > 0) {
+    if (
+      state.history &&
+      Array.isArray(state.history.timestamps) &&
+      state.history.timestamps.length > 0
+    ) {
       const historyStart = state.history.timestamps[0];
       updateTrueLuck(
         historyStart,
