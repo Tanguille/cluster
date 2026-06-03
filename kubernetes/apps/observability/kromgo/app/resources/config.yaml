@@ -44,14 +44,14 @@ badges:
     title: Nodes
     icon: mdi:server-network
     query: count(count by (node) (kube_node_status_condition{condition="Ready"}))
-    valueExpr: 'string(int(result))'
+    valueExpr: "string(int(result))"
     colorExpr: 'result >= 1.0 ? "green" : "red"'
 
   - id: cluster_pod_count
     title: Pods
     icon: mdi:cube-outline
     query: sum(kube_pod_status_phase{phase="Running"})
-    valueExpr: 'humanizeCommas(result)'
+    valueExpr: "humanizeCommas(result)"
     colorExpr: 'result >= 1.0 ? "green" : "red"'
 
   - id: cluster_cpu_usage
