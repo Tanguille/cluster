@@ -18,17 +18,12 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/home-operations/kromgo
-              tag: 0.14.0
+              repository: ghcr.io/kashalls/kromgo
+              tag: v0.10.0@sha256:965ecc92d68dc1a4a969397855367bbc70da03227a941ea607b73bb7e0b78fd6
             env:
               PROMETHEUS_URL: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
               SERVER_PORT: &port 80
               HEALTH_PORT: &healthPort 8080
-              QUERY_TIMEOUT: 10s
-              SERVER_READ_TIMEOUT: 5s
-              SERVER_WRITE_TIMEOUT: 10s
-              LOG_LEVEL: info
-              LOG_FORMAT: json
             probes:
               liveness: &probes
                 enabled: true
@@ -81,5 +76,5 @@ spec:
         type: configMap
         name: kromgo-configmap
         globalMounts:
-          - path: /config/config.yaml
+          - path: /kromgo/config.yaml
             subPath: config.yaml
