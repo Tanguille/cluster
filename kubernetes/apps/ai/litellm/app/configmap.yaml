@@ -1,0 +1,26 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+data:
+  config.yaml: |
+    model_list:
+      - model_name: qwen-3.6
+        litellm_params:
+          model: openai/qwen-3.6
+          api_base: http://llama-server.ai.svc.cluster.local/v1
+          api_key: os.environ/LLAMA_SERVER_API_KEY
+        model_info:
+          mode: chat
+
+    litellm_settings:
+      callbacks: ["prometheus"]
+      service_callback: ["prometheus_system"]
+      cache: true
+      cache_params:
+        type: redis
+        host: dragonfly.database.svc.cluster.local
+        port: 6379
+        namespace: litellm
+      drop_params: true
