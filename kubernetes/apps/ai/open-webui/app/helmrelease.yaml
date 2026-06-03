@@ -28,11 +28,10 @@ spec:
               repository: ghcr.io/open-webui/open-webui
               tag: v0.9.6@sha256:90eae5b419e40b4c3dd684582b2c83440b36f9ae2f6532c09639b2ba4ee65158
             env:
-              OLLAMA_BASE_URL: http://ollama.ai.svc.cluster.local:11434
-              OPENAI_API_BASE_URL: http://llama-server.ai.svc.cluster.local/v1
+              OPENAI_API_BASE_URL: http://litellm.ai.svc.cluster.local:4000
               ENABLE_IMAGE_GENERATION: True
               JWT_EXPIRES_IN: "7d"
-              CORS_ALLOW_ORIGIN: "https://ollama.${SECRET_DOMAIN}"
+              CORS_ALLOW_ORIGIN: "https://openwebui.${SECRET_DOMAIN}"
             envFrom: *envFrom
             probes:
               liveness:
@@ -72,7 +71,7 @@ spec:
     route:
       app:
         hostnames:
-          - "ollama.${SECRET_DOMAIN}"
+          - "openwebui.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-external
             namespace: network
