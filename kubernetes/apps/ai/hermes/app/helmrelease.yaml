@@ -28,17 +28,21 @@ spec:
           app:
             image:
               repository: nousresearch/hermes-agent
-              tag: v2026.5.29.2
+              tag: main
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
               allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
             args:
               - gateway
               - run
             env:
               TZ: ${TIMEZONE}
               HERMES_HOME: /opt/data
+              HOME: /opt/data
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_HOST: 0.0.0.0
               HERMES_DASHBOARD_PORT: &port 9119
@@ -106,3 +110,9 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /opt/data
+      dshm:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 1Gi
+        globalMounts:
+          - path: /dev/shm
