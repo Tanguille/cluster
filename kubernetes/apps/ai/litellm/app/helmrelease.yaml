@@ -28,6 +28,7 @@ spec:
               - "4000"
             env:
               TZ: ${TIMEZONE}
+              PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc_dir
             envFrom:
               - secretRef:
                   name: litellm-secret
@@ -100,3 +101,7 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /tmp
+      prometheus-multiproc:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp/prometheus_multiproc_dir
