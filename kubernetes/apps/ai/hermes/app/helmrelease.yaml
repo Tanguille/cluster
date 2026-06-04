@@ -33,9 +33,6 @@ spec:
             # drops gateway execution to the non-root hermes user.
             securityContext:
               allowPrivilegeEscalation: false
-              capabilities:
-                drop:
-                  - ALL
             args:
               - gateway
               - run
