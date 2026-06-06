@@ -66,6 +66,15 @@ spec:
 
     route:
       main:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Jellystat
+          gethomepage.dev/description: Jellyfin usage statistics
+          gethomepage.dev/group: Library
+          gethomepage.dev/icon: jellystat.png
+          gethomepage.dev/widget.type: jellystat
+          gethomepage.dev/widget.url: http://jellystat.media.svc.cluster.local:3000
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_JELLYSTAT_API_KEY}}`}}"
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

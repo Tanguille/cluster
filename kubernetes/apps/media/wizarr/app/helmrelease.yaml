@@ -52,6 +52,12 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Wizarr
+          gethomepage.dev/description: Jellyfin invitations
+          gethomepage.dev/group: Requests
+          gethomepage.dev/icon: wizarr.png
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

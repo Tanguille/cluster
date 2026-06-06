@@ -26,6 +26,12 @@ spec:
       retentionPeriod: 14d
       route:
         enabled: true
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: VictoriaLogs
+          gethomepage.dev/description: Log aggregation & query
+          gethomepage.dev/group: Logs
+          gethomepage.dev/icon: mdi-file-document-outline-#ffffff
         hostnames:
           - logs.${SECRET_DOMAIN}
         parentRefs:

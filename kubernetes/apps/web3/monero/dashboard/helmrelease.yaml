@@ -89,6 +89,12 @@ spec:
             targetPort: web
     route:
       dashboard:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Monero (p2pool)
+          gethomepage.dev/description: Monero / p2pool dashboard
+          gethomepage.dev/group: Web3
+          gethomepage.dev/icon: monero.png
         hostnames:
           - p2pool.${SECRET_DOMAIN}
         parentRefs:

@@ -1,0 +1,71 @@
+---
+- greeting:
+    text_size: xl
+    text: Cluster
+
+- datetime:
+    text_size: xl
+    format:
+      timeStyle: short
+      dateStyle: long
+      hourCycle: h23
+
+- search:
+    provider: custom
+    url: https://searxng.${SECRET_DOMAIN}/search?q=
+    target: _blank
+
+- kubernetes:
+    cluster:
+      show: true
+      cpu: true
+      memory: true
+      showLabel: true
+      label: cluster
+    nodes:
+      show: true
+      cpu: true
+      memory: true
+      showLabel: true
+
+- resources:
+    cpu: true
+    memory: true
+    label: resources
+
+- customapi:
+    url: https://kromgo.${SECRET_DOMAIN}/cluster_uptime_days
+    refreshInterval: 60000
+    display: block
+    mappings:
+      - field: value
+        label: Uptime
+        format: text
+        suffix: d
+
+- customapi:
+    url: https://kromgo.${SECRET_DOMAIN}/cluster_node_count
+    refreshInterval: 60000
+    display: block
+    mappings:
+      - field: value
+        label: Nodes
+        format: text
+
+- customapi:
+    url: https://kromgo.${SECRET_DOMAIN}/cluster_pod_count
+    refreshInterval: 60000
+    display: block
+    mappings:
+      - field: value
+        label: Pods
+        format: text
+
+- customapi:
+    url: https://kromgo.${SECRET_DOMAIN}/cluster_alert_count
+    refreshInterval: 60000
+    display: block
+    mappings:
+      - field: value
+        label: Alerts
+        format: text

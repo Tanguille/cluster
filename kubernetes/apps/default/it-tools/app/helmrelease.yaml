@@ -54,6 +54,12 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: IT Tools
+          gethomepage.dev/description: Dev & sysadmin toolbox
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: it-tools.png
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

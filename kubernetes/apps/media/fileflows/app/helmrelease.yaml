@@ -79,6 +79,14 @@ spec:
 
     route:
       fileflows:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: FileFlows
+          gethomepage.dev/description: Media transcoding pipeline
+          gethomepage.dev/group: Processing
+          gethomepage.dev/icon: fileflows.png
+          gethomepage.dev/widget.type: fileflows
+          gethomepage.dev/widget.url: http://fileflows.media.svc.cluster.local:5000
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
