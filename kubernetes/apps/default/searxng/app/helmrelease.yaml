@@ -21,7 +21,7 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.6.5-26fa181b8@sha256:47c01962ec215ac0787a66f6a7023b07343ea8d6a1433f80492dc3b136c7dc12
+              tag: 2026.6.6-e260a732c@sha256:283c3f8dcd55997c52d08cd491eea7b71012873c31879456260c85ec4fe7c198
             env:
               FORCE_OWNERSHIP: "false"
               GRANIAN_HOST: "::"
@@ -75,10 +75,10 @@ spec:
                   - DAC_OVERRIDE
             resources:
               requests:
-                cpu: 10m
-                memory: 128Mi
+                cpu: 50m
+                memory: 256Mi
               limits:
-                cpu: 100m
+                cpu: 500m
                 memory: 1Gi
     defaultPodOptions:
       enableServiceLinks: false

@@ -6,6 +6,11 @@ server:
   image_proxy: true
   method: GET # https://github.com/searxng/searxng/pull/3619
 
+outgoing:
+  request_timeout: 2.0
+  max_request_timeout: 5.0
+  pool_maxsize: 30
+
 # Limiter needs valkey (Redis-compatible); use same Dragonfly with a different db.
 valkey:
   url: valkey://dragonfly.database.svc.cluster.local:6379/11
