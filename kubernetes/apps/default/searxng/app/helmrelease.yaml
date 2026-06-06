@@ -21,7 +21,7 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.6.2-e964708c0@sha256:0872beb1d495d41f2dda73d7aea83746657afdd2be3010eb1b11f5a541555c9e
+              tag: 2026.6.6-e260a732c@sha256:283c3f8dcd55997c52d08cd491eea7b71012873c31879456260c85ec4fe7c198
             env:
               FORCE_OWNERSHIP: "false"
               GRANIAN_HOST: "::"
@@ -75,10 +75,10 @@ spec:
                   - DAC_OVERRIDE
             resources:
               requests:
-                cpu: 10m
-                memory: 128Mi
+                cpu: 50m
+                memory: 256Mi
               limits:
-                cpu: 100m
+                cpu: 500m
                 memory: 1Gi
     defaultPodOptions:
       enableServiceLinks: false
@@ -100,6 +100,14 @@ spec:
             port: *port
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: SearXNG
+          gethomepage.dev/description: Privacy-respecting meta-search
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: searxng.png
+          gethomepage.dev/widget.type: searxng
+          gethomepage.dev/widget.url: http://searxng.default.svc.cluster.local:8080
         hostnames:
           - search.${SECRET_DOMAIN}
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"

@@ -14,11 +14,12 @@ trusted_proxies = [
 ]
 
 [botdetection.ip_limit]
-link_token = true
+# Address-bar browser searches hit /search?q=... directly and do not reliably
+# complete SearXNG's /client<token>.css link-token flow first. Keep the limiter
+# enabled, but avoid treating normal browser search-provider requests as bots.
+link_token = false
 
 [botdetection.ip_lists]
-# Allow direct in-cluster clients (for example ToolHive MCP pods) without
-# bypassing private/VPN users that arrive through Envoy with X-Forwarded-For.
-pass_ip = [
-  "10.42.0.0/16",
-]
+# Allow trusted private clients to bypass header/link-token bot checks while the
+# limiter remains active for public clients.
+pass_ip = ["10.42.0.0/16", "${LAN_CIDR}"]

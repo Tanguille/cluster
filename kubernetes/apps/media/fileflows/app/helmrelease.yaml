@@ -55,7 +55,7 @@ spec:
           app:
             image:
               repository: revenz/fileflows
-              tag: 26.05@sha256:dca58baa4c9b4ba725c8ef57d197334895ba5d936c8040107e509c70f36246c5
+              tag: 26.06@sha256:9a500acebb512c79c1157cc24ffd327b5e3e8c4d746a135b1ceb2b0caf7c8371
             env:
               TZ: ${TIMEZONE}
               PUID: "568"
@@ -79,6 +79,14 @@ spec:
 
     route:
       fileflows:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: FileFlows
+          gethomepage.dev/description: Media transcoding pipeline
+          gethomepage.dev/group: Processing
+          gethomepage.dev/icon: fileflows.png
+          gethomepage.dev/widget.type: fileflows
+          gethomepage.dev/widget.url: http://fileflows.media.svc.cluster.local:5000
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

@@ -1,0 +1,139 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: homepage
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  maxHistory: 3
+  values:
+    controllers:
+      homepage:
+        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/gethomepage/homepage
+              tag: v1.13.1
+            env:
+              TZ: ${TIMEZONE}
+              LOG_TARGETS: stdout
+              HOMEPAGE_ALLOWED_HOSTS: home.${SECRET_DOMAIN}
+              HOMEPAGE_VAR_SONARR_API_KEY: ${SONARR_API_KEY}
+              HOMEPAGE_VAR_RADARR_API_KEY: ${RADARR_API_KEY}
+              HOMEPAGE_VAR_PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+              HOMEPAGE_VAR_QBITTORRENT_USERNAME: ${QBITTORRENT_USER}
+              HOMEPAGE_VAR_QBITTORRENT_PASSWORD: ${QBITTORRENT_PWD}
+              HOMEPAGE_VAR_JELLYSEERR_API_KEY: ${JELLYSEERR_API_KEY}
+            envFrom:
+              - secretRef:
+                  name: homepage-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/healthcheck
+                    port: &port 3000
+                    httpHeaders: &probeHeaders
+                      - name: Host
+                        value: localhost:3000
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 5
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/healthcheck
+                    port: *port
+                    httpHeaders: *probeHeaders
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+
+    defaultPodOptions:
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+
+    serviceAccount:
+      homepage: {}
+
+    rbac:
+      roles:
+        homepage:
+          type: ClusterRole
+          rules:
+            - apiGroups: [""]
+              resources: [namespaces, pods, nodes, services]
+              verbs: [get, list]
+            - apiGroups: ["gateway.networking.k8s.io"]
+              resources: [httproutes, gateways]
+              verbs: [get, list]
+            - apiGroups: ["metrics.k8s.io"]
+              resources: [nodes, pods]
+              verbs: [get, list]
+      bindings:
+        homepage:
+          type: ClusterRoleBinding
+          roleRef:
+            identifier: homepage
+          subjects:
+            - identifier: homepage
+
+    service:
+      app:
+        controller: homepage
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        hostnames:
+          - "home.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+
+    persistence:
+      config:
+        type: configMap
+        name: homepage-configmap
+        globalMounts:
+          - path: /app/config
+            readOnly: true
+      logs:
+        type: emptyDir
+        globalMounts:
+          - path: /app/config/logs
+      cache:
+        type: emptyDir
+        globalMounts:
+          - path: /app/.next/cache

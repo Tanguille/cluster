@@ -42,7 +42,7 @@ spec:
           app:
             image:
               repository: ghcr.io/jellyfin/jellyfin
-              tag: 10.11.10@sha256:6497f0245de93fac642926c065b427362ca5e626e659f690516599c8c3817a38
+              tag: 10.11.11@sha256:45f648c382a0c8b552582fcea40e95cb17c5d475473a891cba0eb7523fb92112
             command:
               - sh
               - -c
@@ -125,6 +125,16 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Jellyfin
+          gethomepage.dev/description: Media server
+          gethomepage.dev/group: Library
+          gethomepage.dev/icon: jellyfin.png
+          gethomepage.dev/widget.type: jellyfin
+          gethomepage.dev/widget.url: http://jellyfin.media.svc.cluster.local:8096
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}`}}"
+          gethomepage.dev/widget.fields: '["movies","series","episodes","songs"]'
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

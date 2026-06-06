@@ -78,6 +78,12 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Spoolman
+          gethomepage.dev/description: 3D printer filament tracker
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: spoolman.png
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
