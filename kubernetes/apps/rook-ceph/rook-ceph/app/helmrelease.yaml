@@ -10,14 +10,12 @@ spec:
     name: rook-ceph
   interval: 1h
   values:
-    csi:
-      cephFSKernelMountOptions: ms_mode=prefer-crc
     image:
       repository: ghcr.io/rook/ceph
     monitoring:
       enabled: true
     resources:
       requests:
-        cpu: 100m # unchangable
         memory: 128Mi # unchangable
+        cpu: 100m # unchangable
       limits: {}
