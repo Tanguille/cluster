@@ -13,22 +13,26 @@ metadata:
   name: &name talos-mcp
   namespace: ai
 spec:
-  image: node:24.16.0-alpine3.23
-  transport: stdio
+  # Pre-built Go image (amd64+arm64). Avoids the npx/talosconfig readOnly
+  # mount workarounds needed by the npm distribution.
+  image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2
+  transport: streamable-http
+  mcpPort: 8080
+  proxyPort: 8080
   groupRef:
     name: observability
-  args:
-    - -y
-    - talos-mcp@2.4.1
+  permissionProfile:
+    type: builtin
+    name: network
   env:
     - name: TALOSCONFIG
       value: /var/run/secrets/talos.dev/talosconfig
     - name: TALOS_MCP_READ_ONLY
       value: "true"
-    # ToolHive sets readOnlyRootFilesystem=true on the inner mcp container.
-    # `npx` needs a writable cache dir; redirect HOME to /tmp (writable tmpfs).
-    - name: HOME
-      value: /tmp
+    - name: TALOS_MCP_TRANSPORT
+      value: http
+    - name: TALOS_MCP_HTTP_ADDR
+      value: :8080
   toolConfigRef:
     name: *name
   podTemplateSpec:
@@ -37,9 +41,9 @@ spec:
         - name: talos
           secret:
             secretName: talos-mcp
+            defaultMode: 0o400
       containers:
         - name: mcp
-          command: ["npx"]
           volumeMounts:
             - name: talos
               mountPath: /var/run/secrets/talos.dev
@@ -65,22 +69,24 @@ metadata:
   name: talos-mcp-opt
   namespace: ai
 spec:
-  image: node:24.16.0-alpine3.23
-  transport: stdio
+  image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2
+  transport: streamable-http
+  mcpPort: 8080
+  proxyPort: 8080
   groupRef:
     name: all
-  args:
-    - -y
-    - talos-mcp@2.4.1
+  permissionProfile:
+    type: builtin
+    name: network
   env:
     - name: TALOSCONFIG
       value: /var/run/secrets/talos.dev/talosconfig
     - name: TALOS_MCP_READ_ONLY
       value: "true"
-    # ToolHive sets readOnlyRootFilesystem=true on the inner mcp container.
-    # `npx` needs a writable cache dir; redirect HOME to /tmp (writable tmpfs).
-    - name: HOME
-      value: /tmp
+    - name: TALOS_MCP_TRANSPORT
+      value: http
+    - name: TALOS_MCP_HTTP_ADDR
+      value: :8080
   toolConfigRef:
     name: talos-mcp
   podTemplateSpec:
@@ -89,9 +95,9 @@ spec:
         - name: talos
           secret:
             secretName: talos-mcp
+            defaultMode: 0o400
       containers:
         - name: mcp
-          command: ["npx"]
           volumeMounts:
             - name: talos
               mountPath: /var/run/secrets/talos.dev
