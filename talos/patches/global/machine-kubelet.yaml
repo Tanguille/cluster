@@ -5,6 +5,11 @@ machine:
       enableSystemLogQuery: true
       evictionHard:
         memory.available: 1Gi
+      # Trigger image GC before Ceph's mon_data_avail_warn default (30% free) fires.
+      imageGCHighThresholdPercent: 70
+      imageGCLowThresholdPercent: 55
+      # Reap images unused for 7d regardless of disk pressure.
+      imageMaximumGCAge: 168h
       kubeReserved:
         cpu: 500m
         memory: 2Gi
