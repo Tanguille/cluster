@@ -28,6 +28,16 @@
       versioningTemplate: "regex:^(?<major>\\d+)$",
       autoReplaceStringTemplate: "grafanaCom:\n    id: {{depName}}\n    revision: {{newValue}}",
     },
+    {
+      description: "Detect custom inline comments for image references and versions",
+      customType: "regex",
+      managerFilePatterns: ["\\.ya?ml$"],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>[a-z-]+?)(?: depName=(?<depName>[^\\s]+?))?(?: versioning=(?<versioning>[^\\s]+?))?\\s+reference:\\s+(?:[^:@\\s]+(?:/[^:@\\s]+)*):(?<currentValue>[^@\\s]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?",
+        "# renovate: datasource=(?<datasource>[a-z-]+?)(?: depName=(?<depName>[^\\s]+?))?(?: versioning=(?<versioning>[^\\s]+?))?\\s+version:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?",
+      ],
+      versioningTemplate: "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}",
+    },
   ],
   packageRules: [
     // Auto-merge rules
@@ -140,6 +150,12 @@
       minimumGroupSize: 2,
     },
     // Versioning overrides
+    {
+      description: "Custom regex versioning for ghcr.io/tensorchord/vchord-scratch to match pg18-vX.Y.Z tags",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"],
+      versioning: "regex:^pg(?<compatibility>\\d+)-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+    },
     {
       description: "Mixed-segment tags (p2pool v4.15/v4.15.1, hermes v2026.5.29/v2026.5.29.2); docker versioning skips patch bumps",
       matchDatasources: ["docker"],
