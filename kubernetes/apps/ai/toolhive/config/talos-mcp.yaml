@@ -25,6 +25,10 @@ spec:
       value: /var/run/secrets/talos.dev/talosconfig
     - name: TALOS_MCP_READ_ONLY
       value: "true"
+    # ToolHive sets readOnlyRootFilesystem=true on the inner mcp container.
+    # `npx` needs a writable cache dir; redirect HOME to /tmp (writable tmpfs).
+    - name: HOME
+      value: /tmp
   toolConfigRef:
     name: *name
   podTemplateSpec:
@@ -73,6 +77,10 @@ spec:
       value: /var/run/secrets/talos.dev/talosconfig
     - name: TALOS_MCP_READ_ONLY
       value: "true"
+    # ToolHive sets readOnlyRootFilesystem=true on the inner mcp container.
+    # `npx` needs a writable cache dir; redirect HOME to /tmp (writable tmpfs).
+    - name: HOME
+      value: /tmp
   toolConfigRef:
     name: talos-mcp
   podTemplateSpec:
