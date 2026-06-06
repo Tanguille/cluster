@@ -22,9 +22,19 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 Host = "0.0.0.0"
 Port = 6969
 
-[qBit.default]
+[qBit]
 Host = "qbittorrent.media.svc.cluster.local"
 Port = 80
+
+[qBit.CategorySeeding]
+DownloadRateLimitPerTorrent = -1
+UploadRateLimitPerTorrent = -1
+MaxUploadRatio = -1.0
+MaxSeedingTime = -1
+RemoveTorrent = -1
+HitAndRunMode = "disabled"
+StalledDelay = -1
+IgnoreTorrentsYoungerThan = 600
 
 [Sonarr-TV]
 Managed = true
@@ -100,6 +110,14 @@ MaximumDeletablePercentage = 0.99
 DoNotRemoveSlow = true
 # Minutes before stalled torrents can be removed (-1 = disabled, 0 = infinite)
 StalledDelay = 15
+IgnoreTorrentsYoungerThan = 600
+
+[Sonarr-TV.Torrent.SeedingMode]
+DownloadRateLimitPerTorrent = -1
+UploadRateLimitPerTorrent = -1
+MaxUploadRatio = -1.0
+MaxSeedingTime = -1
+RemoveTorrent = -1
 
 [Radarr]
 Managed = true
@@ -170,3 +188,11 @@ MaximumDeletablePercentage = 0.99
 DoNotRemoveSlow = true
 # Minutes before stalled torrents can be removed (-1 = disabled, 0 = infinite)
 StalledDelay = 15
+IgnoreTorrentsYoungerThan = 600
+
+[Radarr.Torrent.SeedingMode]
+DownloadRateLimitPerTorrent = -1
+UploadRateLimitPerTorrent = -1
+MaxUploadRatio = -1.0
+MaxSeedingTime = -1
+RemoveTorrent = -1
