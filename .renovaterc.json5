@@ -9,6 +9,15 @@
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   customManagers: [
     {
+      description: "Detect ToolHive MCPServer spec.image container references",
+      customType: "regex",
+      managerFilePatterns: ["/kubernetes/apps/ai/toolhive/config/.+\\.ya?ml$/"],
+      matchStrings: [
+        "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?",
+      ],
+      datasourceTemplate: "docker",
+    },
+    {
       description: "Process Grafana dashboards in GrafanaDashboard CRs",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
@@ -115,6 +124,16 @@
       groupName: "toolhive",
       matchDatasources: ["docker"],
       matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
+      group: {
+        commitMessageTopic: "{{{groupName}}} group",
+      },
+      minimumGroupSize: 2,
+    },
+    {
+      description: "ToolHive MCP server images group",
+      groupName: "toolhive-mcp",
+      matchDatasources: ["docker"],
+      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
       group: {
         commitMessageTopic: "{{{groupName}}} group",
       },
