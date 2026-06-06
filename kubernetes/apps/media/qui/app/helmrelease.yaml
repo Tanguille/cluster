@@ -59,6 +59,7 @@ spec:
                 cpu: 10m
                 memory: 128Mi
               limits:
+                cpu: 2
                 memory: 2Gi
             securityContext:
               allowPrivilegeEscalation: false
@@ -107,7 +108,7 @@ spec:
         path: /mnt/BIGHDDZ1/Media
         globalMounts:
           - path: /media
-            readOnly: true
+            readOnly: false
 
       tmp:
         type: emptyDir
