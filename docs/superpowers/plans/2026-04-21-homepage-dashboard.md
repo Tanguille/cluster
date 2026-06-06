@@ -131,14 +131,15 @@ Add `gethomepage.dev/*` annotations **minus** `widget.*` keys (tile + href only)
 
 ---
 
-## Task 6: Populate real API keys in SOPS secret
+## Task 6: Populate remaining API keys in SOPS secret
 
 **User task** — requires access to each app's UI to generate API keys.
 
-- [ ] **6.1** User decrypts `kubernetes/apps/default/homepage/app/secret.sops.yaml` with `sops`.
-- [ ] **6.2** User fills real values for all `HOMEPAGE_VAR_*` keys per the spec's Secrets section.
-- [ ] **6.3** User re-encrypts and commits: `feat(homepage): populate widget credentials`.
-- [ ] **6.4** `task reconcile` (user).
+- [x] **6.1** Reuse existing `cluster-secrets` values directly through Flux post-build substitution for Sonarr, Radarr, Prowlarr, qBittorrent, and Jellyseerr.
+- [ ] **6.2** User decrypts `kubernetes/apps/default/homepage/app/secret.sops.yaml` with `sops`.
+- [ ] **6.3** User fills real values for the remaining `HOMEPAGE_VAR_*` keys per the spec's Secrets section.
+- [ ] **6.4** User re-encrypts and commits: `feat(homepage): populate widget credentials`.
+- [ ] **6.5** `task reconcile` (user).
 
 Agent role: provide the full list of keys and the commands; hand over for user to run.
 
@@ -169,7 +170,7 @@ Agent role: provide the full list of keys and the commands; hand over for user t
 - [x] Task 3: Tier 1 media annotations — **DONE** (commit `50f79fa26`; unpackerr uses Service annotations, no HTTPRoute added)
 - [x] Task 4: Tier 1 ai/default/observability/security — **DONE** (commit `0b55afb87`; immich skipped — commented out; crowdsec added to services.yaml; grafana annotations on raw HTTPRoute)
 - [x] Task 5: Tier 2 tile annotations — **DONE** (commit `e75071e13`; 13 apps annotated; llama-server/toolhive/flaresolverr/recyclarr/cross-seed/deduparr/brrpolice skipped — no UI)
-- [ ] Task 6: Populate real API keys in SOPS secret — **USER TASK**
+- [ ] Task 6: Populate remaining API keys in SOPS secret — **PARTIAL** (cluster-secrets-backed keys now reused directly; remaining UI/API credentials still user task)
 - [ ] Task 7: Final verification + doc pass — **USER TASK** (after Task 6 + rebase)
 
 ## Open concerns

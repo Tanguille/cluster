@@ -25,6 +25,12 @@ spec:
               TZ: ${TIMEZONE}
               LOG_TARGETS: stdout
               HOMEPAGE_ALLOWED_HOSTS: $(MY_POD_IP):3000,home.${SECRET_DOMAIN}
+              HOMEPAGE_VAR_SONARR_API_KEY: ${SONARR_API_KEY}
+              HOMEPAGE_VAR_RADARR_API_KEY: ${RADARR_API_KEY}
+              HOMEPAGE_VAR_PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+              HOMEPAGE_VAR_QBITTORRENT_USERNAME: ${QBITTORRENT_USER}
+              HOMEPAGE_VAR_QBITTORRENT_PASSWORD: ${QBITTORRENT_PWD}
+              HOMEPAGE_VAR_JELLYSEERR_API_KEY: ${JELLYSEERR_API_KEY}
               MY_POD_IP:
                 valueFrom:
                   fieldRef:

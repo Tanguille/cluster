@@ -155,32 +155,40 @@ Ordered list of info widgets visible on every tab:
 
 Cluster-level resource usage for these is visible via the `kubernetes` and `resources` info widgets in the header.
 
-## Secrets model (`secret.sops.yaml`)
+## Secrets model
 
-A single SOPS-encrypted `Secret` named `homepage-secret` in namespace `default`, mounted via `envFrom` on the app container. Variables referenced in `gethomepage.dev/widget.*` annotations as `{{HOMEPAGE_VAR_<NAME>}}`.
+Variables referenced in `gethomepage.dev/widget.*` annotations as `{{HOMEPAGE_VAR_<NAME>}}` come from two places:
 
-Expected keys (stringData, pre-encryption):
+1. Existing Flux post-build substitutions from `cluster-secrets`, wired directly into the Homepage container `env`:
 
-```
-HOMEPAGE_VAR_SONARR_API_KEY
-HOMEPAGE_VAR_RADARR_API_KEY
-HOMEPAGE_VAR_BAZARR_API_KEY
-HOMEPAGE_VAR_PROWLARR_API_KEY
-HOMEPAGE_VAR_QBITTORRENT_USERNAME
-HOMEPAGE_VAR_QBITTORRENT_PASSWORD
-HOMEPAGE_VAR_JELLYFIN_API_KEY
-HOMEPAGE_VAR_JELLYSTAT_API_KEY
-HOMEPAGE_VAR_JELLYSEERR_API_KEY
-HOMEPAGE_VAR_FILEFLOWS_API_KEY
-HOMEPAGE_VAR_IMMICH_API_KEY
-HOMEPAGE_VAR_NEXTCLOUD_USERNAME
-HOMEPAGE_VAR_NEXTCLOUD_PASSWORD
-HOMEPAGE_VAR_CHANGEDETECTION_API_KEY
-HOMEPAGE_VAR_GRAFANA_USERNAME
-HOMEPAGE_VAR_GRAFANA_PASSWORD
-HOMEPAGE_VAR_CROWDSEC_USERNAME
-HOMEPAGE_VAR_CROWDSEC_PASSWORD
-```
+   ```yaml
+   HOMEPAGE_VAR_SONARR_API_KEY: ${SONARR_API_KEY}
+   HOMEPAGE_VAR_RADARR_API_KEY: ${RADARR_API_KEY}
+   HOMEPAGE_VAR_PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+   HOMEPAGE_VAR_QBITTORRENT_USERNAME: ${QBITTORRENT_USER}
+   HOMEPAGE_VAR_QBITTORRENT_PASSWORD: ${QBITTORRENT_PWD}
+   HOMEPAGE_VAR_JELLYSEERR_API_KEY: ${JELLYSEERR_API_KEY}
+   ```
+
+2. A SOPS-encrypted `Secret` named `homepage-secret` in namespace `default`, mounted via `envFrom`, for credentials that are not already in `cluster-secrets`.
+
+   Expected keys (stringData, pre-encryption):
+
+   ```
+   HOMEPAGE_VAR_BAZARR_API_KEY
+   HOMEPAGE_VAR_JELLYFIN_API_KEY
+   HOMEPAGE_VAR_JELLYSTAT_API_KEY
+   HOMEPAGE_VAR_FILEFLOWS_API_KEY
+   HOMEPAGE_VAR_NEXTCLOUD_USERNAME
+   HOMEPAGE_VAR_NEXTCLOUD_PASSWORD
+   HOMEPAGE_VAR_CHANGEDETECTION_API_KEY
+   HOMEPAGE_VAR_GRAFANA_USERNAME
+   HOMEPAGE_VAR_GRAFANA_PASSWORD
+   HOMEPAGE_VAR_CROWDSEC_USERNAME
+   HOMEPAGE_VAR_CROWDSEC_PASSWORD
+   ```
+
+Immich is intentionally absent until the app is enabled again in the parent kustomization.
 
 ## Volumes & mount strategy
 
@@ -204,6 +212,12 @@ persistence:
 ```yaml
 env:
   TZ: ${TIMEZONE}
+  HOMEPAGE_VAR_SONARR_API_KEY: ${SONARR_API_KEY}
+  HOMEPAGE_VAR_RADARR_API_KEY: ${RADARR_API_KEY}
+  HOMEPAGE_VAR_PROWLARR_API_KEY: ${PROWLARR_API_KEY}
+  HOMEPAGE_VAR_QBITTORRENT_USERNAME: ${QBITTORRENT_USER}
+  HOMEPAGE_VAR_QBITTORRENT_PASSWORD: ${QBITTORRENT_PWD}
+  HOMEPAGE_VAR_JELLYSEERR_API_KEY: ${JELLYSEERR_API_KEY}
   MY_POD_IP:
     valueFrom:
       fieldRef:
