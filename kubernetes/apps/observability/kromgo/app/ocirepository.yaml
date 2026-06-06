@@ -2,12 +2,12 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
-  name: toolhive-operator-crds
+  name: kromgo
 spec:
-  interval: 1h
+  interval: 15m
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 0.29.1
-  url: oci://ghcr.io/stacklok/toolhive/toolhive-operator-crds
+    tag: 0.14.3
+  url: oci://ghcr.io/home-operations/charts/kromgo
