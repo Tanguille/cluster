@@ -13,8 +13,6 @@ metadata:
   name: &name talos-mcp
   namespace: ai
 spec:
-  # Pre-built Go image (amd64+arm64). Avoids the npx/talosconfig readOnly
-  # mount workarounds needed by the npm distribution.
   image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2
   transport: streamable-http
   mcpPort: 8080
