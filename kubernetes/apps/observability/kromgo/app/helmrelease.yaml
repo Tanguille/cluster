@@ -84,6 +84,12 @@ spec:
         memory: 64Mi
     httpRoute:
       enabled: true
+      annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: Kromgo
+        gethomepage.dev/description: Prometheus → shield badges
+        gethomepage.dev/group: Metrics
+        gethomepage.dev/icon: mdi-shield-#ffffff
       parentRefs:
         - name: envoy-external
           namespace: network

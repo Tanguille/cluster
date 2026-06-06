@@ -61,6 +61,12 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: DumbAssets
+          gethomepage.dev/description: Home asset & warranty tracker
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: dumbassets.png
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

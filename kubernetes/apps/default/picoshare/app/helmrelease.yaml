@@ -52,6 +52,12 @@ spec:
             port: *port
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: PicoShare
+          gethomepage.dev/description: Minimal file sharing
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: picoshare.png
         hostnames: ["share.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-external

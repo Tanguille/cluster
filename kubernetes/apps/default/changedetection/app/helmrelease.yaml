@@ -49,6 +49,15 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Change Detection
+          gethomepage.dev/description: Website change monitor
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: changedetection-io.png
+          gethomepage.dev/widget.type: changedetectionio
+          gethomepage.dev/widget.url: http://changedetection.default.svc.cluster.local:5000
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_CHANGEDETECTION_API_KEY}}`}}"
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

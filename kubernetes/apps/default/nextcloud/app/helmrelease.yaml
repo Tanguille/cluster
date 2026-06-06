@@ -262,6 +262,15 @@ spec:
       kind: HTTPRoute
       annotations:
         gatus.home-operations.com/enabled: "false"
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: Nextcloud
+        gethomepage.dev/description: Files, calendar, contacts
+        gethomepage.dev/group: Portals
+        gethomepage.dev/icon: nextcloud.png
+        gethomepage.dev/widget.type: nextcloud
+        gethomepage.dev/widget.url: http://nextcloud.default.svc.cluster.local:8080
+        gethomepage.dev/widget.username: "{{`{{HOMEPAGE_VAR_NEXTCLOUD_USERNAME}}`}}"
+        gethomepage.dev/widget.password: "{{`{{HOMEPAGE_VAR_NEXTCLOUD_PASSWORD}}`}}"
       labels: {}
       hostnames:
         - "nextcloud.${SECRET_DOMAIN}"

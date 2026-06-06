@@ -98,6 +98,15 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Radarr
+          gethomepage.dev/description: Movie management
+          gethomepage.dev/group: Management
+          gethomepage.dev/icon: radarr.png
+          gethomepage.dev/widget.type: radarr
+          gethomepage.dev/widget.url: http://radarr.media.svc.cluster.local
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_RADARR_API_KEY}}`}}"
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
