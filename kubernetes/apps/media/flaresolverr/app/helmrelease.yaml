@@ -27,7 +27,7 @@ spec:
                 memory: 150Mi
               limits:
                 cpu: 2
-                memory: 1Gi
+                memory: 2Gi
 
             probes:
               liveness: &probes
@@ -38,6 +38,9 @@ spec:
                     path: /health
                     port: 8191
                   periodSeconds: 10
+                  # /health responds slowly while Chromium is busy solving a
+                  # challenge; the 1s default timeout killed healthy pods
+                  timeoutSeconds: 10
                   failureThreshold: 3
               readiness: *probes
               startup:

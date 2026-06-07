@@ -81,7 +81,6 @@ spec:
               NVIDIA_VISIBLE_DEVICES: all
               NVIDIA_DRIVER_CAPABILITIES: all
               # Memory management for .NET
-              DOTNET_GCHeapHardLimit: "0x200000000"
               DOTNET_GCAllowVeryLargeObjects: "1"
               DOTNET_GCLOHThreshold: "100000"
             probes:
@@ -114,7 +113,7 @@ spec:
                 memory: 512Mi
                 nvidia.com/gpu: 1
               limits:
-                memory: 6Gi
+                memory: 8Gi
                 nvidia.com/gpu: 1
     service:
       app:
