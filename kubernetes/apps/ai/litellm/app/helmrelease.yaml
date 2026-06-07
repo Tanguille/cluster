@@ -83,6 +83,12 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: LiteLLM
+          gethomepage.dev/description: LLM API gateway
+          gethomepage.dev/group: Models
+          gethomepage.dev/icon: mdi-router
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

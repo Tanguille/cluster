@@ -3,6 +3,11 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: external-service-httproute-arm
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: ARM
+    gethomepage.dev/group: External
+    gethomepage.dev/icon: mdi-server-network
 spec:
   parentRefs:
     - name: envoy-internal
