@@ -32,7 +32,7 @@ bash .agents/skills/pr-review/scripts/validate-pr.sh
 flux-local test --all-namespaces --enable-helm kubernetes/flux/cluster
 ```
 
-For manifest-only changes, yamllint and `kustomize build` on touched paths under `kubernetes/apps/` are enough before the full script.
+For manifest-only changes, `kustomize build` on touched paths under `kubernetes/apps/` is enough before the full script.
 
 ## Cleanup
 

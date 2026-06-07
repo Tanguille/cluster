@@ -13,6 +13,13 @@ spec:
     monitoring:
       enabled: true
       createPrometheusRules: true
+      prometheusRuleOverrides:
+        # Host-networked mgr pods share the instance label; after a mgr roll the [2d]
+        # lookback returns duplicate series per pool and the join 422s for 2 days
+        # (cascades into AlertingRulesError/RequestErrorsToAPI/TooManyLogs).
+        # max without (pod) collapses the stale-pod duplicate before the join.
+        CephPoolGrowthWarning:
+          expr: "(max without (pod) (predict_linear(ceph_pool_percent_used[2d], 3600 * 24 * 5)) * on(cluster, pool_id, instance) group_right() ceph_pool_metadata) >= 95"
     toolbox:
       enabled: true
     route:
