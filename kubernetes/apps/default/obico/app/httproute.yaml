@@ -10,6 +10,9 @@ metadata:
     gethomepage.dev/description: 3D print monitoring
     gethomepage.dev/group: Utilities
     gethomepage.dev/icon: obico.png
+    # app-template labels the pod app.kubernetes.io/name=server, so homepage's
+    # default name=obico selector never matches
+    gethomepage.dev/pod-selector: app.kubernetes.io/instance=obico
 spec:
   hostnames:
     - obico.${SECRET_DOMAIN}

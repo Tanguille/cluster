@@ -11,6 +11,8 @@ metadata:
     gethomepage.dev/icon: scrutiny.png
     gethomepage.dev/widget.type: scrutiny
     gethomepage.dev/widget.url: https://scrutiny.${SECRET_DOMAIN}
+    # external target — no pods to health-check
+    gethomepage.dev/pod-selector: ""
 spec:
   parentRefs:
     - name: envoy-internal
