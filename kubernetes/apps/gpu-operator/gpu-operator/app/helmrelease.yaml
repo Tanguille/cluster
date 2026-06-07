@@ -5,13 +5,9 @@ metadata:
   name: gpu-operator
 spec:
   interval: 30m
-  chart:
-    spec:
-      chart: gpu-operator
-      version: v26.3.1
-      sourceRef:
-        kind: HelmRepository
-        name: nvidia
+  chartRef:
+    kind: OCIRepository
+    name: gpu-operator
   values:
     driver:
       enabled: false
