@@ -3,6 +3,12 @@ title: Cluster
 favicon: https://gethomepage.dev/img/banner_light.png
 theme: dark
 color: slate
+background:
+  image: https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=2560&q=80
+  blur: sm
+  brightness: 50
+  opacity: 50
+cardBlur: sm
 target: _blank
 headerStyle: clean
 hideVersion: true
@@ -12,7 +18,8 @@ maxGroupColumns: 6
 useEqualHeights: true
 language: en
 layout:
-  # Home tab — bookmark groups only; info widgets render in the global header
+  # Home tab — cluster status at a glance, then bookmark groups
+  Status: { tab: Home, style: row, columns: 4 }
   Documentation: { tab: Home, style: row, columns: 4, header: true }
   Repositories: { tab: Home, style: row, columns: 3, header: true }
   Observability Docs: { tab: Home, style: row, columns: 3, header: true }
@@ -35,7 +42,6 @@ layout:
   Web3: { tab: Apps, style: row, columns: 3 }
 
   # Observability tab
-  Status: { tab: Observability, style: row, columns: 4 }
   Metrics: { tab: Observability, style: row, columns: 3 }
   Logs: { tab: Observability, style: row, columns: 3 }
 
