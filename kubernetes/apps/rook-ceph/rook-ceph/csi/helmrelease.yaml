@@ -21,10 +21,12 @@ spec:
     drivers:
       rbd:
         name: rook-ceph.rbd.csi.ceph.com
+        snapshotPolicy: volumeSnapshot
         controllerPlugin:
           replicas: 2
       cephfs:
         name: rook-ceph.cephfs.csi.ceph.com
+        snapshotPolicy: volumeSnapshot
         controllerPlugin:
           replicas: 2
         kernelMountOptions:
