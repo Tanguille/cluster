@@ -9,6 +9,8 @@ metadata:
     gethomepage.dev/description: Network traffic analysis
     gethomepage.dev/group: External
     gethomepage.dev/icon: ntopng.png
+    # external target — no pods to health-check
+    gethomepage.dev/pod-selector: ""
 spec:
   parentRefs:
     - name: envoy-internal

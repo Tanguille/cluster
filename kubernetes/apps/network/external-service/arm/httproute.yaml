@@ -8,6 +8,8 @@ metadata:
     gethomepage.dev/name: ARM
     gethomepage.dev/group: External
     gethomepage.dev/icon: mdi-server-network
+    # external target — no pods to health-check
+    gethomepage.dev/pod-selector: ""
 spec:
   parentRefs:
     - name: envoy-internal

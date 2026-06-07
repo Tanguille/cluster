@@ -11,6 +11,8 @@ metadata:
     gethomepage.dev/description: Home automation
     gethomepage.dev/group: Portals
     gethomepage.dev/icon: home-assistant.png
+    # external target — no pods to health-check
+    gethomepage.dev/pod-selector: ""
 spec:
   parentRefs:
     - name: envoy-external
