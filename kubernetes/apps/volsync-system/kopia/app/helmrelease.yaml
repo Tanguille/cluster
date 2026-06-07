@@ -65,6 +65,12 @@ spec:
             port: *port
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Kopia
+          gethomepage.dev/description: Backup snapshot browser
+          gethomepage.dev/group: Status
+          gethomepage.dev/icon: kopia.png
         hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-internal

@@ -3,6 +3,12 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: external-service-httproute-scrutiny
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: Scrutiny
+    gethomepage.dev/description: Disk SMART monitoring
+    gethomepage.dev/group: External
+    gethomepage.dev/icon: scrutiny.png
 spec:
   parentRefs:
     - name: envoy-internal

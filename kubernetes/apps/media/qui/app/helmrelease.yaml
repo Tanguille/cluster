@@ -87,6 +87,12 @@ spec:
           - port: metrics
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: qui
+          gethomepage.dev/description: qBittorrent web UI
+          gethomepage.dev/group: Downloaders
+          gethomepage.dev/icon: qui.png
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
