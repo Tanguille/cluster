@@ -26,8 +26,8 @@ spec:
           replicas: 2
           # Right-sized requests (~2x observed steady-state; chart defaults requested ~3.7 CPU
           # cluster-wide). The chart renders every container key once resources is set, so the
-          # full map is required.
-          resources:
+          # full map is required. Anchored: cephfs aliases these same maps below.
+          resources: &csiControllerResources
             attacher:
               requests: {cpu: 50m, memory: 64Mi}
             snapshotter:
@@ -47,7 +47,7 @@ spec:
             plugin:
               requests: {cpu: 100m, memory: 256Mi}
         nodePlugin:
-          resources:
+          resources: &csiNodeResources
             registrar:
               requests: {cpu: 25m, memory: 32Mi}
             liveness:
@@ -63,37 +63,9 @@ spec:
         snapshotPolicy: volumeSnapshot
         controllerPlugin:
           replicas: 2
-          resources:
-            attacher:
-              requests: {cpu: 50m, memory: 64Mi}
-            snapshotter:
-              requests: {cpu: 50m, memory: 64Mi}
-            resizer:
-              requests: {cpu: 50m, memory: 64Mi}
-            provisioner:
-              requests: {cpu: 50m, memory: 64Mi}
-            omapGenerator:
-              requests: {cpu: 50m, memory: 64Mi}
-            liveness:
-              requests: {cpu: 50m, memory: 64Mi}
-            addons:
-              requests: {cpu: 50m, memory: 64Mi}
-            logRotator:
-              requests: {cpu: 50m, memory: 64Mi}
-            plugin:
-              requests: {cpu: 100m, memory: 256Mi}
+          resources: *csiControllerResources
         nodePlugin:
-          resources:
-            registrar:
-              requests: {cpu: 25m, memory: 32Mi}
-            liveness:
-              requests: {cpu: 50m, memory: 64Mi}
-            addons:
-              requests: {cpu: 50m, memory: 64Mi}
-            logRotator:
-              requests: {cpu: 50m, memory: 64Mi}
-            plugin:
-              requests: {cpu: 100m, memory: 128Mi}
+          resources: *csiNodeResources
         kernelMountOptions:
           ms_mode: prefer-crc
       nfs:
