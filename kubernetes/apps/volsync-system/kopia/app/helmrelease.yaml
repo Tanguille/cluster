@@ -28,6 +28,12 @@ spec:
                   name: kopia-secret
             args:
               - --without-password
+              # homepage's widget calls /api/v1/* directly; kopia only issues
+              # CSRF tokens to browser sessions, so API calls need checks off.
+              # Accepted risk (2026-06-07): combined with --without-password a
+              # LAN browser drive-by could hit the API; envoy-internal-only
+              # exposure and login-free UI convenience were judged worth it.
+              - --disable-csrf-token-checks
             probes:
               liveness: &probes
                 enabled: true
