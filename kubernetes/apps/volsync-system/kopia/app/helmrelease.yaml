@@ -71,6 +71,8 @@ spec:
           gethomepage.dev/description: Backup snapshot browser
           gethomepage.dev/group: Status
           gethomepage.dev/icon: kopia.png
+          gethomepage.dev/widget.type: kopia
+          gethomepage.dev/widget.url: https://kopia.${SECRET_DOMAIN}
         hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-internal
