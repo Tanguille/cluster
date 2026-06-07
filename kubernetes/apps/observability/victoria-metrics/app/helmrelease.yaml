@@ -73,6 +73,11 @@ spec:
       rules:
         etcdMemberCommunicationSlow:
           create: false
+      groups:
+        # vmsingle deployment; the chart's vmcluster group duplicates RequestErrorsToAPI etc.
+        # Remove this if the stack ever migrates to vmcluster.
+        vmcluster:
+          create: false
 
     grafana:
       enabled: false

@@ -27,6 +27,11 @@ spec:
               - "x+5000"
               - "-k"
               - "--coin=monero"
+              # Cap mining threads to the CFS quota: 50% of 12 host cores = 6 threads = cpu limit.
+              # Without this xmrig auto-detects 12 cores, spawns 12 threads, and is throttled
+              # 90-100% of CFS periods (CPUThrottlingHigh), inflating load average on every node.
+              # Revisit if the cpu limit or node core count changes.
+              - "--cpu-max-threads-hint=50"
               # Prefer huge pages (2Mi)
               - "--huge-pages"
               # Enable HTTP API for dashboard
@@ -40,7 +45,7 @@ spec:
                 add: ["IPC_LOCK"]
             resources:
               requests:
-                cpu: 1
+                cpu: 10m
                 memory: 32Mi
                 hugepages-2Mi: 3Gi
               limits:

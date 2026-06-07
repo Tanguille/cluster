@@ -24,7 +24,6 @@ prompt: |
   1. Check 2-space indentation on all YAML
   2. Verify no tabs
   3. Check trailing whitespace
-  4. Run: yamllint -c .yamllint.yaml kubernetes/
 
   OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-1-yaml-format.md:
 
@@ -149,20 +148,17 @@ prompt: |
   Run validation tools for GitOps Kubernetes PR.
 
   TOOLS:
-  - yamllint: YAML syntax
-  - kustomize build: Kustomization validity
+  - kustomize build: Kustomization validity (also catches YAML syntax/duplicate keys)
   - flux build: Flux reconciliation
 
   COMMANDS:
-  - yamllint -c .yamllint.yaml kubernetes/
   - mise exec -- shellcheck scripts/*.sh
   - kustomize build kubernetes/apps/<namespace>/<app>/
   - flux build kustomization <name> --path <path>
 
   TASKS:
-  1. Run yamllint on changed YAML
-  2. Run shellcheck on touched scripts
-  3. Run kustomize build
+  1. Run shellcheck on touched scripts
+  2. Run kustomize build
   4. Run flux build
 
   OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-6-validation.md.

@@ -12,7 +12,7 @@ description: >-
   user: "Review my local changes" → PR_ID=local-changes, staged + unstaged diff
 
   Use proactively for K8s app/Flux/HelmRelease changes, infrastructure edits, or pre-commit diff review.
-compatibility: Requires `git`, `mise`, `yamllint`, `kustomize`, `flux`, and `shellcheck` for phase 6; optional `gh` for PR metadata.
+compatibility: Requires `git`, `mise`, `kustomize`, `flux`, and `shellcheck` for phase 6; optional `gh` for PR metadata.
 ---
 
 # PR review
@@ -30,7 +30,7 @@ Spawn focused subagents for GitOps Kubernetes PRs. Each phase uses clean context
 - Layout: `kubernetes/apps/<namespace>/<app>/` with `ks.yaml` + `app/`
 - Charts: `bjw-s/app-template` (common); URLs `${SECRET_DOMAIN}`; secrets SOPS-only
 - Routes: Gateway API `HTTPRoute`, parentRef `envoy-internal` / `envoy-external`
-- Validation: `yamllint`, `mise exec -- shellcheck`, `kustomize build`, `flux build`
+- Validation: `mise exec -- shellcheck`, `kustomize build` (also catches YAML syntax/duplicate keys), `flux build`
 
 ## Workflow
 
@@ -49,7 +49,7 @@ Spawn focused subagents for GitOps Kubernetes PRs. Each phase uses clean context
 | 3 | HelmRelease / app patterns | `phase-3-best-practices.md` |
 | 4 | SOPS, domains, securityContext | `phase-4-security.md` |
 | 5 | ks.yaml + app/ structure | `phase-5-architecture.md` |
-| 6 | yamllint, shellcheck, kustomize, flux | `phase-6-validation.md` |
+| 6 | shellcheck, kustomize, flux | `phase-6-validation.md` |
 
 ## Inline quick checklist
 
@@ -60,7 +60,7 @@ For small diffs without subagents:
 - [ ] `bjw-s/app-template` pinned; Reloader annotation when needed
 - [ ] Probes and resource requests/limits
 - [ ] SOPS secrets; `${SECRET_DOMAIN}`; envoy route parentRefs
-- [ ] `yamllint` / `shellcheck` pass on touched paths
+- [ ] `kustomize build` / `shellcheck` pass on touched paths
 
 ## Progressive disclosure
 

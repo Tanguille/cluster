@@ -6,12 +6,21 @@ metadata:
   namespace: ai
 spec:
   replicas: 1
+  # TEI's default --max-client-batch-size of 32 splits the unified vmcp's 187-tool embedding
+  # upsert into 6 sequential round trips (~5-7s each = 32-38s total), exceeding vmcp's ~30s
+  # response-write deadline — clients saw initialize hang forever. One big batch + more CPU
+  # brings per-session indexing down to ~1-5s.
+  args:
+    - "--max-client-batch-size"
+    - "256"
+    - "--max-batch-tokens"
+    - "65536"
   resources:
     requests:
       cpu: 250m
       memory: 512Mi
     limits:
-      cpu: "2"
+      cpu: "4"
       memory: 2Gi
   modelCache:
     enabled: true

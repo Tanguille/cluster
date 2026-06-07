@@ -55,3 +55,140 @@ endpoints:
       - type: discord
         enabled: true
         send-on-resolved: true
+
+  # Real MCP-protocol probes: POST an initialize per vmcp. The /health endpoints and the
+  # VirtualMCPServer Ready status stayed green while POST /mcp was unusable (the optimizer
+  # embedding path exceeded the response-write deadline), so only a protocol-level probe
+  # catches this failure mode.
+  - name: vmcp-database
+    group: ai
+    url: http://vmcp-database.ai.svc.cluster.local:4483/mcp
+    method: POST
+    headers:
+      Content-Type: application/json
+      Accept: application/json, text/event-stream
+    body: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gatus","version":"0"}}}'
+    interval: 5m
+    client:
+      timeout: 15s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 10000"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
+
+  - name: vmcp-flux
+    group: ai
+    url: http://vmcp-flux.ai.svc.cluster.local:4483/mcp
+    method: POST
+    headers:
+      Content-Type: application/json
+      Accept: application/json, text/event-stream
+    body: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gatus","version":"0"}}}'
+    interval: 5m
+    client:
+      timeout: 15s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 10000"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
+
+  - name: vmcp-ha
+    group: ai
+    url: http://vmcp-ha.ai.svc.cluster.local:4483/mcp
+    method: POST
+    headers:
+      Content-Type: application/json
+      Accept: application/json, text/event-stream
+    body: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gatus","version":"0"}}}'
+    interval: 5m
+    client:
+      timeout: 15s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 10000"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
+
+  - name: vmcp-observability
+    group: ai
+    url: http://vmcp-observability.ai.svc.cluster.local:4483/mcp
+    method: POST
+    headers:
+      Content-Type: application/json
+      Accept: application/json, text/event-stream
+    body: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gatus","version":"0"}}}'
+    interval: 5m
+    client:
+      timeout: 15s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 10000"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
+
+  - name: vmcp-resources
+    group: ai
+    url: http://vmcp-resources.ai.svc.cluster.local:4483/mcp
+    method: POST
+    headers:
+      Content-Type: application/json
+      Accept: application/json, text/event-stream
+    body: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gatus","version":"0"}}}'
+    interval: 5m
+    client:
+      timeout: 15s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 10000"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
+
+  - name: vmcp-search
+    group: ai
+    url: http://vmcp-search.ai.svc.cluster.local:4483/mcp
+    method: POST
+    headers:
+      Content-Type: application/json
+      Accept: application/json, text/event-stream
+    body: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gatus","version":"0"}}}'
+    interval: 5m
+    client:
+      timeout: 15s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 10000"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
+
+  - name: vmcp-unified
+    group: ai
+    url: http://vmcp-unified.ai.svc.cluster.local:4483/mcp
+    method: POST
+    headers:
+      Content-Type: application/json
+      Accept: application/json, text/event-stream
+    body: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"gatus","version":"0"}}}'
+    interval: 5m
+    client:
+      timeout: 15s
+    conditions:
+      - "[STATUS] == 200"
+      - "[RESPONSE_TIME] < 10000"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
