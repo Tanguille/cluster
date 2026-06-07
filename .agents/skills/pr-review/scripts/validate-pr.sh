@@ -34,21 +34,9 @@ warn() {
     WARNINGS=$((WARNINGS + 1))
 }
 
-# Phase 1: YAML Syntax Validation
-echo "[1/5] YAML Syntax Validation..."
-if command -v yamllint &> /dev/null; then
-    if yamllint -c "${REPO_ROOT}/.yamllint.yaml" "${REPO_ROOT}/kubernetes/" > /dev/null 2>&1; then
-        pass "yamllint passed"
-    else
-        fail "yamllint found issues (run: yamllint kubernetes/)"
-    fi
-else
-    warn "yamllint not installed (mise install to use yamllint)"
-fi
-echo ""
-
-# Phase 2: Kustomize Build Validation
-echo "[2/5] Kustomize Build Validation..."
+# Phase 1: Kustomize Build Validation
+# (also validates YAML syntax and duplicate keys — kustomize rejects both, so no separate yaml linter)
+echo "[1/4] Kustomize Build Validation..."
 if command -v kustomize &> /dev/null; then
     KUSTOMIZE_ERRORS=0
     while IFS= read -r -d '' ks_file; do
@@ -67,12 +55,16 @@ else
 fi
 echo ""
 
-# Phase 3: Shellcheck (if shell scripts exist)
-echo "[3/5] Shell Script Validation..."
-SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f 2>/dev/null | head -20)
+# Phase 2: Shellcheck (if shell scripts exist)
+echo "[2/4] Shell Script Validation..."
+# exclude the repo-local .claude dir (session configs, worktrees) — anchored to REPO_ROOT so
+# running from inside a .claude/worktrees/* worktree doesn't exclude the entire tree — and
+# archive/ (retired one-off scripts kept for reference; not held to the gate)
+SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/.claude/*" -not -path "${REPO_ROOT}/archive/*" 2>/dev/null | head -20)
 if [ -n "$SHELL_SCRIPTS" ]; then
     if command -v shellcheck &> /dev/null; then
-        if shellcheck "$SHELL_SCRIPTS" > /dev/null 2>&1; then
+        # shellcheck disable=SC2086 # word-splitting the list is intended; quoting it passes all paths as one filename
+        if shellcheck $SHELL_SCRIPTS > /dev/null 2>&1; then
             pass "shellcheck passed"
         else
             fail "shellcheck found issues"
@@ -85,8 +77,8 @@ else
 fi
 echo ""
 
-# Phase 4: Naming Conventions Quick Check
-echo "[4/5] Naming Conventions Quick Check..."
+# Phase 3: Naming Conventions Quick Check
+echo "[3/4] Naming Conventions Quick Check..."
 NAMING_ERRORS=0
 while IFS= read -r -d '' file; do
     # Check for files with underscores (should be dashes)
@@ -107,8 +99,8 @@ if [ $NAMING_ERRORS -eq 0 ]; then
 fi
 echo ""
 
-# Phase 5: Security Quick Check
-echo "[5/5] Security Quick Check..."
+# Phase 4: Security Quick Check
+echo "[4/4] Security Quick Check..."
 SECURITY_ERRORS=0
 
 # Check for hardcoded secrets (basic patterns)

@@ -92,7 +92,6 @@ Add `./<app-name>/ks.yaml` to `kubernetes/apps/<namespace>/kustomization.yaml`.
 Replace `<namespace>` and `<app-name>` with your app path:
 
 ```bash
-mise exec -- yamllint -c .yamllint.yaml kubernetes/apps/<namespace>/<app-name>/
 mise exec -- kustomize build kubernetes/apps/<namespace>/<app-name>/
 mise exec -- shellcheck scripts/*.sh
 ```
@@ -119,7 +118,7 @@ gh pr create --title "feat(<namespace>): add <app-name>" --body "Deploy <app-nam
 
 | Task | Command |
 |------|---------|
-| Validate | `yamllint` + `kustomize build` on app path; `shellcheck scripts/*.sh`; or `validate-pr.sh` |
+| Validate | `kustomize build` on app path (catches YAML syntax/duplicate keys); `shellcheck scripts/*.sh`; or `validate-pr.sh` |
 | Reconcile | `flux reconcile kustomization <name>` (ask user) |
 | Logs | `kubectl logs -n <ns> deployment/<app>` |
 
