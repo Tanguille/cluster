@@ -33,39 +33,6 @@
     memory: true
     label: resources
 
-- customapi:
-    url: https://kromgo.${SECRET_DOMAIN}/cluster_uptime_days
-    refreshInterval: 60000
-    display: block
-    mappings:
-      - field: value
-        label: Uptime
-        format: text
-        suffix: d
-
-- customapi:
-    url: https://kromgo.${SECRET_DOMAIN}/cluster_node_count
-    refreshInterval: 60000
-    display: block
-    mappings:
-      - field: value
-        label: Nodes
-        format: text
-
-- customapi:
-    url: https://kromgo.${SECRET_DOMAIN}/cluster_pod_count
-    refreshInterval: 60000
-    display: block
-    mappings:
-      - field: value
-        label: Pods
-        format: text
-
-- customapi:
-    url: https://kromgo.${SECRET_DOMAIN}/cluster_alert_count
-    refreshInterval: 60000
-    display: block
-    mappings:
-      - field: value
-        label: Alerts
-        format: text
+# kromgo metrics live as customapi service tiles in the Status group
+# (services.yaml): customapi is a service widget only — homepage has no
+# customapi info widget, so it cannot render in this header.

@@ -30,3 +30,55 @@
           url: http://crowdsec-service.security.svc.cluster.local:8080
           username: "{{HOMEPAGE_VAR_CROWDSEC_USERNAME}}"
           password: "{{HOMEPAGE_VAR_CROWDSEC_PASSWORD}}"
+
+# kromgo cluster metrics — service tiles because customapi only exists as a
+# service widget (the global header cannot host it). Widgets are proxied
+# server-side, so the cluster-local URL avoids hairpinning through envoy.
+# kromgo 0.14 (home-operations rewrite) serves /badges/{id}; ?format=json
+# returns {id, title, value, color, result} with `value` pre-formatted
+# (uptime already reads "8d"), so mappings need no suffix handling.
+- Status:
+    - Uptime:
+        icon: mdi-clock-outline
+        description: Time since last cluster boot
+        widget:
+          type: customapi
+          url: http://kromgo.observability.svc.cluster.local/badges/cluster_uptime_age?format=json
+          refreshInterval: 60000
+          mappings:
+            - field: value
+              label: Uptime
+              format: text
+    - Nodes:
+        icon: mdi-server
+        description: Cluster node count
+        widget:
+          type: customapi
+          url: http://kromgo.observability.svc.cluster.local/badges/cluster_node_count?format=json
+          refreshInterval: 60000
+          mappings:
+            - field: value
+              label: Nodes
+              format: text
+    - Pods:
+        icon: mdi-cube-outline
+        description: Running pod count
+        widget:
+          type: customapi
+          url: http://kromgo.observability.svc.cluster.local/badges/cluster_pod_count?format=json
+          refreshInterval: 60000
+          mappings:
+            - field: value
+              label: Pods
+              format: text
+    - Alerts:
+        icon: mdi-alert-circle-outline
+        description: Firing alert count
+        widget:
+          type: customapi
+          url: http://kromgo.observability.svc.cluster.local/badges/cluster_alert_count?format=json
+          refreshInterval: 60000
+          mappings:
+            - field: value
+              label: Alerts
+              format: text
