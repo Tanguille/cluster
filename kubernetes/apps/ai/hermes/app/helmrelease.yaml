@@ -92,6 +92,12 @@ spec:
 
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Hermes
+          gethomepage.dev/description: Nous Hermes agent
+          gethomepage.dev/group: Agents
+          gethomepage.dev/icon: mdi-robot-outline
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

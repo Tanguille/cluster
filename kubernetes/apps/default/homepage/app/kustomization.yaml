@@ -8,17 +8,16 @@ resources:
 configMapGenerator:
   - name: homepage-configmap
     files:
-      - settings.yaml=./resources/settings.yaml
-      - bookmarks.yaml=./resources/bookmarks.yaml
-      - widgets.yaml=./resources/widgets.yaml
-      - kubernetes.yaml=./resources/kubernetes.yaml
-      - services.yaml=./resources/services.yaml
-      # homepage v1.13+ initializes these on its hot paths (services fetch,
-      # /api/hash, /api/validate) and exits 1 when it cannot create them on
-      # the read-only configMap mount — they must exist even when unused.
-      - docker.yaml=./resources/docker.yaml
-      - proxmox.yaml=./resources/proxmox.yaml
-      - custom.css=./resources/custom.css
-      - custom.js=./resources/custom.js
+      - ./resources/settings.yaml
+      - ./resources/bookmarks.yaml
+      - ./resources/widgets.yaml
+      - ./resources/kubernetes.yaml
+      - ./resources/services.yaml
+      # homepage v1.13+ initializes these on its hot paths (services fetch, /api/hash, /api/validate) and exits
+      # when it cannot create them on the read-only configMap mount; they must exist even when unused.
+      - ./resources/docker.yaml
+      - ./resources/proxmox.yaml
+      - ./resources/custom.css
+      - ./resources/custom.js
 generatorOptions:
   disableNameSuffixHash: true

@@ -28,11 +28,5 @@
       memory: true
       showLabel: true
 
-- resources:
-    cpu: true
-    memory: true
-    label: resources
-
-# kromgo metrics live as customapi service tiles in the Status group
-# (services.yaml): customapi is a service widget only — homepage has no
-# customapi info widget, so it cannot render in this header.
+# No `resources` widget: it reads only the node homepage is scheduled on,
+# duplicating the kubernetes nodes widgets above with a vaguer label.
