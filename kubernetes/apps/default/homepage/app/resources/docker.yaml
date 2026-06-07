@@ -1,0 +1,5 @@
+---
+# No docker instances in this cluster; discovery is kubernetes-mode only.
+# This file must exist in the ConfigMap: homepage initializes it on every
+# services fetch and exits 1 (EROFS) when it cannot copy its skeleton into
+# the read-only /app/config mount.
