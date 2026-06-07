@@ -23,3 +23,15 @@ spec:
     - name: horizontalpodautoscaler
       value: keda-hpa-.*
       matchType: "=~"
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/observability.giantswarm.io/silence_v1alpha2.json
+apiVersion: observability.giantswarm.io/v1alpha2
+kind: Silence
+metadata:
+  # Structural: control-1 (39Gi, only GPU node) dwarfs control-2/3 (21Gi); N-1 memory
+  # capacity is unfixable by request tuning. Rule stays visible in vmalert.
+  name: kube-memory-overcommit-homelab
+spec:
+  matchers:
+    - name: alertname
+      value: KubeMemoryOvercommit
