@@ -17,8 +17,14 @@ spec:
     name: *name
   podTemplateSpec:
     spec:
+      volumes:
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: mcp
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           ports:
             - name: mcp
               containerPort: *port
@@ -66,8 +72,14 @@ spec:
     name: kubesearch
   podTemplateSpec:
     spec:
+      volumes:
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: mcp
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           ports:
             - name: mcp
               containerPort: 3000
