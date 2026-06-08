@@ -28,6 +28,17 @@
       versioningTemplate: "regex:^(?<major>\\d+)$",
       autoReplaceStringTemplate: "grafanaCom:\n    id: {{depName}}\n    revision: {{newValue}}",
     },
+    {
+      description: "GrafanaDashboard spec.url pinned to GitHub release tags",
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
+      matchStrings: [
+        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v[\\d.]+)/(?<dashboardPath>[^\\s]+)",
+      ],
+      datasourceTemplate: "github-releases",
+      versioningTemplate: "semver",
+      autoReplaceStringTemplate: "url: https://raw.githubusercontent.com/{{depName}}/{{newValue}}/{{dashboardPath}}",
+    },
   ],
   packageRules: [
     // Auto-merge rules
@@ -138,6 +149,15 @@
         commitMessageTopic: "{{{groupName}}} group",
       },
       minimumGroupSize: 2,
+    },
+    {
+      description: "Group klipper-exporter image and Grafana dashboard URL",
+      groupName: "klipper-exporter",
+      matchDatasources: ["docker", "github-releases"],
+      matchPackageNames: ["/prometheus-klipper-exporter/"],
+      group: {
+        commitMessageTopic: "{{{groupName}}}",
+      },
     },
     // Versioning overrides
     {
