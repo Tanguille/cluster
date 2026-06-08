@@ -34,7 +34,7 @@ Deploy applications using FluxCD GitOps patterns in this repository.
 
 ### 1. Research (subagent)
 
-Use the [k8s-at-home-research](../k8s-at-home-research/SKILL.md) skill (or kubesearch.dev) to find Flux + Helm references and key values to adapt. Spawn a subagent with the app name and namespace preference; return the best exemplar manifest and values to reuse.
+Use [k8s-at-home-research](../k8s-at-home-research/SKILL.md) to find exemplar manifests — prefers kubesearch MCP when available. Spawn a subagent with the app name and namespace; return the best values and adaptation notes.
 
 ### 2. Create worktree
 
