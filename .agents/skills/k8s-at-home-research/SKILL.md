@@ -34,7 +34,9 @@ Research is **advisory**: never copy secrets, domains, cluster-specific IDs, or 
 
 ## Tool routing
 
-- **GitHub MCP** first when available: `resources_github_search_repositories`, `resources_github_get_file_contents`.
+- **kubesearch MCP first** when available: `kubesearch_search_releases`, `kubesearch_get_release`, `kubesearch_grep_values`, `kubesearch_search_images`.  
+  Then `repo_clone`/`repo_read_file` to inspect exemplar manifests. Kubesearch queries the pre-indexed kubesearch.dev database — no `topic:k8s-at-home` tag needed.
+- **GitHub MCP second:** `resources_github_search_repositories`, `resources_github_get_file_contents` for repos not yet indexed by kubesearch.
 - **Fallback:** `gh search repos <app> --topic k8s-at-home --limit 10` then scoped `gh search code` with `repo:<owner>/<repo>`.
 - **Repo shortlist:** `python3 .agents/skills/k8s-at-home-research/scripts/search_k8s_at_home.py <term> --limit 10`
 - **Literal code patterns:** `grep_app_searchGitHub` when MCP code search fails.
