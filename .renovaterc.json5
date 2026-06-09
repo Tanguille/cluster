@@ -39,6 +39,15 @@
       versioningTemplate: "semver",
       autoReplaceStringTemplate: "url: https://raw.githubusercontent.com/{{depName}}/{{newValue}}/{{dashboardPath}}",
     },
+    {
+      description: "qBitrr ConfigVersion (semver, no v prefix)",
+      customType: "regex",
+      managerFilePatterns: ["/qbitrr/config/config\\.toml$/"],
+      matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
+      depNameTemplate: "feramance/qbitrr",
+      datasourceTemplate: "docker",
+      autoReplaceStringTemplate: 'ConfigVersion = "{{newVersion}}"',
+    },
   ],
   packageRules: [
     // Auto-merge rules
@@ -155,6 +164,16 @@
       groupName: "klipper-exporter",
       matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/prometheus-klipper-exporter/"],
+      group: {
+        commitMessageTopic: "{{{groupName}}}",
+      },
+    },
+    {
+      description: "qBitrr: group image tag and ConfigVersion",
+      groupName: "qbitrr",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/feramance\\/qbitrr/"],
+      extractVersion: "^v(?<version>.*)$",
       group: {
         commitMessageTopic: "{{{groupName}}}",
       },
