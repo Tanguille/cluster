@@ -7,7 +7,7 @@ metadata:
   namespace: &namespace observability
 spec:
   targetNamespace: *namespace
-  path: ./kubernetes/apps/observability/kepler/app
+  path: ./kubernetes/apps/observability/exporters/kepler/app
   prune: true
   sourceRef:
     kind: GitRepository
@@ -24,7 +24,7 @@ spec:
   dependsOn:
     - name: kepler
       namespace: observability
-  path: ./kubernetes/apps/observability/kepler/powermonitor
+  path: ./kubernetes/apps/observability/exporters/kepler/powermonitor
   prune: true
   sourceRef:
     kind: GitRepository
