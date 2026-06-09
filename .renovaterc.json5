@@ -44,7 +44,6 @@
       matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
       depNameTemplate: "feramance/qbitrr",
       datasourceTemplate: "docker",
-      extractVersionTemplate: "^v(?<version>.*)$",
       autoReplaceStringTemplate: 'ConfigVersion = "{{replace newValue "v" ""}}"',
     },
   ],
@@ -136,10 +135,17 @@
       matchManagers: ["custom.regex", "flux", "helm-values"],
       matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
       matchPackageNames: ["/feramance\\/qbitrr/"],
-      extractVersion: "^v(?<version>.*)$",
       group: {
         commitMessageTopic: "{{{groupName}}}",
       },
+    },
+    {
+      matchManagers: ["custom.regex"],
+      matchFileNames: [
+        "kubernetes/apps/media/qbittorrent/tools/qbitrr/config/config.toml",
+      ],
+      matchPackageNames: ["/feramance\\/qbitrr/"],
+      extractVersion: "^v(?<version>.*)$",
     },
     // Versioning overrides
     {
