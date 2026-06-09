@@ -44,7 +44,8 @@
       matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
       depNameTemplate: "feramance/qbitrr",
       datasourceTemplate: "docker",
-      autoReplaceStringTemplate: 'ConfigVersion = "{{newVersion}}"',
+      extractVersionTemplate: "^v(?<version>.*)$",
+      autoReplaceStringTemplate: 'ConfigVersion = "{{replace newValue "v" ""}}"',
     },
   ],
   packageRules: [
@@ -132,6 +133,8 @@
       description: "qBitrr: group image tag and ConfigVersion",
       groupName: "qbitrr",
       matchDatasources: ["docker"],
+      matchManagers: ["custom.regex", "flux", "helm-values"],
+      matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
       matchPackageNames: ["/feramance\\/qbitrr/"],
       extractVersion: "^v(?<version>.*)$",
       group: {
