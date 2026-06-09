@@ -3,7 +3,6 @@
   extends: [
     "abandonments:recommended",
     "github>home-operations/renovate-presets#1.3.1",
-    ":semanticCommits",
     ":timezone(Europe/Brussels)",
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
@@ -36,7 +35,6 @@
         "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v[\\d.]+)/(?<dashboardPath>[^\\s]+)",
       ],
       datasourceTemplate: "github-releases",
-      versioningTemplate: "semver",
       autoReplaceStringTemplate: "url: https://raw.githubusercontent.com/{{depName}}/{{newValue}}/{{dashboardPath}}",
     },
     {
@@ -58,17 +56,6 @@
       matchPackageNames: ["/home-operations/"],
       automerge: true,
       automergeType: "pr",
-      ignoreTests: false,
-    },
-    {
-      description: "Auto-merge high-cadence OCI packages weekly",
-      matchDatasources: ["docker"],
-      matchUpdateTypes: ["minor", "patch"],
-      matchPackageNames: ["/kube-prometheus-stack/"],
-      automerge: true,
-      automergeType: "pr",
-      ignoreTests: false,
-      schedule: ["before 6am on Monday"],
     },
     {
       description: "Auto-merge GitHub Actions",
@@ -77,33 +64,6 @@
       automerge: true,
       automergeType: "branch",
       minimumReleaseAge: "3 days",
-      ignoreTests: true,
-    },
-    {
-      description: "Auto-merge trusted GitHub Actions",
-      matchManagers: ["github-actions"],
-      matchPackageNames: ["/^actions\\//", "/^renovatebot\\//"],
-      matchUpdateTypes: ["minor", "patch", "digest"],
-      automerge: true,
-      automergeType: "branch",
-      minimumReleaseAge: "1 minute",
-      ignoreTests: true,
-    },
-    {
-      description: "Auto-merge Grafana dashboards",
-      matchDatasources: ["custom.grafana-dashboards"],
-      matchUpdateTypes: ["major"],
-      automerge: true,
-      automergeType: "branch",
-      ignoreTests: true,
-    },
-    {
-      description: "Auto-merge Renovate Presents",
-      matchManagers: ["renovate-config"],
-      matchUpdateTypes: ["minor", "patch"],
-      automerge: true,
-      automergeType: "branch",
-      ignoreTests: true,
     },
     // Grouping rules
     {
@@ -212,6 +172,10 @@
     {
       matchDatasources: ["helm"],
       addLabels: ["renovate/helm"],
+    },
+    {
+      matchDatasources: ["custom.grafana-dashboards"],
+      addLabels: ["renovate/grafana-dashboard"],
     },
     {
       matchManagers: ["github-actions"],
