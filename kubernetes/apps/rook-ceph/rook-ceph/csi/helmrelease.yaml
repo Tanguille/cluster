@@ -29,35 +29,35 @@ spec:
           # full map is required. Anchored: cephfs aliases these same maps below.
           resources: &csiControllerResources
             attacher:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             snapshotter:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             resizer:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             provisioner:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             omapGenerator:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             liveness:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             addons:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             logRotator:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             plugin:
-              requests: {cpu: 100m, memory: 256Mi}
+              requests: { cpu: 100m, memory: 256Mi }
         nodePlugin:
           resources: &csiNodeResources
             registrar:
-              requests: {cpu: 25m, memory: 32Mi}
+              requests: { cpu: 25m, memory: 32Mi }
             liveness:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             addons:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             logRotator:
-              requests: {cpu: 50m, memory: 64Mi}
+              requests: { cpu: 50m, memory: 64Mi }
             plugin:
-              requests: {cpu: 100m, memory: 128Mi}
+              requests: { cpu: 100m, memory: 128Mi }
       cephfs:
         name: rook-ceph.cephfs.csi.ceph.com
         snapshotPolicy: volumeSnapshot
