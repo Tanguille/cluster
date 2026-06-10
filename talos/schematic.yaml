@@ -2,7 +2,7 @@
 # curl -X POST --data-binary @talos/schematic.yaml \
 #  https://factory.talos.dev/schematics
 # Truenas VM (control-1)
-# 680e946fc81d07d5e8bfab832686b844ef3fc5b940a20e20aebb4e93b1b72a31
+# 84fa3796f0d24ea57e46b2204e152426cfde28d9429a5bdafd2f3a95a2e2da73
 ---
 customization:
   extraKernelArgs:
@@ -20,8 +20,7 @@ customization:
     - preempt=voluntary # Talos v1.13+: gpu preemption
   systemExtensions:
     officialExtensions:
-      - siderolabs/nvidia-container-toolkit-production
-      - siderolabs/nvidia-open-gpu-kernel-modules-production
+      - siderolabs/amdgpu
       - siderolabs/qemu-guest-agent
       - siderolabs/nfsrahead
 # Chuwi ubox (control-2/3)
