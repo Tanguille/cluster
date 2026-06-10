@@ -20,7 +20,10 @@ spec:
               tag: latest@sha256:dc192e164c69b03f156765793a1be62ca437709ae477b27ca7d8f3dcf5021576
             args:
               # Expose /dev/dri as a shared squat.ai/dri resource so multiple
-              # pods (jellyfin, fileflows, ...) can transcode on the same GPU
+              # pods (jellyfin, fileflows, ...) can transcode on the same GPU.
+              # Override the plugin's default "devic.es" domain to match the
+              # squat.ai/dri resource the workloads request.
+              - --domain=squat.ai
               - --device
               - |
                 name: dri
