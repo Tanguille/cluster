@@ -18,15 +18,24 @@ Researched June 2026; full rationale lives in the session, condensed here:
 |---|---|---|
 | Engine | **vLLM-ROCm + APC** | No prebuilt sglang gfx1201 image exists (sglang needs a 36-patch source build + custom Talos kernel). vLLM has a tested R9700 image, and V1 **APC is on by default** — captures ~80% of sglang RadixAttention's prefix-reuse benefit for ~0 maintenance. |
 | Model | **Qwen3.6-27B dense** | Flagship dense (hidden 5120, 64 layers, gated-DeltaNet hybrid attention). User's "27b". Hybrid attn ⇒ only 16/64 layers carry KV ⇒ cheap long context. |
-| Weights | **4-bit** (AWQ **or** MXFP4 — confirm in Step 2) | On 32 GB, FP8 weights (~27 GB) leave only ~5 GB ⇒ no KV pool ⇒ no batching. 4-bit (~15 GB) frees ~17 GB for the KV pool. **Weights dominate VRAM; KV quant cannot rescue FP8 weights.** |
-| KV cache | `fp8_e4m3` if it accelerates, else `auto` | FP8 KV halves cache; full 262K ≈ 8 GB at FP8. Robust even if FP8 KV degrades, because 4-bit weights leave headroom. |
+| Weights | **GPTQ 4-bit** — `btbtyler09/Qwen3.6-27B-GPTQ-4bit` (~22 GB) | No official Qwen 4-bit checkpoint is public (FP8 30.9 GB & BF16 54 GB don't fit 32 GB). Community GPTQ chosen (Step 2). `--quantization gptq` (NOT marlin — that's CUDA). ~22 GB weights leave ~10 GB headroom. |
+| KV cache | **default** (BF16) to start; `fp8_e4m3` only if VRAM-pressured | Recipe doesn't mandate a KV dtype. Hybrid attn ⇒ tiny KV. Default fits ~128K; full 262K needs FP8 KV (Step 5 lever). Avoids the gfx1201 FP8-KV fallback risk for now. |
 | Parallelism | **Single GPU, TP=1** | TP=2 on dual R9700 has an unresolved RCCL deadlock (vllm#40980). TP=1 is the reliable path. |
 | Attention backend | **Triton**, `VLLM_ROCM_USE_AITER=0` | AITER C++/ASM kernels are CDNA-only; gfx1201 runs the Triton JIT path. No `HSA_OVERRIDE_GFX_VERSION` (gfx1201 is natively recognised on ROCm 7.x). |
 
-**Honest caveats:** gfx1201 is community-supported, not vendor-blessed. The image is a community
-build (`tcclaviger/vllm-rocm-rdna4-mxfp4`) — pin by digest, consider mirroring to GHCR. A known
-container bug (vllm#40081, amdsmi detection) may need a workaround. Which 4-bit format
-(AWQ vs MXFP4 vs GPTQ) actually has working gfx1201 kernels is the main thing to validate empirically.
+**Image (Step 2, upstream chosen):** `docker.io/rocm/vllm@sha256:015dc53ab8c9ddbbdca034c68fe7c169e6884c63094adb49071d1911b1cbd474`
+(tag `rocm7.13.0_gfx120X-all_ubuntu24.04_py3.13_pytorch_2.10.0_vllm_0.19.1`) — **official AMD**,
+built native for `gfx1200;gfx1201`, ROCm 7.13 / vLLM 0.19.1 / PyTorch 2.10, built 2026-05-18
+(postdates Qwen3.6). vLLM 0.19.1 ≥ recipe floor (0.17.0); `qwen3_5` gated-DeltaNet supported,
+and its **linear-attention kernels are Triton-based → run on ROCm** (empirically confirmed on a
+gfx1201 R9700). Two image quirks handled in the manifest: (1) its default CMD does a **runtime
+`pip install` of vLLM** — we override `command: [vllm, serve]` to use the baked build (validate in
+Step 4; fall back to pinned-install or a thin downstream image if the baked vLLM is non-functional);
+(2) no serve entrypoint.
+
+**Honest caveats:** gfx1201 is community-validated, not in AMD's *documented* support list (docs name
+MI300/MI325/MI355). Known risks to watch in Step 4: container-startup bug (vllm#40081 — amdsmi /
+`device_count()==0` inside containers), and whether the ROCm GPTQ kernel path is performant on gfx1201.
 
 ---
 
@@ -87,7 +96,13 @@ Commit. Let Flux reconcile; confirm the daemonset still advertises `squat.ai/dri
 
 ---
 
-## Step 2 — Confirm image + working 4-bit format on gfx1201  ·  Status: ☐ not started
+## Step 2 — Confirm image + working 4-bit format on gfx1201  ·  Status: ✅ done
+
+> **Resolved:** upstream `rocm/vllm` gfx120X image (digest above) instead of the community build.
+> Model `btbtyler09/Qwen3.6-27B-GPTQ-4bit`, `--quantization gptq`. No official Qwen 4-bit exists
+> publicly (FP8/BF16 too big for 32 GB). KV left default to start. vLLM 0.19.1 confirmed to support
+> the model; GDN kernels are Triton (ROCm-capable). Remaining empirical unknowns deferred to Step 4:
+> baked-vLLM-runs-without-bootstrap, container-startup bug, GPTQ kernel perf.
 
 Empirically settle the one real unknown before writing manifests:
 
@@ -107,7 +122,13 @@ Empirically settle the one real unknown before writing manifests:
 
 ---
 
-## Step 3 — Create the `vllm` app  ·  Status: ☐ not started
+## Step 3 — Create the `vllm` app  ·  Status: ✅ done
+
+> Created `kubernetes/apps/ai/vllm/{ks.yaml, app/{helmrelease,pvc,kustomization}.yaml}` and added
+> `./vllm/ks.yaml` to the namespace kustomization. `kustomize build --enable-helm` passes (exit 0).
+> Manifest reflects the resolved Step-2 decisions (upstream image digest, GPTQ model, `command:
+> [vllm, serve]` override, `squat.ai/dri` + render/video groups + seccomp Unconfined, /dev/shm
+> emptyDir, default KV, `--max-model-len 65536` to start).
 
 New app dir `kubernetes/apps/ai/vllm/` mirroring the `llama-server` layout.
 
