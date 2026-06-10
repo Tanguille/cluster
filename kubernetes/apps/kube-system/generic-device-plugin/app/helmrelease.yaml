@@ -19,8 +19,10 @@ spec:
               repository: ghcr.io/squat/generic-device-plugin
               tag: latest@sha256:dc192e164c69b03f156765793a1be62ca437709ae477b27ca7d8f3dcf5021576
             args:
-              # Expose /dev/dri as a shared squat.ai/dri resource so multiple
-              # pods (jellyfin, fileflows, ...) can transcode on the same GPU.
+              # Expose the GPU as a shared squat.ai/dri resource so multiple
+              # pods can use the same card. Two device nodes are bundled per
+              # claim: /dev/dri (VAAPI transcode for jellyfin, fileflows) and
+              # /dev/kfd (the ROCm compute node, required by vLLM inference).
               # Override the plugin's default "devic.es" domain to match the
               # squat.ai/dri resource the workloads request.
               - --domain=squat.ai
@@ -29,10 +31,13 @@ spec:
                 name: dri
                 groups:
                   # count = max concurrent pods that can claim the shared GPU;
-                  # headroom over today's 2 consumers (jellyfin + fileflows)
+                  # headroom over today's consumers (jellyfin, fileflows, vllm)
                   - count: 4
                     paths:
                       - path: /dev/dri
+                      # ROCm compute node — single shared node, bound into the
+                      # same claim so vLLM gets both /dev/dri and /dev/kfd.
+                      - path: /dev/kfd
             securityContext:
               privileged: true
             resources:
