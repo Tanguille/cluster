@@ -10,7 +10,7 @@ spec:
       rules:
         - alert: HighGpuUsage
           expr: |
-            avg by (nodename) (node_drm_gpu_busy_percent) > 85
+            max by (nodename) (node_drm_gpu_busy_percent) > 85
           for: 15m
           labels:
             severity: warning

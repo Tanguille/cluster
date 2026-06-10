@@ -25,6 +25,8 @@ spec:
               - |
                 name: dri
                 groups:
+                  # count = max concurrent pods that can claim the shared GPU;
+                  # headroom over today's 2 consumers (jellyfin + fileflows)
                   - count: 4
                     paths:
                       - path: /dev/dri

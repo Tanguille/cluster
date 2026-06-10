@@ -39,7 +39,7 @@ spec:
           "title": "GPU busy",
           "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
           "targets": [
             {
               "expr": "node_drm_gpu_busy_percent",
@@ -53,7 +53,7 @@ spec:
           "title": "VRAM usage",
           "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-          "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 }, "overrides": [] },
+          "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 } },
           "targets": [
             {
               "expr": "node_drm_memory_vram_used_bytes",
@@ -71,7 +71,7 @@ spec:
           "title": "GTT (system memory) usage",
           "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
           "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
-          "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 }, "overrides": [] },
+          "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 } },
           "targets": [
             {
               "expr": "node_drm_memory_gtt_used_bytes",
@@ -85,7 +85,7 @@ spec:
           "title": "GPU temperature",
           "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
           "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
-          "fieldConfig": { "defaults": { "unit": "celsius" }, "overrides": [] },
+          "fieldConfig": { "defaults": { "unit": "celsius" } },
           "targets": [
             {
               "expr": "node_hwmon_temp_celsius * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
@@ -99,7 +99,7 @@ spec:
           "title": "GPU power",
           "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
           "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
-          "fieldConfig": { "defaults": { "unit": "watt", "min": 0 }, "overrides": [] },
+          "fieldConfig": { "defaults": { "unit": "watt", "min": 0 } },
           "targets": [
             {
               "expr": "node_hwmon_power_average_watt * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
