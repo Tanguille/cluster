@@ -1,0 +1,154 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: vllm
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  valuesFrom:
+    - kind: ConfigMap
+      name: affinity-control-1
+
+  values:
+    defaultPodOptions:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: amd.com/gpu
+                    operator: In
+                    values: ["true"]
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        supplementalGroups:
+          - 44 # video — open /dev/dri
+          - 226 # render — /dev/dri/renderD* and /dev/kfd for ROCm compute
+        seccompProfile:
+          type: Unconfined # ROCm/HIP needs unrestricted syscalls
+
+    controllers:
+      app:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              # Official AMD rocm/vllm build targeting RDNA4 (gfx1200;gfx1201),
+              # ROCm 7.13 / vLLM 0.19.1 / PyTorch 2.10. Pinned by digest.
+              repository: docker.io/rocm/vllm
+              tag: rocm7.13.0_gfx120X-all_ubuntu24.04_py3.13_pytorch_2.10.0_vllm_0.19.1@sha256:015dc53ab8c9ddbbdca034c68fe7c169e6884c63094adb49071d1911b1cbd474
+            # Override the image's pip-bootstrap CMD; run the baked vLLM directly.
+            # (If the baked vLLM proves non-functional, this is the spot to switch
+            # to a one-time pinned install or a thin downstream image — see plan Step 4.)
+            command:
+              - vllm
+              - serve
+            args:
+              - btbtyler09/Qwen3.6-27B-GPTQ-4bit
+              - --served-model-name
+              - qwen3.6-27b
+              - --quantization
+              - gptq # let vLLM pick the ROCm-compatible GPTQ kernel (not Marlin/CUDA)
+              - --max-model-len
+              - "65536" # start conservative; raise toward 262144 in Step 5
+              - --enable-prefix-caching
+              - --reasoning-parser
+              - qwen3
+              - --gpu-memory-utilization
+              - "0.92"
+              - --host
+              - 0.0.0.0
+              - --port
+              - "8000"
+            env:
+              TZ: ${TIMEZONE}
+              HF_HOME: /cache
+              HIP_VISIBLE_DEVICES: "0" # single R9700 on control-1
+              VLLM_ROCM_USE_AITER: "0" # AITER kernels are CDNA-only; use Triton path on gfx1201
+            probes:
+              # First boot downloads ~22Gi of weights then loads + compiles Triton
+              # kernels — allow a long startup window before liveness takes over.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &httpGet
+                    path: /health
+                    port: &port 8000
+                  initialDelaySeconds: 30
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  failureThreshold: 80 # ~20 min ceiling for download + load
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+            resources:
+              requests:
+                cpu: 2
+                memory: 8Gi
+                squat.ai/dri: 1
+              limits:
+                cpu: 12
+                memory: 32Gi
+                squat.ai/dri: 1
+
+    service:
+      app:
+        controller: app
+        ports:
+          http:
+            port: 80
+            targetPort: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: vLLM
+          gethomepage.dev/description: Qwen3.6-27B inference (vLLM/ROCm)
+          gethomepage.dev/group: Models
+          gethomepage.dev/icon: mdi-brain
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 80
+
+    persistence:
+      cache:
+        enabled: true
+        existingClaim: vllm
+        globalMounts:
+          - path: /cache
+      # vLLM needs a large /dev/shm for its IPC; the default 64Mi is too small.
+      shm:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 8Gi
+        globalMounts:
+          - path: /dev/shm
