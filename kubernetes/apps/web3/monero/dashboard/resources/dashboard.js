@@ -23,7 +23,7 @@ const CONFIG = {
     day: 1,
     week: 7,
     month: 30,
-    year: 365,
+    year: 365
   },
 
   // Default values
@@ -37,11 +37,11 @@ const CONFIG = {
   HASHRATE_SCALE: {
     GIGA: 1e9,
     MEGA: 1e6,
-    KILO: 1e3,
+    KILO: 1e3
   },
 
   // Monero units
-  ATOMIC_UNITS_PER_XMR: 1e12,
+  ATOMIC_UNITS_PER_XMR: 1e12
 };
 
 // ==============================
@@ -56,7 +56,7 @@ const state = {
   observerWallet: null,
   oldStatsData: {},
   refreshIntervalId: null,
-  isTabVisible: true,
+  isTabVisible: true
 };
 
 // ==============================
@@ -105,7 +105,7 @@ function cacheDOMElements() {
     "blocks-found",
     "last-share-time",
     "last-block-time",
-    "workers-list",
+    "workers-list"
   ];
 
   ids.forEach((id) => {
@@ -236,7 +236,7 @@ function formatTime(timestamp) {
   return formatRelativeTime(timestamp, {
     zeroLabel: "Never",
     invalidLabel: "Invalid",
-    underMinute: () => "Just now",
+    underMinute: () => "Just now"
   });
 }
 
@@ -285,7 +285,7 @@ function sliceHistory(hours, historyData) {
     myHash: historyData.myHash?.slice(startIndex) || [],
     poolHash: historyData.poolHash?.slice(startIndex) || [],
     netHash: historyData.netHash?.slice(startIndex) || [],
-    price: historyData.price?.slice(startIndex) || [],
+    price: historyData.price?.slice(startIndex) || []
   };
 }
 
@@ -299,7 +299,7 @@ function sliceHistory(hours, historyData) {
 function movingAverage(
   timestamps,
   values,
-  windowSeconds = CONFIG.MOVING_AVERAGE_WINDOW_SECONDS,
+  windowSeconds = CONFIG.MOVING_AVERAGE_WINDOW_SECONDS
 ) {
   if (
     !Array.isArray(timestamps) ||
@@ -377,12 +377,12 @@ function calculateMovingAverages(
   historyData,
   instMyHash,
   instPoolHash,
-  instNetHash,
+  instNetHash
 ) {
   const fallback = {
     avgMyHash: instMyHash,
     avgPoolHash: instPoolHash,
-    avgNetHash: instNetHash,
+    avgNetHash: instNetHash
   };
 
   if (windowHours <= 0 || !historyData) {
@@ -403,7 +403,7 @@ function calculateMovingAverages(
     avgPoolHash:
       movingAverage(timestamps, sliced.poolHash, windowSeconds) || instPoolHash,
     avgNetHash:
-      movingAverage(timestamps, sliced.netHash, windowSeconds) || instNetHash,
+      movingAverage(timestamps, sliced.netHash, windowSeconds) || instNetHash
   };
 }
 
@@ -448,7 +448,7 @@ async function getWindowStartTimestamp() {
     }
 
     const sharesInWindow = await fetchJSON(
-      `/observer/shares?limit=${windowDepth}`,
+      `/observer/shares?limit=${windowDepth}`
     );
     if (!Array.isArray(sharesInWindow) || sharesInWindow.length === 0) {
       console.warn("No shares returned for PPLNS window");
@@ -516,8 +516,8 @@ function sharedChartOptions(overrides = {}) {
         borderWidth: 1,
         padding: 10,
         displayColors: false,
-        ...(tooltipCallbacks ? { callbacks: tooltipCallbacks } : {}),
-      },
+        ...(tooltipCallbacks ? { callbacks: tooltipCallbacks } : {})
+      }
     },
     scales: {
       x: {
@@ -526,31 +526,31 @@ function sharedChartOptions(overrides = {}) {
           tooltipFormat: "dd/MM/yyyy HH:mm:ss",
           displayFormats: {
             hour: "dd/MM/yyyy HH:mm",
-            minute: "dd/MM/yyyy HH:mm",
-          },
+            minute: "dd/MM/yyyy HH:mm"
+          }
         },
         grid: {
           color: "rgba(31, 41, 55, 0.5)",
-          drawBorder: false,
+          drawBorder: false
         },
         ticks: {
           color: "#6b7280",
           font: { size: 10 },
-          maxTicksLimit: 6,
-        },
+          maxTicksLimit: 6
+        }
       },
       y: {
         ...(yTicks ? { ticks: yTicks } : {}),
         grid: {
           color: "rgba(31, 41, 55, 0.5)",
-          drawBorder: false,
-        },
-      },
+          drawBorder: false
+        }
+      }
     },
     interaction: {
       intersect: false,
-      mode: "index",
-    },
+      mode: "index"
+    }
   };
 }
 
@@ -568,7 +568,7 @@ function lineDataset(label, data) {
     tension: 0.3,
     pointRadius: 0,
     pointHoverRadius: 4,
-    pointHoverBackgroundColor: "#ef4444",
+    pointHoverBackgroundColor: "#ef4444"
   };
 }
 
@@ -586,12 +586,12 @@ function initOrUpdateChart(canvas, state, stateKey, chartConfig) {
     type: "line",
     data: {
       labels: chartConfig.labels,
-      datasets: [lineDataset(chartConfig.label, chartConfig.data)],
+      datasets: [lineDataset(chartConfig.label, chartConfig.data)]
     },
     options: sharedChartOptions({
       yTicks: chartConfig.yTicks,
-      tooltipCallbacks: chartConfig.tooltipCallbacks,
-    }),
+      tooltipCallbacks: chartConfig.tooltipCallbacks
+    })
   };
 
   if (!state[stateKey]) {
@@ -612,7 +612,7 @@ function initializeCharts() {
 
   const slicedHistoryData = sliceHistory(
     state.currentRangeHours,
-    state.history,
+    state.history
   );
   if (!slicedHistoryData) return;
 
@@ -629,8 +629,8 @@ function initializeHashrateChart(slicedHistoryData) {
       yTicks: {
         callback: scaleHashrate,
         color: "#6b7280",
-        font: { size: 10 },
-      },
+        font: { size: 10 }
+      }
     });
   } catch (error) {
     console.error("Failed to initialize hashrate chart:", error);
@@ -646,11 +646,11 @@ function initializePriceChart(slicedHistoryData) {
       yTicks: {
         callback: (v) => `€${v.toFixed(2)}`,
         color: "#6b7280",
-        font: { size: 10 },
+        font: { size: 10 }
       },
       tooltipCallbacks: {
-        label: (ctx) => `€${ctx.parsed.y.toFixed(2)}`,
-      },
+        label: (ctx) => `€${ctx.parsed.y.toFixed(2)}`
+      }
     });
   } catch (error) {
     console.error("Failed to initialize price chart:", error);
@@ -679,13 +679,13 @@ async function updateRecentPayments(payouts, priceEUR) {
     }
 
     const sortedPayouts = [...payouts].sort(
-      (a, b) => b.timestamp - a.timestamp,
+      (a, b) => b.timestamp - a.timestamp
     );
     const newestPayoutTime = sortedPayouts[0].timestamp;
 
     const totalXMR = sortedPayouts.reduce(
       (sum, p) => sum + p.coinbase_reward / CONFIG.ATOMIC_UNITS_PER_XMR,
-      0,
+      0
     );
 
     setTextContent("totalEarned", `${totalXMR.toFixed(6)} XMR`);
@@ -693,7 +693,7 @@ async function updateRecentPayments(payouts, priceEUR) {
       "totalEurEarned",
       typeof priceEUR === "number"
         ? `≈ €${(totalXMR * priceEUR).toFixed(2)}`
-        : "",
+        : ""
     );
 
     // Update table
@@ -717,7 +717,7 @@ async function updateRecentPayments(payouts, priceEUR) {
 
     setTextContent(
       "paymentsStatus",
-      `Showing last ${Math.min(CONFIG.PPLNS_WINDOW_MAX_SHARES, sortedPayouts.length)} payouts`,
+      `Showing last ${Math.min(CONFIG.PPLNS_WINDOW_MAX_SHARES, sortedPayouts.length)} payouts`
     );
 
     return [newestPayoutTime, totalXMR];
@@ -770,7 +770,7 @@ function updateSharesDisplay(
   sharesSince,
   unclesSince,
   totalShares,
-  totalUncles,
+  totalUncles
 ) {
   setTextContent("sharesSinceLastPayout", sharesSince);
   setTextContent("unclesSinceLastPayout", unclesSince);
@@ -790,7 +790,7 @@ async function updateWindowLuck(
   windowStart,
   windowDuration,
   priceEUR,
-  blockReward,
+  blockReward
 ) {
   if (!isObserverReady()) return;
 
@@ -803,11 +803,11 @@ async function updateWindowLuck(
     const sortedShares = [...shares].sort((a, b) => a.timestamp - b.timestamp);
 
     const myWindowShares = sortedShares.filter(
-      (share) => share.timestamp >= windowStart,
+      (share) => share.timestamp >= windowStart
     );
     const totalDifficulty = myWindowShares.reduce(
       (sum, share) => sum + (share.difficulty || 0),
-      0,
+      0
     );
     const difficultyShare = pplnsWeight > 0 ? totalDifficulty / pplnsWeight : 0;
 
@@ -836,7 +836,7 @@ difficulty of your hashes compared to the total difficulty in the
 current PPLNS window divided by your actual moving average
 (as long as the PPLNS window age) hashrate from XMRig. And that
 also multiplied by the pool luck (derived from the pool effort).
-    `.trim(),
+    `.trim()
     );
 
     setTextContent("luckFactor", betterLuckFactor.toFixed(2));
@@ -845,11 +845,11 @@ also multiplied by the pool luck (derived from the pool effort).
     setTextContent("dayHash", scaleHashrate(myWindowHash));
     setTextContent(
       "pplnsStart",
-      formatDate24Hours(new Date(windowStart * 1000)),
+      formatDate24Hours(new Date(windowStart * 1000))
     );
     setTextContent(
       "currentEffort",
-      (poolInfo?.sidechain?.effort?.current || 0).toFixed(2),
+      (poolInfo?.sidechain?.effort?.current || 0).toFixed(2)
     );
   } catch (error) {
     console.error("Error updating PPLNS Window Luck card:", error);
@@ -860,7 +860,7 @@ function updateTrueLuck(
   startedMiningTimestamp,
   newestPayoutTime,
   xmrPerDayAvg,
-  totalXMR,
+  totalXMR
 ) {
   const reset = () => {
     setTextContent("trueLuckFactor", "–");
@@ -914,7 +914,7 @@ Estimated true luck: total payouts divided by expected earnings
 over the same period. Expected earnings use a 24h moving average
 of hashrates, so accuracy decreases the further back the window
 goes. Shows "–" if no payouts yet or not enough data.
-    `.trim(),
+    `.trim()
     );
   } catch (error) {
     console.error("Error updating Estimated True Luck card:", error);
@@ -967,14 +967,14 @@ function updateBlockInfo(poolData) {
   setTextContent("blocks-found", blocksFound ?? "–");
   setTextContent(
     "last-block-time",
-    formatTime(poolData?.pool_statistics?.lastBlockFoundTime),
+    formatTime(poolData?.pool_statistics?.lastBlockFoundTime)
   );
 }
 
 function updateShareTimes() {
   setTextContent(
     "last-share-time",
-    formatTime(state.oldStatsData?.last_share_found_time),
+    formatTime(state.oldStatsData?.last_share_found_time)
   );
 }
 
@@ -1030,7 +1030,7 @@ async function fetchDashboardData() {
     fetchJSON("/network/stats"),
     fetchJSON("/min_payment_threshold"),
     fetchJSON("/stats_log.json"),
-    fetchJSON("/local/stratum"),
+    fetchJSON("/local/stratum")
   ]);
 
   return results.map((r) => (r.status === "fulfilled" ? r.value : null));
@@ -1051,7 +1051,7 @@ function calculateAveragingWindow(historyData) {
 
   const avgWindowHours = Math.max(
     0,
-    Math.min(availableHours, CONFIG.DEFAULT_RANGE_HOURS),
+    Math.min(availableHours, CONFIG.DEFAULT_RANGE_HOURS)
   );
 
   return { avgWindowHours, hasEnoughData: avgWindowHours > 0 };
@@ -1074,7 +1074,7 @@ function calculatePayoutInterval(
   avgMyHash,
   avgPoolHash,
   blockReward,
-  minPaymentThreshold,
+  minPaymentThreshold
 ) {
   const xmrPerBlock =
     avgPoolHash > 0 ? (avgMyHash / avgPoolHash) * blockReward : 0;
@@ -1084,7 +1084,7 @@ function calculatePayoutInterval(
   const intervalHours = (minPaymentThreshold / xmrPerBlock) * 24;
   return {
     intervalHours,
-    intervalText: `~${intervalHours.toFixed(1)}h/payout`,
+    intervalText: `~${intervalHours.toFixed(1)}h/payout`
   };
 }
 
@@ -1092,7 +1092,7 @@ function updateEarningsTooltip(
   avgMyHash,
   avgPoolHash,
   avgNetHash,
-  avgWindowHours,
+  avgWindowHours
 ) {
   const avgWindowLabel =
     avgWindowHours >= CONFIG.DEFAULT_RANGE_HOURS
@@ -1106,7 +1106,7 @@ Estimated earnings based on ${avgWindowLabel}.
 Avg your hashrate: ${scaleHashrate(avgMyHash)}
 Avg pool hashrate: ${scaleHashrate(avgPoolHash)}
 Avg network hashrate: ${scaleHashrate(avgNetHash)}
-  `.trim(),
+  `.trim()
   );
 }
 
@@ -1119,7 +1119,7 @@ function updateStatsDisplay(
   priceEUR,
   earnings,
   payoutInfo,
-  avgWindowHours,
+  avgWindowHours
 ) {
   setTextContent("myHashrate", scaleHashrate(instMyHash));
   setTextContent("poolHashrate", scaleHashrate(instPoolHash));
@@ -1138,7 +1138,7 @@ function updateStatsDisplay(
 
   setTextContent(
     "lastRefreshed",
-    `Last refreshed: ${formatDate24(new Date())}`,
+    `Last refreshed: ${formatDate24(new Date())}`
   );
   setTextContent("payoutInterval", payoutInfo.intervalText);
 
@@ -1177,7 +1177,7 @@ async function updateStats() {
 
     // Calculate averaging window
     const { avgWindowHours, hasEnoughData } = calculateAveragingWindow(
-      state.history,
+      state.history
     );
 
     // Calculate moving averages
@@ -1187,12 +1187,12 @@ async function updateStats() {
           state.history,
           instMyHash,
           instPoolHash,
-          instNetHash,
+          instNetHash
         )
       : {
           avgMyHash: instMyHash,
           avgPoolHash: instPoolHash,
-          avgNetHash: instNetHash,
+          avgNetHash: instNetHash
         };
 
     // Calculate pool share
@@ -1207,7 +1207,7 @@ async function updateStats() {
       avgMyHash,
       avgNetHash,
       blockReward,
-      priceEUR,
+      priceEUR
     );
 
     // Calculate payout interval
@@ -1215,7 +1215,7 @@ async function updateStats() {
       avgMyHash,
       avgPoolHash,
       blockReward,
-      minPaymentThreshold,
+      minPaymentThreshold
     );
 
     // Update all displays
@@ -1228,7 +1228,7 @@ async function updateStats() {
       priceEUR,
       earnings,
       payoutInfo,
-      avgWindowHours,
+      avgWindowHours
     );
     updateEarningsTooltip(avgMyHash, avgPoolHash, avgNetHash, avgWindowHours);
 
@@ -1239,7 +1239,7 @@ async function updateStats() {
       state.observerBase && state.observerWallet
         ? await Promise.all([
             fetchJSON(`/observer/payouts/${state.observerWallet}`),
-            fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`),
+            fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`)
           ])
         : [null, null];
 
@@ -1252,7 +1252,7 @@ async function updateStats() {
     // Update payments
     const [newestPayoutTime, totalXMR] = await updateRecentPayments(
       payouts,
-      priceEUR,
+      priceEUR
     );
 
     // Update shares
@@ -1275,7 +1275,7 @@ async function updateStats() {
         state.history,
         instMyHash,
         instPoolHash,
-        instNetHash,
+        instNetHash
       );
 
     // Update luck cards
@@ -1287,7 +1287,7 @@ async function updateStats() {
       windowStart,
       windowDuration,
       priceEUR,
-      blockReward,
+      blockReward
     );
 
     // Update true luck — auto-detect mining start from history data
@@ -1301,7 +1301,7 @@ async function updateStats() {
         historyStart,
         newestPayoutTime,
         earnings.xmrPerDayAvg,
-        totalXMR,
+        totalXMR
       );
     }
 
@@ -1320,7 +1320,7 @@ function handleStatsError() {
     "netHashrate",
     "price",
     "earnXMR",
-    "earnEUR",
+    "earnEUR"
   ];
   errorElements.forEach((id) => {
     const el = DOM[id];
@@ -1383,7 +1383,7 @@ async function initialize() {
   // Start periodic updates
   state.refreshIntervalId = setInterval(
     updateStats,
-    CONFIG.REFRESH_INTERVAL_MS,
+    CONFIG.REFRESH_INTERVAL_MS
   );
 }
 

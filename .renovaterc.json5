@@ -3,7 +3,7 @@
   extends: [
     "abandonments:recommended",
     "github>home-operations/renovate-presets#2.0.0",
-    ":timezone(Europe/Brussels)",
+    ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   customManagers: [
@@ -12,30 +12,30 @@
       customType: "regex",
       managerFilePatterns: ["/kubernetes/apps/ai/toolhive/config/.+\\.ya?ml$/"],
       matchStrings: [
-        "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?",
+        "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
       ],
-      datasourceTemplate: "docker",
+      datasourceTemplate: "docker"
     },
     {
       description: "Process Grafana dashboards in GrafanaDashboard CRs",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
       matchStrings: [
-        "grafanaCom:\\s*\\n\\s*id:\\s*(?<depName>\\d+)\\s*\\n\\s*revision:\\s*(?<currentValue>\\d+)",
+        "grafanaCom:\\s*\\n\\s*id:\\s*(?<depName>\\d+)\\s*\\n\\s*revision:\\s*(?<currentValue>\\d+)"
       ],
       datasourceTemplate: "custom.grafana-dashboards",
       versioningTemplate: "regex:^(?<major>\\d+)$",
-      autoReplaceStringTemplate: "grafanaCom:\n    id: {{depName}}\n    revision: {{newValue}}",
+      autoReplaceStringTemplate: "grafanaCom:\n    id: {{depName}}\n    revision: {{newValue}}"
     },
     {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
       matchStrings: [
-        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v[\\d.]+)/(?<dashboardPath>[^\\s]+)",
+        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v[\\d.]+)/(?<dashboardPath>[^\\s]+)"
       ],
       datasourceTemplate: "github-releases",
-      autoReplaceStringTemplate: "url: https://raw.githubusercontent.com/{{depName}}/{{newValue}}/{{dashboardPath}}",
+      autoReplaceStringTemplate: "url: https://raw.githubusercontent.com/{{depName}}/{{newValue}}/{{dashboardPath}}"
     },
     {
       description: "qBitrr ConfigVersion (semver, no v prefix)",
@@ -44,8 +44,8 @@
       matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
       depNameTemplate: "feramance/qbitrr",
       datasourceTemplate: "docker",
-      autoReplaceStringTemplate: 'ConfigVersion = "{{replace newValue "v" ""}}"',
-    },
+      autoReplaceStringTemplate: 'ConfigVersion = "{{replace newValue "v" ""}}"'
+    }
   ],
   packageRules: [
     // Auto-merge rules
@@ -55,7 +55,7 @@
       matchUpdateTypes: ["digest"],
       matchPackageNames: ["/home-operations/"],
       automerge: true,
-      automergeType: "pr",
+      automergeType: "pr"
     },
     {
       description: "Auto-merge GitHub Actions",
@@ -63,7 +63,7 @@
       matchUpdateTypes: ["minor", "patch", "digest"],
       automerge: true,
       automergeType: "branch",
-      minimumReleaseAge: "3 days",
+      minimumReleaseAge: "3 days"
     },
     // Grouping rules
     {
@@ -72,12 +72,12 @@
       matchDatasources: ["docker"],
       matchPackageNames: [
         "/gha-runner-scale-set-controller/",
-        "/gha-runner-scale-set/",
+        "/gha-runner-scale-set/"
       ],
       group: {
-        commitMessageTopic: "{{{groupName}}} group",
+        commitMessageTopic: "{{{groupName}}} group"
       },
-      minimumGroupSize: 2,
+      minimumGroupSize: 2
     },
     {
       description: "Flux Operator Group",
@@ -85,9 +85,9 @@
       matchDatasources: ["docker"],
       matchPackageNames: ["/flux-operator/", "/flux-instance/"],
       group: {
-        commitMessageTopic: "{{{groupName}}} group",
+        commitMessageTopic: "{{{groupName}}} group"
       },
-      minimumGroupSize: 2,
+      minimumGroupSize: 2
     },
     {
       description: "Rook-Ceph Group",
@@ -95,9 +95,9 @@
       matchDatasources: ["docker"],
       matchPackageNames: ["/rook-ceph/", "/rook-ceph-cluster/"],
       group: {
-        commitMessageTopic: "{{{groupName}}} group",
+        commitMessageTopic: "{{{groupName}}} group"
       },
-      minimumGroupSize: 2,
+      minimumGroupSize: 2
     },
     {
       description: "ToolHive operator and CRDs group",
@@ -105,9 +105,9 @@
       matchDatasources: ["docker"],
       matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
       group: {
-        commitMessageTopic: "{{{groupName}}} group",
+        commitMessageTopic: "{{{groupName}}} group"
       },
-      minimumGroupSize: 2,
+      minimumGroupSize: 2
     },
     {
       description: "ToolHive MCP server images group",
@@ -115,9 +115,9 @@
       matchDatasources: ["docker"],
       matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
       group: {
-        commitMessageTopic: "{{{groupName}}} group",
+        commitMessageTopic: "{{{groupName}}} group"
       },
-      minimumGroupSize: 2,
+      minimumGroupSize: 2
     },
     {
       description: "Group klipper-exporter image and Grafana dashboard URL",
@@ -125,8 +125,8 @@
       matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/prometheus-klipper-exporter/"],
       group: {
-        commitMessageTopic: "{{{groupName}}}",
-      },
+        commitMessageTopic: "{{{groupName}}}"
+      }
     },
     {
       description: "qBitrr: group image tag and ConfigVersion",
@@ -136,16 +136,16 @@
       matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
       matchPackageNames: ["/feramance\\/qbitrr/"],
       group: {
-        commitMessageTopic: "{{{groupName}}}",
-      },
+        commitMessageTopic: "{{{groupName}}}"
+      }
     },
     {
       matchManagers: ["custom.regex"],
       matchFileNames: [
-        "kubernetes/apps/media/qbittorrent/tools/qbitrr/config/config.toml",
+        "kubernetes/apps/media/qbittorrent/tools/qbitrr/config/config.toml"
       ],
       matchPackageNames: ["/feramance\\/qbitrr/"],
-      extractVersion: "^v(?<version>.*)$",
+      extractVersion: "^v(?<version>.*)$"
     },
     // Versioning overrides
     {
@@ -153,46 +153,46 @@
       matchDatasources: ["docker"],
       matchPackageNames: [
         "ghcr.io/sethforprivacy/p2pool",
-        "nousresearch/hermes-agent",
+        "nousresearch/hermes-agent"
       ],
-      versioning: "loose",
+      versioning: "loose"
     },
     // Labeling rules
     {
       matchUpdateTypes: ["major"],
-      addLabels: ["type/major"],
+      addLabels: ["type/major"]
     },
     {
       matchUpdateTypes: ["minor"],
-      addLabels: ["type/minor"],
+      addLabels: ["type/minor"]
     },
     {
       matchUpdateTypes: ["patch"],
-      addLabels: ["type/patch"],
+      addLabels: ["type/patch"]
     },
     {
       matchUpdateTypes: ["digest"],
-      addLabels: ["type/digest"],
+      addLabels: ["type/digest"]
     },
     {
       matchDatasources: ["docker"],
-      addLabels: ["renovate/container"],
+      addLabels: ["renovate/container"]
     },
     {
       matchDatasources: ["helm"],
-      addLabels: ["renovate/helm"],
+      addLabels: ["renovate/helm"]
     },
     {
       matchDatasources: ["custom.grafana-dashboards"],
-      addLabels: ["renovate/grafana-dashboard"],
+      addLabels: ["renovate/grafana-dashboard"]
     },
     {
       matchManagers: ["github-actions"],
-      addLabels: ["renovate/github-action"],
+      addLabels: ["renovate/github-action"]
     },
     {
       matchDatasources: ["github-releases"],
-      addLabels: ["renovate/github-release"],
-    },
-  ],
+      addLabels: ["renovate/github-release"]
+    }
+  ]
 }
