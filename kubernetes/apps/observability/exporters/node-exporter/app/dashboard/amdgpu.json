@@ -9,7 +9,7 @@
   ],
   "title": "AMD GPU",
   "uid": "amdgpu-node",
-  "description": "AMD Radeon GPU telemetry from node_exporter: utilization, VRAM pressure, junction temperature, and power draw for compute and LLM inference workloads.",
+  "description": "AMD Radeon GPU telemetry from node_exporter: utilization, VRAM pressure, junction/edge temperatures, clock speeds, fan, and power draw for compute and LLM inference workloads.",
   "tags": ["hardware", "gpu", "amdgpu"],
   "timezone": "browser",
   "refresh": "1m",
@@ -28,9 +28,9 @@
       "id": 10,
       "type": "stat",
       "title": "GPU Busy",
-      "description": "Current GPU compute engine utilization. Sustained high values indicate compute-bound workloads.",
+      "description": "Current GPU compute engine utilization per node. Shows per-node breakdown of actual compute activity — sustained high values indicate compute-bound workloads.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -43,8 +43,8 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "orange", "value": 80 },
-              { "color": "red", "value": 95 }
+              { "color": "orange", "value": 50 },
+              { "color": "red", "value": 80 }
             ]
           }
         }
@@ -52,7 +52,7 @@
       "targets": [
         {
           "expr": "node_drm_gpu_busy_percent",
-          "legendFormat": "{{card}}"
+          "legendFormat": "{{nodename}}"
         }
       ],
       "options": {
@@ -74,30 +74,22 @@
       "id": 11,
       "type": "stat",
       "title": "VRAM Used",
-      "description": "Video RAM currently in use. Running LLMs at high context pushes this to capacity.",
+      "description": "Video RAM currently in use per node. Running LLMs at high context pushes this to capacity. control-1 has 32 GB VRAM; control-2/3 have 2 GB each.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
           "min": 0,
           "mappings": [],
           "noValue": "—",
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 8590000000 },
-              { "color": "red", "value": 10740000000 }
-            ]
-          }
+          "color": { "mode": "palette-classic" }
         }
       },
       "targets": [
         {
           "expr": "node_drm_memory_vram_used_bytes",
-          "legendFormat": "{{card}}"
+          "legendFormat": "{{nodename}}"
         }
       ],
       "options": {
@@ -119,12 +111,13 @@
       "id": 12,
       "type": "stat",
       "title": "Temperature",
-      "description": "GPU junction temperature. Sustained >85°C may indicate cooling issues.",
+      "description": "Hottest GPU temperature sensor per node (typically junction or edge). sustained >85°C may indicate cooling issues.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
       "fieldConfig": {
         "defaults": {
           "unit": "celsius",
+          "min": 0,
           "mappings": [],
           "noValue": "—",
           "color": { "mode": "thresholds" },
@@ -132,7 +125,7 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "orange", "value": 75 },
+              { "color": "orange", "value": 70 },
               { "color": "red", "value": 85 }
             ]
           }
@@ -140,8 +133,8 @@
       },
       "targets": [
         {
-          "expr": "node_hwmon_temp_celsius * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
-          "legendFormat": "{{sensor}}"
+          "expr": "max by (nodename) (node_hwmon_temp_celsius and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
+          "legendFormat": "{{nodename}}"
         }
       ],
       "options": {
@@ -162,10 +155,101 @@
     {
       "id": 13,
       "type": "stat",
-      "title": "Power Draw",
-      "description": "GPU power consumption. Compare to your GPU's TDP to gauge load intensity.",
+      "title": "Core Clock",
+      "description": "Current GPU core clock speed (highest clock zone per node). control-1 has both sclk (core) and mclk (memory) clock reporting.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mhz",
+          "min": 0,
+          "mappings": [],
+          "noValue": "—",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500000000 },
+              { "color": "orange", "value": 1000000000 },
+              { "color": "red", "value": 2000000000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "max by (nodename) (node_hwmon_freq_freq_mhz and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
+          "legendFormat": "{{nodename}}"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Fan Speed",
+      "description": "GPU fan RPM per node. Only available on nodes with actively-cooled AMD GPUs (control-1). Fanless/integrated GPUs show no data.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "rpm",
+          "min": 0,
+          "mappings": [],
+          "noValue": "—",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 3000 },
+              { "color": "red", "value": 5000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "max by (nodename) (node_hwmon_fan_rpm and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
+          "legendFormat": "{{nodename}}"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Power Draw",
+      "description": "GPU package power consumption. Compare to your GPU's TDP to gauge load intensity. Only available on discrete GPUs with power reporting.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
       "fieldConfig": {
         "defaults": {
           "unit": "watt",
@@ -178,15 +262,15 @@
             "steps": [
               { "color": "green", "value": null },
               { "color": "orange", "value": 150 },
-              { "color": "red", "value": 200 }
+              { "color": "red", "value": 250 }
             ]
           }
         }
       },
       "targets": [
         {
-          "expr": "node_hwmon_power_average_watt * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
-          "legendFormat": "{{sensor}}"
+          "expr": "max by (nodename) (node_hwmon_power_average_watt and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
+          "legendFormat": "{{nodename}}"
         }
       ],
       "options": {
@@ -215,9 +299,9 @@
       "id": 3,
       "type": "timeseries",
       "title": "GPU Busy",
-      "description": "GPU compute engine utilization over time. Colored zones: green = normal, orange = high, red = near-peak.",
+      "description": "GPU compute engine utilization over time. Colored zones: green = normal, orange = elevated, red = high sustained utilization.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 6 },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -235,8 +319,8 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "orange", "value": 80 },
-              { "color": "red", "value": 95 }
+              { "color": "orange", "value": 50 },
+              { "color": "red", "value": 80 }
             ]
           }
         }
@@ -244,7 +328,7 @@
       "targets": [
         {
           "expr": "node_drm_gpu_busy_percent",
-          "legendFormat": "{{card}}"
+          "legendFormat": "{{nodename}}"
         }
       ],
       "options": {
@@ -260,9 +344,9 @@
       "id": 4,
       "type": "timeseries",
       "title": "VRAM Usage",
-      "description": "Video RAM used vs total capacity. When the used line approaches the total, the GPU is near VRAM capacity.",
+      "description": "Video RAM used vs total capacity per node. control-1 has 32 GB VRAM; control-2/3 have 2 GB. When the used line approaches the total, the GPU is near VRAM capacity.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 6 },
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
@@ -278,7 +362,7 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "total" },
+            "matcher": { "id": "byRegexp", "options": "/total$/" },
             "properties": [
               { "id": "custom.fillOpacity", "value": 0 },
               {
@@ -288,16 +372,7 @@
               { "id": "custom.lineWidth", "value": 2 },
               {
                 "id": "color",
-                "value": { "mode": "fixed", "fixedColor": "semi-dark-blue" }
-              }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "used" },
-            "properties": [
-              {
-                "id": "color",
-                "value": { "mode": "fixed", "fixedColor": "blue" }
+                "value": { "mode": "palette-classic" }
               }
             ]
           }
@@ -306,11 +381,11 @@
       "targets": [
         {
           "expr": "node_drm_memory_vram_used_bytes",
-          "legendFormat": "used"
+          "legendFormat": "{{nodename}} used"
         },
         {
           "expr": "node_drm_memory_vram_size_bytes",
-          "legendFormat": "total"
+          "legendFormat": "{{nodename}} total"
         }
       ],
       "options": {
@@ -323,126 +398,38 @@
       }
     },
     {
-      "id": 5,
-      "type": "row",
-      "title": "Memory & Thermals",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
-      "collapsed": false
-    },
-    {
-      "id": 14,
-      "type": "gauge",
-      "title": "VRAM Usage",
-      "description": "Video RAM utilization as a percentage of total capacity.",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "mappings": [],
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 80 },
-              { "color": "red", "value": 95 }
-            ]
-          }
-        }
-      },
-      "targets": [
-        {
-          "expr": "node_drm_memory_vram_used_bytes / node_drm_memory_vram_size_bytes * 100",
-          "legendFormat": "{{card}}"
-        }
-      ],
-      "options": {
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
-      }
-    },
-    {
-      "id": 6,
+      "id": 16,
       "type": "timeseries",
-      "title": "GTT (System Memory) Usage",
-      "description": "Graphics Translation Table — GPU-accessible system memory. If this rises with VRAM near max, the GPU is swapping.",
+      "title": "Visible VRAM",
+      "description": "CPU-accessible (visible) video memory. The portion of VRAM directly mappable by the CPU — relevant for buffer transfers during GPU compute workloads.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
           "min": 0,
-          "color": { "mode": "thresholds" },
+          "color": { "mode": "palette-classic" },
           "custom": {
-            "fillOpacity": 40,
+            "fillOpacity": 30,
             "lineWidth": 1,
             "pointSize": 3,
             "showPoints": "never",
             "stacking": { "mode": "none", "group": "A" }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 1073741824 },
-              { "color": "red", "value": 4294967296 }
-            ]
-          }
-        }
-      },
-      "targets": [
-        {
-          "expr": "node_drm_memory_gtt_used_bytes",
-          "legendFormat": "{{card}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "calcs": ["mean", "max", "last"],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      }
-    },
-    {
-      "id": 7,
-      "type": "timeseries",
-      "title": "Temperature",
-      "description": "GPU junction (hotspot) and edge temperatures. Colored thresholds: green = safe, orange = warm, red = hot.",
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "celsius",
-          "color": { "mode": "thresholds" },
-          "custom": {
-            "fillOpacity": 40,
-            "lineWidth": 2,
-            "pointSize": 3,
-            "showPoints": "never",
-            "stacking": { "mode": "none", "group": "A" }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 75 },
-              { "color": "red", "value": 85 }
-            ]
           }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "edge" },
+            "matcher": { "id": "byRegexp", "options": "/total$/" },
             "properties": [
-              { "id": "custom.fillOpacity", "value": 10 },
+              { "id": "custom.fillOpacity", "value": 0 },
               {
                 "id": "custom.lineStyle",
-                "value": { "fill": "dash", "dash": [6, 3] }
+                "value": { "fill": "dash", "dash": [8, 4] }
+              },
+              { "id": "custom.lineWidth", "value": 2 },
+              {
+                "id": "color",
+                "value": { "mode": "palette-classic" }
               }
             ]
           }
@@ -450,8 +437,12 @@
       },
       "targets": [
         {
-          "expr": "node_hwmon_temp_celsius * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
-          "legendFormat": "{{sensor}}"
+          "expr": "node_drm_memory_vis_vram_used_bytes",
+          "legendFormat": "{{nodename}} used"
+        },
+        {
+          "expr": "node_drm_memory_vis_vram_size_bytes",
+          "legendFormat": "{{nodename}} total"
         }
       ],
       "options": {
@@ -464,19 +455,55 @@
       }
     },
     {
-      "id": 8,
+      "id": 17,
       "type": "row",
-      "title": "Power",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "title": "Clocks & Power",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "collapsed": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "GPU Clocks",
+      "description": "GPU core (sclk) and memory (mclk) clock speeds. Low MHz at idle is normal; sclk ramps under load. Only control-1 (W7900) reports mclk.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "mhz",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 40,
+            "lineWidth": 2,
+            "pointSize": 3,
+            "showPoints": "never",
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "((node_hwmon_freq_freq_mhz * on (chip, sensor, instance) group_left(label) node_hwmon_sensor_label) and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
+          "legendFormat": "{{nodename}} — {{label}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
     },
     {
       "id": 9,
       "type": "timeseries",
       "title": "Power Draw",
-      "description": "GPU package power consumption. Spikes to TDP are expected under heavy compute loads.",
+      "description": "GPU package power consumption. Spikes to TDP are expected under heavy compute loads. Only nodes with discrete GPUs report power.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
       "fieldConfig": {
         "defaults": {
           "unit": "watt",
@@ -494,15 +521,283 @@
             "steps": [
               { "color": "green", "value": null },
               { "color": "orange", "value": 150 },
-              { "color": "red", "value": 200 }
+              { "color": "red", "value": 250 }
             ]
           }
         }
       },
       "targets": [
         {
-          "expr": "node_hwmon_power_average_watt * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
-          "legendFormat": "{{sensor}}"
+          "expr": "node_hwmon_power_average_watt and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+          "legendFormat": "{{nodename}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Voltage",
+      "description": "GPU voltage rails. vddgfx = GPU core voltage, vddnb = northbridge voltage. Useful for power efficiency analysis.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volts",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 40,
+            "lineWidth": 2,
+            "pointSize": 3,
+            "showPoints": "never",
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "((node_hwmon_in_volts * on (chip, sensor, instance) group_left(label) node_hwmon_sensor_label) and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
+          "legendFormat": "{{nodename}} — {{label}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 19,
+      "type": "row",
+      "title": "Temperatures & Fan",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "GPU Temperatures",
+      "description": "GPU thermal sensors with readable labels: junction (hotspot), edge (PCB edge), mem (memory junction). Junction is the hottest and most relevant for throttling. Control-1 has all three sensors; control-2/3 only have edge.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "fillOpacity": 40,
+            "lineWidth": 2,
+            "pointSize": 3,
+            "showPoints": "never",
+            "stacking": { "mode": "none", "group": "A" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "/edge$/" },
+            "properties": [
+              { "id": "custom.fillOpacity", "value": 10 },
+              {
+                "id": "custom.lineStyle",
+                "value": { "fill": "dash", "dash": [6, 3] }
+              }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "((node_hwmon_temp_celsius * on (chip, sensor, instance) group_left(label) node_hwmon_sensor_label) and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
+          "legendFormat": "{{nodename}} — {{label}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Fan Speed",
+      "description": "GPU fan RPM over time. Only control-1 has a fan-cooled GPU (W7900). Integrated GPUs on control-2/3 are passively cooled and report no fan data.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "rpm",
+          "min": 0,
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "fillOpacity": 40,
+            "lineWidth": 2,
+            "pointSize": 3,
+            "showPoints": "never",
+            "stacking": { "mode": "none", "group": "A" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 3000 },
+              { "color": "red", "value": 5000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "node_hwmon_fan_rpm and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+          "legendFormat": "{{nodename}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 21,
+      "type": "row",
+      "title": "Memory Detail",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "collapsed": false
+    },
+    {
+      "id": 22,
+      "type": "gauge",
+      "title": "VRAM Usage",
+      "description": "Video RAM utilization as a percentage of total capacity per node.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "mappings": [],
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "node_drm_memory_vram_used_bytes / node_drm_memory_vram_size_bytes * 100",
+          "legendFormat": "{{nodename}}"
+        }
+      ],
+      "options": {
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "GTT (System Memory) Usage",
+      "description": "Graphics Translation Table — GPU-accessible system memory via PCIe BAR. If this rises while VRAM is near max, the GPU is swapping to system memory.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 40,
+            "lineWidth": 1,
+            "pointSize": 3,
+            "showPoints": "never",
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "node_drm_memory_gtt_used_bytes",
+          "legendFormat": "{{nodename}} used"
+        },
+        {
+          "expr": "node_drm_memory_gtt_size_bytes",
+          "legendFormat": "{{nodename}} total"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Memory Breakdown",
+      "description": "Total GPU memory accounting: VRAM (dedicated), visible VRAM (CPU-mappable), and GTT (system memory via PCIe BAR). VRAM is the most constrained resource for LLM inference.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 33 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 40,
+            "lineWidth": 2,
+            "pointSize": 3,
+            "showPoints": "never",
+            "stacking": { "mode": "none", "group": "A" }
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "node_drm_memory_vram_used_bytes",
+          "legendFormat": "{{nodename}} VRAM"
+        },
+        {
+          "expr": "node_drm_memory_vis_vram_used_bytes",
+          "legendFormat": "{{nodename}} VisVRAM"
+        },
+        {
+          "expr": "node_drm_memory_gtt_used_bytes",
+          "legendFormat": "{{nodename}} GTT"
         }
       ],
       "options": {
