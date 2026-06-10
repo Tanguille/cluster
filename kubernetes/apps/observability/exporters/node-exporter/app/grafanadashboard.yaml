@@ -1,0 +1,112 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: amdgpu-dashboard
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: hardware
+  datasources:
+    - datasourceName: prometheus
+      inputName: DS_PROMETHEUS
+  # Custom dashboard: node-exporter's drm collector (amdgpu sysfs) has no
+  # upstream grafana.com dashboard, unlike the old NVIDIA DCGM one (id 22515).
+  # $${...} escapes Flux postBuild envsubst; Grafana receives ${DS_PROMETHEUS}.
+  json: |
+    {
+      "__inputs": [
+        {
+          "name": "DS_PROMETHEUS",
+          "label": "prometheus",
+          "type": "datasource",
+          "pluginId": "prometheus"
+        }
+      ],
+      "title": "AMD GPU",
+      "uid": "amdgpu-node",
+      "tags": ["hardware", "gpu"],
+      "timezone": "browser",
+      "refresh": "1m",
+      "time": { "from": "now-6h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "GPU busy",
+          "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+          "targets": [
+            {
+              "expr": "node_drm_gpu_busy_percent",
+              "legendFormat": "{{nodename}} {{card}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "VRAM usage",
+          "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 }, "overrides": [] },
+          "targets": [
+            {
+              "expr": "node_drm_memory_vram_used_bytes",
+              "legendFormat": "{{nodename}} {{card}} used"
+            },
+            {
+              "expr": "node_drm_memory_vram_size_bytes",
+              "legendFormat": "{{nodename}} {{card}} total"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "GTT (system memory) usage",
+          "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+          "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 }, "overrides": [] },
+          "targets": [
+            {
+              "expr": "node_drm_memory_gtt_used_bytes",
+              "legendFormat": "{{nodename}} {{card}}"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "GPU temperature",
+          "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+          "fieldConfig": { "defaults": { "unit": "celsius" }, "overrides": [] },
+          "targets": [
+            {
+              "expr": "node_hwmon_temp_celsius * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+              "legendFormat": "{{nodename}} {{sensor}}"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "GPU power",
+          "datasource": { "type": "prometheus", "uid": "$${DS_PROMETHEUS}" },
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+          "fieldConfig": { "defaults": { "unit": "watt", "min": 0 }, "overrides": [] },
+          "targets": [
+            {
+              "expr": "node_hwmon_power_average_watt * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+              "legendFormat": "{{nodename}} {{sensor}}"
+            }
+          ]
+        }
+      ],
+      "schemaVersion": 39
+    }
