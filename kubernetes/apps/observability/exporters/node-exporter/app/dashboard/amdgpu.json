@@ -484,8 +484,8 @@
       },
       "targets": [
         {
-          "expr": "((node_hwmon_freq_freq_mhz * on (chip, sensor, instance) group_left(label) node_hwmon_sensor_label) and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
-          "legendFormat": "{{nodename}} — {{label}}"
+          "expr": "(node_hwmon_freq_freq_mhz and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
+          "legendFormat": "{{nodename}} — {{sensor}}"
         }
       ],
       "options": {
@@ -594,7 +594,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "celsius",
-          "color": { "mode": "thresholds" },
+          "color": { "mode": "palette-classic" },
           "custom": {
             "fillOpacity": 40,
             "lineWidth": 2,
@@ -650,7 +650,7 @@
         "defaults": {
           "unit": "rpm",
           "min": 0,
-          "color": { "mode": "thresholds" },
+          "color": { "mode": "palette-classic" },
           "custom": {
             "fillOpacity": 40,
             "lineWidth": 2,
