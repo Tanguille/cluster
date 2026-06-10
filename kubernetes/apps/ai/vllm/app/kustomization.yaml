@@ -9,3 +9,15 @@ components:
 resources:
   - helmrelease.yaml
   - pvc.yaml
+  - servicemonitor.yaml
+  - grafanadashboard.yaml
+
+configMapGenerator:
+  - name: vllm-dashboard
+    files:
+      - dashboard/vllm.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
