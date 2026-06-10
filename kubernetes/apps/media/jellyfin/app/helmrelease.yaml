@@ -15,13 +15,12 @@ spec:
 
   values:
     defaultPodOptions:
-      runtimeClassName: nvidia
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: nvidia.com/gpu
+                  - key: amd.com/gpu
                     operator: In
                     values: ["true"]
       securityContext:
@@ -30,9 +29,10 @@ spec:
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups:
-          - 44
+          - 44 # video
           - 109
           - 100
+          - 226 # render: required for VAAPI on /dev/dri/renderD*
 
     controllers:
       jellyfin:
@@ -57,7 +57,8 @@ spec:
                 echo "=== Switching to user 568 and starting Jellyfin ==="
                 # Try different user-switching tools in order of preference
                 if command -v setpriv >/dev/null 2>&1; then
-                  exec setpriv --reuid=568 --regid=568 --clear-groups /jellyfin/jellyfin --datadir /config --cachedir /cache
+                  # keep video/render groups so user 568 can open /dev/dri for VAAPI
+                  exec setpriv --reuid=568 --regid=568 --groups=44,226 /jellyfin/jellyfin --datadir /config --cachedir /cache
                 else
                   # Fallback: ensure user exists and use su
                   if ! id 568 >/dev/null 2>&1; then
@@ -73,13 +74,10 @@ spec:
               JELLYFIN_FFmpeg__analyzeduration: 1000000000
               JELLYFIN_FFmpeg__fflags: "+genpts+discardcorrupt+fastseek"
               JELLYFIN_FFmpeg__threads: "4"
-              JELLYFIN_FFmpeg__hwaccel: "cuda"
+              JELLYFIN_FFmpeg__hwaccel: "vaapi"
               # Timeout settings
               JELLYFIN_FFmpeg__timeout: "60000"
               JELLYFIN_FFmpeg__imageExtractionTimeout: "60000"
-              # GPU configuration
-              NVIDIA_VISIBLE_DEVICES: all
-              NVIDIA_DRIVER_CAPABILITIES: all
               # Memory management for .NET
               DOTNET_GCAllowVeryLargeObjects: "1"
               DOTNET_GCLOHThreshold: "100000"
@@ -111,10 +109,10 @@ spec:
             resources:
               requests:
                 memory: 512Mi
-                nvidia.com/gpu: 1
+                squat.ai/dri: 1
               limits:
                 memory: 8Gi
-                nvidia.com/gpu: 1
+                squat.ai/dri: 1
     service:
       app:
         controller: jellyfin
