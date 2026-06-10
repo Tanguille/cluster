@@ -1,0 +1,17 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/servicemonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: vllm
+      app.kubernetes.io/instance: vllm
+  endpoints:
+    # vLLM exposes Prometheus metrics at /metrics in OpenMetrics format
+    - port: http
+      path: /metrics
+      interval: 1m
+      scrapeTimeout: 30s

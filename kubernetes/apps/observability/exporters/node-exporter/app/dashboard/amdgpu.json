@@ -1,0 +1,132 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "prometheus",
+      "type": "datasource",
+      "pluginId": "prometheus"
+    }
+  ],
+  "title": "AMD GPU",
+  "uid": "amdgpu-node",
+  "description": "AMD GPU metrics from node_exporter's drm collector — busy, VRAM, temperature, and power for AMD Radeon GPUs.",
+  "tags": ["hardware", "gpu", "amdgpu"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "GPU busy",
+      "description": "GPU compute engine utilization percentage. High sustained values indicate compute-bound workloads.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+      "targets": [
+        {
+          "expr": "node_drm_gpu_busy_percent",
+          "legendFormat": "{{nodename}} {{card}}"
+        }
+      ],
+      "options": {
+        "legend": { "calcs": ["mean", "max", "last"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "VRAM usage",
+      "description": "Video RAM used vs total. Running LLMs at high context will push this to capacity.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 } },
+      "targets": [
+        {
+          "expr": "node_drm_memory_vram_used_bytes",
+          "legendFormat": "{{nodename}} {{card}} used"
+        },
+        {
+          "expr": "node_drm_memory_vram_size_bytes",
+          "legendFormat": "{{nodename}} {{card}} total"
+        }
+      ],
+      "options": {
+        "legend": { "calcs": ["mean", "max", "last"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "GTT (system memory) usage",
+      "description": "Graphics Translation Table — GPU-accessible system memory. High usage with VRAM near full suggests memory pressure.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 } },
+      "targets": [
+        {
+          "expr": "node_drm_memory_gtt_used_bytes",
+          "legendFormat": "{{nodename}} {{card}}"
+        }
+      ],
+      "options": {
+        "legend": { "calcs": ["mean", "max", "last"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "GPU temperature",
+      "description": "GPU junction temperature. Sustained >85°C may indicate cooling issues.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 75 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "node_hwmon_temp_celsius * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+          "legendFormat": "{{nodename}} {{sensor}}"
+        }
+      ],
+      "options": {
+        "legend": { "calcs": ["mean", "max", "last"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "GPU power",
+      "description": "GPU power draw in watts. Compare to your GPU's TDP to gauge load intensity.",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "watt", "min": 0 } },
+      "targets": [
+        {
+          "expr": "node_hwmon_power_average_watt * on (chip, instance) group_left(chip_name) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+          "legendFormat": "{{nodename}} {{sensor}}"
+        }
+      ],
+      "options": {
+        "legend": { "calcs": ["mean", "max", "last"], "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    }
+  ],
+  "schemaVersion": 41
+}
