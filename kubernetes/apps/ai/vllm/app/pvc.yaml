@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm
+  namespace: ai
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      # Qwen3.6-27B GPTQ-4bit (~22Gi) + HF metadata, on control-1 local disk.
+      storage: 50Gi
