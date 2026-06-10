@@ -54,7 +54,11 @@ spec:
               - --served-model-name
               - qwen3.6-27b
               - --quantization
-              - gptq # let vLLM pick the ROCm-compatible GPTQ kernel (not Marlin/CUDA)
+              - gptq # only working 4-bit path on gfx1201: gptq_marlin is unavailable on RDNA4,
+              # and AWQ/compressed-tensors checkpoints crash the engine core. The vLLM "gptq_gemm
+              # is buggy" warning is conservative — output verified coherent on the R9700.
+              - --dtype
+              - float16 # GPTQ requires fp16; vLLM's bf16 default is rejected at config validation
               - --max-model-len
               - "65536" # start conservative; raise toward 262144 in Step 5
               - --enable-prefix-caching
