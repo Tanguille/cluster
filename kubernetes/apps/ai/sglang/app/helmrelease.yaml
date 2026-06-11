@@ -39,9 +39,10 @@ spec:
         containers:
           app:
             image:
-              # Custom SGLang RDNA4 build (docker/sglang-rdna4/). Pin by @sha256 once built.
+              # Custom SGLang RDNA4 build (docker/sglang-rdna4/). Tag is rebuilt in place;
+              # Renovate keeps the @sha256 digest current (memo project_ik_llama_image_tags).
               repository: ghcr.io/tanguille/sglang-rdna4
-              tag: v0.5.12-gfx1201
+              tag: v0.5.12-gfx1201@sha256:d5e8ffa7c6564f4d6d0d7c91d055783af69acdcabeae4145f8755207125cd30c
             # No `command:` — that overrides the image ENTRYPOINT (entrypoint.sh) and would
             # skip conda activation. Pass the full argv as `args` so entrypoint.sh exec's it.
             # Flags mirror the fork's validated `launch.sh qwen36-27b` preset; inline notes

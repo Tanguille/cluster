@@ -8,10 +8,11 @@ components:
 resources:
   - ./hermes/ks.yaml
   - ./litellm/ks.yaml
-  - ./llama-server/ks.yaml
+  # Disabled while sglang serves the GPU (single R9700, shared dri) — re-enable to switch back.
+  # - ./llama-server/ks.yaml
   - ./open-webui/ks.yaml
   - ./opencode/ks.yaml
-  # Enable after the first image build + making the GHCR package pullable (plan Step 4):
-  # - ./sglang/ks.yaml
+  - ./sglang/ks.yaml
   - ./toolhive/ks.yaml
-  - ./vllm/ks.yaml
+  # Disabled while sglang serves the GPU (single R9700, shared dri) — re-enable to switch back.
+  # - ./vllm/ks.yaml
