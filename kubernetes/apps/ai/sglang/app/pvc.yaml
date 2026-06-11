@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sglang
+  namespace: ai
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      # Qwen3.6-27B int4-AWQ (~19Gi) + HF metadata, on control-1 local disk.
+      storage: 50Gi
