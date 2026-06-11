@@ -95,6 +95,11 @@ spec:
               TZ: ${TIMEZONE}
               HF_HOME: /cache
               HIP_VISIBLE_DEVICES: "0" # single R9700 (correctness vars are baked into the image ENV)
+              # The fork's setup_rdna4_env adds its native int4 AWQ GEMV kernel to PYTHONPATH;
+              # without it SGLang's AWQ path falls back to a kernel that illegal-memory-accesses
+              # on gfx1201 (scheduler dies -6 in awq create_weights). TODO: bake into Dockerfile ENV.
+              PYTHONPATH: /opt/rdna4-inference/build/awq_gemv
+              LD_LIBRARY_PATH: /opt/conda/envs/sglang-triton36/lib/python3.12/site-packages/torch/lib
             probes:
               # First boot downloads ~19Gi of weights + JIT-compiles kernels — long startup window.
               startup:
