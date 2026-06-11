@@ -55,13 +55,15 @@ jobs:
 
       - name: Build image
         # GPU in the sandbox: setup.sh asserts torch.cuda.is_available() during build.
+        # vfs storage driver: overlayfs whiteouts are blocked inside the pod (even privileged),
+        # so use vfs — no whiteouts, just plain copies. Trades disk for compatibility (80Gi covers it).
         run: |
-          podman --root "${STORE}" build \
+          podman --root "${STORE}" --storage-driver vfs build \
             --device /dev/kfd --device /dev/dri \
             --tag "${IMAGE}:${TAG}" \
             docker/sglang-rdna4
 
       - name: Push
         run: |
-          podman --root "${STORE}" push --digestfile /tmp/digest "${IMAGE}:${TAG}"
+          podman --root "${STORE}" --storage-driver vfs push --digestfile /tmp/digest "${IMAGE}:${TAG}"
           echo "Pushed ${IMAGE}:${TAG}@$(cat /tmp/digest)" | tee -a "${GITHUB_STEP_SUMMARY}"
