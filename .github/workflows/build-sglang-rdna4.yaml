@@ -62,14 +62,14 @@ jobs:
         # the overlay driver through fuse-overlayfs (needs /dev/fuse, mounted via the runner pod).
         # This keeps layer-diff storage — total ~50-80Gi — vs vfs which full-copies every layer.
         run: |
-          # --layers=false + --squash: build in a single working container and emit one
-          # squashed layer, instead of caching a separate snapshot per Dockerfile step.
-          # fuse-overlayfs can't reflink/hardlink-share between layers (conda leans on
-          # hardlinks), so per-step layers balloon disk ~6x the final image. One container
-          # keeps peak scratch near the real rootfs size. We get no layer cache, but the
-          # emptyDir is wiped each run anyway, so there's nothing to cache.
+          # --layers=false: build in a single working container instead of caching a
+          # separate snapshot per Dockerfile step. fuse-overlayfs can't reflink/hardlink-share
+          # between layers (conda leans on hardlinks), so per-step layers balloon disk far past
+          # the final image. One container keeps peak scratch near the real rootfs size. We get
+          # no layer cache, but the emptyDir is wiped each run anyway, so there's nothing to
+          # cache. (--squash is rejected alongside --layers, so it's omitted.)
           podman --root "${STORE}" ${STORAGE_OPTS} build \
-            --layers=false --squash \
+            --layers=false \
             --device /dev/kfd --device /dev/dri \
             --tag "${IMAGE}:${TAG}" \
             docker/sglang-rdna4
