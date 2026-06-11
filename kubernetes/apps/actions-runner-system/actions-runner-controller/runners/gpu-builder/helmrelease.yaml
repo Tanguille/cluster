@@ -42,6 +42,10 @@ spec:
               # Run the job in the runner pod (no nested container) to inherit the GPU + disk.
               - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
                 value: "false"
+              # The runner agent refuses to run as root unless this is set; we need root
+              # (+ privileged) for `podman build --device`.
+              - name: RUNNER_ALLOW_RUNASROOT
+                value: "1"
             resources:
               requests:
                 squat.ai/dri: 1 # binds /dev/dri + /dev/kfd into the pod (shared, count:4)
