@@ -8,12 +8,18 @@
 FROM docker.io/rocm/dev-ubuntu-24.04:7.2.4-complete@sha256:92f309c51b52cef8762867848f1529dee821624f23cd5df38455e819538f762f
 
 # gfx1201 is native on ROCm 7.x — do NOT set HSA_OVERRIDE_GFX_VERSION.
+# PIP_NO_CACHE_DIR: setup.sh installs torch (~7Gi) two+ times; caching the wheels bloats the
+#   build by ~15Gi for no gain (the layer is the artifact, not a dev workspace).
+# MAX_JOBS: parallelise the native HIP/triton compiles across cores (the build's time floor).
 ENV DEBIAN_FRONTEND=noninteractive \
     ROCM_PATH=/opt/rocm \
     PYTORCH_ROCM_ARCH=gfx1201 \
     CONDA_BASE=/opt/conda \
     ENV_NAME=sglang-triton36 \
-    REPO_DIR=/opt/rdna4-inference
+    REPO_DIR=/opt/rdna4-inference \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_ROOT_USER_ACTION=ignore \
+    MAX_JOBS=32
 
 RUN apt-get update \
     && apt-get upgrade -y \
@@ -60,14 +66,17 @@ ARG TORCHVISION_VERSION=0.27.0+rocm7.2
 ARG TORCHAUDIO_VERSION=2.11.0+rocm7.2
 ARG TORCH_INDEX=https://download.pytorch.org/whl/rocm7.2
 # setup.sh: SGLang v0.5.12 -> RDNA4 patches -> conda env -> torch/triton/transformers
-# -> native gfx1201 HIP kernels. conda clean folded in so the tarballs don't bloat the layer.
+# -> native gfx1201 HIP kernels. Caches are purged in the same RUN so they don't bloat the
+# layer: conda pkg tarballs, plus ~10Gi of pip wheel cache (setup.sh installs torch twice +
+# our override). Trims the image from ~54Gi to ~44Gi.
 WORKDIR ${REPO_DIR}
 RUN TORCH_VERSION="${TORCH_VERSION}" \
     TORCHVISION_VERSION="${TORCHVISION_VERSION}" \
     TORCHAUDIO_VERSION="${TORCHAUDIO_VERSION}" \
     TORCH_INDEX="${TORCH_INDEX}" \
     ./scripts/setup.sh \
-    && "${CONDA_BASE}/bin/conda" clean -afy
+    && "${CONDA_BASE}/bin/conda" clean -afy \
+    && rm -rf /root/.cache/pip
 
 # Correctness-critical gfx1201 env from the fork's common.sh::setup_rdna4_env — these
 # select the working code paths (AITER is CDNA-only and miscomputes on RDNA4), not tuning.

@@ -58,4 +58,7 @@ spec:
         volumes:
           - name: work
             emptyDir:
-              sizeLimit: 80Gi
+              # Hard cap the kubelet enforces (evicts the pod if exceeded). Sized to leave
+              # ~350Gi free on control-1's 500Gi disk so etcd/OS keep headroom. The ROCm+conda
+              # build is disk-heavy; this bounds it well clear of node DiskPressure.
+              sizeLimit: 150Gi
