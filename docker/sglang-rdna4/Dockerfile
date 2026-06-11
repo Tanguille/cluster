@@ -58,11 +58,12 @@ RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
 RUN sed -i '/pip install --no-deps "transformers>=5.0" gguf/a\    pip install "kernels>=0.12.0,<0.13"' \
     "${REPO_DIR}/scripts/setup.sh"
 
-# torch + torchvision track the latest stable rocm7.2 wheels; torchaudio has no 2.12
-# wheel (unused, stays 2.11). Fall back with
-# --build-arg TORCH_VERSION=2.11.0+rocm7.2 TORCHVISION_VERSION=0.26.0+rocm7.2.
-ARG TORCH_VERSION=2.12.0+rocm7.2
-ARG TORCHVISION_VERSION=0.27.0+rocm7.2
+# Pin the fork's validated stack: stable rocm7.2 ships exactly one matching set
+# (torch 2.11.0 / torchvision 0.26.0 / torchaudio 2.11.0), and the fork's native HIP
+# kernels + 37 patches are built against it. A mismatched torch (e.g. 2.12.0) faults the
+# AWQ model-worker init with an illegal memory access on gfx1201 — do NOT bump independently.
+ARG TORCH_VERSION=2.11.0+rocm7.2
+ARG TORCHVISION_VERSION=0.26.0+rocm7.2
 ARG TORCHAUDIO_VERSION=2.11.0+rocm7.2
 ARG TORCH_INDEX=https://download.pytorch.org/whl/rocm7.2
 # setup.sh: SGLang v0.5.12 -> RDNA4 patches -> conda env -> torch/triton/transformers
