@@ -16,6 +16,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     REPO_DIR=/opt/rdna4-inference
 
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
         git curl ca-certificates build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -43,9 +44,17 @@ ARG FORK_REF=1592f671302030d1ec2b8851df7b7e0d2ffe18a3
 RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
     && git -C "${REPO_DIR}" checkout "${FORK_REF}"
 
+# setup.sh reinstalls transformers with `pip install --no-deps "transformers>=5.0"`, which
+# leaves transformers 5.6.0's own `kernels>=0.12.0,<0.13` constraint unenforced — so `kernels`
+# floats to 0.15.x, where `LayerRepository.__init__` requires a revision/version that
+# transformers 5.6.0 doesn't pass, crashing `import sglang` (build verify + runtime). Pin it
+# back into range right after that install line, before setup.sh's verification runs.
+RUN sed -i '/pip install --no-deps "transformers>=5.0" gguf/a\    pip install "kernels>=0.12.0,<0.13"' \
+    "${REPO_DIR}/scripts/setup.sh"
+
 # torch + torchvision track the latest stable rocm7.2 wheels; torchaudio has no 2.12
-# wheel (unused, stays 2.11). 2.12 is unvalidated against the fork's kernels — fall back
-# with --build-arg TORCH_VERSION=2.11.0+rocm7.2 TORCHVISION_VERSION=0.26.0+rocm7.2.
+# wheel (unused, stays 2.11). Fall back with
+# --build-arg TORCH_VERSION=2.11.0+rocm7.2 TORCHVISION_VERSION=0.26.0+rocm7.2.
 ARG TORCH_VERSION=2.12.0+rocm7.2
 ARG TORCHVISION_VERSION=0.27.0+rocm7.2
 ARG TORCHAUDIO_VERSION=2.11.0+rocm7.2
