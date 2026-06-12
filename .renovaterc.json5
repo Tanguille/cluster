@@ -67,18 +67,18 @@
     },
     // Grouping rules
     {
-      description: "sglang-rdna4 build inputs (base image digest, fork ref, miniforge) — one review PR, no automerge; merging it triggers the GPU build workflow",
-      groupName: "sglang-rdna4",
-      matchFileNames: ["docker/sglang-rdna4/Dockerfile"],
+      description: "llama-cpp-rocm build inputs (llama.cpp version, ROCm base image digest) — one review PR, no automerge; merging it triggers the image-builder build workflow",
+      groupName: "llama-cpp-rocm",
+      matchFileNames: ["docker/llama-cpp-rocm/Dockerfile"],
       automerge: false,
-      addLabels: ["sglang-rdna4"]
+      addLabels: ["llama-cpp-rocm"]
     },
     {
-      description: "sglang-rdna4 deployed image digest — review before the HelmRelease rolls a new build",
+      description: "llama-cpp-rocm deployed image digest — review before the HelmRelease rolls a new build",
       matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/tanguille/sglang-rdna4"],
+      matchPackageNames: ["ghcr.io/tanguille/llama-cpp-rocm-gfx1201"],
       automerge: false,
-      addLabels: ["sglang-rdna4"]
+      addLabels: ["llama-cpp-rocm"]
     },
     {
       description: "Actions Runner Controller Group",
