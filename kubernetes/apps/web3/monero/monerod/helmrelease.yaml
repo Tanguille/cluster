@@ -46,10 +46,10 @@ spec:
             resources:
               requests:
                 cpu: 50m
-                memory: 512Mi
+                memory: 1Gi
               limits:
                 cpu: 500m
-                memory: 2Gi
+                memory: 4Gi
             probes:
               liveness:
                 enabled: true
@@ -76,7 +76,7 @@ spec:
                   httpGet:
                     path: /get_info
                     port: 18089
-                  failureThreshold: 60
+                  failureThreshold: 120
                   periodSeconds: 10
     defaultPodOptions:
       securityContext:
