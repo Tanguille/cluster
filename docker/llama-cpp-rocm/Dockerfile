@@ -75,7 +75,7 @@ RUN mkdir -p /opt/rocm-runtime \
 # ---------------------------------------------------------------------------------------------
 # Runtime stage — slim Ubuntu + only the ROCm runtime libs + llama.cpp binaries. No toolchain.
 # renovate: datasource=docker depName=docker.io/library/ubuntu
-FROM docker.io/library/ubuntu:24.04@sha256:440dcf6a5640b2ae5c77724e68787a906afb8ddee98bf86db94eea8528c2c076 AS runtime
+FROM docker.io/library/ubuntu:24.04@sha256:786a8b558f7be160c6c8c4a54f9a57274f3b4fb1491cf65146521ae77ff1dc54 AS runtime
 
 # Runtime system deps confirmed via ldd of llama-server + libamdhip64/librocblas/libhipblaslt:
 # gcc runtime (libstdc++/atomic/gcc_s/gomp), curl (for -hf), numa, ca-certs.
