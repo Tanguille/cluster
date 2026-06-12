@@ -24,6 +24,13 @@ spec:
         # (hipcc emits gfx1201 code objects with no GPU present). Any node with enough scratch
         # works. Kept as a dedicated builder (not the shared cluster runner) so the privileged
         # podman build stays isolated from regular CI jobs.
+        # Match the old gpu-builder runner: keep `podman` rootful instead of falling back to
+        # rootless mode, which needs newuidmap/newgidmap inside the runner image.
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          seccompProfile:
+            type: Unconfined
         containers:
           - name: runner
             image: ghcr.io/home-operations/actions-runner:2.335.1@sha256:3d544e5eed58722c0b6a97212a31eada0f9f2e99f189c41911a5573a23d7386a
