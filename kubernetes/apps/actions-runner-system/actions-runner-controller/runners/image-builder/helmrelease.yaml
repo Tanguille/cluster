@@ -1,0 +1,62 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: image-builder
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: gha-runner-scale-set # shared with the cluster runner (same namespace)
+  interval: 1h
+  values:
+    githubConfigUrl: https://github.com/tanguille/cluster
+    githubConfigSecret: cluster-runner-secret # reuse the cluster runner's GitHub App
+    # Scale-to-zero: spins up only when a job targets `runs-on: image-builder`.
+    minRunners: 0
+    maxRunners: 1
+    controllerServiceAccount:
+      name: actions-runner-controller
+      namespace: actions-runner-system
+    template:
+      spec:
+        # No GPU and no control-1 pin: building llama.cpp for gfx1201 is HIP cross-compilation
+        # (hipcc emits gfx1201 code objects with no GPU present). Any node with enough scratch
+        # works. Kept as a dedicated builder (not the shared cluster runner) so the privileged
+        # podman build stays isolated from regular CI jobs.
+        containers:
+          - name: runner
+            image: ghcr.io/home-operations/actions-runner:2.335.1@sha256:3d544e5eed58722c0b6a97212a31eada0f9f2e99f189c41911a5573a23d7386a
+            command: ["/home/runner/run.sh"]
+            # Rootful `podman build` (overlay + /dev/fuse for fuse-overlayfs) needs privileged;
+            # acceptable for a single-purpose scale-to-zero builder.
+            securityContext:
+              privileged: true
+            env:
+              # Run the job in the runner pod (no nested container) to inherit the scratch disk.
+              - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+                value: "false"
+              # The runner agent refuses to run as root unless this is set; root (+ privileged)
+              # is needed for `podman build`.
+              - name: RUNNER_ALLOW_RUNASROOT
+                value: "1"
+            # Bound the heavy `cmake -j$(nproc)` compile so it doesn't starve co-located workloads.
+            resources:
+              requests:
+                cpu: "2"
+                memory: 8Gi
+              limits:
+                cpu: "12"
+                memory: 24Gi
+            volumeMounts:
+              # node-local scratch for checkout + podman storage. The ROCm build base is large
+              # (~30Gi) plus build artifacts; NOT tmpfs.
+              - mountPath: /home/runner/_work
+                name: work
+        volumes:
+          - name: work
+            emptyDir:
+              # Hard cap the kubelet enforces (evicts the pod if exceeded). The rocm build base
+              # (~30Gi) + the staged runtime libs + image layers fit comfortably under this and
+              # well clear of node DiskPressure.
+              sizeLimit: 100Gi
