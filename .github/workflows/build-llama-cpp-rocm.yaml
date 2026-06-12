@@ -2,15 +2,15 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Build llama-cpp-rocm
 
-# Builds on any Dockerfile change (a merged Renovate llama.cpp/base bump fires the push
-# trigger), on manual dispatch, and weekly as a safety net.
+# Builds only when something actually changes: a merged Renovate bump (llama.cpp version or the
+# digest-pinned ROCm/ubuntu base) edits the Dockerfile and fires the push trigger. Plus manual
+# dispatch for ad-hoc rebuilds. No schedule — bases are digest-pinned, so a periodic rebuild
+# would just re-pull ~30GB and push a byte-identical image.
 on:
   push:
     branches: ["main"]
     paths: ["docker/llama-cpp-rocm/**", ".github/workflows/build-llama-cpp-rocm.yaml"]
   workflow_dispatch:
-  schedule:
-    - cron: "0 4 * * 2" # Tuesdays 04:00 UTC
 
 concurrency:
   group: ${{ github.workflow }}
