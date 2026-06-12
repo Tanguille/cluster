@@ -6,6 +6,11 @@
 # rocm/vllm gfx120X image, so we use it as the BUILD base and copy just the runtime libs +
 # llama.cpp binaries into a slim final image (the vllm/pytorch payload stays in the build stage).
 #
+# Structure follows the official llama.cpp .devops/rocm.Dockerfile, with two gfx1201 fixes that
+# double decode: the gfx120X-TUNED ROCm 7.13 build base (vs the official's general rocm/dev-7.2.1
+# -> 34 vs 18 tok/s) and ROCWMMA flash-attn OFF (it's slower on gfx12, #15021). We also build a
+# single gfx1201 target and slim the runtime to only the needed libs.
+#
 # 2026 best-practices: multi-stage, digest-pinned bases, OCI labels, minimal runtime (no build
 # toolchain). The image defaults to a non-root user; the k8s deploy overrides to root for ROCm
 # device access (see the llama-server HelmRelease), matching the cluster's other GPU pods.
@@ -52,7 +57,7 @@ RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-
     && cmake --build build --config Release -j"$(nproc)" --target llama-server \
     && mkdir -p /opt/llama/bin /opt/llama/lib \
     && cp build/bin/llama-server /opt/llama/bin/ \
-    && cp build/bin/*.so /opt/llama/lib/
+    && find build -name '*.so*' -exec cp -P {} /opt/llama/lib/ \;
 
 # Stage the minimal ROCm runtime the binaries link against (HIP + tuned rocBLAS/hipBLASLt +
 # the gfx120X Tensile kernel data). Keeping the /lib subtrees preserves the kernel-data layout.
