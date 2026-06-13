@@ -64,9 +64,18 @@ jobs:
         # The emptyDir is wiped each run, so there's no layer cache to lose. (--squash conflicts
         # with --layers, so it's omitted.)
         run: |
+          # Cap compile parallelism by the runner's ENFORCED memory limit (cgroup v2 memory.max).
+          # -j$(nproc) (=12) peaks past the 24Gi pod cap on the ggml-cuda template TUs and OOM-kills
+          # the runner mid-build. Budget ~4GiB/job at 80% of the limit -> stays under the cap.
+          mem=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo max)
+          case "$mem" in ''|max|*[!0-9]*) mem=$(awk '/MemTotal/{print $2*1024}' /proc/meminfo) ;; esac
+          jobs=$(( mem * 80 / 100 / 4294967296 ))
+          cores=$(nproc); [ "$jobs" -gt "$cores" ] && jobs=$cores; [ "$jobs" -lt 1 ] && jobs=1
+          echo "build parallelism: -j${jobs} (mem_limit=${mem}B cores=${cores})"
           podman --root "${STORE}" ${STORAGE_OPTS} build \
             --layers=false \
             -f docker/llama-cpp-rocm/Dockerfile.bench \
+            --build-arg BUILD_JOBS="${jobs}" \
             --tag "${IMAGE}:${TAG}" \
             docker/llama-cpp-rocm
 
