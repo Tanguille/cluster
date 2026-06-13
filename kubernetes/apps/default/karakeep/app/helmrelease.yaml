@@ -51,10 +51,11 @@ spec:
               DISABLE_NEW_RELEASE_CHECK: true
               COREPACK_INTEGRITY_KEYS: 0
               WORKERS_ENABLED_WORKERS: "inference"
-              # OpenAI-compatible endpoint (llama-server); must match /v1/models ids.
-              OPENAI_BASE_URL: http://llama-server.ai.svc.cluster.local/v1
-              INFERENCE_TEXT_MODEL: selfhosted
-              INFERENCE_IMAGE_MODEL: selfhosted
+              # OpenAI-compatible endpoint (via litellm); must match /v1/models ids.
+              OPENAI_BASE_URL: http://litellm.ai.svc.cluster.local:4000/v1
+              OPENAI_API_KEY: ${LITELLM_API_KEY}
+              INFERENCE_TEXT_MODEL: qwen-3.6
+              INFERENCE_IMAGE_MODEL: qwen-3.6
               INFERENCE_NUM_WORKERS: "2"
               INFERENCE_OUTPUT_SCHEMA: "plain"
               INFERENCE_ENABLE_AUTO_TAGGING: "true"
