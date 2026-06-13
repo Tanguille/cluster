@@ -6,6 +6,11 @@
 # rocm/vllm gfx120X image, so we use it as the BUILD base and copy just the runtime libs +
 # llama.cpp binaries into a slim final image (the vllm/pytorch payload stays in the build stage).
 #
+# Structure follows the official llama.cpp .devops/rocm.Dockerfile, with two gfx1201 fixes that
+# double decode: the gfx120X-TUNED ROCm 7.13 build base (vs the official's general rocm/dev-7.2.1
+# -> 34 vs 18 tok/s) and ROCWMMA flash-attn OFF (it's slower on gfx12, #15021). We also build a
+# single gfx1201 target and slim the runtime to only the needed libs.
+#
 # 2026 best-practices: multi-stage, digest-pinned bases, OCI labels, minimal runtime (no build
 # toolchain). The image defaults to a non-root user; the k8s deploy overrides to root for ROCm
 # device access (see the llama-server HelmRelease), matching the cluster's other GPU pods.
@@ -24,6 +29,9 @@ ARG AMDGPU_TARGETS=gfx1201
 # Latest llama.cpp release; Renovate bumps this tag.
 # renovate: datasource=github-releases depName=ggml-org/llama.cpp
 ARG LLAMA_CPP_VERSION=b9611
+# Compile parallelism, set by the build workflow from the runner's ENFORCED memory limit. -j$(nproc)
+# (=12) peaks past the 24Gi builder cap on the ggml-cuda template TUs and OOM-kills the runner.
+ARG BUILD_JOBS=4
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
@@ -49,10 +57,10 @@ RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-
         -DLLAMA_CURL=ON \
         -DLLAMA_BUILD_TESTS=OFF \
         -DCMAKE_PREFIX_PATH="${HIP_PATH}" \
-    && cmake --build build --config Release -j"$(nproc)" --target llama-server \
+    && cmake --build build --config Release -j"${BUILD_JOBS}" --target llama-server \
     && mkdir -p /opt/llama/bin /opt/llama/lib \
     && cp build/bin/llama-server /opt/llama/bin/ \
-    && cp build/bin/*.so /opt/llama/lib/
+    && find build -name '*.so*' -exec cp -P {} /opt/llama/lib/ \;
 
 # Stage the minimal ROCm runtime the binaries link against (HIP + tuned rocBLAS/hipBLASLt +
 # the gfx120X Tensile kernel data). Keeping the /lib subtrees preserves the kernel-data layout.
@@ -75,7 +83,7 @@ RUN mkdir -p /opt/rocm-runtime \
 # ---------------------------------------------------------------------------------------------
 # Runtime stage — slim Ubuntu + only the ROCm runtime libs + llama.cpp binaries. No toolchain.
 # renovate: datasource=docker depName=docker.io/library/ubuntu
-FROM docker.io/library/ubuntu:24.04@sha256:440dcf6a5640b2ae5c77724e68787a906afb8ddee98bf86db94eea8528c2c076 AS runtime
+FROM docker.io/library/ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS runtime
 
 # Runtime system deps confirmed via ldd of llama-server + libamdhip64/librocblas/libhipblaslt:
 # gcc runtime (libstdc++/atomic/gcc_s/gomp), curl (for -hf), numa, ca-certs.
