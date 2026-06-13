@@ -66,10 +66,12 @@ jobs:
           printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' \
             "$(printf '%s:%s' "${GHCR_USER}" "${GHCR_TOKEN}" | base64 -w0)" > "${HOME}/.docker/config.json"
 
-          # Start buildkitd. Privileged rootful, pinned to the fuse-overlayfs snapshotter: kernel
-          # overlay whiteouts are blocked on Talos, and fuse-overlayfs keeps storage bounded +
-          # content-addressed (vs vfs which full-copies the 30Gi base). Fails loud if unavailable.
-          nohup buildkitd --root "${STORE}" --oci-worker-snapshotter fuse-overlayfs >/tmp/buildkitd.log 2>&1 &
+          # Start buildkitd. Privileged rootful, with:
+          #  --oci-worker-snapshotter fuse-overlayfs: kernel overlay whiteouts are blocked on Talos,
+          #    and fuse-overlayfs keeps storage bounded + content-addressed (vs vfs's 150Gi+ blowup).
+          #  --oci-worker-net host: RUN steps (apt, git clone) use the pod's network; the default
+          #    sandboxed CNI net has no DNS here, so apt-get would fail (exit 4).
+          nohup buildkitd --root "${STORE}" --oci-worker-snapshotter fuse-overlayfs --oci-worker-net host >/tmp/buildkitd.log 2>&1 &
           for i in $(seq 1 60); do buildctl debug workers >/dev/null 2>&1 && break; sleep 1; done
           buildctl debug workers
 
