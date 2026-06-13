@@ -91,7 +91,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libgomp1 libstdc++6 libatomic1 libgcc-s1 libcurl4 libnuma1 ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd -g 1000 llama && useradd -u 1000 -g 1000 -m -s /usr/sbin/nologin llama
+    # Non-root default user. Auto-assigned ids (not -u/-g 1000): ubuntu 24.04+ already holds 1000
+    # with its default 'ubuntu' user. The k8s deploy overrides to root anyway, so the id is cosmetic.
+    && groupadd llama && useradd -g llama -m -s /usr/sbin/nologin llama
 
 COPY --from=build /opt/llama/bin/  /app/
 COPY --from=build /opt/llama/lib/  /app/lib/
