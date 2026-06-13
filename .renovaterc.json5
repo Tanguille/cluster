@@ -143,10 +143,14 @@
       }
     },
     {
+      // Don't constrain matchManagers: the HelmRelease image is detected by BOTH the helm-values
+      // and kubernetes managers (the home-ops preset points both at every .yaml). Listing only a
+      // subset let the kubernetes-detected copy escape the group into a duplicate solo PR (#3155
+      // alongside the grouped #3157). Scoping by datasource+file+package already pins this to the
+      // image tag + ConfigVersion, so any manager that finds them now joins the one group PR.
       description: "qBitrr: group image tag and ConfigVersion",
       groupName: "qbitrr",
       matchDatasources: ["docker"],
-      matchManagers: ["custom.regex", "flux", "helm-values"],
       matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
       matchPackageNames: ["/feramance\\/qbitrr/"],
       group: {
