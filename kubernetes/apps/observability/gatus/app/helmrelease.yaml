@@ -17,8 +17,8 @@ spec:
 
     gatus:
       image:
-        repository: ghcr.io/twin/gatus
-        tag: "v5.36.0@sha256:c5f210d095fa78e6efaa20ffeb14803f2ba4f10615e16a6d12087697149617f0"
+        tag: v5.36.0
+        digest: sha256:c5f210d095fa78e6efaa20ffeb14803f2ba4f10615e16a6d12087697149617f0
       port: &port 80
       env:
         TZ: ${TIMEZONE}
@@ -48,8 +48,8 @@ spec:
 
     sidecar:
       image:
-        repository: ghcr.io/home-operations/gatus-sidecar
-        tag: "0.2.2@sha256:1a68c2ede0397e1c4380e9f874bbebbd06562a6c5750c5978c771743ecab1812"
+        tag: 0.2.2
+        digest: sha256:1a68c2ede0397e1c4380e9f874bbebbd06562a6c5750c5978c771743ecab1812
       gatewayNames:
         - envoy-external
         - envoy-internal
@@ -57,12 +57,8 @@ spec:
       kinds:
         httproute:
           enable: true
-          auto: true
-          prefix: ""
         service:
           enable: false
-          auto: false
-          prefix: ""
       resources:
         requests:
           cpu: 10m
@@ -75,9 +71,6 @@ spec:
       items:
         - key: config.yaml
           path: config.yaml
-
-    service:
-      port: *port
 
     monitoring:
       serviceMonitor:
@@ -109,10 +102,6 @@ spec:
               kind: Deployment
               name: gatus
             patch: |-
-              - op: add
-                path: /spec/strategy
-                value:
-                  type: Recreate
               - op: add
                 path: /spec/template/spec/initContainers/0
                 value:
