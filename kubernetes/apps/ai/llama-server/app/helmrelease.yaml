@@ -48,54 +48,18 @@ spec:
               tag: gfx1201@sha256:b617d31bcce8ed30e3c1650677a8c131612cb00f1d759545346c06d18356c978
             env:
               TZ: ${TIMEZONE}
-              LLAMA_CACHE: /cache # -hf downloads the GGUF here (the cache PVC); ties to the mount below
+              LLAMA_CACHE: /cache # GGUF download cache (the cache PVC)
             args:
               - --host
               - 0.0.0.0
               - --port
               - "8080"
-              # Unsloth MTP GGUF (UD-Q4_K_XL, MTP head embedded). First boot downloads ~18Gi to /cache.
-              - -hf
-              - unsloth/Qwen3.6-27B-MTP-GGUF
-              - --hf-file
-              - Qwen3.6-27B-UD-Q4_K_XL.gguf
-              - --alias
-              - qwen-3.6 # served-model-name litellm targets
-              - -ngl
-              - "99"
-              - --fit
-              - "off" # we pin ngl/ctx; the auto-fit step hangs on this model (708Mi MTP ctx + q8 KV)
-              - --no-mmap # REQUIRED: mmap re-faults the 18Gi weights from the PVC on cold cache (130s+ load)
-              - -fa
-              - "1"
-              - -ctk
-              - q8_0 # near-lossless KV; gibberish-safe at full context (q4_0 only if VRAM-bound)
-              - -ctv
-              - q8_0
-              - -c
-              - "262144" # full native context (Qwen3-Next 256K); only 16/64 layers grow KV
-              - -np
-              - "1" # max 1 session for now (frees VRAM for full-context q8_0 KV)
-              # MTP self-speculative decoding: 34 tok/s (n-max=3 was the sweep optimum, 1.42x baseline).
-              - --spec-type
-              - draft-mtp
-              - --spec-draft-n-max
-              - "3"
-              # Prompt cache (host RAM) — agentic prefix reuse, 7.5x warm TTFT. Coexists with batching.
-              - --cache-ram
-              - "8192"
-              - --ctx-checkpoints
-              - "32"
-              # Unsloth thinking-mode sampling defaults (agentic reasoning workload).
-              - --temp
-              - "1.0"
-              - --top-k
-              - "20"
-              - --top-p
-              - "0.95"
-              - --min-p
-              - "0.0"
-              - --jinja # use the GGUF chat template (tool-calling / thinking split)
+              # Router mode: per-model serving lives in /app/models.ini (mounted below).
+              # --models-max 2 keeps both presets (27B chat + 0.6B embedding) resident.
+              - --models-preset
+              - /app/models.ini
+              - --models-max
+              - "2"
               - --metrics
               - --slots
             probes:
@@ -106,11 +70,11 @@ spec:
                   httpGet: &httpGet
                     path: /health
                     port: &port 8080
-                  initialDelaySeconds: 15
-                  periodSeconds: 15
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
                   timeoutSeconds: 5
-                  # First boot: ~18Gi GGUF download + load. Generous ceiling (~20 min).
-                  failureThreshold: 80
+                  # Router /health is up at process start (models load lazily) — cover start only.
+                  failureThreshold: 18
               liveness:
                 <<: *probeBase
                 spec:
@@ -137,6 +101,43 @@ spec:
                 memory: 28Gi # 8Gi prompt cache + load buffers + headroom (weights live in VRAM)
                 squat.ai/dri: 1
 
+          # Hot-only metrics gate (busybox; config/llama-metrics-gate.sh). Scrapes the router with
+          # autoload=false and always serves 200 so the scrape target never flaps when cold.
+          metrics-gate:
+            image:
+              repository: docker.io/library/busybox
+              tag: "1.37.0" # Renovate digest-pins on next run
+            command: ["/bin/sh", "/scripts/llama-metrics-gate.sh"]
+            ports:
+              - name: metrics
+                containerPort: 9108
+            probes:
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["/bin/sh", "-c", "find /run/metrics/metrics -mmin -1 | grep -q ."]
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            securityContext:
+              # Root (writes the emptyDir, avoids an fsGroup chown of the cache PVC) but hardened.
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
+              seccompProfile:
+                type: RuntimeDefault
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                cpu: 50m
+                memory: 64Mi
+
     service:
       app:
         controller: app
@@ -144,6 +145,9 @@ spec:
           http:
             port: 80
             targetPort: *port
+          metrics:
+            port: 9108
+            targetPort: 9108
 
     route:
       app:
@@ -164,15 +168,44 @@ spec:
                 port: 80
 
     persistence:
+      # advancedMounts scope these to the app container (keep them off the gate sidecar).
+      config:
+        type: configMap
+        name: llama-server-config
+        advancedMounts:
+          app:
+            app:
+              - path: /app/models.ini
+                subPath: models.ini
+                readOnly: true
       cache:
         enabled: true
         existingClaim: llama-server
-        globalMounts:
-          - path: /cache
+        advancedMounts:
+          app:
+            app:
+              - path: /cache
       # llama.cpp uses /dev/shm for slot/IPC; bump from the default 64Mi.
       shm:
         type: emptyDir
         medium: Memory
         sizeLimit: 2Gi
-        globalMounts:
-          - path: /dev/shm
+        advancedMounts:
+          app:
+            app:
+              - path: /dev/shm
+      # gate sidecar: script ConfigMap + output dir.
+      gate-script:
+        type: configMap
+        name: llama-metrics-gate
+        advancedMounts:
+          app:
+            metrics-gate:
+              - path: /scripts
+                readOnly: true
+      metrics:
+        type: emptyDir
+        advancedMounts:
+          app:
+            metrics-gate:
+              - path: /run/metrics
