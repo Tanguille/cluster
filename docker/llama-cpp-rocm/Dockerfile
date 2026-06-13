@@ -29,6 +29,9 @@ ARG AMDGPU_TARGETS=gfx1201
 # Latest llama.cpp release; Renovate bumps this tag.
 # renovate: datasource=github-releases depName=ggml-org/llama.cpp
 ARG LLAMA_CPP_VERSION=b9611
+# Compile parallelism, set by the build workflow from the runner's ENFORCED memory limit. -j$(nproc)
+# (=12) peaks past the 24Gi builder cap on the ggml-cuda template TUs and OOM-kills the runner.
+ARG BUILD_JOBS=4
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
@@ -54,7 +57,7 @@ RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-
         -DLLAMA_CURL=ON \
         -DLLAMA_BUILD_TESTS=OFF \
         -DCMAKE_PREFIX_PATH="${HIP_PATH}" \
-    && cmake --build build --config Release -j"$(nproc)" --target llama-server \
+    && cmake --build build --config Release -j"${BUILD_JOBS}" --target llama-server \
     && mkdir -p /opt/llama/bin /opt/llama/lib \
     && cp build/bin/llama-server /opt/llama/bin/ \
     && find build -name '*.so*' -exec cp -P {} /opt/llama/lib/ \;
