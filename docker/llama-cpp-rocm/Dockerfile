@@ -84,7 +84,6 @@ RUN mkdir -p /opt/rocm-runtime \
 
 # ---------------------------------------------------------------------------------------------
 # Runtime stage — slim Ubuntu + only the ROCm runtime libs + llama.cpp binaries. No toolchain.
-# Renovate's built-in dockerfile manager keeps this FROM tag/digest current (no annotation needed).
 FROM docker.io/library/ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS runtime
 
 # Runtime system deps confirmed via ldd of llama-server + libamdhip64/librocblas/libhipblaslt:
