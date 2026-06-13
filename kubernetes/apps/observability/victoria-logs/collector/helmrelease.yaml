@@ -11,6 +11,13 @@ spec:
     name: victoria-logs-collector
   values:
     fullnameOverride: victoria-logs-collector
+    resources:
+      requests:
+        cpu: 25m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
     global:
       image:
         registry: quay.io
