@@ -20,12 +20,14 @@ spec:
       namespace: actions-runner-system
     template:
       spec:
-        # No GPU and no control-1 pin: building llama.cpp for gfx1201 is HIP cross-compilation
-        # (hipcc emits gfx1201 code objects with no GPU present). Any node with enough scratch
-        # works. Kept as a dedicated builder (not the shared cluster runner) so the privileged
-        # podman build stays isolated from regular CI jobs.
-        # Match the old gpu-builder runner: keep `podman` rootful instead of falling back to
-        # rootless mode, which needs newuidmap/newgidmap inside the runner image.
+        # No GPU: building llama.cpp for gfx1201 is HIP cross-compilation (hipcc emits gfx1201 code
+        # objects with no GPU present). Pinned to control-3 because the persistent buildkit-cache PVC
+        # is node-local (openebs-hostpath, RWO) and must mount on the same node each run; control-3
+        # also keeps the heavy build off the GPU node (control-1). Dedicated builder so the
+        # privileged buildkitd build stays isolated from regular CI jobs.
+        nodeSelector:
+          kubernetes.io/hostname: control-3
+        # Rootful + privileged so buildkitd runs in-pod (see the build workflow).
         securityContext:
           runAsUser: 0
           runAsGroup: 0
@@ -56,14 +58,19 @@ spec:
                 cpu: "12"
                 memory: 24Gi
             volumeMounts:
-              # node-local scratch for checkout + podman storage. The ROCm build base is large
-              # (~30Gi) plus build artifacts; NOT tmpfs.
+              # Ephemeral scratch for the git checkout + buildkit's tmp; the build's heavy working
+              # set lives on the persistent buildkit-cache PVC below, so this stays small.
               - mountPath: /home/runner/_work
                 name: work
+              # Persistent buildkit store (--root): the ROCm base + ccache + layer cache survive
+              # runs, so a Renovate llama.cpp bump rebuilds in ~5-6min instead of ~19min.
+              - mountPath: /var/lib/buildkit
+                name: buildkit-cache
         volumes:
           - name: work
             emptyDir:
-              # Hard cap the kubelet enforces (evicts the pod if exceeded). The rocm build base
-              # (~30Gi) + the staged runtime libs + image layers fit comfortably under this and
-              # well clear of node DiskPressure.
-              sizeLimit: 100Gi
+              # Just the checkout + buildkit tmp now (the working set is on buildkit-cache).
+              sizeLimit: 30Gi
+          - name: buildkit-cache
+            persistentVolumeClaim:
+              claimName: image-builder-buildkit-cache
