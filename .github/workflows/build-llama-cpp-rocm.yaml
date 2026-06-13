@@ -45,15 +45,13 @@ jobs:
           persist-credentials: false
 
       - name: Install buildkit + fuse-overlayfs
+        # The image-builder runner is rootful (privileged, runAsUser 0), so no sudo needed.
         run: |
           export DEBIAN_FRONTEND=noninteractive
-          SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
           command -v fuse-overlayfs >/dev/null 2>&1 \
-            || { $SUDO apt-get update && $SUDO apt-get install -y --no-install-recommends fuse-overlayfs ca-certificates; }
-          if ! command -v buildkitd >/dev/null 2>&1; then
-            curl -fsSL "https://github.com/moby/buildkit/releases/download/${BUILDKIT_VERSION}/buildkit-${BUILDKIT_VERSION}.linux-amd64.tar.gz" \
-              | $SUDO tar xz -C /usr/local
-          fi
+            || { apt-get update && apt-get install -y --no-install-recommends fuse-overlayfs ca-certificates; }
+          command -v buildkitd >/dev/null 2>&1 \
+            || curl -fsSL "https://github.com/moby/buildkit/releases/download/${BUILDKIT_VERSION}/buildkit-${BUILDKIT_VERSION}.linux-amd64.tar.gz" | tar xz -C /usr/local
           buildkitd --version
 
       - name: Build and push
@@ -73,7 +71,6 @@ jobs:
           #    sandboxed CNI net has no DNS here, so apt-get would fail (exit 4).
           nohup buildkitd --root "${STORE}" --oci-worker-snapshotter fuse-overlayfs --oci-worker-net host >/tmp/buildkitd.log 2>&1 &
           for i in $(seq 1 60); do buildctl debug workers >/dev/null 2>&1 && break; sleep 1; done
-          buildctl debug workers
 
           # Cap compile parallelism by the runner's ENFORCED memory limit (cgroup v2 memory.max):
           # -j$(nproc)=-j12 peaks past the 24Gi pod cap on the ggml-cuda template TUs. ~4GiB/job @ 80%.

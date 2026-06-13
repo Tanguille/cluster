@@ -27,15 +27,15 @@ FROM ${ROCM_BUILD_IMAGE} AS build
 ARG GGML_HIP_ROCWMMA_FATTN=OFF
 ARG AMDGPU_TARGETS=gfx1201
 # Latest llama.cpp release; Renovate bumps this tag.
-# renovate: datasource=github-releases depName=ggml-org/llama.cpp
-ARG LLAMA_CPP_VERSION=b9611
+# renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\d+)$
+ARG LLAMA_CPP_VERSION=b9626
 # Compile parallelism, set by the build workflow from the runner's ENFORCED memory limit. -j$(nproc)
 # (=12) peaks past the 24Gi builder cap on the ggml-cuda template TUs and OOM-kills the runner.
 ARG BUILD_JOBS=4
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git cmake ninja-build build-essential libcurl4-openssl-dev ca-certificates \
+    && apt-get install -y --no-install-recommends git cmake ninja-build build-essential libssl-dev ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # rocm-sdk wheel layout (TheRock): compiler + headers live under _rocm_sdk_devel, the gfx120X
@@ -54,12 +54,14 @@ RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-
         -DAMDGPU_TARGETS="${AMDGPU_TARGETS}" \
         -DGPU_TARGETS="${AMDGPU_TARGETS}" \
         -DGGML_HIP_ROCWMMA_FATTN="${GGML_HIP_ROCWMMA_FATTN}" \
-        -DLLAMA_CURL=ON \
+        -DLLAMA_OPENSSL=ON \
         -DLLAMA_BUILD_TESTS=OFF \
         -DCMAKE_PREFIX_PATH="${HIP_PATH}" \
     && cmake --build build --config Release -j"${BUILD_JOBS}" --target llama-server \
     && mkdir -p /opt/llama/bin /opt/llama/lib \
     && cp build/bin/llama-server /opt/llama/bin/ \
+    && ldd /opt/llama/bin/llama-server | grep -q libssl \
+         || { echo 'FATAL: llama-server built without OpenSSL — HTTPS/-hf downloads will fail'; exit 1; } \
     && find build -name '*.so*' -exec cp -P {} /opt/llama/lib/ \;
 
 # Stage the minimal ROCm runtime the binaries link against (HIP + tuned rocBLAS/hipBLASLt +
@@ -86,12 +88,15 @@ RUN mkdir -p /opt/rocm-runtime \
 FROM docker.io/library/ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS runtime
 
 # Runtime system deps confirmed via ldd of llama-server + libamdhip64/librocblas/libhipblaslt:
-# gcc runtime (libstdc++/atomic/gcc_s/gomp), curl (for -hf), numa, ca-certs.
+# gcc runtime (libstdc++/atomic/gcc_s/gomp), openssl (HTTPS for -hf; llama.cpp uses cpp-httplib,
+# not libcurl, since b95xx), numa, ca-certs.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        libgomp1 libstdc++6 libatomic1 libgcc-s1 libcurl4 libnuma1 ca-certificates \
+        libgomp1 libstdc++6 libatomic1 libgcc-s1 libssl3 libnuma1 ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && groupadd -g 1000 llama && useradd -u 1000 -g 1000 -m -s /usr/sbin/nologin llama
+    # Non-root default user. Auto-assigned ids (not -u/-g 1000): ubuntu 24.04+ already holds 1000
+    # with its default 'ubuntu' user. The k8s deploy overrides to root anyway, so the id is cosmetic.
+    && groupadd llama && useradd -g llama -m -s /usr/sbin/nologin llama
 
 COPY --from=build /opt/llama/bin/  /app/
 COPY --from=build /opt/llama/lib/  /app/lib/
