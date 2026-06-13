@@ -43,7 +43,9 @@ jobs:
         uses: misospace/pr-reviewer-action@59c7a0596b0d0b515ef9137f7acb985115f4c1d8 # v1.2.3
         with:
           github_token: ${{ github.token }}
-          ai_base_url: http://llama-server.ai.svc.cluster.local/v1
+          ai_base_url: http://litellm.ai.svc.cluster.local:4000/v1
+          ai_api_key: ${{ secrets.LITELLM_API_KEY }}
+          ai_api_format: openai
           ai_model: qwen-3.6
           ai_max_tokens: "4096"
           ai_temperature: ""

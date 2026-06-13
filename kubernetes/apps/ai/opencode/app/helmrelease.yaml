@@ -23,9 +23,7 @@ spec:
               TZ: ${TIMEZONE}
               HOME: /home/opencode
               OPENCODE_CONFIG: /config/opencode.jsonc
-            envFrom:
-              - secretRef:
-                  name: opencode-secret
+              LITELLM_API_KEY: ${LITELLM_API_KEY}
             command:
               - opencode
               - web
