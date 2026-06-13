@@ -44,7 +44,9 @@
       matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
       depNameTemplate: "feramance/qbitrr",
       datasourceTemplate: "docker",
-      autoReplaceStringTemplate: 'ConfigVersion = "{{replace newValue "v" ""}}"'
+      // newValue is already v-stripped by the config.toml extractVersion rule below, so write it
+      // verbatim. (A {{replace}} here would re-extract empty and abort the branch with "update failure".)
+      autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
     }
   ],
   packageRules: [
