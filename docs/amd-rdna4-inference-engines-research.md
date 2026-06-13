@@ -39,6 +39,7 @@ At-a-glance tracker of *why each engine can't serve Qwen3.6-27B on gfx1201 today
 | **Atlas** (Avarok) | **NVIDIA-only** (GB10/SM121 CUDA kernels); AMD ROCm is a README arch-diagram node literally marked `(future)` | that "AMD ROCm (future)" node ships a real gfx1201 build (GDN + Qwen3.6 already present) | 2026-06-13 |
 | **candle-vllm** (guoqingbao) | **no AMD backend** (candle ROCm PR `#3424` = RDNA3-only, unmerged) | candle merges gfx1201/RDNA4 ROCm (GDN + batching + KV-quant already present) | 2026-06-13 |
 | **MLC-LLM / TVM Unity** | no proven RDNA4 serving of the hybrid; build-everything-from-source | a gfx1201 serving benchmark of the GDN hybrid (arch already merged `mlc-llm#3449`) | 2026-06-13 |
+| **TGI** (HuggingFace) | no GDN / Qwen3-Next support; its ROCm backend is CDNA/MI300-focused, gfx1201 unproven | TGI ships Qwen3-Next **and** a working RDNA4 path (batching + prefix cache are already strong) | 2026-06-13 |
 | **AMD Lemonade / ONNX Runtime GenAI** | ONNX operators are softmax-only — **cannot represent GDN** | ONNX/ORT adds a linear-attention/GDN operator (`onnx#7689`) | 2026-06-13 |
 | **ik_llama.cpp** | ROCm/Vulkan "not the focus" of the fork; no gfx1201 (disc. `#562`) | maintainer adds a gfx1201 path (unlikely) | 2026-06-13 |
 | **pegainfer / vllm-rs / Crane / Atoma / rvLLM** | CUDA/Metal-only and/or dense-only (no GDN) | both an AMD/ROCm backend **and** GDN land | 2026-06-13 |
@@ -46,6 +47,11 @@ At-a-glance tracker of *why each engine can't serve Qwen3.6-27B on gfx1201 today
 | **Shimmy / Ratchet / wgml / wgpu-llm** | WebGPU/Vulkan stacks lack a GDN/hybrid impl | a GDN token-mixer lands in a Vulkan/WebGPU engine | 2026-06-13 |
 | **ZML / nod-ai SHARK / burn-CubeCL** | no GatedDeltaNet model implementation | GDN model + 27B serving maturity | 2026-06-13 |
 | **Cloudflare Infire** | closed-source / hosted-only (NVIDIA Hopper) | n/a — not self-hostable | 2026-06-13 |
+
+**Researched but permanently excluded** (will never fit this use case — not tracked above):
+**lm.rs / rustformers-llm / Kalosm / Paddler / mlxcel** (CPU / Apple-Metal / proxy — not GPU
+servers), **llamafile / PowerInfer / Nexa SDK** (consumer CPU-offload, no GDN, research-grade for
+a 27B hybrid). Re-open only if one of them fundamentally re-architects toward gfx1201 GPU serving.
 
 ## Per-engine verdict (ranked by how close to usable today)
 
