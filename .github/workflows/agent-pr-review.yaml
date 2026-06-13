@@ -44,31 +44,18 @@ jobs:
         with:
           github_token: ${{ github.token }}
           ai_base_url: http://llama-server.ai.svc.cluster.local/v1
-          ai_api_format: openai
           ai_model: qwen-3.6
           ai_max_tokens: "4096"
           ai_temperature: ""
           ai_response_format: json_schema
-          ai_request_timeout_sec: "300"
-          ai_connect_timeout_sec: "30"
-          ai_primary_retries: "8"
-          ai_primary_retry_delay_sec: "15"
-          ai_stream: "true"
           verdict_policy: findings_severity_gated
           inline_findings: "true"
           inline_findings_max: "12"
-          validate_required_checks: auto
-          required_check_validation_mode: warn
           publish_mode: review_comment
           standards_file: AGENTS.md
           model_context_tokens: "131072"
-          review_routing_mode: off
-          skip_if_diff_unchanged: "true"
           allowed_source_hosts: "github.com,api.github.com,raw.githubusercontent.com,gitlab.com,registry.terraform.io,artifacthub.io,www.talos.dev,talos.dev,fluxcd.io,kubernetes.io,cilium.io"
           evidence_providers_file: .github/pr-review-providers.json
           evidence_provider_timeout_sec: "120"
           evidence_provider_max_output_bytes: "50000"
           evidence_blocker_enforcement: "true"
-          # The optional tool harness stays disabled to keep reviews fast.
-          # Evidence providers above remain enforced; tool-harness failures should not block reviews.
-          tool_mode: off
