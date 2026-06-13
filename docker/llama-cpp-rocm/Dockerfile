@@ -35,8 +35,13 @@ ARG BUILD_JOBS=4
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git cmake ninja-build build-essential libssl-dev ca-certificates \
+    && apt-get install -y --no-install-recommends git cmake ninja-build build-essential ccache libssl-dev ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# ccache lives on the persistent buildkit cache mount (target=/ccache below); most ggml-cuda TUs
+# are unchanged between llama.cpp versions, so a Renovate bump recompiles only the deltas.
+ENV CCACHE_DIR=/ccache \
+    CCACHE_MAXSIZE=15G
 
 # rocm-sdk wheel layout (TheRock): compiler + headers live under _rocm_sdk_devel, the gfx120X
 # Tensile kernels under _rocm_sdk_libraries_gfx120X_all. `rocm-sdk path` resolves the roots.
@@ -47,7 +52,8 @@ ENV HIPCXX=${HIP_PATH}/lib/llvm/bin/clang++ \
     PATH=/opt/python/bin:${HIP_PATH}/lib/llvm/bin:${PATH}
 
 WORKDIR /src
-RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-org/llama.cpp . \
+RUN --mount=type=cache,target=/ccache,id=llama-ccache \
+    git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-org/llama.cpp . \
     && cmake -S . -B build -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DGGML_HIP=ON \
@@ -56,8 +62,12 @@ RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-
         -DGGML_HIP_ROCWMMA_FATTN="${GGML_HIP_ROCWMMA_FATTN}" \
         -DLLAMA_OPENSSL=ON \
         -DLLAMA_BUILD_TESTS=OFF \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_HIP_COMPILER_LAUNCHER=ccache \
         -DCMAKE_PREFIX_PATH="${HIP_PATH}" \
     && cmake --build build --config Release -j"${BUILD_JOBS}" --target llama-server \
+    && ccache -s 2>/dev/null | grep -iE 'cacheable|hit|files' | head -4 || true \
     && mkdir -p /opt/llama/bin /opt/llama/lib \
     && cp build/bin/llama-server /opt/llama/bin/ \
     && ldd /opt/llama/bin/llama-server | grep -q libssl \
