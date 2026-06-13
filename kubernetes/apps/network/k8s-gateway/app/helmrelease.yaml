@@ -12,6 +12,13 @@ spec:
   values:
     fullnameOverride: k8s-gateway
     replicaCount: 2
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
     domain: "${SECRET_DOMAIN}"
     ttl: 1
     service:
