@@ -45,7 +45,7 @@ spec:
               # Custom llama.cpp gfx1201 build (docker/llama-cpp-rocm/) — ROCm 7.13 gfx120X-tuned
               # for ~34 tok/s + MTP. Tag rebuilt in place; Renovate digest-pins it.
               repository: ghcr.io/tanguille/llama-cpp-rocm-gfx1201
-              tag: gfx1201
+              tag: gfx1201@sha256:b617d31bcce8ed30e3c1650677a8c131612cb00f1d759545346c06d18356c978
             env:
               TZ: ${TIMEZONE}
               LLAMA_CACHE: /cache # -hf downloads the GGUF here (the cache PVC); ties to the mount below
