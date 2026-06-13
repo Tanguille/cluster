@@ -22,7 +22,7 @@ permissions:
 
 env:
   IMAGE: ghcr.io/tanguille/llama-cpp-rocm-gfx1201
-  TAG: gfx1201 # stable tag, rebuilt in place; Renovate digest-pins it on the HelmRelease
+  TAG: bench-pr23685 # THROWAWAY A/B test tag (test/livepatch-pr23685 branch); never clobbers prod :gfx1201
   STORE: /home/runner/_work/.containers # podman root on the big scratch volume
   # Ubuntu's podman 4.9 overlay/fuse path trips over Docker gzip layer media types in the ROCm base.
   # vfs avoids that storage import path; --layers=false below keeps the disk hit bounded.
@@ -66,6 +66,7 @@ jobs:
         run: |
           podman --root "${STORE}" ${STORAGE_OPTS} build \
             --layers=false \
+            -f docker/llama-cpp-rocm/Dockerfile.bench \
             --tag "${IMAGE}:${TAG}" \
             docker/llama-cpp-rocm
 

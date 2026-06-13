@@ -1,0 +1,63 @@
+# THROWAWAY A/B image to livepatch-test PR #23685 (4x packed Q8_1 MMVQ for Q4_K/Q5_K/Q6_K).
+# NOT for production. Builds llama-server + llama-bench TWICE from the same b9611 source on the
+# same gfx120X-tuned ROCm base, with identical flags — so the ONLY difference between the two is
+# the MMVQ kernel patch. This isolates the kernel delta (no base-image/lib/node confounders).
+#   /opt/base = unpatched (byte-for-byte the production kernels)  /opt/pr = with PR #23685
+# Run straight from the fat base (it already carries the tuned rocBLAS/hipBLASLt + HIP runtime).
+ARG ROCM_BUILD_IMAGE=docker.io/rocm/vllm:rocm7.13.0_gfx120X-all_ubuntu24.04_py3.13_pytorch_2.10.0_vllm_0.19.1@sha256:015dc53ab8c9ddbbdca034c68fe7c169e6884c63094adb49071d1911b1cbd474
+FROM ${ROCM_BUILD_IMAGE}
+
+ARG AMDGPU_TARGETS=gfx1201
+ARG LLAMA_CPP_VERSION=b9611
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git cmake ninja-build build-essential libcurl4-openssl-dev ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Same wheel-layout (TheRock) build env as the production Dockerfile.
+ENV SP=/opt/python/lib/python3.13/site-packages
+ENV ROCM_HOME=${SP}/_rocm_sdk_devel \
+    HIP_PATH=${SP}/_rocm_sdk_devel
+ENV HIPCXX=${HIP_PATH}/lib/llvm/bin/clang++ \
+    PATH=/opt/python/bin:${HIP_PATH}/lib/llvm/bin:${PATH}
+# Runtime ROCm libs (the dirs production stages into the slim image). The bench script prepends the
+# per-variant /opt/<v>/lib so each binary loads its OWN ggml kernels.
+ENV LD_LIBRARY_PATH=${SP}/_rocm_sdk_core/lib:${SP}/_rocm_sdk_devel/lib:${SP}/_rocm_sdk_devel/lib/llvm/lib:${SP}/_rocm_sdk_libraries_gfx120X_all/lib
+
+COPY pr23685.diff /tmp/pr23685.diff
+
+WORKDIR /src
+RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-org/llama.cpp .
+
+# --- BASELINE (== production) ---
+RUN cmake -S . -B build-base -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release -DGGML_HIP=ON \
+        -DAMDGPU_TARGETS="${AMDGPU_TARGETS}" -DGPU_TARGETS="${AMDGPU_TARGETS}" \
+        -DGGML_HIP_ROCWMMA_FATTN=OFF -DLLAMA_CURL=ON -DLLAMA_BUILD_TESTS=OFF \
+        -DCMAKE_PREFIX_PATH="${HIP_PATH}" \
+    && cmake --build build-base --config Release -j"$(nproc)" --target llama-server llama-bench \
+    && mkdir -p /opt/base/bin /opt/base/lib \
+    && cp build-base/bin/llama-server build-base/bin/llama-bench /opt/base/bin/ \
+    && find build-base -name '*.so*' -exec cp -P {} /opt/base/lib/ \;
+
+# --- PATCHED (PR #23685) --- guard fails the build loud if the patch ever stops applying.
+RUN git apply --check /tmp/pr23685.diff \
+    && git apply /tmp/pr23685.diff \
+    && cmake -S . -B build-pr -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release -DGGML_HIP=ON \
+        -DAMDGPU_TARGETS="${AMDGPU_TARGETS}" -DGPU_TARGETS="${AMDGPU_TARGETS}" \
+        -DGGML_HIP_ROCWMMA_FATTN=OFF -DLLAMA_CURL=ON -DLLAMA_BUILD_TESTS=OFF \
+        -DCMAKE_PREFIX_PATH="${HIP_PATH}" \
+    && cmake --build build-pr --config Release -j"$(nproc)" --target llama-server llama-bench \
+    && mkdir -p /opt/pr/bin /opt/pr/lib \
+    && cp build-pr/bin/llama-server build-pr/bin/llama-bench /opt/pr/bin/ \
+    && find build-pr -name '*.so*' -exec cp -P {} /opt/pr/lib/ \;
+
+# Drop the source/build trees to shrink the pushed image (binaries + libs are already staged).
+RUN rm -rf /src/build-base /src/build-pr /src/.git
+
+WORKDIR /
+ENV LLAMA_CACHE=/cache \
+    HIP_VISIBLE_DEVICES=0
+ENTRYPOINT ["/bin/bash"]
