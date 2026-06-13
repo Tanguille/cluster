@@ -23,10 +23,7 @@ permissions:
 env:
   IMAGE: ghcr.io/tanguille/llama-cpp-rocm-gfx1201
   TAG: gfx1201 # stable tag, rebuilt in place; Renovate digest-pins it on the HelmRelease
-  CACHE: ghcr.io/tanguille/llama-cpp-rocm-gfx1201:buildcache # registry layer cache (cross-node backup of the local PVC)
-  # buildkitd root on the PERSISTENT cache PVC (image-builder runner, control-3): the ROCm base +
-  # ccache + layer cache survive runs, so a llama.cpp bump rebuilds in ~5-6min instead of ~19min.
-  STORE: /var/lib/buildkit
+  STORE: /home/runner/_work/.buildkit # buildkitd root on the big scratch volume
   # renovate: datasource=github-releases depName=moby/buildkit
   BUILDKIT_VERSION: v0.30.0
 
@@ -89,7 +86,5 @@ jobs:
             --local dockerfile=docker/llama-cpp-rocm \
             --opt filename=Dockerfile \
             --opt build-arg:BUILD_JOBS="${jobs}" \
-            --import-cache type=registry,ref="${CACHE}" \
-            --export-cache type=registry,ref="${CACHE}",mode=max,ignore-error=true \
             --output type=image,name="${IMAGE}:${TAG}",push=true
           echo "Pushed ${IMAGE}:${TAG}" | tee -a "${GITHUB_STEP_SUMMARY}"
