@@ -1,0 +1,87 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app odysseus
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    controllers:
+      app:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/pewdiepie-archdaemon/odysseus
+              tag: 1.0.0-dev.9d7a3d6
+            env:
+              TZ: ${TIMEZONE}
+              APP_BIND: "0.0.0.0"
+              APP_PORT: "7000"
+              AUTH_ENABLED: "true"
+              SECURE_COOKIES: "true"
+              SEARXNG_INSTANCE: "http://searxng.default.svc.cluster.local:8080"
+            probes:
+              liveness: &probes
+                enabled: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 7000
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 5
+              readiness:
+                enabled: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: *port
+                  initialDelaySeconds: 15
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 6
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 2
+                memory: 2Gi
+
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Odysseus
+          gethomepage.dev/description: Self-hosted AI workspace
+          gethomepage.dev/group: AI
+          gethomepage.dev/icon: odysseus.png
+        hostnames:
+          - "odysseus.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /app/data
