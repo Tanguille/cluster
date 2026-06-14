@@ -34,9 +34,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install ROCm 7.13 (gfx1201-tuned) from AMD's packages-multi-arch APT repo. The repo path is
 # .../ubuntu2404 with codename `stable` — NOT a per-Ubuntu-codename repo, and NOT mirrored on
-# repo.radeon.com (which tops out at 7.2.x). Packages:
-#   amdrocm7.13-gfx1201             runtime metapackage: HIP runtime, LLVM/clang, hipcc, and the
-#                                   gfx1201-tuned rocBLAS/hipBLASLt + Tensile kernels
+# repo.radeon.com (which tops out at 7.2.x). We pull the BLAS leaf, not the umbrella
+# amdrocm7.13-gfx1201 metapackage: its hard deps give us exactly what GGML_HIP links (HIP runtime,
+# LLVM/clang+libLLVM, rocBLAS+gfx1201 Tensile, hipBLASLt) while skipping the metapackage's
+# MIOpen/rocFFT/rocRAND/RCCL (~330MB installed) that llama.cpp never loads — that bloat would
+# otherwise ride along in the staged runtime layer. Packages:
+#   amdrocm-blas7.13-gfx1201        rocBLAS + gfx1201 Tensile kernels; pulls HIP runtime, LLVM,
+#                                   hipBLASLt (and rocSOLVER/rocSPARSE) via hard deps
 #   amdrocm-runtime-dev7.13         HIP runtime headers + hipcc dev files
 #   amdrocm-blas-dev7.13            rocBLAS headers (with amdrocm-hipblas-common-dev7.13 for hipBLAS)
 #   amdrocm-llvm-dev7.13            clang/LLVM dev files for the HIP compile
@@ -48,7 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/amdrocm.gpg] https://repo.amd.com/rocm/packages-multi-arch/ubuntu2404 stable main" \
          | tee /etc/apt/sources.list.d/rocm.list \
     && apt-get update && apt-get install -y --no-install-recommends \
-        amdrocm7.13-gfx1201 \
+        amdrocm-blas7.13-gfx1201 \
         amdrocm-runtime-dev7.13 \
         amdrocm-blas-dev7.13 \
         amdrocm-hipblas-common-dev7.13 \
