@@ -18,7 +18,6 @@ spec:
 
     controllers:
       main:
-        type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
 
@@ -29,13 +28,13 @@ spec:
               tag: 18
             envFrom:
               - secretRef:
-                  name: memini-secret
+                  name: &secret memini-secret
 
         containers:
           main:
             envFrom:
               - secretRef:
-                  name: memini-secret
+                  name: *secret
             env:
               TZ: ${TIMEZONE}
               MEMINI_BACKEND: "postgres"
@@ -50,7 +49,7 @@ spec:
               MEMINI_POSTGRES_DSN:
                 valueFrom:
                   secretKeyRef:
-                    name: memini-secret
+                    name: *secret
                     key: MEMINI_POSTGRES_DSN
               MEMINI_UI_ENABLED: "true"
 
