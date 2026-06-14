@@ -86,7 +86,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "The state of the deployment: 0 = healthy, 1 = partial outage, 2 = complete outage",
       "fieldConfig": {
@@ -176,7 +176,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "litellm_deployment_state{job=~\"$job\", instance=~\"$instance\", litellm_model_name=~\"$model\"}",
@@ -204,7 +204,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Total spend on LLM requests",
       "fieldConfig": {
@@ -262,7 +262,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -305,7 +305,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Total spend on LLM requests",
       "fieldConfig": {
@@ -367,7 +367,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -410,7 +410,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Total spend on LLM requests",
       "fieldConfig": {
@@ -472,7 +472,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -515,7 +515,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Total spend on LLM requests",
       "fieldConfig": {
@@ -577,7 +577,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -633,7 +633,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Total latency for a models LLM API call",
       "fieldConfig": {
@@ -718,7 +718,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n  0.50,\n  sum by (model, le) (\n    rate(litellm_llm_api_latency_metric_bucket{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval])\n  )\n)",
@@ -729,7 +729,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n  0.90,\n  sum by (model, le) (\n    rate(litellm_llm_api_latency_metric_bucket{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval])\n  )\n)",
@@ -741,7 +741,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n  0.95,\n  sum by (model, le) (\n    rate(litellm_llm_api_latency_metric_bucket{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval])\n  )\n)",
@@ -753,7 +753,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n  0.99,\n  sum by (model, le) (\n    rate(litellm_llm_api_latency_metric_bucket{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval])\n  )\n)",
@@ -769,7 +769,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Time to first token for a models LLM API call",
       "fieldConfig": {
@@ -854,7 +854,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n  0.50,\n  sum by (model, le) (\n    rate(litellm_llm_api_time_to_first_token_metric_bucket{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval])\n  )\n)",
@@ -865,7 +865,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n  0.90,\n  sum by (model, le) (\n    rate(litellm_llm_api_time_to_first_token_metric_bucket{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval])\n  )\n)",
@@ -877,7 +877,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n  0.95,\n  sum by (model, le) (\n    rate(litellm_llm_api_time_to_first_token_metric_bucket{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval])\n  )\n)",
@@ -889,7 +889,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(\n  0.99,\n  sum by (model, le) (\n    rate(litellm_llm_api_time_to_first_token_metric_bucket{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval])\n  )\n)",
@@ -905,7 +905,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Total number of requests made to the proxy server - track number of client side requests",
       "fieldConfig": {
@@ -994,7 +994,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "sum by (route, requested_model, team, team_alias, user, user_email) (rate(litellm_proxy_total_requests_metric_total{job=~\"$job\", instance=~\"$instance\"}[$__rate_interval]))",
@@ -1009,7 +1009,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Spend on LLM requests",
       "fieldConfig": {
@@ -1098,7 +1098,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "sum by (model, team, team_alias, user, user_email) (rate(litellm_spend_metric_total{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval]))",
@@ -1113,7 +1113,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Rate of input/output tokens from LLM requests",
       "fieldConfig": {
@@ -1215,7 +1215,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "sum by (model, team, team_alias, user, user_email) (rate(litellm_input_tokens_metric_total{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval]))",
@@ -1226,7 +1226,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "expr": "sum by (model, team, team_alias, user, user_email) (rate(litellm_output_tokens_metric_total{job=~\"$job\", instance=~\"$instance\", model=~\"$model\"}[$__rate_interval]))",
@@ -1255,7 +1255,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Total number of failed responses from proxy - the client did not get a success response from litellm proxy",
       "fieldConfig": {
@@ -1318,7 +1318,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1368,7 +1368,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Number of failed fallback requests from primary model -> fallback model",
       "fieldConfig": {
@@ -1431,7 +1431,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1481,7 +1481,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Total number of failed responses from proxy - the client did not get a success response from litellm proxy",
       "fieldConfig": {
@@ -1539,7 +1539,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1593,7 +1593,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${datasource}"
+        "uid": "victoriametrics"
       },
       "description": "Number of failed fallback requests from primary model -> fallback model",
       "fieldConfig": {
@@ -1651,7 +1651,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${datasource}"
+            "uid": "victoriametrics"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1710,9 +1710,19 @@
   "templating": {
     "list": [
       {
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": "VictoriaMetrics",
+          "value": "victoriametrics"
+        },
         "name": "datasource",
-        "options": [],
+        "options": [
+          {
+            "selected": true,
+            "text": "VictoriaMetrics",
+            "value": "victoriametrics"
+          }
+        ],
         "query": "prometheus",
         "refresh": 1,
         "regex": "",
@@ -1730,7 +1740,11 @@
         },
         "refresh": 1,
         "regex": "",
-        "type": "query"
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        }
       },
       {
         "allValue": ".*",
@@ -1748,7 +1762,11 @@
         "refresh": 2,
         "regex": "",
         "sort": 1,
-        "type": "query"
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        }
       },
       {
         "current": {},
@@ -1764,7 +1782,11 @@
         },
         "refresh": 2,
         "regex": "",
-        "type": "query"
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "victoriametrics"
+        }
       }
     ]
   },
