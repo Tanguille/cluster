@@ -40,7 +40,7 @@ jobs:
           fi
 
       - name: Run reviewer
-        uses: misospace/pr-reviewer-action@4126a2701a5e9adcf7c48ac6eb678e2e3a2bb2a0 # v1.2.9
+        uses: misospace/pr-reviewer-action@c87ab3fb2f8de58756c47185b0cac18c71210944 # v1.2.11
         with:
           github_token: ${{ github.token }}
           ai_base_url: http://litellm.ai.svc.cluster.local:4000/v1
@@ -61,3 +61,6 @@ jobs:
           evidence_provider_timeout_sec: "120"
           evidence_provider_max_output_bytes: "50000"
           evidence_blocker_enforcement: "true"
+          tool_mode: native_loop
+          search_url: http://searxng.default.svc.cluster.local:8080/search
+          tool_max_search_results: "5"
