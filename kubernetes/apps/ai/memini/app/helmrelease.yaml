@@ -18,14 +18,27 @@ spec:
 
     controllers:
       main:
+        type: deployment
         annotations:
           reloader.stakater.com/auto: "true"
 
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: 18
+            envFrom:
+              - secretRef:
+                  name: memini-secret
+
         containers:
           main:
+            envFrom:
+              - secretRef:
+                  name: memini-secret
             env:
               TZ: ${TIMEZONE}
-              MEMINI_BACKEND: "sqlite"
+              MEMINI_BACKEND: "postgres"
               MEMINI_LOG_LEVEL: "info"
               MEMINI_LOG_FORMAT: "json"
               MEMINI_DEFAULT_NAMESPACE: "default"
@@ -34,7 +47,11 @@ spec:
               MEMINI_EMBED_BASE_URL: "http://llama-server.ai.svc.cluster.local/v1"
               MEMINI_EMBED_MODEL: "qwen3-embedding"
               MEMINI_EMBED_DIMS: "1024"
-              MEMINI_SQLITE_PATH: "/data/memini.db"
+              MEMINI_POSTGRES_DSN:
+                valueFrom:
+                  secretKeyRef:
+                    name: memini-secret
+                    key: MEMINI_POSTGRES_DSN
               MEMINI_UI_ENABLED: "true"
 
             resources:
@@ -69,12 +86,9 @@ spec:
 
     persistence:
       data:
-        enabled: true
-        type: persistentVolumeClaim
+        enabled: false
         accessMode: ReadWriteOnce
-        size: 5Gi
-        globalMounts:
-          - path: /data
+        size: 1Gi
 
     serviceMonitor:
       main:
