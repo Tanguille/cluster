@@ -8,10 +8,9 @@
 # install ROCm 7.13 from APT in the build stage and copy just the runtime libs + llama.cpp
 # binaries into a slim final image.
 #
-# Structure follows the official llama.cpp .devops/rocm.Dockerfile, with two gfx1201 fixes that
-# double decode: the gfx120X-TUNED ROCm 7.13 (vs upstream's general 7.2.1 -> 34 vs 18 tok/s) and
-# ROCWMMA flash-attn OFF (it's slower on gfx12, #15021). We also build a single gfx1201 target and
-# slim the runtime to only the needed libs.
+# Structure follows the official llama.cpp .devops/rocm.Dockerfile, plus two gfx1201 wins: the
+# gfx120X-tuned ROCm 7.13 above, and ROCWMMA flash-attn OFF (slower on gfx12, #15021). We build a
+# single gfx1201 target and slim the runtime to only the needed libs.
 #
 # 2026 best-practices: multi-stage, digest-pinned bases, OCI labels, minimal runtime (no build
 # toolchain). The image defaults to a non-root user; the k8s deploy overrides to root for ROCm
@@ -27,10 +26,9 @@
 # + headers), then build llama.cpp against it.
 FROM docker.io/library/ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS build
 
-# ROCm version — manually updated; check https://rocm.docs.amd.com for new releases.
-# 7.13 is AMD's gfx120X-tuned (TheRock) preview series; the version is baked into the package
-# names (amdrocm*7.13*) and the merged install root (/opt/rocm/core-7.13), so it appears below
-# as a literal rather than only as this ARG.
+# ROCm version — manually updated; check https://rocm.docs.amd.com for new releases. The 7.13
+# series is baked into the package names (amdrocm*7.13*) and the merged install root
+# (/opt/rocm/core-7.13), so it also appears as a literal below.
 ARG ROCM_VERSION=7.13.0
 ENV ROCM_PATH=/opt/rocm/core-7.13
 
@@ -57,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         amdrocm-blas-dev7.13 \
         amdrocm-hipblas-common-dev7.13 \
         amdrocm-llvm-dev7.13 \
+        git cmake ninja-build build-essential libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Single gfx1201 target = smaller, faster build. ROCWMMA flash-attn is slower on gfx12 (#15021),
@@ -70,15 +69,10 @@ ARG LLAMA_CPP_VERSION=b9626
 # (=12) peaks past the 24Gi builder cap on the ggml-cuda template TUs and OOM-kills the runner.
 ARG BUILD_JOBS=4
 
-# Standard merged ROCm root (see header NOTE): compiler, HIP runtime, headers and the gfx1201
-# Tensile kernels all live under ${ROCM_PATH}. `rocm-sdk path` is gone — paths are plain dirs.
+# Merged ROCm root: compiler, HIP runtime, headers and the gfx1201 Tensile kernels all live here.
 ENV HIP_PATH=${ROCM_PATH} \
     HIPCXX=${ROCM_PATH}/lib/llvm/bin/clang++ \
     PATH=${ROCM_PATH}/bin:${ROCM_PATH}/lib/llvm/bin:${PATH}
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends git cmake ninja-build build-essential libssl-dev ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-org/llama.cpp . \
@@ -105,7 +99,6 @@ RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-
 RUN mkdir -p /opt/rocm-runtime \
     && cp -a ${ROCM_PATH}/lib /opt/rocm-runtime/lib \
     # KEEP llvm/lib — libLLVM/libclang-cpp are a real runtime dep (hipBLASLt -> rocRoller -> LLVM).
-    # Drop only the compiler binaries + the cmake dir (not needed at runtime).
     && rm -rf /opt/rocm-runtime/lib/llvm/bin /opt/rocm-runtime/lib/cmake \
     # Fail LOUD if AMD's APT layout moved (the ${ROCM_PATH} root is tied to the 7.13 package set):
     # a silent miss would otherwise ship a runtime that crashes at first inference.
