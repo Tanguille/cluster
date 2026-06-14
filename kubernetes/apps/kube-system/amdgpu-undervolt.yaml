@@ -1,0 +1,137 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: amdgpu-undervolt
+  labels:
+    app.kubernetes.io/name: amdgpu-undervolt
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: amdgpu-undervolt
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: amdgpu-undervolt
+    spec:
+      priorityClassName: system-node-critical
+      nodeSelector:
+        amd.com/gpu: "true"
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: app
+          image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: VOLTAGE_OFFSET_MV
+              value: "-82"
+            - name: POWER_LIMIT_WATTS
+              value: "225"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              SYSFS_ROOT=/host-sys/class/drm
+              POWER_LIMIT_UW=$((POWER_LIMIT_WATTS * 1000000))
+
+              log() {
+                printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"
+              }
+
+              apply_power_limit() {
+                card="$1"
+                applied=0
+
+                for cap in "$card"/hwmon/hwmon*/power1_cap; do
+                  [ -e "$cap" ] || continue
+                  [ -w "$cap" ] || {
+                    log "power cap is not writable: $cap"
+                    continue
+                  }
+
+                  min_file="${cap}_min"
+                  max_file="${cap}_max"
+                  if [ -r "$min_file" ]; then
+                    min=$(cat "$min_file")
+                    if [ "$POWER_LIMIT_UW" -lt "$min" ]; then
+                      log "requested ${POWER_LIMIT_WATTS}W is below $(($min / 1000000))W minimum for $cap; skipping"
+                      continue
+                    fi
+                  fi
+                  if [ -r "$max_file" ]; then
+                    max=$(cat "$max_file")
+                    if [ "$POWER_LIMIT_UW" -gt "$max" ]; then
+                      log "requested ${POWER_LIMIT_WATTS}W is above $(($max / 1000000))W maximum for $cap; skipping"
+                      continue
+                    fi
+                  fi
+
+                  echo "$POWER_LIMIT_UW" > "$cap"
+                  log "set $(basename "$(dirname "$card")") power limit to ${POWER_LIMIT_WATTS}W via $cap"
+                  applied=1
+                done
+
+                [ "$applied" -eq 1 ] || log "no writable power1_cap found under $card"
+              }
+
+              apply_voltage_offset() {
+                card="$1"
+                od="$card/pp_od_clk_voltage"
+
+                if [ ! -e "$od" ]; then
+                  log "pp_od_clk_voltage missing for $card; amdgpu.ppfeaturemask may not be active yet"
+                  return 0
+                fi
+                if [ ! -w "$od" ]; then
+                  log "pp_od_clk_voltage is not writable for $card"
+                  return 0
+                fi
+
+                echo "vo ${VOLTAGE_OFFSET_MV}" > "$od"
+                echo c > "$od"
+                log "set $(basename "$(dirname "$card")") VDDGFX offset to ${VOLTAGE_OFFSET_MV}mV"
+              }
+
+              while :; do
+                found=0
+                for card in "$SYSFS_ROOT"/card*/device; do
+                  [ -d "$card" ] || continue
+                  vendor="$card/vendor"
+                  if [ -r "$vendor" ] && [ "$(cat "$vendor")" != "0x1002" ]; then
+                    continue
+                  fi
+
+                  found=1
+                  apply_power_limit "$card"
+                  apply_voltage_offset "$card"
+                done
+
+                [ "$found" -eq 1 ] && break
+                log "waiting for AMD DRM devices under $SYSFS_ROOT"
+                sleep 5
+              done
+
+              while :; do
+                sleep 3600
+              done
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: true
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: sys
+              mountPath: /host-sys
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+            type: Directory
