@@ -41,83 +41,71 @@ spec:
                 printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"
               }
 
-              apply_power_limit() {
+              apply_gpu_tuning() {
                 card="$1"
-                applied=0
+                card_name=$(basename "$(dirname "$card")")
+                od="$card/pp_od_clk_voltage"
+                perf="$card/power_dpm_force_performance_level"
+
+                if [ -w "$perf" ] && [ -w "$od" ]; then
+                  echo manual > "$perf"
+                  echo "vo $${VOLTAGE_OFFSET_MV}" > "$od"
+                  echo c > "$od"
+                  applied_mv=$(tr -d '\000' < "$od" | awk '/OD_VDDGFX_OFFSET:/{getline; gsub(/[^0-9-]/,""); print; exit}')
+                  if [ "$applied_mv" = "$VOLTAGE_OFFSET_MV" ]; then
+                    log "set $${card_name} VDDGFX offset to $${VOLTAGE_OFFSET_MV}mV"
+                  else
+                    log "VDDGFX offset failed for $${card_name}: wanted $${VOLTAGE_OFFSET_MV}mV, got $${applied_mv:-unknown}mV"
+                  fi
+                else
+                  log "skipping VDDGFX offset for $${card_name}: pp_od or perf level not writable"
+                fi
 
                 for cap in "$card"/hwmon/hwmon*/power1_cap; do
                   [ -e "$cap" ] || continue
-                  [ -w "$cap" ] || {
-                    log "power cap is not writable: $cap"
-                    continue
-                  }
+                  [ -w "$cap" ] || continue
 
-                  min_file="${cap}_min"
-                  max_file="${cap}_max"
-                  if [ -r "$min_file" ]; then
-                    min=$(cat "$min_file")
-                    if [ "$POWER_LIMIT_UW" -lt "$min" ]; then
-                      log "requested ${POWER_LIMIT_WATTS}W is below $(($min / 1000000))W minimum for $cap; skipping"
-                      continue
-                    fi
+                  min_file="$${cap}_min"
+                  max_file="$${cap}_max"
+                  if [ -r "$min_file" ] && [ "$POWER_LIMIT_UW" -lt "$(cat "$min_file")" ]; then
+                    log "requested $${POWER_LIMIT_WATTS}W is below minimum for $cap; skipping"
+                    continue
                   fi
-                  if [ -r "$max_file" ]; then
-                    max=$(cat "$max_file")
-                    if [ "$POWER_LIMIT_UW" -gt "$max" ]; then
-                      log "requested ${POWER_LIMIT_WATTS}W is above $(($max / 1000000))W maximum for $cap; skipping"
-                      continue
-                    fi
+                  if [ -r "$max_file" ] && [ "$POWER_LIMIT_UW" -gt "$(cat "$max_file")" ]; then
+                    log "requested $${POWER_LIMIT_WATTS}W is above maximum for $cap; skipping"
+                    continue
                   fi
 
                   echo "$POWER_LIMIT_UW" > "$cap"
-                  log "set $(basename "$(dirname "$card")") power limit to ${POWER_LIMIT_WATTS}W via $cap"
-                  applied=1
+                  log "set $${card_name} power limit to $${POWER_LIMIT_WATTS}W via $cap"
+                  return 0
                 done
 
-                [ "$applied" -eq 1 ] || log "no writable power1_cap found under $card"
+                log "no writable power1_cap found under $card"
               }
 
-              apply_voltage_offset() {
-                card="$1"
-                od="$card/pp_od_clk_voltage"
-
-                if [ ! -e "$od" ]; then
-                  log "pp_od_clk_voltage missing for $card; amdgpu.ppfeaturemask may not be active yet"
-                  return 0
-                fi
-                if [ ! -w "$od" ]; then
-                  log "pp_od_clk_voltage is not writable for $card"
-                  return 0
-                fi
-
-                echo "vo ${VOLTAGE_OFFSET_MV}" > "$od"
-                echo c > "$od"
-                log "set $(basename "$(dirname "$card")") VDDGFX offset to ${VOLTAGE_OFFSET_MV}mV"
-              }
-
-              while :; do
-                found=0
-                # card[0-9] only — card0-DP-1/card0-HDMI-A-1 are display connectors, not the GPU
+              attempts=0
+              while [ "$attempts" -lt 120 ]; do
                 for card in "$SYSFS_ROOT"/card[0-9]/device; do
                   [ -d "$card" ] || continue
                   vendor="$card/vendor"
-                  if [ -r "$vendor" ] && [ "$(cat "$vendor")" != "0x1002" ]; then
+                  if [ ! -r "$vendor" ]; then
                     continue
                   fi
+                  read -r vendor_id < "$vendor" || continue
+                  [ "$vendor_id" = "0x1002" ] || continue
 
-                  found=1
-                  apply_power_limit "$card"
-                  apply_voltage_offset "$card"
+                  apply_gpu_tuning "$card"
+                  exec sleep infinity
                 done
 
-                [ "$found" -eq 1 ] && break
+                attempts=$((attempts + 1))
                 log "waiting for AMD DRM devices under $SYSFS_ROOT"
                 sleep 5
               done
 
-              while :; do
-                sleep 3600
-              done
+              log "timed out waiting for AMD GPU under $SYSFS_ROOT"
+              exit 1
           securityContext:
             privileged: true
             readOnlyRootFilesystem: true
