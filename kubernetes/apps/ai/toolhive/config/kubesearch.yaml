@@ -42,17 +42,19 @@ spec:
             timeoutSeconds: 3
             failureThreshold: 3
           resources:
-            requests: &requests
+            requests:
               cpu: 10m
               memory: 256Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 1Gi
   resources:
-    requests: *requests
+    requests:
+      cpu: 10m
+      memory: 128Mi
     limits:
       cpu: 200m
-      memory: 150Mi
+      memory: 256Mi
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
@@ -97,17 +99,19 @@ spec:
             timeoutSeconds: 3
             failureThreshold: 3
           resources:
-            requests: &requestsOpt
+            requests:
               cpu: 10m
               memory: 256Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 1Gi
   resources:
-    requests: *requestsOpt
+    requests:
+      cpu: 10m
+      memory: 128Mi
     limits:
       cpu: 200m
-      memory: 150Mi
+      memory: 256Mi
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
