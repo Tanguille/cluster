@@ -99,9 +99,10 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "llama_model_loaded{model=\"qwen-3.6\"}",
+          "expr": "max without(endpoint, instance, pod, prometheus) (llama_model_loaded{model=\"qwen-3.6\"})",
           "legendFormat": "qwen-3.6",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Model state",
@@ -172,9 +173,10 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "llama_upstream_metrics_up{model=\"qwen-3.6\"}",
+          "expr": "max without(endpoint, instance, pod, prometheus) (llama_upstream_metrics_up{model=\"qwen-3.6\"})",
           "legendFormat": "upstream",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Metrics scrape state",
@@ -233,9 +235,10 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "clamp_min(time() - llama_exporter_last_successful_scrape_timestamp_seconds, 0)",
+          "expr": "clamp_min(time() - max without(endpoint, instance, pod, prometheus) (llama_exporter_last_successful_scrape_timestamp_seconds), 0)",
           "legendFormat": "freshness",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Metrics freshness",
@@ -290,9 +293,10 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "llama_exporter_upstream_http_status{model=\"qwen-3.6\"}",
+          "expr": "max without(endpoint, instance, pod, prometheus) (llama_exporter_upstream_http_status{model=\"qwen-3.6\"})",
           "legendFormat": "HTTP status",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Last upstream status",
@@ -368,7 +372,8 @@
           },
           "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:prompt_tokens_seconds)",
           "legendFormat": "Prefill",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Prompt (prefill) tokens/second",
@@ -431,7 +436,8 @@
           },
           "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:predicted_tokens_seconds)",
           "legendFormat": "Decode",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Decode tokens/second",
@@ -513,7 +519,8 @@
           },
           "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:requests_processing)",
           "legendFormat": "Processing",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         },
         {
           "datasource": {
@@ -522,7 +529,8 @@
           },
           "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:requests_deferred)",
           "legendFormat": "Deferred",
-          "refId": "B"
+          "refId": "B",
+          "instant": true
         }
       ],
       "title": "Active / deferred requests",
@@ -585,7 +593,8 @@
           },
           "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:n_tokens_max)",
           "legendFormat": "context tokens",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Observed context high watermark",
