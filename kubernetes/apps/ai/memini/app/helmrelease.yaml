@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app memini
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: memini
+
+  values:
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+
+    controllers:
+      main:
+        annotations:
+          reloader.stakater.com/auto: "true"
+
+        containers:
+          main:
+            env:
+              TZ: ${TIMEZONE}
+              MEMINI_BACKEND: "sqlite"
+              MEMINI_LOG_LEVEL: "info"
+              MEMINI_LOG_FORMAT: "json"
+              MEMINI_DEFAULT_NAMESPACE: "default"
+              MEMINI_NAMESPACE_HEADER: "X-Memini-Namespace"
+              MEMINI_SWEEP_INTERVAL: "1h"
+              MEMINI_EMBED_BASE_URL: "http://llama-server.ai.svc.cluster.local/v1"
+              MEMINI_EMBED_MODEL: "qwen3-embedding"
+              MEMINI_EMBED_DIMS: "1024"
+              MEMINI_SQLITE_PATH: "/data/memini.db"
+              MEMINI_UI_ENABLED: "true"
+
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 1
+                memory: 512Mi
+
+    service:
+      main:
+        controller: main
+        ports:
+          http:
+            port: 8080
+
+    route:
+      main:
+        enabled: false
+      internal:
+        enabled: true
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        rules:
+          - backendRefs:
+              - identifier: main
+                port: http
+
+    persistence:
+      data:
+        enabled: true
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 5Gi
+        globalMounts:
+          - path: /data
+
+    serviceMonitor:
+      main:
+        enabled: true
+        endpoints:
+          - port: http
+            path: /metrics
+            interval: 30s
+            scrapeTimeout: 10s
