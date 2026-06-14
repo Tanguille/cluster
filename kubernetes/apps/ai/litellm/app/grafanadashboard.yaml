@@ -12,6 +12,9 @@ spec:
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 24965
-    revision: 2
+  # Vendored from grafana.com 24965 rev 2: upstream ships its datasource var with an
+  # unresolved ${DS_PROMETHEUS} current the operator can't substitute → dead panels.
+  # Local copy clears it (falls back to default DS). Refresh: grafana.com/api/dashboards/24965/revisions/2/download
+  configMapRef:
+    name: litellm-dashboard
+    key: litellm.json
