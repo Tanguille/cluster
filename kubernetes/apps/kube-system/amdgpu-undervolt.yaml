@@ -97,7 +97,8 @@ spec:
 
               while :; do
                 found=0
-                for card in "$SYSFS_ROOT"/card*/device; do
+                # card[0-9] only — card0-DP-1/card0-HDMI-A-1 are display connectors, not the GPU
+                for card in "$SYSFS_ROOT"/card[0-9]/device; do
                   [ -d "$card" ] || continue
                   vendor="$card/vendor"
                   if [ -r "$vendor" ] && [ "$(cat "$vendor")" != "0x1002" ]; then
