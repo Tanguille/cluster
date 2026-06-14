@@ -15,33 +15,31 @@
 # 2026 best-practices: multi-stage, digest-pinned bases, OCI labels, minimal runtime (no build
 # toolchain). The image defaults to a non-root user; the k8s deploy overrides to root for ROCm
 # device access (see the llama-server HelmRelease), matching the cluster's other GPU pods.
-#
-# NOTE on the APT layout: AMD's packages-multi-arch debs install into a single merged tree at
-# /opt/rocm/core-7.13 (NOT the classic flat /opt/rocm, and NOT the rocm-sdk wheel layout). The
-# gfx1201 kernels, HIP runtime, rocBLAS/hipBLASLt and the LLVM/clang toolchain all live under
-# that one root, so build + staging both key off ${ROCM_PATH}.
 
 # ---------------------------------------------------------------------------------------------
-# Build stage — install AMD's gfx120X-tuned ROCm 7.13 from APT (hipcc + tuned rocBLAS/hipBLASLt
-# + headers), then build llama.cpp against it.
+# Build stage — install AMD's gfx120X-tuned ROCm 7.13 from APT, then build llama.cpp against it.
 FROM docker.io/library/ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS build
 
-# ROCm version — manually updated; check https://rocm.docs.amd.com for new releases. The 7.13
-# series is baked into the package names (amdrocm*7.13*) and the merged install root
-# (/opt/rocm/core-7.13), so it also appears as a literal below.
+# The gfx120X-tuned 7.13 preview is only published as a rocm/vllm image tag, so Renovate tracks
+# that tag's ROCm version here. This ARG is a heads-up signal only: the "7.13" in the package
+# names and ROCM_PATH below must be bumped by hand when Renovate moves this value.
+# renovate: datasource=docker depName=docker.io/rocm/vllm extractVersion=^rocm(?<version>[\d.]+)_gfx120X-all
 ARG ROCM_VERSION=7.13.0
+
+# APT install root. AMD's packages-multi-arch debs merge into one tree here — NOT the classic flat
+# /opt/rocm, and NOT the rocm-sdk wheel layout — so build and staging both key off ${ROCM_PATH}.
 ENV ROCM_PATH=/opt/rocm/core-7.13
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install ROCm 7.13 (gfx1201-tuned) from AMD's packages-multi-arch APT repo. The repo path is
-# .../ubuntu2404 with the distribution codename `stable` (it is NOT a per-Ubuntu-codename repo,
-# and it is NOT mirrored on repo.radeon.com, which tops out at 7.2.x). Packages:
-#   amdrocm7.13-gfx1201           -> runtime metapackage: HIP runtime, LLVM/clang, hipcc, and the
-#                                    gfx1201-TUNED rocBLAS/hipBLASLt + Tensile kernels.
-#   amdrocm-runtime-dev7.13       -> HIP runtime headers + hipcc dev files.
-#   amdrocm-blas-dev7.13 + amdrocm-hipblas-common-dev7.13 -> rocBLAS/hipBLAS headers.
-#   amdrocm-llvm-dev7.13          -> clang/LLVM dev files for the HIP compile.
+# .../ubuntu2404 with codename `stable` — NOT a per-Ubuntu-codename repo, and NOT mirrored on
+# repo.radeon.com (which tops out at 7.2.x). Packages:
+#   amdrocm7.13-gfx1201             runtime metapackage: HIP runtime, LLVM/clang, hipcc, and the
+#                                   gfx1201-tuned rocBLAS/hipBLASLt + Tensile kernels
+#   amdrocm-runtime-dev7.13         HIP runtime headers + hipcc dev files
+#   amdrocm-blas-dev7.13            rocBLAS headers (with amdrocm-hipblas-common-dev7.13 for hipBLAS)
+#   amdrocm-llvm-dev7.13            clang/LLVM dev files for the HIP compile
 RUN apt-get update && apt-get install -y --no-install-recommends \
         wget gnupg ca-certificates \
     && mkdir -p /etc/apt/keyrings \
@@ -69,7 +67,6 @@ ARG LLAMA_CPP_VERSION=b9626
 # (=12) peaks past the 24Gi builder cap on the ggml-cuda template TUs and OOM-kills the runner.
 ARG BUILD_JOBS=4
 
-# Merged ROCm root: compiler, HIP runtime, headers and the gfx1201 Tensile kernels all live here.
 ENV HIP_PATH=${ROCM_PATH} \
     HIPCXX=${ROCM_PATH}/lib/llvm/bin/clang++ \
     PATH=${ROCM_PATH}/bin:${ROCM_PATH}/lib/llvm/bin:${PATH}
