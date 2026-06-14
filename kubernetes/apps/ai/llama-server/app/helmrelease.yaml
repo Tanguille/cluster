@@ -37,6 +37,11 @@ spec:
 
     controllers:
       app:
+        # Recreate, not RollingUpdate: this is a singleton holding the node's only squat.ai/dri:1.
+        # A rolling update surges the new pod first, but it can't get the GPU until the old one
+        # releases it — image bumps would stall with the new pod Pending. Recreate frees the GPU
+        # first, then starts the replacement. (Matches the hermes GPU pod.)
+        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -74,7 +79,9 @@ spec:
                   periodSeconds: 10
                   timeoutSeconds: 5
                   # Router /health is up at process start (models load lazily) — cover start only.
-                  failureThreshold: 18
+                  # 30×10s + 10s = ~310s budget: comfortably clears the 130s+ cold load of the 18Gi
+                  # weights (no-mmap read from the hostpath PVC) so a slow load never CrashLoops.
+                  failureThreshold: 30
               liveness:
                 <<: *probeBase
                 spec:
@@ -94,11 +101,15 @@ spec:
             resources:
               requests:
                 cpu: 2
-                memory: 12Gi
+                # Reserve the real steady-state working set: the 8Gi host prompt cache (cache-ram)
+                # + llama.cpp arenas/slot buffers. Matching the request to actual use keeps this
+                # singleton from being the eviction target under node memory pressure (an eviction
+                # costs a 130s+ cold reload). Was 12Gi.
+                memory: 16Gi
                 squat.ai/dri: 1
               limits:
                 cpu: 12
-                memory: 28Gi # 8Gi prompt cache + load buffers + headroom (weights live in VRAM)
+                memory: 28Gi # peak: 8Gi prompt cache + 18Gi no-mmap load buffer (weights then live in VRAM)
                 squat.ai/dri: 1
 
           # Hot-only metrics gate (busybox; config/llama-metrics-gate.sh). Scrapes the router with
