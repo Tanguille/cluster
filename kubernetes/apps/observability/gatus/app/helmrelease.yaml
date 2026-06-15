@@ -93,20 +93,9 @@ spec:
         - name: envoy-internal
           namespace: network
 
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              group: apps
-              version: v1
-              kind: Deployment
-              name: gatus
-            patch: |-
-              - op: add
-                path: /spec/template/spec/initContainers/0
-                value:
-                  name: init-db
-                  image: ghcr.io/home-operations/postgres-init:18
-                  envFrom:
-                    - secretRef:
-                        name: gatus-secret
+    initContainers:
+      - name: init-db
+        image: ghcr.io/home-operations/postgres-init:18
+        envFrom:
+          - secretRef:
+              name: gatus-secret
