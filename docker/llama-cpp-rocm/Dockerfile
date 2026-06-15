@@ -8,9 +8,10 @@
 # install ROCm 7.13 from APT in the build stage and copy just the runtime libs + llama.cpp
 # binaries into a slim final image.
 #
-# Structure follows the official llama.cpp .devops/rocm.Dockerfile, plus two gfx1201 wins: the
-# gfx120X-tuned ROCm 7.13 above, and ROCWMMA flash-attn OFF (slower on gfx12, #15021). We build a
-# single gfx1201 target and slim the runtime to only the needed libs.
+# Structure follows the official llama.cpp .devops/rocm.Dockerfile, plus three gfx1201 wins: the
+# gfx120X-tuned ROCm 7.13 above, ROCWMMA flash-attn OFF (slower on gfx12, #15021), and the LLVM
+# unroll-threshold workaround on the HIP build below. We build a single gfx1201 target and slim
+# the runtime to only the needed libs.
 #
 # 2026 best-practices: multi-stage, digest-pinned bases, OCI labels, minimal runtime (no build
 # toolchain). The image defaults to a non-root user; the k8s deploy overrides to root for ROCm
@@ -64,6 +65,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # keep it OFF. OpenSSL ON so the server can fetch GGUFs via -hf into the model-cache PVC.
 ARG GGML_HIP_ROCWMMA_FATTN=OFF
 ARG AMDGPU_TARGETS=gfx1201
+# gfx1201 prefill win: the ROCm-7.x LLVM loop-unroll regression (llvm#147700, ggml #19984) ~halves
+# gfx12 prompt processing. Restore the pre-regression local unroll threshold; set to "" once a ROCm
+# release folds in the LLVM fix.
+ARG CMAKE_HIP_FLAGS="-mllvm --amdgpu-unroll-threshold-local=600"
 # Latest llama.cpp release; Renovate bumps this tag.
 # renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\d+)$
 ARG LLAMA_CPP_VERSION=b9626
@@ -83,6 +88,7 @@ RUN git clone --depth 1 --branch "${LLAMA_CPP_VERSION}" https://github.com/ggml-
         -DAMDGPU_TARGETS="${AMDGPU_TARGETS}" \
         -DGPU_TARGETS="${AMDGPU_TARGETS}" \
         -DGGML_HIP_ROCWMMA_FATTN="${GGML_HIP_ROCWMMA_FATTN}" \
+        -DCMAKE_HIP_FLAGS="${CMAKE_HIP_FLAGS}" \
         -DLLAMA_OPENSSL=ON \
         -DLLAMA_BUILD_TESTS=OFF \
         -DCMAKE_PREFIX_PATH="${ROCM_PATH}" \
@@ -118,6 +124,8 @@ FROM docker.io/library/ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666
 # gcc runtime (libstdc++/atomic/gcc_s/gomp), openssl (HTTPS for -hf; llama.cpp uses cpp-httplib,
 # not libcurl, since b95xx), numa, ca-certs.
 RUN apt-get update \
+    # Refresh all base-image packages to their latest patched versions on top of the pinned digest.
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
         libgomp1 libstdc++6 libatomic1 libgcc-s1 libssl3 libnuma1 ca-certificates \
     && rm -rf /var/lib/apt/lists/* \

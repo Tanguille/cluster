@@ -34,7 +34,7 @@ spec:
             # https://github.com/steinbrueckri/envsubst — pin digest after pull: docker inspect --format='{{index .RepoDigests 0}}' steinbrueckri/envsubst:v2.1.1
             image:
               repository: steinbrueckri/envsubst
-              tag: v2.1.3
+              tag: v2.1.6
             securityContext:
               runAsUser: 0
               runAsGroup: 0
@@ -56,7 +56,7 @@ spec:
           app:
             image:
               repository: feramance/qbitrr
-              tag: v5.12.5
+              tag: v5.12.6
             # Skip docker-entrypoint.sh (gosu/setuid). Init already chowns /config; run as 1000 like upstream `user: "1000:1000"`.
             command: ["/usr/bin/tini", "--"]
             args: ["python", "-m", "qBitrr.main"]

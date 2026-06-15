@@ -28,8 +28,6 @@ spec:
               value: "-82"
             - name: POWER_LIMIT_WATTS
               value: "225"
-            - name: MCLK_MHZ
-              value: "1350"
           command:
             - /bin/sh
             - -c
@@ -51,9 +49,6 @@ spec:
 
                 if [ -w "$perf" ] && [ -w "$od" ]; then
                   echo manual > "$perf"
-                  if [ -n "$${MCLK_MHZ:-}" ]; then
-                    echo "m 1 $${MCLK_MHZ}" > "$od"
-                  fi
                   echo "vo $${VOLTAGE_OFFSET_MV}" > "$od"
                   echo c > "$od"
                   applied_mv=$(tr -d '\000' < "$od" | awk '/OD_VDDGFX_OFFSET:/{getline; gsub(/[^0-9-]/,""); print; exit}')
@@ -61,14 +56,6 @@ spec:
                     log "set $${card_name} VDDGFX offset to $${VOLTAGE_OFFSET_MV}mV"
                   else
                     log "VDDGFX offset failed for $${card_name}: wanted $${VOLTAGE_OFFSET_MV}mV, got $${applied_mv:-unknown}mV"
-                  fi
-                  if [ -n "$${MCLK_MHZ:-}" ]; then
-                    applied_mclk=$(tr -d '\000' < "$od" | awk '/^1:/{gsub(/[^0-9]/,""); print; exit}')
-                    if [ "$applied_mclk" = "$MCLK_MHZ" ]; then
-                      log "set $${card_name} MCLK state 1 to $${MCLK_MHZ}MHz"
-                    else
-                      log "MCLK commit failed for $${card_name}: wanted $${MCLK_MHZ}MHz, got $${applied_mclk:-unknown}MHz"
-                    fi
                   fi
                 else
                   log "skipping VDDGFX offset for $${card_name}: pp_od or perf level not writable"
