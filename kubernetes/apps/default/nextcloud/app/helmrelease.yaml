@@ -82,9 +82,6 @@ spec:
         secretName: nextcloud-secret
         usernameKey: NEXTCLOUD_USERNAME
         passwordKey: NEXTCLOUD_PASSWORD
-        smtpUsernameKey: SMTP_USERNAME
-        smtpPasswordKey: SMTP_PASSWORD
-        smtpHostKey: SMTP_HOST
 
       host: nextcloud.${SECRET_DOMAIN}
       containerPort: 80
@@ -92,12 +89,12 @@ spec:
       mail:
         enabled: true
         fromAddress: ${FROM_ADDRESS}
-        domain: gmail.com
+        domain: ${SECRET_DOMAIN}
         smtp:
-          host: ${SMTP_HOST}
-          port: 465
-          authtype: LOGIN
-          secure: starttls
+          host: smtp-relay.network.svc.cluster.local
+          port: 25
+          authtype: NONE
+          secure: none
 
       # Security context - allow root for entrypoint, then drops to www-data
       securityContext:
