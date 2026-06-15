@@ -22,9 +22,10 @@ spec:
               tag: 5.1.0-alpine
             env:
               RELAY_HOST: smtp.gmail.com:587
-              MYNETWORKS: "10.0.0.0/8;172.16.0.0/12;192.168.0.0/16"
+              POSTFIX_mynetworks: "10.0.0.0/8;172.16.0.0/12;192.168.0.0/16"
               MYHOSTNAME: "smtp-relay.network.svc.cluster.local"
-              MESSAGE_SIZE_LIMIT: "52428800"
+              POSTFIX_message_size_limit: "52428800"
+              ALLOW_EMPTY_SENDER_DOMAINS: "true"
               RELAY_USERNAME:
                 valueFrom:
                   secretKeyRef:
