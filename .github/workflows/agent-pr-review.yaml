@@ -47,7 +47,7 @@ jobs:
           ai_api_key: ${{ secrets.LITELLM_API_KEY }}
           ai_api_format: openai
           ai_model: qwen-3.6
-          ai_max_tokens: "4096"
+          ai_max_tokens: "8192"
           ai_temperature: ""
           ai_response_format: json_schema
           verdict_policy: findings_severity_gated
@@ -62,5 +62,6 @@ jobs:
           evidence_provider_max_output_bytes: "50000"
           evidence_blocker_enforcement: "true"
           tool_mode: native_loop
+          tool_loop_summarize: "true"
           search_url: http://searxng.default.svc.cluster.local:8080/search
           tool_max_search_results: "5"
