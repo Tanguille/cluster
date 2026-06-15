@@ -1,0 +1,28 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: external-service-httproute-centauri-carbon
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/name: Centauri Carbon
+    gethomepage.dev/description: 3D printer web UI
+    gethomepage.dev/group: External
+    gethomepage.dev/icon: mdi:printer-3d
+    # external target — no pods to health-check
+    gethomepage.dev/pod-selector: ""
+spec:
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+
+  hostnames:
+    - cc.${SECRET_DOMAIN}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: external-centauri-carbon
+          port: 80
