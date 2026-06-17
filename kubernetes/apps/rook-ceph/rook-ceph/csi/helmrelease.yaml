@@ -13,13 +13,19 @@ spec:
   interval: 1h
   values:
     operatorConfig:
+      namespace: rook-ceph
       driverSpecDefaults:
+        imageSet:
+          name: rook-csi-operator-image-set-configmap
         controllerPlugin:
+          priorityClassName: system-cluster-critical
           replicas: 2
         nodePlugin:
+          priorityClassName: system-node-critical
           kubeletDirPath: /var/lib/kubelet
     drivers:
       rbd:
+        enabled: true
         name: rook-ceph.rbd.csi.ceph.com
         snapshotPolicy: volumeSnapshot
         controllerPlugin:
@@ -59,6 +65,7 @@ spec:
             plugin:
               requests: { cpu: 100m, memory: 128Mi }
       cephfs:
+        enabled: true
         name: rook-ceph.cephfs.csi.ceph.com
         snapshotPolicy: volumeSnapshot
         controllerPlugin:
@@ -70,5 +77,7 @@ spec:
           ms_mode: prefer-crc
       nfs:
         enabled: false
+        name: rook-ceph.nfs.csi.ceph.com
       nvmeof:
         enabled: false
+        name: rook-ceph.nvmeof.csi.ceph.com
