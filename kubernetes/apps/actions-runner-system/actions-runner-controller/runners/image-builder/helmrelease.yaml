@@ -11,7 +11,7 @@ spec:
   interval: 1h
   values:
     githubConfigUrl: https://github.com/tanguille/cluster
-    githubConfigSecret: cluster-runner-secret # reuse the cluster runner's GitHub App
+    githubConfigSecret: cluster-runner-secret
     # Scale-to-zero: spins up only when a job targets `runs-on: image-builder`.
     minRunners: 0
     maxRunners: 1
@@ -49,11 +49,11 @@ spec:
             # Bound the heavy `cmake -j$(nproc)` compile so it doesn't starve co-located workloads.
             resources:
               requests:
-                cpu: "2"
-                memory: 8Gi
+                cpu: 1
+                memory: 1Gi
               limits:
-                cpu: "12"
-                memory: 24Gi
+                cpu: 8
+                memory: 8Gi
             volumeMounts:
               # node-local scratch for checkout + the buildkit store. The ROCm build base is large
               # (~30Gi) plus build artifacts; NOT tmpfs.
