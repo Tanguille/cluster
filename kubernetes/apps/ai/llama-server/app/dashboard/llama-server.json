@@ -1285,8 +1285,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max by (nodename) (node_hwmon_temp_celsius and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
-          "legendFormat": "{{nodename}}",
+          "expr": "node_hwmon_temp_celsius and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+          "legendFormat": "{{nodename}} / {{sensor}}",
           "refId": "A"
         }
       ],
