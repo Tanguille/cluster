@@ -108,8 +108,8 @@ spec:
                 memory: 16Gi
                 squat.ai/dri: 1
               limits:
-                cpu: 12
-                memory: 28Gi # peak: 8Gi prompt cache + 18Gi no-mmap load buffer (weights then live in VRAM)
+                cpu: 4
+                memory: 16Gi # peak: 8Gi prompt cache + 8Gi no-mmap load buffer (weights live in VRAM)
                 squat.ai/dri: 1
 
           # Hot-only metrics gate (busybox; config/llama-metrics-gate.sh). Scrapes the router with
