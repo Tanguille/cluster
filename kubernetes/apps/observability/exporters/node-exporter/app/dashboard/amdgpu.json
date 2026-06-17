@@ -111,7 +111,7 @@
       "id": 12,
       "type": "stat",
       "title": "Temperature",
-      "description": "Hottest GPU temperature sensor per node (typically junction or edge). sustained >85°C may indicate cooling issues.",
+      "description": "GPU temperature sensors per node. temp1=edge, temp2=junction/hotspot, temp3=VRAM memory where exposed.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
       "fieldConfig": {
@@ -133,8 +133,8 @@
       },
       "targets": [
         {
-          "expr": "max by (nodename) (node_hwmon_temp_celsius and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
-          "legendFormat": "{{nodename}}"
+          "expr": "node_hwmon_temp_celsius and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+          "legendFormat": "{{nodename}} / {{sensor}}"
         }
       ],
       "options": {
@@ -588,7 +588,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "GPU Temperatures",
-      "description": "GPU thermal sensors with readable labels: junction (hotspot), edge (PCB edge), mem (memory junction). Junction is the hottest and most relevant for throttling. Control-1 has all three sensors; control-2/3 only have edge.",
+      "description": "GPU thermal sensors by native hwmon sensor label. temp1=edge, temp2=junction/hotspot, temp3=VRAM memory where exposed. Junction is the hottest and most relevant for throttling.",
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
       "fieldConfig": {
@@ -626,8 +626,8 @@
       },
       "targets": [
         {
-          "expr": "((node_hwmon_temp_celsius * on (chip, sensor, instance) group_left(label) node_hwmon_sensor_label) and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"})",
-          "legendFormat": "{{nodename}} — {{label}}"
+          "expr": "node_hwmon_temp_celsius and on (chip, instance) node_hwmon_chip_names{chip_name=\"amdgpu\"}",
+          "legendFormat": "{{nodename}} / {{sensor}}"
         }
       ],
       "options": {
