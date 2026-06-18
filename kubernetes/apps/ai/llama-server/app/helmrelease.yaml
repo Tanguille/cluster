@@ -65,8 +65,6 @@ spec:
               - /app/models.ini
               - --models-max
               - "2"
-              - --metrics
-              - --slots
             probes:
               startup: &probeBase
                 enabled: true
@@ -80,7 +78,7 @@ spec:
                   timeoutSeconds: 5
                   # Router /health is up at process start; models load via load-on-startup in models.ini.
                   # 30×10s + 10s = ~310s budget: covers the 130s+ cold load of the 18Gi weights
-                  # (no-mmap read from the hostpath PVC) so a slow load never CrashLoops.
+                  # (no-mmap read from the cache PVC) so a slow load never CrashLoops.
                   failureThreshold: 30
               liveness:
                 <<: *probeBase
@@ -101,9 +99,9 @@ spec:
             resources:
               requests:
                 cpu: 2
-                # Steady-state reservation: cache-ram (8Gi) + slot/MTP buffers + embedding sidecar
-                # process. Request tracks typical use so this singleton isn't the eviction target
-                # under node memory pressure (eviction costs a 130s+ cold reload).
+                # Steady-state reservation: cache-ram (8Gi) + slot/MTP buffers + embedding preset
+                # co-resident via --models-max 2. Request tracks typical use so this singleton
+                # isn't the eviction target under node memory pressure (eviction costs 130s+ reload).
                 memory: 16Gi
                 squat.ai/dri: 1
               limits:

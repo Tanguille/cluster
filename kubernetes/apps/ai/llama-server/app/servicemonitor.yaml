@@ -16,5 +16,9 @@ spec:
         model:
           - qwen-3.6
           - qwen3-embedding
+      # Promote ?model= scrape param to a `model` label so dashboards can filter per preset.
+      relabelings:
+        - sourceLabels: [__param_model]
+          targetLabel: model
       interval: 1m
       scrapeTimeout: 10s
