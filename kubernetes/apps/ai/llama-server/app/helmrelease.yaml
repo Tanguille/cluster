@@ -50,7 +50,7 @@ spec:
               # Custom llama.cpp gfx1201 build (docker/llama-cpp-rocm/) — ROCm 7.13 gfx120X-tuned
               # for ~34 tok/s + MTP. Tag rebuilt in place; Renovate digest-pins it.
               repository: ghcr.io/tanguille/llama-cpp-rocm-gfx1201
-              tag: gfx1201@sha256:a6bd821fce94f7efb186ffbe87ac04a89e2176de390dec74827b872a89f07824
+              tag: gfx1201@sha256:261330e1c9e32729ef96403cf2bc20be7584192e252ba927905618a2a1708638
             env:
               TZ: ${TIMEZONE}
               LLAMA_CACHE: /cache # GGUF download cache (the cache PVC)
@@ -101,15 +101,14 @@ spec:
             resources:
               requests:
                 cpu: 2
-                # Reserve the real steady-state working set: the 8Gi host prompt cache (cache-ram)
-                # + llama.cpp arenas/slot buffers. Matching the request to actual use keeps this
-                # singleton from being the eviction target under node memory pressure (an eviction
-                # costs a 130s+ cold reload). Was 12Gi.
+                # Steady-state reservation: cache-ram (8Gi) + slot/MTP buffers + embedding sidecar
+                # process. Request tracks typical use so this singleton isn't the eviction target
+                # under node memory pressure (eviction costs a 130s+ cold reload).
                 memory: 16Gi
                 squat.ai/dri: 1
               limits:
-                cpu: 4
-                memory: 16Gi # peak: 8Gi prompt cache + 8Gi no-mmap load buffer (weights live in VRAM)
+                cpu: 12
+                memory: 28Gi
                 squat.ai/dri: 1
 
           # Hot-only metrics gate (busybox; config/llama-metrics-gate.sh). Scrapes the router with
@@ -128,7 +127,12 @@ spec:
                 custom: true
                 spec:
                   exec:
-                    command: ["/bin/sh", "-c", "find /run/metrics/metrics -mmin -1 | grep -q ."]
+                    command:
+                      [
+                        "/bin/sh",
+                        "-c",
+                        "find /run/metrics/metrics -mmin -1 | grep -q ."
+                      ]
                   initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
@@ -165,7 +169,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: llama-server
-          gethomepage.dev/description: Qwen3.6-27B inference (llama.cpp/ROCm, RDNA4, MTP)
+          gethomepage.dev/description: Qwen3.6-35B-A3B MoE inference (llama.cpp/ROCm, RDNA4, MTP)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
