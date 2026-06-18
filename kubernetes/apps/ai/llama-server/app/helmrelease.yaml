@@ -99,10 +99,7 @@ spec:
             resources:
               requests:
                 cpu: 2
-                # cache-ram (8Gi default) + slot/MTP/checkpoint buffers + embedding co-resident.
-                # Measured peaks ~16Gi working set under agent load; request below that makes this
-                # singleton the eviction target under node pressure (costs 130s+ cold reload).
-                memory: 24Gi
+                memory: 10Gi
                 squat.ai/dri: 1
               limits:
                 cpu: 12
