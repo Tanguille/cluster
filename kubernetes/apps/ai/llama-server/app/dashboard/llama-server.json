@@ -56,7 +56,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Last completed request prefill/encode speed (llamacpp:prompt_tokens_seconds). Resets on pod restart.",
+      "description": "Peak prefill (pp) TPS in the last 5m from llamacpp:prompt_tokens_seconds. llama.cpp updates this gauge during prefill (not only at completion); 15s scrapes capture it. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -104,13 +104,13 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max(max without(endpoint, instance, pod, prometheus) ((label_replace(llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\"} unless llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\".+\"}, \"model\", \"qwen-3.6\", \"job\", \"(.+)\") or llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})))",
+          "expr": "max(max_over_time((max without(endpoint, instance, pod, prometheus) ((label_replace(llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\"} unless llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\".+\"}, \"model\", \"qwen-3.6\", \"job\", \"(.+)\") or llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})))[5m:]))",
           "legendFormat": "pp",
           "refId": "A",
           "instant": true
         }
       ],
-      "title": "Prefill tokens/s",
+      "title": "Prefill (pp) TPS",
       "type": "stat"
     },
     {
@@ -118,7 +118,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Last completed request decode speed (llamacpp:predicted_tokens_seconds). Chat/completion presets only; embedding presets have no decode phase.",
+      "description": "Peak decode (tg) TPS in the last 5m from llamacpp:predicted_tokens_seconds. Chat/completion presets only; embedding presets have no decode phase.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -166,13 +166,13 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max(max without(endpoint, instance, pod, prometheus) ((label_replace(llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\"} unless llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\".+\"}, \"model\", \"qwen-3.6\", \"job\", \"(.+)\") or llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})))",
+          "expr": "max(max_over_time((max without(endpoint, instance, pod, prometheus) ((label_replace(llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\"} unless llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\".+\"}, \"model\", \"qwen-3.6\", \"job\", \"(.+)\") or llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})))[5m:]))",
           "legendFormat": "tg",
           "refId": "A",
           "instant": true
         }
       ],
-      "title": "Decode tokens/s",
+      "title": "Decode (tg) TPS",
       "type": "stat"
     },
     {
@@ -343,7 +343,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Prefill and decode speed from the most recent completed request per model.",
+      "description": "Prefill (pp) and decode (tg) TPS gauges. Updates during active requests; long prefills can take minutes before decode (tg) appears.",
       "fieldConfig": {
         "defaults": {
           "color": {
