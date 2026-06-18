@@ -12,6 +12,23 @@
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
         "type": "dashboard"
+      },
+      {
+        "builtIn": 0,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "enable": true,
+        "expr": "changes(kube_deployment_status_observed_generation{namespace=\"ai\", deployment=\"llama-server\"}[5m]) > 0",
+        "hide": false,
+        "iconColor": "rgba(0, 120, 215, 1)",
+        "name": "Deployments",
+        "step": "60s",
+        "tagKeys": "deployment",
+        "textFormat": "",
+        "titleFormat": "Deploy: {{deployment}}",
+        "type": "dashboard"
       }
     ]
   },
@@ -31,7 +48,7 @@
       },
       "id": 100,
       "panels": [],
-      "title": "Throughput",
+      "title": "Throughput (last request)",
       "type": "row"
     },
     {
@@ -39,7 +56,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Current prompt-processing (prefill) speed reported by llama.cpp. Gauge value from the most recent completed request. Resets on pod restart.",
+      "description": "Last completed request prefill speed (llamacpp:prompt_tokens_seconds). Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -50,21 +67,21 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "green",
                 "value": null
               }
             ]
           },
-          "unit": "short",
+          "unit": "ops",
           "decimals": 1
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 6,
         "x": 0,
-        "y": 1
+        "y": 1,
+        "w": 6,
+        "h": 6
       },
       "id": 1,
       "options": {
@@ -72,149 +89,6 @@
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:prompt_tokens_seconds)",
-          "legendFormat": "Prefill",
-          "refId": "A",
-          "instant": true
-        }
-      ],
-      "title": "Prompt (prefill) tokens/second",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "description": "Current decode (generation) speed. Gauge value from the most recent completed request. Resets on pod restart.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short",
-          "decimals": 1
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 6,
-        "y": 1
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:predicted_tokens_seconds)",
-          "legendFormat": "Decode",
-          "refId": "A",
-          "instant": true
-        }
-      ],
-      "title": "Decode tokens/second",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "description": "Active request slots in llama.cpp. `processing` = currently decoding; `deferred` = queued because all parallel slots are busy. Resets on pod restart.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Deferred"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 12,
-        "y": 1
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
         "reduceOptions": {
           "calcs": ["lastNotNull"],
           "fields": "",
@@ -230,8 +104,161 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:requests_processing)",
-          "legendFormat": "Processing",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "{{model}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Prefill tok/s",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Last completed request decode speed (llamacpp:predicted_tokens_seconds).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 6
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "{{model}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Decode tok/s",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "requests_processing and requests_deferred. Deferred > 0 means all parallel slots are busy.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/deferred/i"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 6
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:requests_processing{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "processing {{model}}",
           "refId": "A",
           "instant": true
         },
@@ -240,13 +267,13 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:requests_deferred)",
-          "legendFormat": "Deferred",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:requests_deferred{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "deferred {{model}}",
           "refId": "B",
           "instant": true
         }
       ],
-      "title": "Active / deferred requests",
+      "title": "Active / deferred",
       "type": "stat"
     },
     {
@@ -254,7 +281,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Maximum context tokens observed/reported by llama.cpp; this is not the configured context capacity. Resets on pod restart.",
+      "description": "Largest n_tokens observed (llamacpp:n_tokens_max).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -272,15 +299,15 @@
             ]
           },
           "unit": "short",
-          "decimals": 1
+          "decimals": 0
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 6,
         "x": 18,
-        "y": 1
+        "y": 1,
+        "w": 6,
+        "h": 6
       },
       "id": 4,
       "options": {
@@ -302,13 +329,13 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:n_tokens_max)",
-          "legendFormat": "context tokens",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:n_tokens_max{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "{{model}}",
           "refId": "A",
           "instant": true
         }
       ],
-      "title": "Observed context high watermark",
+      "title": "Context high watermark",
       "type": "gauge"
     },
     {
@@ -316,7 +343,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Prompt (prefill) and decode speed over time, from the most recent completed request. Resets on pod restart.",
+      "description": "Prefill and decode speed from the most recent completed request per model.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -325,32 +352,15 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "tokens/s",
             "axisPlacement": "auto",
-            "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
             "lineInterpolation": "linear",
             "lineWidth": 2,
             "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
             "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "spanNulls": true
           },
           "mappings": [],
           "thresholds": {
@@ -362,15 +372,15 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "ops"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
-        "w": 24,
         "x": 0,
-        "y": 7
+        "y": 7,
+        "w": 24,
+        "h": 9
       },
       "id": 5,
       "options": {
@@ -392,8 +402,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:prompt_tokens_seconds)",
-          "legendFormat": "Prefill",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "prefill {{model}}",
           "refId": "A"
         },
         {
@@ -401,12 +411,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:predicted_tokens_seconds)",
-          "legendFormat": "Decode",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "decode {{model}}",
           "refId": "B"
         }
       ],
-      "title": "Throughput over time",
+      "title": "Last-request throughput",
       "type": "timeseries"
     },
     {
@@ -415,11 +425,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 16
       },
-      "id": 101,
+      "id": 105,
       "panels": [],
-      "title": "Context, cache & queue",
+      "title": "Sustained throughput (counters)",
       "type": "row"
     },
     {
@@ -427,7 +437,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Maximum context tokens observed/reported by llama.cpp; this is not the configured context capacity. Resets on pod restart.",
+      "description": "Counter-derived average throughput; smoother than last-request gauges.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -438,7 +448,7 @@
             "axisColorMode": "text",
             "axisPlacement": "auto",
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 15,
             "gradientMode": "opacity",
             "lineInterpolation": "linear",
             "lineWidth": 2,
@@ -446,13 +456,93 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "min": 0,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (rate(llamacpp:prompt_tokens_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"}[5m]) / rate(llamacpp:prompt_seconds_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"}[5m]))",
+          "legendFormat": "prefill {{model}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (rate(llamacpp:tokens_predicted_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"}[5m]) / rate(llamacpp:tokens_predicted_seconds_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"}[5m]))",
+          "legendFormat": "decode {{model}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Rolling 5m tok/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "llamacpp:n_decode_total rate and n_busy_slots_per_decode.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
                 "value": null
               }
             ]
@@ -462,10 +552,104 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "x": 12,
+        "y": 17,
         "w": 12,
+        "h": 8
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (rate(llamacpp:n_decode_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"}[5m]))",
+          "legendFormat": "decode calls/s {{model}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:n_busy_slots_per_decode{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "busy slots/decode {{model}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Decode pressure",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
         "x": 0,
-        "y": 18
+        "y": 25
+      },
+      "id": 101,
+      "panels": [],
+      "title": "Context & queue",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "llamacpp:n_tokens_max over time per model.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 12,
+        "h": 8
       },
       "id": 6,
       "options": {
@@ -487,12 +671,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:n_tokens_max)",
-          "legendFormat": "context tokens",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:n_tokens_max{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "{{model}}",
           "refId": "A"
         }
       ],
-      "title": "Observed context high watermark",
+      "title": "Context high watermark",
       "type": "timeseries"
     },
     {
@@ -500,7 +684,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Average number of busy slots per decode step. This is the closest currently exported upstream signal for slot/KV pressure. Resets on pod restart.",
+      "description": "llamacpp:n_busy_slots_per_decode.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -511,7 +695,7 @@
             "axisColorMode": "text",
             "axisPlacement": "auto",
             "drawStyle": "line",
-            "fillOpacity": 20,
+            "fillOpacity": 15,
             "gradientMode": "opacity",
             "lineInterpolation": "linear",
             "lineWidth": 2,
@@ -534,10 +718,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 12,
-        "y": 18
+        "y": 26,
+        "w": 12,
+        "h": 8
       },
       "id": 7,
       "options": {
@@ -559,8 +743,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:n_busy_slots_per_decode)",
-          "legendFormat": "busy slots/decode",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:n_busy_slots_per_decode{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "{{model}}",
           "refId": "A"
         }
       ],
@@ -572,7 +756,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Processing and deferred request counts over time. Deferred > 0 sustained means you need more --parallel slots or callers are too bursty. Resets on pod restart.",
+      "description": "requests_processing and requests_deferred over time.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -583,16 +767,13 @@
             "axisColorMode": "text",
             "axisPlacement": "auto",
             "drawStyle": "line",
-            "fillOpacity": 30,
+            "fillOpacity": 15,
             "gradientMode": "opacity",
-            "lineInterpolation": "stepAfter",
+            "lineInterpolation": "linear",
             "lineWidth": 2,
+            "pointSize": 4,
             "showPoints": "never",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
+            "spanNulls": true
           },
           "mappings": [],
           "thresholds": {
@@ -604,16 +785,50 @@
               }
             ]
           },
-          "unit": "none",
-          "decimals": 0
+          "unit": "none"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/deferred/i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
         "x": 0,
-        "y": 26
+        "y": 34,
+        "w": 24,
+        "h": 8
       },
       "id": 8,
       "options": {
@@ -635,8 +850,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:requests_processing)",
-          "legendFormat": "Processing",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:requests_processing{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "processing {{model}}",
           "refId": "A"
         },
         {
@@ -644,12 +859,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:requests_deferred)",
-          "legendFormat": "Deferred",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:requests_deferred{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "deferred {{model}}",
           "refId": "B"
         }
       ],
-      "title": "Request slots over time",
+      "title": "Request queue",
       "type": "timeseries"
     },
     {
@@ -658,11 +873,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 42
       },
       "id": 102,
       "panels": [],
-      "title": "Cumulative token totals",
+      "title": "Cumulative totals",
       "type": "row"
     },
     {
@@ -670,7 +885,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Total tokens llama.cpp has ingested (prompt) and emitted (predicted) since the process started. Counters reset on pod restart. Resets on pod restart.",
+      "description": "prompt_tokens_total and tokens_predicted_total since process start.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -681,10 +896,11 @@
             "axisColorMode": "text",
             "axisPlacement": "auto",
             "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
             "lineInterpolation": "linear",
             "lineWidth": 2,
+            "pointSize": 4,
             "showPoints": "never",
             "spanNulls": true
           },
@@ -703,15 +919,15 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 24,
         "x": 0,
-        "y": 35
+        "y": 43,
+        "w": 12,
+        "h": 8
       },
       "id": 9,
       "options": {
         "legend": {
-          "calcs": ["last"],
+          "calcs": ["mean", "max"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -728,8 +944,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:prompt_tokens_total)",
-          "legendFormat": "prompt tokens",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:prompt_tokens_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "prompt {{model}}",
           "refId": "A"
         },
         {
@@ -737,12 +953,165 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llamacpp:tokens_predicted_total)",
-          "legendFormat": "predicted tokens",
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:tokens_predicted_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "predicted {{model}}",
           "refId": "B"
         }
       ],
-      "title": "Cumulative tokens",
+      "title": "Token totals",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "prompt_seconds_total and tokens_predicted_seconds_total.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 43,
+        "w": 12,
+        "h": 8
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:prompt_seconds_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "prefill s {{model}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:tokens_predicted_seconds_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "decode s {{model}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Processing time totals",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "n_decode_total \u2014 llama_decode() invocations since process start.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 7
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max without(endpoint, instance, pod, prometheus, container) (llamacpp:n_decode_total{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Decode calls",
       "type": "timeseries"
     },
     {
@@ -751,9 +1120,88 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 58
       },
       "id": 103,
+      "panels": [],
+      "title": "Scrape health",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "up for llama-server ServiceMonitor targets (one per ?model= scrape).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 24,
+        "h": 4
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "max by (endpoint, model) (up{namespace=\"ai\", service=\"llama-server\"})",
+          "legendFormat": "{{endpoint}} {{model}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Prometheus scrape",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 63
+      },
+      "id": 104,
       "panels": [],
       "title": "GPU",
       "type": "row"
@@ -795,10 +1243,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
         "x": 0,
-        "y": 44
+        "y": 64,
+        "w": 8,
+        "h": 8
       },
       "id": 10,
       "options": {
@@ -863,10 +1311,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
         "x": 8,
-        "y": 44
+        "y": 64,
+        "w": 8,
+        "h": 8
       },
       "id": 11,
       "options": {
@@ -948,10 +1396,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 8,
         "x": 16,
-        "y": 44
+        "y": 64,
+        "w": 8,
+        "h": 8
       },
       "id": 12,
       "options": {
@@ -983,7 +1431,7 @@
     }
   ],
   "refresh": "1m",
-  "schemaVersion": 39,
+  "schemaVersion": 41,
   "tags": ["ai", "llama-server", "llama-cpp"],
   "templating": {
     "list": [
@@ -1000,6 +1448,35 @@
         "regex": "",
         "skipUrlSync": false,
         "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": ["qwen-3.6"],
+          "value": ["qwen-3.6"]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values(llamacpp:prompt_tokens_total{namespace=\"ai\", service=\"llama-server\"}, model)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Model",
+        "multi": true,
+        "name": "model",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(llamacpp:prompt_tokens_total{namespace=\"ai\", service=\"llama-server\"}, model)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
       }
     ]
   },
@@ -1011,7 +1488,7 @@
   "timezone": "browser",
   "title": "llama-server",
   "uid": "ai-llama-server",
-  "version": 1,
+  "version": 4,
   "weekStart": "",
   "links": [
     {
