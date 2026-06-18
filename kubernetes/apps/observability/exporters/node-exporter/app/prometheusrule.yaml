@@ -6,14 +6,14 @@ metadata:
   name: gpu.rules
 spec:
   groups:
-    - name: drm-exporter
+    - name: amdgpu
       rules:
         - alert: HighGpuUsage
           expr: |
-            max by (node) (drm_engine_utilization_ratio{engine="gfx"}) > 0.85
+            max by (nodename) (node_drm_gpu_busy_percent) > 85
           for: 15m
           labels:
             severity: warning
           annotations:
-            summary: "High GPU usage on node {{ $labels.node }} for 15 minutes"
-            description: "GPU usage on node {{ $labels.node }} has been above 85% for over 15 minutes"
+            summary: "High GPU usage on node {{ $labels.nodename }} for 15 minutes"
+            description: "GPU usage on node {{ $labels.nodename }} has been above 85% for over 15 minutes"
