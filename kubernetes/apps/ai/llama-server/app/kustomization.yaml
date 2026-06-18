@@ -16,13 +16,6 @@ configMapGenerator:
   - name: llama-server-config
     files:
       - config/models.ini
-  # substitute disabled: Flux envsubst would otherwise strip the script's $VAR.
-  - name: llama-metrics-gate
-    files:
-      - config/llama-metrics-gate.sh
-    options:
-      annotations:
-        kustomize.toolkit.fluxcd.io/substitute: disabled
   - name: llama-server-dashboard
     files:
       - dashboard/llama-server.json

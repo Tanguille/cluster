@@ -10,8 +10,11 @@ spec:
       app.kubernetes.io/name: llama-server
       app.kubernetes.io/instance: llama-server
   endpoints:
-    # Scrape the metrics-gate sidecar (always 200, never autoloads the model; see the gate script).
-    - port: metrics
+    - port: http
       path: /metrics
+      params:
+        model:
+          - qwen-3.6
+          - qwen3-embedding
       interval: 1m
       scrapeTimeout: 10s

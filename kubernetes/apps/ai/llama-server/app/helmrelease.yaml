@@ -78,9 +78,9 @@ spec:
                   initialDelaySeconds: 10
                   periodSeconds: 10
                   timeoutSeconds: 5
-                  # Router /health is up at process start (models load lazily) — cover start only.
-                  # 30×10s + 10s = ~310s budget: comfortably clears the 130s+ cold load of the 18Gi
-                  # weights (no-mmap read from the hostpath PVC) so a slow load never CrashLoops.
+                  # Router /health is up at process start; models load via load-on-startup in models.ini.
+                  # 30×10s + 10s = ~310s budget: covers the 130s+ cold load of the 18Gi weights
+                  # (no-mmap read from the hostpath PVC) so a slow load never CrashLoops.
                   failureThreshold: 30
               liveness:
                 <<: *probeBase
@@ -111,48 +111,6 @@ spec:
                 memory: 28Gi
                 squat.ai/dri: 1
 
-          # Hot-only metrics gate (busybox; config/llama-metrics-gate.sh). Scrapes the router with
-          # autoload=false and always serves 200 so the scrape target never flaps when cold.
-          metrics-gate:
-            image:
-              repository: docker.io/library/busybox
-              tag: "1.38.0" # Renovate digest-pins on next run
-            command: ["/bin/sh", "/scripts/llama-metrics-gate.sh"]
-            ports:
-              - name: metrics
-                containerPort: 9108
-            probes:
-              liveness:
-                enabled: true
-                custom: true
-                spec:
-                  exec:
-                    command:
-                      [
-                        "/bin/sh",
-                        "-c",
-                        "find /run/metrics/metrics -mmin -1 | grep -q ."
-                      ]
-                  initialDelaySeconds: 30
-                  periodSeconds: 30
-                  timeoutSeconds: 5
-                  failureThreshold: 3
-            securityContext:
-              # Root (writes the emptyDir, avoids an fsGroup chown of the cache PVC) but hardened.
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities:
-                drop: ["ALL"]
-              seccompProfile:
-                type: RuntimeDefault
-            resources:
-              requests:
-                cpu: 10m
-                memory: 16Mi
-              limits:
-                cpu: 200m
-                memory: 64Mi
-
     service:
       app:
         controller: app
@@ -160,9 +118,6 @@ spec:
           http:
             port: 80
             targetPort: *port
-          metrics:
-            port: 9108
-            targetPort: 9108
 
     route:
       app:
@@ -183,7 +138,6 @@ spec:
                 port: 80
 
     persistence:
-      # advancedMounts scope these to the app container (keep them off the gate sidecar).
       config:
         type: configMap
         name: llama-server-config
@@ -209,18 +163,3 @@ spec:
           app:
             app:
               - path: /dev/shm
-      # gate sidecar: script ConfigMap + output dir.
-      gate-script:
-        type: configMap
-        name: llama-metrics-gate
-        advancedMounts:
-          app:
-            metrics-gate:
-              - path: /scripts
-                readOnly: true
-      metrics:
-        type: emptyDir
-        advancedMounts:
-          app:
-            metrics-gate:
-              - path: /run/metrics

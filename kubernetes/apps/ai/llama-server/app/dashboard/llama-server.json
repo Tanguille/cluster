@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "llama.cpp router inference metrics, scraped through llama-metrics-gate so cold models do not cause vmagent scrape failures or monitoring-triggered autoload.",
+  "description": "llama.cpp router inference metrics, scraped directly from the router.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -29,279 +29,6 @@
         "x": 0,
         "y": 0
       },
-      "id": 900,
-      "panels": [],
-      "title": "Model metrics state",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "text": "Cold"
-                },
-                "1": {
-                  "text": "Hot"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "orange",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 0,
-        "y": 1
-      },
-      "id": 901,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llama_model_loaded{model=\"qwen-3.6\"})",
-          "legendFormat": "qwen-3.6",
-          "refId": "A",
-          "instant": true
-        }
-      ],
-      "title": "Model state",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "text": "Cold / unavailable"
-                },
-                "1": {
-                  "text": "Collecting"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "orange",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 6,
-        "y": 1
-      },
-      "id": 902,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llama_upstream_metrics_up{model=\"qwen-3.6\"})",
-          "legendFormat": "upstream",
-          "refId": "A",
-          "instant": true
-        }
-      ],
-      "title": "Metrics scrape state",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 300
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 12,
-        "y": 1
-      },
-      "id": 903,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "clamp_min(time() - max without(endpoint, instance, pod, prometheus) (llama_exporter_last_successful_scrape_timestamp_seconds), 0)",
-          "legendFormat": "freshness",
-          "refId": "A",
-          "instant": true
-        }
-      ],
-      "title": "Metrics freshness",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 6,
-        "x": 18,
-        "y": 1
-      },
-      "id": 904,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "expr": "max without(endpoint, instance, pod, prometheus) (llama_exporter_upstream_http_status{model=\"qwen-3.6\"})",
-          "legendFormat": "HTTP status",
-          "refId": "A",
-          "instant": true
-        }
-      ],
-      "title": "Last upstream status",
-      "type": "stat"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 7
-      },
       "id": 100,
       "panels": [],
       "title": "Throughput",
@@ -312,7 +39,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Current prompt-processing (prefill) speed reported by llama.cpp. Gauge value from the most recent completed request. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Current prompt-processing (prefill) speed reported by llama.cpp. Gauge value from the most recent completed request. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -337,7 +64,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 8
+        "y": 1
       },
       "id": 1,
       "options": {
@@ -374,7 +101,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Current decode (generation) speed. Gauge value from the most recent completed request. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Current decode (generation) speed. Gauge value from the most recent completed request. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -399,7 +126,7 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 8
+        "y": 1
       },
       "id": 2,
       "options": {
@@ -436,7 +163,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Active request slots in llama.cpp. `processing` = currently decoding; `deferred` = queued because all parallel slots are busy. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Active request slots in llama.cpp. `processing` = currently decoding; `deferred` = queued because all parallel slots are busy. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -480,7 +207,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 8
+        "y": 1
       },
       "id": 3,
       "options": {
@@ -527,7 +254,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Maximum context tokens observed/reported by llama.cpp; this is not the configured context capacity. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Maximum context tokens observed/reported by llama.cpp; this is not the configured context capacity. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -553,7 +280,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 8
+        "y": 1
       },
       "id": 4,
       "options": {
@@ -589,7 +316,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Prompt (prefill) and decode speed over time, from the most recent completed request. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Prompt (prefill) and decode speed over time, from the most recent completed request. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -643,7 +370,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 7
       },
       "id": 5,
       "options": {
@@ -688,7 +415,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 17
       },
       "id": 101,
       "panels": [],
@@ -700,7 +427,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Maximum context tokens observed/reported by llama.cpp; this is not the configured context capacity. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Maximum context tokens observed/reported by llama.cpp; this is not the configured context capacity. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -738,7 +465,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 25
+        "y": 18
       },
       "id": 6,
       "options": {
@@ -773,7 +500,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Average number of busy slots per decode step. This is the closest currently exported upstream signal for slot/KV pressure. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Average number of busy slots per decode step. This is the closest currently exported upstream signal for slot/KV pressure. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -810,7 +537,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 25
+        "y": 18
       },
       "id": 7,
       "options": {
@@ -845,7 +572,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Processing and deferred request counts over time. Deferred > 0 sustained means you need more --parallel slots or callers are too bursty. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Processing and deferred request counts over time. Deferred > 0 sustained means you need more --parallel slots or callers are too bursty. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -886,7 +613,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 26
       },
       "id": 8,
       "options": {
@@ -931,7 +658,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 34
       },
       "id": 102,
       "panels": [],
@@ -943,7 +670,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Total tokens llama.cpp has ingested (prompt) and emitted (predicted) since the process started. Counters reset on pod restart. Missing data can mean the model is cold and llama-metrics-gate is intentionally not waking it.",
+      "description": "Total tokens llama.cpp has ingested (prompt) and emitted (predicted) since the process started. Counters reset on pod restart. Resets on pod restart.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -979,7 +706,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 35
       },
       "id": 9,
       "options": {
@@ -1024,7 +751,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 50
+        "y": 43
       },
       "id": 103,
       "panels": [],
@@ -1071,7 +798,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 51
+        "y": 44
       },
       "id": 10,
       "options": {
@@ -1139,7 +866,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 51
+        "y": 44
       },
       "id": 11,
       "options": {
@@ -1224,7 +951,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 51
+        "y": 44
       },
       "id": 12,
       "options": {
