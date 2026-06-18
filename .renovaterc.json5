@@ -31,11 +31,13 @@
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
+      matchStringsStrategy: "recursive",
       matchStrings: [
-        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v[\\d.]+)/(?<dashboardPath>[^\\s]+)"
+        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/",
+        "(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
       ],
       datasourceTemplate: "github-releases",
-      autoReplaceStringTemplate: "url: https://raw.githubusercontent.com/{{depName}}/{{newValue}}/{{dashboardPath}}"
+      autoReplaceStringTemplate: "{{{newValue}}}"
     },
     {
       description: "qBitrr ConfigVersion (semver, no v prefix)",
@@ -152,6 +154,15 @@
       groupName: "klipper-exporter",
       matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/prometheus-klipper-exporter/"],
+      group: {
+        commitMessageTopic: "{{{groupName}}}"
+      }
+    },
+    {
+      description: "Group spegel chart and Grafana dashboard URL",
+      groupName: "spegel",
+      matchDatasources: ["docker", "github-releases"],
+      matchPackageNames: ["/spegel-org/"],
       group: {
         commitMessageTopic: "{{{groupName}}}"
       }
