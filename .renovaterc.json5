@@ -47,6 +47,18 @@
       // newValue is already v-stripped by the config.toml extractVersion rule below, so write it
       // verbatim. (A {{replace}} here would re-extract empty and abort the branch with "update failure".)
       autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
+    },
+    {
+      description: "llama.cpp release version in Dockerfile ARG",
+      customType: "regex",
+      managerFilePatterns: ["/docker/llama-cpp-rocm/Dockerfile$/"],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>[^\\n]+))?\\nARG LLAMA_CPP_VERSION=(?<currentValue>\\S+)"
+      ],
+      depNameTemplate: "ggml-org/llama.cpp",
+      datasourceTemplate: "github-releases",
+      versioningTemplate: "regex:^b(?<patch>\\d+)$",
+      autoReplaceStringTemplate: "# renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\\d+)$\nARG LLAMA_CPP_VERSION={{newValue}}"
     }
   ],
   packageRules: [
