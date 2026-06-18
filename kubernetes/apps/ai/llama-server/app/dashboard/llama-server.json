@@ -32,7 +32,7 @@
       }
     ]
   },
-  "description": "llama.cpp router inference metrics, scraped directly from the router.",
+  "description": "llama.cpp router inference metrics (direct scrape) and LiteLLM client-visible latency for requests routed to llama-server.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -427,6 +427,552 @@
         "x": 0,
         "y": 16
       },
+      "id": 106,
+      "panels": [],
+      "title": "Client experience (LiteLLM)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Client-visible time to first token via LiteLLM (litellm_llm_api_time_to_first_token_metric).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 120
+              }
+            ]
+          },
+          "unit": "s",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 6,
+        "h": 4
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "histogram_quantile(0.5, sum by (model, le) (rate(litellm_llm_api_time_to_first_token_metric_bucket{model=~\"$model\"}[5m])))",
+          "legendFormat": "{{model}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "TTFT p50",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Successful LiteLLM responses routed to llama-server.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "reqps",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 17,
+        "w": 6,
+        "h": 4
+      },
+      "id": 27,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (requested_model) (rate(litellm_deployment_success_responses_total{api_base=~\".*llama-server.*\", requested_model=~\"$model\"}[5m]))",
+          "legendFormat": "{{requested_model}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Request rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "LiteLLM failed API calls for llama-server models.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.01
+              },
+              {
+                "color": "red",
+                "value": 0.1
+              }
+            ]
+          },
+          "unit": "reqps",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 6,
+        "h": 4
+      },
+      "id": 28,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (model) (rate(litellm_llm_api_failed_requests_metric_total{model=~\"$model\"}[5m]))",
+          "legendFormat": "{{model}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Failed req/s",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "End-to-end LiteLLM API latency for llama-server models.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          },
+          "unit": "s",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 17,
+        "w": 6,
+        "h": 4
+      },
+      "id": 29,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "histogram_quantile(0.5, sum by (model, le) (rate(litellm_llm_api_latency_metric_bucket{model=~\"$model\"}[5m])))",
+          "legendFormat": "{{model}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "title": "Latency p50",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "LiteLLM TTFT histogram quantiles per model.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "histogram_quantile(0.5, sum by (model, le) (rate(litellm_llm_api_time_to_first_token_metric_bucket{model=~\"$model\"}[5m])))",
+          "legendFormat": "{{model}} p50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "histogram_quantile(0.9, sum by (model, le) (rate(litellm_llm_api_time_to_first_token_metric_bucket{model=~\"$model\"}[5m])))",
+          "legendFormat": "{{model}} p90",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "histogram_quantile(0.95, sum by (model, le) (rate(litellm_llm_api_time_to_first_token_metric_bucket{model=~\"$model\"}[5m])))",
+          "legendFormat": "{{model}} p95",
+          "refId": "C"
+        }
+      ],
+      "title": "Time to first token",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "LiteLLM API latency histogram quantiles (includes streaming decode).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 21,
+        "w": 12,
+        "h": 8
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "histogram_quantile(0.5, sum by (model, le) (rate(litellm_llm_api_latency_metric_bucket{model=~\"$model\"}[5m])))",
+          "legendFormat": "{{model}} p50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "histogram_quantile(0.9, sum by (model, le) (rate(litellm_llm_api_latency_metric_bucket{model=~\"$model\"}[5m])))",
+          "legendFormat": "{{model}} p90",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "histogram_quantile(0.95, sum by (model, le) (rate(litellm_llm_api_latency_metric_bucket{model=~\"$model\"}[5m])))",
+          "legendFormat": "{{model}} p95",
+          "refId": "C"
+        }
+      ],
+      "title": "End-to-end latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Successful and failed LiteLLM requests to llama-server.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 8
+      },
+      "id": 32,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (requested_model) (rate(litellm_deployment_success_responses_total{api_base=~\".*llama-server.*\", requested_model=~\"$model\"}[5m]))",
+          "legendFormat": "success {{requested_model}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "sum by (model) (rate(litellm_llm_api_failed_requests_metric_total{model=~\"$model\"}[5m]))",
+          "legendFormat": "failed {{model}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Request rate",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 37
+      },
       "id": 105,
       "panels": [],
       "title": "Sustained throughput (counters)",
@@ -472,7 +1018,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 38,
         "w": 12,
         "h": 8
       },
@@ -553,7 +1099,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 17,
+        "y": 38,
         "w": 12,
         "h": 8
       },
@@ -600,7 +1146,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 25
+        "y": 46
       },
       "id": 101,
       "panels": [],
@@ -647,7 +1193,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 47,
         "w": 12,
         "h": 8
       },
@@ -719,7 +1265,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 26,
+        "y": 47,
         "w": 12,
         "h": 8
       },
@@ -826,7 +1372,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 55,
         "w": 24,
         "h": 8
       },
@@ -873,7 +1419,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 63
       },
       "id": 102,
       "panels": [],
@@ -920,7 +1466,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 43,
+        "y": 64,
         "w": 12,
         "h": 8
       },
@@ -1001,7 +1547,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 43,
+        "y": 64,
         "w": 12,
         "h": 8
       },
@@ -1082,7 +1628,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 51,
+        "y": 72,
         "w": 24,
         "h": 7
       },
@@ -1120,7 +1666,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 79
       },
       "id": 103,
       "panels": [],
@@ -1159,7 +1705,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 59,
+        "y": 80,
         "w": 24,
         "h": 4
       },
@@ -1199,7 +1745,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 63
+        "y": 84
       },
       "id": 104,
       "panels": [],
@@ -1244,7 +1790,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 85,
         "w": 8,
         "h": 8
       },
@@ -1312,7 +1858,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 64,
+        "y": 85,
         "w": 8,
         "h": 8
       },
@@ -1397,7 +1943,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 64,
+        "y": 85,
         "w": 8,
         "h": 8
       },
@@ -1491,6 +2037,18 @@
   "version": 4,
   "weekStart": "",
   "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "LiteLLM",
+      "tooltip": "Full LiteLLM proxy metrics",
+      "type": "link",
+      "url": "/d/ad8llmv/litellm?var-model=${model}"
+    },
     {
       "asDropdown": false,
       "icon": "external link",

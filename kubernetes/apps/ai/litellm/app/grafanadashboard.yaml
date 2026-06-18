@@ -12,11 +12,9 @@ spec:
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS
-  # Vendored from grafana.com 24965 rev 2 with every datasource ref pinned to the
-  # VictoriaMetrics DS (uid victoriametrics → vmsingle). Upstream's ${datasource} var
-  # resolves to the default DS (prometheus → vmauth, which 400s on queries) and its
-  # job/instance/model query-vars defaulted there too → all panels dead. Pinning vmsingle
-  # in the JSON is the reliable fix. Refresh: grafana.com/api/dashboards/24965/revisions/2/download
+  # Vendored from grafana.com 24965 rev 2; datasource refs use ${DS_PROMETHEUS} (mapped to
+  # VictoriaMetrics via inputName below). Upstream's ${datasource} var resolves to the default
+  # DS (prometheus → vmauth, which 400s on queries). Refresh: grafana.com/api/dashboards/24965/revisions/2/download
   configMapRef:
     name: litellm-dashboard
     key: litellm.json
