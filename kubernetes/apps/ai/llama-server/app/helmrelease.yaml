@@ -128,7 +128,12 @@ spec:
                 custom: true
                 spec:
                   exec:
-                    command: ["/bin/sh", "-c", "find /run/metrics/metrics -mmin -1 | grep -q ."]
+                    command:
+                      [
+                        "/bin/sh",
+                        "-c",
+                        "find /run/metrics/metrics -mmin -1 | grep -q ."
+                      ]
                   initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
