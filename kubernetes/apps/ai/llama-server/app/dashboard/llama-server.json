@@ -1066,7 +1066,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "GPU utilization percent. On our single-GPU node this is effectively llama.cpp's share.",
+      "description": "GPU utilization ratio. On our single-GPU node this is effectively llama.cpp's share.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1081,7 +1081,7 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "max": 100,
+          "max": 1,
           "min": 0,
           "mappings": [],
           "thresholds": {
@@ -1093,7 +1093,7 @@
               }
             ]
           },
-          "unit": "percent"
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -1126,8 +1126,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "node_drm_gpu_busy_percent",
-          "legendFormat": "{{nodename}}",
+          "expr": "drm_engine_utilization_ratio{engine=\"gfx\"}",
+          "legendFormat": "{{node}}",
           "refId": "A"
         }
       ],
@@ -1197,8 +1197,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "node_drm_memory_vram_used_bytes",
-          "legendFormat": "{{nodename}} used",
+          "expr": "drm_memory_used_bytes{pool=\"vram\"}",
+          "legendFormat": "{{node}} used",
           "refId": "A"
         },
         {
@@ -1206,8 +1206,8 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "node_drm_memory_vram_size_bytes",
-          "legendFormat": "{{nodename}} total",
+          "expr": "drm_memory_total_bytes{pool=\"vram\"}",
+          "legendFormat": "{{node}} total",
           "refId": "B"
         }
       ],
@@ -1337,10 +1337,10 @@
       "keepTime": false,
       "tags": [],
       "targetBlank": false,
-      "title": "AMD GPU",
+      "title": "DRM GPU",
       "tooltip": "",
       "type": "link",
-      "url": "/d/amdgpu-node/amdgpu"
+      "url": "/d/drm-exporter/drm-exporter"
     }
   ]
 }

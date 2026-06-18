@@ -11,10 +11,6 @@ spec:
   interval: 1h
   values:
     fullnameOverride: *app
-    extraArgs:
-      # amdgpu GPU metrics (busy %, VRAM/GTT) via sysfs/DRM — replaces the
-      # NVIDIA DCGM exporter that was removed with the gpu-operator
-      - --collector.drm
     prometheus:
       monitor:
         enabled: true
