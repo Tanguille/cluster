@@ -94,7 +94,7 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value_and_name",
+        "textMode": "value",
         "wideLayout": true
       },
       "pluginVersion": "11.0.0",
@@ -104,13 +104,13 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) ((label_replace(llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\"} unless llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\".+\"}, \"model\", \"qwen-3.6\", \"job\", \"(.+)\") or llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"}))",
-          "legendFormat": "{{model}}",
+          "expr": "max(max without(endpoint, instance, pod, prometheus) ((label_replace(llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\"} unless llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\".+\"}, \"model\", \"qwen-3.6\", \"job\", \"(.+)\") or llamacpp:prompt_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})))",
+          "legendFormat": "pp",
           "refId": "A",
           "instant": true
         }
       ],
-      "title": "Prefill / encode tok/s",
+      "title": "Prefill tokens/s",
       "type": "stat"
     },
     {
@@ -156,7 +156,7 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value_and_name",
+        "textMode": "value",
         "wideLayout": true
       },
       "pluginVersion": "11.0.0",
@@ -166,13 +166,13 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "max without(endpoint, instance, pod, prometheus) ((label_replace(llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\"} unless llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\".+\"}, \"model\", \"qwen-3.6\", \"job\", \"(.+)\") or llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"}))",
-          "legendFormat": "{{model}}",
+          "expr": "max(max without(endpoint, instance, pod, prometheus) ((label_replace(llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\"} unless llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\".+\"}, \"model\", \"qwen-3.6\", \"job\", \"(.+)\") or llamacpp:predicted_tokens_seconds{namespace=\"ai\", service=\"llama-server\", model=~\"$model\"})))",
+          "legendFormat": "tg",
           "refId": "A",
           "instant": true
         }
       ],
-      "title": "Decode tok/s",
+      "title": "Decode tokens/s",
       "type": "stat"
     },
     {
@@ -784,7 +784,7 @@
           "refId": "B"
         }
       ],
-      "title": "Rolling 5m tok/s",
+      "title": "Rolling 5m tokens/s",
       "type": "timeseries"
     },
     {
