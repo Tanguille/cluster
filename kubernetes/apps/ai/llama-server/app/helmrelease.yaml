@@ -99,10 +99,10 @@ spec:
             resources:
               requests:
                 cpu: 2
-                # Steady-state reservation: cache-ram (8Gi) + slot/MTP buffers + embedding preset
-                # co-resident via --models-max 2. Request tracks typical use so this singleton
-                # isn't the eviction target under node memory pressure (eviction costs 130s+ reload).
-                memory: 16Gi
+                # cache-ram (8Gi default) + slot/MTP/checkpoint buffers + embedding co-resident.
+                # Measured peaks ~16Gi working set under agent load; request below that makes this
+                # singleton the eviction target under node pressure (costs 130s+ cold reload).
+                memory: 24Gi
                 squat.ai/dri: 1
               limits:
                 cpu: 12
