@@ -9,12 +9,16 @@ name: Build llama-cpp-rocm
 on:
   push:
     branches: ["main"]
-    paths: ["docker/llama-cpp-rocm/**", ".github/workflows/build-llama-cpp-rocm.yaml"]
+    paths:
+      [
+        "docker/llama-cpp-rocm/**",
+        ".github/workflows/build-llama-cpp-rocm.yaml",
+      ]
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}
-  cancel-in-progress: false # never abort an in-flight ROCm build
+  cancel-in-progress: true
 
 permissions:
   contents: read
