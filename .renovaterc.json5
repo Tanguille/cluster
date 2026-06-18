@@ -51,14 +51,14 @@
     {
       description: "llama.cpp release version in Dockerfile ARG",
       customType: "regex",
-      managerFilePatterns: ["docker/llama-cpp-rocm/Dockerfile$"],
+      managerFilePatterns: ["/docker/llama-cpp-rocm/Dockerfile$/"],
       matchStrings: [
-        "datasource=github-releases depName=ggml-org/llama\\.cpp[^\\n]*\\nARG\\s+LLAMA_CPP_VERSION=(?<currentValue>\\S+)"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>[^\\n]+))?\\nARG LLAMA_CPP_VERSION=(?<currentValue>\\S+)"
       ],
       depNameTemplate: "ggml-org/llama.cpp",
       datasourceTemplate: "github-releases",
       versioningTemplate: "regex:^b(?<patch>\\d+)$",
-      autoReplaceStringTemplate: "datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\\d+)$\nARG LLAMA_CPP_VERSION={{newValue}}"
+      autoReplaceStringTemplate: "# renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\\d+)$\nARG LLAMA_CPP_VERSION={{newValue}}"
     }
   ],
   packageRules: [
