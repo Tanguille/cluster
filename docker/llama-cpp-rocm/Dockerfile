@@ -1,4 +1,4 @@
-# llama.cpp server for AMD R9700 (RDNA4 / gfx1201), serving Qwen3.6-27B GGUF + MTP.
+# llama.cpp server for AMD R9700 (RDNA4 / gfx1201), serving Qwen3.6-35B-A3B MoE GGUF + MTP.
 #
 # Why a custom image: upstream ghcr.io/ggml-org/llama.cpp:server-rocm ships ROCm 7.2.1, whose
 # rocBLAS/hipBLASLt are NOT gfx1201-tuned -> ~18 tok/s. AMD's gfx120X-tuned ROCm (7.13) doubles
