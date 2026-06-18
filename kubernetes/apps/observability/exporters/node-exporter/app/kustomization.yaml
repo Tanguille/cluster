@@ -5,3 +5,16 @@ kind: Kustomization
 resources:
   - helmrelease.yaml
   - ocirepository.yaml
+  - grafanadashboard.yaml
+  - prometheusrule.yaml
+
+configMapGenerator:
+  - name: amdgpu-dashboard
+    files:
+      - dashboard/amdgpu.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+
+generatorOptions:
+  disableNameSuffixHash: true
