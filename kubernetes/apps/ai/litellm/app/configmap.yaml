@@ -13,6 +13,8 @@ data:
           api_key: os.environ/LLAMA_SERVER_API_KEY
         model_info:
           mode: chat
+          max_input_tokens: 262144
+          max_output_tokens: 8192
       # Auto-expose every other model the llama-server router serves (e.g. qwen3-embedding) without a
       # per-model entry. litellm matches exact names first, then falls through to this wildcard.
       - model_name: "*"
