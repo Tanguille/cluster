@@ -18,7 +18,7 @@
 
 # ---------------------------------------------------------------------------------------------
 # Build stage — install AMD's gfx120X-tuned ROCm 7.13 from APT, then build llama.cpp against it.
-FROM docker.io/library/ubuntu:26.04@sha256:e153663f92c94118ff22a5dc397b59b351ffd695480566debb5850e017e5937a AS build
+FROM docker.io/library/ubuntu:26.04@sha256:53958ec7b67c2c9355df922dd08dbf0360611f8c3cdb656875e81873db9ffdba AS build
 
 # The gfx120X-tuned 7.13 preview is only published as a rocm/vllm image tag, so Renovate tracks
 # that tag's ROCm version here. This ARG is a heads-up signal only: the "7.13" in the package
@@ -66,7 +66,7 @@ ARG GGML_HIP_ROCWMMA_FATTN=OFF
 ARG AMDGPU_TARGETS=gfx1201
 # Latest llama.cpp release; Renovate bumps this tag.
 # renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\d+)$
-ARG LLAMA_CPP_VERSION=b9718
+ARG LLAMA_CPP_VERSION=b9728
 # Compile parallelism, set by the build workflow from the runner's ENFORCED memory limit. -j$(nproc)
 # (=12) peaks past the 24Gi builder cap on the ggml-cuda template TUs and OOM-kills the runner.
 ARG BUILD_JOBS=4
@@ -112,7 +112,7 @@ RUN mkdir -p /opt/rocm-runtime \
 
 # ---------------------------------------------------------------------------------------------
 # Runtime stage — slim Ubuntu + only the ROCm runtime libs + llama.cpp binaries. No toolchain.
-FROM docker.io/library/ubuntu:26.04@sha256:e153663f92c94118ff22a5dc397b59b351ffd695480566debb5850e017e5937a AS runtime
+FROM docker.io/library/ubuntu:26.04@sha256:53958ec7b67c2c9355df922dd08dbf0360611f8c3cdb656875e81873db9ffdba AS runtime
 
 # Runtime system deps confirmed via ldd of llama-server + libamdhip64/librocblas/libhipblaslt:
 # gcc runtime (libstdc++/atomic/gcc_s/gomp), openssl (HTTPS for -hf; llama.cpp uses cpp-httplib,
