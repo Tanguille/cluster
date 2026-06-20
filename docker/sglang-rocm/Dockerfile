@@ -88,6 +88,23 @@ RUN pip install --no-cache-dir ninja \
     && pip install --no-cache-dir --no-deps dist/sglang_kernel-*.whl \
     && rm -rf /tmp/sglang-src
 
+# sglang[srt] 0.5.13 gained flashinfer-python as a dep (previously only in [all]).
+# flashinfer-python is CUDA-only and asserts libcudart is loaded in cuda_ipc.py:194 at
+# module-level import time. sglang imports flashinfer.comm in its MoE token dispatcher
+# (sglang/srt/layers/moe/token_dispatcher/flashinfer.py) unconditionally, so the import
+# crashes before the server even starts. Replace with a ROCm stub that makes the import
+# succeed without CUDA; raises RuntimeError if MoE all-to-all is actually invoked
+# (it won't be for Qwen3.6-27B, which is a hybrid DeltaNet model, not MoE).
+RUN SITE_PKG=$(python3 -c "import sysconfig; print(sysconfig.get_paths()['purelib'])") \
+    && pip uninstall -y flashinfer flashinfer-python 2>/dev/null || true \
+    && mkdir -p "$SITE_PKG/flashinfer/comm" \
+    && printf '# ROCm stub — flashinfer CUDA functions unavailable on ROCm\n' \
+       > "$SITE_PKG/flashinfer/__init__.py" \
+    && printf 'from .cuda_ipc import CudaRTLibrary, create_shared_buffer, free_shared_buffer\n\nclass MoeAlltoAll:\n    def __init__(self, *a, **k):\n        raise RuntimeError("MoeAlltoAll requires CUDA; not available on ROCm")\n\ndef moe_a2a_get_workspace_size_per_rank(*a, **k):\n    return 0\n' \
+       > "$SITE_PKG/flashinfer/comm/__init__.py" \
+    && printf 'class CudaRTLibrary:\n    def __init__(self):\n        pass\n\ndef create_shared_buffer(*a, **k):\n    raise RuntimeError("CUDA IPC not available on ROCm")\n\ndef free_shared_buffer(*a, **k):\n    raise RuntimeError("CUDA IPC not available on ROCm")\n' \
+       > "$SITE_PKG/flashinfer/comm/cuda_ipc.py"
+
 # sglang.launch_server crashes on gfx1201 when triton 3.7.1 is first imported lazily
 # via torch._dynamo (aiter/__init__.py at line 59 triggers this). Pre-importing triton
 # and its runtime submodules in sitecustomize.py caches them before the lazy path fires.
