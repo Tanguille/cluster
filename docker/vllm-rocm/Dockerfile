@@ -1,147 +1,71 @@
 # vLLM OpenAI-compatible server for AMD R9700 (RDNA4 / gfx1201), built from source.
 #
-# Why from source instead of the AMD pre-built image:
+# Why from source:
 #   rocm/vllm:rocm7.13.0_gfx120X-all ships vLLM 0.19.1; mainline vLLM is at 0.23.0.
-#   The AMD image has no newer gfx1201 variant, and PyPI vLLM wheels are CUDA-only.
-#   Building from source gives us the latest vLLM with ROCm compiled for gfx1201.
+#   PyPI vLLM wheels are CUDA-only. Building on the AMD base gives us vLLM 0.23.0 with
+#   the full ROCm dev toolchain already in place.
 #
-# Python version strategy:
-#   Ubuntu 24.04 (Python 3.12). Ubuntu 26.04's Python 3.14 is blocked by vLLM 0.23.0's
-#   hard dep amd-quark, which caps at Requires-Python <3.14 across all 1.x releases.
-#   Python 3.12 has all required wheels (torch rocm7.2, amd-quark, flashinfer, etc.).
+# Base image — same as sglang-rocm:
+#   AMD does not publish a rocm/pytorch image for ROCm 7.13 with gfx1201 tuning.
+#   rocm/vllm:rocm7.13.0_gfx120X-all is the only pre-built image with ROCm 7.13 +
+#   gfx1201-tuned Tensile/rocBLAS kernels + PyTorch + the full ROCm dev toolchain
+#   (rocrand, hipfft, hipsparse, …) needed to compile vLLM's HIP extensions.
 #
-# Build chain:
-#   1. Ubuntu 24.04 (Python 3.12) + AMD's gfx120X-tuned ROCm 7.13 from APT
-#   2. torch==2.11.0+rocm7.2 from PyTorch's ROCm wheel index (ABI-compatible with ROCm 7.13;
-#      same pairing used in the sglang-rdna4 benchmarks: torch 2.12.0+rocm7.2 on ROCm 7.13)
-#   3. vLLM cloned at tag + built with VLLM_TARGET_DEVICE=rocm PYTORCH_ROCM_ARCH=gfx1201
-#   4. Slim runtime stage: ROCm runtime libs + Python venv, no build toolchain
-#
-# gfx1201 BLAS override at runtime:
-#   PyTorch's wheel bundles ROCm 7.2 BLAS without gfx1201 Tensile kernels. We override it
-#   at runtime via LD_LIBRARY_PATH: the AMD APT-installed libs (gfx1201-tuned) are listed
-#   first, so they win over the torch-bundled ones (LD_LIBRARY_PATH > RUNPATH/RPATH).
-#
-# Benchmark reference (measured on this rig with vLLM 0.19.1, 2026-06-12):
-#   Single-stream decode: ~8 tok/s (fp8 KV, unfused Triton dequant — no native gfx1201 path)
-#   Aggregate @C8: 47 tok/s with APC prefix caching ON (6.3× cached TTFT)
+# Key gfx1201 runtime settings:
+#   HIP_VISIBLE_DEVICES=0     — single GPU (R9700); prevents iGPU aliasing.
+#   PYTORCH_ROCM_ARCH=gfx1201 — scopes HIP JIT compilation to gfx1201 only.
 
-# ---------------------------------------------------------------------------------------------
-# Build stage
-FROM docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11 AS build
+FROM docker.io/rocm/vllm:rocm7.13.0_gfx120X-all_ubuntu24.04_py3.13_pytorch_2.10.0_vllm_0.19.1@sha256:015dc53ab8c9ddbbdca034c68fe7c169e6884c63094adb49071d1911b1cbd474
 
-ENV ROCM_PATH=/opt/rocm/core-7.13 \
-    ROCM_HOME=/opt/rocm/core-7.13 \
-    DEBIAN_FRONTEND=noninteractive
+# renovate: datasource=github-releases depName=vllm-project/vllm
+ARG VLLM_VERSION=v0.23.0
+ARG BUILD_JOBS=4
 
-# Install ROCm 7.13 (gfx1201-tuned) from AMD's packages-multi-arch APT repo.
-# Same set as llama-cpp-rocm: HIP runtime, gfx1201 Tensile/rocBLAS kernels, LLVM/clang.
-# python3-venv provides the venv module for the distro-default Python.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        wget gnupg ca-certificates \
-    && mkdir -p /etc/apt/keyrings \
-    && wget -qO - https://repo.amd.com/rocm/packages/gpg/rocm.gpg \
-         | gpg --dearmor | tee /etc/apt/keyrings/amdrocm.gpg > /dev/null \
-    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/amdrocm.gpg] https://repo.amd.com/rocm/packages-multi-arch/ubuntu2404 stable main" \
-         | tee /etc/apt/sources.list.d/rocm.list \
-    && apt-get update && apt-get install -y --no-install-recommends \
-        amdrocm-blas7.13-gfx1201 \
-        amdrocm-runtime-dev7.13 \
-        amdrocm-blas-dev7.13 \
-        amdrocm-hipblas-common-dev7.13 \
-        amdrocm-llvm-dev7.13 \
-        python3 python3-dev python3-venv \
-        build-essential cmake ninja-build git \
-    && rm -rf /var/lib/apt/lists/*
+# vLLM 0.23.0 requires torch==2.11.0; base has 2.10.0.
+# Uninstall the pre-built vLLM 0.19.1 first so pip doesn't get confused during the upgrade.
+RUN pip uninstall -y vllm 2>/dev/null || true \
+    && pip install --no-cache-dir torch==2.11.0 \
+         --index-url https://download.pytorch.org/whl/rocm7.2
 
-ENV HIP_PATH=${ROCM_PATH} \
-    HIPCXX=${ROCM_PATH}/lib/llvm/bin/clang++ \
-    PATH=${ROCM_PATH}/bin:${ROCM_PATH}/lib/llvm/bin:${PATH}
-
-# Isolated venv so the runtime stage only needs to copy one directory.
-RUN python3 -m venv /opt/vllm
-
-# All of vLLM 0.23.0's pyproject.toml build-system.requires, pre-installed so that
-# --no-build-isolation doesn't fail during prepare_metadata_for_build_wheel.
-# cmake/ninja are also in PATH via apt, but the Python shims satisfy any import checks.
-RUN /opt/vllm/bin/pip install --no-cache-dir \
+# All of vLLM 0.23.0's pyproject.toml build-system.requires — must be present before
+# --no-build-isolation so prepare_metadata_for_build_wheel can import them.
+RUN pip install --no-cache-dir \
     "packaging>=24.2" \
     "setuptools>=77.0.3,<81.0.0" \
     "setuptools-scm>=8.0" \
     "setuptools-rust>=1.9.0" \
     wheel numpy jinja2 cmake ninja
 
-# PyTorch 2.11.0 for ROCm 7.2 — the exact version vLLM 0.23.0 pins, from PyTorch's
-# ROCm wheel index. The +rocm7.2 local tag satisfies vLLM's torch==2.11.0 constraint
-# (PEP 440: local identifiers are excluded from == comparisons).
-RUN /opt/vllm/bin/pip install --no-cache-dir \
-    torch==2.11.0 \
-    --index-url https://download.pytorch.org/whl/rocm7.2
+RUN GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${VLLM_VERSION}" \
+      https://github.com/vllm-project/vllm /src/vllm
 
-# Latest vLLM; Renovate bumps this tag.
-# renovate: datasource=github-releases depName=vllm-project/vllm
-ARG VLLM_VERSION=v0.23.0
-# Compile parallelism capped by the runner's ENFORCED memory limit.
-# vLLM's HIP extension compilation is RAM-heavy (C++ template instantiation);
-# use the same 4 GiB/job budget as llama-cpp-rocm.
-ARG BUILD_JOBS=4
+# Stub amdgpu-arch so PyTorch's LoadHIP.cmake can determine the HIP architecture
+# without a physical GPU. Docker build containers have no /dev/kfd; the real
+# amdgpu-arch fails with "no ROCm-capable device". The stub outputs gfx1201.
+RUN amdgpu_arch=$(which amdgpu-arch 2>/dev/null || echo /opt/rocm/bin/amdgpu-arch) \
+    && printf '#!/bin/sh\necho gfx1201\n' > "$amdgpu_arch" \
+    && chmod +x "$amdgpu_arch"
 
-RUN GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${VLLM_VERSION}" https://github.com/vllm-project/vllm /src/vllm
-
-# Build vLLM with the HIP backend, targeting gfx1201 only.
-# --no-build-isolation: use the venv's already-installed torch (avoids re-downloading CUDA torch).
-# --extra-index-url: lets pip resolve ROCm variants of any remaining torch-ecosystem deps.
-# MAX_JOBS + CMAKE_BUILD_PARALLEL_LEVEL: cap parallelism for the runner's memory budget.
 RUN cd /src/vllm \
     && VLLM_TARGET_DEVICE=rocm \
        PYTORCH_ROCM_ARCH=gfx1201 \
        CMAKE_BUILD_PARALLEL_LEVEL="${BUILD_JOBS}" \
        MAX_JOBS="${BUILD_JOBS}" \
        GIT_TERMINAL_PROMPT=0 \
-       /opt/vllm/bin/pip install --no-cache-dir --no-build-isolation \
+       pip install --no-cache-dir --no-build-isolation \
            --extra-index-url https://download.pytorch.org/whl/rocm7.2 \
-           .
+           . \
+    && rm -rf /src/vllm
 
-# Stage the minimal ROCm runtime (same approach as llama-cpp-rocm).
-# At runtime this goes on LD_LIBRARY_PATH BEFORE the torch-bundled ROCm 7.2 libs,
-# ensuring the gfx1201-tuned Tensile BLAS kernels are used.
-RUN mkdir -p /opt/rocm-runtime \
-    && cp -a ${ROCM_PATH}/lib /opt/rocm-runtime/lib \
-    && rm -rf /opt/rocm-runtime/lib/llvm/bin /opt/rocm-runtime/lib/cmake \
-    && for lib in libamdhip64 librocblas libhipblaslt; do \
-         test -n "$(find /opt/rocm-runtime -name "${lib}.so*" -print -quit)" \
-           || { echo "FATAL: ${lib} not staged — ROCm APT layout changed"; exit 1; }; \
-       done \
-    && test -n "$(find /opt/rocm-runtime/lib/llvm/lib -name 'libLLVM.so*' -print -quit)" \
-         || { echo "FATAL: libLLVM not staged — hipBLASLt will fail at runtime"; exit 1; }
-
-# ---------------------------------------------------------------------------------------------
-# Runtime stage — slim Ubuntu 24.04 + ROCm runtime + Python venv. No build toolchain.
-FROM docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11 AS runtime
-
-RUN apt-get update \
-    && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends \
-        python3 \
-        libgomp1 libstdc++6 libatomic1 libgcc-s1 libssl3 libnuma1 ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=build /opt/vllm/         /opt/vllm/
-COPY --from=build /opt/rocm-runtime/ /opt/rocm-runtime/
-
-# AMD's gfx1201-tuned BLAS libs listed before /opt/vllm (where torch bundles its own
-# ROCm 7.2 libs). LD_LIBRARY_PATH takes precedence over RUNPATH, so the Tensile-tuned
-# rocBLAS/hipBLASLt kernels are loaded instead of the generic ones from the wheel.
-ENV PATH=/opt/vllm/bin:${PATH} \
-    LD_LIBRARY_PATH=/opt/rocm-runtime/lib:/opt/rocm-runtime/lib/llvm/lib \
-    HIP_VISIBLE_DEVICES=0 \
+ENV HIP_VISIBLE_DEVICES=0 \
+    PYTORCH_ROCM_ARCH=gfx1201 \
     VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 LABEL org.opencontainers.image.title="vllm-rocm-gfx1201" \
-      org.opencontainers.image.description="vLLM built from source for AMD RDNA4 gfx1201 (ROCm 7.13 gfx120X-tuned, PyTorch 2.11.0+rocm7.2)" \
+      org.opencontainers.image.description="vLLM 0.23.0 built from source for AMD RDNA4 gfx1201 — ROCm 7.13.0 gfx120X-tuned, PyTorch 2.11.0" \
       org.opencontainers.image.source="https://github.com/tanguille/cluster" \
       org.opencontainers.image.licenses="Apache-2.0"
 
 EXPOSE 8000
-ENTRYPOINT ["/opt/vllm/bin/python", "-m", "vllm.entrypoints.openai.api_server"]
+ENTRYPOINT ["python", "-m", "vllm.entrypoints.openai.api_server"]
 CMD ["--help"]
