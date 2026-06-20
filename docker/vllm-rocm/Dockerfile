@@ -28,7 +28,7 @@
 
 # ---------------------------------------------------------------------------------------------
 # Build stage
-FROM docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11 AS build
+FROM docker.io/library/ubuntu:26.04@sha256:6fee4abc5fe6a21f40022199b2d5063eb591743c80d3d2f5fadf620a98cbae0d AS build
 
 ENV ROCM_PATH=/opt/rocm/core-7.13 \
     ROCM_HOME=/opt/rocm/core-7.13 \
@@ -107,7 +107,7 @@ RUN mkdir -p /opt/rocm-runtime \
 
 # ---------------------------------------------------------------------------------------------
 # Runtime stage — slim Ubuntu 24.04 + ROCm runtime + Python venv. No build toolchain.
-FROM docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11 AS runtime
+FROM docker.io/library/ubuntu:26.04@sha256:6fee4abc5fe6a21f40022199b2d5063eb591743c80d3d2f5fadf620a98cbae0d AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive
 
