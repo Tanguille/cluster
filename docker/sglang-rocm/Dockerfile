@@ -23,7 +23,16 @@ ARG SGLANG_VERSION=v0.5.13
 # Install sglang from PyPI. sglang[srt] is the server-only set — no [all] extras:
 # sglang's [all] pulls flashinfer-python which is CUDA-only and fails on ROCm.
 # SGLang's ROCm path uses Triton JIT for attention (JIT-compiles at first run for gfx1201).
-RUN pip install --no-cache-dir "sglang[srt]==${SGLANG_VERSION#v}"
+#
+# outlines_core (pulled in by sglang) has no pre-built cp313 wheel and requires Rust to
+# build from source. Install cargo from Ubuntu APT, build sglang, then purge in the same
+# layer so the Rust toolchain doesn't bloat the final image.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends cargo \
+    && pip install --no-cache-dir "sglang[srt]==${SGLANG_VERSION#v}" \
+    && apt-get purge -y cargo \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/* /root/.cargo
 
 ENV HIP_VISIBLE_DEVICES=0 \
     PYTORCH_ROCM_ARCH=gfx1201
