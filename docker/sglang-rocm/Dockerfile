@@ -84,7 +84,7 @@ RUN pip install --no-cache-dir ninja \
          -e 's/topk_dynamic_smem_bytes = 48 \* 1024 if amdgpu_target == "gfx942" else 32 \* 1024 \* 4/topk_dynamic_smem_bytes = 48 * 1024 if amdgpu_target in ["gfx942", "gfx1201"] else 32 * 1024 * 4/' \
          setup_rocm.py \
     && pip uninstall -y sglang-kernel \
-    && AMDGPU_TARGET=gfx1201 python3 setup_rocm.py bdist_wheel \
+    && AMDGPU_TARGET=gfx1201 MAX_JOBS=2 python3 setup_rocm.py bdist_wheel \
     && pip install --no-cache-dir --no-deps dist/sglang_kernel-*.whl \
     && rm -rf /tmp/sglang-src
 
