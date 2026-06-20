@@ -15,6 +15,9 @@ RUN apt-get update \
 RUN pip install --no-cache-dir --force-reinstall torchvision \
     --index-url https://download.pytorch.org/whl/rocm7.2
 
+# SGLang 0.5.13 requires 'aiter' at import time; install PyPI placeholder
+RUN pip install --no-cache-dir "aiter==0.13.20191203"
+
 ENV HIP_VISIBLE_DEVICES=0 PYTORCH_ROCM_ARCH=gfx1201
 EXPOSE 30000
 ENTRYPOINT ["python", "-m", "sglang.launch_server"]
