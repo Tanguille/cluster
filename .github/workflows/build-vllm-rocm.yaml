@@ -1,0 +1,72 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Build vllm-rocm
+
+# Builds when the Dockerfile or workflow changes (Renovate base-image digest bump or manual
+# tweak). No schedule: the base image is digest-pinned, so a periodic rebuild is a no-op.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "docker/vllm-rocm/**"
+      - ".github/workflows/build-vllm-rocm.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/tanguille/vllm-rocm-gfx1201
+  TAG: gfx1201 # stable tag, rebuilt in place; Renovate digest-pins it in the HelmRelease
+  STORE: /home/runner/_work/.buildkit
+  # renovate: datasource=github-releases depName=moby/buildkit
+  BUILDKIT_VERSION: v0.31.0
+
+jobs:
+  build:
+    # Generic self-hosted image-builder (privileged, big scratch, NO GPU). The Dockerfile
+    # only wraps AMD's pre-built rocm/vllm image — no GPU needed for this build.
+    #
+    # BuildKit, not podman: same reason as llama-cpp-rocm — podman 4.9/5.8 fail on Talos
+    # (overlay whiteout block, gzip MIME bug, or vfs disk blowup). buildkitd + fuse-overlayfs
+    # is stable.
+    runs-on: image-builder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Install buildkit + fuse-overlayfs
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          command -v fuse-overlayfs >/dev/null 2>&1 \
+            || { apt-get update && apt-get install -y --no-install-recommends fuse-overlayfs ca-certificates; }
+          command -v buildkitd >/dev/null 2>&1 \
+            || curl -fsSL "https://github.com/moby/buildkit/releases/download/${BUILDKIT_VERSION}/buildkit-${BUILDKIT_VERSION}.linux-amd64.tar.gz" | tar xz -C /usr/local
+          buildkitd --version
+
+      - name: Build and push
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "${HOME}/.docker"
+          printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' \
+            "$(printf '%s:%s' "${GHCR_USER}" "${GHCR_TOKEN}" | base64 -w0)" > "${HOME}/.docker/config.json"
+
+          nohup buildkitd --root "${STORE}" --oci-worker-snapshotter fuse-overlayfs --oci-worker-net host >/tmp/buildkitd.log 2>&1 &
+          for i in $(seq 1 60); do buildctl debug workers >/dev/null 2>&1 && break; sleep 1; done
+
+          buildctl build \
+            --frontend dockerfile.v0 \
+            --local context=docker/vllm-rocm \
+            --local dockerfile=docker/vllm-rocm \
+            --opt filename=Dockerfile \
+            --output type=image,name="${IMAGE}:${TAG}",push=true
+          echo "Pushed ${IMAGE}:${TAG}" | tee -a "${GITHUB_STEP_SUMMARY}"

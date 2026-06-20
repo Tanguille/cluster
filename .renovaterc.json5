@@ -61,6 +61,16 @@
       datasourceTemplate: "github-releases",
       versioningTemplate: "regex:^b(?<patch>\\d+)$",
       autoReplaceStringTemplate: "# renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\\d+)$\nARG LLAMA_CPP_VERSION={{newValue}}"
+    },
+    {
+      description: "SGLang fork release version in sglang-rocm Dockerfile ARG",
+      customType: "regex",
+      managerFilePatterns: ["/docker/sglang-rocm/Dockerfile$/"],
+      matchStrings: [
+        "# renovate: datasource=github-releases depName=mattbucci/sglang\\nARG SGLANG_VERSION=(?<currentValue>\\S+)"
+      ],
+      depNameTemplate: "mattbucci/sglang",
+      datasourceTemplate: "github-releases"
     }
   ],
   packageRules: [
@@ -95,6 +105,34 @@
       matchPackageNames: ["ghcr.io/tanguille/llama-cpp-rocm-gfx1201"],
       automerge: false,
       addLabels: ["llama-cpp-rocm"]
+    },
+    {
+      description: "vllm-rocm build inputs (ROCm base image digest) — one review PR, no automerge; merging triggers the image-builder build workflow",
+      groupName: "vllm-rocm",
+      matchFileNames: ["docker/vllm-rocm/Dockerfile"],
+      automerge: false,
+      addLabels: ["vllm-rocm"]
+    },
+    {
+      description: "vllm-rocm deployed image digest — review before a HelmRelease rolls a new build",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/tanguille/vllm-rocm-gfx1201"],
+      automerge: false,
+      addLabels: ["vllm-rocm"]
+    },
+    {
+      description: "sglang-rocm build inputs (sglang fork version + ROCm base image digest) — one review PR, no automerge; merging triggers the image-builder build workflow",
+      groupName: "sglang-rocm",
+      matchFileNames: ["docker/sglang-rocm/Dockerfile"],
+      automerge: false,
+      addLabels: ["sglang-rocm"]
+    },
+    {
+      description: "sglang-rocm deployed image digest — review before a HelmRelease rolls a new build",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/tanguille/sglang-rocm-gfx1201"],
+      automerge: false,
+      addLabels: ["sglang-rocm"]
     },
     {
       description: "Actions Runner Controller Group",
