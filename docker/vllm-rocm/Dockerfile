@@ -68,7 +68,7 @@ RUN python3 -m venv /opt/vllm
 # Build-time base packages: packaging + setuptools are needed by vLLM's pyproject.toml
 # when building with --no-build-isolation (pip skips the isolated build env, so any
 # build-system requirement must already be in the venv).
-RUN /opt/vllm/bin/pip install --no-cache-dir packaging setuptools wheel numpy
+RUN /opt/vllm/bin/pip install --no-cache-dir packaging setuptools setuptools_rust wheel numpy
 
 # PyTorch 2.11.0 for ROCm 7.2 — the exact version vLLM 0.23.0 pins, from PyTorch's
 # ROCm wheel index. The +rocm7.2 local tag satisfies vLLM's torch==2.11.0 constraint
