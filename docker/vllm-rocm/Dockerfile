@@ -103,11 +103,22 @@ RUN mkdir -p /opt/rocm-runtime \
 # Runtime stage — slim Ubuntu + ROCm runtime + Python venv. No build toolchain.
 FROM docker.io/library/ubuntu:26.04@sha256:53958ec7b67c2c9355df922dd08dbf0360611f8c3cdb656875e81873db9ffdba AS runtime
 
-RUN apt-get update \
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Ubuntu 26.04 ships Python 3.13+; python3.12 is only in the AMD packages-multi-arch repo
+# (ubuntu2404-targeted). We add the same repo here — not for ROCm libs (those are COPY'd from
+# the build stage) but purely to install a python3.12 that matches the build-stage venv.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        wget gnupg ca-certificates \
+    && mkdir -p /etc/apt/keyrings \
+    && wget -qO - https://repo.amd.com/rocm/packages/gpg/rocm.gpg \
+         | gpg --dearmor | tee /etc/apt/keyrings/amdrocm.gpg > /dev/null \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/amdrocm.gpg] https://repo.amd.com/rocm/packages-multi-arch/ubuntu2404 stable main" \
+         | tee /etc/apt/sources.list.d/rocm.list \
+    && apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
-        python3.12 \
-        libgomp1 libstdc++6 libatomic1 libgcc-s1 libssl3 libnuma1 ca-certificates \
+        python3.12 libgomp1 libstdc++6 libatomic1 libgcc-s1 libssl3 libnuma1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /opt/vllm/         /opt/vllm/
