@@ -216,6 +216,16 @@
       }
     },
     {
+      description: "nginx sidecar images group",
+      groupName: "nginx",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["nginx"],
+      group: {
+        commitMessageTopic: "{{{groupName}}}"
+      },
+      minimumGroupSize: 2
+    },
+    {
       // No matchManagers on purpose: the HelmRelease image is detected by both helm-values and
       // kubernetes (home-ops points both at every .yaml); constraining managers let one copy
       // escape into a duplicate PR. datasource+file+package already scope this precisely.
