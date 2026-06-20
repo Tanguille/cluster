@@ -28,7 +28,7 @@
 #   Single-stream decode: 14.96 tok/s (fp8_e4m3 KV, fused gfx1201 kernels)
 #   KV pool: 212K tokens (fp8) vs 105K (bf16) — fp8 wins on both speed and capacity here.
 
-FROM docker.io/rocm/vllm:rocm7.13.0_gfx120X-all_ubuntu24.04_py3.13_pytorch_2.10.0_vllm_0.19.1@sha256:2255f6657d1c7d33f07054ac818ecd8d73a3284a8610066719531b3f06144ddb
+FROM docker.io/rocm/vllm:rocm7.13.0_gfx120X-all_ubuntu24.04_py3.13_pytorch_2.10.0_vllm_0.19.1@sha256:015dc53ab8c9ddbbdca034c68fe7c169e6884c63094adb49071d1911b1cbd474
 
 # renovate: datasource=github-releases depName=mattbucci/sglang
 ARG SGLANG_VERSION=v0.5.13
