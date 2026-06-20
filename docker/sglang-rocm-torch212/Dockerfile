@@ -15,8 +15,10 @@ RUN apt-get update \
 RUN pip install --no-cache-dir --force-reinstall torchvision \
     --index-url https://download.pytorch.org/whl/rocm7.2
 
-# SGLang 0.5.13 requires 'aiter' at import time; install PyPI placeholder
-RUN pip install --no-cache-dir "aiter==0.13.20191203"
+# SGLang 0.5.13 requires AMD AITER (AI Inference & Training Engine Runtime) at startup.
+# No cp313 pre-built wheel — build from source against the base image's ROCm SDK.
+RUN pip install --no-cache-dir --no-deps --no-build-isolation \
+    "amd-aiter @ git+https://github.com/ROCm/aiter.git@v0.1.15.post2"
 
 ENV HIP_VISIBLE_DEVICES=0 PYTORCH_ROCM_ARCH=gfx1201
 EXPOSE 30000
