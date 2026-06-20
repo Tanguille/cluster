@@ -29,8 +29,11 @@ ARG SGLANG_VERSION=v0.5.13
 # Install the latest stable Rust via rustup, build sglang, then remove the toolchain so
 # it doesn't bloat the final image (~800 MiB saved). The compiled .so ends up in the
 # Python site-packages and is not affected by removing ~/.cargo / ~/.rustup.
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-      | sh -s -- -y --default-toolchain stable --no-modify-path \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libssl-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+         | sh -s -- -y --default-toolchain stable --no-modify-path \
     && export PATH="$HOME/.cargo/bin:$PATH" \
     && pip install --no-cache-dir "sglang[srt]==${SGLANG_VERSION#v}" \
     && rm -rf "$HOME/.cargo" "$HOME/.rustup"
