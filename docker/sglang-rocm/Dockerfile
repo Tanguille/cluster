@@ -46,11 +46,13 @@ RUN apt-get update \
 RUN pip install --no-cache-dir --no-deps "torchvision==0.26.0+rocm7.2" \
     --index-url https://download.pytorch.org/whl/rocm7.2
 
-# SGLang 0.5.13 imports 'aiter' (AMD AI Inference & Training Engine Runtime) at startup.
-# AMD's actual AITER is not available from standard indexes for this ROCm build;
-# install the PyPI placeholder (async-iterator library) which satisfies the import
-# so SGLang falls back to Triton JIT attention (still GPU-accelerated via ROCm).
-RUN pip install --no-cache-dir "aiter==0.13.20191203"
+# SGLang 0.5.13 requires AMD AITER (AI Inference & Training Engine Runtime) at startup.
+# AMD publishes pre-built wheels only for cp310/cp312; our base uses Python 3.13, so
+# build from source against the ROCm SDK already present in the base image.
+# --no-build-isolation keeps HIP/ROCm headers in scope; --no-deps avoids overriding
+# torch or triton that are already tuned for gfx1201 in the base image.
+RUN pip install --no-cache-dir --no-deps --no-build-isolation \
+    "amd-aiter @ git+https://github.com/ROCm/aiter.git@v0.1.15.post2"
 
 ENV HIP_VISIBLE_DEVICES=0 \
     PYTORCH_ROCM_ARCH=gfx1201
