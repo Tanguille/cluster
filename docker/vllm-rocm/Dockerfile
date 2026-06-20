@@ -5,8 +5,13 @@
 #   The AMD image has no newer gfx1201 variant, and PyPI vLLM wheels are CUDA-only.
 #   Building from source gives us the latest vLLM with ROCm compiled for gfx1201.
 #
+# Why Ubuntu 24.04 (not 26.04 like llama-cpp-rocm):
+#   AMD's packages-multi-arch APT repo targets ubuntu2404 and only contains ROCm packages.
+#   Ubuntu 26.04 ships Python 3.13+, so python3.12 is unavailable there without a third-party
+#   source. Ubuntu 24.04 has python3.12 natively and matches AMD's build targets.
+#
 # Build chain:
-#   1. Ubuntu 26.04 + AMD's gfx120X-tuned ROCm 7.13 from APT (same packages as llama-cpp-rocm)
+#   1. Ubuntu 24.04 + AMD's gfx120X-tuned ROCm 7.13 from APT (same packages as llama-cpp-rocm)
 #   2. torch==2.11.0+rocm7.2 from PyTorch's ROCm wheel index (ABI-compatible with ROCm 7.13;
 #      same pairing used in the sglang-rdna4 benchmarks: torch 2.12.0+rocm7.2 on ROCm 7.13)
 #   3. vLLM cloned at tag + built with VLLM_TARGET_DEVICE=rocm PYTORCH_ROCM_ARCH=gfx1201
@@ -23,7 +28,7 @@
 
 # ---------------------------------------------------------------------------------------------
 # Build stage
-FROM docker.io/library/ubuntu:26.04@sha256:53958ec7b67c2c9355df922dd08dbf0360611f8c3cdb656875e81873db9ffdba AS build
+FROM docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11 AS build
 
 ENV ROCM_PATH=/opt/rocm/core-7.13 \
     ROCM_HOME=/opt/rocm/core-7.13 \
@@ -31,7 +36,7 @@ ENV ROCM_PATH=/opt/rocm/core-7.13 \
 
 # Install ROCm 7.13 (gfx1201-tuned) from AMD's packages-multi-arch APT repo.
 # Same set as llama-cpp-rocm: HIP runtime, gfx1201 Tensile/rocBLAS kernels, LLVM/clang.
-# Adds Python 3.12 dev + build tools needed for vLLM's C++/HIP extension compilation.
+# Python 3.12 is native on Ubuntu 24.04; python3.12-venv provides the venv module.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         wget gnupg ca-certificates \
     && mkdir -p /etc/apt/keyrings \
@@ -71,7 +76,7 @@ ARG VLLM_VERSION=v0.23.0
 # use the same 4 GiB/job budget as llama-cpp-rocm.
 ARG BUILD_JOBS=4
 
-RUN git clone --depth 1 --branch "${VLLM_VERSION}" https://github.com/vllm-project/vllm /src/vllm
+RUN GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${VLLM_VERSION}" https://github.com/vllm-project/vllm /src/vllm
 
 # Build vLLM with the HIP backend, targeting gfx1201 only.
 # --no-build-isolation: use the venv's already-installed torch (avoids re-downloading CUDA torch).
@@ -82,6 +87,7 @@ RUN cd /src/vllm \
        PYTORCH_ROCM_ARCH=gfx1201 \
        CMAKE_BUILD_PARALLEL_LEVEL="${BUILD_JOBS}" \
        MAX_JOBS="${BUILD_JOBS}" \
+       GIT_TERMINAL_PROMPT=0 \
        /opt/vllm/bin/pip install --no-cache-dir --no-build-isolation \
            --extra-index-url https://download.pytorch.org/whl/rocm7.2 \
            .
@@ -100,25 +106,14 @@ RUN mkdir -p /opt/rocm-runtime \
          || { echo "FATAL: libLLVM not staged — hipBLASLt will fail at runtime"; exit 1; }
 
 # ---------------------------------------------------------------------------------------------
-# Runtime stage — slim Ubuntu + ROCm runtime + Python venv. No build toolchain.
-FROM docker.io/library/ubuntu:26.04@sha256:53958ec7b67c2c9355df922dd08dbf0360611f8c3cdb656875e81873db9ffdba AS runtime
+# Runtime stage — slim Ubuntu 24.04 + ROCm runtime + Python venv. No build toolchain.
+FROM docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11 AS runtime
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Ubuntu 26.04 ships Python 3.13+; python3.12 is only in the AMD packages-multi-arch repo
-# (ubuntu2404-targeted). We add the same repo here — not for ROCm libs (those are COPY'd from
-# the build stage) but purely to install a python3.12 that matches the build-stage venv.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        wget gnupg ca-certificates \
-    && mkdir -p /etc/apt/keyrings \
-    && wget -qO - https://repo.amd.com/rocm/packages/gpg/rocm.gpg \
-         | gpg --dearmor | tee /etc/apt/keyrings/amdrocm.gpg > /dev/null \
-    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/amdrocm.gpg] https://repo.amd.com/rocm/packages-multi-arch/ubuntu2404 stable main" \
-         | tee /etc/apt/sources.list.d/rocm.list \
-    && apt-get update \
+RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
-        python3.12 libgomp1 libstdc++6 libatomic1 libgcc-s1 libssl3 libnuma1 \
+        python3.12 \
+        libgomp1 libstdc++6 libatomic1 libgcc-s1 libssl3 libnuma1 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /opt/vllm/         /opt/vllm/

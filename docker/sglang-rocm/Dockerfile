@@ -37,7 +37,7 @@ ARG SGLANG_VERSION=v0.5.13
 # sglang's [all] pulls flashinfer-python which is CUDA-only and fails on ROCm.
 # SGLang's ROCm path uses Triton JIT for attention (already present, JIT-compiles at
 # first run against the gfx1201 target).
-RUN PYTORCH_ROCM_ARCH=gfx1201 pip install --no-cache-dir \
+RUN GIT_TERMINAL_PROMPT=0 PYTORCH_ROCM_ARCH=gfx1201 pip install --no-cache-dir \
     "git+https://github.com/mattbucci/sglang.git@${SGLANG_VERSION}"
 
 ENV HIP_VISIBLE_DEVICES=0 \
