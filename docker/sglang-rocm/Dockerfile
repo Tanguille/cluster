@@ -24,15 +24,16 @@ ARG SGLANG_VERSION=v0.5.13
 # sglang's [all] pulls flashinfer-python which is CUDA-only and fails on ROCm.
 # SGLang's ROCm path uses Triton JIT for attention (JIT-compiles at first run for gfx1201).
 #
-# outlines_core (pulled in by sglang) has no pre-built cp313 wheel and requires Rust to
-# build from source. Install cargo from Ubuntu APT, build sglang, then purge in the same
-# layer so the Rust toolchain doesn't bloat the final image.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends cargo \
+# outlines_core (pulled in by sglang) has no pre-built cp313 wheel and requires Rust
+# Edition 2024 to build (Rust >= 1.85). Ubuntu 24.04 ships cargo 1.75 — too old.
+# Install the latest stable Rust via rustup, build sglang, then remove the toolchain so
+# it doesn't bloat the final image (~800 MiB saved). The compiled .so ends up in the
+# Python site-packages and is not affected by removing ~/.cargo / ~/.rustup.
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+      | sh -s -- -y --default-toolchain stable --no-modify-path \
+    && export PATH="$HOME/.cargo/bin:$PATH" \
     && pip install --no-cache-dir "sglang[srt]==${SGLANG_VERSION#v}" \
-    && apt-get purge -y cargo \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/* /root/.cargo
+    && rm -rf "$HOME/.cargo" "$HOME/.rustup"
 
 ENV HIP_VISIBLE_DEVICES=0 \
     PYTORCH_ROCM_ARCH=gfx1201
