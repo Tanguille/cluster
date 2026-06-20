@@ -63,6 +63,16 @@
       autoReplaceStringTemplate: "# renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\\d+)$\nARG LLAMA_CPP_VERSION={{newValue}}"
     },
     {
+      description: "vLLM version in vllm-rocm Dockerfile ARG",
+      customType: "regex",
+      managerFilePatterns: ["/docker/vllm-rocm/Dockerfile$/"],
+      matchStrings: [
+        "# renovate: datasource=github-releases depName=vllm-project/vllm\\nARG VLLM_VERSION=(?<currentValue>\\S+)"
+      ],
+      depNameTemplate: "vllm-project/vllm",
+      datasourceTemplate: "github-releases"
+    },
+    {
       description: "SGLang fork release version in sglang-rocm Dockerfile ARG",
       customType: "regex",
       managerFilePatterns: ["/docker/sglang-rocm/Dockerfile$/"],
