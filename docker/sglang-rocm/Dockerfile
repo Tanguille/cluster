@@ -29,14 +29,25 @@ ARG SGLANG_VERSION=v0.5.13.post1
 # Install the latest stable Rust via rustup, build sglang, then remove the toolchain so
 # it doesn't bloat the final image (~800 MiB saved). The compiled .so ends up in the
 # Python site-packages and is not affected by removing ~/.cargo / ~/.rustup.
-RUN apt-get update \
+#
+# Triton note: sglang[srt] upgrades triton from the base image's 3.6.0+rocm7.13.0rc2
+# (ROCm-patched, works on gfx1201) to 3.7.1 from PyPI (generic, crashes on gfx1201 in
+# AITER's arch-detection path via triton._C). We snapshot the triton files before sglang
+# installs and restore them afterward.
+RUN SITE_PKG=$(python3 -c "import sysconfig; print(sysconfig.get_paths()['purelib'])") \
+    && tar -czf /tmp/triton-rocm.tar.gz -C "$SITE_PKG" \
+         $(ls "$SITE_PKG" | grep -E '^triton(-[0-9].*dist-info)?$') \
+    && apt-get update \
     && apt-get install -y --no-install-recommends libssl-dev pkg-config \
     && rm -rf /var/lib/apt/lists/* \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
          | sh -s -- -y --default-toolchain stable --no-modify-path \
     && export PATH="$HOME/.cargo/bin:$PATH" \
     && pip install --no-cache-dir "sglang[srt]==${SGLANG_VERSION#v}" \
-    && rm -rf "$HOME/.cargo" "$HOME/.rustup"
+    && rm -rf "$HOME/.cargo" "$HOME/.rustup" \
+    && pip uninstall -y triton \
+    && tar -xzf /tmp/triton-rocm.tar.gz -C "$SITE_PKG" \
+    && rm /tmp/triton-rocm.tar.gz
 
 # sglang[srt] installs torchvision from PyPI (CUDA-only) which is incompatible with
 # AMD's torch 2.11.0+rocm7.13.0rc2 in the base image. Both sglang and transformers
