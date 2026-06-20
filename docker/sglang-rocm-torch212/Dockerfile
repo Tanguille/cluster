@@ -1,6 +1,7 @@
 FROM docker.io/rocm/vllm:rocm7.13.0_gfx120X-all_ubuntu24.04_py3.13_pytorch_2.10.0_vllm_0.19.1@sha256:015dc53ab8c9ddbbdca034c68fe7c169e6884c63094adb49071d1911b1cbd474
 
-ARG SGLANG_VERSION=v0.5.13
+# renovate: datasource=github-releases depName=sgl-project/sglang
+ARG SGLANG_VERSION=v0.5.13.post1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libssl-dev pkg-config \
