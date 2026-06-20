@@ -57,6 +57,12 @@ RUN cd /src/vllm \
            . \
     && rm -rf /src/vllm
 
+# vLLM's dependencies (transformers, sglang-related) import torchvision at startup.
+# torchvision from PyPI is CUDA-only and incompatible with AMD's torch 2.11.0+rocm7.13.0rc2.
+# --no-deps keeps the existing AMD torch (vLLM C++ extensions were compiled against it).
+RUN pip install --no-cache-dir --no-deps "torchvision==0.26.0+rocm7.2" \
+    --index-url https://download.pytorch.org/whl/rocm7.2
+
 ENV HIP_VISIBLE_DEVICES=0 \
     PYTORCH_ROCM_ARCH=gfx1201 \
     VLLM_WORKER_MULTIPROC_METHOD=spawn
