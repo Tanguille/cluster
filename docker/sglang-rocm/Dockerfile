@@ -38,11 +38,20 @@ RUN apt-get update \
     && pip install --no-cache-dir "sglang[srt]==${SGLANG_VERSION#v}" \
     && rm -rf "$HOME/.cargo" "$HOME/.rustup"
 
+# torchvision installed by sglang is compiled for a different torch than the AMD
+# base image. Both sglang and transformers import torchvision at startup, causing
+# "operator torchvision::nms does not exist" errors. Force-reinstall torchvision
+# from the PyTorch ROCm index — this also pulls torch 2.12.1+rocm7.2 (the official
+# ROCm release, replacing AMD's 2.11.0+rocm7.13.0rc2). The Triton JIT kernels that
+# SGLang uses for attention are compiled at first run and are unaffected by this.
+RUN pip install --no-cache-dir --force-reinstall torchvision \
+    --index-url https://download.pytorch.org/whl/rocm7.2
+
 ENV HIP_VISIBLE_DEVICES=0 \
     PYTORCH_ROCM_ARCH=gfx1201
 
 LABEL org.opencontainers.image.title="sglang-rocm-gfx1201" \
-      org.opencontainers.image.description="SGLang server (mainline) for AMD RDNA4 gfx1201 — ROCm 7.13.0 gfx120X-tuned, PyTorch 2.10.0" \
+      org.opencontainers.image.description="SGLang server (mainline) for AMD RDNA4 gfx1201 — ROCm 7.13.0 base, PyTorch 2.12.1+rocm7.2, SGLang 0.5.13" \
       org.opencontainers.image.source="https://github.com/tanguille/cluster" \
       org.opencontainers.image.licenses="Apache-2.0"
 
