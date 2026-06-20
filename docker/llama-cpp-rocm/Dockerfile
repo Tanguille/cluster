@@ -66,7 +66,7 @@ ARG GGML_HIP_ROCWMMA_FATTN=OFF
 ARG AMDGPU_TARGETS=gfx1201
 # Latest llama.cpp release; Renovate bumps this tag.
 # renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\d+)$
-ARG LLAMA_CPP_VERSION=b9730
+ARG LLAMA_CPP_VERSION=b9733
 # Compile parallelism, set by the build workflow from the runner's ENFORCED memory limit. -j$(nproc)
 # (=12) peaks past the 24Gi builder cap on the ggml-cuda template TUs and OOM-kills the runner.
 ARG BUILD_JOBS=4
