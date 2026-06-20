@@ -73,13 +73,13 @@
       datasourceTemplate: "github-releases"
     },
     {
-      description: "SGLang fork release version in sglang-rocm Dockerfile ARG",
+      description: "SGLang release version in sglang-rocm Dockerfile ARG",
       customType: "regex",
       managerFilePatterns: ["/docker/sglang-rocm/Dockerfile$/"],
       matchStrings: [
-        "# renovate: datasource=github-releases depName=mattbucci/sglang\\nARG SGLANG_VERSION=(?<currentValue>\\S+)"
+        "# renovate: datasource=github-releases depName=sglang-project/sglang\\nARG SGLANG_VERSION=(?<currentValue>\\S+)"
       ],
-      depNameTemplate: "mattbucci/sglang",
+      depNameTemplate: "sglang-project/sglang",
       datasourceTemplate: "github-releases"
     }
   ],
