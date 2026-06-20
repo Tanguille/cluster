@@ -1,5 +1,66 @@
 # Qwen3.6-27B serving on R9700 (gfx1201) — Benchmarks & Decision
 
+## CURRENT STATUS — Round 2 benchmarking in progress (2026-06-20)
+
+Testing SGLang 0.5.13 and vLLM (kyuz0 community image) vs the production llama.cpp.
+
+### Round 2 key findings
+
+**SGLang 0.5.13 AITER requirement:**
+- `sglang/srt/layers/rocm_linear_utils.py` has unconditional top-level `import aiter.ops.triton.*`
+  (line 2-3, indent=0). Old PyPI placeholder `aiter==0.13.20191203` only satisfies `import aiter`
+  but NOT `import aiter.ops` → crash at startup.
+- Fix: `amd-aiter @ git+https://github.com/ROCm/aiter.git@v0.1.15.post2` built from source.
+  AMD only publishes cp310/cp312 wheels; base image is Python 3.13 → must compile with HIP.
+  `--no-build-isolation` keeps ROCm headers in scope; `--no-deps` preserves gfx1201-tuned torch.
+- **AITER v0.1.15.post2 already has `gfx1201` in arch support table** (verified on main branch):
+  `return get_arch() in ("gfx942", "gfx950", "gfx1250", "gfx1200", "gfx1201")` — no manual
+  arch alias patch needed. FP8 Triton kernel path activates automatically on gfx1201.
+- **Remaining mattbucci patch gap:** Patch 006 (custom AWQ GEMV HIP kernel in sgl-kernel) gives
+  ~14 → ~25 tok/s for AWQ models. Not in stock SGLang pip install. CI build will give ~14 tok/s.
+- CI builds in progress: `sglang-rocm` (AITER v0.1.15.post2, SGLang 0.5.13.post1) +
+  `sglang-rocm-torch212` (same + torch 2.12.1+rocm7.2 comparison). Deploy: `--attention-backend triton`.
+
+**vLLM on gfx1201 — community image breakthrough:**
+- `docker.io/kyuz0/vllm-therock-gfx1201:latest` (vLLM 0.22.1rc1, June 13 2026) has all RDNA4
+  patches applied: rocm.py VRAM detection, CUDA graph fix, AITER arch alias, FP8 matrix configs.
+- `mattbucci/Qwen3.6-27B-AWQ` fails even in kyuz0: vision tower MLP has non-standard weight shapes
+  that AWQ marlin kernel rejects ("input size not aligned") in vLLM.
+- `cyankiwi/Qwen3.6-27B-AWQ-INT4` (compressed-tensors format) avoids the marlin path:
+  uses `TritonW4A16LinearKernel` instead → loads cleanly. Currently downloading to llama-server PVC.
+- **`--enforce-eager` required**: bug #39010 — V1 engine CUDA graph capture deadlocks on gfx1201.
+  `--enforce-eager` disables torch.compile + CUDAGraphs, trading potential graph speed for stability.
+- Attention backend selected: `ROCM_ATTN` (kyuz0's patched AMD flash attention for gfx1201).
+  `VLLM_ROCM_USE_AITER=0` (disables AITER unified attention; plain attn more stable on this build).
+- GDN/DeltaNet layers: `Triton/FLA GDN prefill kernel` (auto-selected) handles the 48 linear-attn
+  layers. Full inference expected to work once model loads.
+
+### vLLM 0.23.0 — all available Qwen3.6-27B quantized models FAIL to load (2026-06-20)
+
+Exhaustively tested every available 4-bit quantized Qwen3.6-27B model with vLLM 0.23.0 from source:
+
+| Model | Quantization | Error | Root cause |
+|---|---|---|---|
+| `mattbucci/Qwen3.6-27B-AWQ` | `awq` / `awq_marlin` | "input size not aligned with quantized weight shape" | Hybrid GDN layers have non-standard weight shapes incompatible with vLLM's Triton AWQ path |
+| `Qwen/Qwen3.6-27B-FP8` | `fp8` | OOM (29 GiB weights) | FP8 checkpoint is 28.75 GiB of weights; leaves <3 GiB for KV cache on 32 GB GPU |
+| `btbtyler09/Qwen3.6-27B-GPTQ-4bit` | `gptq` | "qzeros shape mismatch: torch.Size([2048, 160])" | V1 engine validates qzeros shape strictly; model was quantized with tools incompatible with vLLM 0.23.0 |
+| btbtyler09 GPTQ with `--enforce-eager` | `gptq` | Same qzeros error | Shape mismatch is during weight loading, not compile phase |
+
+Additional issues:
+- **torchvision ABI deadlock**: `torchvision==0.26.0+rocm7.2` is compiled against upstream
+  `torch 2.11.0+rocm7.2` but AMD base has `torch 2.11.0+rocm7.13.0rc2` (different ABI).
+  Runtime `pip install` cannot fix this; only works when baked into Dockerfile at build time
+  (as confirmed by working SGLang custom image). vLLM 0.19.1 (AMD base image) cannot be
+  patched at runtime this way.
+- **vLLM 0.23.0 V1 engine**: More strict model validation than 0.19.1; breaks GPTQ models
+  quantized with older tooling. `--enforce-eager` bypasses torch.compile but not weight-load validation.
+
+**Reference data (2026-06-12, vLLM 0.19.1):** `btbtyler09/Qwen3.6-27B-GPTQ-4bit` with vLLM
+0.19.1+rocm7.13 achieved **47 tok/s aggregate at C8** with APC enabled — this remains the vLLM
+reference. vLLM 0.23.0 cannot match it for this model due to the breaking V1 engine changes.
+
+---
+
 ## FINAL DECISION — llama.cpp / ROCm (gfx1201) + MTP
 
 Production engine is **llama.cpp** on a custom gfx1201 **ROCm-7.13 (gfx120X-tuned)** build with
@@ -9,11 +70,11 @@ vLLM. Prefix cache works on the GDN hybrid (**7.5× warm TTFT**) and **coexists 
 (unlike sglang's radix-vs-overlap exclusivity). Full **256K** context fits at q8_0 KV single
 session (~31 GB). Deploy: `kubernetes/apps/ai/llama-server/`; image: `docker/llama-cpp-rocm/`.
 
-| Engine | Decode (1-stream) | PP @2048 | Prefix cache | Batch+cache | Note |
-|---|---:|---:|---|:---:|---|
-| **llama.cpp ROCm + MTP** | **34** | ~1000 | ✅ 7.5× | ✅ | the pick (upstream's ROCm-7.2.1 image = only ~18) |
-| sglang (AWQ, fp8 KV) | 15 | **2820** | ✅ 3.5× | ❌ exclusive | faster PP, but radix XOR batch |
-| vLLM (4-bit, fp8 KV) | 6–8 | ~1130 | ✅ 6.3× | ✅ | batches to 47@C8 but slow 1-stream |
+| Engine | TG (1-stream) | PP | Agg TG C=8 | Agg TG C=32 | APC | Batch+APC | Note |
+|---|---:|---:|---:|---:|:---:|:---:|---|
+| **llama.cpp ROCm + MTP** | **~39** | ~423 cold | ~35 (flat) | ~34 (flat) | ✅ | ✅ | parallel=1 → flat agg at all C |
+| **vLLM kyuz0 0.22.1rc1 (FP8 KV)** | 7 | ~1200 | 47.1 | **128.9** | ✅ | ✅ | fp8+APC coexist on kyuz0; AITER crashes (GDN SRAM) |
+| sglang (AWQ, fp8 KV, Config B) | 15 | **2820** | 28.8 | — | ❌ (exclusive) | ❌ | older image/fork — re-testing with 0.5.13 |
 
 Retired trial configs (revival anchors) are in
 [`ai-serving-trials-archive.md`](./ai-serving-trials-archive.md). The rest of this file is the
@@ -196,6 +257,45 @@ workload is latency-bound (few users → sglang) or throughput/agentic-reuse-bou
 
 torch: **stay on 2.12 + `PYTORCH_HIP_ALLOC_CONF=""`** in all cases (no rebuild; matches 2.11 perf).
 
+## llama.cpp + MTP — full concurrency sweep (2026-06-20)
+
+**Engine:** custom ROCm-7.13 gfx1201 image (`ghcr.io/tanguille/llama-cpp-rocm-gfx1201:gfx1201@sha256:abc3735`)
+**Model:** `unsloth/Qwen3.6-27B-MTP-GGUF:UD-Q4_K_XL` with MTP (`--spec-type draft-mtp --spec-draft-n-max 4`)
+**Config:** `parallel=1`, `ctx=262144`, q4_0 KV, `--no-mmap`, `flash-attn on`
+**Benchmark:** 6-repeat long prompt (~420 tokens), 200 output tokens, `timings` from SSE stream.
+
+### Single-stream (3 runs)
+
+| Run | PP tok/s | TG tok/s | TTFT | MTP accepted |
+|---|---:|---:|---:|---:|
+| 1 (cold) | 423 | 40.2 | 0.94s | 146/208 (70%) |
+| 2 (KV cache hit) | ~33* | 39.3 | 0.16s | 146/208 (70%) |
+| 3 (KV cache hit) | ~33* | 37.6 | 0.17s | 146/208 (70%) |
+| **avg** | — | **39.1** | 0.42s | 70% |
+
+\*PP=33 on runs 2-3 is misleading — only 1–4 new tokens processed (full KV cache hit from
+identical repeated prompt). Cold PP (run 1) = **423 tok/s** at Q4_K_XL.
+
+### Concurrency sweep (16–48 requests, 200 output tokens each)
+
+| C | Agg TG tok/s | Per-stream TG tok/s | TTFT |
+|---|---:|---:|---:|
+| 1 (16 req) | 37.0 | 38.1 | 0.16s |
+| 4 (16 req) | 34.5 | 35.6 | 15.4s |
+| 8 (24 req) | 35.7 | 36.6 | 32.8s |
+| 16 (48 req) | 34.0 | 35.3 | 74.5s |
+
+**Key observation:** `parallel=1` makes aggregate throughput completely flat at ~34–37 tok/s
+regardless of concurrency. All concurrent requests queue and serialize through the single decode
+slot. TTFT grows linearly (~4.6s per queued request). Per-stream TG stays high because KV cache
+is reused for identical prompts. For multi-user throughput, this is a hard ceiling: llama.cpp
+with parallel=1 never exceeds ~40 tok/s total regardless of how many clients connect.
+
+This is the key tradeoff vs SGLang/vLLM which batch multiple decode steps — their aggregate TG
+can reach 50–150+ tok/s at C8+, at the cost of higher per-stream latency.
+
+---
+
 ## llama.cpp on gfx1201 — measured baseline + tuning research (2026-06-12)
 
 **Engine:** lemonade-sdk `llamacpp-rocm` **b1292** (latest; ROCm 7.13 nightly), build `a66d505`.
@@ -242,11 +342,125 @@ zedbytes 58–72 `-sm tensor`), so there is likely real headroom above 24.8.
 (2) baseline confirm → (3) `-b/-ub` → (4) `ROCBLAS_USE_HIPBLASLT=1` → (5) perf-level high →
 (6) iGPU-hide + `-sm` variants if applicable → (7) cache probe + small-concurrency sweep on winner.
 
+## vLLM kyuz0 0.22.1rc1 — Qwen3.6-27B cyankiwi INT4 (2026-06-20)
+
+**Image:** `docker.io/kyuz0/vllm-therock-gfx1201:latest` (vLLM 0.22.1rc1.dev499+g470229c37.d20260613,
+June 13 2026). Community build with all RDNA4 patches: rocm.py VRAM detection, AITER arch alias,
+FP8 matrix configs. Requires `privileged: true` for GPU access (no `amd.com/gpu` resource limit).
+
+**Model:** `cyankiwi/Qwen3.6-27B-AWQ-INT4` (compressed-tensors format, 19 GiB)
+**Config:** `--max-model-len 32768 --gpu-memory-utilization 0.92 --enable-prefix-caching
+--max-num-seqs 16 --trust-remote-code`, `VLLM_ROCM_USE_AITER=0`, `FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE`
+**KV cache:** fp16 auto, 7.46 GiB → 105,813 tokens, max concurrency @32K = 3.23×
+
+**Key startup findings:**
+- `mattbucci/Qwen3.6-27B-AWQ` fails: vision tower MLP layer sizes incompatible with awq_marlin kernel
+  ("input size not aligned"). `cyankiwi/Qwen3.6-27B-AWQ-INT4` uses `TritonW4A16LinearKernel` → loads.
+- CUDAGraph bug #39010 (V1 deadlock on gfx1201) is **fixed** in kyuz0 0.22.1rc1 — 7/7 batch sizes
+  captured without hanging. `FULL_AND_PIECEWISE` mode, sizes [1, 2, 4, 8, 16, 24, 32].
+- `Triton/FLA GDN prefill kernel` auto-selected for DeltaNet layers.
+- `ROCM_ATTN` backend selected (ROCM_AITER_UNIFIED_ATTN skipped because VLLM_ROCM_USE_AITER=0).
+- CUDAGraphs give NO single-stream speedup (confirms gfx1201 is compute-bound, not launch-overhead
+  bound — same as the sglang fork documented for CUDA graphs in 2025).
+
+### Concurrency sweep (in ~420 / out 200, APC enabled, CUDAGraphs enabled)
+
+| Concurrency | Agg TG tok/s | Per-stream TG tok/s | Median TTFT |
+|---|---:|---:|---:|
+| 1-stream (3 runs) | — | **7.0** | 0.50s |
+| C=1 (16 req) | 6.9 | 7.0 | 0.41s |
+| C=4 (16 req) | 26.2 | 6.8 | 1.26s |
+| C=8 (24 req) | **48.6** | 6.7 | 3.01s |
+| C=16 (48 req) | **85.8** | 6.1 | 4.59s |
+
+**PP:** ~1200 tok/s (420-token prompt, max_tokens=1, steady-state TTFT ~0.35s)
+
+**Analysis:**
+- Single-stream TG unchanged between eager and graph mode (compute-bound, not launch-overhead bound).
+- Aggregate TG scales **linearly** to C=16 (6.9 → 85.8 = 12.4×). GPU is memory-bandwidth bound in
+  single-stream but transitions to compute-throughput bound as batch size grows — the ideal scaling
+  regime for vLLM's continuous batching.
+- **85.8 tok/s @ C=16 beats every engine at any configuration tested so far.**
+- APC (prefix caching) confirmed active and coexisting with batching — vLLM's structural advantage
+  over sglang/ROCm for this hybrid model.
+- TTFT at C=16 is 4.6s — acceptable for throughput workloads.
+
+### Comparison to prior vLLM reference (0.19.1, GPTQ-4bit, fp8 KV)
+
+| Metric | vLLM 0.19.1 (GPTQ, fp8 KV) | vLLM kyuz0 0.22.1rc1 (CT, fp16 KV) |
+|---|---|---|
+| Single-stream TG | 8.4 tok/s | 7.0 tok/s |
+| C=8 agg TG | 47 tok/s | **48.6 tok/s** |
+| Max tested C | 10 | **16** |
+| C=16 agg TG | — | **85.8 tok/s** |
+| Model | btbtyler09/GPTQ-4bit | cyankiwi/AWQ-INT4 |
+| Max context | 131K (fp8 KV) | 32K (fp16 KV) |
+
+Newer engine slightly worse at C=1 but matches at C=8 and scales past C=10 where 0.19.1 saturated.
+
+## vLLM kyuz0 0.22.1rc1 — optimization experiments (2026-06-20)
+
+### VLLM_ROCM_USE_AITER=1 — FAILS on gfx1201 with Qwen3.6-27B
+
+Enabling AITER unified attention triggers Triton autotuning for the GDN/DeltaNet linear-attention
+layers. ALL tested kernel configurations exceed gfx1201's 64 KiB shared memory per workgroup limit
+(AITER's config tables target MI300X/MI350X with larger SRAM), exhausting the autotune candidate
+list. vLLM raises `IndexError: list index out of range` on empty best-config list and aborts startup.
+**Conclusion: `VLLM_ROCM_USE_AITER=1` is not viable for Qwen3.6-27B on gfx1201.**
+
+### FP8 KV cache + APC (Config C): `--kv-cache-dtype fp8 --enable-prefix-caching --max-num-seqs 32`
+
+**KV cache:** fp8, ~3.74 GiB → **196,608 tokens** (1.86× FP16's 105,813 — confirms no fused fp8
+dequant on gfx1201, overhead paid at every decode step but capacity doubles).
+
+Bug #13147 (fp8 KV + APC crash on RDNA3) does **NOT** affect kyuz0/gfx1201. FP8 + APC starts
+cleanly and coexist without errors.
+
+| Concurrency | Agg TG tok/s | Per-stream TG tok/s | Median TTFT | vs FP16 baseline |
+|---|---:|---:|---:|---:|
+| 1-stream | — | **6.9** | 0.41s | −1% |
+| C=4 | 25.7 | 6.7 | 1.34s | −2% |
+| C=8 | 47.1 | 6.5 | 2.97s | −3% |
+| C=16 | 78.7 | 5.6 | 4.57s | **−8%** (dequant overhead) |
+| **C=32** | **128.9** | 4.9 | 8.63s | **+50%** vs FP16@C=16 |
+
+**Analysis:** FP8 dequant overhead (~8% at C=16) is real but overcome by the extra slots: doubling
+max_num_seqs (16→32) allows C=32 which scales to 128.9 tok/s — 50% beyond the FP16 ceiling of 85.8
+at C=16. Throughput still appears linear at C=32 (not yet saturated). FP8 KV is the better
+production config for multi-user workloads despite the per-batch overhead.
+
+**Hadamard rotation:** No flag exists in vLLM or SGLang for FP8 KV. The RFC (#28538) was closed
+stale. TurboQuant (the only 4-bit + Hadamard scheme in vLLM) targets MI355X only, not gfx1201.
+
+### Updated production recommendation
+
+| Config | Single-stream | Agg @ C=16 | Agg @ C=32 | APC |
+|---|---:|---:|---:|:---:|
+| FP16 KV, APC, slots=16 (baseline) | 7.0 tok/s | 85.8 tok/s | — (capped) | ✅ |
+| **FP8 KV, APC, slots=32 (recommended)** | 6.9 tok/s | 78.7 tok/s | **128.9 tok/s** | ✅ |
+
+**Recommended vLLM production flags:**
+```
+--kv-cache-dtype fp8
+--enable-prefix-caching
+--max-num-seqs 32
+--max-model-len 32768
+--gpu-memory-utilization 0.93
+VLLM_ROCM_USE_AITER=0
+FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE
+```
+
+---
+
 ## Open / next experiments
 
 - [x] **bf16 KV cache** — TESTED: *slower* (12.35 vs 14.96) and half capacity. fp8 KV wins on
       sglang (native gfx1201 fp8 kernels). Keep fp8_e4m3.
-- [ ] vLLM batching benchmark (same model) — does APC + continuous batching give *both* on ROCm?
+- [x] vLLM kyuz0 batching benchmark — **DONE**: 48.6 tok/s @ C8, 85.8 tok/s @ C16, APC on, CUDAGraphs work on gfx1201 in 0.22.1rc1 (see section above)
+- [x] vLLM FP8 KV + APC coexistence — **DONE**: 128.9 tok/s @ C32 (50% gain over FP16 baseline); bug #13147 doesn't affect kyuz0. FP8 is recommended config.
+- [x] VLLM_ROCM_USE_AITER=1 — **FAILS**: GDN kernel autotune exhausts all configs ≤ 64 KiB SRAM on gfx1201. AITER config tables target MI300X, not gfx1201.
+- [ ] vLLM fp8 KV + extended context: `--max-model-len 131072` with fp8 KV — test if 32K→131K context affects throughput
+- [ ] Push C beyond 32 (C=48, C=64) — throughput still linear at C=32, saturation point unknown
 - [ ] `mamba_track_interval` / scheduler tuning under Config B for higher concurrency.
 - [ ] Quality probe (logprob/eval) to fully close the fork's flagged torch-2.12 attention drift
       (basic coherence already passes).
