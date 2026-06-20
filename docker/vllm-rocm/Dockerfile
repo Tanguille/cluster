@@ -5,11 +5,14 @@
 #   The AMD image has no newer gfx1201 variant, and PyPI vLLM wheels are CUDA-only.
 #   Building from source gives us the latest vLLM with ROCm compiled for gfx1201.
 #
-# Ubuntu 26.04 + Python 3.13:
-#   AMD's packages-multi-arch APT repo is published under "ubuntu2404" but contains only
-#   C libraries (ROCm runtime, BLAS, LLVM) — no Python. These install fine on Ubuntu 26.04
-#   since they have no Ubuntu-version-specific Python deps. Ubuntu 26.04 ships Python 3.13
-#   natively, and torch==2.11.0+rocm7.2 is available as a cp313 wheel from PyTorch's index.
+# Python version strategy:
+#   We install the Ubuntu-default python3 (no version pinned) so the base image can be
+#   bumped by Renovate without touching Python references. AMD's packages-multi-arch APT
+#   repo contains only C libraries (ROCm, BLAS, LLVM) — no Python deps — so installing
+#   them from the ubuntu2404 repo works on any Ubuntu version.
+#   The venv's /opt/vllm/bin/python symlink is relative; it works in the runtime stage
+#   regardless of which python3.x the OS provides, as long as torch rocm7.2 has a wheel
+#   for that version (currently cp310–cp313; cp314 availability depends on PyTorch release).
 #
 # Build chain:
 #   1. Ubuntu 26.04 + AMD's gfx120X-tuned ROCm 7.13 from APT (same packages as llama-cpp-rocm)
@@ -37,7 +40,7 @@ ENV ROCM_PATH=/opt/rocm/core-7.13 \
 
 # Install ROCm 7.13 (gfx1201-tuned) from AMD's packages-multi-arch APT repo.
 # Same set as llama-cpp-rocm: HIP runtime, gfx1201 Tensile/rocBLAS kernels, LLVM/clang.
-# Python 3.13 is native on Ubuntu 26.04; python3.13-venv provides the venv module.
+# python3-venv provides the venv module for the distro-default Python.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         wget gnupg ca-certificates \
     && mkdir -p /etc/apt/keyrings \
@@ -51,7 +54,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         amdrocm-blas-dev7.13 \
         amdrocm-hipblas-common-dev7.13 \
         amdrocm-llvm-dev7.13 \
-        python3.13 python3.13-dev python3.13-venv \
+        python3 python3-dev python3-venv \
         build-essential cmake ninja-build git \
     && rm -rf /var/lib/apt/lists/*
 
@@ -60,7 +63,7 @@ ENV HIP_PATH=${ROCM_PATH} \
     PATH=${ROCM_PATH}/bin:${ROCM_PATH}/lib/llvm/bin:${PATH}
 
 # Isolated venv so the runtime stage only needs to copy one directory.
-RUN python3.13 -m venv /opt/vllm
+RUN python3 -m venv /opt/vllm
 
 # Build-time base packages: packaging + setuptools are needed by vLLM's pyproject.toml
 # when building with --no-build-isolation (pip skips the isolated build env, so any
@@ -118,7 +121,7 @@ FROM docker.io/library/ubuntu:26.04@sha256:6fee4abc5fe6a21f40022199b2d5063eb5917
 RUN apt-get update \
     && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
-        python3.13 \
+        python3 \
         libgomp1 libstdc++6 libatomic1 libgcc-s1 libssl3 libnuma1 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
