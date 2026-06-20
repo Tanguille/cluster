@@ -73,6 +73,7 @@ session (~31 GB). Deploy: `kubernetes/apps/ai/llama-server/`; image: `docker/lla
 | Engine | TG (1-stream) | PP | Agg TG C=8 | Agg TG C=32 | APC | Batch+APC | Note |
 |---|---:|---:|---:|---:|:---:|:---:|---|
 | **llama.cpp ROCm + MTP** | **~39** | ~423 cold | ~35 (flat) | ~34 (flat) | ✅ | ✅ | parallel=1 → flat agg at all C |
+| **vLLM kyuz0 + FP8 KV + MTP×4** | **18.4** | ~1200 | **126.8** | — | ✅ | ✅ | 2.6× C=1 gain; C=8 matches old C=32 throughput |
 | **vLLM kyuz0 0.22.1rc1 (FP8 KV)** | 7 | ~1200 | 47.1 | **128.9** | ✅ | ✅ | fp8+APC coexist on kyuz0; AITER crashes (GDN SRAM) |
 | sglang (AWQ, fp8 KV, Config B) | 15 | **2820** | 28.8 | — | ❌ (exclusive) | ❌ | older image/fork — re-testing with 0.5.13 |
 
@@ -434,21 +435,51 @@ stale. TurboQuant (the only 4-bit + Hadamard scheme in vLLM) targets MI355X only
 
 ### Updated production recommendation
 
-| Config | Single-stream | Agg @ C=16 | Agg @ C=32 | APC |
-|---|---:|---:|---:|:---:|
-| FP16 KV, APC, slots=16 (baseline) | 7.0 tok/s | 85.8 tok/s | — (capped) | ✅ |
-| **FP8 KV, APC, slots=32 (recommended)** | 6.9 tok/s | 78.7 tok/s | **128.9 tok/s** | ✅ |
+| Config | Single-stream | Agg @ C=8 | Agg @ C=16 | Agg @ C=32 | APC |
+|---|---:|---:|---:|---:|:---:|
+| FP16 KV, APC, slots=16 (baseline) | 7.0 tok/s | 48.6 tok/s | 85.8 tok/s | — | ✅ |
+| FP8 KV, APC, slots=32 | 6.9 tok/s | 47.1 tok/s | 78.7 tok/s | **128.9 tok/s** | ✅ |
+| **FP8 KV, APC, MTP×4, slots=16 (recommended)** | **18.4 tok/s** | **126.8 tok/s** | **129.9 tok/s** | — | ✅ |
+
+MTP via built-in Qwen3.6 draft heads (zero separate model needed). At C=8, MTP+FP8 already matches
+the old FP8-only C=32 throughput, with 15.9 tok/s per-stream vs 4.9 (3.2× better QoS at same
+total bandwidth). Use `--spec-method mtp` (preferred) — `qwen3_next_mtp` is a deprecated alias.
 
 **Recommended vLLM production flags:**
 ```
 --kv-cache-dtype fp8
 --enable-prefix-caching
---max-num-seqs 32
+--max-num-seqs 16
 --max-model-len 32768
 --gpu-memory-utilization 0.93
+--spec-method mtp
+--spec-tokens 4
 VLLM_ROCM_USE_AITER=0
 FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE
 ```
+
+### MTP concurrency sweep (2026-06-21)
+
+**Config:** FP8 KV + APC + `--spec-method qwen3_next_mtp --spec-tokens 4` (kyuz0 0.22.1rc1)
+**Model:** `cyankiwi/Qwen3.6-27B-AWQ-INT4`, max_num_seqs=16, in ~420 / out 200
+
+Qwen3.6-27B has MTP draft heads baked in — same as llama.cpp's `--spec-type draft-mtp`.
+vLLM loaded TWO sets of checkpoint shards (main model + MTP heads), confirming native MTP support.
+
+| Concurrency | Agg TG tok/s | Per-stream TG tok/s | Median TTFT | vs FP8 baseline |
+|---|---:|---:|---:|---:|
+| 1-stream (3 runs) | — | **18.4** | 0.29s | **+2.6×** |
+| C=4 (16 req) | 64.8 | 16.2 | 1.21s | **+2.5×** |
+| C=8 (24 req) | 126.8 | 15.9 | 1.00s | **+2.7×** |
+| C=16 (48 req) | 129.9 | 8.1 | 1.99s | +1.7× |
+
+**TTFT improvement:** MTP at C=8 gives 1.00s TTFT vs 2.97s without MTP — fewer scheduling rounds
+needed to generate the same tokens, so requests queue less. At C=16, saturation begins (per-stream
+drops from 15.9 to 8.1) — GPU compute is fully utilized by the 5× token compute per step (4 draft +
+verify). The max concurrency sweet spot for QoS is C=8.
+
+**Note:** vLLM auto-set `max_num_scheduled_tokens=2048` based on spec config. This limits
+token budget per scheduling step. No impact observed at C≤16 with out=200.
 
 ---
 
@@ -459,8 +490,9 @@ FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE
 - [x] vLLM kyuz0 batching benchmark — **DONE**: 48.6 tok/s @ C8, 85.8 tok/s @ C16, APC on, CUDAGraphs work on gfx1201 in 0.22.1rc1 (see section above)
 - [x] vLLM FP8 KV + APC coexistence — **DONE**: 128.9 tok/s @ C32 (50% gain over FP16 baseline); bug #13147 doesn't affect kyuz0. FP8 is recommended config.
 - [x] VLLM_ROCM_USE_AITER=1 — **FAILS**: GDN kernel autotune exhausts all configs ≤ 64 KiB SRAM on gfx1201. AITER config tables target MI300X, not gfx1201.
+- [x] **MTP speculative decoding** — **DONE**: `--spec-method mtp --spec-tokens 4`. C=1: 18.4 tok/s (2.6×), C=8: 126.8 tok/s agg (2.7×). Qwen3.6-27B has built-in MTP heads — no separate draft model needed. MTP is now the recommended production config.
 - [ ] vLLM fp8 KV + extended context: `--max-model-len 131072` with fp8 KV — test if 32K→131K context affects throughput
-- [ ] Push C beyond 32 (C=48, C=64) — throughput still linear at C=32, saturation point unknown
+- [ ] Push MTP C beyond 16 with max_num_seqs=32 — test if C=32 MTP reaches 200+ tok/s
 - [ ] `mamba_track_interval` / scheduler tuning under Config B for higher concurrency.
 - [ ] Quality probe (logprob/eval) to fully close the fork's flagged torch-2.12 attention drift
       (basic coherence already passes).
