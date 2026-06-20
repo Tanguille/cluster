@@ -65,6 +65,36 @@ RUN pip install --no-cache-dir --no-deps "torchvision==0.26.0+rocm7.2" \
 RUN pip install --no-cache-dir --no-deps --no-build-isolation \
     "amd-aiter @ git+https://github.com/ROCm/aiter.git@v0.1.15.post2"
 
+# SGLang 0.5.13 requires sglang-kernel (sgl_kernel) for custom attention/quant ops.
+# The PyPI wheel is CUDA-only (SM80/SM90/SM100). Build the ROCm path from source.
+#
+# sgl-kernel/setup_rocm.py only targets gfx942 (MI300X) and gfx950 (MI350X) by default
+# and exits if any other arch is detected. We patch it to accept gfx1201 (RDNA4), using:
+#   FP8 macro: -DHIP_FP8_TYPE_E4M3 (same as gfx950; gfx1201 also uses native E4M3)
+#   TopK dynamic SMEM: 48 KB (same as gfx942; gfx1201 has the same 64 KB LDS limit)
+#
+# At build time there is no GPU, so setup_rocm.py falls through to using AMDGPU_TARGET.
+# We set it to gfx1201 so hipcc cross-compiles the extensions for the right ISA.
+RUN pip install --no-cache-dir ninja \
+    && GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "${SGLANG_VERSION}" \
+         https://github.com/sgl-project/sglang /tmp/sglang-src \
+    && cd /tmp/sglang-src/sgl-kernel \
+    && sed -i \
+         -e 's/if amdgpu_target not in \["gfx942", "gfx950"\]/if amdgpu_target not in ["gfx942", "gfx950", "gfx1201"]/' \
+         -e 's/topk_dynamic_smem_bytes = 48 \* 1024 if amdgpu_target == "gfx942" else 32 \* 1024 \* 4/topk_dynamic_smem_bytes = 48 * 1024 if amdgpu_target in ["gfx942", "gfx1201"] else 32 * 1024 * 4/' \
+         setup_rocm.py \
+    && pip uninstall -y sglang-kernel \
+    && AMDGPU_TARGET=gfx1201 python3 setup_rocm.py bdist_wheel \
+    && pip install --no-cache-dir --no-deps dist/sglang_kernel-*.whl \
+    && rm -rf /tmp/sglang-src
+
+# sglang.launch_server crashes on gfx1201 when triton 3.7.1 is first imported lazily
+# via torch._dynamo (aiter/__init__.py at line 59 triggers this). Pre-importing triton
+# and its runtime submodules in sitecustomize.py caches them before the lazy path fires.
+RUN SITE_PKG=$(python3 -c "import sysconfig; print(sysconfig.get_paths()['purelib'])") \
+    && printf 'try:\n    import triton, triton.runtime, triton.knobs\nexcept Exception:\n    pass\n' \
+       > "$SITE_PKG/sitecustomize.py"
+
 ENV HIP_VISIBLE_DEVICES=0 \
     PYTORCH_ROCM_ARCH=gfx1201
 
