@@ -6,16 +6,12 @@
 #   Building from source gives us the latest vLLM with ROCm compiled for gfx1201.
 #
 # Python version strategy:
-#   We install the Ubuntu-default python3 (no version pinned) so the base image can be
-#   bumped by Renovate without touching Python references. AMD's packages-multi-arch APT
-#   repo contains only C libraries (ROCm, BLAS, LLVM) — no Python deps — so installing
-#   them from the ubuntu2404 repo works on any Ubuntu version.
-#   The venv's /opt/vllm/bin/python symlink is relative; it works in the runtime stage
-#   regardless of which python3.x the OS provides, as long as torch rocm7.2 has a wheel
-#   for that version (currently cp310–cp313; cp314 availability depends on PyTorch release).
+#   Ubuntu 24.04 (Python 3.12). Ubuntu 26.04's Python 3.14 is blocked by vLLM 0.23.0's
+#   hard dep amd-quark, which caps at Requires-Python <3.14 across all 1.x releases.
+#   Python 3.12 has all required wheels (torch rocm7.2, amd-quark, flashinfer, etc.).
 #
 # Build chain:
-#   1. Ubuntu 26.04 + AMD's gfx120X-tuned ROCm 7.13 from APT (same packages as llama-cpp-rocm)
+#   1. Ubuntu 24.04 (Python 3.12) + AMD's gfx120X-tuned ROCm 7.13 from APT
 #   2. torch==2.11.0+rocm7.2 from PyTorch's ROCm wheel index (ABI-compatible with ROCm 7.13;
 #      same pairing used in the sglang-rdna4 benchmarks: torch 2.12.0+rocm7.2 on ROCm 7.13)
 #   3. vLLM cloned at tag + built with VLLM_TARGET_DEVICE=rocm PYTORCH_ROCM_ARCH=gfx1201
@@ -32,7 +28,7 @@
 
 # ---------------------------------------------------------------------------------------------
 # Build stage
-FROM docker.io/library/ubuntu:26.04@sha256:6fee4abc5fe6a21f40022199b2d5063eb591743c80d3d2f5fadf620a98cbae0d AS build
+FROM docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11 AS build
 
 ENV ROCM_PATH=/opt/rocm/core-7.13 \
     ROCM_HOME=/opt/rocm/core-7.13 \
@@ -120,8 +116,8 @@ RUN mkdir -p /opt/rocm-runtime \
          || { echo "FATAL: libLLVM not staged — hipBLASLt will fail at runtime"; exit 1; }
 
 # ---------------------------------------------------------------------------------------------
-# Runtime stage — slim Ubuntu 26.04 + ROCm runtime + Python venv. No build toolchain.
-FROM docker.io/library/ubuntu:26.04@sha256:6fee4abc5fe6a21f40022199b2d5063eb591743c80d3d2f5fadf620a98cbae0d AS runtime
+# Runtime stage — slim Ubuntu 24.04 + ROCm runtime + Python venv. No build toolchain.
+FROM docker.io/library/ubuntu:24.04@sha256:023f8a753c22258c9fe2d0005a7d28258038da7d620e9f93e9ad78aa266f9f11 AS runtime
 
 RUN apt-get update \
     && apt-get upgrade -y \
