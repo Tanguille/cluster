@@ -25,40 +25,23 @@ spec:
   values:
     fullnameOverride: *app
 
-    config:
-      port: 8081
-      intervalSeconds: 5
-      logLevel: info
-
-    hostAccess:
-      # /dev/dri required to discover and read AMD GPUs
-      devDri: /dev/dri
-      # /sys required for frequency, memory, AMD engine, hwmon stats
-      sys: /sys
-      # No msr module on Talos — leave empty (default)
-      devCpu: ""
-      hostNetwork: false
-
-    securityContext:
-      privileged: false
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop:
-          - ALL
-        # AMD sysfs metrics need no extra capabilities; override chart defaults.
-        add: []
-
-    serviceAccount:
-      create: true
-      automount: false
+    podSecurityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      supplementalGroups:
+        - 44
+        - 226
+      seccompProfile:
+        type: Unconfined
 
     resources:
       requests:
         cpu: 10m
         memory: 32Mi
+        squat.ai/dri: 1
       limits:
-        memory: 64Mi
+        memory: 128Mi
+        squat.ai/dri: 1
 
     nodeSelector:
       amd.com/gpu: "true"
@@ -71,8 +54,6 @@ spec:
     monitoring:
       serviceMonitor:
         enabled: true
-        interval: 30s
-        scrapeTimeout: 10s
         relabelings:
           - action: replace
             regex: (.*)
@@ -90,7 +71,6 @@ spec:
         enabled: true
         grafanaOperator:
           enabled: true
-          allowCrossNamespaceImport: true
           folder: hardware
           matchLabels:
             grafana.internal/instance: grafana
