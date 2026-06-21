@@ -115,21 +115,6 @@ spec:
               # AITER ops hang on gfx1201 with this vLLM build.
               VLLM_ROCM_USE_AITER: "0"
               FLASH_ATTENTION_TRITON_AMD_ENABLE: "TRUE"
-            # Warm the structured-output bitmask Triton kernel off the hot path: it otherwise
-            # JIT-compiles mid-inference on the first tool call and head-of-line-blocks the engine.
-            # Backgrounded so the hook returns immediately and never delays startup/readiness.
-            lifecycle:
-              postStart:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - |
-                      (until curl -sf http://localhost:8000/health >/dev/null 2>&1; do sleep 10; done
-                       curl -s http://localhost:8000/v1/chat/completions \
-                         -H 'Content-Type: application/json' \
-                         -d '{"model":"qwen-3.6","messages":[{"role":"user","content":"warmup"}],"max_tokens":1,"tools":[{"type":"function","function":{"name":"noop","parameters":{"type":"object","properties":{}}}}],"tool_choice":"required"}' \
-                         >/dev/null 2>&1) &
             probes:
               startup: &probeBase
                 enabled: true
