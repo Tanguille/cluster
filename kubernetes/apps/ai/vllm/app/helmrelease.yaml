@@ -103,6 +103,11 @@ spec:
               # mirrors the retired llama-server `chat-template-kwargs = {"preserve_thinking": true}`.
               - --default-chat-template-kwargs
               - '{"preserve_thinking": true}'
+              # Override the model's generation_config.json (ships temperature=1.0) with the tuned
+              # sampling from the retired llama-server config: temp 0.6 / top_k 20 / top_p 0.95 /
+              # min_p 0. Applied as request defaults when a client doesn't set its own.
+              - --override-generation-config
+              - '{"temperature": 0.6, "top_k": 20, "top_p": 0.95, "min_p": 0.0}'
               # Pin xgrammar (default 'auto' can silently fall back to the slower guidance backend)
               # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
               - --structured-outputs-config
