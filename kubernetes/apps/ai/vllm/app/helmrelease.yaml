@@ -69,11 +69,10 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # 240K context. MTP draft-slot KV reservation shrinks the pool below the 262,144
-              # native max (engine estimated 252,800 with MTP on → crash-loop at 262144), so we
-              # trade ~22K of context for speculative decode. Margin covers boot-to-boot pool drift.
+              # Full 262,144 native context. Fits the fp8 KV pool (~266-289K tokens, varies per boot)
+              # with MTP off; if a boot ever profiles below this, vLLM crash-loops → lower max-model-len.
               - --max-model-len
-              - "245760"
+              - "262144"
               - --max-num-seqs
               - "16"
               # Raise above the 2048 default for better prefill throughput under concurrent requests.
@@ -112,12 +111,11 @@ spec:
               # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
               - --structured-outputs-config
               - '{"backend": "xgrammar", "disable_any_whitespace": true}'
-              # MTP self-speculation (recipe form, num_speculative_tokens=2) to lift decode tok/s.
-              # RISK: vLLM #34650 — spec-decode + reasoning parser + structured output can miss
-              # </think> (spec tokens pre-increment the count), re-wedging tool calls. Re-enabled on
-              # trial now that the reasoning parser is in place; revert if Deferred/~0 tok/s returns.
-              - --speculative-config
-              - '{"method": "mtp", "num_speculative_tokens": 2}'
+              # MTP self-speculation stays OFF. Re-tested 2026-06-21 (num_speculative_tokens=2):
+              # under concurrent tool-calling it re-triggered the structured-output wedge — requests
+              # piled up as 'deferred' on the grammar FSM and decode fell to ~0 tok/s (vLLM #34650,
+              # spec-decode × structured output). Helps single-stream only; net loss for this
+              # agentic workload. MTP off also frees draft KV → full 262K context fits.
               # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes shrink
               # activation buffers ~0.5 GiB; not on by default.
               - --compilation-config
