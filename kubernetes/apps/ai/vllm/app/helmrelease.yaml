@@ -60,40 +60,32 @@ spec:
               - -m
               - vllm.entrypoints.openai.api_server
             args:
-              # AWQ INT4 is the recommended quant for gfx1201 (kyuz0/amd-r9700-vllm-toolboxes verified).
-              # fp8 and NVFP4 don't work on this card (no fast kernel / emulation-only).
+              # AWQ INT4: recommended quant for gfx1201 (kyuz0 verified). fp8/NVFP4 don't work here.
               - --model
               - cyankiwi/Qwen3.6-27B-AWQ-INT4
-              # Keep qwen-3.6 as served name so litellm/toolhive configs are unchanged.
               - --served-model-name
               - qwen-3.6
               - --host
               - 0.0.0.0
               - --port
               - "8000"
-              # Triton attention (LM + vision encoder). kyuz0's AITER Unified Attention is faster on
-              # paper (~4%) but its master flag also forces an AITER sampler that JIT-crashes on this
-              # image with top_k/top_p (hipcc version unparseable); TRITON_ATTN is the fastest backend
-              # that needs no AITER, so it avoids that crash.
+              # TRITON_ATTN: AITER attention is ~4% faster but forces an AITER sampler that crashes here.
               - --attention-backend
               - TRITON_ATTN
               - --mm-encoder-attn-backend
               - TRITON_ATTN
-              # Eager: keeps the config simple and sidesteps gfx1201 graph-capture issues; decode is
-              # GEMM-bound so cudagraph wouldn't help. (Vision encoder kept — image input needed.)
+              # Eager: avoids gfx1201 graph-capture issues; decode is GEMM-bound so cudagraph wouldn't help.
               - --enforce-eager
-              # 240K context (fp8 KV). Full 262K doesn't fit once the vision encoder is loaded (we keep
-              # vision; kyuz0's bench drops it). Lower further if a boot crash-loops on the pool.
+              # 240K (fp8 KV); full 262K doesn't fit alongside the vision encoder. Lower if it crash-loops.
               - --max-model-len
               - "245760"
               - --max-num-seqs
               - "32"
               - --max-num-batched-tokens
               - "16384"
-              # 0.97 (not kyuz0's 0.95) to claw back KV headroom, since we keep the vision encoder.
               - --gpu-memory-utilization
               - "0.97"
-              # fp8 KV halves KV footprint → enables full 262K context; AWQ Hadamard rotation absorbs the error.
+              # fp8 KV halves KV footprint; AWQ Hadamard rotation absorbs the error.
               - --kv-cache-dtype
               - fp8
               - --enable-prefix-caching
@@ -103,8 +95,7 @@ spec:
               # Qwen3.6 emits qwen3_coder-style tool calls (<function=..><parameter=..>), not Hermes JSON.
               - --tool-call-parser
               - qwen3_coder
-              # Reasoning model: suspends xgrammar during <think> so it only constrains the answer.
-              # Without it the tool grammar masks thinking tokens → ~0 tok/s stall under concurrent tools.
+              # Suspends xgrammar during <think>; without it the tool grammar masks thinking → ~0 tok/s stall.
               - --reasoning-parser
               - qwen3
               # Keep prior-turn reasoning in context (mirrors llama-server preserve_thinking).
@@ -116,8 +107,7 @@ spec:
               # Pin xgrammar (no silent guidance fallback) + no unbounded whitespace → fewer grammar steps.
               - --structured-outputs-config
               - '{"backend": "xgrammar", "disable_any_whitespace": true}'
-              # MTP stays OFF: under concurrent tool-calling it wedges the grammar FSM (deferred, ~0 tok/s;
-              # vLLM #34650). Helps single-stream only — net loss for this workload.
+              # MTP stays OFF: wedges the grammar FSM under concurrent tool-calling (vLLM #34650).
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC
@@ -125,9 +115,8 @@ spec:
               VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
               PYTORCH_ROCM_ARCH: gfx1201
-              # AITER OFF: its master flag forces an AITER top_k/top_p sampler that JIT-crashes on this
-              # image (hipcc version unparseable → IndexError). No granular sampler off-switch exists,
-              # so the whole AITER path stays off; we use TRITON_ATTN attention instead.
+              # AITER OFF: its master flag forces an AITER top_k/top_p sampler that JIT-crashes here
+              # (hipcc unparseable → IndexError), and there's no granular sampler off-switch.
               VLLM_ROCM_USE_AITER: "0"
             probes:
               startup: &probeBase
