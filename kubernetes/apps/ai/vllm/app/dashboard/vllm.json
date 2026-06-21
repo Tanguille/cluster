@@ -2084,7 +2084,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Successful and failed LiteLLM requests to llama-server.",
+      "description": "Successful and failed LiteLLM requests to vllm.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2143,7 +2143,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "sum by (requested_model) (rate(litellm_deployment_success_responses_total{api_base=~\".*llama-server.*\", requested_model=~\"$model\"}[$__rate_interval]))",
+          "expr": "sum by (requested_model) (rate(litellm_deployment_success_responses_total{api_base=~\".*vllm.*\", requested_model=~\"$model\"}[$__rate_interval]))",
           "legendFormat": "success {{requested_model}}",
           "refId": "A"
         },
@@ -2194,7 +2194,7 @@
         "name": "model_name",
         "options": [],
         "query": {
-          "query": "label_values(vllm:num_requests_running{namespace=\"ai\", service=\"llama-server\"}, model_name)",
+          "query": "label_values(vllm:num_requests_running{namespace=\"ai\", service=\"vllm\"}, model_name)",
           "refId": "StandardVariableQuery"
         },
         "refresh": 1,
@@ -2241,7 +2241,7 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "vllm",
-  "uid": "llama-server-vllm",
+  "uid": "vllm",
   "version": 9,
   "weekStart": ""
 }

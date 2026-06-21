@@ -10,7 +10,23 @@ spec:
       app.kubernetes.io/name: llama-server
       app.kubernetes.io/instance: llama-server
   endpoints:
-    # vLLM serves a single model on /metrics, so no per-model query params (llama.cpp needed one endpoint per model).
+    # One endpoint per router preset. Do NOT list multiple models under one endpoint:
+    # the operator emits ?model=a&model=b, which llama.cpp rejects (empty /metrics body).
     - port: http
       path: /metrics
+      params:
+        model:
+          - qwen-3.6
+      relabelings:
+        - sourceLabels: [__param_model]
+          targetLabel: model
+      scrapeTimeout: 10s
+    - port: http
+      path: /metrics
+      params:
+        model:
+          - qwen3-embedding
+      relabelings:
+        - sourceLabels: [__param_model]
+          targetLabel: model
       scrapeTimeout: 10s

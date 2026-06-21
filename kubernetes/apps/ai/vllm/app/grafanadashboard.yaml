@@ -3,7 +3,7 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: llama-server
+  name: vllm
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
@@ -13,5 +13,5 @@ spec:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
   configMapRef:
-    name: llama-server-dashboard
-    key: llama-server.json
+    name: vllm-dashboard
+    key: vllm.json
