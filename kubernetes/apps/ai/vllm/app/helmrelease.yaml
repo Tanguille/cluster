@@ -71,14 +71,16 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # kyuz0's R9700 attention recipe: AITER Unified Attention (Triton) for the LM, plain
-              # Triton for the vision encoder. Enabled by the VLLM_ROCM_USE_AITER_* env block below.
+              # Triton attention (LM + vision encoder). kyuz0's AITER Unified Attention is faster on
+              # paper (~4%) but its master flag also forces an AITER sampler that JIT-crashes on this
+              # image with top_k/top_p (hipcc version unparseable); TRITON_ATTN is the fastest backend
+              # that needs no AITER, so it avoids that crash.
               - --attention-backend
-              - ROCM_AITER_UNIFIED_ATTN
+              - TRITON_ATTN
               - --mm-encoder-attn-backend
               - TRITON_ATTN
-              # Eager: torch.compile/cudagraph capture is unstable with AITER attention on gfx1201.
-              # (We keep the vision encoder — kyuz0's --language-model-only is skipped; image input needed.)
+              # Eager: keeps the config simple and sidesteps gfx1201 graph-capture issues; decode is
+              # GEMM-bound so cudagraph wouldn't help. (Vision encoder kept — image input needed.)
               - --enforce-eager
               # Full native context; fits thanks to fp8 KV. Lower if a boot ever crash-loops on the pool.
               - --max-model-len
@@ -121,18 +123,10 @@ spec:
               VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
               PYTORCH_ROCM_ARCH: gfx1201
-              # kyuz0's AITER-Unified recipe: master ON but ONLY unified-attention enabled. Every other
-              # AITER path is C++/HIP that crashes graph capture on gfx1201, so all OFF.
-              VLLM_ROCM_USE_AITER: "1"
-              VLLM_ROCM_USE_AITER_UNIFIED_ATTENTION: "1"
-              VLLM_ROCM_USE_AITER_MHA: "0"
-              VLLM_ROCM_USE_AITER_PAGED_ATTN: "0"
-              VLLM_ROCM_USE_AITER_MOE: "0"
-              VLLM_ROCM_USE_AITER_LINEAR: "0"
-              VLLM_ROCM_USE_AITER_RMSNORM: "0"
-              VLLM_ROCM_USE_AITER_FP8BMM: "0"
-              VLLM_ROCM_USE_AITER_FP4BMM: "0"
-              VLLM_ROCM_USE_AITER_TRITON_ROPE: "0"
+              # AITER OFF: its master flag forces an AITER top_k/top_p sampler that JIT-crashes on this
+              # image (hipcc version unparseable → IndexError). No granular sampler off-switch exists,
+              # so the whole AITER path stays off; we use TRITON_ATTN attention instead.
+              VLLM_ROCM_USE_AITER: "0"
             probes:
               startup: &probeBase
                 enabled: true
