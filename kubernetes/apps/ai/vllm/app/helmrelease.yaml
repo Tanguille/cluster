@@ -83,9 +83,8 @@ spec:
               # kyuz0 runs the 27B eager on gfx1201: torch.compile/cudagraph capture is unstable with
               # the AITER attention path (IndexError at capture). Eager also frees cudagraph VRAM.
               - --enforce-eager
-              # Text-only serving: skip the vision encoder (saves VRAM + load time). NOTE: this
-              # DISABLES image input — drop this flag if multimodal requests are ever needed.
-              - --language-model-only
+              # NOTE: kyuz0 recommends --language-model-only, but we deliberately keep the vision
+              # encoder loaded — image recognition is a required feature here.
               # Full 262,144 native context. fp8 KV + eager (no cudagraph VRAM) + language-model-only
               # (no vision VRAM) leave ample KV room; if a boot ever profiles below this it crash-loops
               # → lower max-model-len. (kyuz0's bench uses 20480, but that's a throughput-bench value.)
