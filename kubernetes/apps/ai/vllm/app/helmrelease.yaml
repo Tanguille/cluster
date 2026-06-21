@@ -14,12 +14,10 @@ spec:
     remediation:
       retries: 1
   upgrade:
-    # vLLM cold start: ~15-20 min (Dynamo JIT + Triton autotuning + graph capture).
-    # Default 5m timeout triggers rollback before the pod is ready.
+    # Cold start ~15-20 min (Dynamo JIT + Triton autotune + graph capture) > default 5m timeout.
     timeout: 25m
     remediation:
-      # No rollback: cold start can exceed the upgrade timeout on slow PVC reads.
-      retries: -1
+      retries: -1 # no rollback: cold start can exceed the upgrade timeout
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
@@ -54,10 +52,8 @@ spec:
         containers:
           app:
             image:
-              # Community vLLM ROCm build with gfx1201 patches (kyuz0/vllm-therock-gfx1201).
-              # Serving cyankiwi/Qwen3.6-27B-AWQ-INT4 at 234K context with MTP×4 speculative decoding.
-              # Benchmarks (EXP-016b, kyuz0:latest): 0.97 gpu_util → 8.94 GiB KV, 234K fits,
-              # C=1 ~19.0 tok/s, C=8 agg 108.6 tok/s.
+              # Community vLLM ROCm build with gfx1201 patches.
+              # EXP-016b: 0.97 util → 8.94 GiB KV, 234K fits; C=1 ~19.0 tok/s, C=8 agg 108.6 tok/s.
               repository: docker.io/kyuz0/vllm-therock-gfx1201
               tag: latest@sha256:55fa7796374a281e4b77a05cc2f26391d4100a5abb738f77c580ebc3951761e9
             command:
@@ -74,13 +70,14 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # 89% of the 262,144 native context. fp8 KV = 32 KB/token for 16 attn layers;
-              # 234K needs 8.54 GiB KV. At 0.97 util (32 GB × 0.97 = 31.0 GB for vLLM),
-              # the kyuz0:latest image leaves 8.94 GiB for KV. See EXP-016b.
+              # 89% of 262,144 native ctx; 234K → 8.54 GiB fp8 KV, fits the 8.94 GiB free (EXP-016b).
               - --max-model-len
               - "234320"
               - --max-num-seqs
               - "8"
+              # MTP caps this at 2048 by default (vLLM warns it's suboptimal); bump for draft-slot headroom.
+              - --max-num-batched-tokens
+              - "8192"
               - --gpu-memory-utilization
               - "0.97"
               # fp8 KV halves KV footprint vs bf16; Hadamard rotation in the AWQ quant absorbs error.
@@ -94,12 +91,10 @@ spec:
               - mtp
               - --spec-tokens
               - "4"
-              # Persist torch.compile (AOT) artifacts to PVC — saves ~5 min per restart.
-              # Also restores quant_fp8 custom op + fused norm/quant passes (EXP-011) which the
-              # kyuz0:latest image does not enable by default; those passes shrink activation
-              # buffers by ~0.5 GiB during profiling, which is what 234K context needs.
+              # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes (EXP-011)
+              # shrink activation buffers ~0.5 GiB, which 234K ctx needs; not on by default.
               - --compilation-config
-              - '{"cache_dir": "/cache/compile", "custom_ops": ["+quant_fp8", "+sparse_attn_indexer", "none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
+              - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC (~27 GB on first start)
@@ -121,9 +116,7 @@ spec:
                   initialDelaySeconds: 60
                   periodSeconds: 15
                   timeoutSeconds: 5
-                  # vLLM cold start: ~15 min (weight load + Dynamo + Triton + graph capture).
-                  # First boot from empty PVC adds ~60 min for HF model download.
-                  # 120×15s + 60s = ~31 min budget covers warm restarts with cached artifacts.
+                  # ~31 min budget (120×15s + 60s) covers warm restarts; empty PVC adds ~60 min download.
                   failureThreshold: 120
               liveness:
                 <<: *probeBase
