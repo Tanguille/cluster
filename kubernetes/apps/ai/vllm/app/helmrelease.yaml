@@ -91,6 +91,17 @@ spec:
               - --enable-auto-tool-choice
               - --tool-call-parser
               - hermes
+              # Reasoning model: parse <think> so xgrammar is SUSPENDED during reasoning and only
+              # constrains the post-</think> answer. Without it the tool-JSON grammar masks the
+              # thinking tokens → mass rejection → ~0 tok/s stall under concurrent tool calls.
+              # Thinking stays ON (enable_thinking defaults true) — preserves reasoning like the
+              # llama-server preserve_thinking setup.
+              - --reasoning-parser
+              - qwen3
+              # Keep prior-turn reasoning in context (the model's chat template supports this kwarg);
+              # mirrors the retired llama-server `chat-template-kwargs = {"preserve_thinking": true}`.
+              - --default-chat-template-kwargs
+              - '{"preserve_thinking": true}'
               # Pin xgrammar (default 'auto' can silently fall back to the slower guidance backend)
               # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
               - --structured-outputs-config
