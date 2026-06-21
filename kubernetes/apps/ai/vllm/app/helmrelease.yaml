@@ -129,8 +129,12 @@ spec:
               VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
               PYTORCH_ROCM_ARCH: gfx1201
-              # AITER ops hang on gfx1201 with this vLLM build.
-              VLLM_ROCM_USE_AITER: "0"
+              # AITER master ON to activate the fast linear/GEMM decode kernels (TritonW4A16 fallback
+              # is ~4x slower than llama.cpp). The kernel that HANGS on gfx1201 is paged-attention
+              # (dispatches nonexistent CDNA paths) — disabled explicitly below so the rest can run.
+              # EXPERIMENT 2026-06-21: revert master to "0" if it crash-loops/hangs or doesn't lift TG.
+              VLLM_ROCM_USE_AITER: "1"
+              VLLM_ROCM_USE_AITER_PAGED_ATTN: "0"
               FLASH_ATTENTION_TRITON_AMD_ENABLE: "TRUE"
             probes:
               startup: &probeBase
