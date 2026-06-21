@@ -60,16 +60,12 @@ spec:
               - -m
               - vllm.entrypoints.openai.api_server
             args:
-              # fp8 (Qwen/Qwen3.6-27B-FP8, ~27GB) CRASHED THE NODE 2026-06-21 (OOM on the 32GB R9700).
-              # NVFP4 EXPERIMENT instead: 4-bit (~14GB, safe size, keeps big ctx) to test whether
-              # vLLM has a non-AITER fp4 GEMM path faster than TritonW4A16 (~6.5 tok/s). Revert to
-              # cyankiwi/Qwen3.6-27B-AWQ-INT4 + 262144 if it fails to load (fp4 path is AITER-gated)
-              # or isn't faster.
+              # fp8 (Qwen/Qwen3.6-27B-FP8, ~27GB) filled the cache PVC 2026-06-21 → node disk pressure
+              # → kubelet down. Back on the already-cached INT4 model (no new download) for clean
+              # recovery; delete the cached fp8 model from /cache/hf to reclaim space before any
+              # further quant experiment.
               - --model
-              - unsloth/Qwen3.6-27B-NVFP4
-              # unsloth recommends bfloat16 compute dtype for the NVFP4 checkpoint.
-              - --dtype
-              - bfloat16
+              - cyankiwi/Qwen3.6-27B-AWQ-INT4
               # Keep qwen-3.6 as served name so litellm/toolhive configs are unchanged.
               - --served-model-name
               - qwen-3.6
@@ -77,10 +73,10 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # fp8 EXPERIMENT: ~27GB weights leave only a few GB for KV → small context. Start at 32K
-              # to guarantee boot; raise toward whatever the profiled pool allows once we see it.
+              # Full 262,144 native context. Fits the fp8 KV pool (~266-289K tokens, varies per boot)
+              # with MTP off; if a boot ever profiles below this, vLLM crash-loops → lower max-model-len.
               - --max-model-len
-              - "32768"
+              - "262144"
               - --max-num-seqs
               - "16"
               # Raise above the 2048 default for better prefill throughput under concurrent requests.
