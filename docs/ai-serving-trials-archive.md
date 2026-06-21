@@ -6,7 +6,29 @@ switched to **llama.cpp + MTP** (see [`sglang-rdna4-benchmarks.md`](./sglang-rdn
 for the full bench/decision). Kept so the trials can be **revived / re-evaluated** if those
 engines improve on RDNA4.
 
-## How to get the removed manifests back
+## How to get the removed build infrastructure back
+
+### llama-cpp-rocm + image-builder removed (June 2026)
+
+The llama.cpp custom Docker build and `image-builder` GHA runner were removed when
+`kyuz0/vllm-therock-gfx1201` became production (PR #3414). Restore from:
+
+```
+git anchor: 173298878   (main, pre-removal)
+
+git show 173298878:docker/llama-cpp-rocm/Dockerfile
+git show 173298878:.github/workflows/build-llama-cpp-rocm.yaml
+git show 173298878:kubernetes/apps/actions-runner-system/actions-runner-controller/runners/image-builder/helmrelease.yaml
+
+git checkout 173298878 -- docker/llama-cpp-rocm \
+  .github/workflows/build-llama-cpp-rocm.yaml \
+  kubernetes/apps/actions-runner-system/actions-runner-controller/runners/image-builder
+```
+
+- `docker/llama-cpp-rocm/` — gfx1201-tuned ROCm build of llama.cpp; last image: `ghcr.io/tanguille/llama-cpp-rocm-gfx1201:gfx1201`.
+- `image-builder` runner — scale-to-zero GHA runner (privileged rootful buildkitd, no GPU needed — HIP cross-compile).
+
+### sglang / vLLM-from-source builds removed (June 2026)
 
 All trial manifests + the custom Dockerfile existed at this commit (the parent of the removal):
 
