@@ -60,15 +60,11 @@ spec:
               - -m
               - vllm.entrypoints.openai.api_server
             args:
-              # NVFP4 EXPERIMENT 2026-06-21: 4-bit (~14GB, safe size) to test whether vLLM has a
-              # non-AITER fp4 GEMM path faster than TritonW4A16 INT4 (~6.5 tok/s). fp4 fast path is
-              # AITER-gated (AITER crash-loops here) so this may fall to Triton fp4 or fail to load.
-              # Revert to cyankiwi/Qwen3.6-27B-AWQ-INT4 if it fails or isn't faster.
+              # cyankiwi/Qwen3.6-27B-AWQ-INT4 is the image author's (kyuz0/amd-r9700-vllm-toolboxes)
+              # VERIFIED model for this card. fp8 (crashed node, OOM/disk) and NVFP4 (emulation-only,
+              # slow) were dead ends — AWQ INT4 is the recommended quant for gfx1201.
               - --model
-              - unsloth/Qwen3.6-27B-NVFP4
-              # unsloth recommends bfloat16 compute dtype for the NVFP4 checkpoint.
-              - --dtype
-              - bfloat16
+              - cyankiwi/Qwen3.6-27B-AWQ-INT4
               # Keep qwen-3.6 as served name so litellm/toolhive configs are unchanged.
               - --served-model-name
               - qwen-3.6
@@ -76,18 +72,36 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # 128K for the NVFP4 first boot (conservative; NVFP4 is ~14GB so big ctx should fit —
-              # raise toward 262144 once the profiled pool is known). Decode speed is ctx-independent.
+              # kyuz0's recommended R9700 attention recipe: AITER Unified Attention (Triton-based,
+              # ~4% faster than the ROCM_ATTN default) for the LM, plain Triton for the vision encoder.
+              # Enabled via the VLLM_ROCM_USE_AITER_* env block below (only unified-attn on, all other
+              # AITER C++/HIP paths off — those crash graph capture on gfx1201).
+              - --attention-backend
+              - ROCM_AITER_UNIFIED_ATTN
+              - --mm-encoder-attn-backend
+              - TRITON_ATTN
+              # kyuz0 runs the 27B eager on gfx1201: torch.compile/cudagraph capture is unstable with
+              # the AITER attention path (IndexError at capture). Eager also frees cudagraph VRAM.
+              - --enforce-eager
+              # Text-only serving: skip the vision encoder (saves VRAM + load time). NOTE: this
+              # DISABLES image input — drop this flag if multimodal requests are ever needed.
+              - --language-model-only
+              # Full 262,144 native context. fp8 KV + eager (no cudagraph VRAM) + language-model-only
+              # (no vision VRAM) leave ample KV room; if a boot ever profiles below this it crash-loops
+              # → lower max-model-len. (kyuz0's bench uses 20480, but that's a throughput-bench value.)
               - --max-model-len
-              - "131072"
+              - "262144"
+              # kyuz0's R9700 setting for this model.
               - --max-num-seqs
-              - "16"
-              # Raise above the 2048 default for better prefill throughput under concurrent requests.
+              - "32"
+              # kyuz0's R9700 setting for this model (16384) — raises prefill throughput under load.
               - --max-num-batched-tokens
-              - "8192"
+              - "16384"
+              # kyuz0 uses 0.95 (more headroom than 0.97).
               - --gpu-memory-utilization
-              - "0.97"
-              # fp8 KV halves KV footprint vs bf16; Hadamard rotation in the AWQ quant absorbs error.
+              - "0.95"
+              # fp8 KV halves KV footprint vs bf16 → enables full 262K context; Hadamard rotation in
+              # the AWQ quant absorbs the error. (Our context requirement; kyuz0's bench leaves KV default.)
               - --kv-cache-dtype
               - fp8
               - --enable-prefix-caching
@@ -123,10 +137,10 @@ spec:
               # piled up as 'deferred' on the grammar FSM and decode fell to ~0 tok/s (vLLM #34650,
               # spec-decode × structured output). Helps single-stream only; net loss for this
               # agentic workload. MTP off also frees draft KV → full 262K context fits.
-              # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes shrink
-              # activation buffers ~0.5 GiB; not on by default.
+              # kyuz0: norm-quant graph fusion CRASHES on gfx1201 — keep it off. (cudagraph/AOT
+              # settings dropped: --enforce-eager disables graph capture and torch.compile anyway.)
               - --compilation-config
-              - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "cudagraph_capture_sizes": [1, 2, 4, 8, 16, 32, 48, 64, 80], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
+              - '{"pass_config": {"fuse_norm_quant": false}}'
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC (~27 GB on first start)
@@ -136,12 +150,20 @@ spec:
               VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
               PYTORCH_ROCM_ARCH: gfx1201
-              # AITER stays OFF. Tested master-on + paged-attn-off 2026-06-21 to reach the fast
-              # linear/GEMM kernels: engine init crash-looped (IndexError during graph capture). The
-              # build's AITER paths are unusable on gfx1201 even with the hanging paged-attn kernel
-              # disabled — INT4 decode is stuck on the slow TritonW4A16 fallback.
-              VLLM_ROCM_USE_AITER: "0"
-              FLASH_ATTENTION_TRITON_AMD_ENABLE: "TRUE"
+              # kyuz0's AITER-Unified recipe for R9700/gfx1201: master ON but ONLY unified-attention
+              # enabled — every other AITER path (MHA/paged-attn/MoE/linear/rmsnorm/fp8/fp4/rope) is
+              # the C++/HIP code that crashes graph capture on this card, so all OFF. Pairs with
+              # --attention-backend ROCM_AITER_UNIFIED_ATTN + --enforce-eager.
+              VLLM_ROCM_USE_AITER: "1"
+              VLLM_ROCM_USE_AITER_UNIFIED_ATTENTION: "1"
+              VLLM_ROCM_USE_AITER_MHA: "0"
+              VLLM_ROCM_USE_AITER_PAGED_ATTN: "0"
+              VLLM_ROCM_USE_AITER_MOE: "0"
+              VLLM_ROCM_USE_AITER_LINEAR: "0"
+              VLLM_ROCM_USE_AITER_RMSNORM: "0"
+              VLLM_ROCM_USE_AITER_FP8BMM: "0"
+              VLLM_ROCM_USE_AITER_FP4BMM: "0"
+              VLLM_ROCM_USE_AITER_TRITON_ROPE: "0"
             probes:
               startup: &probeBase
                 enabled: true
