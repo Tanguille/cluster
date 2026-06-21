@@ -70,9 +70,11 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # 89% of 262,144 native ctx; 234K → 8.54 GiB fp8 KV, fits the 8.94 GiB free (EXP-016b).
+              # Full 262,144 native ctx. Disabling MTP freed the draft-slot KV reservation, growing
+              # the fp8 pool to 288,393 tokens — enough to hold the full window (~26K headroom for
+              # block alignment). Was capped at 234K when the pool only held 241K.
               - --max-model-len
-              - "234320"
+              - "262144"
               - --max-num-seqs
               - "16"
               # MTP caps this at 2048 by default (vLLM warns it's suboptimal); bump for draft-slot headroom.
@@ -180,7 +182,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: vllm
-          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, 234K ctx, 16 seqs)
+          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, 262K ctx, 16 seqs)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
