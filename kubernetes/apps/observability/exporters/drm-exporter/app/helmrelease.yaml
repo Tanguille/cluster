@@ -9,19 +9,7 @@ spec:
     kind: OCIRepository
     name: *app
   interval: 1h
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: GrafanaDashboard
-              group: grafana.integreatly.org
-              name: drm-exporter-dashboard
-            patch: |-
-              - op: add
-                path: /spec/datasources
-                value:
-                  - datasourceName: prometheus
-                    inputName: datasource
+
   values:
     fullnameOverride: *app
 
