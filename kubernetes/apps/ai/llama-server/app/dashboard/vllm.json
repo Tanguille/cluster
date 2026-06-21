@@ -18,17 +18,71 @@
           "type": "dashboard"
         },
         "type": "dashboard"
+      },
+      {
+        "builtIn": 0,
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "enable": true,
+        "expr": "changes(kube_deployment_status_observed_generation{namespace=\"ai\", deployment=\"llama-server\"}[5m]) > 0",
+        "hide": false,
+        "iconColor": "rgba(0, 120, 215, 1)",
+        "name": "Deployments",
+        "step": "60s",
+        "tagKeys": "deployment",
+        "textFormat": "",
+        "titleFormat": "Deploy: {{deployment}}",
+        "type": "dashboard"
       }
     ]
   },
   "description": "vLLM serving Qwen3.6-27B-AWQ on AMD R9700 (gfx1201), MTP\u00d74, 234K ctx",
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "id": 1,
-  "links": [],
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "llama-server (llama.cpp)",
+      "tooltip": "llama.cpp router metrics dashboard",
+      "type": "link",
+      "url": "/d/ai-llama-server/llama-server?var-model=${model}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "LiteLLM",
+      "tooltip": "Full LiteLLM proxy metrics",
+      "type": "link",
+      "url": "/d/ad8llmv/litellm?var-model=${model}"
+    }
+  ],
   "liveNow": false,
   "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "vLLM serving",
+      "type": "row"
+    },
     {
       "datasource": {
         "type": "prometheus",
@@ -95,7 +149,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 1
       },
       "id": 9,
       "options": {
@@ -252,7 +306,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -260,19 +315,19 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 1
       },
       "id": 8,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -379,7 +434,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 9
       },
       "id": 10,
       "options": {
@@ -545,7 +600,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 9
       },
       "id": 3,
       "options": {
@@ -664,7 +719,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 17
       },
       "id": 5,
       "options": {
@@ -830,7 +885,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 17
       },
       "id": 4,
       "options": {
@@ -887,7 +942,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 25
       },
       "id": 12,
       "options": {
@@ -910,7 +965,7 @@
           "color": "rgba(255,0,255,0.7)"
         },
         "filterValues": {
-          "le": 1e-09
+          "le": 1e-9
         },
         "legend": {
           "show": true
@@ -979,7 +1034,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 25
       },
       "id": 13,
       "options": {
@@ -1002,7 +1057,7 @@
           "color": "rgba(255,0,255,0.7)"
         },
         "filterValues": {
-          "le": 1e-09
+          "le": 1e-9
         },
         "legend": {
           "show": true
@@ -1110,7 +1165,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 33
       },
       "id": 11,
       "options": {
@@ -1203,7 +1258,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "s"
         },
         "overrides": []
       },
@@ -1211,7 +1267,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 33
       },
       "id": 14,
       "options": {
@@ -1232,20 +1288,16 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(vllm:request_queue_time_seconds_sum{model_name=\"$model_name\"}[$__rate_interval])",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "__auto",
+          "expr": "rate(vllm:request_queue_time_seconds_sum{model_name=\"$model_name\"}[$__rate_interval])\n/\nrate(vllm:request_queue_time_seconds_count{model_name=\"$model_name\"}[$__rate_interval])",
+          "legendFormat": "avg queue time",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         }
       ],
       "title": "Queue Time",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Average time requests spend waiting in the scheduler queue."
     },
     {
       "datasource": {
@@ -1303,7 +1355,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "s"
         },
         "overrides": []
       },
@@ -1311,7 +1364,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 41
       },
       "id": 15,
       "options": {
@@ -1334,11 +1387,11 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(vllm:request_prefill_time_seconds_sum{model_name=\"$model_name\"}[$__rate_interval])",
+          "expr": "rate(vllm:request_prefill_time_seconds_sum{model_name=\"$model_name\"}[$__rate_interval])\n/\nrate(vllm:request_prefill_time_seconds_count{model_name=\"$model_name\"}[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Prefill",
+          "legendFormat": "avg prefill",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1349,16 +1402,17 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "rate(vllm:request_decode_time_seconds_sum{model_name=\"$model_name\"}[$__rate_interval])",
+          "expr": "rate(vllm:request_decode_time_seconds_sum{model_name=\"$model_name\"}[$__rate_interval])\n/\nrate(vllm:request_decode_time_seconds_count{model_name=\"$model_name\"}[$__rate_interval])",
           "hide": false,
           "instant": false,
-          "legendFormat": "Decode",
+          "legendFormat": "avg decode",
           "range": true,
           "refId": "B"
         }
       ],
       "title": "Requests Prefill and Decode Time",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Average prefill and decode time per request (seconds)."
     },
     {
       "datasource": {
@@ -1424,7 +1478,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 41
       },
       "id": 16,
       "options": {
@@ -1447,18 +1501,19 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(vllm:request_max_num_generation_tokens_sum{model_name=\"$model_name\"}[$__rate_interval])",
+          "expr": "rate(vllm:request_max_num_generation_tokens_sum{model_name=\"$model_name\"}[$__rate_interval])\n/\nrate(vllm:request_max_num_generation_tokens_count{model_name=\"$model_name\"}[$__rate_interval])",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Tokens",
+          "legendFormat": "avg max tokens",
           "range": true,
           "refId": "A",
           "useBackend": false
         }
       ],
       "title": "Max Generation Token in Sequence Group",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Average max generation tokens per sequence group."
     },
     {
       "id": 25,
@@ -1469,7 +1524,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 99
+        "y": 49
       },
       "panels": []
     },
@@ -1482,7 +1537,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 100
+        "y": 50
       },
       "datasource": {
         "type": "prometheus",
@@ -1543,7 +1598,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 100
+        "y": 50
       },
       "datasource": {
         "type": "prometheus",
@@ -1604,7 +1659,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 110
+        "y": 58
       },
       "panels": []
     },
@@ -1648,15 +1703,12 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 112
+        "y": 59
       },
       "id": 19,
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
+          "calcs": ["mean", "max"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -1719,15 +1771,12 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 112
+        "y": 59
       },
       "id": 20,
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
+          "calcs": ["mean", "max"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -1807,15 +1856,12 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 112
+        "y": 59
       },
       "id": 21,
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
+          "calcs": ["mean", "max"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -1849,7 +1895,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 120
+        "y": 67
       },
       "panels": []
     },
@@ -1895,15 +1941,12 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 122
+        "y": 68
       },
       "id": 22,
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
+          "calcs": ["mean", "max"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -1988,15 +2031,12 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 122
+        "y": 68
       },
       "id": 23,
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
+          "calcs": ["mean", "max"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -2081,15 +2121,12 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 122
+        "y": 68
       },
       "id": 24,
       "options": {
         "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
+          "calcs": ["mean", "max"],
           "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
@@ -2124,43 +2161,35 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "",
-  "schemaVersion": 39,
-  "tags": [],
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "tags": ["ai", "llama-server", "vllm"],
   "templating": {
     "list": [
       {
-        "current": {
-          "selected": false,
-          "text": "prometheus",
-          "value": "edx8memhpd9tsa"
-        },
+        "current": {},
         "hide": 0,
         "includeAll": false,
-        "label": "datasource",
+        "label": "Datasource",
         "multi": false,
         "name": "DS_PROMETHEUS",
         "options": [],
         "query": "prometheus",
-        "queryValue": "",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
         "type": "datasource"
       },
       {
-        "current": {
-          "text": "qwen-3.6",
-          "value": "qwen-3.6"
-        },
+        "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(model_name)",
+        "definition": "label_values(vllm:num_requests_running{namespace=\"ai\", service=\"llama-server\"}, model_name)",
         "hide": 0,
         "includeAll": false,
-        "label": "model_name",
+        "label": "vLLM model",
         "multi": false,
         "name": "model_name",
         "options": [],
@@ -2171,7 +2200,36 @@
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
-        "sort": 0,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": ["All"],
+          "value": ["$__all"]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "definition": "label_values(litellm_deployment_success_responses_total{api_base=~\".*llama-server.*\"}, requested_model)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "LiteLLM model",
+        "multi": true,
+        "name": "model",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(litellm_deployment_success_responses_total{api_base=~\".*llama-server.*\"}, requested_model)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
         "type": "query"
       }
     ]
@@ -2181,9 +2239,9 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "",
+  "timezone": "browser",
   "title": "vllm",
   "uid": "llama-server-vllm",
-  "version": 8,
+  "version": 9,
   "weekStart": ""
 }
