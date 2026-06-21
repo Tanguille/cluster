@@ -74,7 +74,7 @@ spec:
               - --max-model-len
               - "234320"
               - --max-num-seqs
-              - "8"
+              - "16"
               # MTP caps this at 2048 by default (vLLM warns it's suboptimal); bump for draft-slot headroom.
               - --max-num-batched-tokens
               - "8192"
@@ -86,6 +86,9 @@ spec:
               - --enable-prefix-caching
               - --trust-remote-code
               - --no-enable-log-requests
+              - --enable-auto-tool-choice
+              - --tool-call-parser
+              - hermes
               # MTP self-speculative: 4 draft tokens from the built-in MTP heads (EXP-013: 4 > 5).
               - --spec-method
               - mtp
@@ -94,12 +97,14 @@ spec:
               # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes (EXP-011)
               # shrink activation buffers ~0.5 GiB, which 234K ctx needs; not on by default.
               - --compilation-config
-              - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
+              - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "cudagraph_capture_sizes": [1, 2, 4, 8, 16, 32, 48, 64, 80], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC (~27 GB on first start)
-              # Triton JIT cache — persisted so restarts skip autotuning (~8-10 min saved).
+              # Triton JIT cache + vLLM AOT compile cache — persisted so restarts skip recompilation.
               TRITON_CACHE_DIR: /cache/triton
+              # AOT compiled functions default to /root/.cache (ephemeral); redirect to PVC.
+              VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
               PYTORCH_ROCM_ARCH: gfx1201
               # AITER ops hang on gfx1201 with this vLLM build.
@@ -157,7 +162,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: vllm
-          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, MTP×4, 234K ctx)
+          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, MTP×4, 234K ctx, 16 seqs)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
