@@ -9,18 +9,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  install:
-    timeout: 25m
-    remediation:
-      retries: 1
-  upgrade:
-    # vLLM cold start takes ~15-20 min (Dynamo JIT + Triton autotuning + graph capture).
-    # Default 5m timeout triggers rollback before the pod is ready.
-    timeout: 25m
-    remediation:
-      # -1 = no remediation/rollback — rollback would revert to old llama.cpp spec which is
-      # also broken (llama-server-config ConfigMap was removed). Stay on failed vLLM spec.
-      retries: -1
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
@@ -36,7 +24,8 @@ spec:
                   - key: amd.com/gpu
                     operator: In
                     values: ["true"]
-      # Root + video/render groups + Unconfined seccomp = ROCm device access via squat.ai/dri:1.
+      # Root + video/render groups + Unconfined seccomp = ROCm device access, matching the
+      # cluster's other GPU pods. The image itself defaults to a non-root user; this overrides it.
       securityContext:
         runAsUser: 0
         runAsGroup: 0
@@ -49,72 +38,33 @@ spec:
     controllers:
       app:
         # Recreate, not RollingUpdate: this is a singleton holding the node's only squat.ai/dri:1.
+        # A rolling update surges the new pod first, but it can't get the GPU until the old one
+        # releases it — image bumps would stall with the new pod Pending. Recreate frees the GPU
+        # first, then starts the replacement. (Matches the hermes GPU pod.)
         strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
-              # Community vLLM ROCm build with gfx1201 patches (kyuz0/vllm-therock-gfx1201).
-              # Serving cyankiwi/Qwen3.6-27B-AWQ-INT4 at 234K context with MTP×4 speculative decoding.
-              # Benchmark (EXP-011, old image): C=1 19.5 tok/s, C=8 agg 126 tok/s.
-              # EXP-016b (new image, 0.97 util): 234K fits (8.94 GiB KV), C=1 ~19.0 tok/s.
-              repository: docker.io/kyuz0/vllm-therock-gfx1201
-              tag: latest
-            command:
-              - python
-              - -m
-              - vllm.entrypoints.openai.api_server
+              # Custom llama.cpp gfx1201 build (docker/llama-cpp-rocm/) — ROCm 7.13 gfx120X-tuned
+              # for ~34 tok/s + MTP. Tag rebuilt in place; Renovate digest-pins it.
+              repository: ghcr.io/tanguille/llama-cpp-rocm-gfx1201
+              tag: gfx1201@sha256:7324001a4ab2e2c7ec91649f4f79783e8b7a58be4c1fee6d60bf39f41ccec008
+            env:
+              TZ: ${TIMEZONE}
+              LLAMA_CACHE: /cache # GGUF download cache (the cache PVC)
             args:
-              - --model
-              - cyankiwi/Qwen3.6-27B-AWQ-INT4
-              # Match the old llama.cpp model name so downstream clients (litellm, toolhive) are unchanged.
-              - --served-model-name
-              - qwen-3.6
               - --host
               - 0.0.0.0
               - --port
-              - "8000"
-              # 89% of the 262,144 native context; fp8 KV = 32 KB/token for 16 attn layers.
-              # 234K needs 8.54 GiB KV. At 0.97 util (32 GB × 0.97 = 31.0 GB for vLLM),
-              # the new kyuz0:latest image leaves 8.94 GiB for KV (0.50 GiB more than old
-              # image at 0.95). Raised from 0.95 after the June 2026 kyuz0 image update added
-              # ~0.5 GiB baseline VRAM overhead. See EXP-016b.
-              - --max-model-len
-              - "234320"
-              - --max-num-seqs
-              - "8"
-              - --gpu-memory-utilization
-              - "0.97"
-              # fp8 KV halves KV footprint vs bf16; Hadamard rotation in the AWQ quant absorbs error.
-              - --kv-cache-dtype
-              - fp8
-              - --enable-prefix-caching
-              - --trust-remote-code
-              - --no-enable-log-requests
-              # MTP self-speculative: 4 draft tokens from the built-in MTP heads; 2.8× C=1 speedup.
-              # spec-tokens=5 is worse (lower acceptance + smaller KV pool). See EXP-013.
-              - --spec-method
-              - mtp
-              - --spec-tokens
-              - "4"
-              # Persist torch.compile (AOT) artifacts to PVC — saves ~5 min per restart.
-              # Combined with TRITON_CACHE_DIR, reduces cold start from ~18 min to ~3-5 min.
-              # Also restores quant_fp8 custom op + fused norm/quant passes from EXP-011, which
-              # the updated kyuz0:latest image no longer enables by default — those passes shrink
-              # activation buffers by ~0.5 GiB during profiling, which is what 234K context needs.
-              - --compilation-config
-              - '{"cache_dir": "/cache/compile", "custom_ops": ["+quant_fp8", "+sparse_attn_indexer", "none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
-            env:
-              TZ: ${TIMEZONE}
-              HF_HOME: /cache/hf # model weights on the cache PVC
-              # Triton JIT cache — persisted to PVC so restarts skip autotuning (~8-10 min saved).
-              TRITON_CACHE_DIR: /cache/triton
-              HIP_VISIBLE_DEVICES: "0"
-              PYTORCH_ROCM_ARCH: gfx1201
-              # AITER ops cause hangs on gfx1201 with this vLLM build; disable.
-              VLLM_ROCM_USE_AITER: "0"
-              FLASH_ATTENTION_TRITON_AMD_ENABLE: "TRUE"
+              - "8080"
+              # Router mode: per-model serving lives in /app/models.ini (mounted below).
+              # --models-max 2 keeps both presets (27B chat + 0.6B embedding) resident.
+              - --models-preset
+              - /app/models.ini
+              - --models-max
+              - "2"
             probes:
               startup: &probeBase
                 enabled: true
@@ -122,27 +72,28 @@ spec:
                 spec:
                   httpGet: &httpGet
                     path: /health
-                    port: &port 8000
-                  initialDelaySeconds: 60
-                  periodSeconds: 15
+                    port: &port 8080
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
                   timeoutSeconds: 5
-                  # vLLM cold start: ~15 min (weight load + Dynamo JIT + Triton autotuning + graph capture).
-                  # 120×15s + 60s = ~1860s ≈ 31 min budget so a slow PVC read never CrashLoops.
-                  failureThreshold: 120
+                  # Router /health is up at process start; models load via load-on-startup in models.ini.
+                  # 30×10s + 10s = ~310s budget: covers the 130s+ cold load of the 18Gi weights
+                  # (no-mmap read from the cache PVC) so a slow load never CrashLoops.
+                  failureThreshold: 30
               liveness:
                 <<: *probeBase
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 60
-                  periodSeconds: 60
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 3
               readiness:
                 <<: *probeBase
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 60
-                  periodSeconds: 15
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
                   timeoutSeconds: 3
                   failureThreshold: 3
             resources:
@@ -152,7 +103,7 @@ spec:
                 squat.ai/dri: 1
               limits:
                 cpu: 12
-                memory: 32Gi
+                memory: 28Gi
                 squat.ai/dri: 1
 
     service:
@@ -168,7 +119,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: llama-server
-          gethomepage.dev/description: Qwen3.6-27B inference (vLLM kyuz0/ROCm, RDNA4, MTP×4, 234K ctx)
+          gethomepage.dev/description: Qwen3.6-27B inference (llama.cpp/ROCm, RDNA4, MTP)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
@@ -182,6 +133,15 @@ spec:
                 port: 80
 
     persistence:
+      config:
+        type: configMap
+        name: llama-server-config
+        advancedMounts:
+          app:
+            app:
+              - path: /app/models.ini
+                subPath: models.ini
+                readOnly: true
       cache:
         enabled: true
         existingClaim: llama-server
@@ -189,10 +149,11 @@ spec:
           app:
             app:
               - path: /cache
+      # llama.cpp uses /dev/shm for slot/IPC; bump from the default 64Mi.
       shm:
         type: emptyDir
         medium: Memory
-        sizeLimit: 4Gi
+        sizeLimit: 2Gi
         advancedMounts:
           app:
             app:
