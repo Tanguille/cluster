@@ -69,10 +69,11 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # Full 262,144 native context. Fits the fp8 KV pool (~268-289K tokens, varies per boot);
-              # if a boot ever profiles below this, vLLM crash-loops on startup → lower max-model-len.
+              # 240K context. MTP draft-slot KV reservation shrinks the pool below the 262,144
+              # native max (engine estimated 252,800 with MTP on → crash-loop at 262144), so we
+              # trade ~22K of context for speculative decode. Margin covers boot-to-boot pool drift.
               - --max-model-len
-              - "262144"
+              - "245760"
               - --max-num-seqs
               - "16"
               # Raise above the 2048 default for better prefill throughput under concurrent requests.
@@ -102,14 +103,21 @@ spec:
               # mirrors the retired llama-server `chat-template-kwargs = {"preserve_thinking": true}`.
               - --default-chat-template-kwargs
               - '{"preserve_thinking": true}'
+              # Override the model's generation_config.json (ships temperature=1.0) with the tuned
+              # sampling from the retired llama-server config: temp 0.6 / top_k 20 / top_p 0.95 /
+              # min_p 0. Applied as request defaults when a client doesn't set its own.
+              - --override-generation-config
+              - '{"temperature": 0.6, "top_k": 20, "top_p": 0.95, "min_p": 0.0}'
               # Pin xgrammar (default 'auto' can silently fall back to the slower guidance backend)
               # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
               - --structured-outputs-config
               - '{"backend": "xgrammar", "disable_any_whitespace": true}'
-              # NOTE: MTP/speculative decoding intentionally omitted — eagle drafts collide with
-              # grammar-constrained tool calling (drafts rejected → ~0.2 tok/s wedge under agentic
-              # load). Revisit once scaling is confirmed (recipe suggests num_speculative_tokens=2).
-              #
+              # MTP self-speculation (recipe form, num_speculative_tokens=2) to lift decode tok/s.
+              # RISK: vLLM #34650 — spec-decode + reasoning parser + structured output can miss
+              # </think> (spec tokens pre-increment the count), re-wedging tool calls. Re-enabled on
+              # trial now that the reasoning parser is in place; revert if Deferred/~0 tok/s returns.
+              - --speculative-config
+              - '{"method": "mtp", "num_speculative_tokens": 2}'
               # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes shrink
               # activation buffers ~0.5 GiB; not on by default.
               - --compilation-config

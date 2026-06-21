@@ -10,54 +10,57 @@ spec:
     kind: OCIRepository
     name: app-template
   values:
+    defaultPodOptions:
+      priorityClassName: system-node-critical
+
     controllers:
       generic-device-plugin:
         type: daemonset
+        pod:
+          nodeSelector:
+            amd.com/gpu: "true"
         containers:
           app:
-            image:
+            image: &devicePluginImage
               repository: ghcr.io/squat/generic-device-plugin
               tag: latest@sha256:dc192e164c69b03f156765793a1be62ca437709ae477b27ca7d8f3dcf5021576
             args:
-              # Expose the GPU as a shared squat.ai/dri resource so multiple
-              # pods can use the same card. Two device nodes are bundled per
-              # claim: /dev/dri (VAAPI transcode for jellyfin, fileflows) and
-              # /dev/kfd (the ROCm compute node, required by vLLM inference).
-              # Override the plugin's default "devic.es" domain to match the
-              # squat.ai/dri resource the workloads request.
               - --domain=squat.ai
               - --device
               - |
                 name: dri
                 groups:
-                  # count = max concurrent pods that can claim the shared GPU;
-                  # headroom over today's consumers (jellyfin, fileflows, vllm)
                   - count: 4
                     paths:
                       - path: /dev/dri
-                      # ROCm compute node — single shared node, bound into the
-                      # same claim so vLLM gets both /dev/dri and /dev/kfd.
                       - path: /dev/kfd
-            securityContext:
+            securityContext: &devicePluginSecurityContext
               privileged: true
-            resources:
+            resources: &devicePluginResources
               requests:
                 cpu: 10m
                 memory: 16Mi
               limits:
                 memory: 64Mi
-
-    defaultPodOptions:
-      priorityClassName: system-node-critical
-      # Only nodes with a usable render device need the plugin
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: amd.com/gpu
-                    operator: In
-                    values: ["true"]
+      generic-device-plugin-igpu:
+        type: daemonset
+        pod:
+          nodeSelector:
+            amd.com/igpu: "true"
+        containers:
+          app:
+            image: *devicePluginImage
+            args:
+              - --domain=squat.ai
+              - --device
+              - |
+                name: dri
+                groups:
+                  - count: 1
+                    paths:
+                      - path: /dev/dri
+            securityContext: *devicePluginSecurityContext
+            resources: *devicePluginResources
 
     persistence:
       dev:
