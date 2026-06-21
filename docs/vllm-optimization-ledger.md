@@ -253,7 +253,25 @@ Root cause: MTP acceptance rate at depth 5 is too low to amortize overhead. Esti
 
 ---
 
-## Convergence Summary — All Experiments Done
+---
+
+### EXP-014a — AITER enabled (all ops except MLA+MOE)
+**Date**: 2026-06-21
+
+**Result**: CRASHED — `aiter_meta.get_hip_version()` IndexError. Root cause: `hipconfig` not in PATH → empty output → `split()[-1]` fails. `aiter_meta` JIT sampler needs `hipcc` at warmup, and even if available, `validate_and_update_archs()` only allows `gfx90a/940/941/942/950` — gfx1201 is hardcoded out.
+
+---
+
+### EXP-014b — AITER with sampler patched (precompiled `module_aiter_core.so` only)
+**Date**: 2026-06-21 | **Change**: `VLLM_ROCM_USE_AITER=1`, MLA+MOE=0, sed-patch sampler to skip aiter_meta
+
+**Result**: WORSE (C=1 16.8 vs 19.5, C=8 109 vs 126)
+
+Root cause: AITER `module_aiter_core.so` kernels target CDNA3 (gfx942/gfx950) matrix engines, not RDNA4 (gfx1201) WGP units. The gfx1201→MI350X arch mapping gives instruction compatibility but wrong kernel tile configs. AITER also force-enables `chunked_prefill=True`, adding overhead. **AITER must stay OFF on gfx1201.**
+
+---
+
+## Experiments Summary
 
 | Config | C=1 TG | C=4 agg | C=8 agg | Max ctx | Status |
 |---|---|---|---|---|---|
@@ -263,3 +281,4 @@ Root cause: MTP acceptance rate at depth 5 is too low to amortize overhead. Esti
 | **EXP-011 MTP×4, 234K, seqs=8** | **19.5** | **61.2** | **126.1** | **234K** | **PRODUCTION** |
 | EXP-012 + chunked prefill | 19.0 | 55.9 | 121.6 | 234K | Worse |
 | EXP-013 MTP×5, 229K, seqs=8 | 19.3 | — | 117.1 | 229K | Worse |
+| EXP-014b AITER LINEAR+RMS | 16.8 | — | 109.1 | 234K | Worse |

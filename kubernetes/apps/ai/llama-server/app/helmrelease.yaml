@@ -95,6 +95,8 @@ spec:
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC
+              # Triton JIT cache — persisted to PVC so restarts skip autotuning (~8-10 min saved).
+              TRITON_CACHE_DIR: /cache/triton
               HIP_VISIBLE_DEVICES: "0"
               PYTORCH_ROCM_ARCH: gfx1201
               # AITER ops cause hangs on gfx1201 with this vLLM build; disable.
