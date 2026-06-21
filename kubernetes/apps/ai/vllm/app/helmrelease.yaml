@@ -89,6 +89,10 @@ spec:
               - --enable-auto-tool-choice
               - --tool-call-parser
               - hermes
+              # Pin xgrammar (default 'auto' can silently fall back to the slower guidance backend)
+              # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
+              - --structured-outputs-config
+              - '{"backend": "xgrammar", "disable_any_whitespace": true}'
               # MTP disabled: spec-decode (eagle) collides with grammar-constrained decoding from
               # tool calling — every draft token re-validates against the bitmask, drafts get
               # rejected, and the engine wedged at ~0.2 tok/s (100x regression) under agentic load.
@@ -109,6 +113,21 @@ spec:
               # AITER ops hang on gfx1201 with this vLLM build.
               VLLM_ROCM_USE_AITER: "0"
               FLASH_ATTENTION_TRITON_AMD_ENABLE: "TRUE"
+            # Warm the structured-output bitmask Triton kernel off the hot path: it otherwise
+            # JIT-compiles mid-inference on the first tool call and head-of-line-blocks the engine.
+            # Backgrounded so the hook returns immediately and never delays startup/readiness.
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                    - /bin/sh
+                    - -c
+                    - |
+                      (until curl -sf http://localhost:8000/health >/dev/null 2>&1; do sleep 10; done
+                       curl -s http://localhost:8000/v1/chat/completions \
+                         -H 'Content-Type: application/json' \
+                         -d '{"model":"qwen-3.6","messages":[{"role":"user","content":"warmup"}],"max_tokens":1,"tools":[{"type":"function","function":{"name":"noop","parameters":{"type":"object","properties":{}}}}],"tool_choice":"required"}' \
+                         >/dev/null 2>&1) &
             probes:
               startup: &probeBase
                 enabled: true
