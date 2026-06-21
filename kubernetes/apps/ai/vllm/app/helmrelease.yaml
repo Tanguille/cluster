@@ -106,10 +106,12 @@ spec:
               # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
               - --structured-outputs-config
               - '{"backend": "xgrammar", "disable_any_whitespace": true}'
-              # NOTE: MTP/speculative decoding intentionally omitted — eagle drafts collide with
-              # grammar-constrained tool calling (drafts rejected → ~0.2 tok/s wedge under agentic
-              # load). Revisit once scaling is confirmed (recipe suggests num_speculative_tokens=2).
-              #
+              # MTP self-speculation (recipe form, num_speculative_tokens=2) to lift decode tok/s.
+              # RISK: vLLM #34650 — spec-decode + reasoning parser + structured output can miss
+              # </think> (spec tokens pre-increment the count), re-wedging tool calls. Re-enabled on
+              # trial now that the reasoning parser is in place; revert if Deferred/~0 tok/s returns.
+              - --speculative-config
+              - '{"method": "mtp", "num_speculative_tokens": 2}'
               # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes shrink
               # activation buffers ~0.5 GiB; not on by default.
               - --compilation-config
