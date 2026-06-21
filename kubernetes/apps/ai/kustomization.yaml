@@ -9,8 +9,13 @@ resources:
   - ./hermes/ks.yaml
   - ./litellm/ks.yaml
   - ./memini/ks.yaml
-  - ./llama-server/ks.yaml # serves qwen-3.6 on the R9700 (llama.cpp/ROCm gfx1201 + MTP)
+  # llama.cpp fallback — to switch back from vLLM:
+  #   1. comment in llama-server below, comment out vllm (avoid GPU conflict)
+  #   2. change litellm/ks.yaml and memini/ks.yaml dependsOn back to llama-server
+  #   3. change litellm/app/configmap.yaml api_base back to http://llama-server.ai.svc.cluster.local/v1
+  # - ./llama-server/ks.yaml
   - ./open-webui/ks.yaml
   - ./opencode/ks.yaml
   - ./odysseus/ks.yaml
   - ./toolhive/ks.yaml
+  - ./vllm/ks.yaml
