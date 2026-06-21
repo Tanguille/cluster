@@ -94,8 +94,11 @@ spec:
               - "4"
               # Persist torch.compile (AOT) artifacts to PVC — saves ~5 min per restart.
               # Combined with TRITON_CACHE_DIR, reduces cold start from ~18 min to ~3-5 min.
+              # Also restores quant_fp8 custom op + fused norm/quant passes from EXP-011, which
+              # the updated kyuz0:latest image no longer enables by default — those passes shrink
+              # activation buffers by ~0.5 GiB during profiling, which is what 234K context needs.
               - --compilation-config
-              - '{"cache_dir": "/cache/compile"}'
+              - '{"cache_dir": "/cache/compile", "custom_ops": ["+quant_fp8", "+sparse_attn_indexer", "none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC
