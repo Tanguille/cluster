@@ -89,11 +89,13 @@ spec:
               - --enable-auto-tool-choice
               - --tool-call-parser
               - hermes
-              # MTP self-speculative: 4 draft tokens from the built-in MTP heads (EXP-013: 4 > 5).
+              # MTP self-speculative. vLLM reuses a SINGLE MTP layer per draft token, so >1 token
+              # degrades acceptance (vLLM warns this); under load it burned ~5x forward compute for
+              # ~1 accepted token (GPU 97% busy, near-zero decode). 1 draft token avoids that waste.
               - --spec-method
               - mtp
               - --spec-tokens
-              - "4"
+              - "1"
               # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes (EXP-011)
               # shrink activation buffers ~0.5 GiB, which 234K ctx needs; not on by default.
               - --compilation-config
@@ -162,7 +164,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: vllm
-          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, MTP×4, 234K ctx, 16 seqs)
+          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, MTP×1, 234K ctx, 16 seqs)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
