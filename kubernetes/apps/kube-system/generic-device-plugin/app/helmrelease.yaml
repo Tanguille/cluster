@@ -16,7 +16,7 @@ spec:
     controllers:
       generic-device-plugin:
         type: daemonset
-        podOptions:
+        pod:
           nodeSelector:
             amd.com/gpu: "true"
         containers:
@@ -44,7 +44,7 @@ spec:
                 memory: 64Mi
       generic-device-plugin-igpu:
         type: daemonset
-        podOptions:
+        pod:
           nodeSelector:
             amd.com/igpu: "true"
         containers:
