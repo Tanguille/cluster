@@ -26,7 +26,7 @@
           "uid": "${DS_PROMETHEUS}"
         },
         "enable": true,
-        "expr": "changes(kube_deployment_status_observed_generation{namespace=\"ai\", deployment=\"llama-server\"}[5m]) > 0",
+        "expr": "changes(kube_deployment_status_observed_generation{namespace=\"ai\", deployment=\"vllm\"}[5m]) > 0",
         "hide": false,
         "iconColor": "rgba(0, 120, 215, 1)",
         "name": "Deployments",
@@ -88,6 +88,276 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
+      "description": "Requests currently executing in the vLLM scheduler.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 4
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "vllm:num_requests_running{model_name=\"$model_name\"}",
+          "instant": true,
+          "legendFormat": "running",
+          "refId": "A"
+        }
+      ],
+      "title": "Running",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Requests queued waiting for scheduler capacity.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "vllm:num_requests_waiting{model_name=\"$model_name\"}",
+          "instant": true,
+          "legendFormat": "waiting",
+          "refId": "A"
+        }
+      ],
+      "title": "Waiting",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "GPU KV cache block utilization.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "id": 103,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "vllm:kv_cache_usage_perc{model_name=\"$model_name\"}",
+          "instant": true,
+          "legendFormat": "cache",
+          "refId": "A"
+        }
+      ],
+      "title": "KV cache",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Generation token throughput (5m rate).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "id": 104,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "rate(vllm:generation_tokens_total{model_name=\"$model_name\"}[5m])",
+          "instant": true,
+          "legendFormat": "tok/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Decode tok/s",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "description": "End to end request latency measured in seconds.",
       "fieldConfig": {
         "defaults": {
@@ -134,10 +404,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -149,19 +415,19 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 1
+        "y": 5
       },
       "id": 9,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -300,10 +566,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -315,7 +577,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 1
+        "y": 5
       },
       "id": 8,
       "options": {
@@ -419,10 +681,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -434,19 +692,19 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 13
       },
       "id": 10,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -539,7 +797,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Number of requests in RUNNING, WAITING, and SWAPPED state",
+      "description": "Requests in RUNNING, WAITING, and SWAPPED scheduler states.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -585,34 +843,65 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
-          "unit": "none"
+          "unit": "short"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Num Waiting"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 13
       },
       "id": 3,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -646,8 +935,19 @@
           "instant": false,
           "legendFormat": "Num Waiting",
           "range": true,
-          "refId": "C",
+          "refId": "B",
           "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "vllm:num_requests_swapped{model_name=\"$model_name\"}",
+          "legendFormat": "Num Swapped",
+          "range": true,
+          "refId": "C"
         }
       ],
       "title": "Scheduler State",
@@ -704,10 +1004,6 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
@@ -719,19 +1015,19 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 21
       },
       "id": 5,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -824,11 +1120,11 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "Percentage of used cache blocks by vLLM.",
+      "description": "Percentage of KV cache blocks in use. High utilization increases preemption risk.",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
             "axisBorderShow": false,
@@ -839,7 +1135,7 @@
             "barAlignment": 0,
             "barWidthFactor": 0.6,
             "drawStyle": "line",
-            "fillOpacity": 0,
+            "fillOpacity": 15,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -860,7 +1156,7 @@
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "line"
             }
           },
           "mappings": [],
@@ -872,8 +1168,12 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 0.8
+              },
+              {
                 "color": "red",
-                "value": 80
+                "value": 0.95
               }
             ]
           },
@@ -885,19 +1185,19 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 17
+        "y": 21
       },
       "id": 4,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -942,7 +1242,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 25
+        "y": 29
       },
       "id": 12,
       "options": {
@@ -1034,7 +1334,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 25
+        "y": 29
       },
       "id": 13,
       "options": {
@@ -1150,14 +1450,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
+                "color": "green",
+                "value": null
               }
             ]
-          }
+          },
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -1165,19 +1463,19 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 33
+        "y": 37
       },
       "id": 11,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -1188,7 +1486,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "sum by(finished_reason) (increase(vllm:request_success_total{model_name=\"$model_name\"}[$__rate_interval]))",
+          "expr": "sum by(finished_reason) (rate(vllm:request_success_total{model_name=\"$model_name\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1251,11 +1549,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1267,19 +1562,19 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 33
+        "y": 37
       },
       "id": 14,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -1348,11 +1643,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1364,19 +1656,19 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 41
+        "y": 45
       },
       "id": 15,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -1463,14 +1755,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
+                "color": "green",
+                "value": null
               }
             ]
-          }
+          },
+          "unit": "short"
         },
         "overrides": []
       },
@@ -1478,19 +1768,19 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 41
+        "y": 45
       },
       "id": 16,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -1524,7 +1814,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 53
       },
       "panels": []
     },
@@ -1537,7 +1827,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 50
+        "y": 54
       },
       "datasource": {
         "type": "prometheus",
@@ -1547,25 +1837,74 @@
         "defaults": {
           "unit": "percentunit",
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 10
+            "fillOpacity": 10,
+            "drawStyle": "line",
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           },
           "min": 0,
-          "max": 1
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "green",
+                "value": 0.7
+              }
+            ]
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "drafts/s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ops"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [10, 10],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
+        "legend": {
+          "calcs": ["mean", "max", "last"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
         "tooltip": {
           "mode": "multi",
-          "sort": "none"
-        },
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "sort": "desc"
         }
       },
       "targets": [
@@ -1598,7 +1937,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 50
+        "y": 54
       },
       "datasource": {
         "type": "prometheus",
@@ -1608,25 +1947,50 @@
         "defaults": {
           "unit": "percentunit",
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 10
+            "fillOpacity": 10,
+            "drawStyle": "line",
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           },
           "min": 0,
-          "max": 1
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "green",
+                "value": 0.7
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
         "tooltip": {
           "mode": "multi",
-          "sort": "none"
-        },
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "sort": "desc"
         }
       },
       "targets": [
@@ -1659,7 +2023,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 62
       },
       "panels": []
     },
@@ -1668,7 +2032,7 @@
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
-      "description": "GPU utilization percent. On our single-GPU node this is effectively llama.cpp's share.",
+      "description": "GPU utilization percent on the R9700 inference node.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1703,7 +2067,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 59
+        "y": 63
       },
       "id": 19,
       "options": {
@@ -1771,7 +2135,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 59
+        "y": 63
       },
       "id": 20,
       "options": {
@@ -1856,7 +2220,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 59
+        "y": 63
       },
       "id": 21,
       "options": {
@@ -1895,7 +2259,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 67
+        "y": 71
       },
       "panels": []
     },
@@ -1941,7 +2305,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 68
+        "y": 72
       },
       "id": 22,
       "options": {
@@ -2031,7 +2395,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 68
+        "y": 72
       },
       "id": 23,
       "options": {
@@ -2121,7 +2485,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 68
+        "y": 72
       },
       "id": 24,
       "options": {
@@ -2163,7 +2527,7 @@
   ],
   "refresh": "1m",
   "schemaVersion": 41,
-  "tags": ["ai", "llama-server", "vllm"],
+  "tags": ["ai", "vllm"],
   "templating": {
     "list": [
       {
@@ -2186,7 +2550,7 @@
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(vllm:num_requests_running{namespace=\"ai\", service=\"llama-server\"}, model_name)",
+        "definition": "label_values(vllm:num_requests_running{namespace=\"ai\", service=\"vllm\"}, model_name)",
         "hide": 0,
         "includeAll": false,
         "label": "vLLM model",
@@ -2214,7 +2578,7 @@
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(litellm_deployment_success_responses_total{api_base=~\".*llama-server.*\"}, requested_model)",
+        "definition": "label_values(litellm_deployment_success_responses_total{api_base=~\".*vllm.*\"}, requested_model)",
         "hide": 0,
         "includeAll": true,
         "label": "LiteLLM model",
@@ -2223,7 +2587,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(litellm_deployment_success_responses_total{api_base=~\".*llama-server.*\"}, requested_model)",
+          "query": "label_values(litellm_deployment_success_responses_total{api_base=~\".*vllm.*\"}, requested_model)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -2235,13 +2599,13 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "vllm",
   "uid": "vllm",
-  "version": 9,
+  "version": 10,
   "weekStart": ""
 }
