@@ -1,0 +1,195 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: vllm
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    timeout: 25m
+    remediation:
+      retries: 1
+  upgrade:
+    # vLLM cold start: ~15-20 min (Dynamo JIT + Triton autotuning + graph capture).
+    # Default 5m timeout triggers rollback before the pod is ready.
+    timeout: 25m
+    remediation:
+      # No rollback: cold start can exceed the upgrade timeout on slow PVC reads.
+      retries: -1
+  valuesFrom:
+    - kind: ConfigMap
+      name: affinity-control-1
+
+  values:
+    defaultPodOptions:
+      affinity:
+        nodeAffinity:
+          # Hard gate to the GPU node; complements the soft control-1 pin from affinity-control-1.
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: amd.com/gpu
+                    operator: In
+                    values: ["true"]
+      # Root + video/render groups + Unconfined seccomp = ROCm device access via squat.ai/dri:1.
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        supplementalGroups:
+          - 44 # video — /dev/dri
+          - 226 # render — /dev/dri/renderD* + /dev/kfd (ROCm compute)
+        seccompProfile:
+          type: Unconfined # ROCm/HIP needs unrestricted syscalls
+
+    controllers:
+      app:
+        # Recreate, not RollingUpdate: singleton holding the node's only squat.ai/dri:1.
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              # Community vLLM ROCm build with gfx1201 patches (kyuz0/vllm-therock-gfx1201).
+              # Serving cyankiwi/Qwen3.6-27B-AWQ-INT4 at 234K context with MTP×4 speculative decoding.
+              # Benchmarks (EXP-016b, kyuz0:latest): 0.97 gpu_util → 8.94 GiB KV, 234K fits,
+              # C=1 ~19.0 tok/s, C=8 agg 108.6 tok/s.
+              repository: docker.io/kyuz0/vllm-therock-gfx1201
+              tag: latest
+            command:
+              - python
+              - -m
+              - vllm.entrypoints.openai.api_server
+            args:
+              - --model
+              - cyankiwi/Qwen3.6-27B-AWQ-INT4
+              # Keep qwen-3.6 as served name so litellm/toolhive configs are unchanged.
+              - --served-model-name
+              - qwen-3.6
+              - --host
+              - 0.0.0.0
+              - --port
+              - "8000"
+              # 89% of the 262,144 native context. fp8 KV = 32 KB/token for 16 attn layers;
+              # 234K needs 8.54 GiB KV. At 0.97 util (32 GB × 0.97 = 31.0 GB for vLLM),
+              # the kyuz0:latest image leaves 8.94 GiB for KV. See EXP-016b.
+              - --max-model-len
+              - "234320"
+              - --max-num-seqs
+              - "8"
+              - --gpu-memory-utilization
+              - "0.97"
+              # fp8 KV halves KV footprint vs bf16; Hadamard rotation in the AWQ quant absorbs error.
+              - --kv-cache-dtype
+              - fp8
+              - --enable-prefix-caching
+              - --trust-remote-code
+              - --no-enable-log-requests
+              # MTP self-speculative: 4 draft tokens from the built-in MTP heads (EXP-013: 4 > 5).
+              - --spec-method
+              - mtp
+              - --spec-tokens
+              - "4"
+              # Persist torch.compile (AOT) artifacts to PVC — saves ~5 min per restart.
+              # Also restores quant_fp8 custom op + fused norm/quant passes (EXP-011) which the
+              # kyuz0:latest image does not enable by default; those passes shrink activation
+              # buffers by ~0.5 GiB during profiling, which is what 234K context needs.
+              - --compilation-config
+              - '{"cache_dir": "/cache/compile", "custom_ops": ["+quant_fp8", "+sparse_attn_indexer", "none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
+            env:
+              TZ: ${TIMEZONE}
+              HF_HOME: /cache/hf # model weights on the cache PVC (~27 GB on first start)
+              # Triton JIT cache — persisted so restarts skip autotuning (~8-10 min saved).
+              TRITON_CACHE_DIR: /cache/triton
+              HIP_VISIBLE_DEVICES: "0"
+              PYTORCH_ROCM_ARCH: gfx1201
+              # AITER ops hang on gfx1201 with this vLLM build.
+              VLLM_ROCM_USE_AITER: "0"
+              FLASH_ATTENTION_TRITON_AMD_ENABLE: "TRUE"
+            probes:
+              startup: &probeBase
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &httpGet
+                    path: /health
+                    port: &port 8000
+                  initialDelaySeconds: 60
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  # vLLM cold start: ~15 min (weight load + Dynamo + Triton + graph capture).
+                  # First boot from empty PVC adds ~60 min for HF model download.
+                  # 120×15s + 60s = ~31 min budget covers warm restarts with cached artifacts.
+                  failureThreshold: 120
+              liveness:
+                <<: *probeBase
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 60
+                  periodSeconds: 60
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                <<: *probeBase
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 60
+                  periodSeconds: 15
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+            resources:
+              requests:
+                cpu: 2
+                memory: 10Gi
+                squat.ai/dri: 1
+              limits:
+                cpu: 12
+                memory: 32Gi
+                squat.ai/dri: 1
+
+    service:
+      app:
+        controller: app
+        ports:
+          http:
+            port: 80
+            targetPort: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: vllm
+          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, MTP×4, 234K ctx)
+          gethomepage.dev/group: Models
+          gethomepage.dev/icon: mdi-brain
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 80
+
+    persistence:
+      cache:
+        enabled: true
+        existingClaim: vllm
+        advancedMounts:
+          app:
+            app:
+              - path: /cache
+      shm:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 4Gi
+        advancedMounts:
+          app:
+            app:
+              - path: /dev/shm

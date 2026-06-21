@@ -9,21 +9,15 @@ data:
       - model_name: qwen-3.6
         litellm_params:
           model: openai/qwen-3.6
-          api_base: http://llama-server.ai.svc.cluster.local/v1
+          api_base: http://vllm.ai.svc.cluster.local/v1
           api_key: os.environ/LLAMA_SERVER_API_KEY
           timeout: 600
-          stream_timeout: 300
+          # vLLM at ~19 tok/s: 8192 tokens takes ~420 s; 600 matches the request timeout.
+          stream_timeout: 600
         model_info:
           mode: chat
-          max_input_tokens: 262144
+          max_input_tokens: 234320
           max_output_tokens: 8192
-      # Auto-expose every other model the llama-server router serves (e.g. qwen3-embedding) without a
-      # per-model entry. litellm matches exact names first, then falls through to this wildcard.
-      - model_name: "*"
-        litellm_params:
-          model: openai/*
-          api_base: http://llama-server.ai.svc.cluster.local/v1
-          api_key: os.environ/LLAMA_SERVER_API_KEY
 
     litellm_settings:
       callbacks: ["prometheus"]

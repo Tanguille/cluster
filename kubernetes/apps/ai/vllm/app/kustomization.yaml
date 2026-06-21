@@ -13,12 +13,9 @@ resources:
   - grafanadashboard.yaml
 
 configMapGenerator:
-  - name: llama-server-config
+  - name: vllm-dashboard
     files:
-      - config/models.ini
-  - name: llama-server-dashboard
-    files:
-      - dashboard/llama-server.json
+      - dashboard/vllm.json
     options:
       annotations:
         kustomize.toolkit.fluxcd.io/substitute: disabled
