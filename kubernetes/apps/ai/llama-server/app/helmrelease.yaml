@@ -18,8 +18,8 @@ spec:
     # Default 5m timeout triggers rollback before the pod is ready.
     timeout: 25m
     remediation:
-      # -1 = no remediation/rollback — rollback would revert to old llama.cpp spec which is
-      # also broken (llama-server-config ConfigMap was removed). Stay on failed vLLM spec.
+      # -1 = no rollback — vLLM cold start takes up to 25 min (Dynamo + Triton + graph capture);
+      # auto-rollback would trigger on transient startup timeouts before the pod is healthy.
       retries: -1
   valuesFrom:
     - kind: ConfigMap
@@ -68,7 +68,6 @@ spec:
             args:
               - --model
               - cyankiwi/Qwen3.6-27B-AWQ-INT4
-              # Match the old llama.cpp model name so downstream clients (litellm, toolhive) are unchanged.
               - --served-model-name
               - qwen-3.6
               - --host

@@ -13,6 +13,10 @@ resources:
   - grafanadashboard.yaml
 
 configMapGenerator:
+  # llama.cpp revert: uncomment below and reference llama-server-config from the HelmRelease's valuesFrom.
+  # - name: llama-server-config
+  #   files:
+  #     - config/models.ini
   - name: llama-server-dashboard
     files:
       - dashboard/llama-server.json

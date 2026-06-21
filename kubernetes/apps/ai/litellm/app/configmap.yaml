@@ -15,15 +15,8 @@ data:
           stream_timeout: 300
         model_info:
           mode: chat
-          max_input_tokens: 262144
+          max_input_tokens: 234320
           max_output_tokens: 8192
-      # Auto-expose every other model the llama-server router serves (e.g. qwen3-embedding) without a
-      # per-model entry. litellm matches exact names first, then falls through to this wildcard.
-      - model_name: "*"
-        litellm_params:
-          model: openai/*
-          api_base: http://llama-server.ai.svc.cluster.local/v1
-          api_key: os.environ/LLAMA_SERVER_API_KEY
 
     litellm_settings:
       callbacks: ["prometheus"]
