@@ -8,35 +8,27 @@ engines improve on RDNA4.
 
 ## How to get the removed build infrastructure back
 
-### Round 2 — vLLM + SGLang custom builds removed (June 2026, PR #3414)
+### llama-cpp-rocm + image-builder removed (June 2026)
 
-Custom Dockerfiles and GitHub Actions workflows for the vLLM-from-source and SGLang benchmark
-builds were removed when production switched to `kyuz0/vllm-therock-gfx1201` (community build)
-and SGLang remained experimental. Restore from:
+The llama.cpp custom Docker build and `image-builder` GHA runner were removed when
+`kyuz0/vllm-therock-gfx1201` became production (PR #3414). Restore from:
 
 ```
-git anchor: 5e8f36c410c120cd4ca3e86499279a5a8b872cde  (feat/vllm-cleanup, pre-removal)
+git anchor: 173298878   (main, pre-removal)
 
-# inspect:
-git show 5e8f36c:docker/vllm-rocm/Dockerfile
-git show 5e8f36c:docker/sglang-rocm/Dockerfile
-git show 5e8f36c:docker/sglang-rocm-torch212/Dockerfile
-git show 5e8f36c:.github/workflows/build-vllm-rocm.yaml
-git show 5e8f36c:.github/workflows/build-sglang-rocm.yaml
-git show 5e8f36c:.github/workflows/build-sglang-rocm-torch212.yaml
+git show 173298878:docker/llama-cpp-rocm/Dockerfile
+git show 173298878:.github/workflows/build-llama-cpp-rocm.yaml
+git show 173298878:kubernetes/apps/actions-runner-system/actions-runner-controller/runners/image-builder/helmrelease.yaml
 
-# or restore all at once:
-git checkout 5e8f36c -- docker/vllm-rocm docker/sglang-rocm docker/sglang-rocm-torch212 \
-  .github/workflows/build-vllm-rocm.yaml \
-  .github/workflows/build-sglang-rocm.yaml \
-  .github/workflows/build-sglang-rocm-torch212.yaml
+git checkout 173298878 -- docker/llama-cpp-rocm \
+  .github/workflows/build-llama-cpp-rocm.yaml \
+  kubernetes/apps/actions-runner-system/actions-runner-controller/runners/image-builder
 ```
 
-- `docker/vllm-rocm/` — vLLM built from source on `rocm/vllm:rocm7.13.0_gfx120X-all`; superseded by `kyuz0/vllm-therock-gfx1201` (community build with better gfx1201 patches, faster startup, no ~19 min compile). Last pushed image: `ghcr.io/tanguille/vllm-rocm-gfx1201:gfx1201`.
-- `docker/sglang-rocm/` — SGLang mainline on same ROCm base; benchmark-only (hits `gptq_marlin_repack` on load). Superseded by the mattbucci fork path — see `docs/sglang-qwen3.6-rocm-plan.md`.
-- `docker/sglang-rocm-torch212/` — SGLang benchmark variant with torch 2.12.1+rocm7.2 for comparison against AMD's torch 2.11.0+rocm7.13 base.
+- `docker/llama-cpp-rocm/` — gfx1201-tuned ROCm build of llama.cpp; last image: `ghcr.io/tanguille/llama-cpp-rocm-gfx1201:gfx1201`.
+- `image-builder` runner — scale-to-zero GHA runner (privileged rootful buildkitd, no GPU needed — HIP cross-compile).
 
-### Round 1 — SGLang + vLLM k8s manifests removed (earlier, PR pre-history)
+### sglang / vLLM-from-source builds removed (June 2026)
 
 All trial manifests + the custom Dockerfile existed at this commit (the parent of the removal):
 
