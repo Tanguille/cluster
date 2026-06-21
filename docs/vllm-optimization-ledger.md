@@ -219,9 +219,47 @@ FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE
 
 ---
 
-## Planned Experiments (ordered by expected impact)
+---
 
-| # | Hypothesis | Variable | Risk |
+### EXP-012 — Chunked prefill + 234K + MTP×4
+**Hypothesis**: `--enable-chunked-prefill` improves PP throughput by interleaving prefill/decode batches
+**Date**: 2026-06-21 | **Change**: Added `--enable-chunked-prefill` to EXP-011 config
+
+**Result**: WORSE
+
+| Metric | EXP-012 (chunked) | EXP-011 (no chunked) | Delta |
 |---|---|---|---|
-| EXP-012 | Chunked prefill (`--enable-chunked-prefill`) improves PP throughput | prefill batching | May conflict with MTP |
-| EXP-013 | spec_tokens=5 or 6 — does deeper MTP help at C=1? | MTP depth | Diminishing returns likely |
+| C=1 avg TG | 19.0 tok/s | 19.5 tok/s | −3% |
+| C=4 agg TG | 55.9 tok/s | 61.2 tok/s | −9% |
+| C=8 agg TG | 121.6 tok/s | 126.1 tok/s | −4% |
+
+Root cause: `WARNING: Cannot use ROCm custom paged attention kernel, falling back to Triton implementation.` Chunked prefill triggers a different attention code path that forces Triton fallback instead of the ROCm custom kernel. **Do not use `--enable-chunked-prefill` on gfx1201 with kyuz0.**
+
+---
+
+### EXP-013 — spec_tokens=5 (deeper MTP), 229K context
+**Hypothesis**: More draft tokens improve C=1 TG if acceptance rate stays above threshold
+**Date**: 2026-06-21 | **Change**: spec_tokens 4→5; vLLM reports max_model_len = 229,472 (5 slots use more CUDA graph VRAM)
+
+**Result**: WORSE
+
+| Metric | EXP-013 (depth 5) | EXP-011 (depth 4) | Delta |
+|---|---|---|---|
+| C=1 avg TG | 19.3 tok/s | 19.5 tok/s | −1% (noise) |
+| C=8 agg TG | 117.1 tok/s | 126.1 tok/s | **−7%** |
+| Max ctx | 229,472 | 234,320 | −2% |
+
+Root cause: MTP acceptance rate at depth 5 is too low to amortize overhead. Estimated per-token acceptance ~75% → probability all 5 accepted = 0.75^5 = 24% vs 0.75^4 = 32% at depth 4. The extra graph capture for depth 5 also shrinks the KV pool by ~5K tokens. **Optimal depth: 4.**
+
+---
+
+## Convergence Summary — All Experiments Done
+
+| Config | C=1 TG | C=4 agg | C=8 agg | Max ctx | Status |
+|---|---|---|---|---|---|
+| EXP-001 No MTP baseline | 6.9 | 47.1 | 47.1 | 32K | Retired |
+| EXP-002 MTP×4, 32K, seqs=16 | 18.4 | 64.8 | 126.8 | 32K | Superseded |
+| EXP-004 MTP×4, 131K, seqs=16 | 18.3 | 70.4 | 129.6 | 131K | Good for C≤4 |
+| **EXP-011 MTP×4, 234K, seqs=8** | **19.5** | **61.2** | **126.1** | **234K** | **PRODUCTION** |
+| EXP-012 + chunked prefill | 19.0 | 55.9 | 121.6 | 234K | Worse |
+| EXP-013 MTP×5, 229K, seqs=8 | 19.3 | — | 117.1 | 229K | Worse |
