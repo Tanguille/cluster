@@ -81,6 +81,12 @@ spec:
               - "234320"
               - --max-num-seqs
               - "8"
+              # Scheduler caps max_num_batched_tokens at 2048 under MTP (spec-tokens 4),
+              # which vLLM warns is suboptimal for batched throughput. Bump to give the
+              # scheduler headroom for draft-token slots across 8 seqs. Benchmark PP+TG
+              # before/after to confirm the gain on gfx1201.
+              - --max-num-batched-tokens
+              - "8192"
               - --gpu-memory-utilization
               - "0.97"
               # fp8 KV halves KV footprint vs bf16; Hadamard rotation in the AWQ quant absorbs error.
@@ -95,11 +101,12 @@ spec:
               - --spec-tokens
               - "4"
               # Persist torch.compile (AOT) artifacts to PVC — saves ~5 min per restart.
-              # Also restores quant_fp8 custom op + fused norm/quant passes (EXP-011) which the
-              # kyuz0:latest image does not enable by default; those passes shrink activation
-              # buffers by ~0.5 GiB during profiling, which is what 234K context needs.
+              # The fused norm/quant passes (EXP-011) shrink activation buffers by ~0.5 GiB
+              # during profiling, which is what 234K context needs; the kyuz0:latest image
+              # does not enable them by default. (The +quant_fp8 / +sparse_attn_indexer
+              # custom ops were dropped — vLLM logs them as no-ops for this model.)
               - --compilation-config
-              - '{"cache_dir": "/cache/compile", "custom_ops": ["+quant_fp8", "+sparse_attn_indexer", "none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
+              - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC (~27 GB on first start)
