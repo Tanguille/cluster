@@ -114,9 +114,6 @@ spec:
               - '{"backend": "xgrammar", "disable_any_whitespace": true}'
               # MTP stays OFF: under concurrent tool-calling it wedges the grammar FSM (deferred, ~0 tok/s;
               # vLLM #34650). Helps single-stream only — net loss for this workload.
-              # fuse_norm_quant CRASHES on gfx1201 (kyuz0). Other compile passes moot under --enforce-eager.
-              - --compilation-config
-              - '{"pass_config": {"fuse_norm_quant": false}}'
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC
