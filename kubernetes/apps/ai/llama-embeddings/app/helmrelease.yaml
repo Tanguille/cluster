@@ -1,0 +1,114 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: llama-embeddings
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    controllers:
+      app:
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/ggml-org/llama.cpp
+              tag: server-vulkan@sha256:c7e3aa0258d9f79f5462f3ef21368af5c3614c75459d368c7ce941b6adb42fca
+            env:
+              TZ: ${TIMEZONE}
+              LLAMA_CACHE: /cache
+            args:
+              - --host
+              - 0.0.0.0
+              - --port
+              - "8080"
+              - --models-preset
+              - /app/models.ini
+            probes:
+              startup: &probeBase
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &httpGet
+                    path: /health
+                    port: &port 8080
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 15
+              liveness:
+                <<: *probeBase
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness:
+                <<: *probeBase
+                spec:
+                  httpGet: *httpGet
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 3
+                  failureThreshold: 3
+            resources:
+              requests:
+                cpu: 500m
+                memory: 2Gi
+                squat.ai/dri: 1
+              limits:
+                cpu: 4
+                memory: 4Gi
+                squat.ai/dri: 1
+
+    defaultPodOptions:
+      nodeSelector:
+        amd.com/igpu: "true"
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        supplementalGroups:
+          - 44
+          - 226
+
+    service:
+      app:
+        controller: app
+        ports:
+          http:
+            port: 80
+            targetPort: *port
+
+    persistence:
+      config:
+        type: configMap
+        name: llama-embeddings-config
+        advancedMounts:
+          app:
+            app:
+              - path: /app/models.ini
+                subPath: models.ini
+                readOnly: true
+      cache:
+        type: emptyDir
+        sizeLimit: 3Gi
+        advancedMounts:
+          app:
+            app:
+              - path: /cache
+      shm:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 512Mi
+        advancedMounts:
+          app:
+            app:
+              - path: /dev/shm
