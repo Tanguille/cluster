@@ -74,7 +74,7 @@ spec:
               - --max-model-len
               - "234320"
               - --max-num-seqs
-              - "8"
+              - "16"
               # MTP caps this at 2048 by default (vLLM warns it's suboptimal); bump for draft-slot headroom.
               - --max-num-batched-tokens
               - "8192"
@@ -97,7 +97,7 @@ spec:
               # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes (EXP-011)
               # shrink activation buffers ~0.5 GiB, which 234K ctx needs; not on by default.
               - --compilation-config
-              - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
+              - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "cudagraph_capture_sizes": [1, 2, 4, 8, 16, 32, 48, 64, 80], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC (~27 GB on first start)
@@ -160,7 +160,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: vllm
-          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, MTP×4, 234K ctx)
+          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, MTP×4, 234K ctx, 16 seqs)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
