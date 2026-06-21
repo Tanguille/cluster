@@ -82,15 +82,17 @@ spec:
               # Eager: keeps the config simple and sidesteps gfx1201 graph-capture issues; decode is
               # GEMM-bound so cudagraph wouldn't help. (Vision encoder kept — image input needed.)
               - --enforce-eager
-              # Full native context; fits thanks to fp8 KV. Lower if a boot ever crash-loops on the pool.
+              # 240K context (fp8 KV). Full 262K doesn't fit once the vision encoder is loaded (we keep
+              # vision; kyuz0's bench drops it). Lower further if a boot crash-loops on the pool.
               - --max-model-len
-              - "262144"
+              - "245760"
               - --max-num-seqs
               - "32"
               - --max-num-batched-tokens
               - "16384"
+              # 0.97 (not kyuz0's 0.95) to claw back KV headroom, since we keep the vision encoder.
               - --gpu-memory-utilization
-              - "0.95"
+              - "0.97"
               # fp8 KV halves KV footprint → enables full 262K context; AWQ Hadamard rotation absorbs the error.
               - --kv-cache-dtype
               - fp8
