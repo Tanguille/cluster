@@ -60,12 +60,15 @@ spec:
               - -m
               - vllm.entrypoints.openai.api_server
             args:
-              # fp8 (Qwen/Qwen3.6-27B-FP8, ~27GB) filled the cache PVC 2026-06-21 → node disk pressure
-              # → kubelet down. Back on the already-cached INT4 model (no new download) for clean
-              # recovery; delete the cached fp8 model from /cache/hf to reclaim space before any
-              # further quant experiment.
+              # NVFP4 EXPERIMENT 2026-06-21: 4-bit (~14GB, safe size) to test whether vLLM has a
+              # non-AITER fp4 GEMM path faster than TritonW4A16 INT4 (~6.5 tok/s). fp4 fast path is
+              # AITER-gated (AITER crash-loops here) so this may fall to Triton fp4 or fail to load.
+              # Revert to cyankiwi/Qwen3.6-27B-AWQ-INT4 if it fails or isn't faster.
               - --model
-              - cyankiwi/Qwen3.6-27B-AWQ-INT4
+              - unsloth/Qwen3.6-27B-NVFP4
+              # unsloth recommends bfloat16 compute dtype for the NVFP4 checkpoint.
+              - --dtype
+              - bfloat16
               # Keep qwen-3.6 as served name so litellm/toolhive configs are unchanged.
               - --served-model-name
               - qwen-3.6
@@ -73,10 +76,10 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # Full 262,144 native context. Fits the fp8 KV pool (~266-289K tokens, varies per boot)
-              # with MTP off; if a boot ever profiles below this, vLLM crash-loops → lower max-model-len.
+              # 128K for the NVFP4 first boot (conservative; NVFP4 is ~14GB so big ctx should fit —
+              # raise toward 262144 once the profiled pool is known). Decode speed is ctx-independent.
               - --max-model-len
-              - "262144"
+              - "131072"
               - --max-num-seqs
               - "16"
               # Raise above the 2048 default for better prefill throughput under concurrent requests.
