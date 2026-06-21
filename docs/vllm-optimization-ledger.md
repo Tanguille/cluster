@@ -288,6 +288,26 @@ Root cause: AITER `module_aiter_core.so` kernels target CDNA3 (gfx942/gfx950) ma
 
 ---
 
+---
+
+### EXP-016b — 0.97 gpu_util (new kyuz0:latest image, minimal compilation config)
+**Hypothesis**: 0.97 util adds 0.64 GB VRAM budget to recover 234K context lost in image update
+**Date**: 2026-06-21 | **gpu_util**: 0.97 | **compilation-config**: `{"cache_dir": "/cache/compile"}` only
+
+**Result**: 234K FITS — KV available: **8.94 GiB** (8.54 GiB needed)
+- C=1 TG: **~19.0 tok/s** (within noise of 19.5 baseline)
+- C=8 agg: **108.6 tok/s** (-14% vs EXP-011 baseline)
+
+**Root cause of C=8 regression**: This experiment ran with a minimal compilation config (only `cache_dir`), missing the `+quant_fp8 + fuse_norm_quant + fuse_act_quant` passes from EXP-011 production. The full config is in the committed HelmRelease.
+
+**Status**: PRODUCTION — 0.97 committed. The ViT encoder is still being initialized (startup shows "Using Torch SDPA backend for ViT model" + 16384-token encoder cache). The 0.5 GiB overhead introduced by the new image is fundamental; raising util compensates.
+
+**Notes for future improvement**:
+- ViT encoder takes VRAM but is unused for text-only inference. `--limit-mm-per-prompt '{"image": 0}'` only blocks image tokens in requests, does NOT skip encoder initialization (confirmed EXP-004 era).
+- iGPU migration for qwen3-embedding (Ryzen 5 6600H / gfx1035 on control-2) would free the R9700 from co-residency pressure — requires device plugin setup on control-2.
+
+---
+
 ## C=1 Performance Ceiling Analysis
 
 **Practical ceiling: ~19.5 tok/s with this build+hardware+model.**
@@ -323,3 +343,5 @@ Root cause: Decode is entirely memory-bandwidth bound.
 | EXP-013 MTP×5, 229K, seqs=8 | 19.3 | — | 117.1 | 229K | Worse |
 | EXP-014b AITER LINEAR+RMS | 16.8 | — | 109.1 | 234K | Worse |
 | EXP-015 Custom graph sizes | — | — | — | 234K | Infeasible (OOM) |
+| EXP-016 Triton cache + compile cache | ~19.5 | — | ~126 | 234K | Cache only (baseline perf) |
+| EXP-016b 0.97 gpu_util (new image) | ~19.0 | — | 108.6* | 234K | PRODUCTION (image regression) |
