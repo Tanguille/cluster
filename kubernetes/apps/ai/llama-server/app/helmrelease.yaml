@@ -9,6 +9,16 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  install:
+    timeout: 25m
+    remediation:
+      retries: 1
+  upgrade:
+    # vLLM cold start takes ~15-20 min (Dynamo JIT + Triton autotuning + graph capture).
+    # Default 5m timeout triggers rollback before the pod is ready.
+    timeout: 25m
+    remediation:
+      retries: 0 # don't rollback on failure — rollback brings back old llama.cpp spec
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
