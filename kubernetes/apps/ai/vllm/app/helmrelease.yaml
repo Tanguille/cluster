@@ -60,8 +60,12 @@ spec:
               - -m
               - vllm.entrypoints.openai.api_server
             args:
+              # EXPERIMENT 2026-06-21: fp8 weights to test whether RDNA4's WMMA fp8 GEMM decodes
+              # faster than the slow TritonW4A16 INT4 path (~6.5 tok/s). Cost: ~27GB weights leave
+              # little room for KV → small context (see max-model-len). Revert to the INT4 model
+              # (cyankiwi/Qwen3.6-27B-AWQ-INT4) + 262144 ctx if it's not faster or quality regresses.
               - --model
-              - cyankiwi/Qwen3.6-27B-AWQ-INT4
+              - Qwen/Qwen3.6-27B-FP8
               # Keep qwen-3.6 as served name so litellm/toolhive configs are unchanged.
               - --served-model-name
               - qwen-3.6
@@ -69,10 +73,10 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # Full 262,144 native context. Fits the fp8 KV pool (~266-289K tokens, varies per boot)
-              # with MTP off; if a boot ever profiles below this, vLLM crash-loops → lower max-model-len.
+              # fp8 EXPERIMENT: ~27GB weights leave only a few GB for KV → small context. Start at 32K
+              # to guarantee boot; raise toward whatever the profiled pool allows once we see it.
               - --max-model-len
-              - "262144"
+              - "32768"
               - --max-num-seqs
               - "16"
               # Raise above the 2048 default for better prefill throughput under concurrent requests.
