@@ -53,7 +53,6 @@ spec:
           app:
             image:
               # Community vLLM ROCm build with gfx1201 patches.
-              # EXP-016b: 0.97 util → 8.94 GiB KV, 234K fits; C=1 ~19.0 tok/s, C=8 agg 108.6 tok/s.
               repository: docker.io/kyuz0/vllm-therock-gfx1201
               tag: latest@sha256:55fa7796374a281e4b77a05cc2f26391d4100a5abb738f77c580ebc3951761e9
             command:
@@ -70,14 +69,13 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # Full 262,144 native ctx. Disabling MTP freed the draft-slot KV reservation, growing
-              # the fp8 pool to 288,393 tokens — enough to hold the full window (~26K headroom for
-              # block alignment). Was capped at 234K when the pool only held 241K.
+              # Full 262,144 native context. Fits the fp8 KV pool (~268-289K tokens, varies per boot);
+              # if a boot ever profiles below this, vLLM crash-loops on startup → lower max-model-len.
               - --max-model-len
               - "262144"
               - --max-num-seqs
               - "16"
-              # MTP caps this at 2048 by default (vLLM warns it's suboptimal); bump for draft-slot headroom.
+              # Raise above the 2048 default for better prefill throughput under concurrent requests.
               - --max-num-batched-tokens
               - "8192"
               - --gpu-memory-utilization
@@ -108,12 +106,12 @@ spec:
               # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
               - --structured-outputs-config
               - '{"backend": "xgrammar", "disable_any_whitespace": true}'
-              # MTP disabled: spec-decode (eagle) collides with grammar-constrained decoding from
-              # tool calling — every draft token re-validates against the bitmask, drafts get
-              # rejected, and the engine wedged at ~0.2 tok/s (100x regression) under agentic load.
-              # Plain benchmarks (no tools) never hit this path. See EXP-tool-wedge.
-              # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes (EXP-011)
-              # shrink activation buffers ~0.5 GiB, which 234K ctx needs; not on by default.
+              # NOTE: MTP/speculative decoding intentionally omitted — eagle drafts collide with
+              # grammar-constrained tool calling (drafts rejected → ~0.2 tok/s wedge under agentic
+              # load). Revisit once scaling is confirmed (recipe suggests num_speculative_tokens=2).
+              #
+              # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes shrink
+              # activation buffers ~0.5 GiB; not on by default.
               - --compilation-config
               - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "cudagraph_capture_sizes": [1, 2, 4, 8, 16, 32, 48, 64, 80], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
             env:
