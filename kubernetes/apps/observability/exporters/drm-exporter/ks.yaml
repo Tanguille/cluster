@@ -7,11 +7,14 @@ metadata:
   namespace: &namespace observability
 spec:
   dependsOn:
+    - name: generic-device-plugin
+      namespace: kube-system
     - name: prometheus-operator-crds
       namespace: observability
   interval: 1h
   path: ./kubernetes/apps/observability/exporters/drm-exporter/app
   prune: true
+  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
