@@ -57,7 +57,8 @@ spec:
             image:
               # Community vLLM ROCm build with gfx1201 patches (kyuz0/vllm-therock-gfx1201).
               # Serving cyankiwi/Qwen3.6-27B-AWQ-INT4 at 234K context with MTP×4 speculative decoding.
-              # Benchmark (EXP-011): C=1 19.5 tok/s, C=8 agg 126 tok/s (vs llama.cpp 37 C=1 / 35 C=8).
+              # Benchmark (EXP-011, old image): C=1 19.5 tok/s, C=8 agg 126 tok/s.
+              # EXP-016b (new image, 0.97 util): 234K fits (8.94 GiB KV), C=1 ~19.0 tok/s.
               repository: docker.io/kyuz0/vllm-therock-gfx1201
               tag: latest
             command:
@@ -74,14 +75,17 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # 89% of the 262,144 native context — maximum achievable at 0.95 gpu_util + fp8 KV.
-              # 262,144 needs 9.48 GiB KV; only 8.55 GiB available at 0.95 util. See EXP-005.
+              # 89% of the 262,144 native context; fp8 KV = 32 KB/token for 16 attn layers.
+              # 234K needs 8.54 GiB KV. At 0.97 util (32 GB × 0.97 = 31.0 GB for vLLM),
+              # the new kyuz0:latest image leaves 8.94 GiB for KV (0.50 GiB more than old
+              # image at 0.95). Raised from 0.95 after the June 2026 kyuz0 image update added
+              # ~0.5 GiB baseline VRAM overhead. See EXP-016b.
               - --max-model-len
               - "234320"
               - --max-num-seqs
               - "8"
               - --gpu-memory-utilization
-              - "0.95"
+              - "0.97"
               # fp8 KV halves KV footprint vs bf16; Hadamard rotation in the AWQ quant absorbs error.
               - --kv-cache-dtype
               - fp8
