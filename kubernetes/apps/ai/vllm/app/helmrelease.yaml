@@ -60,9 +60,8 @@ spec:
               - -m
               - vllm.entrypoints.openai.api_server
             args:
-              # cyankiwi/Qwen3.6-27B-AWQ-INT4 is the image author's (kyuz0/amd-r9700-vllm-toolboxes)
-              # VERIFIED model for this card. fp8 (crashed node, OOM/disk) and NVFP4 (emulation-only,
-              # slow) were dead ends — AWQ INT4 is the recommended quant for gfx1201.
+              # AWQ INT4 is the recommended quant for gfx1201 (kyuz0/amd-r9700-vllm-toolboxes verified).
+              # fp8 and NVFP4 don't work on this card (no fast kernel / emulation-only).
               - --model
               - cyankiwi/Qwen3.6-27B-AWQ-INT4
               # Keep qwen-3.6 as served name so litellm/toolhive configs are unchanged.
@@ -72,87 +71,61 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # kyuz0's recommended R9700 attention recipe: AITER Unified Attention (Triton-based,
-              # ~4% faster than the ROCM_ATTN default) for the LM, plain Triton for the vision encoder.
-              # Enabled via the VLLM_ROCM_USE_AITER_* env block below (only unified-attn on, all other
-              # AITER C++/HIP paths off — those crash graph capture on gfx1201).
+              # kyuz0's R9700 attention recipe: AITER Unified Attention (Triton) for the LM, plain
+              # Triton for the vision encoder. Enabled by the VLLM_ROCM_USE_AITER_* env block below.
               - --attention-backend
               - ROCM_AITER_UNIFIED_ATTN
               - --mm-encoder-attn-backend
               - TRITON_ATTN
-              # kyuz0 runs the 27B eager on gfx1201: torch.compile/cudagraph capture is unstable with
-              # the AITER attention path (IndexError at capture). Eager also frees cudagraph VRAM.
+              # Eager: torch.compile/cudagraph capture is unstable with AITER attention on gfx1201.
+              # (We keep the vision encoder — kyuz0's --language-model-only is skipped; image input needed.)
               - --enforce-eager
-              # NOTE: kyuz0 recommends --language-model-only, but we deliberately keep the vision
-              # encoder loaded — image recognition is a required feature here.
-              # Full 262,144 native context. fp8 KV + eager (no cudagraph VRAM) + language-model-only
-              # (no vision VRAM) leave ample KV room; if a boot ever profiles below this it crash-loops
-              # → lower max-model-len. (kyuz0's bench uses 20480, but that's a throughput-bench value.)
+              # Full native context; fits thanks to fp8 KV. Lower if a boot ever crash-loops on the pool.
               - --max-model-len
               - "262144"
-              # kyuz0's R9700 setting for this model.
               - --max-num-seqs
               - "32"
-              # kyuz0's R9700 setting for this model (16384) — raises prefill throughput under load.
               - --max-num-batched-tokens
               - "16384"
-              # kyuz0 uses 0.95 (more headroom than 0.97).
               - --gpu-memory-utilization
               - "0.95"
-              # fp8 KV halves KV footprint vs bf16 → enables full 262K context; Hadamard rotation in
-              # the AWQ quant absorbs the error. (Our context requirement; kyuz0's bench leaves KV default.)
+              # fp8 KV halves KV footprint → enables full 262K context; AWQ Hadamard rotation absorbs the error.
               - --kv-cache-dtype
               - fp8
               - --enable-prefix-caching
               - --trust-remote-code
               - --no-enable-log-requests
               - --enable-auto-tool-choice
-              # Qwen3.6 emits qwen3_coder-style tool calls (<tool_call><function=..><parameter=..>),
-              # NOT Hermes JSON — confirmed from the model's chat template. hermes mis-parses them.
+              # Qwen3.6 emits qwen3_coder-style tool calls (<function=..><parameter=..>), not Hermes JSON.
               - --tool-call-parser
               - qwen3_coder
-              # Reasoning model: parse <think> so xgrammar is SUSPENDED during reasoning and only
-              # constrains the post-</think> answer. Without it the tool-JSON grammar masks the
-              # thinking tokens → mass rejection → ~0 tok/s stall under concurrent tool calls.
-              # Thinking stays ON (enable_thinking defaults true) — preserves reasoning like the
-              # llama-server preserve_thinking setup.
+              # Reasoning model: suspends xgrammar during <think> so it only constrains the answer.
+              # Without it the tool grammar masks thinking tokens → ~0 tok/s stall under concurrent tools.
               - --reasoning-parser
               - qwen3
-              # Keep prior-turn reasoning in context (the model's chat template supports this kwarg);
-              # mirrors the retired llama-server `chat-template-kwargs = {"preserve_thinking": true}`.
+              # Keep prior-turn reasoning in context (mirrors llama-server preserve_thinking).
               - --default-chat-template-kwargs
               - '{"preserve_thinking": true}'
-              # Override the model's generation_config.json (ships temperature=1.0) with the tuned
-              # sampling from the retired llama-server config: temp 0.6 / top_k 20 / top_p 0.95 /
-              # min_p 0. Applied as request defaults when a client doesn't set its own.
+              # Tuned sampling defaults (model's generation_config ships temperature=1.0).
               - --override-generation-config
               - '{"temperature": 0.6, "top_k": 20, "top_p": 0.95, "min_p": 0.0}'
-              # Pin xgrammar (default 'auto' can silently fall back to the slower guidance backend)
-              # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
+              # Pin xgrammar (no silent guidance fallback) + no unbounded whitespace → fewer grammar steps.
               - --structured-outputs-config
               - '{"backend": "xgrammar", "disable_any_whitespace": true}'
-              # MTP self-speculation stays OFF. Re-tested 2026-06-21 (num_speculative_tokens=2):
-              # under concurrent tool-calling it re-triggered the structured-output wedge — requests
-              # piled up as 'deferred' on the grammar FSM and decode fell to ~0 tok/s (vLLM #34650,
-              # spec-decode × structured output). Helps single-stream only; net loss for this
-              # agentic workload. MTP off also frees draft KV → full 262K context fits.
-              # kyuz0: norm-quant graph fusion CRASHES on gfx1201 — keep it off. (cudagraph/AOT
-              # settings dropped: --enforce-eager disables graph capture and torch.compile anyway.)
+              # MTP stays OFF: under concurrent tool-calling it wedges the grammar FSM (deferred, ~0 tok/s;
+              # vLLM #34650). Helps single-stream only — net loss for this workload.
+              # fuse_norm_quant CRASHES on gfx1201 (kyuz0). Other compile passes moot under --enforce-eager.
               - --compilation-config
               - '{"pass_config": {"fuse_norm_quant": false}}'
             env:
               TZ: ${TIMEZONE}
-              HF_HOME: /cache/hf # model weights on the cache PVC (~27 GB on first start)
-              # Triton JIT cache + vLLM AOT compile cache — persisted so restarts skip recompilation.
-              TRITON_CACHE_DIR: /cache/triton
-              # AOT compiled functions default to /root/.cache (ephemeral); redirect to PVC.
+              HF_HOME: /cache/hf # model weights on the cache PVC
+              TRITON_CACHE_DIR: /cache/triton # persisted Triton JIT cache
               VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
               PYTORCH_ROCM_ARCH: gfx1201
-              # kyuz0's AITER-Unified recipe for R9700/gfx1201: master ON but ONLY unified-attention
-              # enabled — every other AITER path (MHA/paged-attn/MoE/linear/rmsnorm/fp8/fp4/rope) is
-              # the C++/HIP code that crashes graph capture on this card, so all OFF. Pairs with
-              # --attention-backend ROCM_AITER_UNIFIED_ATTN + --enforce-eager.
+              # kyuz0's AITER-Unified recipe: master ON but ONLY unified-attention enabled. Every other
+              # AITER path is C++/HIP that crashes graph capture on gfx1201, so all OFF.
               VLLM_ROCM_USE_AITER: "1"
               VLLM_ROCM_USE_AITER_UNIFIED_ATTENTION: "1"
               VLLM_ROCM_USE_AITER_MHA: "0"
