@@ -92,6 +92,10 @@ spec:
               - mtp
               - --spec-tokens
               - "4"
+              # Persist torch.compile (AOT) artifacts to PVC — saves ~5 min per restart.
+              # Combined with TRITON_CACHE_DIR, reduces cold start from ~18 min to ~3-5 min.
+              - --compilation-config
+              - '{"cache_dir": "/cache/compile"}'
             env:
               TZ: ${TIMEZONE}
               HF_HOME: /cache/hf # model weights on the cache PVC

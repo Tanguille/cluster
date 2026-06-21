@@ -271,6 +271,46 @@ Root cause: AITER `module_aiter_core.so` kernels target CDNA3 (gfx942/gfx950) ma
 
 ---
 
+### EXP-015 — Custom CUDA graph capture sizes for MTP (infeasible at 234K)
+**Date**: 2026-06-21
+
+**Hypothesis**: Default capture sizes `[1,2,4,8,...,80]` don't include 5 (= C=1 × (spec_tokens+1) = 1×5 for MTP×4 decode). Each C=1 step pads to batch=8 in the CUDA graph, doing 60% extra compute.
+
+**Result**: INFEASIBLE — any deviation from default `cudagraph_capture_sizes` triggers vLLM's profiler to allocate ~0.5 GiB extra VRAM (new compile config hash), reducing available KV cache from 8.55 GiB to 8.04 GiB. 234K context needs 8.54 GiB — fails. Would require dropping to `--max-model-len 218160` to compensate (16K context loss for a theoretical ≤4% actual speedup — not worth it since the bottleneck is bandwidth, not matmul FLOPs).
+
+---
+
+### EXP-015b — num-scheduler-steps (not in this build)
+`--num-scheduler-steps` is unrecognized by kyuz0 vLLM 0.22.1rc1. Not available.
+
+### EXP-015c — async-scheduling (OOM at 234K)
+`--async-scheduling` allocates an extra worker process, consuming ~0.5 GiB VRAM. Same OOM as EXP-015.
+
+---
+
+## C=1 Performance Ceiling Analysis
+
+**Practical ceiling: ~19.5 tok/s with this build+hardware+model.**
+
+Root cause: Decode is entirely memory-bandwidth bound.
+- Qwen3.6-27B AWQ INT4 = 13.5 GB weights
+- gfx1201 theoretical peak BW = 1.3 TB/s → minimum 10.4ms per forward pass
+- Actual step time: ~143ms (7.3% of theoretical BW utilization)
+- At batch=1, weight matrix reads dominate; matmul FLOPs are <10% of step time
+- Reducing CUDA graph padding (batch=5 vs padded batch=8) would save only ~4% of step time
+
+**The 2× gap vs llama.cpp C=1 (19.5 vs ~37 tok/s) is fundamental:**
+- llama.cpp: native C++/HIP decode kernels with batch=1 specialization, lower per-step overhead
+- vLLM: Python/PyTorch scheduler + graph dispatch overhead per step
+- vLLM advantage is at C≥4 where the Python overhead amortizes and batch scheduling wins (3.5× better C=8)
+
+**What would actually move the needle:**
+1. A custom gfx1201-tuned vLLM image with RDNA4-specific AITER kernels (the upstream AITER targets MI300X/CDNA3)
+2. Higher MTP acceptance rate (would need better-trained draft heads — a model quality issue)
+3. Hardware upgrade to MI300X (CDNA3) — the AITER path works there
+
+---
+
 ## Experiments Summary
 
 | Config | C=1 TG | C=4 agg | C=8 agg | Max ctx | Status |
@@ -282,3 +322,4 @@ Root cause: AITER `module_aiter_core.so` kernels target CDNA3 (gfx942/gfx950) ma
 | EXP-012 + chunked prefill | 19.0 | 55.9 | 121.6 | 234K | Worse |
 | EXP-013 MTP×5, 229K, seqs=8 | 19.3 | — | 117.1 | 229K | Worse |
 | EXP-014b AITER LINEAR+RMS | 16.8 | — | 109.1 | 234K | Worse |
+| EXP-015 Custom graph sizes | — | — | — | 234K | Infeasible (OOM) |
