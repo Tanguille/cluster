@@ -1,39 +1,28 @@
 # Qwen3.6-27B serving on R9700 (gfx1201) — Benchmarks & Decision
 
-## CURRENT STATUS — Round 2 benchmarking in progress (2026-06-20)
+## Round 2 Final Results — 2026-06-21
 
-Testing SGLang 0.5.13 and vLLM (kyuz0 community image) vs the production llama.cpp.
+**All experiments complete. Best engine: vLLM kyuz0 + cyankiwi AWQ-INT4 + MTP×4 + 234K context.**
 
-### Round 2 key findings
+### SGLang 0.5.13 — CANNOT serve Qwen3.6-27B on gfx1201
 
-**SGLang 0.5.13 AITER requirement:**
-- `sglang/srt/layers/rocm_linear_utils.py` has unconditional top-level `import aiter.ops.triton.*`
-  (line 2-3, indent=0). Old PyPI placeholder `aiter==0.13.20191203` only satisfies `import aiter`
-  but NOT `import aiter.ops` → crash at startup.
-- Fix: `amd-aiter @ git+https://github.com/ROCm/aiter.git@v0.1.15.post2` built from source.
-  AMD only publishes cp310/cp312 wheels; base image is Python 3.13 → must compile with HIP.
-  `--no-build-isolation` keeps ROCm headers in scope; `--no-deps` preserves gfx1201-tuned torch.
-- **AITER v0.1.15.post2 already has `gfx1201` in arch support table** (verified on main branch):
-  `return get_arch() in ("gfx942", "gfx950", "gfx1250", "gfx1200", "gfx1201")` — no manual
-  arch alias patch needed. FP8 Triton kernel path activates automatically on gfx1201.
-- **Remaining mattbucci patch gap:** Patch 006 (custom AWQ GEMV HIP kernel in sgl-kernel) gives
-  ~14 → ~25 tok/s for AWQ models. Not in stock SGLang pip install. CI build will give ~14 tok/s.
-- CI builds in progress: `sglang-rocm` (AITER v0.1.15.post2, SGLang 0.5.13.post1) +
-  `sglang-rocm-torch212` (same + torch 2.12.1+rocm7.2 comparison). Deploy: `--attention-backend triton`.
+SGLang 0.5.13 mainline (`ghcr.io/tanguille/sglang-rocm-gfx1201:gfx1201@sha256:ab04a7ec`) was
+built and deployed but fails at model loading for two independent reasons:
 
-**vLLM on gfx1201 — community image breakthrough:**
-- `docker.io/kyuz0/vllm-therock-gfx1201:latest` (vLLM 0.22.1rc1, June 13 2026) has all RDNA4
-  patches applied: rocm.py VRAM detection, CUDA graph fix, AITER arch alias, FP8 matrix configs.
-- `mattbucci/Qwen3.6-27B-AWQ` fails even in kyuz0: vision tower MLP has non-standard weight shapes
-  that AWQ marlin kernel rejects ("input size not aligned") in vLLM.
-- `cyankiwi/Qwen3.6-27B-AWQ-INT4` (compressed-tensors format) avoids the marlin path:
-  uses `TritonW4A16LinearKernel` instead → loads cleanly. Currently downloading to llama-server PVC.
-- **`--enforce-eager` required**: bug #39010 — V1 engine CUDA graph capture deadlocks on gfx1201.
-  `--enforce-eager` disables torch.compile + CUDAGraphs, trading potential graph speed for stability.
-- Attention backend selected: `ROCM_ATTN` (kyuz0's patched AMD flash attention for gfx1201).
-  `VLLM_ROCM_USE_AITER=0` (disables AITER unified attention; plain attn more stable on this build).
-- GDN/DeltaNet layers: `Triton/FLA GDN prefill kernel` (auto-selected) handles the 48 linear-attn
-  layers. Full inference expected to work once model loads.
+1. **compressed-tensors model (cyankiwi)**: `gptq_marlin_repack` is called by
+   `compressed_tensors_wNa16.py:250` during weight loading. This function is CUDA-only (Marlin
+   kernel format). `sgl_kernel` for ROCm provides `gptq_gemm`/`gptq_shuffle` but NOT `gptq_marlin_repack`.
+
+2. **AWQ model (mattbucci)**: The DeltaNet hybrid architecture uses `linear_attn.in_proj_ba.weight`
+   parameter naming for 48 GDN/DeltaNet layers. SGLang 0.5.13's Qwen3.5 model loader doesn't
+   recognize these parameter names → weights initialized to zero → worker dies.
+   `--disable-cuda-graph` doesn't help (worker dies before graph capture).
+
+**SGLang conclusion**: Not viable for Qwen3_5ForConditionalGeneration's DeltaNet hybrid architecture.
+Would require adding DeltaNet-aware model loader to SGLang, which is a significant development effort.
+
+Also built: `vllm._C.rms_norm` (from vllm 0.19.1 base image) not registered when vllm._C fails to
+import; cuda graph capture crashes. This is a secondary issue with mattbucci after the primary one.
 
 ### vLLM 0.23.0 — all available Qwen3.6-27B quantized models FAIL to load (2026-06-20)
 
@@ -61,21 +50,46 @@ reference. vLLM 0.23.0 cannot match it for this model due to the breaking V1 eng
 
 ---
 
-## FINAL DECISION — llama.cpp / ROCm (gfx1201) + MTP
+## FINAL DECISION — vLLM kyuz0 + MTP×4 + 234K context (2026-06-21)
 
-Production engine is **llama.cpp** on a custom gfx1201 **ROCm-7.13 (gfx120X-tuned)** build with
-**MTP** (multi-token prediction). Measured single-stream decode **34 tok/s** (`UD-Q4_K_XL`,
-q8_0 KV, `--spec-type draft-mtp --spec-draft-n-max 3`, `--no-mmap`) — **2.3× sglang** and 4–5×
-vLLM. Prefix cache works on the GDN hybrid (**7.5× warm TTFT**) and **coexists with batching**
-(unlike sglang's radix-vs-overlap exclusivity). Full **256K** context fits at q8_0 KV single
-session (~31 GB). Deploy: `kubernetes/apps/ai/llama-server/`; image: `docker/llama-cpp-rocm/`.
+Updated from prior llama.cpp recommendation. vLLM kyuz0 with speculative MTP decoding is the production
+engine for multi-user workloads. llama.cpp retained only for single-user interactive work
+(better C=1 TG: 39 vs 19.5 tok/s).
 
-| Engine | TG (1-stream) | PP | Agg TG C=8 | Agg TG C=32 | APC | Batch+APC | Note |
+### Complete comparison table (all confirmed on gfx1201)
+
+| Engine | TG C=1 | PP tok/s | Agg TG C=8 | Max ctx | APC | MTP | Note |
 |---|---:|---:|---:|---:|:---:|:---:|---|
-| **llama.cpp ROCm + MTP** | **~39** | ~423 cold | ~35 (flat) | ~34 (flat) | ✅ | ✅ | parallel=1 → flat agg at all C |
-| **vLLM kyuz0 + FP8 KV + MTP×4** | **18.4** | ~1200 | **126.8** | — | ✅ | ✅ | 2.6× C=1 gain; C=8 matches old C=32 throughput |
-| **vLLM kyuz0 0.22.1rc1 (FP8 KV)** | 7 | ~1200 | 47.1 | **128.9** | ✅ | ✅ | fp8+APC coexist on kyuz0; AITER crashes (GDN SRAM) |
-| sglang (AWQ, fp8 KV, Config B) | 15 | **2820** | 28.8 | — | ❌ (exclusive) | ❌ | older image/fork — re-testing with 0.5.13 |
+| **vLLM kyuz0 + MTP×4, 234K** | **19.5** | ~1200 | **126.1** | **234,320** | ✅ | ✅ | **PRODUCTION** (multi-user) |
+| vLLM kyuz0 + MTP×4, 131K | 18.3 | ~1200 | 129.6 | 131,072 | ✅ | ✅ | Better C=4 throughput (70.4 vs 61.2) |
+| vLLM kyuz0 + MTP×4, 32K | 18.4 | ~1200 | 126.8 | 32,768 | ✅ | ✅ | First MTP result (baseline for tuning) |
+| **llama.cpp ROCm + MTP** | **~39** | ~423 cold | ~35 (flat) | ~256K | ✅ | ✅ | Best single-stream; flat agg at all C |
+| vLLM kyuz0 (no MTP), 32K | 6.9 | ~1200 | 47.1 | 32,768 | ✅ | ❌ | Baseline (no speculative decoding) |
+| SGLang 0.5.13 | — | — | — | — | — | — | UNSUPPORTED: DeltaNet arch + marlin |
+
+### vLLM production config
+
+```
+Image: docker.io/kyuz0/vllm-therock-gfx1201:latest
+Model: cyankiwi/Qwen3.6-27B-AWQ-INT4
+--max-model-len 234320          # 89% of native 262,144
+--max-num-seqs 8
+--gpu-memory-utilization 0.95
+--kv-cache-dtype fp8
+--enable-prefix-caching
+--spec-method mtp
+--spec-tokens 4
+--limit-mm-per-prompt '{"image": 0}'  # prevent image inference, not vision encoder loading
+--trust-remote-code
+Env: VLLM_ROCM_USE_AITER=0  FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE
+```
+
+Why not native 262K context? Gap of 0.93 GiB: 9.48 GiB needed, 8.55 GiB available at 0.95 util.
+- `language_model_only=True` patch: made it WORSE (encoder cache grew from 12K to 16K tokens)
+- `--kv-offloading-size native`: doesn't extend GPU KV pool (for weight offload, not KV pool)
+- `--swap-space`: flag doesn't exist in kyuz0; `--kv-offloading-size` fills this role for weights
+
+Detailed experiment ledger: [`vllm-optimization-ledger.md`](./vllm-optimization-ledger.md)
 
 Retired trial configs (revival anchors) are in
 [`ai-serving-trials-archive.md`](./ai-serving-trials-archive.md). The rest of this file is the
