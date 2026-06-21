@@ -89,8 +89,10 @@ spec:
               - --trust-remote-code
               - --no-enable-log-requests
               - --enable-auto-tool-choice
+              # Qwen3.6 emits qwen3_coder-style tool calls (<tool_call><function=..><parameter=..>),
+              # NOT Hermes JSON — confirmed from the model's chat template. hermes mis-parses them.
               - --tool-call-parser
-              - hermes
+              - qwen3_coder
               # Reasoning model: parse <think> so xgrammar is SUSPENDED during reasoning and only
               # constrains the post-</think> answer. Without it the tool-JSON grammar masks the
               # thinking tokens → mass rejection → ~0 tok/s stall under concurrent tool calls.
