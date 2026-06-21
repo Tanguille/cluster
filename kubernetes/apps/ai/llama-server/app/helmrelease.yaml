@@ -18,7 +18,9 @@ spec:
     # Default 5m timeout triggers rollback before the pod is ready.
     timeout: 25m
     remediation:
-      retries: 0 # don't rollback on failure — rollback brings back old llama.cpp spec
+      # -1 = no remediation/rollback — rollback would revert to old llama.cpp spec which is
+      # also broken (llama-server-config ConfigMap was removed). Stay on failed vLLM spec.
+      retries: -1
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
