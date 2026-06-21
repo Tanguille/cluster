@@ -53,7 +53,6 @@ spec:
           app:
             image:
               # Community vLLM ROCm build with gfx1201 patches.
-              # EXP-016b: 0.97 util → 8.94 GiB KV, 234K fits; C=1 ~19.0 tok/s, C=8 agg 108.6 tok/s.
               repository: docker.io/kyuz0/vllm-therock-gfx1201
               tag: latest@sha256:55fa7796374a281e4b77a05cc2f26391d4100a5abb738f77c580ebc3951761e9
             command:
@@ -70,12 +69,13 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # 89% of 262,144 native ctx; 234K → 8.54 GiB fp8 KV, fits the 8.94 GiB free (EXP-016b).
+              # Full 262,144 native context. Fits the fp8 KV pool (~268-289K tokens, varies per boot);
+              # if a boot ever profiles below this, vLLM crash-loops on startup → lower max-model-len.
               - --max-model-len
-              - "234320"
+              - "262144"
               - --max-num-seqs
               - "16"
-              # MTP caps this at 2048 by default (vLLM warns it's suboptimal); bump for draft-slot headroom.
+              # Raise above the 2048 default for better prefill throughput under concurrent requests.
               - --max-num-batched-tokens
               - "8192"
               - --gpu-memory-utilization
@@ -87,17 +87,31 @@ spec:
               - --trust-remote-code
               - --no-enable-log-requests
               - --enable-auto-tool-choice
+              # Qwen3.6 emits qwen3_coder-style tool calls (<tool_call><function=..><parameter=..>),
+              # NOT Hermes JSON — confirmed from the model's chat template. hermes mis-parses them.
               - --tool-call-parser
-              - hermes
-              # MTP self-speculative. vLLM reuses a SINGLE MTP layer per draft token, so >1 token
-              # degrades acceptance (vLLM warns this); under load it burned ~5x forward compute for
-              # ~1 accepted token (GPU 97% busy, near-zero decode). 1 draft token avoids that waste.
-              - --spec-method
-              - mtp
-              - --spec-tokens
-              - "1"
-              # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes (EXP-011)
-              # shrink activation buffers ~0.5 GiB, which 234K ctx needs; not on by default.
+              - qwen3_coder
+              # Reasoning model: parse <think> so xgrammar is SUSPENDED during reasoning and only
+              # constrains the post-</think> answer. Without it the tool-JSON grammar masks the
+              # thinking tokens → mass rejection → ~0 tok/s stall under concurrent tool calls.
+              # Thinking stays ON (enable_thinking defaults true) — preserves reasoning like the
+              # llama-server preserve_thinking setup.
+              - --reasoning-parser
+              - qwen3
+              # Keep prior-turn reasoning in context (the model's chat template supports this kwarg);
+              # mirrors the retired llama-server `chat-template-kwargs = {"preserve_thinking": true}`.
+              - --default-chat-template-kwargs
+              - '{"preserve_thinking": true}'
+              # Pin xgrammar (default 'auto' can silently fall back to the slower guidance backend)
+              # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
+              - --structured-outputs-config
+              - '{"backend": "xgrammar", "disable_any_whitespace": true}'
+              # NOTE: MTP/speculative decoding intentionally omitted — eagle drafts collide with
+              # grammar-constrained tool calling (drafts rejected → ~0.2 tok/s wedge under agentic
+              # load). Revisit once scaling is confirmed (recipe suggests num_speculative_tokens=2).
+              #
+              # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes shrink
+              # activation buffers ~0.5 GiB; not on by default.
               - --compilation-config
               - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "cudagraph_capture_sizes": [1, 2, 4, 8, 16, 32, 48, 64, 80], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
             env:
@@ -164,7 +178,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: vllm
-          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, MTP×1, 234K ctx, 16 seqs)
+          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, 262K ctx, 16 seqs)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
