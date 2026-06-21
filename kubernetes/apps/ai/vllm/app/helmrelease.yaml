@@ -69,10 +69,11 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # Full 262,144 native context. Fits the fp8 KV pool (~268-289K tokens, varies per boot);
-              # if a boot ever profiles below this, vLLM crash-loops on startup → lower max-model-len.
+              # 240K context. MTP draft-slot KV reservation shrinks the pool below the 262,144
+              # native max (engine estimated 252,800 with MTP on → crash-loop at 262144), so we
+              # trade ~22K of context for speculative decode. Margin covers boot-to-boot pool drift.
               - --max-model-len
-              - "262144"
+              - "245760"
               - --max-num-seqs
               - "16"
               # Raise above the 2048 default for better prefill throughput under concurrent requests.
