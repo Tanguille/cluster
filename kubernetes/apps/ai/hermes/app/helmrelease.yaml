@@ -28,7 +28,7 @@ spec:
           app:
             image:
               repository: nousresearch/hermes-agent
-              tag: main@sha256:58288428303768a5fbc8a8e36dc6dce58c4d1c31421f68f51671f9f2a35a5442
+              tag: main@sha256:313fe8658a4a0e9d34a31a7fd48278657e9fb1508267631060327f62b514a04d
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -43,7 +43,9 @@ spec:
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_HOST: 0.0.0.0
               HERMES_DASHBOARD_PORT: &port 9119
-              HERMES_DASHBOARD_INSECURE: "1"
+            envFrom:
+              - secretRef:
+                  name: hermes-secret
             probes:
               startup:
                 enabled: true

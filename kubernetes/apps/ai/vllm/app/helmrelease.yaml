@@ -10,12 +10,12 @@ spec:
     kind: OCIRepository
     name: app-template
   install:
-    timeout: 25m
+    timeout: 45m
     remediation:
       retries: 1
   upgrade:
-    # Cold start ~15-20 min (Dynamo JIT + Triton autotune + graph capture) > default 5m timeout.
-    timeout: 25m
+    # Cold start ~15-30 min (GDN Triton autotune + graph capture) on first rdna4-vllm boot.
+    timeout: 45m
     remediation:
       retries: -1 # no rollback: cold start can exceed the upgrade timeout
   valuesFrom:
@@ -52,16 +52,11 @@ spec:
         containers:
           app:
             image:
-              # Community vLLM ROCm build with gfx1201 patches.
-              repository: docker.io/kyuz0/vllm-therock-gfx1201
-              tag: latest@sha256:55fa7796374a281e4b77a05cc2f26391d4100a5abb738f77c580ebc3951761e9
-            command:
-              - python
-              - -m
-              - vllm.entrypoints.openai.api_server
+              # patcarter883 combined RDNA4 build (tcclaviger vLLM 0.22.69 + gfx1201 attention).
+              repository: ghcr.io/patcarter883/rdna4-vllm
+              tag: latest@sha256:80ba3f93344e7a13771149aba74e09b29887dd2116edfca9ec03e7e4e5672600
+            # Image ENTRYPOINT is `vllm serve`; args are serve flags only (see rdna4-vllm compose).
             args:
-              # AWQ INT4: recommended quant for gfx1201 (kyuz0 verified). fp8/NVFP4 don't work here.
-              - --model
               - cyankiwi/Qwen3.6-27B-AWQ-INT4
               - --served-model-name
               - qwen-3.6
@@ -69,19 +64,17 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # TRITON_ATTN: AITER attention is ~4% faster but forces an AITER sampler that crashes here.
-              - --attention-backend
-              - TRITON_ATTN
-              - --mm-encoder-attn-backend
-              - TRITON_ATTN
+              # Text-only: rdna4-vllm lacks ROCm flash-attn for ViT; image:0 avoids profiling crash.
+              - --limit-mm-per-prompt
+              - '{"image":0,"video":0}'
               # Compiled + CUDA graphs (no --enforce-eager): graph capture works on gfx1201 and cuts
               # per-step launch overhead on the recurrent GDN/Mamba decode path. Served ~1.5h fine, then
               # a runtime VRAM spike OOM'd it and KV shrank below the ctx requirement on restart → crash
               # loop. Fixed via headroom: lower max-model-len (less KV needed) + smaller batched-tokens
-              # (lower activation peak), NOT lower gpu-util (which would shrink the KV budget).
-              # 192K (fp8 KV) — needs ~6.2 GiB KV vs ~8 GiB available, leaving headroom for compiled-mode
-              # graphs + runtime spikes so it recovers cleanly on restart. Covers all observed traffic
-              # (max prompt seen <100K). Raise toward 245760 only if gpu-util/activation headroom grows.
+              # (lower activation peak). 192K (fp8 KV) booted with a ~290K-token pool / 9.36 GiB KV —
+              # far above the ctx need, so it recovers cleanly on restart and covers all observed
+              # traffic (max prompt seen <100K). Raise toward 245760 only if the pool stays comfortably
+              # above it across boots (it varies boot-to-boot).
               - --max-model-len
               - "196608"
               - --max-num-seqs
@@ -90,8 +83,20 @@ spec:
               # better so a big prompt's prefill doesn't starve concurrent decodes.
               - --max-num-batched-tokens
               - "8192"
+              # GDN hybrid: async scheduling desyncs multiproc buffers on this stack (rdna4-vllm).
+              - --no-async-scheduling
+              # Conservative RDNA4 cudagraph capture set (rdna4-vllm default).
+              - --compilation-config
+              - '{"cudagraph_capture_sizes":[1,2,4,8,16,32,64]}'
+              # NOTE: concurrent partial prefills (--max-num-partial-prefills) would let short prompts
+              # skip a giant prompt's chunked prefill (cutting the ~83s TTFT), but this build hard-blocks
+              # any non-default value — EngineArgs._check_feature_supported raises "Concurrent Partial
+              # Prefill is not supported. No Concurrent Partial Prefills so far." Revisit on a newer image.
+              # 0.95: the boot pool is ~290K tokens vs the 196K ctx cap, so ~94K
+              # tokens of KV slack. Spending ~0.64 GiB of it on VRAM spike headroom directly guards
+              # against the runtime-spike OOM that crash-looped 0.97. Pool stays well above ctx need.
               - --gpu-memory-utilization
-              - "0.97"
+              - "0.95"
               # fp8 KV halves KV footprint; AWQ Hadamard rotation absorbs the error.
               - --kv-cache-dtype
               - fp8
@@ -117,7 +122,8 @@ spec:
               # MTP stays OFF: wedges the grammar FSM under concurrent tool-calling (vLLM #34650).
             env:
               TZ: ${TIMEZONE}
-              HF_HOME: /cache/hf # model weights on the cache PVC
+              HF_HOME: /cache/hf
+              HF_HUB_OFFLINE: "1"
               TRITON_CACHE_DIR: /cache/triton # persisted Triton JIT cache
               VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
@@ -125,6 +131,9 @@ spec:
               # AITER OFF: its master flag forces an AITER top_k/top_p sampler that JIT-crashes here
               # (hipcc unparseable → IndexError), and there's no granular sampler off-switch.
               VLLM_ROCM_USE_AITER: "0"
+              # Dense 27B: W4A8 WMMA kernel targets MoE; off for this model (rdna4-vllm USE_W4A8=0).
+              VLLM_ROCM_USE_W4A8_FP8_WMMA: "0"
+              TRITON_CACHE_AUTOTUNING: "1"
             probes:
               startup: &probeBase
                 enabled: true
@@ -136,8 +145,8 @@ spec:
                   initialDelaySeconds: 60
                   periodSeconds: 15
                   timeoutSeconds: 5
-                  # ~31 min budget (120×15s + 60s) covers warm restarts; empty PVC adds ~60 min download.
-                  failureThreshold: 120
+                  # ~46 min budget (180×15s + 60s) covers cold GDN autotune; empty PVC adds ~60 min download.
+                  failureThreshold: 180
               liveness:
                 <<: *probeBase
                 spec:
@@ -177,7 +186,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: vllm
-          gethomepage.dev/description: Qwen3.6-27B vLLM inference (kyuz0/ROCm, RDNA4, 262K ctx, 16 seqs)
+          gethomepage.dev/description: Qwen3.6-27B vLLM inference (rdna4-vllm, RDNA4, 196K ctx)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
@@ -201,7 +210,7 @@ spec:
       shm:
         type: emptyDir
         medium: Memory
-        sizeLimit: 4Gi
+        sizeLimit: 16Gi
         advancedMounts:
           app:
             app:
