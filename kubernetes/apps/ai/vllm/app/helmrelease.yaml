@@ -74,8 +74,9 @@ spec:
               - TRITON_ATTN
               - --mm-encoder-attn-backend
               - TRITON_ATTN
-              # Eager: avoids gfx1201 graph-capture issues; decode is GEMM-bound so cudagraph wouldn't help.
-              - --enforce-eager
+              # Compiled + CUDA graphs (no --enforce-eager): cuts per-step launch overhead on the
+              # recurrent GDN/Mamba decode path and captures shapes at warmup (kills mid-request
+              # Triton JIT stalls). If gfx1201 graph capture crash-loops on boot, re-add --enforce-eager.
               # 240K (fp8 KV); full 262K doesn't fit alongside the vision encoder. Lower if it crash-loops.
               - --max-model-len
               - "245760"
