@@ -5,12 +5,25 @@ kind: Kustomization
 namespace: kube-system
 components:
   - ../../components/common
+# DRA workloads in kube-system need admin-access on the namespace label.
+patches:
+  - target:
+      kind: Namespace
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          resource.kubernetes.io/admin-access: "true"
 resources:
   - ./amdgpu-undervolt.yaml
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
   - ./descheduler/ks.yaml
-  - ./generic-device-plugin/ks.yaml
+  - ./drm-exporter/ks.yaml
+  - ./k8s-gpu-dra-driver/ks.yaml
   - ./metrics-server/ks.yaml
   - ./reloader/ks.yaml
   - ./snapshot-controller/ks.yaml

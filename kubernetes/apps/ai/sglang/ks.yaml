@@ -6,6 +6,9 @@ metadata:
   name: sglang
   namespace: &namespace ai
 spec:
+  dependsOn:
+    - name: k8s-gpu-dra-driver
+      namespace: kube-system
   interval: 10m
   path: ./kubernetes/apps/ai/sglang/app
   prune: true

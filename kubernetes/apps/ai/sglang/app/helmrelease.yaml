@@ -32,7 +32,7 @@ spec:
                   - key: amd.com/gpu
                     operator: In
                     values: ["true"]
-      # Root + video/render groups + Unconfined seccomp = ROCm device access via squat.ai/dri:1.
+      # Root + video/render groups + Unconfined seccomp = ROCm device access via DRA/CDI.
       securityContext:
         runAsUser: 0
         runAsGroup: 0
@@ -41,10 +41,13 @@ spec:
           - 226 # render — /dev/dri/renderD* + /dev/kfd (ROCm compute)
         seccompProfile:
           type: Unconfined # ROCm/HIP needs unrestricted syscalls
+      resourceClaims:
+        - name: gpu
+          resourceClaimTemplateName: dgpu
 
     controllers:
       app:
-        # Recreate, not RollingUpdate: singleton holding the node's only squat.ai/dri:1.
+        # Recreate, not RollingUpdate: singleton holding an exclusive DRA GPU claim.
         strategy: Recreate
         containers:
           app:
@@ -125,7 +128,6 @@ spec:
               requests:
                 cpu: 2
                 memory: 10Gi
-                squat.ai/dri: &dri 1 # extended resource: request must equal limit
               limits:
                 cpu: 12
                 # Steady-state ~2.3 GB (weights in VRAM), but the multi-thread AWQ shard load peaks
@@ -133,7 +135,8 @@ spec:
                 # mid-load (exit 137). An OOM-kill here leaks GPU VRAM that no soft reboot reclaims
                 # (needs a hypervisor cold-cycle) — so don't trim it.
                 memory: 32Gi
-                squat.ai/dri: *dri
+              claims:
+                - name: gpu
 
     service:
       app:

@@ -24,6 +24,9 @@ spec:
         # Pin to control-1: the only gfx1201 node, and where the build disk lives.
         nodeSelector:
           kubernetes.io/hostname: control-1
+        resourceClaims:
+          - name: gpu
+            resourceClaimTemplateName: dgpu
         # ROCm device access (groups 44/226, Unconfined) — same plumbing as the sglang pod.
         securityContext:
           runAsUser: 0
@@ -51,12 +54,12 @@ spec:
               requests:
                 cpu: 2 # the gfx1201 kernel compile is CPU-heavy
                 memory: 8Gi
-                squat.ai/dri: 1 # binds /dev/dri + /dev/kfd into the pod (shared, count:4)
               limits:
                 # The ROCm compile peaks ~16GB; cap at 32Gi so a runaway OOMs THIS pod, not
                 # etcd/kube-apiserver — this scale-to-zero builder lands on control-1 (a control-plane node).
                 memory: 32Gi
-                squat.ai/dri: 1
+              claims:
+                - name: gpu
             volumeMounts:
               # node-local scratch for checkout + podman storage (~50Gi image), NOT tmpfs.
               - mountPath: /home/runner/_work

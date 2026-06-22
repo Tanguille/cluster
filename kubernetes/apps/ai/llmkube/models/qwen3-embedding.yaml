@@ -15,9 +15,10 @@ spec:
       vendor: amd
       runtime: vulkan
       layers: -1
-      # Both GPU nodes advertise squat.ai/dri (dGPU count:4, iGPU count:1) via
-      # squat/generic-device-plugin; nodeSelector below pins this to the iGPU.
-      resourceName: squat.ai/dri
+      # DRA claim is scoped to the iGPU node by the InferenceService nodeSelector below.
+      resourceClaims:
+        - name: gpu
+          resourceClaimTemplateName: igpu
 ---
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
@@ -35,8 +36,8 @@ spec:
     - "qwen3-embedding" # served model name memini sends in /v1/embeddings
     - "--metrics" # expose Prometheus /metrics (off by default in llama-server)
 
-  # Pin to the iGPU node; without this the scheduler could place it on the dGPU
-  # node (which also advertises squat.ai/dri) and steal a dGPU slot from sglang.
+  # Pin to the iGPU node; without this the DRA scheduler could satisfy the claim
+  # on the dGPU node and steal the exclusive GPU claim from sglang.
   nodeSelector:
     amd.com/igpu: "true"
 

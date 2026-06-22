@@ -33,6 +33,9 @@ spec:
           - 109
           - 100
           - 226 # render: required for VAAPI on /dev/dri/renderD*
+      resourceClaims:
+        - name: gpu
+          resourceClaimName: shared-dgpu
 
     controllers:
       jellyfin:
@@ -109,10 +112,10 @@ spec:
             resources:
               requests:
                 memory: 512Mi
-                squat.ai/dri: 1
               limits:
                 memory: 8Gi
-                squat.ai/dri: 1
+              claims:
+                - name: gpu
     service:
       app:
         controller: jellyfin

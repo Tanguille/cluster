@@ -2,6 +2,9 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+components:
+  - ../../../../../components/dra-dgpu
+
 resources:
   # No secrets/ocirepository/rbac of its own: reuses the cluster runner's GitHub App
   # secret (cluster-runner-secret) and the shared gha-runner-scale-set OCIRepository,

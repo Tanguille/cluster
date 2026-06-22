@@ -3,11 +3,11 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: generic-device-plugin
+  name: k8s-gpu-dra-driver
   namespace: &namespace kube-system
 spec:
   interval: 1h
-  path: ./kubernetes/apps/kube-system/generic-device-plugin/app
+  path: ./kubernetes/apps/kube-system/k8s-gpu-dra-driver/app
   prune: true
   retryInterval: 2m
   sourceRef:
@@ -15,4 +15,4 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  wait: false
+  wait: true
