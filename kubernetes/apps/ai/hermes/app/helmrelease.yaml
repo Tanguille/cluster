@@ -43,7 +43,9 @@ spec:
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_HOST: 0.0.0.0
               HERMES_DASHBOARD_PORT: &port 9119
-              HERMES_DASHBOARD_INSECURE: "1"
+            envFrom:
+              - secretRef:
+                  name: hermes-secret
             probes:
               startup:
                 enabled: true
