@@ -74,16 +74,22 @@ spec:
               - TRITON_ATTN
               - --mm-encoder-attn-backend
               - TRITON_ATTN
-              # Compiled + CUDA graphs (no --enforce-eager): cuts per-step launch overhead on the
-              # recurrent GDN/Mamba decode path and captures shapes at warmup (kills mid-request
-              # Triton JIT stalls). If gfx1201 graph capture crash-loops on boot, re-add --enforce-eager.
-              # 240K (fp8 KV); full 262K doesn't fit alongside the vision encoder. Lower if it crash-loops.
+              # Compiled + CUDA graphs (no --enforce-eager): graph capture works on gfx1201 and cuts
+              # per-step launch overhead on the recurrent GDN/Mamba decode path. Served ~1.5h fine, then
+              # a runtime VRAM spike OOM'd it and KV shrank below the ctx requirement on restart → crash
+              # loop. Fixed via headroom: lower max-model-len (less KV needed) + smaller batched-tokens
+              # (lower activation peak), NOT lower gpu-util (which would shrink the KV budget).
+              # 192K (fp8 KV) — needs ~6.2 GiB KV vs ~8 GiB available, leaving headroom for compiled-mode
+              # graphs + runtime spikes so it recovers cleanly on restart. Covers all observed traffic
+              # (max prompt seen <100K). Raise toward 245760 only if gpu-util/activation headroom grows.
               - --max-model-len
-              - "245760"
+              - "196608"
               - --max-num-seqs
               - "32"
+              # 8192 chunk: lower prefill activation peak (the OOM spike source) and interleaves decode
+              # better so a big prompt's prefill doesn't starve concurrent decodes.
               - --max-num-batched-tokens
-              - "16384"
+              - "8192"
               - --gpu-memory-utilization
               - "0.97"
               # fp8 KV halves KV footprint; AWQ Hadamard rotation absorbs the error.
