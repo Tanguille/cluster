@@ -90,14 +90,10 @@ spec:
               # better so a big prompt's prefill doesn't starve concurrent decodes.
               - --max-num-batched-tokens
               - "8192"
-              # Concurrent partial prefills: default 1 forces a short prompt to wait behind a giant
-              # prompt's full chunked prefill (the ~83s TTFT seen on big prompts). With 4 slots and
-              # max-long-partial-prefills left at default 1, only one >7864-token ("long") prefill
-              # runs at a time, reserving 3 slots for short prompts so their TTFT stays low. No memory
-              # cost: max-num-batched-tokens still caps total tokens/step across ALL prefills, so the
-              # activation peak is unchanged. Long threshold auto-derives to max-model-len×0.04 (7864).
-              - --max-num-partial-prefills
-              - "4"
+              # NOTE: concurrent partial prefills (--max-num-partial-prefills) would let short prompts
+              # skip a giant prompt's chunked prefill (cutting the ~83s TTFT), but this build hard-blocks
+              # any non-default value — EngineArgs._check_feature_supported raises "Concurrent Partial
+              # Prefill is not supported. No Concurrent Partial Prefills so far." Revisit on a newer image.
               # 0.95 (kyuz0-recommended): the boot pool is ~290K tokens vs the 196K ctx cap, so ~94K
               # tokens of KV slack. Spending ~0.64 GiB of it on VRAM spike headroom directly guards
               # against the runtime-spike OOM that crash-looped 0.97. Pool stays well above ctx need.
