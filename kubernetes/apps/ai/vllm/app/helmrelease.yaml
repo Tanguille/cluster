@@ -78,10 +78,10 @@ spec:
               # per-step launch overhead on the recurrent GDN/Mamba decode path. Served ~1.5h fine, then
               # a runtime VRAM spike OOM'd it and KV shrank below the ctx requirement on restart → crash
               # loop. Fixed via headroom: lower max-model-len (less KV needed) + smaller batched-tokens
-              # (lower activation peak), NOT lower gpu-util (which would shrink the KV budget).
-              # 192K (fp8 KV) — needs ~6.2 GiB KV vs ~8 GiB available, leaving headroom for compiled-mode
-              # graphs + runtime spikes so it recovers cleanly on restart. Covers all observed traffic
-              # (max prompt seen <100K). Raise toward 245760 only if gpu-util/activation headroom grows.
+              # (lower activation peak). 192K (fp8 KV) booted with a ~290K-token pool / 9.36 GiB KV —
+              # far above the ctx need, so it recovers cleanly on restart and covers all observed
+              # traffic (max prompt seen <100K). Raise toward 245760 only if the pool stays comfortably
+              # above it across boots (it varies boot-to-boot).
               - --max-model-len
               - "196608"
               - --max-num-seqs
@@ -98,8 +98,11 @@ spec:
               # activation peak is unchanged. Long threshold auto-derives to max-model-len×0.04 (7864).
               - --max-num-partial-prefills
               - "4"
+              # 0.95 (kyuz0-recommended): the boot pool is ~290K tokens vs the 196K ctx cap, so ~94K
+              # tokens of KV slack. Spending ~0.64 GiB of it on VRAM spike headroom directly guards
+              # against the runtime-spike OOM that crash-looped 0.97. Pool stays well above ctx need.
               - --gpu-memory-utilization
-              - "0.97"
+              - "0.95"
               # fp8 KV halves KV footprint; AWQ Hadamard rotation absorbs the error.
               - --kv-cache-dtype
               - fp8
