@@ -90,6 +90,14 @@ spec:
               # better so a big prompt's prefill doesn't starve concurrent decodes.
               - --max-num-batched-tokens
               - "8192"
+              # Concurrent partial prefills: default 1 forces a short prompt to wait behind a giant
+              # prompt's full chunked prefill (the ~83s TTFT seen on big prompts). With 4 slots and
+              # max-long-partial-prefills left at default 1, only one >7864-token ("long") prefill
+              # runs at a time, reserving 3 slots for short prompts so their TTFT stays low. No memory
+              # cost: max-num-batched-tokens still caps total tokens/step across ALL prefills, so the
+              # activation peak is unchanged. Long threshold auto-derives to max-model-len×0.04 (7864).
+              - --max-num-partial-prefills
+              - "4"
               - --gpu-memory-utilization
               - "0.97"
               # fp8 KV halves KV footprint; AWQ Hadamard rotation absorbs the error.
