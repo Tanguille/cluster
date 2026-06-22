@@ -60,80 +60,71 @@ spec:
               - -m
               - vllm.entrypoints.openai.api_server
             args:
+              # AWQ INT4: recommended quant for gfx1201 (kyuz0 verified). fp8/NVFP4 don't work here.
               - --model
               - cyankiwi/Qwen3.6-27B-AWQ-INT4
-              # Keep qwen-3.6 as served name so litellm/toolhive configs are unchanged.
               - --served-model-name
               - qwen-3.6
               - --host
               - 0.0.0.0
               - --port
               - "8000"
-              # 240K context. MTP draft-slot KV reservation shrinks the pool below the 262,144
-              # native max (engine estimated 252,800 with MTP on → crash-loop at 262144), so we
-              # trade ~22K of context for speculative decode. Margin covers boot-to-boot pool drift.
+              # TRITON_ATTN: AITER attention is ~4% faster but forces an AITER sampler that crashes here.
+              - --attention-backend
+              - TRITON_ATTN
+              - --mm-encoder-attn-backend
+              - TRITON_ATTN
+              # Compiled + CUDA graphs (no --enforce-eager): graph capture works on gfx1201 and cuts
+              # per-step launch overhead on the recurrent GDN/Mamba decode path. Served ~1.5h fine, then
+              # a runtime VRAM spike OOM'd it and KV shrank below the ctx requirement on restart → crash
+              # loop. Fixed via headroom: lower max-model-len (less KV needed) + smaller batched-tokens
+              # (lower activation peak), NOT lower gpu-util (which would shrink the KV budget).
+              # 192K (fp8 KV) — needs ~6.2 GiB KV vs ~8 GiB available, leaving headroom for compiled-mode
+              # graphs + runtime spikes so it recovers cleanly on restart. Covers all observed traffic
+              # (max prompt seen <100K). Raise toward 245760 only if gpu-util/activation headroom grows.
               - --max-model-len
-              - "245760"
+              - "196608"
               - --max-num-seqs
-              - "16"
-              # Raise above the 2048 default for better prefill throughput under concurrent requests.
+              - "32"
+              # 8192 chunk: lower prefill activation peak (the OOM spike source) and interleaves decode
+              # better so a big prompt's prefill doesn't starve concurrent decodes.
               - --max-num-batched-tokens
               - "8192"
               - --gpu-memory-utilization
               - "0.97"
-              # fp8 KV halves KV footprint vs bf16; Hadamard rotation in the AWQ quant absorbs error.
+              # fp8 KV halves KV footprint; AWQ Hadamard rotation absorbs the error.
               - --kv-cache-dtype
               - fp8
               - --enable-prefix-caching
               - --trust-remote-code
               - --no-enable-log-requests
               - --enable-auto-tool-choice
-              # Qwen3.6 emits qwen3_coder-style tool calls (<tool_call><function=..><parameter=..>),
-              # NOT Hermes JSON — confirmed from the model's chat template. hermes mis-parses them.
+              # Qwen3.6 emits qwen3_coder-style tool calls (<function=..><parameter=..>), not Hermes JSON.
               - --tool-call-parser
               - qwen3_coder
-              # Reasoning model: parse <think> so xgrammar is SUSPENDED during reasoning and only
-              # constrains the post-</think> answer. Without it the tool-JSON grammar masks the
-              # thinking tokens → mass rejection → ~0 tok/s stall under concurrent tool calls.
-              # Thinking stays ON (enable_thinking defaults true) — preserves reasoning like the
-              # llama-server preserve_thinking setup.
+              # Suspends xgrammar during <think>; without it the tool grammar masks thinking → ~0 tok/s stall.
               - --reasoning-parser
               - qwen3
-              # Keep prior-turn reasoning in context (the model's chat template supports this kwarg);
-              # mirrors the retired llama-server `chat-template-kwargs = {"preserve_thinking": true}`.
+              # Keep prior-turn reasoning in context (mirrors llama-server preserve_thinking).
               - --default-chat-template-kwargs
               - '{"preserve_thinking": true}'
-              # Override the model's generation_config.json (ships temperature=1.0) with the tuned
-              # sampling from the retired llama-server config: temp 0.6 / top_k 20 / top_p 0.95 /
-              # min_p 0. Applied as request defaults when a client doesn't set its own.
+              # Tuned sampling defaults (model's generation_config ships temperature=1.0).
               - --override-generation-config
               - '{"temperature": 0.6, "top_k": 20, "top_p": 0.95, "min_p": 0.0}'
-              # Pin xgrammar (default 'auto' can silently fall back to the slower guidance backend)
-              # and forbid unbounded whitespace runs in JSON output — fewer grammar steps per tool call.
+              # Pin xgrammar (no silent guidance fallback) + no unbounded whitespace → fewer grammar steps.
               - --structured-outputs-config
               - '{"backend": "xgrammar", "disable_any_whitespace": true}'
-              # MTP self-speculation (recipe form, num_speculative_tokens=2) to lift decode tok/s.
-              # RISK: vLLM #34650 — spec-decode + reasoning parser + structured output can miss
-              # </think> (spec tokens pre-increment the count), re-wedging tool calls. Re-enabled on
-              # trial now that the reasoning parser is in place; revert if Deferred/~0 tok/s returns.
-              - --speculative-config
-              - '{"method": "mtp", "num_speculative_tokens": 2}'
-              # Persist AOT compile artifacts (~5 min/restart). Fused norm/quant passes shrink
-              # activation buffers ~0.5 GiB; not on by default.
-              - --compilation-config
-              - '{"cache_dir": "/cache/compile", "custom_ops": ["none"], "cudagraph_capture_sizes": [1, 2, 4, 8, 16, 32, 48, 64, 80], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
+              # MTP stays OFF: wedges the grammar FSM under concurrent tool-calling (vLLM #34650).
             env:
               TZ: ${TIMEZONE}
-              HF_HOME: /cache/hf # model weights on the cache PVC (~27 GB on first start)
-              # Triton JIT cache + vLLM AOT compile cache — persisted so restarts skip recompilation.
-              TRITON_CACHE_DIR: /cache/triton
-              # AOT compiled functions default to /root/.cache (ephemeral); redirect to PVC.
+              HF_HOME: /cache/hf # model weights on the cache PVC
+              TRITON_CACHE_DIR: /cache/triton # persisted Triton JIT cache
               VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
               PYTORCH_ROCM_ARCH: gfx1201
-              # AITER ops hang on gfx1201 with this vLLM build.
+              # AITER OFF: its master flag forces an AITER top_k/top_p sampler that JIT-crashes here
+              # (hipcc unparseable → IndexError), and there's no granular sampler off-switch.
               VLLM_ROCM_USE_AITER: "0"
-              FLASH_ATTENTION_TRITON_AMD_ENABLE: "TRUE"
             probes:
               startup: &probeBase
                 enabled: true
