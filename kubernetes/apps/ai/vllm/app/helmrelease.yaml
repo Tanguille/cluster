@@ -55,10 +55,8 @@ spec:
               # patcarter883 combined RDNA4 build (tcclaviger vLLM 0.22.69 + gfx1201 attention).
               repository: ghcr.io/patcarter883/rdna4-vllm
               tag: latest@sha256:80ba3f93344e7a13771149aba74e09b29887dd2116edfca9ec03e7e4e5672600
+            # Image ENTRYPOINT is `vllm serve`; args are serve flags only (see rdna4-vllm compose).
             args:
-              # AWQ INT4: recommended quant for gfx1201. fp8/NVFP4 don't work here.
-              # LM attention: image default triton_attn + startup autotuner (no --attention-backend).
-              - --model
               - cyankiwi/Qwen3.6-27B-AWQ-INT4
               - --served-model-name
               - qwen-3.6
@@ -66,12 +64,9 @@ spec:
               - 0.0.0.0
               - --port
               - "8000"
-              # Vision enabled: ViT must use FLASH_ATTN on gfx1201 (Torch SDPA hangs profiling).
-              - --mm-encoder-attn-backend
-              - FLASH_ATTN
-              # Cap images per request; avoids unbounded mm cache growth under concurrent load.
+              # Text-only: rdna4-vllm lacks ROCm flash-attn for ViT; image:0 avoids profiling crash.
               - --limit-mm-per-prompt
-              - '{"image":4,"video":0}'
+              - '{"image":0,"video":0}'
               # Compiled + CUDA graphs (no --enforce-eager): graph capture works on gfx1201 and cuts
               # per-step launch overhead on the recurrent GDN/Mamba decode path. Served ~1.5h fine, then
               # a runtime VRAM spike OOM'd it and KV shrank below the ctx requirement on restart → crash
@@ -127,7 +122,8 @@ spec:
               # MTP stays OFF: wedges the grammar FSM under concurrent tool-calling (vLLM #34650).
             env:
               TZ: ${TIMEZONE}
-              HF_HOME: /cache/hf # model weights on the cache PVC
+              HF_HOME: /cache/hf
+              HF_HUB_OFFLINE: "1"
               TRITON_CACHE_DIR: /cache/triton # persisted Triton JIT cache
               VLLM_CACHE_ROOT: /cache/vllm
               HIP_VISIBLE_DEVICES: "0"
@@ -135,11 +131,9 @@ spec:
               # AITER OFF: its master flag forces an AITER top_k/top_p sampler that JIT-crashes here
               # (hipcc unparseable → IndexError), and there's no granular sampler off-switch.
               VLLM_ROCM_USE_AITER: "0"
-              # Dense 27B: W4A8 WMMA kernel targets MoE; leave off for this model path.
+              # Dense 27B: W4A8 WMMA kernel targets MoE; off for this model (rdna4-vllm USE_W4A8=0).
               VLLM_ROCM_USE_W4A8_FP8_WMMA: "0"
               TRITON_CACHE_AUTOTUNING: "1"
-              VLLM_TRITON_PARALLEL_COMPILE: "1"
-              VLLM_ATTN_AUTOTUNE_PARALLEL: "1"
             probes:
               startup: &probeBase
                 enabled: true
@@ -192,7 +186,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: vllm
-          gethomepage.dev/description: Qwen3.6-27B vLLM inference (rdna4-vllm, vision, RDNA4, 196K ctx)
+          gethomepage.dev/description: Qwen3.6-27B vLLM inference (rdna4-vllm, RDNA4, 196K ctx)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
