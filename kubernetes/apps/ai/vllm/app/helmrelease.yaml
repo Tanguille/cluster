@@ -55,9 +55,6 @@ spec:
               # patcarter883 combined RDNA4 build (tcclaviger vLLM 0.22.69 + gfx1201 attention).
               repository: ghcr.io/patcarter883/rdna4-vllm
               tag: latest@sha256:80ba3f93344e7a13771149aba74e09b29887dd2116edfca9ec03e7e4e5672600
-            command:
-              - vllm
-              - serve
             args:
               # AWQ INT4: recommended quant for gfx1201. fp8/NVFP4 don't work here.
               # LM attention: image default triton_attn + startup autotuner (no --attention-backend).
