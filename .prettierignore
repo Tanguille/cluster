@@ -1,2 +1,6 @@
 **/*.sops.yaml
 **/*.md
+# Kept minified on purpose: pretty-printed (~68 KB) this dashboard pushes the rendered
+# kustomization past Linux MAX_ARG_STRLEN (128 KiB) and breaks Flate's PR-comment step.
+# Re-minify after editing: python3 -c 'import json,sys;json.dump(json.load(open(sys.argv[1])),open(sys.argv[1],"w"),separators=(",",":"))' <file>
+kubernetes/apps/ai/sglang/app/dashboard/sglang.json
