@@ -3,14 +3,14 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: vllm
+  name: sglang
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: vllm
-      app.kubernetes.io/instance: vllm
+      app.kubernetes.io/name: sglang
+      app.kubernetes.io/instance: sglang
   endpoints:
-    # vLLM serves a single model on /metrics, no per-model query params needed.
+    # SGLang exposes Prometheus metrics (sglang:*) on /metrics; one served model.
     - port: http
       path: /metrics
       scrapeTimeout: 10s
