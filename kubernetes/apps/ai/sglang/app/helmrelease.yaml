@@ -48,26 +48,20 @@ spec:
         strategy: Recreate
         containers:
           app:
-            # SGLang (mattbucci RDNA4 fork v0.5.13.post1 + 46 patches, torch 2.12+rocm7.2,
-            # Triton 3.6) runs from the prebuilt conda env on the `vllm` PVC at /cache/sglang.
-            # The image is just the ROCm 7.2.4 runtime base; the engine + the 3 native gfx1201
-            # HIP kernels + the fork source live on the PVC. See app README for the PVC contents
-            # and the runtime patches it carries (extra_buffer is_hip gate, can_use_store_cache
-            # fallback, common.sh allocator, #131 chat-template fix). Follow-up: bake this into a
-            # versioned OCI image so the serving env is reproducible from git.
+            # SGLang (mattbucci RDNA4 fork) runs from the prebuilt conda env on the `vllm` PVC at
+            # /cache/sglang — the image is only the ROCm 7.2.4 runtime base. The engine, the native
+            # gfx1201 HIP kernels, the fork source and four bring-up patches all live on the PVC.
+            # See the app README for the PVC inventory, the patches, and the OCI-image follow-up.
             image:
               repository: docker.io/rocm/dev-ubuntu-24.04
               tag: 7.2.4-complete@sha256:92f309c51b52cef8762867848f1529dee821624f23cd5df38455e819538f762f
-            # Override the dev-image entrypoint: launch the fork's preset runner. The qwen36-27b
-            # preset + these flags are the validated single-card config — dense Qwen3.6-27B-AWQ at
-            # TP=1 reaches ~99 tok/s aggregate decode @conc24-32, 16 tok/s single-stream, PP
-            # 528-888, tools on (qwen3_coder), thinking on + preserved. No-cache (overlap ON) is
-            # chosen over extra_buffer because batch throughput is the goal; on RDNA4 prefix-cache
-            # and high batch are mutually exclusive (extra_buffer caps batch ~24). MoE 35B-A3B and
-            # MTP/EAGLE3/DFlash/ngram and fp4 KV were all evaluated and rejected — see app README.
-            # Context 262144 = the model's native max (advertised, uncapped). The 32GB KV pool
-            # serves ~202K tokens/request at N=32, so a single prompt near the full window may not
-            # schedule; typical traffic fits and batch stays intact (~95 tok/s @conc24).
+            # Override the dev-image entrypoint with the fork's preset runner. The qwen36-27b preset
+            # + these flags are the validated single-card config (perf table and the rejected
+            # alternatives — MoE, MTP/EAGLE3/DFlash/ngram, fp4 KV — are in the app README). No-cache
+            # (overlap scheduler ON) is chosen over extra_buffer because batch throughput is the
+            # goal: on RDNA4 prefix-cache and high batch are mutually exclusive. Context 262144 is
+            # the model's native max; the KV pool caps a single full-window request (see configmap),
+            # but typical traffic fits and batch stays intact.
             command:
               - /bin/bash
               - -c
@@ -111,11 +105,12 @@ spec:
                   # ~16 min budget (60×15s + 60s): warm PVC boots in ~2-3 min; headroom covers a
                   # cold Triton recompile after image/kernel changes.
                   failureThreshold: 60
+              # No initialDelaySeconds on liveness/readiness: the startup probe gates both, so they
+              # only begin polling once /health is already up.
               liveness:
                 <<: *probeBase
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 60
                   periodSeconds: 60
                   timeoutSeconds: 5
                   failureThreshold: 3
@@ -123,8 +118,7 @@ spec:
                 <<: *probeBase
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 60
-                  periodSeconds: 15
+                  periodSeconds: 30
                   timeoutSeconds: 3
                   failureThreshold: 3
             resources:
@@ -134,7 +128,9 @@ spec:
                 squat.ai/dri: 1
               limits:
                 cpu: 12
-                memory: 32Gi
+                # Observed steady-state ~2.3 GB (weights live in VRAM); 16Gi covers model-load
+                # spikes + the shm tmpfs below. The old vllm 32Gi was never approached.
+                memory: 16Gi
                 squat.ai/dri: 1
 
     service:
@@ -176,7 +172,9 @@ spec:
       shm:
         type: emptyDir
         medium: Memory
-        sizeLimit: 16Gi
+        # tmpfs counts against the container memory limit; TP=1 barely uses shm (the large-shm
+        # case is multi-GPU tensor sharing, N/A here), so keep it well under the 16Gi limit.
+        sizeLimit: 8Gi
         advancedMounts:
           app:
             app:

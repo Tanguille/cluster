@@ -13,4 +13,5 @@ spec:
     # SGLang exposes Prometheus metrics (sglang:*) on /metrics; one served model.
     - port: http
       path: /metrics
+      interval: 1m # SGLang gauges don't need sub-minute resolution; matches litellm
       scrapeTimeout: 10s
