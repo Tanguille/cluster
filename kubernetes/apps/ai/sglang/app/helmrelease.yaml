@@ -128,9 +128,10 @@ spec:
                 squat.ai/dri: &dri 1 # extended resource: request must equal limit
               limits:
                 cpu: 12
-                # Observed steady-state ~2.3 GB (weights live in VRAM); 16Gi covers model-load
-                # spikes + the shm tmpfs below. The old vllm 32Gi was never approached.
-                memory: 16Gi
+                # Steady-state is ~2.3 GB (weights live in VRAM), but the multi-thread AWQ shard
+                # load peaks ~20 GB of host RAM — 16Gi OOM-killed it (exit 137) mid-load. 28Gi
+                # covers the load spike (+ shm tmpfs) with headroom, below the old vllm 32Gi.
+                memory: 28Gi
                 squat.ai/dri: *dri
 
     service:
