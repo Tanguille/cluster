@@ -9,14 +9,17 @@ data:
       - model_name: qwen-3.6
         litellm_params:
           model: openai/qwen-3.6
-          api_base: http://vllm.ai.svc.cluster.local/v1
+          api_base: http://sglang.ai.svc.cluster.local/v1
           api_key: os.environ/LLAMA_SERVER_API_KEY
           timeout: 600
-          # vLLM at ~19 tok/s: 8192 tokens takes ~420 s; 600 matches the request timeout.
+          # SGLang single-stream ~16 tok/s: 8192 tokens ~512 s (faster under batch); 600 covers it.
           stream_timeout: 600
         model_info:
           mode: chat
-          max_input_tokens: 234320
+          # Qwen3.6-27B native context, matching SGLang --context-length 262144 (uncapped).
+          # Note: the 32 GB KV pool serves ~202K tokens/request at N=32, so a single prompt
+          # near the full window may not schedule — but litellm is not artificially capping it.
+          max_input_tokens: 262144
           max_output_tokens: 8192
 
     litellm_settings:

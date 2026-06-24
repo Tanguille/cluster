@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sglang
+  namespace: ai
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: openebs-hostpath
+  # Rebuildable runtime cache: the SGLang conda env (/cache/sglang/conda), the patched fork
+  # source, the Triton cache, and the Qwen3.6-27B-AWQ model (~50 GB used). NOT reproducible
+  # from git (runtime-from-PVC — see README); rebuild via the fork's setup.sh if lost.
+  resources:
+    requests:
+      storage: 80Gi

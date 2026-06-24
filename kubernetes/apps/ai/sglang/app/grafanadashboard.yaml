@@ -3,7 +3,7 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: vllm
+  name: sglang
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
@@ -13,5 +13,5 @@ spec:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
   configMapRef:
-    name: vllm-dashboard
-    key: vllm.json
+    name: sglang-dashboard
+    key: sglang.json

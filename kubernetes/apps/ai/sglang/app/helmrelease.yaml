@@ -1,0 +1,204 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sglang
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  install:
+    timeout: 30m
+    remediation:
+      retries: 1
+  upgrade:
+    timeout: 30m
+    remediation:
+      retries: -1 # no rollback: a cold Triton recompile can exceed the upgrade timeout
+  valuesFrom:
+    - kind: ConfigMap
+      name: affinity-control-1
+
+  values:
+    defaultPodOptions:
+      affinity:
+        nodeAffinity:
+          # Hard gate to the GPU node; complements the soft control-1 pin from affinity-control-1.
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: amd.com/gpu
+                    operator: In
+                    values: ["true"]
+      # Root + video/render groups + Unconfined seccomp = ROCm device access via squat.ai/dri:1.
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        supplementalGroups:
+          - 44 # video — /dev/dri
+          - 226 # render — /dev/dri/renderD* + /dev/kfd (ROCm compute)
+        seccompProfile:
+          type: Unconfined # ROCm/HIP needs unrestricted syscalls
+
+    controllers:
+      app:
+        # Recreate, not RollingUpdate: singleton holding the node's only squat.ai/dri:1.
+        strategy: Recreate
+        containers:
+          app:
+            # SGLang (mattbucci RDNA4 fork) runs from the prebuilt conda env on the `sglang` PVC at
+            # /cache/sglang — the image is only the ROCm 7.2.4 runtime base. The engine, the native
+            # gfx1201 HIP kernels, the fork source and the bring-up patches all live on the PVC.
+            # See the app README for the PVC inventory, the patches, and the OCI-image follow-up.
+            image:
+              repository: docker.io/rocm/dev-ubuntu-24.04
+              tag: 7.2.4-complete@sha256:92f309c51b52cef8762867848f1529dee821624f23cd5df38455e819538f762f
+            # Override the dev-image entrypoint with the fork's preset runner. The qwen36-27b preset
+            # + these flags are the validated single-card config (perf table and the rejected
+            # alternatives — MoE, MTP/EAGLE3/DFlash/ngram, fp4 KV, extra_buffer — are in the app
+            # README). Radix cache is ON (native MambaRadixCache, no_buffer): the long-context Hermes
+            # agent re-prefills its growing context every turn, so prefix reuse (cold→cache-hit ~7.6×
+            # TTFT) is what keeps it from timing out — the primary workload. The cost is batch: cache
+            # forces overlap off and halves max_running (32→~16), so aggregate decode is ~34 tok/s
+            # @conc8 vs ~99 no-cache. extra_buffer (overlap on) does NOT recover it — RDNA4 decode is
+            # compute-bound, so overlap gives ~0 (see README). chunked-prefill 8192 is the preset
+            # recommendation (faster long prefills). decode-steps 16 overrides the preset's safety
+            # default of 8 (which existed only because 32 crashed thinking): 16 is thinking-stable here
+            # and lifts single-stream decode ~18% (11.4→13.4 tok/s) with no batch/KV cost. Context
+            # 262144 is the model's native max; the KV pool caps a single full-window request (see
+            # configmap), but typical traffic fits.
+            command:
+              - /bin/bash
+              - -c
+              - >-
+                exec bash /cache/sglang/repo/scripts/launch.sh qwen36-27b
+                --context-length 262144
+                --mem-fraction 0.90
+                --max-running 32
+                --decode-steps 16
+                --chunked-prefill 8192
+                --port 8000
+            env:
+              TZ: ${TIMEZONE}
+              # --- launch.sh / common.sh overrides (most gfx1201 env is set by common.sh) ---
+              CONDA_BASE: /cache/sglang/conda
+              TP: "1" # single R9700; the fork defaults to 2 (its dual-card box)
+              MODEL: mattbucci/Qwen3.6-27B-AWQ # resolved offline from HF_HOME cache
+              # Pin every device-visibility var to card 0 (common.sh defaults them to "0,1").
+              HIP_VISIBLE_DEVICES: &card0 "0"
+              ROCR_VISIBLE_DEVICES: *card0
+              GPU_DEVICE_ORDINAL: *card0
+              CUDA_VISIBLE_DEVICES: *card0
+              HF_HOME: /cache/hf
+              HF_HUB_OFFLINE: "1"
+              TRITON_CACHE_DIR: /cache/sglang/triton # persisted JIT cache on the PVC
+              # No PYTORCH_HIP_ALLOC_CONF override: the old "" was a torch-2.12-nightly workaround
+              # (it faulted with expandable_segments). The env is now torch 2.11.0+rocm7.2 stable,
+              # where common.sh's expandable_segments:True is validated clean on gfx1201.
+              # Appended after the preset's flags (last-wins): cache ON (no --disable-radix-cache),
+              # mamba slots 48 > max-running so cached prefix states have headroom beyond running
+              # requests, and the drop-in served model name so litellm/karakeep keep calling
+              # `qwen-3.6` unchanged.
+              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6"
+            probes:
+              startup: &probeBase
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: &port 8000
+                  initialDelaySeconds: 60
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+                  # ~16 min budget (60×15s + 60s): warm PVC boots in ~2-3 min; headroom covers a
+                  # cold Triton recompile after image/kernel changes.
+                  failureThreshold: 60
+              # No initialDelaySeconds on liveness/readiness: the startup probe gates both, so they
+              # only begin polling once /health is already up.
+              # Liveness/readiness use a TCP socket, NOT HTTP /health: under heavy concurrent load
+              # SGLang's event loop saturates and /health times out (5s), so an HTTP liveness probe
+              # restarts a busy-but-alive engine (exit 137, dropping in-flight agent work and forcing
+              # re-prefills — observed under real load 2026-06-25). TCP only restarts a genuinely dead
+              # process; the startup probe above still gates the real boot via /health. Readiness is
+              # TCP too: single replica, so ejecting the only backend under load is a total outage and
+              # SGLang queues overflow internally — stay in the Service while the port is alive.
+              liveness:
+                <<: *probeBase
+                spec:
+                  tcpSocket:
+                    port: *port
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
+                <<: *probeBase
+                spec:
+                  tcpSocket:
+                    port: *port
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+            resources:
+              requests:
+                cpu: 2
+                memory: 10Gi
+                squat.ai/dri: &dri 1 # extended resource: request must equal limit
+              limits:
+                cpu: 12
+                # Steady-state is ~2.3 GB (weights live in VRAM), but the multi-thread AWQ shard
+                # load peaks ~20 GB of host RAM — 16Gi OOM-killed it (exit 137) mid-load. 28Gi
+                # covers the load spike (+ shm tmpfs) with headroom, below the old vllm 32Gi.
+                memory: 28Gi
+                squat.ai/dri: *dri
+
+    service:
+      app:
+        controller: app
+        ports:
+          http:
+            port: 80
+            targetPort: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: sglang
+          gethomepage.dev/description: Qwen3.6-27B SGLang inference (RDNA4, TP=1, prefix-cache on, ~63 tok/s @conc16)
+          gethomepage.dev/group: Models
+          gethomepage.dev/icon: mdi-brain
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: 80
+
+    persistence:
+      # The `sglang` PVC carries the prebuilt SGLang conda env, fork source, Triton cache and the
+      # Qwen3.6 AWQ model (see pvc.yaml). Rebuildable via docs/sglang-env-rebuild.sh if lost — it bakes
+      # in the RDNA4/TP=1 store_cache fix the fork's stock setup.sh omits (without it the server
+      # crashes on the first request).
+      cache:
+        enabled: true
+        existingClaim: sglang
+        advancedMounts:
+          app:
+            app:
+              - path: /cache
+      shm:
+        type: emptyDir
+        medium: Memory
+        # tmpfs counts against the container memory limit; TP=1 barely uses shm (the large-shm
+        # case is multi-GPU tensor sharing, N/A here), so keep it well under the 16Gi limit.
+        sizeLimit: 8Gi
+        advancedMounts:
+          app:
+            app:
+              - path: /dev/shm
