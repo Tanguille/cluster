@@ -145,7 +145,10 @@ metadata:
   name: unified
   namespace: ai
 spec:
-  replicas: 2
+  # Single replica on purpose: the optimizer's tool index is in-memory per-pod, so a session
+  # that lands on a second replica triggers a full re-embed (lazyInjectSessionTools). One
+  # replica eliminates that cross-pod double-embed. Trade-off: no HA on this gateway.
+  replicas: 1
   podTemplateSpec:
     spec:
       containers:
