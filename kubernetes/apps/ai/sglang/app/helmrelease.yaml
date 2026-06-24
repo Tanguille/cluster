@@ -57,11 +57,18 @@ spec:
               tag: 7.2.4-complete@sha256:92f309c51b52cef8762867848f1529dee821624f23cd5df38455e819538f762f
             # Override the dev-image entrypoint with the fork's preset runner. The qwen36-27b preset
             # + these flags are the validated single-card config (perf table and the rejected
-            # alternatives — MoE, MTP/EAGLE3/DFlash/ngram, fp4 KV — are in the app README). No-cache
-            # (overlap scheduler ON) is chosen over extra_buffer because batch throughput is the
-            # goal: on RDNA4 prefix-cache and high batch are mutually exclusive. Context 262144 is
-            # the model's native max; the KV pool caps a single full-window request (see configmap),
-            # but typical traffic fits and batch stays intact.
+            # alternatives — MoE, MTP/EAGLE3/DFlash/ngram, fp4 KV, extra_buffer — are in the app
+            # README). Radix cache is ON (native MambaRadixCache, no_buffer): the long-context Hermes
+            # agent re-prefills its growing context every turn, so prefix reuse (cold→cache-hit ~7.6×
+            # TTFT) is what keeps it from timing out — the primary workload. The cost is batch: cache
+            # forces overlap off and halves max_running (32→~16), so aggregate decode is ~34 tok/s
+            # @conc8 vs ~99 no-cache. extra_buffer (overlap on) does NOT recover it — RDNA4 decode is
+            # compute-bound, so overlap gives ~0 (see README). chunked-prefill 8192 is the preset
+            # recommendation (faster long prefills). decode-steps 16 overrides the preset's safety
+            # default of 8 (which existed only because 32 crashed thinking): 16 is thinking-stable here
+            # and lifts single-stream decode ~18% (11.4→13.4 tok/s) with no batch/KV cost. Context
+            # 262144 is the model's native max; the KV pool caps a single full-window request (see
+            # configmap), but typical traffic fits.
             command:
               - /bin/bash
               - -c
@@ -70,7 +77,8 @@ spec:
                 --context-length 262144
                 --mem-fraction 0.90
                 --max-running 32
-                --chunked-prefill 4096
+                --decode-steps 16
+                --chunked-prefill 8192
                 --port 8000
             env:
               TZ: ${TIMEZONE}
@@ -86,11 +94,14 @@ spec:
               HF_HOME: /cache/hf
               HF_HUB_OFFLINE: "1"
               TRITON_CACHE_DIR: /cache/sglang/triton # persisted JIT cache on the PVC
-              PYTORCH_HIP_ALLOC_CONF: "" # torch-2.12 on RDNA4 faults with expandable_segments
-              # Appended after the preset's flags (last-wins): no-cache batch mode, mamba slots to
-              # match max-running (extra_buffer-free), and the drop-in served model name so litellm
-              # /karakeep keep calling `qwen-3.6` unchanged.
-              EXTRA_ARGS: "--disable-radix-cache --max-mamba-cache-size 32 --served-model-name qwen-3.6"
+              # No PYTORCH_HIP_ALLOC_CONF override: the old "" was a torch-2.12-nightly workaround
+              # (it faulted with expandable_segments). The env is now torch 2.11.0+rocm7.2 stable,
+              # where common.sh's expandable_segments:True is validated clean on gfx1201.
+              # Appended after the preset's flags (last-wins): cache ON (no --disable-radix-cache),
+              # mamba slots 48 > max-running so cached prefix states have headroom beyond running
+              # requests, and the drop-in served model name so litellm/karakeep keep calling
+              # `qwen-3.6` unchanged.
+              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6"
             probes:
               startup: &probeBase
                 enabled: true
@@ -147,7 +158,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: sglang
-          gethomepage.dev/description: Qwen3.6-27B SGLang inference (RDNA4, TP=1, ~99 tok/s batch)
+          gethomepage.dev/description: Qwen3.6-27B SGLang inference (RDNA4, TP=1, prefix-cache on, ~63 tok/s @conc16)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
@@ -162,7 +173,9 @@ spec:
 
     persistence:
       # The `sglang` PVC carries the prebuilt SGLang conda env, fork source, Triton cache and the
-      # Qwen3.6 AWQ model (see pvc.yaml). Rebuildable via the fork's setup.sh if lost.
+      # Qwen3.6 AWQ model (see pvc.yaml). Rebuildable via docs/sglang-env-rebuild.sh if lost — it bakes
+      # in the RDNA4/TP=1 store_cache fix the fork's stock setup.sh omits (without it the server
+      # crashes on the first request).
       cache:
         enabled: true
         existingClaim: sglang
