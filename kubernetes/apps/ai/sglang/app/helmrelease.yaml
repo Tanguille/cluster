@@ -107,7 +107,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: &httpGet
+                  httpGet:
                     path: /health
                     port: &port 8000
                   initialDelaySeconds: 60
@@ -118,19 +118,28 @@ spec:
                   failureThreshold: 60
               # No initialDelaySeconds on liveness/readiness: the startup probe gates both, so they
               # only begin polling once /health is already up.
+              # Liveness/readiness use a TCP socket, NOT HTTP /health: under heavy concurrent load
+              # SGLang's event loop saturates and /health times out (5s), so an HTTP liveness probe
+              # restarts a busy-but-alive engine (exit 137, dropping in-flight agent work and forcing
+              # re-prefills — observed under real load 2026-06-25). TCP only restarts a genuinely dead
+              # process; the startup probe above still gates the real boot via /health. Readiness is
+              # TCP too: single replica, so ejecting the only backend under load is a total outage and
+              # SGLang queues overflow internally — stay in the Service while the port is alive.
               liveness:
                 <<: *probeBase
                 spec:
-                  httpGet: *httpGet
-                  periodSeconds: 60
+                  tcpSocket:
+                    port: *port
+                  periodSeconds: 30
                   timeoutSeconds: 5
-                  failureThreshold: 3
+                  failureThreshold: 5
               readiness:
                 <<: *probeBase
                 spec:
-                  httpGet: *httpGet
+                  tcpSocket:
+                    port: *port
                   periodSeconds: 30
-                  timeoutSeconds: 3
+                  timeoutSeconds: 5
                   failureThreshold: 3
             resources:
               requests:
