@@ -23,7 +23,7 @@ Hadamard-KV (unwired + decode-negative online on gfx1201).
 ## ⚠️ Runtime-from-PVC (reproducibility debt)
 
 The container image (`rocm/dev-ubuntu-24.04:7.2.4-complete`) is **only the ROCm
-runtime base**. The actual engine runs from the prebuilt conda env on the `vllm`
+runtime base**. The actual engine runs from the prebuilt conda env on the `sglang`
 PVC at `/cache/sglang`:
 
 - `/cache/sglang/conda` — env `sglang-triton36-v0513` (torch 2.12+rocm7.2, SGLang
@@ -32,11 +32,11 @@ PVC at `/cache/sglang`:
   `qwen3.6_devrole_chat_template.jinja`
 - `/cache/sglang/sglang-src` — patched, editable SGLang source
 - `/cache/sglang/triton` — persisted Triton JIT cache
-- `/cache/hf` — Qwen3.6-27B-AWQ + 35B-A3B-AWQ snapshots
+- `/cache/hf` — Qwen3.6-27B-AWQ snapshot (`mattbucci/Qwen3.6-27B-AWQ`)
 
 This means **the serving behavior is not fully reproducible from git** — it depends
-on the PVC built out-of-band (Dockerfile + `scripts/setup.sh` in the fork). The PVC
-also carries four runtime patches applied during bring-up:
+on the PVC built out-of-band (`scripts/setup.sh` from the fork, run in the ROCm base).
+The PVC also carries these runtime fixes applied during bring-up:
 
 1. `jit_kernel/kvcache.py` `can_use_store_cache()` → `return False` — the fp8 KV
    `store_cache` JIT kernel hits `hipErrorIllegalState` on TP=1; falls back to the
@@ -48,9 +48,15 @@ also carries four runtime patches applied during bring-up:
 4. `qwen3.6_devrole_chat_template.jinja` — [QwenLM/Qwen3.6#131](https://github.com/QwenLM/Qwen3.6/issues/131)
    fix (guard historical `<think>` on `reasoning_content` so empty blocks don't drift
    the prefix). Needed for correct `preserve_thinking`.
+5. `pip uninstall kernels` — transformers 5.6's hub-kernels integration builds a
+   `LayerRepository` without a revision and crashes `import sglang`; SGLang uses its own
+   compiled kernels, so dropping the `kernels` pkg is safe.
 
-**Follow-up:** bake the env + these patches into a versioned OCI image and switch the
-HelmRelease to it, so the deployment is reproducible without the PVC.
+**Follow-up (blocked):** the clean fix is to bake the env into a versioned OCI image
+(`docker/sglang-rdna4/` already builds `ghcr.io/tanguille/sglang-rdna4`) and switch the
+HelmRelease to it. But the cluster currently **cannot pull never-cached images** — Spegel's
+upstream fall-through is broken, so any image not already on a node fails (even `alpine`).
+Until that's fixed, runtime-from-PVC on the *cached* ROCm base is the only viable path.
 
 ## Caching vs batch (ROCm tradeoff)
 
