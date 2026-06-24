@@ -2,7 +2,7 @@
 
 Tracking what needs to land upstream before SGLang can replace vLLM in production without depending on the mattbucci RDNA4 fork.
 
-**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork (v0.5.12 + 37 patches).
+**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.13.post1 + 46 patches** (fork HEAD `1034fea`, 2026-06-24), built in place on the `sglang` PVC at `/cache/sglang` (the image is only the ROCm 7.2.4 runtime base). Rebuild recipe — including the RDNA4/TP=1 fixes the fork's `setup.sh` omits — is `docs/sglang-env-rebuild.sh`.
 See `docs/sglang-qwen3.6-rocm-plan.md` for the full build plan and decision record.
 
 ---
@@ -101,6 +101,55 @@ See `docs/sglang-qwen3.6-rocm-plan.md` for the full build plan and decision reco
 
 ---
 
+## Blocker 6 — Prefix cache vs batch on the DeltaNet hybrid (ROCm) — RESOLVED on v0.5.13 (now a tunable tradeoff)
+
+**Status: resolved by the v0.5.13.post1 rebuild.** v0.5.13 ships native **MambaRadixCache**
+(`hybrid_ssm=True`) — DeltaNet/SSM prefix caching on ROCm with **no** `extra_buffer` / FLA-NVIDIA
+gate. The ~124k-token Hermes loop now reuses its cached prefix instead of re-prefilling every turn:
+measured **7.6× TTFT** (cold ~16s → cache-hit ~2.1s; server log `#cached-token: 16384` of 18256),
+which is what stops it tripping `agent.gateway_timeout` / litellm aborts. The earlier StreamingSession
+mitigation is obsolete.
+
+**The cache-vs-batch question is now a config choice, not a blocker:**
+- **cache ON** (`no_buffer` + radix, **prod**): overlap scheduler off, but single-stream ~13.4 tok/s
+  (decode-steps 16) and batch ~34 @conc8 / ~63 @conc16, max_running 16. Chosen — the long-context
+  agent is the primary workload.
+- **cache OFF** (`--disable-radix-cache`): overlap on, batch ~99 @conc32, but every agent turn
+  re-prefills the full context (the original failure). A 97k cold prefill measured **303s** — the
+  cost the cache eliminates.
+- **`extra_buffer`** (overlap on *with* cache): boots on ROCm via a 1-line `is_hip()` patch to the
+  `server_args.py` device assert, but gives **no** batch gain (~35 @conc8) and *worse* single-stream
+  (~12) — RDNA4 dense-DeltaNet decode is compute-bound, so the overlap scheduler has nothing to hide
+  and it halves max_running (→9). Ruled out; we stay on `no_buffer`.
+
+**Required RDNA4/TP=1 patch (NOT in the fork — it targets a dual-card TP=2 box):** the JIT
+`store_cache` kernel aborts at TP=1 (`kvcache.cuh:204: CUDA error: the operation cannot be performed
+in the present state`). Force `can_use_store_cache()->False` (naive torch KV store). A stock
+`setup.sh` rebuild without this crashes on the first request — captured in `docs/sglang-env-rebuild.sh`.
+
+**VRAM ceiling (context vs batch, measured on the 32GB R9700):** weights (~16GB) + fp32 mamba state
+(**6.89GB** @ 48 slots = max_running 16) + KV pool + prefill headroom must fit in 31.9GB. Keeping the
+16 batch slots, the KV pool tops out at **126,854 tokens** @ `--mem-fraction 0.90` (Hermes's 124k just
+fits, 2.88GB prefill headroom; a real 97k prefill validated — correct recall, no OOM). mem 0.95 (179k
+pool) **OOMs** on a ~125k prefill (only 1.26GB activation headroom → CUDA OOM). Full native 262k for a
+single session isn't reachable without dropping batch slots or bf16 mamba state — and bf16 is risky
+(the model ships `mamba_ssm_dtype: float32` for long-context recurrent stability, and the bf16 path is
+NVIDIA-SM100 / FlashInfer-only).
+
+**Upstream references:**
+- SGLang cookbook (Qwen3.6) — extra_buffer "Requires FLA kernel backend (NVIDIA GPUs only)":
+  https://docs.sglang.io/cookbook/autoregressive/Qwen/Qwen3.6
+- HiCache-for-hybrid crash on Qwen3.5/3.6 (Open): https://github.com/sgl-project/sglang/issues/24121
+- Unified Hybrid Radix Cache Refactor roadmap (Open): https://github.com/sgl-project/sglang/issues/20415
+
+**When to revisit:** (1) When #24121 closes — v0.5.13 HiCache could offload mamba/KV state to host RAM
+and ease the cache/batch/context tensions together (enabling bigger batch *and* full context). (2) If a
+future fork rebase relaxes the `no_buffer`→overlap-off constraint, re-test overlap+cache. (3) Re-test
+`extra_buffer` only if a faster RDNA4 GDN decode kernel lands (today it's the scheduler, not the
+kernel, that makes overlap a no-op).
+
+---
+
 ## Summary table
 
 | # | Blocker | Severity | Workaround? | When to recheck |
@@ -110,5 +159,6 @@ See `docs/sglang-qwen3.6-rocm-plan.md` for the full build plan and decision reco
 | 3 | gptq_marlin_repack missing on ROCm | Medium | Yes (Triton AWQ) | N/A (accept Triton path) |
 | 4 | gfx1201 missing from sgl_kernel / AITER | Medium | Yes (mattbucci patches) | Discussion #12600 closed |
 | 5 | No official gfx1201 Docker image | Operational | Yes (custom Dockerfile) | RDNA4 in official ROCm matrix |
+| 6 | Prefix cache on DeltaNet hybrid (ROCm) | **Resolved** (v0.5.13) | MambaRadixCache (cache-on, batch 16/~63) + TP=1 store_cache patch | HiCache #24121 (cache+batch+full-context together) |
 
-**Bottom line:** The mattbucci fork resolves blockers 2–5 today. Blocker 1 (MTP) is the only hard performance gap vs vLLM. Once SGLang ROCm CI shows speculative decoding passing, retest with a single-card configuration on the fork.
+**Bottom line:** The mattbucci fork resolves blockers 2–6 today (v0.5.13.post1). Blocker 6 (prefix cache) is fixed by native MambaRadixCache — cache is ON in prod, which fixes the long-context agent, at a batch cost (~63 @conc16 vs ~99 no-cache) that's the right tradeoff for the agentic workload. Blocker 1 (MTP) remains the single-stream gap vs vLLM but is moot here (spec is net-negative on dense RDNA4). Once #24121 (HiCache-for-hybrid) closes, retest to get cache + higher batch + full context together.
