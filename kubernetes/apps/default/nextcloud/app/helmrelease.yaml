@@ -61,13 +61,6 @@ spec:
       datadir: /var/www/data
       strategy:
         type: Recreate
-      extraInitContainers:
-        - name: init-db
-          image: ghcr.io/home-operations/postgres-init:18
-          envFrom:
-            - secretRef:
-                name: nextcloud-secret
-
       extraEnv:
         - name: REDIS_HOST
           value: dragonfly.database.svc.cluster.local

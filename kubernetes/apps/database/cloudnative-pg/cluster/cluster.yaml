@@ -146,6 +146,11 @@ spec:
         login: true
         passwordSecret:
           name: gatus-db
+      - name: nextcloud
+        ensure: present
+        login: true
+        passwordSecret:
+          name: nextcloud-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true
