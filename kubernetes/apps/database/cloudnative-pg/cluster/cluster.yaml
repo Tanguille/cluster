@@ -98,7 +98,7 @@ spec:
   # Adopted application roles. Passwords are sourced from per-app basic-auth Secrets in
   # this namespace and ENFORCED by CNPG, so each value MUST match the app's existing
   # runtime credential (DATABASE_URL / POSTGRES_PASSWORD) or the app is locked out.
-  # One entry per app migrated off the ghcr.io/home-operations/postgres-init init-container.
+  # Add one entry per app whose login role this cluster should manage.
   managed:
     roles:
       - name: jellystat
