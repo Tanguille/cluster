@@ -13,7 +13,11 @@ spec:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
     minRunners: 1
-    maxRunners: 3
+    # Serialize CI so a renovate burst can't run multiple ~110K-ctx PR reviews on the single GPU
+    # at once: the KV pool holds ~1 large review, so concurrent reviews contend ~Nx and time out.
+    # NOTE: cluster-runner is the SHARED repo runner — this serializes ALL workflows, not just
+    # agent-pr-review. Raise to 2 if non-review CI throughput matters more than review isolation.
+    maxRunners: 1
     containerMode:
       type: kubernetes
       kubernetesModeWorkVolumeClaim:
