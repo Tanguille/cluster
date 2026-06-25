@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: litellm-operator
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: litellm-operator
+  # CRDs install/upgrade as CreateReplace via the cluster-apps HelmRelease patch.
+  # The operator image is digest-pinned inside the chart (v0.0.1 ships no usable semver
+  # image tag — appVersion is 0.0.0), and the validating webhook self-manages its cert.
