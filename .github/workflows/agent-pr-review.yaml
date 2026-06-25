@@ -51,10 +51,8 @@ jobs:
           ai_temperature: ""
           ai_response_format: json_schema
           # This GPU does ~10 tok/s with ~155-220s cold prefills near ~100K ctx (validated), so the
-          # action's 300s default per-request timeout is too tight. Raise it; with the engine crash
-          # fixed and timeouts relaxed, the 8-retry default is excessive — 3 is enough.
+          # action's 300s default per-request timeout is too tight. Raise it.
           ai_request_timeout_sec: "600"
-          ai_primary_retries: "3"
           verdict_policy: findings_severity_gated
           inline_findings: "true"
           inline_findings_max: "12"
