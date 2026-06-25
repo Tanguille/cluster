@@ -156,6 +156,11 @@ spec:
         login: true
         passwordSecret:
           name: grafana-db
+      - name: crowdsec
+        ensure: present
+        login: true
+        passwordSecret:
+          name: crowdsec-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true
