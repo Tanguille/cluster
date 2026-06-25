@@ -51,6 +51,13 @@ The PVC also carries these runtime fixes applied during bring-up:
 5. `pip uninstall kernels` — transformers 5.6's hub-kernels integration builds a
    `LayerRepository` without a revision and crashes `import sglang`; SGLang uses its own
    compiled kernels, so dropping the `kernels` pkg is safe.
+6. `srt/layers/sampler.py` `_sync_token_ids_across_tp` → gate the cross-TP token-id
+   all-reduce on `dist.get_world_size(group=self.tp_sync_group) > 1`. At TP=1 it's a
+   no-op (MIN over a 1-rank group) but still runs for grammar/structured-output
+   requests, lazily initialising NCCL mid-run (~256MB calloc) which OOMs hours in once
+   VRAM is committed — crashing the engine. Gating it on a >1-rank group means NCCL
+   never initialises at TP=1. Without it, `json_schema`/tool-calling traffic (e.g. the
+   PR-review CI) causes periodic HIP-OOM restarts.
 
 **Follow-up (blocked):** the clean fix is to bake the env into a versioned OCI image
 (`docker/sglang-rdna4/` already builds `ghcr.io/tanguille/sglang-rdna4`) and switch the
