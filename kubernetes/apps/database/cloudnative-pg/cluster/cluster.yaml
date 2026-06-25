@@ -121,6 +121,11 @@ spec:
         login: true
         passwordSecret:
           name: sonarr-db
+      - name: prowlarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: prowlarr-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true
