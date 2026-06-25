@@ -182,9 +182,9 @@ spec:
 
     persistence:
       # The `sglang` PVC carries the prebuilt SGLang conda env, fork source, Triton cache and the
-      # Qwen3.6 AWQ model (see pvc.yaml). Rebuildable via docs/sglang-env-rebuild.sh if lost — it bakes
-      # in the RDNA4/TP=1 store_cache fix the fork's stock setup.sh omits (without it the server
-      # crashes on the first request).
+      # Qwen3.6 AWQ model (see pvc.yaml). Rebuildable via scripts/sglang-env-rebuild.sh if lost — it
+      # bakes in the RDNA4/TP=1 fixes the fork's stock setup.sh omits (without them the server crashes
+      # on the first request, or OOM-restarts hours in on the first grammar/json_schema request).
       cache:
         enabled: true
         existingClaim: sglang

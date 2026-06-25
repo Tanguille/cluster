@@ -22,6 +22,26 @@ data:
           max_input_tokens: 262144
           max_output_tokens: 8192
 
+      # Thinking-off twin of qwen-3.6 (same SGLang backend). The model defaults thinking ON,
+      # which spends the decode budget on reasoning_content and can return EMPTY content under
+      # json_schema (validated live) — slow/failing for latency-sensitive structured/tool callers
+      # like agent-pr-review. Point those at qwen-3.6-fast. litellm forwards chat_template_kwargs
+      # to SGLang even with drop_params:true (validated live, both top-level and extra_body).
+      - model_name: qwen-3.6-fast
+        litellm_params:
+          model: openai/qwen-3.6
+          api_base: http://sglang.ai.svc.cluster.local/v1
+          api_key: os.environ/LLAMA_SERVER_API_KEY
+          timeout: 600
+          stream_timeout: 600
+          extra_body:
+            chat_template_kwargs:
+              enable_thinking: false
+        model_info:
+          mode: chat
+          max_input_tokens: 262144
+          max_output_tokens: 8192
+
     litellm_settings:
       callbacks: ["prometheus"]
       service_callback: ["prometheus_system"]

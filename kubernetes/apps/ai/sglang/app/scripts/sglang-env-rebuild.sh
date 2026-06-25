@@ -8,7 +8,13 @@
 #        ("kvcache.cuh:204: CUDA error: the operation cannot be performed in the
 #        present state"). We force can_use_store_cache()->False so the naive torch
 #        KV store is used. WITHOUT THIS THE SERVER CRASHES ON THE FIRST REQUEST.
-#     2. `pip uninstall kernels` — transformers 5.x pulls a `kernels` package
+#     2. TP=1 token-id all-reduce gate — the sampler all-reduces final token IDs
+#        across TP for grammar/structured-output requests even at TP=1 (a no-op on
+#        a 1-rank group). That first all-reduce lazily inits NCCL mid-run (~256MB
+#        calloc) which OOMs hours in once VRAM is committed, crashing the engine.
+#        We gate it on world size > 1. WITHOUT THIS, json_schema/tool-calling
+#        traffic causes periodic HIP-OOM restarts.
+#     3. `pip uninstall kernels` — transformers 5.x pulls a `kernels` package
 #        whose hub-kernels loader crashes `import sglang`.
 #   It also pins ENV_NAME / SGLANG_DIR to PVC paths (the fork's common.sh defaults
 #   now point at the author's ephemeral /data/* paths) and lets setup.sh use its
@@ -73,6 +79,17 @@ echo "=== TP=1 fix: force can_use_store_cache()->False (fall back to naive torch
 KVC="$SGLANG_DIR/python/sglang/jit_kernel/kvcache.py"
 grep -q 'RDNA4 TP=1' "$KVC" || \
   sed -i '/^def can_use_store_cache(size: int) -> bool:$/a\    return False  # RDNA4 TP=1: JIT store_cache crashes (kvcache.cuh:204) -> naive torch KV store' "$KVC"
+
+echo "=== TP=1 fix: gate the cross-TP token-id all-reduce on world size > 1 ==="
+# Sampler._sync_token_ids_across_tp runs an all-reduce for grammar/structured-output
+# requests even at TP=1, where it's a no-op (MIN over a 1-rank group). That first
+# all-reduce lazily inits NCCL/RCCL mid-run (a ~256MB calloc); hours in, with VRAM
+# committed, the calloc OOMs and crashes the engine. Gate it on a >1-rank group so
+# NCCL never initialises at TP=1. WITHOUT THIS, json_schema/tool-calling traffic
+# (e.g. the PR-review CI) triggers periodic HIP-OOM restarts.
+SMP="$SGLANG_DIR/python/sglang/srt/layers/sampler.py"
+grep -q 'get_world_size(group=self.tp_sync_group) > 1' "$SMP" || \
+  sed -i 's|^        if SYNC_TOKEN_IDS_ACROSS_TP or sampling_info.grammars:$|        if (SYNC_TOKEN_IDS_ACROSS_TP or sampling_info.grammars) and dist.get_world_size(group=self.tp_sync_group) > 1:|' "$SMP"
 
 echo "=== drop transformers-5.x 'kernels' pkg (crashes import sglang) ==="
 "$CONDA_BASE/bin/conda" run -n "$ENV_NAME" pip uninstall kernels -y 2>/dev/null || true

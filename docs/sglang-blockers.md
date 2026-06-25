@@ -2,7 +2,7 @@
 
 Tracking what needs to land upstream before SGLang can replace vLLM in production without depending on the mattbucci RDNA4 fork.
 
-**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.13.post1 + 46 patches** (fork HEAD `1034fea`, 2026-06-24), built in place on the `sglang` PVC at `/cache/sglang` (the image is only the ROCm 7.2.4 runtime base). Rebuild recipe — including the RDNA4/TP=1 fixes the fork's `setup.sh` omits — is `docs/sglang-env-rebuild.sh`.
+**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.13.post1 + 46 patches** (fork HEAD `1034fea`, 2026-06-24), built in place on the `sglang` PVC at `/cache/sglang` (the image is only the ROCm 7.2.4 runtime base). Rebuild recipe — including the RDNA4/TP=1 fixes the fork's `setup.sh` omits — is `kubernetes/apps/ai/sglang/app/scripts/sglang-env-rebuild.sh`.
 See `docs/sglang-qwen3.6-rocm-plan.md` for the full build plan and decision record.
 
 ---
@@ -125,7 +125,14 @@ mitigation is obsolete.
 **Required RDNA4/TP=1 patch (NOT in the fork — it targets a dual-card TP=2 box):** the JIT
 `store_cache` kernel aborts at TP=1 (`kvcache.cuh:204: CUDA error: the operation cannot be performed
 in the present state`). Force `can_use_store_cache()->False` (naive torch KV store). A stock
-`setup.sh` rebuild without this crashes on the first request — captured in `docs/sglang-env-rebuild.sh`.
+`setup.sh` rebuild without this crashes on the first request — captured in `kubernetes/apps/ai/sglang/app/scripts/sglang-env-rebuild.sh`.
+
+A **second RDNA4/TP=1 patch** lives in the same recipe: the sampler's cross-TP token-id all-reduce
+(`_sync_token_ids_across_tp`) runs even at TP=1 — a no-op on a 1-rank group — for grammar/structured-output
+(`json_schema`/tool-calling) requests. That first all-reduce lazily initialises NCCL mid-run (~256MB
+calloc); hours in, once VRAM is committed, the calloc OOMs and crashes the engine (exit 0 via SIGQUIT),
+which intermittently broke the `agent-pr-review` CI with HTTP 500s. Gated on `dist.get_world_size(group=self.tp_sync_group) > 1`
+so NCCL never initialises at TP=1 (validated: 0 NCCL inits under real grammar traffic).
 
 **VRAM ceiling (context vs batch, measured on the 32GB R9700):** weights (~16GB) + fp32 mamba state
 (**6.89GB** @ 48 slots = max_running 16) + KV pool + prefill headroom must fit in 31.9GB. Keeping the
