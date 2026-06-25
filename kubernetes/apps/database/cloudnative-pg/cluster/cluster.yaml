@@ -136,6 +136,11 @@ spec:
         login: true
         passwordSecret:
           name: memini-db
+      - name: spoolman
+        ensure: present
+        login: true
+        passwordSecret:
+          name: spoolman-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true
