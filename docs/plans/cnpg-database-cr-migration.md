@@ -27,6 +27,11 @@ Branch: `feat/cnpg-database-cr-migration` (worktree). One commit per app.
 - **Passwords are reused verbatim** (`Optimist` everywhere in this homelab). CNPG *enforces*
   the managed-role password, so the basic-auth Secret value must equal the app's existing
   runtime credential or the app is locked out.
+- **Role attributes are fully declarative.** CNPG reconciles every *unspecified* role
+  attribute to its default. The live `nextcloud` role has `CREATEDB`, so its managed role
+  declares `createdb: true` to avoid being reset to `NOCREATEDB`. All other 11 roles are at
+  defaults (no super/createdb/createrole/replication/bypassrls; inherit; connlimit -1), so
+  `login: true` alone is faithful.
 
 ## Secret-consumption patterns (decides which keys to remove)
 

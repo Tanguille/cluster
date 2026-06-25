@@ -149,6 +149,9 @@ spec:
       - name: nextcloud
         ensure: present
         login: true
+        # Preserve the role's existing CREATEDB privilege; CNPG reconciles every
+        # unspecified attribute to its default (NOCREATEDB) when adopting a role.
+        createdb: true
         passwordSecret:
           name: nextcloud-db
       - name: grafana
