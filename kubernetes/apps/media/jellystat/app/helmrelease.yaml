@@ -16,15 +16,6 @@ spec:
         strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: 18
-            envFrom:
-              - secretRef:
-                  name: jellystat-secret
-
         containers:
           main:
             image:
