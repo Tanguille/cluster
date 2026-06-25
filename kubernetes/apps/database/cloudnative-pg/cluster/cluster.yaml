@@ -131,6 +131,11 @@ spec:
         login: true
         passwordSecret:
           name: openwebui-db
+      - name: memini
+        ensure: present
+        login: true
+        passwordSecret:
+          name: memini-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true

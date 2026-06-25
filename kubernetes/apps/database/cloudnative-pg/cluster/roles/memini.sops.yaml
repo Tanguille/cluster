@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: memini-db
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:4x+8kodh,iv:nopkooUCdggt7UpmV2u19WbyOE/VTz/vhCjy4nGvUqI=,tag:OLv3FN2APx/cNTSqY69IRA==,type:str]
+  password: ENC[AES256_GCM,data:CWRaqTumYAw=,iv:xMitQ4f5yYPBccnNUh+h7IEoerPnLb8+nxabeKfbBZE=,tag:xtvApQpQgKFztHzk21jUXA==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBRWEtDcEhSNGY2ZXRqUlVJ
+        SUdDT2dLZUdBYis4NnU1UURXYWFuNzllM1hrCnhJK3BzNXpFbVoxeFhuY0ZUMHd6
+        ZENPVHdGcUl1SHAzeStOYkZ3SkE0NzAKLS0tIGZORWUzbzhqbENXSUJZTmRwa2R0
+        b1BxY20rZTBJR0tXSzZiSjkrNVkrT1EKNN62UZCEP6PC+Q94IgKJ2eHrA8ma+JST
+        odxwkKHegDX8ngc5oHcyYR7fsk0iAryomO2pwsOUb/ZC8EmRweudSg==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:CajL/kTa+hKFCBWPpV3naLWJ4s3wj+d6Dh7wtAMPLWgJMYzEW7g5GACk/ZDSLU0Q+XguXxziaVdlrcWnjmYNqYpIukfpneYlKSKz0l2R0TLBiBzyKtIM2r7NUIHyQp3Pj/T3pZs3IwECymyaBShh9jLgbSNkKEPyJG3HC7mkMH8=,iv:4dR9lqjMdk22Ng7yCEjWno59bBmPLupcZ4DDsWwrA1g=,tag:K0c7CJ/e67040/Mb/3r5eg==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1
