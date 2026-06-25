@@ -151,6 +151,11 @@ spec:
         login: true
         passwordSecret:
           name: nextcloud-db
+      - name: grafana
+        ensure: present
+        login: true
+        passwordSecret:
+          name: grafana-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true
