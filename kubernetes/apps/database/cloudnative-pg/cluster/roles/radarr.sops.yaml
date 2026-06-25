@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: radarr-db
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:dlzzNxPu,iv:mroLOqUV40xiBJ8SLFGdxscNKfqRV9Naw6CiW/QO+j0=,tag:BatIPNDdkAhtce6ogmaUeg==,type:str]
+  password: ENC[AES256_GCM,data:K61zTMpNLS4=,iv:E5DVnIGXoqQO3xPLscMnfD0I2yBpZIosTvlhWZFDiRk=,tag:JxMTtCtV/pZxjMzDyvOJ9A==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB3ZFdQTTNmYStjY0hmcU5n
+        Z3pHSCtXZk1KN1l6THdNdlZFVXNVRUNLaFVBCnZBY1BJV1MxNFh4VWkvUHlVMWpr
+        Y2ExYWxNVHBVZUZnZERWWEprR2VIdjgKLS0tIEcwSERqK25lRzJVOU5rVHExaVlY
+        MHF6SWpFaVM3RGxVMVlmOGROOFlqTU0KjVwk0w9sVvzbX00AQyRe53vh91wJF6tA
+        s8YVNSzLurmc12wauSmGfG1ah+ZF7umkxFAykt4OwXGc9i6hEyQUww==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:xMdSIi60wzX/fQwUU7HvZ72FEpeNXkm7JzOAKZQ9S7W301xS3hNECaZ5ljy9uZN70K7GMmZ8P7a7Mnw34gewCcnGT2Vz7dwcjl4DP9epR5Le2ZqkcErbHw0SMHU5iv2EXKJyc6khlg3ck0ciEi7qkS2gQT7yxm7W0aMmIKMwLR0=,iv:FArQOWtPtVRr8YEscHrfEPk3W6+QQulyRUA5GtUzg7Y=,tag:Ep/1thnoBRqjvSuPmVM9Xw==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1
