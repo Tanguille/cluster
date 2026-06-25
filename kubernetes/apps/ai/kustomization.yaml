@@ -8,6 +8,9 @@ components:
 resources:
   - ./hermes/ks.yaml
   - ./litellm/ks.yaml
+  # Operator-managed litellm (Postgres/DB mode), parallel to the file-mode litellm above for
+  # validation; swap onto the litellm Service once verified, then remove ./litellm.
+  - ./litellm-next/ks.yaml
   - ./memini/ks.yaml
   - ./llmkube/ks.yaml
   - ./opencode/ks.yaml

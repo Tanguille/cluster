@@ -1,0 +1,63 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMProxy
+metadata:
+  name: litellm-next
+spec:
+  # Pin to the same image the file-mode litellm runs (already node-cached); the chart default
+  # main-stable would be a fresh pull. DB mode (Postgres) enables live model updates over the
+  # admin API with no restart, plus virtual keys / spend tracking / UI.
+  image: ghcr.io/berriai/litellm:v1.89.4
+  replicas: 1
+  applyMode: api
+  apiAccess:
+    masterKeyRef:
+      name: litellm-next-secret
+      key: LITELLM_MASTER_KEY
+  service:
+    # Match the file-mode litellm Service port so callers (http://litellm.ai.svc/...) work after
+    # the swap. The proxy container always listens on 4000; this maps Service 80 -> 4000.
+    port: 80
+  env:
+    # The operator injects neither the master key nor the DB URL — supply them here.
+    - name: LITELLM_MASTER_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-next-secret
+          key: LITELLM_MASTER_KEY
+    - name: LITELLM_SALT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-next-secret
+          key: LITELLM_SALT_KEY
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: litellm-next-secret
+          key: DATABASE_URL
+    # Backs the os.environ/LLAMA_SERVER_API_KEY indirection in the model params below.
+    - name: LLAMA_SERVER_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-next-secret
+          key: LLAMA_SERVER_API_KEY
+  litellmSettings:
+    callbacks: ["prometheus"]
+    service_callback: ["prometheus_system"]
+    # Agent chat is near-unique per turn — caching adds latency with ~0 hit rate.
+    cache: false
+    drop_params: true
+  route:
+    # Temporary hostname for parallel validation; the swap moves traffic to the litellm Service.
+    hostnames:
+      - "litellm-next.${SECRET_DOMAIN}"
+    parentRefs:
+      - name: envoy-internal
+        namespace: network
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 2Gi
