@@ -19,14 +19,6 @@ spec:
       sonarr:
         annotations:
           reloader.stakater.com/auto: "true"
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: 18
-            envFrom: &envFrom
-              - secretRef:
-                  name: sonarr-secret
         containers:
           app:
             image:
@@ -44,7 +36,9 @@ spec:
               SONARR__UPDATE__BRANCH: develop
               SONARR__AUTH__APIKEY: ${SONARR_API_KEY}
               TZ: ${TIMEZONE}
-            envFrom: *envFrom
+            envFrom:
+              - secretRef:
+                  name: sonarr-secret
 
             probes:
               liveness: &probes
