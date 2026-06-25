@@ -111,6 +111,11 @@ spec:
         login: true
         passwordSecret:
           name: radarr-db
+      - name: bazarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: bazarr-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true
