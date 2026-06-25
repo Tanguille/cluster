@@ -126,6 +126,11 @@ spec:
         login: true
         passwordSecret:
           name: prowlarr-db
+      - name: openwebui
+        ensure: present
+        login: true
+        passwordSecret:
+          name: openwebui-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true

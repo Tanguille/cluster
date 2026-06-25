@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openwebui-db
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:k8ODFG4t66me,iv:jzGOwFB8Zh0JNeCUaE7B8KUQLYfj6UUoNd3uxPq/oZ0=,tag:T2I65yMMn/fW7ap6CeSZQA==,type:str]
+  password: ENC[AES256_GCM,data:Rbq9na/uQ+o=,iv:XbRPQUdzcN/CGsG3YeBfOmY/Em/bi2Yo2MWVKJ+m/z8=,tag:q9IZhxHTHumkV9H3fNIbxA==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBaa2UrcGJpNWlORmdabTJU
+        VU1CNERiM0dJYVNnWHB0NE9CcTlTRU9VRGlFCkNDZmozSzNOR1M0VHRPVE0xalF1
+        cWV4QWVxcWhtWE1mVDVnZkRiRjkzLzgKLS0tIDdRWnBqU3E3blpNUTkxQ2FNMEtO
+        TmdvMTFyM042MHJQSTQvTmN0L0tMQkkKaLc2O4C5oRA1dNCgPepnrOAj/HjWzEIc
+        lRL/v32Uv5WaOKcF0FvJcdL99KK9RU4tz6u+xFXoXLByTp9zioYaFA==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:yWvReSq0oWZdqdT7wMjd0mkmAgWFjG4Hty7+93/CbA94bBCXWE7f+L2gBLo0zqmvs/d8eGwUtaHH/KIEfxf+M9ZPzd9/HAi32uxC4r3FsAv4e1Kkd9v3Zp78mQ3o/yVHS5jX1lGsrFNJEFHOuvNyAkhBdy3Dcqe5iyjevoSx4s8=,iv:0ZyXqEF/xKc5/ghj6xskWKgHPSBTGIvhK93kKLizgkU=,tag:kyDkr33IzGvV83WUbWMbZA==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1
