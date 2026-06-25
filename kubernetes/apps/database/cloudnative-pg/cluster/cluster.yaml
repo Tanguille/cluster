@@ -141,6 +141,11 @@ spec:
         login: true
         passwordSecret:
           name: spoolman-db
+      - name: gatus
+        ensure: present
+        login: true
+        passwordSecret:
+          name: gatus-db
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true

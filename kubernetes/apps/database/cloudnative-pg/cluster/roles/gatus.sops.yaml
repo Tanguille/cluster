@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gatus-db
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:e6fh5P4=,iv:gn+TaKjVYYt5pYT+oILQSrBHUpQVVOMkqAQNvAETS5o=,tag:KoWv5UXyd5gWDlqsv37z2Q==,type:str]
+  password: ENC[AES256_GCM,data:Fu+ooY3F/Zk=,iv:FETVckvGjN502TaxnZzdkD0NXq5UTbLnt7aAEPbbZ/Y=,tag:uWPUMclP7JKEi5kf4GX8RQ==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBNMnZMdjQyRjFJSlMxeHF5
+        RWJHeGxvM1VBcDNnTGFZRGtmM2RHaVdudDFnCjF1V1hEYUhDSkdlNXZUNDVGQm9T
+        STVjMkNrdWVldmtzS1ZLRHVZUURBRW8KLS0tIDErTkg5RTFpenJSUXJ3QWlMWHhk
+        VnFBOTBDMFA3OTIyRXdqaUtkc0xpQTAKoNymqi/job1DVG6fpAVGUn6u3TLMbVC6
+        wJ8FA0/pRltdkwKVXKZw53aZuz0VxEGVl/kZ6itjBIZ6bNU+cZw+iw==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:nFOgy6cw1W3uDtMxhsmL3bCzUIxDQ8HZjcprbNVKEesIl+E2qSejk7eiV/V08xY2oLnlSFNiC4wI2TPDWulCTG/SM59bwPOeMF39OWaLLBzBT08JQeb4wvoU91ziRL6hBjRSpgUztxtHQhrICJK2aNW1/2NJ92BsSYGE8Y7OwRw=,iv:ADkqilVUDKSg614sCxzn9SSws8cdQ7I/J3A9uDrgcyk=,tag:MV6o7dZCdAPwSN/YQyXj7A==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1

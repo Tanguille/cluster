@@ -92,10 +92,3 @@ spec:
       parentRefs:
         - name: envoy-internal
           namespace: network
-
-    initContainers:
-      - name: init-db
-        image: ghcr.io/home-operations/postgres-init:18
-        envFrom:
-          - secretRef:
-              name: gatus-secret
