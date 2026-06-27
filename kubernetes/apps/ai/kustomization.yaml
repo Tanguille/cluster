@@ -14,7 +14,14 @@ resources:
   #   2. change litellm/ks.yaml and memini/ks.yaml dependsOn back to llama-server
   #   3. change litellm/app/configmap.yaml api_base back to http://llama-server.ai.svc.cluster.local/v1
   # - ./llama-server/ks.yaml
+  # CUTOVER (single swap): comment ./llama-embeddings, uncomment ./llmkube/models-ks.yaml,
+  # and repoint memini (app/helmrelease.yaml MEMINI_EMBED_BASE_URL ->
+  # http://qwen3-embedding.ai.svc.cluster.local:8080/v1; ks.yaml dependsOn
+  # llama-embeddings -> llmkube-models). The iGPU advertises squat.ai/dri count:1,
+  # so the old and new embedding pods cannot co-reside — swap, never run both.
   - ./llama-embeddings/ks.yaml
+  - ./llmkube/ks.yaml # operator only; safe alongside llama-embeddings
+  # - ./llmkube/models-ks.yaml # qwen3-embedding — uncomment at cutover
   - ./open-webui/ks.yaml
   - ./opencode/ks.yaml
   - ./odysseus/ks.yaml
