@@ -9,11 +9,6 @@ resources:
   - ./hermes/ks.yaml
   - ./litellm/ks.yaml
   - ./memini/ks.yaml
-  # llama.cpp fallback — to switch back from SGLang:
-  #   1. comment in llama-server below, comment out sglang (avoid GPU conflict)
-  #   2. change litellm/ks.yaml and memini/ks.yaml dependsOn back to llama-server
-  #   3. change litellm/app/configmap.yaml api_base back to http://llama-server.ai.svc.cluster.local/v1
-  # - ./llama-server/ks.yaml
   # CUTOVER (validate-first, in progress): qwen3-embedding runs alongside
   # llama-embeddings while the iGPU device count is temporarily 2
   # (kube-system/generic-device-plugin). Once validated, PR B repoints memini
@@ -21,9 +16,7 @@ resources:
   # memini/ks.yaml dependsOn llama-embeddings -> llmkube-models), removes
   # ./llama-embeddings, and drops the iGPU count back to 1.
   - ./llama-embeddings/ks.yaml
-  - ./llmkube/ks.yaml # operator only; safe alongside llama-embeddings
-  - ./llmkube/models-ks.yaml # qwen3-embedding (validate alongside llama-embeddings)
-  - ./open-webui/ks.yaml
+  - ./llmkube/ks.yaml
   - ./opencode/ks.yaml
   - ./odysseus/ks.yaml
   - ./toolhive/ks.yaml
