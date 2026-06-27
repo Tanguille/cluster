@@ -42,6 +42,9 @@ spec:
                 memory: 16Mi
               limits:
                 memory: 64Mi
+      # count is temporarily 2 for the llama-embeddings -> llmkube embedding
+      # cutover (validate both on the iGPU); revert to 1 once qwen3-embedding
+      # is live and llama-embeddings is removed.
       generic-device-plugin-igpu:
         type: daemonset
         pod:
@@ -56,7 +59,7 @@ spec:
               - |
                 name: dri
                 groups:
-                  - count: 1
+                  - count: 2
                     paths:
                       - path: /dev/dri
             securityContext: *devicePluginSecurityContext
