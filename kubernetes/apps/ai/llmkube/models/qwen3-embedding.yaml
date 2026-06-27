@@ -1,0 +1,87 @@
+---
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen3-embedding
+spec:
+  source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-f16.gguf
+  format: gguf
+  # f16 (not a smaller quant) keeps the vectors byte-identical to the previous
+  # llama-embeddings deployment so memini's stored corpus needs no re-embedding.
+  quantization: F16
+  hardware:
+    accelerator: vulkan
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: vulkan
+      layers: -1
+      # Both GPU nodes advertise squat.ai/dri (dGPU count:4, iGPU count:1) via
+      # squat/generic-device-plugin; nodeSelector below pins this to the iGPU.
+      resourceName: squat.ai/dri
+---
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen3-embedding
+spec:
+  modelRef: qwen3-embedding
+  # Stock upstream Vulkan image, kept in lockstep with llama-embeddings and
+  # tracked by the llmkube-models Renovate customManager (.renovaterc.json5).
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:c5341acd745db14a702158042d7d8ddbd05e631c462dcc7fc8fa42f14e2a5ee0
+  parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
+  contextSize: 2048
+  uBatchSize: 2048
+  extraArgs:
+    - "--embeddings"
+    - "--pooling"
+    - "last"
+    - "--alias"
+    - "qwen3-embedding" # served model name memini sends in /v1/embeddings
+    - "--metrics" # expose Prometheus /metrics (off by default in llama-server)
+
+  # Pin to the iGPU node; without this the scheduler could place it on the dGPU
+  # node (which also advertises squat.ai/dri) and steal a dGPU slot from sglang.
+  nodeSelector:
+    amd.com/igpu: "true"
+
+  # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+
+  # llama-server only serves /health in embeddings mode, so probe that rather
+  # than the operator-default chat-completions path.
+  probeOverrides:
+    startup:
+      httpGet: &healthProbe
+        path: /health
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 15
+    readiness:
+      httpGet: *healthProbe
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    liveness:
+      httpGet: *healthProbe
+      initialDelaySeconds: 30
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 3
+
+  resources:
+    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
+    memory: 2Gi
+    gpu: 1
+    gpuMemory: 2Gi
+  # endpoint omitted — operator defaults to a ClusterIP Service on :8080
+  # (memini and the probes target that port).
