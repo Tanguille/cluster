@@ -1,81 +1,72 @@
 # sglang — Qwen3.6-27B on RDNA4
 
-Replaces the `vllm` app as the primary inference backend for `qwen-3.6`. Serves the
-dense **Qwen3.6-27B-AWQ** on the single AMD R9700 (gfx1201/RDNA4, 32 GB) via the
-**mattbucci SGLang RDNA4 fork** (v0.5.13.post1 + 46 patches, torch 2.12+rocm7.2,
-Triton 3.6), TP=1.
+Primary inference backend for `qwen-3.6`. Serves dense **Qwen3.6-27B-AWQ** on the single
+AMD R9700 (gfx1201/RDNA4, 32 GB) via the **mattbucci SGLang RDNA4 fork** (v0.5.14, torch
+2.11+rocm7.2, Triton 3.6), TP=1, prefix-cache on.
 
-## Validated performance (single card, tools on, thinking on)
+Full benchmarks, the optimization ledger and the engine-selection rationale live in
+[`docs/llm-hosting/`](../../../../docs/llm-hosting/).
 
-| concurrency | aggregate decode | prefill (PP) | notes |
-|---|---|---|---|
-| 1 | 16 tok/s | 528–888 tok/s | single-stream |
-| 8 | 35 tok/s | | |
-| 16 | 67 tok/s | | |
-| 24–32 | **~99 tok/s** | | plateau |
+## Config at a glance
 
-Clears the ≥10 single-stream and ≥60 aggregate targets with the preferred dense
-model (its prefill is ~5× the MoE 35B-A3B's). Rejected after testing: MoE 35B-A3B
-(weaker PP, not needed), MTP/EAGLE3/DFlash/ngram (net-negative on the DeltaNet
-hybrid, or hard-reject grammar/tool-calling), fp4 KV (hard-blocked on non-CUDA),
-Hadamard-KV (unwired + decode-negative online on gfx1201).
+- **Engine:** SGLang v0.5.14 (mattbucci fork @ `60ffa9501`), `qwen36-27b` preset, TP=1, KV
+  dtype fp8_e4m3, mem-fraction 0.90, 32Gi pod limit (the AWQ shard load peaks ~20 GB host RAM).
+- **Cache ON** (`MambaRadixCache`, `no_buffer`): the long-context agent re-prefills its growing
+  context each turn, so prefix reuse (**~7.6× TTFT**) is the primary workload. The cost is batch —
+  overlap off, `max_running` 32→~16. On the DeltaNet hybrid, cache and high batch are mutually
+  exclusive on RDNA4 (`extra_buffer` needs an FLA kernel absent on ROCm).
+- **EXP-002** (`--mamba-ssm-dtype bfloat16`): halves the fp32 GatedDeltaNet state → **KV pool +87%
+  (127K → 237,446 tokens)**, quality-neutral (PPL 2.1423, needle@124K PASS) — headroom that keeps
+  the agent's 124K prefix from evicting under burst.
 
 ## ⚠️ Runtime-from-PVC (reproducibility debt)
 
-The container image (`rocm/dev-ubuntu-24.04:7.2.4-complete`) is **only the ROCm
-runtime base**. The actual engine runs from the prebuilt conda env on the `sglang`
-PVC at `/cache/sglang`:
+The container image is **only the ROCm 7.2.4 runtime base**. The engine runs from the prebuilt
+conda env on the `sglang` PVC at `/cache/sglang`:
 
-- `/cache/sglang/conda` — env `sglang-triton36-v0513` (torch 2.12+rocm7.2, SGLang
-  fork, the 3 native gfx1201 HIP kernels: sgl_kernel, awq_gemv, wvSplitK INT4 MoE)
-- `/cache/sglang/repo` — fork source incl. `scripts/launch.sh`, `common.sh`, the
-  `qwen3.6_devrole_chat_template.jinja`
-- `/cache/sglang/sglang-src` — patched, editable SGLang source
-- `/cache/sglang/triton` — persisted Triton JIT cache
-- `/cache/hf` — Qwen3.6-27B-AWQ snapshot (`mattbucci/Qwen3.6-27B-AWQ`)
+- `/cache/sglang/conda` — env `sglang-triton36-v0514` (torch 2.11+rocm7.2, fork + native gfx1201
+  HIP kernels: `sgl_kernel`, `awq_gemv`, `wvSplitK`)
+- `/cache/sglang/repo-v0514` — fork source (`scripts/launch.sh`, `common.sh`, chat template) with
+  the editable SGLang at `components/sglang`
+- `/cache/sglang/triton` — persisted Triton JIT cache; `/cache/hf` — `mattbucci/Qwen3.6-27B-AWQ`
 
-This means **the serving behavior is not fully reproducible from git** — it depends
-on the PVC built out-of-band (`scripts/setup.sh` from the fork, run in the ROCm base).
-The PVC also carries these runtime fixes applied during bring-up:
+So serving **is not fully reproducible from git** — it depends on the PVC, rebuilt out-of-band via
+[`scripts/sglang-env-rebuild.sh`](app/scripts/sglang-env-rebuild.sh), which bakes in the RDNA4/TP=1
+fixes the fork's stock `setup.sh` omits (without them the server crashes on the first request, or
+OOM-restarts on the first grammar request):
 
-1. `jit_kernel/kvcache.py` `can_use_store_cache()` → `return False` — the fp8 KV
-   `store_cache` JIT kernel hits `hipErrorIllegalState` on TP=1; falls back to the
-   naive torch KV store.
-2. `scripts/common.sh` `PYTORCH_HIP_ALLOC_CONF` → env-overridable empty (torch-2.12
-   faults with `expandable_segments` on RDNA4).
-3. `srt/server_args.py` extra_buffer device gate → add `is_hip()` (enables prefix
-   caching on ROCm; **not used in this no-cache config** but kept for the cache mode).
-4. `qwen3.6_devrole_chat_template.jinja` — [QwenLM/Qwen3.6#131](https://github.com/QwenLM/Qwen3.6/issues/131)
-   fix (guard historical `<think>` on `reasoning_content` so empty blocks don't drift
-   the prefix). Needed for correct `preserve_thinking`.
-5. `pip uninstall kernels` — transformers 5.6's hub-kernels integration builds a
-   `LayerRepository` without a revision and crashes `import sglang`; SGLang uses its own
-   compiled kernels, so dropping the `kernels` pkg is safe.
-6. `srt/layers/sampler.py` `_sync_token_ids_across_tp` → gate the cross-TP token-id
-   all-reduce on `dist.get_world_size(group=self.tp_sync_group) > 1`. At TP=1 it's a
-   no-op (MIN over a 1-rank group) but still runs for grammar/structured-output
-   requests, lazily initialising NCCL mid-run (~256MB calloc) which OOMs hours in once
-   VRAM is committed — crashing the engine. Gating it on a >1-rank group means NCCL
-   never initialises at TP=1. Without it, `json_schema`/tool-calling traffic (e.g. the
-   PR-review CI) causes periodic HIP-OOM restarts.
+1. `can_use_store_cache()` → `False` — the fp8 KV `store_cache` JIT kernel hits `hipErrorIllegalState` at TP=1.
+2. `sampler.py` cross-TP token-id all-reduce gated on `world_size > 1` — else grammar/json_schema
+   traffic lazily inits NCCL mid-run (~256 MB) and OOM-crashes hours in.
+3. `pip uninstall kernels` — transformers 5.x hub-kernels crashes `import sglang`.
+4. `SGLANG_TAG=v0.5.14` — else the fork patches reject onto v0.5.13 source and the env never builds.
+5. `qwen3.6_devrole_chat_template.jinja` — remaps the `developer` role and guards historical `<think>`
+   blocks (correct `preserve_thinking`, no empty-arg tool-call loop).
 
-**Follow-up (blocked):** the clean fix is to bake the env into a versioned OCI image
-(`docker/sglang-rdna4/` already builds `ghcr.io/tanguille/sglang-rdna4`) and switch the
-HelmRelease to it. But the cluster currently **cannot pull never-cached images** — Spegel's
-upstream fall-through is broken, so any image not already on a node fails (even `alpine`).
-Until that's fixed, runtime-from-PVC on the *cached* ROCm base is the only viable path.
+**Follow-up (blocked):** bake the env into a versioned OCI image (`docker/sglang-rdna4/`), but the
+cluster can't pull never-cached images (Spegel upstream fall-through broken), so runtime-from-PVC on
+the cached ROCm base is the only path for now.
 
-## Caching vs batch (ROCm tradeoff)
+## Performance & bottleneck
 
-On the DeltaNet hybrid, prefix cache and high batch are mutually exclusive on RDNA4:
-this config runs **no-cache** (`--disable-radix-cache`, overlap scheduler ON) for the
-~99 tok/s batch. The patched `extra_buffer` mode gives prefix cache (5–6× TTFT,
-validated correct) but caps batch ~24 — switch to it only for single-user agentic use.
+Cache-on prod: ~16 tok/s single-stream decode, ~63 @conc16 aggregate, prefill ~1459 tok/s. The
+end-to-end bottleneck is **prefill latency × thinking mode**, not decode: a cold 95-124K re-prefill
+is 155-303s and thinking is a ~20× multiplier, while decode is a compute-bound ~13-16 tok/s wall on
+the INT4/GDN kernels. One 32 GB card at TP=1 — no engine flag breaks these walls; only the prefix
+cache (on) hides re-prefill cost. Full analysis in [`docs/llm-hosting/`](../../../../docs/llm-hosting/).
 
-## Thinking / preserve_thinking
+**Levers, by noticeable impact:**
 
-Thinking is on (`--reasoning-parser qwen3`). To preserve prior-turn reasoning across
-a multi-turn agent loop (and avoid the empty-arg tool-call loop,
-[earendil-works/pi#3325](https://github.com/earendil-works/pi/issues/3325)), clients
-pass per-request `chat_template_kwargs: {"enable_thinking": true, "preserve_thinking": true}`.
-The served template (patch 4 above) renders preserved `<think>` blocks correctly.
+| Lever | Layer | Status |
+|---|---|---|
+| **Thinking-mode routing** — latency-sensitive callers → `qwen-3.6-fast` (thinking-off) | litellm | ✅ ~20× perceived latency; routed |
+| **Prefix cache** (`MambaRadixCache`) | sglang | ✅ 7.6× TTFT; in prod |
+| **EXP-002 bf16-SSM** (+87% KV pool) | sglang | ✅ in prod |
+| `--chunked-prefill` 16384 (cold prefill) | sglang | OOM-risky (prefill-activation transient); not adopted |
+| cuda-graph · int8-mamba-checkpoint | sglang | tested on v0.5.14 — null / no-op on this dense + `no_buffer` config |
+| **HiCache** (prompt-cache → host RAM, `--hicache-io-backend direct`) | sglang | `direct` path works on RDNA4 (no #24121 crash) but host-RAM-constrained on the 40 GiB node |
+| TP=2 / second GPU | hardware | breaks both walls (~153 tok/s w/ MTP); structural |
+
+Bottom line: the engine wins in prod are the **prefix cache + EXP-002**; the biggest *perceived* win
+is **thinking-mode routing** (client layer). Remaining sglang-config levers are noise or RAM-blocked
+on this single card.

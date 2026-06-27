@@ -55,25 +55,18 @@ spec:
             image:
               repository: docker.io/rocm/dev-ubuntu-24.04
               tag: 7.2.4-complete@sha256:92f309c51b52cef8762867848f1529dee821624f23cd5df38455e819538f762f
-            # Override the dev-image entrypoint with the fork's preset runner. The qwen36-27b preset
-            # + these flags are the validated single-card config (perf table and the rejected
-            # alternatives — MoE, MTP/EAGLE3/DFlash/ngram, fp4 KV, extra_buffer — are in the app
-            # README). Radix cache is ON (native MambaRadixCache, no_buffer): the long-context Hermes
-            # agent re-prefills its growing context every turn, so prefix reuse (cold→cache-hit ~7.6×
-            # TTFT) is what keeps it from timing out — the primary workload. The cost is batch: cache
-            # forces overlap off and halves max_running (32→~16), so aggregate decode is ~34 tok/s
-            # @conc8 vs ~99 no-cache. extra_buffer (overlap on) does NOT recover it — RDNA4 decode is
-            # compute-bound, so overlap gives ~0 (see README). chunked-prefill 8192 is the preset
-            # recommendation (faster long prefills). decode-steps 16 overrides the preset's safety
-            # default of 8 (which existed only because 32 crashed thinking): 16 is thinking-stable here
-            # and lifts single-stream decode ~18% (11.4→13.4 tok/s) with no batch/KV cost. Context
-            # 262144 is the model's native max; the KV pool caps a single full-window request (see
-            # configmap), but typical traffic fits.
+            # Override the dev-image entrypoint with the fork's preset runner. The qwen36-27b preset +
+            # these flags are the validated single-card config; the perf table, the cache-vs-batch
+            # tradeoff and the rejected alternatives (MoE, MTP/spec, fp4 KV) are in the README. Radix
+            # cache is ON (MambaRadixCache, no_buffer) for the long-context agent: prefix reuse
+            # (~7.6× TTFT) is the primary workload, traded against batch (overlap off, max_running
+            # 32→~16). context-length 262144 is the model's native max; typical traffic fits the KV
+            # pool. decode-steps is inert on v0.5.13/14 (no scheduler readers) — kept for parity.
             command:
               - /bin/bash
               - -c
               - >-
-                exec bash /cache/sglang/repo/scripts/launch.sh qwen36-27b
+                exec bash /cache/sglang/repo-v0514/scripts/launch.sh qwen36-27b
                 --context-length 262144
                 --mem-fraction 0.90
                 --max-running 32
@@ -94,14 +87,11 @@ spec:
               HF_HOME: /cache/hf
               HF_HUB_OFFLINE: "1"
               TRITON_CACHE_DIR: /cache/sglang/triton # persisted JIT cache on the PVC
-              # No PYTORCH_HIP_ALLOC_CONF override: the old "" was a torch-2.12-nightly workaround
-              # (it faulted with expandable_segments). The env is now torch 2.11.0+rocm7.2 stable,
-              # where common.sh's expandable_segments:True is validated clean on gfx1201.
-              # Appended after the preset's flags (last-wins): cache ON (no --disable-radix-cache),
-              # mamba slots 48 > max-running so cached prefix states have headroom beyond running
-              # requests, and the drop-in served model name so litellm/karakeep keep calling
-              # `qwen-3.6` unchanged.
-              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6"
+              # EXTRA_ARGS append after the preset (last-wins): mamba slots 48 (> max-running, headroom
+              # for cached prefix states); served-model-name qwen-3.6 (drop-in for litellm/karakeep);
+              # mamba-ssm-dtype bfloat16 (EXP-002) halves the fp32 GatedDeltaNet state (6.89→3.45 GB) →
+              # KV pool +87% (127K→237,446 tokens), quality-neutral — the headroom Hermes's 124K prefix needs.
+              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16"
             probes:
               startup: &probeBase
                 enabled: true
@@ -116,15 +106,11 @@ spec:
                   # ~16 min budget (60×15s + 60s): warm PVC boots in ~2-3 min; headroom covers a
                   # cold Triton recompile after image/kernel changes.
                   failureThreshold: 60
-              # No initialDelaySeconds on liveness/readiness: the startup probe gates both, so they
-              # only begin polling once /health is already up.
-              # Liveness/readiness use a TCP socket, NOT HTTP /health: under heavy concurrent load
-              # SGLang's event loop saturates and /health times out (5s), so an HTTP liveness probe
-              # restarts a busy-but-alive engine (exit 137, dropping in-flight agent work and forcing
-              # re-prefills — observed under real load 2026-06-25). TCP only restarts a genuinely dead
-              # process; the startup probe above still gates the real boot via /health. Readiness is
-              # TCP too: single replica, so ejecting the only backend under load is a total outage and
-              # SGLang queues overflow internally — stay in the Service while the port is alive.
+              # Liveness/readiness are TCP, NOT HTTP /health: under heavy load SGLang's event loop
+              # saturates and /health times out (5s) → an HTTP probe restarts a busy-but-alive engine
+              # (exit 137, dropping in-flight work; observed 2026-06-25). TCP only restarts a dead
+              # process. Single replica → readiness stays TCP too (ejecting the only backend under load
+              # is a total outage). The startup probe (above) still gates the real boot via /health.
               liveness:
                 <<: *probeBase
                 spec:
@@ -148,10 +134,11 @@ spec:
                 squat.ai/dri: &dri 1 # extended resource: request must equal limit
               limits:
                 cpu: 12
-                # Steady-state is ~2.3 GB (weights live in VRAM), but the multi-thread AWQ shard
-                # load peaks ~20 GB of host RAM — 16Gi OOM-killed it (exit 137) mid-load. 28Gi
-                # covers the load spike (+ shm tmpfs) with headroom, below the old vllm 32Gi.
-                memory: 28Gi
+                # Steady-state ~2.3 GB (weights in VRAM), but the multi-thread AWQ shard load peaks
+                # ~20 GB host RAM. 32Gi covers the load spike + shm; 16Gi and 28Gi both OOM-killed it
+                # mid-load (exit 137). An OOM-kill here leaks GPU VRAM that no soft reboot reclaims
+                # (needs a hypervisor cold-cycle) — so don't trim it.
+                memory: 32Gi
                 squat.ai/dri: *dri
 
     service:
