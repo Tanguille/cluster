@@ -52,12 +52,13 @@ podman build \
 
 Expect a long build (~15-20 min: the ROCm "complete" base is large; the HIP kernels compile).
 
-## Automated builds
+## Builds — manual dispatch only
 
 `.github/workflows/build-sglang-rdna4.yaml` builds on the **scale-to-zero `gpu-builder`
-runner pinned to control-1** and pushes the `v0.5.14-gfx1201` tag. It fires on any change
-under `docker/sglang-rdna4/**` (a merged Renovate `FORK_REF` bump), on `workflow_dispatch`,
-and weekly.
+runner pinned to control-1** and pushes the `v0.5.14-gfx1201` tag. It is **`workflow_dispatch`
+only** — never auto-fired by a merge or a schedule, because the build shares control-1's single
+R9700 with live serving (the warning below). A Renovate `FORK_REF` / base-digest bump opens a PR;
+dispatch the build by hand (`gh workflow run build-sglang-rdna4.yaml`) when you're ready for a window.
 
 > ⚠️ The build competes with live serving for the GPU node's host RAM + VRAM. For the first
 > build / a cold rebuild, **scale `sglang` to 0 first** (or run inside a serving maintenance
