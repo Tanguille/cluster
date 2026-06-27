@@ -17,6 +17,15 @@
       datasourceTemplate: "docker"
     },
     {
+      description: "Detect llmkube InferenceService spec.image container references",
+      customType: "regex",
+      managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
+      matchStrings: [
+        "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
+      ],
+      datasourceTemplate: "docker"
+    },
+    {
       description: "Process Grafana dashboards in GrafanaDashboard CRs",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
