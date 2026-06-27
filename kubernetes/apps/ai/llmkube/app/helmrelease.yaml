@@ -16,7 +16,6 @@ spec:
       keep: true
 
     controllerManager:
-      replicaCount: 1
       leaderElection:
         enabled: false
       resources:
@@ -35,18 +34,19 @@ spec:
         capabilities:
           drop: ["ALL"]
 
-    # ServiceMonitor/PodMonitor left off for now — the cluster auto-converts
-    # ServiceMonitor -> VMServiceScrape; wire metrics in a follow-up once the
-    # generated Service labels are known.
+    # Observability (auto-converted to VM*Scrapes by the cluster's converter):
+    #  - inferencePodMonitor scrapes llama-server /metrics on the embedding pods
+    #    (also needs --metrics in the InferenceService extraArgs)
+    #  - serviceMonitor scrapes the operator; secure:false serves it over plain
+    #    HTTP so VM can scrape without a ServiceAccount token (metrics.enabled
+    #    defaults true).
     metrics:
-      enabled: false
+      secure: false
     prometheus:
       serviceMonitor:
-        enabled: false
+        enabled: true
       inferencePodMonitor:
-        enabled: false
-      prometheusRule:
-        enabled: false
+        enabled: true
 
     # Shared model-download cache. openebs-hostpath = node-local RWO (same class
     # the sglang/llama-server GPU caches use); binds on the iGPU node because the

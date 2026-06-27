@@ -30,7 +30,6 @@ spec:
   # Stock upstream Vulkan image, kept in lockstep with llama-embeddings and
   # tracked by the llmkube-models Renovate customManager (.renovaterc.json5).
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:c5341acd745db14a702158042d7d8ddbd05e631c462dcc7fc8fa42f14e2a5ee0
-  replicas: 1
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   contextSize: 2048
   uBatchSize: 2048
@@ -40,6 +39,7 @@ spec:
     - "last"
     - "--alias"
     - "qwen3-embedding" # served model name memini sends in /v1/embeddings
+    - "--metrics" # expose Prometheus /metrics (off by default in llama-server)
 
   # Pin to the iGPU node; without this the scheduler could place it on the dGPU
   # node (which also advertises squat.ai/dri) and steal a dGPU slot from sglang.
@@ -83,7 +83,5 @@ spec:
     memory: 2Gi
     gpu: 1
     gpuMemory: 2Gi
-
-  endpoint:
-    port: 8080
-    type: ClusterIP
+  # endpoint omitted — operator defaults to a ClusterIP Service on :8080
+  # (memini and the probes target that port).
