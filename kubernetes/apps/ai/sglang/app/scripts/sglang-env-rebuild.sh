@@ -36,15 +36,17 @@
 # is already built by then; this script applies the post-build fixes regardless.
 set -uo pipefail
 
-# v0.5.13.post1 + 46 patches (validated 2026-06-24). Bump to rebase onto a newer fork HEAD.
-FORK_REF="${FORK_REF:-1034fea9a803db43c2972cf5f74c64501db0ffd6}"
+# v0.5.14 + 46 patches (incl 073 mamba HIP fallback; 065 dropped/upstreamed). Validated 2026-06-27.
+# Bump to rebase onto a newer fork HEAD (also bump SGLANG_TAG below to match the upstream version).
+FORK_REF="${FORK_REF:-60ffa9501c2c6e5db628e58c7f75b727a6127ebb}"
 
 export ROCM_PATH=/opt/rocm
 export PYTORCH_ROCM_ARCH=gfx1201
 export CONDA_BASE=/cache/sglang/conda
-export ENV_NAME=sglang-triton36-v0513                    # must match the fork common.sh default launch.sh activates
-export REPO_DIR=/cache/sglang/repo
-export SGLANG_DIR=/cache/sglang/repo/components/sglang    # PVC path (common.sh default is the ephemeral /data/sgl-rebase)
+export ENV_NAME=sglang-triton36-v0514                    # must match the fork common.sh default launch.sh activates
+export REPO_DIR=/cache/sglang/repo-v0514
+export SGLANG_DIR=/cache/sglang/repo-v0514/components/sglang    # PVC path (common.sh default is the ephemeral /data/sgl-v0514)
+export SGLANG_TAG=v0.5.14                                 # CRITICAL: setup.sh defaults to v0.5.13.post1; the v0514 patches (001/028/073) only apply to the v0.5.14 upstream tree
 export TRITON_CACHE_DIR=/cache/sglang/triton
 export HF_HOME=/cache/hf
 export RUSTUP_HOME=/opt/rust/rustup CARGO_HOME=/opt/rust/cargo
@@ -94,7 +96,24 @@ grep -q 'get_world_size(group=self.tp_sync_group) > 1' "$SMP" || \
 echo "=== drop transformers-5.x 'kernels' pkg (crashes import sglang) ==="
 "$CONDA_BASE/bin/conda" run -n "$ENV_NAME" pip uninstall kernels -y 2>/dev/null || true
 
+echo "=== install amdsmi (ROCm GPU-management bindings) ==="
+# Without it SGLang logs "Failed to import amdsmi" at boot and falls back to torch for VRAM
+# capacity detection (works, but the fallback is why mem-fraction sizing is coarser). Prefer the
+# ROCm-bundled bindings at /opt/rocm/share/amd_smi so the version matches the 7.2.4 runtime/driver;
+# fall back to PyPI. Non-fatal — text inference does not depend on it.
+"$CONDA_BASE/bin/conda" run -n "$ENV_NAME" pip install /opt/rocm/share/amd_smi 2>/dev/null \
+  || "$CONDA_BASE/bin/conda" run -n "$ENV_NAME" pip install amdsmi 2>/dev/null \
+  || echo "(amdsmi install failed — non-fatal; SGLang falls back to torch VRAM detection)"
+
 echo "=== verify ==="
-"$CONDA_BASE/bin/conda" run -n "$ENV_NAME" python -c "import sglang; print('sglang', sglang.__version__)"
-"$CONDA_BASE/bin/conda" clean -afy || true
-echo "=== REBUILD COMPLETE ==="
+# Hard gate: only declare success if sglang actually imports from the new env. setup.sh uses
+# `set -uo pipefail` (no -e) and this script swallows setup.sh's exit code, so a failed patch/build
+# (e.g. SGLANG_TAG mismatch -> patch reject -> env never created) would otherwise fall through to a
+# misleading "REBUILD COMPLETE". Fail loudly instead.
+if "$CONDA_BASE/bin/conda" run -n "$ENV_NAME" python -c "import sglang; print('sglang', sglang.__version__)"; then
+  "$CONDA_BASE/bin/conda" clean -afy || true
+  echo "=== REBUILD COMPLETE ==="
+else
+  echo "=== REBUILD FAILED: sglang did not import from $ENV_NAME (see FATAL/ABORTING above) ==="
+  exit 1
+fi

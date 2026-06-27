@@ -64,16 +64,17 @@ spec:
             # forces overlap off and halves max_running (32→~16), so aggregate decode is ~34 tok/s
             # @conc8 vs ~99 no-cache. extra_buffer (overlap on) does NOT recover it — RDNA4 decode is
             # compute-bound, so overlap gives ~0 (see README). chunked-prefill 8192 is the preset
-            # recommendation (faster long prefills). decode-steps 16 overrides the preset's safety
-            # default of 8 (which existed only because 32 crashed thinking): 16 is thinking-stable here
-            # and lifts single-stream decode ~18% (11.4→13.4 tok/s) with no batch/KV cost. Context
+            # recommendation (faster long prefills). decode-steps is kept at 16 but is INERT on
+            # v0.5.13/14: num_continuous_decode_steps has no scheduler readers in the source (only an
+            # argparse def), so neither 16 nor 20 changes anything — the earlier "+18%" delta came from
+            # the concurrent mem 0.80→0.90 / mamba 8→48 changes, not this flag. Context
             # 262144 is the model's native max; the KV pool caps a single full-window request (see
             # configmap), but typical traffic fits.
             command:
               - /bin/bash
               - -c
               - >-
-                exec bash /cache/sglang/repo/scripts/launch.sh qwen36-27b
+                exec bash /cache/sglang/repo-v0514/scripts/launch.sh qwen36-27b
                 --context-length 262144
                 --mem-fraction 0.90
                 --max-running 32
@@ -99,9 +100,11 @@ spec:
               # where common.sh's expandable_segments:True is validated clean on gfx1201.
               # Appended after the preset's flags (last-wins): cache ON (no --disable-radix-cache),
               # mamba slots 48 > max-running so cached prefix states have headroom beyond running
-              # requests, and the drop-in served model name so litellm/karakeep keep calling
-              # `qwen-3.6` unchanged.
-              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6"
+              # requests, the drop-in served model name so litellm/karakeep keep calling `qwen-3.6`
+              # unchanged, and mamba-ssm-dtype bfloat16 (EXP-002) which halves the fp32 GatedDeltaNet
+              # state (6.89→3.45 GB) → KV pool 126,854→237,446 tokens (+87%), quality-neutral (PPL
+              # 2.1423, needle@124K PASS) — the headroom that keeps Hermes's 124K prefix from evicting.
+              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16"
             probes:
               startup: &probeBase
                 enabled: true
@@ -149,9 +152,11 @@ spec:
               limits:
                 cpu: 12
                 # Steady-state is ~2.3 GB (weights live in VRAM), but the multi-thread AWQ shard
-                # load peaks ~20 GB of host RAM — 16Gi OOM-killed it (exit 137) mid-load. 28Gi
-                # covers the load spike (+ shm tmpfs) with headroom, below the old vllm 32Gi.
-                memory: 28Gi
+                # load peaks ~20 GB of host RAM — 16Gi OOM-killed it (exit 137) mid-load. 32Gi gives
+                # the v0.5.14 load spike (+ shm tmpfs) a safe margin; 28Gi OOM'd (exit 137) mid-load
+                # under the 2026-06-27 node-memory-pressure incident, and an OOM-kill here leaks GPU
+                # VRAM that no soft reboot reclaims (needs a hypervisor cold-cycle) — so don't trim it.
+                memory: 32Gi
                 squat.ai/dri: *dri
 
     service:
