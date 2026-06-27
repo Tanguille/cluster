@@ -1,0 +1,59 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: llmkube
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: llmkube
+  values:
+    namespace: ai
+    crds:
+      install: true
+      keep: true
+
+    controllerManager:
+      leaderElection:
+        enabled: false
+      resources:
+        requests:
+          cpu: 10m
+          memory: 78Mi
+        limits:
+          memory: 128Mi
+      podSecurityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext:
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+
+    # Observability (auto-converted to VM*Scrapes by the cluster's converter):
+    #  - inferencePodMonitor scrapes llama-server /metrics on the embedding pods
+    #    (also needs --metrics in the InferenceService extraArgs)
+    #  - serviceMonitor scrapes the operator; secure:false serves it over plain
+    #    HTTP so VM can scrape without a ServiceAccount token (metrics.enabled
+    #    defaults true).
+    metrics:
+      secure: false
+    prometheus:
+      serviceMonitor:
+        enabled: true
+      inferencePodMonitor:
+        enabled: true
+
+    # Shared model-download cache. openebs-hostpath = node-local RWO (same class
+    # the sglang/llama-server GPU caches use); binds on the iGPU node because the
+    # only consumer (qwen3-embedding) is pinned there via nodeSelector.
+    modelCache:
+      enabled: true
+      size: 3Gi # ~1.2Gi f16 model + HF metadata; matches old emptyDir sizeLimit
+      storageClass: openebs-hostpath
+      accessMode: ReadWriteOnce
+      mountPath: /models

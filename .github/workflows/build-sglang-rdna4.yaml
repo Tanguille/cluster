@@ -1,0 +1,72 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Build sglang-rdna4
+
+# Manual-only (workflow_dispatch). Every build runs on control-1's single R9700 and competes with
+# live serving for host RAM + VRAM, where a build OOM leaks VRAM that no soft reboot reclaims =
+# node wedge = outage. So builds are NEVER auto-fired by a merge or a cron: dispatch this deliberately
+# inside a maintenance window after `kubectl -n ai scale deploy/sglang --replicas=0` +
+# `flux -n ai suspend hr sglang` (see docs/llm-hosting/sglang-oci-cutover.md). A Renovate FORK_REF /
+# base-digest bump opens a PR; dispatch the build by hand when you're ready for the window.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false # never abort an in-flight ROCm build
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/tanguille/sglang-rdna4
+  TAG: v0.5.14-gfx1201 # stable tag, rebuilt in place; Renovate digest-pins it on the HelmRelease
+  STORE: /home/runner/_work/.containers # podman root on the big scratch volume
+
+jobs:
+  build:
+    # Self-hosted scale-to-zero runner on control-1 (R9700). See ../../kubernetes/apps/
+    # actions-runner-system/actions-runner-controller/runners/gpu-builder/.
+    runs-on: gpu-builder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Install podman
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          SUDO=""
+          [ "$(id -u)" -ne 0 ] && SUDO="sudo"
+          if command -v podman >/dev/null 2>&1; then
+            echo "podman already present: $(podman --version)"
+          else
+            $SUDO apt-get update
+            $SUDO apt-get install -y --no-install-recommends podman
+          fi
+
+      - name: Log in to GHCR
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${GHCR_TOKEN}" | podman login ghcr.io -u "${GHCR_USER}" --password-stdin
+
+      - name: Build image
+        # GPU in the sandbox: setup.sh asserts torch.cuda.is_available() and imports the freshly
+        # compiled kernels during build. --group-add keep-groups passes the pod's video/render
+        # groups into the build container so ROCm sees the card. vfs storage driver: overlayfs
+        # whiteouts are blocked inside the pod (even privileged), so use vfs — plain copies, no
+        # whiteouts. Trades disk for compatibility (80Gi covers it).
+        run: |
+          podman --root "${STORE}" --storage-driver vfs build \
+            --device /dev/kfd --device /dev/dri \
+            --group-add keep-groups \
+            --tag "${IMAGE}:${TAG}" \
+            docker/sglang-rdna4
+
+      - name: Push
+        run: |
+          podman --root "${STORE}" --storage-driver vfs push --digestfile /tmp/digest "${IMAGE}:${TAG}"
+          echo "Pushed ${IMAGE}:${TAG}@$(cat /tmp/digest)" | tee -a "${GITHUB_STEP_SUMMARY}"
