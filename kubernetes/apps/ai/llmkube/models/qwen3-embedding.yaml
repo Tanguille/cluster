@@ -6,8 +6,6 @@ metadata:
 spec:
   source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-f16.gguf
   format: gguf
-  # f16 (not a smaller quant) keeps the vectors byte-identical to the previous
-  # llama-embeddings deployment so memini's stored corpus needs no re-embedding.
   quantization: F16
   hardware:
     accelerator: vulkan
