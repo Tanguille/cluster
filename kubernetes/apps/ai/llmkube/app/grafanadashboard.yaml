@@ -12,4 +12,9 @@ spec:
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS
-  url: https://raw.githubusercontent.com/defilantech/LLMKube/main/docs/grafana/llmkube-inference.json
+  # Upstream docs/grafana + chart recording rules expect llamacpp:request_seconds_bucket
+  # and llmkube_gpu_queue_wait_duration_seconds_bucket, which this cluster does not emit
+  # (llamacpp uses llamacpp:* counters; AMD iGPU has no NVIDIA queue histogram).
+  configMapRef:
+    name: llmkube-inference-dashboard
+    key: llmkube-inference.json
