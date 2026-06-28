@@ -11,7 +11,7 @@ the repo-wide move off `postgres-init`.
 
 ## What this branch adds (`feat/litellm-operator-postgres`)
 - `kubernetes/apps/litellm-system/` — new namespace + `litellm-operator` install (OCIRepository
-  chart `0.0.1`, HelmRelease; operator image is digest-pinned by the chart). Self-managed
+  chart `0.0.3`, HelmRelease; operator image is digest-pinned by the chart). Self-managed
   validating-webhook cert (no cert-manager dep).
 - `kubernetes/apps/database/cloudnative-pg/cluster/`:
   - `cluster.yaml` — added `spec.managed.roles` entry `litellm` (login; password from `litellm-db`).
@@ -22,9 +22,10 @@ the repo-wide move off `postgres-init`.
   CR, owner `litellm`, `databaseReclaimPolicy: retain`). Kept separate from the cluster
   Kustomization (which has `wait: true` and 7 dependents) so a DB hiccup can't cascade.
 - `kubernetes/apps/ai/litellm-next/` — `LiteLLMProxy` (`applyMode: api`, DB env, Service port 80,
-  temp route `litellm-next.${SECRET_DOMAIN}`) + two `LiteLLMModel`s (`qwen-3.6` thinking-on,
-  `qwen-3.6-fast` thinking-off via `extra_body.chat_template_kwargs`). Own secret carries the
-  **same** master/salt/llama keys as the current litellm + the `DATABASE_URL`.
+  temp route `litellm-next.${SECRET_DOMAIN}`) + three `LiteLLMModel`s: `qwen-3.6` thinking-on,
+  `qwen-3.6-fast` thinking-off via `extra_body.chat_template_kwargs`, and `qwen3-embedding`
+  pointing at the existing LLMKube InferenceService. Own secret carries the **same**
+  master/salt/llama keys as the current litellm + the `DATABASE_URL`.
 
 ## Process Instructions
 - After completing each step, update this file with the current status.
@@ -75,12 +76,15 @@ Revert the branch (or re-add `./litellm` to `ai/kustomization.yaml`). The `Datab
 is untouched until step 4, so rollback before the swap is a no-op for live traffic.
 
 ## Notes / risks
-- Operator is **v0.0.1, v1alpha1** (one day old). Chart versioning is rough (appVersion 0.0.0;
+- Operator is **v0.0.3, v1alpha1** (early alpha). Chart versioning is rough (appVersion 0.0.0;
   image digest-pinned). Treat as alpha.
 - `cluster.yaml` `managed.roles` is also edited by the repo-wide postgres-init→CR migration —
   coordinate so both roles land in the same list (no conflict; just additive entries).
 - `litellm-next` reuses the **same** master/salt keys as the current litellm, so client virtual
   keys keep working across the swap.
-- `LITELLM_MASTER_KEY` is supplied via `spec.env` because the v0.0.1 operator does not inject it
-  from `apiAccess.masterKeyRef`. If a future operator version starts auto-injecting it, drop the
-  `spec.env` entry to avoid a duplicate env var.
+- `apiAccess.masterKeyRef` is required for `applyMode: api` so the operator can authenticate admin
+  API calls. `LITELLM_MASTER_KEY` is also supplied via `spec.env` for the LiteLLM proxy process
+  itself; this is intentionally the same secret key, not a second credential.
+- LLMKube auto-registration exists in the operator, but is not enabled here: the current embedding
+  InferenceService advertises `/v1/embeddings`, while LiteLLM needs `apiBase` at `/v1`. Keep an
+  explicit `qwen3-embedding` `LiteLLMModel` until auto-registration trims embedding/rerank paths.
