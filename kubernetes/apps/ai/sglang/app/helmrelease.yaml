@@ -106,19 +106,13 @@ spec:
                   # ~16 min budget (60×15s + 60s): warm PVC boots in ~2-3 min; headroom covers a
                   # cold Triton recompile after image/kernel changes.
                   failureThreshold: 60
-              # Liveness/readiness are TCP, NOT HTTP /health: under heavy load SGLang's event loop
-              # saturates and /health times out (5s) → an HTTP probe restarts a busy-but-alive engine
-              # (exit 137, dropping in-flight work; observed 2026-06-25). TCP only restarts a dead
-              # process. Single replica → readiness stays TCP too (ejecting the only backend under load
-              # is a total outage). The startup probe (above) still gates the real boot via /health.
+              # Liveness OFF: even TCP probes restart a busy-but-alive singleton under long-prefill /
+              # thinking load (exit 0 via SIGTERM + kill_process_tree, dropping in-flight work;
+              # observed 2026-06-25 HTTP /health, 2026-06-28 TCP). restartPolicy: Always still
+              # recovers hard crashes; use Prometheus alerts for hung engines. Readiness stays TCP
+              # (not HTTP /health) so we do not eject the only backend while the port is up.
               liveness:
-                <<: *probeBase
-                spec:
-                  tcpSocket:
-                    port: *port
-                  periodSeconds: 30
-                  timeoutSeconds: 5
-                  failureThreshold: 5
+                enabled: false
               readiness:
                 <<: *probeBase
                 spec:
@@ -126,7 +120,7 @@ spec:
                     port: *port
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  failureThreshold: 3
+                  failureThreshold: 6
             resources:
               requests:
                 cpu: 2

@@ -11,9 +11,12 @@ data:
           model: openai/qwen-3.6
           api_base: http://sglang.ai.svc.cluster.local/v1
           api_key: os.environ/LLAMA_SERVER_API_KEY
-          timeout: 600
-          # SGLang single-stream ~16 tok/s: 8192 tokens ~512 s (faster under batch); 600 covers it.
-          stream_timeout: 600
+          # Thinking-on + long-context agent prefills can exceed 600 s (cold 95–124K prefill is
+          # 155–303 s before decode; thinking multiplies perceived latency). 408s in litellm logs
+          # were this ceiling, not sglang faults. Latency-sensitive/json callers → qwen-3.6-fast.
+          timeout: 1800
+          stream_timeout: 1800
+          num_retries: 0
         model_info:
           mode: chat
           # Qwen3.6-27B native context, matching SGLang --context-length 262144 (uncapped).
@@ -34,6 +37,7 @@ data:
           api_key: os.environ/LLAMA_SERVER_API_KEY
           timeout: 600
           stream_timeout: 600
+          num_retries: 0
           extra_body:
             chat_template_kwargs:
               enable_thinking: false
@@ -48,3 +52,5 @@ data:
       # Agent chat is near-unique per turn — Redis cache added latency with ~0 hit rate.
       cache: false
       drop_params: true
+      # Retrying a failed 10–30 min prefill restarts from scratch on the sole GPU backend.
+      num_retries: 0
