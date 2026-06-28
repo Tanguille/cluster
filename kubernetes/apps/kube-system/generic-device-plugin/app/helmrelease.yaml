@@ -42,9 +42,8 @@ spec:
                 memory: 16Mi
               limits:
                 memory: 64Mi
-      # count is temporarily 2 for the llama-embeddings -> llmkube embedding
-      # cutover (validate both on the iGPU); revert to 1 once qwen3-embedding
-      # is live and llama-embeddings is removed.
+      # iGPU device plugin: one squat.ai/dri slot for the llmkube qwen3-embedding
+      # InferenceService (Vulkan on gfx1036). dGPU nodes use count: 4 above.
       generic-device-plugin-igpu:
         type: daemonset
         pod:
@@ -59,7 +58,7 @@ spec:
               - |
                 name: dri
                 groups:
-                  - count: 2
+                  - count: 1
                     paths:
                       - path: /dev/dri
             securityContext: *devicePluginSecurityContext

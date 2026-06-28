@@ -46,6 +46,18 @@ data:
           max_input_tokens: 262144
           max_output_tokens: 8192
 
+      # Qwen3-Embedding-0.6B on LLMKube (iGPU / Vulkan). model_info.mode routes
+      # /v1/embeddings here instead of chat (LLMKube #866 / litellm embedding mode).
+      - model_name: qwen3-embedding
+        litellm_params:
+          model: openai/qwen3-embedding
+          api_base: http://qwen3-embedding.ai.svc.cluster.local:8080/v1
+          api_key: os.environ/LLAMA_SERVER_API_KEY
+          timeout: 120
+          num_retries: 0
+        model_info:
+          mode: embedding
+
     litellm_settings:
       callbacks: ["prometheus"]
       service_callback: ["prometheus_system"]
