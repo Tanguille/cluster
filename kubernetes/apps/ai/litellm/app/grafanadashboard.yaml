@@ -12,6 +12,8 @@ spec:
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 24965
-    revision: 2
+  # grafana.com 24965 job/instance vars use litellm_proxy_total_requests_metric_created
+  # (not exported); leaves $job empty and every panel blank.
+  configMapRef:
+    name: litellm-dashboard
+    key: litellm.json

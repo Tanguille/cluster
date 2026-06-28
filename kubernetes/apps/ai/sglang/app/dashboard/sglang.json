@@ -1,1 +1,2118 @@
-{"__inputs":[{"name":"DS_PROMETHEUS","label":"Prometheus","description":"","type":"datasource","pluginId":"prometheus","pluginName":"Prometheus"}],"__requires":[{"type":"datasource","id":"prometheus","name":"Prometheus","version":"1.0.0"},{"type":"grafana","id":"grafana","name":"Grafana","version":"11.0.0"},{"type":"panel","id":"stat","name":"Stat","version":""},{"type":"panel","id":"timeseries","name":"Time series","version":""},{"type":"panel","id":"text","name":"Text","version":""}],"annotations":{"list":[{"builtIn":1,"datasource":{"type":"grafana","uid":"-- Grafana --"},"enable":true,"hide":true,"iconColor":"rgba(0, 211, 255, 1)","name":"Annotations & Alerts","target":{"limit":100,"matchAny":false,"tags":[],"type":"dashboard"},"type":"dashboard"},{"builtIn":0,"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"enable":true,"expr":"changes(kube_deployment_status_observed_generation{namespace=\"ai\", deployment=\"sglang\"}[5m]) > 0","hide":false,"iconColor":"rgba(0, 120, 215, 1)","name":"Deployments","step":"60s","tagKeys":"deployment","textFormat":"","titleFormat":"Deploy: {{deployment}}","type":"dashboard"}]},"description":"SGLang serving Qwen3.6-27B on AMD R9700 (gfx1201) — DeltaNet-hybrid attention+mamba","editable":true,"fiscalYearStartMonth":0,"graphTooltip":1,"links":[{"asDropdown":false,"icon":"external link","includeVars":true,"keepTime":true,"tags":[],"targetBlank":false,"title":"LiteLLM","tooltip":"Full LiteLLM proxy metrics","type":"link","url":"/d/ad8llmv/litellm"}],"liveNow":false,"panels":[{"id":1,"type":"row","title":"Overview","collapsed":false,"gridPos":{"x":0,"y":0,"w":24,"h":1},"panels":[]},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Requests currently executing in the SGLang scheduler.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":4},{"color":"red","value":8}]},"unit":"short"},"overrides":[]},"gridPos":{"x":0,"y":1,"w":4,"h":4},"id":2,"options":{"colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_running_reqs{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"running","refId":"A"}],"title":"Running Reqs","type":"stat"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Requests waiting in the scheduler queue.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":1},{"color":"red","value":5}]},"unit":"short"},"overrides":[]},"gridPos":{"x":4,"y":1,"w":4,"h":4},"id":3,"options":{"colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_queue_reqs{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"queued","refId":"A"}],"title":"Queue Reqs","type":"stat"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Live generation throughput reported by SGLang (tok/s).","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"yellow","value":10},{"color":"green","value":30}]},"unit":"short","decimals":1},"overrides":[]},"gridPos":{"x":8,"y":1,"w":4,"h":4},"id":4,"options":{"colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:gen_throughput{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"tok/s","refId":"A"}],"title":"Gen Throughput (tok/s)","type":"stat"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Prefix cache hit rate (0-100%). High rate = repeated system prompts being served from cache, reducing TTFT.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"yellow","value":0.5},{"color":"green","value":0.7}]},"unit":"percentunit","decimals":0},"overrides":[]},"gridPos":{"x":12,"y":1,"w":4,"h":4},"id":5,"options":{"colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:cache_hit_rate{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"hit rate","refId":"A"}],"title":"Cache Hit Rate","type":"stat"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"SGLang GPU utilization % as reported by the engine.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"yellow","value":50},{"color":"green","value":80}]},"unit":"percent","decimals":0},"overrides":[]},"gridPos":{"x":16,"y":1,"w":4,"h":4},"id":6,"options":{"colorMode":"value","graphMode":"area","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:utilization{job=\"$job\", instance=~\"$instance\"} * 100","instant":true,"legendFormat":"GPU util","refId":"A"}],"title":"GPU Utilization","type":"stat"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"1 = batch executing via CUDA/HIP graph (faster path), 0 = eager fallback (dynamic shapes).","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[{"options":{"0":{"color":"orange","index":0,"text":"Eager"},"1":{"color":"green","index":1,"text":"Graph"}},"type":"value"}],"thresholds":{"mode":"absolute","steps":[{"color":"orange","value":null},{"color":"green","value":1}]},"unit":"short"},"overrides":[]},"gridPos":{"x":20,"y":1,"w":4,"h":4},"id":7,"options":{"colorMode":"background","graphMode":"none","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:is_cuda_graph{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"graph","refId":"A"}],"title":"CUDA/HIP Graph","type":"stat"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Running vs queued requests over time. Queue > 0 for sustained periods = throughput saturation.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisBorderShow":false,"axisCenteredZero":false,"axisColorMode":"text","axisLabel":"","axisPlacement":"auto","barAlignment":0,"barWidthFactor":0.6,"drawStyle":"line","fillOpacity":10,"gradientMode":"none","hideFrom":{"legend":false,"tooltip":false,"viz":false},"insertNulls":false,"lineInterpolation":"linear","lineWidth":2,"pointSize":5,"scaleDistribution":{"type":"linear"},"showPoints":"never","spanNulls":true,"stacking":{"group":"A","mode":"none"},"thresholdsStyle":{"mode":"off"}},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","min":0},"overrides":[{"matcher":{"id":"byName","options":"queued"},"properties":[{"id":"color","value":{"fixedColor":"orange","mode":"fixed"}}]},{"matcher":{"id":"byName","options":"grammar queue"},"properties":[{"id":"color","value":{"fixedColor":"red","mode":"fixed"}}]}]},"gridPos":{"x":0,"y":5,"w":12,"h":8},"id":8,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_running_reqs{job=\"$job\", instance=~\"$instance\"}","legendFormat":"running","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_queue_reqs{job=\"$job\", instance=~\"$instance\"}","legendFormat":"queued","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_grammar_queue_reqs{job=\"$job\", instance=~\"$instance\"}","legendFormat":"grammar queue","refId":"C"}],"title":"Scheduler State","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"GPU utilization and forward-pass occupancy. Low occupancy with high utilization = small batches / decode-dominated.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisBorderShow":false,"axisCenteredZero":false,"axisColorMode":"text","drawStyle":"line","fillOpacity":15,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true,"thresholdsStyle":{"mode":"off"}},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"percent","min":0,"max":100},"overrides":[]},"gridPos":{"x":12,"y":5,"w":12,"h":8},"id":9,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:utilization{job=\"$job\", instance=~\"$instance\"} * 100","legendFormat":"GPU utilization %","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:fwd_occupancy{job=\"$job\", instance=~\"$instance\"}","legendFormat":"fwd occupancy %","refId":"B"}],"title":"GPU Utilization & Forward Occupancy","type":"timeseries"},{"id":10,"type":"row","title":"Throughput","collapsed":false,"gridPos":{"x":0,"y":13,"w":24,"h":1},"panels":[]},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Prefill vs decode token rates derived from counters. When prefill spikes and decode drops, a large prefill is stalling decode batches.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisBorderShow":false,"axisCenteredZero":false,"axisColorMode":"text","drawStyle":"line","fillOpacity":10,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":0,"y":14,"w":12,"h":8},"id":11,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:generation_tokens_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])","legendFormat":"decode tok/s","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:prompt_tokens_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])","legendFormat":"prefill tok/s","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:gen_throughput{job=\"$job\", instance=~\"$instance\"}","legendFormat":"gen_throughput (gauge)","refId":"C"}],"title":"Token Throughput (tok/s)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Realtime token breakdown by mode: prefill_compute (cold prefill), prefill_cache (hit from prefix cache), decode. A high prefill_cache fraction = strong cache reuse.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisBorderShow":false,"axisCenteredZero":false,"axisColorMode":"text","drawStyle":"line","fillOpacity":20,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true,"stacking":{"group":"A","mode":"normal"}},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":12,"y":14,"w":12,"h":8},"id":12,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"decode\"}[$__rate_interval])","legendFormat":"decode","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"prefill_compute\"}[$__rate_interval])","legendFormat":"prefill (compute)","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"prefill_cache\"}[$__rate_interval])","legendFormat":"prefill (cached)","refId":"C"}],"title":"Tokens by Mode (stacked)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Request arrival rate derived from the total request counter.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"reqps","min":0},"overrides":[]},"gridPos":{"x":0,"y":22,"w":12,"h":8},"id":13,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:num_requests_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])","legendFormat":"req/s","refId":"A"}],"title":"Request Rate (req/s)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Prompt token length distribution (p50/p90/p99). Large p99 = occasional very long prompts that dominate prefill time.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":12,"y":22,"w":12,"h":8},"id":14,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.5, sum by (le) (rate(sglang:prompt_tokens_histogram_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p50","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.9, sum by (le) (rate(sglang:prompt_tokens_histogram_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p90","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.99, sum by (le) (rate(sglang:prompt_tokens_histogram_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p99","refId":"C"}],"title":"Prompt Length Distribution (tokens)","type":"timeseries"},{"id":20,"type":"row","title":"Latency","collapsed":false,"gridPos":{"x":0,"y":30,"w":24,"h":1},"panels":[]},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Time to first token (TTFT) — how long from request arrival to first generated token. Dominated by prefill time. DeltaNet hybrid: mamba-style SSM state init adds to TTFT.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":2},{"color":"red","value":5}]},"unit":"s","min":0},"overrides":[]},"gridPos":{"x":0,"y":31,"w":12,"h":8},"id":21,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.5, sum by (le) (rate(sglang:time_to_first_token_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p50","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.9, sum by (le) (rate(sglang:time_to_first_token_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p90","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.99, sum by (le) (rate(sglang:time_to_first_token_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p99","refId":"C"}],"title":"Time to First Token (p50/p90/p99)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"End-to-end request latency (queue + prefill + decode). The user-visible wall-clock latency for streaming-complete responses.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"s","min":0},"overrides":[]},"gridPos":{"x":12,"y":31,"w":12,"h":8},"id":22,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.5, sum by (le) (rate(sglang:e2e_request_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p50","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.9, sum by (le) (rate(sglang:e2e_request_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p90","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.99, sum by (le) (rate(sglang:e2e_request_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p99","refId":"C"}],"title":"E2E Request Latency (p50/p90/p99)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Time requests spend waiting in the scheduler queue before prefill begins. Sustained high queue time = engine saturated.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":1},{"color":"red","value":5}]},"unit":"s","min":0},"overrides":[]},"gridPos":{"x":0,"y":39,"w":12,"h":8},"id":23,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.5, sum by (le) (rate(sglang:queue_time_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p50","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.9, sum by (le) (rate(sglang:queue_time_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p90","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.99, sum by (le) (rate(sglang:queue_time_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"p99","refId":"C"}],"title":"Queue Wait Time (p50/p90/p99)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Per-stage breakdown of request latency (prefill, decode, etc). Identifies which pipeline stage dominates.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"s","min":0},"overrides":[]},"gridPos":{"x":12,"y":39,"w":12,"h":8},"id":24,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.5, sum by (le, stage) (rate(sglang:per_stage_req_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"{{stage}} p50","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"histogram_quantile(0.9, sum by (le, stage) (rate(sglang:per_stage_req_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))","legendFormat":"{{stage}} p90","refId":"B"}],"title":"Per-Stage Latency (p50/p90)","type":"timeseries"},{"id":30,"type":"row","title":"KV & Mamba Pools","collapsed":false,"gridPos":{"x":0,"y":47,"w":24,"h":1},"panels":[]},{"id":31,"type":"text","title":"","gridPos":{"x":0,"y":48,"w":24,"h":2},"options":{"mode":"markdown","content":"**Qwen3.6-27B uses DeltaNet hybrid attention.** `mamba_usage` / mamba slot counts reflect SSM recurrent-state slots, which are finite and cap concurrency independently of KV pool size. When mamba slots exhaust, new requests stall even if KV pool has headroom."}},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"KV attention pool, full-attention pool, and mamba SSM state pool utilization (0-100%). Mamba slots cap concurrency for DeltaNet layers.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":15,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true,"thresholdsStyle":{"mode":"line"}},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":0.8},{"color":"red","value":0.95}]},"unit":"percentunit","min":0,"max":1},"overrides":[]},"gridPos":{"x":0,"y":50,"w":12,"h":8},"id":32,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:token_usage{job=\"$job\", instance=~\"$instance\"}","legendFormat":"KV usage","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:full_token_usage{job=\"$job\", instance=~\"$instance\"}","legendFormat":"full-attn usage","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:mamba_usage{job=\"$job\", instance=~\"$instance\"}","legendFormat":"mamba usage","refId":"C"}],"title":"Pool Utilization (KV / Full-Attn / Mamba)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"KV pool slot counts: used, available (free), and evictable (can be freed by evicting cached prefixes). All in tokens.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":12,"y":50,"w":12,"h":8},"id":33,"options":{"legend":{"calcs":["mean","min","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:kv_used_tokens{job=\"$job\", instance=~\"$instance\"}","legendFormat":"KV used","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:kv_available_tokens{job=\"$job\", instance=~\"$instance\"}","legendFormat":"KV available","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:kv_evictable_tokens{job=\"$job\", instance=~\"$instance\"}","legendFormat":"KV evictable","refId":"C"}],"title":"KV Pool Tokens (used / available / evictable)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Mamba SSM state slots: used vs available. When mamba_used approaches max, new requests stall even if KV headroom remains — this is the DeltaNet concurrency ceiling.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":15,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true,"thresholdsStyle":{"mode":"line"}},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":0.8},{"color":"red","value":0.95}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":0,"y":58,"w":12,"h":8},"id":34,"options":{"legend":{"calcs":["mean","min","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:mamba_used_tokens{job=\"$job\", instance=~\"$instance\"}","legendFormat":"mamba used","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:mamba_available_tokens{job=\"$job\", instance=~\"$instance\"}","legendFormat":"mamba available","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:mamba_evictable_tokens{job=\"$job\", instance=~\"$instance\"}","legendFormat":"mamba evictable","refId":"C"}],"title":"Mamba SSM Slots (concurrency gate)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Pool configuration: max tokens, currently used, configured context length, and paging parameters.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":12,"y":58,"w":12,"h":8},"id":35,"options":{"legend":{"calcs":["lastNotNull"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:max_total_num_tokens{job=\"$job\", instance=~\"$instance\"}","legendFormat":"max total tokens","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_used_tokens{job=\"$job\", instance=~\"$instance\"}","legendFormat":"used tokens","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:context_len{job=\"$job\", instance=~\"$instance\"}","legendFormat":"context len","refId":"C"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_pages{job=\"$job\", instance=~\"$instance\"}","legendFormat":"num pages","refId":"D"}],"title":"Pool Config (max / used / ctx / pages)","type":"timeseries"},{"id":40,"type":"row","title":"Scheduler & Backpressure","collapsed":false,"gridPos":{"x":0,"y":66,"w":24,"h":1},"panels":[]},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Retracted requests (aborted mid-generation) and paused requests (temporarily suspended). Elevated values signal backpressure.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":1},{"color":"red","value":3}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":0,"y":67,"w":12,"h":8},"id":41,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_retracted_reqs{job=\"$job\", instance=~\"$instance\"}","legendFormat":"retracted","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_paused_reqs{job=\"$job\", instance=~\"$instance\"}","legendFormat":"paused","refId":"B"}],"title":"Retracted & Paused Requests","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Grammar/tool-calling queue depth — requests held waiting for the FSM/structured-output engine. High = tool-calling saturation.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":1},{"color":"red","value":5}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":12,"y":67,"w":12,"h":8},"id":42,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_grammar_queue_reqs{job=\"$job\", instance=~\"$instance\"}","legendFormat":"grammar queue","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:num_queue_reqs{job=\"$job\", instance=~\"$instance\"}","legendFormat":"total queue","refId":"B"}],"title":"Grammar Queue (tool-calling backpressure)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Scheduler new-token ratio: fraction of batch tokens that are new decode tokens vs prefill tokens. Near 1.0 = pure decode batch. Near 0 = prefill-heavy.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"percentunit","min":0,"max":1},"overrides":[]},"gridPos":{"x":0,"y":75,"w":12,"h":8},"id":43,"options":{"legend":{"calcs":["mean","min","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:new_token_ratio{job=\"$job\", instance=~\"$instance\"}","legendFormat":"new token ratio","refId":"A"}],"title":"New Token Ratio (decode vs prefill mix)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Forward-pass batch occupancy %. Low occupancy means small batches (decode-dominated or idle). High occupancy = well-packed batches.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"yellow","value":50},{"color":"green","value":80}]},"unit":"percent","min":0,"max":100},"overrides":[]},"gridPos":{"x":12,"y":75,"w":12,"h":8},"id":44,"options":{"legend":{"calcs":["mean","min","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:fwd_occupancy{job=\"$job\", instance=~\"$instance\"}","legendFormat":"fwd occupancy %","refId":"A"}],"title":"Forward-Pass Occupancy %","type":"timeseries"},{"id":50,"type":"row","title":"Prefix Cache","collapsed":false,"gridPos":{"x":0,"y":83,"w":24,"h":1},"panels":[]},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Prefix cache hit rate over time. Sustained values above 70% indicate good reuse of system prompts or long shared contexts. Drops indicate new/diverse prompt patterns.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true,"thresholdsStyle":{"mode":"line"}},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"yellow","value":0.5},{"color":"green","value":0.7}]},"unit":"percentunit","min":0,"max":1},"overrides":[]},"gridPos":{"x":0,"y":84,"w":12,"h":8},"id":51,"options":{"legend":{"calcs":["mean","min","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:cache_hit_rate{job=\"$job\", instance=~\"$instance\"}","legendFormat":"cache hit rate","refId":"A"}],"title":"Prefix Cache Hit Rate Over Time","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Breakdown of token processing: cold prefill (compute), cache-hit prefill (served from prefix cache), and decode. A wide prefill_cache band = high cache utility.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":20,"gradientMode":"none","lineWidth":2,"showPoints":"never","spanNulls":true,"stacking":{"group":"A","mode":"normal"}},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":12,"y":84,"w":12,"h":8},"id":52,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"prefill_cache\"}[$__rate_interval])","legendFormat":"prefill_cache (tok/s)","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"prefill_compute\"}[$__rate_interval])","legendFormat":"prefill_compute (tok/s)","refId":"B"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"decode\"}[$__rate_interval])","legendFormat":"decode (tok/s)","refId":"C"}],"title":"Cache Hits vs Cold Prefill vs Decode (stacked)","type":"timeseries"},{"id":60,"type":"row","title":"GPU Hardware (R9700 / gfx1201)","collapsed":false,"gridPos":{"x":0,"y":92,"w":24,"h":1},"panels":[]},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"GPU utilization percent on the R9700 inference node (from node_exporter DRM metrics).","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisCenteredZero":false,"drawStyle":"line","fillOpacity":20,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"percent","max":100,"min":0},"overrides":[]},"gridPos":{"x":0,"y":93,"w":8,"h":8},"id":61,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"drm_engine_utilization_ratio * 100","legendFormat":"{{engine}}","refId":"A"}],"title":"GPU Utilization (HW)","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"VRAM used vs total. R9700 has 32 GiB; at --mem-fraction 0.90 SGLang reserves ~29-31 GiB (weights + KV pool + mamba state).","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"axisCenteredZero":false,"drawStyle":"line","fillOpacity":20,"gradientMode":"opacity","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"bytes"},"overrides":[]},"gridPos":{"x":8,"y":93,"w":8,"h":8},"id":62,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"drm_memory_used_bytes{pool=\"vram\"}","legendFormat":"{{device}} used","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"drm_memory_total_bytes{pool=\"vram\"}","legendFormat":"{{device}} total","refId":"B"}],"title":"VRAM","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"GPU temperature, Celsius. R9700 throttles at ~110°C junction.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"custom":{"axisCenteredZero":false,"drawStyle":"line","fillOpacity":10,"gradientMode":"scheme","lineWidth":2,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"orange","value":75},{"color":"red","value":85}]},"unit":"celsius"},"overrides":[]},"gridPos":{"x":16,"y":93,"w":8,"h":8},"id":63,"options":{"legend":{"calcs":["mean","max"],"displayMode":"table","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"drm_temperature_celsius","legendFormat":"{{sensor}}","refId":"A"}],"title":"GPU Temperature","type":"timeseries"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Available GPU memory at startup (GB). Constant; useful to verify SGLang sees the full 32 GiB.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","decimals":1},"overrides":[]},"gridPos":{"x":0,"y":101,"w":6,"h":4},"id":64,"options":{"colorMode":"value","graphMode":"none","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:startup_available_gpu_memory_gb{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"startup VRAM (GB)","refId":"A"}],"title":"Startup GPU Memory (GB)","type":"stat"},{"id":70,"type":"row","title":"Startup Info & Speculative Decode","collapsed":false,"gridPos":{"x":0,"y":105,"w":24,"h":1},"panels":[]},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Total engine startup time (seconds). Compare across restarts to detect regressions.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":30},{"color":"red","value":60}]},"unit":"s","decimals":1},"overrides":[]},"gridPos":{"x":0,"y":106,"w":6,"h":4},"id":71,"options":{"colorMode":"value","graphMode":"none","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:engine_startup_time{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"startup time","refId":"A"}],"title":"Engine Startup Time","type":"stat"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Time taken to load model weights from disk into VRAM.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null},{"color":"yellow","value":20},{"color":"red","value":45}]},"unit":"s","decimals":1},"overrides":[]},"gridPos":{"x":6,"y":106,"w":6,"h":4},"id":72,"options":{"colorMode":"value","graphMode":"none","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:engine_load_weights_time{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"load weights","refId":"A"}],"title":"Weight Load Time","type":"stat"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Startup GPU memory available at engine init. Should reflect the full 32 GiB of R9700 VRAM.","fieldConfig":{"defaults":{"color":{"mode":"thresholds"},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","decimals":1},"overrides":[]},"gridPos":{"x":12,"y":106,"w":6,"h":4},"id":73,"options":{"colorMode":"value","graphMode":"none","justifyMode":"center","orientation":"auto","reduceOptions":{"calcs":["lastNotNull"],"fields":"","values":false},"textMode":"value","wideLayout":true},"pluginVersion":"11.0.0","targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:startup_available_gpu_memory_gb{job=\"$job\", instance=~\"$instance\"}","instant":true,"legendFormat":"GB","refId":"A"}],"title":"Startup VRAM Available (GB)","type":"stat"},{"id":80,"type":"text","title":"Speculative Decode (disabled)","gridPos":{"x":18,"y":106,"w":6,"h":4},"options":{"mode":"markdown","content":"Spec-decode is **not enabled** for this SGLang deployment. `sglang:spec_accept_length` and `sglang:spec_accept_rate` will be zero/absent."}},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"description":"Speculative decode acceptance length. Will be zero — spec-decode is disabled on this deployment.","fieldConfig":{"defaults":{"color":{"mode":"palette-classic"},"custom":{"drawStyle":"line","fillOpacity":10,"gradientMode":"none","lineWidth":1,"showPoints":"never","spanNulls":true},"mappings":[],"thresholds":{"mode":"absolute","steps":[{"color":"green","value":null}]},"unit":"short","min":0},"overrides":[]},"gridPos":{"x":0,"y":110,"w":12,"h":6},"id":81,"options":{"legend":{"calcs":["mean"],"displayMode":"list","placement":"bottom","showLegend":true},"tooltip":{"mode":"multi","sort":"desc"}},"targets":[{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:spec_accept_length{job=\"$job\", instance=~\"$instance\"}","legendFormat":"accept length (expect 0)","refId":"A"},{"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"expr":"sglang:spec_accept_rate{job=\"$job\", instance=~\"$instance\"}","legendFormat":"accept rate (expect 0)","refId":"B"}],"title":"Speculative Decode (disabled — should be flat 0)","type":"timeseries"}],"refresh":"1m","schemaVersion":41,"tags":["ai","sglang"],"templating":{"list":[{"current":{},"hide":0,"includeAll":false,"label":"Datasource","multi":false,"name":"DS_PROMETHEUS","options":[],"query":"prometheus","refresh":1,"regex":"","skipUrlSync":false,"type":"datasource"},{"current":{},"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"definition":"label_values(sglang:num_running_reqs, job)","hide":0,"includeAll":false,"label":"Job","multi":false,"name":"job","options":[],"query":{"query":"label_values(sglang:num_running_reqs, job)","refId":"StandardVariableQuery"},"refresh":1,"regex":"","skipUrlSync":false,"sort":1,"type":"query"},{"current":{"selected":true,"text":"All","value":"$__all"},"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"definition":"label_values(sglang:num_running_reqs{job=\"$job\"}, instance)","hide":0,"includeAll":true,"label":"Instance","multi":false,"name":"instance","options":[],"query":{"query":"label_values(sglang:num_running_reqs{job=\"$job\"}, instance)","refId":"StandardVariableQuery"},"refresh":2,"regex":"","skipUrlSync":false,"sort":1,"type":"query","allValue":".*"},{"current":{},"datasource":{"type":"prometheus","uid":"${DS_PROMETHEUS}"},"definition":"label_values(sglang:num_running_reqs{job=\"$job\"}, model_name)","hide":2,"includeAll":false,"label":"Model","multi":false,"name":"model_name","options":[],"query":{"query":"label_values(sglang:num_running_reqs{job=\"$job\"}, model_name)","refId":"StandardVariableQuery"},"refresh":2,"regex":"","skipUrlSync":false,"sort":1,"type":"query"}]},"time":{"from":"now-1h","to":"now"},"timepicker":{},"timezone":"browser","title":"SGLang","uid":"sglang","version":1,"weekStart":""}
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "11.0.0"
+    },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    { "type": "panel", "id": "text", "name": "Text", "version": "" }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      },
+      {
+        "builtIn": 0,
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "enable": true,
+        "expr": "changes(kube_deployment_status_observed_generation{namespace=\"ai\", deployment=\"sglang\"}[5m]) > 0",
+        "hide": false,
+        "iconColor": "rgba(0, 120, 215, 1)",
+        "name": "Deployments",
+        "step": "60s",
+        "tagKeys": "deployment",
+        "textFormat": "",
+        "titleFormat": "Deploy: {{deployment}}",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "SGLang serving Qwen3.6-27B on AMD R9700 (gfx1201) — DeltaNet-hybrid attention+mamba",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "LiteLLM",
+      "tooltip": "Full LiteLLM proxy metrics",
+      "type": "link",
+      "url": "/d/ad8llmv/litellm"
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Overview",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Requests currently executing in the SGLang scheduler.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 4 },
+              { "color": "red", "value": 8 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_running_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "running",
+          "refId": "A"
+        }
+      ],
+      "title": "Running Reqs",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Requests waiting in the scheduler queue.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_queue_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "queued",
+          "refId": "A"
+        }
+      ],
+      "title": "Queue Reqs",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Live generation throughput reported by SGLang (tok/s).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "green", "value": 30 }
+            ]
+          },
+          "unit": "short",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:gen_throughput{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "tok/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Gen Throughput (tok/s)",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Prefix cache hit rate (0-100%). High rate = repeated system prompts being served from cache, reducing TTFT.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 0.7 }
+            ]
+          },
+          "unit": "percentunit",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:cache_hit_rate{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "hit rate",
+          "refId": "A"
+        }
+      ],
+      "title": "Cache Hit Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "SGLang GPU utilization % as reported by the engine.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "green", "value": 80 }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:utilization{job=\"$job\", instance=~\"$instance\"} * 100",
+          "instant": true,
+          "legendFormat": "GPU util",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Utilization",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "1 = batch executing via CUDA/HIP graph (faster path), 0 = eager fallback (dynamic shapes).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "orange", "index": 0, "text": "Eager" },
+                "1": { "color": "green", "index": 1, "text": "Graph" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "id": 7,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:is_cuda_graph{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "graph",
+          "refId": "A"
+        }
+      ],
+      "title": "CUDA/HIP Graph",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Running vs queued requests over time. Queue > 0 for sustained periods = throughput saturation.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "queued" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "fixedColor": "orange", "mode": "fixed" }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "grammar queue" },
+            "properties": [
+              {
+                "id": "color",
+                "value": { "fixedColor": "red", "mode": "fixed" }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "x": 0, "y": 5, "w": 12, "h": 8 },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_running_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "running",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_queue_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "queued",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_grammar_queue_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "grammar queue",
+          "refId": "C"
+        }
+      ],
+      "title": "Scheduler State",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "GPU utilization and forward-pass occupancy. Low occupancy with high utilization = small batches / decode-dominated.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 5, "w": 12, "h": 8 },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:utilization{job=\"$job\", instance=~\"$instance\"} * 100",
+          "legendFormat": "GPU utilization %",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:fwd_occupancy{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "fwd occupancy %",
+          "refId": "B"
+        }
+      ],
+      "title": "GPU Utilization & Forward Occupancy",
+      "type": "timeseries"
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Throughput",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Prefill vs decode token rates derived from counters. When prefill spikes and decode drops, a large prefill is stalling decode batches.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 14, "w": 12, "h": 8 },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:generation_tokens_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])",
+          "legendFormat": "decode tok/s",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:prompt_tokens_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])",
+          "legendFormat": "prefill tok/s",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:gen_throughput{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "gen_throughput (gauge)",
+          "refId": "C"
+        }
+      ],
+      "title": "Token Throughput (tok/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Realtime token breakdown by mode: prefill_compute (cold prefill), prefill_cache (hit from prefix cache), decode. A high prefill_cache fraction = strong cache reuse.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "normal" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 14, "w": 12, "h": 8 },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"decode\"}[$__rate_interval])",
+          "legendFormat": "decode",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"prefill_compute\"}[$__rate_interval])",
+          "legendFormat": "prefill (compute)",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"prefill_cache\"}[$__rate_interval])",
+          "legendFormat": "prefill (cached)",
+          "refId": "C"
+        }
+      ],
+      "title": "Tokens by Mode (stacked)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Request arrival rate derived from the total request counter.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 8 },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:num_requests_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])",
+          "legendFormat": "req/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate (req/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Prompt token length distribution (p50/p90/p99). Large p99 = occasional very long prompts that dominate prefill time.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 22, "w": 12, "h": 8 },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(sglang:prompt_tokens_histogram_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(sglang:prompt_tokens_histogram_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p90",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(sglang:prompt_tokens_histogram_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Prompt Length Distribution (tokens)",
+      "type": "timeseries"
+    },
+    {
+      "id": 20,
+      "type": "row",
+      "title": "Latency",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 30, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Time to first token (TTFT) — how long from request arrival to first generated token. Dominated by prefill time. DeltaNet hybrid: mamba-style SSM state init adds to TTFT.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 31, "w": 12, "h": 8 },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(sglang:time_to_first_token_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(sglang:time_to_first_token_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p90",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(sglang:time_to_first_token_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Time to First Token (p50/p90/p99)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "End-to-end request latency (queue + prefill + decode). The user-visible wall-clock latency for streaming-complete responses.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 31, "w": 12, "h": 8 },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(sglang:e2e_request_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(sglang:e2e_request_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p90",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(sglang:e2e_request_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "E2E Request Latency (p50/p90/p99)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Time requests spend waiting in the scheduler queue before prefill begins. Sustained high queue time = engine saturated.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 39, "w": 12, "h": 8 },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(sglang:queue_time_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(sglang:queue_time_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p90",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(sglang:queue_time_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Queue Wait Time (p50/p90/p99)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Per-stage breakdown of request latency (prefill, decode, etc). Identifies which pipeline stage dominates.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 39, "w": 12, "h": 8 },
+      "id": 24,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.5, sum by (le, stage) (rate(sglang:per_stage_req_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "{{stage}} p50",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "histogram_quantile(0.9, sum by (le, stage) (rate(sglang:per_stage_req_latency_seconds_bucket{job=\"$job\", instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "{{stage}} p90",
+          "refId": "B"
+        }
+      ],
+      "title": "Per-Stage Latency (p50/p90)",
+      "type": "timeseries"
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "KV & Mamba Pools",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 47, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "text",
+      "title": "",
+      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 2 },
+      "options": {
+        "mode": "markdown",
+        "content": "**Qwen3.6-27B uses DeltaNet hybrid attention.** `mamba_usage` / mamba slot counts reflect SSM recurrent-state slots, which are finite and cap concurrency independently of KV pool size. When mamba slots exhaust, new requests stall even if KV pool has headroom."
+      }
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "KV attention pool, full-attention pool, and mamba SSM state pool utilization (0-100%). Mamba slots cap concurrency for DeltaNet layers.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.8 },
+              { "color": "red", "value": 0.95 }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 8 },
+      "id": 32,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:token_usage{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "KV usage",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:full_token_usage{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "full-attn usage",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:mamba_usage{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "mamba usage",
+          "refId": "C"
+        }
+      ],
+      "title": "Pool Utilization (KV / Full-Attn / Mamba)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "KV pool slot counts: used, available (free), and evictable (can be freed by evicting cached prefixes). All in tokens.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 50, "w": 12, "h": 8 },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "min", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:kv_used_tokens{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "KV used",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:kv_available_tokens{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "KV available",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:kv_evictable_tokens{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "KV evictable",
+          "refId": "C"
+        }
+      ],
+      "title": "KV Pool Tokens (used / available / evictable)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Mamba SSM state slots: used vs available. When mamba_used approaches max, new requests stall even if KV headroom remains — this is the DeltaNet concurrency ceiling.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.8 },
+              { "color": "red", "value": 0.95 }
+            ]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 58, "w": 12, "h": 8 },
+      "id": 34,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "min", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:mamba_used_tokens{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "mamba used",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:mamba_available_tokens{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "mamba available",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:mamba_evictable_tokens{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "mamba evictable",
+          "refId": "C"
+        }
+      ],
+      "title": "Mamba SSM Slots (concurrency gate)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Pool configuration: max tokens, currently used, configured context length, and paging parameters.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 58, "w": 12, "h": 8 },
+      "id": 35,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:max_total_num_tokens{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "max total tokens",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_used_tokens{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "used tokens",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:context_len{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "context len",
+          "refId": "C"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_pages{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "num pages",
+          "refId": "D"
+        }
+      ],
+      "title": "Pool Config (max / used / ctx / pages)",
+      "type": "timeseries"
+    },
+    {
+      "id": 40,
+      "type": "row",
+      "title": "Scheduler & Backpressure",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 66, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Retracted requests (aborted mid-generation) and paused requests (temporarily suspended). Elevated values signal backpressure.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 67, "w": 12, "h": 8 },
+      "id": 41,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_retracted_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "retracted",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_paused_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "paused",
+          "refId": "B"
+        }
+      ],
+      "title": "Retracted & Paused Requests",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Grammar/tool-calling queue depth — requests held waiting for the FSM/structured-output engine. High = tool-calling saturation.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 67, "w": 12, "h": 8 },
+      "id": 42,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_grammar_queue_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "grammar queue",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:num_queue_reqs{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "total queue",
+          "refId": "B"
+        }
+      ],
+      "title": "Grammar Queue (tool-calling backpressure)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Scheduler new-token ratio: fraction of batch tokens that are new decode tokens vs prefill tokens. Near 1.0 = pure decode batch. Near 0 = prefill-heavy.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 75, "w": 12, "h": 8 },
+      "id": 43,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "min", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:new_token_ratio{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "new token ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "New Token Ratio (decode vs prefill mix)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Forward-pass batch occupancy %. Low occupancy means small batches (decode-dominated or idle). High occupancy = well-packed batches.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "green", "value": 80 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 75, "w": 12, "h": 8 },
+      "id": 44,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "min", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:fwd_occupancy{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "fwd occupancy %",
+          "refId": "A"
+        }
+      ],
+      "title": "Forward-Pass Occupancy %",
+      "type": "timeseries"
+    },
+    {
+      "id": 50,
+      "type": "row",
+      "title": "Prefix Cache",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 83, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Prefix cache hit rate over time. Sustained values above 70% indicate good reuse of system prompts or long shared contexts. Drops indicate new/diverse prompt patterns.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 0.7 }
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 84, "w": 12, "h": 8 },
+      "id": 51,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "min", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:cache_hit_rate{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "cache hit rate",
+          "refId": "A"
+        }
+      ],
+      "title": "Prefix Cache Hit Rate Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Breakdown of token processing: cold prefill (compute), cache-hit prefill (served from prefix cache), and decode. A wide prefill_cache band = high cache utility.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "normal" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 84, "w": 12, "h": 8 },
+      "id": 52,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"prefill_cache\"}[$__rate_interval])",
+          "legendFormat": "prefill_cache (tok/s)",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"prefill_compute\"}[$__rate_interval])",
+          "legendFormat": "prefill_compute (tok/s)",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "rate(sglang:realtime_tokens_total{job=\"$job\", instance=~\"$instance\", mode=\"decode\"}[$__rate_interval])",
+          "legendFormat": "decode (tok/s)",
+          "refId": "C"
+        }
+      ],
+      "title": "Cache Hits vs Cold Prefill vs Decode (stacked)",
+      "type": "timeseries"
+    },
+    {
+      "id": 60,
+      "type": "row",
+      "title": "GPU Hardware (R9700 / gfx1201)",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 92, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "GPU utilization percent on the R9700 inference node (from node_exporter DRM metrics).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 93, "w": 8, "h": 8 },
+      "id": 61,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "drm_engine_utilization_ratio * 100",
+          "legendFormat": "{{engine}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Utilization (HW)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "VRAM used vs total. R9700 has 32 GiB; at --mem-fraction 0.90 SGLang reserves ~29-31 GiB (weights + KV pool + mamba state).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 8, "y": 93, "w": 8, "h": 8 },
+      "id": 62,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "drm_memory_used_bytes{pool=\"vram\"}",
+          "legendFormat": "{{device}} used",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "drm_memory_total_bytes{pool=\"vram\"}",
+          "legendFormat": "{{device}} total",
+          "refId": "B"
+        }
+      ],
+      "title": "VRAM",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "GPU temperature, Celsius. R9700 throttles at ~110°C junction.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "axisCenteredZero": false,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "scheme",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 75 },
+              { "color": "red", "value": 85 }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 16, "y": 93, "w": 8, "h": 8 },
+      "id": 63,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "drm_temperature_celsius",
+          "legendFormat": "{{sensor}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Temperature",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Available GPU memory at startup (GB). Constant; useful to verify SGLang sees the full 32 GiB.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 101, "w": 6, "h": 4 },
+      "id": 64,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:startup_available_gpu_memory_gb{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "startup VRAM (GB)",
+          "refId": "A"
+        }
+      ],
+      "title": "Startup GPU Memory (GB)",
+      "type": "stat"
+    },
+    {
+      "id": 70,
+      "type": "row",
+      "title": "Startup Info & Speculative Decode",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 105, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Total engine startup time (seconds). Compare across restarts to detect regressions.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "red", "value": 60 }
+            ]
+          },
+          "unit": "s",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 106, "w": 6, "h": 4 },
+      "id": 71,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:engine_startup_time{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "startup time",
+          "refId": "A"
+        }
+      ],
+      "title": "Engine Startup Time",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Time taken to load model weights from disk into VRAM.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 20 },
+              { "color": "red", "value": 45 }
+            ]
+          },
+          "unit": "s",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 6, "y": 106, "w": 6, "h": 4 },
+      "id": 72,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:engine_load_weights_time{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "load weights",
+          "refId": "A"
+        }
+      ],
+      "title": "Weight Load Time",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Startup GPU memory available at engine init. Should reflect the full 32 GiB of R9700 VRAM.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 12, "y": 106, "w": 6, "h": 4 },
+      "id": 73,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:startup_available_gpu_memory_gb{job=\"$job\", instance=~\"$instance\"}",
+          "instant": true,
+          "legendFormat": "GB",
+          "refId": "A"
+        }
+      ],
+      "title": "Startup VRAM Available (GB)",
+      "type": "stat"
+    },
+    {
+      "id": 80,
+      "type": "text",
+      "title": "Speculative Decode (disabled)",
+      "gridPos": { "x": 18, "y": 106, "w": 6, "h": 4 },
+      "options": {
+        "mode": "markdown",
+        "content": "Spec-decode is **not enabled** for this SGLang deployment. `sglang:spec_accept_length` and `sglang:spec_accept_rate` will be zero/absent."
+      }
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Speculative decode acceptance length. Will be zero — spec-decode is disabled on this deployment.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "x": 0, "y": 110, "w": 12, "h": 6 },
+      "id": 81,
+      "options": {
+        "legend": {
+          "calcs": ["mean"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:spec_accept_length{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "accept length (expect 0)",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sglang:spec_accept_rate{job=\"$job\", instance=~\"$instance\"}",
+          "legendFormat": "accept rate (expect 0)",
+          "refId": "B"
+        }
+      ],
+      "title": "Speculative Decode (disabled — should be flat 0)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "tags": ["ai", "sglang"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "definition": "label_values(sglang:num_running_reqs, job)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Job",
+        "multi": false,
+        "name": "job",
+        "options": [],
+        "query": {
+          "query": "label_values(sglang:num_running_reqs, job)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "definition": "label_values(sglang:num_running_reqs{job=\"$job\"}, instance)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Instance",
+        "multi": false,
+        "name": "instance",
+        "options": [],
+        "query": {
+          "query": "label_values(sglang:num_running_reqs{job=\"$job\"}, instance)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query",
+        "allValue": ".*"
+      },
+      {
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "definition": "label_values(sglang:num_running_reqs{job=\"$job\"}, model_name)",
+        "hide": 2,
+        "includeAll": false,
+        "label": "Model",
+        "multi": false,
+        "name": "model_name",
+        "options": [],
+        "query": {
+          "query": "label_values(sglang:num_running_reqs{job=\"$job\"}, model_name)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SGLang",
+  "uid": "sglang",
+  "version": 1,
+  "weekStart": ""
+}
