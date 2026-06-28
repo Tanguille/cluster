@@ -47,6 +47,15 @@ spec:
         enabled: true
       inferencePodMonitor:
         enabled: true
+      prometheusRule:
+        enabled: true
+        namespace: ai
+        rules:
+          # DCGM_FI_* alerts — NVIDIA-only; this cluster uses AMD squat.ai/dri.
+          gpu:
+            enabled: false
+          inference:
+            enabled: true
 
     # emptyDir model store: openebs-hostpath (openebs.io/local) cannot satisfy
     # LLMKube's model-cache-prep chown on Talos — init fails with "Operation not
