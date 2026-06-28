@@ -48,12 +48,13 @@ spec:
       inferencePodMonitor:
         enabled: true
 
-    # Shared model-download cache. openebs-hostpath = node-local RWO (same class
-    # the sglang/llama-server GPU caches use); binds on the iGPU node because the
-    # only consumer (qwen3-embedding) is pinned there via nodeSelector.
+    # Per-service RWO cache (LLMKube chart modelCache.mode=perService): shared
+    # RWO hostpath pinned the PVC to control-1 while qwen3-embedding's iGPU
+    # nodeSelector requires control-2/3 — pod stayed Pending. perService uses
+    # WaitForFirstConsumer so the cache co-locates with the serving pod.
     modelCache:
       enabled: true
+      mode: perService
       size: 3Gi # ~1.2Gi f16 model + HF metadata; matches old emptyDir sizeLimit
       storageClass: openebs-hostpath
-      accessMode: ReadWriteOnce
       mountPath: /models
