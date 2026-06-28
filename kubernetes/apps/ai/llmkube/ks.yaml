@@ -16,9 +16,8 @@ spec:
   targetNamespace: *namespace
   # Gate the embedding model (llmkube-models) on the operator being installed: the
   # HelmRelease only reports Ready once its CRDs are applied and the controller is
-  # up. Targeted healthCheck rather than spec.wait, so the WaitForFirstConsumer
-  # modelCache PVC (which can't bind until the model pod consumes it) doesn't
-  # deadlock readiness.
+  # up. Targeted healthCheck rather than spec.wait, so perService model-cache PVCs
+  # (WaitForFirstConsumer) don't deadlock readiness.
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease

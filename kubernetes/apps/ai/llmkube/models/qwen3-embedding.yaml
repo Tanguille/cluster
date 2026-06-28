@@ -27,16 +27,12 @@ metadata:
   name: qwen3-embedding
 spec:
   modelRef: qwen3-embedding
-  # Stock upstream Vulkan image, kept in lockstep with llama-embeddings and
-  # tracked by the llmkube-models Renovate customManager (.renovaterc.json5).
+  mode: embedding
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:09014b1d5766261290aeeecfe43317ec3ff5e5a4099c7d5b0f8544420128b22e
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   contextSize: 2048
   uBatchSize: 2048
   extraArgs:
-    - "--embeddings"
-    - "--pooling"
-    - "last"
     - "--alias"
     - "qwen3-embedding" # served model name memini sends in /v1/embeddings
     - "--metrics" # expose Prometheus /metrics (off by default in llama-server)
@@ -83,5 +79,5 @@ spec:
     memory: 2Gi
     gpu: 1
     gpuMemory: 2Gi
-  # endpoint omitted — operator defaults to a ClusterIP Service on :8080
-  # (memini and the probes target that port).
+  endpoint:
+    path: /v1/embeddings
