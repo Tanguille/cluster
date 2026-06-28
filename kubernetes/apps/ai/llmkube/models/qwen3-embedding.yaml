@@ -43,9 +43,13 @@ spec:
     amd.com/igpu: "true"
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
+  # fsGroup: 102 matches the operator default (--default-fsgroup=102, curl gid)
+  # and is required when overriding podSecurityContext; without it the
+  # model-cache-prep init container cannot chown the perService PVC mount.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
+    fsGroup: 102
     supplementalGroups:
       - 44
       - 226
