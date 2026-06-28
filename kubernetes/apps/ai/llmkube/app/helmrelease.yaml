@@ -48,13 +48,10 @@ spec:
       inferencePodMonitor:
         enabled: true
 
-    # Per-service RWO cache (LLMKube chart modelCache.mode=perService): shared
-    # RWO hostpath pinned the PVC to control-1 while qwen3-embedding's iGPU
-    # nodeSelector requires control-2/3 — pod stayed Pending. perService uses
-    # WaitForFirstConsumer so the cache co-locates with the serving pod.
+    # emptyDir model store: openebs-hostpath (openebs.io/local) cannot satisfy
+    # LLMKube's model-cache-prep chown on Talos — init fails with "Operation not
+    # permitted" even with fsGroup:102. llama-embeddings used emptyDir too; the
+    # 0.6B f16 model is ~1.2Gi. Re-enable a File-policy CSI cache when a second
+    # InferenceService needs cross-restart dedup.
     modelCache:
-      enabled: true
-      mode: perService
-      size: 3Gi # ~1.2Gi f16 model + HF metadata; matches old emptyDir sizeLimit
-      storageClass: openebs-hostpath
-      mountPath: /models
+      enabled: false
