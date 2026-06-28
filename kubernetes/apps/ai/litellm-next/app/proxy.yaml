@@ -7,9 +7,11 @@ spec:
   # Pin to the same image the file-mode litellm runs (already node-cached); the chart default
   # main-stable would be a fresh pull. DB mode (Postgres) enables live model updates over the
   # admin API with no restart, plus virtual keys / spend tracking / UI.
-  image: ghcr.io/berriai/litellm:v1.89.4
+  image: ghcr.io/berriai/litellm:v1.90.0
   replicas: 1
   applyMode: api
+  # Required in api mode so the operator can authenticate admin API calls; the env var below is
+  # still required by LiteLLM itself inside the managed proxy container.
   apiAccess:
     masterKeyRef:
       name: litellm-next-secret
@@ -19,7 +21,7 @@ spec:
     # the swap. The proxy container always listens on 4000; this maps Service 80 -> 4000.
     port: 80
   env:
-    # The operator injects neither the master key nor the DB URL — supply them here.
+    # The operator uses apiAccess for admin API calls, but LiteLLM still needs these env vars.
     - name: LITELLM_MASTER_KEY
       valueFrom:
         secretKeyRef:
@@ -47,6 +49,8 @@ spec:
     # Agent chat is near-unique per turn — caching adds latency with ~0 hit rate.
     cache: false
     drop_params: true
+    # Retrying a failed 10–30 min prefill restarts from scratch on the sole GPU backend.
+    num_retries: 0
   route:
     # Temporary hostname for parallel validation; the swap moves traffic to the litellm Service.
     hostnames:
