@@ -16,7 +16,6 @@ configMapGenerator:
       - dashboard/litellm.json
     options:
       annotations:
-        # The dashboard JSON is full of Grafana ${...} tokens; keep Flux postBuild envsubst away.
         kustomize.toolkit.fluxcd.io/substitute: disabled
 generatorOptions:
   disableNameSuffixHash: true

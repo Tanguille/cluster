@@ -47,11 +47,28 @@ spec:
         enabled: true
       inferencePodMonitor:
         enabled: true
+      prometheusRule:
+        enabled: true
+        namespace: ai
+        rules:
+          # DCGM_FI_* alerts — NVIDIA-only; this cluster uses AMD squat.ai/dri.
+          gpu:
+            enabled: false
+          inference:
+            enabled: true
 
-    # emptyDir model store: openebs-hostpath (openebs.io/local) cannot satisfy
-    # LLMKube's model-cache-prep chown on Talos — init fails with "Operation not
-    # permitted" even with fsGroup:102. llama-embeddings used emptyDir too; the
-    # 0.6B f16 model is ~1.2Gi. Re-enable a File-policy CSI cache when a second
-    # InferenceService needs cross-restart dedup.
+    # Persistent model cache on ceph-block (rook RBD, the cluster default).
+    # openebs-hostpath can't back it: LLMKube's model-cache-prep chown fails
+    # "Operation not permitted" on Talos (openebs.io/local, even with fsGroup).
+    # The rbd CSIDriver has fsGroupPolicy: File, so the kubelet fixes volume
+    # ownership at mount and the chown succeeds (cephfs is fsGroupPolicy: None,
+    # so it wouldn't). RWO is sufficient — the model-downloader init and
+    # llama-server share one pod pinned to a single iGPU node — and Immediate
+    # binding avoids the WaitForFirstConsumer node-affinity deadlock node-local
+    # volumes hit. Survives restarts so the ~1.2Gi f16 model isn't re-downloaded.
     modelCache:
-      enabled: false
+      enabled: true
+      size: 3Gi # ~1.2Gi f16 model + HF metadata
+      storageClass: ceph-block
+      accessMode: ReadWriteOnce
+      mountPath: /models

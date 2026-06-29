@@ -8,7 +8,20 @@
       "pluginName": "Prometheus"
     }
   ],
-  "description": "LiteLLM proxy metrics. grafana.com 24965 is broken here: job/instance vars use litellm_proxy_total_requests_metric_created, which is not exported (only *_total exists).",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "LLMKube inference + operator metrics (llamacpp:* with colon names). Upstream docs/grafana JSON depends on recording rules and metric names this cluster does not emit.",
   "editable": true,
   "graphTooltip": 1,
   "links": [
@@ -24,9 +37,9 @@
       "icon": "external link",
       "includeVars": true,
       "keepTime": true,
-      "title": "LLMKube",
+      "title": "LiteLLM",
       "type": "link",
-      "url": "/d/llmkube-inference/llmkube-inference"
+      "url": "/d/ad8llmv/litellm"
     }
   ],
   "panels": [
@@ -39,8 +52,10 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "Inference pod /metrics scrape health.",
       "fieldConfig": {
         "defaults": {
+          "color": { "mode": "thresholds" },
           "mappings": [
             {
               "options": {
@@ -75,7 +90,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "min(up{job=~\"$job\", instance=~\"$instance\"})",
+          "expr": "min(up{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"})",
           "instant": true,
           "refId": "A"
         }
@@ -86,10 +101,20 @@
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": {
-        "defaults": { "unit": "reqps", "decimals": 3 },
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 3 }
+            ]
+          }
+        },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 5, "x": 4, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
       "id": 3,
       "options": {
         "colorMode": "value",
@@ -104,12 +129,12 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(litellm_proxy_total_requests_metric_total{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\", status_code=\"200\"}[$__rate_interval]))",
+          "expr": "sum(llamacpp:requests_processing{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"})",
           "instant": true,
           "refId": "A"
         }
       ],
-      "title": "Success req/s",
+      "title": "Processing",
       "type": "stat"
     },
     {
@@ -121,16 +146,14 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "orange", "value": 0.001 },
-              { "color": "red", "value": 0.01 }
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
             ]
-          },
-          "unit": "reqps",
-          "decimals": 3
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 5, "x": 9, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
       "id": 4,
       "options": {
         "colorMode": "value",
@@ -145,18 +168,21 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(rate(litellm_proxy_total_requests_metric_total{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\", status_code!=\"200\", status_code!=\"None\"}[$__rate_interval]))",
+          "expr": "sum(llamacpp:requests_deferred{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"})",
           "instant": true,
           "refId": "A"
         }
       ],
-      "title": "Error req/s",
+      "title": "Deferred",
       "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 5, "x": 14, "y": 1 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 2 },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
       "id": 5,
       "options": {
         "colorMode": "value",
@@ -171,18 +197,18 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(litellm_in_flight_requests{job=~\"$job\", instance=~\"$instance\"})",
+          "expr": "avg(llamacpp:n_busy_slots_per_decode{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"})",
           "instant": true,
           "refId": "A"
         }
       ],
-      "title": "In-flight",
+      "title": "Busy Slots / Decode",
       "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
-      "gridPos": { "h": 4, "w": 5, "x": 19, "y": 1 },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
       "id": 6,
       "options": {
         "colorMode": "value",
@@ -197,19 +223,46 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum(litellm_proxy_failed_requests_metric_total{job=~\"$job\", instance=~\"$instance\"})",
+          "expr": "llmkube_gpu_queue_depth",
           "instant": true,
           "refId": "A"
         }
       ],
-      "title": "Failed (total)",
+      "title": "GPU Queue Depth",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "description": "1 = Ready phase for the InferenceService.",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(llmkube_inferenceservice_phase{phase=\"Ready\", exported_namespace=~\"$namespace\", inferenceservice=~\"$service\"})",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Services Ready",
       "type": "stat"
     },
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "id": 10,
-      "title": "Traffic",
+      "title": "Inference workload",
       "type": "row"
     },
     {
@@ -223,7 +276,7 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "unit": "reqps"
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -241,12 +294,12 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum by (requested_model, route, status_code) (rate(litellm_proxy_total_requests_metric_total{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval]))",
-          "legendFormat": "{{requested_model}} {{route}} {{status_code}}",
+          "expr": "sum by (service, model) (rate(llamacpp:n_decode_total{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "{{service}} decode/s",
           "refId": "A"
         }
       ],
-      "title": "Request rate by model / route",
+      "title": "Decode rate",
       "type": "timeseries"
     },
     {
@@ -278,25 +331,105 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum by (requested_model) (rate(litellm_input_tokens_metric_total{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval]))",
-          "legendFormat": "{{requested_model}} in",
+          "expr": "sum by (service, model) (rate(llamacpp:prompt_tokens_total{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "{{service}} prompt tok/s",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum by (requested_model) (rate(litellm_output_tokens_metric_total{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval]))",
-          "legendFormat": "{{requested_model}} out",
+          "expr": "sum by (service, model) (rate(llamacpp:tokens_predicted_total{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "{{service}} predicted tok/s",
           "refId": "B"
         }
       ],
-      "title": "Token rate",
+      "title": "Token throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "llamacpp:requests_processing{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"}",
+          "legendFormat": "{{service}} processing",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "llamacpp:requests_deferred{job=\"ai/llmkube-inference\", service=~\"$service\", namespace=~\"$namespace\"}",
+          "legendFormat": "{{service}} deferred",
+          "refId": "B"
+        }
+      ],
+      "title": "Queue depth",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (pod) (rate(kube_pod_container_status_restarts_total{namespace=~\"$namespace\", container=\"llama-server\", pod=~\"$service.*\"}[$__rate_interval]))",
+          "legendFormat": "{{pod}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Container restarts",
       "type": "timeseries"
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
       "id": 20,
-      "title": "Latency",
+      "title": "Operator",
       "type": "row"
     },
     {
@@ -310,11 +443,11 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "unit": "s"
+          "unit": "ops"
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
       "id": 21,
       "options": {
         "legend": {
@@ -328,24 +461,12 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "histogram_quantile(0.5, sum by (requested_model, le) (rate(litellm_llm_api_latency_metric_bucket{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval])))",
-          "legendFormat": "{{requested_model}} p50",
+          "expr": "sum by (result) (rate(llmkube_reconcile_total{exported_namespace=~\"$namespace\"}[$__rate_interval]))",
+          "legendFormat": "{{result}}",
           "refId": "A"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "histogram_quantile(0.9, sum by (requested_model, le) (rate(litellm_llm_api_latency_metric_bucket{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval])))",
-          "legendFormat": "{{requested_model}} p90",
-          "refId": "B"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "histogram_quantile(0.99, sum by (requested_model, le) (rate(litellm_llm_api_latency_metric_bucket{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval])))",
-          "legendFormat": "{{requested_model}} p99",
-          "refId": "C"
         }
       ],
-      "title": "LLM API latency",
+      "title": "Reconcile rate",
       "type": "timeseries"
     },
     {
@@ -363,7 +484,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
       "id": 22,
       "options": {
         "legend": {
@@ -377,111 +498,24 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "histogram_quantile(0.5, sum by (requested_model, le) (rate(litellm_llm_api_time_to_first_token_metric_bucket{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval])))",
-          "legendFormat": "{{requested_model}} p50",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(llmkube_reconcile_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "reconcile p95",
           "refId": "A"
         },
         {
           "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "histogram_quantile(0.9, sum by (requested_model, le) (rate(litellm_llm_api_time_to_first_token_metric_bucket{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval])))",
-          "legendFormat": "{{requested_model}} p90",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(llmkube_inferenceservice_ready_duration_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "ready p95",
           "refId": "B"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "histogram_quantile(0.99, sum by (requested_model, le) (rate(litellm_llm_api_time_to_first_token_metric_bucket{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval])))",
-          "legendFormat": "{{requested_model}} p99",
-          "refId": "C"
         }
       ],
-      "title": "Time to first token",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
-      "id": 30,
-      "title": "Failures",
-      "type": "row"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "lineWidth": 2,
-            "showPoints": "never",
-            "spanNulls": true
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
-      "id": 31,
-      "options": {
-        "legend": {
-          "calcs": ["mean", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum by (requested_model) (rate(litellm_llm_api_failed_requests_metric_total{job=~\"$job\", instance=~\"$instance\", requested_model=~\"$model\"}[$__rate_interval]))",
-          "legendFormat": "{{requested_model}}",
-          "refId": "A"
-        }
-      ],
-      "title": "LLM API failures / s",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "lineWidth": 2,
-            "showPoints": "never",
-            "spanNulls": true
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
-      "id": 32,
-      "options": {
-        "legend": {
-          "calcs": ["mean", "max"],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      },
-      "targets": [
-        {
-          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-          "expr": "sum by (litellm_model_name) (rate(litellm_deployment_failure_responses_total{job=~\"$job\", instance=~\"$instance\", litellm_model_name=~\"$model\"}[$__rate_interval]))",
-          "legendFormat": "{{litellm_model_name}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Deployment failures / s",
+      "title": "Operator latency p95",
       "type": "timeseries"
     }
   ],
   "refresh": "1m",
   "schemaVersion": 41,
-  "tags": ["ai", "litellm"],
+  "tags": ["ai", "llmkube"],
   "templating": {
     "list": [
       {
@@ -495,14 +529,15 @@
         "type": "datasource"
       },
       {
-        "current": { "selected": true, "text": "litellm", "value": "litellm" },
+        "allValue": ".*",
+        "current": {},
         "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-        "definition": "label_values(litellm_proxy_total_requests_metric_total, job)",
-        "includeAll": false,
-        "label": "Job",
-        "name": "job",
+        "definition": "label_values(llamacpp:n_decode_total{job=\"ai/llmkube-inference\"}, namespace)",
+        "includeAll": true,
+        "label": "Namespace",
+        "name": "namespace",
         "query": {
-          "query": "label_values(litellm_proxy_total_requests_metric_total, job)",
+          "query": "label_values(llamacpp:n_decode_total{job=\"ai/llmkube-inference\"}, namespace)",
           "refId": "A"
         },
         "refresh": 2,
@@ -510,31 +545,14 @@
       },
       {
         "allValue": ".*",
-        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "current": {},
         "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-        "definition": "label_values(litellm_proxy_total_requests_metric_total{job=~\"$job\"}, instance)",
+        "definition": "label_values(llamacpp:n_decode_total{job=\"ai/llmkube-inference\", namespace=~\"$namespace\"}, service)",
         "includeAll": true,
-        "label": "Instance",
-        "multi": true,
-        "name": "instance",
+        "label": "Service",
+        "name": "service",
         "query": {
-          "query": "label_values(litellm_proxy_total_requests_metric_total{job=~\"$job\"}, instance)",
-          "refId": "A"
-        },
-        "refresh": 2,
-        "type": "query"
-      },
-      {
-        "allValue": ".*",
-        "current": { "selected": true, "text": "All", "value": "$__all" },
-        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-        "definition": "label_values(litellm_proxy_total_requests_metric_total{job=~\"$job\", instance=~\"$instance\"}, requested_model)",
-        "includeAll": true,
-        "label": "Model",
-        "multi": true,
-        "name": "model",
-        "query": {
-          "query": "label_values(litellm_proxy_total_requests_metric_total{job=~\"$job\", instance=~\"$instance\"}, requested_model)",
+          "query": "label_values(llamacpp:n_decode_total{job=\"ai/llmkube-inference\", namespace=~\"$namespace\"}, service)",
           "refId": "A"
         },
         "refresh": 2,
@@ -544,7 +562,7 @@
   },
   "time": { "from": "now-6h", "to": "now" },
   "timezone": "browser",
-  "title": "LiteLLM",
-  "uid": "ad8llmv",
+  "title": "LLMKube Inference",
+  "uid": "llmkube-inference",
   "version": 1
 }

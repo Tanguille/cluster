@@ -3,7 +3,7 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: litellm
+  name: llmkube-inference
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
@@ -12,8 +12,9 @@ spec:
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS
-  # grafana.com 24965 job/instance vars use litellm_proxy_total_requests_metric_created
-  # (not exported); leaves $job empty and every panel blank.
+  # Upstream docs/grafana + chart recording rules expect llamacpp:request_seconds_bucket
+  # and llmkube_gpu_queue_wait_duration_seconds_bucket, which this cluster does not emit
+  # (llamacpp uses llamacpp:* counters; AMD iGPU has no NVIDIA queue histogram).
   configMapRef:
-    name: litellm-dashboard
-    key: litellm.json
+    name: llmkube-inference-dashboard
+    key: llmkube-inference.json
