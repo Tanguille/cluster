@@ -9,8 +9,6 @@ spec:
   dependsOn:
     - name: k8s-gpu-dra-driver
       namespace: kube-system
-    - name: fileflows
-      namespace: media # shared-dgpu ResourceClaim lives in fileflows/app
   targetNamespace: *namespace
   components:
     - ../../../../components/volsync
