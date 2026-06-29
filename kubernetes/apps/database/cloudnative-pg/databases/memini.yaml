@@ -12,8 +12,7 @@ spec:
   ensure: present
   # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
   databaseReclaimPolicy: retain
-  # Adopt the vector extensions already present in this DB (declared by name only,
-  # no version pin, so CNPG keeps the installed version).
+  # Adopt the vchord and vector extensions already present in this DB (no version pin).
   extensions:
     - name: vchord
       ensure: present
