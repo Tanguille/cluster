@@ -100,7 +100,7 @@ spec:
       agent_config.yaml.local: |-
         api:
           client:
-            unregister_on_exit: true
+            unregister_on_exit: false
       appsec_config.yaml.local: |-
         api:
           client:
@@ -143,6 +143,16 @@ spec:
         serviceMonitor:
           enabled: true
     agent:
+      startupProbe:
+        httpGet:
+          path: /metrics
+          port: metrics
+          scheme: HTTP
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+        failureThreshold: 60
       resources:
         requests:
           cpu: 100m
