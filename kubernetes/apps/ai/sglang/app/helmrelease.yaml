@@ -60,14 +60,15 @@ spec:
             # tradeoff and the rejected alternatives (MoE, MTP/spec, fp4 KV) are in the README. Radix
             # cache is ON (MambaRadixCache, no_buffer) for the long-context agent: prefix reuse
             # (~7.6× TTFT) is the primary workload, traded against batch (overlap off, max_running
-            # 32→~16). context-length 262144 is the model's native max; typical traffic fits the KV
-            # pool. decode-steps is inert on v0.5.13/14 (no scheduler readers) — kept for parity.
+            # 32→~16). context-length 230000 caps below the 237K KV pool so an over-long request is
+            # rejected cleanly instead of evicting cache mid-decode and thrashing (model native max
+            # is 262144). decode-steps is inert on v0.5.13/14 (no scheduler readers) — kept for parity.
             command:
               - /bin/bash
               - -c
               - >-
                 exec bash /cache/sglang/repo-v0514/scripts/launch.sh qwen36-27b
-                --context-length 262144
+                --context-length 230000
                 --mem-fraction 0.90
                 --max-running 32
                 --decode-steps 16
