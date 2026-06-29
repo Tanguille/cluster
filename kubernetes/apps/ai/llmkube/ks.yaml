@@ -14,10 +14,10 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  # Gate the embedding model (llmkube-models) on the operator being installed: the
+  # Gate the models (llmkube-models) on the operator being installed: the
   # HelmRelease only reports Ready once its CRDs are applied and the controller is
-  # up. Targeted healthCheck rather than spec.wait, so perService model-cache PVCs
-  # (WaitForFirstConsumer) don't deadlock readiness.
+  # up. Targeted healthCheck rather than spec.wait so readiness keys on just the
+  # CRD-providing HelmRelease, not a blanket wait across all rendered resources.
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
