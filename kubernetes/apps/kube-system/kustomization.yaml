@@ -5,12 +5,28 @@ kind: Kustomization
 namespace: kube-system
 components:
   - ../../components/common
+# DRA requires resource.kubernetes.io/admin-access: "true" on the namespace.
+# The patch targets "not-used" because that is the placeholder name in
+# components/common/namespace.yaml — Kustomize's namespace transformer renames
+# it to "kube-system" AFTER patches are applied.
+patches:
+  - target:
+      kind: Namespace
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          resource.kubernetes.io/admin-access: "true"
 resources:
   - ./amdgpu-undervolt.yaml
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
   - ./descheduler/ks.yaml
-  - ./generic-device-plugin/ks.yaml
+  - ./drm-exporter/ks.yaml
+  - ./k8s-gpu-dra-driver/ks.yaml
   - ./metrics-server/ks.yaml
   - ./reloader/ks.yaml
   - ./snapshot-controller/ks.yaml

@@ -14,8 +14,6 @@ spec:
       name: affinity-control-1
 
   values:
-    annotations:
-      reloader.stakater.com/auto: "true"
     defaultPodOptions:
       affinity:
         nodeAffinity:
@@ -33,10 +31,15 @@ spec:
         # 44=video, 226=render for VAAPI on /dev/dri
         supplementalGroups: [10000, 44, 226]
         seccompProfile: { type: RuntimeDefault }
+      resourceClaims:
+        - name: gpu
+          resourceClaimName: shared-dgpu
 
     controllers:
       fileflows:
         strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
         initContainers:
           init-dirs:
             image:
@@ -64,11 +67,11 @@ spec:
               requests:
                 cpu: 100m
                 memory: 512Mi
-                squat.ai/dri: 1
               limits:
                 cpu: 2
                 memory: 5Gi
-                squat.ai/dri: 1
+              claims:
+                - name: gpu
 
     service:
       fileflows:
