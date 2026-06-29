@@ -49,6 +49,9 @@ data:
       # Qwen3.5-2B on LLMKube (iGPU / Vulkan, control-2) — small fast offload model
       # for easy tasks (classification, extraction, short rewrites). GDN hybrid,
       # measured ~43 tok/s decode / ~513 tok/s prefill on the Radeon 660M.
+      # Thinking forced off: the model defaults thinking ON, which spends the
+      # token budget on reasoning_content and returns empty content on short
+      # replies — wrong for fast offload. (Same fix/pattern as qwen-3.6-fast.)
       - model_name: qwen3.5-2b
         litellm_params:
           model: openai/qwen3.5-2b
@@ -56,6 +59,9 @@ data:
           api_key: os.environ/LLAMA_SERVER_API_KEY
           timeout: 300
           num_retries: 0
+          extra_body:
+            chat_template_kwargs:
+              enable_thinking: false
         model_info:
           mode: chat
           max_input_tokens: 16384
