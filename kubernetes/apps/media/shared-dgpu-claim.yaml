@@ -1,4 +1,7 @@
 ---
+# Shared dGPU ResourceClaim for media workloads (fileflows + jellyfin).
+# Lives at the namespace level so neither app depends on the other for claim lifecycle.
+# Multiple pods can reference this claim by name; DRA allocates one device shared between them.
 apiVersion: resource.k8s.io/v1
 kind: ResourceClaim
 metadata:

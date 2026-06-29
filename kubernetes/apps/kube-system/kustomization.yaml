@@ -5,7 +5,10 @@ kind: Kustomization
 namespace: kube-system
 components:
   - ../../components/common
-# DRA workloads in kube-system need admin-access on the namespace label.
+# DRA requires resource.kubernetes.io/admin-access: "true" on the namespace.
+# The patch targets "not-used" because that is the placeholder name in
+# components/common/namespace.yaml — Kustomize's namespace transformer renames
+# it to "kube-system" AFTER patches are applied.
 patches:
   - target:
       kind: Namespace
