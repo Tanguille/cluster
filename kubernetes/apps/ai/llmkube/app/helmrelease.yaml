@@ -57,17 +57,21 @@ spec:
           inference:
             enabled: true
 
-    # Persistent model cache on ceph-block (rook RBD, RWO). REQUIRES llmkube
-    # >= 0.8.21: with a PVC cache the operator injects a model-cache-prep init
-    # that chowns /models, and 0.8.20 regressed it to run as non-root (uid 100)
-    # → "Operation not permitted" → Init CrashLoop on ANY storage class (it was
-    # never a storage issue; ceph-block failed identically to openebs-hostpath).
-    # 0.8.21 runs that prep as root again (upstream #888). RWO is sufficient —
-    # the model-downloader init and llama-server share one pod pinned to a single
-    # iGPU node. Survives restarts so the ~1.2Gi f16 model isn't re-downloaded.
+    # Persistent model cache on ceph-filesystem (CephFS, RWX). It's a SINGLE
+    # shared PVC mounted by the controller-manager and every InferenceService,
+    # which land on different iGPU nodes (qwen3-embedding on control-3, qwen35-2b
+    # on control-2) — so it must be RWX: an RWO volume multi-attach-errors across
+    # nodes. The cache is cold (write-once on download, read-once at model load,
+    # then idle — weights live in VRAM), so CephFS network latency never touches
+    # the inference path; only a few seconds of extra cold-start read.
+    # REQUIRES llmkube >= 0.8.21: with a PVC cache the operator injects a
+    # model-cache-prep init that chowns /models; 0.8.20 regressed it to non-root
+    # (uid 100) → "Operation not permitted" → CrashLoop. 0.8.21 runs it as root
+    # (upstream #888), so the chown succeeds on CephFS (fsGroupPolicy: None) too.
+    # Survives restarts so the ~1.2Gi models aren't re-downloaded each time.
     modelCache:
       enabled: true
-      size: 3Gi # ~1.2Gi f16 model + HF metadata
-      storageClass: ceph-block
-      accessMode: ReadWriteOnce
+      size: 6Gi # shared by embedding + qwen35-2b (~1.2Gi each) + HF metadata
+      storageClass: ceph-filesystem
+      accessMode: ReadWriteMany
       mountPath: /models
