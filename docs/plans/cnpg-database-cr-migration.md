@@ -7,10 +7,12 @@ existing database, `ensure: present`, `databaseReclaimPolicy: retain`).
 
 Branch: `feat/cnpg-database-cr-migration` (worktree). One commit per app.
 
-> **Status (2026-06-26): 12/13 migrated and committed** (jellystat, radarr, bazarr, sonarr,
-> prowlarr, open-webui, memini, spoolman, gatus, nextcloud, grafana, crowdsec). **immich is
-> deferred** — see the dedicated section. Validated via `kustomize build` + server-side
-> dry-run of the full Cluster and all 12 Database CRs. Not yet pushed/applied.
+> **Status (2026-06-29): 11 migrated** (jellystat, radarr, bazarr, sonarr, prowlarr, memini,
+> spoolman, gatus, nextcloud, grafana, crowdsec). **open-webui was dropped** — it was deleted
+> from the cluster on `main` (commit `b064f156a`, "remove deprecated resources"), so there is no
+> app to onboard. **immich is deferred** — see the dedicated section. Branch rebased onto current
+> `main`; PR [#3562](https://github.com/Tanguille/cluster/pull/3562). Validated via
+> `kustomize build` + server-side dry-run of the full Cluster and all 11 Database CRs.
 
 ## Architecture decisions
 
@@ -36,12 +38,12 @@ Branch: `feat/cnpg-database-cr-migration` (worktree). One commit per app.
 ## Secret-consumption patterns (decides which keys to remove)
 
 - **REMOVE-ALL** (app has separate runtime keys → drop all 5 `INIT_POSTGRES_*`):
-  radarr, bazarr, sonarr, prowlarr, open-webui, memini, crowdsec, grafana.
+  radarr, bazarr, sonarr, prowlarr, memini, crowdsec, grafana.
 - **KEEP** (app reuses `INIT_POSTGRES_*` at *runtime* → drop only `INIT_POSTGRES_SUPER_PASS`):
   spoolman (`SPOOLMAN_DB_*` ← `INIT_*`), gatus (`config.yaml` storage path ← `INIT_*`),
   nextcloud (`externalDatabase.existingSecret` + notify-push ← `INIT_POSTGRES_USER/PASS`).
 
-> **YAML anchor trap:** radarr, bazarr, sonarr, prowlarr, open-webui, memini, grafana define
+> **YAML anchor trap:** radarr, bazarr, sonarr, prowlarr, memini, grafana define
 > the secret `envFrom` anchor (`&envFrom` / `&secret`) **on the init-db container** and alias
 > it on the app container. Deleting the init-db block also deletes the anchor → the alias
 > breaks. When removing init-db, relocate the explicit `secretRef` onto the app container.
@@ -59,7 +61,7 @@ Branch: `feat/cnpg-database-cr-migration` (worktree). One commit per app.
 | grafana | grafana | grafana | grafana | pgbouncer-session | – | remove-all (anchor) | instance/grafana.yaml | ☐ |
 | nextcloud | nextcloud | nextcloud | **postgres → nextcloud** | pgbouncer-rw | – | keep (app + notify-push) | app initContainers | ☐ |
 | spoolman | spoolman | spoolman | spoolman | pgbouncer-rw | – | keep | controller initContainers | ☐ |
-| open-webui | openwebui | openwebui | openwebui | pgbouncer-rw | – | remove-all (anchor) | controller initContainers | ☐ |
+| open-webui | openwebui | openwebui | openwebui | pgbouncer-rw | – | remove-all (anchor) | controller initContainers | ⚠ dropped (removed from main) |
 | memini | memini | memini | memini | pgbouncer-rw | **vchord, vector** | remove-all (anchor) | controller initContainers | ☐ |
 | crowdsec | crowdsec | crowdsec | crowdsec | pgbouncer-rw | **vector** | remove-all | postRenderers patch | ☐ |
 | immich | immich (MISSING) | immich | — (only orphan `app`) | pgbouncer-session | pgvector wanted | **DEFERRED** | controller initContainers | ⚠ see below |
