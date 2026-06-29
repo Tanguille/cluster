@@ -72,3 +72,30 @@ spec:
       size: 4Gi # ~1.2Gi each for embedding + qwen35-2b + headroom (default 100Gi)
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany
+
+  postRenderers:
+    - kustomize:
+        patches:
+          # The chart's recording rules assume vLLM histograms and wrong container names.
+          # Replace the group with a corrected version:
+          #  - llamacpp_request:p95_5m dropped (llamacpp:request_seconds_bucket doesn't exist)
+          #  - request_latency:p95_5m dropped (vllm:e2e_request_latency_seconds_bucket, vLLM only)
+          #  - restarts:rate5m fixed: container=~"llm-server" → adds "llama-server" (actual name)
+          - patch: |-
+              - op: replace
+                path: /spec/groups/1
+                value:
+                  interval: 30s
+                  name: llmkube-inference-recording
+                  rules:
+                    - record: llmkube:inference:restarts:rate5m
+                      expr: |
+                        sum by (service, namespace, runtime) (
+                          rate(kube_pod_container_status_restarts_total{
+                            pod=~".+",
+                            container=~"llamacpp|vllm|tgi|personaplex|llm-server|llama-server"
+                          }[5m])
+                        )
+            target:
+              kind: PrometheusRule
+              name: llmkube-alerts
