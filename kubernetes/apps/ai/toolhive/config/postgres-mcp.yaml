@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name postgres-mcp
-  namespace: ai
 spec:
   image: crystaldba/postgres-mcp:0.3.0
   transport: stdio
@@ -40,7 +39,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: postgres-mcp-opt
-  namespace: ai
 spec:
   image: crystaldba/postgres-mcp:0.3.0
   transport: stdio
@@ -77,6 +75,5 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: postgres-mcp
-  namespace: ai
 spec:
   toolsFilter: []
