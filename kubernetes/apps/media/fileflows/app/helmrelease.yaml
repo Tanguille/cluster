@@ -14,8 +14,6 @@ spec:
       name: affinity-control-1
 
   values:
-    annotations:
-      reloader.stakater.com/auto: "true"
     defaultPodOptions:
       affinity:
         nodeAffinity:
@@ -36,6 +34,8 @@ spec:
 
     controllers:
       fileflows:
+        annotations:
+          reloader.stakater.com/auto: "true"
         strategy: RollingUpdate
         initContainers:
           init-dirs:
