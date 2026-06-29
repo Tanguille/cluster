@@ -21,11 +21,7 @@ echo
 
 echo "-- Bare scalar groupRef (v0.20+ use groupRef: then name: <group>) --"
 # Matches one-line "  groupRef: my-group" but not "  groupRef:" alone (struct form).
-if rg -n '^\s+groupRef:\s+\S' "$TH" --glob '*.yaml'; then
-  :
-else
-  echo "(none)"
-fi
+rg -n '^\s+groupRef:\s+\S' "$TH" --glob '*.yaml' || echo "(none)"
 echo
 
 echo "-- Old camelCase remoteURL (v0.19+ use remoteUrl) --"
