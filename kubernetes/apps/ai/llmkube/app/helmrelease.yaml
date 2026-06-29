@@ -72,3 +72,17 @@ spec:
       size: 4Gi # ~1.2Gi each for embedding + qwen35-2b + headroom (default 100Gi)
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany
+
+  postRenderers:
+    - kustomize:
+        patches:
+          # The chart ships recording rules that reference vLLM/llamacpp histograms
+          # (llamacpp:request_seconds_bucket, vllm:e2e_request_latency_seconds_bucket)
+          # which llama-server does not emit — producing noisy RecordingRulesNoData
+          # alerts. Remove the recording group; the alert rules group (index 0) is kept.
+          - patch: |-
+              - op: remove
+                path: /spec/groups/1
+            target:
+              kind: PrometheusRule
+              name: llmkube-alerts
