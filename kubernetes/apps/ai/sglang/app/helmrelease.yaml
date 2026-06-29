@@ -60,16 +60,20 @@ spec:
             # tradeoff and the rejected alternatives (MoE, MTP/spec, fp4 KV) are in the README. Radix
             # cache is ON (MambaRadixCache, no_buffer) for the long-context agent: prefix reuse
             # (~7.6× TTFT) is the primary workload, traded against batch (overlap off, max_running
-            # 32→~16). context-length 230000 caps below the 237K KV pool so an over-long request is
-            # rejected cleanly instead of evicting cache mid-decode and thrashing (model native max
-            # is 262144). decode-steps is inert on v0.5.13/14 (no scheduler readers) — kept for parity.
+            # 32→~16). mem-fraction 0.875 (was 0.90) frees ~0.8 GB more VRAM headroom on the shared
+            # R9700 for the co-resident VAAPI transcoders (fileflows/jellyfin) — at 0.90 only ~16 MB
+            # stayed free and their 4K HEVC encodes stalled (0-byte output). The KV pool shrinks ~1:1
+            # with mem-fraction (~33K tokens/GB, fp8 KV), so context-length 200000 caps below the
+            # resulting ~211K KV pool — an over-long request is rejected cleanly instead of evicting
+            # cache mid-decode and thrashing (model native max is 262144; observed Hermes prefill peaks
+            # ~106K). 200K is the floor here; freeing more VRAM would mean dropping context further.
             command:
               - /bin/bash
               - -c
               - >-
                 exec bash /cache/sglang/repo-v0514/scripts/launch.sh qwen36-27b
-                --context-length 230000
-                --mem-fraction 0.90
+                --context-length 200000
+                --mem-fraction 0.875
                 --max-running 32
                 --decode-steps 16
                 --chunked-prefill 8192

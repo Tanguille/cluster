@@ -10,7 +10,11 @@ Full benchmarks, the optimization ledger and the engine-selection rationale live
 ## Config at a glance
 
 - **Engine:** SGLang v0.5.14 (mattbucci fork @ `60ffa9501`), `qwen36-27b` preset, TP=1, KV
-  dtype fp8_e4m3, mem-fraction 0.90, 32Gi pod limit (the AWQ shard load peaks ~20 GB host RAM).
+  dtype fp8_e4m3, mem-fraction 0.875, 32Gi pod limit (the AWQ shard load peaks ~20 GB host RAM).
+  mem-fraction was cut 0.90→0.875 to free ~0.8 GB VRAM for the co-resident VAAPI transcoders
+  (fileflows/jellyfin) on the shared R9700; at 0.90 only ~16 MB was free and their 4K HEVC
+  encodes stalled. context-length follows down (230K→200K, KV pool ~211K) — still well above
+  the observed ~106K Hermes prefill peak. 200K is the floor; freeing more would mean less context.
 - **Cache ON** (`MambaRadixCache`, `no_buffer`): the long-context agent re-prefills its growing
   context each turn, so prefix reuse (**~7.6× TTFT**) is the primary workload. The cost is batch —
   overlap off, `max_running` 32→~16. On the DeltaNet hybrid, cache and high batch are mutually
