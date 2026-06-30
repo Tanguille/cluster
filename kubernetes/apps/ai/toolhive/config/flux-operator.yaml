@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name flux-operator
-  namespace: ai
 spec:
   image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.53.0
   transport: stdio
@@ -50,7 +49,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: flux-operator-opt
-  namespace: ai
 spec:
   image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.53.0
   transport: stdio
@@ -97,6 +95,5 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: flux-operator
-  namespace: ai
 spec:
   toolsFilter: []

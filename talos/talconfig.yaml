@@ -22,8 +22,6 @@ nodes:
   - hostname: "control-1"
     ipAddress: "192.168.0.11"
     installDisk: "/dev/vda"
-    machineSpec:
-      secureboot: false
     talosImageURL: factory.talos.dev/installer/dfc849d1bd15c28f7e812d46ac70744b563e49fea8aff2cf784d58eeaf47b92d
     controlPlane: true
     patches:
@@ -43,8 +41,6 @@ nodes:
   - hostname: "control-2"
     ipAddress: "192.168.0.12"
     installDisk: "/dev/nvme1n1"
-    machineSpec:
-      secureboot: false
     talosImageURL: factory.talos.dev/installer/1fd419f5873a6e96fcd35ad1f849c02b53578eb39922041b24ab475fccd99780
     controlPlane: true
     patches:
@@ -65,8 +61,6 @@ nodes:
   - hostname: "control-3"
     ipAddress: "192.168.0.13"
     installDisk: "/dev/disk/by-id/nvme-Micron_7450_MTFDKBA480TFR_241548387F46"
-    machineSpec:
-      secureboot: false
     talosImageURL: factory.talos.dev/installer/1fd419f5873a6e96fcd35ad1f849c02b53578eb39922041b24ab475fccd99780
     controlPlane: true
     patches:

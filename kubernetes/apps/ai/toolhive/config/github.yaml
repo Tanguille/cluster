@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name github
-  namespace: ai
 spec:
   image: ghcr.io/github/github-mcp-server:v1.5.0
   transport: stdio
@@ -40,7 +39,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: github-opt
-  namespace: ai
 spec:
   image: ghcr.io/github/github-mcp-server:v1.5.0
   transport: stdio
@@ -77,6 +75,5 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: github
-  namespace: ai
 spec:
   toolsFilter: []

@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name searxng
-  namespace: ai
 spec:
   image: ghcr.io/rcdailey/mcp-searxng:0.8.0
   transport: stdio
@@ -38,7 +37,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: searxng-opt
-  namespace: ai
 spec:
   image: ghcr.io/rcdailey/mcp-searxng:0.8.0
   transport: stdio
@@ -73,7 +71,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: searxng
-  namespace: ai
 spec:
   toolsOverride:
     searxng_web_search:
