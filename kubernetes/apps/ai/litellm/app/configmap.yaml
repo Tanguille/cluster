@@ -75,7 +75,10 @@ data:
           api_base: http://qwen3-embedding.ai.svc.cluster.local:8080/v1
           api_key: os.environ/LLAMA_SERVER_API_KEY
           timeout: 120
-          num_retries: 0
+          # Override the global num_retries:0 (that policy guards against re-running
+          # a 10-30 min chat prefill). Embeddings are sub-second; a transient
+          # timeout/queue blip under concurrent vmcp+memini load should just retry.
+          num_retries: 2
         model_info:
           mode: embedding
 

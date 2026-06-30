@@ -27,12 +27,15 @@ spec:
   modelRef: qwen3-embedding
   mode: embedding
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:6d1d6855edf8e5ddf9dc8e5cd6b4243a15451384fc047cf84d70091b9a6141b9
-  parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  # llama.cpp splits --ctx-size across parallel slots. With parallelSlots: 2,
-  # 4096 gives each embedding request ~2048 tokens, enough for ToolHive's
-  # largest current tool-description batch (~1095 tokens) without affecting
-  # the LiteLLM model name memini uses.
-  contextSize: 4096
+  # 4 slots: vmcp-unified's per-session 194-tool burst-embed and memini's
+  # continuous dedup-embedding traffic both hit this server concurrently;
+  # 2 slots was queuing the two into vmcp's 120s embeddingServiceTimeout
+  # (session_id failures: "context canceled"/"context deadline exceeded").
+  parallelSlots: 4 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
+  # llama.cpp splits --ctx-size across parallel slots. Keep 2048/slot (same
+  # margin as before) — enough for ToolHive's largest tool-description batch
+  # (~1095 tokens) without affecting the LiteLLM model name memini uses.
+  contextSize: 8192
   uBatchSize: 2048
   extraArgs:
     - "--alias"
