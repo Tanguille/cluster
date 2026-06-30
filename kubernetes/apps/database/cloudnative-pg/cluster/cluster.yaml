@@ -16,6 +16,15 @@ spec:
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
+  # Declarative app roles (CNPG-native, replacing postgres-init). Password sourced from a
+  # basic-auth Secret in this namespace; CNPG enforces it, so the app's DATABASE_URL must match.
+  managed:
+    roles:
+      - name: litellm
+        ensure: present
+        login: true
+        passwordSecret:
+          name: litellm-db
   postgresql:
     parameters:
       wal_level: replica

@@ -1,0 +1,41 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: qwen-3.6
+spec:
+  modelName: qwen-3.6
+  proxyRef: litellm
+  params:
+    model: openai/qwen-3.6
+    apiBase: http://sglang.ai.svc.cluster.local/v1
+    additional:
+      timeout: 1800
+      stream_timeout: 1800
+      num_retries: 0
+  info:
+    mode: chat
+    maxInputTokens: 200000
+    maxOutputTokens: 8192
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: qwen-3.6-fast
+spec:
+  modelName: qwen-3.6-fast
+  proxyRef: litellm
+  params:
+    model: openai/qwen-3.6
+    apiBase: http://sglang.ai.svc.cluster.local/v1
+    additional:
+      timeout: 600
+      stream_timeout: 600
+      num_retries: 0
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: false
+  info:
+    mode: chat
+    maxInputTokens: 200000
+    maxOutputTokens: 8192
