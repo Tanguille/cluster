@@ -9,6 +9,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: litellm-operator
-  # CRDs install/upgrade as CreateReplace via the cluster-apps HelmRelease patch.
-  # The operator image is digest-pinned inside the chart, and the validating webhook self-manages
-  # its cert.
+  values:
+    llmkube:
+      autoRegister: true

@@ -10,9 +10,6 @@ spec:
   dependsOn:
     - name: litellm-operator
       namespace: *namespace
-    # Waits transitively on cloudnative-pg-cluster; gates on the litellm DB/role being ready.
-    # No sglang dep: in DB/api mode the operator registers models via the admin API, so a GPU
-    # outage must not stall litellm reconciliation.
     - name: cloudnative-pg-databases
       namespace: database
   path: ./kubernetes/apps/ai/litellm/app
