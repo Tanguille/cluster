@@ -40,12 +40,12 @@ spec:
               containerPort: *port
           startupProbe:
             tcpSocket:
-              port: *port
+              port: mcp
             periodSeconds: 2
             failureThreshold: 30
           readinessProbe:
             tcpSocket:
-              port: *port
+              port: mcp
             periodSeconds: 3
             timeoutSeconds: 2
             failureThreshold: 3
@@ -103,12 +103,12 @@ spec:
               containerPort: 8086
           startupProbe:
             tcpSocket:
-              port: 8086
+              port: mcp
             periodSeconds: 2
             failureThreshold: 30
           readinessProbe:
             tcpSocket:
-              port: 8086
+              port: mcp
             periodSeconds: 3
             timeoutSeconds: 2
             failureThreshold: 3
