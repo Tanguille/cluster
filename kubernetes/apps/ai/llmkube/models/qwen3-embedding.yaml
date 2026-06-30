@@ -28,7 +28,11 @@ spec:
   mode: embedding
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:6d1d6855edf8e5ddf9dc8e5cd6b4243a15451384fc047cf84d70091b9a6141b9
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  contextSize: 2048
+  # llama.cpp splits --ctx-size across parallel slots. With parallelSlots: 2,
+  # 4096 gives each embedding request ~2048 tokens, enough for ToolHive's
+  # largest current tool-description batch (~1095 tokens) without affecting
+  # the LiteLLM model name memini uses.
+  contextSize: 4096
   uBatchSize: 2048
   extraArgs:
     - "--alias"
