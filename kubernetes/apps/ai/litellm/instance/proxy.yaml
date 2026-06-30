@@ -29,11 +29,6 @@ spec:
         secretKeyRef:
           name: litellm-secret
           key: DATABASE_URL
-    - name: LLAMA_SERVER_API_KEY
-      valueFrom:
-        secretKeyRef:
-          name: litellm-secret
-          key: LLAMA_SERVER_API_KEY
   litellmSettings:
     callbacks: ["prometheus"]
     service_callback: ["prometheus_system"]
