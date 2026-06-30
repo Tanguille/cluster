@@ -153,6 +153,9 @@ spec:
     spec:
       containers:
         - name: vmcp
+          env:
+            - name: OPENAI_API_KEY
+              value: ${LITELLM_API_KEY}
           resources:
             requests:
               cpu: 100m
@@ -168,8 +171,6 @@ spec:
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
-  embeddingServerRef:
-    name: toolhive-embeddings
   groupRef:
     name: all
   config:
@@ -178,4 +179,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
     optimizer:
+      embeddingProvider: openai
+      embeddingService: http://litellm.ai.svc.cluster.local/v1
+      embeddingModel: qwen3-embedding
       embeddingServiceTimeout: 120s
