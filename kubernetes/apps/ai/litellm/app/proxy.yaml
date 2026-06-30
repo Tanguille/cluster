@@ -2,49 +2,49 @@
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMProxy
 metadata:
-  name: litellm-next
+  name: litellm
 spec:
-  # Pin to the same image the file-mode litellm runs (already node-cached); the chart default
-  # main-stable would be a fresh pull. DB mode (Postgres) enables live model updates over the
-  # admin API with no restart, plus virtual keys / spend tracking / UI.
-  image: ghcr.io/berriai/litellm:v1.90.0
+  # Pin to the currently validated LiteLLM image; the chart default main-stable would be a fresh
+  # pull. DB mode (Postgres) enables live model updates over the admin API with no restart, plus
+  # virtual keys / spend tracking / UI.
+  image: ghcr.io/berriai/litellm:v1.90.3
   replicas: 1
   applyMode: api
   # Required in api mode so the operator can authenticate admin API calls; the env var below is
   # still required by LiteLLM itself inside the managed proxy container.
   apiAccess:
     masterKeyRef:
-      name: litellm-next-secret
+      name: litellm-secret
       key: LITELLM_MASTER_KEY
   service:
-    # Match the file-mode litellm Service port so callers (http://litellm.ai.svc/...) work after
-    # the swap. The proxy container always listens on 4000; this maps Service 80 -> 4000.
+    # Match the existing litellm Service port for callers (http://litellm.ai.svc/...). The proxy
+    # container always listens on 4000; this maps Service 80 -> 4000.
     port: 80
   env:
     # The operator uses apiAccess for admin API calls, but LiteLLM still needs these env vars.
     - name: LITELLM_MASTER_KEY
       valueFrom:
         secretKeyRef:
-          name: litellm-next-secret
+          name: litellm-secret
           key: LITELLM_MASTER_KEY
     - name: LITELLM_SALT_KEY
       valueFrom:
         secretKeyRef:
-          name: litellm-next-secret
+          name: litellm-secret
           key: LITELLM_SALT_KEY
     # DATABASE_URL is a static connection string — CNPG managed.roles supports password rotation,
     # but the cluster-api-proxy version of the role secret must be kept in sync manually if
-    # rotation is ever enabled (litellm-db-secret → litellm-next-secret).
+    # rotation is ever enabled (litellm-db-secret → litellm-secret).
     - name: DATABASE_URL
       valueFrom:
         secretKeyRef:
-          name: litellm-next-secret
+          name: litellm-secret
           key: DATABASE_URL
     # Backs the os.environ/LLAMA_SERVER_API_KEY indirection in the model params below.
     - name: LLAMA_SERVER_API_KEY
       valueFrom:
         secretKeyRef:
-          name: litellm-next-secret
+          name: litellm-secret
           key: LLAMA_SERVER_API_KEY
   litellmSettings:
     callbacks: ["prometheus"]
@@ -55,9 +55,9 @@ spec:
     # Retrying a failed 10–30 min prefill restarts from scratch on the sole GPU backend.
     num_retries: 0
   route:
-    # Temporary hostname for parallel validation; the swap moves traffic to the litellm Service.
+    # Primary internal litellm route.
     hostnames:
-      - "litellm-next.${SECRET_DOMAIN}"
+      - "litellm.${SECRET_DOMAIN}"
     parentRefs:
       - name: envoy-internal
         namespace: network
