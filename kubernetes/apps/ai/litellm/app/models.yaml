@@ -5,14 +5,14 @@ metadata:
   name: qwen-3-6
 spec:
   modelName: qwen-3.6
-  proxyRef: litellm-next
+  proxyRef: litellm
   params:
     model: openai/qwen-3.6
     apiBase: http://sglang.ai.svc.cluster.local/v1
     # Literal os.environ indirection backed by the proxy's LLAMA_SERVER_API_KEY env.
     apiKey: os.environ/LLAMA_SERVER_API_KEY
     additional:
-      # Thinking-on + long-context agent prefills can exceed 600 s. Match the file-mode proxy.
+      # Thinking-on + long-context agent prefills can exceed 600 s.
       timeout: 1800
       stream_timeout: 1800
       num_retries: 0
@@ -27,7 +27,7 @@ metadata:
   name: qwen3-embedding
 spec:
   modelName: qwen3-embedding
-  proxyRef: litellm-next
+  proxyRef: litellm
   params:
     model: openai/qwen3-embedding
     # Explicit base URL avoids LLMKube auto-registration projecting /v1/embeddings as apiBase.
@@ -45,7 +45,7 @@ metadata:
   name: qwen-3-6-fast
 spec:
   modelName: qwen-3.6-fast
-  proxyRef: litellm-next
+  proxyRef: litellm
   params:
     model: openai/qwen-3.6
     apiBase: http://sglang.ai.svc.cluster.local/v1
