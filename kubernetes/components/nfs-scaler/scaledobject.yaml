@@ -18,6 +18,11 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-        query: max(max_over_time(probe_success{instance=~".+:2049"}[1m])) or on() vector(0)
+        # Fail open when the probe metric is absent so a monitoring outage does not
+        # scale down NFS-dependent workloads. A present-but-failing probe still
+        # returns 0 and scales the workload down when NFS is actually unreachable.
+        query: >
+          max(max_over_time(probe_success{instance=~".+:2049"}[1m]))
+          or on() absent(max_over_time(probe_success{instance=~".+:2049"}[1m]))
         threshold: "1"
         ignoreNullValues: "true"

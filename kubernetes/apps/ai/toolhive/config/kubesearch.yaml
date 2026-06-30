@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name kubesearch
-  namespace: ai
 spec:
   image: ghcr.io/perfectra1n/kubesearch-mcp:master
   transport: streamable-http
@@ -31,13 +30,13 @@ spec:
           startupProbe:
             httpGet:
               path: /healthz
-              port: *port
+              port: mcp
             periodSeconds: 5
             failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /healthz
-              port: *port
+              port: mcp
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
@@ -60,7 +59,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: kubesearch-opt
-  namespace: ai
 spec:
   image: ghcr.io/perfectra1n/kubesearch-mcp:master
   transport: streamable-http
@@ -88,13 +86,13 @@ spec:
           startupProbe:
             httpGet:
               path: /healthz
-              port: 3000
+              port: mcp
             periodSeconds: 5
             failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 3000
+              port: mcp
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
@@ -117,6 +115,5 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: kubesearch
-  namespace: ai
 spec:
   toolsFilter: []

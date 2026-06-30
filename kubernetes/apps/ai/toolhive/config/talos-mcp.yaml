@@ -3,7 +3,6 @@ apiVersion: talos.dev/v1alpha1
 kind: ServiceAccount
 metadata:
   name: talos-mcp
-  namespace: ai
 spec:
   roles: ["os:reader"]
 ---
@@ -11,7 +10,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name talos-mcp
-  namespace: ai
 spec:
   image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2
   transport: streamable-http
@@ -65,7 +63,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: talos-mcp-opt
-  namespace: ai
 spec:
   image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2
   transport: streamable-http
@@ -119,6 +116,5 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: talos-mcp
-  namespace: ai
 spec:
   toolsFilter: []

@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name grafana
-  namespace: ai
 spec:
   image: grafana/mcp-grafana:0.17.0
   transport: stdio
@@ -40,7 +39,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: grafana-opt
-  namespace: ai
 spec:
   image: grafana/mcp-grafana:0.17.0
   transport: stdio
@@ -77,7 +75,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: grafana
-  namespace: ai
 spec:
   # Self-hosted Grafana OSS with Prometheus + Alertmanager only.
   # Excludes Grafana Cloud features (Incident, OnCall, Sift, Assertions),

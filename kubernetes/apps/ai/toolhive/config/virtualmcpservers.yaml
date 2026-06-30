@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: flux
-  namespace: ai
 spec:
   replicas: 2
   sessionStorage:
@@ -26,7 +25,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: observability
-  namespace: ai
 spec:
   replicas: 2
   sessionStorage:
@@ -51,7 +49,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: ha
-  namespace: ai
 spec:
   replicas: 2
   sessionStorage:
@@ -74,7 +71,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: search
-  namespace: ai
 spec:
   replicas: 2
   sessionStorage:
@@ -97,7 +93,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: database
-  namespace: ai
 spec:
   replicas: 2
   sessionStorage:
@@ -120,7 +115,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: resources
-  namespace: ai
 spec:
   replicas: 2
   sessionStorage:
@@ -143,7 +137,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
   name: unified
-  namespace: ai
 spec:
   # Single replica on purpose: the optimizer's tool index is in-memory per-pod, so a session
   # that lands on a second replica triggers a full re-embed (lazyInjectSessionTools). One
@@ -153,6 +146,9 @@ spec:
     spec:
       containers:
         - name: vmcp
+          env:
+            - name: OPENAI_API_KEY
+              value: ${LITELLM_API_KEY}
           resources:
             requests:
               cpu: 100m
@@ -168,8 +164,6 @@ spec:
   incomingAuth:
     type: anonymous
   serviceType: ClusterIP
-  embeddingServerRef:
-    name: toolhive-embeddings
   groupRef:
     name: all
   config:
@@ -178,4 +172,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
     optimizer:
+      embeddingProvider: openai
+      embeddingService: http://litellm.ai.svc.cluster.local/v1
+      embeddingModel: qwen3-embedding
       embeddingServiceTimeout: 120s
