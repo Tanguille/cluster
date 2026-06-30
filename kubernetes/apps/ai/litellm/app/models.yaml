@@ -2,17 +2,15 @@
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
-  name: qwen-3-6
+  name: qwen-3.6
 spec:
   modelName: qwen-3.6
   proxyRef: litellm
   params:
     model: openai/qwen-3.6
     apiBase: http://sglang.ai.svc.cluster.local/v1
-    # Literal os.environ indirection backed by the proxy's LLAMA_SERVER_API_KEY env.
     apiKey: os.environ/LLAMA_SERVER_API_KEY
     additional:
-      # Thinking-on + long-context agent prefills can exceed 600 s.
       timeout: 1800
       stream_timeout: 1800
       num_retries: 0
@@ -20,29 +18,10 @@ spec:
     mode: chat
     maxInputTokens: 262144
     maxOutputTokens: 8192
----
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
-  name: qwen3-embedding
-spec:
-  modelName: qwen3-embedding
-  proxyRef: litellm
-  params:
-    model: openai/qwen3-embedding
-    # Explicit base URL avoids LLMKube auto-registration projecting /v1/embeddings as apiBase.
-    apiBase: http://qwen3-embedding.ai.svc.cluster.local:8080/v1
-    apiKey: os.environ/LLAMA_SERVER_API_KEY
-    additional:
-      timeout: 120
-      num_retries: 0
-  info:
-    mode: embedding
----
-apiVersion: litellm.home-operations.com/v1alpha1
-kind: LiteLLMModel
-metadata:
-  name: qwen-3-6-fast
+  name: qwen-3.6-fast
 spec:
   modelName: qwen-3.6-fast
   proxyRef: litellm
@@ -50,9 +29,6 @@ spec:
     model: openai/qwen-3.6
     apiBase: http://sglang.ai.svc.cluster.local/v1
     apiKey: os.environ/LLAMA_SERVER_API_KEY
-    # Thinking-off twin: forwarded to SGLang via extra_body (validated live — litellm passes
-    # chat_template_kwargs through even with drop_params). Avoids the empty-content/decode-burn
-    # failure under json_schema for latency-sensitive callers (agent-pr-review).
     additional:
       timeout: 600
       stream_timeout: 600
