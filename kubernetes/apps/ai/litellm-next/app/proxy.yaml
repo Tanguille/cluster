@@ -32,6 +32,9 @@ spec:
         secretKeyRef:
           name: litellm-next-secret
           key: LITELLM_SALT_KEY
+    # DATABASE_URL is a static connection string — CNPG managed.roles supports password rotation,
+    # but the cluster-api-proxy version of the role secret must be kept in sync manually if
+    # rotation is ever enabled (litellm-db-secret → litellm-next-secret).
     - name: DATABASE_URL
       valueFrom:
         secretKeyRef:

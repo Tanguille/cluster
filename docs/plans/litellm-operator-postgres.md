@@ -11,7 +11,7 @@ the repo-wide move off `postgres-init`.
 
 ## What this branch adds (`feat/litellm-operator-postgres`)
 - `kubernetes/apps/litellm-system/` — new namespace + `litellm-operator` install (OCIRepository
-  chart `0.0.3`, HelmRelease; operator image is digest-pinned by the chart). Self-managed
+  chart `0.0.4`, HelmRelease; operator image is digest-pinned by the chart). Self-managed
   validating-webhook cert (no cert-manager dep).
 - `kubernetes/apps/database/cloudnative-pg/cluster/`:
   - `cluster.yaml` — added `spec.managed.roles` entry `litellm` (login; password from `litellm-db`).
@@ -76,12 +76,16 @@ Revert the branch (or re-add `./litellm` to `ai/kustomization.yaml`). The `Datab
 is untouched until step 4, so rollback before the swap is a no-op for live traffic.
 
 ## Notes / risks
-- Operator is **v0.0.3, v1alpha1** (early alpha). Chart versioning is rough (appVersion 0.0.0;
+- Operator is **v0.0.4, v1alpha1** (early alpha). Chart versioning is rough (appVersion 0.0.0;
   image digest-pinned). Treat as alpha.
 - `cluster.yaml` `managed.roles` is also edited by the repo-wide postgres-init→CR migration —
   coordinate so both roles land in the same list (no conflict; just additive entries).
 - `litellm-next` reuses the **same** master/salt keys as the current litellm, so client virtual
   keys keep working across the swap.
+- `DATABASE_URL` in the proxy secret is a static connection string; CNPG `managed.roles` supports
+  password rotation, but if rotation is ever enabled the litellm role secret must be synced
+  manually (cluster-api-proxy `litellm-db-secret` → `litellm-next-secret`). Not enabled today;
+  flagged as a known gap.
 - `apiAccess.masterKeyRef` is required for `applyMode: api` so the operator can authenticate admin
   API calls. `LITELLM_MASTER_KEY` is also supplied via `spec.env` for the LiteLLM proxy process
   itself; this is intentionally the same secret key, not a second credential.
