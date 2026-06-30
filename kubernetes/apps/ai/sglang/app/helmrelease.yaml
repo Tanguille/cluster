@@ -96,7 +96,12 @@ spec:
               # for cached prefix states); served-model-name qwen-3.6 (drop-in for litellm/karakeep);
               # mamba-ssm-dtype bfloat16 (EXP-002) halves the fp32 GatedDeltaNet state (6.89→3.45 GB) →
               # KV pool +87% (127K→237,446 tokens), quality-neutral — the headroom Hermes's 124K prefix needs.
-              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16"
+              # max-queued-requests 32 (2026-06-30): the real running-request ceiling is 16 (mamba cache
+              # 48 // the fork's hardcoded ×3 ratio, not the 32 requested here or the KV pool, which never
+              # binds) — bursts past 16 used to queue unbounded and client-timeout-abort 1300s+ later
+              # while KV usage sat at only 0.42-0.48. Bounding the queue converts that into a fast
+              # rejection instead; doesn't touch the running-request cap so worst-case VRAM is unchanged.
+              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32"
             probes:
               startup: &probeBase
                 enabled: true
