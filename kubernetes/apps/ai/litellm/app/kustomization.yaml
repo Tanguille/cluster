@@ -4,18 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - secret.sops.yaml
-  - proxy.yaml
-  - models.yaml
-  - servicemonitor.yaml
-  - grafanadashboard.yaml
-
-configMapGenerator:
-  - name: litellm-dashboard
-    files:
-      - dashboard/litellm.json
-    options:
-      annotations:
-        kustomize.toolkit.fluxcd.io/substitute: disabled
-generatorOptions:
-  disableNameSuffixHash: true
+  - helmrelease.yaml
+  - ocirepository.yaml
