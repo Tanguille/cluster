@@ -4,9 +4,16 @@ kind: Model
 metadata:
   name: qwen3-embedding
 spec:
-  source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-f16.gguf
+  # Q8_0 over F16: measured 194-item ToolHive batch at ~10s/request isolated,
+  # 19-52s under 3x concurrent (vmcp + memini both hit this server) — GPU
+  # compute-bound on the weak iGPU, not slots/CPU (confirmed via kubectl top:
+  # CPU peaked at 424m of an uncapped budget during the same test). Q8_0 is
+  # ~half the compute of F16 for negligible quality loss on embedding-only
+  # (non-generative) similarity search, and embeddings aren't cached/persisted
+  # across sessions so there's no stale-vector consistency concern either way.
+  source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf
   format: gguf
-  quantization: F16
+  quantization: Q8_0
   hardware:
     accelerator: vulkan
     gpu:
