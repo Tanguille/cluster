@@ -31,13 +31,13 @@ spec:
           startupProbe:
             httpGet:
               path: /healthz
-              port: *port
+              port: mcp
             periodSeconds: 5
             failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /healthz
-              port: *port
+              port: mcp
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
@@ -88,13 +88,13 @@ spec:
           startupProbe:
             httpGet:
               path: /healthz
-              port: 3000
+              port: mcp
             periodSeconds: 5
             failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /healthz
-              port: 3000
+              port: mcp
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
