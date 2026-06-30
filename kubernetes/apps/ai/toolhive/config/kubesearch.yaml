@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name kubesearch
-  namespace: ai
 spec:
   image: ghcr.io/perfectra1n/kubesearch-mcp:master
   transport: streamable-http
@@ -60,7 +59,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: kubesearch-opt
-  namespace: ai
 spec:
   image: ghcr.io/perfectra1n/kubesearch-mcp:master
   transport: streamable-http
@@ -117,6 +115,5 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: kubesearch
-  namespace: ai
 spec:
   toolsFilter: []

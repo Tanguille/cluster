@@ -189,15 +189,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_json_error(f"XMRig miner offline: {e}", 503)
 
-    def proxy(self, url):
-        """Fetch JSON from a local service and return to client"""
-        with urllib.request.urlopen(url, timeout=5) as r:
-            data = r.read()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(data)
-
     def proxy_monerod(self):
         """Send a get_info RPC call to monerod and return JSON.
 

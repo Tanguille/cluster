@@ -3,7 +3,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: &name karakeep
-  namespace: ai
 spec:
   image: ghcr.io/karakeep-app/karakeep-mcp:0.32.0
   transport: stdio
@@ -40,7 +39,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: karakeep-opt
-  namespace: ai
 spec:
   image: ghcr.io/karakeep-app/karakeep-mcp:0.32.0
   transport: stdio
@@ -77,7 +75,6 @@ apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: karakeep
-  namespace: ai
 spec:
   toolsOverride:
     add-bookmark-to-list:
