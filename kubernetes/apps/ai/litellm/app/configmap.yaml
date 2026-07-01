@@ -82,6 +82,22 @@ data:
         model_info:
           mode: embedding
 
+      # bge-small-en-v1.5 on LLMKube (CPU). Dedicated to vmcp-unified's per-session
+      # tool-description search ONLY — decoupled from memini's qwen3-embedding so the
+      # two never queue behind each other. ~18x fewer params than qwen3-embedding
+      # means sub-second embeds for the ~194-tool/~1095-token batch, comfortably
+      # under toolhive's hardcoded 30s server WriteTimeout (not configurable —
+      # confirmed against the deployed v0.32.0 source).
+      - model_name: vmcp-embedding
+        litellm_params:
+          model: openai/vmcp-embedding
+          api_base: http://vmcp-embedding.ai.svc.cluster.local:8080/v1
+          api_key: os.environ/LLAMA_SERVER_API_KEY
+          timeout: 30
+          num_retries: 2
+        model_info:
+          mode: embedding
+
     litellm_settings:
       callbacks: ["prometheus"]
       service_callback: ["prometheus_system"]

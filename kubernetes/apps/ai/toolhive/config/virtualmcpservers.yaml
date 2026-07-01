@@ -174,5 +174,13 @@ spec:
     optimizer:
       embeddingProvider: openai
       embeddingService: http://litellm.ai.svc.cluster.local/v1
-      embeddingModel: qwen3-embedding
-      embeddingServiceTimeout: 120s
+      # Dedicated small CPU embedder (bge-small, ~33M params), NOT memini's shared
+      # qwen3-embedding — decouples this session's re-embed-every-time burst from
+      # memini's traffic and clears toolhive's hardcoded 30s server WriteTimeout
+      # (pkg/vmcp/server/server.go, not configurable) with real margin instead of
+      # occasionally exceeding it under concurrent load.
+      embeddingModel: vmcp-embedding
+      # Matches the real constraint (the 30s WriteTimeout) instead of the previous
+      # 120s, which was never actually reachable — the server kills the session at
+      # 30s regardless of this value.
+      embeddingServiceTimeout: 30s
