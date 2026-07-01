@@ -181,7 +181,14 @@ spec:
       # Reverting to qwen3-embedding (32K native context) until a small model
       # with genuinely long context is found.
       embeddingModel: qwen3-embedding
-      # Matches toolhive's hardcoded 30s server WriteTimeout (pkg/vmcp/server/
-      # server.go, not configurable) — kept from the vmcp-embedding attempt,
-      # this part was correct and orthogonal to the model-choice bug above.
-      embeddingServiceTimeout: 30s
+      # REVERTED AGAIN 2026-07-02: 30s is toolhive's hardcoded incoming-request
+      # WriteTimeout (pkg/vmcp/server/server.go, not configurable) — but THIS
+      # field is a different thing: vmcp's own outbound client timeout when it
+      # calls litellm to build the tool index. Under concurrent load,
+      # qwen3-embedding's real ~194-tool batch can take 20-50s; at 30s vmcp gave
+      # up on its own outbound call too early, which measurably increased
+      # session failures (likely via a retry-storm feedback loop: failed
+      # session -> client retries -> another 194-tool re-embed -> more load).
+      # 120s is the only value actually validated at 80% session success —
+      # don't shrink this to "match" the unrelated 30s server timeout again.
+      embeddingServiceTimeout: 120s
