@@ -60,5 +60,6 @@ spec:
           - port: http
             scheme: http
             path: /metrics
-            interval: 1m
+            # each scrape triggers Nextcloud's DB-heavy serverinfo API; upstream examples use 5m
+            interval: 5m
             scrapeTimeout: 10s
