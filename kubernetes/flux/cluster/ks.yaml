@@ -75,5 +75,6 @@ spec:
       target:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
-        # Only apply default substituteFrom to Kustomizations that don't opt out (qbitrr uses its own ks.yaml)
+        # Escape hatch: label a child Kustomization with flux.toolkit.fluxcd.io/substitute-from: skip
+        # to opt out of these defaults (the patch REPLACES spec.postBuild.substituteFrom wholesale).
         labelSelector: "flux.toolkit.fluxcd.io/substitute-from notin (skip)"
