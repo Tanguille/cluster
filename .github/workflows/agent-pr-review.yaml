@@ -45,14 +45,37 @@ jobs:
           inline_findings_max: "12"
           publish_mode: review_comment
           system_prompt_mode: append
-          system_prompt: |
-            For dependency upgrades and Renovate PRs: when the PR body does not already include meaningful upstream release notes or a changelog summary, fetch the relevant release notes and add a **Release notes** section to review_markdown. Summarize user-visible changes, breaking changes, and security fixes in prose. Do not enumerate raw upstream PR links, issue references, compare links, or commit SHAs; include at most one release-page URL if useful.
+          # Renovate embeds upstream notes under a literal "### Release Notes" heading whenever it
+          # can resolve a changelog source; gate on that so the model only spends tool calls
+          # fetching notes when Renovate could not surface them. When it must fetch, steer it to
+          # the authenticated gh_api tool — web_fetch of github.com HTML truncates to page
+          # boilerplate at the response cap and never yielded usable notes (validated in run logs).
+          system_prompt: >-
+            ${{ contains(github.event.pull_request.body, '### Release Notes')
+            && 'The PR body already contains upstream release notes from Renovate. Do not fetch
+            release notes externally. Summarize the embedded notes in a **Release notes** section
+            in review_markdown: user-visible changes, breaking changes, and security fixes in
+            prose. Do not enumerate raw upstream PR links, issue references, compare links, or
+            commit SHAs.'
+            || 'For dependency upgrade and Renovate PRs the body lacks upstream release notes.
+            Fetch them with the gh_api tool (api.github.com /repos/OWNER/REPO/releases JSON); do
+            not web_fetch github.com HTML pages, they truncate to boilerplate. Add a **Release
+            notes** section to review_markdown summarizing user-visible changes, breaking changes,
+            and security fixes in prose. Do not enumerate raw upstream PR links, issue references,
+            compare links, or commit SHAs; include at most one release-page URL if useful. For
+            digest-only bumps with no upstream changelog, state that briefly instead of spending
+            tool calls searching.' }}
           standards_file: AGENTS.md
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
           model_context_tokens: "120000"
           allowed_source_hosts: "github.com,api.github.com,raw.githubusercontent.com,gitlab.com,registry.terraform.io,artifacthub.io,www.talos.dev,talos.dev,fluxcd.io,kubernetes.io,cilium.io"
           tool_mode: native_loop
+          # gh_api is the tool loop's only authenticated fetch path; left unset it is locked to
+          # this repo, so upstream release lookups fell back to anonymous HTML scraping and failed
+          # ("GitHub API access was restricted for the external repository" in posted reviews).
+          # "*" keeps the action's read-only path allowlist (releases/commits; secrets denied).
+          tool_allowed_gh_api_repos: "*"
           # Default 120s caps the WHOLE native_loop — less than one cold ~100K prefill on this GPU.
           # 900s lets a serialized review finish its tool loop (within-review prefix cache keeps
           # later turns cheap; runner maxRunners:1 serializes the renovate burst).
