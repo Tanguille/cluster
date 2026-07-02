@@ -18,8 +18,16 @@ spec:
   # is still shared — if session failures return, check contention here first
   # (the old shared-model setup measured 19-52s under 3x concurrency).
   # Community GGUF (no first-party one) — mykor's is the most-downloaded conversion.
-  source: https://huggingface.co/mykor/harrier-oss-v1-270m-GGUF/resolve/main/harrier-oss-v1-270M-Q8_0.gguf
+  # Pinned to a repo revision (immutable bytes — community GGUFs can be rebuilt
+  # in place under the same filename); Renovate bumps the sha via the git-refs
+  # custom manager in .renovaterc.json5 when upstream main moves.
+  source: https://huggingface.co/mykor/harrier-oss-v1-270m-GGUF/resolve/fe07a2a15994730f1b8f13943927bc8198bd7fa7/harrier-oss-v1-270M-Q8_0.gguf
   quantization: Q8_0
+  # Re-fetch when the source changes. Without this, a source change keeps
+  # serving the stale cached file (2026-07-02: this Model silently served the
+  # rolled-back bge-small gguf after the switch to harrier — llmkube only
+  # flags SourceDrifted, it never re-downloads under the default IfNotPresent).
+  refreshPolicy: OnChange
   hardware:
     accelerator: vulkan
     gpu:
