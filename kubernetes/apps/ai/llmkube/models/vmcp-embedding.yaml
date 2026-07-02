@@ -40,13 +40,16 @@ spec:
   modelRef: vmcp-embedding
   mode: embedding
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8fe0c6ae757c2f5118ab765622d7de1c9f9c4ab5416aa245222332f21e2182bb
-  # 4 slots on purpose: post-cutover this server takes BOTH the once-per-session
-  # 194-tool build batch AND the continuous find_tool query stream.
-  parallelSlots: 4
+  # 2 slots (the Vulkan floor — warmup hangs at parallel=1, llama.cpp #24307):
+  # the iGPU is compute-bound, so extra slots add interleave, not throughput
+  # (measured on qwen3-embedding: 4 slots didn't move latency, Q8_0 did). Two
+  # slots let find_tool queries flow past an in-flight session-build batch while
+  # halving the UMA buffer allocation on the shared iGPU.
+  parallelSlots: 2
   # 2048 tokens/slot — ~1.75x margin over the real ~1166-token batch, same
   # margin ratio that worked for qwen3-embedding. Harrier's native window is
   # 32K, so the slot size (not the model) is the only ceiling here.
-  contextSize: 8192
+  contextSize: 4096
   uBatchSize: 2048
   # mode: embedding makes the operator inject --embedding --pooling last and
   # --metrics itself (verified on the live qwen3-embedding pod) — don't repeat them.
