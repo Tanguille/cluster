@@ -54,10 +54,11 @@ spec:
   # slots let find_tool queries flow past an in-flight session-build batch while
   # halving the UMA buffer allocation on the shared iGPU.
   parallelSlots: 2
-  # 2048 tokens/slot — ~1.75x margin over the real ~1166-token batch, same
-  # margin ratio that worked for qwen3-embedding. Harrier's native window is
-  # 32K, so the slot size (not the model) is the only ceiling here.
-  contextSize: 4096
+  # 8192 tokens/slot — the real batch's largest single tool description is
+  # 2155 tokens under harrier's Gemma3 tokenizer (~1.85x qwen3's count for the
+  # same text; 2048/slot rejected it live 2026-07-02). Harrier's native window
+  # is 32K and KV for a 270m model is tens of MB, so headroom is cheap.
+  contextSize: 16384
   uBatchSize: 2048
   # mode: embedding makes the operator inject --embedding --pooling last and
   # --metrics itself (verified on the live qwen3-embedding pod) — don't repeat them.
