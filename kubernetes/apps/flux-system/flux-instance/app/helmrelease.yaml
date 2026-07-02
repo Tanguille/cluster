@@ -38,7 +38,7 @@ spec:
                 value: --requeue-dependency=5s
             target:
               kind: Deployment
-              name: (kustomize-controller|helm-controller|source-controller)
+              name: (helm-controller|source-controller)
           - # Individual memory limits per controller based on 30-day usage analysis
             # Peak usage: helm=330MB, kustomize=203MB, source=127MB, notification=96MB, operator=291MB
             # Previous limit was 2Gi per controller (10Gi total), now optimized to 1.92Gi total
@@ -106,11 +106,14 @@ spec:
             target:
               kind: Deployment
               name: notification-controller
-          - # Enable in-memory kustomize builds
+          - # kustomize-controller: higher concurrency + in-memory builds
             patch: |
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --concurrent=20
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --requeue-dependency=5s
               - op: replace
                 path: /spec/template/spec/volumes/0
                 value:
