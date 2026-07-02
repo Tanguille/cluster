@@ -9,21 +9,6 @@ spec:
     kind: OCIRepository
     name: crowdsec
   interval: 1h
-  postRenderers:
-    - kustomize:
-        patches:
-          - patch: |-
-              - op: add
-                path: /spec/template/spec/initContainers
-                value:
-                - name: init-db
-                  image: ghcr.io/home-operations/postgres-init:18
-                  envFrom:
-                  - secretRef:
-                      name: crowdsec-secret
-            target:
-              kind: Deployment
-              group: apps
   values:
     podAnnotations:
       reloader.stakater.com/auto: "true"
@@ -115,6 +100,13 @@ spec:
             duration: 24h
         on_success: break
     lapi:
+      # Create/verify the crowdsec Postgres database before LAPI starts
+      extraInitContainers:
+        - name: init-db
+          image: ghcr.io/home-operations/postgres-init:18
+          envFrom:
+            - secretRef:
+                name: crowdsec-secret
       # CPU only: chart default 500m vs ~13m observed; memory left at chart default
       resources:
         requests:
