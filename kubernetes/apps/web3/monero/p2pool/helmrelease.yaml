@@ -50,11 +50,6 @@ spec:
                   secretKeyRef:
                     name: p2pool-wallet
                     key: address
-            ports:
-              - name: stratum
-                containerPort: &stratum 3333
-              - name: p2p
-                containerPort: &p2p 37890
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: false
@@ -72,17 +67,14 @@ spec:
                 custom: true
                 spec:
                   tcpSocket:
-                    port: *stratum
+                    port: &stratum 3333
                   periodSeconds: 30
-                  failureThreshold: 3
               readiness:
                 enabled: true
                 custom: true
                 spec:
                   tcpSocket:
                     port: *stratum
-                  periodSeconds: 10
-                  failureThreshold: 3
               startup:
                 enabled: true
                 custom: true
@@ -103,16 +95,14 @@ spec:
         type: LoadBalancer
         externalTrafficPolicy: Local
         annotations:
-          lbipam.cilium.io/ips: 192.168.0.5
+          lbipam.cilium.io/ips: ${P2POOL_IP}
         loadBalancerSourceRanges:
           - ${LAN_CIDR}
         ports:
           stratum:
             port: *stratum
-            targetPort: stratum
           p2p:
-            port: *p2p
-            targetPort: p2p
+            port: 37890
     persistence:
       data:
         storageClass: ceph-filesystem

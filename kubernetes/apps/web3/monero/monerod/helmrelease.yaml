@@ -12,8 +12,6 @@ spec:
   values:
     controllers:
       monerod:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -36,13 +34,6 @@ spec:
               - "--add-priority-node=nodes.hashvault.pro:18080"
               - "--prune-blockchain"
               - "--sync-pruned-blocks"
-            ports:
-              - name: p2p
-                containerPort: 18080
-              - name: rpc
-                containerPort: 18089
-              - name: zmq
-                containerPort: 18083
             resources:
               requests:
                 cpu: 50m
@@ -59,7 +50,6 @@ spec:
                     path: /get_info
                     port: 18089
                   periodSeconds: 30
-                  failureThreshold: 3
               readiness:
                 enabled: true
                 custom: true
@@ -67,8 +57,6 @@ spec:
                   httpGet:
                     path: /get_info
                     port: 18089
-                  periodSeconds: 10
-                  failureThreshold: 3
               startup:
                 enabled: true
                 custom: true
@@ -87,19 +75,16 @@ spec:
         type: LoadBalancer
         externalTrafficPolicy: Local
         annotations:
-          lbipam.cilium.io/ips: 192.168.0.8
+          lbipam.cilium.io/ips: ${MONEROD_IP}
         loadBalancerSourceRanges:
           - ${LAN_CIDR}
         ports:
           p2p:
             port: 18080
-            targetPort: p2p
           rpc:
             port: 18089
-            targetPort: rpc
           zmq:
             port: 18083
-            targetPort: zmq
     persistence:
       data:
         storageClass: ceph-block

@@ -27,44 +27,33 @@ spec:
               limits:
                 cpu: 100m
                 memory: 64Mi
-            command:
-              - sh
-            args:
-              - -c
-              - |
-                mkdir -p /tmp/nginx && \
-                nginx -g 'daemon off;';
-            ports:
-              - name: web
-                containerPort: 80
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
+              readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
           dashboard-server:
             image:
               repository: python
               tag: 3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1
             command:
-              - sh
+              - python3
+              - /config/server.py
             args:
-              - -c
-              - |
-                cp /config/server.py /tmp/server.py && \
-                chmod +x /tmp/server.py && \
-                python3 /tmp/server.py --port 8080 --data-dir /var/lib/p2pool/api --wallet "$(P2POOL_WALLET_ADDRESS)" --nano-p2pool
+              - --port
+              - "8080"
+              - --data-dir
+              - /var/lib/p2pool/api
+              - --wallet
+              - $(P2POOL_WALLET_ADDRESS)
             env:
               - name: P2POOL_WALLET_ADDRESS
                 valueFrom:
                   secretKeyRef:
                     name: p2pool-wallet
                     key: address
-            ports:
-              - name: dashboard-api
-                containerPort: 8080
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
+              readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
@@ -82,11 +71,9 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
     service:
       dashboard:
-        type: ClusterIP
         ports:
           web:
             port: 80
-            targetPort: web
     route:
       dashboard:
         annotations:
@@ -105,28 +92,40 @@ spec:
         existingClaim: p2pool-shared-api-data
         globalMounts:
           - path: /var/lib/p2pool/api
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          dashboard:
+            web:
+              - path: /tmp
       dashboard-html:
         type: configMap
-        name: "dashboard"
-        globalMounts:
-          - path: /usr/share/nginx/html/index.html
-            subPath: dashboard.html
-          - path: /usr/share/nginx/html/dashboard.css
-            subPath: dashboard.css
-          - path: /usr/share/nginx/html/dashboard.js
-            subPath: dashboard.js
-          - path: /usr/share/nginx/html/favicon.png
-            subPath: favicon.png
+        name: dashboard
+        advancedMounts:
+          dashboard:
+            web:
+              - path: /usr/share/nginx/html/index.html
+                subPath: dashboard.html
+              - path: /usr/share/nginx/html/dashboard.css
+                subPath: dashboard.css
+              - path: /usr/share/nginx/html/dashboard.js
+                subPath: dashboard.js
+              - path: /usr/share/nginx/html/favicon.png
+                subPath: favicon.png
       dashboard-server-script:
         type: configMap
-        name: "dashboard-server-script"
-        globalMounts:
-          - path: /config/server.py
-            subPath: server.py
-            readOnly: true
+        name: dashboard-server-script
+        advancedMounts:
+          dashboard:
+            dashboard-server:
+              - path: /config/server.py
+                subPath: server.py
+                readOnly: true
       nginx-config:
         type: configMap
-        name: "dashboard-nginx-config"
-        globalMounts:
-          - path: /etc/nginx/nginx.conf
-            subPath: nginx.conf
+        name: dashboard-nginx-config
+        advancedMounts:
+          dashboard:
+            web:
+              - path: /etc/nginx/nginx.conf
+                subPath: nginx.conf
