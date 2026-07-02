@@ -11,6 +11,19 @@ spec:
     kind: OCIRepository
     name: nextcloud
 
+  # FROM_ADDRESS/SMTP_HOST live in the app's sops secret, NOT in cluster-secrets —
+  # ${VAR} substitution never resolved them (silently empty until flux strict mode
+  # made it a build error). Inject them into chart values the flux-native way.
+  valuesFrom:
+    - kind: Secret
+      name: nextcloud-secret
+      valuesKey: FROM_ADDRESS
+      targetPath: mail.fromAddress
+    - kind: Secret
+      name: nextcloud-secret
+      valuesKey: SMTP_HOST
+      targetPath: mail.smtp.host
+
   values:
     prometheus:
       rules:
@@ -91,10 +104,9 @@ spec:
 
       mail:
         enabled: true
-        fromAddress: ${FROM_ADDRESS}
+        # fromAddress + smtp.host injected via spec.valuesFrom (see top of file)
         domain: gmail.com
         smtp:
-          host: ${SMTP_HOST}
           port: 465
           authtype: LOGIN
           secure: starttls
@@ -440,7 +452,10 @@ spec:
                 topologyKey: kubernetes.io/hostname
         env:
           - name: MAIL_FROM_ADDRESS
-            value: ${FROM_ADDRESS}
+            valueFrom:
+              secretKeyRef:
+                name: nextcloud-secret
+                key: FROM_ADDRESS
           - name: PHP_MEMORY_LIMIT
             value: "8G"
         command:
