@@ -7,8 +7,11 @@
 # apps/ai/sglang/README.md). It mirrors scripts/sglang-env-rebuild.sh exactly; the two
 # MUST stay in sync (FORK_REF, SGLANG_TAG, the three patches below).
 #
-# Build needs a gfx1201 GPU in the sandbox (setup.sh asserts torch.cuda.is_available());
-# built with podman --device, not BuildKit. See README.md.
+# Builds WITHOUT a GPU: the HIP kernels cross-compile via PYTORCH_ROCM_ARCH=gfx1201, and
+# setup.sh's GPU touches (torch.cuda.is_available() assert, final device verify) are
+# verification-only — non-fatal under its `set -uo pipefail` (no -e) / swallowed below.
+# The import gate at the bottom is the GPU-free build check; the pod's model load at
+# deploy is the real smoke test. See README.md.
 #
 # Base pinned by digest — community tags get rebuilt in place (memo project_ik_llama_image_tags).
 FROM docker.io/rocm/dev-ubuntu-24.04:7.2.4-complete@sha256:92f309c51b52cef8762867848f1529dee821624f23cd5df38455e819538f762f
@@ -61,11 +64,12 @@ RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
 ARG SGLANG_TAG=v0.5.14
 WORKDIR ${REPO_DIR}
 # `|| echo`, NOT `&&`: setup.sh runs under `set -uo pipefail` (no -e), so its exit code is its final
-# verify step — which hard-codes HIP_VISIBLE_DEVICES=0,1 and errors on this single-GPU build host
-# (the gpu-builder gets one R9700). A real failure still surfaces at the grep -q patch guards and the
-# import gate below, so swallowing this one exit is safe. Mirrors sglang-env-rebuild.sh.
+# verify step — which needs a live GPU (torch.cuda.device_count/get_device_name) and always errors on
+# a GPU-less CI runner. The mid-script torch.cuda.is_available() assert is equally non-fatal (no -e).
+# A real failure still surfaces at the grep -q patch guards and the import gate below, so swallowing
+# this one exit is safe. Mirrors sglang-env-rebuild.sh.
 RUN HIP_VISIBLE_DEVICES=0 SGLANG_TAG="${SGLANG_TAG}" ./scripts/setup.sh \
-    || echo "(ignoring setup.sh final-verify exit code — single-GPU build host; gated below)"
+    || echo "(ignoring setup.sh final-verify exit code — GPU-less build host; gated below)"
 
 # --- TP=1 fixes the fork's setup.sh omits (it targets dual-card TP=2). Mirrors ---
 # --- scripts/sglang-env-rebuild.sh. Each grep -q fails the build if the sed missed ---

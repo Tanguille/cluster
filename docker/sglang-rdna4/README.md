@@ -35,34 +35,29 @@ crashes on the first request or OOM-restarts hours in on the first grammar/tool-
 2. `srt/layers/sampler.py` — gate the cross-TP token-id all-reduce on `world > 1` (NCCL lazy-init OOM).
 3. `pip uninstall kernels` — transformers-5.x's hub-kernels loader crashes `import sglang`.
 
-## Build host requirement — needs a gfx1201 GPU
+## Builds GPU-free — no build host requirement
 
-`setup.sh` asserts `torch.cuda.is_available()` and imports the freshly-compiled `.so`, so
-**the build needs the R9700 exposed to the sandbox**. The kernel C++ cross-compiles
-(`PYTORCH_ROCM_ARCH=gfx1201`); the verify/import steps do not. `docker build` doesn't pass
-GPUs — use **podman** with device passthrough:
+The kernel C++ cross-compiles (`PYTORCH_ROCM_ARCH=gfx1201` — an explicit target, no device
+probe). `setup.sh`'s GPU touches (the `torch.cuda.is_available()` assert and the final device
+verify) are verification-only and non-fatal on a GPU-less host (setup.sh has no `set -e`; the
+Dockerfile swallows the final-verify exit and hard-gates on `import sglang` instead). The real
+smoke test moves to deploy: the pod's model load exercises the compiled kernels, and rollback
+is the previous digest. Build locally with plain `docker build docker/sglang-rdna4`.
 
-```bash
-podman build \
-  --device /dev/kfd --device /dev/dri \
-  --group-add keep-groups \
-  -t sglang-rdna4:local \
-  docker/sglang-rdna4
-```
+Known GPU-less caveat: `build_skinny_gemms_int4.sh` imports its freshly-compiled `.so` — if that
+import needs a device it fails with setup.sh's non-fatal WARNING and the wvSplitK **MoE** kernel
+is skipped. Our `qwen36-27b` is dense and never calls it, so this is harmless for this image.
 
 Expect a long build (~15-20 min: the ROCm "complete" base is large; the HIP kernels compile).
 
-## Builds — manual dispatch only
+## Builds — GitHub-hosted CI
 
-`.github/workflows/build-sglang-rdna4.yaml` builds on the **scale-to-zero `gpu-builder`
-runner pinned to control-1** and pushes the `v0.5.14-gfx1201` tag. It is **`workflow_dispatch`
-only** — never auto-fired by a merge or a schedule, because the build shares control-1's single
-R9700 with live serving (the warning below). A Renovate `FORK_REF` / base-digest bump opens a PR;
-dispatch the build by hand (`gh workflow run build-sglang-rdna4.yaml`) when you're ready for a window.
-
-> ⚠️ The build competes with live serving for the GPU node's host RAM + VRAM. For the first
-> build / a cold rebuild, **scale `sglang` to 0 first** (or run inside a serving maintenance
-> window) — a build OOM can leak VRAM and wedge the node. See the cutover doc.
+`.github/workflows/build-sglang-rdna4.yaml` builds on **`ubuntu-latest`** (GPU-free, zero
+contact with control-1 / live serving — no maintenance window needed) and pushes the
+`v0.5.14-gfx1201` tag. It fires on a merged change to `docker/sglang-rdna4/**` (i.e. a
+Renovate `FORK_REF` / base-digest bump) or on manual dispatch
+(`gh workflow run build-sglang-rdna4.yaml`). The image is fully pinned, so there is no
+schedule — nothing changes between such merges.
 
 ## Pin by digest, never the tag
 

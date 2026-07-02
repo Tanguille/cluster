@@ -2,14 +2,20 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Build sglang-rdna4
 
-# Manual-only (workflow_dispatch). Every build runs on control-1's single R9700 and competes with
-# live serving for host RAM + VRAM, where a build OOM leaks VRAM that no soft reboot reclaims =
-# node wedge = outage. So builds are NEVER auto-fired by a merge or a cron: dispatch this deliberately
-# inside a maintenance window after `kubectl -n ai scale deploy/sglang --replicas=0` +
-# `flux -n ai suspend hr sglang` (see docs/llm-hosting/sglang-oci-cutover.md). A Renovate FORK_REF /
-# base-digest bump opens a PR; dispatch the build by hand when you're ready for the window.
+# GPU-free build on a hosted runner: the HIP kernels cross-compile via
+# PYTORCH_ROCM_ARCH=gfx1201 (no device probe), and setup.sh's GPU-touching steps are
+# verification-only — the Dockerfile swallows them and hard-gates on `import sglang`
+# instead. The real smoke test is the pod's model load at deploy; rollback is the
+# previous digest. Zero contact with control-1 / live serving.
+#
+# Rebuilds fire on merged changes to the build context (a Renovate FORK_REF or
+# base-digest bump) or on manual dispatch — the image is fully pinned, so nothing
+# changes between such merges and a cron rebuild would be a no-op.
 on:
   workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths: ["docker/sglang-rdna4/**"]
 
 concurrency:
   group: ${{ github.workflow }}
@@ -22,51 +28,35 @@ permissions:
 env:
   IMAGE: ghcr.io/tanguille/sglang-rdna4
   TAG: v0.5.14-gfx1201 # stable tag, rebuilt in place; Renovate digest-pins it on the HelmRelease
-  STORE: /home/runner/_work/.containers # podman root on the big scratch volume
 
 jobs:
   build:
-    # Self-hosted scale-to-zero runner on control-1 (R9700). See ../../kubernetes/apps/
-    # actions-runner-system/actions-runner-controller/runners/gpu-builder/.
-    runs-on: gpu-builder
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
 
-      - name: Install podman
-        run: |
-          export DEBIAN_FRONTEND=noninteractive
-          SUDO=""
-          [ "$(id -u)" -ne 0 ] && SUDO="sudo"
-          if command -v podman >/dev/null 2>&1; then
-            echo "podman already present: $(podman --version)"
-          else
-            $SUDO apt-get update
-            $SUDO apt-get install -y --no-install-recommends podman
-          fi
+      # The ROCm "complete" base plus the conda env far exceed the runner's default
+      # free disk; drop the preinstalled toolchains we don't use.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: true
+          swap-storage: false # keep swap — the compile is RAM-tight on a 16GB runner
 
       - name: Log in to GHCR
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "${GHCR_TOKEN}" | podman login ghcr.io -u "${GHCR_USER}" --password-stdin
+        run: echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
       - name: Build image
-        # GPU in the sandbox: setup.sh asserts torch.cuda.is_available() and imports the freshly
-        # compiled kernels during build. --group-add keep-groups passes the pod's video/render
-        # groups into the build container so ROCm sees the card. vfs storage driver: overlayfs
-        # whiteouts are blocked inside the pod (even privileged), so use vfs — plain copies, no
-        # whiteouts. Trades disk for compatibility (80Gi covers it).
-        run: |
-          podman --root "${STORE}" --storage-driver vfs build \
-            --device /dev/kfd --device /dev/dri \
-            --group-add keep-groups \
-            --tag "${IMAGE}:${TAG}" \
-            docker/sglang-rdna4
+        run: docker build --tag "${IMAGE}:${TAG}" docker/sglang-rdna4
 
       - name: Push
         run: |
-          podman --root "${STORE}" --storage-driver vfs push --digestfile /tmp/digest "${IMAGE}:${TAG}"
-          echo "Pushed ${IMAGE}:${TAG}@$(cat /tmp/digest)" | tee -a "${GITHUB_STEP_SUMMARY}"
+          docker push "${IMAGE}:${TAG}"
+          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "${IMAGE}:${TAG}")
+          echo "Pushed ${DIGEST}" | tee -a "${GITHUB_STEP_SUMMARY}"
