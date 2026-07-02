@@ -101,10 +101,9 @@ spec:
           enabled: true
           spec:
             path: /metrics/probes
+        # /metrics/resource duplicates the container CPU/memory series cAdvisor already provides
         resources:
-          enabled: true
-          spec:
-            path: /metrics/resource
+          enabled: false
       vmScrape:
         spec:
           interval: 60s

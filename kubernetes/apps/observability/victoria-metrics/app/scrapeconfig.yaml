@@ -82,7 +82,7 @@ metadata:
   name: klipper
 spec:
   metricsPath: /probe
-  scrapeInterval: 15s
+  scrapeInterval: 30s
   scrapeTimeout: 10s
   params:
     modules:
@@ -95,7 +95,7 @@ spec:
       - history
   staticConfigs:
     - targets:
-        - "192.168.0.95:80"
+        - "${CENTAURI_CARBON_IP}:80"
       labels:
         printer: centauri_carbon
   relabelings:
