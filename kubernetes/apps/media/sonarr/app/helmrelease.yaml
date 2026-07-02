@@ -5,7 +5,7 @@ kind: HelmRelease
 metadata:
   name: &app sonarr
 spec:
-  interval: 15m
+  interval: 30m
   chartRef:
     kind: OCIRepository
     name: app-template
@@ -127,7 +127,7 @@ spec:
       media:
         type: nfs
         server: ${TRUENAS_IP}
-        path: /mnt/BIGHDDZ1/Media
+        path: ${MEDIA_NFS_PATH}
         globalMounts:
           - path: /media
             readOnly: false
