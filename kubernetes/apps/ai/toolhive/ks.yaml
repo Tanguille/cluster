@@ -16,7 +16,6 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: ai
-  timeout: 5m
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -37,7 +36,6 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: ai
-  timeout: 5m
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -55,13 +53,9 @@ spec:
   postBuild:
     substitute:
       APP: toolhive
-    substituteFrom:
-      - name: cluster-secrets
-        kind: Secret
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
   targetNamespace: ai
-  timeout: 5m
