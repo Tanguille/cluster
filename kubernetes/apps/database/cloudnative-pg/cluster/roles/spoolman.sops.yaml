@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spoolman-db
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:lDBHeX6QAns=,iv:1HdKXVG3fyMEjByhln1T3RwCF/dCk4by3u83qPt2vTA=,tag:ELWfBxx4yVuq0nrEfxFINg==,type:str]
+  password: ENC[AES256_GCM,data:uPoFomtgmsM=,iv:3iWM9QiLQ05gQANByBpMS4ShIHHc9rBEYu1MKBb5svc=,tag:WByEcJUpmR8p1jaqMmCO/A==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSArVTU0ZXlVdy9wamh0a3U0
+        WVFLdFNZM2laSU94clFuMVZvellteEZCelFJCi9Xam1rNndQeEdMbnpwNG45ekxX
+        ZkNJb3NPeU5vOE92WVlDZXdGU09YM1kKLS0tIHdvS1dNQzgvY3hBaGJxNzR3WEcr
+        aERrbk1WVzNYVWFrN3grdk9xaVVFeEkKC+vumKLgYz8jSS8iYds63nuKNwqBfP/p
+        GeGMLJ3EOohIci4opbRTYOC7YKRGZDfhQ5hz0xGx37mkrZ++oHC6BQ==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:TTQw/gwHIpOW4ZiXVR/El1pyRe/vMk+ePIqVlrUyHev5RLJ/skKKzX7gt/YQxbOlJtacBeJUMdbPX/lX1Tklj1WBTeT4HmCOXm6+SnF8q3Xl59VJqdt/grLCciZ/cvDrSOWjaVDkhvtKylPuCZU3hQayKiXEz3Z6hgHH3wUa8l0=,iv:knoE2ts/jNAkKiMM/j98LMwr02rRyE8tSgdwjxPEmpM=,tag:ml++SGzErdpVkqKDo/fJ5g==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1

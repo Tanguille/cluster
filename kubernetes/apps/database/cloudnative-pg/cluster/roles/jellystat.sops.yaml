@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jellystat-db
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:4VERmTczDzf4,iv:VcHbfNFoobxn8rNNqrbnd+FgqDOfs4UpbizgdabTiHk=,tag:9MVD/lJu9+pXQg0kNjSipg==,type:str]
+  password: ENC[AES256_GCM,data:PpOGNrNW6Fk=,iv:13ntDTg2ruFCJuBQppkbukN1It6YUcspVCIGBuQ65Io=,tag:ltKnizYOEP3jPH3UXe6T8w==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBwVm44QTdjRTVNcVBVYWk3
+        YVF6eGJmeGxFTkRzT2U5UGlPVjlrWnM2TTNvCjNiTFJUa2xZTllZdjkweEJTNzNG
+        TVlGanFSY1RFclM2eE1ZME1BdE5ORmMKLS0tIFNjVzVwQkltMmRmdGJIMnFOcGdp
+        Wk5VdVZhNGxRdnhzZVorR2phUVNkejgK7NpHUrQGBEXHtPTGHziH8Sd6HPAvOoje
+        ZbCRLSuOKgPYbYOsA3F+fF/ZhUlcWxJ5WZmQmRBn6cWDwyfVN+deEg==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:24:05Z"
+  mac: ENC[AES256_GCM,data:nxNVThfwwHyJBQvs4h6L4bRWnEkoCrpS2yTfSCix10TvNx6LQUQwWQ8/kWltW+Zyq+fwtM864uOJVqdSOPnZUHACTf64OKqiXR9uXP+C9VAHP8YF/D4BKJBfT/fv7f3Y5Wk4Sewwd0CmsuIu6zsXJC/2BKPRW0kld2PtXN7s0OY=,iv:gg+u44R78WBowq9t/BXtNImjDWMs9AAap2+Z/+BlKnw=,tag:tPXwyRrGNi+qwcmy4bNv/A==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1

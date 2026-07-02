@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prowlarr-db
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:a735Dztmu/M=,iv:JJbt6s168HeUuUoGC7BWE4fW2wX7WfQaVUnHIp5K60o=,tag:RfyD+t1PMxL3TA77Eodmqw==,type:str]
+  password: ENC[AES256_GCM,data:0jCagf2XwN4=,iv:N8a7lHEMu+iax8sxs1dq7e02a4VrmrhGNHhRPXLVJ1I=,tag:x4CVAiV745evprRj6w7iqQ==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBVeUZyQUd5TFhobW15dUdX
+        Z3JRbHhJc28rMVFsdHY0UkRmbjU0a2NSbjNFCm9ONTZqbXl0WGtvQmJNNEhML3Qx
+        ck1RQ3JTbkdZSTlHVG12NUJDNURPS3cKLS0tIE93TGlkZ0RZdlg0RTlCMUJRdUtn
+        OGUvVDMyY3Zsb05IQlNDV0lZbFB1NzAKE+p2v0Id/vcYJqRQyCguhosHTjBD4+Hf
+        8JC4Ar81Rnrcu329opYyAl8BRy/+oQc4BkhSJnZuGHV6sDHknKJlfg==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:P5E4l9fGNlagzV+JuaY9Vomg2yjs0sne+4be9BVoRWkasM/S6GQ00DRdu+Pcns2m0H7TZqYVVHQiNfSCgW5DQ0696r80wPfmp1skLDoWocQcObSrHQUt989jGMx91oCU7AEvpv1jprIvKNhWmWxQIn/ZOd6ZdoO9zykMOMpRyjE=,iv:ASzpy1P7QLtzvR+rJe0JonWj2GAGPIFv0tNSFOO1qyg=,tag:vj3V/F1cgaU5U/h2O0f73w==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1
