@@ -12,7 +12,6 @@ spec:
   # (non-generative) similarity search, and embeddings aren't cached/persisted
   # across sessions so there's no stale-vector consistency concern either way.
   source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf
-  format: gguf
   quantization: Q8_0
   hardware:
     accelerator: vulkan
@@ -22,8 +21,8 @@ spec:
       vendor: amd
       runtime: vulkan
       layers: -1
-      # Both GPU nodes advertise squat.ai/dri (dGPU count:4, iGPU count:1) via
-      # squat/generic-device-plugin; nodeSelector below pins this to the iGPU.
+      # Slot counts live at the device plugin (kube-system/generic-device-plugin);
+      # nodeSelector below pins this to the iGPU.
       resourceName: squat.ai/dri
 ---
 apiVersion: inference.llmkube.dev/v1alpha1
@@ -34,10 +33,10 @@ spec:
   modelRef: qwen3-embedding
   mode: embedding
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8fe0c6ae757c2f5118ab765622d7de1c9f9c4ab5416aa245222332f21e2182bb
-  # 4 slots: vmcp-unified's per-session 194-tool burst-embed and memini's
-  # continuous dedup-embedding traffic both hit this server concurrently;
-  # 2 slots was queuing the two into vmcp's 120s embeddingServiceTimeout
-  # (session_id failures: "context canceled"/"context deadline exceeded").
+  # 4 slots: sized for vmcp-unified's per-session 194-tool burst-embed plus
+  # memini's continuous dedup-embedding traffic hitting this server concurrently.
+  # Once vmcp cuts over to its own vmcp-embedding server, memini is the sole
+  # client — revisit slot count then.
   parallelSlots: 4 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # llama.cpp splits --ctx-size across parallel slots. Keep 2048/slot (same
   # margin as before) — enough for ToolHive's largest tool-description batch
@@ -47,7 +46,6 @@ spec:
   extraArgs:
     - "--alias"
     - "qwen3-embedding" # served model name memini sends in /v1/embeddings
-    - "--metrics" # expose Prometheus /metrics (off by default in llama-server)
 
   # Pin to the iGPU node; without this the scheduler could place it on the dGPU
   # node (which also advertises squat.ai/dri) and steal a dGPU slot from sglang.
@@ -62,34 +60,8 @@ spec:
       - 44
       - 226
 
-  # llama-server only serves /health in embeddings mode, so probe that rather
-  # than the operator-default chat-completions path.
-  probeOverrides:
-    startup:
-      httpGet: &healthProbe
-        path: /health
-        port: 8080
-      initialDelaySeconds: 10
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 15
-    readiness:
-      httpGet: *healthProbe
-      initialDelaySeconds: 10
-      periodSeconds: 10
-      timeoutSeconds: 3
-      failureThreshold: 3
-    liveness:
-      httpGet: *healthProbe
-      initialDelaySeconds: 30
-      periodSeconds: 30
-      timeoutSeconds: 5
-      failureThreshold: 3
-
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
     memory: 2Gi
-    gpu: 1
-    gpuMemory: 2Gi
   endpoint:
     path: /v1/embeddings

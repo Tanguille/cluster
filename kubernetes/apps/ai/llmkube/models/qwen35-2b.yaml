@@ -5,7 +5,6 @@ metadata:
   name: qwen35-2b
 spec:
   source: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf
-  format: gguf
   # Q4_K_M (~1.18 GiB) is the speed/quality sweet spot on the RDNA2 iGPU
   # (measured 43 tok/s decode, 513 tok/s prefill); Q8 would ~double the footprint
   # for marginal gain on easy offload tasks.
@@ -26,21 +25,20 @@ metadata:
   name: qwen35-2b
 spec:
   modelRef: qwen35-2b
-  # Current server-vulkan digest — newer than the embedding pin, which predates
-  # Qwen3.5's GDN (Gated Delta Networks) architecture. Verified to load `qwen35`
-  # and run GDN fully on Vulkan (no CPU fallback). Tracked by the llmkube-models
-  # Renovate customManager (.renovaterc.json5).
+  # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
+  # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
+  # Tracked by the llmkube-models Renovate customManager (.renovaterc.json5).
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8fe0c6ae757c2f5118ab765622d7de1c9f9c4ab5416aa245222332f21e2182bb
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   contextSize: 16384 # GDN keeps KV tiny, so long ctx is cheap; 16K is plenty for offload
+  jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
   extraArgs:
-    - "--jinja" # use the model's chat template (correct Qwen3.5 formatting + tool calls)
     - "--alias"
     - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
-    - "--metrics" # expose Prometheus /metrics (off by default in llama-server)
 
-  # Free squat.ai/dri slot lives on control-2 (embeddings hold control-3's), so
-  # amd.com/igpu lands this on control-2's iGPU with no manual pin.
+  # Both iGPU nodes advertise 2 squat.ai/dri slots; the embedders pair up on
+  # qwen3-embedding's node (via podAffinity there), leaving control-2's slots
+  # for this model — amd.com/igpu lands it there with no manual pin.
   nodeSelector:
     amd.com/igpu: "true"
 
@@ -52,32 +50,12 @@ spec:
       - 44
       - 226
 
-  # Probe /health rather than the operator-default chat-completions path so the
-  # pod isn't marked unready while the model is still loading.
-  probeOverrides:
-    startup:
-      httpGet: &healthProbe
-        path: /health
-        port: 8080
-      initialDelaySeconds: 10
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 15
-    readiness:
-      httpGet: *healthProbe
-      initialDelaySeconds: 10
-      timeoutSeconds: 3
-    liveness:
-      httpGet: *healthProbe
-      initialDelaySeconds: 30
-      periodSeconds: 30
-      timeoutSeconds: 5
-
+  # No probeOverrides: the operator's llamacpp defaults already probe /health
+  # with a more forgiving startup window. GPU allocation comes from
+  # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields at 0.8.26).
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
     # ~2.4 GiB resident; requested low (no limit set by llmkube) so it schedules
     # on control-2's tight request budget and bursts into its real free RAM.
     memory: 1536Mi
-    gpu: 1
-    gpuMemory: 3Gi
   # endpoint omitted — operator defaults to a ClusterIP Service on :8080.
