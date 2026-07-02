@@ -400,10 +400,15 @@ spec:
             - path:
                 type: PathPrefix
                 value: /console
-          # Empty backendRefs acts as a deny-all for these paths. Gateway API does not yet support a
-          # dedicated deny/reject action — track https://github.com/kubernetes-sigs/gateway-api/issues/2826
-          # for a proper solution; replace this workaround once that feature is available.
-          backendRefs: []
+          # Deny these paths with an explicit 403 via Envoy Gateway's HTTPRouteFilter
+          # (httproutefilter.yaml) — upstream Gateway API has no native deny action yet
+          # (https://github.com/kubernetes-sigs/gateway-api/issues/2826).
+          filters:
+            - type: ExtensionRef
+              extensionRef:
+                group: gateway.envoyproxy.io
+                kind: HTTPRouteFilter
+                name: nextcloud-deny
 
     persistence:
       # Config storage using volsync template PVC (local)
