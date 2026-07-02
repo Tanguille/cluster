@@ -31,8 +31,6 @@ jobs:
     needs: filter
     name: Image Pull - Flate
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     outputs:
       images: ${{ steps.flate.outputs.images }}
     steps:
@@ -62,7 +60,16 @@ jobs:
     runs-on: cluster-runner
     steps:
       - name: Install talosctl
-        run: curl -fsSL https://talos.dev/install | sh
+        env:
+          # renovate: datasource=github-releases depName=siderolabs/talos
+          TALOS_VERSION: v1.13.5
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/talosctl" \
+            "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64"
+          chmod +x "$HOME/.local/bin/talosctl"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       # One runner pod pulls all images to its node; Spegel mirrors the blobs cluster-wide,
       # so a single node is enough to pre-warm (and beats one pod + talosctl install per image).
