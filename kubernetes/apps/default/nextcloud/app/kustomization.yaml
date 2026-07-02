@@ -14,5 +14,10 @@ configMapGenerator:
     files:
       - scripts/cron.sh
       - scripts/post-start.sh
+    options:
+      annotations:
+        # Plain shell scripts: their ${vars} are shell syntax, not flux vars —
+        # without this, strict postBuild envsubst fails the build on "${cmd}".
+        kustomize.toolkit.fluxcd.io/substitute: disabled
 generatorOptions:
   disableNameSuffixHash: true
