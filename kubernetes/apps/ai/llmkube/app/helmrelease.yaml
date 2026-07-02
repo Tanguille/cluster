@@ -81,7 +81,12 @@ spec:
           #  - llamacpp_request:p95_5m dropped (llamacpp:request_seconds_bucket doesn't exist)
           #  - request_latency:p95_5m dropped (vllm:e2e_request_latency_seconds_bucket, vLLM only)
           #  - restarts:rate5m fixed: container=~"llm-server" → adds "llama-server" (actual name)
+          # The test op guards the positional replace: if a chart bump reorders/renames the
+          # groups, the render fails loudly instead of silently clobbering the wrong group.
           - patch: |-
+              - op: test
+                path: /spec/groups/1/name
+                value: llmkube-inference-recording
               - op: replace
                 path: /spec/groups/1
                 value:
