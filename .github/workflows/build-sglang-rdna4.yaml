@@ -2,24 +2,23 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Build sglang-rdna4
 
-# GPU-free build on a hosted runner: the HIP kernels cross-compile via
-# PYTORCH_ROCM_ARCH=gfx1201 (no device probe), and setup.sh's GPU-touching steps are
-# verification-only — the Dockerfile swallows them and hard-gates on `import sglang`
-# instead. The real smoke test is the pod's model load at deploy; rollback is the
-# previous digest. Zero contact with control-1 / live serving.
-#
-# Rebuilds fire on merged changes to the build context (a Renovate FORK_REF or
-# base-digest bump) or on manual dispatch — the image is fully pinned, so nothing
-# changes between such merges and a cron rebuild would be a no-op.
+# GPU-free build on a hosted runner — rationale in docker/sglang-rdna4/README.md.
+# Fires on merged build-input changes (Renovate FORK_REF / base-digest bumps) or manual
+# dispatch. Docs are excluded: the build isn't bit-reproducible, so every rebuild pushes a
+# new digest under the in-place tag and Renovate then rolls the serving pod — a README
+# edit must not do that.
 on:
   workflow_dispatch:
   push:
     branches: ["main"]
-    paths: ["docker/sglang-rdna4/**"]
+    paths:
+      - "docker/sglang-rdna4/**"
+      - "!docker/sglang-rdna4/*.md"
+      - ".github/workflows/build-sglang-rdna4.yaml"
 
 concurrency:
   group: ${{ github.workflow }}
-  cancel-in-progress: false # never abort an in-flight ROCm build
+  cancel-in-progress: true # hosted runner — aborting a superseded build costs nothing
 
 permissions:
   contents: read
@@ -34,16 +33,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
-      # The ROCm "complete" base plus the conda env far exceed the runner's default
-      # free disk; drop the preinstalled toolchains we don't use.
+      # The ROCm "complete" base plus the conda env far exceed the runner's default free disk.
       - name: Free disk space
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           tool-cache: true
+          large-packages: false # the apt-remove path costs minutes for ~5GB; the rm -rf paths free ~25GB in seconds
           swap-storage: false # keep swap — the compile is RAM-tight on a 16GB runner
 
       - name: Log in to GHCR

@@ -21,22 +21,18 @@ follow-up — bake the env into a versioned image — is unblocked. The win is r
 
 - `docker/sglang-rdna4/` — Dockerfile (v0.5.14 + 3 TP=1 patches), entrypoint, README.
 - `.github/workflows/build-sglang-rdna4.yaml` — builds + pushes `v0.5.14-gfx1201` on
-  **`ubuntu-latest`** (GPU-free: the HIP kernels cross-compile via `PYTORCH_ROCM_ARCH=gfx1201`;
-  setup.sh's GPU touches are verification-only — see `docker/sglang-rdna4/README.md`).
+  **`ubuntu-latest`** (GPU-free — rationale in `docker/sglang-rdna4/README.md`).
 
 Building off-cluster means **no maintenance window, ever**: builds never touch control-1's
 RAM/VRAM or live serving. The trade-off: a broken kernel build surfaces at pod boot instead of
 at image-build time — covered by digest-pinned rollback and the Stage 2 validation below.
-(The original design used a `gpu-builder` ARC runner on control-1 + a serving maintenance
-window; retired once the GPU requirement turned out to be setup.sh verification-only.)
 
 ## Stage 2 — the cutover (no maintenance window)
 
-1. **Build** — auto-fires on the Stage 1 merge (`paths: docker/sglang-rdna4/**`), or
-   `gh workflow run build-sglang-rdna4.yaml`. Watch `gh run watch`. ~15-30 min. Capture the
-   pushed digest from the run summary (`…@sha256:…`). Serving keeps running throughout.
-   First-run risks (hosted-runner limits, iterate if hit): disk — the ROCm base + conda env
-   vs ~60GB post-cleanup; RAM — the compile vs 16GB.
+1. **Build** — auto-fires on the Stage 1 merge, or `gh workflow run build-sglang-rdna4.yaml`.
+   Watch `gh run watch`. ~15-30 min; serving keeps running throughout. Capture the pushed
+   digest from the run summary (`…@sha256:…`). First run may hit hosted-runner disk/RAM
+   limits — iterate on the workflow's free-disk-space/swap knobs if so.
 2. **Pin** — set the sglang HelmRelease image to `ghcr.io/tanguille/sglang-rdna4@<digest>`,
    command path `/cache/sglang/repo-v0514/scripts/launch.sh` → `/opt/rdna4-inference/scripts/launch.sh`,
    and `CONDA_BASE: /cache/sglang/conda` → `/opt/conda`. Keep the PVC mount (model `/cache/hf` +

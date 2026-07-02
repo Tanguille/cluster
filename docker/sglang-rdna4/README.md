@@ -35,29 +35,26 @@ crashes on the first request or OOM-restarts hours in on the first grammar/tool-
 2. `srt/layers/sampler.py` — gate the cross-TP token-id all-reduce on `world > 1` (NCCL lazy-init OOM).
 3. `pip uninstall kernels` — transformers-5.x's hub-kernels loader crashes `import sglang`.
 
-## Builds GPU-free — no build host requirement
+## Building — GPU-free, no build host requirement
 
 The kernel C++ cross-compiles (`PYTORCH_ROCM_ARCH=gfx1201` — an explicit target, no device
 probe). `setup.sh`'s GPU touches (the `torch.cuda.is_available()` assert and the final device
 verify) are verification-only and non-fatal on a GPU-less host (setup.sh has no `set -e`; the
 Dockerfile swallows the final-verify exit and hard-gates on `import sglang` instead). The real
 smoke test moves to deploy: the pod's model load exercises the compiled kernels, and rollback
-is the previous digest. Build locally with plain `docker build docker/sglang-rdna4`.
+is the previous digest.
 
 Known GPU-less caveat: `build_skinny_gemms_int4.sh` imports its freshly-compiled `.so` — if that
 import needs a device it fails with setup.sh's non-fatal WARNING and the wvSplitK **MoE** kernel
 is skipped. Our `qwen36-27b` is dense and never calls it, so this is harmless for this image.
 
-Expect a long build (~15-20 min: the ROCm "complete" base is large; the HIP kernels compile).
-
-## Builds — GitHub-hosted CI
-
-`.github/workflows/build-sglang-rdna4.yaml` builds on **`ubuntu-latest`** (GPU-free, zero
-contact with control-1 / live serving — no maintenance window needed) and pushes the
-`v0.5.14-gfx1201` tag. It fires on a merged change to `docker/sglang-rdna4/**` (i.e. a
-Renovate `FORK_REF` / base-digest bump) or on manual dispatch
-(`gh workflow run build-sglang-rdna4.yaml`). The image is fully pinned, so there is no
-schedule — nothing changes between such merges.
+CI (`.github/workflows/build-sglang-rdna4.yaml`) builds on **`ubuntu-latest`** — zero contact
+with control-1 / live serving, no maintenance window — and pushes the `v0.5.14-gfx1201` tag.
+It fires on a merged change to the build inputs (a Renovate `FORK_REF` / base-digest bump;
+docs excluded so a README edit can't repush the image) or on manual dispatch
+(`gh workflow run build-sglang-rdna4.yaml`). Build locally with plain
+`docker build docker/sglang-rdna4`. Expect ~15-30 min: the ROCm "complete" base is large and
+the HIP kernels compile.
 
 ## Pin by digest, never the tag
 
