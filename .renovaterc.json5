@@ -60,6 +60,17 @@
       autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
     },
     {
+      description: "HuggingFace model files revision-pinned in llmkube Model sources (HF model repos are git repos; digest = repo commit sha)",
+      customType: "regex",
+      managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
+      matchStrings: [
+        "source:\\s+https://huggingface\\.co/(?<depName>[^/\\s]+/[^/\\s]+)/resolve/(?<currentDigest>[a-f0-9]{40})/"
+      ],
+      packageNameTemplate: "https://huggingface.co/{{depName}}",
+      currentValueTemplate: "main",
+      datasourceTemplate: "git-refs"
+    },
+    {
       description: "SGLang release version in sglang-rocm Dockerfile ARG",
       customType: "regex",
       managerFilePatterns: ["/docker/sglang-rocm/Dockerfile$/"],
