@@ -12,38 +12,39 @@ follow-up — bake the env into a versioned image — is unblocked. The win is r
 ## State of play
 
 - The previously-pushed image is stale **`:v0.5.12-gfx1201`** — rebuilt at v0.5.14 by Stage 1.
-- The build infra (Dockerfile, `gpu-builder` runner, workflow) was prototyped in a worktree
-  branch and is brought current + onto `main` by Stage 1.
+- The build infra (Dockerfile, workflow) was prototyped in a worktree branch and is brought
+  current + onto `main` by Stage 1.
 - `docker/sglang-rdna4/Dockerfile` mirrors `sglang-env-rebuild.sh` (same `FORK_REF`,
   `SGLANG_TAG`, the 3 TP=1 patches). The script stays as the emergency PVC-rebuild fallback.
 
 ## Stage 1 — build infra (this PR, no production impact)
 
 - `docker/sglang-rdna4/` — Dockerfile (v0.5.14 + 3 TP=1 patches), entrypoint, README.
-- `.github/workflows/build-sglang-rdna4.yaml` — builds + pushes `v0.5.14-gfx1201`.
-- `kubernetes/apps/actions-runner-system/.../runners/gpu-builder/` — scale-to-zero ARC runner
-  on control-1 (root + privileged + GPU passthrough; reuses `cluster-runner-secret`).
+- `.github/workflows/build-sglang-rdna4.yaml` — builds + pushes `v0.5.14-gfx1201` on
+  **`ubuntu-latest`** (GPU-free — rationale in `docker/sglang-rdna4/README.md`).
 
-The build workflow is **`workflow_dispatch`-only** — merging deploys only the scale-to-zero
-`gpu-builder` runner (no pod until a build is dispatched), so **merging is zero production impact**.
-Every build is a deliberate dispatch inside the maintenance window below.
+Building off-cluster means **no maintenance window, ever**: builds never touch control-1's
+RAM/VRAM or live serving. The trade-off: a broken kernel build surfaces at pod boot instead of
+at image-build time — covered by digest-pinned rollback and the Stage 2 validation below.
 
-## Stage 2 — the cutover (one maintenance window)
+## Stage 2 — the cutover (no maintenance window)
 
-The build competes with live serving for the GPU node's host RAM + VRAM; a build OOM can leak
-VRAM and wedge the node (the failure mode that cost a TrueNAS cold-cycle this cycle). So free
-the GPU first and treat build→switch as a single ~30 min window:
-
-1. **Quiesce** — confirm no agent-pr-review CI in flight, then `kubectl -n ai scale deploy/sglang --replicas=0`. Suspend Flux on the HR so it doesn't fight the manual steps: `flux -n ai suspend hr sglang`.
-2. **Build** — `gh workflow run build-sglang-rdna4.yaml` (dispatch). Watch `gh run watch`. ~15-20 min. Capture the pushed digest from the run summary (`…@sha256:…`).
-3. **Pin** — set the sglang HelmRelease image to `ghcr.io/tanguille/sglang-rdna4@<digest>`,
+1. **Build** — auto-fires on the Stage 1 merge, or `gh workflow run build-sglang-rdna4.yaml`.
+   Watch `gh run watch`. ~15-30 min; serving keeps running throughout. Capture the pushed
+   digest from the run summary (`…@sha256:…`). First run may hit hosted-runner disk/RAM
+   limits — iterate on the workflow's free-disk-space/swap knobs if so.
+2. **Pin** — set the sglang HelmRelease image to `ghcr.io/tanguille/sglang-rdna4@<digest>`,
    command path `/cache/sglang/repo-v0514/scripts/launch.sh` → `/opt/rdna4-inference/scripts/launch.sh`,
    and `CONDA_BASE: /cache/sglang/conda` → `/opt/conda`. Keep the PVC mount (model `/cache/hf` +
    Triton `/cache/sglang/triton`) and every other flag identical. Open as Stage 2 PR.
-4. **Deploy** — merge Stage 2, `flux -n ai resume hr sglang`, watch the pod. First boot recompiles
-   the Triton JIT cache onto the PVC (the startup probe's ~16 min budget covers it).
-5. **Validate** — `/health` up, a `qwen-3.6` completion with tools+thinking, PPL/needle spot-check, decode tok/s parity with the PVC baseline (≈16 single / ≈99 @conc24).
-6. **Retire** — drop the "Runtime-from-PVC" section from the app README; keep `sglang-env-rebuild.sh`
+3. **Deploy** — merge Stage 2, watch the pod roll (this restart is the only serving-visible
+   moment of the whole cutover). First boot recompiles the Triton JIT cache onto the PVC (the
+   startup probe's ~16 min budget covers it). This boot is also the kernel smoke test the
+   GPU-free build deferred: a broken build fails the startup probe here. The single GPU forces
+   a Recreate rollout (no old pod kept warm), so on failure go straight to **Rollback** below —
+   serving is down only for the failed-boot window either way.
+4. **Validate** — `/health` up, a `qwen-3.6` completion with tools+thinking, PPL/needle spot-check, decode tok/s parity with the PVC baseline (≈16 single / ≈99 @conc24).
+5. **Retire** — drop the "Runtime-from-PVC" section from the app README; keep `sglang-env-rebuild.sh`
    as the documented PVC-rebuild fallback (the Dockerfile is now primary). The PVC's
    `conda/` + `repo-v0514/` are now dead weight but harmless — clean up later.
 
