@@ -38,11 +38,12 @@ crashes on the first request or OOM-restarts hours in on the first grammar/tool-
 ## Building — GPU-free, no build host requirement
 
 The kernel C++ cross-compiles (`PYTORCH_ROCM_ARCH=gfx1201` — an explicit target, no device
-probe). `setup.sh`'s GPU touches (the `torch.cuda.is_available()` assert and the final device
-verify) are verification-only and non-fatal on a GPU-less host (setup.sh has no `set -e`; the
-Dockerfile swallows the final-verify exit and hard-gates on `import sglang` instead). The real
-smoke test moves to deploy: the pod's model load exercises the compiled kernels, and rollback
-is the previous digest.
+probe). `setup.sh`'s GPU touches are verification-only, but it runs under `set -eo pipefail`
+and one of them is a fatal `assert torch.cuda.is_available()` right after the torch install —
+the Dockerfile seds that assert out (grep-guarded, like the TP=1 patches); the final device
+verify already passes GPU-free (`device_count()` is 0, so the per-device loop never runs).
+The build still hard-gates on `import sglang`. The real smoke test moves to deploy: the pod's
+model load exercises the compiled kernels, and rollback is the previous digest.
 
 Known GPU-less caveat: `build_skinny_gemms_int4.sh` imports its freshly-compiled `.so` — if that
 import needs a device it fails with setup.sh's non-fatal WARNING and the wvSplitK **MoE** kernel

@@ -60,13 +60,16 @@ RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
 # series (001/028/073) only applies cleanly to the v0.5.14 upstream tree.
 ARG SGLANG_TAG=v0.5.14
 WORKDIR ${REPO_DIR}
-# GPU-free build: the HIP kernels cross-compile via PYTORCH_ROCM_ARCH=gfx1201 (explicit target, no
-# device probe); setup.sh's GPU touches are verification-only and non-fatal under its
-# `set -uo pipefail` (no -e) — except its exit code, which IS its final GPU verify, hence the
-# `|| echo` swallow (NOT `&&`). A real failure still surfaces at the grep -q patch guards and the
-# import gate below; the pod's model load at deploy is the actual kernel smoke test.
-RUN SGLANG_TAG="${SGLANG_TAG}" ./scripts/setup.sh \
-    || echo "(ignoring setup.sh final-verify exit code — GPU-less build host; gated below)"
+# GPU-free build: the HIP kernels cross-compile via PYTORCH_ROCM_ARCH=gfx1201 (explicit target,
+# no device probe). setup.sh runs under `set -eo pipefail` and its ONE fatal GPU touch is a
+# post-torch-install `assert torch.cuda.is_available()` (line ~139) — neuter just that assert;
+# the final verify already passes GPU-free (device_count()=0 skips the name loop). The grep
+# guards fail the build if upstream moves the line; the pod's model load at deploy remains the
+# actual kernel smoke test.
+RUN sed -i "s|assert torch.cuda.is_available(), 'CUDA not available'; ||" scripts/setup.sh \
+    && ! grep -q "assert torch.cuda.is_available" scripts/setup.sh \
+    && grep -qF "device_count()} GPUs" scripts/setup.sh
+RUN SGLANG_TAG="${SGLANG_TAG}" ./scripts/setup.sh
 
 # --- TP=1 fixes the fork's setup.sh omits (it targets dual-card TP=2). Mirrors ---
 # --- scripts/sglang-env-rebuild.sh. Each grep -q fails the build if the sed missed ---
