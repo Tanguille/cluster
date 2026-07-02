@@ -19,10 +19,10 @@ spec:
         containers:
           app:
             env:
-              # NUT_USERNAME/NUT_PASSWORD live in the app's sops secret, NOT in
-              # cluster-secrets — ${VAR} substitution never resolved them (silently
-              # empty until flux strict mode made it a build error). Map the secret
-              # keys to the env names the exporter actually reads.
+              # Credentials from the app's sops secret; its keys (NUT_USERNAME/
+              # NUT_PASSWORD) differ from the env names the exporter reads, so map
+              # them explicitly. Do NOT use ${VAR} substitution here — the secret
+              # is not a flux substituteFrom source.
               NUT_EXPORTER_USERNAME:
                 valueFrom:
                   secretKeyRef:
@@ -34,17 +34,10 @@ spec:
                     name: nut-exporter-secret
                     key: NUT_PASSWORD
               NUT_EXPORTER_SERVER: ${TRUENAS_IP}
-              NUT_EXPORTER_SERVERPORT: 3493
-              NUT_EXPORTER_VARIABLES: "battery.charge,battery.voltage,battery.voltage.nominal,input.voltage,input.voltage.nominal,ups.load,ups.status,battery.runtime,ups.status"
+              NUT_EXPORTER_VARIABLES: "battery.charge,battery.voltage,battery.voltage.nominal,input.voltage,input.voltage.nominal,ups.load,ups.status,battery.runtime"
             image:
               repository: ghcr.io/druggeri/nut_exporter
               tag: 3.3.0@sha256:276460d141c732772f8b1fcd785a7de272473e6d39fd85c32b163efc2999cb9a
-            probes:
-              liveness: &probes
-                enabled: false
-              readiness: *probes
-              startup:
-                enabled: false
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -52,6 +45,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
+                memory: 64Mi
               limits:
                 cpu: 100m
                 memory: 128Mi
