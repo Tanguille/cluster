@@ -4,7 +4,11 @@ kind: Model
 metadata:
   name: qwen35-2b
 spec:
-  source: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf
+  # Revision-pinned (immutable bytes; unsloth re-uploads fixed GGUFs under the
+  # same filename) — Renovate bumps the sha via the git-refs manager in
+  # .renovaterc.json5; refreshPolicy makes the bump actually re-fetch.
+  source: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf
+  refreshPolicy: OnChange
   # Q4_K_M (~1.18 GiB) is the speed/quality sweet spot on the RDNA2 iGPU
   # (measured 43 tok/s decode, 513 tok/s prefill); Q8 would ~double the footprint
   # for marginal gain on easy offload tasks.
