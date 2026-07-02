@@ -37,13 +37,22 @@ jobs:
         with:
           persist-credentials: false
 
-      # The ROCm "complete" base plus the conda env far exceed the runner's default free disk.
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+      # The ROCm "complete" base plus the conda env need ~60-80GB of docker storage — more than
+      # any single runner volume (first run died ENOSPC mid-torch-install). Merge /'s free space
+      # with the ~65GB /mnt volume into one LVM volume mounted at docker's data root.
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c # v10
         with:
-          tool-cache: true
-          large-packages: false # the apt-remove path costs minutes for ~5GB; the rm -rf paths free ~25GB in seconds
-          swap-storage: false # keep swap — the compile is RAM-tight on a 16GB runner
+          root-reserve-mb: "2048"
+          swap-size-mb: "4096" # keep some swap — the compile is RAM-tight on a 16GB runner
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+          build-mount-path: /var/lib/docker
+
+      - name: Restart docker on the enlarged volume
+        run: sudo systemctl restart docker
 
       - name: Log in to GHCR
         env:

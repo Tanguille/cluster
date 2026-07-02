@@ -17,6 +17,7 @@ FROM docker.io/rocm/dev-ubuntu-24.04:7.2.4-complete@sha256:92f309c51b52cef876286
 # author's ephemeral /data/* (ENV_NAME=sglang-triton36-v0514). launch.sh sources common.sh
 # and `conda activate $ENV_NAME` at runtime, so the env name baked here must match.
 ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
     ROCM_PATH=/opt/rocm \
     PYTORCH_ROCM_ARCH=gfx1201 \
     CONDA_BASE=/opt/conda \
