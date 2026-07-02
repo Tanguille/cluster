@@ -29,7 +29,7 @@ const CONFIG = {
   // Default values
   DEFAULT_RANGE_HOURS: 24,
   DEFAULT_MIN_PAYMENT: 0.01,
-  REFRESH_INTERVAL_MS: 5000,
+  REFRESH_INTERVAL_MS: 10000, // match server.py's 10s log cadence — faster polls fetch identical data
   MOVING_AVERAGE_WINDOW_SECONDS: 600,
   OBSERVER_SHARES_LIMIT: 10000,
 
@@ -414,16 +414,11 @@ function calculateMovingAverages(
 async function loadObserverConfig() {
   try {
     const cfg = await fetchJSON("/observer_config");
-    if (
-      !isValidObject(cfg) ||
-      !cfg.wallet ||
-      !Array.isArray(cfg.observers) ||
-      cfg.observers.length === 0
-    ) {
+    if (!isValidObject(cfg) || !cfg.wallet || !cfg.observer) {
       return null;
     }
 
-    state.observerBase = cfg.observers[0];
+    state.observerBase = cfg.observer;
     state.observerWallet = cfg.wallet;
     return cfg;
   } catch {
@@ -432,30 +427,32 @@ async function loadObserverConfig() {
   }
 }
 
-async function getWindowStartTimestamp() {
+async function getWindowStartTimestamp(allShares) {
   if (!state.observerBase) return Date.now() / 1000;
 
   try {
-    const newestShare = await fetchJSON(`/observer/shares?limit=1`);
-    if (!Array.isArray(newestShare) || newestShare.length === 0) {
-      console.warn("No shares returned from API");
+    if (!Array.isArray(allShares) || allShares.length === 0) {
+      console.warn("No shares available for window calculation");
       return Date.now() / 1000;
     }
 
-    const windowDepth = newestShare[0].window_depth;
+    const windowDepth = allShares[0].window_depth;
     if (!isPositiveNumber(windowDepth)) {
       return Date.now() / 1000;
     }
 
-    const sharesInWindow = await fetchJSON(
-      `/observer/shares?limit=${windowDepth}`
-    );
+    // Only hit the API again if the shared fetch was shorter than the window.
+    const sharesInWindow =
+      allShares.length >= windowDepth
+        ? allShares
+        : await fetchJSON(`/observer/shares?limit=${windowDepth}`);
     if (!Array.isArray(sharesInWindow) || sharesInWindow.length === 0) {
       console.warn("No shares returned for PPLNS window");
       return Date.now() / 1000;
     }
 
-    const windowStartShare = sharesInWindow[sharesInWindow.length - 1];
+    const windowStartShare =
+      sharesInWindow[Math.min(windowDepth, sharesInWindow.length) - 1];
     return Math.floor(windowStartShare?.timestamp || Date.now() / 1000);
   } catch {
     console.warn("Failed to get window start timestamp");
@@ -476,7 +473,9 @@ function isObserverReady() {
 // ==============================
 
 function setTextContent(elementId, text) {
-  const el = DOM[elementId];
+  // Fallback lookup: ids missing from the cacheDOMElements list (e.g.
+  // trueLuckWindow) must not silently no-op.
+  const el = DOM[elementId] || document.getElementById(elementId);
   if (el) el.textContent = text;
 }
 
@@ -785,7 +784,6 @@ function updateSharesDisplay(
 async function updateWindowLuck(
   shares,
   pplnsWeight,
-  avgPoolHashPPLNS,
   avgMyHashPPLNS,
   windowStart,
   windowDuration,
@@ -1263,26 +1261,24 @@ async function updateStats() {
       poolData?.pool_statistics?.pplnsWeight ||
       poolData?.pool_statistics?.pplns_weight ||
       0;
-    const windowStart = await getWindowStartTimestamp();
+    const windowStart = await getWindowStartTimestamp(allShares);
     const windowEnd = Date.now() / 1000;
     const windowDuration = windowEnd - windowStart;
 
     // Calculate PPLNS moving averages
     const pplnsWindowHours = windowDuration / CONFIG.SECONDS_PER_HOUR;
-    const { avgMyHash: avgMyHashPPLNS, avgPoolHash: avgPoolHashPPLNS } =
-      calculateMovingAverages(
-        Math.min(pplnsWindowHours, avgWindowHours || pplnsWindowHours),
-        state.history,
-        instMyHash,
-        instPoolHash,
-        instNetHash
-      );
+    const { avgMyHash: avgMyHashPPLNS } = calculateMovingAverages(
+      Math.min(pplnsWindowHours, avgWindowHours || pplnsWindowHours),
+      state.history,
+      instMyHash,
+      instPoolHash,
+      instNetHash
+    );
 
     // Update luck cards
     await updateWindowLuck(
       minerShares,
       pplnsWeight,
-      avgPoolHashPPLNS,
       avgMyHashPPLNS,
       windowStart,
       windowDuration,

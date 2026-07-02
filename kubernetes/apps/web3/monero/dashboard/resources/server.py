@@ -15,6 +15,7 @@ import urllib.request
 import time
 import argparse
 import threading
+import signal
 import sys
 from collections import deque
 
@@ -28,26 +29,14 @@ parser.add_argument("--data-dir", type=str, default="./p2pool-data", help="Direc
 
 parser.add_argument("--wallet", type=str, help="Monero wallet address for p2pool observer")
 
-parser.add_argument("--normal-p2pool", action="store_true", help="Enable p2pool.observer")
-parser.add_argument("--mini-p2pool", action="store_true", help="Enable mini.p2pool.observer")
-parser.add_argument("--nano-p2pool", action="store_true", help="Enable nano.p2pool.observer")
+parser.add_argument("--observer-url", type=str,
+                    default="https://nano.p2pool.observer/api",
+                    help="p2pool observer API base URL")
 args = parser.parse_args()
 
 PORT = args.port
 DATA_DIR = args.data_dir
-
-# ==============================
-# P2POOL OBSERVER CONFIG
-# ==============================
-
-OBSERVER_DOMAINS = []
-
-if args.normal_p2pool:
-    OBSERVER_DOMAINS.append("https://p2pool.observer/api")
-if args.mini_p2pool:
-    OBSERVER_DOMAINS.append("https://mini.p2pool.observer/api")
-if args.nano_p2pool:
-    OBSERVER_DOMAINS.append("https://nano.p2pool.observer/api")
+OBSERVER_URL = args.observer_url
 
 WALLET_ADDRESS = args.wallet or ""
 
@@ -81,22 +70,20 @@ log_lock = threading.Lock()
 # HELPER FUNCTIONS
 # ==============================
 
-def get_last_price():
-    """Return the last recorded XMR price from disk log"""
-    try:
-        with open(LOG_FILE, "r") as f:
-            data = json.load(f)
-            if data["price"]:
-                return float(data["price"][-1])
-    except Exception:
-        pass
-    return 0.0
+# Price changes on minute timescales; the chart has 6 axis ticks over 24h.
+# Refetch at most every 5 min instead of every 10s loop iteration — public
+# APIs (CoinGecko) rate-limit well below 6 req/min sustained.
+PRICE_CACHE_TTL = 300
+_price_cache = {"value": 0.0, "ts": 0.0}
 
 def get_xmr_price():
     """
-    Fetch XMR price in EUR from multiple APIs with fallback.
-    Sources: CoinGecko, Kraken, Bitfinex+FX conversion, price2sheet
+    Fetch XMR price in EUR from multiple APIs with fallback, cached for
+    PRICE_CACHE_TTL seconds. Falls back to the last in-memory value.
     """
+    now = time.time()
+    if _price_cache["value"] > 0 and now - _price_cache["ts"] < PRICE_CACHE_TTL:
+        return _price_cache["value"]
     sources = [
         ("https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=eur",
          lambda d: float(d["monero"]["eur"]), "CoinGecko"),
@@ -122,11 +109,13 @@ def get_xmr_price():
                 price = parser_func(data)
             if price > 0:
                 print(f"Price has come from: {name}")
+                _price_cache.update(value=price, ts=now)
                 return price
         except Exception:
             continue
-    # Fallback to last recorded price
-    last_price = get_last_price()
+    # Fallback: last appended in-memory value (no disk round-trip needed)
+    with log_lock:
+        last_price = float(log["price"][-1]) if log["price"] else 0.0
     print("Price has come from last recorded value")
     return last_price
 
@@ -143,18 +132,18 @@ def get_min_payment_threshold():
 # HTTP SERVER HANDLER
 # ==============================
 
-class Handler(http.server.SimpleHTTPRequestHandler):
+class Handler(http.server.BaseHTTPRequestHandler):
     """
     Handles HTTP GET requests for:
-      - /monerod_stats      : proxies Monero daemon get_info
-      - /xmrig_summary       : proxies xmrig summary
-      - /stats_log.json      : serves rolling log JSON
+      - /monerod_stats         : proxies Monero daemon get_info
+      - /xmrig_summary         : proxies xmrig summary
+      - /stats_log.json        : serves rolling log JSON
       - /min_payment_threshold : serves min payout threshold
-      - all other paths      : served as static files from DATA_DIR
+      - /observer_config       : observer URL + wallet for the frontend
+      - /observer/*            : proxies p2pool observer API (CORS)
+    Static files are nginx's job (it aliases the p2pool API dir directly);
+    anything else is a 404.
     """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=DATA_DIR, **kwargs)
 
     def do_GET(self):
         if self.path == "/monerod_stats":
@@ -170,7 +159,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         elif self.path.startswith("/observer/"):
             self.proxy_observer_api()
         else:
-            super().do_GET()
+            self.send_json_error("Not found", 404)
 
     def proxy_xmrig(self):
         """Proxy xmrig summary with graceful fallback when miner is scaled to 0.
@@ -232,7 +221,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def serve_observer_config(self):
         data = {
             "wallet": WALLET_ADDRESS,
-            "observers": OBSERVER_DOMAINS
+            "observer": OBSERVER_URL
         }
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -247,14 +236,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
           - /observer/payouts/{wallet}            → {base}/payouts/{wallet}
           - /observer/pool_info                   → {base}/pool_info
         """
-        if not OBSERVER_DOMAINS:
-            self.send_json_error("Observer not configured", 503)
-            return
-
-        base = OBSERVER_DOMAINS[0]
         # Map /observer/... to the actual API path
         api_path = self.path[len("/observer/"):]  # e.g. "shares?limit=1" or "payouts/..."
-        url = f"{base}/{api_path}"
+        url = f"{OBSERVER_URL}/{api_path}"
 
         try:
             with urllib.request.urlopen(url, timeout=15) as r:
@@ -327,7 +311,9 @@ def save_log_disk():
 def log_loop():
     """
     Continuously fetch stats from xmrig, pool, monerod, and XMR price.
-    Appends to rolling log and saves to disk every 10 seconds.
+    Appends to the in-memory rolling log every 10 seconds; persists to disk
+    every 5 minutes (the file only exists for chart continuity across pod
+    restarts — the PVC is 3x-replicated Ceph, don't rewrite 0.5MB every 10s).
     Runs in a separate daemon thread.
     """
     last_save = 0
@@ -360,8 +346,8 @@ def log_loop():
             # Append to in-memory log
             append_log(myHash, poolHash, netHash, price)
 
-            # Periodically save to disk (every 10s)
-            if time.time() - last_save > 10:
+            # Periodically save to disk (every 5 min)
+            if time.time() - last_save > 300:
                 save_log_disk()
                 last_save = time.time()
 
@@ -386,6 +372,12 @@ threading.Thread(target=log_loop, daemon=True).start()
 # ==============================
 # START HTTP SERVER
 # ==============================
+# Exec-form container command makes python PID 1: translate SIGTERM into the
+# same clean-shutdown path as Ctrl+C so the final save_log_disk() runs.
+def _sigterm(*_):
+    raise KeyboardInterrupt
+signal.signal(signal.SIGTERM, _sigterm)
+
 socketserver.ThreadingTCPServer.allow_reuse_address = True
 print(f"Serving HTTP on 0.0.0.0:{PORT}")
 

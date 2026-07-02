@@ -24,13 +24,9 @@ spec:
           # Scale down more quickly when solar power drops
           stabilizationWindowSeconds: 180 # 3 minutes (reduced from 5)
           policies:
-            - type: Percent
-              value: 100 # Can scale down all at once if needed
-              periodSeconds: 60
             - type: Pods
-              value: 1 # Or scale down 1 pod at a time
+              value: 1
               periodSeconds: 60
-          selectPolicy: Min # Use the more conservative (slower) policy
         scaleUp:
           # Scale up quickly when solar power is available
           stabilizationWindowSeconds: 60 # 1 minute before scaling up

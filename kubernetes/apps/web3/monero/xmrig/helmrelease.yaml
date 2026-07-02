@@ -12,8 +12,6 @@ spec:
   values:
     controllers:
       xmrig:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -95,8 +93,6 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
     service:
       xmrig:
-        type: ClusterIP
         ports:
           http-api:
             port: 42000
-            targetPort: 42000
