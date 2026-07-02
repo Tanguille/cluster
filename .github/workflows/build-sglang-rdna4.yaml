@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Build sglang-rdna4
+
+# GPU-free build on a hosted runner — rationale in docker/sglang-rdna4/README.md.
+# Fires on merged build-input changes (Renovate FORK_REF / base-digest bumps) or manual
+# dispatch. Docs are excluded: the build isn't bit-reproducible, so every rebuild pushes a
+# new digest under the in-place tag and Renovate then rolls the serving pod — a README
+# edit must not do that.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "docker/sglang-rdna4/**"
+      - "!docker/sglang-rdna4/*.md"
+      - ".github/workflows/build-sglang-rdna4.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true # hosted runner — aborting a superseded build costs nothing
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/tanguille/sglang-rdna4
+  TAG: v0.5.14-gfx1201 # stable tag, rebuilt in place; Renovate digest-pins it on the HelmRelease
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      # The ROCm "complete" base plus the conda env far exceed the runner's default free disk.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          tool-cache: true
+          large-packages: false # the apt-remove path costs minutes for ~5GB; the rm -rf paths free ~25GB in seconds
+          swap-storage: false # keep swap — the compile is RAM-tight on a 16GB runner
+
+      - name: Log in to GHCR
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+
+      - name: Build image
+        run: docker build --tag "${IMAGE}:${TAG}" docker/sglang-rdna4
+
+      - name: Push
+        run: |
+          docker push "${IMAGE}:${TAG}"
+          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "${IMAGE}:${TAG}")
+          echo "Pushed ${DIGEST}" | tee -a "${GITHUB_STEP_SUMMARY}"
