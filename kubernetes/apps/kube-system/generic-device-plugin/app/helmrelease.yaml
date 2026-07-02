@@ -42,8 +42,10 @@ spec:
                 memory: 16Mi
               limits:
                 memory: 64Mi
-      # iGPU device plugin: one squat.ai/dri slot for the llmkube qwen3-embedding
-      # InferenceService (Vulkan on gfx1036). dGPU nodes use count: 4 above.
+      # iGPU device plugin: two squat.ai/dri slots so the small llmkube embedding
+      # InferenceServices (qwen3-embedding + vmcp-embedding, Vulkan) can share one
+      # iGPU — the device is the same /dev/dri either way, count only gates
+      # scheduling. dGPU nodes use count: 4 above.
       generic-device-plugin-igpu:
         type: daemonset
         pod:
@@ -58,7 +60,7 @@ spec:
               - |
                 name: dri
                 groups:
-                  - count: 1
+                  - count: 2
                     paths:
                       - path: /dev/dri
             securityContext: *devicePluginSecurityContext
