@@ -60,17 +60,27 @@ jobs:
     needs: flate
     name: Image Pull - Pull Images
     runs-on: cluster-runner
-    strategy:
-      matrix:
-        image: ${{ fromJSON(needs.flate.outputs.images) }}
-      max-parallel: 4
-      fail-fast: false
     steps:
       - name: Install talosctl
         run: curl -fsSL https://talos.dev/install | sh
 
-      - name: Pull Image
-        run: talosctl --nodes $NODE image pull ${{ matrix.image }}
+      # One runner pod pulls all images to its node; Spegel mirrors the blobs cluster-wide,
+      # so a single node is enough to pre-warm (and beats one pod + talosctl install per image).
+      # yq (not jq): explicitly installed in the home-operations runner image; the guard
+      # fails loudly if the flate output doesn't parse (yq is lenient about garbage input).
+      - name: Pull Images
+        env:
+          IMAGES: ${{ needs.flate.outputs.images }}
+        run: |
+          set -euo pipefail
+          images=$(yq -r '.[]' <<< "$IMAGES")
+          [ -n "$images" ] || { echo "no images parsed from flate output: $IMAGES"; exit 1; }
+          rc=0
+          while IFS= read -r image; do
+            echo "Pulling ${image}"
+            talosctl --nodes "$NODE" image pull "${image}" || rc=1
+          done <<< "$images"
+          exit $rc
 
   success:
     if: ${{ !cancelled() }}

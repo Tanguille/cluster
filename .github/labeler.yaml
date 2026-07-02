@@ -7,12 +7,7 @@ area/github: [{ changed-files: [{ any-glob-to-any-file: ".github/**/*" }] }]
 area/kubernetes:
   [{ changed-files: [{ any-glob-to-any-file: kubernetes/**/* }] }]
 area/renovate:
-  [
-    {
-      changed-files:
-        [{ any-glob-to-any-file: [".renovate/**/*", ".renovate.json5"] }]
-    }
-  ]
+  [{ changed-files: [{ any-glob-to-any-file: ".renovaterc.json5" }] }]
 area/scripts: [{ changed-files: [{ any-glob-to-any-file: scripts/**/* }] }]
 area/talos: [{ changed-files: [{ any-glob-to-any-file: talos/**/* }] }]
 area/taskfile:
@@ -22,4 +17,3 @@ area/taskfile:
         [{ any-glob-to-any-file: [".taskfiles/**/*", "Taskfile.yaml"] }]
     }
   ]
-area/templates: [{ changed-files: [{ any-glob-to-any-file: templates/**/* }] }]

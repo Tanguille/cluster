@@ -60,18 +60,6 @@
       autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
     },
     {
-      description: "llama.cpp release version in Dockerfile ARG",
-      customType: "regex",
-      managerFilePatterns: ["/docker/llama-cpp-rocm/Dockerfile$/"],
-      matchStrings: [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>[^\\n]+))?\\nARG LLAMA_CPP_VERSION=(?<currentValue>\\S+)"
-      ],
-      depNameTemplate: "ggml-org/llama.cpp",
-      datasourceTemplate: "github-releases",
-      versioningTemplate: "regex:^b(?<patch>\\d+)$",
-      autoReplaceStringTemplate: "# renovate: datasource=github-releases depName=ggml-org/llama.cpp versioning=regex:^b(?<patch>\\d+)$\nARG LLAMA_CPP_VERSION={{newValue}}"
-    },
-    {
       description: "SGLang release version in sglang-rocm Dockerfile ARG",
       customType: "regex",
       managerFilePatterns: ["/docker/sglang-rocm/Dockerfile$/"],
@@ -101,20 +89,6 @@
       minimumReleaseAge: "3 days"
     },
     // Grouping rules
-    {
-      description: "llama-cpp-rocm build inputs (llama.cpp version, ROCm base image digest) — one review PR, no automerge; merging it triggers the image-builder build workflow",
-      groupName: "llama-cpp-rocm",
-      matchFileNames: ["docker/llama-cpp-rocm/Dockerfile"],
-      automerge: false,
-      addLabels: ["llama-cpp-rocm"]
-    },
-    {
-      description: "llama-cpp-rocm deployed image digest — review before the HelmRelease rolls a new build",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/tanguille/llama-cpp-rocm-gfx1201"],
-      automerge: false,
-      addLabels: ["llama-cpp-rocm"]
-    },
     {
       description: "sglang-rocm build inputs (sglang fork version + ROCm base image digest) — one review PR, no automerge; merging triggers the image-builder build workflow",
       groupName: "sglang-rocm",
