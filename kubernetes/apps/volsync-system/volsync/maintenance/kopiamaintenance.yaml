@@ -12,7 +12,7 @@ spec:
     - mountPath: repository
       volumeSource:
         nfs:
-          path: /mnt/TanguilleServer/VolsyncKopia
+          path: ${VOLSYNC_NFS_PATH}
           server: "${TRUENAS_IP}"
   repository:
     repository: volsync-maintenance-secret
