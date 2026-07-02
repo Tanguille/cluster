@@ -11,18 +11,16 @@ spec:
     kind: OCIRepository
     name: nextcloud
 
-  # FROM_ADDRESS/SMTP_HOST live in the app's sops secret, NOT in cluster-secrets —
-  # ${VAR} substitution never resolved them (silently empty until flux strict mode
-  # made it a build error). Inject them into chart values the flux-native way.
+  # FROM_ADDRESS lives in the app's sops secret, NOT in cluster-secrets — ${VAR}
+  # substitution never resolved it (silently empty until flux strict mode made it
+  # a build error). Chart 9.2.0 has no fromAddressKey in existingSecret (it reads
+  # a plain value at nextcloud.mail.fromAddress), so inject it flux-natively here.
+  # SMTP_HOST needs no injection: existingSecret.smtpHostKey wires it directly.
   valuesFrom:
     - kind: Secret
       name: nextcloud-secret
       valuesKey: FROM_ADDRESS
-      targetPath: mail.fromAddress
-    - kind: Secret
-      name: nextcloud-secret
-      valuesKey: SMTP_HOST
-      targetPath: mail.smtp.host
+      targetPath: nextcloud.mail.fromAddress
 
   values:
     prometheus:
@@ -104,7 +102,8 @@ spec:
 
       mail:
         enabled: true
-        # fromAddress + smtp.host injected via spec.valuesFrom (see top of file)
+        # fromAddress injected via spec.valuesFrom (see top of file); the SMTP
+        # host/credentials come from existingSecret.smtp*Key above
         domain: gmail.com
         smtp:
           port: 465
@@ -437,8 +436,6 @@ spec:
       type: cronjob
       cronjob:
         schedule: "*/5 * * * *"
-        concurrencyPolicy: Forbid
-        ttlSecondsAfterFinished: 3600
         failedJobsHistoryLimit: 1
         successfulJobsHistoryLimit: 2
         affinity:
@@ -450,14 +447,6 @@ spec:
                     app.kubernetes.io/instance: nextcloud
                     app.kubernetes.io/component: app
                 topologyKey: kubernetes.io/hostname
-        env:
-          - name: MAIL_FROM_ADDRESS
-            valueFrom:
-              secretKeyRef:
-                name: nextcloud-secret
-                key: FROM_ADDRESS
-          - name: PHP_MEMORY_LIMIT
-            value: "8G"
         command:
           - /bin/sh
           - /scripts/cron.sh
@@ -465,15 +454,6 @@ spec:
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true
-        extraVolumes:
-          - name: scripts
-            configMap:
-              name: nextcloud-scripts
-              defaultMode: 0755
-        extraVolumeMounts:
-          - name: scripts
-            mountPath: /scripts
-            readOnly: true
 
     startupProbe:
       enabled: true
