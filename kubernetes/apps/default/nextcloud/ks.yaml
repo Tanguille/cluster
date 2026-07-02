@@ -17,14 +17,12 @@ spec:
       namespace: database
   path: ./kubernetes/apps/default/nextcloud/app
   prune: true
-  retryInterval: 2m
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
   wait: true
   interval: 30m
-  timeout: 15m
   postBuild:
     substitute:
       APP: *app
