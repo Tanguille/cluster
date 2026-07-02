@@ -174,21 +174,5 @@ spec:
     optimizer:
       embeddingProvider: openai
       embeddingService: http://litellm.ai.svc.cluster.local/v1
-      # ROLLED BACK 2026-07-02: bge-small-en-v1.5 (vmcp-embedding) is BERT-based
-      # with a hard 512-token native context (absolute positional embeddings,
-      # not extendable via contextSize/uBatchSize) — toolhive's real batch is
-      # ~1113 tokens, so every session failed with exceed_context_size_error.
-      # Reverting to qwen3-embedding (32K native context) until a small model
-      # with genuinely long context is found.
       embeddingModel: qwen3-embedding
-      # REVERTED AGAIN 2026-07-02: 30s is toolhive's hardcoded incoming-request
-      # WriteTimeout (pkg/vmcp/server/server.go, not configurable) — but THIS
-      # field is a different thing: vmcp's own outbound client timeout when it
-      # calls litellm to build the tool index. Under concurrent load,
-      # qwen3-embedding's real ~194-tool batch can take 20-50s; at 30s vmcp gave
-      # up on its own outbound call too early, which measurably increased
-      # session failures (likely via a retry-storm feedback loop: failed
-      # session -> client retries -> another 194-tool re-embed -> more load).
-      # 120s is the only value actually validated at 80% session success —
-      # don't shrink this to "match" the unrelated 30s server timeout again.
       embeddingServiceTimeout: 120s

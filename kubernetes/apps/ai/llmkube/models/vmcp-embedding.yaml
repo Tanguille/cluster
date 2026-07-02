@@ -4,15 +4,33 @@ kind: Model
 metadata:
   name: vmcp-embedding
 spec:
-  # bge-small-en-v1.5: ~33M params vs qwen3-embedding's 600M (~18x less prefill
-  # compute) — dedicated to vmcp-unified's tool-description search only, so its
-  # smaller/lower-dim embedding space never has to match memini's qwen3-embedding
-  # vectors. CPU-only: all 3 GPU-bearing nodes (control-1/2/3) are already full,
-  # and a 33M-param model on a couple of CPU cores easily clears sub-second for
-  # short tool descriptions, vs the iGPU's GPU-compute/overhead-bound latency.
-  source: https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-q8_0.gguf
-  format: gguf
+  # harrier-oss-v1-270m (Microsoft, 2026-03-30): Gemma3-270m-based decoder embedder,
+  # MIT, 640-dim, 32K native context, MTEB v2 66.5 — dedicated to vmcp-unified's
+  # tool-description search only, decoupling its per-session ~194-tool/~1166-token
+  # batch from qwen3-embedding's contention with memini.
+  # Known tradeoff: harrier is instruction-tuned (query-side prefixes); ToolHive
+  # sends bare queries, so we run slightly below its benchmark quality — accepted,
+  # still above the non-instructed alternatives for a 194-doc search space.
+  # Placement: shares ONE iGPU with qwen3-embedding (both tiny: 292MB + 639MB Q8;
+  # the iGPU generic-device-plugin advertises count: 2 for exactly this pair).
+  # Dedicated server = own slots/queue, so vmcp's session-build batch no longer
+  # queues behind memini/find_tool traffic at the model level; raw iGPU compute
+  # is still shared — if session failures return, check contention here first
+  # (the old shared-model setup measured 19-52s under 3x concurrency).
+  # Community GGUF (no first-party one) — mykor's is the most-downloaded conversion.
+  source: https://huggingface.co/mykor/harrier-oss-v1-270m-GGUF/resolve/main/harrier-oss-v1-270M-Q8_0.gguf
   quantization: Q8_0
+  hardware:
+    accelerator: vulkan
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: vulkan
+      layers: -1
+      # iGPU slot via squat/generic-device-plugin (count: 2 on iGPU nodes);
+      # nodeSelector below keeps this off the dGPU node.
+      resourceName: squat.ai/dri
 ---
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
@@ -21,43 +39,52 @@ metadata:
 spec:
   modelRef: vmcp-embedding
   mode: embedding
-  image: ghcr.io/ggml-org/llama.cpp:server@sha256:f415de2e2c3e61b3dfab40d7fd26136c13d342c1ae4b3ffa8657fcc6a2f43d60
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8fe0c6ae757c2f5118ab765622d7de1c9f9c4ab5416aa245222332f21e2182bb
+  # 4 slots on purpose: post-cutover this server takes BOTH the once-per-session
+  # 194-tool build batch AND the continuous find_tool query stream.
   parallelSlots: 4
-  # 2048 tokens/slot — same proven-safe margin over ToolHive's largest batch
-  # (~1095 tokens) used for qwen3-embedding.
+  # 2048 tokens/slot — ~1.75x margin over the real ~1166-token batch, same
+  # margin ratio that worked for qwen3-embedding. Harrier's native window is
+  # 32K, so the slot size (not the model) is the only ceiling here.
   contextSize: 8192
   uBatchSize: 2048
+  # mode: embedding makes the operator inject --embedding --pooling last and
+  # --metrics itself (verified on the live qwen3-embedding pod) — don't repeat them.
   extraArgs:
     - "--alias"
     - "vmcp-embedding" # served model name litellm/vmcp-unified send in /v1/embeddings
-    - "--metrics" # expose Prometheus /metrics (off by default in llama-server)
 
-  # llama-server only serves /health in embeddings mode, so probe that rather
-  # than the operator-default chat-completions path.
-  probeOverrides:
-    startup:
-      httpGet: &healthProbe
-        path: /health
-        port: 8080
-      initialDelaySeconds: 5
-      periodSeconds: 5
-      timeoutSeconds: 5
-      failureThreshold: 15
-    readiness:
-      httpGet: *healthProbe
-      initialDelaySeconds: 5
-      periodSeconds: 10
-      timeoutSeconds: 3
-      failureThreshold: 3
-    liveness:
-      httpGet: *healthProbe
-      initialDelaySeconds: 30
-      periodSeconds: 30
-      timeoutSeconds: 5
-      failureThreshold: 3
+  # Defense-in-depth: keeps the iGPU pin even if qwen3-embedding's own pin is
+  # ever loosened (the podAffinity below would otherwise follow it anywhere).
+  nodeSelector:
+    amd.com/igpu: "true"
 
+  # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+
+  # Co-locate with qwen3-embedding's pod (same node, whichever iGPU node that
+  # currently is — qwen3-embedding itself isn't hard-pinned to one, see
+  # qwen3-embedding.yaml): the two embedders deliberately share that node's iGPU
+  # (one squat.ai/dri slot each of the node's 2), and same-node networking for
+  # litellm/unified comes along for free.
+  affinity:
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: qwen3-embedding
+          topologyKey: kubernetes.io/hostname
+
+  # No probeOverrides: the operator's llamacpp defaults already probe /health
+  # with a more forgiving startup window (180x10s). GPU allocation comes from
+  # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields at 0.8.26).
   resources:
-    cpu: "1"
-    memory: 512Mi
+    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
+    memory: 1Gi # Q8_0 weights are 292MB; UMA iGPU allocates from system RAM
   endpoint:
     path: /v1/embeddings

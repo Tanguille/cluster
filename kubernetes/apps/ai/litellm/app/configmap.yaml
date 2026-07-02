@@ -82,12 +82,10 @@ data:
         model_info:
           mode: embedding
 
-      # bge-small-en-v1.5 on LLMKube (CPU). Dedicated to vmcp-unified's per-session
-      # tool-description search ONLY — decoupled from memini's qwen3-embedding so the
-      # two never queue behind each other. ~18x fewer params than qwen3-embedding
-      # means sub-second embeds for the ~194-tool/~1095-token batch, comfortably
-      # under toolhive's hardcoded 30s server WriteTimeout (not configurable —
-      # confirmed against the deployed v0.32.0 source).
+      # harrier-oss-v1-270m on LLMKube (shared iGPU, Vulkan). Dedicated to
+      # vmcp-unified's per-session tool-description search ONLY — decoupled from
+      # memini's qwen3-embedding so the two never queue behind each other.
+      # Model rationale + placement: kubernetes/apps/ai/llmkube/models/vmcp-embedding.yaml
       - model_name: vmcp-embedding
         litellm_params:
           model: openai/vmcp-embedding
