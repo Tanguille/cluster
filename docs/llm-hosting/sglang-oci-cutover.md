@@ -42,7 +42,7 @@ at image-build time — covered by digest-pinned rollback and the Stage 2 valida
    and every other flag identical. Open as Stage 2 PR.
 3. **Pre-pull** — control-1 is the only node that can run the pod, so Spegel has no peer for
    the first pull and Recreate kills the old pod before pulling: an un-prepulled 47GB fetch is
-   pure downtime. Before merging: `kubectl -n ai run prepull --rm --restart=Never
+   pure downtime. Before merging: `kubectl -n ai run prepull -i --rm --restart=Never
    --image=ghcr.io/tanguille/sglang-rdna4:v0.5.14-gfx1201@sha256:<digest>
    --overrides='{"spec":{"nodeName":"control-1"}}' --command -- true` (or `crictl pull` on the
    node). Repeat for every future digest bump.
