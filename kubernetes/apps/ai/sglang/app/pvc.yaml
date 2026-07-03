@@ -7,9 +7,9 @@ metadata:
 spec:
   accessModes: ["ReadWriteOnce"]
   storageClassName: openebs-hostpath
-  # Rebuildable runtime cache: the SGLang conda env (/cache/sglang/conda), the patched fork
-  # source, the Triton cache, and the Qwen3.6-27B-AWQ model (~50 GB used). NOT reproducible
-  # from git (runtime-from-PVC — see README); rebuild via the fork's setup.sh if lost.
+  # Model (Qwen3.6-27B-AWQ), persisted Triton JIT cache, and the legacy runtime-from-PVC
+  # conda env + fork source (~50 GB used). The env is rollback-only since the baked-image
+  # cutover (see README); rebuild via scripts/sglang-env-rebuild.sh if lost.
   resources:
     requests:
       storage: 80Gi

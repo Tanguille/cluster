@@ -33,18 +33,27 @@ at image-build time — covered by digest-pinned rollback and the Stage 2 valida
    Watch `gh run watch`. ~15-30 min; serving keeps running throughout. Capture the pushed
    digest from the run summary (`…@sha256:…`). First run may hit hosted-runner disk/RAM
    limits — iterate on the workflow's free-disk-space/swap knobs if so.
-2. **Pin** — set the sglang HelmRelease image to `ghcr.io/tanguille/sglang-rdna4@<digest>`,
-   command path `/cache/sglang/repo-v0514/scripts/launch.sh` → `/opt/rdna4-inference/scripts/launch.sh`,
-   and `CONDA_BASE: /cache/sglang/conda` → `/opt/conda`. Keep the PVC mount (model `/cache/hf` +
-   Triton `/cache/sglang/triton`) and every other flag identical. Open as Stage 2 PR.
-3. **Deploy** — merge Stage 2, watch the pod roll (this restart is the only serving-visible
+2. **Pin** — set the sglang HelmRelease image to `ghcr.io/tanguille/sglang-rdna4` with
+   `tag: v0.5.14-gfx1201@sha256:<digest>` (tag@digest, repo convention: the digest is
+   authoritative — the tag gets rebuilt in place — but the tag must stay so Renovate can bump
+   the digest), command path `/cache/sglang/repo-v0514/scripts/launch.sh` →
+   `/opt/rdna4-inference/scripts/launch.sh`, and drop the `CONDA_BASE` env override (the image
+   bakes `/opt/conda`). Keep the PVC mount (model `/cache/hf` + Triton `/cache/sglang/triton`)
+   and every other flag identical. Open as Stage 2 PR.
+3. **Pre-pull** — control-1 is the only node that can run the pod, so Spegel has no peer for
+   the first pull and Recreate kills the old pod before pulling: an un-prepulled 47GB fetch is
+   pure downtime. Before merging: `kubectl -n ai run prepull -i --rm --restart=Never
+   --image=ghcr.io/tanguille/sglang-rdna4:v0.5.14-gfx1201@sha256:<digest>
+   --overrides='{"spec":{"nodeName":"control-1"}}' --command -- true` (or `crictl pull` on the
+   node). Repeat for every future digest bump.
+4. **Deploy** — merge Stage 2, watch the pod roll (this restart is the only serving-visible
    moment of the whole cutover). First boot recompiles the Triton JIT cache onto the PVC (the
    startup probe's ~16 min budget covers it). This boot is also the kernel smoke test the
    GPU-free build deferred: a broken build fails the startup probe here. The single GPU forces
    a Recreate rollout (no old pod kept warm), so on failure go straight to **Rollback** below —
    serving is down only for the failed-boot window either way.
-4. **Validate** — `/health` up, a `qwen-3.6` completion with tools+thinking, PPL/needle spot-check, decode tok/s parity with the PVC baseline (≈16 single / ≈99 @conc24).
-5. **Retire** — drop the "Runtime-from-PVC" section from the app README; keep `sglang-env-rebuild.sh`
+5. **Validate** — `/health` up, a `qwen-3.6` completion with tools+thinking, PPL/needle spot-check, decode tok/s parity with the PVC baseline (≈16 single / ≈99 @conc24).
+6. **Retire** — drop the "Runtime-from-PVC" section from the app README; keep `sglang-env-rebuild.sh`
    as the documented PVC-rebuild fallback (the Dockerfile is now primary). The PVC's
    `conda/` + `repo-v0514/` are now dead weight but harmless — clean up later.
 

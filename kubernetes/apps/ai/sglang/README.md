@@ -23,7 +23,12 @@ Full benchmarks, the optimization ledger and the engine-selection rationale live
   (127K → 237,446 tokens)**, quality-neutral (PPL 2.1423, needle@124K PASS) — headroom that keeps
   the agent's 124K prefix from evicting under burst.
 
-## ⚠️ Runtime-from-PVC (reproducibility debt)
+## ⚠️ Runtime-from-PVC (superseded — kept as rollback)
+
+> **Superseded by the baked OCI image** (`ghcr.io/tanguille/sglang-rdna4`, see
+> [`docker/sglang-rdna4/README.md`](../../../../docker/sglang-rdna4/README.md)) as of the Stage 2
+> cutover. The PVC env below remains the rollback path; full rewrite of this section pending
+> post-cutover validation (`docs/llm-hosting/sglang-oci-cutover.md` steps 5-6).
 
 The container image is **only the ROCm 7.2.4 runtime base**. The engine runs from the prebuilt
 conda env on the `sglang` PVC at `/cache/sglang`:
@@ -47,9 +52,8 @@ OOM-restarts on the first grammar request):
 5. `qwen3.6_devrole_chat_template.jinja` — remaps the `developer` role and guards historical `<think>`
    blocks (correct `preserve_thinking`, no empty-arg tool-call loop).
 
-**Follow-up (blocked):** bake the env into a versioned OCI image (`docker/sglang-rdna4/`), but the
-cluster can't pull never-cached images (Spegel upstream fall-through broken), so runtime-from-PVC on
-the cached ROCm base is the only path for now.
+**Follow-up (done):** the env is now baked into `ghcr.io/tanguille/sglang-rdna4`
+(`docker/sglang-rdna4/`) — the Spegel blocker that forced runtime-from-PVC is resolved.
 
 ## Performance & bottleneck
 

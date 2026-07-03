@@ -57,10 +57,11 @@ docs excluded so a README edit can't repush the image) or on manual dispatch
 `docker build docker/sglang-rdna4`. Expect ~15-30 min: the ROCm "complete" base is large and
 the HIP kernels compile.
 
-## Pin by digest, never the tag
+## Pin as tag@digest — the digest is authoritative
 
-Community tags get rebuilt in place (memo `project_ik_llama_image_tags`) — the sglang
-HelmRelease references the **digest**, never the tag:
+The tag gets rebuilt in place (memo `project_ik_llama_image_tags`), so the digest is what pins
+the deployment — but the HelmRelease uses the repo-wide `tag: <tag>@sha256:<digest>` form, NOT a
+bare `@digest`: Renovate's flux manager needs the tag present to issue digest-bump PRs.
 
 ```bash
 skopeo inspect docker://ghcr.io/tanguille/sglang-rdna4:v0.5.14-gfx1201 --format '{{.Digest}}'
