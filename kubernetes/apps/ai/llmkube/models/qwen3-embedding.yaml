@@ -55,6 +55,19 @@ spec:
   nodeSelector:
     amd.com/igpu: "true"
 
+  # Mutual half of qwen35-2b's anti-affinity (see qwen35-2b.yaml). Anti-affinity
+  # is checked only at the moving pod's scheduling time, so the rule must exist
+  # on both sides: 2026-07-03 a reshuffle rolled this pod onto qwen35-2b's node,
+  # filling its 2 dri slots and re-stranding vmcp-embedding (which hard-follows
+  # this pod) in Pending.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: qwen35-2b
+          topologyKey: kubernetes.io/hostname
+
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
   podSecurityContext:
     runAsUser: 0
