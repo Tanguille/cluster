@@ -50,6 +50,7 @@ jobs:
           # fetching notes when Renovate could not surface them. When it must fetch, steer it to
           # the authenticated gh_api tool — web_fetch of github.com HTML truncates to page
           # boilerplate at the response cap and never yielded usable notes (validated in run logs).
+          # The trailing quality-rules paragraph distills a fleet audit of past reviews.
           system_prompt: >-
             ${{ contains(github.event.pull_request.body, '### Release Notes')
             && 'The PR body already contains upstream release notes from Renovate. Do not fetch
@@ -65,6 +66,17 @@ jobs:
             compare links, or commit SHAs; include at most one release-page URL if useful. For
             digest-only bumps with no upstream changelog, state that briefly instead of spending
             tool calls searching.' }}
+            Review quality rules: Before flagging a config, env var, or resource as missing,
+            read the file that would contain it; if unverifiable, file it under Unknowns at
+            info severity, never as a blocker or major. Cite only sources fetched this run;
+            on a failed or empty fetch write "not verified" (never "confirmed") and list the
+            gap under Unknowns. For version bumps spanning multiple releases, enumerate every
+            release in the old-to-new range (releases or compare API) and flag when a chart
+            bump moves the embedded appVersion across a major version. Translate upgrade steps
+            written for docker-compose or .env files into their Kubernetes/Helm equivalent
+            before flagging them as missing. Keep review length proportional to the change and
+            omit sections with no content (e.g. Linked Issue Fit on bot PRs). Inline findings
+            must require action; never post praise as a finding.
           standards_file: AGENTS.md
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
