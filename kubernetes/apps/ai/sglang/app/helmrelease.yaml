@@ -48,14 +48,14 @@ spec:
         strategy: Recreate
         containers:
           app:
-            # SGLang (mattbucci RDNA4 fork) runs from the prebuilt conda env on the `sglang` PVC at
-            # /cache/sglang — the image is only the ROCm 7.2.4 runtime base. The engine, the native
-            # gfx1201 HIP kernels, the fork source and the bring-up patches all live on the PVC.
-            # See the app README for the PVC inventory, the patches, and the OCI-image follow-up.
+            # SGLang (mattbucci RDNA4 fork) baked into the image: conda env, native gfx1201 HIP
+            # kernels, fork source + TP=1 patches — built GPU-free in CI; build/pin/rollback
+            # mechanics in docker/sglang-rdna4/README.md. Digest is authoritative (the tag gets
+            # rebuilt in place); the tag stays so Renovate can bump the digest.
             image:
-              repository: docker.io/rocm/dev-ubuntu-24.04
-              tag: 7.2.4-complete@sha256:92f309c51b52cef8762867848f1529dee821624f23cd5df38455e819538f762f
-            # Override the dev-image entrypoint with the fork's preset runner. The qwen36-27b preset +
+              repository: ghcr.io/tanguille/sglang-rdna4
+              tag: v0.5.14-gfx1201@sha256:2cb8e979c7ccc2116f95595ddd317cea85fe17390752b4bc264b6e6ac1629b1d
+            # Replace the image entrypoint with the fork's preset runner. The qwen36-27b preset +
             # these flags are the validated single-card config; the perf table, the cache-vs-batch
             # tradeoff and the rejected alternatives (MoE, MTP/spec, fp4 KV) are in the README. Radix
             # cache is ON (MambaRadixCache, no_buffer) for the long-context agent: prefix reuse
@@ -71,7 +71,7 @@ spec:
               - /bin/bash
               - -c
               - >-
-                exec bash /cache/sglang/repo-v0514/scripts/launch.sh qwen36-27b
+                exec bash /opt/rdna4-inference/scripts/launch.sh qwen36-27b
                 --context-length 200000
                 --mem-fraction 0.875
                 --max-running 32
@@ -80,8 +80,8 @@ spec:
                 --port 8000
             env:
               TZ: ${TIMEZONE}
-              # --- launch.sh / common.sh overrides (most gfx1201 env is set by common.sh) ---
-              CONDA_BASE: /cache/sglang/conda
+              # --- launch.sh / common.sh overrides (most gfx1201 env is set by common.sh;
+              # --- CONDA_BASE/ENV_NAME/REPO_DIR come baked from the image) ---
               TP: "1" # single R9700; the fork defaults to 2 (its dual-card box)
               MODEL: mattbucci/Qwen3.6-27B-AWQ # resolved offline from HF_HOME cache
               # Pin every device-visibility var to card 0 (common.sh defaults them to "0,1").
@@ -113,8 +113,9 @@ spec:
                   initialDelaySeconds: 60
                   periodSeconds: 15
                   timeoutSeconds: 5
-                  # ~16 min budget (60×15s + 60s): warm PVC boots in ~2-3 min; headroom covers a
-                  # cold Triton recompile after image/kernel changes.
+                  # ~16 min budget (60×15s + 60s): a warm boot (image cached, Triton cache warm)
+                  # is ~2-3 min; headroom covers a cold Triton recompile after image/kernel changes.
+                  # Image pull time does not count — the probe starts with the container.
                   failureThreshold: 60
               # Liveness OFF: even TCP probes restart a busy-but-alive singleton under long-prefill /
               # thinking load (exit 0 via SIGTERM + kill_process_tree, dropping in-flight work;
@@ -172,10 +173,9 @@ spec:
                 port: 80
 
     persistence:
-      # The `sglang` PVC carries the prebuilt SGLang conda env, fork source, Triton cache and the
-      # Qwen3.6 AWQ model (see pvc.yaml). Rebuildable via scripts/sglang-env-rebuild.sh if lost — it
-      # bakes in the RDNA4/TP=1 fixes the fork's stock setup.sh omits (without them the server crashes
-      # on the first request, or OOM-restarts hours in on the first grammar/json_schema request).
+      # The `sglang` PVC carries the Qwen3.6 AWQ model (/cache/hf), the persisted Triton JIT cache,
+      # and the legacy runtime-from-PVC conda env + fork source — kept as the rollback path for the
+      # baked image (retirement owned by docs/llm-hosting/sglang-oci-cutover.md step 6).
       cache:
         enabled: true
         existingClaim: sglang

@@ -70,16 +70,6 @@
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
     },
-    {
-      description: "SGLang release version in sglang-rocm Dockerfile ARG",
-      customType: "regex",
-      managerFilePatterns: ["/docker/sglang-rocm/Dockerfile$/"],
-      matchStrings: [
-        "# renovate: datasource=github-releases depName=sglang-project/sglang\\nARG SGLANG_VERSION=(?<currentValue>\\S+)"
-      ],
-      depNameTemplate: "sglang-project/sglang",
-      datasourceTemplate: "github-releases"
-    }
   ],
   packageRules: [
     // Auto-merge rules
@@ -101,18 +91,16 @@
     },
     // Grouping rules
     {
-      description: "sglang-rocm build inputs (sglang fork version + ROCm base image digest) — one review PR, no automerge; merging triggers the image-builder build workflow",
-      groupName: "sglang-rocm",
-      matchFileNames: ["docker/sglang-rocm/Dockerfile"],
-      automerge: false,
-      addLabels: ["sglang-rocm"]
+      description: "sglang-rdna4 build inputs (fork ref + ROCm base digest + miniforge) — one review PR, no automerge; merging fires the GPU-free build workflow and mints a new image digest",
+      groupName: "sglang-rdna4",
+      matchFileNames: ["docker/sglang-rdna4/Dockerfile"],
+      automerge: false
     },
     {
-      description: "sglang-rocm deployed image digest — review before a HelmRelease rolls a new build",
+      description: "sglang-rdna4 deployed image digest — review before the HelmRelease rolls the serving pod (Recreate on the single GPU)",
       matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/tanguille/sglang-rocm-gfx1201"],
-      automerge: false,
-      addLabels: ["sglang-rocm"]
+      matchPackageNames: ["ghcr.io/tanguille/sglang-rdna4"],
+      automerge: false
     },
     {
       description: "Actions Runner Controller Group",
