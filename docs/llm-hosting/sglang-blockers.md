@@ -157,6 +157,20 @@ kernel, that makes overlap a no-op).
 
 ---
 
+## Blocker 7 — decode-topk-pages CANDIDATE chain (067+068+069) has drifted off our pinned `FORK_REF`
+
+**Impact:** Low/deferred — this is a not-yet-shipped optional decode-speed lever, not a regression. Blocks testing patch 069 (Quest-style top-K KV page selection, claimed up to 1.77x long-context decode speedup) on our DeltaNet-hybrid Qwen3.6-27B.
+
+**Symptoms:** `patch -p1 --dry-run` of `patches/067-force-decode-window.patch.CANDIDATE` fails on `server_args.py` even when applied first, against a genuinely pristine tree (i.e. not a chain-ordering artifact — 068 and 069 also fail, compounding the same root cause).
+
+**Root cause:** 067's hunk expects `triton_attention_split_tile_size: Optional[int] = None` to be immediately followed by `num_continuous_decode_steps: int = 1` in the `ServerArgs` dataclass, so it can insert `force_decode_window` between them. Our pinned tree (`FORK_REF=60ffa9501c2c6`) already has four newer fields inserted at that exact location (`prefill_only_disable_kv_cache`, `disable_radix_cache`, `disable_chunked_prefix_cache`, `disable_overlap_schedule`) from later upstream/fork changes the `.CANDIDATE` series was never rebased against. This is real semantic drift, not a cosmetic line-number offset — `patch`'s fuzz matching (already at fuzz=2) can't resolve it.
+
+**Investigated:** 2026-07-01, caught at the dry-run phase with zero production impact — full detail in [[project_sglang_decode_topk_patch069]] and `docs/llm-hosting/decode-topk-pages-test-plan.md` (architectural compatibility with the DeltaNet hybrid was confirmed separately; the patches are sound, just stale against our tree).
+
+**Status:** NO-GO per the test plan's gate — no hand-rebasing the patches (upstream hasn't validated a hand-patched variant). `.CANDIDATE` files and `FORK_REF` left untouched. Retest when upstream rebases the `.CANDIDATE` series past our pin, or incidentally on our next `FORK_REF` bump.
+
+---
+
 ## Summary table
 
 | # | Blocker | Severity | Workaround? | When to recheck |
@@ -167,5 +181,6 @@ kernel, that makes overlap a no-op).
 | 4 | gfx1201 missing from sgl_kernel / AITER | Medium | Yes (mattbucci patches) | Discussion #12600 closed |
 | 5 | No official gfx1201 Docker image | Operational | Yes (custom Dockerfile) | RDNA4 in official ROCm matrix |
 | 6 | Prefix cache on DeltaNet hybrid (ROCm) | **Resolved** (v0.5.13) | MambaRadixCache (cache-on, batch 16/~63) + TP=1 store_cache patch | HiCache #24121 (cache+batch+full-context together) |
+| 7 | decode-topk-pages CANDIDATE chain (067+068+069) drifted off FORK_REF | Low (optional, deferred) | No — patch needs upstream rebase | Fork rebases the CANDIDATE series, or our FORK_REF bump happens to realign |
 
 **Bottom line:** The mattbucci fork resolves blockers 2–6 today (v0.5.13.post1). Blocker 6 (prefix cache) is fixed by native MambaRadixCache — cache is ON in prod, which fixes the long-context agent, at a batch cost (~63 @conc16 vs ~99 no-cache) that's the right tradeoff for the agentic workload. Blocker 1 (MTP) remains the single-stream gap vs vLLM but is moot here (spec is net-negative on dense RDNA4). Once #24121 (HiCache-for-hybrid) closes, retest to get cache + higher batch + full context together.
