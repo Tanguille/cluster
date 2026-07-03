@@ -74,9 +74,11 @@ jobs:
             release in the old-to-new range (releases or compare API) and flag when a chart
             bump moves the embedded appVersion across a major version. Translate upgrade steps
             written for docker-compose or .env files into their Kubernetes/Helm equivalent
-            before flagging them as missing. Keep review length proportional to the change and
-            omit sections with no content (e.g. Linked Issue Fit on bot PRs). Inline findings
-            must require action; never post praise as a finding.
+            before flagging them as missing. Keep review length proportional to the change.
+            Never emit a Linked Issue Fit section when the PR has no linked issue - this is
+            every Renovate/bot PR, so omit the section entirely rather than stating there is
+            no linked issue. Inline findings must require action; never post praise as a
+            finding.
           standards_file: AGENTS.md
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
