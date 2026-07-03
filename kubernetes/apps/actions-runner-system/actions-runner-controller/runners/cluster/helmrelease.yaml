@@ -38,11 +38,30 @@ spec:
                 valueFrom:
                   fieldRef:
                     fieldPath: status.hostIP
+            # Runners had no requests, so the scheduler packed all 3 onto one memory-tight node;
+            # each batch of concurrent reviews then starved kubelet (MemAvailable 1.2Gi → 0.22Gi,
+            # 2026-07-02 batch-kills). Peak observed usage is ~0.32Gi; limits stop any runaway from
+            # taking the node down again.
+            resources:
+              requests:
+                cpu: 250m
+                memory: 512Mi
+              limits:
+                memory: 1Gi
             volumeMounts:
               - mountPath: /var/run/secrets/talos.dev
                 name: talos
                 readOnly: true
         serviceAccountName: *app
+        # Best-effort spread so one node blip can't kill a whole review batch (3× on 2026-07-02).
+        # ScheduleAnyway (not DoNotSchedule) so CI still runs when a node is down.
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                actions.github.com/scale-set-name: *app
         volumes:
           - name: talos
             secret:
