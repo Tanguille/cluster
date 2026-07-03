@@ -9,7 +9,6 @@ spec:
   interval: 30m
   dependsOn:
     - name: litellm-operator
-      namespace: *namespace
     - name: cloudnative-pg-databases
       namespace: database
   path: ./kubernetes/apps/ai/litellm/instance
