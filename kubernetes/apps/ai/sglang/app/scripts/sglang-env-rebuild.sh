@@ -83,6 +83,11 @@ grep -q 'get_world_size(group=self.tp_sync_group) > 1' "$SMP" || \
 echo "=== drop transformers-5.x 'kernels' pkg (crashes import sglang) ==="
 "$CONDA_BASE/bin/conda" run -n "$ENV_NAME" pip uninstall kernels -y 2>/dev/null || true
 
+echo "=== fix: launch.sh's --disable-cuda-graph is deprecated -> split cuda-graph-backend flags ==="
+LAUNCH="$REPO_DIR/scripts/launch.sh"
+grep -q -- '--disable-cuda-graph' "$LAUNCH" && \
+  sed -i 's/--disable-cuda-graph/--cuda-graph-backend-decode=disabled --cuda-graph-backend-prefill=disabled/g' "$LAUNCH"
+
 echo "=== install amdsmi (ROCm GPU-management bindings) ==="
 # Without it SGLang logs "Failed to import amdsmi" at boot and falls back to torch for VRAM
 # capacity detection (works, but the fallback is why mem-fraction sizing is coarser). Prefer the

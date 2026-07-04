@@ -171,6 +171,26 @@ kernel, that makes overlap a no-op).
 
 ---
 
+## Blocker 8 — No RDNA4 fused kernel for the newer FP4 formats (Quark 0.12: AMDFP4 / NVFP4 / SVDQuant)
+
+**Impact:** None today — this is a "does re-quantizing unlock faster decode?" evaluation, and the answer is no. Documented so we stop re-asking on every Quark release.
+
+**Context:** AMD Quark 0.12.0 (2026-07) adds AMDFP4 (E5M3 per-block scales), NVFP4, native MXFP4 inference support, and the SVDQuant algorithm (INT4/MXFP4/NVFP4 weights + low-rank outlier branch). Tempting as a path off the slow AWQ-int4 dense-decode wall.
+
+**Root cause (why none of it helps this box):** Quark is a *quantization producer* — it emits checkpoints. Our dense-decode bottleneck is the RDNA4 **inference kernel** (Triton W4A16 + GatedDeltaNet), an SGLang/fork problem the checkpoint format can't touch. Re-quantizing the same weights to a different FP4 format doesn't change which kernel SGLang dispatches at decode. Producer with no consumer:
+- **MXFP4 / NVFP4 / AMDFP4:** no fused decode kernel in the mattbucci fork for gfx1201 (consistent with the MXFP4/fp4 "ruled out for dense" finding in `sglang-benchmarks.md` and [[project_sglang_rdna4_tp1_results]]).
+- **SVDQuant:** its runtime is **Nunchaku — CUDA W4A4 + low-rank, Nvidia-only**; no ROCm path, and SGLang has no consumer for the SVDQuant (INT4 + low-rank branch) format on any GPU. Public SVDQuant checkpoints are also almost all diffusion/image models (FLUX, Qwen-Image); no LLM checkpoint exists for Qwen3.6-27B (even Qwen3.5-27B is GPTQ-Int4/AWQ only).
+
+**Investigated:** 2026-07-04, doc-only (no build). SVDQuant quality-vs-AWQ was the one non-throughput angle (better int4 accuracy at equal speed) but we've flagged no quality issue, so not worth the self-quantize + missing-kernel effort.
+
+**Status:** NO-GO. AWQ-int4 stays the dense path. Same retest trigger as MXFP4 — a fork/upstream announcement of an RDNA4 **fused FP4 decode kernel** for gfx1201. *That* is the trigger, not a Quark release (Quark is necessary-but-not-sufficient: it produces the checkpoint the kernel would consume).
+
+**References:**
+- Quark 0.12 release notes: https://quark.docs.amd.com/latest/release_note.html
+- Nunchaku (SVDQuant runtime, CUDA-only): https://github.com/nunchaku-ai/nunchaku
+
+---
+
 ## Summary table
 
 | # | Blocker | Severity | Workaround? | When to recheck |
@@ -182,5 +202,16 @@ kernel, that makes overlap a no-op).
 | 5 | No official gfx1201 Docker image | Operational | Yes (custom Dockerfile) | RDNA4 in official ROCm matrix |
 | 6 | Prefix cache on DeltaNet hybrid (ROCm) | **Resolved** (v0.5.13) | MambaRadixCache (cache-on, batch 16/~63) + TP=1 store_cache patch | HiCache #24121 (cache+batch+full-context together) |
 | 7 | decode-topk-pages CANDIDATE chain (067+068+069) drifted off FORK_REF | Low (optional, deferred) | No — patch needs upstream rebase | Fork rebases the CANDIDATE series, or our FORK_REF bump happens to realign |
+| 8 | No RDNA4 fused kernel for newer FP4 formats (Quark 0.12 AMDFP4/NVFP4/SVDQuant) | None (eval, NO-GO) | N/A — format has no gfx1201 consumer | Fork/upstream ships a fused FP4 decode kernel for gfx1201 (not a Quark release) |
 
 **Bottom line:** The mattbucci fork resolves blockers 2–6 today (v0.5.13.post1). Blocker 6 (prefix cache) is fixed by native MambaRadixCache — cache is ON in prod, which fixes the long-context agent, at a batch cost (~63 @conc16 vs ~99 no-cache) that's the right tradeoff for the agentic workload. Blocker 1 (MTP) remains the single-stream gap vs vLLM but is moot here (spec is net-negative on dense RDNA4). Once #24121 (HiCache-for-hybrid) closes, retest to get cache + higher batch + full context together.
+
+---
+
+## Known-benign log noise (not blockers — do not re-investigate)
+
+Startup/runtime log lines that look like errors but aren't. Investigated 2026-07-04.
+
+- **`Failed to get device capability: nvcc not found and PyTorch is not built with CUDA support...`** (×6 at startup) — not sglang, it's `flashinfer`'s `CompilationContext.__init__` probing `torch.cuda.get_device_capability()` to build `-gencode` flags for flashinfer's own **CUDA** JIT path. No ROCm branch exists, the exception is caught and logged, not propagated. This fork's real AMD backend/kernel selection goes through the separate ROCm-native path (`sglang/srt/platforms/rocm.py`), which is unaffected. Cosmetic; ignore.
+- **`Tokenizer for mattbucci/Qwen3.6-27B-AWQ is still TokenizersBackend after retries with --trust-remote-code. Model-specific tokenizer attributes may be missing.`** (×3 at startup) — Qwen3.6's declared tokenizer class doesn't resolve even via the custom-code retry, so sglang falls back to the generic transformers-v5 `TokenizersBackend`. sglang has a matching handled path for this exact case: `_apply_post_load_fixes()` (`_fix_v5_add_bos_eos_token`, `_fix_special_tokens_pattern`, `_fix_added_tokens_encoding`) patches bos/eos + special-token gaps for tokenizers loaded this way — it's not silent breakage. Live tool-calling/chat-template traffic (Hermes, PR-review CI) has run on this fork without observed special-token corruption, so treat as verified-fine in practice.
+- **`'--disable-cuda-graph' is deprecated...`** — was a real (if cosmetic) fix, not log noise: patched in the Dockerfile (patch 4) and `sglang-env-rebuild.sh` to emit `--cuda-graph-backend-{decode,prefill}=disabled` instead. Listed here only so the warning's absence post-rebuild isn't mistaken for a regression.
