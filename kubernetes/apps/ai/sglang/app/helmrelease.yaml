@@ -146,7 +146,10 @@ spec:
             resources:
               requests:
                 cpu: 2
-                memory: 10Gi
+                # Measured steady-state host RAM is ~17Gi (cgroup memory.current), not 10Gi —
+                # under-requesting let the scheduler overcommit control-1 and OOM-cascade its
+                # neighbours. Reserve realistically; limit stays 32Gi (see below, do not trim).
+                memory: 18Gi
                 squat.ai/dri: &dri 1 # extended resource: request must equal limit
               limits:
                 cpu: 12
