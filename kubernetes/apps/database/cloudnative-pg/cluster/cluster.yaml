@@ -18,6 +18,9 @@ spec:
   enableSuperuserAccess: true
   # Declarative app roles (CNPG-native, replacing postgres-init). Password sourced from a
   # basic-auth Secret in this namespace; CNPG enforces it, so the app's DATABASE_URL must match.
+  # Static password: CNPG can rotate a managed role's password, but nothing here re-syncs it
+  # into the app's DATABASE_URL secret. Rotation is not enabled for these roles today; if it
+  # ever is, add a mechanism (e.g. Reloader-driven resync) to keep the two in step.
   managed:
     roles:
       - name: litellm
