@@ -29,14 +29,15 @@ spec:
           name: litellm-secret
           key: DATABASE_URL
   # Chart defaults (10s initialDelay, 3x failureThreshold ~= 40s grace) kill the
-  # container mid prisma-migrate on first boot; give it real headroom instead.
+  # container mid prisma-migrate on first boot. Measured cold start: ~81s
+  # (pod creation to "Application startup complete"); this budgets ~120s.
   livenessProbe:
     httpGet:
       path: /health/liveliness
       port: 4000
     initialDelaySeconds: 30
     periodSeconds: 10
-    failureThreshold: 18
+    failureThreshold: 10
     timeoutSeconds: 5
   readinessProbe:
     httpGet:
@@ -44,7 +45,7 @@ spec:
       port: 4000
     initialDelaySeconds: 30
     periodSeconds: 10
-    failureThreshold: 18
+    failureThreshold: 10
     timeoutSeconds: 5
   litellmSettings:
     callbacks: ["prometheus"]
