@@ -43,10 +43,7 @@ spec:
                 add: ["IPC_LOCK"]
             resources:
               requests:
-                # Match the 6-core limit so extra miners only schedule when real CPU
-                # headroom exists. Low priority + no preemption means the 3rd pod
-                # stays Pending instead of squeezing onto a busy control-1.
-                cpu: 6
+                cpu: 1
                 memory: 32Mi
                 hugepages-2Mi: 3Gi
               limits:
