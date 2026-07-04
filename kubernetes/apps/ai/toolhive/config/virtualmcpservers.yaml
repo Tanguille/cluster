@@ -167,12 +167,27 @@ spec:
   groupRef:
     name: all
   config:
+    # Session build re-embeds all ~194 tools on initialize; litellm's embedding
+    # cache (kubernetes/apps/ai/litellm/instance/proxy.yaml) makes this a dragonfly
+    # hit in the common case, but a cold cache still takes ~27-35s on the iGPU,
+    # which blew past the 30s operational default (2026-07-03). Kept in sync with
+    # optimizer.embeddingServiceTimeout via anchor since both bound the same call.
+    # ponytail: `default` applies to ALL backend requests, not just session-build,
+    # so every other call now tolerates hangs up to 120s too. perWorkload could
+    # scope this narrower, but the slow leg is the embedding call (not a specific
+    # backend workload) — revisit if a hung backend's slow-failure becomes a problem.
+    operational:
+      timeouts:
+        default: &embeddingTimeout 120s
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
     optimizer:
+      # embeddingServerRef intentionally omitted: it provisions a managed TEI server,
+      # which the operator rejects when embeddingProvider is "openai" (admission-time
+      # incompatibility). We route to litellm -> the existing iGPU embedder instead.
       embeddingProvider: openai
       embeddingService: http://litellm.ai.svc.cluster.local/v1
       embeddingModel: vmcp-embedding
-      embeddingServiceTimeout: 120s
+      embeddingServiceTimeout: *embeddingTimeout
