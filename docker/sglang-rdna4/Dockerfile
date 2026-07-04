@@ -95,6 +95,12 @@ RUN sed -i 's|^        if SYNC_TOKEN_IDS_ACROSS_TP or sampling_info.grammars:$| 
     && grep -q 'get_world_size(group=self.tp_sync_group) > 1' "${SGLANG_DIR}/python/sglang/srt/layers/sampler.py"
 # 3. transformers-5.x ships a `kernels` pkg whose hub loader crashes `import sglang`; SGLang uses its own compiled kernels.
 RUN "${CONDA_BASE}/bin/conda" run -n "${ENV_NAME}" pip uninstall kernels -y 2>/dev/null || true
+# 4. launch.sh's --disable-cuda-graph is deprecated (ServerArgs now wants the split
+#    --cuda-graph-backend-{decode,prefill}=disabled flags) -> silences the startup warning,
+#    same disabled-graph behavior.
+RUN sed -i 's/--disable-cuda-graph/--cuda-graph-backend-decode=disabled --cuda-graph-backend-prefill=disabled/g' \
+      "${REPO_DIR}/scripts/launch.sh" \
+    && ! grep -q -- '--disable-cuda-graph' "${REPO_DIR}/scripts/launch.sh"
 
 # amdsmi: ROCm GPU-management bindings. Without it SGLang logs "Failed to import amdsmi" and falls back
 # to torch for VRAM-capacity detection (works, but coarser mem-fraction sizing on this VRAM-bound card).
