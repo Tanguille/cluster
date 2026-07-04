@@ -23,37 +23,21 @@ Full benchmarks, the optimization ledger and the engine-selection rationale live
   (127K → 237,446 tokens)**, quality-neutral (PPL 2.1423, needle@124K PASS) — headroom that keeps
   the agent's 124K prefix from evicting under burst.
 
-## ⚠️ Runtime-from-PVC (superseded — kept as rollback)
+## Serving internals & rollback
 
-> **Superseded by the baked OCI image** (`ghcr.io/tanguille/sglang-rdna4`, see
-> [`docker/sglang-rdna4/README.md`](../../../../docker/sglang-rdna4/README.md)) as of the Stage 2
-> cutover. The PVC env below remains the rollback path; full rewrite of this section pending
-> post-cutover validation (`docs/llm-hosting/sglang-oci-cutover.md` steps 5-6).
+The engine — the conda env (`sglang-triton36-v0514`, torch 2.11+rocm7.2), the native gfx1201 HIP
+kernels, the fork source, and the RDNA4/TP=1 fixes the fork's stock `setup.sh` omits — is **baked
+into the image** `ghcr.io/tanguille/sglang-rdna4`. The build, the pinned fork patches, and the
+pin/rollback mechanics live in
+[`docker/sglang-rdna4/README.md`](../../../../docker/sglang-rdna4/README.md).
 
-The container image is **only the ROCm 7.2.4 runtime base**. The engine runs from the prebuilt
-conda env on the `sglang` PVC at `/cache/sglang`:
-
-- `/cache/sglang/conda` — env `sglang-triton36-v0514` (torch 2.11+rocm7.2, fork + native gfx1201
-  HIP kernels: `sgl_kernel`, `awq_gemv`, `wvSplitK`)
-- `/cache/sglang/repo-v0514` — fork source (`scripts/launch.sh`, `common.sh`, chat template) with
-  the editable SGLang at `components/sglang`
-- `/cache/sglang/triton` — persisted Triton JIT cache; `/cache/hf` — `mattbucci/Qwen3.6-27B-AWQ`
-
-So serving **is not fully reproducible from git** — it depends on the PVC, rebuilt out-of-band via
-[`scripts/sglang-env-rebuild.sh`](app/scripts/sglang-env-rebuild.sh), which bakes in the RDNA4/TP=1
-fixes the fork's stock `setup.sh` omits (without them the server crashes on the first request, or
-OOM-restarts on the first grammar request):
-
-1. `can_use_store_cache()` → `False` — the fp8 KV `store_cache` JIT kernel hits `hipErrorIllegalState` at TP=1.
-2. `sampler.py` cross-TP token-id all-reduce gated on `world_size > 1` — else grammar/json_schema
-   traffic lazily inits NCCL mid-run (~256 MB) and OOM-crashes hours in.
-3. `pip uninstall kernels` — transformers 5.x hub-kernels crashes `import sglang`.
-4. `SGLANG_TAG=v0.5.14` — else the fork patches reject onto v0.5.13 source and the env never builds.
-5. `qwen3.6_devrole_chat_template.jinja` — remaps the `developer` role and guards historical `<think>`
-   blocks (correct `preserve_thinking`, no empty-arg tool-call loop).
-
-**Follow-up (done):** the env is now baked into `ghcr.io/tanguille/sglang-rdna4`
-(`docker/sglang-rdna4/`) — the Spegel blocker that forced runtime-from-PVC is resolved.
+The `sglang` PVC now carries only runtime data: the model (`/cache/hf`,
+`mattbucci/Qwen3.6-27B-AWQ`) and the persisted Triton JIT cache (`/cache/sglang/triton`). It still
+holds the pre-cutover conda env + fork source (`/cache/sglang/conda`, `/cache/sglang/repo-v0514`) as
+the **rollback path** — revert the HelmRelease to the ROCm-base image and it runs from the PVC again
+(rebuildable via [`scripts/sglang-env-rebuild.sh`](app/scripts/sglang-env-rebuild.sh) if lost). Those
+legacy dirs are dead weight once the baked image is trusted; retirement is tracked in
+`docs/llm-hosting/sglang-oci-cutover.md` step 6.
 
 ## Performance & bottleneck
 
