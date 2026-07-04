@@ -17,11 +17,9 @@ spec:
       bbr: true
     bpf:
       datapathMode: netkit-l2
-      # distributedLRU replicates CT pools per-CPU and needs the inflated 0.03
-      # ratio (3% of RAM) — 3.6GB agent RSS on the 40GB node. Fixed CT sizes
-      # give every node the same capacity: ~2.3x over the measured 688K live
-      # entries (monerod/p2pool churn). LRU maps are always kernel-preallocated,
-      # so capacity = resident RAM; watch cilium_drop_count_total for CT drops.
+      # Fixed CT sizes (~2.3x the measured 688K live entries from p2pool churn)
+      # instead of per-CPU LRU + 3% RAM ratio, which cost 3.6GB agent RSS on
+      # the 40GB node; watch cilium_drop_count_total for CT exhaustion.
       distributedLRU:
         enabled: false
       ctTcpMax: 1572864
