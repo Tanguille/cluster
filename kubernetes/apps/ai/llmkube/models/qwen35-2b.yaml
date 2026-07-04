@@ -72,7 +72,7 @@ spec:
   # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields at 0.8.26).
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
-    # ~2.4 GiB resident; requested low (no limit set by llmkube) so it schedules
-    # on the iGPU node's tight request budget and bursts into its real free RAM.
-    memory: 1536Mi
+    # ~2.4 GiB resident under load, 405Mi idle working set; requested low
+    # (no limit set by llmkube) so it schedules and bursts into free RAM.
+    memory: 1Gi
   # endpoint omitted — operator defaults to a ClusterIP Service on :8080.
