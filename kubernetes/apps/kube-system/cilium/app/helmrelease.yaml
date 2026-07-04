@@ -20,12 +20,9 @@ spec:
       # Fixed CT sizes (~2.3x the measured 688K live entries from p2pool churn)
       # instead of per-CPU LRU + 3% RAM ratio, which cost 3.6GB agent RSS on
       # the 40GB node; watch cilium_drop_count_total for CT exhaustion.
-      distributedLRU:
-        enabled: false
       ctTcpMax: 1572864
       ctAnyMax: 786432
       masquerade: true
-      preallocateMaps: true
     # Use jiffies for CT map (tuning guide)
     bpfClockProbe: true
     cgroup:
@@ -37,7 +34,6 @@ spec:
     dashboards:
       enabled: true
     enableIPv4BIGTCP: true
-    enableIPv6: false
     endpointRoutes:
       enabled: true
     envoy:
@@ -62,12 +58,10 @@ spec:
     localRedirectPolicies:
       enabled: true
     operator:
-      replicas: 2
       rollOutPods: true
       dashboards:
         enabled: true
       prometheus:
-        enabled: true
         serviceMonitor:
           enabled: true
     pmtuDiscovery:
