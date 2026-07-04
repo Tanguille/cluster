@@ -97,6 +97,6 @@ spec:
   # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields at 0.8.26).
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    memory: 1Gi # Q8_0 weights are 292MB; UMA iGPU allocates from system RAM
+    memory: 512Mi # 292MB Q8_0 weights via UMA; measured 436Mi working set
   endpoint:
     path: /v1/embeddings

@@ -27,7 +27,7 @@ spec:
       resources:
         requests:
           cpu: 100m
-          memory: 512Mi
+          memory: 256Mi # measured 163Mi steady
         limits:
           memory: 1Gi
       additionalContainers:
@@ -35,7 +35,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 512Mi
+              memory: 512Mi # measured 316Mi steady
             limits:
               memory: 1Gi
       persistence:
