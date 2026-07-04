@@ -31,12 +31,9 @@ spec:
   litellmSettings:
     callbacks: ["prometheus"]
     service_callback: ["prometheus_system"]
-    # Chat is near-unique per turn (Redis cache = latency + ~0 hit rate), so scope the cache
-    # to embeddings ONLY. The vmcp-unified optimizer re-embeds the same ~194 tool descriptions
-    # on every MCP session's initialize (otherwise uncached) — a 27-35s iGPU burst that times
-    # out when the embedder is under load or restarting, the root cause of MCP init flakiness.
-    # Caching gives ~100% hit rate after warmup and survives embedder restarts (cache lives in
-    # dragonfly, not the pod). Auth-less dragonfly, the same instance the toolhive backends use.
+    # Cache embeddings only (chat is near-unique per turn, ~0 hit rate). vmcp re-embeds the
+    # same ~194 tool descriptions every MCP initialize; caching turns that into dragonfly hits
+    # that survive embedder restarts, fixing the init timeouts. Auth-less, shared with toolhive.
     cache: true
     cache_params:
       type: redis
