@@ -17,6 +17,25 @@ spec:
     timeout: 30m
     remediation:
       retries: -1 # no rollback: a cold Triton recompile can exceed the upgrade timeout
+  # app-template 5.0.1 doesn't expose the Deployment's progressDeadlineSeconds, and the k8s default
+  # (600s) is shorter than a cold model load here — ~5-8 min normally, ~13-15 min if it OOM-retries
+  # once during the load peak. When that happens Flux/kstatus marks the Deployment "Failed"
+  # (ProgressDeadlineExceeded) mid-boot, so the helm upgrade fails "early" even though the pod then
+  # comes up Ready — wedging the HelmRelease in a failed state (and its rollback can't remediate:
+  # "missing target release"). Raise it to 1800s (= the upgrade timeout) so a slow-but-recovering
+  # boot stays "InProgress" and Flux waits it out instead of failing. progressDeadlineSeconds is a
+  # Deployment.spec field (not the pod template), so patching it never triggers a rollout. The chart
+  # doesn't template it, so a postRenderer is the only way to set it.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: sglang
+            patch: |-
+              - op: add
+                path: /spec/progressDeadlineSeconds
+                value: 1800
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
