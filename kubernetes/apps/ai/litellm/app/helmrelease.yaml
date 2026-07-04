@@ -12,3 +12,11 @@ spec:
   values:
     llmkube:
       autoRegister: true
+    # Chart default (128Mi limit) OOMKilled the controller once it was actively
+    # reconciling all three InferenceService-backed LiteLLMModel CRs.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
