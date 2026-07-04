@@ -1,0 +1,49 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMProxy
+metadata:
+  name: litellm
+spec:
+  image: ghcr.io/berriai/litellm:v1.90.3@sha256:e4b91a2de9367ab0987baaa767b2283390badd5a361357993de1a05f027edc22
+  applyMode: api
+  apiAccess:
+    masterKeyRef:
+      name: litellm-secret
+      key: LITELLM_MASTER_KEY
+  service:
+    port: 80
+  env:
+    - name: LITELLM_MASTER_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: LITELLM_MASTER_KEY
+    - name: LITELLM_SALT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: LITELLM_SALT_KEY
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: DATABASE_URL
+  litellmSettings:
+    callbacks: ["prometheus"]
+    service_callback: ["prometheus_system"]
+    cache: false
+    drop_params: true
+    num_retries: 0
+  route:
+    hostnames:
+      - "litellm.${SECRET_DOMAIN}"
+    parentRefs:
+      - name: envoy-internal
+        namespace: network
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 2Gi
