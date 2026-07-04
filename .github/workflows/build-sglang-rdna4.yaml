@@ -37,21 +37,11 @@ jobs:
         with:
           persist-credentials: false
 
-      # The `builder` stage (ROCm "complete" ~20GB + conda env ~22GB) needs more docker storage
-      # than /'s free space. Free the preinstalled toolchains, then point docker's data root at the
-      # larger ~75GB /mnt volume. (Replaces the unmaintained easimon/maximize-build-space; keep swap
-      # for the RAM-tight kernel compile.)
-      - name: Free disk space
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: false # docker moves to /mnt below; pruning / images it abandons is wasted
-          swap-storage: false # keep swap — the kernel compile is RAM-tight
-
+      # The `builder` stage (ROCm "complete" ~20GB + conda env ~22GB) outgrows /'s free space, so
+      # point docker's data root at the larger ~75GB /mnt volume. That volume alone is enough — a
+      # green build fit in it without touching /, so no disk-reclaim action is needed (the earlier
+      # easimon/maximize-build-space and jlumbroso/free-disk-space steps both only freed /, which
+      # the build never uses).
       - name: Move docker storage to /mnt
         run: |
           sudo systemctl stop docker.service docker.socket
