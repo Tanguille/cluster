@@ -113,10 +113,14 @@ spec:
                   initialDelaySeconds: 60
                   periodSeconds: 15
                   timeoutSeconds: 5
-                  # ~16 min budget (60×15s + 60s): a warm boot (image cached, Triton cache warm)
-                  # is ~2-3 min; headroom covers a cold Triton recompile after image/kernel changes.
-                  # Image pull time does not count — the probe starts with the container.
-                  failureThreshold: 60
+                  # ~31 min budget (120×15s + 60s): a warm boot (image cached, Triton cache warm)
+                  # is ~2-3 min, but the FIRST boot on a new image can do a full cold Triton recompile
+                  # (the baked env's JIT cache keys differ from the PVC env that seeded /cache/sglang/triton),
+                  # which the old 16-min budget could miss. Critically, a probe-kill (SIGKILL) of a
+                  # mid-load process LEAKS GPU VRAM on this RDNA4 passthrough — that leak is what turned
+                  # a slow first boot into an unrecoverable crash loop during the OCI cutover — so the
+                  # budget must comfortably outlast the worst-case cold compile. Image pull doesn't count.
+                  failureThreshold: 120
               # Liveness OFF: even TCP probes restart a busy-but-alive singleton under long-prefill /
               # thinking load (exit 0 via SIGTERM + kill_process_tree, dropping in-flight work;
               # observed 2026-06-25 HTTP /health, 2026-06-28 TCP). restartPolicy: Always still
