@@ -49,6 +49,18 @@ Known GPU-less caveat: `build_skinny_gemms_int4.sh` imports its freshly-compiled
 import needs a device it fails with setup.sh's non-fatal WARNING and the wvSplitK **MoE** kernel
 is skipped. Our `qwen36-27b` is dense and never calls it, so this is harmless for this image.
 
+### Two-stage build (slim runtime, ~18 GB smaller)
+
+The Dockerfile is multi-stage: the `builder` uses the ROCm **`-complete`** SDK to compile, then the
+final stage starts from the slim **non-complete** ROCm base (1.2 GB vs 7.4 GB compressed) and copies
+only the built conda env + fork repo. This works because torch+rocm bundles its own ROCm runtime
+(~13 GB) and the compiled kernels RPATH to `torch/lib`, not `/opt/rocm` — so the ~18 GB dev SDK is
+build-only. **Validation caveat:** Triton JIT-compiles at runtime and needs its ROCm backend tools
+(vendored under `triton/backends/amd`). The build-time gates (`import torch, sglang` + an `ldd`
+check for dangling kernel libs) do **not** exercise the JIT path — so a new build must be validated
+by a **cold boot with the Triton cache cleared** (`/cache/sglang/triton`) before its digest is
+pinned into the HelmRelease, to prove runtime compilation still works on the slim base.
+
 CI (`.github/workflows/build-sglang-rdna4.yaml`) builds on **`ubuntu-latest`** — zero contact
 with control-1 / live serving, no maintenance window — and pushes the `v0.5.14-gfx1201` tag.
 It fires on a merged change to the build inputs (a Renovate `FORK_REF` / base-digest bump;
