@@ -101,7 +101,14 @@ spec:
               # binds) — bursts past 16 used to queue unbounded and client-timeout-abort 1300s+ later
               # while KV usage sat at only 0.42-0.48. Bounding the queue converts that into a fast
               # rejection instead; doesn't touch the running-request cap so worst-case VRAM is unchanged.
-              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32"
+              # weight-loader-drop-cache-after-load: posix_fadvise(DONTNEED) per safetensors shard once
+              # its weights are copied out, so the 18 GB of model-file pages don't accumulate in the OS
+              # page cache during load. Targets the cold-load page-cache thrash (folio_wait_bit) that
+              # spikes control-1 to loadavg ~140-248 on this memory-tight node (~2 GB free, 120 pods).
+              # Targeted per-file (not a global drop_caches) — doesn't touch other pods' cache or the
+              # Triton cache. Trade-off: a quick restart re-reads weights cold (no warm page cache), fine
+              # here since those pages get evicted under pressure anyway. Node headroom is the real cure.
+              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load"
             probes:
               startup: &probeBase
                 enabled: true
