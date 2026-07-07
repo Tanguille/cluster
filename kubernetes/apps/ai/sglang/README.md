@@ -16,21 +16,20 @@ Full benchmarks, the optimization ledger and the engine-selection rationale live
   (fileflows/jellyfin) on the shared R9700; at 0.90 only ~16 MB was free and their 4K HEVC
   encodes stalled. context-length follows down (230K→200K, KV pool ~211K) — still well above
   the observed ~106K Hermes prefill peak. 200K is the floor; freeing more would mean less context.
-- **Cache ON** (`MambaRadixCache`, `no_buffer`): the long-context agent re-prefills its growing
-  context each turn, so prefix reuse (**~7.6× TTFT**) is the primary workload. The cost is batch —
-  overlap off, `max_running` 32→~16. On the DeltaNet hybrid, cache and high batch are mutually
-  exclusive on RDNA4 (`extra_buffer` needs an FLA kernel absent on ROCm).
+- **Cache ON** (unified host-offload tree + HiCache host tier since 2026-07-07; was
+  `MambaRadixCache`): the long-context agent re-prefills its growing context each turn, so prefix
+  reuse (**~7.6× TTFT** measured pre-swap; reuse revalidated on the unified tree) is the primary
+  workload. The cost is batch — overlap off, `max_running` 32→~16 (confirmed unchanged post-swap).
+  On the DeltaNet hybrid, cache and high batch are mutually exclusive on RDNA4 (`extra_buffer`
+  needs an FLA kernel absent on ROCm).
 - **EXP-002** (`--mamba-ssm-dtype bfloat16`): halves the fp32 GatedDeltaNet state → **KV pool +87%
   (127K → 237,446 tokens)**, quality-neutral (PPL 2.1423, needle@124K PASS) — headroom that keeps
   the agent's 124K prefix from evicting under burst.
-- **HiCache ON** (first pass 2026-07-07, unblocked by control-1 RAM 40→64 GB): host-RAM L2 for the
-  prefix cache — evicted KV pages + mamba states spill to ~15 GB of pinned host pools instead of
-  being lost. `--hicache-io-backend direct` (the `kernel` path crashes on hybrids, #24121, and ships
-  a cache-hit KL regression in v0.5.14, #28434); sized by `--hicache-ratio 1.5`, not `--hicache-size`
-  (#29034: size N double-allocates 2N on hybrids). Swaps MambaRadixCache for the unified host-offload
-  tree — the 7.6× TTFT and 16-slot running ceiling were measured on MambaRadixCache and need
-  revalidation. Known risk: #30314 (scheduler stall on mamba host-pool exhaustion; degrades to a
-  stall, not a kill, since liveness is off).
+- **HiCache** (host-RAM L2, unblocked by control-1 RAM 40→64 GB): evicted KV pages + mamba states
+  spill to ~15 GB of pinned host pools (`--hicache-io-backend direct`, `--hicache-ratio 1.5`) and
+  reload instead of re-prefilling. The flag choices are load-bearing — the issue-by-issue rationale
+  (#24121/#28434/#29034/#30314) and the validation record live in
+  [`docs/llm-hosting/sglang-blockers.md`](../../../../docs/llm-hosting/sglang-blockers.md).
 
 ## Serving internals & rollback
 
@@ -50,7 +49,8 @@ legacy dirs are dead weight once the baked image is trusted; retirement is track
 
 ## Performance & bottleneck
 
-Cache-on prod: ~16 tok/s single-stream decode, ~63 @conc16 aggregate, prefill ~1459 tok/s. The
+Cache-on prod: ~16 tok/s single-stream decode, ~63 @conc16 aggregate, prefill ~1459 tok/s (measured
+pre-HiCache; decode wall unchanged post-swap). The
 end-to-end bottleneck is **prefill latency × thinking mode**, not decode: a cold 95-124K re-prefill
 is 155-303s and thinking is a ~20× multiplier, while decode is a compute-bound ~13-16 tok/s wall on
 the INT4/GDN kernels. One 32 GB card at TP=1 — no engine flag breaks these walls; only the prefix
@@ -61,7 +61,7 @@ cache (on) hides re-prefill cost. Full analysis in [`docs/llm-hosting/`](../../.
 | Lever | Layer | Status |
 |---|---|---|
 | **Thinking-mode routing** — latency-sensitive callers → `qwen-3.6-fast` (thinking-off) | litellm | ✅ ~20× perceived latency; routed |
-| **Prefix cache** (`MambaRadixCache`) | sglang | ✅ 7.6× TTFT; in prod |
+| **Prefix cache** (unified tree) | sglang | ✅ 7.6× TTFT; in prod |
 | **EXP-002 bf16-SSM** (+87% KV pool) | sglang | ✅ in prod |
 | `--chunked-prefill` 16384 (cold prefill) | sglang | OOM-risky (prefill-activation transient); not adopted |
 | cuda-graph · int8-mamba-checkpoint | sglang | tested on v0.5.14 — null / no-op on this dense + `no_buffer` config |

@@ -77,9 +77,11 @@ spec:
             # Replace the image entrypoint with the fork's preset runner. The qwen36-27b preset +
             # these flags are the validated single-card config; the perf table, the cache-vs-batch
             # tradeoff and the rejected alternatives (MoE, MTP/spec, fp4 KV) are in the README. Radix
-            # cache is ON (MambaRadixCache, no_buffer) for the long-context agent: prefix reuse
-            # (~7.6× TTFT) is the primary workload, traded against batch (overlap off, max_running
-            # 32→~16). mem-fraction 0.875 (was 0.90) frees ~0.8 GB more VRAM headroom on the shared
+            # cache is ON (unified host-offload tree + HiCache host tier since 2026-07-07, see
+            # EXTRA_ARGS; was MambaRadixCache) for the long-context agent: prefix reuse (~7.6× TTFT
+            # measured pre-swap; reuse revalidated on the unified tree) is the primary workload,
+            # traded against batch (overlap off, max_running 32→~16, confirmed at boot post-swap).
+            # mem-fraction 0.875 (was 0.90) frees ~0.8 GB more VRAM headroom on the shared
             # R9700 for the co-resident VAAPI transcoders (fileflows/jellyfin) — at 0.90 only ~16 MB
             # stayed free and their 4K HEVC encodes stalled (0-byte output). The KV pool shrinks ~1:1
             # with mem-fraction (~33K tokens/GB, fp8 KV), so context-length 200000 caps below the
@@ -128,20 +130,14 @@ spec:
               # Triton cache. Trade-off: a quick restart re-reads weights cold (no warm page cache), fine
               # here since those pages get evicted under pressure anyway. Node headroom is the real cure.
               # HiCache (2026-07-07, unblocked by control-1 RAM 40→64 GB): host-RAM L2 for the prefix
-              # cache — evicted KV pages AND mamba/SSM states spill to pinned host pools instead of
-              # being lost (swaps MambaRadixCache for the unified host-offload tree; KV pool is the
-              # eviction anchor so a host hit always carries its SSM state). io-backend `direct`, NOT
-              # the default `kernel`: kernel crashes on hybrids (#24121) and the v0.5.14 kernel path
-              # ships a known cache-hit KL regression (#28434) — upstream's own hybrid CI validates
-              # `direct` only (#28904). Sized via hicache-ratio 1.5 (~9.6 GB KV + ~5.2 GB mamba host
-              # pools), NOT --hicache-size: size N double-allocates 2N GB on hybrids (#29034, fix
-              # unreleased). model-loader num_threads 8→2 shrinks the ~23 GB shard-load transient so
-              # the host-pool guard (psutil available − 10 GiB reserve, checked while the transient is
-              # still resident) passes; slower load stays inside the 31-min probe budget. Known risk
-              # #30314 (v0.5.14 + direct + hybrid): scheduler stalls minutes on mamba host-pool
-              # exhaustion under large-context eviction — liveness is off, so that degrades to a
-              # stall, not a pod kill. context-length stays 200000: HiCache never pages an ACTIVE
-              # request's KV, so the ctx ≤ GPU-pool (~211K) clean-rejection invariant still holds.
+              # cache — evicted KV pages AND mamba/SSM states spill to ~15 GB of pinned host pools
+              # (ratio 1.5 → ~9.6 GB KV + ~5.2 GB mamba) instead of being lost. Flag choices are
+              # load-bearing: io-backend `direct` (default `kernel` crashes on hybrids + ships a KL
+              # regression), ratio NOT --hicache-size (size N double-allocates 2N GB on hybrids), and
+              # model-loader num_threads 8→2 (shrinks the ~23 GB load transient so the host-pool
+              # guard passes at boot). Issue-by-issue rationale + the #30314 stall risk live in
+              # docs/llm-hosting/sglang-blockers.md ("HiCache re-check"). HiCache never pages an
+              # ACTIVE request's KV, so the ctx ≤ KV-pool clean-rejection invariant above still holds.
               EXTRA_ARGS: '--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2}'
             probes:
               startup: &probeBase
@@ -206,7 +202,7 @@ spec:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: sglang
-          gethomepage.dev/description: Qwen3.6-27B SGLang inference (RDNA4, TP=1, prefix-cache on, ~63 tok/s @conc16)
+          gethomepage.dev/description: Qwen3.6-27B SGLang inference (RDNA4, TP=1, hierarchical prefix cache)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
