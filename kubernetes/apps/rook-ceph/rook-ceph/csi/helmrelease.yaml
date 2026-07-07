@@ -22,7 +22,6 @@ spec:
           replicas: 2
         nodePlugin:
           priorityClassName: system-node-critical
-          kubeletDirPath: /var/lib/kubelet
     drivers:
       rbd:
         enabled: true
@@ -67,7 +66,6 @@ spec:
       cephfs:
         enabled: true
         name: rook-ceph.cephfs.csi.ceph.com
-        snapshotPolicy: volumeSnapshot
         controllerPlugin:
           replicas: 2
           resources: *csiControllerResources
