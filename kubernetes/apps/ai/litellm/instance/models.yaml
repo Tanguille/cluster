@@ -42,6 +42,11 @@ spec:
       timeout: 900
       stream_timeout: 900
       num_retries: 0
+      # Vendor non-thinking sampling (Qwen3.6 model card) — generation_config ships thinking-mode
+      # values (1.0/0.95/presence 0). Defaults only: client-set params win (v1.91.0 router merge).
+      temperature: 0.7
+      top_p: 0.8
+      presence_penalty: 1.5
       extra_body:
         chat_template_kwargs:
           enable_thinking: false
