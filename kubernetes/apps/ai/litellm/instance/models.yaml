@@ -37,8 +37,10 @@ spec:
     apiBase: http://sglang.ai.svc.cluster.local/v1
     apiKey: sk-sglang-noauth
     additional:
-      timeout: 600
-      stream_timeout: 600
+      # 900s (was 600): Hermes compression is a ~100K+ prefill on this alias — under GPU
+      # contention the shared prefill rate drops below what 600s covers (observed 2026-07-07).
+      timeout: 900
+      stream_timeout: 900
       num_retries: 0
       extra_body:
         chat_template_kwargs:
