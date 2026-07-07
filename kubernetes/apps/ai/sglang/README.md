@@ -10,7 +10,8 @@ Full benchmarks, the optimization ledger and the engine-selection rationale live
 ## Config at a glance
 
 - **Engine:** SGLang v0.5.14 (mattbucci fork @ `60ffa9501`), `qwen36-27b` preset, TP=1, KV
-  dtype fp8_e4m3, mem-fraction 0.875, 32Gi pod limit (the AWQ shard load peaks ~20 GB host RAM).
+  dtype fp8_e4m3, mem-fraction 0.875, 48Gi pod limit (~15 GB pinned HiCache host pools + the
+  AWQ shard-load transient, ~6 GB at 2 loader threads).
   mem-fraction was cut 0.90→0.875 to free ~0.8 GB VRAM for the co-resident VAAPI transcoders
   (fileflows/jellyfin) on the shared R9700; at 0.90 only ~16 MB was free and their 4K HEVC
   encodes stalled. context-length follows down (230K→200K, KV pool ~211K) — still well above
@@ -22,6 +23,14 @@ Full benchmarks, the optimization ledger and the engine-selection rationale live
 - **EXP-002** (`--mamba-ssm-dtype bfloat16`): halves the fp32 GatedDeltaNet state → **KV pool +87%
   (127K → 237,446 tokens)**, quality-neutral (PPL 2.1423, needle@124K PASS) — headroom that keeps
   the agent's 124K prefix from evicting under burst.
+- **HiCache ON** (first pass 2026-07-07, unblocked by control-1 RAM 40→64 GB): host-RAM L2 for the
+  prefix cache — evicted KV pages + mamba states spill to ~15 GB of pinned host pools instead of
+  being lost. `--hicache-io-backend direct` (the `kernel` path crashes on hybrids, #24121, and ships
+  a cache-hit KL regression in v0.5.14, #28434); sized by `--hicache-ratio 1.5`, not `--hicache-size`
+  (#29034: size N double-allocates 2N on hybrids). Swaps MambaRadixCache for the unified host-offload
+  tree — the 7.6× TTFT and 16-slot running ceiling were measured on MambaRadixCache and need
+  revalidation. Known risk: #30314 (scheduler stall on mamba host-pool exhaustion; degrades to a
+  stall, not a kill, since liveness is off).
 
 ## Serving internals & rollback
 
@@ -56,7 +65,7 @@ cache (on) hides re-prefill cost. Full analysis in [`docs/llm-hosting/`](../../.
 | **EXP-002 bf16-SSM** (+87% KV pool) | sglang | ✅ in prod |
 | `--chunked-prefill` 16384 (cold prefill) | sglang | OOM-risky (prefill-activation transient); not adopted |
 | cuda-graph · int8-mamba-checkpoint | sglang | tested on v0.5.14 — null / no-op on this dense + `no_buffer` config |
-| **HiCache** (prompt-cache → host RAM, `--hicache-io-backend direct`) | sglang | `direct` path works on RDNA4 (no #24121 crash) but host-RAM-constrained on the 40 GiB node |
+| **HiCache** (prompt-cache → host RAM, `--hicache-io-backend direct`) | sglang | ✅ first pass in prod (ratio 1.5, ~15 GB host pools) — node RAM 40→64 GB unblocked it |
 | TP=2 / second GPU | hardware | breaks both walls (~153 tok/s w/ MTP); structural |
 
 Bottom line: the engine wins in prod are the **prefix cache + EXP-002**; the biggest *perceived* win
