@@ -75,8 +75,9 @@ spec:
               repository: ghcr.io/tanguille/sglang-rdna4
               tag: v0.5.14-gfx1201@sha256:84666e221c9962d813ed71aa7b718bdfe8a71c8120499c9ba941bc64f79714c1
             # Replace the image entrypoint with the fork's preset runner. The qwen36-27b preset +
-            # these flags are the validated single-card config; the perf table, the cache-vs-batch
-            # tradeoff and the rejected alternatives (MoE, MTP/spec, fp4 KV) are in the README. Radix
+            # these flags are the validated single-card config; the perf table and cache-vs-batch
+            # tradeoff are in the README, the rejected alternatives (MoE, MTP/spec, fp4 KV) in
+            # docs/llm-hosting/sglang-blockers.md. Radix
             # cache is ON (unified host-offload tree + HiCache host tier since 2026-07-07, see
             # EXTRA_ARGS; was MambaRadixCache) for the long-context agent: prefix reuse (~7.6× TTFT
             # measured pre-swap; reuse revalidated on the unified tree) is the primary workload,
