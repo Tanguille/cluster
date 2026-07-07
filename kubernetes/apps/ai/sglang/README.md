@@ -66,7 +66,7 @@ cache (on) hides re-prefill cost. Full analysis in [`docs/llm-hosting/`](../../.
 | `--chunked-prefill` 16384 (cold prefill) | sglang | OOM-risky (prefill-activation transient); not adopted |
 | cuda-graph · int8-mamba-checkpoint | sglang | tested on v0.5.14 — null / no-op on this dense + `no_buffer` config |
 | **HiCache** (prompt-cache → host RAM, `--hicache-io-backend direct`) | sglang | ✅ first pass in prod (ratio 1.5, ~15 GB host pools) — node RAM 40→64 GB unblocked it |
-| TP=2 / second GPU | hardware | breaks both walls (~153 tok/s w/ MTP); structural |
+| TP=2 / second GPU | hardware | breaks both walls (~153 tok/s w/ MTP); structural (spec still needs a depth gate — see blockers.md Blocker 1) |
 
 Bottom line: the engine wins in prod are the **prefix cache + EXP-002**; the biggest *perceived* win
 is **thinking-mode routing** (client layer). Remaining sglang-config levers are noise or RAM-blocked

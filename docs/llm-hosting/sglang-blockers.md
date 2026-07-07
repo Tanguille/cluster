@@ -7,9 +7,13 @@ See `docs/sglang-qwen3.6-rocm-plan.md` for the full build plan and decision reco
 
 ---
 
-## Blocker 1 — MTP / Speculative Decoding crashes on ROCm
+## Blocker 1 — Spec-decode net-negative on dense DeltaNet (verify wall, no depth gate)
 
 **Impact:** Critical. MTP×4 gives ~2× C=1 throughput in vLLM (19.5 vs ~7 tok/s without). Without it, SGLang C=1 performance degrades significantly.
+
+*(The Symptoms/Root-cause below are pre-fork-patch v0.5.12-era findings — superseded by the
+2026-07-07 re-check further down, which distinguishes the working EAGLE3 path from the still-broken
+Spec-V2 path.)*
 
 **Symptoms:**
 - `SGLang Spec-V2 asserts on ROCm` at runtime
@@ -21,9 +25,28 @@ See `docs/sglang-qwen3.6-rocm-plan.md` for the full build plan and decision reco
 - SGLang GitHub: search `speculative decoding ROCm assert` — no tracking issue confirmed; may be implicitly covered by general ROCm CI gap
 - The fork excludes patch `050…CANDIDATE` which was the experimental MTP fix — it was too unstable to include
 
-**Status:** Blocked / no upstream fix. Quarterly revisit.
+**Status:** Blocked — a workload-math wall, not a ROCm crash. See the retest triggers below.
 
-**When to retest:** When SGLang ROCm CI shows speculative decoding passing, or when a `spec-v2-rocm` tag appears in the sgl-project/sglang releases.
+**Spec-decode re-check (2026-07-07, 3-agent sweep: upstream ~545-commit delta, fork state, research
+literature):** the framing above is now sharper — spec-decode *runs* on our RDNA4 via the fork's
+patches (EAGLE3 measured on our exact dense 27B: **3.16× at ≤64K, 46.8 vs 14.8 tok/s**), so the
+blocker is not ROCm alone. The real wall is workload math: DeltaNet's recurrent verify collapses to
+**0.2 tok/s at 188K** (74× regression) and Hermes lives at 100-200K. Capturing the shallow win would
+need depth-adaptive gating (speculate while shallow, off when deep), which **no engine implements** —
+upstream `speculative_adaptive` adapts on batch size/accept-EMA only (PRs #21599/#24055/#23331) and
+requires Spec-V2 (V1 removed in #25464, and Spec-V2 still asserts on ROCm — only CDNA gfx942/gfx950
+got cookbook-verified, #29194/#29313). The closest-ever fix for the verify wall itself exists as
+**PR #28695 (ReplaySSM ring spec-verify for GDN, RFC #28511)** — chunked/parallel GDN verify — but
+it's unmerged, topk≤1-only, a batch≥64 bandwidth win (nothing at our compute-bound low batch), and
+self-admittedly non-lossless past ~16K output tokens (repetition loops). Research has no GPU
+answer for delta-rule GDN verify either (STree arXiv:2505.14969 is Mamba2-only; SpecMamba
+arXiv:2509.19873 is FPGA/pure-Mamba). Spec-decode that actually works stays MoE-only
+(no recurrent verify) → the dense→MoE swap remains the real TG lever.
+
+**When to retest:** (1) sgl-project/sglang#28511 (ReplaySSM RFC) ships Part B merged AND lossless at
+long output; (2) sgl-project/sglang#30263 (per-request spec opt-out) or any engine grows a
+context-depth spec gate; (3) a DeltaNet-aware parallel-verify kernel appears from any source. These
+replace the old "quarterly / ROCm CI" trigger — subscribe to #28511 and #30263.
 
 ---
 
@@ -158,9 +181,12 @@ double-allocates 2N GB on hybrids — size via `--hicache-ratio` instead; fix un
 (scheduler stalls minutes on mamba host-pool exhaustion under large-context eviction — degrades to a
 stall for us, liveness is off). **HiCache enabled in prod** (direct, ratio 1.5, ~15 GB host pools; see
 the sglang helmrelease). Enabling it swaps MambaRadixCache for the unified host-offload tree.
-Validated live 2026-07-07: host pools allocated (10.41 GB KV + 5.73 GB mamba), prefix reuse confirmed
-on the unified tree (extension probe: 2432/2435 tokens cached; real-traffic 65,536-token hit), decode
-wall and 16-slot running ceiling unchanged. NOTE: identical-prompt resends show `#cached-token: 0` BY
+Validated live 2026-07-07, end-to-end under a Hermes load burst: host pools allocated (10.41 GB KV +
+5.73 GB mamba), prefix reuse confirmed on the unified tree (extension probe: 2432/2435 tokens cached;
+real-traffic 65,536-token hit; 90% burst hit rate), decode wall and 16-slot running ceiling unchanged,
+and the host tier exercised for real — host pool filled to 98% under eviction pressure and 76,956
+tokens were served back from host via ~1-3 ms load-backs (`cached_tokens_total{cache_source="host"}`),
+vs the 155-303 s re-prefills those hits used to cost. NOTE: identical-prompt resends show `#cached-token: 0` BY
 DESIGN on hybrids (SSM states exist only at end-of-request node boundaries) — validate reuse with an
 extension probe (`/v1/completions`, request B = A's prompt + A's output + more), not a resend. No
 release newer than v0.5.14 exists; main is ~545 commits ahead with unreleased hicache/mamba fixes —
@@ -212,7 +238,7 @@ not the kernel, that makes overlap a no-op).
 
 | # | Blocker | Severity | Workaround? | When to recheck |
 |---|---------|----------|-------------|-----------------|
-| 1 | MTP / Spec-V2 ROCm crash | **Critical** | No | Quarterly / SGLang ROCm CI |
+| 1 | Spec-decode net-negative on dense DeltaNet (verify wall + no depth gate) | **Critical** | No (runs, but net-negative at depth — see body) | #28511 merged+lossless, or #30263 / any depth gate |
 | 2 | DeltaNet in_proj_ba weight loader | High | Yes (BF16 ignore list) | When qwen_gdn_weight_loader fixed upstream |
 | 3 | gptq_marlin_repack missing on ROCm | Medium | Yes (Triton AWQ) | N/A (accept Triton path) |
 | 4 | gfx1201 missing from sgl_kernel / AITER | Medium | Yes (mattbucci patches) | Discussion #12600 closed |
@@ -221,7 +247,7 @@ not the kernel, that makes overlap a no-op).
 | 7 | decode-topk-pages CANDIDATE chain (067+068+069) drifted off FORK_REF | Low (optional, deferred) | No — patch needs upstream rebase | Fork rebases the CANDIDATE series, or our FORK_REF bump happens to realign |
 | 8 | No RDNA4 fused kernel for newer FP4 formats (Quark 0.12 AMDFP4/NVFP4/SVDQuant) | None (eval, NO-GO) | N/A — format has no gfx1201 consumer | Fork/upstream ships a fused FP4 decode kernel for gfx1201 (not a Quark release) |
 
-**Bottom line:** The mattbucci fork resolves blockers 2–6 today (v0.5.13.post1). Blocker 6 (prefix cache) is fixed by native MambaRadixCache — cache is ON in prod, which fixes the long-context agent, at a batch cost (~63 @conc16 vs ~99 no-cache) that's the right tradeoff for the agentic workload. Blocker 1 (MTP) remains the single-stream gap vs vLLM but is moot here (spec is net-negative on dense RDNA4). Since 2026-07-07 the prefix cache runs on the unified host-offload tree with HiCache (`direct` backend, ratio-sized, replacing MambaRadixCache — see the HiCache re-check above for the open upstream hazards it routes around and the live validation record).
+**Bottom line:** The mattbucci fork resolves blockers 2–6 today (v0.5.13.post1). Blocker 6 (prefix cache) is fixed by native MambaRadixCache — cache is ON in prod, which fixes the long-context agent, at a batch cost (~63 @conc16 vs ~99 no-cache) that's the right tradeoff for the agentic workload. Blocker 1 (spec-decode) has a real shallow-context win (3.16× ≤64K) but no depth gate exists anywhere and Hermes runs at 100-200K, so it stays off in prod. Since 2026-07-07 the prefix cache runs on the unified host-offload tree with HiCache (`direct` backend, ratio-sized, replacing MambaRadixCache — see the HiCache re-check above for the open upstream hazards it routes around and the live validation record).
 
 ---
 
