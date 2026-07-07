@@ -32,7 +32,7 @@ spec:
   # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
   # Tracked by the llmkube-models Renovate customManager (.renovaterc.json5).
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:6640b5baeb363f801fa38e6900677b175251202ea663a898f6f9faf5d7a42eaa
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:ba79ce324b97ea25ac1ed5c1b8d0a3983ac49ed8020c792104d31eae60ea7a98
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   contextSize: 16384 # GDN keeps KV tiny, so long ctx is cheap; 16K is plenty for offload
   jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
