@@ -149,11 +149,23 @@ NVIDIA-SM100 / FlashInfer-only).
 - HiCache-for-hybrid crash on Qwen3.5/3.6 (Open): https://github.com/sgl-project/sglang/issues/24121
 - Unified Hybrid Radix Cache Refactor roadmap (Open): https://github.com/sgl-project/sglang/issues/20415
 
-**When to revisit:** (1) When #24121 closes — v0.5.13 HiCache could offload mamba/KV state to host RAM
-and ease the cache/batch/context tensions together (enabling bigger batch *and* full context). (2) If a
-future fork rebase relaxes the `no_buffer`→overlap-off constraint, re-test overlap+cache. (3) Re-test
-`extra_buffer` only if a faster RDNA4 GDN decode kernel lands (today it's the scheduler, not the
-kernel, that makes overlap a no-op).
+**HiCache re-check (2026-07-07, node RAM 40→64 GB):** #24121 is still open but every repro in the
+thread uses `--hicache-io-backend kernel`; a maintainer recommends `direct` as the workaround, and
+v0.5.14's kernel path additionally ships a known cache-hit KL regression on hybrid mamba (#28434) that
+upstream "fixed" by rolling their own hybrid CI back to `direct` (#28904) — so `direct` is the only
+upstream-validated hybrid path on our tag. Two open hazards on that path: #29034 (`--hicache-size N`
+double-allocates 2N GB on hybrids — size via `--hicache-ratio` instead; fix unreleased) and #30314
+(scheduler stalls minutes on mamba host-pool exhaustion under large-context eviction — degrades to a
+stall for us, liveness is off). **HiCache enabled first-pass in prod** (direct, ratio 1.5, ~15 GB host
+pools; see the sglang helmrelease). No release newer than v0.5.14 exists; main is ~545 commits ahead
+with unreleased hicache/mamba fixes — the pinned fork tree carries stock v0.5.14 hicache code (no fork
+patch touches it).
+
+**When to revisit:** (1) HiCache: on the next FORK_REF/tag bump, re-check #29034/#30314/#24121 — a
+release with the unified-tree fixes could restore `--hicache-size` sizing and remove the stall risk.
+(2) If a future fork rebase relaxes the `no_buffer`→overlap-off constraint, re-test overlap+cache.
+(3) Re-test `extra_buffer` only if a faster RDNA4 GDN decode kernel lands (today it's the scheduler,
+not the kernel, that makes overlap a no-op).
 
 ---
 
@@ -200,11 +212,11 @@ kernel, that makes overlap a no-op).
 | 3 | gptq_marlin_repack missing on ROCm | Medium | Yes (Triton AWQ) | N/A (accept Triton path) |
 | 4 | gfx1201 missing from sgl_kernel / AITER | Medium | Yes (mattbucci patches) | Discussion #12600 closed |
 | 5 | No official gfx1201 Docker image | Operational | Yes (custom Dockerfile) | RDNA4 in official ROCm matrix |
-| 6 | Prefix cache on DeltaNet hybrid (ROCm) | **Resolved** (v0.5.13) | MambaRadixCache (cache-on, batch 16/~63) + TP=1 store_cache patch | HiCache #24121 (cache+batch+full-context together) |
+| 6 | Prefix cache on DeltaNet hybrid (ROCm) | **Resolved** (v0.5.13) | MambaRadixCache + TP=1 store_cache patch; HiCache host-offload enabled 2026-07-07 (direct, ratio 1.5) | #29034/#30314 fixes released (restores --hicache-size, removes stall risk) |
 | 7 | decode-topk-pages CANDIDATE chain (067+068+069) drifted off FORK_REF | Low (optional, deferred) | No — patch needs upstream rebase | Fork rebases the CANDIDATE series, or our FORK_REF bump happens to realign |
 | 8 | No RDNA4 fused kernel for newer FP4 formats (Quark 0.12 AMDFP4/NVFP4/SVDQuant) | None (eval, NO-GO) | N/A — format has no gfx1201 consumer | Fork/upstream ships a fused FP4 decode kernel for gfx1201 (not a Quark release) |
 
-**Bottom line:** The mattbucci fork resolves blockers 2–6 today (v0.5.13.post1). Blocker 6 (prefix cache) is fixed by native MambaRadixCache — cache is ON in prod, which fixes the long-context agent, at a batch cost (~63 @conc16 vs ~99 no-cache) that's the right tradeoff for the agentic workload. Blocker 1 (MTP) remains the single-stream gap vs vLLM but is moot here (spec is net-negative on dense RDNA4). Once #24121 (HiCache-for-hybrid) closes, retest to get cache + higher batch + full context together.
+**Bottom line:** The mattbucci fork resolves blockers 2–6 today (v0.5.13.post1). Blocker 6 (prefix cache) is fixed by native MambaRadixCache — cache is ON in prod, which fixes the long-context agent, at a batch cost (~63 @conc16 vs ~99 no-cache) that's the right tradeoff for the agentic workload. Blocker 1 (MTP) remains the single-stream gap vs vLLM but is moot here (spec is net-negative on dense RDNA4). HiCache host-offload joined the prefix cache in prod 2026-07-07 (`direct` backend, ratio-sized — see the HiCache re-check above for the open upstream hazards it routes around).
 
 ---
 
