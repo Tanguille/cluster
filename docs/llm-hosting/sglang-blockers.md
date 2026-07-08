@@ -192,6 +192,16 @@ extension probe (`/v1/completions`, request B = A's prompt + A's output + more),
 release newer than v0.5.14 exists; main is ~545 commits ahead with unreleased hicache/mamba fixes —
 the pinned fork tree carries stock v0.5.14 hicache code (no fork patch touches it).
 
+**L3 disk tier trialled and removed (2026-07-08):** a disk-backed third tier below the RAM L2
+(`--hicache-storage-backend file` on control-1's local virtio disk, capped 80 GB via
+`SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE`) was measured over 6h+ real traffic plus repeated synthetic
+load with intentionally-reused prefixes. It logged a 0% hit rate throughout and cost measurable
+throughput in a clean A/B (L3 off completed more requests with fewer aborts). At this working-set
+size the RAM L2 already holds every reused prefix, so the disk tier only added write traffic —
+removed from the helmrelease. `write_back` write policy was kept: it is an L1→L2 (GPU→host)
+optimization independent of any storage backend. Don't re-propose L3 without a working set that
+overflows L2.
+
 **When to revisit:** (1) HiCache: on the next FORK_REF/tag bump, re-check #29034/#30314/#24121 — a
 release with the unified-tree fixes could restore `--hicache-size` sizing and remove the stall risk.
 (2) If a future fork rebase relaxes the `no_buffer`→overlap-off constraint, re-test overlap+cache.
