@@ -51,6 +51,17 @@ metadata:
   name: ha
 spec:
   replicas: 2
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: vmcp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
