@@ -139,7 +139,19 @@ spec:
               # guard passes at boot). Issue-by-issue rationale + the #30314 stall risk live in
               # docs/llm-hosting/sglang-blockers.md ("HiCache re-check"). HiCache never pages an
               # ACTIVE request's KV, so the ctx ≤ KV-pool clean-rejection invariant above still holds.
-              EXTRA_ARGS: '--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2}'
+              # schedule-conservativeness 0.1 (2026-07-08): default (1.0) reserves a large per-request
+              # token margin before admitting into a running batch, which under concurrent long-context
+              # load left requests queueing (p99 ~250s) until the CLIENT gave up — sglang itself never
+              # rejected them (0 server aborts throughout testing). Swept 1.0/0.5/0.3/0.2/0.15/0.1 with
+              # synthetic concurrent load; 0.1 gave the best observed abort rate (0%) with no retraction
+              # cost (0 retracted at every value tested) — HiCache's cheap host-tier reload is what makes
+              # a smaller admission margin safe now (a wrong guess costs ms, not a 155-303s re-prefill).
+              # hicache-write-policy write_back (2026-07-08): default (write_through) copies every cached
+              # node to the host tier on first hit, whether or not it's ever reused. write_back skips those
+              # per-hit copies and only backs a node up at eviction (then demotes it to host instead of
+              # dropping it), cutting GPU→host write amplification on the hot path. (A disk-backed L3 tier
+              # was trialled and dropped — see docs/llm-hosting/sglang-blockers.md "HiCache re-check".)
+              EXTRA_ARGS: '--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1 --hicache-write-policy write_back'
             probes:
               startup: &probeBase
                 enabled: true
