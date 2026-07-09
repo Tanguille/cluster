@@ -162,11 +162,35 @@ spec:
               value: ${LITELLM_API_KEY}
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 200m
+              memory: 1Gi
             limits:
               cpu: 500m
-              memory: 1Gi
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            failureThreshold: 30
+            periodSeconds: 5
+            initialDelaySeconds: 0
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 10
+            initialDelaySeconds: 120
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 10
+            initialDelaySeconds: 30
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
@@ -195,9 +219,8 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
     optimizer:
-      # embeddingServerRef intentionally omitted: it provisions a managed TEI server,
-      # which the operator rejects when embeddingProvider is "openai" (admission-time
-      # incompatibility). We route to litellm -> the existing iGPU embedder instead.
+      # embeddingServerRef omitted: operator rejects when embeddingProvider is "openai".
+      # Routes to litellm -> existing iGPU embedder instead.
       embeddingProvider: openai
       embeddingService: http://litellm.ai.svc.cluster.local/v1
       embeddingModel: vmcp-embedding
