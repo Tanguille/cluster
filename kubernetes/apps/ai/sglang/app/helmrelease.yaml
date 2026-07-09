@@ -212,6 +212,15 @@ spec:
             port: 80
             targetPort: *port
 
+    serviceMonitor:
+      app:
+        endpoints:
+          # SGLang exposes Prometheus metrics (sglang:*) on /metrics; one served model.
+          - port: http
+            path: /metrics
+            interval: 1m # SGLang gauges don't need sub-minute resolution; matches litellm
+            scrapeTimeout: 10s
+
     route:
       app:
         annotations:
@@ -245,7 +254,7 @@ spec:
         type: emptyDir
         medium: Memory
         # tmpfs counts against the container memory limit; TP=1 barely uses shm (the large-shm
-        # case is multi-GPU tensor sharing, N/A here), so keep it well under the 16Gi limit.
+        # case is multi-GPU tensor sharing, N/A here), so keep it well under the 48Gi limit.
         sizeLimit: 8Gi
         advancedMounts:
           app:
