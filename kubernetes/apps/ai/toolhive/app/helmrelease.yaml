@@ -10,7 +10,6 @@ spec:
   interval: 1h
   values:
     operator:
-      replicaCount: 1
       # Chart sets GOMEMLIMIT=150MiB; default limit 128Mi is lower → OOMKilled. Raise limit so runtime stays under cgroup.
       resources:
         requests:
