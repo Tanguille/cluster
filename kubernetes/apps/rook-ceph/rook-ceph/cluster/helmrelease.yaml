@@ -149,8 +149,6 @@ spec:
     cephBlockPoolsVolumeSnapshotClass:
       enabled: true
       name: csi-ceph-blockpool
-      isDefault: false
-      deletionPolicy: Delete
     cephFileSystems:
       - name: &cephFileSystemName ceph-filesystem
         spec:
@@ -206,5 +204,4 @@ spec:
       enabled: true
       name: csi-ceph-filesystem
       isDefault: false
-      deletionPolicy: Delete
     cephObjectStores: []
