@@ -8,18 +8,12 @@
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   customManagers: [
     {
-      description: "Detect ToolHive MCPServer spec.image container references",
+      description: "Detect spec.image container references in ToolHive MCPServer and llmkube InferenceService CRs",
       customType: "regex",
-      managerFilePatterns: ["/kubernetes/apps/ai/toolhive/config/.+\\.ya?ml$/"],
-      matchStrings: [
-        "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
+      managerFilePatterns: [
+        "/kubernetes/apps/ai/toolhive/config/.+\\.ya?ml$/",
+        "/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"
       ],
-      datasourceTemplate: "docker"
-    },
-    {
-      description: "Detect llmkube InferenceService spec.image container references",
-      customType: "regex",
-      managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
       matchStrings: [
         "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
       ],
@@ -69,6 +63,16 @@
       packageNameTemplate: "https://huggingface.co/{{depName}}",
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
+    },
+    {
+      description: "sglang-rdna4 FORK_REF pinned to the fork's main-branch head (the preset's annotated manager can't do git-refs digest pins); a bump PR merge fires the image rebuild workflow",
+      customType: "regex",
+      managerFilePatterns: ["/docker/sglang-rdna4/Dockerfile$/"],
+      matchStrings: ["ARG FORK_REF=(?<currentDigest>[a-f0-9]{40})"],
+      depNameTemplate: "mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference",
+      packageNameTemplate: "https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference",
+      currentValueTemplate: "main",
+      datasourceTemplate: "git-refs"
     }
   ],
   packageRules: [
@@ -106,13 +110,8 @@
       description: "Actions Runner Controller Group",
       groupName: "actions-runner-controller",
       matchDatasources: ["docker"],
-      matchPackageNames: [
-        "/gha-runner-scale-set-controller/",
-        "/gha-runner-scale-set/"
-      ],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
+      // matches both gha-runner-scale-set and gha-runner-scale-set-controller
+      matchPackageNames: ["/gha-runner-scale-set/"],
       minimumGroupSize: 2
     },
     {
@@ -120,19 +119,22 @@
       groupName: "flux-operator",
       matchDatasources: ["docker"],
       matchPackageNames: ["/flux-operator/", "/flux-instance/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
       minimumGroupSize: 2
+    },
+    {
+      // installer image (talosupgrade.yaml) + talosctl via aqua (.mise.toml) and github-releases
+      // (image-pull.yaml) all track the same Talos release — one PR instead of three
+      description: "Talos Group",
+      groupName: "talos",
+      matchDatasources: ["docker", "aqua", "github-releases"],
+      matchPackageNames: ["/siderolabs\\/(talos|installer)/"]
     },
     {
       description: "Rook-Ceph Group",
       groupName: "rook-ceph",
       matchDatasources: ["docker"],
-      matchPackageNames: ["/rook-ceph/", "/rook-ceph-cluster/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
+      // matches both rook-ceph and rook-ceph-cluster
+      matchPackageNames: ["/rook-ceph/"],
       minimumGroupSize: 2
     },
     {
@@ -140,9 +142,6 @@
       groupName: "toolhive",
       matchDatasources: ["docker"],
       matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
       minimumGroupSize: 2
     },
     {
@@ -150,37 +149,25 @@
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
       matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
       minimumGroupSize: 2
     },
     {
       description: "Group klipper-exporter image and Grafana dashboard URL",
       groupName: "klipper-exporter",
       matchDatasources: ["docker", "github-releases"],
-      matchPackageNames: ["/prometheus-klipper-exporter/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}}"
-      }
+      matchPackageNames: ["/prometheus-klipper-exporter/"]
     },
     {
       description: "Group spegel chart and Grafana dashboard URL",
       groupName: "spegel",
       matchDatasources: ["docker", "github-releases"],
-      matchPackageNames: ["/spegel-org/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}}"
-      }
+      matchPackageNames: ["/spegel-org/"]
     },
     {
       description: "nginx sidecar images group",
       groupName: "nginx",
       matchDatasources: ["docker"],
       matchPackageNames: ["nginx"],
-      group: {
-        commitMessageTopic: "{{{groupName}}}"
-      },
       minimumGroupSize: 2
     },
     {
@@ -191,10 +178,7 @@
       groupName: "qbitrr",
       matchDatasources: ["docker"],
       matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
-      matchPackageNames: ["/feramance\\/qbitrr/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}}"
-      }
+      matchPackageNames: ["/feramance\\/qbitrr/"]
     },
     {
       matchManagers: ["custom.regex"],
@@ -212,6 +196,12 @@
         "ghcr.io/sethforprivacy/p2pool",
         "nousresearch/hermes-agent"
       ],
+      versioning: "loose"
+    },
+    {
+      description: "Miniforge build-suffixed tags (24.11.3-2) read as semver prereleases, so stable-only filtering hides every update; loose sorts them numerically",
+      matchDatasources: ["github-releases"],
+      matchPackageNames: ["conda-forge/miniforge"],
       versioning: "loose"
     },
     // Labeling rules
