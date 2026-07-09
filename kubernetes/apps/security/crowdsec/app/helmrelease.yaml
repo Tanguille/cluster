@@ -10,8 +10,6 @@ spec:
     name: crowdsec
   interval: 1h
   values:
-    podAnnotations:
-      reloader.stakater.com/auto: "true"
     container_runtime: containerd
     config:
       parsers:
@@ -100,6 +98,9 @@ spec:
             duration: 24h
         on_success: break
     lapi:
+      # Reloader reads workload metadata, not pod-template annotations
+      deployAnnotations:
+        reloader.stakater.com/auto: "true"
       # Create/verify the crowdsec Postgres database before LAPI starts
       extraInitContainers:
         - name: init-db
@@ -131,19 +132,13 @@ spec:
         config:
           enabled: false
       metrics:
-        enabled: true
         serviceMonitor:
           enabled: true
     agent:
+      daemonsetAnnotations:
+        reloader.stakater.com/auto: "true"
       startupProbe:
-        httpGet:
-          path: /metrics
-          port: metrics
-          scheme: HTTP
         initialDelaySeconds: 30
-        periodSeconds: 10
-        successThreshold: 1
-        timeoutSeconds: 5
         failureThreshold: 60
       resources:
         requests:
@@ -163,8 +158,23 @@ spec:
         - name: TZ
           value: ${TIMEZONE}
       metrics:
-        enabled: true
         serviceMonitor:
           enabled: true
     appsec:
-      enabled: false
+      enabled: true
+      deployAnnotations:
+        reloader.stakater.com/auto: "true"
+      # Serves the envoy bouncer's WAF calls on crowdsec-appsec-service:7422
+      acquisitions:
+        - source: appsec
+          listen_addr: 0.0.0.0:7422
+          path: /
+          appsec_config: crowdsecurity/appsec-default
+          labels:
+            type: appsec
+      env:
+        - name: COLLECTIONS
+          value: crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+      metrics:
+        serviceMonitor:
+          enabled: true
