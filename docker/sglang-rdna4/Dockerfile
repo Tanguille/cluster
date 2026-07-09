@@ -4,8 +4,7 @@
 # setup.sh omits (the fork targets a dual-card TP=2 box). Re-pinning FORK_REF — and
 # SGLANG_TAG on a version bump — is the whole maintenance surface. This image is the
 # git-reproducible replacement for the old runtime-from-PVC env (see ../../kubernetes/
-# apps/ai/sglang/README.md). It mirrors scripts/sglang-env-rebuild.sh exactly; the two
-# MUST stay in sync (FORK_REF, SGLANG_TAG, the three patches below).
+# apps/ai/sglang/README.md).
 #
 # Builds WITHOUT a GPU — the HIP kernels cross-compile; see the setup.sh step below and README.md.
 #
@@ -54,7 +53,6 @@ RUN curl -fsSL "https://github.com/conda-forge/miniforge/releases/download/${MIN
 
 # Vendor the fork at a pinned commit (no runtime fetch).
 ARG FORK_REPO=https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference.git
-# renovate: datasource=git-refs depName=mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference packageName=https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference branch=main
 ARG FORK_REF=60ffa9501c2c6e5db628e58c7f75b727a6127ebb
 RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
     && git -C "${REPO_DIR}" checkout "${FORK_REF}"
