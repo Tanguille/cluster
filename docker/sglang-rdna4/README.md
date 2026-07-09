@@ -56,8 +56,8 @@ final stage starts from the slim **non-complete** ROCm base (1.2 GB vs 7.4 GB co
 only the built conda env + fork repo. This works because torch+rocm bundles its own ROCm runtime
 (~13 GB) and the compiled kernels RPATH to `torch/lib`, not `/opt/rocm` — so the ~18 GB dev SDK is
 build-only. **Validation caveat:** Triton JIT-compiles at runtime and needs its ROCm backend tools
-(vendored under `triton/backends/amd`). The build-time gates (`import torch, sglang` + an `ldd`
-check for dangling kernel libs) do **not** exercise the JIT path — so a new build must be validated
+(vendored under `triton/backends/amd`). The build-time gates (`import torch, sglang`) do **not**
+exercise the JIT path — so a new build must be validated
 by a **cold boot with the Triton cache cleared** (`/cache/sglang/triton`) before its digest is
 pinned into the HelmRelease, to prove runtime compilation still works on the slim base.
 
