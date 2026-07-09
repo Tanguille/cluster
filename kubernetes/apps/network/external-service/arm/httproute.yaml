@@ -18,10 +18,6 @@ spec:
   hostnames:
     - arm.${SECRET_DOMAIN}
   rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+    - backendRefs:
         - name: internal-arm
           port: 80

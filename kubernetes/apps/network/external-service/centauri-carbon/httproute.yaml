@@ -19,10 +19,6 @@ spec:
   hostnames:
     - cc.${SECRET_DOMAIN}
   rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+    - backendRefs:
         - name: external-centauri-carbon
           port: 80
