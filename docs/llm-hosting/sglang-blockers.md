@@ -2,8 +2,7 @@
 
 Tracking what needs to land upstream before SGLang can replace vLLM in production without depending on the mattbucci RDNA4 fork.
 
-**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.13.post1 + 46 patches** (fork HEAD `1034fea`, 2026-06-24), built in place on the `sglang` PVC at `/cache/sglang` (the image is only the ROCm 7.2.4 runtime base). Rebuild recipe — including the RDNA4/TP=1 fixes the fork's `setup.sh` omits — is `kubernetes/apps/ai/sglang/app/scripts/sglang-env-rebuild.sh`.
-See `docs/sglang-qwen3.6-rocm-plan.md` for the full build plan and decision record.
+**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.14** (torch 2.11+rocm7.2, Triton 3.6), baked into the `ghcr.io/tanguille/sglang-rdna4` image by `.github/workflows/build-sglang-rdna4.yaml`. Build/pin/rollback mechanics are in `docker/sglang-rdna4/README.md`. `kubernetes/apps/ai/sglang/app/scripts/sglang-env-rebuild.sh` is the retired PVC-rebuild recipe, kept only as an emergency fallback.
 
 ---
 
