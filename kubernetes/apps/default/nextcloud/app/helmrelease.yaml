@@ -70,8 +70,6 @@ spec:
 
     nextcloud:
       datadir: /var/www/data
-      strategy:
-        type: Recreate
       extraInitContainers:
         - name: init-db
           image: ghcr.io/home-operations/postgres-init:18
@@ -98,7 +96,6 @@ spec:
         smtpHostKey: SMTP_HOST
 
       host: nextcloud.${SECRET_DOMAIN}
-      containerPort: 80
 
       mail:
         enabled: true
@@ -106,8 +103,6 @@ spec:
         # host/credentials come from existingSecret.smtp*Key above
         domain: gmail.com
         smtp:
-          port: 465
-          authtype: LOGIN
           secure: starttls
 
       # Security context - allow root for entrypoint, then drops to www-data
@@ -264,13 +259,8 @@ spec:
         usernameKey: INIT_POSTGRES_USER
         passwordKey: INIT_POSTGRES_PASS
 
-    ingress:
-      enabled: false
-
     httpRoute:
       enabled: true
-      apiVersion: gateway.networking.k8s.io/v1
-      kind: HTTPRoute
       annotations:
         gatus.home-operations.com/enabled: "false"
         gethomepage.dev/enabled: "true"
@@ -282,7 +272,6 @@ spec:
         gethomepage.dev/widget.type: nextcloud
         gethomepage.dev/widget.url: https://nextcloud.${SECRET_DOMAIN}
         gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_NEXTCLOUD_TOKEN}}"
-      labels: {}
       hostnames:
         - "nextcloud.${SECRET_DOMAIN}"
       parentRefs:
@@ -435,7 +424,6 @@ spec:
       enabled: true
       type: cronjob
       cronjob:
-        schedule: "*/5 * * * *"
         failedJobsHistoryLimit: 1
         successfulJobsHistoryLimit: 2
         affinity:
