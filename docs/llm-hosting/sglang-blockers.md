@@ -198,9 +198,19 @@ the pinned fork tree carries stock v0.5.14 hicache code (no fork patch touches i
 load with intentionally-reused prefixes. It logged a 0% hit rate throughout and cost measurable
 throughput in a clean A/B (L3 off completed more requests with fewer aborts). At this working-set
 size the RAM L2 already holds every reused prefix, so the disk tier only added write traffic —
-removed from the helmrelease. `write_back` write policy was kept: it is an L1→L2 (GPU→host)
-optimization independent of any storage backend. Don't re-propose L3 without a working set that
-overflows L2.
+removed from the helmrelease. Don't re-propose L3 without a working set that overflows L2.
+
+**`hicache-write-policy write_back` trialled and reverted (2026-07-09):** kept alongside the L3 removal
+above as a still-valid L1→L2 (GPU→host) optimization — synthetic testing showed 0 aborts and lower
+write amplification vs the default `write_through`. Real production traffic exposed a blocking bug not
+visible in synthetic testing: `UnifiedRadixCache.evict()` calls `writing_check(write_back=True)`, which
+does a GPU-stream-synchronize wait for *every* pending write-back to drain before eviction can proceed.
+`write_through` copies happen eagerly per-hit in small increments, so this path rarely stalls; `write_back`
+defers all copies to eviction time, so under real (non-repeated-prefix) traffic the backlog builds up and
+the wait blocks the scheduler loop itself — observed as concurrency serialized to 1 running request with
+the queue climbing unbounded (Hermes' own 240s stream-stale client timeout then compounded it via
+retry storms). Reverted to default `write_through`; validated stable for 8h+ post-revert (0 backlog, 0
+serialization). Don't re-propose `write_back` without a fix to the synchronous drain in `evict()`.
 
 **When to revisit:** (1) HiCache: on the next FORK_REF/tag bump, re-check #29034/#30314/#24121 — a
 release with the unified-tree fixes could restore `--hicache-size` sizing and remove the stall risk.
