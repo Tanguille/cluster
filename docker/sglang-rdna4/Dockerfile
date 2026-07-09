@@ -46,7 +46,7 @@ RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs \
 
 # Miniforge: the fork's scripts are conda-coupled (conda activate $ENV_NAME).
 # renovate: datasource=github-releases depName=conda-forge/miniforge
-ARG MINIFORGE_VERSION=24.11.3-2
+ARG MINIFORGE_VERSION=26.3.2-3
 RUN curl -fsSL "https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/Miniforge3-${MINIFORGE_VERSION}-Linux-x86_64.sh" -o /tmp/miniforge.sh \
     && bash /tmp/miniforge.sh -b -p "${CONDA_BASE}" \
     && rm /tmp/miniforge.sh
