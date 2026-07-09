@@ -20,7 +20,6 @@ spec:
 
     controllers:
       hermes:
-        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
 
@@ -63,23 +62,18 @@ spec:
                 custom: true
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  failureThreshold: 3
               readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 10
-                  periodSeconds: 10
                   timeoutSeconds: 5
-                  failureThreshold: 3
             resources:
               requests:
                 cpu: 100m
-                memory: 1Gi
+                memory: 2Gi
               limits:
                 cpu: 2
                 memory: 4Gi
@@ -89,8 +83,7 @@ spec:
         controller: *app
         ports:
           http:
-            port: 80
-            targetPort: *port
+            port: *port
 
     route:
       app:
@@ -105,10 +98,6 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: 80
 
     persistence:
       data:
