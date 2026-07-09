@@ -18,10 +18,6 @@ spec:
   hostnames:
     - avr.${SECRET_DOMAIN}
   rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+    - backendRefs:
         - name: internal-avr
           port: 80

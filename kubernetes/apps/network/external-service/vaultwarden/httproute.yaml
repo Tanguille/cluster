@@ -19,10 +19,6 @@ spec:
   hostnames:
     - vaultwarden.${SECRET_DOMAIN}
   rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+    - backendRefs:
         - name: internal-vaultwarden
           port: 80

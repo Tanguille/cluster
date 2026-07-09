@@ -23,10 +23,6 @@ spec:
   hostnames:
     - homeassistant.${SECRET_DOMAIN}
   rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+    - backendRefs:
         - name: external-homeassistant
           port: 80
