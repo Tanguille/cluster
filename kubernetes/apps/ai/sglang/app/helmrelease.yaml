@@ -146,12 +146,14 @@ spec:
               # synthetic concurrent load; 0.1 gave the best observed abort rate (0%) with no retraction
               # cost (0 retracted at every value tested) — HiCache's cheap host-tier reload is what makes
               # a smaller admission margin safe now (a wrong guess costs ms, not a 155-303s re-prefill).
-              # hicache-write-policy write_back (2026-07-08): default (write_through) copies every cached
-              # node to the host tier on first hit, whether or not it's ever reused. write_back skips those
-              # per-hit copies and only backs a node up at eviction (then demotes it to host instead of
-              # dropping it), cutting GPU→host write amplification on the hot path. (A disk-backed L3 tier
-              # was trialled and dropped — see docs/llm-hosting/sglang-blockers.md "HiCache re-check".)
-              EXTRA_ARGS: '--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1 --hicache-write-policy write_back'
+              # hicache-write-policy write_back (2026-07-08, tried and REVERTED 2026-07-09): looked like a
+              # pure win in synthetic testing (defers per-hit host copies to eviction time), but
+              # UnifiedRadixCache.evict() calls writing_check(write_back=True), which blocks the scheduler
+              # loop until every pending write-back drains (GPU stream sync) before eviction can proceed.
+              # Under real traffic (unique long prompts, not synthetic repeated prefixes) that backlog
+              # builds up fast, stalling new-request admission — serialized concurrency to 1 running
+              # request with the queue climbing unbounded. Left off default (write_through) instead.
+              EXTRA_ARGS: '--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1'
             probes:
               startup: &probeBase
                 enabled: true
