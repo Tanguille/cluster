@@ -40,10 +40,7 @@ spec:
   # memini's continuous dedup-embedding traffic hitting this server concurrently.
   # Once vmcp cuts over to its own vmcp-embedding server, memini is the sole
   # client — revisit slot count then.
-  parallelSlots: 4 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  # llama.cpp splits --ctx-size across parallel slots. Keep 2048/slot (same
-  # margin as before) — enough for ToolHive's largest tool-description batch
-  # (~1095 tokens) without affecting the LiteLLM model name memini uses.
+  parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   contextSize: 8192
   uBatchSize: 2048
   extraArgs:
