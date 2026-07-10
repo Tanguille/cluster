@@ -8,18 +8,6 @@
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   customManagers: [
     {
-      description: "Detect spec.image container references in ToolHive MCPServer and llmkube InferenceService CRs",
-      customType: "regex",
-      managerFilePatterns: [
-        "/kubernetes/apps/ai/toolhive/config/.+\\.ya?ml$/",
-        "/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"
-      ],
-      matchStrings: [
-        "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
-      ],
-      datasourceTemplate: "docker"
-    },
-    {
       description: "Process Grafana dashboards in GrafanaDashboard CRs",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
@@ -224,10 +212,6 @@
     {
       matchDatasources: ["docker"],
       addLabels: ["renovate/container"]
-    },
-    {
-      matchDatasources: ["helm"],
-      addLabels: ["renovate/helm"]
     },
     {
       matchDatasources: ["custom.grafana-dashboards"],
