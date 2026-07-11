@@ -17,18 +17,11 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
 
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: 18
-            envFrom: &envFrom
-              - secretRef:
-                  name: memini-secret
-
         containers:
           main:
-            envFrom: *envFrom
+            envFrom:
+              - secretRef:
+                  name: memini-secret
             env:
               TZ: ${TIMEZONE}
               MEMINI_BACKEND: "postgres"

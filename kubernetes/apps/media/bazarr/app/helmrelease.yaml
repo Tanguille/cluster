@@ -19,14 +19,6 @@ spec:
       bazarr:
         annotations:
           reloader.stakater.com/auto: "true"
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: 18
-            envFrom: &envFrom
-              - secretRef:
-                  name: bazarr-secret
         containers:
           app:
             image:
@@ -35,7 +27,9 @@ spec:
             env:
               TZ: ${TIMEZONE}
               POSTGRES_ENABLED: "True"
-            envFrom: *envFrom
+            envFrom:
+              - secretRef:
+                  name: bazarr-secret
 
             probes:
               liveness: &probes

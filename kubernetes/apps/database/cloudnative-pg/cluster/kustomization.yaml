@@ -10,7 +10,19 @@ resources:
   - pooler-session.yaml
   - prometheusrule.yaml
   - scheduledbackup.yaml
-  # Role password for the managed.roles entry in cluster.yaml (kept here so the role reconciles
-  # with its secret present). The Database CR itself lives in ../databases (separate Kustomization)
-  # so a DB-provisioning hiccup can't stall the shared cluster Kustomization (wait: true).
+  # Basic-auth Secrets backing spec.managed.roles in cluster.yaml (one per adopted app), kept
+  # here so each role reconciles with its secret present. The Database CR itself lives in
+  # ../databases (separate Kustomization) so a DB-provisioning hiccup can't stall the shared
+  # cluster Kustomization (wait: true).
   - secret.sops.yaml
+  - roles/jellystat.sops.yaml
+  - roles/radarr.sops.yaml
+  - roles/bazarr.sops.yaml
+  - roles/sonarr.sops.yaml
+  - roles/prowlarr.sops.yaml
+  - roles/memini.sops.yaml
+  - roles/spoolman.sops.yaml
+  - roles/gatus.sops.yaml
+  - roles/nextcloud.sops.yaml
+  - roles/grafana.sops.yaml
+  - roles/crowdsec.sops.yaml

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: crowdsec-db
+  labels:
+    cnpg.io/reload: "true"
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:XLFlWs46tO0=,iv:JFbpdwyuFQ3DGKvwUFUPWlbu+DdGyCFBn5K2v0fgqfY=,tag:FVU5ha7xz+79gYARZWi78A==,type:str]
+  password: ENC[AES256_GCM,data:TXtpvCgTlR4=,iv:yxLAknJmT0B12sQ4e/HiY1U8JyaGMsjh3KgGKkR0KYk=,tag:RQ85kjzP2U5U/0QXFiO3xA==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA2TzBrVk16NWpQRHhUQ015
+        NHNaOUY2UWZHa2swWHBwVEw1MExGdHhCblV3ClNFQ1d0SEJyZ0lycEtzdEdFY1hL
+        TE5mVmRxQnNQcnF4TkIxdGhucC9jRDgKLS0tIDNqR0VNZzJnMlFxRW5XVUFHZ1F1
+        QThyRXJoV09IbWRMeW5IcExxT3NUUEEKXRN0bH8/TGy4YoU11QxaxvqqvlF6OW0z
+        yPrpoVpRMa3bgGhzCXx6lkzBSHH8/y/BKOo3CCcqoZV5Hn2JeuWMnA==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:NFYKSy8NC/E7kO7xrVMRdxNULZ7qp1Rxbba2WcpdQhWKnWi6WNMsPpmtDxd0pAZFRhg25LUg/eoGrUD1Pv87nPfpSCMsuMuo5eqpmXvUlQIBkhK68YHWy1gy74fSWxjtNadJ1+R0kiBEb1ihTlOWRROOqDCav5UITubSrOEtdJI=,iv:Z9SifxRa25KOqY5tQP9oRWTKZo6dBgPMXMXWl1zy+S4=,tag:Nh1LhP5HKaCfGumb5Qe1MQ==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1

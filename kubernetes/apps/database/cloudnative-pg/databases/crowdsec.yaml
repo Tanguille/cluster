@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/database_v1.json
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: crowdsec
+spec:
+  cluster:
+    name: postgres16
+  name: crowdsec
+  owner: crowdsec
+  ensure: present
+  # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
+  databaseReclaimPolicy: retain
+  # Adopt the vector extension already present in this DB (no version pin).
+  extensions:
+    - name: vector
+      ensure: present
