@@ -57,6 +57,11 @@ spec:
         login: true
         passwordSecret:
           name: memini-db
+      - name: spoolman
+        ensure: present
+        login: true
+        passwordSecret:
+          name: spoolman-db
   postgresql:
     parameters:
       wal_level: replica
