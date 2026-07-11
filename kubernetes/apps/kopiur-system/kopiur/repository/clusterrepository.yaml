@@ -25,5 +25,8 @@ spec:
   bootstrap:
     failurePolicy:
       activeDeadlineSeconds: 2700
+  moverDefaults:
+    securityContext:
+      runAsGroup: 568
   scheduleDefaults:
     timezone: ${TIMEZONE}
