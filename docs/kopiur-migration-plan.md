@@ -113,12 +113,17 @@ Mitigations baked into this plan:
   discovered snapshots are *permanently* exempt from pruning by design; if
   #233 recurs against an adopted repo, orphaned history compounds forever,
   not just once.
-- **Repo-wide `0700` permission drift (found + fixed 2026-07-11, mechanism
-  unconfirmed, could recur)**: kopia silently retries `PermissionDenied`
-  forever instead of erroring, so a stuck mover with no log output and
-  near-zero CPU is this, not a slow backend. Check first with `find /repo
-  -type d -not -perm 0775` / `-type f -not -perm 0775` before chasing
-  anything else. Full writeup in Phase 2 below.
+- **Repo-wide `0700` permission drift (found + fixed 2026-07-11)**: kopia
+  silently retries `PermissionDenied` forever instead of erroring, so a
+  stuck mover with no log output and near-zero CPU is this, not a slow
+  backend. Check first with `find /repo -type d -not -perm 0775` / `-type f
+  -not -perm 0775` before chasing anything else. Mechanism **confirmed**
+  2026-07-12: kopiur writes new blobs `65532:568` mode `0600`/`0700`
+  (owner-only, no group-read bit), so any *other* group-568-only reader —
+  the fork's mover chief among them — silently hangs on fresh kopiur
+  content the same way. This is why the fork's `KopiaMaintenance` is
+  disabled in Phase 3 rather than left running dual-write. Full writeup in
+  Phase 2/3 below.
 
 ## Current state (inventoried 2026-07-03, re-verified 2026-07-11)
 
@@ -498,9 +503,48 @@ delete it once the adopted repository is `Ready`."*):
 4. Flip `takeoverPolicy: Force`, wait for lease acquisition + one successful
    quick run, then revert to `Never`.
 
-**Rollback**: re-enable the volsync-maintenance ks; set kopiur Maintenance
-back to `Never` (it yields).
-**Status**: ☐ not started
+**Ownership transfer confirmed directly (2026-07-12).** The `Maintenance` CR
+reached `LeaseClaimed: True` under `takeoverPolicy: PromptCondition` almost
+immediately with no observed lock-file conflict — `spec.ownership` on the
+CR is a separate, kopiur-internal bookkeeping value, not what's actually
+stamped into the repo. The real kopia-level owner was verified two ways:
+`kubectl get maintenance kopia-nas -n kopiur-system` shows
+`OWNER: kopiur@kopiur-clusterrepository-kopia-nas`, and a one-shot debug
+pod running `kopia maintenance info` directly against the NFS repo
+confirmed the identical string, zero occurrences of the old
+`maintenance@volsync` owner anywhere in the output (delegated verification,
+`kubectl exec` against a live debug pod was unreliable in this environment
+across ~5 attempts — a one-shot Job + `kubectl logs` worked). Conclusion:
+step 4's explicit `Force` takeover was never needed — the mover's
+connect-to-existing bootstrap self-heal (re-stamps the owner if it differs,
+best-effort, see `crates/mover/src/main.rs`) already did it silently on an
+earlier bootstrap re-run once write permissions were fixed in Phase 2.
+`takeoverPolicy` was left at `PromptCondition`, not touched.
+
+**New finding, extends the Phase 2 permission-drift writeup**: the
+verification pod found kopiur writes new blobs as `65532:568` mode
+`0600`/`0700` (owner-only) — the group-568 bit that made the legacy fork
+files group-readable is *not* set on kopiur-written content. This doesn't
+block kopiur itself (its mover owns the files via UID), but it's the exact
+mechanism the Phase 2 "open question" flagged: anything that reads via
+group-568 only (the fork's still-active `568:568` mover, ad-hoc debug
+tooling) will silently retry-forever on any blob kopiur wrote after the
+2026-07-11 chmod fix. This is a live, confirmed, ongoing risk for as long
+as the fork mover keeps running — not hypothetical.
+
+Given that, the fork's `volsync-maintenance` Kustomization is being
+disabled now rather than left running dual-write: `KopiaMaintenance/daily`'s
+own `spec.enabled: false` (native toggle, not a Flux suspend — Flux suspend
+wouldn't stop the CronJob already applied) via PR, ahead of its next
+trigger (`30 3,15 * * *`). Full removal (delete the ks + CR + secret) still
+deferred to Phase 6 per the original plan; this only disables it.
+
+**Rollback**: flip `KopiaMaintenance/daily`'s `spec.enabled` back to `true`;
+set kopiur Maintenance back to `Never` (it yields).
+**Status**: ☑ done — `Maintenance/kopia-nas` `Ready`/`LeaseClaimed: True`,
+kopia-level owner directly confirmed 2026-07-12. Fork's `KopiaMaintenance/
+daily` disabled same day (PR pending) to close the group-568-read gap
+above; full removal still Phase 6.
 
 ## Phase 4 — New component + canary app
 
