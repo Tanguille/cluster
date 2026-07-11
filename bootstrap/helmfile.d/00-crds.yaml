@@ -5,9 +5,7 @@
 # It is not intended to be used with helmfile apply or helmfile sync.
 
 # Command:
-# helmfile --file bootstrap/helmfile.d/00-crds.yaml template |
-# yq eval-all --exit-status 'select(.kind == "CustomResourceDefinition") |
-# kubectl apply --server-side --filename -
+# helmfile --file bootstrap/helmfile.d/00-crds.yaml template | yq eval-all --exit-status 'select(.kind == "CustomResourceDefinition")' | kubectl apply --server-side --filename -
 
 helmDefaults:
   args:

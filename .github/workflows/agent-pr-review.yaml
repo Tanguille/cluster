@@ -27,14 +27,15 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run reviewer
-        uses: misospace/pr-reviewer-action@b36ea146c6563a3f49a5b9a232d411f6cf970474 # v2.0.5
+        uses: misospace/pr-reviewer-action@a177c3478b52a6f8402ebbe9a0ba59c61cf028ed # v2.1.2
         with:
           github_token: ${{ github.token }}
           ai_base_url: http://litellm.ai.svc.cluster.local/v1
           ai_api_key: ${{ secrets.LITELLM_API_KEY }}
-          ai_api_format: openai
           ai_model: qwen-3.6-fast # thinking-off litellm twin (see litellm configmap)
-          ai_max_tokens: "8192"
+          # Empty omits the field (action default sends 0.1); SGLang runs sampling_defaults=model,
+          # so the model's generation_config applies (temp 1.0, top_k 20, top_p 0.95) — Qwen's
+          # shipped sampling; near-greedy decoding is the documented repetition-loop trigger.
           ai_temperature: ""
           ai_response_format: json_schema
           # This GPU does ~10 tok/s with ~155-220s cold prefills near ~100K ctx (validated), so the
@@ -45,18 +46,47 @@ jobs:
           inline_findings_max: "12"
           publish_mode: review_comment
           system_prompt_mode: append
-          system_prompt: |
-            For dependency upgrades and Renovate PRs: when the PR body does not already include meaningful upstream release notes or a changelog summary, fetch the relevant release notes and add a **Release notes** section to review_markdown. Summarize user-visible changes, breaking changes, and security fixes in prose. Do not enumerate raw upstream PR links, issue references, compare links, or commit SHAs; include at most one release-page URL if useful.
-          standards_file: AGENTS.md
+          # v2.1.1 bundles the release-notes STYLE rules (no raw PR/issue/SHA links, summarize in
+          # prose, at most one URL) for renovate-ish PR kinds, so this addendum only steers FETCH
+          # behavior: Renovate embeds upstream notes under a literal "### Release Notes" heading
+          # whenever it can resolve a changelog source — don't re-fetch those. When fetching is
+          # needed, use the authenticated gh_api tool — web_fetch of github.com HTML truncates to
+          # page boilerplate at the response cap and never yielded usable notes (validated in run
+          # logs). The trailing quality-rules paragraph distills a fleet audit of past reviews.
+          system_prompt: >-
+            ${{ contains(github.event.pull_request.body, '### Release Notes')
+            && 'The PR body already contains upstream release notes from Renovate. Do not fetch
+            release notes externally. Summarize the embedded notes in a **Release notes** section
+            in review_markdown: user-visible changes, breaking changes, and security fixes.'
+            || 'For dependency upgrade and Renovate PRs the body lacks upstream release notes.
+            Fetch them with the gh_api tool (api.github.com /repos/OWNER/REPO/releases JSON); do
+            not web_fetch github.com HTML pages, they truncate to boilerplate. Summarize them in a
+            **Release notes** section in review_markdown: user-visible changes, breaking changes,
+            and security fixes. For digest-only bumps with no upstream changelog, state that
+            briefly instead of spending tool calls searching.' }}
+            Review quality rules: Before flagging a config, env var, or resource as missing,
+            read the file that would contain it; if unverifiable, file it under Unknowns at
+            info severity, never as a blocker or major. Cite only sources fetched this run;
+            on a failed or empty fetch write "not verified" (never "confirmed") and list the
+            gap under Unknowns. For version bumps spanning multiple releases, enumerate every
+            release in the old-to-new range (releases or compare API) and flag when a chart
+            bump moves the embedded appVersion across a major version. Translate upgrade steps
+            written for docker-compose or .env files into their Kubernetes/Helm equivalent
+            before flagging them as missing. Keep review length proportional to the change.
+            Inline findings must require action; never post praise as a finding.
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
           model_context_tokens: "120000"
           allowed_source_hosts: "github.com,api.github.com,raw.githubusercontent.com,gitlab.com,registry.terraform.io,artifacthub.io,www.talos.dev,talos.dev,fluxcd.io,kubernetes.io,cilium.io"
           tool_mode: native_loop
+          # gh_api is the tool loop's only authenticated fetch path; left unset it is locked to
+          # this repo, so upstream release lookups fell back to anonymous HTML scraping and failed
+          # ("GitHub API access was restricted for the external repository" in posted reviews).
+          # "*" keeps the action's read-only path allowlist (releases/commits; secrets denied).
+          tool_allowed_gh_api_repos: "*"
           # Default 120s caps the WHOLE native_loop — less than one cold ~100K prefill on this GPU.
           # 900s lets a serialized review finish its tool loop (within-review prefix cache keeps
           # later turns cheap; runner maxRunners:1 serializes the renovate burst).
           tool_loop_wall_clock_sec: "900"
           tool_loop_summarize: "true"
           search_url: http://searxng.default.svc.cluster.local:8080/search
-          tool_max_search_results: "5"

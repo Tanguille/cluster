@@ -52,13 +52,10 @@ spec:
           ms_osd_compression_algorithm: snappy
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
-      crashCollector:
-        disable: false
       csi:
         readAffinity:
           enabled: true
       dashboard:
-        enabled: true
         urlPrefix: /
         ssl: false
         prometheusEndpoint: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
@@ -95,9 +92,8 @@ spec:
         mgr:
           requests:
             cpu: "200m"
-            memory: "512Mi"
           limits:
-            memory: "2Gi"
+            memory: "4Gi"
       storage:
         useAllNodes: false
         useAllDevices: false
@@ -153,8 +149,6 @@ spec:
     cephBlockPoolsVolumeSnapshotClass:
       enabled: true
       name: csi-ceph-blockpool
-      isDefault: false
-      deletionPolicy: Delete
     cephFileSystems:
       - name: &cephFileSystemName ceph-filesystem
         spec:
@@ -210,5 +204,4 @@ spec:
       enabled: true
       name: csi-ceph-filesystem
       isDefault: false
-      deletionPolicy: Delete
     cephObjectStores: []

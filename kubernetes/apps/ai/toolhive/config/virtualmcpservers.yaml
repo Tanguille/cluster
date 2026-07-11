@@ -51,6 +51,17 @@ metadata:
   name: ha
 spec:
   replicas: 2
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: vmcp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
@@ -151,11 +162,35 @@ spec:
               value: ${LITELLM_API_KEY}
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 200m
+              memory: 1Gi
             limits:
               cpu: 500m
-              memory: 1Gi
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            failureThreshold: 30
+            periodSeconds: 5
+            initialDelaySeconds: 0
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 10
+            initialDelaySeconds: 120
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 10
+            initialDelaySeconds: 30
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
@@ -167,12 +202,26 @@ spec:
   groupRef:
     name: all
   config:
+    # Session build re-embeds all ~194 tools on initialize; litellm's embedding
+    # cache (kubernetes/apps/ai/litellm/instance/proxy.yaml) makes this a dragonfly
+    # hit in the common case, but a cold cache still takes ~27-35s on the iGPU,
+    # which blew past the 30s operational default (2026-07-03). Kept in sync with
+    # optimizer.embeddingServiceTimeout via anchor since both bound the same call.
+    # ponytail: `default` applies to ALL backend requests, not just session-build,
+    # so every other call now tolerates hangs up to 120s too. perWorkload could
+    # scope this narrower, but the slow leg is the embedding call (not a specific
+    # backend workload) — revisit if a hung backend's slow-failure becomes a problem.
+    operational:
+      timeouts:
+        default: &embeddingTimeout 120s
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
     optimizer:
+      # embeddingServerRef omitted: operator rejects when embeddingProvider is "openai".
+      # Routes to litellm -> existing iGPU embedder instead.
       embeddingProvider: openai
       embeddingService: http://litellm.ai.svc.cluster.local/v1
       embeddingModel: vmcp-embedding
-      embeddingServiceTimeout: 120s
+      embeddingServiceTimeout: *embeddingTimeout

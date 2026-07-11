@@ -47,7 +47,7 @@ metadata:
 spec:
   modelRef: vmcp-embedding
   mode: embedding
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8fe0c6ae757c2f5118ab765622d7de1c9f9c4ab5416aa245222332f21e2182bb
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:9554d35318e200b4d2d36bd4b20ce0b6ea5893b5a271a36aa209804384e64a1f
   # 2 slots (the Vulkan floor — warmup hangs at parallel=1, llama.cpp #24307):
   # the iGPU is compute-bound, so extra slots add interleave, not throughput
   # (measured on qwen3-embedding: 4 slots didn't move latency, Q8_0 did). Two
@@ -97,6 +97,6 @@ spec:
   # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields at 0.8.26).
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    memory: 1Gi # Q8_0 weights are 292MB; UMA iGPU allocates from system RAM
+    memory: 512Mi # 292MB Q8_0 weights via UMA; measured 436Mi working set
   endpoint:
     path: /v1/embeddings

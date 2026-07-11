@@ -20,7 +20,6 @@ spec:
 
     controllers:
       hermes:
-        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
 
@@ -28,7 +27,7 @@ spec:
           app:
             image:
               repository: nousresearch/hermes-agent
-              tag: main@sha256:d02f0622aecc9c0994cd85df0a736bcf20fd3f29cfc0843af5dd0428bff65b52
+              tag: main@sha256:8f963d89d3f63f1a2515465a202e00aa71f72f4e264372af5c305dd1fd908493
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -63,23 +62,18 @@ spec:
                 custom: true
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  failureThreshold: 3
               readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 10
-                  periodSeconds: 10
                   timeoutSeconds: 5
-                  failureThreshold: 3
             resources:
               requests:
                 cpu: 100m
-                memory: 1Gi
+                memory: 2Gi
               limits:
                 cpu: 2
                 memory: 4Gi
@@ -89,8 +83,7 @@ spec:
         controller: *app
         ports:
           http:
-            port: 80
-            targetPort: *port
+            port: *port
 
     route:
       app:
@@ -105,10 +98,6 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: 80
 
     persistence:
       data:

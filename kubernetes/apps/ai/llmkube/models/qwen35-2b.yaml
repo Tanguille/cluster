@@ -32,7 +32,7 @@ spec:
   # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
   # Tracked by the llmkube-models Renovate customManager (.renovaterc.json5).
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8fe0c6ae757c2f5118ab765622d7de1c9f9c4ab5416aa245222332f21e2182bb
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:9554d35318e200b4d2d36bd4b20ce0b6ea5893b5a271a36aa209804384e64a1f
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   contextSize: 16384 # GDN keeps KV tiny, so long ctx is cheap; 16K is plenty for offload
   jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
@@ -41,10 +41,23 @@ spec:
     - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
 
   # Both iGPU nodes advertise 2 squat.ai/dri slots; the embedders pair up on
-  # qwen3-embedding's node (via podAffinity there), leaving control-2's slots
-  # for this model — amd.com/igpu lands it there with no manual pin.
+  # qwen3-embedding's node (via podAffinity there), leaving the other iGPU
+  # node's slots for this model — amd.com/igpu narrows it to those two nodes.
   nodeSelector:
     amd.com/igpu: "true"
+
+  # Keep off the embedder pair's node. vmcp-embedding hard-requires
+  # qwen3-embedding's node, so if this model shares it (happened 2026-07-03:
+  # a reshuffle put both on control-2), it takes the second dri slot and
+  # vmcp-embedding goes Pending — hanging vmcp-unified's tools/list on the
+  # optimizer's 120s embed timeout.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: qwen3-embedding
+          topologyKey: kubernetes.io/hostname
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
   podSecurityContext:
@@ -59,7 +72,7 @@ spec:
   # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields at 0.8.26).
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
-    # ~2.4 GiB resident; requested low (no limit set by llmkube) so it schedules
-    # on control-2's tight request budget and bursts into its real free RAM.
-    memory: 1536Mi
+    # ~2.4 GiB resident under load, 405Mi idle working set; requested low
+    # (no limit set by llmkube) so it schedules and bursts into free RAM.
+    memory: 1Gi
   # endpoint omitted — operator defaults to a ClusterIP Service on :8080.

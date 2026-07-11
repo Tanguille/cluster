@@ -19,10 +19,6 @@ spec:
   hostnames:
     - ntopg.${SECRET_DOMAIN}
   rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+    - backendRefs:
         - name: internal-ntopg
           port: 80

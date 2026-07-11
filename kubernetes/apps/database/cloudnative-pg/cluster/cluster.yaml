@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/cloudnative-pg/charts/refs/heads/main/charts/cluster/values.schema.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/cluster_v1.json
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -7,7 +7,7 @@ metadata:
   annotations:
     cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:7628c897e4046ab4fa64e69f53b3e2874544225119713d3904db0c8bd0034765
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:0b3b86c45731b4d19ebef043a1879d9faf5799a6683c14b84c9aa1efdc5bbc21
   instances: 3
   primaryUpdateMethod: switchover
   storage:
@@ -16,6 +16,17 @@ spec:
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
+  # Declarative app roles (CNPG-native, replacing postgres-init). Password sourced from a
+  # basic-auth Secret in this namespace; CNPG enforces it, so the app's DATABASE_URL must match.
+  # Static password: CNPG can rotate a managed role's password, but nothing here re-syncs it
+  # into the app's DATABASE_URL secret. Rotation is not enabled for these roles today; if it
+  # ever is, add a mechanism (e.g. Reloader-driven resync) to keep the two in step.
+  managed:
+    roles:
+      - name: litellm
+        login: true
+        passwordSecret:
+          name: litellm-db
   postgresql:
     parameters:
       wal_level: replica

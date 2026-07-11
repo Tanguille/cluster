@@ -1,8 +1,15 @@
 # Common Operations
 
-**When to use:** add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, volsync, snapshot.
+**When to use:** validation, tooling, add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, volsync, snapshot.
 
 Step-by-step procedures for frequent cluster tasks.
+
+## Validation and tooling
+
+- Run `flux`, `helm`, `kubectl`, `kustomize`, `sops`, `age`, `talhelper`, `talosctl`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
+- Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (Kustomize and shellcheck).
+- Shell-only changes: `mise exec -- shellcheck scripts/*.sh`.
+- Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
 
 ## Adding a new application
 
