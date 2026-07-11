@@ -62,6 +62,11 @@ spec:
         login: true
         passwordSecret:
           name: spoolman-db
+      - name: gatus
+        ensure: present
+        login: true
+        passwordSecret:
+          name: gatus-db
   postgresql:
     parameters:
       wal_level: replica
