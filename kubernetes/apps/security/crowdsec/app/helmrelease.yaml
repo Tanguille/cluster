@@ -101,13 +101,6 @@ spec:
       # Reloader reads workload metadata, not pod-template annotations
       deployAnnotations:
         reloader.stakater.com/auto: "true"
-      # Create/verify the crowdsec Postgres database before LAPI starts
-      extraInitContainers:
-        - name: init-db
-          image: ghcr.io/home-operations/postgres-init:18
-          envFrom:
-            - secretRef:
-                name: crowdsec-secret
       # CPU only: chart default 500m vs ~13m observed; memory left at chart default
       resources:
         requests:
