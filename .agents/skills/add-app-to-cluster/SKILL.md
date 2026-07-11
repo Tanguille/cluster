@@ -9,7 +9,7 @@ description: >-
   user: "Install prometheus exporter" → HelmRelease with custom scrape config
 
   Use proactively when the user mentions deploying, installing, adding, or setting up an application.
-compatibility: Requires `mise`, `git`, `gh` (for PR), `flux`, `kustomize`, and `shellcheck`; cluster apply needs user approval per AGENTS.md.
+compatibility: Requires `mise`, `git`, `gh` (for PR), `flate`, and `shellcheck` (falls back to `kustomize`/`flux` if `flate` is unavailable); cluster apply needs user approval per AGENTS.md.
 ---
 
 # Add app to cluster
@@ -84,13 +84,11 @@ Add `./<app-name>/ks.yaml` to `kubernetes/apps/<namespace>/kustomization.yaml`. 
 
 ### 8. Validate
 
-Replace `<namespace>` and `<app-name>` with your app path:
-
 ```bash
-mise exec -- kustomize build kubernetes/apps/<namespace>/<app-name>/app/
+mise exec -- flate test all
 ```
 
-`${APP}`/`${SECRET_DOMAIN}` staying literal in the output is expected — Flux postBuild substitutes them.
+`${APP}`/`${SECRET_DOMAIN}` staying literal in the output is expected — Flux postBuild substitutes them. `flate` renders the HelmRelease (catches Helm template errors `kustomize build` can't see); if it's unavailable, fall back to `mise exec -- kustomize build kubernetes/apps/<namespace>/<app-name>/app/` (Kustomization-only, no Helm render).
 
 Or run the full local PR check: `bash .agents/skills/pr-review/scripts/validate-pr.sh`
 

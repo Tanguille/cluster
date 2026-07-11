@@ -17,7 +17,7 @@
 
 ### Build Validation
 
-- Kustomize builds without errors
+- `flate test all` (or `kustomize build`) succeeds — Helm charts render, not just Kustomization YAML
 - All referenced files exist
 - No circular dependencies
 
@@ -47,7 +47,12 @@ Always cross-reference with:
 ## Validation Command Pattern
 
 ```bash
-# Build (also validates YAML syntax and duplicate keys)
+# flate: renders Kustomizations + HelmReleases with the real Helm/Kustomize SDKs (also
+# validates YAML syntax/duplicate keys); catches Helm template errors kustomize build can't
+# see, since chartRef: OCIRepository is opaque to kustomize
+flate test all
+
+# Fallback if flate is unavailable — Kustomization-only, no Helm render
 kustomize build kubernetes/apps/<namespace>/<app>/app/
 
 # Flux (offline; without --kustomization-file it queries the cluster API)

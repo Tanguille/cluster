@@ -33,10 +33,19 @@ warn() {
     WARNINGS=$((WARNINGS + 1))
 }
 
-# Phase 1: Kustomize Build Validation
-# (also validates YAML syntax and duplicate keys — kustomize rejects both, so no separate yaml linter)
-echo "[1/4] Kustomize Build Validation..."
-if command -v kustomize &> /dev/null; then
+# Phase 1: Flux Manifest Validation
+# flate renders every Kustomization + HelmRelease with the real Helm/Kustomize SDKs, catching
+# Helm template errors a bare `kustomize build` can't see (chartRef: OCIRepository is opaque
+# to kustomize) — also validates YAML syntax and duplicate keys, so no separate yaml linter.
+# Falls back to kustomize build (Kustomization-only, no Helm render) if flate isn't installed.
+echo "[1/4] Flux Manifest Validation..."
+if command -v flate &> /dev/null; then
+    if flate test all -p "${REPO_ROOT}" > /dev/null 2>&1; then
+        pass "flate test all passed"
+    else
+        fail "flate test all found issues"
+    fi
+elif command -v kustomize &> /dev/null; then
     KUSTOMIZE_ERRORS=0
     while IFS= read -r -d '' ks_file; do
         app_dir=$(dirname "$ks_file")
@@ -50,7 +59,7 @@ if command -v kustomize &> /dev/null; then
         pass "All kustomize builds passed"
     fi
 else
-    warn "kustomize not installed"
+    warn "neither flate nor kustomize installed"
 fi
 echo ""
 

@@ -42,7 +42,7 @@ spec:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ./helmrelease.yaml
+  - helmrelease.yaml
 ```
 
 ## app/helmrelease.yaml (app-template)
@@ -125,8 +125,8 @@ Create `app/secret.sops.yaml` (Secret named `<app-name>-secret`), encrypt with s
 ```yaml
 # app/kustomization.yaml
 resources:
-  - ./helmrelease.yaml
-  - ./secret.sops.yaml
+  - helmrelease.yaml
+  - secret.sops.yaml
 ```
 
 ```yaml
@@ -143,7 +143,7 @@ resources:
 configMapGenerator:
   - name: <app-name>-configmap
     files:
-      - ./config/<file>.yaml
+      - config/<file>.yaml
     options:
       annotations:
         # only when the config contains literal ${VAR} — Flux postBuild substitutes it away otherwise

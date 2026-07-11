@@ -148,16 +148,14 @@ prompt: |
   Run validation tools for GitOps Kubernetes PR.
 
   TOOLS:
-  - kustomize build: Kustomization validity (also catches YAML syntax/duplicate keys)
-  - flux build: Flux reconciliation
+  - flate test all: renders Kustomizations + HelmReleases with the real Helm/Kustomize SDKs (catches Helm template errors kustomize build can't see)
   - shellcheck: touched shell scripts
 
-  Run `bash .agents/skills/pr-review/scripts/validate-pr.sh` for all three, or the individual commands in [best-practices.md](best-practices.md#validation-command-pattern).
+  Run `bash .agents/skills/pr-review/scripts/validate-pr.sh` for both, or the individual commands in [best-practices.md](best-practices.md#validation-command-pattern).
 
   TASKS:
   1. Run shellcheck on touched scripts
-  2. Run kustomize build
-  3. Run flux build
+  2. Run flate test all (or kustomize build + flux build if flate is unavailable)
 
   OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-6-validation.md.
 ```

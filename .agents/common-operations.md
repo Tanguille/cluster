@@ -6,8 +6,8 @@ Step-by-step procedures for frequent cluster tasks.
 
 ## Validation and tooling
 
-- Run `flux`, `helm`, `kubectl`, `kustomize`, `sops`, `age`, `talhelper`, `talosctl`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
-- Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (Kustomize and shellcheck).
+- Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talhelper`, `talosctl`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
+- Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (flate — renders Helm charts, not just Kustomization YAML — and shellcheck).
 - Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
 - Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
 
@@ -19,9 +19,7 @@ Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full proc
 2. Add OCIRepository if external
 3. Create app in `kubernetes/apps/<namespace>/<app>/`
 4. Add Kustomization in appropriate `ks.yaml`
-5. Run validation on the new app (`<namespace>`, `<app-name>`):
-   - `mise exec -- kustomize build kubernetes/apps/<namespace>/<app-name>/app/` (build each subdir that contains a kustomization.yaml)
-   - Or: `bash .agents/skills/pr-review/scripts/validate-pr.sh`
+5. Run validation on the new app: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (or `mise exec -- flate test all` directly, which renders the HelmRelease too — `kustomize build` alone doesn't)
 
 ## Secrets management (SOPS)
 

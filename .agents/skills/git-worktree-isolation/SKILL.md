@@ -32,7 +32,7 @@ git worktree add --detach .worktrees/<task> <commit-ish>
 bash .agents/skills/pr-review/scripts/validate-pr.sh
 ```
 
-For manifest-only changes, `kustomize build` on touched paths under `kubernetes/apps/` is enough before the full script.
+For manifest-only changes, `mise exec -- flate test all` (renders the HelmRelease; falls back to `kustomize build` on touched paths if `flate` is unavailable) is enough before the full script.
 
 ## Cleanup
 

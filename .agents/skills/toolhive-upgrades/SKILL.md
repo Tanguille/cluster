@@ -40,7 +40,7 @@ Stay ahead of **ToolHive** churn: each minor often changes CRD shapes, Helm valu
 3. **Bump pins** — Same **X.Y.Z** on both OCI `ref.tag` values unless upstream documents otherwise.
 4. **Patch manifests** — Apply renames, structs, and removals from the release; avoid drive-by edits.
 5. **Audit** — `bash .agents/skills/toolhive-upgrades/scripts/audit-toolhive-yaml.sh` (requires `rg`). Fix or document false positives.
-6. **Validate** — `bash .agents/skills/pr-review/scripts/validate-pr.sh` (covers `kustomize build` and `shellcheck` for the touched paths).
+6. **Validate** — `bash .agents/skills/pr-review/scripts/validate-pr.sh` (covers `flate test all` — renders the HelmRelease, not just Kustomization YAML — and `shellcheck` for the touched paths).
 7. **Subagent review (blocking)** — [Review gate](#review-gate-subagent-required-before-done). Do **not** call the upgrade done until **PASS**.
 8. **Cluster reconcile order** — CRD release before operator; **ask user** before live apply (`AGENTS.md`).
 
