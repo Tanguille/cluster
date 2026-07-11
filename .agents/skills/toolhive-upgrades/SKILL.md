@@ -1,12 +1,10 @@
 ---
 name: toolhive-upgrades
 description: >-
-  Guides Stacklok ToolHive upgrades: compare pinned tags to upstream main and to release notes,
-  manifest migration for Flux GitOps (MCPServer, VirtualMCPServer, MCPRegistry, OCI Helm pins),
-  local audit/validate, and a mandatory code-reviewer subagent before completion. Use when
-  bumping toolhive-operator or operator-crds tags, reconciling CRDs, fixing admission errors
-  after upgrade, or when the user mentions ToolHive versions, release notes, deprecations,
-  or CRD migrations.
+  Stacklok ToolHive operator/CRD upgrades in this Flux repo. Use when bumping
+  toolhive-operator or toolhive-operator-crds ref.tag, reconciling ToolHive CRDs, fixing
+  admission/validation errors after a ToolHive upgrade, or when the user mentions ToolHive
+  versions, release notes, deprecations, or CRD migrations.
 compatibility: Repository uses `mise`, `rg` (ripgrep), `git`, and `bash` for scripted audit; cluster apply is user-approved per AGENTS.md.
 ---
 
@@ -36,14 +34,13 @@ Stay ahead of **ToolHive** churn: each minor often changes CRD shapes, Helm valu
 
 1. **Pin ↔ upstream `main` / releases — normalize + semver first**
    - Run **`bash .agents/skills/toolhive-upgrades/scripts/upstream-pin-vs-main.sh`** (optional `[PIN]`). This prints **`VERSION` on `main`**, **`VERSION` at `vPIN`**, **Latest Release**, correct **`compare`** URLs (**with `v` prefix**), and REST **`ahead_by` / `behind_by`** for both directions.
-   - **Never** paste Flux **`ref.tag`** bare into **`github.com/.../compare/...`** — map **`PIN → vPIN`** first (same mapping as **`OCI`** chart tags ↔ **`git tag`**).
    - **When bumping to a shipped tag:** Read **`https://github.com/stacklok/toolhive/releases/tag/vX.Y.Z`** and compare **`vOLD...vNEW`** (Breaking → Deprecations → Improvements).
    - **When deliberately tracking `main`:** Confirm **`deploy/charts/operator/`** `version:` / **`VERSION`** at **`main`** tip match your risk tolerance (document if pre-release).
 2. **Skim repo history** — [references/breaking-history.md](references/breaking-history.md); append one row when a migration will recur.
 3. **Bump pins** — Same **X.Y.Z** on both OCI `ref.tag` values unless upstream documents otherwise.
 4. **Patch manifests** — Apply renames, structs, and removals from the release; avoid drive-by edits.
 5. **Audit** — `bash .agents/skills/toolhive-upgrades/scripts/audit-toolhive-yaml.sh` (requires `rg`). Fix or document false positives.
-6. **Validate** — `mise exec -- shellcheck` on touched shell.
+6. **Validate** — `bash .agents/skills/pr-review/scripts/validate-pr.sh` (covers `flate test all` — renders the HelmRelease, not just Kustomization YAML — and `shellcheck` for the touched paths).
 7. **Subagent review (blocking)** — [Review gate](#review-gate-subagent-required-before-done). Do **not** call the upgrade done until **PASS**.
 8. **Cluster reconcile order** — CRD release before operator; **ask user** before live apply (`AGENTS.md`).
 

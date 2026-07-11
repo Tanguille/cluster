@@ -2,7 +2,7 @@
 name: debug-cluster
 description: >-
   Diagnose and resolve Kubernetes cluster issues using structured fact gathering and 5-Whys
-  root cause analysis. Prefer ToolHive MCP; use Talos only for node/kubelet problems.
+  root cause analysis.
 
   user: "pod CrashLoopBackOff" → describe pod, logs, events; GitOps fix in repo
   user: "HelmRelease not reconciling" → flux get/describe, reconcile with source
@@ -32,6 +32,7 @@ Structured debugging with parallel fact gathering; delegate deep 5-Whys or log m
 - Kubernetes resources (pods, deployments, services, events)
 - Logs (current + previous containers)
 - Flux instance when GitOps-related
+- Historical/crashed-pod logs and firing alerts: observability MCP group (Grafana + victoria-logs)
 
 ```bash
 kubectl get pods -n <ns> -o wide
@@ -75,7 +76,7 @@ MCP when available: `get_flux_instance`, `reconcile_flux_kustomization`. ToolHiv
 
 ## Talos (rare)
 
-Node NotReady, kubelet, kernel: `talosctl --nodes <ip> get kubernetespods`, `logs --namespace=kubelet`, `dmesg`.
+Node NotReady, kubelet, kernel: `talosctl --nodes <ip> containers -k`, `logs kubelet`, `dmesg`.
 
 ## Validation
 
@@ -103,5 +104,6 @@ Use `kubesearch_get_release` to drill into deployments of the same chart and com
 - [backup-restore](../backup-restore/SKILL.md) — PVC recovery
 - [add-app-to-cluster](../add-app-to-cluster/SKILL.md) — new deployments
 - [k8s-at-home-research](../k8s-at-home-research/SKILL.md) — finding homelab config examples
+- [prometheus-cluster-health](../prometheus-cluster-health/SKILL.md) — alerts, CPU/memory hotspots
 
 Format reference: [agentskills.io](https://agentskills.io/specification).

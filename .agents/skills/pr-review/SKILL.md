@@ -1,9 +1,8 @@
 ---
 name: pr-review
 description: >-
-  Run six-phase parallel PR reviews for GitOps Kubernetes. Spawns subagents for YAML format,
-  naming, best practices, security, architecture, and validation. Produces severity-graded
-  findings with actionable summaries. Isolates each review by PR number or local-changes id.
+  Review GitOps Kubernetes PRs or local diffs: YAML format, naming, HelmRelease patterns,
+  SOPS/security, structure, and build validation.
 
   user: "Review this PR" → six parallel subagents, aggregate under .agents/pr-review/pr-<id>/
   user: "Check my app config" → phase 3 (best practices) subagent
@@ -12,7 +11,7 @@ description: >-
   user: "Review my local changes" → PR_ID=local-changes, staged + unstaged diff
 
   Use proactively for K8s app/Flux/HelmRelease changes, infrastructure edits, or pre-commit diff review.
-compatibility: Requires `git`, `mise`, `kustomize`, `flux`, and `shellcheck` for phase 6; optional `gh` for PR metadata.
+compatibility: Requires `git`, `mise`, `flate`, and `shellcheck` for phase 6 (falls back to `kustomize`/`flux` if `flate` is unavailable); optional `gh` for PR metadata.
 ---
 
 # PR review
@@ -30,7 +29,7 @@ Spawn focused subagents for GitOps Kubernetes PRs. Each phase uses clean context
 - Layout: `kubernetes/apps/<namespace>/<app>/` with `ks.yaml` + `app/`
 - Charts: `bjw-s/app-template` (common); URLs `${SECRET_DOMAIN}`; secrets SOPS-only
 - Routes: Gateway API `HTTPRoute`, parentRef `envoy-internal` / `envoy-external`
-- Validation: `mise exec -- shellcheck`, `kustomize build` (also catches YAML syntax/duplicate keys), `flux build`
+- Validation: `mise exec -- flate test all` (renders Kustomizations + HelmReleases with the real Helm/Kustomize SDKs — catches Helm template errors `kustomize build` can't see), `mise exec -- shellcheck`
 
 ## Workflow
 
@@ -60,7 +59,7 @@ For small diffs without subagents:
 - [ ] `bjw-s/app-template` pinned; Reloader annotation when needed
 - [ ] Probes and resource requests/limits
 - [ ] SOPS secrets; `${SECRET_DOMAIN}`; envoy route parentRefs
-- [ ] `kustomize build` / `shellcheck` pass on touched paths
+- [ ] `flate test all` / `shellcheck` pass on touched paths
 
 ## Progressive disclosure
 
