@@ -37,6 +37,11 @@ spec:
         login: true
         passwordSecret:
           name: radarr-db
+      - name: bazarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: bazarr-db
   postgresql:
     parameters:
       wal_level: replica
