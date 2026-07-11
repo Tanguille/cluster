@@ -28,6 +28,12 @@ spec:
       activeDeadlineSeconds: 2700
   credentialProjection:
     allowed: true
+  # Explicit even though true is the schema default: the operator owns and
+  # auto-manages Maintenance/kopia-nas (quick every 6h, full daily 03:00).
+  # No standalone Maintenance CR alongside this one -- see Phase 3 in
+  # docs/kopiur-migration-plan.md for why that used to fight this.
+  maintenance:
+    enabled: true
   moverDefaults:
     securityContext:
       runAsGroup: 568
