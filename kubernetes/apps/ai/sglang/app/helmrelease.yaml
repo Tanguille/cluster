@@ -158,7 +158,10 @@ spec:
               # Under real traffic (unique long prompts, not synthetic repeated prefixes) that backlog
               # builds up fast, stalling new-request admission — serialized concurrency to 1 running
               # request with the queue climbing unbounded. Left off default (write_through) instead.
-              EXTRA_ARGS: '--context-length 180000 --max-mamba-cache-size 60 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1 --enable-mixed-chunk'
+              # hicache-write-policy write_through_selective (2026-07-11): host-copy only on 2nd hit,
+              # not every decode step; 9h real-traffic soak clean (0 re-prefill regressions, 0 retracted,
+              # aborts 4-5% vs ~20% heavy-day baseline) and PP benched 1450 vs ~1200 tok/s.
+              EXTRA_ARGS: '--context-length 180000 --max-mamba-cache-size 60 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1 --enable-mixed-chunk --hicache-write-policy write_through_selective'
             probes:
               startup: &probeBase
                 enabled: true
