@@ -1,0 +1,592 @@
+# VolSync → Kopiur Migration Plan
+
+Migrate PVC backups from the volsync perfectra1n fork (kopia mover) to
+[kopiur](https://github.com/home-operations/kopiur), the home-operations
+Kopia-native operator. The existing NFS kopia repository is **adopted in
+place** — no data movement, full history preserved.
+
+**Branch**: `feat/kopiur-migration`
+**Worktree**: `.worktrees/kopiur-migration` — create with
+`git worktree add .worktrees/kopiur-migration -b feat/kopiur-migration`,
+then copy `.mcp.json`, `.env`, `CLAUDE.local.md`, `.vscode/`, and `.claude/`
+into the worktree (branch/worktree verification per step: see Process
+Instructions at the bottom). Neither exists yet as of this revision.
+
+## Revision note (2026-07-11)
+
+The original draft (2026-07-10, pinned kopiur `0.4.13`) was cross-checked
+against: onedr0p/home-ops's 9 seed commits *and* 21 further commits they
+made afterward; 8 independently-verified real kopiur adopters
+(bjw-s-labs/home-ops, buroa/k8s-gitops, szinn/k8s-homelab, jfroy/flatops,
+vrozaksen/home-ops, carldanley/homelab, eleboucher/homelab,
+binaryn3xus/HomeOps); and a fresh pass over kopiur's own ADRs, releases,
+CRD schemas, and issue tracker (not the README — confirmed stale again).
+Four things changed the plan's shape, not just its field names:
+
+1. **Version bumped `0.4.13` → `0.7.1`.** 0.5.0/0.6.0/0.7.0 each shipped
+   breaking API changes. Installing fresh at 0.7.1 skips 0.6.0's worst trap
+   (CRD relocation into Helm's `crds/` dir cascade-deletes every kopiur
+   object on upgrade unless pre-annotated) — that only bites in-place
+   upgraders, not us.
+2. **Use the official `kubectl kopiur migrate volsync` CLI** instead of
+   hand-authoring the ClusterRepository/SnapshotPolicy YAML from scratch.
+   It auto-detects the perfectra1n fork, adopts in place, and — the load
+   -bearing part — **pins per-app snapshot identity automatically**
+   (`<app>@<namespace>:/data`) rather than us reproducing that string via a
+   repo-level CEL `identityDefaults` and hoping the sanitization matches.
+3. **New, unfixed, today-dated risk: [kopiur#233](https://github.com/home-operations/kopiur/issues/233).**
+   Recreating a `Restore` CR whose target PVC is already `Bound` silently
+   restores into an orphaned, never-garbage-collected `prime-<uid>` PVC.
+   `status.phase` reports `Completed` while `status.conditions` stay
+   `Ready=False`, so Flux health checks and kstatus won't catch it. One
+   reporter hit 49 orphaned PVCs / 120GiB from a single `ClusterRepository`
+   rebuild. **This is now a permanent post-migration operating rule** (see
+   the Risk gate), not a one-time step.
+4. **Fleet cutover collapsed to one flip.** onedr0p's real commit history
+   shows they did *not* canary-then-slow-batch: they ran kopiur dual-write
+   fleet-wide first (proving real backups for all 19 apps while volsync
+   still owned every PVC), then flipped every PVC in one near-simultaneous
+   pair of commits. Phase 5 below now matches that — and matches the
+   required-steps list already given for this migration — instead of the
+   original per-namespace-over-multiple-sessions batching.
+
+## Why migrate
+
+- The shared component hardcodes `schedule: 0 */12 * * *` for all ~18 apps —
+  every backup fires the same second (the 112-concurrent-mover Ceph latency
+  storms). Kopiur has native `H` cron hashing + deterministic jitter +
+  `concurrencyPolicy: Forbid`; the `volsync-mover-jitter`
+  MutatingAdmissionPolicy hack (0–30s sleep) becomes obsolete.
+- Kills 18 duplicated per-app sops secrets (same `KOPIA_PASSWORD`/
+  `KOPIA_REPOSITORY` everywhere) → one shared secret + credential projection.
+- The perfectra1n fork is a community fork of a project whose upstream has no
+  kopia mover; kopiur is kopia-native from the org whose patterns this repo
+  already follows (charts mirror, k8s-schemas host — kopiur CRD schemas are
+  already served there, verified).
+
+## Risk gate (read before every phase)
+
+Kopiur is **alpha** (v0.7.1, repo <2 months old, AGPL-3.0, 30 releases
+`0.1.12`→`0.7.1`): every one of 0.5.0/0.6.0/0.7.0 shipped breaking changes,
+including one full CRD rename with no aliases (ADR-0004:
+`BackupConfig→SnapshotPolicy`, `Backup→Snapshot`, `BackupSchedule→SnapshotSchedule`).
+The README's CRD table is stale even at the pinned tag — **trust
+`deploy/crds/*.yaml`, `deploy/examples/*.yaml`, and kopiur.home-operations.com,
+never the README.**
+
+Confirmed-implemented-late gotcha for calibration: `Restore.spec.target.populator: {}`
+was *admitted by the CRD/webhook but entirely unimplemented* as late as
+chart 0.4.6 (PVCs sat `Pending` forever, no error) — fixed since, but
+"documented" ≠ "implemented" at any given historical tag for this project.
+Test the real behavior in Phase 1/4 rather than trusting docs alone.
+
+Mitigations baked into this plan:
+- Pin chart tag `0.7.1`; treat kopiur Renovate PRs as read-release-notes
+  -first (0.6.0-style breaking chart-value restructures are real and
+  recurring).
+- CRDs ship inside the chart's own Helm `crds/` directory as of 0.6.0+ — no
+  separate CRDs-only chart needed for a *fresh* install (Helm auto-installs
+  `crds/` on first install; it does **not** auto-upgrade them later —
+  future CRD changes need a manual `kubectl apply -f deploy/crds/`).
+- Backup-failure alerting (shipped by the chart) is live from Phase 1, before
+  any data-bearing step.
+- volsync keeps running fleet-wide until Phase 4's canary is verified; the
+  fleet is mixed-mode (dual-write) before the single fleet-wide PVC flip in
+  Phase 5 — one writer per identity at all times.
+- kopiur **never deletes discovered data** (foreign snapshots are forced
+  `deletionPolicy: Retain`), and adoption with a wrong password hard-fails
+  rather than re-initializing.
+- **[#233](https://github.com/home-operations/kopiur/issues/233) (open,
+  filed 2026-07-11) — permanent post-migration rule**: once an app's
+  `Restore` CR has successfully populated its PVC, do not let it get
+  deleted-and-recreated while that PVC is `Bound` (a Flux prune/recreate
+  cycle, a `ClusterRepository` reset, a forced Kustomization re-apply all
+  qualify). If any of those happen to a migrated app, check for orphaned
+  `prime-*` PVCs afterward (`kubectl get pvc -A -l
+  kopiur.home-operations.com/op=restore-populate`) — they silently consume
+  full-size Ceph storage and won't show up as a Flux/kstatus failure.
+- **[#232](https://github.com/home-operations/kopiur/issues/232) (open)** —
+  the schema doc string implies `encryption.passwordSecretRef.namespace` is
+  optional; the controller currently rejects reconcile without it. Always
+  set it explicitly (the plan below already does).
+- **[#210](https://github.com/home-operations/kopiur/issues/210) (open)** —
+  discovered snapshots are *permanently* exempt from pruning by design; if
+  #233 recurs against an adopted repo, orphaned history compounds forever,
+  not just once.
+
+## Current state (inventoried 2026-07-03, re-verified 2026-07-11)
+
+- Operator: `kubernetes/apps/volsync-system/volsync/` — OCIRepository
+  `oci://ghcr.io/home-operations/charts-mirror/volsync-perfectra1n` tag
+  0.18.5, mover image `ghcr.io/perfectra1n/volsync:v0.17.11`, dependsOn
+  openebs + snapshot-controller. Sibling `volsync-maintenance` ks runs a
+  fork-specific `KopiaMaintenance` CR.
+- Repository: kopia filesystem repo on TrueNAS NFS
+  (`${TRUENAS_IP}`:`${VOLSYNC_NFS_PATH}`), mounted by movers at `/repository`.
+  Secrets carry only `KOPIA_PASSWORD` + `KOPIA_REPOSITORY`.
+- Component `kubernetes/components/volsync/`: PVC (dataSourceRef →
+  `ReplicationDestination ${APP}-dst`), ReplicationSource (12h cron, kopia,
+  copyMethod Snapshot, `csi-ceph-blockpool`, zstd-fastest, retain 24h/7d),
+  ReplicationDestination (`manual: restore-once`), per-app sops secret.
+- ~18 consumers across `ai`, `default`, `media`, … via `components/volsync`
+  with `VOLSYNC_*` substitutions (list: grep `components/volsync` in ks.yaml).
+- Extras: kopia web-UI browser app (`volsync-system/kopia/`, keeps working —
+  same repo), Grafana dashboard 21356, PrometheusRule (VolSyncComponentAbsent,
+  VolSyncVolumeOutOfSync), mover-jitter MutatingAdmissionPolicy, and the
+  restore runbook `docs/volsync-restore.md` (superseded in Phase 6/7 — don't
+  leave it orphaned).
+- Also touching volsync, confirmed by direct grep (2026-07-11), not
+  mentioned in the original draft:
+  - `kubernetes/components/common/namespace.yaml` sets
+    `volsync.backube/privileged-movers: "true"` on **every** app namespace
+    via the shared `components/common`. Every cross-referenced kopiur
+    adopter that needs root-capable movers uses an equivalent
+    `kopiur.home-operations.com/privileged-movers: "true"` annotation — but
+    it's opt-in per namespace there, not blanket. Check in Phase 5 whether
+    any app's mover actually needs it (candidate: **fileflows** — per
+    memory, its image needs root at boot; unclear yet whether that carries
+    over to its *backup mover*, which is a separate pod/identity — verify
+    before assuming yes or no).
+  - `kubernetes/apps/system-upgrade/tuppr/upgrades/{talosupgrade,kubernetesupgrade}.yaml`
+    both gate node upgrades on `apiVersion: volsync.backube/v1alpha1, kind:
+    ReplicationSource, expr: status.conditions.filter(c, c.type ==
+    "Synchronizing").all(c, c.status == "False")`. onedr0p's real commit
+    `16687a2a` replaced this exact healthCheck with kopiur equivalents
+    (verbatim, confirmed against their live repo):
+    ```yaml
+    - apiVersion: kopiur.home-operations.com/v1alpha1
+      kind: Snapshot
+      expr: status.phase != 'Running'
+    - apiVersion: kopiur.home-operations.com/v1alpha1
+      kind: Restore
+      expr: "!(status.phase in ['Resolving', 'Restoring'])"
+    ```
+    Phase 6 applies the same replacement to both files.
+- Identity: the fork records snapshots as `<name>@<namespace>:/data` by
+  default (no explicit username/hostname set in our component) — **confirmed
+  independently** by vrozaksen/home-ops's own migration
+  (`MIGRATION.md`, 2026-07-08, same fork): their SnapshotPolicy pins
+  `identity.username: ${APP}`, `identity.hostname: ${NS}` with the comment
+  "Pinned to the volsync fork identity (`<app>@<namespace>:/data`) so
+  history in the adopted repo continues as one series." Phase 2 still
+  re-verifies this against our own discovered snapshots before Phase 4 writes
+  anything — don't skip that check just because another cluster confirms the
+  pattern.
+
+## Key design decisions
+
+1. **Per-app PVC recreation is the chosen cutover mechanic — chosen, not
+   forced, and now confirmed as kopiur's own documented pattern.**
+   `docs/gitops.md` states this verbatim: "A bound PVC's `dataSourceRef` is
+   immutable. Migrating an existing app onto the volume-populator restore
+   path... is therefore a snapshot-gated delete-and-repopulate, not a silent
+   `git push`." Recreating each PVC via the populator keeps the
+   deploy-or-restore DR property volsync gives us today **and** proves every
+   app's backup restorable. The non-destructive alternative (unmanaging the
+   field) was rejected: it degrades cluster-rebuild DR to a manual restore
+   per app, permanently, to save minutes per app now.
+2. **Identity: use `kubectl kopiur migrate volsync`'s per-app pinning, not a
+   repo-level CEL guess.** Revised from the original draft's plan to set
+   `ClusterRepository.spec.identityDefaults.{hostnameExpr,usernameExpr}`
+   cluster-wide. The official migration CLI instead pins
+   `SnapshotPolicy.spec.identity` (+ `sources[0].sourcePathOverride`)
+   explicitly per app, computed from the actual discovered
+   `ReplicationSource`/fork state, and prints the pinned value for manual
+   verification before apply — exact, not a best-effort expression matching
+   a sanitization rule we'd have to reverse-engineer. Phase 2 runs the tool;
+   Phase 4's reusable component parameterizes the identity fields the same
+   way it already parameterizes everything else (`${APP}`), using the
+   tool's output as the verified source of truth for the field shape.
+3. **One `ClusterRepository`, credential projection on.** Replaces 18
+   duplicated secrets. Confirmed as the standard pattern across all 8
+   cross-referenced NFS-backend adopters.
+4. **New component `kubernetes/components/kopiur/` with neutral `BACKUP_*`
+   var names.** Only `VOLSYNC_CAPACITY` (16 apps) and `VOLSYNC_PUID/PGID`
+   (hermes) are actually overridden in ks.yaml files, and each app's swap
+   already edits the adjacent line — renaming there is free, and it avoids a
+   kopiur component permanently branded `VOLSYNC_*`. The global
+   `BACKUP_NFS_PATH` is added alongside `VOLSYNC_NFS_PATH` in Phase 2 (both
+   components read their own during mixed-mode); the old one dies in Phase 6.
+5. **Schedule**: same 12h cadence, de-lockstepped via `H` cron + jitter.
+   Set `ClusterRepository.spec.scheduleDefaults.timezone: ${TIMEZONE}` once
+   (0.5.0+ field — centralizes what used to be repeated on every
+   SnapshotPolicy/SnapshotSchedule) using the existing cluster-settings
+   `TIMEZONE` var (`Europe/Brussels`) — literal cron values live in Phase
+   4's `snapshotschedule.yaml` only.
+6. Operator lives in a new `kopiur-system` namespace — confirmed as the
+   universal convention across every one of the 8 cross-referenced adopters,
+   no exceptions found. The kopia browser app moves there in the final
+   phase so `volsync-system` can be deleted.
+7. **Monitoring comes from the kopiur chart, enabled at install time.**
+   Field paths changed in the 0.6.0 values restructure: `monitoring.
+   {dashboards.enabled, serviceMonitor.enabled, prometheusRule.enabled}` —
+   not the old `grafanaDashboard`/`metrics.*` top-level keys. We don't run
+   grafana-operator, so skip the `dashboards.grafanaOperator.*` sub-block
+   several adopters use — plain `dashboards.enabled: true` is enough for a
+   ConfigMap-based dashboard, matching how this repo already ships Grafana
+   dashboards elsewhere. No hand-rolled alerts; the migration window is
+   never blind.
+8. **The kopiur controller pod must mount the NFS repo directly**, not just
+   the movers. Confirmed by both upstream bug
+   [#137](https://github.com/home-operations/kopiur/issues/137) (filesystem
+   `Restore` fails with `/repo not mounted` without this) and every
+   NFS-backend adopter's actual HelmRelease. Missing from the original
+   draft — added to Phase 1's values block below.
+
+---
+
+## Phase 1 — Preflight + install the operator (no behavior change)
+
+Preflight (read-only):
+1. Verify worktree + branch (see header); `git pull && git status` on main
+   first, branch from fresh main.
+2. Confirm kopiur latest release is still `0.7.1`
+   (`gh release list -R home-operations/kopiur -L 5`); if newer, check
+   `docs/upgrade.md` and the release notes for breaking changes before
+   updating the pin below — this project ships breaking chart-value
+   restructures routinely (0.5.0, 0.6.0, 0.7.0 all did).
+3. Install the `kubectl-kopiur` CLI plugin (krew:
+   `kubectl krew install kopiur`, or the goreleaser binary/Homebrew cask
+   from the 0.5.1 release) — needed for `migrate volsync` in Phase 2 and
+   ad-hoc snapshot/status commands throughout.
+4. Confirm CRDs ship inside the main chart (`helm show crds
+   oci://ghcr.io/home-operations/charts/kopiur --version 0.7.1` — expect the
+   8 kinds: `ClusterRepository, Maintenance, Repository,
+   RepositoryReplication, Restore, SnapshotPolicy, Snapshot,
+   SnapshotSchedule`, zero `BackupConfig`/`Backup`/`BackupSchedule`
+   remnants — confirms ADR-0004's rename is fully applied at this tag).
+5. Record current repo stats from the kopia browser UI (snapshot counts per
+   identity) — the Phase 2 verification baseline.
+
+Install — create `kubernetes/apps/kopiur-system/kopiur/`:
+
+- `ks.yaml`: one Flux Kustomization, `kopiur` (dependsOn openebs +
+  snapshot-controller). No separate CRDs Kustomization needed — Helm
+  installs the chart's bundled `crds/` automatically on first install.
+- `app/ocirepository.yaml`: `oci://ghcr.io/home-operations/charts/kopiur`,
+  tag `0.7.1` (Renovate's Flux manager tracks OCI tags natively — no
+  `.renovaterc.json5` change needed; verify on the next Renovate run, and
+  read the PR body before merging given this project's breaking-change
+  cadence).
+- `app/helmrelease.yaml` values (0.6.0+ flattened shape — no `controller:`
+  wrapper; webhook TLS self-provisions by default, nothing to set there):
+  ```yaml
+  installScope: cluster        # ClusterRepository needs ClusterRole
+  extraVolumes:
+    - name: repo
+      nfs:
+        server: "${TRUENAS_IP}"
+        path: ${BACKUP_NFS_PATH}
+  extraVolumeMounts:
+    - name: repo
+      mountPath: /repo
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 568
+    runAsGroup: 568
+    fsGroup: 568
+    fsGroupChangePolicy: OnRootMismatch
+  features:
+    credentialProjection:
+      enabled: true            # shared repo, movers in many namespaces
+  monitoring:
+    dashboards:
+      enabled: true
+    serviceMonitor:
+      enabled: true
+    prometheusRule:
+      enabled: true            # KopiurBackupStale et al. — live BEFORE any data moves
+  ```
+- `$schema` annotations per repo convention
+  (`https://k8s-schemas.home-operations.com/kopiur.home-operations.com/<kind>_v1alpha1.json`).
+
+Verify: operator Ready, webhook serving, controller pod has `/repo` mounted
+and readable (`kubectl exec` a quick `ls /repo`), `kubectl get crd | grep
+kopiur.home-operations.com` → 8, kopiur alerts visible in the ruler and the
+dashboard in Grafana. Nothing touches volsync; deleting the Kustomization
+reverts everything.
+
+**Status**: ☑ manifests written + validated 2026-07-11 (`kubernetes/apps/kopiur-system/{kustomization.yaml,kopiur/ks.yaml,kopiur/app/*}`,
+`BACKUP_NFS_PATH` added to cluster-settings); `kustomize build` and a real
+`helm template` dry-run against the pinned chart both confirmed clean
+(NFS volume mounted at `/repo`, podSecurityContext 568, RBAC/Deployments/
+ServiceMonitor/PrometheusRule/dashboard all render). Not yet committed or
+pushed — cluster-side verification (operator Ready, CRD count, alerts live)
+pending push authorization.
+
+## Phase 2 — Adopt the repository via `kubectl kopiur migrate volsync`
+
+In `kopiur-system`:
+
+- Add `BACKUP_NFS_PATH` to cluster-settings with the same value as
+  `VOLSYNC_NFS_PATH` (both live until Phase 6).
+- Run the migration CLI in GitOps/offline mode against this repo, resolving
+  the existing sops-encrypted per-app secrets from the *live* cluster
+  (already decrypted by Flux — this avoids ever writing the plaintext
+  password to a local file):
+  ```bash
+  kubectl kopiur migrate volsync \
+    -f kubernetes/apps \
+    --resolve-secrets --from-cluster-secrets \
+    --out-dir .worktrees/kopiur-migration/generated
+  ```
+- Review stderr's mapped/UNMAPPABLE/ignored accounting for every field the
+  tool touched — nothing should be silently dropped. Our component has no
+  `actions.beforeSnapshot/afterSnapshot` hooks and no `policyConfig` raw
+  policy files, so we don't expect any UNMAPPABLE entries; investigate if
+  any appear.
+- The tool emits `_shared.yaml` (derived `ClusterRepository` + secret) and
+  one file per app with pinned `spec.identity`. Diff `_shared.yaml` against
+  hand-drafted expectations before applying:
+  - `create.enabled` must be **absent or false** (adopt, never initialize —
+    if the tool emitted `create: {enabled: true}`, stop and investigate,
+    that means it didn't detect the fork correctly).
+  - `encryption.passwordSecretRef.namespace` must be **explicit**
+    (kopiur#232 — the controller rejects reconcile without it even though
+    the schema doc string implies it's optional).
+  - `maintenance.enabled` should be **false/absent** here — Phase 3 takes
+    explicit ownership-transfer control instead of leaving this implicit.
+  - Add `scheduleDefaults.timezone: ${TIMEZONE}` (not something the tool
+    infers from VolSync, since VolSync's component never set one).
+- Apply the `_shared.yaml`-derived `ClusterRepository` (commit it as
+  `kubernetes/apps/kopiur-system/kopiur/repository/clusterrepository.yaml`
+  + its `ExternalSecret`/sops secret).
+
+Verify (the load-bearing step of the whole plan):
+1. `ClusterRepository` reaches Ready with `create` untouched (wrong password
+   = hard AuthFailure, cannot corrupt).
+2. Discovered `Snapshot` CRs appear (`kubectl get snapshots -A -l
+   kopiur.home-operations.com/origin=discovered`) and their **identities
+   exactly match** `<app>@<namespace>:/data` for every app — cross-check
+   against the per-app identity the migrate tool pinned in its generated
+   output, not just eyeballed.
+3. Snapshot counts match the Phase 1 baseline (recorded 2026-07-11 via
+   `kubectl -n volsync-system exec <kopia-pod> -- kopia snapshot list --all`,
+   22 identities, not 18 — see next bullet).
+4. Baseline includes 5 identities with no live app or git reference at all:
+   `moltis@ai`, `music-assistant@media`, `n8n@ai`, `open-webui@ai`,
+   `trilium@default` — decommissioned apps, orphaned snapshot history only.
+   Expected to surface as `discovered` Snapshot CRs with no corresponding
+   SnapshotPolicy anywhere in this repo; not a migration target, don't chase
+   them into Phase 4/5's per-app table.
+
+**Rollback**: delete the ClusterRepository — catalog rows vanish, repo data
+untouched (discovered snapshots are Retain-forced).
+**Status**: ☐ not started
+
+## Phase 3 — Maintenance ownership takeover
+
+Order matters (kopiur's own docs carry the identical warning verbatim:
+*"kopiur manages repository maintenance itself and takes over kopia's
+maintenance ownership (`kopia maintenance set --owner`) on its first run. A
+fork `KopiaMaintenance` left running will fight kopiur over ownership —
+delete it once the adopted repository is `Ready`."*):
+
+1. Add standalone `Maintenance` CR in `kopiur-system` referencing the
+   ClusterRepository: `spec.repository: {kind: ClusterRepository, name:
+   kopia-nas}`, `spec.schedule: {quick: {cron: "H */6 * * *", jitter:
+   30m}, full: {cron: "H 3 * * 0", jitter: 1h}}`,
+   `ownership.takeoverPolicy: PromptCondition`.
+2. Wait for the `MaintenanceYielding`/prompt condition (fork holds the lease).
+3. Suspend + remove the `volsync-maintenance` Flux Kustomization (the fork's
+   `KopiaMaintenance` CR and its secret).
+4. Flip `takeoverPolicy: Force`, wait for lease acquisition + one successful
+   quick run, then revert to `Never`.
+
+**Rollback**: re-enable the volsync-maintenance ks; set kopiur Maintenance
+back to `Never` (it yields).
+**Status**: ☐ not started
+
+## Phase 4 — New component + canary app
+
+Create `kubernetes/components/kopiur/` (neutral `BACKUP_*` vars — see
+decision #4; field shapes below match kopiur 0.7.1's `deploy/examples/`,
+not the stale README):
+
+- `snapshotpolicy.yaml` — `SnapshotPolicy ${APP}`: repository →
+  `{kind: ClusterRepository, name: kopia-nas}`; `sources[0].pvc.name: ${APP}`;
+  `spec.identity` pinned per decision #2 (verify the exact field shape the
+  Phase 2 migrate-tool output used — likely `spec.identity: {username:
+  ${APP}, hostname: <namespace, via Flux targetNamespace not a var>}` plus
+  `sources[0].sourcePathOverride: /data`); **no `copyMethod` field** — it
+  was removed in 0.5.0 and now defaults to `Snapshot`; compression
+  `{compressor: zstd}`; retention `keepHourly: 24, keepDaily: 7` (mapped
+  from volsync's `retain`); `volumeSnapshotClassName:
+  ${BACKUP_SNAPSHOTCLASS:=csi-ceph-blockpool}`; `credentialProjection.enabled:
+  true` (opt-in, off by default — confirm still wanted here). Mover
+  identity comes from `ClusterRepository.spec.moverDefaults` (Phase 1/2), no
+  per-policy override needed unless an app needs different uid/gid (hermes:
+  10000/10000 — override `spec.mover.securityContext` there).
+- `snapshotschedule.yaml` — `policyRef: {name: ${APP}}`,
+  `schedule: {cron: "H */12 * * *", jitter: 30m}` (Forbid is the schema
+  default).
+- `restore.yaml` — `Restore ${APP}-restore`: `source.fromPolicy: {name:
+  ${APP}, offset: 0}`, `target.populator: {}` (the **empty object is
+  required explicitly** — a bare/missing `target` is invalid per
+  ADR-0005 §9), `policy.onMissingSnapshot: Continue` (deploy-or-restore:
+  fresh cluster with empty repo → empty PVC, existing repo → restore).
+- `pvc.yaml` — same as today's but `dataSourceRef` → `{apiGroup:
+  kopiur.home-operations.com, kind: Restore, name: ${APP}-restore}` and
+  `${BACKUP_CAPACITY:=5Gi}` / `${BACKUP_STORAGECLASS:=ceph-block}` /
+  `${BACKUP_ACCESSMODES:=ReadWriteOnce}`.
+- `kustomization.yaml` (Component) wrapping the four.
+
+**Canary: `dumbassets`** (1Gi, `default`, lowest value). Cutover recipe:
+
+1. `flux suspend kustomization dumbassets`; scale app to 0.
+2. Trigger a final volsync backup (`kubectl patch replicationsource dumbassets
+   ... trigger.manual`) and wait for completion — the restore point is fresh.
+3. In git: swap `components/volsync` → `components/kopiur` in the app's
+   ks.yaml and rename any `VOLSYNC_*` substitute overrides to `BACKUP_*` on
+   the same lines.
+4. Delete the old PVC only (`kubectl delete pvc dumbassets -n default` — the
+   data lives in the repo now). The ReplicationSource, ReplicationDestination,
+   and `${APP}-volsync-secret` left the git tree in step 3; Flux `prune: true`
+   removes them on reconcile — confirm they're gone rather than pre-deleting.
+5. Push + reconcile (`task reconcile` or `flux reconcile kustomization
+   dumbassets --with-source`): kopiur Restore resolves the latest snapshot,
+   populator fills the new PVC, app scales back up.
+6. Verify: app data intact; `kubectl kopiur snapshot now --policy dumbassets
+   -n default --wait` lands a NEW snapshot whose identity (from the Snapshot
+   CR status / `kubectl kopiur snapshot list`) **equals the discovered
+   history's identity**.
+7. Watch one scheduled run fire at its hashed minute (not :00) — proves the
+   `H`-hash/jitter/Forbid controller logic once, live.
+8. From this point on, **treat this app's `Restore` CR as write-once** — see
+   the Risk gate's #233 note. Don't force-reconcile or prune-and-recreate its
+   Kustomization without checking for orphaned `prime-*` PVCs afterward.
+
+**Rollback (canary only)**: the volsync history is still in the repo; swap the
+component back, recreate the sops secret, and a `ReplicationDestination`
+restore-once repopulates from the same snapshots.
+**Status**: ☐ not started
+
+## Phase 5 — Fleet-wide cutover (single flip, not staged batches)
+
+Revised from the original per-namespace/multi-session batching: onedr0p's
+real migration ran kopiur dual-write across their *entire* fleet first
+(SnapshotPolicy+SnapshotSchedule wired everywhere, volsync's PVC/Restore
+still live), proved every app's backups worked, and only then flipped every
+PVC in one near-simultaneous pair of commits. Combined with the canary above
+already having proven the mechanism once, do the rest of the fleet as one
+pass, not a multi-day schedule:
+
+1. Wire `components/kopiur` onto every remaining app's ks.yaml **alongside**
+   `components/volsync` (dual-write, matching onedr0p's `f63c6a06` step) —
+   but only the `snapshotpolicy.yaml` + `snapshotschedule.yaml` half; do NOT
+   include `pvc.yaml`/`restore.yaml` in this pass (split the component's
+   `kustomization.yaml` into two — `backup/` and `restore/` — so this step
+   can enable one half without the other, same pattern onedr0p and every
+   cross-referenced adopter with `components/kopiur/{backup,pvc}` or
+   `{kopiur,restore}` split use).
+2. Push, reconcile, confirm every app has produced at least one real kopiur
+   snapshot (script this — `(app, namespace)` pairs, `kubectl kopiur
+   snapshot list --policy $app -n $ns`) before touching any PVC.
+3. One commit per namespace (or one big commit — no cross-app dependency,
+   independent PVCs) that: suspends+scales each app, fires a final volsync
+   backup, swaps `components/volsync` out entirely (deletes the PVC
+   alongside it — same-commit delete+recreate keeps this within one Flux
+   reconcile, avoiding a window where the app has no PVC definition at all),
+   and enables the `pvc.yaml`/`restore.yaml` half of the kopiur component.
+4. Push once, reconcile, scale everything back up. Verify per-app identity
+   continuity the same way the canary did (scriptable).
+5. Remove `components/volsync` reference and old secrets fleet-wide (Flux
+   `prune: true` handles the object cleanup once the git tree no longer
+   references them).
+
+Order within the batch, lowest-risk first: remaining `default` apps →
+`media` → `ai` (hermes carries `BACKUP_PUID/PGID: 10000`) → **nextcloud
+alone, last** (50Gi: the populator restore will take a while — run it in a
+quiet window; its database is CNPG-backed, not volsync — only the PVC
+moves). Check fileflows specifically for the
+`kopiur.home-operations.com/privileged-movers` question flagged in Current
+state before assuming the default mover identity works for it.
+
+| App | NS | Done |
+|-----|----|------|
+| dumbassets (canary, Phase 4) | default | ☐ |
+| changedetection | default | ☐ |
+| karakeep | default | ☐ |
+| bazarr | media | ☐ |
+| brrpolice | media | ☐ |
+| fileflows | media | ☐ |
+| jellyfin | media | ☐ |
+| prowlarr | media | ☐ |
+| qbittorrent | media | ☐ |
+| qui | media | ☐ |
+| radarr | media | ☐ |
+| seerr | media | ☐ |
+| sonarr | media | ☐ |
+| wizarr | media | ☐ |
+| hermes (PUID/PGID 10000) | ai | ☐ |
+| odysseus | ai | ☐ |
+| opencode | ai | ☐ |
+| nextcloud (50Gi, last) | default | ☐ |
+
+Backups fire every 12h — don't leave an app suspended across a window without
+its final manual backup (step 3 covers this).
+
+**Status**: ☐ not started
+
+## Phase 6 — Decommission volsync + observability
+
+Only when every row above is ✔:
+
+1. Remove `kubernetes/apps/volsync-system/volsync/` entirely (HelmRelease,
+   OCIRepository, mover-jitter MutatingAdmissionPolicy, PrometheusRule,
+   Grafana dashboard, both ks). CRDs go with `manageCRDs` on uninstall;
+   confirm no `volsync.backube` CRs remain first
+   (`kubectl get replicationsources,replicationdestinations -A`).
+2. Move the kopia browser app to `kopiur-system` (stateless UI; same NFS
+   mount), then delete the `volsync-system` namespace dir + entry.
+3. Remove `kubernetes/components/volsync/` and the now-unused
+   `VOLSYNC_NFS_PATH` (and any other `VOLSYNC_*`) cluster-settings vars.
+4. Remove `volsync.backube/privileged-movers: "true"` from
+   `kubernetes/components/common/namespace.yaml`; add the kopiur equivalent
+   only for namespaces Phase 5 actually found need it.
+5. Replace the VolSync healthCheck in both
+   `kubernetes/apps/system-upgrade/tuppr/upgrades/{talosupgrade,kubernetesupgrade}.yaml`
+   with the kopiur equivalent (onedr0p's real, live replacement — see
+   Current state above for the exact CEL exprs).
+6. Monitoring is already live from Phase 1 (chart-shipped). Here: confirm the
+   shipped alerts covered both volsync alerts' intent (operator-absent →
+   `KopiurRepositoryNotReady`/`KopiurReconcileErrorsHigh`; volume-out-of-sync
+   → `KopiurBackupStale`), and tune `backupStaleAfterSeconds` if the default
+   is looser than today's threshold.
+7. Confirm the Ceph write-latency picture post-migration: the 112-mover
+   lockstep spikes should be gone (compare
+   `max(rate(ceph_osd_op_w_latency_sum…))` around backup hours before/after),
+   and every `SnapshotSchedule` has fired at least once at its hashed minute.
+
+**Status**: ☐ not started
+
+## Phase 7 — Documentation pass & cleanup
+
+- Rewrite `docs/volsync-restore.md` as the kopiur restore runbook (keep its
+  suspend → scale → restore → verify skeleton; the Phase 4 recipe supplies
+  the kopiur specifics) — supersede, don't orphan.
+- Consolidate what's durable into `docs/` (backup architecture: kopiur CRD
+  layout, identity scheme, the #233 write-once-Restore operating rule —
+  that one needs to survive as a standing caveat, not just live in this
+  plan file).
+- Update memory: volsync→kopiur completed; mover-storm fix verified; delete
+  the stale mover-storm attribution caveats.
+- Delete this plan file once consolidated (per process below).
+- Remove the worktree: `git worktree remove .worktrees/kopiur-migration`.
+
+**Status**: ☐ not started
+
+---
+
+## Process Instructions
+
+- After completing each step, update the plan with the current status.
+- Pause for user confirmation before proceeding to next step.
+- Suggest the prompt for continuing to the next step.
+- After the last step, make a final documentation pass. Once the contents of
+  the plan have been consolidated into existing documentation, the plan file
+  can be removed. If there is no relevant existing documentation, the plan
+  should be reworked into a reference document.
+
+**Important**: Every prompt should verify the branch and worktree before
+doing any work.
