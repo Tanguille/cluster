@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sonarr-db
+  labels:
+    cnpg.io/reload: "true"
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:iAUop595,iv:I4K1rTjwOqsdwfWPgw/MxO2dfJuLxbUtVC3HfreUVNs=,tag:Ob4Mf5nRJgD5R60RiI0QtA==,type:str]
+  password: ENC[AES256_GCM,data:xuUnlx6vUBA=,iv:zicbkdxmvLveowbLLmTnrDHz4Q0GqeBPazCsdX2PLqw=,tag:WIeNiUBuVFp/MH5P65iUVQ==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBObTMzR1QxL2VDVEhVd2tS
+        K3ZaS00vdWRxV0hrMW5QT1lKUnZaUjdqS1JvClNSZ0RUOGIyN3J2dThZRFdkWmg0
+        dFlWSUIyUmE1d3IzRC9xb0RBU0JtR28KLS0tIG9zeEhMTmUwVS9LSUtlQ3o0bDJn
+        WXUrZDFWcXA0c3dmOFpWaThQOEpGeGcKyM1mAhhcR6Ath434brz/rFPqPq/e3jLp
+        0ZewDVxDzhCZ37r2ce7nVAVJO8CbL0P0d5NLY0QJFF1JAZie8RHsXg==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:UxA0a4oqRr8FrrLsjrAmm8eP43CjWNOsIpbOGyET0aWNkKrIEG23SDVLFUwPqp5F/kwupomoEk/iSmbXBQtc9daZH0R2YURqX7oqeyHwgYk38lGjGw+bxYdvnFHxqgpcyaCpNBkbHuEJ4KG6luhE11d44OQF71HmSvGHghQaHTQ=,iv:BQME4InyxrwLj6IfH4kK6GgHQtm02mg+zVKOYD3Xhpo=,tag:Jf5xK5JB1gQLtLzo/D2MNg==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1
