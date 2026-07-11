@@ -117,3 +117,30 @@ skopeo inspect docker://ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201 --format 
 The sglang HelmRelease keeps running `scripts/launch.sh qwen36-27b …` (now from
 `/opt/rdna4-inference` instead of the PVC); `launch.sh` sources `common.sh`, which activates
 the conda env — so the launch config is byte-for-byte what was validated on the PVC.
+
+## Multimodal: images work, video doesn't (no ffmpeg in the runtime image)
+
+Every boot logs a ~60-line `libtorchcodec` traceback cascade (tries FFmpeg versions 4-8, all
+missing `libavutil.so.5x`/`.so.6x`) while sglang tries to import 3 multimodal processors we never
+use (`mimo_v2`, `mimo_v2_asr`, `mimo_audio` — a different model family). sglang itself catches
+this and logs "Ignore import error when loading …" — it's non-fatal noise, not a crash, and
+**left as-is** (fixing it would mean either bloating the slim runtime with unused FFmpeg libs, or
+patching sglang's own multimodal module loader for a log-cosmetics-only win).
+
+`qwen36-27b` (`model_type=qwen3_5`) reports `has_image_understanding: true` via `/get_model_info`
+and IS used for image-detection workloads in prod. Traced through the actual `v0.5.15` source
+(`sglang/srt/multimodal/processors/qwen_vl.py`) to confirm this noise doesn't affect that:
+
+- **Images**: handled via `torchvision`/`PIL` directly, never touches video decoding. Confirmed
+  unaffected — `qwen_vl.py`'s own import succeeds regardless of torchcodec (unlike the 3 MiMo
+  processors above, which import torchcodec unconditionally at module scope with no fallback
+  guard and fail to import entirely).
+- **Video**: a separate code path through `VideoDecoderWrapper`
+  (`sglang/srt/utils/video_decoder.py`), coded as "torchcodec preferred, decord as fallback".
+  Checked the built image directly (`docker run ... python -c "import importlib.util; ..."`,
+  not the live pod): `torchcodec` is installed as a Python package but its native FFmpeg `.so`s
+  aren't present (hence the traceback), and `decord` isn't installed at all. **Both video
+  backends are currently broken** — if video input is ever sent to this model, it will fail.
+  Not fixed because nothing in prod currently sends video; if that changes, `decord` (a much
+  lighter dependency than full FFmpeg/libavutil) is the natural fix — it's already coded as the
+  intended fallback, just not installed.
