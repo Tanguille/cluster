@@ -1,0 +1,77 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMProxy
+metadata:
+  name: litellm
+spec:
+  image: ghcr.io/berriai/litellm:v1.91.2@sha256:f46d672e9d12a84e5dde046ff3865e0bf323e49f9f9b8eb08cd33c1713ea9627
+  applyMode: api
+  apiAccess:
+    masterKeyRef:
+      name: litellm-secret
+      key: LITELLM_MASTER_KEY
+  service:
+    port: 80
+  env:
+    - name: LITELLM_MASTER_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: LITELLM_MASTER_KEY
+    - name: LITELLM_SALT_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: LITELLM_SALT_KEY
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secret
+          key: DATABASE_URL
+  # Chart defaults (10s initialDelay, 3x failureThreshold ~= 40s grace) kill the
+  # container mid prisma-migrate on first boot. Measured cold start: ~81s
+  # (pod creation to "Application startup complete"); this budgets ~120s.
+  livenessProbe:
+    httpGet:
+      path: /health/liveliness
+      port: 4000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 10
+    timeoutSeconds: 5
+  readinessProbe:
+    httpGet:
+      path: /health/readiness
+      port: 4000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 10
+    timeoutSeconds: 5
+  litellmSettings:
+    callbacks: ["prometheus"]
+    service_callback: ["prometheus_system"]
+    # Cache embeddings only (chat is near-unique per turn, ~0 hit rate). vmcp re-embeds the
+    # same ~194 tool descriptions every MCP initialize; caching turns that into dragonfly hits
+    # that survive embedder restarts, fixing the init timeouts. Auth-less, shared with toolhive.
+    cache: true
+    cache_params:
+      type: redis
+      host: dragonfly.database.svc.cluster.local
+      port: 6379
+      supported_call_types: ["embedding", "aembedding"]
+      ttl: 604800 # 7d; tool descriptions are stable, dragonfly runs cache_mode (LRU)
+    drop_params: true
+    num_retries: 0
+  route:
+    hostnames:
+      - "litellm.${SECRET_DOMAIN}"
+    parentRefs:
+      - name: envoy-internal
+        namespace: network
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 5Gi

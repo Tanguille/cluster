@@ -24,7 +24,9 @@ spec:
                     operator: In
                     values: ["true"]
       securityContext:
-        runAsUser: 568
+        # revenz/fileflows entrypoint must start as root (apt/groupadd on boot),
+        # then drops to PUID/PGID=568 itself. #3569 wrongly "simplified" this to 568.
+        runAsUser: 0
         runAsGroup: 568
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
@@ -55,7 +57,7 @@ spec:
           app:
             image:
               repository: revenz/fileflows
-              tag: 26.06@sha256:377d3b7c05ba705ac0fe2b338c1f5eef9426d0493a0a91101de97071cbbc0b9b
+              tag: 26.07@sha256:4a539fceb3c52bccdb5740d058a8805437e8ddad33503947b67ce7db8c7653e5
             env:
               TZ: ${TIMEZONE}
               PUID: "568"

@@ -10,50 +10,47 @@ Full benchmarks, the optimization ledger and the engine-selection rationale live
 ## Config at a glance
 
 - **Engine:** SGLang v0.5.14 (mattbucci fork @ `60ffa9501`), `qwen36-27b` preset, TP=1, KV
-  dtype fp8_e4m3, mem-fraction 0.875, 32Gi pod limit (the AWQ shard load peaks ~20 GB host RAM).
+  dtype fp8_e4m3, mem-fraction 0.875, 48Gi pod limit (~15 GB pinned HiCache host pools + the
+  AWQ shard-load transient, ~6 GB at 2 loader threads).
   mem-fraction was cut 0.90→0.875 to free ~0.8 GB VRAM for the co-resident VAAPI transcoders
   (fileflows/jellyfin) on the shared R9700; at 0.90 only ~16 MB was free and their 4K HEVC
   encodes stalled. context-length follows down (230K→200K, KV pool ~211K) — still well above
   the observed ~106K Hermes prefill peak. 200K is the floor; freeing more would mean less context.
-- **Cache ON** (`MambaRadixCache`, `no_buffer`): the long-context agent re-prefills its growing
-  context each turn, so prefix reuse (**~7.6× TTFT**) is the primary workload. The cost is batch —
-  overlap off, `max_running` 32→~16. On the DeltaNet hybrid, cache and high batch are mutually
-  exclusive on RDNA4 (`extra_buffer` needs an FLA kernel absent on ROCm).
+- **Cache ON** (unified host-offload tree + HiCache host tier since 2026-07-07; was
+  `MambaRadixCache`): the long-context agent re-prefills its growing context each turn, so prefix
+  reuse (**~7.6× TTFT** measured pre-swap; reuse revalidated on the unified tree) is the primary
+  workload. The cost is batch — overlap off, `max_running` 32→~16 (confirmed unchanged post-swap).
+  On the DeltaNet hybrid, cache and high batch are mutually exclusive on RDNA4 (`extra_buffer`
+  needs an FLA kernel absent on ROCm).
 - **EXP-002** (`--mamba-ssm-dtype bfloat16`): halves the fp32 GatedDeltaNet state → **KV pool +87%
   (127K → 237,446 tokens)**, quality-neutral (PPL 2.1423, needle@124K PASS) — headroom that keeps
   the agent's 124K prefix from evicting under burst.
+- **HiCache** (host-RAM L2, unblocked by control-1 RAM 40→64 GB): evicted KV pages + mamba states
+  spill to ~15 GB of pinned host pools (`--hicache-io-backend direct`, `--hicache-ratio 1.5`) and
+  reload instead of re-prefilling. The flag choices are load-bearing — the issue-by-issue rationale
+  (#24121/#28434/#29034/#30314) and the validation record live in
+  [`docs/llm-hosting/sglang-blockers.md`](../../../../docs/llm-hosting/sglang-blockers.md).
 
-## ⚠️ Runtime-from-PVC (reproducibility debt)
+## Serving internals & rollback
 
-The container image is **only the ROCm 7.2.4 runtime base**. The engine runs from the prebuilt
-conda env on the `sglang` PVC at `/cache/sglang`:
+The engine — the conda env (`sglang-triton36-v0514`, torch 2.11+rocm7.2), the native gfx1201 HIP
+kernels, the fork source, and the RDNA4/TP=1 fixes the fork's stock `setup.sh` omits — is **baked
+into the image** `ghcr.io/tanguille/sglang-rdna4`. The build, the pinned fork patches, and the
+pin/rollback mechanics live in
+[`docker/sglang-rdna4/README.md`](../../../../docker/sglang-rdna4/README.md).
 
-- `/cache/sglang/conda` — env `sglang-triton36-v0514` (torch 2.11+rocm7.2, fork + native gfx1201
-  HIP kernels: `sgl_kernel`, `awq_gemv`, `wvSplitK`)
-- `/cache/sglang/repo-v0514` — fork source (`scripts/launch.sh`, `common.sh`, chat template) with
-  the editable SGLang at `components/sglang`
-- `/cache/sglang/triton` — persisted Triton JIT cache; `/cache/hf` — `mattbucci/Qwen3.6-27B-AWQ`
-
-So serving **is not fully reproducible from git** — it depends on the PVC, rebuilt out-of-band via
-[`scripts/sglang-env-rebuild.sh`](app/scripts/sglang-env-rebuild.sh), which bakes in the RDNA4/TP=1
-fixes the fork's stock `setup.sh` omits (without them the server crashes on the first request, or
-OOM-restarts on the first grammar request):
-
-1. `can_use_store_cache()` → `False` — the fp8 KV `store_cache` JIT kernel hits `hipErrorIllegalState` at TP=1.
-2. `sampler.py` cross-TP token-id all-reduce gated on `world_size > 1` — else grammar/json_schema
-   traffic lazily inits NCCL mid-run (~256 MB) and OOM-crashes hours in.
-3. `pip uninstall kernels` — transformers 5.x hub-kernels crashes `import sglang`.
-4. `SGLANG_TAG=v0.5.14` — else the fork patches reject onto v0.5.13 source and the env never builds.
-5. `qwen3.6_devrole_chat_template.jinja` — remaps the `developer` role and guards historical `<think>`
-   blocks (correct `preserve_thinking`, no empty-arg tool-call loop).
-
-**Follow-up (blocked):** bake the env into a versioned OCI image (`docker/sglang-rdna4/`), but the
-cluster can't pull never-cached images (Spegel upstream fall-through broken), so runtime-from-PVC on
-the cached ROCm base is the only path for now.
+The `sglang` PVC now carries only runtime data: the model (`/cache/hf`,
+`mattbucci/Qwen3.6-27B-AWQ`) and the persisted Triton JIT cache (`/cache/sglang/triton`). It still
+holds the pre-cutover conda env + fork source (`/cache/sglang/conda`, `/cache/sglang/repo-v0514`) as
+the **rollback path** — revert the HelmRelease to the ROCm-base image and it runs from the PVC again
+(rebuildable via [`scripts/sglang-env-rebuild.sh`](app/scripts/sglang-env-rebuild.sh) if lost). Those
+legacy dirs are dead weight once the baked image is trusted; retirement is tracked in
+`docs/llm-hosting/sglang-oci-cutover.md` step 6.
 
 ## Performance & bottleneck
 
-Cache-on prod: ~16 tok/s single-stream decode, ~63 @conc16 aggregate, prefill ~1459 tok/s. The
+Cache-on prod: ~16 tok/s single-stream decode, ~63 @conc16 aggregate, prefill ~1459 tok/s (measured
+pre-HiCache; decode wall unchanged post-swap). The
 end-to-end bottleneck is **prefill latency × thinking mode**, not decode: a cold 95-124K re-prefill
 is 155-303s and thinking is a ~20× multiplier, while decode is a compute-bound ~13-16 tok/s wall on
 the INT4/GDN kernels. One 32 GB card at TP=1 — no engine flag breaks these walls; only the prefix
@@ -64,12 +61,12 @@ cache (on) hides re-prefill cost. Full analysis in [`docs/llm-hosting/`](../../.
 | Lever | Layer | Status |
 |---|---|---|
 | **Thinking-mode routing** — latency-sensitive callers → `qwen-3.6-fast` (thinking-off) | litellm | ✅ ~20× perceived latency; routed |
-| **Prefix cache** (`MambaRadixCache`) | sglang | ✅ 7.6× TTFT; in prod |
+| **Prefix cache** (unified tree) | sglang | ✅ 7.6× TTFT; in prod |
 | **EXP-002 bf16-SSM** (+87% KV pool) | sglang | ✅ in prod |
 | `--chunked-prefill` 16384 (cold prefill) | sglang | OOM-risky (prefill-activation transient); not adopted |
 | cuda-graph · int8-mamba-checkpoint | sglang | tested on v0.5.14 — null / no-op on this dense + `no_buffer` config |
-| **HiCache** (prompt-cache → host RAM, `--hicache-io-backend direct`) | sglang | `direct` path works on RDNA4 (no #24121 crash) but host-RAM-constrained on the 40 GiB node |
-| TP=2 / second GPU | hardware | breaks both walls (~153 tok/s w/ MTP); structural |
+| **HiCache** (prompt-cache → host RAM, `--hicache-io-backend direct`) | sglang | ✅ first pass in prod (ratio 1.5, ~15 GB host pools) — node RAM 40→64 GB unblocked it |
+| TP=2 / second GPU | hardware | breaks both walls (~153 tok/s w/ MTP); structural (spec still needs a depth gate — see blockers.md Blocker 1) |
 
 Bottom line: the engine wins in prod are the **prefix cache + EXP-002**; the biggest *perceived* win
 is **thinking-mode routing** (client layer). Remaining sglang-config levers are noise or RAM-blocked

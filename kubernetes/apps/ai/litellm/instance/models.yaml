@@ -1,0 +1,56 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: qwen-3.6
+spec:
+  modelName: qwen-3.6
+  proxyRef: litellm
+  params:
+    model: openai/qwen-3.6
+    apiBase: http://sglang.ai.svc.cluster.local/v1
+    # sglang is unauthenticated internally, but litellm's openai provider errors on an
+    # unset api_key; any non-empty value satisfies it (dropped when the old configmap's
+    # os.environ/LLAMA_SERVER_API_KEY was migrated — that env var isn't injected here).
+    apiKey: sk-sglang-noauth
+    additional:
+      timeout: 1800
+      stream_timeout: 1800
+      num_retries: 0
+  info:
+    mode: chat
+    # Qwen3.6-27B native context, matching SGLang --context-length 262144 (uncapped).
+    # Note: the 32 GB KV pool serves ~202K tokens/request at N=32, so a single prompt
+    # near the full window may not schedule — but litellm is not artificially capping it.
+    maxInputTokens: 262144
+    maxOutputTokens: 8192
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: qwen-3.6-fast
+spec:
+  modelName: qwen-3.6-fast
+  proxyRef: litellm
+  params:
+    model: openai/qwen-3.6
+    apiBase: http://sglang.ai.svc.cluster.local/v1
+    apiKey: sk-sglang-noauth
+    additional:
+      # 900s (was 600): Hermes compression is a ~100K+ prefill on this alias — under GPU
+      # contention the shared prefill rate drops below what 600s covers (observed 2026-07-07).
+      timeout: 900
+      stream_timeout: 900
+      num_retries: 0
+      # Vendor non-thinking sampling (Qwen3.6 model card) — generation_config ships thinking-mode
+      # values (1.0/0.95/presence 0). Defaults only: client-set params win (v1.91.0 router merge).
+      temperature: 0.7
+      top_p: 0.8
+      presence_penalty: 1.5
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: false
+  info:
+    mode: chat
+    maxInputTokens: 262144
+    maxOutputTokens: 8192

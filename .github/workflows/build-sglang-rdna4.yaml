@@ -37,34 +37,51 @@ jobs:
         with:
           persist-credentials: false
 
-      # The ROCm "complete" base plus the conda env need ~60-80GB of docker storage — more than
-      # any single runner volume (first run died ENOSPC mid-torch-install). Merge /'s free space
-      # with the ~65GB /mnt volume into one LVM volume mounted at docker's data root.
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c # v10
-        with:
-          root-reserve-mb: "2048"
-          swap-size-mb: "4096" # keep some swap — the compile is RAM-tight on a 16GB runner
-          remove-dotnet: "true"
-          remove-android: "true"
-          remove-haskell: "true"
-          remove-codeql: "true"
-          build-mount-path: /var/lib/docker
+      # The `builder` stage (ROCm "complete" ~20GB + conda env ~22GB) outgrows /'s free space, so
+      # point docker's data root at the larger ~75GB /mnt volume. That volume alone is enough — a
+      # green build fit in it without touching /, so no disk-reclaim action is needed (the earlier
+      # easimon/maximize-build-space and jlumbroso/free-disk-space steps both only freed /, which
+      # the build never uses).
+      - name: Move docker storage to /mnt
+        run: |
+          sudo systemctl stop docker.service docker.socket
+          sudo mkdir -p /mnt/docker
+          # Merge, don't clobber: preserve any other daemon settings the runner image ships.
+          echo "$(sudo jq '. + {"data-root":"/mnt/docker"}' /etc/docker/daemon.json 2>/dev/null || echo '{"data-root":"/mnt/docker"}')" \
+            | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker.service
+          docker info --format 'docker data root: {{.DockerRootDir}}'
+          df -h /mnt
 
-      - name: Restart docker on the enlarged volume
-        run: sudo systemctl restart docker
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Log in to GHCR
-        env:
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build image
-        run: docker build --tag "${IMAGE}:${TAG}" docker/sglang-rdna4
+      - name: Image metadata (OCI labels)
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: type=raw,value=${{ env.TAG }}
 
-      - name: Push
-        run: |
-          docker push "${IMAGE}:${TAG}"
-          DIGEST=$(docker inspect --format '{{index .RepoDigests 0}}' "${IMAGE}:${TAG}")
-          echo "Pushed ${DIGEST}" | tee -a "${GITHUB_STEP_SUMMARY}"
+      # provenance/sbom left off: this image is pulled only by our own cluster, pinned by digest —
+      # attestations would turn the tag into an OCI index and complicate that pin for no gain here.
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: docker/sglang-rdna4
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          sbom: false
+
+      - name: Summary
+        run: echo "Pushed \`${IMAGE}:${TAG}@${{ steps.build.outputs.digest }}\`" >> "${GITHUB_STEP_SUMMARY}"

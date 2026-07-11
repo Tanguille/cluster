@@ -3,15 +3,18 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: sglang
+  name: litellm
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: sglang
-      app.kubernetes.io/instance: sglang
+      app.kubernetes.io/name: litellm
+      app.kubernetes.io/instance: litellm
   endpoints:
-    # SGLang exposes Prometheus metrics (sglang:*) on /metrics; one served model.
     - port: http
       path: /metrics
-      interval: 1m # SGLang gauges don't need sub-minute resolution; matches litellm
+      interval: 1m
       scrapeTimeout: 10s
+      authorization:
+        credentials:
+          name: litellm-secret
+          key: LITELLM_MASTER_KEY

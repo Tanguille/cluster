@@ -17,6 +17,25 @@ spec:
     timeout: 30m
     remediation:
       retries: -1 # no rollback: a cold Triton recompile can exceed the upgrade timeout
+  # app-template 5.0.1 doesn't expose the Deployment's progressDeadlineSeconds, and the k8s default
+  # (600s) is shorter than a cold model load here — ~5-8 min normally, ~13-15 min if it OOM-retries
+  # once during the load peak. When that happens Flux/kstatus marks the Deployment "Failed"
+  # (ProgressDeadlineExceeded) mid-boot, so the helm upgrade fails "early" even though the pod then
+  # comes up Ready — wedging the HelmRelease in a failed state (and its rollback can't remediate:
+  # "missing target release"). Raise it to 1800s (= the upgrade timeout) so a slow-but-recovering
+  # boot stays "InProgress" and Flux waits it out instead of failing. progressDeadlineSeconds is a
+  # Deployment.spec field (not the pod template), so patching it never triggers a rollout. The chart
+  # doesn't template it, so a postRenderer is the only way to set it.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: sglang
+            patch: |-
+              - op: add
+                path: /spec/progressDeadlineSeconds
+                value: 1800
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
@@ -48,19 +67,22 @@ spec:
         strategy: Recreate
         containers:
           app:
-            # SGLang (mattbucci RDNA4 fork) runs from the prebuilt conda env on the `sglang` PVC at
-            # /cache/sglang — the image is only the ROCm 7.2.4 runtime base. The engine, the native
-            # gfx1201 HIP kernels, the fork source and the bring-up patches all live on the PVC.
-            # See the app README for the PVC inventory, the patches, and the OCI-image follow-up.
+            # SGLang (mattbucci RDNA4 fork) baked into the image: conda env, native gfx1201 HIP
+            # kernels, fork source + TP=1 patches — built GPU-free in CI; build/pin/rollback
+            # mechanics in docker/sglang-rdna4/README.md. Digest is authoritative (the tag gets
+            # rebuilt in place); the tag stays so Renovate can bump the digest.
             image:
-              repository: docker.io/rocm/dev-ubuntu-24.04
-              tag: 7.2.4-complete@sha256:92f309c51b52cef8762867848f1529dee821624f23cd5df38455e819538f762f
-            # Override the dev-image entrypoint with the fork's preset runner. The qwen36-27b preset +
-            # these flags are the validated single-card config; the perf table, the cache-vs-batch
-            # tradeoff and the rejected alternatives (MoE, MTP/spec, fp4 KV) are in the README. Radix
-            # cache is ON (MambaRadixCache, no_buffer) for the long-context agent: prefix reuse
-            # (~7.6× TTFT) is the primary workload, traded against batch (overlap off, max_running
-            # 32→~16). mem-fraction 0.875 (was 0.90) frees ~0.8 GB more VRAM headroom on the shared
+              repository: ghcr.io/tanguille/sglang-rdna4
+              tag: v0.5.14-gfx1201@sha256:a5789ad2990b63854440abeb6e4bf2299d38e7301507eb6e71add77bbe03759b
+            # Replace the image entrypoint with the fork's preset runner. The qwen36-27b preset +
+            # these flags are the validated single-card config; the perf table and cache-vs-batch
+            # tradeoff are in the README, the rejected alternatives (MoE, MTP/spec, fp4 KV) in
+            # docs/llm-hosting/sglang-blockers.md. Radix
+            # cache is ON (unified host-offload tree + HiCache host tier since 2026-07-07, see
+            # EXTRA_ARGS; was MambaRadixCache) for the long-context agent: prefix reuse (~7.6× TTFT
+            # measured pre-swap; reuse revalidated on the unified tree) is the primary workload,
+            # traded against batch (overlap off, max_running 32→~16, confirmed at boot post-swap).
+            # mem-fraction 0.875 (was 0.90) frees ~0.8 GB more VRAM headroom on the shared
             # R9700 for the co-resident VAAPI transcoders (fileflows/jellyfin) — at 0.90 only ~16 MB
             # stayed free and their 4K HEVC encodes stalled (0-byte output). The KV pool shrinks ~1:1
             # with mem-fraction (~33K tokens/GB, fp8 KV), so context-length 200000 caps below the
@@ -71,7 +93,7 @@ spec:
               - /bin/bash
               - -c
               - >-
-                exec bash /cache/sglang/repo-v0514/scripts/launch.sh qwen36-27b
+                exec bash /opt/rdna4-inference/scripts/launch.sh qwen36-27b
                 --context-length 200000
                 --mem-fraction 0.875
                 --max-running 32
@@ -80,8 +102,8 @@ spec:
                 --port 8000
             env:
               TZ: ${TIMEZONE}
-              # --- launch.sh / common.sh overrides (most gfx1201 env is set by common.sh) ---
-              CONDA_BASE: /cache/sglang/conda
+              # --- launch.sh / common.sh overrides (most gfx1201 env is set by common.sh;
+              # --- CONDA_BASE/ENV_NAME/REPO_DIR come baked from the image) ---
               TP: "1" # single R9700; the fork defaults to 2 (its dual-card box)
               MODEL: mattbucci/Qwen3.6-27B-AWQ # resolved offline from HF_HOME cache
               # Pin every device-visibility var to card 0 (common.sh defaults them to "0,1").
@@ -92,16 +114,54 @@ spec:
               HF_HOME: /cache/hf
               HF_HUB_OFFLINE: "1"
               TRITON_CACHE_DIR: /cache/sglang/triton # persisted JIT cache on the PVC
-              # EXTRA_ARGS append after the preset (last-wins): mamba slots 48 (> max-running, headroom
-              # for cached prefix states); served-model-name qwen-3.6 (drop-in for litellm/karakeep);
+              # EXTRA_ARGS append after the preset (last-wins): mamba slots 60 (2026-07-10: raises the
+              # //3 running cap 16→20, conc20 agg 84 vs 64 tok/s; KV pool shrinks 237K→183,240 so
+              # context-length drops 200K→180K to keep the ctx ≤ KV-pool clean-rejection invariant —
+              # Hermes peaks ~106K, compression fires well below the cap);
+              # enable-mixed-chunk (2026-07-10): decode tokens ride along in prefill chunk batches, so
+              # a long Hermes prefill no longer blacks out decode for 55-70s; PP cost ~2%, conc16 +7%,
+              # temp-0 quality spot-checked clean; served-model-name qwen-3.6 (drop-in for litellm/karakeep);
               # mamba-ssm-dtype bfloat16 (EXP-002) halves the fp32 GatedDeltaNet state (6.89→3.45 GB) →
               # KV pool +87% (127K→237,446 tokens), quality-neutral — the headroom Hermes's 124K prefix needs.
-              # max-queued-requests 32 (2026-06-30): the real running-request ceiling is 16 (mamba cache
-              # 48 // the fork's hardcoded ×3 ratio, not the 32 requested here or the KV pool, which never
-              # binds) — bursts past 16 used to queue unbounded and client-timeout-abort 1300s+ later
+              # max-queued-requests 32 (2026-06-30): the real running-request ceiling is 20 (mamba cache
+              # 60 // the fork's hardcoded ×3 ratio, not the 32 requested here or the KV pool, which never
+              # binds) — bursts past the cap used to queue unbounded and client-timeout-abort 1300s+ later
               # while KV usage sat at only 0.42-0.48. Bounding the queue converts that into a fast
               # rejection instead; doesn't touch the running-request cap so worst-case VRAM is unchanged.
-              EXTRA_ARGS: "--max-mamba-cache-size 48 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32"
+              # weight-loader-drop-cache-after-load: posix_fadvise(DONTNEED) per safetensors shard once
+              # its weights are copied out, so the 18 GB of model-file pages don't accumulate in the OS
+              # page cache during load. Targets the cold-load page-cache thrash (folio_wait_bit) that
+              # spikes control-1 to loadavg ~140-248 on this memory-tight node (~2 GB free, 120 pods).
+              # Targeted per-file (not a global drop_caches) — doesn't touch other pods' cache or the
+              # Triton cache. Trade-off: a quick restart re-reads weights cold (no warm page cache), fine
+              # here since those pages get evicted under pressure anyway. Node headroom is the real cure.
+              # HiCache (2026-07-07, unblocked by control-1 RAM 40→64 GB): host-RAM L2 for the prefix
+              # cache — evicted KV pages AND mamba/SSM states spill to ~15 GB of pinned host pools
+              # (ratio 1.5 → ~9.6 GB KV + ~5.2 GB mamba) instead of being lost. Flag choices are
+              # load-bearing: io-backend `direct` (default `kernel` crashes on hybrids + ships a KL
+              # regression), ratio NOT --hicache-size (size N double-allocates 2N GB on hybrids), and
+              # model-loader num_threads 8→2 (shrinks the ~23 GB load transient so the host-pool
+              # guard passes at boot). Issue-by-issue rationale + the #30314 stall risk live in
+              # docs/llm-hosting/sglang-blockers.md ("HiCache re-check"). HiCache never pages an
+              # ACTIVE request's KV, so the ctx ≤ KV-pool clean-rejection invariant above still holds.
+              # schedule-conservativeness 0.1 (2026-07-08): default (1.0) reserves a large per-request
+              # token margin before admitting into a running batch, which under concurrent long-context
+              # load left requests queueing (p99 ~250s) until the CLIENT gave up — sglang itself never
+              # rejected them (0 server aborts throughout testing). Swept 1.0/0.5/0.3/0.2/0.15/0.1 with
+              # synthetic concurrent load; 0.1 gave the best observed abort rate (0%) with no retraction
+              # cost (0 retracted at every value tested) — HiCache's cheap host-tier reload is what makes
+              # a smaller admission margin safe now (a wrong guess costs ms, not a 155-303s re-prefill).
+              # hicache-write-policy write_back (2026-07-08, tried and REVERTED 2026-07-09): looked like a
+              # pure win in synthetic testing (defers per-hit host copies to eviction time), but
+              # UnifiedRadixCache.evict() calls writing_check(write_back=True), which blocks the scheduler
+              # loop until every pending write-back drains (GPU stream sync) before eviction can proceed.
+              # Under real traffic (unique long prompts, not synthetic repeated prefixes) that backlog
+              # builds up fast, stalling new-request admission — serialized concurrency to 1 running
+              # request with the queue climbing unbounded. Left off default (write_through) instead.
+              # hicache-write-policy write_through_selective (2026-07-11): host-copy only on 2nd hit,
+              # not every decode step; 9h real-traffic soak clean (0 re-prefill regressions, 0 retracted,
+              # aborts 4-5% vs ~20% heavy-day baseline) and PP benched 1450 vs ~1200 tok/s.
+              EXTRA_ARGS: '--context-length 180000 --max-mamba-cache-size 60 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1 --enable-mixed-chunk --hicache-write-policy write_through_selective'
             probes:
               startup: &probeBase
                 enabled: true
@@ -113,9 +173,14 @@ spec:
                   initialDelaySeconds: 60
                   periodSeconds: 15
                   timeoutSeconds: 5
-                  # ~16 min budget (60×15s + 60s): warm PVC boots in ~2-3 min; headroom covers a
-                  # cold Triton recompile after image/kernel changes.
-                  failureThreshold: 60
+                  # ~31 min budget (120×15s + 60s): a warm boot (image cached, Triton cache warm)
+                  # is ~2-3 min, but the FIRST boot on a new image can do a full cold Triton recompile
+                  # (the baked env's JIT cache keys differ from the PVC env that seeded /cache/sglang/triton),
+                  # which the old 16-min budget could miss. Critically, a probe-kill (SIGKILL) of a
+                  # mid-load process LEAKS GPU VRAM on this RDNA4 passthrough — that leak is what turned
+                  # a slow first boot into an unrecoverable crash loop during the OCI cutover — so the
+                  # budget must comfortably outlast the worst-case cold compile. Image pull doesn't count.
+                  failureThreshold: 120
               # Liveness OFF: even TCP probes restart a busy-but-alive singleton under long-prefill /
               # thinking load (exit 0 via SIGTERM + kill_process_tree, dropping in-flight work;
               # observed 2026-06-25 HTTP /health, 2026-06-28 TCP). restartPolicy: Always still
@@ -134,15 +199,17 @@ spec:
             resources:
               requests:
                 cpu: 2
-                memory: 10Gi
+                # ~5.4 GB working set + ~15 GB pinned HiCache host pools (permanent resident) — the
+                # pools are real memory the scheduler must account for; 24Gi lands node requests ~89%.
+                memory: 24Gi
                 squat.ai/dri: &dri 1 # extended resource: request must equal limit
               limits:
                 cpu: 12
-                # Steady-state ~2.3 GB (weights in VRAM), but the multi-thread AWQ shard load peaks
-                # ~20 GB host RAM. 32Gi covers the load spike + shm; 16Gi and 28Gi both OOM-killed it
-                # mid-load (exit 137). An OOM-kill here leaks GPU VRAM that no soft reboot reclaims
-                # (needs a hypervisor cold-cycle) — so don't trim it.
-                memory: 32Gi
+                # Steady-state ~5.4 GB + ~15 GB pinned HiCache host pools; the AWQ shard-load transient
+                # (~23 GB at 8 loader threads, ~6 GB at the configured 2) adds on top at boot. 48Gi
+                # covers pools + transient + shm on the 64 GB node. An OOM-kill here leaks GPU VRAM
+                # that no soft reboot reclaims (needs a hypervisor cold-cycle) — so don't trim it.
+                memory: 48Gi
                 squat.ai/dri: *dri
 
     service:
@@ -153,12 +220,21 @@ spec:
             port: 80
             targetPort: *port
 
+    serviceMonitor:
+      app:
+        endpoints:
+          # SGLang exposes Prometheus metrics (sglang:*) on /metrics; one served model.
+          - port: http
+            path: /metrics
+            interval: 1m # SGLang gauges don't need sub-minute resolution; matches litellm
+            scrapeTimeout: 10s
+
     route:
       app:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: sglang
-          gethomepage.dev/description: Qwen3.6-27B SGLang inference (RDNA4, TP=1, prefix-cache on, ~63 tok/s @conc16)
+          gethomepage.dev/description: Qwen3.6-27B SGLang inference (RDNA4, TP=1, hierarchical prefix cache)
           gethomepage.dev/group: Models
           gethomepage.dev/icon: mdi-brain
         hostnames:
@@ -172,10 +248,9 @@ spec:
                 port: 80
 
     persistence:
-      # The `sglang` PVC carries the prebuilt SGLang conda env, fork source, Triton cache and the
-      # Qwen3.6 AWQ model (see pvc.yaml). Rebuildable via scripts/sglang-env-rebuild.sh if lost — it
-      # bakes in the RDNA4/TP=1 fixes the fork's stock setup.sh omits (without them the server crashes
-      # on the first request, or OOM-restarts hours in on the first grammar/json_schema request).
+      # The `sglang` PVC carries the Qwen3.6 AWQ model (/cache/hf), the persisted Triton JIT cache,
+      # and the legacy runtime-from-PVC conda env + fork source — kept as the rollback path for the
+      # baked image (retirement owned by docs/llm-hosting/sglang-oci-cutover.md step 6).
       cache:
         enabled: true
         existingClaim: sglang
@@ -187,7 +262,7 @@ spec:
         type: emptyDir
         medium: Memory
         # tmpfs counts against the container memory limit; TP=1 barely uses shm (the large-shm
-        # case is multi-GPU tensor sharing, N/A here), so keep it well under the 16Gi limit.
+        # case is multi-GPU tensor sharing, N/A here), so keep it well under the 48Gi limit.
         sizeLimit: 8Gi
         advancedMounts:
           app:

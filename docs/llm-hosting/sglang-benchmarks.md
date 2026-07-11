@@ -1,5 +1,9 @@
 # Qwen3.6-27B serving on R9700 (gfx1201) — Benchmarks & Decision
 
+**SUPERSEDED:** production runs SGLang (baked `ghcr.io/tanguille/sglang-rdna4` image) — see
+`docs/llm-hosting/sglang-blockers.md` and `kubernetes/apps/ai/sglang/README.md` for the current
+engine decision. This doc is the historical vLLM-vs-SGLang record from 2026-06-21.
+
 ## Round 2 Final Results — 2026-06-21
 
 **All experiments complete. Best engine: vLLM kyuz0 + cyankiwi AWQ-INT4 + MTP×4 + 234K context.**
@@ -97,9 +101,8 @@ Retired trial configs (revival anchors) are in
 
 ---
 
-Performance log of every config benchmarked for the custom `sglang-rdna4` image. Companion to
-`vllm-qwen3.6-rocm-benchmarks.md` (vLLM reference). Unless noted, runs use
-`sglang.bench_serving --dataset-name random`, `temperature` default, on a single GPU.
+Performance log of every config benchmarked for the custom `sglang-rdna4` image. Unless noted, runs
+use `sglang.bench_serving --dataset-name random`, `temperature` default, on a single GPU.
 
 > Status: measured in a debug pod, not estimated.
 
@@ -201,7 +204,7 @@ GPU (where fp8 KV halved decode), because the sglang fork ships **native gfx1201
 dequant. Conclusion: **keep `--kv-cache-dtype fp8_e4m3`** (the fork default). bf16 KV is both
 slower and lower-capacity here. (Closes the memo's "Step 5 A/B".)
 
-## vLLM cross-reference (same model, same GPU — from `vllm-qwen3.6-rocm-benchmarks.md`)
+## vLLM cross-reference (same model, same GPU)
 
 | Engine | Quant | KV | Decode TG | PP@2K | PP@8K | Caching |
 |---|---|---|---|---|---|---|
