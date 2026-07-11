@@ -12,6 +12,8 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
+    - kind: ConfigMap
+      name: nfs-media
 
   values:
     defaultPodOptions:
@@ -106,12 +108,4 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /temp
-            readOnly: false
-
-      media:
-        type: nfs
-        server: ${TRUENAS_IP}
-        path: ${MEDIA_NFS_PATH}
-        globalMounts:
-          - path: /media
             readOnly: false

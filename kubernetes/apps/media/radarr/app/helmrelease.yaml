@@ -12,6 +12,8 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
+    - kind: ConfigMap
+      name: nfs-media
 
   values:
     controllers:
@@ -120,11 +122,3 @@ spec:
       tmp:
         type: emptyDir
         medium: Memory
-
-      media:
-        type: nfs
-        server: ${TRUENAS_IP}
-        path: ${MEDIA_NFS_PATH}
-        globalMounts:
-          - path: /media
-            readOnly: false
