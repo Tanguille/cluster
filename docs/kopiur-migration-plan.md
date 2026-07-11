@@ -539,12 +539,57 @@ wouldn't stop the CronJob already applied) via PR, ahead of its next
 trigger (`30 3,15 * * *`). Full removal (delete the ks + CR + secret) still
 deferred to Phase 6 per the original plan; this only disables it.
 
-**Rollback**: flip `KopiaMaintenance/daily`'s `spec.enabled` back to `true`;
-set kopiur Maintenance back to `Never` (it yields).
-**Status**: ☑ done — `Maintenance/kopia-nas` `Ready`/`LeaseClaimed: True`,
-kopia-level owner directly confirmed 2026-07-12. Fork's `KopiaMaintenance/
-daily` disabled same day (PR pending) to close the group-568-read gap
-above; full removal still Phase 6.
+**Rollback**: flip `KopiaMaintenance/daily`'s `spec.enabled` back to `true`.
+There's no kopiur-side Maintenance CR left to revert — re-add
+`maintenance.yaml` with `enabled: false` on the ClusterRepository if manual
+control is ever needed again.
+**Status**: ☑ done — kopia-level owner directly confirmed 2026-07-12
+(`kopiur@kopiur-clusterrepository-kopia-nas`). Fork's `KopiaMaintenance/
+daily` disabled same day (PR #3831) to close the group-568-read gap above;
+full removal still Phase 6. Maintenance now fully operator-managed
+(defaults: quick 6h, full daily 03:00) — the explicit `Maintenance` CR was
+deleted as unnecessary complexity (PR pending).
+
+**Second bug found 2026-07-12, while checking cluster health before Phase
+4**: `kopiur-repository`'s Kustomization was intermittently `Ready: False`
+(`HealthCheckFailed... Maintenance/kopiur-system/kopia-nas status:
+'Failed'`). Root cause: our `ClusterRepository` never set
+`spec.maintenance.enabled: false`. That field **defaults to `true`**
+("the operator manages a `Maintenance` CR for this repository"), so the
+operator had been auto-creating and self-reconciling its own
+default-managed `Maintenance/kopia-nas` (schedule `0 */6 * * *` quick /
+`0 3 * * *` full **daily**, `ownership: {owner:
+kopiur/clusterrepository/kopia-nas, takeoverPolicy: Never}`) the whole
+time — colliding on the exact same name as our git-authored, explicit
+`Maintenance/kopia-nas` from step 1 above. Flux would apply our spec
+(`owner: kopiur/kopia-nas`, `takeoverPolicy: PromptCondition`, weekly
+full `H 3 * * 0`), the operator's own auto-management reconcile would
+reset it back moments later, repeat forever — a live spec-level tug of
+war, not just a cosmetic drift. `deploy/examples/scenarios/
+05-adopt-existing-repo.yaml` documents exactly this: adopting an existing
+repo must set `maintenance.enabled: false` so the deliberate, explicit
+takeover Maintenance CR governs instead of the auto-managed one. The
+kopia-level lease itself (fable's verified `kopiur@
+kopiur-clusterrepository-kopia-nas`) was never at risk — that string is
+computed from the `ClusterRepository` directly, independent of which
+Maintenance CR governs — but the actual **schedule** running in-cluster
+was silently wrong (daily full instead of weekly) for as long as this
+went uncaught, and the Kustomization's flapping health status made this
+Phase look green when it wasn't fully settled.
+
+**Resolution (simplified, 2026-07-12): deleted the explicit `Maintenance`
+CR entirely instead of fighting the auto-managed one.** Step 1's
+hand-authored object (weekly full, `H`-hashed quick, deliberate
+`PromptCondition` takeover) added config to maintain for close to zero
+real benefit here — the takeover already happened via the mover's own
+bootstrap self-heal regardless of this CR, and a single-repository
+homelab has no thundering-herd reason to hash/jitter around a literal
+`:00`. Removed `kubernetes/apps/kopiur-system/kopiur/repository/
+maintenance.yaml`, left `ClusterRepository.spec.maintenance` unset
+(defaults to `enabled: true`) so the operator's own default-managed
+`Maintenance/kopia-nas` owns the object outright, accepting its defaults:
+quick every 6h, full **daily** at 03:00 (not the originally-planned
+weekly). No more competing writers, no more flapping health check.
 
 ## Phase 4 — New component + canary app
 
