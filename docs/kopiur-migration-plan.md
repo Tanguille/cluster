@@ -306,51 +306,75 @@ kopiur.home-operations.com` → 8, kopiur alerts visible in the ruler and the
 dashboard in Grafana. Nothing touches volsync; deleting the Kustomization
 reverts everything.
 
-**Status**: ☑ manifests written + validated 2026-07-11 (`kubernetes/apps/kopiur-system/{kustomization.yaml,kopiur/ks.yaml,kopiur/app/*}`,
-`BACKUP_NFS_PATH` added to cluster-settings); `kustomize build` and a real
-`helm template` dry-run against the pinned chart both confirmed clean
-(NFS volume mounted at `/repo`, podSecurityContext 568, RBAC/Deployments/
-ServiceMonitor/PrometheusRule/dashboard all render). Not yet committed or
-pushed — cluster-side verification (operator Ready, CRD count, alerts live)
-pending push authorization.
+**Status**: ☑ done — merged via PR #3800 (2026-07-11); all Verify criteria
+above confirmed live in-cluster the same day (Kustomization `Ready=True`,
+CRD count 8, 6 `PrometheusRule/kopiur-controller` alerts, dashboard present).
+No volsync apps touched.
 
 ## Phase 2 — Adopt the repository via `kubectl kopiur migrate volsync`
 
 In `kopiur-system`:
 
-- Add `BACKUP_NFS_PATH` to cluster-settings with the same value as
-  `VOLSYNC_NFS_PATH` (both live until Phase 6).
-- Run the migration CLI in GitOps/offline mode against this repo, resolving
-  the existing sops-encrypted per-app secrets from the *live* cluster
-  (already decrypted by Flux — this avoids ever writing the plaintext
-  password to a local file):
+- `BACKUP_NFS_PATH` was already added to cluster-settings in Phase 1 (both
+  live until Phase 6).
+- **Deviation from the original plan**: `-f kubernetes/apps` (offline/GitOps
+  mode) doesn't work in this repo — `ReplicationSource`/`ReplicationDestination`
+  are raw manifests in the `volsync` Kustomize Component, substituted by
+  Flux's `postBuild.substitute` (`${APP}`, `${TRUENAS_IP}`, etc.) only at
+  apply time. Scanning the git tree directly picks up the literal
+  placeholders, not resolved values. Ran against the **live cluster**
+  instead (read-only; no `--apply`), per namespace (`-A` isn't accepted by
+  `migrate volsync`):
   ```bash
-  kubectl kopiur migrate volsync \
-    -f kubernetes/apps \
-    --resolve-secrets --from-cluster-secrets \
-    --out-dir .worktrees/kopiur-migration/generated
+  kubectl kopiur migrate volsync -n ai --resolve-secrets -v
+  kubectl kopiur migrate volsync -n default --resolve-secrets -v
+  kubectl kopiur migrate volsync -n media --resolve-secrets -v
   ```
-- Review stderr's mapped/UNMAPPABLE/ignored accounting for every field the
-  tool touched — nothing should be silently dropped. Our component has no
-  `actions.beforeSnapshot/afterSnapshot` hooks and no `policyConfig` raw
-  policy files, so we don't expect any UNMAPPABLE entries; investigate if
-  any appear.
-- The tool emits `_shared.yaml` (derived `ClusterRepository` + secret) and
-  one file per app with pinned `spec.identity`. Diff `_shared.yaml` against
-  hand-drafted expectations before applying:
-  - `create.enabled` must be **absent or false** (adopt, never initialize —
-    if the tool emitted `create: {enabled: true}`, stop and investigate,
-    that means it didn't detect the fork correctly).
-  - `encryption.passwordSecretRef.namespace` must be **explicit**
-    (kopiur#232 — the controller rejects reconcile without it even though
-    the schema doc string implies it's optional).
-  - `maintenance.enabled` should be **false/absent** here — Phase 3 takes
-    explicit ownership-transfer control instead of leaving this implicit.
-  - Add `scheduleDefaults.timezone: ${TIMEZONE}` (not something the tool
-    infers from VolSync, since VolSync's component never set one).
-- Apply the `_shared.yaml`-derived `ClusterRepository` (commit it as
-  `kubernetes/apps/kopiur-system/kopiur/repository/clusterrepository.yaml`
-  + its `ExternalSecret`/sops secret).
+- stderr accounting: 18 UNMAPPABLE `spec.kopia.moverVolumes` (expected —
+  our repo is inline-NFS via `moverVolumes`, not a PVC, so the tool can't
+  infer a `backend.filesystem.volume.pvc.name`; fixed manually below) and
+  18 UNMAPPABLE `storageClassName`/`accessModes` staging overrides (expected
+  per the tool's own docs — kopiur derives these from the source PVC, no
+  per-policy override exists). No unexpected UNMAPPABLE entries.
+- **The tool emits one namespaced `Repository` object per app** (not a
+  single shared `_shared.yaml`), since each app has its own
+  `${APP}-volsync-secret`. Confirmed via SHA-256 comparison of
+  `KOPIA_PASSWORD` across 6 apps spanning all 3 namespaces (`ai`, `default`,
+  `media`) that every app shares the **same password and the same repo
+  path** (`filesystem:///mnt/repository`) — genuinely one repository, not
+  N separate ones. Consolidated by hand into a single `ClusterRepository`
+  instead of applying 18 redundant `Repository` objects (matching Phase 1's
+  `installScope: cluster` + `credentialProjection` design intent).
+- Fixed the backend: the `Repository`/`ClusterRepository` CRD's
+  `backend.filesystem.volume` supports `oneOf: [pvc, nfs]` — used the
+  inline `nfs: {server: ${TRUENAS_IP}, path: ${BACKUP_NFS_PATH}}` form
+  (same NFS export as Phase 1's operator-level `/repo` mount and the
+  fork's own `moverVolumes`), not a PVC.
+- `allowedNamespaces.list: [ai, default, media]` — explicit, matching the
+  3 namespaces with live volsync apps today (least-privilege for a
+  password-bearing cluster-scoped resource; extend when a new namespace
+  onboards).
+- `create` and `maintenance` left absent (adopt in place; Phase 3 takes
+  explicit ownership-transfer control).
+- `encryption.passwordSecretRef` has an explicit `namespace: kopiur-system`
+  (kopiur#232) and points at a **new** `kopia-nas-password` secret in
+  `kopiur-system` (sops-encrypted, password copied from the live
+  `ai/hermes-volsync-secret` and verified byte-identical via SHA-256 —
+  the plaintext was never printed to any log or chat output) — not one of
+  the 18 existing per-app secrets, since those get deleted in Phase 6.
+- Applied the (renamed to match this repo's convention)
+  `kubernetes/apps/kopiur-system/kopiur/repository/{clusterrepository.yaml,secret.sops.yaml}`,
+  reconciled by a second Flux `Kustomization` document
+  (`kopiur-repository`, `dependsOn: [kopiur]`) appended to
+  `kopiur/ks.yaml`, mirroring the `volsync`/`volsync-maintenance`
+  multi-document pattern exactly (including redeclaring `&namespace` in
+  the second document — kustomize's YAML parser does **not** share
+  anchors across `---`-separated documents, despite `volsync-maintenance`
+  appearing to alias across documents at first glance).
+- Per-app `SnapshotPolicy`/`SnapshotSchedule` objects (identities verified
+  to match `<app>@<namespace>:/data` for all 18 live apps via the dry-run)
+  are **not** applied in this phase — that's Phase 4's reusable Component +
+  canary, not 18 hand-copied one-off files.
 
 Verify (the load-bearing step of the whole plan):
 1. `ClusterRepository` reaches Ready with `create` untouched (wrong password
@@ -372,7 +396,13 @@ Verify (the load-bearing step of the whole plan):
 
 **Rollback**: delete the ClusterRepository — catalog rows vanish, repo data
 untouched (discovered snapshots are Retain-forced).
-**Status**: ☐ not started
+**Status**: ☑ manifests drafted + validated 2026-07-11
+(`kubernetes/apps/kopiur-system/kopiur/{ks.yaml,repository/*}`, committed
+locally on `docs/kopiur-phase1-verified` — `kustomize build` and
+`flate test all` both clean, 277/277). Not yet pushed/applied — the "Verify"
+steps above (ClusterRepository Ready, discovered Snapshot identities,
+snapshot-count cross-check against the 22-identity baseline) are pending
+push authorization and a live reconcile.
 
 ## Phase 3 — Maintenance ownership takeover
 
