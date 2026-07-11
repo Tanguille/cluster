@@ -546,6 +546,34 @@ kopia-level owner directly confirmed 2026-07-12. Fork's `KopiaMaintenance/
 daily` disabled same day (PR pending) to close the group-568-read gap
 above; full removal still Phase 6.
 
+**Second bug found 2026-07-12, while checking cluster health before Phase
+4**: `kopiur-repository`'s Kustomization was intermittently `Ready: False`
+(`HealthCheckFailed... Maintenance/kopiur-system/kopia-nas status:
+'Failed'`). Root cause: our `ClusterRepository` never set
+`spec.maintenance.enabled: false`. That field **defaults to `true`**
+("the operator manages a `Maintenance` CR for this repository"), so the
+operator had been auto-creating and self-reconciling its own
+default-managed `Maintenance/kopia-nas` (schedule `0 */6 * * *` quick /
+`0 3 * * *` full **daily**, `ownership: {owner:
+kopiur/clusterrepository/kopia-nas, takeoverPolicy: Never}`) the whole
+time — colliding on the exact same name as our git-authored, explicit
+`Maintenance/kopia-nas` from step 1 above. Flux would apply our spec
+(`owner: kopiur/kopia-nas`, `takeoverPolicy: PromptCondition`, weekly
+full `H 3 * * 0`), the operator's own auto-management reconcile would
+reset it back moments later, repeat forever — a live spec-level tug of
+war, not just a cosmetic drift. `deploy/examples/scenarios/
+05-adopt-existing-repo.yaml` documents exactly this: adopting an existing
+repo must set `maintenance.enabled: false` so the deliberate, explicit
+takeover Maintenance CR governs instead of the auto-managed one. The
+kopia-level lease itself (fable's verified `kopiur@
+kopiur-clusterrepository-kopia-nas`) was never at risk — that string is
+computed from the `ClusterRepository` directly, independent of which
+Maintenance CR governs — but the actual **schedule** running in-cluster
+was silently wrong (daily full instead of weekly) for as long as this
+went uncaught, and the Kustomization's flapping health status made this
+Phase look green when it wasn't fully settled. Fixed by adding
+`spec.maintenance.enabled: false` to the `ClusterRepository`.
+
 ## Phase 4 — New component + canary app
 
 Create `kubernetes/components/kopiur/` (neutral `BACKUP_*` vars — see
