@@ -22,5 +22,8 @@ spec:
       name: kopia-nas-password
       namespace: kopiur-system
       key: KOPIA_PASSWORD
+  bootstrap:
+    failurePolicy:
+      activeDeadlineSeconds: 600
   scheduleDefaults:
     timezone: ${TIMEZONE}
