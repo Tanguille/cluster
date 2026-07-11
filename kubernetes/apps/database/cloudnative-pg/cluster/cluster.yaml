@@ -27,6 +27,11 @@ spec:
         login: true
         passwordSecret:
           name: litellm-db
+      - name: jellystat
+        ensure: present
+        login: true
+        passwordSecret:
+          name: jellystat-db
   postgresql:
     parameters:
       wal_level: replica
