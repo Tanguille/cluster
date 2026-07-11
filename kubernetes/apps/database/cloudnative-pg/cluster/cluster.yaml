@@ -52,6 +52,11 @@ spec:
         login: true
         passwordSecret:
           name: prowlarr-db
+      - name: memini
+        ensure: present
+        login: true
+        passwordSecret:
+          name: memini-db
   postgresql:
     parameters:
       wal_level: replica

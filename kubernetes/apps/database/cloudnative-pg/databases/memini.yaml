@@ -1,0 +1,20 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/database_v1.json
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: memini
+spec:
+  cluster:
+    name: postgres16
+  name: memini
+  owner: memini
+  ensure: present
+  # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
+  databaseReclaimPolicy: retain
+  # Adopt the vchord and vector extensions already present in this DB (no version pin).
+  extensions:
+    - name: vchord
+      ensure: present
+    - name: vector
+      ensure: present
