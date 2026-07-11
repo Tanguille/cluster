@@ -317,6 +317,14 @@ above confirmed live in-cluster the same day (Kustomization `Ready=True`,
 CRD count 8, 6 `PrometheusRule/kopiur-controller` alerts, dashboard present).
 No volsync apps touched.
 
+**Follow-up (2026-07-11): bumped `0.7.1` → `0.7.2`.** Routine per
+`docs/upgrade.md` ("no action needed" — stable per-CR credential Secret
+naming replaces the old per-run naming, `helm upgrade` adds the RBAC
+`secrets` delete verb the cleanup needs). Directly relevant here: Phase 3's
+`Maintenance` CR runs on a recurring cron with `credentialProjection`
+enabled — exactly the leak this release fixes (0.7.1 minted a fresh
+credential Secret copy per run, unbounded).
+
 ## Phase 2 — Adopt the repository via `kubectl kopiur migrate volsync`
 
 In `kopiur-system`:
