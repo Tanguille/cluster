@@ -28,13 +28,6 @@ spec:
       activeDeadlineSeconds: 2700
   credentialProjection:
     allowed: true
-  # Adopting an existing repo needs deliberate, explicit ownership control
-  # (Phase 3's standalone Maintenance CR) -- the operator's own
-  # default-managed Maintenance (enabled: true by default) otherwise
-  # auto-creates a competing object with the same name and keeps resetting
-  # its schedule/ownership fields back over ours.
-  maintenance:
-    enabled: false
   moverDefaults:
     securityContext:
       runAsGroup: 568
