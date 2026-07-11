@@ -1,7 +1,7 @@
 # sglang — Qwen3.6-27B on RDNA4
 
 Primary inference backend for `qwen-3.6`. Serves dense **Qwen3.6-27B-AWQ** on the single
-AMD R9700 (gfx1201/RDNA4, 32 GB) via the **mattbucci SGLang RDNA4 fork** (v0.5.14, torch
+AMD R9700 (gfx1201/RDNA4, 32 GB) via the **mattbucci SGLang RDNA4 fork** (v0.5.15, torch
 2.11+rocm7.2, Triton 3.6), TP=1, prefix-cache on.
 
 Full benchmarks, the optimization ledger and the engine-selection rationale live in
@@ -9,7 +9,8 @@ Full benchmarks, the optimization ledger and the engine-selection rationale live
 
 ## Config at a glance
 
-- **Engine:** SGLang v0.5.14 (mattbucci fork @ `60ffa9501`), `qwen36-27b` preset, TP=1, KV
+- **Engine:** SGLang v0.5.15 (mattbucci fork @ `a0445f59e9`, 3 local v0.5.15 patch overrides —
+  see [`docker/sglang-rdna4/README.md`](../../../../docker/sglang-rdna4/README.md)), `qwen36-27b` preset, TP=1, KV
   dtype fp8_e4m3, mem-fraction 0.875, 48Gi pod limit (~15 GB pinned HiCache host pools + the
   AWQ shard-load transient, ~6 GB at 2 loader threads).
   mem-fraction was cut 0.90→0.875 to free ~0.8 GB VRAM for the co-resident VAAPI transcoders
