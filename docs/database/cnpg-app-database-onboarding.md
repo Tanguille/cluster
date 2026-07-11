@@ -30,6 +30,18 @@ Two Flux Kustomizations reconcile these:
   references each Secret via `managed.roles[].passwordSecret`, and CNPG requires that Secret to be
   in the Cluster's namespace — co-locating them means the Cluster never points at a Secret that has
   not been applied yet.
+> **Why these aren't co-located with each app.** `Database.spec.cluster` and
+> `managed.roles[].passwordSecret` are Kubernetes `LocalObjectReference`s — the schema has no
+> namespace field, so CNPG always resolves the Cluster/Secret *in the same namespace as the object
+> doing the referencing*. Since `postgres16` lives in `database`, every `Database` CR and role
+> Secret must too; there is no way to place them in an app's own namespace and have them work.
+> This is a known, tracked upstream limitation:
+> [cloudnative-pg/cloudnative-pg#6043](https://github.com/cloudnative-pg/cloudnative-pg/issues/6043)
+> ("allow cross-namespace Database and Role configuration"), open and unimplemented as of
+> 2026-07-11. If/when that lands, revisit moving `cluster/roles/<app>.sops.yaml` and
+> `databases/<app>.yaml` into each app's own directory — until then, the shared-cluster model here
+> requires the centralized layout below.
+
 - **`cloudnative-pg-databases`** (`dependsOn: cloudnative-pg-cluster`, `wait: true`) reconciles the
   `Database` CRs. Kept as a separate Kustomization so a single DB-provisioning failure can't stall
   the shared, `wait: true` cluster Kustomization and cascade to every app depending on it.
