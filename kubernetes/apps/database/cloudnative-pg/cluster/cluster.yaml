@@ -47,6 +47,11 @@ spec:
         login: true
         passwordSecret:
           name: sonarr-db
+      - name: prowlarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: prowlarr-db
   postgresql:
     parameters:
       wal_level: replica
