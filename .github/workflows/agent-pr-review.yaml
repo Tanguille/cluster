@@ -18,7 +18,13 @@ permissions:
 jobs:
   review:
     runs-on: cluster-runner
-    if: ${{ github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository }}
+    # Renovate's type/digest PRs do not need model review.
+    if: >-
+      ${{
+        github.event.pull_request.draft == false &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        !contains(github.event.pull_request.labels.*.name, 'type/digest')
+      }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -62,8 +68,7 @@ jobs:
             Fetch them with the gh_api tool (api.github.com /repos/OWNER/REPO/releases JSON); do
             not web_fetch github.com HTML pages, they truncate to boilerplate. Summarize them in a
             **Release notes** section in review_markdown: user-visible changes, breaking changes,
-            and security fixes. For digest-only bumps with no upstream changelog, state that
-            briefly instead of spending tool calls searching.' }}
+            and security fixes.' }}
             Review quality rules: Before flagging a config, env var, or resource as missing,
             read the file that would contain it; if unverifiable, file it under Unknowns at
             info severity, never as a blocker or major. Cite only sources fetched this run;
@@ -88,5 +93,7 @@ jobs:
           # 900s lets a serialized review finish its tool loop (within-review prefix cache keeps
           # later turns cheap; runner maxRunners:1 serializes the renovate burst).
           tool_loop_wall_clock_sec: "900"
+          # Native-loop turns use a separate total timeout; 60s expired during 155-220s prefills.
+          tool_planning_timeout_sec: "600"
           tool_loop_summarize: "true"
           search_url: http://searxng.default.svc.cluster.local:8080/search
