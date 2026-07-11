@@ -40,18 +40,20 @@
 
 ---
 
-### Task 1: Preflight verification + worktree setup
+### Task 1: Preflight verification + worktree setup — ✅ complete (2026-07-11)
+
+Status: main clean/in sync with origin. In-cluster `kustomize-controller` is `v1.9.2` (above the v1.9.0 floor). Worktree + branch already existed from the PR #3622 prep session; reused rather than recreated. `age.key` copied in, classical decryption verified working from the worktree.
 
 **Files:** none modified — verification only.
 
-- [ ] **Step 1: Verify branch and repo state**
+- [x] **Step 1: Verify branch and repo state**
 
 ```bash
 git pull && git status
 git branch --show-current   # expect: main
 ```
 
-- [ ] **Step 2: Verify the actual in-cluster kustomize-controller version (not just the CLI pin — the cluster doesn't auto-upgrade when `.mise.toml` changes)**
+- [x] **Step 2: Verify the actual in-cluster kustomize-controller version (not just the CLI pin — the cluster doesn't auto-upgrade when `.mise.toml` changes)**
 
 ```bash
 kubectl -n flux-system get deployment kustomize-controller \
@@ -60,7 +62,7 @@ kubectl -n flux-system get deployment kustomize-controller \
 
 Expected: `ghcr.io/fluxcd/kustomize-controller:v1.9.1@sha256:...` or newer. This was already confirmed live on 2026-07-02 — re-confirm at execution time in case the cluster has since rolled back or someone downgraded Flux. If the version is below v1.9.0, **stop** — PQ recipients will not decrypt in-cluster and the rest of this plan is unsafe to run.
 
-- [ ] **Step 3: Create the worktree**
+- [x] **Step 3: Create the worktree**
 
 ```bash
 git worktree add .worktrees/sops-age-post-quantum -b feat/sops-age-post-quantum
@@ -68,7 +70,7 @@ cp -r .vscode .claude age.key .worktrees/sops-age-post-quantum/
 cd .worktrees/sops-age-post-quantum
 ```
 
-- [ ] **Step 4: Verify tooling resolves inside the worktree and existing decryption still works (supersedes a plain version check — this exercises the real path)**
+- [x] **Step 4: Verify tooling resolves inside the worktree and existing decryption still works (supersedes a plain version check — this exercises the real path)**
 
 ```bash
 sops --version   # expect sops 3.13.2+
@@ -76,11 +78,13 @@ age --version    # expect v1.3.1+
 SOPS_AGE_KEY_FILE=./age.key sops -d kubernetes/components/common/cluster-secrets.sops.yaml > /dev/null && echo "OK: existing classical decryption still works in worktree"
 ```
 
-- [ ] **Step 5: Update plan status to "Task 1 complete", pause for confirmation before Task 2.**
+- [x] **Step 5: Update plan status to "Task 1 complete", pause for confirmation before Task 2.**
 
 ---
 
-### Task 2: Generate the PQ keypair, back up the classical key
+### Task 2: Generate the PQ keypair, back up the classical key — ✅ complete (2026-07-11)
+
+Status: `age-classical-backup.key` and `age-pq.key` created (gitignored, worktree-local). `age.key` rebuilt as dual-identity file; `age-keygen -y age.key` confirmed both recipients present (classical `age12gul5m0...` + PQ `age1pq1f696t70thmae32r7s6eqscyncz4tveaqsd53k2pw82kems2v02mcmeuj4j85swr6zdp3z3ay6kuq26z9d37928w58se3a7cvghzzlthmhfmdcn66sc8kcwp56672yjn5szvqet5q5v46a3kphepytfstdah95v95awn25jvc8ce2nmes0cqykax6n2tkf94pxqcjkn55wjjrgmk2dgh2xggl5gskxy4t20x88pqqtgnfe8pyymfuwmy3e9muvja9x3gf8can07seky8hv6ve9v0auzdyhpa2xwczme5ejxtdx6xtqp47cwe8q026gzh5wz0x82dezz5jkgznskq960ltwtfxsdj27seql0rtu3jqqkkm4xgqcfzjnxrzyevea8vgz5hr8053yt56qd9r6umydx93usfuzznen9wlew6500ydcqpjk2jm4x0ewy34ngjpj4uwu4p5dzynca4grrfghsnllum865u9f8py3nq69r0kjarppxfgvfgptuqpxkar2wvq7r8ys4vuuc2pj0433ceax49znp8sfqj5dl29ulcczqqw20pcjygxkc26tzv35ln8c7jjfre957v88wq9n8xxf4qgw3wpv2hh74gwuacnr2f4krkxzjs45a46v62jdkgmq0qnk3vhe9s2kgfjw3dzn6d4fnwyrt4ke6fverqc4x4mxpj6ffahw3mqv8g6vjgg2p46u53zrhgsnyr4x5dmxsmmpzdhjdu436ey89qmxgca8sjdwuzjhcvtewm9yppzjs9ef2p8q2mdjfcjh3uu3fq5py04sv8pskjvqd9y0ta8axmh239u4zlrgpdmwfe7r0wpgt788xgjwjx0vxdjr5gzk4quukyv2rvefjacg38mpwqyjaxv9q294v4f03g5x3ve79c27fgt3u34vmrcty09sje3yw2rraa5x9y5t3u4rtcpu5ay8jrx44u8dfehw5ulgfgqjza0lce4tz6s34uq00ayrg6vk6hgjuql55z6taltx04mjehmkk487ddd5zuzguqu8nvz2d5fhgl6sx3x775zdw29xnr8jgmltyfze2ymsz92u2dk4v70jzfsvc34m3ajkg9965rcqe9nn3aehwcr047p6xfnc55cv6tjewdrg6mff4glrwd9p8q5sa9repr0w3hzw42d9dys6u8hr50v83v8y5lzncql6ty9gfkcc4pcst683ddz2vky7u9g8gkrjy440r8yrsdw5cq6cpj23fjqxrj0t2gj5cpyv6407luycyd8p6pmjym3g46w2aj7f79nce73g30zwr4hx7mz2emrwkkgst53q85zyveg7fen5vtfjc3y6m0f5mkwj3yq5643c3jstgcz9fgsgu5hdx4u27wud5a3kgv8ysdh9z295mxh6j2pp96qwk34jevrqhn8zutwvvzwla53mrqh6czjpq6ud0c0psd7zznkgjczqsppq36ujygqnz4nc5sg40ngkfh3k5qyfdvx4slv9xcaceu83mzzr0unc3y4fznt0dal42z2kye8vxjz4yur33azljufrzg3d0lmxw2n53efhjr8wxtfstz4jjhn9pynzf425jryfpgf23pc6ykm4049qgu2xsz2nyrhty5yjla9xueyxwka77ztx7n6ndak0lg5n2fpveff8j2g49dyp3wqsvqmnm638nxwrd3g4hxqese8mmwt3cmr0jdykdnvqsmd9zumt0e6jkaktpppspsw4szfu7ft79r8gqwspdw7256lqmpr6r6hm2xxv0uwzqw6q3ffcy4y9n7tzxzhr22gf3qwxu8rhq9ceuj8jd4qsc7yexsa27d3dkwelklhk77c8zlf5aeg8y3usluk4y749ltlt7eh5xyf8al09nwljekxe74s7uj0hd07sm0zxgqal48prwgvl9svx0ucvze2yy3yygsqjwpc`).
 
 **Files:**
 - Create: `age-classical-backup.key` (worktree root, gitignored)
@@ -90,13 +94,13 @@ SOPS_AGE_KEY_FILE=./age.key sops -d kubernetes/components/common/cluster-secrets
 **Interfaces:**
 - Produces: `PQ_RECIPIENT` env var (the `age1pq1...` public recipient string) — Task 3 consumes this.
 
-- [ ] **Step 1: Back up the current classical-only identity file before mutating it**
+- [x] **Step 1: Back up the current classical-only identity file before mutating it**
 
 ```bash
 cp age.key age-classical-backup.key
 ```
 
-- [ ] **Step 2: Generate the hybrid PQ keypair and extract its recipient**
+- [x] **Step 2: Generate the hybrid PQ keypair and extract its recipient**
 
 Same extraction idiom already validated in `docs/sops-post-quantum.md`'s sandbox test:
 
@@ -105,13 +109,13 @@ age-keygen -pq -o age-pq.key
 PQ_RECIPIENT=$(grep '^# public key:' age-pq.key | cut -d: -f2 | tr -d ' ')
 ```
 
-- [ ] **Step 3: Build the dual-identity file SOPS_AGE_KEY_FILE points to**
+- [x] **Step 3: Build the dual-identity file SOPS_AGE_KEY_FILE points to**
 
 ```bash
 cat age-classical-backup.key age-pq.key > age.key
 ```
 
-- [ ] **Step 4: Verify the combined identity file derives both recipients**
+- [x] **Step 4: Verify the combined identity file derives both recipients**
 
 ```bash
 age-keygen -y age.key
@@ -119,7 +123,7 @@ age-keygen -y age.key
 
 Expected: two lines — the existing classical recipient (`age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq`) and the new `age1pq1...` recipient (this is also the authoritative check that `PQ_RECIPIENT` from Step 2 was extracted correctly — no separate sanity check needed).
 
-- [ ] **Step 5: Update plan status to "Task 2 complete" (record `PQ_RECIPIENT` value in the status notes), pause for confirmation before Task 3.**
+- [x] **Step 5: Update plan status to "Task 2 complete" (record `PQ_RECIPIENT` value in the status notes), pause for confirmation before Task 3.**
 
 ---
 
@@ -131,7 +135,7 @@ Expected: two lines — the existing classical recipient (`age12gul5m0dg9nn2gk69
 **Interfaces:**
 - Consumes: `PQ_RECIPIENT` from Task 2.
 
-- [ ] **Step 1: Edit the second creation rule only — leave the `talos/` rule untouched (out of scope)**
+- [x] **Step 1: Edit the second creation rule only — leave the `talos/` rule untouched (out of scope)**
 
 Current content:
 ```yaml
@@ -160,7 +164,7 @@ Change only the `age:` value under the `(bootstrap|kubernetes)/...` rule to a co
 
 (Use the Edit tool with the exact old/new block above — do not use a blind `sed` replace, the classical recipient string appears twice in the file and an unanchored replace would also add the PQ recipient to the out-of-scope `talos/` rule.)
 
-- [ ] **Step 2: Verify the YAML is valid and only the second rule changed**
+- [x] **Step 2: Verify the YAML is valid and only the second rule changed**
 
 ```bash
 yq e '.creation_rules' .sops.yaml
@@ -169,35 +173,36 @@ git diff .sops.yaml
 
 Confirm: rule 0 (`talos/...`) unchanged, rule 1 (`(bootstrap|kubernetes)/...`) now has both recipients comma-separated.
 
-- [ ] **Step 3: Commit (no push yet)**
+- [x] **Step 3: Commit (no push yet)**
 
 ```bash
 git add .sops.yaml
 git commit -m "feat(sops): add post-quantum age recipient alongside classical key"
 ```
 
-- [ ] **Step 4: Update plan status to "Task 3 complete", pause for confirmation before Task 4.**
+- [x] **Step 4: Update plan status to "Task 3 complete", pause for confirmation before Task 4.**
 
 ---
 
-### Task 4: Re-encrypt `sops-age.sops.yaml` first, in isolation — this is the highest blast-radius file
+### Task 4: Re-encrypt `sops-age.sops.yaml` first, in isolation — this is the highest blast-radius file — ✅ complete (2026-07-11), verified live in-cluster
 
 This file holds the private key Flux's `kustomize-controller` uses to decrypt *every other* secret in the cluster. It must be updated and verified alone, before any other secret is touched — and unlike a routine secret, its plaintext must never touch disk during the edit.
+
+**Correction found during execution:** `sops set --value-file` failed with `Value for --set is not valid JSON` — `sops set`'s value (whether inline, `--value-file`, or `--value-stdin`) must always be JSON-encoded, even multi-line file content. Fixed with `jq -Rs . age.key | sops set --value-stdin ...` (JSON-encodes the content, still never touches the command line or an intermediate plaintext file). Separately, `sops set` only rewrites the target field — it does **not** rewrap the file's outer recipients to match `.sops.yaml`, so the "expect: 2 recipients" check failed until a follow-up `sops updatekeys -y` was run. Both are now required in Step 1.
 
 **Files:**
 - Modify: `kubernetes/components/common/sops-age.sops.yaml`
 
-- [ ] **Step 1: Update the `age.agekey` field in place, in a single sops operation**
-
-`sops set --value-file` reads the new value straight from `age.key` and rewrites just that field — no intermediate plaintext file, no secret material on the command line (confirmed via `sops set --help`: "avoids leaking secrets in process listings"):
+- [x] **Step 1: Update the `age.agekey` field in place, then rewrap outer recipients to match `.sops.yaml`**
 
 ```bash
-sops set --value-file kubernetes/components/common/sops-age.sops.yaml \
-  '["stringData"]["age.agekey"]' age.key
+jq -Rs . age.key | sops set --value-stdin kubernetes/components/common/sops-age.sops.yaml \
+  '["stringData"]["age.agekey"]'
+sops updatekeys -y kubernetes/components/common/sops-age.sops.yaml
 grep -c "recipient:" kubernetes/components/common/sops-age.sops.yaml   # expect: 2
 ```
 
-- [ ] **Step 2: Verify BOTH the current in-cluster identity (classical-only) and the new PQ-only identity can independently decrypt this file — this is the safety gate before pushing**
+- [x] **Step 2: Verify BOTH the current in-cluster identity (classical-only) and the new PQ-only identity can independently decrypt this file — this is the safety gate before pushing**
 
 ```bash
 SOPS_AGE_KEY_FILE=age-classical-backup.key sops -d kubernetes/components/common/sops-age.sops.yaml > /dev/null \
@@ -209,7 +214,7 @@ SOPS_AGE_KEY_FILE=age-pq.key sops -d kubernetes/components/common/sops-age.sops.
 
 Both must print OK. If either fails, do not proceed — fix before committing.
 
-- [ ] **Step 3: Commit and push**
+- [x] **Step 3: Commit and push**
 
 ```bash
 git add kubernetes/components/common/sops-age.sops.yaml
@@ -219,7 +224,9 @@ git push -u origin feat/sops-age-post-quantum
 
 Open/update a PR if that's this repo's normal flow for cluster changes, or note that Flux tracks `main` and this needs merging before it reconciles — confirm with the user which applies here before pushing.
 
-- [ ] **Step 4: Watch Flux reconcile and confirm the in-cluster secret actually updated**
+**What actually happened:** Flux tracks `main`, and this change was sitting on the still-open PR #3622 branch — a push to the branch alone does nothing until merged. Before merging, got two independent second opinions (Fable 5 and GPT via Codex) on whether the dual-recipient rollover of the master decryption secret was safe; both returned GO, citing actual `kustomize-controller` v1.9.2 source (fresh secretRef `Get` + `ImportKeys` per reconcile, no restart path) and SOPS/age multi-recipient design (independent per-recipient envelopes). Also ran an extra smoke test: the exact dual-identity `age.key` content written into the secret was used to decrypt an unrelated real secret elsewhere in the repo, confirming the concatenated format is well-formed. PR #3622 squash-merged to `main` (`fba3267b0`).
+
+- [x] **Step 4: Watch Flux reconcile and confirm the in-cluster secret actually updated**
 
 ```bash
 flux get kustomizations -A
@@ -228,7 +235,9 @@ kubectl -n flux-system get secret sops-age -o jsonpath='{.data.age\.agekey}' | b
 
 Expected: the decoded secret now contains *both* the classical `AGE-SECRET-KEY-1...` block and the PQ `AGE-SECRET-KEY-PQ-1...` block. If it doesn't, check `kubectl -n flux-system logs deploy/kustomize-controller --since=10m` for decrypt errors before restarting `kustomize-controller`.
 
-- [ ] **Step 5: Update plan status to "Task 4 complete", record what was actually observed (secret updated cleanly / needed a controller restart / etc). Pause for confirmation before Task 5.**
+**What actually happened:** Forced `flux reconcile kustomization flux-system --with-source`. Confirmed via count-only greps (no key content printed) that the live `sops-age` Secret contains exactly one classical and one PQ identity block. **No controller restart needed** — matches both models' prediction. All Kustomizations cluster-wide reported `Ready=True` at revision `fba3267b0` within seconds, zero decrypt errors in `kustomize-controller` logs.
+
+- [x] **Step 5: Update plan status to "Task 4 complete", record what was actually observed (secret updated cleanly / needed a controller restart / etc). Pause for confirmation before Task 5.**
 
 ---
 
