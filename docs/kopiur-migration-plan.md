@@ -306,13 +306,16 @@ kopiur.home-operations.com` → 8, kopiur alerts visible in the ruler and the
 dashboard in Grafana. Nothing touches volsync; deleting the Kustomization
 reverts everything.
 
-**Status**: ☑ manifests written + validated 2026-07-11 (`kubernetes/apps/kopiur-system/{kustomization.yaml,kopiur/ks.yaml,kopiur/app/*}`,
-`BACKUP_NFS_PATH` added to cluster-settings); `kustomize build` and a real
-`helm template` dry-run against the pinned chart both confirmed clean
-(NFS volume mounted at `/repo`, podSecurityContext 568, RBAC/Deployments/
-ServiceMonitor/PrometheusRule/dashboard all render). Not yet committed or
-pushed — cluster-side verification (operator Ready, CRD count, alerts live)
-pending push authorization.
+**Status**: ☑ done — merged via PR #3800 (2026-07-11) and verified live in-cluster:
+Kustomization `kopiur` `Ready=True`; `kopiur-controller` + `kopiur-webhook`
+pods `1/1 Running`; `kubectl get crd | grep kopiur.home-operations.com` → 8;
+validating + mutating webhooks registered; `/repo` NFS volume mounted on the
+controller (confirmed via pod spec + clean startup logs, leader elected,
+webhook TLS self-provisioned); `kopiur-dashboard` ConfigMap present;
+`PrometheusRule/kopiur-controller` live with 6 alerts
+(`KopiurBackupConsecutiveFailures`, `KopiurBackupStale`,
+`KopiurRepositoryNotReady`, `KopiurSnapshotFailed`, `KopiurRestoreFailed`,
+`KopiurReconcileErrorsHigh`). No volsync apps touched.
 
 ## Phase 2 — Adopt the repository via `kubectl kopiur migrate volsync`
 
