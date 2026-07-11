@@ -30,7 +30,7 @@ Stay ahead of **ToolHive** churn: each minor often changes CRD shapes, Helm valu
 
 - **Helm OCI pins:** `kubernetes/apps/ai/toolhive/app/ocirepository.yaml`, `kubernetes/apps/ai/toolhive/crds/ocirepository.yaml` (`ref.tag`).
 - **Workload manifests:** `kubernetes/apps/ai/toolhive/config/*.yaml` (`MCPServer`, `VirtualMCPServer`, `MCPGroup`, `MCPServerEntry`, …).
-- **Legacy doc (may lag):** `docs/ai/toolhive-v0.15-compatibility.md` — pair **GitHub releases** (for a shipped tag) with **`main`** (for churn since that tag).
+- **Upstream evidence:** pair **GitHub releases** for a shipped tag with **`main`** for churn since that tag.
 
 ## Workflow (do in order)
 
