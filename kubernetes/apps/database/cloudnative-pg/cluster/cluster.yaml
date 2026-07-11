@@ -75,6 +75,11 @@ spec:
         createdb: true
         passwordSecret:
           name: nextcloud-db
+      - name: grafana
+        ensure: present
+        login: true
+        passwordSecret:
+          name: grafana-db
   postgresql:
     parameters:
       wal_level: replica
