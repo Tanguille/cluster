@@ -1,0 +1,39 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: crowdsec-bouncer-rules
+spec:
+  groups:
+    - name: crowdsec-bouncer.rules
+      rules:
+        - alert: CrowdsecBouncerLAPIDisconnected
+          expr: |-
+            bouncer_lapi_stream_connected == 0
+          for: 10m
+          annotations:
+            summary: >-
+              Envoy bouncer lost its LAPI decision stream — ban enforcement has stopped (fails open, silently)
+          labels:
+            severity: critical
+
+        - alert: CrowdsecBouncerAbsent
+          expr: |-
+            absent(bouncer_lapi_stream_connected)
+          for: 15m
+          annotations:
+            summary: >-
+              Envoy bouncer is not reporting metrics (pod down or scrape broken) — gateway enforcement is unmonitored
+          labels:
+            severity: critical
+
+        - alert: CrowdsecWAFFailingOpen
+          expr: |-
+            rate(bouncer_waf_errors_total[5m]) > 0
+          for: 10m
+          annotations:
+            summary: >-
+              Bouncer WAF calls are erroring — requests pass through uninspected (fails open)
+          labels:
+            severity: warning
