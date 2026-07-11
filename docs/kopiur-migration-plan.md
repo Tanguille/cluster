@@ -605,10 +605,30 @@ not the stale README):
    the Risk gate's #233 note. Don't force-reconcile or prune-and-recreate its
    Kustomization without checking for orphaned `prime-*` PVCs afterward.
 
-**Rollback (canary only)**: the volsync history is still in the repo; swap the
-component back, recreate the sops secret, and a `ReplicationDestination`
-restore-once repopulates from the same snapshots.
-**Status**: ☐ not started
+**Component built 2026-07-12** — `kubernetes/components/kopiur/` (4 files +
+`kustomization.yaml`), verified with a standalone `kustomize build` against
+the component before wiring any app. Two deviations from the draft above,
+both confirmed against `crates/api/src/identity.rs` (`resolve_identity`),
+not guessed:
+- **No `spec.identity` override needed at all.** The default `username` is
+  the `SnapshotPolicy`'s own `metadata.name`, the default `hostname` is its
+  `metadata.namespace` — since both objects are named `${APP}` in the app's
+  own namespace, the defaults already resolve to exactly `<app>@<namespace>`,
+  matching the fork's recorded identity with zero config. Only
+  `sources[0].sourcePathOverride: /data` is needed, because kopiur's own
+  default source path is `/pvc/<name>`, not `/data` — the fork's mover
+  always recorded `/data` regardless of the app's real container mount
+  path, so this one field is what actually preserves continuity.
+- Added `ClusterRepository.spec.credentialProjection.allowed: true` (the
+  repository-owner gate) — the draft's per-policy `credentialProjection.
+  enabled: true` is necessary but not sufficient; the CRD requires the gate
+  set on the owning `ClusterRepository` too, or every mover Job 403s
+  copying the credential Secret into its own namespace.
+
+**Rollback (component)**: unreferenced by any app yet — delete the
+directory, nothing live depends on it.
+**Status**: component ☑ done (unwired); canary cutover (dumbassets) ☐ not
+started — next live step.
 
 ## Phase 5 — Fleet-wide cutover (single flip, not staged batches)
 
