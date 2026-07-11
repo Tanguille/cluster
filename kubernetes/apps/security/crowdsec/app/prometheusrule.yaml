@@ -1,0 +1,19 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: crowdsec-rules
+spec:
+  groups:
+    - name: crowdsec.rules
+      rules:
+        - alert: CrowdsecAppsecAbsent
+          expr: |-
+            absent(up{job="crowdsec-appsec-service"})
+          for: 10m
+          annotations:
+            summary: >-
+              Crowdsec appsec engine is down — the bouncer's WAF calls fail open (requests pass uninspected)
+          labels:
+            severity: warning
