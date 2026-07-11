@@ -113,6 +113,12 @@ Mitigations baked into this plan:
   discovered snapshots are *permanently* exempt from pruning by design; if
   #233 recurs against an adopted repo, orphaned history compounds forever,
   not just once.
+- **Repo-wide `0700` permission drift (found + fixed 2026-07-11, mechanism
+  unconfirmed, could recur)**: kopia silently retries `PermissionDenied`
+  forever instead of erroring, so a stuck mover with no log output and
+  near-zero CPU is this, not a slow backend. Check first with `find /repo
+  -type d -not -perm 0775` / `-type f -not -perm 0775` before chasing
+  anything else. Full writeup in Phase 2 below.
 
 ## Current state (inventoried 2026-07-03, re-verified 2026-07-11)
 
@@ -386,7 +392,7 @@ Verify (the load-bearing step of the whole plan):
    output, not just eyeballed.
 3. Snapshot counts match the Phase 1 baseline (recorded 2026-07-11 via
    `kubectl -n volsync-system exec <kopia-pod> -- kopia snapshot list --all`,
-   22 identities, not 18 — see next bullet).
+   23 identities, not 18 — see next bullet).
 4. Baseline includes 5 identities with no live app or git reference at all:
    `moltis@ai`, `music-assistant@media`, `n8n@ai`, `open-webui@ai`,
    `trilium@default` — decommissioned apps, orphaned snapshot history only.
@@ -396,13 +402,74 @@ Verify (the load-bearing step of the whole plan):
 
 **Rollback**: delete the ClusterRepository — catalog rows vanish, repo data
 untouched (discovered snapshots are Retain-forced).
-**Status**: ☑ manifests drafted + validated 2026-07-11
-(`kubernetes/apps/kopiur-system/kopiur/{ks.yaml,repository/*}`, committed
-locally on `docs/kopiur-phase1-verified` — `kustomize build` and
-`flate test all` both clean, 277/277). Not yet pushed/applied — the "Verify"
-steps above (ClusterRepository Ready, discovered Snapshot identities,
-snapshot-count cross-check against the 22-identity baseline) are pending
-push authorization and a live reconcile.
+
+### Root cause found during live verification: repo-wide permission drift
+
+Manifests merged clean via PR #3808, but the bootstrap Job then hung
+silently — no error, near-zero CPU, only its two startup log lines — across
+three separate attempts with deadlines raised 120s → 600s → 2700s
+(PRs #3817, #3819). None of it was a timeout problem. Root-caused by
+attaching a `kubectl debug` ephemeral container sharing the mover's process
+namespace and reading kopia's own internal CLI log (`/var/cache/kopia/logs/
+cli-logs/*.log` on the mover's `emptyDir` cache, independent of the
+`RUST_LOG`-gated stderr wrapper — this is the technique to reach for first
+next time a mover looks silently stuck):
+
+- **1,943 of 3,409 directories (57%) and 7,089 of 8,139 files (87%)** in the
+  NFS repo had drifted to mode `0700`, owned by `568:568` — readable only by
+  that exact UID. `kopiur-mover` runs as `65532:65532` and, on every
+  `PermissionDenied` from a directory walk, kopia retries forever with
+  capped exponential backoff (never surfaces an error) — so the Job just
+  spun silently until whatever deadline was configured killed it. Fixed
+  directly on the NAS data (not git-tracked): `find /repo -type d -not
+  -perm 0775 -exec chmod 0775 {} +` and the file equivalent, matching the
+  already-working minority permission mode. ~2 minutes total, no data
+  touched, reversible.
+- Manual `kopia` CLI testing during triage was misleading at first — it ran
+  as root (default in the `kopia/kopia` debug image), which bypasses Unix
+  DAC entirely, so every manual connect/list/status check looked instantly
+  fast while the real (non-root) mover was stuck. Don't trust a root-shell
+  repro when the failing process runs non-root — reproduce with matching
+  UID/GID, or go straight to inspecting the actual stuck process.
+- A concurrent, *unrelated* distraction during the same troubleshooting
+  window: `control-2`'s known iGPU GTT leak (`qwen3-embedding`/
+  `vmcp-embedding`, see memory) flared up (`NodeNotReady x3 over 146m`) and
+  SIGKILLed two bootstrap attempts that happened to land there. Fixed by
+  deleting the leaking embedder pods (standard recovery, no reboot). Cost
+  real debugging time before the node-event evidence separated it from the
+  actual (unrelated) permission-drift root cause.
+- Once the repo's read permissions were fixed, bootstrap read-succeeded but
+  a *second*, narrower gap surfaced: `kopiur-mover` (`65532:65532`) could
+  read everything but couldn't create new paths (`mkdir /repo/s7a:
+  permission denied`) — `/repo` and its contents are `568:568`, group-write
+  only, and the mover isn't in group 568. Fixed via `spec.moverDefaults.
+  securityContext.runAsGroup: 568` on the `ClusterRepository` (PR #3823,
+  live-verified with a throwaway UID 65532/GID 568 pod before merging) —
+  no repo permission changes, no TrueNAS-side reconfiguration (568 is a
+  cluster/NAS-wide TrueCharts-derived convention, confirmed impractical to
+  change at the source).
+- **Open question, not yet root-caused**: *why* the repo drifted to a mixed
+  `0700`/`0775` state in the first place is unknown — plausibly a change in
+  kopia's own directory/file creation mode across the fork's version
+  history, but unconfirmed. Since the fork keeps writing (dual-write
+  through Phase 5) with its own process running as `568:568`, and kopiur's
+  own movers now default to `568` too, **watch for recurrence**: if
+  either side's kopia binary creates *new* blobs at a restrictive mode
+  again, the other side's reads/writes on that new content could silently
+  degrade the same way. No monitoring for this exists yet — a stuck-mover
+  investigation should check `find /repo -type d -not -perm 0775` /
+  `-type f -not -perm 0775` early, not last.
+
+Verified 2026-07-11: `ClusterRepository/kopia-nas` reached `phase: Ready`
+(`Bootstrapped: True`, `IndexBlobHealth: True`), 493 discovered `Snapshot`
+CRs materialized across exactly 23 unique identities — the 18 live apps
+plus all 5 orphaned identities from the Phase 1 baseline, each landing in
+the correct namespace, no extras and no gaps.
+
+**Status**: ☑ done — merged via PR #3808 (manifests), #3817 + #3819
+(bootstrap deadline, superseded by the real fix below), #3823 (mover
+write-access GID). `ClusterRepository/kopia-nas` `Ready` in-cluster,
+2026-07-11.
 
 ## Phase 3 — Maintenance ownership takeover
 
