@@ -1,14 +1,14 @@
 # PR review phase subagent prompts
 
-Spawn each phase with `subagent_type: general` (or `code-reviewer` only when the user requests a single focused pass). Replace `PR_ID` and file lists from the PR or local diff.
+Spawn each phase with `subagent_type: general-purpose` (or `code-reviewer` only when the user requests a single focused pass). Replace `PR_ID` and file lists from the PR or local diff.
 
 Output paths: `.agents/pr-review/pr-${PR_ID}/phase-<N>-*.md`
 
 ## Phase 1 — YAML format
 
 ```yaml
-subagent_type: general
-description: PR Review Phase 1: YAML Format
+subagent_type: general-purpose
+description: "PR Review Phase 1: YAML Format"
 prompt: |
   Review YAML formatting for PR.
 
@@ -42,8 +42,8 @@ prompt: |
 ## Phase 2 — Naming
 
 ```yaml
-subagent_type: general
-description: PR Review Phase 2: Naming Conventions
+subagent_type: general-purpose
+description: "PR Review Phase 2: Naming Conventions"
 prompt: |
   Review naming conventions for PR.
 
@@ -64,8 +64,8 @@ prompt: |
 ## Phase 3 — Best practices
 
 ```yaml
-subagent_type: general
-description: PR Review Phase 3: Best Practices
+subagent_type: general-purpose
+description: "PR Review Phase 3: Best Practices"
 prompt: |
   Review HelmRelease best practices for PR.
 
@@ -75,7 +75,7 @@ prompt: |
   - Probes: livenessProbe + readinessProbe
   - Resources: requests + limits
   - Security: securityContext
-  - Routes: envoy-internal parentRef
+  - Routes: envoy-internal or envoy-external parentRef (external exposure must be intentional)
   - Hostnames: {{ .Release.Name }}.${SECRET_DOMAIN}
 
   TASKS:
@@ -96,8 +96,8 @@ See [best-practices.md](best-practices.md) for expanded validation topics.
 ## Phase 4 — Security
 
 ```yaml
-subagent_type: general
-description: PR Review Phase 4: Security
+subagent_type: general-purpose
+description: "PR Review Phase 4: Security"
 prompt: |
   Review security for GitOps Kubernetes PR.
 
@@ -120,8 +120,8 @@ prompt: |
 ## Phase 5 — Architecture
 
 ```yaml
-subagent_type: general
-description: PR Review Phase 5: Architecture
+subagent_type: general-purpose
+description: "PR Review Phase 5: Architecture"
 prompt: |
   Review architecture patterns for GitOps Kubernetes PR.
 
@@ -142,26 +142,22 @@ prompt: |
 ## Phase 6 — Validation
 
 ```yaml
-subagent_type: general
-description: PR Review Phase 6: Validation
+subagent_type: general-purpose
+description: "PR Review Phase 6: Validation"
 prompt: |
   Run validation tools for GitOps Kubernetes PR.
 
   TOOLS:
   - kustomize build: Kustomization validity (also catches YAML syntax/duplicate keys)
   - flux build: Flux reconciliation
+  - shellcheck: touched shell scripts
 
-  COMMANDS:
-  - mise exec -- shellcheck scripts/*.sh
-  - kustomize build kubernetes/apps/<namespace>/<app>/
-  - flux build kustomization <name> --path <path>
+  Run `bash .agents/skills/pr-review/scripts/validate-pr.sh` for all three, or the individual commands in [best-practices.md](best-practices.md#validation-command-pattern).
 
   TASKS:
   1. Run shellcheck on touched scripts
   2. Run kustomize build
-  4. Run flux build
+  3. Run flux build
 
   OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-6-validation.md.
 ```
-
-Optional helper: `bash .agents/skills/pr-review/scripts/validate-pr.sh` when present and applicable.

@@ -1,9 +1,8 @@
 ---
 name: pr-review
 description: >-
-  Run six-phase parallel PR reviews for GitOps Kubernetes. Spawns subagents for YAML format,
-  naming, best practices, security, architecture, and validation. Produces severity-graded
-  findings with actionable summaries. Isolates each review by PR number or local-changes id.
+  Review GitOps Kubernetes PRs or local diffs: YAML format, naming, HelmRelease patterns,
+  SOPS/security, structure, and build validation.
 
   user: "Review this PR" → six parallel subagents, aggregate under .agents/pr-review/pr-<id>/
   user: "Check my app config" → phase 3 (best practices) subagent

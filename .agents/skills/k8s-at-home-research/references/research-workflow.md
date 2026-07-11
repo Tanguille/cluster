@@ -4,20 +4,6 @@
 
 Start broad, then narrow by resource type. Use exact code-shaped queries rather than broad prose.
 
-### Tool preference
-
-1. Use **kubesearch MCP** first — it queries pre-indexed kubesearch.dev data without needing GitHub API rate limit:
-   - `kubesearch_search_releases` — find apps by chart name, ranked by deployment count.
-   - `kubesearch_get_release` — drill into a chart for every deployment and its `spec.values`.
-   - `kubesearch_grep_values` — full-text grep across real-world Helm values for config examples.
-   - `kubesearch_search_images` — find container image repositories and tags.
-   - Then `repo_clone`/`repo_read_file`/`repo_grep` to review exemplar manifests from indexed repos.
-2. Fall back to **GitHub MCP** repository search and file reads for repos not yet indexed by kubesearch.
-3. Use `gh search repos <term> --topic k8s-at-home` when MCP is unavailable or when you need a quick shell-native shortlist.
-4. Use `gh search code` or `grep_app_searchGitHub` for code patterns when MCP code search fails.
-
-Keep discovery bounded: request 5–10 repositories, inspect 3–5 examples, and only broaden if evidence is weak.
-
 ### Kubesearch query patterns (preferred)
 
 ```
@@ -45,12 +31,6 @@ GitHub CLI equivalent:
 
 ```bash
 gh search repos <app> --topic k8s-at-home --limit 10 --json fullName,url,updatedAt,stargazersCount,description
-```
-
-Bundled script (from repo root):
-
-```bash
-python3 .agents/skills/k8s-at-home-research/scripts/search_k8s_at_home.py <app> --limit 10
 ```
 
 ### Path narrowing
@@ -120,7 +100,7 @@ Treat examples as lower confidence if they use deprecated APIs, unmaintained cha
 - Preserve this repo's GitOps layout and naming; do not mirror another repo's folder hierarchy unless it matches.
 - Convert domains to `${SECRET_DOMAIN}`.
 - Convert internal routes to Gateway API `HTTPRoute` with parentRef `envoy-internal` in namespace `network` when appropriate.
-- Use SOPS-managed `Secret` or ExternalSecret-compatible patterns; never copy secret values.
+- Convert secrets to SOPS-managed `*.sops.yaml` Secrets; never copy secret values.
 - Add Reloader annotations to controllers that consume mutable config.
 - For `ceph-block` RWO persistence, avoid RollingUpdate unless the workload supports multi-attach; use `Recreate` when in doubt.
 - Validate chart values against upstream chart docs before relying on a copied values block.

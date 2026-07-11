@@ -5,12 +5,12 @@ description: >-
   and workload signal. Default lookback is 30 minutes unless the user specifies another window.
 
   user: "cluster health" / "health snapshot" → alerts + top CPU pods over $WINDOW
-  user: "firing alerts" → alerting_manage_rules or ALERTS PromQL fallback
+  user: "firing alerts" → list_alert_rules or ALERTS PromQL fallback
   user: "top CPU pods" / "how's the load" → container_cpu usage queries (cores, not sec/min)
   user: "is karakeep healthy?" → filter namespace/pod + correlate alerts
 
   Prefer observability MCP (Grafana / ToolHive group): read session tool schemas before calling.
-compatibility: Requires observability MCP or Prometheus API access (port-forward to prometheus-operated in observability namespace). Confirm prefixed tool names (e.g. grafana_query_prometheus) in-session.
+compatibility: Requires observability MCP or VictoriaMetrics API access (kubectl port-forward -n observability svc/vmsingle-victoria-metrics 8428). Confirm prefixed tool names (e.g. grafana_query_prometheus) in-session.
 ---
 
 # Prometheus cluster health snapshot
@@ -22,22 +22,21 @@ Answer “is the cluster OK?” and “who is using CPU?” with **correct units
 - **Default `$WINDOW`:** `30m`. User overrides: `15m`, `1h`, `2h`, etc. — use consistently in all queries.
 - **`$STEP`:** `1m` for windows up to ~2h; `5m` for longer windows.
 - **Instant snapshots:** subquery patterns `[$WINDOW:$STEP]` around inner `rate(...[5m])`.
-- **Alerts:** prefer **`alerting_manage_rules`**; `ALERTS{alertstate="firing"}` when Grafana tools unavailable.
 
 ## Tool usage (observability MCP)
 
-Stack: Grafana MCP (`mcp/grafana`), often behind ToolHive **observability** group. Prometheus datasource often `prometheus-operated.observability.svc.cluster.local`.
+Stack: Grafana MCP (`grafana/mcp-grafana`), often behind ToolHive **observability** group. Datasource uid `prometheus` (default) — VictoriaMetrics behind `vmauth-victoria-metrics.observability:8427`; second uid `victoriametrics`.
 
 **Before any call:** resolve real tool names in this session (may be prefixed, e.g. `grafana_query_prometheus`).
 
 | Goal | Tools |
 |------|--------|
-| Datasource UID | `list_datasources`, `get_datasource` |
-| Firing alerts | **`alerting_manage_rules`** |
+| Datasource UID | `list_datasources`, `get_datasource_by_uid` |
+| Firing alerts | **`list_alert_rules`**, `list_alert_groups` |
 | PromQL | **`query_prometheus`** (`queryType`, `startTime`, `endTime`, `stepSeconds`) |
 | Discovery | `list_prometheus_metric_names`, `list_prometheus_label_*` |
 | Dashboards | `search_dashboards`, `get_dashboard_summary`, `get_dashboard_panel_queries` |
-| Logs follow-up | `query_loki_logs` (if configured) |
+| Logs follow-up | none via Grafana MCP (no Loki) — VictoriaLogs LogsQL via vmauth :8427 `/select/logsql/*` or victoria-logs.observability:9428 |
 
 **`query_prometheus`:** use `instant` + subquery PromQL from [references/promql-queries.md](references/promql-queries.md); for `range`, align `stepSeconds` with `$STEP` (60 for 1m, 300 for 5m).
 

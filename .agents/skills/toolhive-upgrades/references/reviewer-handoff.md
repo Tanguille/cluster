@@ -29,7 +29,7 @@ Replace `VOLD`, `VNEW`, and paste `git diff --stat` / audit output. Send as the 
 2. Both OCIRepositories use `ref.tag: VNEW` (and match each other unless upstream documents an exception).
 3. No plaintext secrets; no unrelated churn outside ToolHive + agreed docs.
 4. If `helmrelease.yaml` values changed: types match chart (e.g. `operator.env` is a list of `{name,value}`).
-5. Local validation (shellcheck) is credible for this diff.
+5. Local validation (`validate-pr.sh`) is credible for this diff.
 
 **Verdict:** **PASS** (no blockers) or **FAIL** (list blockers; implementer fixes and re-invokes you once).
 

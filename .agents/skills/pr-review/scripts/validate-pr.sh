@@ -1,6 +1,5 @@
 #!/bin/bash
 # PR Validation Script - Run locally before pushing
-# 2026 GitOps best practices: https://oneuptime.com/blog/post/2026-03-06-implement-gitops-pull-request-validation-flux-cd
 
 set -euo pipefail
 
@@ -58,9 +57,10 @@ echo ""
 # Phase 2: Shellcheck (if shell scripts exist)
 echo "[2/4] Shell Script Validation..."
 # exclude the repo-local .claude dir (session configs, worktrees) — anchored to REPO_ROOT so
-# running from inside a .claude/worktrees/* worktree doesn't exclude the entire tree — and
+# running from inside a .claude/worktrees/* worktree doesn't exclude the entire tree —
+# .worktrees/ (parallel checkouts validate themselves), and
 # archive/ (retired one-off scripts kept for reference; not held to the gate)
-SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/.claude/*" -not -path "${REPO_ROOT}/archive/*" 2>/dev/null | head -20)
+SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/.claude/*" -not -path "${REPO_ROOT}/.worktrees/*" -not -path "${REPO_ROOT}/archive/*" 2>/dev/null)
 if [ -n "$SHELL_SCRIPTS" ]; then
     if command -v shellcheck &> /dev/null; then
         # shellcheck disable=SC2086 # word-splitting the list is intended; quoting it passes all paths as one filename
@@ -105,7 +105,7 @@ SECURITY_ERRORS=0
 
 # Check for hardcoded secrets (basic patterns)
 while IFS= read -r -d '' file; do
-    if grep -qiE '(password|secret|token|key):[[:space:]]*[^$"{]' "$file" 2>/dev/null; then
+    if grep -qiE '(password|secret|token|key):[[:space:]]*[^$"{[:space:]]' "$file" 2>/dev/null; then
         if ! grep -q 'sops:' "$file" 2>/dev/null; then
             warn "Possible hardcoded secret in: $file"
             SECURITY_ERRORS=$((SECURITY_ERRORS + 1))

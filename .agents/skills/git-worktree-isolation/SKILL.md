@@ -3,12 +3,12 @@ name: git-worktree-isolation
 description: >-
   Use git worktrees for isolated, parallel agent work without polluting the main working tree.
 
-  user: "work on feature X" → create worktree and branch under work/isolated-*
+  user: "work on feature X" → create worktree and branch under .worktrees/<task>
   user: "experiment with Y" → detached worktree for safe trials
   user: "parallel task" → separate worktree per concurrent task
 
   Triggers: worktree, isolated work, parallel agent, experimental branch, feature branch.
-compatibility: Requires `git` 2.x worktree support and write access to the repository; validation uses `mise` and `flux-local` when run from the worktree.
+compatibility: Requires `git` 2.x worktree support and write access to the repository; validation uses `mise` when run from the worktree.
 ---
 
 # Git worktree isolation
@@ -16,20 +16,20 @@ compatibility: Requires `git` 2.x worktree support and write access to the repos
 ## Create worktree
 
 ```bash
+# new branch
 git fetch origin
-git checkout <branch>
-git pull origin <branch>
-git worktree list
-git worktree add -b <branch> --detach work/isolated-<task>-<timestamp> <branch>
-cd work/isolated-<task>-<timestamp>
+git worktree add -b <branch> .worktrees/<task> origin/main
+cd .worktrees/<task>
+for f in .env .mcp.json CLAUDE.local.md .vscode .claude; do cp -r "../../$f" . 2>/dev/null; done  # untracked local config
+
+# detached experiment
+git worktree add --detach .worktrees/<task> <commit-ish>
 ```
 
 ## Validate (in worktree)
 
 ```bash
-mise exec -- shellcheck scripts/*.sh
 bash .agents/skills/pr-review/scripts/validate-pr.sh
-flux-local test --all-namespaces --enable-helm kubernetes/flux/cluster
 ```
 
 For manifest-only changes, `kustomize build` on touched paths under `kubernetes/apps/` is enough before the full script.
@@ -39,7 +39,7 @@ For manifest-only changes, `kustomize build` on touched paths under `kubernetes/
 From the **main repo** (not inside the worktree path):
 
 ```bash
-git worktree remove work/isolated-<task>-<timestamp>
+git worktree remove .worktrees/<task>
 git branch -D <branch>
 ```
 

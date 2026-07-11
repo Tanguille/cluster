@@ -4,8 +4,8 @@ description: >-
   Manage VolSync Kopia-based backups and restores for Kubernetes PVs in this cluster.
 
   user: "check backup status for app X" → list ReplicationSources, describe conditions
-  user: "restore from backup" → find snapshot, create restore PVC with VolumePopulator
-  user: "trigger manual backup" → annotate volsync.backube/sync=true
+  user: "restore from backup" → follow docs/volsync-restore.md
+  user: "trigger manual backup" → patch spec.trigger.manual
   user: "backup failing" → delegate to debug-cluster for mover pod logs
 
   Use when the user mentions backups, restores, snapshots, ReplicationSource,
@@ -21,7 +21,7 @@ compatibility: Requires `kubectl` access to the cluster; VolSync CRDs and Kopia 
 |-----------|---------|
 | List backups | `kubectl get replicationsources -A` |
 | List restores | `kubectl get replicationdestinations -A` |
-| Trigger sync | `kubectl annotate rs/<name> -n <ns> volsync.backube/sync=true --overwrite` |
+| Trigger sync | `kubectl patch replicationsource <app> -n <ns> --type merge -p '{"spec":{"trigger":{"manual":"sync-'$(date +%s)'"}}}'` |
 | Status | `kubectl describe replicationsource <name> -n <ns>` |
 
 ## Check status
@@ -29,31 +29,26 @@ compatibility: Requires `kubectl` access to the cluster; VolSync CRDs and Kopia 
 ```bash
 kubectl get replicationsources -A
 kubectl describe replicationsource <app> -n <namespace>
-kubectl get rs <app> -n <namespace> -o yaml
+kubectl get replicationsource <app> -n <namespace> -o yaml
 ```
 
 ## Trigger manual sync
 
 ```bash
-kubectl annotate replicationsource/<name> -n <namespace> volsync.backube/sync=true --overwrite
+kubectl patch replicationsource <app> -n <namespace> --type merge -p '{"spec":{"trigger":{"manual":"sync-'$(date +%s)'"}}}'
 ```
 
 ## Restore from backup
 
-1. **Find snapshot** — `kubectl get replicationdestination <app> -n <namespace> -o yaml` → `status.latestImage`
-2. **Create restore PVC** — `dataSourceRef` → `ReplicationDestination` (see [references/restore-pvc.md](references/restore-pvc.md))
+Follow the runbook [docs/volsync-restore.md](../../../docs/volsync-restore.md): suspend Flux ks+hr → delete app PVC → patch `restoreAsOf` + `trigger.manual` on `replicationdestination/<app>-dst` → wait `Synchronizing=False` reason `Successful` → resume Flux. The volsync component names every ReplicationDestination `<app>-dst`, so status checks are `kubectl get replicationdestination <app>-dst -n <namespace> -o yaml`.
+
+For a standalone side-car restore PVC, see [references/restore-pvc.md](references/restore-pvc.md).
 
 ## New backup
 
 Reference patterns in `kubernetes/components/volsync/`. Use Kopia mover settings consistent with existing apps.
 
-Privileged movers when required:
-
-```yaml
-metadata:
-  annotations:
-    volsync.backube/privileged-movers: "true"
-```
+Privileged movers are already enabled cluster-wide via the namespace annotation in `kubernetes/components/common/namespace.yaml` — nothing to add per app.
 
 ## Delegation
 
@@ -72,8 +67,4 @@ metadata:
 
 For mover logs and deep failures → [debug-cluster](../debug-cluster/SKILL.md).
 
-## Progressive disclosure
-
-- Restore PVC spec: [references/restore-pvc.md](references/restore-pvc.md)
-
-Format reference: [agentskills.io](https://agentskills.io/specification).
+VolSync→kopiur migration is in progress ([docs/kopiur-migration-plan.md](../../../docs/kopiur-migration-plan.md)); this skill stays authoritative until cutover.
