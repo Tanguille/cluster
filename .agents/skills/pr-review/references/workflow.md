@@ -28,9 +28,10 @@ git diff --cached --name-only > .agents/pr-review/pr-${PR_ID}/staged-files.txt
 git diff --cached > .agents/pr-review/pr-${PR_ID}/staged.diff
 git diff --name-only > .agents/pr-review/pr-${PR_ID}/unstaged-files.txt
 git diff > .agents/pr-review/pr-${PR_ID}/unstaged.diff
+git ls-files --others --exclude-standard > .agents/pr-review/pr-${PR_ID}/untracked-files.txt
 ```
 
-Run the same six phases against these artifacts. Summarize staged vs unstaged in the final report.
+Run the same six phases against these artifacts. Summarize staged, unstaged, and untracked files in the final report.
 
 ## Aggregation template (`pr-review-state.md`)
 

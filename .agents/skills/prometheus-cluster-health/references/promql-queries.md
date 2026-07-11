@@ -2,11 +2,7 @@
 
 Replace `$WINDOW` (default `30m`) and `$STEP` (`1m` for windows ≤ ~2h, `5m` for longer) together.
 
-**CPU rates:** inner `rate(...[5m])` in **cores**; outer `avg_over_time` / `max_over_time` over `$WINDOW`.
-
 ## Step 1 — Alerts
-
-**Prefer Grafana MCP:** `alerting_manage_rules`
 
 **Fallback instant query:**
 
@@ -151,7 +147,7 @@ Summary: One sentence; flag mismatches only with metric evidence.
 ## Fallback without MCP
 
 ```bash
-kubectl port-forward -n observability svc/prometheus-operated 9090:9090
+kubectl port-forward -n observability svc/vmsingle-victoria-metrics 8428:8428
 ```
 
-Use Prometheus Graph UI or query API; Grafana Explore uses the same datasource as MCP `query_prometheus`.
+Use vmui or the Prometheus-compatible /api/v1/query API at http://localhost:8428; Grafana Explore uses the same datasource as MCP `query_prometheus`.

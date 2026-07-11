@@ -106,6 +106,8 @@ kubectl exec -it -n <ns> deployment/<name> -- /bin/sh
 
 Optional: [kubectl-browse-pvc](https://github.com/clbx/kubectl-browse-pvc) to browse PVCs.
 
+PVC restore from backup: see [volsync-restore.md](volsync-restore.md).
+
 ---
 
 ## Troubleshooting failed HelmReleases
@@ -130,12 +132,7 @@ Avoid deleting other resources (Deployment, Service) that are owned by the HelmR
 
 ## PostgreSQL (CNPG)
 
-**Application credentials** (from `-app` secret):
-
-```bash
-kubectl get secret -n database <cluster-name>-app -o jsonpath='{.data.username}' | base64 -d
-kubectl get secret -n database <cluster-name>-app -o jsonpath='{.data.password}' | base64 -d
-```
+**Application credentials:** each app uses its own sops secret (`INIT_POSTGRES_*` for postgres-init apps) or its managed role's passwordSecret (e.g. `litellm-db`) in the database namespace. There is no shared `-app` secret.
 
 **Connect with psql:**
 
@@ -143,7 +140,7 @@ kubectl get secret -n database <cluster-name>-app -o jsonpath='{.data.password}'
 psql -h <cluster-name>-rw.database.svc.cluster.local -U <app-username> -d <app-database-name> -W
 ```
 
-Use `-app` for application access; reserve `-superuser` for admin.
+Superuser (postgres) password: secret `cloudnative-pg-secret` in the database namespace (spec.superuserSecret).
 
 ---
 
@@ -152,7 +149,7 @@ Use `-app` for application access; reserve `-superuser` for admin.
 1. **Debug pod with DB access:**
 
    ```bash
-   kubectl run tmp-shell --rm -i --tty --image nicolaka/netshoot -n default -- /bin/bash
+   kubectl run tmp-psql --rm -i --tty --image ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie -n database -- bash
    ```
 
 2. **Connect as postgres and fix permissions if needed:**
@@ -167,8 +164,10 @@ Use `-app` for application access; reserve `-superuser` for admin.
    ```bash
    pg_restore -h postgres16-rw.database.svc.cluster.local -U nextcloud -d nextcloud \
      --clean --if-exists --no-owner --no-privileges --no-tablespaces --no-comments \
-     <backup-file>.sql
+     <backup-file>.dump
    ```
+
+   Plain-text `.sql` dumps: pipe to `psql` instead.
 
 4. **After restore: data-fingerprint (and optionally turn off maintenance mode):**
 

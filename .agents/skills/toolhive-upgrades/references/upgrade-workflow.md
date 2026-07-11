@@ -2,8 +2,6 @@
 
 ## Compare pinned tag to `main` (normalize `v`, read `VERSION`)
 
-**Flux `ref.tag`** is usually **`X.Y.Z`** without **`v`**; GitHub tags are **`vX.Y.Z`**. Wrong refs invalidate **`compare`** URLs.
-
 1. Run **`bash .agents/skills/toolhive-upgrades/scripts/upstream-pin-vs-main.sh`** — prints **`VERSION`** on **`main`**, **`VERSION`** at **`vPIN`**, **Latest Release**, and both compares below.
 
 2. Use **both** links from that script (same refs, opposite directions):
@@ -35,7 +33,7 @@ kubectl get mcpservers,virtualmcpservers,mcpgroups,mcpserverentries,mcpremotepro
 ## Post-upgrade smoke
 
 ```bash
-kubectl get helmrelease -n <flux-ns> | rg -i toolhive
+kubectl get helmrelease -n ai | rg -i toolhive
 kubectl get pods -n ai -l 'app.kubernetes.io/name' -o wide 2>/dev/null || kubectl get pods -n ai
 ```
 
