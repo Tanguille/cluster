@@ -80,6 +80,11 @@ spec:
         login: true
         passwordSecret:
           name: grafana-db
+      - name: crowdsec
+        ensure: present
+        login: true
+        passwordSecret:
+          name: crowdsec-db
   postgresql:
     parameters:
       wal_level: replica
