@@ -32,6 +32,11 @@ spec:
         login: true
         passwordSecret:
           name: jellystat-db
+      - name: radarr
+        ensure: present
+        login: true
+        passwordSecret:
+          name: radarr-db
   postgresql:
     parameters:
       wal_level: replica
