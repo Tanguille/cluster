@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes
+spec:
+  accessModes: ["ReadWriteOnce"]
+  dataSourceRef:
+    apiGroup: kopiur.home-operations.com
+    kind: Restore
+    name: hermes-restore
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: ceph-block
