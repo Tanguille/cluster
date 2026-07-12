@@ -94,9 +94,9 @@ spec:
                   "path": "/repository"
                 }
               },
-              "hostname": "volsync.{{ .Release.Namespace }}.svc.cluster.local",
-              "username": "volsync",
-              "description": "volsync",
+              "hostname": "kopia.{{ .Release.Namespace }}.svc.cluster.local",
+              "username": "kopia",
+              "description": "kopia browser",
               "enableActions": false
             }
     persistence:
@@ -109,7 +109,7 @@ spec:
       repository:
         type: nfs
         server: ${TRUENAS_IP}
-        path: ${VOLSYNC_NFS_PATH}
+        path: ${BACKUP_NFS_PATH}
         globalMounts:
           - path: /repository
       tmpfs:

@@ -1283,7 +1283,71 @@ Only when every row above is ✔:
    `max(rate(ceph_osd_op_w_latency_sum…))` around backup hours before/after),
    and every `SnapshotSchedule` has fired at least once at its hashed minute.
 
-**Status**: ☐ not started
+**Status**: ☑ done 2026-07-12, steps 1-6 fully executed, step 7 partially
+verified with an honest caveat (see below).
+
+**Execution notes**:
+1. **Orphaned volsync CRs found and cleaned up first** — three
+   `ReplicationDestination`s (`n8n-dst`/ai, `trilium-dst`/default,
+   `jellyseerr-dst`/media) were still live in the cluster with **no**
+   corresponding app directory in git, no live Kustomization, no
+   PVC, no secret, no owner references or finalizers — leftovers from
+   apps removed long before this migration existed, outside its
+   17-app scope entirely. Deleted directly (safe: genuinely orphaned,
+   confirmed via `ownerReferences`/`finalizers` both empty). This
+   cleared `kubectl get replicationsources,replicationdestinations -A`
+   to fully empty, satisfying step 1's precondition.
+2. Volsync operator + kopia browser both removed/moved as specified.
+   Kopia's `repository.config` JSON had a hardcoded `"hostname":
+   "volsync.{{ .Release.Namespace }}..."`/`"username": "volsync"` —
+   stale after the move (no "volsync" service exists anymore in the
+   new namespace), updated to `"kopia"` for correctness; purely a
+   browsing-identity label (any client with the repo password can
+   browse all snapshots regardless of what it claims for itself), no
+   functional effect either way.
+3. `components/volsync/` removed; `VOLSYNC_NFS_PATH` removed from
+   `cluster-settings.yaml` (its value was already duplicated under
+   `BACKUP_NFS_PATH`, prepared in advance for exactly this).
+4. The kopiur-equivalent `privileged-movers` annotation (scoped to
+   `ai`/`default`/`media` via `components/kopiur/privileged-movers`,
+   not blanket like volsync's) was already wired during Phase 5 step
+   2 — this step was just removing the now-dead volsync line from
+   `namespace.yaml`.
+5. Both `tuppr` upgrade files' healthChecks replaced with the
+   `Snapshot`/`Restore` CEL pair verbatim from the plan's own
+   inventory (onedr0p's real commit `16687a2a`).
+6. Confirmed live: `kopiur-controller` PrometheusRule already ships
+   `KopiurRepositoryNotReady`, `KopiurReconcileErrorsHigh`,
+   `KopiurBackupStale`, plus three more not even in volsync's original
+   two-alert set (`KopiurBackupConsecutiveFailures`,
+   `KopiurSnapshotFailed`, `KopiurRestoreFailed`). Chart default
+   `backupStaleAfterSeconds: 172800` (48h) tolerates ~4 missed 12h
+   backup cycles — looser than volsync's own schedule-aware
+   `volsync_volume_out_of_sync` detection (roughly 1-2 cycles).
+   Tightened to `86400` (24h, one full retry window) in
+   `kopiur/app/helmrelease.yaml`.
+7. **Honest finding, not a clean confirmation**: queried
+   `max(rate(ceph_osd_op_w_latency_sum[5m]))` over the trailing 3 days
+   via VictoriaMetrics directly. The top spikes in that window (up to
+   ~4.0) don't align with volsync's exact `00:00`/`12:00 UTC` lockstep
+   boundaries at all — they're scattered (07-11 21:00, 07-12 17:00,
+   07-11 18:30, 07-12 20:00, …) and correlate with **today's own
+   migration activity** (large PVC provision/restore/delete cycles —
+   jellyfin 28.8GiB, nextcloud 50Gi Ceph RBD attach/detach, etc.), not
+   a recurring backup-schedule pattern. The values sampled *exactly*
+   at the historical `00:00`/`12:00 UTC` boundaries over the prior 3
+   days are unremarkable (0.2-0.8, no dramatic spike) — consistent
+   with [[project_ceph_latency_spikes]]'s earlier finding that mover
+   storms were a secondary contributor (NVMe thermal + node-flap
+   recovery were the dominant causes), not proof either way that
+   *this specific* fix mattered. A genuinely clean before/after read
+   isn't possible from today's data (contaminated by the migration's
+   own I/O) — the real signal will show up (or not) at the next quiet
+   `00:00`/`12:00 UTC` boundary once nextcloud's `SnapshotSchedule`
+   has also fired on its own hashed minute (first fire due
+   2026-07-12T23:20 UTC) and no migration work is in flight. Every
+   *other* app's `SnapshotSchedule` (16/17) confirmed already fired
+   at least once at its hashed minute.
 
 ## Phase 7 — Documentation pass & cleanup
 
