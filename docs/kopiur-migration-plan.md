@@ -863,6 +863,32 @@ the first cutover — the plain sequence above missed two real races)**:
     whose identity/history is continuous with the pre-cutover ones
     (`kubectl kopiur snapshots list --policy <app> -n <ns>`).
 
+**Apps without `components/nfs-scaler` need a manual scale-up** (step 9
+above): their `helmrelease.yaml` never sets `replicas` explicitly, so
+Helm's own chart default (`1`) only gets re-asserted by helm-controller
+when the release has an actual values/chart diff to apply — swapping
+only the Kustomization's `components:` list (this migration's whole
+diff, for these apps) doesn't touch the `HelmRelease` object at all, so
+helm-controller sees nothing to reconcile and step 3's manual
+`--replicas=0` is never overwritten. Confirmed on `prowlarr`: pod
+stayed at 0 replicas post-restore until scaled back up by hand.
+
+**Cosmetic, fleet-wide: `SnapshotSchedule.status.observedGeneration`
+sticks at `1` while `.metadata.generation` climbs to 3-4** on every
+app cut over so far (qbittorrent, jellyfin, bazarr, qui,
+changedetection, dumbassets, seerr, fileflows, brrpolice — not just
+prowlarr), while `SnapshotPolicy`'s generations stay in lockstep fine.
+Harmless — `SnapshotSchedule`'s own conditions still read `Ready: True`
+and schedules keep firing correctly — but it makes the Kustomization's
+`wait: true` health check flaky: Flux's kstatus polling can catch the
+object mid-flap and time out after its full 5m window
+(`HealthCheckFailed: ... SnapshotSchedule/<ns>/<app> status:
+'InProgress'`), then auto-retry. Don't chase this per-app — it
+self-clears on Flux's own retry/interval eventually (observed on every
+prior app), and functional health (pod up, correct uid, fresh
+`kubectl kopiur snapshot now` succeeding) is the real signal, not the
+Kustomization's `Ready` flag.
+
 **A third bug found during this same validation**: `Restore.spec.mover`
 had no identity override at all (unlike the backup-side fix from step
 2's blockers) — `inheritSecurityContextFrom` can't work for restore
@@ -1098,7 +1124,7 @@ flip) next.
 | changedetection | default | ☑ | ☑ |
 | karakeep | default | ☑ | ☑ |
 | jellyfin | media | ☑ | ☑ |
-| prowlarr | media | ☑ | ☐ |
+| prowlarr | media | ☑ | ☑ |
 | radarr | media | ☑ | ☐ |
 | sonarr | media | ☑ | ☐ |
 | wizarr | media | ☑ | ☐ |
