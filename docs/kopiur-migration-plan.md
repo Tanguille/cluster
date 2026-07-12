@@ -1093,7 +1093,7 @@ flip) next.
 | qbittorrent | media | ☑ | ☑ |
 | fileflows | media | ☑ | ☑ |
 | seerr | media | ☑ | ☑ |
-| bazarr | media | ☑ | ☐ |
+| bazarr | media | ☑ | ☑ |
 | qui | media | ☑ | ☐ |
 | changedetection | default | ☑ | ☑ |
 | karakeep | default | ☑ | ☑ |
