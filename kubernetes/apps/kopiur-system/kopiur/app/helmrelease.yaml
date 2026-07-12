@@ -22,8 +22,7 @@ spec:
       - name: repo
         mountPath: /repo
     podSecurityContext:
-      # 568 (not chart-default 65534) so the in-process kopia can read the
-      # uid-568-owned NFS repo
+      # 568 not chart-default 65534: must read the uid-568 NFS repo
       runAsUser: 568
       runAsGroup: 568
       fsGroup: 568
@@ -37,3 +36,7 @@ spec:
         enabled: true # KopiurBackupStale et al. — live BEFORE any data moves
       dashboards:
         enabled: true
+        grafanaOperator:
+          enabled: true
+          matchLabels:
+            grafana.internal/instance: grafana
