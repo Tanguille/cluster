@@ -3,7 +3,7 @@ name: k8s-at-home-research
 description: >-
   Research Kubernetes GitOps patterns from public GitHub repositories tagged `k8s-at-home`
   and adapt findings to this cluster. Use before adding or upgrading apps, writing
-  HelmRelease/Kustomization/HTTPRoute/PVC/VolSync manifests, comparing chart values, or
+  HelmRelease/Kustomization/HTTPRoute/PVC/backup manifests, comparing chart values, or
   investigating how homelab clusters configure an application.
 
   user: "How do homelab clusters deploy X?" → Search topic repos, cite exemplar manifests

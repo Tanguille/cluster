@@ -24,14 +24,14 @@ spec:
   wait: false
   # dependsOn:
   #   - name: <other-app>
-  # stateful apps: uncomment for volsync-backed persistence — full var list in
+  # stateful apps: uncomment for kopiur-backed persistence — full var list in
   # .agents/skills/backup-restore/references/restore-pvc.md#enable-backups-for-an-app
   # components:
-  #   - ../../../../components/volsync
+  #   - ../../../../components/kopiur
   # postBuild:
   #   substitute:
   #     APP: *app
-  #     VOLSYNC_CAPACITY: <size>
+  #     PVC_CAPACITY: <size>
 ```
 
 ## app/kustomization.yaml
@@ -113,7 +113,7 @@ spec:
 
     persistence:
       # config:
-      #   existingClaim: *app  # pairs with the volsync component in ks.yaml
+      #   existingClaim: *app  # pairs with the kopiur component in ks.yaml
       tmp:
         type: emptyDir  # readOnlyRootFilesystem crashes many apps without a writable /tmp
 ```
