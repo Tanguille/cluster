@@ -3,10 +3,10 @@
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: SnapshotSchedule
 metadata:
-  name: wizarr
+  name: ${APP}
 spec:
   policyRef:
-    name: wizarr
+    name: ${APP}
   schedule:
     cron: "H */12 * * *"
     jitter: 30m

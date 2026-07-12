@@ -3,14 +3,14 @@
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: SnapshotPolicy
 metadata:
-  name: opencode
+  name: ${APP}
 spec:
   repository:
     kind: ClusterRepository
     name: kopia-nas
   sources:
     - pvc:
-        name: opencode
+        name: ${APP}
       # The fork's mover always recorded /data regardless of the app's real
       # mount path — kopiur's own default (/pvc/<name>) would start a new
       # identity strand instead of continuing the adopted history.
@@ -23,11 +23,11 @@ spec:
   retention:
     keepHourly: 8
     keepDaily: 7
-  volumeSnapshotClassName: csi-ceph-blockpool
+  volumeSnapshotClassName: ${BACKUP_SNAPSHOTCLASS:=csi-ceph-blockpool}
   credentialProjection:
     enabled: true
-  # opencode runs as root — its pod spec never pins a uid (the image runs as
-  # root directly, no declared securityContext), so
+  # For apps that run as root but whose pod spec never pins a uid (image
+  # runs as root directly, no declared securityContext):
   # inheritSecurityContextFrom.pvcConsumer has nothing to inherit and
   # silently falls back to the mover image's own non-root default instead
   # (home-operations/kopiur pvcConsumer silent-no-op gap). Explicit root +
@@ -35,7 +35,7 @@ spec:
   # inherited-root mover still lacks this capability and would fail the
   # same way (home-operations/kopiur — inherited root has no DAC caps).
   # Requires the kopiur.home-operations.com/privileged-movers: "true"
-  # namespace annotation (already applied).
+  # namespace annotation.
   mover:
     securityContext:
       runAsUser: 0
