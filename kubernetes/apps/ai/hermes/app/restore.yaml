@@ -1,0 +1,28 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/restore_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: Restore
+metadata:
+  name: hermes-restore
+spec:
+  source:
+    fromPolicy:
+      name: hermes
+      offset: 0
+  # Explicit PASSIVE populator mode — claimed by the PVC's dataSourceRef below.
+  target:
+    populator: {}
+  policy:
+    # deploy-or-restore: fresh cluster + empty repo -> empty PVC, existing
+    # repo -> restore the latest snapshot.
+    onMissingSnapshot: Continue
+  credentialProjection:
+    enabled: true
+  # hermes's data is owned 10000:10000, same reason as snapshotpolicy.yaml
+  # — no live pod to inherit from during restore, and no other app shares
+  # this uid, so it can't move into the shared restore/restore-root
+  # defaults (568 / 0).
+  mover:
+    securityContext:
+      runAsUser: 10000
+      runAsGroup: 10000
