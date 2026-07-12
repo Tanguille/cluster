@@ -818,35 +818,116 @@ the already-cut-over `dumbassets`), no duplicates.
 start real (if low-frequency) kopiur backups of a 50Gi volume before its
 turn; add it alongside its actual cutover instead, per its own row.
 
-**Not yet done**: reconcile + confirm every wired app produces a real
-kopiur snapshot (step 2) — this is also where the `fileflows`
-privileged-movers question gets its real answer, empirically.
+**Step 2 done 2026-07-12: reconciled all 16 dual-write apps and triggered
+`kubectl kopiur snapshot now --policy <app> -n <ns> --wait` for each.
+Result: 7/16 succeeded, 9/16 + hermes failed** (`fileflows`'
+privileged-movers question resolved cleanly — it succeeded, no issue).
 
-| App | NS | Done |
-|-----|----|------|
-| dumbassets (canary, Phase 4) | default | ☑ |
-| changedetection | default | ☐ |
-| karakeep | default | ☐ |
-| bazarr | media | ☐ |
-| brrpolice | media | ☐ |
-| fileflows | media | ☐ |
-| jellyfin | media | ☐ |
-| prowlarr | media | ☐ |
-| qbittorrent | media | ☐ |
-| qui | media | ☐ |
-| radarr | media | ☐ |
-| seerr | media | ☐ |
-| sonarr | media | ☐ |
-| wizarr | media | ☐ |
-| hermes (PUID/PGID 10000) | ai | ☐ |
-| odysseus | ai | ☐ |
-| opencode | ai | ☐ |
-| nextcloud (50Gi, last) | default | ☐ |
+**Succeeded** (mover's default identity `65532:568` happens to be able to
+read the app's PVC data): brrpolice, qbittorrent, fileflows, seerr, bazarr,
+qui — plus `dumbassets` from Phase 4.
+
+**Failed, all `PermissionDenied` reading the app's own PVC data** (a
+different failure mode than Phase 2/3's shared-repo permission drift —
+this is about kopiur's mover reading each app's *source* files, not the
+repository): changedetection, karakeep, sonarr, wizarr, prowlarr, radarr,
+jellyfin, odysseus, opencode, hermes. Checked each failing app's live pod
+identity (`kubectl exec <pod> -- id`):
+- **uid=0 (root)**: changedetection, jellyfin, odysseus, opencode, wizarr
+- **uid=568, but the specific failing files are mode `0600` owner-only**
+  (ASP.NET Core Data Protection keys — deliberately restrictive):
+  sonarr, prowlarr, radarr
+- **uid=1000**: karakeep
+- **uid=10000**: hermes (the hand-authored `mover.securityContext`
+  override from step 1 — turns out it wasn't sufficient, see below)
+
+**Root cause, confirmed by a fable-delegated investigation (agent
+`a582f664b0bf87c09`) with a live test on `sonarr`**: kopiur's own
+repository blobs are *always* written mode `0600`, owned `65532` — kopia's
+hardcoded default file-creation mode, which kopiur exposes no override
+for. This means **any mover identity other than uid `65532` cannot even
+connect to the shared repository at all** — it fails at the index-blob
+read step, before ever touching the app's source PVC. Confirmed live:
+patching `SnapshotPolicy/sonarr` with `spec.mover.
+inheritSecurityContextFrom.pvcConsumer: {}` (inheriting sonarr's own
+uid 568) made the mover correctly match sonarr's PVC data, but it then
+failed at `repository connect` instead — `permission denied` on
+`/repo/xn1/88_/...`, same as every other diagnosed instance of this bug
+class this migration. Policy reverted cleanly after the test.
+
+This is a **hard, structural conflict**, not a per-app misconfiguration:
+the mover needs uid `65532` to read the shared repo, and needs each app's
+own uid to read that app's source data — a single process can't be both.
+`inheritSecurityContextFrom` (and hermes's hand-authored uid override)
+solve the second half while breaking the first half. Confirmed this also
+rules out simply setting `runAsUser: 0` (root) for the 5 root-uid apps:
+the kopia repo NFS export has `root_squash` enabled (confirmed earlier
+this session — even `kubectl exec`-as-root couldn't `chmod` files it
+didn't own), so an inherited/explicit root mover would get squashed to an
+anonymous identity server-side and fail identically.
+
+**Why this didn't block Phase 2–4**: `dumbassets` and the 6 apps that
+already worked all coincidentally have PVC data already readable by uid
+`65532` (or group `568`, with sufficiently permissive file modes) — pure
+luck, not a validated pattern. This was never actually solved earlier in
+the migration, just not yet triggered.
+
+**Decision (2026-07-12, explicit choice over two other real options —
+adding a Linux capability to the mover while keeping uid 65532, requiring
+the `privileged-movers` security-gate opt-in; or indefinitely deferring
+these 9 apps): fix at the TrueNAS NFS export level with `Mapall`.**
+Setting a fixed **Mapall User/Group** on the kopia repo's NFS export
+(`/mnt/TanguilleServer/VolsyncKopia`, shared as `${BACKUP_NFS_PATH}`)
+makes the NFS *server* treat every connecting client as one fixed
+identity, regardless of what uid the connecting pod actually claims. This
+cleanly decouples the two conflicting requirements: the mover's *local*
+process uid still varies per app (via `inheritSecurityContextFrom`,
+solving the source-PVC read), while its *NFS-repo* identity becomes
+uniform (solving the repo-connect problem) — permanently, not just for
+existing content, since Mapall remaps identity for *all* future
+connections too, not only a one-time chmod.
+
+**Action needed (manual, TrueNAS web UI, not git-trackable)**: edit the
+NFS share for this export → Advanced Options → set **Mapall User** and
+**Mapall Group** to the existing system user/group with uid/gid `568`
+(the cluster's long-standing NAS-wide convention). This does **not**
+retroactively fix current file modes — a repo-wide `chmod 0775` pass
+(same command used twice already this migration) will still be needed
+once Mapall is live, to normalize the `0600` blobs kopiur has already
+written under the old identity mismatch. After Mapall + one more chmod
+pass, re-run step 2's manual-snapshot verification for the 9 failing apps
+(with `inheritSecurityContextFrom.pvcConsumer: {}` added to their
+SnapshotPolicy) and for hermes (drop the hand-authored uid override in
+favor of the same inherit mechanism, once confirmed it works).
+
+**Status**: ☐ blocked on the TrueNAS Mapall change above (manual,
+outside this repo) — 7/17 apps verified working, 9/17 + hermes blocked.
+Not proceeding to step 3 (the actual PVC flip) for *any* app yet, to keep
+Phase 5 a single coherent pass rather than a fragmented partial rollout.
+
+| App | NS | Kopiur snapshot works | Cut over |
+|-----|----|----|------|
+| dumbassets (canary, Phase 4) | default | ☑ | ☑ |
+| brrpolice | media | ☑ | ☐ |
+| qbittorrent | media | ☑ | ☐ |
+| fileflows | media | ☑ | ☐ |
+| seerr | media | ☑ | ☐ |
+| bazarr | media | ☑ | ☐ |
+| qui | media | ☑ | ☐ |
+| changedetection | default | ☐ blocked (root) | ☐ |
+| karakeep | default | ☐ blocked (uid 1000) | ☐ |
+| jellyfin | media | ☐ blocked (root) | ☐ |
+| prowlarr | media | ☐ blocked (568, 0600 files) | ☐ |
+| radarr | media | ☐ blocked (568, 0600 files) | ☐ |
+| sonarr | media | ☐ blocked (568, 0600 files) | ☐ |
+| wizarr | media | ☐ blocked (root) | ☐ |
+| hermes | ai | ☐ blocked (10000, needs inherit not hardcode) | ☐ |
+| odysseus | ai | ☐ blocked (root) | ☐ |
+| opencode | ai | ☐ blocked (root) | ☐ |
+| nextcloud (50Gi, last) | default | not tested (unwired on purpose) | ☐ |
 
 Backups fire every 12h — don't leave an app suspended across a window without
 its final manual backup (step 3 covers this).
-
-**Status**: ☐ not started
 
 ## Phase 6 — Decommission volsync + observability
 
