@@ -11,6 +11,9 @@ spec:
   interval: 1h
   values:
     installScope: cluster # ClusterRepository needs ClusterRole
+    # The controller pod itself needs direct NFS access to the repo, not just
+    # the per-app movers — kopiur#137, filesystem Restore fails with
+    # "/repo not mounted" without this. Confirmed by every NFS-backend adopter.
     extraVolumes:
       - name: repo
         nfs:
