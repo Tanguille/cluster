@@ -21,6 +21,9 @@ spec:
   encryption:
     passwordSecretRef:
       name: kopia-nas-password
+      # Looks redundant (same namespace as this resource) but is required:
+      # kopiur#232, the schema doc string implies optional, the controller
+      # rejects reconcile without it. Don't remove as a "cleanup".
       namespace: kopiur-system
       key: KOPIA_PASSWORD
   bootstrap:
