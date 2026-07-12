@@ -787,6 +787,86 @@ pass, not a multi-day schedule:
    `prune: true` handles the object cleanup once the git tree no longer
    references them).
 
+**Step 3 recipe, corrected 2026-07-12 (validated live on `qbittorrent`,
+the first cutover — the plain sequence above missed two real races)**:
+
+1. `flux suspend kustomization <app> -n <ns>` **and**
+   `flux suspend helmrelease <app> -n <ns>` — suspending only the
+   Kustomization does not stop helm-controller's own reconcile of the
+   `HelmRelease` object, which will re-apply the chart's `ScaledObject`
+   and silently revert step 2's KEDA pause.
+2. If the app uses `components/nfs-scaler` (KEDA `ScaledObject` on NFS
+   probe activity): `kubectl patch scaledobject <app> -n <ns> --type=merge
+   -p '{"metadata":{"annotations":{"autoscaling.keda.sh/paused":"true"}}}'`
+   — otherwise KEDA fights every `kubectl scale --replicas=0`, and the
+   RWO PVC can't be freed for the delete+restore cycle.
+3. `kubectl scale deployment <app> -n <ns> --replicas=0`; wait for the
+   pod to actually terminate (`kubectl wait --for=delete pod -l
+   app.kubernetes.io/name=<app> -n <ns>`) before proceeding — a lingering
+   pod holds the `kubernetes.io/pvc-protection` finalizer and blocks the
+   PVC delete indefinitely.
+4. Trigger a final volsync backup and wait for `status.conditions`
+   (`type: Synchronizing, status: False`) with a fresh `lastSyncTime` —
+   not just `lastManualSync` being set, which only confirms the trigger
+   was *accepted*, not that the sync *completed*.
+5. In git: swap `components/volsync` → `components/kopiur` (or
+   `components/kopiur-privileged` for root apps — see below) in the
+   app's `ks.yaml`, rename `VOLSYNC_CAPACITY` → `PVC_CAPACITY`. Push.
+6. **Delete the app's volsync `ReplicationDestination` and
+   `ReplicationSource` explicitly** (`kubectl delete replicationdestination
+   <app>-dst replicationsource <app> -n <ns>`) — **before** deleting the
+   PVC, not after. Found live: if these are still present when the PVC
+   is deleted, volsync's own controller notices the gap and races
+   kopiur's `Restore` to repopulate it — and since `dataSourceRef` is
+   immutable, whichever wins first "sticks", permanently wedging Flux's
+   reconcile (`dry-run failed: spec is immutable`) if volsync wins. The
+   final backup from step 4 is already safe in volsync's own
+   destination regardless of when these CRs are deleted — deleting them
+   doesn't touch that data, only stops the controller from racing.
+7. Delete the old PVC, wait for full termination (`kubectl get pvc` →
+   `NotFound`, not just `Terminating` — same finalizer/pod-reference
+   gate as step 3).
+8. Push + reconcile. Watch the `Restore` CR reach `Ready: True, reason:
+   RestoreSucceeded` (its `status.phase` is `Completed`, not
+   `Succeeded` — don't grep for the wrong string).
+9. Resume the `HelmRelease` and `Kustomization`, remove the KEDA pause
+   annotation, let the app scale back up.
+10. Verify: pod healthy; a sample file's ownership matches the app's
+    real uid (see the restore-mover-default fix below — check this
+    explicitly, it can be silently wrong); a fresh `kubectl kopiur
+    snapshot now --policy <app> -n <ns> --wait` lands a new snapshot
+    whose identity/history is continuous with the pre-cutover ones
+    (`kubectl kopiur snapshots list --policy <app> -n <ns>`).
+
+**A third bug found during this same validation**: `Restore.spec.mover`
+had no identity override at all (unlike the backup-side fix from step
+2's blockers) — `inheritSecurityContextFrom` can't work for restore
+regardless of the app, since the app is scaled to 0 (step 3 above)
+before the restore runs, so there's no live pod to inherit from ever.
+Without an explicit uid, the restore mover fell back to its own image
+default (`65532`), landing restored files owned `65532:568` instead of
+the app's real `568:568` — silently wrong for most apps (group access
+still covers it) but **actively breaking** for anything with `0600`
+owner-only files (sonarr/prowlarr/radarr's ASP.NET Data Protection
+keys specifically). Fixed by pinning
+`components/kopiur/restore/restore.yaml`'s `mover.securityContext` to
+`{runAsUser: 568, runAsGroup: 568}` as the cluster-convention default,
+plus a `components/kopiur/restore-root` variant (root apps, no
+capabilities needed unlike backup's `DAC_READ_SEARCH` — restore
+*creates* fresh files on an empty PVC, which are owned by the creating
+process's own uid by default, not reading pre-existing restricted
+ones) composed into `components/kopiur-privileged` alongside
+`backup-root`. hermes and karakeep (uid `10000`/`1000`) need their own
+explicit restore override too, hand-authored per-app like hermes's
+existing backup file — neither can use the shared `restore`/
+`restore-root` components' fixed defaults.
+
+**qbittorrent fully cut over and verified 2026-07-12**: hit both bugs
+above live, fixed both, re-ran the recipe clean, confirmed via a
+post-restore file ownership check (chown pass needed once to correct
+the pre-fix restored data) and a fresh snapshot's identity continuity
+with its pre-cutover history.
+
 Order within the batch, lowest-risk first: remaining `default` apps →
 `media` → `ai` (hermes carries `BACKUP_PUID/PGID: 10000`) → **nextcloud
 alone, last** (50Gi: the populator restore will take a while — run it in a
@@ -985,7 +1065,7 @@ flip) next.
 |-----|----|----|------|
 | dumbassets (canary, Phase 4) | default | ☑ | ☑ |
 | brrpolice | media | ☑ | ☐ |
-| qbittorrent | media | ☑ | ☐ |
+| qbittorrent | media | ☑ | ☑ |
 | fileflows | media | ☑ | ☐ |
 | seerr | media | ☑ | ☐ |
 | bazarr | media | ☑ | ☐ |
