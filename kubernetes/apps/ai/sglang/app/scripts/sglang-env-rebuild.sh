@@ -23,10 +23,10 @@
 # COSMETIC, the env is already built by then; this script applies the post-build fixes regardless.
 set -uo pipefail
 
-# v0.5.15 + 46 patches (incl 073 mamba HIP fallback; 065 dropped/upstreamed; 064/073/003
-# locally overridden below for v0.5.15, see docker/sglang-rdna4/README.md). Validated 2026-07-11.
+# v0.5.15 + the fork's own RDNA4 patch series (mattbucci's own v0.5.15 rebase as of this ref —
+# no local overrides needed, see docker/sglang-rdna4/README.md). Validated 2026-07-12.
 # Bump to rebase onto a newer fork HEAD (also bump SGLANG_TAG below to match the upstream version).
-FORK_REF="${FORK_REF:-a0445f59e9624622ca72895a34dfc1421a345881}"
+FORK_REF="${FORK_REF:-f9995e9d9f4157d312f9141cb466e0da2dc2e9b1}"
 
 export ROCM_PATH=/opt/rocm
 export PYTORCH_ROCM_ARCH=gfx1201
@@ -61,80 +61,7 @@ echo "=== clone fork @ $FORK_REF -> $REPO_DIR ==="
 git -C "$REPO_DIR" fetch origin --depth 200
 git -C "$REPO_DIR" checkout "$FORK_REF"
 
-echo "=== v0.5.15 local patch overrides (mirrors docker/sglang-rdna4/Dockerfile) ==="
-# Fork not yet rebased past v0.5.14 as of FORK_REF above. 064 (ministral3) dropped, unused model.
-# 073/003 hand-rebased for v0.5.15 -- see docker/sglang-rdna4/README.md for the why.
-rm -f "$REPO_DIR/patches/064-ministral3-v0513-keyword-super-init.patch"
-
-cat > "$REPO_DIR/patches/073-rdna4-mamba-extra-buffer-hip-fallback.patch" <<'EOF073'
-diff --git a/python/sglang/srt/arg_groups/overrides.py b/python/sglang/srt/arg_groups/overrides.py
-index 0000000..0000000 100644
---- a/python/sglang/srt/arg_groups/overrides.py
-+++ b/python/sglang/srt/arg_groups/overrides.py
-@@ -1037,12 +1037,19 @@ def _mamba_radix_cache_resolution(view: Any) -> dict:
-     declared: Dict[str, Any] = {"uses_mamba_radix_cache": True}
-     if view.mamba_radix_cache_strategy == "auto":
-         wants_overlap = not view.disable_overlap_schedule
-         wants_paging = view.page_size is not None and view.page_size > 1
--        if (wants_overlap or wants_paging) and supports_mamba_cache_extra_buffer(
--            view, model_arch
--        ):
-+        if (
-+            (wants_overlap or wants_paging)
-+            and supports_mamba_cache_extra_buffer(view, model_arch)
-+            and (is_cuda() or is_musa() or is_npu())  # RDNA4/ROCm: extra_buffer
-+            # needs the FLA kernel (CUDA/MUSA/NPU only); fall back to
-+            # no_buffer on HIP instead of asserting at startup.
-+        ):
-             declared["mamba_radix_cache_strategy"] = "extra_buffer"
-         else:
-             declared["mamba_radix_cache_strategy"] = "no_buffer"
-             declared["disable_overlap_schedule"] = True
-     return declared
-EOF073
-
-cat > "$REPO_DIR/patches/003-rdna4-sgl-kernel-fallbacks.patch" <<'EOF003'
-diff --git a/sgl-kernel/python/sgl_kernel/__init__.py b/sgl-kernel/python/sgl_kernel/__init__.py
-index 0000000..0000000 100644
---- a/sgl-kernel/python/sgl_kernel/__init__.py
-+++ b/sgl-kernel/python/sgl_kernel/__init__.py
-@@ -15,8 +15,12 @@ else:
-         _preload_cuda_library,
-     )
-
--    # Initialize the ops library based on current GPU
--    common_ops = _load_architecture_specific_ops()
-+    # Initialize the ops library based on current GPU.
-+    # On unsupported platforms (e.g. RDNA4/gfx12xx) gracefully degrade to torch fallbacks.
-+    try:
-+        common_ops = _load_architecture_specific_ops()
-+    except ImportError:
-+        common_ops = None
-
-     # Preload the CUDA library to avoid the issue of libcudart.so.12 not found
-     if torch.version.cuda is not None:
-@@ -72,7 +76,14 @@ else:
-     )
-     from sgl_kernel.grammar import apply_token_bitmask_inplace_cuda
--    from sgl_kernel.infllm_v2 import (
--        infllmv2_attn_stage1,
--        max_pooling_1d_varlen,
--    )
-+    # RDNA4/ROCm: infllm_v2 (sm80/90/120a CUDA-only flash kernels, added
-+    # upstream v0.5.15) is never built by setup_rocm.py; guard the import
-+    # instead of crashing sglang startup for a backend we never select.
-+    try:
-+        from sgl_kernel.infllm_v2 import (
-+            infllmv2_attn_stage1,
-+            max_pooling_1d_varlen,
-+        )
-+    except ImportError:
-+        infllmv2_attn_stage1 = None
-+        max_pooling_1d_varlen = None
-     from sgl_kernel.kvcacheio import (
-         transfer_kv_all_layer,
-         transfer_kv_all_layer_mla,
-EOF003
+echo "=== v0.5.15: no local patch overrides needed (fork own rebase as of this FORK_REF, see docker/sglang-rdna4/README.md) ==="
 
 echo "=== setup.sh (conda env + torch 2.11 stable + triton 3.6 + native gfx1201 kernels) ==="
 cd "$REPO_DIR"

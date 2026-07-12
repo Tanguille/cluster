@@ -15,13 +15,13 @@ conda-only, no upstream Dockerfile), then applies the three TP=1 fixes `setup.sh
 > exactly (same `FORK_REF`, `SGLANG_TAG`, and the three patches). Keep them in sync — that
 > script remains the emergency PVC-rebuild fallback if the registry is ever unreachable.
 
-## Pins (verified against `env-rebuild.sh`, 2026-07-11)
+## Pins (verified against `env-rebuild.sh`, 2026-07-12)
 
 | Component | Pin |
 |---|---|
 | Base image | `rocm/dev-ubuntu-24.04:7.2.4-complete` @ `sha256:92f309c5…` |
-| Fork ref | `a0445f59e9624622ca72895a34dfc1421a345881` |
-| SGLang | `v0.5.15` (stock + the fork's RDNA4 patch series + 3 TP=1 fixes + 3 local v0.5.15 overrides, see below) |
+| Fork ref | `f9995e9d9f4157d312f9141cb466e0da2dc2e9b1` |
+| SGLang | `v0.5.15` (stock + the fork's own RDNA4 patch series + 3 TP=1 fixes, see below) |
 | PyTorch | `2.11.0+rocm7.2` (setup.sh default; 2.12 nightly is unfetchable + faults `expandable_segments`) |
 | Triton | `3.6.0` |
 | conda env | `sglang-triton36-v0514` (must match the fork's `common.sh` default `launch.sh` activates) |
@@ -35,30 +35,20 @@ crashes on the first request or OOM-restarts hours in on the first grammar/tool-
 2. `srt/layers/sampler.py` — gate the cross-TP token-id all-reduce on `world > 1` (NCCL lazy-init OOM).
 3. `pip uninstall kernels` — transformers-5.x's hub-kernels loader crashes `import sglang`.
 
-### Local v0.5.15 patch overrides (ours to maintain until the fork rebases)
+### No local v0.5.15 patch overrides needed (as of fork ref `f9995e9`)
 
-The fork's `main` branch hadn't rebased past v0.5.14 as of `FORK_REF` above when upstream shipped
-v0.5.15. Two of the fork's 46 RDNA4 patches don't apply to the v0.5.15 tree; a third gap only
-shows up mid-build. All three are handled in the Dockerfile right after the fork clone, before
-`setup.sh` runs:
+Through fork ref `a0445f59e`, the fork hadn't rebased its patch series past v0.5.14, so this
+image carried three local overrides (064/073/003) here. mattbucci's own v0.5.15 rebase
+(`6dfa7542f`, "Rebase RDNA4 patch series onto SGLang v0.5.15 + promote to live") now ships
+those same fixes upstream — 064 was superseded by upstream itself (archived
+`.patch.SUPERSEDED`), and 073/003 were rebased onto the new tree via a real `git rebase --onto`
+with GPU validation. The fork's own patch series is sufficient again; our upstream issue
+([mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3))
+is superseded by their independent fix and can be closed.
 
-- **`064-ministral3-v0513-keyword-super-init.patch`**: dropped. Only touches `models/ministral3.py`,
-  a file we never import (we serve `qwen36-27b`). Still broken on v0.5.15 if you serve Ministral3/Devstral.
-- **`073-rdna4-mamba-extra-buffer-hip-fallback.patch`**: hand-rebased
-  (`patches/073-rdna4-mamba-extra-buffer-hip-fallback-v0515.patch`). Not obsolete, just relocated —
-  v0.5.15's resolution-pipeline refactor moved the mamba-cache-strategy auto-select logic from
-  `server_args.py` into `arg_groups/overrides.py::_mamba_radix_cache_resolution`; same ROCm guard,
-  new location.
-- **`003-rdna4-sgl-kernel-fallbacks.patch`**: hand-rebased
-  (`patches/003-rdna4-sgl-kernel-fallbacks-v0515.patch`). `sgl_kernel/__init__.py` grew a new
-  unconditional `infllm_v2` import (v0.5.15's new CUDA-only kernels, never built by `setup_rocm.py`
-  on ROCm) not covered by the original patch; guarded the same way the file already guards
-  `common_ops`.
-
-Both rebased patches were verified with `git apply --check` against the actual `v0.5.15` tag
-blobs before use. Re-verify all three on the next `SGLANG_TAG` bump — drop any that the fork has
-since fixed upstream. Filed as
-[mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3).
+Re-check this note on the next `FORK_REF`/`SGLANG_TAG` bump — if the fork's patch series
+regresses against a newer upstream tag before the fork catches up again, local overrides come
+back (see git history for the exact patch content if needed).
 
 ## Building — GPU-free, no build host requirement
 

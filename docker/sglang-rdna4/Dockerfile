@@ -57,37 +57,19 @@ ARG FORK_REF=f9995e9d9f4157d312f9141cb466e0da2dc2e9b1
 RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
     && git -C "${REPO_DIR}" checkout "${FORK_REF}"
 
-# LOCAL OVERRIDE for the v0.5.15 bump (fork not yet rebased past v0.5.14 as of FORK_REF above):
-# setup.sh's patch loop (git apply -> fallback `patch --fuzz=3`) fails 2 of the fork's 46
-# patches against the v0.5.15 tree. 064 (ministral3 kwarg fix) is dropped outright — it only
-# touches models/ministral3.py, a file we never import (we serve qwen36-27b). 073 (mamba
-# extra_buffer ROCm guard) is NOT obsolete: the same unguarded auto-select-extra_buffer-on-HIP
-# bug it fixed in v0.5.14's server_args.py still exists in v0.5.15, just relocated by a
-# resolution-pipeline refactor into arg_groups/overrides.py::_mamba_radix_cache_resolution — so
-# it's replaced with a hand-rebased patch targeting the new location (same guard, verified via
-# `git apply --check` against the real v0.5.15 blob before being wired in here). This is now
-# OUR patch to maintain until mattbucci ships v0.5.15 support upstream — re-verify both on the
-# next SGLANG_TAG bump.
-COPY patches/073-rdna4-mamba-extra-buffer-hip-fallback-v0515.patch /tmp/073-rebase.patch
-RUN rm -f "${REPO_DIR}/patches/064-ministral3-v0513-keyword-super-init.patch" \
-    && cp /tmp/073-rebase.patch "${REPO_DIR}/patches/073-rdna4-mamba-extra-buffer-hip-fallback.patch"
-
-# 003 (sgl_kernel/__init__.py fallbacks) is applied separately by setup_sgl_kernel.sh, not the
-# main patch loop above, and also fails to apply against v0.5.15 — the file grew a NEW
-# unconditional `from sgl_kernel.infllm_v2 import (...)` (upstream v0.5.15's new sm80/90/120a
-# CUDA-only flash kernels; confirmed via sgl-kernel/CMakeLists.txt they're never built by our
-# ROCm setup_rocm.py path). Rebased to keep 003's original try/except-around-common_ops idiom
-# and extend the same guard to the new infllm_v2 import — those two names are never referenced
-# again in the file, so None on ImportError is inert. Also ours to maintain until v0.5.15.
-COPY patches/003-rdna4-sgl-kernel-fallbacks-v0515.patch /tmp/003-rebase.patch
-RUN cp /tmp/003-rebase.patch "${REPO_DIR}/patches/003-rdna4-sgl-kernel-fallbacks.patch"
+# NOTE: through FORK_REF a0445f59e, the fork hadn't rebased its patch series past v0.5.14, so
+# this stage carried local overrides for patches 064/073/003 (see git history if that's ever
+# needed again). mattbucci's own v0.5.15 rebase (6dfa7542f, promoted to the fork's live branch)
+# now ships those same fixes upstream — 064 was superseded by upstream itself, 073 and 003 were
+# rebased onto the new tree — so setup.sh's own patch series is sufficient again as of FORK_REF
+# below. Re-check this note on the next FORK_REF bump: if the fork's patch series regresses
+# against a newer SGLANG_TAG, local overrides come back.
 
 # setup.sh: clone stock SGLang @ SGLANG_TAG -> RDNA4 patch series -> conda env $ENV_NAME ->
 # torch 2.11.0+rocm7.2 stable (setup.sh's default; the old 2.12 nightly became unfetchable and
 # faulted with expandable_segments) -> triton 3.6 -> the native gfx1201 HIP kernels.
 # SGLANG_TAG override is REQUIRED: setup.sh defaults to v0.5.13.post1, and the patch series only
-# applies cleanly to the upstream tree it was built against (see the local-override note above
-# for the two v0.5.15 exceptions).
+# applies cleanly to the upstream tree it was built against (see the FORK_REF note above).
 ARG SGLANG_TAG=v0.5.15
 WORKDIR ${REPO_DIR}
 # GPU-free build: the HIP kernels cross-compile via PYTORCH_ROCM_ARCH=gfx1201 (explicit target,
