@@ -826,11 +826,31 @@ the first cutover — the plain sequence above missed two real races)**:
 7. Delete the old PVC, wait for full termination (`kubectl get pvc` →
    `NotFound`, not just `Terminating` — same finalizer/pod-reference
    gate as step 3).
-8. Push + reconcile. Watch the `Restore` CR reach `Ready: True, reason:
+8. **Resume with an explicit `--with-source` reconcile, not `flux
+   resume`'s own implicit one.** Found live on `changedetection` (the
+   second cutover): `flux resume kustomization` triggers its own
+   reconcile immediately, but against whatever revision is *already
+   cached* on the `GitRepository` object — which can be stale (from
+   before this cutover's `git push` in step 5) if nothing has forced a
+   fetch since. That reconcile re-applies the *old* manifest (still
+   declaring `components/volsync`), recreating the exact
+   `ReplicationDestination`/`ReplicationSource` step 6 just deleted —
+   reproducing the same race a second time, immediately after fixing
+   it once. Always follow `flux resume helmrelease`/`flux resume
+   kustomization` with an explicit `flux reconcile kustomization <app>
+   -n <ns> --with-source` (fetches the latest commit *and* applies it
+   in one step) — don't rely on resume's own reconcile to have the
+   right revision. If the race reproduces anyway (check
+   `kubectl get replicationdestination,replicationsource -n <ns>` for
+   the app — anything present after step 6 means it happened again):
+   scale to 0, delete the volsync CRs and PVC once more, then
+   `flux reconcile kustomization <app> -n <ns>` (no `--with-source`
+   needed this time, the Kustomization is already at the correct
+   revision) to get a clean single-source-of-truth apply.
+9. Watch the `Restore` CR reach `Ready: True, reason:
    RestoreSucceeded` (its `status.phase` is `Completed`, not
-   `Succeeded` — don't grep for the wrong string).
-9. Resume the `HelmRelease` and `Kustomization`, remove the KEDA pause
-   annotation, let the app scale back up.
+   `Succeeded` — don't grep for the wrong string), then scale the app
+   back up and remove the KEDA pause annotation.
 10. Verify: pod healthy; a sample file's ownership matches the app's
     real uid (see the restore-mover-default fix below — check this
     explicitly, it can be silently wrong); a fresh `kubectl kopiur
@@ -1070,7 +1090,7 @@ flip) next.
 | seerr | media | ☑ | ☐ |
 | bazarr | media | ☑ | ☐ |
 | qui | media | ☑ | ☐ |
-| changedetection | default | ☑ | ☐ |
+| changedetection | default | ☑ | ☑ |
 | karakeep | default | ☑ | ☐ |
 | jellyfin | media | ☑ | ☐ |
 | prowlarr | media | ☑ | ☐ |
