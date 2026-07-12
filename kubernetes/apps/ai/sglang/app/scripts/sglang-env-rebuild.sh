@@ -61,7 +61,51 @@ echo "=== clone fork @ $FORK_REF -> $REPO_DIR ==="
 git -C "$REPO_DIR" fetch origin --depth 200
 git -C "$REPO_DIR" checkout "$FORK_REF"
 
-echo "=== v0.5.15: no local patch overrides needed (fork own rebase as of this FORK_REF, see docker/sglang-rdna4/README.md) ==="
+echo "=== v0.5.15 local patch override: 003 only (073 covered by fork's own rebase; see docker/sglang-rdna4/README.md) ==="
+# Fork's rebased 003 restores the common_ops guard but not the v0.5.15-added infllm_v2
+# unconditional import; extend it. CI-verified via git apply --check before use.
+cat > "$REPO_DIR/patches/003-rdna4-sgl-kernel-fallbacks.patch" <<'EOF003'
+diff --git a/sgl-kernel/python/sgl_kernel/__init__.py b/sgl-kernel/python/sgl_kernel/__init__.py
+index 0000000..0000000 100644
+--- a/sgl-kernel/python/sgl_kernel/__init__.py
++++ b/sgl-kernel/python/sgl_kernel/__init__.py
+@@ -15,8 +15,12 @@ else:
+         _preload_cuda_library,
+     )
+
+-    # Initialize the ops library based on current GPU
+-    common_ops = _load_architecture_specific_ops()
++    # Initialize the ops library based on current GPU.
++    # On unsupported platforms (e.g. RDNA4/gfx12xx) gracefully degrade to torch fallbacks.
++    try:
++        common_ops = _load_architecture_specific_ops()
++    except ImportError:
++        common_ops = None
+
+     # Preload the CUDA library to avoid the issue of libcudart.so.12 not found
+     if torch.version.cuda is not None:
+@@ -72,7 +76,14 @@ else:
+     )
+     from sgl_kernel.grammar import apply_token_bitmask_inplace_cuda
+-    from sgl_kernel.infllm_v2 import (
+-        infllmv2_attn_stage1,
+-        max_pooling_1d_varlen,
+-    )
++    # RDNA4/ROCm: infllm_v2 (sm80/90/120a CUDA-only flash kernels, added
++    # upstream v0.5.15) is never built by setup_rocm.py; guard the import
++    # instead of crashing sglang startup for a backend we never select.
++    try:
++        from sgl_kernel.infllm_v2 import (
++            infllmv2_attn_stage1,
++            max_pooling_1d_varlen,
++        )
++    except ImportError:
++        infllmv2_attn_stage1 = None
++        max_pooling_1d_varlen = None
+     from sgl_kernel.kvcacheio import (
+         transfer_kv_all_layer,
+         transfer_kv_all_layer_mla,
+EOF003
 
 echo "=== setup.sh (conda env + torch 2.11 stable + triton 3.6 + native gfx1201 kernels) ==="
 cd "$REPO_DIR"
