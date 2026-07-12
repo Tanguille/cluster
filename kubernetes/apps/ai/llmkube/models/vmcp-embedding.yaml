@@ -47,7 +47,7 @@ metadata:
 spec:
   modelRef: vmcp-embedding
   mode: embedding
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:9554d35318e200b4d2d36bd4b20ce0b6ea5893b5a271a36aa209804384e64a1f
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:6f1a66f0576550c5145cd240d1c4dc5ee4cc08d9492551bbfaf4202efd3a0d95
   # 2 slots (the Vulkan floor — warmup hangs at parallel=1, llama.cpp #24307):
   # the iGPU is compute-bound, so extra slots add interleave, not throughput
   # (measured on qwen3-embedding: 4 slots didn't move latency, Q8_0 did). Two
