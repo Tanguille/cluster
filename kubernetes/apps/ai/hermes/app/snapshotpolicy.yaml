@@ -17,8 +17,11 @@ spec:
       sourcePathOverride: /data
   compression:
     compressor: zstd
+  # keepHourly lowered from 24: see kubernetes/components/kopiur/backup/
+  # snapshotpolicy.yaml for the shared-repo ConfigMap-size ceiling reason
+  # (home-operations/kopiur#237).
   retention:
-    keepHourly: 24
+    keepHourly: 8
     keepDaily: 7
   volumeSnapshotClassName: csi-ceph-blockpool
   credentialProjection:
