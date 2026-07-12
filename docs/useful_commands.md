@@ -106,7 +106,7 @@ kubectl exec -it -n <ns> deployment/<name> -- /bin/sh
 
 Optional: [kubectl-browse-pvc](https://github.com/clbx/kubectl-browse-pvc) to browse PVCs.
 
-PVC restore from backup: see [volsync-restore.md](volsync-restore.md).
+PVC restore from backup: see [kopiur-restore.md](kopiur-restore.md).
 
 ---
 
