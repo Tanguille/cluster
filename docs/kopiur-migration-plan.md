@@ -124,6 +124,26 @@ Mitigations baked into this plan:
   content the same way. This is why the fork's `KopiaMaintenance` is
   disabled in Phase 3 rather than left running dual-write. Full writeup in
   Phase 2/3 below.
+  **Live incident, 2026-07-12**: disabling `KopiaMaintenance` wasn't
+  sufficient — the fork's regular `ReplicationSource` backups hit the same
+  bug independently, because `kopia.maintenance.f` (rewritten by kopiur's
+  own maintenance every ~6h) is read on **every** repository connect,
+  regardless of which app is backing up. 4 concurrently-running fork
+  backups (dumbassets, changedetection, karakeep, nextcloud) were all
+  silently stuck at "Connecting to filesystem repository" simultaneously.
+  Unblocked immediately with the same repo-wide chmod (this time as uid
+  `65532` via a throwaway pod — `kubectl exec` as root failed with
+  `Operation not permitted`, because the NFS export has `root_squash`;
+  only the actual owning UID can chmod its own files over NFS). **Durable
+  fix**: `components/volsync`'s `moverSecurityContext.runAsUser` default
+  changed `568` → `65532` (`replicationsource.yaml` +
+  `replicationdestination.yaml`; `runAsGroup`/`fsGroup` stay `568`), so the
+  fork's mover now shares kopiur's own UID. This closes the gap in both
+  directions at once: the fork can read kopiur's `65532`-owned files (UID
+  match), and if the fork's *own* v0.22.3 kopia binary also defaults to a
+  restrictive create mode, its new writes become `65532:568` too — readable
+  by kopiur for the same reason. Only hermes overrides `VOLSYNC_PUID`
+  explicitly (`10000`), unaffected by this default change.
 
 ## Current state (inventoried 2026-07-03, re-verified 2026-07-11)
 
