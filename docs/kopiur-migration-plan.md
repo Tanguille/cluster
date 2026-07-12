@@ -1092,7 +1092,7 @@ flip) next.
 | brrpolice | media | ☑ | ☑ |
 | qbittorrent | media | ☑ | ☑ |
 | fileflows | media | ☑ | ☑ |
-| seerr | media | ☑ | ☐ |
+| seerr | media | ☑ | ☑ |
 | bazarr | media | ☑ | ☐ |
 | qui | media | ☑ | ☐ |
 | changedetection | default | ☑ | ☑ |
