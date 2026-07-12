@@ -1283,10 +1283,8 @@ Only when every row above is ✔:
    `max(rate(ceph_osd_op_w_latency_sum…))` around backup hours before/after),
    and every `SnapshotSchedule` has fired at least once at its hashed minute.
 
-**Status**: ☑ done 2026-07-12, steps 1-6 fully executed, step 7 partially
-verified with an honest caveat (see below).
-
-**Execution notes**:
+**Execution notes** (steps 1-6 fully executed 2026-07-12, step 7
+partially verified with an honest caveat):
 1. **Orphaned volsync CRs found and cleaned up first** — three
    `ReplicationDestination`s (`n8n-dst`/ai, `trilium-dst`/default,
    `jellyseerr-dst`/media) were still live in the cluster with **no**
@@ -1348,6 +1346,47 @@ verified with an honest caveat (see below).
    2026-07-12T23:20 UTC) and no migration work is in flight. Every
    *other* app's `SnapshotSchedule` (16/17) confirmed already fired
    at least once at its hashed minute.
+
+**Two more real snags hit during the actual live reconcile** (git
+changes alone weren't sufficient — cluster-side cleanup was needed
+too):
+- **`volsync-maintenance` Kustomization stuck permanently
+  `DependencyNotReady`** after deleting the `volsync` Kustomization it
+  depended on — Flux's prune (which sets `deletionTimestamp` and waits
+  on `finalizers.fluxcd.io`) apparently can't proceed past a
+  permanently-unsatisfiable `dependsOn` check even for an object that's
+  itself being deleted. Underneath, the `KopiaMaintenance` CR (`daily`)
+  it managed had the SAME problem one layer down: its own
+  `volsync.backube/kopiamaintenance-protection` finalizer will never
+  clear because the controller that owns it (the volsync-perfectra1n
+  operator) no longer exists — a dead-controller-orphaned-finalizer,
+  the standard failure mode of removing an operator before its CRs.
+  Fixed by manually stripping the finalizer
+  (`kubectl patch kopiamaintenance daily -n volsync-system --type=merge
+  -p '{"metadata":{"finalizers":[]}}'`), which let both the CR and the
+  parent Kustomization clear immediately.
+- **CRDs do NOT go with `manageCRDs` on uninstall** — the plan's
+  original assumption was wrong for this chart. Helm's own convention
+  never auto-deletes CRDs on `helm uninstall` (a deliberate data-safety
+  default, chart-independent), so all three `volsync.backube` CRDs
+  survived the operator's removal untouched. Confirmed zero CRs of any
+  type remained cluster-wide first, then deleted the three CRDs
+  manually. General lesson: don't trust an assumption about CRD
+  lifecycle from a plan written before execution — verify
+  `kubectl get crd | grep <group>` after any operator removal instead
+  of assuming the chart handled it.
+- The now-empty `volsync-system` namespace (a leftover completed
+  `kopia-maint-manual-full` Job aside — also cleaned up) doesn't get
+  auto-pruned by Flux since no `Namespace` object was ever declared
+  for it in git; deleted manually once confirmed genuinely empty
+  (`kubectl api-resources --namespaced -o name | xargs -I{} kubectl
+  get {} -n volsync-system` returned nothing but default namespace
+  boilerplate).
+
+**Status**: ☑ done — volsync fully decommissioned: no operator, no
+CRDs, no CRs, no namespace, all git references removed, kopia browser
+relocated and healthy, tuppr health checks live, alerting confirmed +
+tuned. Next: Phase 7 (documentation pass & cleanup).
 
 ## Phase 7 — Documentation pass & cleanup
 
