@@ -9,10 +9,9 @@ spec:
   path: ./kubernetes/apps/media/sonarr/app
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
     - ../../../../components/nfs-scaler
     - ../../../../components/nfs-media
-    - ../../../../components/kopiur/backup
+    - ../../../../components/kopiur
   wait: true
   prune: true
   sourceRef:
@@ -23,4 +22,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 6Gi
+      PVC_CAPACITY: 6Gi
