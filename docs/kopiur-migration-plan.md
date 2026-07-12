@@ -1094,7 +1094,7 @@ flip) next.
 | fileflows | media | ☑ | ☑ |
 | seerr | media | ☑ | ☑ |
 | bazarr | media | ☑ | ☑ |
-| qui | media | ☑ | ☐ |
+| qui | media | ☑ | ☑ |
 | changedetection | default | ☑ | ☑ |
 | karakeep | default | ☑ | ☑ |
 | jellyfin | media | ☑ | ☐ |
