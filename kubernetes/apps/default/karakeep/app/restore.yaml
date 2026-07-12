@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/restore_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: Restore
+metadata:
+  name: karakeep-restore
+spec:
+  source:
+    fromPolicy:
+      name: karakeep
+      offset: 0
+  # Explicit PASSIVE populator mode — claimed by the PVC's dataSourceRef below.
+  target:
+    populator: {}
+  policy:
+    # deploy-or-restore: fresh cluster + empty repo -> empty PVC, existing
+    # repo -> restore the latest snapshot.
+    onMissingSnapshot: Continue
+  credentialProjection:
+    enabled: true
+  # karakeep's data is owned 1000:1000 (its own pod spec doesn't pin a
+  # uid — the image runs as 1000 directly, no declared securityContext),
+  # so inheritSecurityContextFrom has nothing to inherit even setting
+  # aside that restore has no live pod to inherit from at all (this
+  # migration's own cutover recipe scales the app to 0 first). One-off
+  # explicit override, like hermes — no other app shares uid 1000.
+  mover:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
