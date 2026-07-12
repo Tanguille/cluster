@@ -28,9 +28,19 @@ spec:
       activeDeadlineSeconds: 2700
   credentialProjection:
     allowed: true
+  # NOT set on moverDefaults: moverDefaults.securityContext is baked onto
+  # every mover's *container* securityContext, which always wins over the
+  # per-app pod-level identity that inheritSecurityContextFrom.pvcConsumer
+  # sets — silently clobbering source-PVC reads for any app whose real uid
+  # isn't 568. Scoped to maintenance.mover instead, which has no PVC to
+  # inherit from and so nothing to clobber.
   moverDefaults:
     securityContext:
-      runAsUser: 568
       runAsGroup: 568
+  maintenance:
+    mover:
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
   scheduleDefaults:
     timezone: ${TIMEZONE}
