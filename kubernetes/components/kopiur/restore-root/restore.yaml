@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/restore_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: Restore
+metadata:
+  name: ${APP}-restore
+spec:
+  source:
+    fromPolicy:
+      name: ${APP}
+      offset: 0
+  # Explicit PASSIVE populator mode — claimed by the PVC's dataSourceRef below.
+  target:
+    populator: {}
+  policy:
+    # deploy-or-restore: fresh cluster + empty repo -> empty PVC, existing
+    # repo -> restore the latest snapshot.
+    onMissingSnapshot: Continue
+  credentialProjection:
+    enabled: true
+  # inheritSecurityContextFrom.pvcConsumer can't work here at all: the app
+  # is scaled to 0 before the restore runs (this migration's own cutover
+  # recipe), so there's no live pod to inherit from. Root apps' restored
+  # files need to land owned 0:0 — no capabilities needed unlike the
+  # backup side, since the mover is *creating* fresh files on an empty PVC
+  # (new files are owned by the creating process's own uid by default),
+  # not reading pre-existing files it doesn't own.
+  mover:
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0

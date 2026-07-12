@@ -9,10 +9,9 @@ spec:
   path: ./kubernetes/apps/media/qbittorrent/app
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
+    - ../../../../components/kopiur
     - ../../../../components/nfs-scaler
     - ../../../../components/nfs-media
-    - ../../../../components/kopiur/backup
   wait: false
   prune: true
   sourceRef:
@@ -24,4 +23,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 10Gi
+      PVC_CAPACITY: 10Gi
