@@ -4,12 +4,12 @@ kind: PersistentVolumeClaim
 metadata:
   name: ${APP}
 spec:
-  accessModes: ["${BACKUP_ACCESSMODES:=ReadWriteOnce}"]
+  accessModes: ["${PVC_ACCESSMODES:=ReadWriteOnce}"]
   dataSourceRef:
     apiGroup: kopiur.home-operations.com
     kind: Restore
     name: ${APP}-restore
   resources:
     requests:
-      storage: ${BACKUP_CAPACITY:=5Gi}
-  storageClassName: ${BACKUP_STORAGECLASS:=ceph-block}
+      storage: ${PVC_CAPACITY:=5Gi}
+  storageClassName: ${PVC_STORAGECLASS:=ceph-block}

@@ -621,8 +621,12 @@ not the stale README):
   fresh cluster with empty repo → empty PVC, existing repo → restore).
 - `pvc.yaml` — same as today's but `dataSourceRef` → `{apiGroup:
   kopiur.home-operations.com, kind: Restore, name: ${APP}-restore}` and
-  `${BACKUP_CAPACITY:=5Gi}` / `${BACKUP_STORAGECLASS:=ceph-block}` /
-  `${BACKUP_ACCESSMODES:=ReadWriteOnce}`.
+  `${PVC_CAPACITY:=5Gi}` / `${PVC_STORAGECLASS:=ceph-block}` /
+  `${PVC_ACCESSMODES:=ReadWriteOnce}` — named for what they actually size
+  (the app's real PVC), not `BACKUP_*`; there's no separate "backup
+  storage" concept in either volsync or kopiur, both mechanisms
+  parameterize the live app volume directly (the old `VOLSYNC_CAPACITY`
+  had the exact same property, just unnoticed).
 - `kustomization.yaml` (Component) wrapping the four.
 
 **Canary: `dumbassets`** (1Gi, `default`, lowest value). Cutover recipe:
