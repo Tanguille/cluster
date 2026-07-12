@@ -56,8 +56,12 @@ ARG FORK_REF=f9995e9d9f4157d312f9141cb466e0da2dc2e9b1
 RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
     && git -C "${REPO_DIR}" checkout "${FORK_REF}"
 
-# No local patch overrides needed as of FORK_REF below — setup.sh's own series covers it (see
-# README.md for history). Re-check on the next FORK_REF/SGLANG_TAG bump; overrides may return.
+# 073 needs no override as of FORK_REF below (fork's own rebase covers it). 003 still does:
+# the fork's rebased 003 only restores the common_ops guard, not the v0.5.15-added unconditional
+# `infllm_v2` import — CI-verified (git apply --check against a real v0.5.15 clone) before use.
+# See README.md for the full story.
+COPY patches/003-rdna4-sgl-kernel-fallbacks-v0515.patch /tmp/003-rebase.patch
+RUN cp /tmp/003-rebase.patch "${REPO_DIR}/patches/003-rdna4-sgl-kernel-fallbacks.patch"
 
 # setup.sh: clone stock SGLang @ SGLANG_TAG -> RDNA4 patch series -> conda env $ENV_NAME ->
 # torch 2.11.0+rocm7.2 stable (setup.sh's default; the old 2.12 nightly became unfetchable and
