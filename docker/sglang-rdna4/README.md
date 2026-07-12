@@ -15,13 +15,13 @@ conda-only, no upstream Dockerfile), then applies the three TP=1 fixes `setup.sh
 > exactly (same `FORK_REF`, `SGLANG_TAG`, and the three patches). Keep them in sync — that
 > script remains the emergency PVC-rebuild fallback if the registry is ever unreachable.
 
-## Pins (verified against `env-rebuild.sh`, 2026-07-11)
+## Pins (verified against `env-rebuild.sh`, 2026-07-12)
 
 | Component | Pin |
 |---|---|
 | Base image | `rocm/dev-ubuntu-24.04:7.2.4-complete` @ `sha256:92f309c5…` |
-| Fork ref | `a0445f59e9624622ca72895a34dfc1421a345881` |
-| SGLang | `v0.5.15` (stock + the fork's RDNA4 patch series + 3 TP=1 fixes + 3 local v0.5.15 overrides, see below) |
+| Fork ref | `f9995e9d9f4157d312f9141cb466e0da2dc2e9b1` |
+| SGLang | `v0.5.15` (stock + the fork's own RDNA4 patch series + 3 TP=1 fixes, see below) |
 | PyTorch | `2.11.0+rocm7.2` (setup.sh default; 2.12 nightly is unfetchable + faults `expandable_segments`) |
 | Triton | `3.6.0` |
 | conda env | `sglang-triton36-v0514` (must match the fork's `common.sh` default `launch.sh` activates) |
@@ -35,30 +35,17 @@ crashes on the first request or OOM-restarts hours in on the first grammar/tool-
 2. `srt/layers/sampler.py` — gate the cross-TP token-id all-reduce on `world > 1` (NCCL lazy-init OOM).
 3. `pip uninstall kernels` — transformers-5.x's hub-kernels loader crashes `import sglang`.
 
-### Local v0.5.15 patch overrides (ours to maintain until the fork rebases)
+### No local v0.5.15 patch overrides needed (as of fork ref `f9995e9`)
 
-The fork's `main` branch hadn't rebased past v0.5.14 as of `FORK_REF` above when upstream shipped
-v0.5.15. Two of the fork's 46 RDNA4 patches don't apply to the v0.5.15 tree; a third gap only
-shows up mid-build. All three are handled in the Dockerfile right after the fork clone, before
-`setup.sh` runs:
+Through fork ref `a0445f59e` we carried local overrides for patches 064/073/003 (fork hadn't
+rebased past v0.5.14). mattbucci's v0.5.15 rebase (`6dfa7542f`) now ships these upstream (064
+archived `.patch.SUPERSEDED`, 073/003 rebased via `git rebase --onto`) — no overrides needed as
+of fork ref `f9995e9`. Upstream issue
+([#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3)) is
+superseded and can be closed.
 
-- **`064-ministral3-v0513-keyword-super-init.patch`**: dropped. Only touches `models/ministral3.py`,
-  a file we never import (we serve `qwen36-27b`). Still broken on v0.5.15 if you serve Ministral3/Devstral.
-- **`073-rdna4-mamba-extra-buffer-hip-fallback.patch`**: hand-rebased
-  (`patches/073-rdna4-mamba-extra-buffer-hip-fallback-v0515.patch`). Not obsolete, just relocated —
-  v0.5.15's resolution-pipeline refactor moved the mamba-cache-strategy auto-select logic from
-  `server_args.py` into `arg_groups/overrides.py::_mamba_radix_cache_resolution`; same ROCm guard,
-  new location.
-- **`003-rdna4-sgl-kernel-fallbacks.patch`**: hand-rebased
-  (`patches/003-rdna4-sgl-kernel-fallbacks-v0515.patch`). `sgl_kernel/__init__.py` grew a new
-  unconditional `infllm_v2` import (v0.5.15's new CUDA-only kernels, never built by `setup_rocm.py`
-  on ROCm) not covered by the original patch; guarded the same way the file already guards
-  `common_ops`.
-
-Both rebased patches were verified with `git apply --check` against the actual `v0.5.15` tag
-blobs before use. Re-verify all three on the next `SGLANG_TAG` bump — drop any that the fork has
-since fixed upstream. Filed as
-[mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3).
+Re-check on the next `FORK_REF`/`SGLANG_TAG` bump — overrides may return if the fork's patch
+series regresses against a newer upstream tag (see git history for the exact patch content).
 
 ## Building — GPU-free, no build host requirement
 
@@ -120,27 +107,10 @@ the conda env — so the launch config is byte-for-byte what was validated on th
 
 ## Multimodal: images work, video doesn't (no ffmpeg in the runtime image)
 
-Every boot logs a ~60-line `libtorchcodec` traceback cascade (tries FFmpeg versions 4-8, all
-missing `libavutil.so.5x`/`.so.6x`) while sglang tries to import 3 multimodal processors we never
-use (`mimo_v2`, `mimo_v2_asr`, `mimo_audio` — a different model family). sglang itself catches
-this and logs "Ignore import error when loading …" — it's non-fatal noise, not a crash, and
-**left as-is** (fixing it would mean either bloating the slim runtime with unused FFmpeg libs, or
-patching sglang's own multimodal module loader for a log-cosmetics-only win).
+Boot logs a benign ~60-line `libtorchcodec` traceback (missing `libavutil`) from 3 unused
+multimodal processors (`mimo_v2`/`mimo_v2_asr`/`mimo_audio`); sglang catches it, non-fatal.
 
-`qwen36-27b` (`model_type=qwen3_5`) reports `has_image_understanding: true` via `/get_model_info`
-and IS used for image-detection workloads in prod. Traced through the actual `v0.5.15` source
-(`sglang/srt/multimodal/processors/qwen_vl.py`) to confirm this noise doesn't affect that:
-
-- **Images**: handled via `torchvision`/`PIL` directly, never touches video decoding. Confirmed
-  unaffected — `qwen_vl.py`'s own import succeeds regardless of torchcodec (unlike the 3 MiMo
-  processors above, which import torchcodec unconditionally at module scope with no fallback
-  guard and fail to import entirely).
-- **Video**: a separate code path through `VideoDecoderWrapper`
-  (`sglang/srt/utils/video_decoder.py`), coded as "torchcodec preferred, decord as fallback".
-  Checked the built image directly (`docker run ... python -c "import importlib.util; ..."`,
-  not the live pod): `torchcodec` is installed as a Python package but its native FFmpeg `.so`s
-  aren't present (hence the traceback), and `decord` isn't installed at all. **Both video
-  backends are currently broken** — if video input is ever sent to this model, it will fail.
-  Not fixed because nothing in prod currently sends video; if that changes, `decord` (a much
-  lighter dependency than full FFmpeg/libavutil) is the natural fix — it's already coded as the
-  intended fallback, just not installed.
+`qwen36-27b` (`has_image_understanding: true`) is used for image-detection in prod — images go
+through `torchvision`/PIL, unaffected by torchcodec. Video (`VideoDecoderWrapper`) is broken:
+torchcodec's native FFmpeg libs aren't installed and `decord` isn't either. Not fixed since
+nothing sends video; `decord` is the lighter fix if that changes.
