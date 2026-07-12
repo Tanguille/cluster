@@ -9,10 +9,9 @@ spec:
   path: ./kubernetes/apps/media/qui/app
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
     - ../../../../components/nfs-scaler
     - ../../../../components/nfs-media
-    - ../../../../components/kopiur/backup
+    - ../../../../components/kopiur
   dependsOn:
     - name: qbittorrent
   wait: false
@@ -25,4 +24,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 5Gi
+      PVC_CAPACITY: 5Gi
