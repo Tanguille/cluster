@@ -1097,7 +1097,7 @@ flip) next.
 | qui | media | ☑ | ☑ |
 | changedetection | default | ☑ | ☑ |
 | karakeep | default | ☑ | ☑ |
-| jellyfin | media | ☑ | ☐ |
+| jellyfin | media | ☑ | ☑ |
 | prowlarr | media | ☑ | ☐ |
 | radarr | media | ☑ | ☐ |
 | sonarr | media | ☑ | ☐ |
