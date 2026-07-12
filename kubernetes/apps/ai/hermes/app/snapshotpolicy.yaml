@@ -24,9 +24,11 @@ spec:
   credentialProjection:
     enabled: true
   # hermes's data is owned 10000:10000 (not the cluster's usual 568/65532
-  # convention) — the mover needs to match to read it, same reason the
-  # volsync fork carries VOLSYNC_PUID/PGID: "10000" for this app.
+  # convention), same reason the volsync fork carries VOLSYNC_PUID/PGID:
+  # "10000" for this app. A hardcoded runAsUser/runAsGroup here fixed
+  # source-PVC reads but broke repo-connect (repo blobs are owned by the
+  # shared uid, not 10000) — inherit from the live pod instead, same as
+  # every other app.
   mover:
-    securityContext:
-      runAsUser: 10000
-      runAsGroup: 10000
+    inheritSecurityContextFrom:
+      pvcConsumer: {}
