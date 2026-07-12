@@ -21,7 +21,7 @@ conda-only, no upstream Dockerfile), then applies the three TP=1 fixes `setup.sh
 |---|---|
 | Base image | `rocm/dev-ubuntu-24.04:7.2.4-complete` @ `sha256:92f309c5…` |
 | Fork ref | `f9995e9d9f4157d312f9141cb466e0da2dc2e9b1` |
-| SGLang | `v0.5.15` (stock + the fork's own RDNA4 patch series + 3 TP=1 fixes, see below) |
+| SGLang | `v0.5.15` (stock + the fork's own RDNA4 patch series + 3 TP=1 fixes + 1 local v0.5.15 override, see below) |
 | PyTorch | `2.11.0+rocm7.2` (setup.sh default; 2.12 nightly is unfetchable + faults `expandable_segments`) |
 | Triton | `3.6.0` |
 | conda env | `sglang-triton36-v0514` (must match the fork's `common.sh` default `launch.sh` activates) |
@@ -35,17 +35,25 @@ crashes on the first request or OOM-restarts hours in on the first grammar/tool-
 2. `srt/layers/sampler.py` — gate the cross-TP token-id all-reduce on `world > 1` (NCCL lazy-init OOM).
 3. `pip uninstall kernels` — transformers-5.x's hub-kernels loader crashes `import sglang`.
 
-### No local v0.5.15 patch overrides needed (as of fork ref `f9995e9`)
+### 1 local v0.5.15 patch override remains: 003 (as of fork ref `f9995e9`)
 
 Through fork ref `a0445f59e` we carried local overrides for patches 064/073/003 (fork hadn't
-rebased past v0.5.14). mattbucci's v0.5.15 rebase (`6dfa7542f`) now ships these upstream (064
-archived `.patch.SUPERSEDED`, 073/003 rebased via `git rebase --onto`) — no overrides needed as
-of fork ref `f9995e9`. Upstream issue
-([#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3)) is
-superseded and can be closed.
+rebased past v0.5.14). mattbucci's v0.5.15 rebase (`6dfa7542f`) shipped 064 (archived
+`.patch.SUPERSEDED`, superseded by upstream itself) and 073 (rebased via `git rebase --onto`) —
+neither needs an override anymore.
 
-Re-check on the next `FORK_REF`/`SGLANG_TAG` bump — overrides may return if the fork's patch
-series regresses against a newer upstream tag (see git history for the exact patch content).
+**003 does — CI-confirmed 2026-07-12.** The fork's rebased 003 only restores the `common_ops`
+guard (its original v0.5.14 scope); it never picked up the second hunk our version added for
+v0.5.15's own new unconditional `infllm_v2` import. `setup_sgl_kernel.sh` also applies 003 a
+*second* time (independent of the main 47-patch loop), which then fails as "already applied" and
+silently continues — so the missing `infllm_v2` guard reaches the runtime `import sglang` gate
+unguarded and crashes it (`ModuleNotFoundError: No module named 'sgl_kernel.infllm_v2'`). Local
+override restored, verified via `git apply --check` against a fresh v0.5.15 clone. Upstream issue
+([#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3)) updated,
+not closed.
+
+Re-check on the next `FORK_REF`/`SGLANG_TAG` bump — 003 may resolve upstream, or 073/064 may
+regress (see git history for the exact patch content).
 
 ## Building — GPU-free, no build host requirement
 
