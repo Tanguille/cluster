@@ -8,9 +8,8 @@ metadata:
 spec:
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
     - ../../../../components/nfs-scaler
-    - ../../../../components/kopiur/backup-root
+    - ../../../../components/kopiur-privileged
   path: ./kubernetes/apps/media/jellyfin/app
   prune: true
   sourceRef:
@@ -21,4 +20,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 40Gi
+      PVC_CAPACITY: 40Gi
