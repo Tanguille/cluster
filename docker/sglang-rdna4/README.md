@@ -37,18 +37,15 @@ crashes on the first request or OOM-restarts hours in on the first grammar/tool-
 
 ### No local v0.5.15 patch overrides needed (as of fork ref `f9995e9`)
 
-Through fork ref `a0445f59e`, the fork hadn't rebased its patch series past v0.5.14, so this
-image carried three local overrides (064/073/003) here. mattbucci's own v0.5.15 rebase
-(`6dfa7542f`, "Rebase RDNA4 patch series onto SGLang v0.5.15 + promote to live") now ships
-those same fixes upstream — 064 was superseded by upstream itself (archived
-`.patch.SUPERSEDED`), and 073/003 were rebased onto the new tree via a real `git rebase --onto`
-with GPU validation. The fork's own patch series is sufficient again; our upstream issue
-([mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3))
-is superseded by their independent fix and can be closed.
+Through fork ref `a0445f59e` we carried local overrides for patches 064/073/003 (fork hadn't
+rebased past v0.5.14). mattbucci's v0.5.15 rebase (`6dfa7542f`) now ships these upstream (064
+archived `.patch.SUPERSEDED`, 073/003 rebased via `git rebase --onto`) — no overrides needed as
+of fork ref `f9995e9`. Upstream issue
+([#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3)) is
+superseded and can be closed.
 
-Re-check this note on the next `FORK_REF`/`SGLANG_TAG` bump — if the fork's patch series
-regresses against a newer upstream tag before the fork catches up again, local overrides come
-back (see git history for the exact patch content if needed).
+Re-check on the next `FORK_REF`/`SGLANG_TAG` bump — overrides may return if the fork's patch
+series regresses against a newer upstream tag (see git history for the exact patch content).
 
 ## Building — GPU-free, no build host requirement
 
@@ -110,27 +107,10 @@ the conda env — so the launch config is byte-for-byte what was validated on th
 
 ## Multimodal: images work, video doesn't (no ffmpeg in the runtime image)
 
-Every boot logs a ~60-line `libtorchcodec` traceback cascade (tries FFmpeg versions 4-8, all
-missing `libavutil.so.5x`/`.so.6x`) while sglang tries to import 3 multimodal processors we never
-use (`mimo_v2`, `mimo_v2_asr`, `mimo_audio` — a different model family). sglang itself catches
-this and logs "Ignore import error when loading …" — it's non-fatal noise, not a crash, and
-**left as-is** (fixing it would mean either bloating the slim runtime with unused FFmpeg libs, or
-patching sglang's own multimodal module loader for a log-cosmetics-only win).
+Boot logs a benign ~60-line `libtorchcodec` traceback (missing `libavutil`) from 3 unused
+multimodal processors (`mimo_v2`/`mimo_v2_asr`/`mimo_audio`); sglang catches it, non-fatal.
 
-`qwen36-27b` (`model_type=qwen3_5`) reports `has_image_understanding: true` via `/get_model_info`
-and IS used for image-detection workloads in prod. Traced through the actual `v0.5.15` source
-(`sglang/srt/multimodal/processors/qwen_vl.py`) to confirm this noise doesn't affect that:
-
-- **Images**: handled via `torchvision`/`PIL` directly, never touches video decoding. Confirmed
-  unaffected — `qwen_vl.py`'s own import succeeds regardless of torchcodec (unlike the 3 MiMo
-  processors above, which import torchcodec unconditionally at module scope with no fallback
-  guard and fail to import entirely).
-- **Video**: a separate code path through `VideoDecoderWrapper`
-  (`sglang/srt/utils/video_decoder.py`), coded as "torchcodec preferred, decord as fallback".
-  Checked the built image directly (`docker run ... python -c "import importlib.util; ..."`,
-  not the live pod): `torchcodec` is installed as a Python package but its native FFmpeg `.so`s
-  aren't present (hence the traceback), and `decord` isn't installed at all. **Both video
-  backends are currently broken** — if video input is ever sent to this model, it will fail.
-  Not fixed because nothing in prod currently sends video; if that changes, `decord` (a much
-  lighter dependency than full FFmpeg/libavutil) is the natural fix — it's already coded as the
-  intended fallback, just not installed.
+`qwen36-27b` (`has_image_understanding: true`) is used for image-detection in prod — images go
+through `torchvision`/PIL, unaffected by torchcodec. Video (`VideoDecoderWrapper`) is broken:
+torchcodec's native FFmpeg libs aren't installed and `decord` isn't either. Not fixed since
+nothing sends video; `decord` is the lighter fix if that changes.

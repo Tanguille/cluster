@@ -35,8 +35,7 @@ RUN apt-get update \
         git curl ca-certificates build-essential python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Rust via rustup `stable`, not apt (Ubuntu 24.04 ships an old cargo). The fork's grpc
-# crate builds during `pip install -e`; Rust's back-compat means latest stable works.
+# Rust via rustup stable, not apt (Ubuntu 24.04's cargo is too old for the fork's grpc crate build).
 ENV RUSTUP_HOME=/opt/rust/rustup \
     CARGO_HOME=/opt/rust/cargo \
     PATH=/opt/rust/cargo/bin:${PATH}
@@ -57,13 +56,8 @@ ARG FORK_REF=f9995e9d9f4157d312f9141cb466e0da2dc2e9b1
 RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
     && git -C "${REPO_DIR}" checkout "${FORK_REF}"
 
-# NOTE: through FORK_REF a0445f59e, the fork hadn't rebased its patch series past v0.5.14, so
-# this stage carried local overrides for patches 064/073/003 (see git history if that's ever
-# needed again). mattbucci's own v0.5.15 rebase (6dfa7542f, promoted to the fork's live branch)
-# now ships those same fixes upstream — 064 was superseded by upstream itself, 073 and 003 were
-# rebased onto the new tree — so setup.sh's own patch series is sufficient again as of FORK_REF
-# below. Re-check this note on the next FORK_REF bump: if the fork's patch series regresses
-# against a newer SGLANG_TAG, local overrides come back.
+# No local patch overrides needed as of FORK_REF below — setup.sh's own series covers it (see
+# README.md for history). Re-check on the next FORK_REF/SGLANG_TAG bump; overrides may return.
 
 # setup.sh: clone stock SGLang @ SGLANG_TAG -> RDNA4 patch series -> conda env $ENV_NAME ->
 # torch 2.11.0+rocm7.2 stable (setup.sh's default; the old 2.12 nightly became unfetchable and
@@ -72,12 +66,9 @@ RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
 # applies cleanly to the upstream tree it was built against (see the FORK_REF note above).
 ARG SGLANG_TAG=v0.5.15
 WORKDIR ${REPO_DIR}
-# GPU-free build: the HIP kernels cross-compile via PYTORCH_ROCM_ARCH=gfx1201 (explicit target,
-# no device probe). setup.sh runs under `set -eo pipefail` and its ONE fatal GPU touch is a
-# post-torch-install `assert torch.cuda.is_available()` (line ~139) — neuter just that assert;
-# the final verify already passes GPU-free (device_count()=0 skips the name loop). The grep
-# guards fail the build if upstream moves the line; the pod's model load at deploy remains the
-# actual kernel smoke test.
+# GPU-free build (explicit PYTORCH_ROCM_ARCH, no device probe) — neuters setup.sh's one fatal
+# GPU touch, `assert torch.cuda.is_available()` (~line 139); grep guards catch upstream moving
+# it. Full rationale: README.md "Building — GPU-free".
 RUN sed -i "s|assert torch.cuda.is_available(), 'CUDA not available'; ||" scripts/setup.sh \
     && ! grep -q "assert torch.cuda.is_available" scripts/setup.sh \
     && grep -qF "device_count()} GPUs" scripts/setup.sh

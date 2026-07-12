@@ -73,12 +73,7 @@ grep -q 'RDNA4 TP=1' "$KVC" || \
   sed -i '/^def can_use_store_cache(size: int) -> bool:$/a\    return False  # RDNA4 TP=1: JIT store_cache crashes (kvcache.cuh:204) -> naive torch KV store' "$KVC"
 
 echo "=== TP=1 fix: gate the cross-TP token-id all-reduce on world size > 1 ==="
-# Sampler._sync_token_ids_across_tp runs an all-reduce for grammar/structured-output
-# requests even at TP=1, where it's a no-op (MIN over a 1-rank group). That first
-# all-reduce lazily inits NCCL/RCCL mid-run (a ~256MB calloc); hours in, with VRAM
-# committed, the calloc OOMs and crashes the engine. Gate it on a >1-rank group so
-# NCCL never initialises at TP=1. WITHOUT THIS, json_schema/tool-calling traffic
-# (e.g. the PR-review CI) triggers periodic HIP-OOM restarts.
+# Gate on world_size>1 so NCCL never lazily inits at TP=1 (see header — OOMs hours in otherwise).
 SMP="$SGLANG_DIR/python/sglang/srt/layers/sampler.py"
 grep -q 'get_world_size(group=self.tp_sync_group) > 1' "$SMP" || \
   sed -i 's|^        if SYNC_TOKEN_IDS_ACROSS_TP or sampling_info.grammars:$|        if (SYNC_TOKEN_IDS_ACROSS_TP or sampling_info.grammars) and dist.get_world_size(group=self.tp_sync_group) > 1:|' "$SMP"
@@ -92,10 +87,8 @@ grep -q -- '--disable-cuda-graph' "$LAUNCH" && \
   sed -i 's/--disable-cuda-graph/--cuda-graph-backend-decode=disabled --cuda-graph-backend-prefill=disabled/g' "$LAUNCH"
 
 echo "=== install amdsmi (ROCm GPU-management bindings) ==="
-# Without it SGLang logs "Failed to import amdsmi" at boot and falls back to torch for VRAM
-# capacity detection (works, but the fallback is why mem-fraction sizing is coarser). Prefer the
-# ROCm-bundled bindings at /opt/rocm/share/amd_smi so the version matches the 7.2.4 runtime/driver;
-# fall back to PyPI. Non-fatal — text inference does not depend on it.
+# Missing amdsmi -> SGLang falls back to torch for VRAM detection (coarser mem-fraction sizing).
+# Prefer ROCm-bundled bindings (matches 7.2.4 runtime), fall back to PyPI. Non-fatal.
 "$CONDA_BASE/bin/conda" run -n "$ENV_NAME" pip install /opt/rocm/share/amd_smi 2>/dev/null \
   || "$CONDA_BASE/bin/conda" run -n "$ENV_NAME" pip install amdsmi 2>/dev/null \
   || echo "(amdsmi install failed — non-fatal; SGLang falls back to torch VRAM detection)"
