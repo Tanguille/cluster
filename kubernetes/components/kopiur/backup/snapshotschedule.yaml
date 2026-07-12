@@ -8,5 +8,5 @@ spec:
   policyRef:
     name: ${APP}
   schedule:
-    cron: "H */12 * * *"
-    jitter: 30m
+    # H hashes each app to its own minute — spreads the fleet, no stampede
+    cron: H * * * *
