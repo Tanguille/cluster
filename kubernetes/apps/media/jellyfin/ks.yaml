@@ -9,7 +9,7 @@ spec:
   targetNamespace: *namespace
   components:
     - ../../../../components/nfs-scaler
-    - ../../../../components/kopiur-privileged
+    - ../../../../components/kopiur
   path: ./kubernetes/apps/media/jellyfin/app
   prune: true
   sourceRef:
@@ -21,3 +21,6 @@ spec:
     substitute:
       APP: *app
       PVC_CAPACITY: 40Gi
+      KOPIUR_PUID: "0"
+      KOPIUR_PGID: "0"
+      KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"

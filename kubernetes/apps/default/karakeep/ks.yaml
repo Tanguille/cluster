@@ -16,7 +16,10 @@ spec:
   wait: false
   interval: 30m
   components:
-    - ../../../../components/kopiur/backup
+    - ../../../../components/kopiur
   postBuild:
     substitute:
       APP: *app
+      PVC_CAPACITY: 5Gi
+      KOPIUR_PUID: "1000"
+      KOPIUR_PGID: "1000"

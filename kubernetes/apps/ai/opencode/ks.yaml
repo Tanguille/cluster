@@ -16,8 +16,11 @@ spec:
     namespace: flux-system
   components:
     - ../../../../components/volsync
-    - ../../../../components/kopiur/backup-root
+    - ../../../../components/kopiur/backup
   postBuild:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 20Gi
+      KOPIUR_PUID: "0"
+      KOPIUR_PGID: "0"
+      KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
