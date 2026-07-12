@@ -765,7 +765,13 @@ pass, not a multi-day schedule:
    `kustomization.yaml` into two — `backup/` and `restore/` — so this step
    can enable one half without the other, same pattern onedr0p and every
    cross-referenced adopter with `components/kopiur/{backup,pvc}` or
-   `{kopiur,restore}` split use).
+   `{kopiur,restore}` split use). **Done 2026-07-12**: split into
+   `components/kopiur/{backup,restore}/`, each its own Component; the
+   top-level `components/kopiur/kustomization.yaml` now composes both via
+   nested `components:` (kustomize supports Components referencing other
+   Components), so `dumbassets` (already fully cut over) needs no changes —
+   `flate test all` re-verified clean post-split. Dual-write apps in this
+   phase reference `components/kopiur/backup` alone.
 2. Push, reconcile, confirm every app has produced at least one real kopiur
    snapshot (script this — `(app, namespace)` pairs, `kubectl kopiur
    snapshot list --policy $app -n $ns`) before touching any PVC.
