@@ -1091,7 +1091,7 @@ flip) next.
 | dumbassets (canary, Phase 4) | default | ☑ | ☑ |
 | brrpolice | media | ☑ | ☑ |
 | qbittorrent | media | ☑ | ☑ |
-| fileflows | media | ☑ | ☐ |
+| fileflows | media | ☑ | ☑ |
 | seerr | media | ☑ | ☐ |
 | bazarr | media | ☑ | ☐ |
 | qui | media | ☑ | ☐ |
