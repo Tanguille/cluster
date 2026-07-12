@@ -10,7 +10,6 @@ spec:
     name: kopiur
   interval: 1h
   values:
-    installScope: cluster # ClusterRepository needs ClusterRole
     # The controller pod itself needs direct NFS access to the repo, not just
     # the per-app movers — kopiur#137, filesystem Restore fails with
     # "/repo not mounted" without this. Confirmed by every NFS-backend adopter.
@@ -23,11 +22,11 @@ spec:
       - name: repo
         mountPath: /repo
     podSecurityContext:
-      runAsNonRoot: true
+      # 568 (not chart-default 65534) so the in-process kopia can read the
+      # uid-568-owned NFS repo
       runAsUser: 568
       runAsGroup: 568
       fsGroup: 568
-      fsGroupChangePolicy: OnRootMismatch
     features:
       credentialProjection:
         enabled: true # shared repo, movers in many namespaces
@@ -36,9 +35,5 @@ spec:
         enabled: true
       prometheusRule:
         enabled: true # KopiurBackupStale et al. — live BEFORE any data moves
-        # Chart default (172800s/48h) tolerates ~4 missed 12h backup cycles;
-        # 86400s/24h (one full retry window) matches volsync's own
-        # schedule-aware out-of-sync detection more closely.
-        backupStaleAfterSeconds: 86400
       dashboards:
         enabled: true
