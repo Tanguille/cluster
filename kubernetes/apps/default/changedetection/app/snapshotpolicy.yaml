@@ -3,14 +3,14 @@
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: SnapshotPolicy
 metadata:
-  name: hermes
+  name: changedetection
 spec:
   repository:
     kind: ClusterRepository
     name: kopia-nas
   sources:
     - pvc:
-        name: hermes
+        name: changedetection
       # The fork's mover always recorded /data regardless of the app's real
       # mount path — kopiur's own default (/pvc/<name>) would start a new
       # identity strand instead of continuing the adopted history.
@@ -26,17 +26,20 @@ spec:
   volumeSnapshotClassName: csi-ceph-blockpool
   credentialProjection:
     enabled: true
-  # hermes's data is owned 10000:10000 (not the cluster's usual 568/65532
-  # convention), same reason the volsync fork carries VOLSYNC_PUID/PGID:
-  # "10000" for this app. inheritSecurityContextFrom.pvcConsumer can't help
-  # here: hermes's own pod spec never pins a uid (its image drops privilege
-  # to 10000 via s6 at runtime, not via a declared securityContext), so
-  # there's nothing for kopiur to inherit — it silently falls back to the
-  # mover image's own default identity instead (home-operations/kopiur, the
-  # pvcConsumer silent-no-op gap). Repo-connect no longer depends on this
-  # uid matching the repo's own content owner: the NFS export's Mapall
-  # remaps every mover to the same identity regardless of what it claims.
+  # changedetection runs as root — its pod spec never pins a uid (the image runs as
+  # root directly, no declared securityContext), so
+  # inheritSecurityContextFrom.pvcConsumer has nothing to inherit and
+  # silently falls back to the mover image's own non-root default instead
+  # (home-operations/kopiur pvcConsumer silent-no-op gap). Explicit root +
+  # DAC_READ_SEARCH is the only way to actually read root-owned files: an
+  # inherited-root mover still lacks this capability and would fail the
+  # same way (home-operations/kopiur — inherited root has no DAC caps).
+  # Requires the kopiur.home-operations.com/privileged-movers: "true"
+  # namespace annotation (already applied).
   mover:
     securityContext:
-      runAsUser: 10000
-      runAsGroup: 10000
+      runAsUser: 0
+      runAsGroup: 0
+      capabilities:
+        add:
+          - DAC_READ_SEARCH
