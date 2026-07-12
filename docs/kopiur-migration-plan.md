@@ -1212,7 +1212,7 @@ flip) next.
 | wizarr | media | ☑ | ☑ |
 | hermes | ai | ☑ | ☑ |
 | odysseus | ai | ☑ | ☑ |
-| opencode | ai | ☑ | ☐ |
+| opencode | ai | ☑ | ☑ |
 | nextcloud (50Gi, last) | default | not tested (unwired on purpose) | ☐ |
 
 Backups fire every 12h — don't leave an app suspended across a window without
