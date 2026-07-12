@@ -107,6 +107,24 @@ spec:
             - action: labeldrop
               regex: (beta_kubernetes_io_.*|extensions_talos_dev_.*|feature_node_kubernetes_io_.*|amd_com_.*|openebs_io_.*|kepler_node)
 
+    kubeApiServer:
+      vmScrape:
+        spec:
+          endpoints:
+            # chart default endpoint restated (list is wholesale-replaced);
+            # /metrics outgrew vmagent's 16MiB default cap, and the dropped
+            # histograms are used by no alert rule (only *_sli_* buckets are)
+            - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+              max_scrape_size: 64MiB
+              port: https
+              scheme: https
+              tlsConfig:
+                caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                serverName: kubernetes
+              metricRelabelConfigs:
+                - action: drop
+                  sourceLabels: [__name__]
+                  regex: (apiserver_request_duration_seconds|etcd_request_duration_seconds|apiserver_request_body_size_bytes)_bucket
     kubeControllerManager:
       vmScrape:
         spec:
