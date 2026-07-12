@@ -1213,10 +1213,45 @@ flip) next.
 | hermes | ai | ☑ | ☑ |
 | odysseus | ai | ☑ | ☑ |
 | opencode | ai | ☑ | ☑ |
-| nextcloud (50Gi, last) | default | not tested (unwired on purpose) | ☐ |
+| nextcloud (50Gi, last) | default | ☑ | ☑ |
 
 Backups fire every 12h — don't leave an app suspended across a window without
 its final manual backup (step 3 covers this).
+
+**nextcloud cut over 2026-07-12 — its own dedicated pass, three
+nextcloud-specific gotchas found**:
+- **Two PVCs, easy to confuse**: `nextcloud` (50Gi, `ceph-block`, the
+  one this migration touches, mounted at `/var/www/html/custom_apps`
+  etc. via the `nextcloud-main` volume) vs `nextcloud-pvc` (500Gi,
+  `nextcloud-nfs`, static NFS-backed user-files volume, mounted at
+  `/var/www/data` via `nextcloud-data` — untouched, not backed up by
+  volsync/kopiur at all). Checking ownership at the "obvious" path
+  (`/var/www/data`) checks the WRONG volume — verify the actual
+  `claimName` per mount (`kubectl get pod -o json | jq
+  '.spec.volumes[]'`) before trusting any ownership read.
+- **Same entrypoint-drop gap as odysseus**: main container's
+  `securityContext.runAsUser: 0` with an explicit comment ("allow root
+  for entrypoint, then drops to www-data") — real uid is `33`
+  (www-data), confirmed via the cron container's own explicit
+  `runAsUser: 33`/`runAsGroup: 33` plus a direct ownership check on
+  the *correct* PVC's mount paths. `KOPIUR_PUID/PGID: "33"`, no
+  capabilities needed (not root).
+- **`CronJob` (`nextcloud-cron`, `*/5 * * * *`) blocks PVC deletion**:
+  completed cron-spawned pods still count as "using" the PVC for
+  `kubernetes.io/pvc-protection`'s finalizer even though they're
+  terminal — `kubectl delete pvc` hung on `Terminating` until the
+  completed pods themselves were deleted. Suspend the CronJob
+  (`kubectl patch cronjob nextcloud-cron --type=merge -p
+  '{"spec":{"suspend":true}}'`) alongside the usual suspend/scale-down
+  steps, and if the PVC still won't terminate, check `Used By` in
+  `kubectl describe pvc` for stray completed pods before assuming the
+  finalizer is stuck for some other reason.
+- CNPG database (nextcloud's actual app data — users, shares,
+  metadata) was never part of this migration and is confirmed
+  unaffected: `php occ status` post-cutover shows
+  `installed: true, maintenance: false, needsDbUpgrade: false`.
+- **This completes Phase 5 step 3 for all 17 apps.** Next: Phase 6
+  (decommission volsync).
 
 ## Phase 6 — Decommission volsync + observability
 
