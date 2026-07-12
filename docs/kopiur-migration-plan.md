@@ -966,6 +966,34 @@ per-app-uid gap was fully closed):
   securityContext at all, silently defaulted to a working uid by
   coincidence) shows.
 
+**Fourth ownership miscategorization, found live cutting over
+odysseus (ai namespace)**: odysseus was assumed root (empty
+`securityContext`, matching the pattern of jellyfin/changedetection/
+wizarr/opencode, all confirmed genuinely root via a live `id` on their
+actual running pod). odysseus's own image runs a different pattern
+entirely: `docker/entrypoint.sh` always does the standard PUID/PGID
+drop — `groupadd`/`useradd` for `PUID:PGID` (default `1000:1000`, no
+override set), a best-effort chown repair, then
+`exec gosu "$ODY_USER" "$@"` — so the *actual* app process is never
+root regardless of what the container's own default user is. Restoring
+with `KOPIUR_PUID/PGID: "0"` landed all data owned `0:0`; the
+entrypoint's own "skip recursive chown" safety guard (triggers when
+`/app/data`'s mount root resolves to a broad path like `/`) left it
+unrepaired, and the app crashlooped on `sqlite3.OperationalError:
+unable to open database file` — uid 1000 can't open a `root`-owned
+`0600` sqlite file. Root-caused by reading `entrypoint.sh` directly
+(`grep -rln "..." /app/` inside a `kubectl debug --copy-to` shell,
+since the crash traceback alone only pointed at *where* it failed, not
+*why*) rather than guessing from the securityContext. Fixed: ks.yaml
+`KOPIUR_PUID/PGID: "1000"` (matching brrpolice/karakeep's uid, though
+unrelated apps — pure coincidence), one-time `chown -R 1000:1000
+/app/data` on the already-restored tree, confirmed via a clean pod
+restart and a fresh snapshot. **opencode was re-verified as genuinely
+root** (`kubectl exec ... id` on its still-volsync-backed live pod,
+pre-cutover) before trusting its existing root config — don't skip
+this live check for any remaining app just because its `ks.yaml`
+already looks configured.
+
 **qbittorrent fully cut over and verified 2026-07-12**: hit both bugs
 above live, fixed both, re-ran the recipe clean, confirmed via a
 post-restore file ownership check (chown pass needed once to correct
@@ -1182,8 +1210,8 @@ flip) next.
 | radarr | media | ☑ | ☑ |
 | sonarr | media | ☑ | ☑ |
 | wizarr | media | ☑ | ☑ |
-| hermes | ai | ☑ | ☐ |
-| odysseus | ai | ☑ | ☐ |
+| hermes | ai | ☑ | ☑ |
+| odysseus | ai | ☑ | ☑ |
 | opencode | ai | ☑ | ☐ |
 | nextcloud (50Gi, last) | default | not tested (unwired on purpose) | ☐ |
 
