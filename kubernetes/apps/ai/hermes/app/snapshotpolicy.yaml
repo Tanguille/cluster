@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: hermes
+spec:
+  repository:
+    kind: ClusterRepository
+    name: kopia-nas
+  sources:
+    - pvc:
+        name: hermes
+      # The fork's mover always recorded /data regardless of the app's real
+      # mount path — kopiur's own default (/pvc/<name>) would start a new
+      # identity strand instead of continuing the adopted history.
+      sourcePathOverride: /data
+  compression:
+    compressor: zstd
+  retention:
+    keepHourly: 24
+    keepDaily: 7
+  volumeSnapshotClassName: csi-ceph-blockpool
+  credentialProjection:
+    enabled: true
+  # hermes's data is owned 10000:10000 (not the cluster's usual 568/65532
+  # convention) — the mover needs to match to read it, same reason the
+  # volsync fork carries VOLSYNC_PUID/PGID: "10000" for this app.
+  mover:
+    securityContext:
+      runAsUser: 10000
+      runAsGroup: 10000

@@ -746,6 +746,33 @@ moves). Check fileflows specifically for the
 `kopiur.home-operations.com/privileged-movers` question flagged in Current
 state before assuming the default mover identity works for it.
 
+**Step 1 done 2026-07-12** for all 16 remaining apps except `nextcloud`
+(deliberately deferred, see below): wired `components/kopiur/backup` onto
+each app's `ks.yaml`, alongside `components/volsync` (dual-write). No new
+substitution vars needed — the backup half only reads `${APP}` (already
+present everywhere) plus the SnapshotSchedule/Policy's own hardcoded
+defaults. **Deviation for hermes**: didn't use the shared component at
+all — `spec.mover.securityContext` (the `10000:10000` override) can't be
+expressed as a Flux `postBuild.substitute` var without adding a
+conditionally-empty field to every *other* app's SnapshotPolicy too, and
+Kustomize's own `patches:` can't target it by name (`${APP}` is still an
+unresolved literal at `kustomize build` time — Flux's substitution is a
+text pass *after* the build, not before). Instead hermes gets its own
+hand-authored `snapshotpolicy.yaml`/`snapshotschedule.yaml` directly in
+`kubernetes/apps/ai/hermes/app/`, matching the shared component's shape
+with `hermes` hardcoded and the mover override added. Verified via
+`flate build ks` for both a normal app (changedetection) and hermes — 17
+`SnapshotPolicy`/`SnapshotSchedule` pairs total tree-wide (16 dual-write +
+the already-cut-over `dumbassets`), no duplicates.
+
+**nextcloud excluded from this pass on purpose** — wiring it now would
+start real (if low-frequency) kopiur backups of a 50Gi volume before its
+turn; add it alongside its actual cutover instead, per its own row.
+
+**Not yet done**: reconcile + confirm every wired app produces a real
+kopiur snapshot (step 2) — this is also where the `fileflows`
+privileged-movers question gets its real answer, empirically.
+
 | App | NS | Done |
 |-----|----|------|
 | dumbassets (canary, Phase 4) | default | ☐ |
