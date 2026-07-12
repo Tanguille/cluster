@@ -28,8 +28,7 @@ spec:
       key: KOPIA_PASSWORD
   bootstrap:
     failurePolicy:
-      # controller default 120s is too short to bootstrap-verify the
-      # existing multi-GB repo over NFS (matters again on DR re-bootstrap)
+      # default 120s too short to bootstrap-verify the multi-GB repo over NFS
       activeDeadlineSeconds: 2700
   credentialProjection:
     allowed: true
