@@ -15,6 +15,9 @@ spec:
       # mount path — kopiur's own default (/pvc/<name>) would start a new
       # identity strand instead of continuing the adopted history.
       sourcePathOverride: /data
+  mover:
+    inheritSecurityContextFrom:
+      pvcConsumer: {}
   compression:
     compressor: zstd
   retention:
