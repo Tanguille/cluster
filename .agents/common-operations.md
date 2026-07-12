@@ -1,6 +1,6 @@
 # Common Operations
 
-**When to use:** validation, tooling, add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, volsync, snapshot.
+**When to use:** validation, tooling, add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, kopiur, snapshot.
 
 Step-by-step procedures for frequent cluster tasks.
 
@@ -37,7 +37,7 @@ Use [debug-cluster](skills/debug-cluster/SKILL.md) skill for structured 5-Whys a
 
 ## Backup & Restore
 
-Use [backup-restore](skills/backup-restore/SKILL.md) skill for VolSync Kopia operations.
+Use [backup-restore](skills/backup-restore/SKILL.md) skill for kopiur Kopia operations.
 
 ## Other skills
 

@@ -61,7 +61,7 @@ When root cause is unclear, spawn a subagent with gathered facts and ask for fiv
 | Config not picked up | Reloader annotation on workload |
 | HelmRelease stuck | Delete HR; Flux recreates from git |
 | Wrong image/tag | values.yaml in repo |
-| PVC issues | storage class, events, VolSync path |
+| PVC issues | storage class, events, kopiur `Restore`/mover path |
 
 Avoid `kubectl edit` except ephemeral tests.
 

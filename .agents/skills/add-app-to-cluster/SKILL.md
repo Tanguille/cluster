@@ -36,7 +36,7 @@ Deploy applications using FluxCD GitOps patterns in this repository.
 
 Use [k8s-at-home-research](../k8s-at-home-research/SKILL.md) to find exemplar manifests — prefers kubesearch MCP when available. Spawn a subagent with the app name and namespace; return the best values and adaptation notes.
 
-Confirm before scaffolding: image + tag (plain upstream tag — Renovate pins digests, never invent one), port, route internal/external, persistence (→ volsync component), secrets (→ `secret.sops.yaml`), config files (→ configMapGenerator), Flux `dependsOn`.
+Confirm before scaffolding: image + tag (plain upstream tag — Renovate pins digests, never invent one), port, route internal/external, persistence (→ kopiur component), secrets (→ `secret.sops.yaml`), config files (→ configMapGenerator), Flux `dependsOn`.
 
 ### 2. Create worktree
 
@@ -61,7 +61,7 @@ Scaffold YAML: [references/manifest-templates.md](references/manifest-templates.
 
 | Exemplar | Demonstrates |
 |----------|--------------|
-| `kubernetes/apps/media/qui` | volsync persistence, dependsOn, probes, hardened securityContext |
+| `kubernetes/apps/media/qui` | kopiur persistence, dependsOn, probes, hardened securityContext |
 | `kubernetes/apps/media/sonarr` | sops secret, valuesFrom, homepage annotations |
 | `kubernetes/apps/media/recyclarr` | configMapGenerator config files |
 

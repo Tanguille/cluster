@@ -62,6 +62,10 @@ repo:<owner>/<repo> path:kustomization.yaml "<app>"
 ```text
 "<app>" "PersistentVolumeClaim" topic:k8s-at-home
 "<app>" "storageClassName" topic:k8s-at-home
+"<app>" "kopiur.home-operations.com" topic:k8s-at-home
+# volsync is still the dominant homelab-backup pattern externally (this cluster
+# migrated off it 2026-07-12) — useful for cross-referencing PVC/storage patterns
+# generally, even though this repo no longer uses it itself.
 "<app>" "ReplicationSource" topic:k8s-at-home
 "<app>" "volsync.backube" topic:k8s-at-home
 ```
