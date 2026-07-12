@@ -826,35 +826,32 @@ the first cutover — the plain sequence above missed two real races)**:
 7. Delete the old PVC, wait for full termination (`kubectl get pvc` →
    `NotFound`, not just `Terminating` — same finalizer/pod-reference
    gate as step 3).
-8. **Fetch the `GitRepository` source *before* resuming anything —
-   `flux resume`'s own implicit reconcile is the actual race, and
-   following it with a corrective `--with-source` reconcile is too
-   late.** Found live twice (`changedetection`, then reproduced on
-   `karakeep` despite the first fix): `flux resume kustomization`
-   triggers its own reconcile immediately against whatever revision is
-   *already cached* on the `GitRepository` object. If that's stale
-   (this cutover's `git push` from step 5 hasn't been fetched yet), the
-   resume's own reconcile re-applies the *old* manifest — still
-   declaring `components/volsync` — recreating the exact
-   `ReplicationDestination`/`ReplicationSource` step 6 just deleted.
-   Chaining a follow-up `flux reconcile kustomization --with-source`
-   *after* resume (the first fix attempted) doesn't close the window:
-   resume's own reconcile can still win the race against volsync's
-   controller before the follow-up ever runs. The fix that actually
-   held (verified twice on `karakeep`'s retry): reconcile the *source*
-   first — `flux reconcile kustomization <app> -n <ns> --with-source`
-   while the Kustomization is *still suspended* is a no-op for
-   applying manifests, but it still fetches the `GitRepository`
-   artifact and updates `status.artifact.revision`; confirm with
-   `kubectl get gitrepository flux-system -n flux-system -o
-   jsonpath='{.status.artifact.revision}'` matching `git rev-parse
-   HEAD` — *then* `flux resume helmrelease`/`flux resume kustomization`,
-   whose own implicit reconcile now has nothing stale left to apply.
-   If the race reproduces anyway (check `kubectl get
-   replicationdestination,replicationsource -n <ns>` for the app —
-   anything present after step 6 means it happened again): scale to 0,
-   delete the volsync CRs and PVC once more, confirm the artifact
-   revision is current, then resume.
+8. **This race cannot be reliably prevented — verify and recover every
+   time instead of trusting any particular resume sequence.** Hit live
+   *four* times across three apps (`changedetection`; `karakeep` ×2;
+   `brrpolice`, even after `flux reconcile source git flux-system`
+   confirmed the `GitRepository` artifact matched `git rev-parse HEAD`
+   *before* resuming anything). The last `brrpolice` instance came
+   with `flux resume kustomization`'s own CLI wait timing out
+   (`context deadline exceeded`) while the reconcile kept running in
+   the background — the actual apply appears to happen on its own
+   asynchronous schedule that a "fetch source first" precaution can't
+   fully pin down. Budget for this every time:
+   - Do fetch the source first anyway (`flux reconcile source git
+     flux-system`, confirm the artifact revision matches `git
+     rev-parse HEAD`) — it doesn't guarantee success but costs nothing
+     and narrows the window.
+   - Resume (`flux resume helmrelease`, `flux resume kustomization`),
+     then **always check** `kubectl describe pvc <app> -n <ns> | grep
+     -A4 DataSource` — `Kind: Restore` is correct, `Kind:
+     ReplicationDestination` means the race happened.
+   - If it happened: scale to 0 (wait for pod deletion), delete the
+     freshly-recreated volsync `ReplicationDestination`/
+     `ReplicationSource` and the wrong-shape PVC, wait for full
+     termination, then a **plain** `flux reconcile kustomization <app>
+     -n <ns>` (no `--with-source`, no resume needed — both objects are
+     already resumed from the first attempt) reliably lands the
+     correct PVC on retry every time this was tried.
 9. Watch the `Restore` CR reach `Ready: True, reason:
    RestoreSucceeded` (its `status.phase` is `Completed`, not
    `Succeeded` — don't grep for the wrong string), then scale the app
@@ -1092,7 +1089,7 @@ flip) next.
 | App | NS | Kopiur snapshot works | Cut over |
 |-----|----|----|------|
 | dumbassets (canary, Phase 4) | default | ☑ | ☑ |
-| brrpolice | media | ☑ | ☐ |
+| brrpolice | media | ☑ | ☑ |
 | qbittorrent | media | ☑ | ☑ |
 | fileflows | media | ☑ | ☐ |
 | seerr | media | ☑ | ☐ |
