@@ -696,8 +696,57 @@ not guessed:
 
 **Rollback (component)**: unreferenced by any app yet — delete the
 directory, nothing live depends on it.
-**Status**: component ☑ done (unwired); canary cutover (dumbassets) ☐ not
-started — next live step.
+
+**Canary cutover executed 2026-07-12.** Followed the recipe: suspended the
+Kustomization + scaled to 0, triggered a final volsync backup, swapped
+`components/volsync` → `components/kopiur` in git (PR #3835, also renamed
+`BACKUP_*` → `PVC_*`), deleted the old PVC, resumed + reconciled.
+
+Hit the mirror-image of the Phase 2/3 permission bug live, twice, mid-cutover:
+- The final volsync backup (and 3 *other* apps' concurrently-running
+  scheduled backups — changedetection, karakeep, nextcloud) all hung
+  silently on `kopia.maintenance.f` going `0600`/uid-65532 after the
+  Phase 3 Maintenance simplification. Fixed with the same repo-wide chmod,
+  this time run as uid `65532` via a throwaway pod (root-in-pod couldn't
+  chmod uid-65532-owned files itself — the NFS export has `root_squash`,
+  so only the true owning UID can self-chmod over NFS).
+- The first `Restore` attempt then failed outright (kopiur's mover has a
+  **bounded** retry-then-fail, unlike raw kopia's retry-forever — a real
+  improvement) on a *fresh* batch of ~60 blobs another app's volsync
+  backup had just written as `568:568` mode `0600` in the few minutes
+  between the chmod and the restore — confirming the fork's own kopia
+  v0.22.3 binary also defaults to a restrictive create mode, not just
+  kopiur's. This is what PR #3836 (durable fix, merged same day) targets:
+  `components/volsync`'s `moverSecurityContext.runAsUser` default `568` →
+  `65532`, aligning the fork onto kopiur's own mover UID so both sides can
+  read each other's new writes regardless of either binary's create-mode
+  default. Fixed the immediate drift with one more repo-wide chmod (as uid
+  `568` this time), force-reconciled all 17 remaining volsync apps so they
+  picked up the new UID immediately, deleted the failed (terminal, kopiur
+  Restores don't self-retry) `Restore` CR, and let Flux recreate it fresh.
+- Second attempt succeeded cleanly.
+
+**Verified**: app data intact post-restore (`Assets.json`/`SubAssets.json`,
+byte-identical, original `Jul 19 2025` timestamps preserved); a fresh
+kopiur snapshot resolved identity `dumbassets@default:/data` — an **exact
+match** to the fork's historical identity, confirming timeline continuity;
+a fully independent restore test (`kubectl kopiur`-equivalent `Restore` CR
+with `target.pvc` into a throwaway PVC, not the migration's own populator
+path) landed the same byte-identical data, proving the read path
+end-to-end, not just the one-time migration populator.
+
+**Not yet done**: watching one `SnapshotSchedule`-fired run land at its
+hashed (non-`:00`) minute (plan step 7) — the manual snapshot above proved
+the mechanism but not the cron/jitter/hash logic specifically; check back
+within 12h. Per the Risk gate's #233 note, `dumbassets-restore` is now
+write-once — don't force-reconcile or prune-and-recreate its Kustomization
+without checking for orphaned `prime-*` PVCs first.
+
+**Status**: ☑ done. Component built + wired; canary (`dumbassets`) fully
+cut over, verified, and round-trip-tested. Surfaced and fixed a real,
+previously-undocumented bidirectional permission-collision risk between
+kopiur and the fork (PR #3834, #3836) before it could affect the
+fleet-wide cutover in Phase 5.
 
 ## Phase 5 — Fleet-wide cutover (single flip, not staged batches)
 
@@ -742,7 +791,7 @@ state before assuming the default mover identity works for it.
 
 | App | NS | Done |
 |-----|----|------|
-| dumbassets (canary, Phase 4) | default | ☐ |
+| dumbassets (canary, Phase 4) | default | ☑ |
 | changedetection | default | ☐ |
 | karakeep | default | ☐ |
 | bazarr | media | ☐ |
