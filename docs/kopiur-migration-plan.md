@@ -887,23 +887,99 @@ uniform (solving the repo-connect problem) — permanently, not just for
 existing content, since Mapall remaps identity for *all* future
 connections too, not only a one-time chmod.
 
-**Action needed (manual, TrueNAS web UI, not git-trackable)**: edit the
-NFS share for this export → Advanced Options → set **Mapall User** and
-**Mapall Group** to the existing system user/group with uid/gid `568`
-(the cluster's long-standing NAS-wide convention). This does **not**
-retroactively fix current file modes — a repo-wide `chmod 0775` pass
-(same command used twice already this migration) will still be needed
-once Mapall is live, to normalize the `0600` blobs kopiur has already
-written under the old identity mismatch. After Mapall + one more chmod
-pass, re-run step 2's manual-snapshot verification for the 9 failing apps
-(with `inheritSecurityContextFrom.pvcConsumer: {}` added to their
-SnapshotPolicy) and for hermes (drop the hand-authored uid override in
-favor of the same inherit mechanism, once confirmed it works).
+**Action taken (manual, TrueNAS web UI, not git-trackable)**: set **Mapall
+User** and **Mapall Group** on the kopia repo's NFS share → Advanced
+Options → to uid/gid `568` (the cluster's NAS-wide convention),
+superseding the previous **Maproot** setting (mutually exclusive with
+Mapall in TrueNAS's UI — clear Maproot first). This does **not**
+retroactively fix existing file modes, and — discovered live — Mapall
+also blocks the *cleanup* technique itself: once active, it remaps every
+connecting identity uniformly, including a pod explicitly claiming a
+file's own true historical owner uid, so a stale `0600` blob can no
+longer be self-`chmod`'d by anyone once Mapall is on. The actual
+sequence that worked, repeated **four times** across this session as
+successive rounds of dual-write/testing activity kept creating fresh
+stale content during each brief Mapall-off window: temporarily clear
+Mapall → `chmod 0775` repo-wide as *each* historical owning uid
+(`568`, `65532`, and eventually `65534`/`nobody` — NFS `root_squash`'s
+anonymous-uid target, hit once the old volsync fork's own root-mover
+activity wrote fresh content mid-window) → re-enable Mapall. The
+**durable** fix that stopped new drift from recurring: kopiur's own
+*repo-only* movers (bootstrap, maintenance — the ones with no PVC to
+inherit identity from) were defaulting to the mover image's own uid
+(`65532`) instead of the shared `568`, recreating this exact problem
+every time Mapall was briefly toggled off; pinned via
+`ClusterRepository.spec.maintenance.mover.securityContext:
+{runAsUser: 568, runAsGroup: 568}` (**not** the broader
+`spec.moverDefaults`, which — found and reverted after it silently
+broke source-PVC reads for karakeep/hermes/odysseus — bakes onto every
+mover's *container* securityContext, which always wins over the
+per-app *pod*-level identity `inheritSecurityContextFrom.pvcConsumer`
+sets for the exact same field name).
 
-**Status**: ☐ blocked on the TrueNAS Mapall change above (manual,
-outside this repo) — 7/17 apps verified working, 9/17 + hermes blocked.
-Not proceeding to step 3 (the actual PVC flip) for *any* app yet, to keep
-Phase 5 a single coherent pass rather than a fragmented partial rollout.
+**A second, unrelated blocker surfaced once permissions were fixed**:
+kopiur's bootstrap Job reports its outcome back to the operator via a
+Kubernetes ConfigMap, and that payload — a full dump of the repo's
+discovered-snapshot catalog — exceeded Kubernetes' hard 1MiB ConfigMap
+limit, permanently wedging `ClusterRepository` at `Bootstrapped: False`
+(silently: the Job itself reports `Complete`, the write failure is only
+a `WARN` in its logs) and blocking every snapshot/restore/maintenance
+operation cluster-wide, not just the newly-unblocked apps. Root cause
+(confirmed via kopiur source, not guessed): the payload scales with
+*total entry size*, not count — a handful of snapshots with large
+per-file error lists (from the old fork's repeated failed root-mover
+retries against files it couldn't read) can single-handedly blow the
+budget regardless of how few total snapshots exist. Filed upstream:
+[home-operations/kopiur#237](https://github.com/home-operations/kopiur/issues/237)
+(no fix or workaround exists as of writing). Unblocked by deleting the
+9 specific oversized broken-snapshot entries directly via `kopia`
+CLI against the NFS-mounted repo (not `kubectl kopiur`, which itself
+depends on the same wedged repository) — a large blanket "delete the
+N oldest snapshots" prune was tried first and repeatedly failed to
+help, since raw snapshot count wasn't the actual driver. `keepHourly`
+lowered `24→8` fleet-wide as headroom against this ceiling recurring,
+until it's fixed upstream.
+
+**A third bug, found once bootstrap succeeded and the actual per-app
+mover identity could finally be tested**: `mover.
+inheritSecurityContextFrom.pvcConsumer` only copies a uid/gid the
+target app's own pod *spec* explicitly declares. Several apps
+(changedetection/wizarr/odysseus/opencode/jellyfin — all root;
+hermes — uid `10000`) get their real identity from the container
+image's `USER` directive or an entrypoint privilege-drop instead, so
+kopiur has nothing to inherit and silently falls back to the mover
+image's own default identity, while still reporting the run as
+security-context-compatible. Separately, even where inheritance *did*
+correctly pick up a real root uid (jellyfin, whose pod does pin
+`runAsUser: 0`), the mover still couldn't read root-owned files: the
+hardened mover baseline's `capabilities.drop: [ALL]` strips
+`DAC_READ_SEARCH`/`DAC_OVERRIDE`, so an inherited-root mover has uid 0
+but none of root's usual read powers. Live-tested and ruled out a
+narrower fix first (`capabilities.add: [DAC_READ_SEARCH]` alone, no
+root — capabilities aren't uid-gated in Linux in principle, but this
+didn't work in practice, likely a non-root ambient-capability
+propagation gap): confirmed the *combination* (`runAsUser: 0` +
+`DAC_READ_SEARCH`) is required. Fixed via explicit
+`mover.securityContext` (hermes: `{runAsUser: 10000, runAsGroup:
+10000}`; the 5 root apps: `{runAsUser: 0, runAsGroup: 0,
+capabilities.add: [DAC_READ_SEARCH]}`) instead of inheritance — these
+6 apps' `SnapshotPolicy`/`SnapshotSchedule` now come from a second
+shared component, `components/kopiur/backup-root` (same `${APP}`
+substitution idiom as the original `components/kopiur/backup`, not a
+patch overlay — `inheritSecurityContextFrom` and an explicit
+`securityContext` are structurally different YAML shapes a JSON6902
+patch would fight rather than cleanly express). Requires the
+`kopiur.home-operations.com/privileged-movers: "true"` namespace
+annotation, applied via `components/kopiur/privileged-movers` on
+`media`/`default`/`ai` (scoped to just those three, unlike the
+pre-existing blanket `volsync.backube/privileged-movers` on every
+namespace). hermes keeps its own hand-authored file — it's the sole
+consumer of uid `10000`, so componentizing a single-use value would
+add indirection without removing any actual duplication.
+
+**Status**: ☑ done — all 17 apps + hermes verified producing real
+kopiur snapshots (2026-07-12). Proceeding to step 3 (the actual PVC
+flip) next.
 
 | App | NS | Kopiur snapshot works | Cut over |
 |-----|----|----|------|
@@ -914,16 +990,16 @@ Phase 5 a single coherent pass rather than a fragmented partial rollout.
 | seerr | media | ☑ | ☐ |
 | bazarr | media | ☑ | ☐ |
 | qui | media | ☑ | ☐ |
-| changedetection | default | ☐ blocked (root) | ☐ |
-| karakeep | default | ☐ blocked (uid 1000) | ☐ |
-| jellyfin | media | ☐ blocked (root) | ☐ |
-| prowlarr | media | ☐ blocked (568, 0600 files) | ☐ |
-| radarr | media | ☐ blocked (568, 0600 files) | ☐ |
-| sonarr | media | ☐ blocked (568, 0600 files) | ☐ |
-| wizarr | media | ☐ blocked (root) | ☐ |
-| hermes | ai | ☐ blocked (10000, needs inherit not hardcode) | ☐ |
-| odysseus | ai | ☐ blocked (root) | ☐ |
-| opencode | ai | ☐ blocked (root) | ☐ |
+| changedetection | default | ☑ | ☐ |
+| karakeep | default | ☑ | ☐ |
+| jellyfin | media | ☑ | ☐ |
+| prowlarr | media | ☑ | ☐ |
+| radarr | media | ☑ | ☐ |
+| sonarr | media | ☑ | ☐ |
+| wizarr | media | ☑ | ☐ |
+| hermes | ai | ☑ | ☐ |
+| odysseus | ai | ☑ | ☐ |
+| opencode | ai | ☑ | ☐ |
 | nextcloud (50Gi, last) | default | not tested (unwired on purpose) | ☐ |
 
 Backups fire every 12h — don't leave an app suspended across a window without
