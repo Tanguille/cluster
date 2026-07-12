@@ -33,5 +33,9 @@ spec:
         enabled: true
       prometheusRule:
         enabled: true # KopiurBackupStale et al. — live BEFORE any data moves
+        # Chart default (172800s/48h) tolerates ~4 missed 12h backup cycles;
+        # 86400s/24h (one full retry window) matches volsync's own
+        # schedule-aware out-of-sync detection more closely.
+        backupStaleAfterSeconds: 86400
       dashboards:
         enabled: true
