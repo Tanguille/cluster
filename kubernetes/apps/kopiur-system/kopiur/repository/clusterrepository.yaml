@@ -32,11 +32,10 @@ spec:
   # every mover's *container* securityContext, which always wins over the
   # per-app pod-level identity that inheritSecurityContextFrom.pvcConsumer
   # sets — silently clobbering source-PVC reads for any app whose real uid
-  # isn't 568. Scoped to maintenance.mover instead, which has no PVC to
-  # inherit from and so nothing to clobber.
-  moverDefaults:
-    securityContext:
-      runAsGroup: 568
+  # or gid isn't 568 (confirmed for both fields: hermes's inherited
+  # fsGroup:10000 was overridden back to runAsGroup:568 at container level).
+  # Scoped to maintenance.mover instead, which has no PVC to inherit from
+  # and so nothing to clobber.
   maintenance:
     mover:
       securityContext:
