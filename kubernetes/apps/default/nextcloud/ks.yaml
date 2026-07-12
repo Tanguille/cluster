@@ -8,7 +8,7 @@ metadata:
 spec:
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
+    - ../../../../components/kopiur
     - ../../../../components/nfs-scaler
   dependsOn:
     - name: cloudnative-pg-cluster
@@ -26,7 +26,9 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 50Gi
+      PVC_CAPACITY: 50Gi
+      KOPIUR_PUID: "33"
+      KOPIUR_PGID: "33"
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
