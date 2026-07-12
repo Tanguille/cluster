@@ -18,3 +18,17 @@ spec:
     onMissingSnapshot: Continue
   credentialProjection:
     enabled: true
+  # inheritSecurityContextFrom can't work here at all -- this migration's
+  # own cutover recipe scales the app to 0 before the restore runs, so
+  # there's no live pod to inherit from. Without an explicit uid, the
+  # mover falls back to its own image default (65532), landing restored
+  # files owned 65532:568 instead of the app's real 568:568 -- silently
+  # wrong (still group-readable, so it doesn't always visibly break) but
+  # actively breaking for any app with owner-only (0600) files, e.g.
+  # sonarr/prowlarr/radarr's ASP.NET Data Protection keys. 568 is this
+  # cluster's own convention for anything that doesn't need a different
+  # uid; apps that do (root, hermes, karakeep) override this per-app.
+  mover:
+    securityContext:
+      runAsUser: 568
+      runAsGroup: 568
