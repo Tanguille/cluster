@@ -15,9 +15,25 @@ spec:
       # mount path — kopiur's own default (/pvc/<name>) would start a new
       # identity strand instead of continuing the adopted history.
       sourcePathOverride: /data
+  # Explicit identity, not inheritSecurityContextFrom: inheritance looks up
+  # a live pod mounting the PVC, which silently no-ops for any app whose
+  # pod spec doesn't declare a uid (common for s6-overlay/entrypoint
+  # privilege-drop images) and can't work at all for restore (app is
+  # always scaled to 0 first). ${KOPIUR_PUID:=568}/${KOPIUR_PGID:=568}
+  # covers this cluster's default convention; per-app overrides for
+  # anything else (root, or a one-off uid like hermes/karakeep).
+  # KOPIUR_MOVER_CAPS_ADD is only needed for root: DAC_READ_SEARCH bypasses
+  # read-permission checks to read pre-existing files it doesn't own — the
+  # hardened mover baseline drops all capabilities otherwise, and root
+  # alone (no capability) still can't read another uid's files. The whole
+  # substitution token is the list value (not nested inside literal `[]`)
+  # since `${VAR}`'s braces break flow-sequence YAML parsing when nested.
   mover:
-    inheritSecurityContextFrom:
-      pvcConsumer: {}
+    securityContext:
+      runAsUser: ${KOPIUR_PUID:=568}
+      runAsGroup: ${KOPIUR_PGID:=568}
+      capabilities:
+        add: ${KOPIUR_MOVER_CAPS_ADD:=[]}
   compression:
     compressor: zstd
   # keepHourly lowered from 24: kopiur's bootstrap-result ConfigMap hits a

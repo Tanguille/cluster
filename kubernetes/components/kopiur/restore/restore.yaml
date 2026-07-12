@@ -25,10 +25,13 @@ spec:
   # files owned 65532:568 instead of the app's real 568:568 -- silently
   # wrong (still group-readable, so it doesn't always visibly break) but
   # actively breaking for any app with owner-only (0600) files, e.g.
-  # sonarr/prowlarr/radarr's ASP.NET Data Protection keys. 568 is this
-  # cluster's own convention for anything that doesn't need a different
-  # uid; apps that do (root, hermes, karakeep) override this per-app.
+  # sonarr/prowlarr/radarr's ASP.NET Data Protection keys. ${KOPIUR_PUID:=568}
+  # covers this cluster's default convention; per-app overrides (root,
+  # hermes, karakeep) set KOPIUR_PUID/KOPIUR_PGID directly. No capabilities
+  # needed unlike backup: restore *creates* fresh files on an empty PVC,
+  # owned by the creating process's own uid — it never reads pre-existing
+  # files it doesn't own.
   mover:
     securityContext:
-      runAsUser: 568
-      runAsGroup: 568
+      runAsUser: ${KOPIUR_PUID:=568}
+      runAsGroup: ${KOPIUR_PGID:=568}

@@ -809,9 +809,12 @@ the first cutover — the plain sequence above missed two real races)**:
    (`type: Synchronizing, status: False`) with a fresh `lastSyncTime` —
    not just `lastManualSync` being set, which only confirms the trigger
    was *accepted*, not that the sync *completed*.
-5. In git: swap `components/volsync` → `components/kopiur` (or
-   `components/kopiur-privileged` for root apps — see below) in the
-   app's `ks.yaml`, rename `VOLSYNC_CAPACITY` → `PVC_CAPACITY`. Push.
+5. In git: swap `components/volsync` → `components/kopiur` in the
+   app's `ks.yaml`, rename `VOLSYNC_CAPACITY` → `PVC_CAPACITY`. Root
+   apps and any one-off uid also set `KOPIUR_PUID`/`KOPIUR_PGID` (and,
+   for root, `KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"`) in the same
+   `postBuild.substitute` block — see the unified-component note below.
+   Push.
 6. **Delete the app's volsync `ReplicationDestination` and
    `ReplicationSource` explicitly** (`kubectl delete replicationdestination
    <app>-dst replicationsource <app> -n <ns>`) — **before** deleting the
@@ -899,18 +902,69 @@ default (`65532`), landing restored files owned `65532:568` instead of
 the app's real `568:568` — silently wrong for most apps (group access
 still covers it) but **actively breaking** for anything with `0600`
 owner-only files (sonarr/prowlarr/radarr's ASP.NET Data Protection
-keys specifically). Fixed by pinning
-`components/kopiur/restore/restore.yaml`'s `mover.securityContext` to
-`{runAsUser: 568, runAsGroup: 568}` as the cluster-convention default,
-plus a `components/kopiur/restore-root` variant (root apps, no
-capabilities needed unlike backup's `DAC_READ_SEARCH` — restore
-*creates* fresh files on an empty PVC, which are owned by the creating
-process's own uid by default, not reading pre-existing restricted
-ones) composed into `components/kopiur-privileged` alongside
-`backup-root`. hermes and karakeep (uid `10000`/`1000`) need their own
-explicit restore override too, hand-authored per-app like hermes's
-existing backup file — neither can use the shared `restore`/
-`restore-root` components' fixed defaults.
+keys specifically).
+
+**2026-07-12 — component architecture unified, superseding
+`backup-root`/`restore-root`/`kopiur-privileged` entirely.** Prompted
+by "can't we address this cleaner, like volsync?" — the older
+`components/volsync` component already parametrized its mover identity
+via `${VOLSYNC_PUID:=65532}`/`${VOLSYNC_PGID:=568}` `postBuild.substitute`
+tokens with no separate root variant; kopiur's components didn't follow
+that pattern, instead growing a 4-component matrix (`backup`/
+`backup-root`/`restore`/`restore-root`, composed into `kopiur`/
+`kopiur-privileged`) plus fully hand-authored per-app files for hermes
+(uid `10000`) and karakeep (uid `1000`) since neither fit the 568/0
+split. Collapsed to **one** `backup` + **one** `restore` component:
+`mover.securityContext.runAsUser/runAsGroup` are now
+`${KOPIUR_PUID:=568}`/`${KOPIUR_PGID:=568}` in both, and backup's
+`capabilities.add` is `${KOPIUR_MOVER_CAPS_ADD:=[]}` — root apps set
+`KOPIUR_PUID/PGID: "0"` and `KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"`
+in their own `ks.yaml`'s `postBuild.substitute`, one-off uids (hermes,
+karakeep) just set their own `KOPIUR_PUID`/`KOPIUR_PGID`. No app needs
+hand-authored kopiur files anymore. `inheritSecurityContextFrom` is
+dropped entirely (explicit-everywhere, matching volsync) — it was
+already known to silently no-op for any app whose pod spec doesn't
+declare a uid.
+
+**Real YAML gotcha hit building this**: `capabilities.add: [${VAR:=}]`
+does not parse — `${VAR}`'s braces break flow-sequence (`[...]`) YAML
+parsing when nested inside literal brackets (confirmed via a direct
+`yaml.safe_load` on the pre-substitution file, not just guessed). Fix:
+make the whole substitution token the list value —
+`capabilities.add: ${KOPIUR_MOVER_CAPS_ADD:=[]}` — so the consuming
+app's `ks.yaml` sets the entire string `"[DAC_READ_SEARCH]"` rather
+than nesting a token inside template-literal brackets.
+
+**fable-model review of this refactor caught two live ownership bugs
+predating the refactor itself** (already-restored data from before the
+per-app-uid gap was fully closed):
+- **brrpolice** (real uid `1000:1000`, declared in its own
+  `helmrelease.yaml`) was never recognized as a one-off uid — its
+  restore ran under the shared `568` default, landing
+  `brrpolice.sqlite` owned `568:1000` while the app's own runtime
+  writes (`-shm`/`-wal`) self-corrected to `1000:1000`. Confirmed live
+  via a `kubectl debug --copy-to` busybox pod (brrpolice's own scratch
+  image has no shell) sharing its PVC mount; fixed with a one-time
+  `chown 1000:1000` (needed `--custom` profile granting `CHOWN` — root
+  alone isn't enough once `capabilities.drop: [ALL]` is set, same
+  lesson as backup's `DAC_READ_SEARCH`) plus `KOPIUR_PUID/PGID: "1000"`
+  added to `brrpolice/ks.yaml` so future backup/restore cycles stay
+  correct.
+- **dumbassets** (real uid `65532:65532`, confirmed live via `ls -la`
+  on its actual mount `/app/data`) predates the `568`-default-restore
+  fix entirely (it was the Phase 4 canary, restored back when
+  `Restore.spec.mover` had *no* override at all and fell back to the
+  mover image's own baked-in default — which happens to also be
+  `65532`, so its already-restored data needed no chown). Needed
+  `KOPIUR_PUID/PGID: "65532"` added to `dumbassets/ks.yaml` purely to
+  stop the new `568` default from mis-owning its *next* backup or any
+  future disaster-recovery restore.
+- Lesson: a helmrelease's declared `securityContext.runAsUser` is a
+  reasonable signal but not proof — verify real on-disk ownership via
+  a live pod (or `kubectl debug --copy-to` for shell-less images)
+  before trusting any uid assumption, as dumbassets (no declared
+  securityContext at all, silently defaulted to a working uid by
+  coincidence) shows.
 
 **qbittorrent fully cut over and verified 2026-07-12**: hit both bugs
 above live, fixed both, re-ran the recipe clean, confirmed via a
@@ -1125,9 +1179,9 @@ flip) next.
 | karakeep | default | ☑ | ☑ |
 | jellyfin | media | ☑ | ☑ |
 | prowlarr | media | ☑ | ☑ |
-| radarr | media | ☑ | ☐ |
-| sonarr | media | ☑ | ☐ |
-| wizarr | media | ☑ | ☐ |
+| radarr | media | ☑ | ☑ |
+| sonarr | media | ☑ | ☑ |
+| wizarr | media | ☑ | ☑ |
 | hermes | ai | ☑ | ☐ |
 | odysseus | ai | ☑ | ☐ |
 | opencode | ai | ☑ | ☐ |
