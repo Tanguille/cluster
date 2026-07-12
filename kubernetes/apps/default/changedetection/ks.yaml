@@ -8,8 +8,7 @@ metadata:
 spec:
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
-    - ../../../../components/kopiur/backup-root
+    - ../../../../components/kopiur-privileged
   path: ./kubernetes/apps/default/changedetection/app
   prune: true
   sourceRef:
@@ -21,4 +20,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 2Gi
+      PVC_CAPACITY: 2Gi
