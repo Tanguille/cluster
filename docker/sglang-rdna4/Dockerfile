@@ -119,11 +119,14 @@ RUN "${CONDA_BASE}/bin/conda" run -n "${ENV_NAME}" python -c "import sglang; pri
 # libs, docs, every math component). Pinned by digest like the builder base.
 FROM docker.io/rocm/dev-ubuntu-24.04:7.2.4@sha256:bdc8e61026cbb844ede93d44d2c50055f51ebb2041906b60182bf3bee3139054
 
+# LLMKube invokes `python3 -m sglang.launch_server` directly, bypassing this
+# image's conda-activating ENTRYPOINT. Keep the patched env first in PATH.
 ENV ROCM_PATH=/opt/rocm \
     CONDA_BASE=/opt/conda \
     ENV_NAME=sglang-triton36-v0514 \
     REPO_DIR=/opt/rdna4-inference \
-    SGLANG_DIR=/opt/rdna4-inference/components/sglang
+    SGLANG_DIR=/opt/rdna4-inference/components/sglang \
+    PATH=/opt/conda/envs/sglang-triton36-v0514/bin:/opt/conda/bin:${PATH}
 
 # The built conda env (torch+rocm, triton, sglang, native gfx1201 kernels) and the fork repo
 # (launch.sh, common.sh, chat template, editable sglang). Paths match the builder so the env's
