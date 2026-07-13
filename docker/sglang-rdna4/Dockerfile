@@ -52,7 +52,7 @@ RUN curl -fsSL "https://github.com/conda-forge/miniforge/releases/download/${MIN
 
 # Vendor the fork at a pinned commit (no runtime fetch).
 ARG FORK_REPO=https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference.git
-ARG FORK_REF=5a4df9fa8b3356dec569fc29b5ad73fed3c3866c
+ARG FORK_REF=d5a56282f2eb169a6a1d6d4482b99f3effef7768
 RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
     && git -C "${REPO_DIR}" checkout "${FORK_REF}"
 
