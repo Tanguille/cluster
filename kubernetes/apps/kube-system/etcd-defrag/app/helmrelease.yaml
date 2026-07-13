@@ -12,7 +12,8 @@ spec:
 
   values:
     defaultPodOptions:
-      # Must use host network to access etcd on localhost:2379
+      # Must use host network and PID namespace to access Talos etcd on localhost:2379.
+      automountServiceAccountToken: false
       hostNetwork: true
       hostPID: true
       securityContext:
@@ -31,9 +32,11 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Run weekly on Sunday at 3 AM
+          # Run weekly on Sunday at 3 AM local time.
+          timeZone: ${TIMEZONE}
           schedule: "0 3 * * 0"
           concurrencyPolicy: Forbid
+          backoffLimit: 1
           failedJobsHistory: 1
           successfulJobsHistory: 1
         containers:
@@ -49,12 +52,12 @@ spec:
               - --key=/certs/server.key
               # Defrag when DB quota usage > 50% OR free space > 100MB
               - --defrag-rule=dbQuotaUsage > 0.5 || dbSizeFree > 100*1024*1024
-              # Move leader during defrag (safe for single-node)
+              # Move the leader before defragmenting it.
               - --move-leader
-              # Wait 30s between defrags (only matters if you had multiple members)
+              # --cluster defragments all three control-plane etcd members.
               - --wait-between-defrags=30s
-              # Match the quota-backend-bytes we set in Talos config
-              - --etcd-storage-quota-bytes=8589934592
+              # Talos uses etcd's default --quota-backend-bytes value (2 GiB).
+              - --etcd-storage-quota-bytes=2147483648
               # Auto-disalarm space quota alarms
               - --auto-disalarm
               - --disalarm-threshold=0.8
@@ -63,13 +66,16 @@ spec:
                 cpu: 25m
                 memory: 128Mi
               limits:
+                cpu: 100m
                 memory: 128Mi
             securityContext:
+              # Talos etcd's client key is root-readable only on the host.
               privileged: true
 
     persistence:
       certs:
         type: hostPath
+        # Talos EtcdPKIPath.
         hostPath: /system/secrets/etcd
         globalMounts:
           - path: /certs
