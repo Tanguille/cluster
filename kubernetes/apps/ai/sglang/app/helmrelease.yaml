@@ -114,6 +114,14 @@ spec:
               HF_HOME: /cache/hf
               HF_HUB_OFFLINE: "1"
               TRITON_CACHE_DIR: /cache/sglang/triton # persisted JIT cache on the PVC
+              # One-shot file-L3 restart experiment only: preflight PVC free space before enabling,
+              # then revert these settings immediately after the measurement. The generic directory
+              # intentionally permits best-effort reuse across runtime changes at the accepted risk
+              # of incompatible or stale cache pages. Persistent pages may contain prompt-derived
+              # state; never use this experiment with sensitive prompts.
+              # Clean the directory only with approval.
+              SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR: /cache/sglang/hicache
+              SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE: 8GB
               # EXTRA_ARGS append after the preset (last-wins): mamba slots 60 (2026-07-10: raises the
               # //3 running cap 16→20, conc20 agg 84 vs 64 tok/s; KV pool shrinks 237K→183,240 so
               # context-length drops 200K→180K to keep the ctx ≤ KV-pool clean-rejection invariant —
@@ -158,10 +166,10 @@ spec:
               # Under real traffic (unique long prompts, not synthetic repeated prefixes) that backlog
               # builds up fast, stalling new-request admission — serialized concurrency to 1 running
               # request with the queue climbing unbounded. Left off default (write_through) instead.
-              # hicache-write-policy write_through_selective (2026-07-11): host-copy only on 2nd hit,
-              # not every decode step; 9h real-traffic soak clean (0 re-prefill regressions, 0 retracted,
-              # aborts 4-5% vs ~20% heavy-day baseline) and PP benched 1450 vs ~1200 tok/s.
-              EXTRA_ARGS: '--context-length 180000 --max-mamba-cache-size 60 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1 --enable-mixed-chunk --hicache-write-policy write_through_selective'
+              # One-shot file-L3 restart-recovery experiment: write-through + wait-complete; direct
+              # I/O + ratio-sized L2; no write_back. Follow validation in docs/llm-hosting/sglang-blockers.md.
+              # Roll back immediately after measurement; do not leave enabled for traffic or a soak test.
+              EXTRA_ARGS: '--context-length 180000 --max-mamba-cache-size 60 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1 --enable-mixed-chunk --hicache-storage-backend file --hicache-storage-prefetch-policy wait_complete --hicache-write-policy write_through --hicache-mem-layout page_first_direct'
             probes:
               startup: &probeBase
                 enabled: true
