@@ -191,13 +191,50 @@ extension probe (`/v1/completions`, request B = A's prompt + A's output + more),
 release newer than v0.5.14 exists; main is ~545 commits ahead with unreleased hicache/mamba fixes —
 the pinned fork tree carries stock v0.5.14 hicache code (no fork patch touches it).
 
-**L3 disk tier trialled and removed (2026-07-08):** a disk-backed third tier below the RAM L2
-(`--hicache-storage-backend file` on control-1's local virtio disk, capped 80 GB via
-`SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE`) was measured over 6h+ real traffic plus repeated synthetic
-load with intentionally-reused prefixes. It logged a 0% hit rate throughout and cost measurable
-throughput in a clean A/B (L3 off completed more requests with fewer aborts). At this working-set
-size the RAM L2 already holds every reused prefix, so the disk tier only added write traffic —
-removed from the helmrelease. Don't re-propose L3 without a working set that overflows L2.
+**PVC-backed file L3 restart-recovery experiment (2026-07-15, one-shot only):** the prior local-disk
+trial ran for 6h+ of real traffic and repeated synthetic reuse, logged 0% hits, and cost throughput;
+the working set fit in RAM L2. This bounded experiment is different: it tests only whether an
+identical long prefix can be recovered after one clean SGLang restart from the existing `sglang` PVC.
+The PVC is 80 GiB and already contains about 50 GiB, so the deliberately conservative file cap is
+8 GiB. It uses:
+`--hicache-storage-backend file`, `--hicache-storage-prefetch-policy wait_complete`,
+`--hicache-write-policy write_through`, `--hicache-mem-layout page_first_direct`,
+`SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR=/cache/sglang/hicache`,
+and `SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE=8GB`. The generic directory intentionally permits
+best-effort reuse across runtime changes at the accepted risk of incompatible or stale cache pages;
+existing versioned directories are not automatically adopted. File pages can contain prompt-derived
+state, so never use this with sensitive prompts. File
+L3 does not restore the in-memory radix tree, so the post-restart probe must reproduce the original
+prefix before its extension can test storage reuse. Do not add `MIN_FREE_SPACE`: its availability
+in the pinned v0.5.15 fork is unverified.
+
+**Acceptance procedure:** this is a one-shot restart measurement, not a traffic soak. Before enabling
+it, at idle, record PVC free space and abort if it is below 16 GiB (2x the 8 GiB cap); this is the
+PVC-free preflight. Wait two minutes, then use the pinned v0.5.15 native `POST /generate` API with
+the identical payload parameters for A, warm B, and cold B: `sampling_params: {temperature: 0,
+max_new_tokens: 128}` plus identical stop parameters. Record A's `input_ids`, generated token IDs,
+cold TTFT, and repeat count. After idle, verify file stability with two identical relative-path/size/
+mtime snapshots, with no `*.tmp.*` files and nonzero KV and Mamba component files; files being merely
+present is insufficient. Cleanly restart the pod once, then send warm B with
+`input_ids = A.input_ids + A.generated_token_ids + pre_tokenized_extension_ids`; do not reconstruct
+B from text. Immediately before B, take a Prometheus scrape and wait for the 1-minute ServiceMonitor
+interval before taking the post-B scrape. Require
+`increase(sglang:cached_tokens_total{cache_source="storage_HiCacheFile"}[5m]) > 0`, corroborated by
+`increase(sglang:prefetched_tokens_total{storage_backend="file",tp_rank="0"}[5m]) > 0`. Record B's
+TTFT and output token IDs. The uncontaminated cold-B control must use the same immutable B `input_ids`
+and request parameters, with file L3 disabled or pointed at a separate empty directory, followed by
+a clean restart; it must not seed the experiment directory. Pass only if the storage-hit metric is
+positive, B beats the cold-prefill TTFT, B's output IDs match the cold-B control, free space never
+falls below 8 GiB, there are zero server aborts above the preflight baseline, and no scheduler stall
+over 60 seconds, hybrid-state crash, or sustained abort increase occurs. Record disk/storage metric,
+cold-TTFT, abort, stall, and repeat-count evidence.
+Prompt-derived data remains on the PVC: delete the generic directory only with explicit operator
+approval.
+
+**Rollback:** immediately after the measurement, remove the four file-L3 flags and two file-backend
+environment variables from the HelmRelease; do not leave the experiment enabled for normal traffic
+or further soak testing. This returns to the validated `direct` I/O plus ratio-sized L2 configuration.
+Leave the directory as evidence unless an operator explicitly approves cleaning it.
 
 **`hicache-write-policy write_back` trialled and reverted (2026-07-09):** kept alongside the L3 removal
 above as a still-valid L1→L2 (GPU→host) optimization — synthetic testing showed 0 aborts and lower
