@@ -199,11 +199,11 @@ The PVC is 80 GiB and already contains about 50 GiB, so the deliberately conserv
 8 GiB. It uses:
 `--hicache-storage-backend file`, `--hicache-storage-prefetch-policy wait_complete`,
 `--hicache-write-policy write_through`, `--hicache-mem-layout page_first_direct`,
-`SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR=/cache/sglang/hicache/v0.5.15-gfx1201-466cc2fe-fork-7f058747-qwen36-awq-mamba-bf16-fp8kv-tp1-p1-direct`,
-and `SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE=8GB`. The directory identifies the image, model,
-tokenizer, KV/page layout, TP, and attention backend, and includes the image digest and fork ref;
-rotate it after any model, tokenizer, KV/page-layout, TP, or attention-backend change. File pages
-can contain prompt-derived state, so never use this with sensitive prompts. File
+`SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR=/cache/sglang/hicache`,
+and `SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE=8GB`. The generic directory intentionally permits
+best-effort reuse across runtime changes at the accepted risk of incompatible or stale cache pages;
+existing versioned directories are not automatically adopted. File pages can contain prompt-derived
+state, so never use this with sensitive prompts. File
 L3 does not restore the in-memory radix tree, so the post-restart probe must reproduce the original
 prefix before its extension can test storage reuse. Do not add `MIN_FREE_SPACE`: its availability
 in the pinned v0.5.15 fork is unverified.
@@ -228,14 +228,13 @@ positive, B beats the cold-prefill TTFT, B's output IDs match the cold-B control
 falls below 8 GiB, there are zero server aborts above the preflight baseline, and no scheduler stall
 over 60 seconds, hybrid-state crash, or sustained abort increase occurs. Record disk/storage metric,
 cold-TTFT, abort, stall, and repeat-count evidence.
-Prompt-derived data remains on the PVC: delete the versioned directory only with explicit operator
+Prompt-derived data remains on the PVC: delete the generic directory only with explicit operator
 approval.
 
 **Rollback:** immediately after the measurement, remove the four file-L3 flags and two file-backend
 environment variables from the HelmRelease; do not leave the experiment enabled for normal traffic
 or further soak testing. This returns to the validated `direct` I/O plus ratio-sized L2 configuration.
-Leave the versioned directory as evidence unless an operator explicitly approves cleaning it; never
-reuse it after an incompatible runtime change.
+Leave the directory as evidence unless an operator explicitly approves cleaning it.
 
 **`hicache-write-policy write_back` trialled and reverted (2026-07-09):** kept alongside the L3 removal
 above as a still-valid L1→L2 (GPU→host) optimization — synthetic testing showed 0 aborts and lower

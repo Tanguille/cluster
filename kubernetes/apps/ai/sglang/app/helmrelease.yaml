@@ -115,12 +115,12 @@ spec:
               HF_HUB_OFFLINE: "1"
               TRITON_CACHE_DIR: /cache/sglang/triton # persisted JIT cache on the PVC
               # One-shot file-L3 restart experiment only: preflight PVC free space before enabling,
-              # then revert these settings immediately after the measurement. This runtime-identity-
-              # specific path includes the image digest and fork ref; rotate it after any model,
-              # tokenizer, KV/page-layout, TP, or attention-backend change. Persistent pages may
-              # contain prompt-derived state; never use this experiment with sensitive prompts.
+              # then revert these settings immediately after the measurement. The generic directory
+              # intentionally permits best-effort reuse across runtime changes at the accepted risk
+              # of incompatible or stale cache pages. Persistent pages may contain prompt-derived
+              # state; never use this experiment with sensitive prompts.
               # Clean the directory only with approval.
-              SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR: /cache/sglang/hicache/v0.5.15-gfx1201-466cc2fe-fork-7f058747-qwen36-awq-mamba-bf16-fp8kv-tp1-p1-direct
+              SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR: /cache/sglang/hicache
               SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE: 8GB
               # EXTRA_ARGS append after the preset (last-wins): mamba slots 60 (2026-07-10: raises the
               # //3 running cap 16→20, conc20 agg 84 vs 64 tok/s; KV pool shrinks 237K→183,240 so
