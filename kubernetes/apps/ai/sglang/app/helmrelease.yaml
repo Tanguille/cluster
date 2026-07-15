@@ -166,16 +166,9 @@ spec:
               # Under real traffic (unique long prompts, not synthetic repeated prefixes) that backlog
               # builds up fast, stalling new-request admission — serialized concurrency to 1 running
               # request with the queue climbing unbounded. Left off default (write_through) instead.
-              # hicache-write-policy write_through_selective (2026-07-11): baseline host-copy only on 2nd hit,
-              # not every decode step; 9h real-traffic soak clean (0 re-prefill regressions, 0 retracted,
-              # aborts 4-5% vs ~20% heavy-day baseline) and PP benched 1450 vs ~1200 tok/s.
-              # One-shot file L3 restart-recovery experiment: use eager write_through and complete
-              # prefetch; keep direct GPU↔host I/O and ratio-sized L2.
-              # Do not use write_back. L3 pages do not restore the in-memory radix tree; validate
-              # with native /generate request B containing request A's input IDs, generated token IDs,
-              # and pre-tokenized extension IDs. Component files must be stable before the restart.
-              # Revert/remove this override immediately after the measurement; do not leave enabled
-              # for traffic or a soak test.
+              # One-shot file-L3 restart-recovery experiment: write-through + wait-complete; direct
+              # I/O + ratio-sized L2; no write_back. Follow validation in docs/llm-hosting/sglang-blockers.md.
+              # Roll back immediately after measurement; do not leave enabled for traffic or a soak test.
               EXTRA_ARGS: '--context-length 180000 --max-mamba-cache-size 60 --served-model-name qwen-3.6 --mamba-ssm-dtype bfloat16 --max-queued-requests 32 --weight-loader-drop-cache-after-load --enable-hierarchical-cache --hicache-io-backend direct --hicache-ratio 1.5 --model-loader-extra-config {"num_threads":2} --schedule-conservativeness 0.1 --enable-mixed-chunk --hicache-storage-backend file --hicache-storage-prefetch-policy wait_complete --hicache-write-policy write_through --hicache-mem-layout page_first_direct'
             probes:
               startup: &probeBase
