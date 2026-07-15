@@ -1,0 +1,15 @@
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: opencode-vm
+  labels:
+    kubernetes.io/service-name: opencode-vm
+addressType: IPv4
+endpoints:
+  - addresses:
+      - 192.168.0.181
+ports:
+  - port: 4096
+    name: http
+    protocol: TCP
