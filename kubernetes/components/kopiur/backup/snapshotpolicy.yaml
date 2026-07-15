@@ -36,13 +36,8 @@ spec:
         add: ${KOPIUR_MOVER_CAPS_ADD:=[]}
   compression:
     compressor: zstd
-  # keepHourly lowered from upstream-conventional 24: kopiur's bootstrap-result
-  # ConfigMap hits a hardcoded 1MiB cap around ~515-519 total snapshots across
-  # the shared repo (home-operations/kopiur#237, unfixed upstream). 24+7=31/app
-  # × 17 apps ≈ 527, right at the ceiling; 8+7=15/app × 17 ≈ 255 buys headroom
-  # until it's fixed.
   retention:
-    keepHourly: 8
+    keepHourly: 24
     keepDaily: 7
   volumeSnapshotClassName: ${BACKUP_SNAPSHOTCLASS:=csi-ceph-blockpool}
   credentialProjection:
