@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - helmrelease.yaml
+  - rbac.yaml
+  - servicemonitor.yaml
+configMapGenerator:
+  - name: xmrig-guard
+    files:
+      - controller.py=./resources/controller.py
+      - config.json=./resources/config.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
