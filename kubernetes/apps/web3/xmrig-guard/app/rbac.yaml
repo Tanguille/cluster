@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: xmrig-guard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: xmrig-guard
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get]
+    resourceNames: [control-1, control-2, control-3]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: xmrig-guard
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [list]
+  - apiGroups: [apps]
+    resources: [replicasets]
+    verbs: [get]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get]
+    resourceNames: [xmrig]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: xmrig-guard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: xmrig-guard
+subjects:
+  - kind: ServiceAccount
+    name: xmrig-guard
+    namespace: web3
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: xmrig-guard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: xmrig-guard
+subjects:
+  - kind: ServiceAccount
+    name: xmrig-guard
+    namespace: web3
