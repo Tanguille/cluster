@@ -1,0 +1,23 @@
+{
+  "mode": "observe",
+  "victoriaMetricsEndpoint": "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427",
+  "auditedNodes": ["control-1", "control-2", "control-3"],
+  "sensors": {
+    "control-1": [],
+    "control-2": [
+      {"chip": "nvme_nvme0", "sensor": "temp1"}, {"chip": "nvme_nvme0", "sensor": "temp2"}, {"chip": "nvme_nvme0", "sensor": "temp3"},
+      {"chip": "nvme_nvme1", "sensor": "temp1"}, {"chip": "nvme_nvme1", "sensor": "temp2"}, {"chip": "nvme_nvme1", "sensor": "temp3"}, {"chip": "nvme_nvme1", "sensor": "temp4"}
+    ],
+    "control-3": [
+      {"chip": "nvme_nvme0", "sensor": "temp1"}, {"chip": "nvme_nvme0", "sensor": "temp2"}, {"chip": "nvme_nvme0", "sensor": "temp3"}, {"chip": "nvme_nvme0", "sensor": "temp4"},
+      {"chip": "nvme_nvme1", "sensor": "temp1"}, {"chip": "nvme_nvme1", "sensor": "temp2"}, {"chip": "nvme_nvme1", "sensor": "temp3"}, {"chip": "nvme_nvme1", "sensor": "temp4"}
+    ]
+  },
+  "thresholds": {"nvmeRecovery": 60, "nvmeTrip": 70, "cpuRecovery": 50, "cpuTrip": 70},
+  "dwellSeconds": {"recovery": 600, "trip": 120},
+  "evaluationIntervalSeconds": 60,
+  "sourceSampleMaxAgeSeconds": 120,
+  "maxSourceGapSeconds": 120,
+  "cpuRateWindow": "5m",
+  "httpTimeoutSeconds": 10
+}

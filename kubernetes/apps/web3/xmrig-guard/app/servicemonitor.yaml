@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/servicemonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: xmrig-guard
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: xmrig-guard
+      app.kubernetes.io/instance: xmrig-guard
+  endpoints:
+    - port: http
+      path: /metrics

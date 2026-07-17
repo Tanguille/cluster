@@ -12,6 +12,9 @@ spec:
   values:
     controllers:
       xmrig:
+        pod:
+          labels:
+            app.kubernetes.io/component: thermal-guarded
         containers:
           app:
             image:
@@ -62,6 +65,7 @@ spec:
         globalMounts:
           - path: /dev/hugepages
     defaultPodOptions:
+      terminationGracePeriodSeconds: 15
       priorityClassName: low-priority-mining
       affinity:
         nodeAffinity:
