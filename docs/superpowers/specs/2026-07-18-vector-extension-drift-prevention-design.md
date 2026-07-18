@@ -17,8 +17,8 @@ they are not a reliable update mechanism.
 
 ## Goals
 
-- Reconcile the known `vector` installations to the version available in the
-  pinned operand image.
+- Reconcile the known `vector` installations, including the inspected `postgres`
+  database, to the version available in the pinned operand image.
 - Require every declared CNPG `vector` or `vchord` extension to specify its
   intended installed version.
 - Block a pull request that changes an extension-bearing image without also
@@ -31,20 +31,22 @@ they are not a reliable update mechanism.
 - Automatically apply database changes outside Flux.
 - Track pgvector's GitHub releases independently of the pinned PostgreSQL
   operand image; a release may not be packaged in that image yet.
-- Migrate extension installations that are not represented by a `Database` CR.
-  Post-deployment inventory will identify any such databases for a separate,
-  explicit migration.
+- Migrate extension installations discovered only during post-deployment
+  inventory. The already-inspected `postgres` database is in scope for adoption
+  in this change.
 
 ## Design
 
 ### Declarative extension versions
 
 Set the target version for every existing `vector` and `vchord` entry in the
-CNPG `Database` manifests. Use `vector: 0.8.5`, the version reported as
-available by the pinned operand image, and use the matching vchord release
-version extracted from the `vchord-scratch` image tag. CloudNativePG will
-reconcile these declarations with `ALTER EXTENSION ... UPDATE TO` after Flux
-applies them, provided the image includes the supported upgrade path.
+CNPG `Database` manifests. Adopt the inspected `postgres` database with a
+retain-on-delete `Database` CR and declare its `vector` target. Use
+`vector: 0.8.5`, the version reported as available by the pinned operand image,
+and use the matching vchord release version extracted from the
+`vchord-scratch` image tag. CloudNativePG will reconcile these declarations with
+`ALTER EXTENSION ... UPDATE TO` after Flux applies them, provided the image
+includes the supported upgrade path.
 
 ### Version-compatibility guard
 
