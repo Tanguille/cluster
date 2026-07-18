@@ -93,7 +93,7 @@ if run_guard; then
 fi
 
 yq -i '(.spec.extensions[] | select(.name == "vector").version) = "0.8.5"' "$memini"
-yq -i '(.spec.extensions[] | select(.name == "vchord").version) = ""' "$memini"
+yq -i 'del(.spec.extensions[] | select(.name == "vchord").version)' "$memini"
 if run_guard; then
   printf '%s\n' 'expected blank vchord version to fail' >&2
   exit 1
