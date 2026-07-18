@@ -53,6 +53,29 @@ jobs:
           flate diff images >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
+  extension-versions:
+    if: ${{ needs.filter.outputs.changed-files != '[]' }}
+    needs: filter
+    name: Image Pull - CNPG Extension Versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Setup Mise
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+        with:
+          experimental: true
+          install_args: --locked
+
+      - name: Test CNPG Extension Versions
+        run: bash tests/scripts/test-validate-cnpg-extension-versions.sh
+
+      - name: Validate CNPG Extension Versions
+        run: bash scripts/validate-cnpg-extension-versions.sh
+
   pull:
     if: ${{ needs.flate.outputs.images != '[]' }}
     needs: flate
@@ -91,7 +114,7 @@ jobs:
 
   success:
     if: ${{ !cancelled() }}
-    needs: [flate, pull]
+    needs: [flate, extension-versions, pull]
     name: Image Pull - Success
     runs-on: ubuntu-latest
     steps:
