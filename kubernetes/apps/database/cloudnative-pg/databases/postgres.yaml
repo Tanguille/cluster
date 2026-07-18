@@ -3,20 +3,16 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Database
 metadata:
-  name: memini
+  name: postgres
 spec:
   cluster:
     name: postgres16
-  name: memini
-  owner: memini
+  name: postgres
+  owner: postgres
   ensure: present
-  # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
+  # Deletion must not drop this adopted live default DB.
   databaseReclaimPolicy: retain
-  # Adopt the vchord and vector extensions already present in this DB (no version pin).
   extensions:
-    - name: vchord
-      ensure: present
-      version: "1.1.1"
     - name: vector
       ensure: present
       version: "0.8.5"
