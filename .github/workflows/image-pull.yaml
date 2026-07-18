@@ -19,12 +19,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changed-files: ${{ steps.changed-files.outputs.changed_files }}
+      extension-versions: ${{ steps.extension-changed-files.outputs.changed_files }}
     steps:
       - name: Get Changed Files
         id: changed-files
         uses: bjw-s-labs/action-changed-files@a9a36fb08ce06db9b02fbd8026cc2c0945eb9841 # v0.6.0
         with:
           patterns: kubernetes/**/*
+
+      - name: Get Extension Guard Changed Files
+        id: extension-changed-files
+        uses: bjw-s-labs/action-changed-files@a9a36fb08ce06db9b02fbd8026cc2c0945eb9841 # v0.6.0
+        with:
+          patterns: |
+            kubernetes/apps/database/cloudnative-pg/**/*
+            scripts/validate-cnpg-extension-versions.sh
+            tests/scripts/test-validate-cnpg-extension-versions.sh
+            .github/workflows/image-pull.yaml
+            .mise.toml
+            mise.lock
 
   flate:
     if: ${{ needs.filter.outputs.changed-files != '[]' }}
@@ -54,7 +67,7 @@ jobs:
           echo 'EOF' >> $GITHUB_OUTPUT
 
   extension-versions:
-    if: ${{ needs.filter.outputs.changed-files != '[]' }}
+    if: ${{ needs.filter.outputs.extension-versions != '[]' }}
     needs: filter
     name: Image Pull - CNPG Extension Versions
     runs-on: ubuntu-latest
@@ -67,8 +80,11 @@ jobs:
       - name: Setup Mise
         uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
+          version: 2026.7.10
           experimental: true
-          install_args: --locked
+          install_args: >-
+            aqua:mikefarah/yq@4.53.3
+            aqua:google/go-containerregistry@0.21.7
 
       - name: Test CNPG Extension Versions
         run: bash tests/scripts/test-validate-cnpg-extension-versions.sh
@@ -114,7 +130,7 @@ jobs:
 
   success:
     if: ${{ !cancelled() }}
-    needs: [flate, extension-versions, pull]
+    needs: [filter, flate, extension-versions, pull]
     name: Image Pull - Success
     runs-on: ubuntu-latest
     steps:
