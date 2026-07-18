@@ -70,10 +70,14 @@ if [[ -z $expected_vector_version ]]; then
 fi
 
 validated=0
+vector_targets=0
+vchord_targets=0
 shopt -s nullglob
 database_files=("$database_dir"/*.yaml)
 shopt -u nullglob
 for database_file in "${database_files[@]}"; do
+  # shellcheck disable=SC2016
+  # This single-quoted string is a yq program; its $document/$database names are yq variables.
   entries=$("$YQ_BIN" -r '
     . as $document |
     ($document.metadata.name // "<unnamed>") as $database |
@@ -89,6 +93,11 @@ for database_file in "${database_files[@]}"; do
 
   while IFS=$'\t' read -r database extension has_version version; do
     validated=$((validated + 1))
+    if [[ $extension == vector ]]; then
+      vector_targets=$((vector_targets + 1))
+    else
+      vchord_targets=$((vchord_targets + 1))
+    fi
     if [[ $has_version != true || -z $version ]]; then
       error "$database $extension extension is missing version"
       exit 1
@@ -108,5 +117,13 @@ done
 
 if (( validated == 0 )); then
   error "no Database CR declares vector or vchord"
+  exit 1
+fi
+if (( vector_targets == 0 )); then
+  error "no Database CR declares vector"
+  exit 1
+fi
+if (( vchord_targets == 0 )); then
+  error "no Database CR declares vchord"
   exit 1
 fi
