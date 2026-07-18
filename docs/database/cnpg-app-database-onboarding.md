@@ -95,8 +95,13 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
   kubectl -n database exec postgres16-<primary> -c postgres -- psql -U postgres -tAc \
     "SELECT datname, pg_catalog.pg_get_userbyid(datdba) FROM pg_database WHERE datname = '<db>';"
   ```
-- **Extensions.** Declare them by name on `Database.spec.extensions` (e.g. memini: `vchord`,
-  `vector`; crowdsec: `vector`). No version pin → CNPG keeps the installed version.
+- **Extensions.** Declare them by name and version on `Database.spec.extensions` (for example,
+  memini uses `vector` `0.8.5` and `vchord` `1.1.1`; crowdsec uses `vector` with its matching
+  target). Every `spec.extensions[].version` MUST align with the pinned extension-bearing image.
+  The version-compatibility guard enforces this alignment and rejects a change that updates the
+  image without updating the declared target. Read the `vector` target from the exact pinned
+  operand image used by the cluster; do not blindly copy it from an upstream vector release,
+  which may not be packaged in that image.
 - **YAML anchor trap.** Some app-template HelmReleases define the secret `envFrom` anchor
   (`&envFrom` / `&secret`) **on the `init-db` container** and alias it on the app container. Deleting
   the init-db block also deletes the anchor and breaks the alias — relocate an explicit `secretRef`

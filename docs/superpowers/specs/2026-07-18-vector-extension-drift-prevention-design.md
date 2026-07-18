@@ -2,12 +2,13 @@
 
 ## Context
 
-The pinned CloudNativePG PostgreSQL 18 operand currently exposes `vector`
-version `0.8.5`, while the inspected database has version `0.8.2` installed.
-Replacing an extension image makes new extension files available but does not
-run `ALTER EXTENSION ... UPDATE`. The existing `Database` resources only ensure
-that `vector` and `vchord` are present, so they do not declare a desired
-installed version.
+The verified Memini inventory has `vector` version `0.8.1` installed; the
+pinned CloudNativePG PostgreSQL 18 operand makes `vector` version `0.8.5`
+available and is the target version. Memini also has `vchord` version `1.1.1`,
+and its live `vchordrq` indexes require both extensions. Replacing an extension
+image makes new extension files available but does not run `ALTER EXTENSION ...
+UPDATE`. The existing `Database` resources only ensure that `vector` and
+`vchord` are present, so they do not declare a desired installed version.
 
 The PostgreSQL operand and `vchord-scratch` image references are already
 covered by the repository's pinned upstream Renovate preset
