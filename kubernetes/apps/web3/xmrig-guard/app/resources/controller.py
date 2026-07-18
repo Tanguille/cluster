@@ -5,8 +5,6 @@ set of fresh samples is required before a node can become safe.
 """
 import json
 import math
-import os
-import ssl
 import threading
 import time
 import urllib.parse
@@ -125,6 +123,7 @@ class CPUObservation:
     cadvisor: Source
     ksm: Source
     xmrig: Source | None
+    presence: Source | None = None
 
 
 def cpu_value(observation):
@@ -135,9 +134,9 @@ def cpu_value(observation):
 
 
 class VictoriaMetricsClient:
-    def __init__(self, endpoint, transport=None):
+    def __init__(self, endpoint, transport=None, timeout=10):
         self.endpoint = endpoint.rstrip("/")
-        self.transport = transport or _HTTPTransport(10)
+        self.transport = transport or _HTTPTransport(timeout)
 
     def _query(self, expression, evaluation):
         params = {"query": expression, "time": evaluation.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")}
@@ -194,9 +193,10 @@ class VictoriaMetricsClient:
         ksm_raw = 'kube_pod_info{namespace="web3"}'
         ksm_query = f'count({ksm_raw})'
         label_selector = 'namespace="web3",label_app_kubernetes_io_component="thermal-guarded"'
-        xmrig_presence_raw = f'kube_pod_labels{{{label_selector}}}'
+        node_pods_raw = f'kube_pod_info{{namespace="web3",node="{node}"}}'
+        xmrig_presence_raw = f'kube_pod_labels{{{label_selector}}} * on(namespace,pod) group_left(node) {node_pods_raw}'
         xmrig_presence_query = f'count({xmrig_presence_raw}) or vector(0)'
-        xmrig_query = f'100 * sum by (namespace,pod) (rate({cadvisor_raw}[{window}])) / count(count({idle_raw}) by (cpu)) * on(namespace,pod) group_left() kube_pod_labels{{{label_selector}}}'
+        xmrig_query = f'100 * ((sum((sum by (namespace,pod) (rate({cadvisor_raw}[{window}])) * on(namespace,pod) group_left(node) ({xmrig_presence_raw})) or vector(0)) / count(count({idle_raw}) by (cpu)))'
         def one(query, optional=False, raw_timestamp=False):
             rows = self._query(query, evaluation)
             if not rows and optional:
@@ -207,25 +207,42 @@ class VictoriaMetricsClient:
             return next(iter(values.values()))
         def source(query, raw_selector, optional=False):
             value = one(query, optional)
-            stamp_rows = self._query("timestamp(" + raw_selector + ")", evaluation)
             if value is None:
                 if optional:
                     return None
                 raise ValueError("incomplete CPU source")
-            if not stamp_rows:
-                raise ValueError("missing raw CPU timestamps")
-            stamps = self._sources(stamp_rows, raw_timestamp=True)
-            return Source(value.value, min(item.timestamp for item in stamps.values()))
+            selectors = (raw_selector,) if isinstance(raw_selector, str) else raw_selector
+            stamps = []
+            for selector in selectors:
+                rows = self._query("timestamp(" + selector + ")", evaluation)
+                if not rows:
+                    raise ValueError("missing raw CPU timestamps")
+                stamps.extend(self._sources(rows, raw_timestamp=True).values())
+            return Source(value.value, min(item.timestamp for item in stamps))
         ksm = source(ksm_query, ksm_raw)
         presence_rows = self._query(xmrig_presence_query, evaluation)
         presence_values = self._sources(presence_rows)
         if len(presence_values) != 1 or next(iter(presence_values.values())).value < 0:
             raise ValueError("invalid labelled XMRig presence source")
         presence = next(iter(presence_values.values()))
-        xmrig = source(xmrig_query, cadvisor_raw, True)
-        if presence.value > 0 and xmrig is None:
-            raise ValueError("XMRig pod exists but labelled CPU join is empty")
-        return CPUObservation(source(host_query, host_raw), source(cadvisor_query, cadvisor_raw), ksm, xmrig)
+        presence_timestamps = []
+        if presence.value > 0:
+            for raw_selector in (f'kube_pod_labels{{{label_selector}}}', node_pods_raw):
+                rows = self._query("timestamp(" + raw_selector + ")", evaluation)
+                if not rows:
+                    raise ValueError("missing raw XMRig membership timestamps")
+                presence_timestamps.extend(self._sources(rows, raw_timestamp=True).values())
+            presence = Source(presence.value, min(item.timestamp for item in presence_timestamps))
+        else:
+            presence = Source(0, ksm.timestamp)
+        if presence.value == 0:
+            xmrig = None
+        else:
+            xmrig = source(
+                xmrig_query,
+                (cadvisor_raw, f'kube_pod_labels{{{label_selector}}}', node_pods_raw),
+            )
+        return CPUObservation(source(host_query, host_raw), source(cadvisor_query, cadvisor_raw), ksm, xmrig, presence)
 
 
 class _HTTPTransport:
@@ -237,34 +254,10 @@ class _HTTPTransport:
         with urllib.request.urlopen(request, timeout=self.timeout, context=self.context) as response:
             return json.load(response)
 
-    def request(self, request):
-        for key, value in self.headers.items():
-            request.add_header(key, value)
-        with urllib.request.urlopen(request, timeout=self.timeout, context=self.context) as response:
-            return json.load(response)
-
-
-class KubernetesClient:
-    def __init__(self, host=None, token_path="/var/run/secrets/kubernetes.io/serviceaccount/token", ca_path="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", transport=None):
-        self.host = host or os.environ.get("KUBERNETES_SERVICE_HOST", "https://kubernetes.default.svc")
-        if not self.host.startswith("http"):
-            self.host = "https://" + self.host + ":" + os.environ.get("KUBERNETES_SERVICE_PORT", "443")
-        token = open(token_path, encoding="utf-8").read().strip() if os.path.exists(token_path) else ""
-        self.auth_header = {"Authorization": "Bearer " + token} if token else {}
-        context = ssl.create_default_context(cafile=ca_path) if os.path.exists(ca_path) else None
-        self.transport = transport or _HTTPTransport(10, self.auth_header, context)
-
-    def request(self, method, path, body=None):
-        url = self.host.rstrip("/") + path
-        data = None if body is None else json.dumps(body).encode()
-        headers = {"Content-Type": "application/json", **self.auth_header}
-        request = urllib.request.Request(url, data=data, method=method, headers=headers)
-        return self.transport.request(request)
-
 
 class GuardController:
-    def __init__(self, config, kube, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
-        self.config, self.kube, self.telemetry = config, kube, telemetry
+    def __init__(self, config, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
+        self.config, self.telemetry = config, telemetry
         self.clock, self.wall_clock = clock, wall_clock
         self.policies = {"control-2": DwellPolicy(60, 70, 600, 120, config.max_gap), "control-3": DwellPolicy(60, 70, 600, 120, config.max_gap)}
         self.cpu_policy = DwellPolicy(50, 70, 600, 120, config.max_gap)
@@ -299,7 +292,8 @@ class GuardController:
             try:
                 if node == "control-1":
                     obs = self.telemetry.query_cpu(node, evaluation, self.config.cpu_rate_window)
-                    sources = (obs.host, obs.cadvisor, obs.ksm) + ((obs.xmrig,) if obs.xmrig else ())
+                    sources = (obs.host, obs.cadvisor, obs.ksm, obs.presence) + ((obs.xmrig,) if obs.xmrig else ())
+                    sources = tuple(source for source in sources if source is not None)
                     if not all(_fresh(source.timestamp, evaluation, self.config.max_age) for source in sources):
                         raise ValueError("stale or future CPU source")
                     if self._new_source_set(node, sources):
@@ -399,7 +393,7 @@ class _StatusHandler(BaseHTTPRequestHandler):
 def main():
     with open("/config/config.json", encoding="utf-8") as stream:
         config = Config.load(json.load(stream))
-    controller = GuardController(config, KubernetesClient(), VictoriaMetricsClient(config.endpoint))
+    controller = GuardController(config, VictoriaMetricsClient(config.endpoint, timeout=config.http_timeout))
     _StatusHandler.controller = controller
     server = ThreadingHTTPServer(("0.0.0.0", 8080), _StatusHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()

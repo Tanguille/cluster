@@ -128,25 +128,55 @@ Its value was `1486.478276` seconds. A node-wide non-sandbox cAdvisor count at
 `2026-07-15T20:13:27Z` was `138`. No running `pod=~"xmrig-.*"` series was
 returned; that is the expected zero-XMRig case, not missing cAdvisor telemetry.
 
-### Exact PromQL
+### Historical query and pending rollout contract
+
+The historical pod-name-regex selector above was discovery evidence only. It is
+not the controller's identity contract: pod names are unstable and do not
+prove that a cAdvisor series belongs to the thermal-guarded XMRig workload.
+The exact node-scoped contract below is pending post-rollout live validation;
+kube-state-metrics must first export
+`label_app_kubernetes_io_component` for the planned
+`app.kubernetes.io/component: thermal-guarded` Pod label.
+
+### Exact PromQL contract after rollout validation
 
 The controller's `control-1` non-XMRig CPU-percent result is the following
-single scalar instant query (fixed 5-minute rate window):
+single scalar instant query (fixed 5-minute rate window). It joins
+node-scoped cAdvisor CPU to `kube_pod_labels` and `kube_pod_info`, and
+subtracts the explicitly labelled thermal-guarded XMRig workload exactly once:
 
 ```promql
-clamp_max(clamp_min(100 * ((sum(rate(node_cpu_seconds_total{kubernetes_node="control-1",mode!="idle"}[5m])) / count(count(node_cpu_seconds_total{kubernetes_node="control-1",mode="idle"}) by (cpu))) - ((sum(rate(container_cpu_usage_seconds_total{node="control-1",namespace="web3",pod=~"xmrig-.*",container!="",container!="POD"}[5m])) or vector(0)) / count(count(node_cpu_seconds_total{kubernetes_node="control-1",mode="idle"}) by (cpu)))), 0), 100)
+clamp_max(clamp_min(100 * (
+  (sum(rate(node_cpu_seconds_total{kubernetes_node="control-1",mode!="idle"}[5m]))
+    / count(count(node_cpu_seconds_total{kubernetes_node="control-1",mode="idle"}) by (cpu)))
+  - (
+    (sum(
+      sum by (namespace,pod) (rate(container_cpu_usage_seconds_total{node="control-1",namespace="web3",container!="",container!="POD",pod!=""}[5m]))
+      * on(namespace,pod) group_left(node)
+        (kube_pod_labels{namespace="web3",label_app_kubernetes_io_component="thermal-guarded"}
+          * on(namespace,pod) group_left(node) kube_pod_info{namespace="web3",node="control-1"})
+    ) or vector(0))
+    / count(count(node_cpu_seconds_total{kubernetes_node="control-1",mode="idle"}) by (cpu))
+  )
+), 0), 100)
 ```
 
 It derives host busy percent from all non-idle node CPU modes, divides by the
-12 observed host CPUs, subtracts XMRig's non-sandbox cAdvisor CPU share, uses
-zero only when the XMRig selector is absent, and clamps the result to 0–100.
+12 observed host CPUs, subtracts the joined XMRig non-sandbox cAdvisor CPU
+share, uses zero only when the joined XMRig series is absent, and clamps the
+result to 0–100. The controller must validate the `kube_pod_labels` and
+`kube_pod_info` joins and their freshness before using this contract.
 The controller must separately verify that host and non-sandbox cAdvisor
 sources exist and are fresh; it must not treat an absent generic cAdvisor
 source as the zero-XMRig case.
 
-The expression evaluated successfully at `2026-07-15T20:13:27Z`
+The historical regex expression evaluated successfully at `2026-07-15T20:13:27Z`
 (`1784146407.258`) and returned `37.05277777777771` percent. Its XMRig operand
-was absent at that instant, so the `or vector(0)` branch was exercised.
+was absent at that instant, so the `or vector(0)` branch was exercised. This
+result does not validate the replacement join; after rollout, live evidence
+must confirm that kube-state-metrics exports the component label and that the
+joined XMRig series has the expected node, namespace, Pod, and workload-label
+identity. Until then, keep enforcement observe-only.
 
 ## NodeRestriction gate remains unresolved
 
