@@ -1,0 +1,83 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-07-18T00:00:00.000Z",
+  "lanes": [
+    {
+      "slug": "sglang-image-build",
+      "branch": "omos/sglang-image-build",
+      "path": ".slim/worktrees/sglang-image-build",
+      "base": "origin/main",
+      "purpose": "Implement SGLang RDNA4 image build changes for LLMKube runtime compatibility",
+      "owner": "orchestrator",
+      "status": "active",
+      "areas": ["docker/sglang-rdna4", ".github/workflows", "kubernetes/apps/ai/sglang"],
+      "createdAt": "2026-07-13T19:47:00.000Z"
+    },
+    {
+      "slug": "xmrig-nvme-temp-guard",
+      "branch": "feat/xmrig-nvme-temp-guard",
+      "path": ".slim/worktrees/xmrig-nvme-temp-guard",
+      "base": "main",
+      "purpose": "Make XMRig NVMe temperature protection node-local",
+      "owner": "orchestrator",
+      "status": "active",
+      "areas": ["kubernetes/apps/web3/monero/xmrig"],
+      "createdAt": "2026-07-15T00:00:00.000Z"
+    },
+    {
+      "slug": "kopiur-074",
+      "branch": "renovate/ghcr.io-home-operations-charts-kopiur-0.x",
+      "path": ".slim/worktrees/kopiur-074",
+      "base": "origin/renovate/ghcr.io-home-operations-charts-kopiur-0.x",
+      "purpose": "Restore the Kopiur hourly retention policy after the 0.7.4 fix for upstream issue #237",
+      "owner": "orchestrator",
+      "status": "active",
+      "areas": ["kubernetes/components/kopiur/backup"],
+      "createdAt": "2026-07-15T00:00:00.000Z"
+    },
+    {
+      "slug": "renovate-extension-guard",
+      "branch": "omos/renovate-extension-guard",
+      "path": ".slim/worktrees/renovate-extension-guard",
+      "base": "origin/main",
+      "purpose": "Repair Renovate detection for CNPG vector extensions and simplify proven configuration gaps",
+      "owner": "orchestrator",
+      "status": "active",
+      "areas": [".renovaterc.json5", "kubernetes/apps/database/cloudnative-pg"],
+      "createdAt": "2026-07-18T00:00:00.000Z"
+    },
+    {
+      "slug": "qbitrr-download-permissions",
+      "branch": "omos/qbitrr-download-permissions",
+      "path": ".slim/worktrees/qbitrr-download-permissions",
+      "base": "main",
+      "purpose": "Align qBitrr download-tree permissions with qBittorrent to stop Sonarr re-search loops",
+      "owner": "orchestrator",
+      "status": "active",
+      "areas": ["kubernetes/apps/media/qbittorrent/tools/qbitrr"],
+      "createdAt": "2026-07-18T00:00:00.000Z"
+    },
+    {
+      "slug": "alert-remediation",
+      "branch": "omos/alert-remediation",
+      "path": ".slim/worktrees/alert-remediation",
+      "base": "origin/main",
+      "purpose": "Diagnose and remediate active backup, snapshot-controller, Gatus, VictoriaMetrics, and Ceph alerts",
+      "owner": "orchestrator",
+      "status": "active",
+      "areas": ["kubernetes/apps/kopiur-system", "kubernetes/apps/kube-system/snapshot-controller", "kubernetes/apps/observability", "kubernetes/apps/rook-ceph"],
+      "createdAt": "2026-07-18T18:45:00.000Z"
+    },
+    {
+      "slug": "hermes-context-contract",
+      "branch": "fix/hermes-context-contract",
+      "path": ".slim/worktrees/hermes-context-contract",
+      "base": "origin/main",
+      "purpose": "Align LiteLLM advertised input limits with the effective SGLang context cap",
+      "owner": "orchestrator",
+      "status": "active",
+      "areas": ["kubernetes/apps/ai/litellm/instance/models.yaml"],
+      "createdAt": "2026-07-18T00:00:00.000Z"
+    }
+  ]
+}
