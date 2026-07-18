@@ -11,6 +11,8 @@ spec:
   interval: 1h
   values:
     fullnameOverride: kube-state-metrics
+    metricLabelsAllowlist:
+      - pods=[app.kubernetes.io/component]
     prometheus:
       monitor:
         enabled: true

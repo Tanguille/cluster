@@ -104,7 +104,7 @@ class TelemetryTests(unittest.TestCase):
             query = params["query"]
             if query.startswith("count(kube_pod_labels"):
                 return response | {"data": {"resultType": "vector", "result": [{"metric": {}, "value": [str(now.timestamp()), "0"]}]}}
-            if query.startswith("100 * sum by"):
+            if "sum by (namespace,pod)" in query:
                 return response | {"data": {"resultType": "vector", "result": []}}
             return response
         transport.get.side_effect = cpu_response
@@ -112,13 +112,41 @@ class TelemetryTests(unittest.TestCase):
         self.assertIsNone(observation.xmrig)
         self.assertEqual(controller.cpu_value(observation), 37)
         self.assertGreaterEqual(len(transport.get.call_args_list), 8)
+        queries = [call.args[1]["query"] for call in transport.get.call_args_list]
+        self.assertTrue(any("kube_pod_labels" in query and 'node="control-1"' in query for query in queries))
+        xmrig_query = next(query for query in queries if "sum by (namespace,pod)" in query)
+        self.assertLess(xmrig_query.index("sum by (namespace,pod)"), xmrig_query.index("/ count(count"))
+
+    def test_xmrig_present_on_control1_is_subtracted(self):
+        transport = Mock()
+        now = datetime(2026, 1, 1, tzinfo=UTC)
+        response = {"status": "success", "data": {"resultType": "vector", "result": [{"metric": {}, "value": [str(now.timestamp()), "10"]}]}}
+        transport.get.return_value = response
+        observation = controller.VictoriaMetricsClient("http://vm", transport).query_cpu("control-1", now)
+        self.assertIsNotNone(observation.xmrig)
+        self.assertEqual(controller.cpu_value(observation), 0)
+
+    def test_xmrig_present_on_another_node_is_zero_for_control1(self):
+        transport = Mock()
+        now = datetime(2026, 1, 1, tzinfo=UTC)
+        response = {"status": "success", "data": {"resultType": "vector", "result": [{"metric": {}, "value": [str(now.timestamp()), "10"]}]}}
+        def another_node(_url, params):
+            if params["query"].startswith("count(kube_pod_labels"):
+                return response | {"data": {"resultType": "vector", "result": [{"metric": {}, "value": [str(now.timestamp()), "0"]}]}}
+            if "sum by (namespace,pod)" in params["query"]:
+                return response | {"data": {"resultType": "vector", "result": []}}
+            return response
+        transport.get.side_effect = another_node
+        observation = controller.VictoriaMetricsClient("http://vm", transport).query_cpu("control-1", now)
+        self.assertIsNone(observation.xmrig)
+        self.assertTrue(any('node="control-1"' in call.args[1]["query"] for call in transport.get.call_args_list))
 
     def test_existing_xmrig_with_broken_label_join_is_invalid(self):
         transport = Mock()
         now = datetime(2026, 1, 1, tzinfo=UTC)
         response = {"status": "success", "data": {"resultType": "vector", "result": [{"metric": {}, "value": [str(now.timestamp()), "1"]}]}}
         def broken(_url, params):
-            if params["query"].startswith("100 * sum by"):
+            if "sum by (namespace,pod)" in params["query"]:
                 return response | {"data": {"resultType": "vector", "result": []}}
             if params["query"].startswith("count(kube_pod_labels"):
                 return response | {"data": {"resultType": "vector", "result": [{"metric": {}, "value": [str(now.timestamp()), "1"]}]}}
@@ -132,24 +160,14 @@ class ControllerTests(unittest.TestCase):
     def test_evaluation_failure_is_fail_closed_and_readiness_is_bounded(self):
         telemetry = Mock()
         telemetry.query_nvme.side_effect = ValueError("broken")
-        guard = controller.GuardController(config(), Mock(), telemetry, clock=lambda: 100, wall_clock=lambda: datetime(2026, 1, 1, tzinfo=UTC))
+        guard = controller.GuardController(config(), telemetry, clock=lambda: 100, wall_clock=lambda: datetime(2026, 1, 1, tzinfo=UTC))
         self.assertEqual(set(guard.evaluate()), {"control-1", "control-2", "control-3"})
         self.assertTrue(guard.ready)
         self.assertEqual(sum(guard.metrics["safe"].values()), 0)
 
     def test_observe_never_writes(self):
-        kube = Mock()
-        guard = controller.GuardController(config(), kube, Mock())
+        guard = controller.GuardController(config(), Mock())
         guard.reconcile("control-2", 50, datetime.now(UTC))
-        kube.assert_not_called()
-
-    def test_kubernetes_auth_request_construction(self):
-        transport = Mock()
-        client = controller.KubernetesClient(host="https://api", token_path="/missing", ca_path="/missing", transport=transport)
-        client.request("GET", "/api/v1/nodes")
-        request = transport.request.call_args.args[0]
-        self.assertEqual(request.full_url, "https://api/api/v1/nodes")
-        self.assertEqual(request.method, "GET")
 
     def test_nodes_fail_independently_and_completed_evaluation_is_ready(self):
         telemetry = Mock()
@@ -163,7 +181,7 @@ class ControllerTests(unittest.TestCase):
             controller.Source(30, datetime(2026, 1, 1, tzinfo=UTC)),
             controller.Source(1, datetime(2026, 1, 1, tzinfo=UTC)),
             controller.Source(1, datetime(2026, 1, 1, tzinfo=UTC)), None)
-        guard = controller.GuardController(config(), Mock(), telemetry, clock=lambda: 100, wall_clock=lambda: datetime(2026, 1, 1, tzinfo=UTC))
+        guard = controller.GuardController(config(), telemetry, clock=lambda: 100, wall_clock=lambda: datetime(2026, 1, 1, tzinfo=UTC))
         result = guard.evaluate()
         self.assertTrue(guard.ready)
         self.assertEqual(result["control-2"], 0)
@@ -174,7 +192,7 @@ class ControllerTests(unittest.TestCase):
         telemetry = Mock()
         telemetry.query_nvme.side_effect = ValueError("offline")
         telemetry.query_cpu.side_effect = ValueError("offline")
-        guard = controller.GuardController(config(), Mock(), telemetry)
+        guard = controller.GuardController(config(), telemetry)
         guard.run_once()
         self.assertEqual(guard.metrics["evaluations"], 1)
         self.assertLessEqual(len(guard.metrics), 12)
@@ -195,7 +213,7 @@ class ControllerTests(unittest.TestCase):
             return controller.CPUObservation(source, source, source, None)
         telemetry.query_nvme.side_effect = nvme
         telemetry.query_cpu.side_effect = cpu
-        guard = controller.GuardController(config(), Mock(), telemetry, clock=lambda: 1, wall_clock=lambda: first)
+        guard = controller.GuardController(config(), telemetry, clock=lambda: 1, wall_clock=lambda: first)
         guard.evaluate(first)
         guard.evaluate(second)
         self.assertEqual(guard.metrics["selected_sensor_count"]["control-2"], 0)
@@ -208,7 +226,7 @@ class ControllerTests(unittest.TestCase):
         self.assertIn("xmrig_guard_query_errors_total", text)
 
     def test_cpu_membership_change_is_fail_closed(self):
-        guard = controller.GuardController(config(), Mock(), Mock())
+        guard = controller.GuardController(config(), Mock())
         stamp = datetime(2026, 1, 1, tzinfo=UTC)
         sources = [controller.Source(1, stamp)] * 3
         self.assertTrue(guard._new_source_set("control-1", sources))
@@ -218,7 +236,7 @@ class ControllerTests(unittest.TestCase):
     def test_failure_invalidates_values_and_counts_safe_transition(self):
         telemetry = Mock()
         telemetry.query_nvme.side_effect = ValueError("offline")
-        guard = controller.GuardController(config(), Mock(), telemetry)
+        guard = controller.GuardController(config(), telemetry)
         guard.metrics["safe"]["control-2"] = 1
         guard.evaluate(datetime.now(UTC))
         self.assertEqual(guard.metrics["state_transitions"], 1)
