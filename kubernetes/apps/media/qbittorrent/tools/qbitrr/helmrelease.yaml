@@ -16,7 +16,7 @@ spec:
   values:
     defaultPodOptions:
       securityContext:
-        runAsUser: &uid 1000
+        runAsUser: &uid 568
         runAsGroup: *uid
         fsGroup: *uid
         fsGroupChangePolicy: OnRootMismatch
@@ -44,9 +44,9 @@ spec:
               - |
                 set -eu
                 mkdir -p /config
-                chown -R 1000:1000 /config
+                chown -R 568:568 /config
                 envsubst < /config-template/config.toml > /config/config.toml
-                chown 1000:1000 /config/config.toml
+                chown 568:568 /config/config.toml
                 chmod 644 /config/config.toml
             envFrom:
               - secretRef:
@@ -57,7 +57,7 @@ spec:
             image:
               repository: feramance/qbitrr
               tag: v5.12.12
-            # Skip docker-entrypoint.sh (gosu/setuid). Init already chowns /config; run as 1000 like upstream `user: "1000:1000"`.
+            # Skip docker-entrypoint.sh (gosu/setuid). Init already chowns /config; run as 568 to match qBittorrent download ownership.
             command: ["/usr/bin/tini", "--"]
             args: ["python", "-m", "qBitrr.main"]
             securityContext:
