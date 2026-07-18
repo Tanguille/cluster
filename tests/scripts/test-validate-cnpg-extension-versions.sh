@@ -87,9 +87,15 @@ run_guard() {
     "$VALIDATOR"
 }
 
+reset_database_extensions() {
+  yq -i '.spec.extensions = [{"name": "vchord", "version": "1.1.1"}, {"name": "vector", "version": "0.8.5"}]' "$memini"
+  yq -i '.spec.extensions = [{"name": "vector", "version": "0.8.5"}]' "$crowdsec"
+}
+
 run_guard
 
 memini="$FIXTURE_REPO/kubernetes/apps/database/cloudnative-pg/databases/memini.yaml"
+crowdsec="$FIXTURE_REPO/kubernetes/apps/database/cloudnative-pg/databases/crowdsec.yaml"
 yq -i '(.spec.extensions[] | select(.name == "vector").version) = "0.8.2"' "$memini"
 if output=$(run_guard 2>&1); then
   printf '%s\n' 'expected vector version mismatch to fail' >&2
@@ -119,6 +125,32 @@ if output=$(run_guard 2>&1); then
 fi
 [[ "$output" == *memini* && "$output" == *vchord* && "$output" == *missing* && "$output" == *version* ]] || {
   printf '%s\n' "unexpected missing-version diagnostic: $output" >&2
+  exit 1
+}
+
+reset_database_extensions
+for database_file in "$FIXTURE_REPO"/kubernetes/apps/database/cloudnative-pg/databases/*.yaml; do
+  yq -i 'del(.spec.extensions[] | select(.name == "vchord"))' "$database_file"
+done
+if output=$(run_guard 2>&1); then
+  printf '%s\n' 'expected missing vchord declaration to fail' >&2
+  exit 1
+fi
+[[ "$output" == *"no Database CR declares vchord"* ]] || {
+  printf '%s\n' "unexpected missing-vchord-declaration diagnostic: $output" >&2
+  exit 1
+}
+
+reset_database_extensions
+for database_file in "$FIXTURE_REPO"/kubernetes/apps/database/cloudnative-pg/databases/*.yaml; do
+  yq -i 'del(.spec.extensions[] | select(.name == "vector"))' "$database_file"
+done
+if output=$(run_guard 2>&1); then
+  printf '%s\n' 'expected missing vector declaration to fail' >&2
+  exit 1
+fi
+[[ "$output" == *"no Database CR declares vector"* ]] || {
+  printf '%s\n' "unexpected missing-vector-declaration diagnostic: $output" >&2
   exit 1
 }
 
