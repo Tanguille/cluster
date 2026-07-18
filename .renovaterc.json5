@@ -37,13 +37,12 @@
         "/^kubernetes/apps/database/cloudnative-pg/databases/memini\\.yaml$/"
       ],
       matchStrings: [
-        "(?<prefix>^|\\n)    - name: vchord\\n      ensure: present\\n      version:\\s*[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"
+        "    - name: vchord\\n      ensure: present\\n      version:\\s*[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"
       ],
       depNameTemplate: "ghcr.io/tensorchord/vchord-scratch",
       datasourceTemplate: "docker",
-      currentValueTemplate: "pg18-v{{{currentValue}}}",
       extractVersionTemplate: "^pg18-v(?<version>.*)$",
-      autoReplaceStringTemplate: '{{{prefix}}}    - name: vchord\n      ensure: present\n      version: "{{{newValue}}}"'
+      autoReplaceStringTemplate: '    - name: vchord\n      ensure: present\n      version: "{{{newValue}}}"'
     },
     {
       description: "qBitrr ConfigVersion (semver, no v prefix)",
@@ -208,6 +207,16 @@
         "nousresearch/hermes-agent"
       ],
       versioning: "loose"
+    },
+    {
+      description: "Memini Database numeric target uses semver while its CNPG image keeps pg18 tag versioning",
+      matchManagers: ["custom.regex"],
+      matchFileNames: [
+        "kubernetes/apps/database/cloudnative-pg/databases/memini.yaml"
+      ],
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"],
+      versioning: "semver"
     },
     {
       description: "Miniforge build-suffixed tags (24.11.3-2) read as semver prereleases, so stable-only filtering hides every update; loose sorts them numerically",
