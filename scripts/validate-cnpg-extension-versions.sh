@@ -80,9 +80,6 @@ if [[ -z $expected_vector_version ]]; then
   exit 1
 fi
 
-validated=0
-vector_targets=0
-vchord_targets=0
 memini_vector_present=0
 memini_vchord_present=0
 shopt -s nullglob
@@ -114,12 +111,6 @@ for database_file in "${database_files[@]}"; do
     if [[ $ensure == absent ]]; then
       continue
     fi
-    validated=$((validated + 1))
-    if [[ $extension == vector ]]; then
-      vector_targets=$((vector_targets + 1))
-    else
-      vchord_targets=$((vchord_targets + 1))
-    fi
     if [[ $has_version != true || -z $version ]]; then
       error "$database $extension extension is missing version"
       exit 1
@@ -143,17 +134,5 @@ if (( memini_vector_present == 0 )); then
 fi
 if (( memini_vchord_present == 0 )); then
   error "memini vchord extension must declare ensure: present"
-  exit 1
-fi
-if (( validated == 0 )); then
-  error "no Database CR declares vector or vchord"
-  exit 1
-fi
-if (( vector_targets == 0 )); then
-  error "no Database CR declares vector"
-  exit 1
-fi
-if (( vchord_targets == 0 )); then
-  error "no Database CR declares vchord"
   exit 1
 fi
