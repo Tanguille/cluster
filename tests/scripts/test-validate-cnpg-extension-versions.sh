@@ -114,7 +114,7 @@ fi
 yq -i '(.spec.extensions[] | select(.name == "vchord").version) = "1.1.1"' "$memini"
 yq -i 'del(.spec.extensions[] | select(.name == "vchord").version)' "$memini"
 if output=$(run_guard 2>&1); then
-  printf '%s\n' 'expected blank vchord version to fail' >&2
+  printf '%s\n' 'expected missing vchord version to fail' >&2
   exit 1
 fi
 [[ "$output" == *memini* && "$output" == *vchord* && "$output" == *missing* && "$output" == *version* ]] || {
