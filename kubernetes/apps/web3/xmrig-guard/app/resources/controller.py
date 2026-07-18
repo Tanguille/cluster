@@ -235,9 +235,13 @@ class VictoriaMetricsClient:
             presence = Source(presence.value, min(item.timestamp for item in presence_timestamps))
         else:
             presence = Source(0, ksm.timestamp)
-        xmrig = source(xmrig_query, (cadvisor_raw, f'kube_pod_labels{{{label_selector}}}', node_pods_raw), True)
-        if presence.value > 0 and xmrig is None:
-            raise ValueError("XMRig pod exists but labelled CPU join is empty")
+        if presence.value == 0:
+            xmrig = None
+        else:
+            xmrig = source(
+                xmrig_query,
+                (cadvisor_raw, f'kube_pod_labels{{{label_selector}}}', node_pods_raw),
+            )
         return CPUObservation(source(host_query, host_raw), source(cadvisor_query, cadvisor_raw), ksm, xmrig, presence)
 
 

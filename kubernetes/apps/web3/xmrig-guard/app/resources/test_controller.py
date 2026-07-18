@@ -111,11 +111,9 @@ class TelemetryTests(unittest.TestCase):
         observation = controller.VictoriaMetricsClient("http://vm", transport).query_cpu("control-1", now)
         self.assertIsNone(observation.xmrig)
         self.assertEqual(controller.cpu_value(observation), 37)
-        self.assertGreaterEqual(len(transport.get.call_args_list), 8)
+        self.assertEqual(len(transport.get.call_args_list), 7)
         queries = [call.args[1]["query"] for call in transport.get.call_args_list]
         self.assertTrue(any("kube_pod_labels" in query and 'node="control-1"' in query for query in queries))
-        xmrig_query = next(query for query in queries if "sum by (namespace,pod)" in query)
-        self.assertLess(xmrig_query.index("sum by (namespace,pod)"), xmrig_query.index("/ count(count"))
 
     def test_xmrig_present_on_control1_is_subtracted(self):
         transport = Mock()
@@ -125,6 +123,9 @@ class TelemetryTests(unittest.TestCase):
         observation = controller.VictoriaMetricsClient("http://vm", transport).query_cpu("control-1", now)
         self.assertIsNotNone(observation.xmrig)
         self.assertEqual(controller.cpu_value(observation), 0)
+        queries = [call.args[1]["query"] for call in transport.get.call_args_list]
+        xmrig_query = next(query for query in queries if "sum by (namespace,pod)" in query)
+        self.assertLess(xmrig_query.index("sum by (namespace,pod)"), xmrig_query.index("/ count(count"))
 
     def test_xmrig_present_on_another_node_is_zero_for_control1(self):
         transport = Mock()
@@ -187,6 +188,46 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(result["control-2"], 0)
         self.assertIn("control-3", result)
         self.assertEqual(guard.metrics["query_errors"]["control-3"], 0)
+
+    def test_control1_cpu_hysteresis_uses_configured_thresholds_and_dwell(self):
+        telemetry = Mock()
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        clock = [0]
+
+        def cpu(_node, evaluation, _window):
+            source = controller.Source(telemetry.cpu, evaluation)
+            return controller.CPUObservation(source, source, source, None, source)
+
+        def nvme(_node, sensors, evaluation):
+            return [controller.Source(40, evaluation)] * len(sensors)
+
+        telemetry.query_cpu.side_effect = cpu
+        telemetry.query_nvme.side_effect = nvme
+        guard = controller.GuardController(config(), telemetry, clock=lambda: clock[0])
+
+        def observe(cpu_percent, seconds):
+            telemetry.cpu = cpu_percent
+            clock[0] = seconds
+            return guard.evaluate(base + timedelta(seconds=seconds))["control-1"]
+
+        self.assertEqual(observe(50, 0), 0)
+        self.assertEqual(observe(50, 120), 0)
+        self.assertEqual(observe(50, 240), 0)
+        self.assertEqual(observe(50, 360), 0)
+        self.assertEqual(observe(50, 480), 0)
+        self.assertEqual(observe(50, 600), 1)
+        self.assertEqual(observe(60, 660), 1)  # middle band preserves state
+        self.assertEqual(observe(70, 720), 1)
+        self.assertEqual(observe(70, 839), 1)
+        self.assertEqual(observe(70, 840), 0)
+        self.assertEqual(observe(50, 900), 0)
+        self.assertEqual(observe(60, 960), 0)  # middle band interrupts recovery
+        self.assertEqual(observe(50, 1020), 0)
+        self.assertEqual(observe(50, 1140), 0)
+        self.assertEqual(observe(50, 1260), 0)
+        self.assertEqual(observe(50, 1380), 0)
+        self.assertEqual(observe(50, 1500), 0)
+        self.assertEqual(observe(50, 1620), 1)
 
     def test_health_metrics_are_bounded_and_run_once_evaluates(self):
         telemetry = Mock()
