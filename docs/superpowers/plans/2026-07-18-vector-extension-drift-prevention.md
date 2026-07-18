@@ -4,7 +4,7 @@
 
 **Goal:** Make CloudNativePG extension versions declarative and prevent a pull request from changing the pinned extension-bearing images without updating the matching database targets.
 
-**Architecture:** CloudNativePG `Database` resources declare installed `vector` and `vchord` versions, including the currently unmanaged `postgres` database. A shell guard reads those declarations, extracts pgvector's control-file version from the exact pinned operand image with `crane`, and verifies the VectorChord tag/version relationship. The existing Image Pull workflow runs the guard and its regression test for Kubernetes pull requests.
+**Architecture:** CloudNativePG `Database` resources for supported applications declare installed `vector` and `vchord` versions. The reserved `postgres` database remains unmanaged because no user objects depend on `vector` there. A shell guard reads the application declarations, extracts pgvector's control-file version from the exact pinned operand image with `crane`, and verifies the VectorChord tag/version relationship. The existing Image Pull workflow runs the guard and its regression test for Kubernetes pull requests.
 
 **Tech Stack:** Flux, CloudNativePG `Database` CRs, Bash, `yq`, `crane`, GitHub Actions, Renovate JSON5.
 
@@ -15,8 +15,7 @@
 - Create `scripts/validate-cnpg-extension-versions.sh`: validates declared extension targets against the exact pinned OCI images.
 - Create `tests/scripts/test-validate-cnpg-extension-versions.sh`: shell regression coverage with a temporary manifest fixture and mocked OCI extraction.
 - Modify `.github/workflows/image-pull.yaml`: installs the repository-pinned tools and executes the regression test and guard.
-- Create `kubernetes/apps/database/cloudnative-pg/databases/postgres.yaml`: adopts the inspected `postgres` database with retain-on-delete semantics and its `vector` target.
-- Modify `kubernetes/apps/database/cloudnative-pg/databases/{kustomization,memini,crowdsec}.yaml`: include the adopted database and pin every declared extension target.
+- Modify `kubernetes/apps/database/cloudnative-pg/databases/{memini,crowdsec}.yaml`: pin every supported application extension target.
 - Modify `kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml`: remove duplicate Renovate annotations already handled by the upstream CNPG manager.
 - Modify `.renovaterc.json5`: repair the dashboard manager and narrow the reviewed rules without replacing the upstream preset.
 
@@ -312,47 +311,18 @@ git add .github/workflows/image-pull.yaml
 git commit -m "ci(database): validate cnpg extension targets"
 ```
 
-### Task 4: Declare and adopt extension versions in CloudNativePG
+### Task 4: Declare supported application extension versions in CloudNativePG
 
 **Files:**
-- Create: `kubernetes/apps/database/cloudnative-pg/databases/postgres.yaml`
-- Modify: `kubernetes/apps/database/cloudnative-pg/databases/kustomization.yaml:5-17`
 - Modify: `kubernetes/apps/database/cloudnative-pg/databases/memini.yaml:15-20`
 - Modify: `kubernetes/apps/database/cloudnative-pg/databases/crowdsec.yaml:15-18`
 - Test: `scripts/validate-cnpg-extension-versions.sh`
 
-- [ ] **Step 1: Add the retained adoption manifest for the inspected database**
+The reserved `postgres` database remains unmanaged: no user objects depend on
+`vector` there, and no migration Job is required. Supported application
+`Database` CRs are the remediation path.
 
-```yaml
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/database_v1.json
-apiVersion: postgresql.cnpg.io/v1
-kind: Database
-metadata:
-  name: postgres
-spec:
-  cluster:
-    name: postgres16
-  name: postgres
-  owner: postgres
-  ensure: present
-  # The live default database is adopted; deleting this CR must never drop it.
-  databaseReclaimPolicy: retain
-  extensions:
-    - name: vector
-      ensure: present
-      version: "0.8.5"
-```
-
-- [ ] **Step 2: Add `postgres.yaml` to the database Kustomization**
-
-Add this resource directly before `memini.yaml`:
-
-```yaml
-  - postgres.yaml
-```
-
-- [ ] **Step 3: Pin every existing declared extension target**
+- [ ] **Step 1: Pin every supported application extension target**
 
 In `memini.yaml`, make the extension list exactly:
 
@@ -375,17 +345,17 @@ In `crowdsec.yaml`, make the extension list exactly:
       version: "0.8.5"
 ```
 
-- [ ] **Step 4: Run the guard, render validation, and shellcheck**
+- [ ] **Step 2: Run the guard, render validation, and shellcheck**
 
 Run: `mise exec -- bash scripts/validate-cnpg-extension-versions.sh && bash .agents/skills/pr-review/scripts/validate-pr.sh`
 
 Expected: every declared extension is printed at its expected target and the GitOps validation exits zero.
 
-- [ ] **Step 5: Commit the declarative migration**
+- [ ] **Step 3: Commit the declarative application targets**
 
 ```bash
 git add kubernetes/apps/database/cloudnative-pg/databases
-git commit -m "fix(database): reconcile vector extension versions"
+git commit -m "fix(database): pin supported extension versions"
 ```
 
 ### Task 5: Remove redundant CNPG extraction and simplify proven Renovate gaps
@@ -484,10 +454,10 @@ Run: follow `.agents/skills/pr-review/SKILL.md` for a local-diff review.
 
 Expected: review findings are either fixed or explicitly documented before creating the pull request.
 
-### Task 7: Verify the GitOps migration after Flux applies it
+### Task 7: Verify the GitOps reconciliation after Flux applies it
 
 **Files:**
-- Verify: `kubernetes/apps/database/cloudnative-pg/databases/{postgres,memini,crowdsec}.yaml`
+- Verify: `kubernetes/apps/database/cloudnative-pg/databases/{memini,crowdsec}.yaml`
 
 - [ ] **Step 1: Identify the CNPG primary without changing cluster state**
 
@@ -529,4 +499,4 @@ while IFS= read -r database; do
 done
 ```
 
-Expected: `postgres`, `memini`, and `crowdsec` report `vector` installed at `0.8.5`; `memini` reports `vchord` at `1.1.1`. Any extension found in another database must be adopted with a separate retained `Database` CR before its version is managed.
+Expected: `memini` and `crowdsec` report `vector` installed at `0.8.5`; `memini` reports `vchord` at `1.1.1`. The reserved `postgres` database remains unmanaged. Any extension found in another supported application database must be declared in its application `Database` CR before its version is managed.

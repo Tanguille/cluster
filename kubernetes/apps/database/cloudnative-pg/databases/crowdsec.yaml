@@ -12,7 +12,7 @@ spec:
   ensure: present
   # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
   databaseReclaimPolicy: retain
-  # Adopt the vector extension already present in this DB (no version pin).
+  # Keep CrowdSec's vector extension aligned with the pinned operand image.
   extensions:
     - name: vector
       ensure: present

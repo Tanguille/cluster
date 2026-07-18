@@ -17,8 +17,8 @@ they are not a reliable update mechanism.
 
 ## Goals
 
-- Reconcile the known `vector` installations, including the inspected `postgres`
-  database, to the version available in the pinned operand image.
+- Reconcile supported application `vector` installations to the version available
+  in the pinned operand image.
 - Require every declared CNPG `vector` or `vchord` extension to specify its
   intended installed version.
 - Block a pull request that changes an extension-bearing image without also
@@ -29,24 +29,28 @@ they are not a reliable update mechanism.
 ## Non-goals
 
 - Automatically apply database changes outside Flux.
+- Manage the reserved `postgres` database or its extensions; it remains unmanaged
+  because no user objects depend on `vector` there.
 - Track pgvector's GitHub releases independently of the pinned PostgreSQL
   operand image; a release may not be packaged in that image yet.
-- Migrate extension installations discovered only during post-deployment
-  inventory. The already-inspected `postgres` database is in scope for adoption
-  in this change.
+- Run a migration Job or otherwise mutate databases outside the supported
+  application `Database` resources.
 
 ## Design
 
 ### Declarative extension versions
 
-Set the target version for every existing `vector` and `vchord` entry in the
-CNPG `Database` manifests. Adopt the inspected `postgres` database with a
-retain-on-delete `Database` CR and declare its `vector` target. Use
+Set the target version for every supported application `vector` and `vchord`
+entry in the CNPG `Database` manifests. The reserved `postgres` database stays
+unmanaged because no user objects depend on `vector` there; supported application
+`Database` CRs are the remediation path. Keep Memini's `vchord` and `vector`
+targets paired because its live `vchordrq` indexes require both. Use
 `vector: 0.8.5`, the version reported as available by the pinned operand image,
 and use the matching vchord release version extracted from the
-`vchord-scratch` image tag. CloudNativePG will reconcile these declarations with
-`ALTER EXTENSION ... UPDATE TO` after Flux applies them, provided the image
-includes the supported upgrade path.
+`vchord-scratch` image tag. Future pgvector changes are gated against the pinned
+operand image, rather than tracked independently. CloudNativePG will reconcile
+these declarations with `ALTER EXTENSION ... UPDATE TO` after Flux applies them,
+provided the image includes the supported upgrade path.
 
 ### Version-compatibility guard
 
@@ -84,8 +88,9 @@ behavior unchanged in this PR.
 3. Confirm each affected `Database` resource is applied and query every
    database for `pg_extension.extversion` and
    `pg_available_extensions.default_version` for `vector` and `vchord`.
-4. If inventory finds an extension outside a `Database` CR, add a separate
-   adoption manifest before managing its version.
+4. If inventory finds an extension outside a supported application `Database` CR,
+   leave it unmanaged unless a separately reviewed supported application target
+   is added.
 
 ## Failure handling
 

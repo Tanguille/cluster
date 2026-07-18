@@ -12,7 +12,7 @@ spec:
   ensure: present
   # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
   databaseReclaimPolicy: retain
-  # Adopt the vchord and vector extensions already present in this DB (no version pin).
+  # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
   extensions:
     - name: vchord
       ensure: present
