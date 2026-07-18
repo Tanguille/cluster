@@ -29,6 +29,11 @@ spec:
               MEMINI_EMBED_API_KEY: ${LITELLM_API_KEY}
               MEMINI_EMBED_MODEL: "qwen3-embedding"
               MEMINI_EMBED_DIMS: "1024"
+              # Bound capture/dedup embedding work to short, serial batches so
+              # it cannot create the multi-second recall tail under load.
+              MEMINI_EMBED_MAX_CONCURRENCY: "1"
+              MEMINI_EMBED_MAX_BATCH: "8"
+              MEMINI_EMBED_MAX_BATCH_CHARS: "12000"
             resources:
               requests:
                 cpu: 50m
