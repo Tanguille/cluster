@@ -31,6 +31,7 @@ jobs:
         id: extension-changed-files
         uses: bjw-s-labs/action-changed-files@a9a36fb08ce06db9b02fbd8026cc2c0945eb9841 # v0.6.0
         with:
+          include_deleted_files: true
           patterns: |
             kubernetes/apps/database/cloudnative-pg/**/*
             scripts/validate-cnpg-extension-versions.sh
