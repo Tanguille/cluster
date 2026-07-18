@@ -19,8 +19,10 @@ def config():
 
 
 class ConfigTests(unittest.TestCase):
-    def test_complete_audited_configuration(self):
+    def test_complete_policy_configuration(self):
         cfg = config()
+        self.assertEqual(set(cfg.nodes), {"control-1", "control-2", "control-3"})
+        self.assertEqual(cfg.policies["control-1"], {"kind": "cpu"})
         self.assertEqual(len(cfg.sensors["control-2"]), 7)
         self.assertEqual(len(cfg.sensors["control-3"]), 8)
 
@@ -29,7 +31,38 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             controller.Config.load(values)
         values = json.loads(json.dumps(config_values()))
-        values["sensors"]["control-2"] = []
+        values["policies"]["control-2"]["sensors"] = []
+        with self.assertRaises(ValueError):
+            controller.Config.load(values)
+
+    def test_unknown_node_and_wrong_kind_are_rejected(self):
+        values = config_values()
+        values["policies"]["control-4"] = {"kind": "nvme", "sensors": []}
+        with self.assertRaises(ValueError):
+            controller.Config.load(values)
+
+    def test_policy_keys_are_exact_for_each_kind(self):
+        values = config_values()
+        values["policies"]["control-1"]["sensors"] = [{"chip": "unexpected", "sensor": "temp1"}]
+        with self.assertRaises(ValueError):
+            controller.Config.load(values)
+        values = config_values()
+        values["policies"]["control-2"]["extra"] = False
+        with self.assertRaises(ValueError):
+            controller.Config.load(values)
+        values = config_values()
+        values["policies"]["control-1"]["kind"] = "nvme"
+        values["policies"]["control-1"]["sensors"] = []
+        with self.assertRaises(ValueError):
+            controller.Config.load(values)
+
+    def test_threshold_and_timing_changes_are_rejected(self):
+        values = config_values()
+        values["thresholds"]["cpu"]["trip"] = 71
+        with self.assertRaises(ValueError):
+            controller.Config.load(values)
+        values = config_values()
+        values["timing"]["tripDwellSeconds"] = 121
         with self.assertRaises(ValueError):
             controller.Config.load(values)
 
@@ -95,6 +128,40 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(sample.timestamp, datetime.fromtimestamp(evaluation.timestamp() - 30, UTC))
         with self.assertRaises(ValueError):
             client.query_nvme("control-3", [("nvme_nvme0", "temp1")], evaluation)
+
+    def test_nvme_timestamp_query_preserves_each_raw_sensor_timestamp(self):
+        transport = Mock()
+        evaluation = datetime(2026, 1, 1, tzinfo=UTC)
+        sensors = [("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2")]
+
+        def response(_url, params):
+            timestamps = "timestamp(" in params["query"]
+            return {
+                "status": "success",
+                "data": {
+                    "resultType": "vector",
+                    "result": [
+                        {
+                            "metric": {"kubernetes_node": "control-2", "chip": chip, "sensor": sensor},
+                            "value": [str(evaluation.timestamp()), str(evaluation.timestamp() - (30 if sensor == "temp1" else 45) if timestamps else 42)],
+                        }
+                        for chip, sensor in sensors
+                    ],
+                },
+            }
+
+        transport.get.side_effect = response
+        client = controller.VictoriaMetricsClient("http://vm", transport)
+        samples = client.query_nvme("control-2", sensors, evaluation)
+        self.assertEqual([sample.timestamp for sample in samples], [
+            datetime.fromtimestamp(evaluation.timestamp() - 30, UTC),
+            datetime.fromtimestamp(evaluation.timestamp() - 45, UTC),
+        ])
+        timestamp_query = transport.get.call_args_list[1].args[1]["query"]
+        self.assertEqual(timestamp_query, " or ".join(
+            f'timestamp(node_hwmon_temp_celsius{{kubernetes_node="control-2",chip="{chip}",sensor="{sensor}"}})'
+            for chip, sensor in sensors
+        ))
 
     def test_cpu_requires_independent_sources_but_allows_zero_xmrig(self):
         transport = Mock()
