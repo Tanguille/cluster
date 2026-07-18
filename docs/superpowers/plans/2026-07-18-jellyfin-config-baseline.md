@@ -30,7 +30,7 @@ git status --short
 git log -1 --oneline
 ```
 
-Expected: the design commit is `6fa30c110`; before Task 2, the only uncommitted
+Expected: the design commit is `docs(jellyfin): add configuration baseline design`; before Task 2, the only uncommitted
 file is this implementation-plan document.
 
 - [ ] **Step 2: Remove stale supplemental groups and runtime tuning**
