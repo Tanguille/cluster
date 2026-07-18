@@ -446,7 +446,7 @@ Expected: `flate test all passed` and `shellcheck passed`.
 
 Run: `mise exec -- kustomize build kubernetes/apps/database/cloudnative-pg/databases`
 
-Expected: rendered `Database` resources for `postgres`, `memini`, and `crowdsec` contain explicit extension versions and retain reclaim policies.
+Expected: rendered `Database` resources for `memini` and `crowdsec` retain reclaim policies; `vector` is explicitly targeted at `0.8.5` in both resources, and `vchord` is explicitly targeted at `1.1.1` in `memini`. The reserved `postgres` database is not rendered or managed.
 
 - [ ] **Step 5: Request a GitOps-focused review before pushing**
 
