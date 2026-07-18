@@ -19,10 +19,9 @@ spec:
       num_retries: 0
   info:
     mode: chat
-    # Qwen3.6-27B native context, matching SGLang --context-length 262144 (uncapped).
-    # Note: the 32 GB KV pool serves ~202K tokens/request at N=32, so a single prompt
-    # near the full window may not schedule — but litellm is not artificially capping it.
-    maxInputTokens: 262144
+    # Match SGLang's effective 180K context cap after reserving maxOutputTokens.
+    # EXTRA_ARGS' --context-length 180000 overrides the earlier 200000 argument.
+    maxInputTokens: 171808
     maxOutputTokens: 8192
 ---
 apiVersion: litellm.home-operations.com/v1alpha1
@@ -52,5 +51,6 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    maxInputTokens: 262144
+    # Match SGLang's effective 180K context cap after reserving maxOutputTokens.
+    maxInputTokens: 171808
     maxOutputTokens: 8192
