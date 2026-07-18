@@ -30,8 +30,6 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups:
           - 44 # video
-          - 109
-          - 100
           - 226 # render: required for VAAPI on /dev/dri/renderD*
 
     controllers:
@@ -68,19 +66,6 @@ spec:
                 fi
             env:
               TZ: ${TIMEZONE}
-              DOTNET_SYSTEM_IO_DISABLEFILELOCKING: "true"
-              # FFmpeg configuration for better media processing
-              JELLYFIN_FFmpeg__probesize: 100000000
-              JELLYFIN_FFmpeg__analyzeduration: 1000000000
-              JELLYFIN_FFmpeg__fflags: "+genpts+discardcorrupt+fastseek"
-              JELLYFIN_FFmpeg__threads: "4"
-              JELLYFIN_FFmpeg__hwaccel: "vaapi"
-              # Timeout settings
-              JELLYFIN_FFmpeg__timeout: "60000"
-              JELLYFIN_FFmpeg__imageExtractionTimeout: "60000"
-              # Memory management for .NET
-              DOTNET_GCAllowVeryLargeObjects: "1"
-              DOTNET_GCLOHThreshold: "100000"
             probes:
               liveness: &probes
                 enabled: true
