@@ -5,12 +5,12 @@ kind: HelmRelease
 metadata:
   name: snapshot-controller
 spec:
-  interval: 1h
   chartRef:
     kind: OCIRepository
     name: snapshot-controller
+  interval: 1h
   values:
-    controller:
-      replicaCount: 2
+    replicaCount: 2
+    monitoring:
       serviceMonitor:
-        create: true
+        enabled: true
