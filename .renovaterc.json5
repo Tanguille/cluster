@@ -5,7 +5,7 @@
     "github>home-operations/renovate-presets#2.1.0",
     ":timezone(Europe/Brussels)"
   ],
-  ignorePaths: ["**/*.sops.*", "kubernetes/apps/**/resources/**"],
+  ignorePaths: ["**/*.sops.*", "**/resources/**"],
   customManagers: [
     {
       description: "Process Grafana dashboards in GrafanaDashboard CRs",
@@ -24,7 +24,7 @@
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
       matchStringsStrategy: "recursive",
       matchStrings: [
-        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/[^\\s]+",
+        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/",
         "(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
       ],
       datasourceTemplate: "github-releases",
@@ -41,8 +41,7 @@
       ],
       depNameTemplate: "ghcr.io/tensorchord/vchord-scratch",
       datasourceTemplate: "docker",
-      extractVersionTemplate: "^pg18-v(?<version>.*)$",
-      autoReplaceStringTemplate: '    - name: vchord\n      ensure: present\n      version: "{{{newValue}}}"'
+      extractVersionTemplate: "^pg18-v(?<version>.*)$"
     },
     {
       description: "qBitrr ConfigVersion (semver, no v prefix)",
@@ -83,7 +82,7 @@
       description: "Auto-merge trusted OCI digests",
       matchDatasources: ["docker"],
       matchUpdateTypes: ["digest"],
-      matchPackageNames: ["/^ghcr\\.io\\/home-operations\\//"],
+      matchPackageNames: ["/home-operations/"],
       automerge: true,
       automergeType: "pr"
     },
@@ -114,7 +113,6 @@
       matchDatasources: ["docker"],
       // matches both gha-runner-scale-set and gha-runner-scale-set-controller
       matchPackageNames: ["/gha-runner-scale-set/"],
-      // Controller and scale-set chart must release together.
       minimumGroupSize: 2
     },
     {
@@ -122,7 +120,6 @@
       groupName: "flux-operator",
       matchDatasources: ["docker"],
       matchPackageNames: ["/flux-operator/", "/flux-instance/"],
-      // Flux instance and operator must release together.
       minimumGroupSize: 2
     },
     {
@@ -139,7 +136,6 @@
       matchDatasources: ["docker"],
       // matches both rook-ceph and rook-ceph-cluster
       matchPackageNames: ["/rook-ceph/"],
-      // Rook operator and cluster chart must release together.
       minimumGroupSize: 2
     },
     {
@@ -147,14 +143,14 @@
       groupName: "toolhive",
       matchDatasources: ["docker"],
       matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
-      // ToolHive operator and CRDs must release together.
       minimumGroupSize: 2
     },
     {
       description: "ToolHive MCP server images group",
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"]
+      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
+      minimumGroupSize: 2
     },
     {
       description: "VectorChord CNPG images and Memini database version",
@@ -178,7 +174,8 @@
       description: "nginx sidecar images group",
       groupName: "nginx",
       matchDatasources: ["docker"],
-      matchPackageNames: ["nginx"]
+      matchPackageNames: ["nginx"],
+      minimumGroupSize: 2
     },
     {
       // No matchManagers on purpose: the HelmRelease image is detected by both helm-values and

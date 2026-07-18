@@ -38,8 +38,10 @@ spec:
   name: memini
   extensions:
     - name: vchord
+      ensure: present
       version: 1.1.1
     - name: vector
+      ensure: present
       version: 0.8.5
 EOF
 
@@ -88,7 +90,7 @@ run_guard() {
 }
 
 reset_database_extensions() {
-  yq -i '.spec.extensions = [{"name": "vchord", "version": "1.1.1"}, {"name": "vector", "version": "0.8.5"}]' "$memini"
+  yq -i '.spec.extensions = [{"name": "vchord", "ensure": "present", "version": "1.1.1"}, {"name": "vector", "ensure": "present", "version": "0.8.5"}]' "$memini"
   yq -i '.spec.extensions = [{"name": "vector", "version": "0.8.5"}]' "$crowdsec"
 }
 
@@ -96,6 +98,7 @@ run_guard
 
 memini="$FIXTURE_REPO/kubernetes/apps/database/cloudnative-pg/databases/memini.yaml"
 crowdsec="$FIXTURE_REPO/kubernetes/apps/database/cloudnative-pg/databases/crowdsec.yaml"
+cluster="$FIXTURE_REPO/kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml"
 yq -i '(.spec.extensions[] | select(.name == "vector").version) = "0.8.2"' "$memini"
 if output=$(run_guard 2>&1); then
   printf '%s\n' 'expected vector version mismatch to fail' >&2
@@ -129,28 +132,47 @@ fi
 }
 
 reset_database_extensions
-for database_file in "$FIXTURE_REPO"/kubernetes/apps/database/cloudnative-pg/databases/*.yaml; do
-  yq -i 'del(.spec.extensions[] | select(.name == "vchord"))' "$database_file"
-done
+yq -i 'del(.spec.extensions[] | select(.name == "vector"))' "$memini"
 if output=$(run_guard 2>&1); then
-  printf '%s\n' 'expected missing vchord declaration to fail' >&2
+  printf '%s\n' 'expected missing Memini vector declaration to fail' >&2
   exit 1
 fi
-[[ "$output" == *"no Database CR declares vchord"* ]] || {
-  printf '%s\n' "unexpected missing-vchord-declaration diagnostic: $output" >&2
+[[ "$output" == *"memini vector extension must declare ensure: present"* ]] || {
+  printf '%s\n' "unexpected missing-Memini-vector diagnostic: $output" >&2
   exit 1
 }
 
 reset_database_extensions
-for database_file in "$FIXTURE_REPO"/kubernetes/apps/database/cloudnative-pg/databases/*.yaml; do
-  yq -i 'del(.spec.extensions[] | select(.name == "vector"))' "$database_file"
-done
+yq -i '.spec.extensions += [{"name": "vchord", "ensure": "present", "version": "1.1.1"}]' "$crowdsec"
+yq -i 'del(.spec.extensions[] | select(.name == "vchord"))' "$memini"
 if output=$(run_guard 2>&1); then
-  printf '%s\n' 'expected missing vector declaration to fail' >&2
+  printf '%s\n' 'expected missing Memini vchord declaration to fail' >&2
   exit 1
 fi
-[[ "$output" == *"no Database CR declares vector"* ]] || {
-  printf '%s\n' "unexpected missing-vector-declaration diagnostic: $output" >&2
+[[ "$output" == *"memini vchord extension must declare ensure: present"* ]] || {
+  printf '%s\n' "unexpected missing-Memini-vchord diagnostic: $output" >&2
+  exit 1
+}
+
+reset_database_extensions
+yq -i '(.spec.extensions[] | select(.name == "vector").ensure) = "absent"' "$memini"
+if output=$(run_guard 2>&1); then
+  printf '%s\n' 'expected Memini absent vector to fail' >&2
+  exit 1
+fi
+[[ "$output" == *"memini vector extension must declare ensure: present"* ]] || {
+  printf '%s\n' "unexpected absent-Memini-vector diagnostic: $output" >&2
+  exit 1
+}
+
+reset_database_extensions
+yq -i '(.spec.postgresql.extensions[] | select(.name == "vector").image.reference) = "ghcr.io/tensorchord/vchord-scratch:pg18-v0.8.5"' "$cluster"
+if output=$(run_guard 2>&1); then
+  printf '%s\n' 'expected disagreeing extension image references to fail' >&2
+  exit 1
+fi
+[[ "$output" == *"vchord and vector image references differ"* ]] || {
+  printf '%s\n' "unexpected disagreeing-image diagnostic: $output" >&2
   exit 1
 }
 

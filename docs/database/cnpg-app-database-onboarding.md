@@ -98,8 +98,9 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
 - **Extensions.** Declare them by name and version on `Database.spec.extensions` (for example,
   memini uses `vector` `0.8.5` and `vchord` `1.1.1`; crowdsec uses `vector` with its matching
   target). Every `spec.extensions[].version` MUST align with the pinned extension-bearing image.
-  The version-compatibility guard enforces this alignment and rejects a change that updates the
-  image without updating the declared target. Read the `vector` target from the exact pinned
+  The version-compatibility guard validates only declared `vector` and `vchord` entries and rejects
+  a change that updates the image without updating a declared target. Read the `vector` target from
+  the exact pinned
   operand image used by the cluster; do not blindly copy it from an upstream vector release,
   which may not be packaged in that image.
 - **YAML anchor trap.** Some app-template HelmReleases define the secret `envFrom` anchor

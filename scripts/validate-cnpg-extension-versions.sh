@@ -47,6 +47,17 @@ if [[ -z $vchord_reference ]]; then
   error "cluster manifest has no vchord image reference: $cluster_file"
   exit 1
 fi
+vector_reference=$(
+  "$YQ_BIN" -r '.spec.postgresql.extensions[] | select(.name == "vector") | .image.reference // ""' "$cluster_file"
+)
+if [[ -z $vector_reference ]]; then
+  error "cluster manifest has no vector image reference: $cluster_file"
+  exit 1
+fi
+if [[ $vchord_reference != "$vector_reference" ]]; then
+  error "vchord and vector image references differ: $vchord_reference vs $vector_reference"
+  exit 1
+fi
 if [[ ! $vchord_reference =~ :pg18-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
   error "vchord image reference does not have a pg18-vX.Y.Z tag: $vchord_reference"
   exit 1
@@ -72,6 +83,8 @@ fi
 validated=0
 vector_targets=0
 vchord_targets=0
+memini_vector_present=0
+memini_vchord_present=0
 shopt -s nullglob
 database_files=("$database_dir"/*.yaml)
 shopt -u nullglob
@@ -83,7 +96,7 @@ for database_file in "${database_files[@]}"; do
     ($document.metadata.name // "<unnamed>") as $database |
     (($document.spec.extensions // [])[] |
       select(.name == "vector" or .name == "vchord") |
-      [$database, .name, (has("version") | tostring), (.version // "")] |
+      [$database, .name, (.ensure // "unset"), (has("version") | tostring), (.version // "")] |
       @tsv)
   ' "$database_file")
 
@@ -91,7 +104,16 @@ for database_file in "${database_files[@]}"; do
     continue
   fi
 
-  while IFS=$'\t' read -r database extension has_version version; do
+  while IFS=$'\t' read -r database extension ensure has_version version; do
+    if [[ $database == memini && $extension == vector && $ensure == present ]]; then
+      memini_vector_present=1
+    fi
+    if [[ $database == memini && $extension == vchord && $ensure == present ]]; then
+      memini_vchord_present=1
+    fi
+    if [[ $ensure == absent ]]; then
+      continue
+    fi
     validated=$((validated + 1))
     if [[ $extension == vector ]]; then
       vector_targets=$((vector_targets + 1))
@@ -115,6 +137,14 @@ for database_file in "${database_files[@]}"; do
   done <<< "$entries"
 done
 
+if (( memini_vector_present == 0 )); then
+  error "memini vector extension must declare ensure: present"
+  exit 1
+fi
+if (( memini_vchord_present == 0 )); then
+  error "memini vchord extension must declare ensure: present"
+  exit 1
+fi
 if (( validated == 0 )); then
   error "no Database CR declares vector or vchord"
   exit 1
