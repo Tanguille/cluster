@@ -13,13 +13,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-SENSORS = {
-    "control-1": (),
-    "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2"), ("nvme_nvme0", "temp3"), ("nvme_nvme1", "temp1"), ("nvme_nvme1", "temp2"), ("nvme_nvme1", "temp3"), ("nvme_nvme1", "temp4")),
-    "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2"), ("nvme_nvme0", "temp3"), ("nvme_nvme0", "temp4"), ("nvme_nvme1", "temp1"), ("nvme_nvme1", "temp2"), ("nvme_nvme1", "temp3"), ("nvme_nvme1", "temp4")),
-}
-
-
 def _dt(value):
     value = float(value)
     if not math.isfinite(value):
@@ -34,22 +27,56 @@ def _fresh(timestamp, evaluation, max_age):
 
 
 class Config:
-    REQUIRED = {"mode", "victoriaMetricsEndpoint", "auditedNodes", "sensors", "thresholds", "dwellSeconds", "evaluationIntervalSeconds", "sourceSampleMaxAgeSeconds", "maxSourceGapSeconds", "cpuRateWindow", "httpTimeoutSeconds"}
+    REQUIRED = {"mode", "victoriaMetricsEndpoint", "timing", "thresholds", "policies"}
+    EXPECTED_POLICIES = {
+        "control-1": {"kind": "cpu"},
+        "control-2": {"kind": "nvme", "sensors": (
+            ("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2"), ("nvme_nvme0", "temp3"),
+            ("nvme_nvme1", "temp1"), ("nvme_nvme1", "temp2"), ("nvme_nvme1", "temp3"),
+            ("nvme_nvme1", "temp4"),
+        )},
+        "control-3": {"kind": "nvme", "sensors": (
+            ("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2"), ("nvme_nvme0", "temp3"),
+            ("nvme_nvme0", "temp4"), ("nvme_nvme1", "temp1"), ("nvme_nvme1", "temp2"),
+            ("nvme_nvme1", "temp3"), ("nvme_nvme1", "temp4"),
+        )},
+    }
+    EXPECTED_THRESHOLDS = {"cpu": {"recovery": 50, "trip": 70}, "nvme": {"recovery": 60, "trip": 70}}
+    EXPECTED_TIMING = {
+        "evaluationIntervalSeconds": 60, "sourceSampleMaxAgeSeconds": 120,
+        "maxSourceGapSeconds": 120, "cpuRateWindow": "5m", "httpTimeoutSeconds": 10,
+        "recoveryDwellSeconds": 600, "tripDwellSeconds": 120,
+    }
 
     def __init__(self, values):
         if set(values) != self.REQUIRED:
             raise ValueError("complete configuration is required")
         self.endpoint = values["victoriaMetricsEndpoint"].rstrip("/")
         self.mode = values["mode"]
-        self.nodes = tuple(values["auditedNodes"])
-        self.sensors = {node: tuple((item["chip"], item["sensor"]) for item in values["sensors"].get(node, ())) for node in self.nodes}
+        self.policies = values["policies"]
+        if not isinstance(self.policies, dict):
+            raise ValueError("policies must be a map")
+        for policy in self.policies.values():
+            if not isinstance(policy, dict) or policy.get("kind") not in ("cpu", "nvme"):
+                raise ValueError("policy fields do not match their kind")
+            if policy["kind"] == "cpu" and set(policy) != {"kind"}:
+                raise ValueError("policy fields do not match their kind")
+            if policy["kind"] == "nvme" and set(policy) != {"kind", "sensors"}:
+                raise ValueError("policy fields do not match their kind")
+        self.nodes = tuple(self.policies)
+        self.sensors = {
+            node: tuple((item["chip"], item["sensor"]) for item in policy.get("sensors", ()))
+            for node, policy in self.policies.items()
+        }
         self.thresholds = values["thresholds"]
-        self.dwell = values["dwellSeconds"]
-        self.evaluation_interval = float(values["evaluationIntervalSeconds"])
-        self.max_age = float(values["sourceSampleMaxAgeSeconds"])
-        self.max_gap = float(values["maxSourceGapSeconds"])
-        self.cpu_rate_window = values["cpuRateWindow"]
-        self.http_timeout = float(values["httpTimeoutSeconds"])
+        self.timing = values["timing"]
+        self.evaluation_interval = float(self.timing["evaluationIntervalSeconds"])
+        self.max_age = float(self.timing["sourceSampleMaxAgeSeconds"])
+        self.max_gap = float(self.timing["maxSourceGapSeconds"])
+        self.cpu_rate_window = self.timing["cpuRateWindow"]
+        self.http_timeout = float(self.timing["httpTimeoutSeconds"])
+        self.recovery_dwell = float(self.timing["recoveryDwellSeconds"])
+        self.trip_dwell = float(self.timing["tripDwellSeconds"])
         self.validate()
 
     @classmethod
@@ -60,11 +87,18 @@ class Config:
         parsed = urllib.parse.urlparse(self.endpoint)
         if parsed.scheme not in ("http", "https") or not parsed.netloc or self.mode != "observe":
             raise ValueError("only observe mode and a valid endpoint are supported")
-        if set(self.nodes) != set(SENSORS) or self.sensors != SENSORS:
+        expected_policies = {}
+        for node, policy in self.policies.items():
+            expected_policies[node] = {"kind": policy["kind"]}
+            if policy["kind"] == "nvme":
+                expected_policies[node]["sensors"] = tuple(
+                    (item["chip"], item["sensor"]) for item in policy.get("sensors", ())
+                )
+        if expected_policies != self.EXPECTED_POLICIES:
             raise ValueError("sensor allowlist is audited and immutable")
-        if self.thresholds != {"nvmeRecovery": 60, "nvmeTrip": 70, "cpuRecovery": 50, "cpuTrip": 70}:
+        if self.thresholds != self.EXPECTED_THRESHOLDS:
             raise ValueError("thresholds do not match the audited policy")
-        if self.dwell != {"recovery": 600, "trip": 120} or self.evaluation_interval <= 0 or self.max_age <= 0 or self.max_gap <= 0 or self.cpu_rate_window != "5m" or self.http_timeout <= 0:
+        if self.timing != self.EXPECTED_TIMING or self.evaluation_interval <= 0 or self.max_age <= 0 or self.max_gap <= 0 or self.cpu_rate_window != "5m" or self.http_timeout <= 0 or self.recovery_dwell <= 0 or self.trip_dwell <= 0:
             raise ValueError("invalid timing configuration")
 
 
@@ -167,7 +201,8 @@ class VictoriaMetricsClient:
         parts = [f'node_hwmon_temp_celsius{{kubernetes_node="{node}",chip="{chip}",sensor="{sensor}"}}' for chip, sensor in sensors]
         expression = " or ".join(parts)
         rows = self._query(expression, evaluation)
-        timestamps = self._query("timestamp(" + expression + ")", evaluation)
+        timestamp_expression = " or ".join(f"timestamp({part})" for part in parts)
+        timestamps = self._query(timestamp_expression, evaluation)
         key = lambda m: (m.get("chip"), m.get("sensor"))
         if any(row.get("metric", {}).get("kubernetes_node") != node for row in rows + timestamps):
             raise ValueError("NVMe node identity changed")
@@ -259,16 +294,25 @@ class GuardController:
     def __init__(self, config, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
         self.config, self.telemetry = config, telemetry
         self.clock, self.wall_clock = clock, wall_clock
-        self.policies = {"control-2": DwellPolicy(60, 70, 600, 120, config.max_gap), "control-3": DwellPolicy(60, 70, 600, 120, config.max_gap)}
-        self.cpu_policy = DwellPolicy(50, 70, 600, 120, config.max_gap)
+        self.policy_configs = config.policies
+        self.policies = {
+            node: DwellPolicy(
+                config.thresholds[policy["kind"]]["recovery"],
+                config.thresholds[policy["kind"]]["trip"],
+                config.recovery_dwell,
+                config.trip_dwell,
+                config.max_gap,
+            )
+            for node, policy in self.policy_configs.items()
+        }
         self.ready = False
         self.metrics = {
             "evaluations": 0, "errors": 0, "query_errors": {node: 0 for node in config.nodes},
             "safe": {node: 0 for node in config.nodes}, "state_transitions": 0,
-            "nvme_temp_max": {node: 0.0 for node in config.nodes if node != "control-1"},
+            "nvme_temp_max": {node: 0.0 for node in config.nodes if self.policy_configs[node]["kind"] == "nvme"},
             "source_age_seconds": {node: 0.0 for node in config.nodes},
-            "expected_sensor_count": {node: len(config.sensors[node]) for node in config.nodes if node != "control-1"},
-            "selected_sensor_count": {node: 0 for node in config.nodes if node != "control-1"},
+            "expected_sensor_count": {node: len(config.sensors[node]) for node in config.nodes if self.policy_configs[node]["kind"] == "nvme"},
+            "selected_sensor_count": {node: 0 for node in config.nodes if self.policy_configs[node]["kind"] == "nvme"},
             "cpu_non_xmrig": 0.0,
         }
         self._last_source_stamps = {node: () for node in config.nodes}
@@ -290,16 +334,16 @@ class GuardController:
         now = self.clock()
         for node, sensors in self.config.sensors.items():
             try:
-                if node == "control-1":
+                if self.policy_configs[node]["kind"] == "cpu":
                     obs = self.telemetry.query_cpu(node, evaluation, self.config.cpu_rate_window)
                     sources = (obs.host, obs.cadvisor, obs.ksm, obs.presence) + ((obs.xmrig,) if obs.xmrig else ())
                     sources = tuple(source for source in sources if source is not None)
                     if not all(_fresh(source.timestamp, evaluation, self.config.max_age) for source in sources):
                         raise ValueError("stale or future CPU source")
                     if self._new_source_set(node, sources):
-                        safe = self.cpu_policy.observe(cpu_value(obs), min(source.timestamp for source in sources), now)
+                        safe = self.policies[node].observe(cpu_value(obs), min(source.timestamp for source in sources), now)
                     else:
-                        safe = self.cpu_policy.safe
+                        safe = self.policies[node].safe
                     self.metrics["cpu_non_xmrig"] = cpu_value(obs)
                     self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(source.timestamp for source in sources).timestamp())
                 else:
@@ -319,18 +363,17 @@ class GuardController:
             except Exception:
                 self.metrics["errors"] += 1
                 self.metrics["query_errors"][node] += 1
-                policy = self.cpu_policy if node == "control-1" else self.policies[node]
-                policy.invalidate()
+                self.policies[node].invalidate()
                 self._last_source_stamps[node] = ()
                 if self.metrics["safe"][node]:
                     self.metrics["state_transitions"] += 1
                 self.metrics["safe"][node] = 0
                 self.metrics["source_age_seconds"][node] = float("nan")
-                if node == "control-1":
+                if self.policy_configs[node]["kind"] == "cpu":
                     self.metrics["cpu_non_xmrig"] = float("nan")
                 else:
                     self.metrics["nvme_temp_max"][node] = float("nan")
-                if node != "control-1":
+                if self.policy_configs[node]["kind"] == "nvme":
                     self.metrics["selected_sensor_count"][node] = 0
         self.metrics["evaluations"] += 1
         self.ready = True
@@ -341,7 +384,7 @@ class GuardController:
         return self.evaluate(evaluation)
 
     def reconcile(self, node, temperature, source_time, wall_now=None):
-        if node not in self.policies:
+        if node not in self.policies or self.policy_configs[node]["kind"] == "cpu":
             return True
         wall_now = wall_now or self.wall_clock()
         if source_time > wall_now or (wall_now - source_time).total_seconds() > self.config.max_age:
