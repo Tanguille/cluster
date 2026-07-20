@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-problem-detector-rules
+spec:
+  groups:
+    - name: node-problem-detector.rules
+      rules:
+        # kube-state-metrics exports NPD-written Node conditions automatically.
+        - alert: NodeProblemCondition
+          expr: |-
+            kube_node_status_condition{condition=~"KernelDeadlock|ReadonlyFilesystem|XfsHasShutdown",status="true"} == 1
+          for: 1m
+          annotations:
+            summary: >-
+              Node {{ $labels.node }} reports permanent problem condition {{ $labels.condition }}
+            description: >-
+              node-problem-detector saw a fatal kernel-log event on {{ $labels.node }} — the condition
+              persists in the API server even after a cold power cycle wipes the kernel ring buffer.
+          labels:
+            severity: critical
+        # OOMKilling excluded — already covered by the OomKilled/OomStorm rules in victoria-metrics.
+        - alert: NodeKernelProblemEvents
+          expr: |-
+            sum by (node, reason) (increase(problem_counter{reason=~"TaskHung|KernelOops|IOError|Ext4Error|MemoryReadError|UnregisterNetDevice|CperHardwareErrorFatal"}[10m])) > 0
+          annotations:
+            summary: >-
+              {{ $value }} {{ $labels.reason }} kernel events on {{ $labels.node }} in the last 10 minutes
+          labels:
+            severity: warning
