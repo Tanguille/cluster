@@ -1,0 +1,8 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# No namespace transformer: each policy declares its own metadata.namespace.
+resources:
+  - database-ingress.yaml
+  - deny-apiserver-egress.yaml
