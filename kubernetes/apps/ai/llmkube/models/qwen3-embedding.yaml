@@ -81,3 +81,88 @@ spec:
     memory: 4Gi
   endpoint:
     path: /v1/embeddings
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: embedder-recycle
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: embedder-recycle
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [qwen3-embedding, vmcp-embedding]
+    verbs: [patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: embedder-recycle
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: embedder-recycle
+subjects:
+  - kind: ServiceAccount
+    name: embedder-recycle
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: embedder-recycle
+spec:
+  # both embedders (qwen3-embedding + vmcp-embedding) leak pinned iGPU GTT memory
+  # cgroups cannot see (wedged control-2 twice); a nightly controlled rollout restart caps
+  # the accumulation. Embeddings are dragonfly-cached, so a restart costs one reload.
+  timeZone: ${TIMEZONE}
+  schedule: "30 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  startingDeadlineSeconds: 1800
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 180
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: embedder-recycle
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: recycle
+              image: curlimages/curl:8.21.0@sha256:1ab04d023ece37e6ec991bf3306ad04e0ef0084e94a5c6b6563cfcb9563169db
+              command:
+                - sh
+                - -ec
+                - >-
+                  timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"; for deployment in
+                  qwen3-embedding vmcp-embedding; do curl -fsS --connect-timeout 10
+                  --max-time 30
+                  --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                  -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+                  -H "Content-Type: application/merge-patch+json" -X PATCH
+                  --data "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$${timestamp}\"}}}}}"
+                  "https://kubernetes.default.svc/apis/apps/v1/namespaces/ai/deployments/$${deployment}"
+                  > /dev/null; done
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 32Mi
