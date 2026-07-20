@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: database-ingress-allowlist
+  namespace: database
+spec:
+  # endpointSelector {} => default-deny ingress for every pod in the namespace
+  # (postgres, poolers, dragonfly, cnpg + dragonfly operators). Egress stays
+  # default-allow (backups to NFS/S3, operator->apiserver keep working).
+  endpointSelector: {}
+  ingress:
+    # Namespaces that actually consume postgres/pgbouncer/dragonfly, discovered
+    # from cnpg databases/ CRs + dragonfly host refs. observability = vmagent
+    # scraping the exporters; database = intra-ns (operator, poolers, replicas).
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+        - matchLabels:
+            io.kubernetes.pod.namespace: default
+        - matchLabels:
+            io.kubernetes.pod.namespace: media
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: security
+        - matchLabels:
+            io.kubernetes.pod.namespace: database
+    # cnpg serves validating/mutating webhooks the apiserver must reach.
+    - fromEntities:
+        - kube-apiserver

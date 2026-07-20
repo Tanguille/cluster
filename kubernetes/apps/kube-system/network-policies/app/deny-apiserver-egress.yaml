@@ -1,0 +1,58 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+# Internet-exposed app namespaces must not reach the kube-apiserver. enableDefaultDeny
+# egress:false keeps this a pure deny overlay — DNS/internet/cluster egress stay
+# default-allow. kopiur movers (managed-by=kopiur) legitimately need the apiserver, so
+# they are excluded via NotIn (also matches label-absent app pods => they ARE denied).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: deny-kube-apiserver-egress
+  namespace: media
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/managed-by
+        operator: NotIn
+        values: [kopiur]
+  enableDefaultDeny:
+    egress: false
+  egressDeny:
+    - toEntities:
+        - kube-apiserver
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: deny-kube-apiserver-egress
+  namespace: default
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/managed-by
+        operator: NotIn
+        values: [kopiur]
+  enableDefaultDeny:
+    egress: false
+  egressDeny:
+    - toEntities:
+        - kube-apiserver
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: deny-kube-apiserver-egress
+  namespace: web3
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/managed-by
+        operator: NotIn
+        values: [kopiur]
+  enableDefaultDeny:
+    egress: false
+  egressDeny:
+    - toEntities:
+        - kube-apiserver
