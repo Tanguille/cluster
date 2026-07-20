@@ -200,3 +200,6 @@ spec:
     - --enable-mixed-chunk
     - --hicache-write-policy
     - write_through_selective
+    # Operator hardcodes --host :: (IPv6-only on this IPv4 cluster); last --host wins.
+    - --host
+    - 0.0.0.0
