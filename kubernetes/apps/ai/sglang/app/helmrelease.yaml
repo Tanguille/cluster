@@ -104,6 +104,9 @@ spec:
               TZ: ${TIMEZONE}
               # --- launch.sh / common.sh overrides (most gfx1201 env is set by common.sh;
               # --- CONDA_BASE/ENV_NAME/REPO_DIR come baked from the image) ---
+              # Explicitly pin the baked OCI environment so stale Deployment env cannot select
+              # the retired PVC runtime at /cache/sglang/conda.
+              CONDA_BASE: /opt/conda
               TP: "1" # single R9700; the fork defaults to 2 (its dual-card box)
               MODEL: mattbucci/Qwen3.6-27B-AWQ # resolved offline from HF_HOME cache
               # Pin every device-visibility var to card 0 (common.sh defaults them to "0,1").
@@ -247,8 +250,8 @@ spec:
 
     persistence:
       # The `sglang` PVC carries the Qwen3.6 AWQ model (/cache/hf), the persisted Triton JIT cache,
-      # and the legacy runtime-from-PVC conda env + fork source — kept as the rollback path for the
-      # baked image (retirement owned by docs/llm-hosting/sglang-oci-cutover.md step 6).
+      # and the retired runtime-from-PVC conda env + fork source; delete those legacy directories
+      # separately once no longer needed.
       cache:
         enabled: true
         existingClaim: sglang

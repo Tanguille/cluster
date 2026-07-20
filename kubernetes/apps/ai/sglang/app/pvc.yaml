@@ -7,9 +7,9 @@ metadata:
 spec:
   accessModes: ["ReadWriteOnce"]
   storageClassName: openebs-hostpath
-  # Model (Qwen3.6-27B-AWQ), persisted Triton JIT cache, and the legacy runtime-from-PVC
-  # conda env + fork source (~50 GB used). The env is rollback-only since the baked-image
-  # cutover (see README); rebuild via scripts/sglang-env-rebuild.sh if lost.
+  # Model (Qwen3.6-27B-AWQ), persisted Triton JIT cache, and retired legacy runtime-from-PVC
+  # conda env + fork source (~50 GB used). Delete the legacy directories separately; rebuild via
+  # scripts/sglang-env-rebuild.sh only as an emergency fallback.
   resources:
     requests:
       storage: 80Gi
