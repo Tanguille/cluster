@@ -6,6 +6,9 @@ cluster:
     extraArgs:
       # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
       enable-aggregator-routing: true
+    resources:
+      requests:
+        memory: 2Gi # observed usage 2.3-2.8Gi vs prior 512Mi request; 07-02 OOM-cascade
   controllerManager:
     extraArgs:
       bind-address: 0.0.0.0

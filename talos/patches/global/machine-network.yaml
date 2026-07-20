@@ -2,6 +2,7 @@ machine:
   network:
     nameservers:
       - 192.168.0.1 # OPNsense Unbound
+      - 9.9.9.9 # fallback; Unbound stalls intermittently (CoreDNS p99 1.26s). No split-horizon resolution during router outages.
   features:
     hostDNS:
       enabled: true
