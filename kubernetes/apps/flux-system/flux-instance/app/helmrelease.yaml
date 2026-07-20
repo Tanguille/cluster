@@ -41,7 +41,6 @@ spec:
               name: (helm-controller|source-controller)
           - # Individual memory limits per controller based on 30-day usage analysis
             # Peak usage: helm=330MB, kustomize=203MB, source=127MB, notification=96MB, operator=291MB
-            # Previous limit was 2Gi per controller (10Gi total), now optimized to 1.92Gi total
             patch: |
               apiVersion: apps/v1
               kind: Deployment

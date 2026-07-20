@@ -9,7 +9,6 @@ spec:
     name: postgres16
   name: memini
   owner: memini
-  ensure: present
   # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
   databaseReclaimPolicy: retain
   # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
@@ -18,8 +17,6 @@ spec:
   # A wrong pin fails visibly: CNPG reports the Database CR not-Ready on ALTER EXTENSION.
   extensions:
     - name: vchord
-      ensure: present
       version: "1.1.1"
     - name: vector
-      ensure: present
       version: "0.8.5"
