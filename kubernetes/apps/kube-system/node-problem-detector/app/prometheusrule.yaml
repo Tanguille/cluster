@@ -11,7 +11,7 @@ spec:
         # kube-state-metrics exports NPD-written Node conditions automatically.
         - alert: NodeProblemCondition
           expr: |-
-            kube_node_status_condition{condition=~"KernelDeadlock|ReadonlyFilesystem|XfsHasShutdown",status="true"} == 1
+            kube_node_status_condition{condition=~"KernelDeadlock|ReadonlyFilesystem|XfsShutdown|CperHardwareErrorFatal",status="true"} == 1
           for: 1m
           annotations:
             summary: >-
@@ -24,7 +24,7 @@ spec:
         # OOMKilling excluded — already covered by the OomKilled/OomStorm rules in victoria-metrics.
         - alert: NodeKernelProblemEvents
           expr: |-
-            sum by (node, reason) (increase(problem_counter{reason=~"TaskHung|KernelOops|IOError|Ext4Error|MemoryReadError|UnregisterNetDevice|CperHardwareErrorFatal"}[10m])) > 0
+            sum by (node, reason) (increase(problem_counter{reason=~"TaskHung|KernelOops|IOError|Ext4Error|MemoryReadError|UnregisterNetDevice|CperHardwareErrorRecoverable"}[10m])) > 0
           annotations:
             summary: >-
               {{ $value }} {{ $labels.reason }} kernel events on {{ $labels.node }} in the last 10 minutes
