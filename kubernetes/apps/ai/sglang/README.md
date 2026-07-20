@@ -40,13 +40,11 @@ into the image** `ghcr.io/tanguille/sglang-rdna4`. The build, the pinned fork pa
 pin/rollback mechanics live in
 [`docker/sglang-rdna4/README.md`](../../../../docker/sglang-rdna4/README.md).
 
-The `sglang` PVC now carries only runtime data: the model (`/cache/hf`,
-`mattbucci/Qwen3.6-27B-AWQ`) and the persisted Triton JIT cache (`/cache/sglang/triton`). It still
-holds the pre-cutover conda env + fork source (`/cache/sglang/conda`, `/cache/sglang/repo-v0514`) as
-the **rollback path** — revert the HelmRelease to the ROCm-base image and it runs from the PVC again
-(rebuildable via [`scripts/sglang-env-rebuild.sh`](app/scripts/sglang-env-rebuild.sh) if lost). Those
-legacy dirs are dead weight once the baked image is trusted; retirement is tracked in
-`docs/llm-hosting/sglang-oci-cutover.md` step 6.
+The `sglang` PVC carries the model (`/cache/hf`, `mattbucci/Qwen3.6-27B-AWQ`) and the persisted
+Triton JIT cache (`/cache/sglang/triton`). The pre-cutover conda env + fork source
+(`/cache/sglang/conda`, `/cache/sglang/repo-v0514`) are retired legacy data and must be deleted
+separately; they are no longer a runtime or rollback path. The rebuild script remains only as an
+emergency fallback: [`scripts/sglang-env-rebuild.sh`](app/scripts/sglang-env-rebuild.sh).
 
 ## Performance & bottleneck
 

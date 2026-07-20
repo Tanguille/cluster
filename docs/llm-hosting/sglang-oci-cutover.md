@@ -2,7 +2,8 @@
 
 Move sglang from the **runtime-from-PVC workaround** (engine built out-of-band onto the
 `sglang` PVC by `scripts/sglang-env-rebuild.sh`, image = bare ROCm base) to a **git-reproducible
-baked image** `ghcr.io/tanguille/sglang-rdna4`. The PVC keeps only the model + Triton cache.
+baked image** `ghcr.io/tanguille/sglang-rdna4`. The PVC keeps `/cache/hf` and
+`/cache/sglang/triton`; the old runtime directories are retired.
 
 **Why now:** the workaround existed because the cluster couldn't pull never-cached images
 (Spegel upstream fall-through was broken). Spegel is healthy again, so the README's documented
@@ -53,12 +54,12 @@ at image-build time — covered by digest-pinned rollback and the Stage 2 valida
    a Recreate rollout (no old pod kept warm), so on failure go straight to **Rollback** below —
    serving is down only for the failed-boot window either way.
 5. **Validate** — `/health` up, a `qwen-3.6` completion with tools+thinking, PPL/needle spot-check, decode tok/s parity with the PVC baseline (≈16 single / ≈99 @conc24).
-6. **Retire** — drop the "Runtime-from-PVC" section from the app README; keep `sglang-env-rebuild.sh`
-   as the documented PVC-rebuild fallback (the Dockerfile is now primary). The PVC's
-   `conda/` + `repo-v0514/` are now dead weight but harmless — clean up later.
+6. **Retire** — the PVC's `/cache/sglang/conda` and `/cache/sglang/repo-v0514` are retired and may
+   be deleted separately. Preserve `/cache/hf` and `/cache/sglang/triton`. Keep
+   `app/scripts/sglang-env-rebuild.sh` as the emergency PVC-environment rebuild path.
 
-**Rollback:** revert the Stage 2 HelmRelease commit → Flux redeploys the ROCm-base + PVC-runtime
-pod (the env is still on the PVC). No rebuild needed.
+**Rollback:** after the retired runtime directories are deleted, rollback requires the baked OCI
+image or rebuilding the emergency PVC environment with `app/scripts/sglang-env-rebuild.sh`.
 
 ## Process Instructions
 
