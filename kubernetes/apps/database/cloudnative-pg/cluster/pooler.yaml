@@ -13,6 +13,19 @@ spec:
     name: postgres16
   instances: 3
   type: rw
+  # Avoid BestEffort eviction: losing pooler replicas concentrates all client
+  # traffic on the survivor and can exhaust its PgBouncer wait queue.
+  template:
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
   pgbouncer:
     poolMode: transaction
     parameters:
