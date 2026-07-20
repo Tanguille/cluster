@@ -12,7 +12,8 @@ spec:
   ensure: present
   # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
   databaseReclaimPolicy: retain
-  # Keep CrowdSec's vector extension aligned with the pinned operand image.
+  # vector is the pgvector bundled in the cluster's vchord-scratch image — bump manually
+  # when the image bumps; a wrong pin fails visibly via the Database CR going not-Ready.
   extensions:
     - name: vector
       ensure: present

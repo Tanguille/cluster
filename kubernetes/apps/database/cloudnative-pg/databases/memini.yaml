@@ -13,6 +13,9 @@ spec:
   # Never drop the database if this CR is deleted/pruned — this is an adopted, live DB.
   databaseReclaimPolicy: retain
   # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
+  # vchord version is Renovate-tracked with the cluster's vchord-scratch image;
+  # vector is the pgvector bundled in that image — bump manually when the image bumps.
+  # A wrong pin fails visibly: CNPG reports the Database CR not-Ready on ALTER EXTENSION.
   extensions:
     - name: vchord
       ensure: present
