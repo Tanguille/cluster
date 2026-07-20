@@ -44,8 +44,9 @@ spec:
                     port: *port
                   initialDelaySeconds: 0
                   periodSeconds: 10
-                  timeoutSeconds: 1
-                  failureThreshold: 3
+                  # 07-18 outage: index digest of a 4.7k-blob backlog made / answer >1s, kubelet kill-looped the pod
+                  timeoutSeconds: 10
+                  failureThreshold: 6
               readiness: *probes
             securityContext:
               allowPrivilegeEscalation: false

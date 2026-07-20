@@ -35,13 +35,13 @@ jobs:
       images: ${{ steps.flate.outputs.images }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Install Flate
-        uses: home-operations/flate/action@0fc37fae10cf3c265294f6adebc6d6c100c74ea5 # v0.4.10
+        uses: home-operations/flate/action@c2544f569380e766ef665abc7af685331c881117 # v0.4.11
 
       - name: Run Flate
         id: flate
