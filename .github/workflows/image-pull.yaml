@@ -54,7 +54,11 @@ jobs:
           echo 'EOF' >> $GITHUB_OUTPUT
 
   pull:
-    if: ${{ needs.flate.outputs.images != '[]' }}
+    if: >-
+      ${{
+        needs.flate.outputs.images != '[]' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      }}
     needs: flate
     name: Image Pull - Pull Images
     runs-on: cluster-runner
