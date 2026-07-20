@@ -20,6 +20,19 @@ spec:
               memory: 256Mi
             limits:
               memory: 2Gi
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  # externalTrafficPolicy: Local means a probe-kill blacks out that node's LB traffic; widen the margin
+                  priorityClassName: system-cluster-critical
+                  containers:
+                    - name: envoy
+                      livenessProbe:
+                        timeoutSeconds: 5
+                        failureThreshold: 6
       envoyService:
         externalTrafficPolicy: Local
   shutdown:
@@ -81,6 +94,35 @@ spec:
       allowedRoutes:
         namespaces:
           from: Same
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gateway_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: envoy-external-probe
+  annotations:
+    external-dns.alpha.kubernetes.io/target: &probeHostname gatus-probe.${SECRET_DOMAIN}
+spec:
+  gatewayClassName: envoy
+  infrastructure:
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: *probeHostname
+      lbipam.cilium.io/ips: ${ENVOY_GATUS_PROBE_IP}
+  listeners:
+    - name: https
+      hostname: gatus-probe.${SECRET_DOMAIN}
+      protocol: HTTPS
+      port: 443
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      tls:
+        certificateRefs:
+          - kind: Secret
+            name: ${SECRET_DOMAIN/./-}-production-tls
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1

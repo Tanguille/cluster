@@ -4,22 +4,11 @@ kind: ServiceAccount
 metadata:
   name: cluster-runner
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: cluster-runner
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-  - kind: ServiceAccount
-    name: cluster-runner
-    namespace: actions-runner-system
----
 apiVersion: talos.dev/v1alpha1
 kind: ServiceAccount
 metadata:
   name: cluster-runner
 spec:
+  # Only use is 'talosctl image pull'; ImagePull needs more than os:reader, and the
+  # kubernetesTalosAPIAccess allowlist (talos/patches) permits only os:admin/os:reader.
   roles: ["os:admin"]

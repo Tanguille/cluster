@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sglang-rules
+spec:
+  groups:
+    - name: sglang.rules
+      rules:
+        - alert: SGLangDown
+          expr: |-
+            up{job="sglang"} == 0
+          for: 10m
+          annotations:
+            summary: >-
+              sglang has not been scraped for 10m — inference is unavailable
+          labels:
+            severity: critical
+
+        - alert: SGLangQueueStuck
+          expr: |-
+            sglang:num_queue_reqs >= 32
+          for: 30m
+          annotations:
+            summary: >-
+              sglang request queue has been at the configured max-queued-requests cap (32) for 30m — new requests are being rejected
+          labels:
+            severity: warning
+
+    - name: ai.rules
+      rules:
+        - alert: AIEmbeddingPending
+          expr: |-
+            kube_pod_status_phase{namespace="ai", phase="Pending"} == 1
+          for: 5m
+          annotations:
+            summary: >-
+              A pod in the ai namespace has been Pending for 5m — check for the qwen3-embedding hard-affinity deadlock
+          labels:
+            severity: warning

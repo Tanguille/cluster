@@ -3,7 +3,10 @@ machine:
     extraConfig:
       enableSystemLogHandler: true
       enableSystemLogQuery: true
+      mergeDefaultEvictionSettings: true
       evictionHard:
+        memory.available: "7%"
+      evictionMinimumReclaim:
         memory.available: 1Gi
       # Trigger image GC before Ceph's mon_data_avail_warn default (30% free) fires.
       imageGCHighThresholdPercent: 70

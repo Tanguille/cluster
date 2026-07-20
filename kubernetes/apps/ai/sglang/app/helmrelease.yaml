@@ -73,7 +73,7 @@ spec:
             # rebuilt in place); the tag stays so Renovate can bump the digest.
             image:
               repository: ghcr.io/tanguille/sglang-rdna4
-              tag: v0.5.15-gfx1201@sha256:be5b0f3a0cf59a1f9d09073549a7d1c6bec70e686c2aa13fa5cbec82f4e74fdd
+              tag: v0.5.15-gfx1201@sha256:3d1561f6a87ce2d61f7c508f6c2f76fd6bbffb094c99d23cb097a89353355bfe
             # Replace the image entrypoint with the fork's preset runner. The qwen36-27b preset +
             # these flags are the validated single-card config; the perf table and cache-vs-batch
             # tradeoff are in the README, the rejected alternatives (MoE, MTP/spec, fp4 KV) in
@@ -104,6 +104,9 @@ spec:
               TZ: ${TIMEZONE}
               # --- launch.sh / common.sh overrides (most gfx1201 env is set by common.sh;
               # --- CONDA_BASE/ENV_NAME/REPO_DIR come baked from the image) ---
+              # Explicitly pin the baked OCI environment so stale Deployment env cannot select
+              # the retired PVC runtime at /cache/sglang/conda.
+              CONDA_BASE: /opt/conda
               TP: "1" # single R9700; the fork defaults to 2 (its dual-card box)
               MODEL: mattbucci/Qwen3.6-27B-AWQ # resolved offline from HF_HOME cache
               # Pin every device-visibility var to card 0 (common.sh defaults them to "0,1").
@@ -247,8 +250,8 @@ spec:
 
     persistence:
       # The `sglang` PVC carries the Qwen3.6 AWQ model (/cache/hf), the persisted Triton JIT cache,
-      # and the legacy runtime-from-PVC conda env + fork source — kept as the rollback path for the
-      # baked image (retirement owned by docs/llm-hosting/sglang-oci-cutover.md step 6).
+      # and the retired runtime-from-PVC conda env + fork source; delete those legacy directories
+      # separately once no longer needed.
       cache:
         enabled: true
         existingClaim: sglang

@@ -1,0 +1,20 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rook-ceph-custom-rules
+spec:
+  groups:
+    - name: rook-ceph.custom.rules
+      rules:
+        - alert: CephOSDSustainedHighLatency
+          expr: |-
+            avg_over_time(ceph_osd_apply_latency_ms[30m]) > 100
+          for: 30m
+          annotations:
+            summary: >-
+              OSD {{ $labels.ceph_daemon }} apply latency has averaged over 100ms for 30 minutes
+              (CephSlowOps only fires on healthcheck-level stalls, not this)
+          labels:
+            severity: warning
