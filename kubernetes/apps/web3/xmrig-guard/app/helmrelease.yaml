@@ -12,7 +12,6 @@ spec:
   values:
     controllers:
       xmrig-guard:
-        replicas: 1
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -54,6 +53,16 @@ spec:
     defaultPodOptions:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 15
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            # keep the guard off the NVMe nodes it audits — it went down with control-2
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [control-1]
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
