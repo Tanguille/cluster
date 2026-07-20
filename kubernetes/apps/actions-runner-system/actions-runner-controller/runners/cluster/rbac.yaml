@@ -9,5 +9,5 @@ kind: ServiceAccount
 metadata:
   name: cluster-runner
 spec:
-  # Only use is 'talosctl image pull' in image-pull.yaml.
-  roles: ["os:reader"]
+  # Only use is 'talosctl image pull' in image-pull.yaml; ImagePull needs os:operator (not os:reader).
+  roles: ["os:operator"]
