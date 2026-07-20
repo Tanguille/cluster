@@ -1,0 +1,50 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: xmrig-guard-rules
+spec:
+  groups:
+    - name: xmrig-guard.rules
+      rules:
+        - alert: XmrigGuardEnforcementBypassed
+          # absent/partial guard data counts as unsafe, mirroring the ScaledObject's
+          # exact-cardinality gate; catches KEDA-operator-down, HPA wedges, manual scales
+          expr: |-
+            (
+              min(xmrig_guard_safe{node=~"control-[123]"}) == 0
+              or count(xmrig_guard_safe{node=~"control-[123]"}) != 3
+              or absent(xmrig_guard_safe{node=~"control-[123]"})
+            )
+            and on ()
+            kube_deployment_status_replicas{namespace="web3", deployment="xmrig"} > 0
+          for: 10m
+          annotations:
+            summary: >-
+              Miners are running while the thermal gate should be closed —
+              the KEDA trip is not being enforced (operator down, HPA wedged, or manual scale)
+          labels:
+            severity: critical
+        - alert: XmrigGuardAbsent
+          expr: |-
+            count(xmrig_guard_safe{node=~"control-[123]"}) != 3
+            or absent(xmrig_guard_safe{node=~"control-[123]"})
+          for: 15m
+          annotations:
+            summary: >-
+              Guard safety signal missing or wrong cardinality — the KEDA gate is
+              closed and mining is silently disabled (fails closed)
+          labels:
+            severity: warning
+        - alert: XmrigGuardEvaluationErrors
+          # 0.01/s ~= 36 errors/h; the 2026-07 telemetry breakage ran 47-100/h
+          expr: |-
+            sum(rate(xmrig_guard_query_errors_total[10m])) > 0.01
+          for: 15m
+          annotations:
+            summary: >-
+              Guard evaluations are failing repeatedly — affected nodes fail closed
+              and can never re-earn safe=1 until queries recover
+          labels:
+            severity: warning

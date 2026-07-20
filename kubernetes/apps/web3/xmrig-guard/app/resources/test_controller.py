@@ -1,4 +1,3 @@
-import json
 import math
 import os
 import sys
@@ -11,40 +10,6 @@ sys.path.insert(0, os.path.dirname(__file__))
 import controller
 
 UTC = timezone.utc
-ROOT = os.path.dirname(__file__)
-
-
-def config():
-    with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as stream:
-        return controller.Config.load(json.load(stream))
-
-
-class ConfigTests(unittest.TestCase):
-    def test_complete_audited_configuration(self):
-        cfg = config()
-        self.assertEqual(cfg.mode, "enforce")
-        self.assertEqual(len(cfg.sensors["control-2"]), 7)
-        self.assertEqual(len(cfg.sensors["control-3"]), 8)
-
-    def test_observe_mode_is_rejected(self):
-        values = config_values()
-        values["mode"] = "observe"
-        with self.assertRaises(ValueError):
-            controller.Config.load(values)
-
-    def test_missing_or_changed_policy_is_rejected(self):
-        values = {"mode": "observe"}
-        with self.assertRaises(ValueError):
-            controller.Config.load(values)
-        values = json.loads(json.dumps(config_values()))
-        values["sensors"]["control-2"] = []
-        with self.assertRaises(ValueError):
-            controller.Config.load(values)
-
-
-def config_values():
-    with open(os.path.join(ROOT, "config.json"), encoding="utf-8") as stream:
-        return json.load(stream)
 
 
 class PolicyTests(unittest.TestCase):
@@ -105,7 +70,7 @@ class TelemetryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             client.query_nvme("control-3", [("nvme_nvme0", "temp1")], evaluation)
 
-    def test_cpu_requires_independent_sources_but_allows_zero_xmrig(self):
+    def test_cpu_zero_xmrig_uses_pod_info_anchor_and_four_round_trips(self):
         transport = Mock()
         now = datetime(2026, 1, 1, tzinfo=UTC)
         response = {"status": "success", "data": {"resultType": "vector", "result": [{"metric": {}, "value": [str(now.timestamp()), "37"]}]}}
@@ -120,9 +85,10 @@ class TelemetryTests(unittest.TestCase):
         observation = controller.VictoriaMetricsClient("http://vm", transport).query_cpu("control-1", now)
         self.assertIsNone(observation.xmrig)
         self.assertEqual(controller.cpu_value(observation), 37)
-        self.assertEqual(len(transport.get.call_args_list), 7)
+        self.assertEqual(len(transport.get.call_args_list), 4)
         queries = [call.args[1]["query"] for call in transport.get.call_args_list]
         self.assertTrue(any("kube_pod_labels" in query and 'node="control-1"' in query for query in queries))
+        self.assertTrue(any(query.startswith('timestamp(kube_pod_info{namespace="web3"}') for query in queries))
 
     def test_xmrig_present_on_control1_is_subtracted(self):
         transport = Mock()
@@ -193,17 +159,17 @@ class TelemetryTests(unittest.TestCase):
 
 
 class ControllerTests(unittest.TestCase):
+    def test_audited_sensor_sets(self):
+        self.assertEqual(len(controller.SENSORS["control-2"]), 7)
+        self.assertEqual(len(controller.SENSORS["control-3"]), 8)
+
     def test_evaluation_failure_is_fail_closed_and_readiness_is_bounded(self):
         telemetry = Mock()
         telemetry.query_nvme.side_effect = ValueError("broken")
-        guard = controller.GuardController(config(), telemetry, clock=lambda: 100, wall_clock=lambda: datetime(2026, 1, 1, tzinfo=UTC))
+        guard = controller.GuardController(telemetry, clock=lambda: 100, wall_clock=lambda: datetime(2026, 1, 1, tzinfo=UTC))
         self.assertEqual(set(guard.evaluate()), {"control-1", "control-2", "control-3"})
         self.assertTrue(guard.ready)
         self.assertEqual(sum(guard.metrics["safe"].values()), 0)
-
-    def test_enforcement_controller_remains_read_only(self):
-        guard = controller.GuardController(config(), Mock())
-        guard.reconcile("control-2", 50, datetime.now(UTC))
 
     def test_nodes_fail_independently_and_completed_evaluation_is_ready(self):
         telemetry = Mock()
@@ -214,10 +180,8 @@ class ControllerTests(unittest.TestCase):
             return [controller.Source(40, source)] * len(sensors)
         telemetry.query_nvme.side_effect = nvme
         telemetry.query_cpu.return_value = controller.CPUObservation(
-            controller.Source(30, datetime(2026, 1, 1, tzinfo=UTC)),
-            controller.Source(1, datetime(2026, 1, 1, tzinfo=UTC)),
-            controller.Source(1, datetime(2026, 1, 1, tzinfo=UTC)), None)
-        guard = controller.GuardController(config(), telemetry, clock=lambda: 100, wall_clock=lambda: datetime(2026, 1, 1, tzinfo=UTC))
+            controller.Source(30, source), None, controller.Source(0, source))
+        guard = controller.GuardController(telemetry, clock=lambda: 100, wall_clock=lambda: datetime(2026, 1, 1, tzinfo=UTC))
         result = guard.evaluate()
         self.assertTrue(guard.ready)
         self.assertEqual(result["control-2"], 0)
@@ -229,16 +193,16 @@ class ControllerTests(unittest.TestCase):
         base = datetime(2026, 1, 1, tzinfo=UTC)
         clock = [0]
 
-        def cpu(_node, evaluation, _window):
+        def cpu(_node, evaluation):
             source = controller.Source(telemetry.cpu, evaluation)
-            return controller.CPUObservation(source, source, source, None, source)
+            return controller.CPUObservation(source, None, source)
 
         def nvme(_node, sensors, evaluation):
             return [controller.Source(40, evaluation)] * len(sensors)
 
         telemetry.query_cpu.side_effect = cpu
         telemetry.query_nvme.side_effect = nvme
-        guard = controller.GuardController(config(), telemetry, clock=lambda: clock[0])
+        guard = controller.GuardController(telemetry, clock=lambda: clock[0])
 
         def observe(cpu_percent, seconds):
             telemetry.cpu = cpu_percent
@@ -264,14 +228,14 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(observe(50, 1500), 0)
         self.assertEqual(observe(50, 1620), 1)
 
-    def test_health_metrics_are_bounded_and_run_once_evaluates(self):
+    def test_health_metrics_are_bounded(self):
         telemetry = Mock()
         telemetry.query_nvme.side_effect = ValueError("offline")
         telemetry.query_cpu.side_effect = ValueError("offline")
-        guard = controller.GuardController(config(), telemetry)
-        guard.run_once()
+        guard = controller.GuardController(telemetry)
+        guard.evaluate()
         self.assertEqual(guard.metrics["evaluations"], 1)
-        self.assertLessEqual(len(guard.metrics), 12)
+        self.assertLessEqual(len(guard.metrics), 8)
 
     def test_one_source_gap_resets_only_that_node_and_metrics_are_named(self):
         telemetry = Mock()
@@ -283,18 +247,16 @@ class ControllerTests(unittest.TestCase):
             # control-2 has one 180-second source gap, while every source is
             # still fresh at the second evaluation (age is 120 seconds max).
             return [controller.Source(40, first + timedelta(seconds=(150 if node == "control-2" and i == 0 else 60))) for i in range(len(sensors))]
-        def cpu(node, evaluation, _window):
+        def cpu(node, evaluation):
             stamp = evaluation - timedelta(seconds=60)
             source = controller.Source(30, stamp)
-            return controller.CPUObservation(source, source, source, None)
+            return controller.CPUObservation(source, None, source)
         telemetry.query_nvme.side_effect = nvme
         telemetry.query_cpu.side_effect = cpu
-        guard = controller.GuardController(config(), telemetry, clock=lambda: 1, wall_clock=lambda: first)
+        guard = controller.GuardController(telemetry, clock=lambda: 1, wall_clock=lambda: first)
         guard.evaluate(first)
         guard.evaluate(second)
-        self.assertEqual(guard.metrics["selected_sensor_count"]["control-2"], 0)
         self.assertEqual(guard.metrics["query_errors"]["control-2"], 1)
-        self.assertEqual(guard.metrics["selected_sensor_count"]["control-3"], 8)
         self.assertEqual(guard.metrics["query_errors"]["control-3"], 0)
         text = controller.render_metrics(guard)
         self.assertIn("xmrig_guard_nvme_temp_max_celsius", text)
@@ -302,20 +264,20 @@ class ControllerTests(unittest.TestCase):
         self.assertIn("xmrig_guard_query_errors_total", text)
 
     def test_cpu_membership_change_is_fail_closed(self):
-        guard = controller.GuardController(config(), Mock())
+        guard = controller.GuardController(Mock())
         stamp = datetime(2026, 1, 1, tzinfo=UTC)
         sources = [controller.Source(1, stamp)] * 3
         self.assertTrue(guard._new_source_set("control-1", sources))
         with self.assertRaises(ValueError):
             guard._new_source_set("control-1", sources + [controller.Source(1, stamp)])
 
-    def test_failure_invalidates_values_and_counts_safe_transition(self):
+    def test_failure_invalidates_values(self):
         telemetry = Mock()
         telemetry.query_nvme.side_effect = ValueError("offline")
-        guard = controller.GuardController(config(), telemetry)
+        guard = controller.GuardController(telemetry)
         guard.metrics["safe"]["control-2"] = 1
         guard.evaluate(datetime.now(UTC))
-        self.assertEqual(guard.metrics["state_transitions"], 1)
+        self.assertEqual(guard.metrics["safe"]["control-2"], 0)
         self.assertTrue(math.isnan(guard.metrics["nvme_temp_max"]["control-2"]))
         self.assertTrue(math.isnan(guard.metrics["source_age_seconds"]["control-2"]))
 

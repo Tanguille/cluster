@@ -1,7 +1,8 @@
 """Small, dependency-free XMRig safety signal controller.
 
 The controller deliberately treats telemetry as untrusted input.  A complete
-set of fresh samples is required before a node can become safe.
+set of fresh samples is required before a node can become safe.  Policy is
+code: changing thresholds, sensors, or timing requires a reviewed diff here.
 """
 import json
 import logging
@@ -20,6 +21,11 @@ SENSORS = {
     "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2"), ("nvme_nvme0", "temp3"), ("nvme_nvme1", "temp1"), ("nvme_nvme1", "temp2"), ("nvme_nvme1", "temp3"), ("nvme_nvme1", "temp4")),
     "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2"), ("nvme_nvme0", "temp3"), ("nvme_nvme0", "temp4"), ("nvme_nvme1", "temp1"), ("nvme_nvme1", "temp2"), ("nvme_nvme1", "temp3"), ("nvme_nvme1", "temp4")),
 }
+ENDPOINT = "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427"
+EVALUATION_INTERVAL_SECONDS = 60
+SOURCE_SAMPLE_MAX_AGE_SECONDS = 120
+MAX_SOURCE_GAP_SECONDS = 120
+HTTP_TIMEOUT_SECONDS = 10
 
 
 def _dt(value):
@@ -33,41 +39,6 @@ def _fresh(timestamp, evaluation, max_age):
     """Return whether a source timestamp is not future-dated or too old."""
     age = (evaluation - timestamp).total_seconds()
     return 0 <= age <= max_age
-
-
-class Config:
-    REQUIRED = {"mode", "victoriaMetricsEndpoint", "auditedNodes", "sensors", "thresholds", "dwellSeconds", "evaluationIntervalSeconds", "sourceSampleMaxAgeSeconds", "maxSourceGapSeconds", "cpuRateWindow", "httpTimeoutSeconds"}
-
-    def __init__(self, values):
-        if set(values) != self.REQUIRED:
-            raise ValueError("complete configuration is required")
-        self.endpoint = values["victoriaMetricsEndpoint"].rstrip("/")
-        self.mode = values["mode"]
-        self.nodes = tuple(values["auditedNodes"])
-        self.sensors = {node: tuple((item["chip"], item["sensor"]) for item in values["sensors"].get(node, ())) for node in self.nodes}
-        self.thresholds = values["thresholds"]
-        self.dwell = values["dwellSeconds"]
-        self.evaluation_interval = float(values["evaluationIntervalSeconds"])
-        self.max_age = float(values["sourceSampleMaxAgeSeconds"])
-        self.max_gap = float(values["maxSourceGapSeconds"])
-        self.cpu_rate_window = values["cpuRateWindow"]
-        self.http_timeout = float(values["httpTimeoutSeconds"])
-        self.validate()
-
-    @classmethod
-    def load(cls, values):
-        return cls(values)
-
-    def validate(self):
-        parsed = urllib.parse.urlparse(self.endpoint)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc or self.mode != "enforce":
-            raise ValueError("only enforce mode and a valid endpoint are supported")
-        if set(self.nodes) != set(SENSORS) or self.sensors != SENSORS:
-            raise ValueError("sensor allowlist is audited and immutable")
-        if self.thresholds != {"nvmeRecovery": 60, "nvmeTrip": 70, "cpuRecovery": 50, "cpuTrip": 70}:
-            raise ValueError("thresholds do not match the audited policy")
-        if self.dwell != {"recovery": 600, "trip": 120} or self.evaluation_interval <= 0 or self.max_age <= 0 or self.max_gap <= 0 or self.cpu_rate_window != "5m" or self.http_timeout <= 0:
-            raise ValueError("invalid timing configuration")
 
 
 class DwellPolicy:
@@ -122,15 +93,13 @@ class Source:
 @dataclass(frozen=True)
 class CPUObservation:
     host: Source
-    cadvisor: Source
-    ksm: Source
     xmrig: Source | None
-    presence: Source | None = None
+    presence: Source
 
 
 def cpu_value(observation):
-    if not all(isinstance(x, Source) for x in (observation.host, observation.cadvisor, observation.ksm)):
-        raise ValueError("host, cAdvisor, and KSM sources are required")
+    if not isinstance(observation.host, Source):
+        raise ValueError("host source is required")
     xmrig = observation.xmrig.value if observation.xmrig else 0.0
     return max(0.0, min(100.0, observation.host.value - xmrig))
 
@@ -200,9 +169,7 @@ class VictoriaMetricsClient:
         idle_raw = f'node_cpu_seconds_total{{kubernetes_node="{node}",mode="idle"}}'
         cadvisor_raw = f'container_cpu_usage_seconds_total{{node="{node}",namespace="web3",container!="",container!="POD"}}'
         host_query = f'sum(rate({host_raw}[{window}])) / count(count({idle_raw}) by (cpu)) * 100'
-        cadvisor_query = f'sum(rate({cadvisor_raw}[{window}]))'
         ksm_raw = 'kube_pod_info{namespace="web3"}'
-        ksm_query = f'count({ksm_raw})'
         label_selector = 'namespace="web3",label_app_kubernetes_io_component="thermal-guarded"'
         node_pods_raw = f'kube_pod_info{{namespace="web3",node="{node}"}}'
         xmrig_presence_raw = f'kube_pod_labels{{{label_selector}}} * on(namespace,pod) group_left(node) {node_pods_raw}'
@@ -230,30 +197,33 @@ class VictoriaMetricsClient:
                     raise ValueError("missing raw CPU timestamps")
                 stamps.extend(self._sources(rows, raw_timestamp=True).values())
             return Source(value.value, min(item.timestamp for item in stamps))
-        ksm = source(ksm_query, ksm_raw)
         presence_rows = self._query(xmrig_presence_query, evaluation)
         presence_values = self._sources(presence_rows)
         if len(presence_values) != 1 or next(iter(presence_values.values())).value < 0:
             raise ValueError("invalid labelled XMRig presence source")
         presence = next(iter(presence_values.values()))
-        presence_timestamps = []
         if presence.value > 0:
+            presence_timestamps = []
             for raw_selector in (f'kube_pod_labels{{{label_selector}}}', node_pods_raw):
                 rows = self._query("timestamp(" + raw_selector + ")", evaluation)
                 if not rows:
                     raise ValueError("missing raw XMRig membership timestamps")
                 presence_timestamps.extend(self._sources(rows, raw_timestamp=True).values())
             presence = Source(presence.value, min(item.timestamp for item in presence_timestamps))
-        else:
-            presence = Source(0, ksm.timestamp)
-        if presence.value == 0:
-            xmrig = None
-        else:
+            # xmrig's raw selectors include cadvisor_raw, so cadvisor freshness is
+            # verified exactly when its data enters the subtraction
             xmrig = source(
                 xmrig_query,
                 (cadvisor_raw, f'kube_pod_labels{{{label_selector}}}', node_pods_raw),
             )
-        return CPUObservation(source(host_query, host_raw), source(cadvisor_query, cadvisor_raw), ksm, xmrig, presence)
+        else:
+            # no labelled miner on this node: anchor presence freshness to pod-info stamps
+            rows = self._query("timestamp(" + ksm_raw + ")", evaluation)
+            if not rows:
+                raise ValueError("missing raw pod-info timestamps")
+            presence = Source(0, min(item.timestamp for item in self._sources(rows, raw_timestamp=True).values()))
+            xmrig = None
+        return CPUObservation(source(host_query, host_raw), xmrig, presence)
 
 
 class _HTTPTransport:
@@ -267,29 +237,27 @@ class _HTTPTransport:
 
 
 class GuardController:
-    def __init__(self, config, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
-        self.config, self.telemetry = config, telemetry
+    def __init__(self, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
+        self.telemetry = telemetry
         self.clock, self.wall_clock = clock, wall_clock
-        self.policies = {"control-2": DwellPolicy(60, 70, 600, 120, config.max_gap), "control-3": DwellPolicy(60, 70, 600, 120, config.max_gap)}
-        self.cpu_policy = DwellPolicy(50, 70, 600, 120, config.max_gap)
+        self.policies = {"control-2": DwellPolicy(60, 70, 600, 120, MAX_SOURCE_GAP_SECONDS), "control-3": DwellPolicy(60, 70, 600, 120, MAX_SOURCE_GAP_SECONDS)}
+        self.cpu_policy = DwellPolicy(50, 70, 600, 120, MAX_SOURCE_GAP_SECONDS)
         self.ready = False
         self.metrics = {
-            "evaluations": 0, "errors": 0, "query_errors": {node: 0 for node in config.nodes},
-            "safe": {node: 0 for node in config.nodes}, "state_transitions": 0,
-            "nvme_temp_max": {node: 0.0 for node in config.nodes if node != "control-1"},
-            "source_age_seconds": {node: 0.0 for node in config.nodes},
-            "expected_sensor_count": {node: len(config.sensors[node]) for node in config.nodes if node != "control-1"},
-            "selected_sensor_count": {node: 0 for node in config.nodes if node != "control-1"},
+            "evaluations": 0, "query_errors": {node: 0 for node in SENSORS},
+            "safe": {node: 0 for node in SENSORS},
+            "nvme_temp_max": {node: 0.0 for node in SENSORS if node != "control-1"},
+            "source_age_seconds": {node: 0.0 for node in SENSORS},
             "cpu_non_xmrig": 0.0,
         }
-        self._last_source_stamps = {node: () for node in config.nodes}
+        self._last_source_stamps = {node: () for node in SENSORS}
 
     def _new_source_set(self, node, sources):
         stamps = tuple(source.timestamp.timestamp() for source in sources)
         previous = self._last_source_stamps[node]
         if previous and len(previous) != len(stamps):
             raise ValueError("CPU source membership changed")
-        if previous and len(previous) == len(stamps) and any(current - old > self.config.max_gap for current, old in zip(stamps, previous)):
+        if previous and len(previous) == len(stamps) and any(current - old > MAX_SOURCE_GAP_SECONDS for current, old in zip(stamps, previous)):
             raise ValueError("source gap exceeded maximum")
         if previous and len(previous) == len(stamps) and any(current <= old for current, old in zip(stamps, previous)):
             return False
@@ -299,13 +267,12 @@ class GuardController:
     def evaluate(self, evaluation=None):
         evaluation = evaluation or self.wall_clock()
         now = self.clock()
-        for node, sensors in self.config.sensors.items():
+        for node, sensors in SENSORS.items():
             try:
                 if node == "control-1":
-                    obs = self.telemetry.query_cpu(node, evaluation, self.config.cpu_rate_window)
-                    sources = (obs.host, obs.cadvisor, obs.ksm, obs.presence) + ((obs.xmrig,) if obs.xmrig else ())
-                    sources = tuple(source for source in sources if source is not None)
-                    if not all(_fresh(source.timestamp, evaluation, self.config.max_age) for source in sources):
+                    obs = self.telemetry.query_cpu(node, evaluation)
+                    sources = (obs.host, obs.presence) + ((obs.xmrig,) if obs.xmrig else ())
+                    if not all(_fresh(source.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for source in sources):
                         raise ValueError("stale or future CPU source")
                     if self._new_source_set(node, sources):
                         safe = self.cpu_policy.observe(cpu_value(obs), min(source.timestamp for source in sources), now)
@@ -315,60 +282,37 @@ class GuardController:
                     self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(source.timestamp for source in sources).timestamp())
                 else:
                     samples = self.telemetry.query_nvme(node, sensors, evaluation)
-                    if not samples or not all(_fresh(sample.timestamp, evaluation, self.config.max_age) for sample in samples):
+                    if not samples or not all(_fresh(sample.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for sample in samples):
                         raise ValueError("stale or future NVMe source")
                     if self._new_source_set(node, samples):
                         safe = self.policies[node].observe(max(sample.value for sample in samples), max(sample.timestamp for sample in samples), now)
                     else:
                         safe = self.policies[node].safe
                     self.metrics["nvme_temp_max"][node] = max(sample.value for sample in samples)
-                    self.metrics["selected_sensor_count"][node] = len(samples)
                     self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(sample.timestamp for sample in samples).timestamp())
-                if int(safe) != self.metrics["safe"][node]:
-                    self.metrics["state_transitions"] += 1
                 self.metrics["safe"][node] = int(safe)
             except Exception as exc:
                 # one line per failure, no traceback: the query text travels in the exception
                 logging.error(f"evaluation failed for {node}: {exc!r}")
-                self.metrics["errors"] += 1
                 self.metrics["query_errors"][node] += 1
                 policy = self.cpu_policy if node == "control-1" else self.policies[node]
                 policy.invalidate()
                 self._last_source_stamps[node] = ()
-                if self.metrics["safe"][node]:
-                    self.metrics["state_transitions"] += 1
                 self.metrics["safe"][node] = 0
                 self.metrics["source_age_seconds"][node] = float("nan")
                 if node == "control-1":
                     self.metrics["cpu_non_xmrig"] = float("nan")
                 else:
                     self.metrics["nvme_temp_max"][node] = float("nan")
-                if node != "control-1":
-                    self.metrics["selected_sensor_count"][node] = 0
         self.metrics["evaluations"] += 1
         self.ready = True
         return dict(self.metrics["safe"])
-
-    def run_once(self, evaluation=None):
-        """Run exactly one complete evaluation; useful for probes and tests."""
-        return self.evaluate(evaluation)
-
-    def reconcile(self, node, temperature, source_time, wall_now=None):
-        if node not in self.policies:
-            return True
-        wall_now = wall_now or self.wall_clock()
-        if source_time > wall_now or (wall_now - source_time).total_seconds() > self.config.max_age:
-            self.policies[node].invalidate()
-            return False
-        return self.policies[node].observe(temperature, source_time, self.clock())
 
 
 def render_metrics(controller):
     m = controller.metrics
     lines = [
         f'xmrig_guard_evaluations_total {m["evaluations"]}',
-        f'xmrig_guard_errors_total {m["errors"]}',
-        f'xmrig_guard_state_transitions_total {m["state_transitions"]}',
         f'xmrig_guard_cpu_non_xmrig_percent {m["cpu_non_xmrig"]}',
     ]
     for metric, values in (
@@ -376,8 +320,6 @@ def render_metrics(controller):
         ("query_errors_total", m["query_errors"]),
         ("source_age_seconds", m["source_age_seconds"]),
         ("nvme_temp_max_celsius", m["nvme_temp_max"]),
-        ("nvme_expected_sensor_count", m["expected_sensor_count"]),
-        ("nvme_selected_sensor_count", m["selected_sensor_count"]),
     ):
         metric_name = "xmrig_guard_" + metric
         lines.extend(f'{metric_name}{{node="{node}"}} {value}' for node, value in values.items())
@@ -404,15 +346,13 @@ class _StatusHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    with open("/config/config.json", encoding="utf-8") as stream:
-        config = Config.load(json.load(stream))
-    controller = GuardController(config, VictoriaMetricsClient(config.endpoint, timeout=config.http_timeout, step_seconds=config.max_age))
+    controller = GuardController(VictoriaMetricsClient(ENDPOINT, timeout=HTTP_TIMEOUT_SECONDS, step_seconds=SOURCE_SAMPLE_MAX_AGE_SECONDS))
     _StatusHandler.controller = controller
     server = ThreadingHTTPServer(("0.0.0.0", 8080), _StatusHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     while True:
         controller.evaluate()
-        time.sleep(config.evaluation_interval)
+        time.sleep(EVALUATION_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":
