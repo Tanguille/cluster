@@ -1,12 +1,14 @@
-"""Small, dependency-free, observe-only XMRig guard.
+"""Small, dependency-free XMRig safety signal controller.
 
 The controller deliberately treats telemetry as untrusted input.  A complete
 set of fresh samples is required before a node can become safe.
 """
 import json
+import logging
 import math
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -58,8 +60,8 @@ class Config:
 
     def validate(self):
         parsed = urllib.parse.urlparse(self.endpoint)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc or self.mode != "observe":
-            raise ValueError("only observe mode and a valid endpoint are supported")
+        if parsed.scheme not in ("http", "https") or not parsed.netloc or self.mode != "enforce":
+            raise ValueError("only enforce mode and a valid endpoint are supported")
         if set(self.nodes) != set(SENSORS) or self.sensors != SENSORS:
             raise ValueError("sensor allowlist is audited and immutable")
         if self.thresholds != {"nvmeRecovery": 60, "nvmeTrip": 70, "cpuRecovery": 50, "cpuTrip": 70}:
@@ -134,15 +136,22 @@ def cpu_value(observation):
 
 
 class VictoriaMetricsClient:
-    def __init__(self, endpoint, transport=None, timeout=10):
+    def __init__(self, endpoint, transport=None, timeout=10, step_seconds=120):
         self.endpoint = endpoint.rstrip("/")
         self.transport = transport or _HTTPTransport(timeout)
+        self.step = f"{int(step_seconds)}s"
 
     def _query(self, expression, evaluation):
-        params = {"query": expression, "time": evaluation.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")}
-        payload = self.transport.get(self.endpoint + "/api/v1/query", params)
+        # explicit step: default 5m step makes timestamp(a or b) snap to 5-min boundaries,
+        # which made 60% of freshness checks fail; step=max_age also bounds VM lookbehind
+        params = {"query": expression, "time": evaluation.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"), "step": self.step}
+        try:
+            payload = self.transport.get(self.endpoint + "/api/v1/query", params)
+        except urllib.error.HTTPError as exc:
+            # a rejected query is undiagnosable without its text: 40h of bare 422s went unseen
+            raise ValueError(f"VictoriaMetrics rejected ({exc.code}): {expression}") from exc
         if payload.get("status") != "success" or payload.get("data", {}).get("resultType") != "vector" or not isinstance(payload["data"].get("result"), list):
-            raise ValueError("invalid VictoriaMetrics response")
+            raise ValueError(f"invalid VictoriaMetrics response for: {expression}")
         return payload["data"]["result"]
 
     @staticmethod
@@ -167,7 +176,9 @@ class VictoriaMetricsClient:
         parts = [f'node_hwmon_temp_celsius{{kubernetes_node="{node}",chip="{chip}",sensor="{sensor}"}}' for chip, sensor in sensors]
         expression = " or ".join(parts)
         rows = self._query(expression, evaluation)
-        timestamps = self._query("timestamp(" + expression + ")", evaluation)
+        # timestamp() over an or-expression becomes a step-aligned subquery in VictoriaMetrics
+        # (fake boundary stamps broke 60% of freshness checks); single selectors return raw stamps
+        timestamps = [row for part in parts for row in self._query("timestamp(" + part + ")", evaluation)]
         key = lambda m: (m.get("chip"), m.get("sensor"))
         if any(row.get("metric", {}).get("kubernetes_node") != node for row in rows + timestamps):
             raise ValueError("NVMe node identity changed")
@@ -196,7 +207,7 @@ class VictoriaMetricsClient:
         node_pods_raw = f'kube_pod_info{{namespace="web3",node="{node}"}}'
         xmrig_presence_raw = f'kube_pod_labels{{{label_selector}}} * on(namespace,pod) group_left(node) {node_pods_raw}'
         xmrig_presence_query = f'count({xmrig_presence_raw}) or vector(0)'
-        xmrig_query = f'100 * ((sum((sum by (namespace,pod) (rate({cadvisor_raw}[{window}])) * on(namespace,pod) group_left(node) ({xmrig_presence_raw})) or vector(0)) / count(count({idle_raw}) by (cpu)))'
+        xmrig_query = f'100 * (sum((sum by (namespace,pod) (rate({cadvisor_raw}[{window}])) * on(namespace,pod) group_left(node) ({xmrig_presence_raw})) or vector(0)) / count(count({idle_raw}) by (cpu)))'
         def one(query, optional=False, raw_timestamp=False):
             rows = self._query(query, evaluation)
             if not rows and optional:
@@ -316,7 +327,9 @@ class GuardController:
                 if int(safe) != self.metrics["safe"][node]:
                     self.metrics["state_transitions"] += 1
                 self.metrics["safe"][node] = int(safe)
-            except Exception:
+            except Exception as exc:
+                # one line per failure, no traceback: the query text travels in the exception
+                logging.error(f"evaluation failed for {node}: {exc!r}")
                 self.metrics["errors"] += 1
                 self.metrics["query_errors"][node] += 1
                 policy = self.cpu_policy if node == "control-1" else self.policies[node]
@@ -393,7 +406,7 @@ class _StatusHandler(BaseHTTPRequestHandler):
 def main():
     with open("/config/config.json", encoding="utf-8") as stream:
         config = Config.load(json.load(stream))
-    controller = GuardController(config, VictoriaMetricsClient(config.endpoint, timeout=config.http_timeout))
+    controller = GuardController(config, VictoriaMetricsClient(config.endpoint, timeout=config.http_timeout, step_seconds=config.max_age))
     _StatusHandler.controller = controller
     server = ThreadingHTTPServer(("0.0.0.0", 8080), _StatusHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()

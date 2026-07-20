@@ -1,5 +1,10 @@
 # XMRig Guard Telemetry Inventory
 
+> **Status update (2026-07-20):** PR #4035 live-validated the telemetry fixes
+> and activates a global, fail-closed KEDA gate: any unsafe, incomplete, stale,
+> or failed guard signal scales all XMRig replicas to zero. The NodeRestriction
+> limitation below still prohibits per-node label or eviction enforcement.
+
 **Inventory time:** 2026-07-15T20:13:39Z
 **Datasource:** Grafana UID `victoriametrics`
 **Scope:** Task 1 live, read-only telemetry evidence. No cluster state was changed.
