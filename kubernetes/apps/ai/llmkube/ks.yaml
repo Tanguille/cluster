@@ -36,6 +36,21 @@ spec:
     - name: llmkube
     - name: generic-device-plugin
       namespace: kube-system
+    # This only reduces reconciliation races; the in-pod gate guards teardown.
+    - name: sglang
+      namespace: ai
+  healthChecks:
+    - apiVersion: inference.llmkube.dev/v1alpha1
+      kind: InferenceService
+      name: qwen36-27b
+      namespace: ai
+  timeout: 60m
+  healthCheckExprs:
+    - apiVersion: inference.llmkube.dev/v1alpha1
+      kind: InferenceService
+      inProgress: has(status.phase) && status.phase in ['Pending', 'Creating', 'Progressing', 'WaitingForGPU']
+      failed: has(status.phase) && status.phase == 'Failed'
+      current: has(status.phase) && status.phase == 'Ready' && has(status.conditions) && status.conditions.exists(e, e.type == 'Available' && e.status == 'True')
   path: ./kubernetes/apps/ai/llmkube/models
   prune: true
   sourceRef:
