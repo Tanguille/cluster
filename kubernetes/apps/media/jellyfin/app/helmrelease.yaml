@@ -15,19 +15,14 @@ spec:
 
   values:
     defaultPodOptions:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: amd.com/gpu
-                    operator: In
-                    values: ["true"]
+      # squat.ai/dri already hard-pins scheduling to the GPU node
       securityContext:
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 568
+        runAsGroup: 568
+        runAsNonRoot: true
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
         supplementalGroups:
           - 44 # video
           - 226 # render: required for VAAPI on /dev/dri/renderD*
@@ -41,29 +36,6 @@ spec:
             image:
               repository: ghcr.io/jellyfin/jellyfin
               tag: 10.11.11@sha256:45f648c382a0c8b552582fcea40e95cb17c5d475473a891cba0eb7523fb92112
-            command:
-              - sh
-              - -c
-              - |
-                echo "=== Fixing Jellyfin web permissions for plugins ==="
-                if [ -f /jellyfin/jellyfin-web/index.html ]; then
-                  chown 568:568 /jellyfin/jellyfin-web/index.html
-                  echo "Fixed permissions for /jellyfin/jellyfin-web/index.html"
-                else
-                  echo "Warning: /jellyfin/jellyfin-web/index.html not found"
-                fi
-                echo "=== Switching to user 568 and starting Jellyfin ==="
-                # Try different user-switching tools in order of preference
-                if command -v setpriv >/dev/null 2>&1; then
-                  # keep video/render groups so user 568 can open /dev/dri for VAAPI
-                  exec setpriv --reuid=568 --regid=568 --groups=44,226 /jellyfin/jellyfin --datadir /config --cachedir /cache
-                else
-                  # Fallback: ensure user exists and use su
-                  if ! id 568 >/dev/null 2>&1; then
-                    adduser -D -u 568 -g 568 jellyfin 2>/dev/null || true
-                  fi
-                  exec su -s /bin/sh -c 'exec /jellyfin/jellyfin --datadir /config --cachedir /cache' "#568"
-                fi
             env:
               TZ: ${TIMEZONE}
             probes:
@@ -93,11 +65,17 @@ spec:
                     - sleep 5
             resources:
               requests:
-                memory: 512Mi
+                cpu: 100m
+                # 549Mi RSS at idle
+                memory: 1Gi
                 squat.ai/dri: 1
               limits:
+                cpu: 8 # 90d max was 5.97 cores
                 memory: 8Gi
                 squat.ai/dri: 1
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
     service:
       app:
         controller: jellyfin
@@ -131,6 +109,7 @@ spec:
             app:
               - path: /config
 
+      # not the nfs-media component: library paths in the db use /ext_media
       media:
         type: nfs
         server: ${TRUENAS_IP}
@@ -147,13 +126,13 @@ spec:
 
       tmpfs:
         type: emptyDir
+        # caps transcode bursts off the node root disk
+        sizeLimit: 10Gi
         advancedMounts:
           jellyfin:
             app:
               - path: /cache
                 subPath: cache
-              - path: /config/transcode
-                subPath: transcode
               - path: /config/log
                 subPath: log
               - path: /tmp
