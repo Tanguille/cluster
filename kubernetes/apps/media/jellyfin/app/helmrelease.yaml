@@ -15,8 +15,7 @@ spec:
 
   values:
     defaultPodOptions:
-      # no nodeAffinity needed: the squat.ai/dri resource request only schedules
-      # on control-1 (generic-device-plugin runs solely on amd.com/gpu nodes)
+      # squat.ai/dri already hard-pins scheduling to the GPU node
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -67,11 +66,11 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                # 549Mi RSS at idle; 512Mi request was already under water
+                # 549Mi RSS at idle
                 memory: 1Gi
                 squat.ai/dri: 1
               limits:
-                cpu: 2
+                cpu: 8 # 90d max was 5.97 cores
                 memory: 8Gi
                 squat.ai/dri: 1
             securityContext:
@@ -110,9 +109,7 @@ spec:
             app:
               - path: /config
 
-      # hand-rolled instead of the nfs-media component: library paths are baked
-      # into jellyfin's db at /ext_media, so the component's /media mount point
-      # can't be adopted without a library migration
+      # not the nfs-media component: library paths in the db use /ext_media
       media:
         type: nfs
         server: ${TRUENAS_IP}
@@ -129,7 +126,7 @@ spec:
 
       tmpfs:
         type: emptyDir
-        # transcode bursts write here; cap them off control-1's root disk
+        # caps transcode bursts off the node root disk
         sizeLimit: 10Gi
         advancedMounts:
           jellyfin:
