@@ -1,5 +1,77 @@
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: &name postgres-mcp
+spec:
+  image: crystaldba/postgres-mcp:0.3.0
+  transport: stdio
+  groupRef:
+    name: database
+  args:
+    - "--access-mode=restricted"
+  secrets:
+    - name: toolhive-secrets
+      key: POSTGRES_MCP_DATABASE_URI
+      targetEnvName: DATABASE_URI
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: postgres-mcp-opt
+spec:
+  image: crystaldba/postgres-mcp:0.3.0
+  transport: stdio
+  groupRef:
+    name: all
+  args:
+    - "--access-mode=restricted"
+  secrets:
+    - name: toolhive-secrets
+      key: POSTGRES_MCP_DATABASE_URI
+      targetEnvName: DATABASE_URI
+  toolConfigRef:
+    name: postgres-mcp
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: postgres-mcp
