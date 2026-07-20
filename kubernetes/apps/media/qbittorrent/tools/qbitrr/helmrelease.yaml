@@ -31,7 +31,6 @@ spec:
         initContainers:
           configure:
             # steinbrueckri/envsubst: public Dockerfile (Alpine + gettext at build); no runtime apk (works without egress to Alpine mirrors).
-            # https://github.com/steinbrueckri/envsubst — pin digest after pull: docker inspect --format='{{index .RepoDigests 0}}' steinbrueckri/envsubst:v2.1.1
             image:
               repository: steinbrueckri/envsubst
               tag: v2.1.7

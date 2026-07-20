@@ -28,47 +28,38 @@ spec:
         passwordSecret:
           name: litellm-db
       - name: jellystat
-        ensure: present
         login: true
         passwordSecret:
           name: jellystat-db
       - name: radarr
-        ensure: present
         login: true
         passwordSecret:
           name: radarr-db
       - name: bazarr
-        ensure: present
         login: true
         passwordSecret:
           name: bazarr-db
       - name: sonarr
-        ensure: present
         login: true
         passwordSecret:
           name: sonarr-db
       - name: prowlarr
-        ensure: present
         login: true
         passwordSecret:
           name: prowlarr-db
       - name: memini
-        ensure: present
         login: true
         passwordSecret:
           name: memini-db
       - name: spoolman
-        ensure: present
         login: true
         passwordSecret:
           name: spoolman-db
       - name: gatus
-        ensure: present
         login: true
         passwordSecret:
           name: gatus-db
       - name: nextcloud
-        ensure: present
         login: true
         # Preserve the role's existing CREATEDB privilege; CNPG reconciles every
         # unspecified attribute to its default (NOCREATEDB) when adopting a role.
@@ -76,12 +67,10 @@ spec:
         passwordSecret:
           name: nextcloud-db
       - name: grafana
-        ensure: present
         login: true
         passwordSecret:
           name: grafana-db
       - name: crowdsec
-        ensure: present
         login: true
         passwordSecret:
           name: crowdsec-db
