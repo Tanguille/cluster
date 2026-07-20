@@ -4,4 +4,17 @@ kind: MCPToolConfig
 metadata:
   name: flux-operator
 spec:
-  toolsFilter: []
+  # Allowlist: read/report + reconcile only. Excludes apply/delete/install/
+  # suspend/resume so anonymous LAN callers can't mutate the cluster.
+  toolsFilter:
+    - get_flux_instance
+    - get_kubernetes_resources
+    - get_kubernetes_logs
+    - get_kubernetes_metrics
+    - get_kubernetes_api_versions
+    - get_kubeconfig_contexts
+    - reconcile_flux_resourceset
+    - reconcile_flux_source
+    - reconcile_flux_kustomization
+    - reconcile_flux_helmrelease
+    - search_flux_docs
