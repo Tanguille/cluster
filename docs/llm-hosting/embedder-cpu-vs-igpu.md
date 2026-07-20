@@ -49,7 +49,25 @@ CPU is 5–35× slower — not worth the regression. **PR #4082 closed.** The iG
 stays, along with the nodeSelectors / affinity rules that only make sense while
 the embedders are GPU-pinned.
 
-The leak is bounded instead by a nightly `embedder-recycle` CronJob that deletes
-both embedder pods (set-based selector `app in (qwen3-embedding,vmcp-embedding)`),
-with a node-exporter drm collector + alerts on pinned GTT >4 GiB and node
-MemAvailable <2 GiB as the burst-leak backstop (PR #4073).
+The leak is bounded instead by a nightly `embedder-recycle` CronJob (PR #4095)
+that deletes every pod opting in with `podLabels: {gtt-recycle: enabled}` — the
+two ggml-Vulkan embedders today, any future leaky embedder by adding the label.
+A generic `llmkube-recycle` subapp keeps it decoupled from any single model.
+node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable
+<2 GiB, and missing GTT telemetry are the burst-leak backstop.
+
+`qwen35-2b` (generative, same `server-vulkan` image on the same iGPU) is *not*
+enrolled: measured at 32 MiB GTT after 7 h versus the embedders' 2+ GiB, so the
+leak is specific to `mode: embedding`, not the Vulkan runtime.
+
+## Alternatives considered
+
+- **llmkube's native eviction watchdog** (`spec.evictionProtection` + the
+  metal-agent reaper) is the reactive node-pressure equivalent and would also
+  catch burst wedges the nightly cron misses. Rejected for now: the metal-agent
+  DaemonSet isn't deployed (only `controllerManager` is), so it's a new
+  privileged node agent rather than a flag-flip — more surface than a tiny
+  CronJob buys. Revisit if a burst wedge recurs between nightly runs.
+- **Upstream fix** is the real resolution: the ggml-Vulkan GTT leak itself
+  (ggml-org/llama.cpp #12531 / #15054, open) or an llmkube pod-TTL field (none
+  exists on the CRD today). The CronJob is the ceiling until one lands.
