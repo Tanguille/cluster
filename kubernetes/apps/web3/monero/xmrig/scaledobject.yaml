@@ -14,8 +14,12 @@ spec:
     name: xmrig
   minReplicaCount: 0
   maxReplicaCount: 3 # One miner per node (3 nodes total)
-  cooldownPeriod: 180 # 3 minutes cooldown (reduced for solar responsiveness)
+  cooldownPeriod: 0 # Guard dwell already debounces trips and recovery
   pollingInterval: 60 # Check every 60 seconds
+  fallback:
+    # A VictoriaMetrics/scaler error is unsafe: do not keep miners running on stale state.
+    failureThreshold: 1
+    replicas: 0
   advanced:
     restoreToOriginalReplicaCount: false
     horizontalPodAutoscalerConfig:
@@ -42,15 +46,24 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-        # Query: Use 15-minute average to smooth out solar power fluctuations
-        # Invert power value and clamp to 0 minimum
-        # When power is negative (exporting), this returns positive value for scaling
-        # When power is positive (consuming), this returns 0 (scale to 0)
-        # Using avg_over_time to smooth out rapid fluctuations
-        # Cap the metric at the physical maximum (3 nodes * 50W) so the HPA
-        # does not report itself as maxed out when surplus power exceeds what
-        # the fixed-size miner pool can consume.
-        query: clamp_max(clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0), 150)
+        # Preserve the 15-minute solar average and 150W physical cap, but expose
+        # it only when all three audited nodes report fresh safe=1 signals.
+        # Exact cardinality rejects partial/duplicate guard data; the timestamp
+        # check closes the gate within 120s if guard scraping stops. max() makes
+        # one scalar and the final fallback covers absent/incomplete guard data.
+        query: >-
+          max(
+            clamp_max(
+              clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0),
+              150
+            )
+            * on()
+            (
+              min(xmrig_guard_safe{node=~"control-[123]"})
+              * (count(xmrig_guard_safe{node=~"control-[123]"}) == bool 3)
+              * (min(timestamp(xmrig_guard_safe{node=~"control-[123]"})) >= bool (time() - 120))
+            )
+          ) or vector(0)
         threshold: "50" # 50W per replica (each miner consumes ~50W)
         activationThreshold: "25" # Start scaling when at least 25W exported
-        ignoreNullValues: "true"
+        ignoreNullValues: "false"
