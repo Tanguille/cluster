@@ -41,8 +41,10 @@ spec:
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
+  startingDeadlineSeconds: 1800 # skip, don't stack, a run missed while a node was down
   jobTemplate:
     spec:
+      activeDeadlineSeconds: 180 # a wedged apiserver must not leave the Job hanging
       backoffLimit: 1
       template:
         spec:
@@ -61,7 +63,7 @@ spec:
                 - sh
                 - -ec
                 - >-
-                  curl -fsS
+                  curl -fsS --connect-timeout 10 --max-time 30
                   --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
                   -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
                   -X DELETE
