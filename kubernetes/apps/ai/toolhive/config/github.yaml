@@ -1,75 +1,78 @@
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: &name github
-spec:
-  image: ghcr.io/github/github-mcp-server:v1.6.0
-  transport: stdio
-  groupRef:
-    name: resources
-  args:
-    - stdio
-  secrets:
-    - name: toolhive-secrets
-      key: GITHUB_PERSONAL_ACCESS_TOKEN
-      targetEnvName: GITHUB_PERSONAL_ACCESS_TOKEN
-  toolConfigRef:
-    name: *name
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-  resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 200Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: github-opt
-spec:
-  image: ghcr.io/github/github-mcp-server:v1.6.0
-  transport: stdio
-  groupRef:
-    name: all
-  args:
-    - stdio
-  secrets:
-    - name: toolhive-secrets
-      key: GITHUB_PERSONAL_ACCESS_TOKEN
-      targetEnvName: GITHUB_PERSONAL_ACCESS_TOKEN
-  toolConfigRef:
-    name: github
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-  resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 200Mi
+# Disabled: ToolHive v0.40.1 virtual-MCP health monitoring repeatedly initializes
+# GitHub's stdio backend, which returns `duplicate "initialize" received` and
+# degrades the resources and unified virtual MCPs. Restore after an upstream fix.
+# ---
+# apiVersion: toolhive.stacklok.dev/v1beta1
+# kind: MCPServer
+# metadata:
+#   name: &name github
+# spec:
+#   image: ghcr.io/github/github-mcp-server:v1.6.0
+#   transport: stdio
+#   groupRef:
+#     name: resources
+#   args:
+#     - stdio
+#   secrets:
+#     - name: toolhive-secrets
+#       key: GITHUB_PERSONAL_ACCESS_TOKEN
+#       targetEnvName: GITHUB_PERSONAL_ACCESS_TOKEN
+#   toolConfigRef:
+#     name: *name
+#   podTemplateSpec:
+#     spec:
+#       containers:
+#         - name: mcp
+#           resources:
+#             requests:
+#               cpu: 10m
+#               memory: 64Mi
+#             limits:
+#               cpu: 500m
+#               memory: 256Mi
+#   resources:
+#     requests:
+#       cpu: 10m
+#       memory: 64Mi
+#     limits:
+#       cpu: 200m
+#       memory: 200Mi
+# ---
+# apiVersion: toolhive.stacklok.dev/v1beta1
+# kind: MCPServer
+# metadata:
+#   name: github-opt
+# spec:
+#   image: ghcr.io/github/github-mcp-server:v1.6.0
+#   transport: stdio
+#   groupRef:
+#     name: all
+#   args:
+#     - stdio
+#   secrets:
+#     - name: toolhive-secrets
+#       key: GITHUB_PERSONAL_ACCESS_TOKEN
+#       targetEnvName: GITHUB_PERSONAL_ACCESS_TOKEN
+#   toolConfigRef:
+#     name: github
+#   podTemplateSpec:
+#     spec:
+#       containers:
+#         - name: mcp
+#           resources:
+#             requests:
+#               cpu: 10m
+#               memory: 64Mi
+#             limits:
+#               cpu: 500m
+#               memory: 256Mi
+#   resources:
+#     requests:
+#       cpu: 10m
+#       memory: 64Mi
+#     limits:
+#       cpu: 200m
+#       memory: 200Mi
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
