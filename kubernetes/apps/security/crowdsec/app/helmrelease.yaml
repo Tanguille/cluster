@@ -80,14 +80,6 @@ spec:
           db_name: $${DB_NAME}
           host: $${DB_HOST}
           port: 5432
-      agent_config.yaml.local: |-
-        api:
-          client:
-            unregister_on_exit: false
-      appsec_config.yaml.local: |-
-        api:
-          client:
-            unregister_on_exit: true
       profiles.yaml: |-
         name: default_ip_remediation
         debug: false
