@@ -17,7 +17,14 @@ spec:
     prometheus:
       servicemonitor:
         enabled: true
+    networkPolicy:
+      enabled: true
+    cainjector:
+      networkPolicy:
+        enabled: true
     webhook:
       replicaCount: 2
       podDisruptionBudget:
+        enabled: true
+      networkPolicy:
         enabled: true
