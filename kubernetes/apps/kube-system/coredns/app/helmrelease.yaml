@@ -13,7 +13,8 @@ spec:
     fullnameOverride: coredns
     image:
       repository: mirror.gcr.io/coredns/coredns
-    replicaCount: 2
+    replicaCount: 3
+    priorityClassName: system-cluster-critical
     k8sAppLabelOverride: kube-dns
     serviceAccount:
       create: true
@@ -53,9 +54,8 @@ spec:
           - name: log
             configBlock: |-
               class error
-    pdb:
-      enabled: true
-      minAvailable: 1
+    podDisruptionBudget:
+      maxUnavailable: 1
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
