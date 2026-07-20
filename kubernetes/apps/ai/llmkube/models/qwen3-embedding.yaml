@@ -16,17 +16,12 @@ spec:
   source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/370f27d7550e0def9b39c1f16d3fbaa13aa67728/Qwen3-Embedding-0.6B-Q8_0.gguf
   quantization: Q8_0
   refreshPolicy: OnChange
+  # CPU on purpose: the ggml-Vulkan embedding path leaks pinned GTT (2.1GiB
+  # within 16min measured 2026-07-20, wedged control-2 twice; upstream
+  # ggml-org/llama.cpp#12531/#15054 open). CPU is comparable to the contended
+  # iGPU for this cache-fronted 0.6B model and the memory is cgroup-visible.
   hardware:
-    accelerator: vulkan
-    gpu:
-      enabled: true
-      count: 1
-      vendor: amd
-      runtime: vulkan
-      layers: -1
-      # Slot counts live at the device plugin (kube-system/generic-device-plugin);
-      # nodeSelector below pins this to the iGPU.
-      resourceName: squat.ai/dri
+    accelerator: cpu
 ---
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
@@ -35,49 +30,25 @@ metadata:
 spec:
   modelRef: qwen3-embedding
   mode: embedding
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5672ed099865337417b3f2d0fd360839740168efb96acf44c80770b7808d896c
-  # Two slots are the Vulkan-safe floor; more interleaving did not improve
-  # throughput on this compute-bound iGPU. VMCP has its own embedder now.
-  parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
+  image: ghcr.io/ggml-org/llama.cpp:server@sha256:e10504c7f5c5bacece7e7e5957760eee53868642d853fe5ecfe8611065929a24
+  # Two slots so find_tool queries can flow past an in-flight session batch.
+  parallelSlots: 2
   contextSize: 8192
-  # Raise the logical batch ceiling without increasing the 2048-token Vulkan
-  # micro-batch; benchmark against the prior implicit 2048 default.
   batchSize: 4096
   uBatchSize: 2048
   extraArgs:
     - "--alias"
     - "qwen3-embedding" # served model name memini sends in /v1/embeddings
+    - "--threads"
+    - "4" # match the cpu reservation; default is nproc (12) on a shared node
 
-  # Pin to the iGPU node; without this the scheduler could place it on the dGPU
-  # node (which also advertises squat.ai/dri) and steal a dGPU slot from sglang.
-  nodeSelector:
-    amd.com/igpu: "true"
-
-  # Mutual half of qwen35-2b's anti-affinity (see qwen35-2b.yaml). Anti-affinity
-  # is checked only at the moving pod's scheduling time, so the rule must exist
-  # on both sides: 2026-07-03 a reshuffle rolled this pod onto qwen35-2b's node,
-  # filling its 2 dri slots and re-stranding vmcp-embedding (which hard-follows
-  # this pod) in Pending.
-  affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        - labelSelector:
-            matchLabels:
-              app: qwen35-2b
-          topologyKey: kubernetes.io/hostname
-
-  # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
-  podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
-    supplementalGroups:
-      - 44
-      - 226
+  # No nodeSelector/affinity: CPU-only now, no iGPU slot or /dev/dri access
+  # needed — also retires the qwen35-2b anti-affinity + vmcp co-location dance
+  # (the 2026-07-03 Pending-deadlock class).
 
   resources:
-    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Current 84746bcc6 revision peaked at ~3.1 GiB working set over 7 days;
-    # reserve 4 GiB so the scheduler accounts for the model's UMA usage.
-    memory: 4Gi
+    cpu: "4"
+    # 639MB Q8_0 weights + ctx/compute buffers as ordinary RSS now
+    memory: 2Gi
   endpoint:
     path: /v1/embeddings
