@@ -26,11 +26,11 @@ spec:
             limits:
               cpu: "1"
               memory: 256Mi
-      # Soft spread so losing one node doesn't strand all 3 replicas on the other two.
+      # Hard spread (one per node): soft ScheduleAnyway let all 3 rw pods pile onto one node after a flap.
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+          whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
               cnpg.io/poolerName: pgbouncer-rw
