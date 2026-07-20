@@ -1,0 +1,19 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: coredns-custom-rules
+spec:
+  groups:
+    - name: coredns.custom.rules
+      rules:
+        - alert: CoreDNSUpstreamServfailDecay
+          expr: |-
+            sum(rate(coredns_dns_responses_total{rcode="SERVFAIL"}[5m])) > 1
+          for: 10m
+          annotations:
+            summary: >-
+              CoreDNS SERVFAIL rate elevated for 10 minutes, likely an upstream resolver stall
+          labels:
+            severity: warning
