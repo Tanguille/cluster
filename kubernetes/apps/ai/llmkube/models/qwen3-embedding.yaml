@@ -35,9 +35,6 @@ metadata:
 spec:
   modelRef: qwen3-embedding
   mode: embedding
-  # Enroll in embedder-recycle (llmkube/recycle): this ggml-Vulkan embedder leaks pinned iGPU GTT.
-  podLabels:
-    gtt-recycle: enabled
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5672ed099865337417b3f2d0fd360839740168efb96acf44c80770b7808d896c
   # Two slots are the Vulkan-safe floor; more interleaving did not improve
   # throughput on this compute-bound iGPU. VMCP has its own embedder now.

@@ -52,8 +52,8 @@ metadata:
   namespace: &namespace ai
 spec:
   interval: 30m
-  # Depends on the models so the opt-in gtt-recycle pods exist before the nightly
-  # recycle CronJob targets them.
+  # Depends on the models so the allowlisted embedder Deployments exist before
+  # the nightly recycle CronJob targets them.
   dependsOn:
     - name: llmkube-models
   path: ./kubernetes/apps/ai/llmkube/recycle

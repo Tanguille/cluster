@@ -7,7 +7,8 @@ GTT leak is handled by recycling rather than moving off the GPU.
 
 Both ggml-Vulkan embedders (`qwen3-embedding`, `vmcp-embedding`) leak pinned
 iGPU GTT memory that cgroups cannot see, twice wedging control-2 into NotReady
-(2026-07-04, 2026-07-20). See [[igpu-gtt-leak-control2-oom]]. One proposed fix
+(2026-07-04, 2026-07-20). These are the two control-2 NotReady incidents that
+motivated the recycle guard. One proposed fix
 (PR #4082) was to move both embedders to `Model.spec.hardware.accelerator: cpu`,
 which removes the GTT path entirely and makes memory cgroup-visible. Before
 adopting it, we benchmarked the cost.
@@ -50,9 +51,15 @@ stays, along with the nodeSelectors / affinity rules that only make sense while
 the embedders are GPU-pinned.
 
 The leak is bounded instead by a nightly `embedder-recycle` CronJob (PR #4095)
-that deletes every pod opting in with `podLabels: {gtt-recycle: enabled}` — the
-two ggml-Vulkan embedders today, any future leaky embedder by adding the label.
-A generic `llmkube-recycle` subapp keeps it decoupled from any single model.
+that sequentially patches the `qwen3-embedding` and `vmcp-embedding` Deployment
+templates, then waits for each Deployment's replacement replicas to become
+Ready. This explicit Deployment allowlist is also enforced by RBAC; adding a
+leaky embedder requires adding its Deployment name to both the CronJob loop and
+the Role's `resourceNames`. A missed 04:30 run may start within the 1800-second
+`startingDeadlineSeconds` window; later runs are skipped rather than started
+late. A generic `llmkube-recycle` subapp keeps it decoupled from any single
+model, and a failed patch/readiness check fails the non-retrying Kubernetes Job
+for existing cluster monitoring to surface.
 node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable
 <2 GiB, and missing GTT telemetry are the burst-leak backstop.
 

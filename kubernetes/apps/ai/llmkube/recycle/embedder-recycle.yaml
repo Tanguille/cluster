@@ -9,9 +9,10 @@ kind: Role
 metadata:
   name: embedder-recycle
 rules:
-  - apiGroups: [""]
-    resources: [pods]
-    verbs: [deletecollection]
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [qwen3-embedding, vmcp-embedding]
+    verbs: [get, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -31,21 +32,22 @@ kind: CronJob
 metadata:
   name: embedder-recycle
 spec:
-  # ggml-Vulkan mode:embedding servers leak pinned iGPU GTT memory cgroups cannot
-  # see (wedged control-2 twice); a nightly recycle caps the accumulation. Targets
-  # every InferenceService that opts in with podLabels gtt-recycle: enabled, so a
-  # new leaky embedder enrolls by adding that label (generative loads don't leak
-  # and omit it). Embeddings are dragonfly-cached, so a restart costs one reload.
+  # The explicit Deployment allowlist is qwen3-embedding and vmcp-embedding;
+  # adding another leaky embedder requires updating both the loop and RBAC above.
+  # Each Deployment is patched sequentially and its replacement is checked Ready;
+  # a failed recycle is visible through Job status.
   timeZone: ${TIMEZONE}
   schedule: "30 4 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 1
-  startingDeadlineSeconds: 1800 # skip, don't stack, a run missed while a node was down
+  # Allow a missed 04:30 run to start within 30 minutes; skip it after that
+  # rather than starting a stale recycle much later.
+  startingDeadlineSeconds: 1800
   jobTemplate:
     spec:
       activeDeadlineSeconds: 180 # a wedged apiserver must not leave the Job hanging
-      backoffLimit: 1
+      backoffLimit: 0 # never repeat a partial rollout restart
       template:
         spec:
           serviceAccountName: embedder-recycle
@@ -62,13 +64,56 @@ spec:
               command:
                 - sh
                 - -ec
-                - >-
-                  curl -fsS --connect-timeout 10 --max-time 30
-                  --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-                  -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
-                  -X DELETE
-                  "https://kubernetes.default.svc/api/v1/namespaces/ai/pods?labelSelector=gtt-recycle%3Denabled"
-                  > /dev/null
+                - |-
+                  api="https://kubernetes.default.svc/apis/apps/v1/namespaces/ai/deployments"
+                  ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                  token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+                  last_timestamp=
+
+                  json_field() {
+                    printf '%s' "$1" | sed -n "s/.*\"$2\":\([^,}]*\).*/\1/p" | sed -n '1p'
+                  }
+
+                  at_least_one() {
+                    case "$1" in
+                      ''|*[!0-9]*) return 1 ;;
+                      *) [ "$1" -ge 1 ] ;;
+                    esac
+                  }
+
+                  wait_ready() {
+                    deployment="$1"
+                    generation="$2"
+                    attempt=0
+                    while [ "$attempt" -lt 12 ]; do
+                      status="$(curl -fsS --connect-timeout 10 --max-time 30 --cacert "$ca" -H "Authorization: Bearer $token" "$api/$deployment")"
+                      observed="$(json_field "$status" observedGeneration || true)"
+                      updated="$(json_field "$status" updatedReplicas || true)"
+                      available="$(json_field "$status" availableReplicas || true)"
+                      ready="$(json_field "$status" readyReplicas || true)"
+                      if [ "$observed" = "$generation" ] && at_least_one "$updated" && at_least_one "$available" && at_least_one "$ready"; then
+                        return 0
+                      fi
+                      sleep 5
+                      attempt=$((attempt + 1))
+                    done
+                    return 1
+                  }
+
+                  for deployment in qwen3-embedding vmcp-embedding; do
+                    timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                    if [ "$timestamp" = "$last_timestamp" ]; then
+                      sleep 1
+                      timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                    fi
+                    last_timestamp="$timestamp"
+                    patched="$(curl -fsS --connect-timeout 10 --max-time 30 --cacert "$ca" -H "Authorization: Bearer $token" -H "Content-Type: application/merge-patch+json" -X PATCH --data "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$timestamp\"}}}}}" "$api/$deployment")"
+                    generation="$(json_field "$patched" generation || true)"
+                    case "$generation" in
+                      ''|*[!0-9]*) exit 1 ;;
+                    esac
+                    wait_ready "$deployment" "$generation"
+                  done
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true

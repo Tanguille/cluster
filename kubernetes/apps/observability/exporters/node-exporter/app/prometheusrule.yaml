@@ -33,19 +33,45 @@ spec:
               likely the embedder leak; the nightly embedder-recycle should cap it
           labels:
             severity: warning
-        - alert: NodeGTTTelemetryMissing
+        - alert: NodeDRMCollectorFailed
           # A silently-dead DRM collector reads as "no GTT problem" (the xmrig-guard
-          # telemetry gap ran blind 40h this way). Alert if the collector fails or
-          # the GTT series is absent on either iGPU node — NodeGTTMemoryHigh is
-          # blind until it recovers.
+          # telemetry gap ran blind 40h this way).
           expr: |-
-            node_scrape_collector_success{collector="drm", kubernetes_node=~"control-[23]"} == 0
-            or absent(node_drm_memory_gtt_size_bytes{kubernetes_node="control-2"})
-            or absent(node_drm_memory_gtt_size_bytes{kubernetes_node="control-3"})
+            max by (kubernetes_node) (
+              node_scrape_collector_success{collector="drm", kubernetes_node=~"control-[23]"} == 0
+            )
           for: 10m
           annotations:
             summary: >-
-              iGPU GTT telemetry is missing on {{ $labels.kubernetes_node }} —
-              NodeGTTMemoryHigh is blind until the DRM collector recovers
+              DRM collector failed on {{ $labels.kubernetes_node }} — NodeGTTMemoryHigh
+              is blind until it recovers
+          labels:
+            severity: warning
+        - alert: NodeGTTTelemetryMissing
+          # Keep one alert identity per control node, including when the metric is
+          # absent entirely; NodeGTTMemoryHigh is blind until telemetry recovers.
+          expr: |-
+            max by (kubernetes_node) (
+              node_drm_memory_gtt_size_bytes{kubernetes_node=~"control-[23]"}
+            ) <= 0
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-2", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (
+                node_drm_memory_gtt_size_bytes{kubernetes_node="control-2"}
+              )
+            )
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-3", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (
+                node_drm_memory_gtt_size_bytes{kubernetes_node="control-3"}
+              )
+            )
+          for: 10m
+          annotations:
+            summary: >-
+              GTT telemetry is absent or non-positive on {{ $labels.kubernetes_node }} —
+              NodeGTTMemoryHigh is blind until it recovers
           labels:
             severity: warning
