@@ -26,6 +26,14 @@ spec:
             limits:
               cpu: "1"
               memory: 256Mi
+      # Soft spread so losing one node doesn't strand all 3 replicas on the other two.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              cnpg.io/poolerName: pgbouncer-rw
   pgbouncer:
     poolMode: transaction
     parameters:
