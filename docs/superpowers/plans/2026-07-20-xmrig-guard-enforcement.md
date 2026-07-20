@@ -50,7 +50,7 @@
 - Consumes: `Config.load(dict) -> Config` and the existing exact configuration contract.
 - Produces: `Config.mode == "enforce"`; all guard evaluation and metric interfaces remain unchanged.
 
-- [ ] **Step 1: Write the failing enforcement-mode test**
+- [x] **Step 1: Write the failing enforcement-mode test**
 
 Add the mode assertion and explicit observe-mode rejection:
 
@@ -70,7 +70,7 @@ def test_observe_mode_is_rejected(self):
 
 Rename `test_observe_never_writes` to `test_enforcement_controller_remains_read_only`; do not change its body.
 
-- [ ] **Step 2: Run the focused test and verify RED**
+- [x] **Step 2: Run the focused test and verify RED**
 
 Run:
 
@@ -80,7 +80,7 @@ python3 -m unittest discover -s kubernetes/apps/web3/xmrig-guard/app/resources -
 
 Expected: `test_complete_audited_configuration` fails because the current configuration still returns `mode == "observe"`.
 
-- [ ] **Step 3: Implement the minimal mode change**
+- [x] **Step 3: Implement the minimal mode change**
 
 In `config.json`:
 
@@ -95,7 +95,7 @@ if parsed.scheme not in ("http", "https") or not parsed.netloc or self.mode != "
     raise ValueError("only enforce mode and a valid endpoint are supported")
 ```
 
-- [ ] **Step 4: Run the Python tests and verify GREEN**
+- [x] **Step 4: Run the Python tests and verify GREEN**
 
 Run:
 
@@ -106,7 +106,7 @@ python3 -m py_compile kubernetes/apps/web3/xmrig-guard/app/resources/controller.
 
 Expected: all 22 tests pass and bytecode compilation exits zero.
 
-- [ ] **Step 5: Commit the enforcement-mode contract**
+- [x] **Step 5: Commit the enforcement-mode contract**
 
 ```bash
 git add kubernetes/apps/web3/xmrig-guard/app/resources/config.json kubernetes/apps/web3/xmrig-guard/app/resources/controller.py kubernetes/apps/web3/xmrig-guard/app/resources/test_controller.py docs/superpowers/plans/2026-07-20-xmrig-guard-enforcement.md

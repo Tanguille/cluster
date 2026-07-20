@@ -1,4 +1,4 @@
-"""Small, dependency-free, observe-only XMRig guard.
+"""Small, dependency-free XMRig safety signal controller.
 
 The controller deliberately treats telemetry as untrusted input.  A complete
 set of fresh samples is required before a node can become safe.
@@ -60,8 +60,8 @@ class Config:
 
     def validate(self):
         parsed = urllib.parse.urlparse(self.endpoint)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc or self.mode != "observe":
-            raise ValueError("only observe mode and a valid endpoint are supported")
+        if parsed.scheme not in ("http", "https") or not parsed.netloc or self.mode != "enforce":
+            raise ValueError("only enforce mode and a valid endpoint are supported")
         if set(self.nodes) != set(SENSORS) or self.sensors != SENSORS:
             raise ValueError("sensor allowlist is audited and immutable")
         if self.thresholds != {"nvmeRecovery": 60, "nvmeTrip": 70, "cpuRecovery": 50, "cpuTrip": 70}:

@@ -22,8 +22,15 @@ def config():
 class ConfigTests(unittest.TestCase):
     def test_complete_audited_configuration(self):
         cfg = config()
+        self.assertEqual(cfg.mode, "enforce")
         self.assertEqual(len(cfg.sensors["control-2"]), 7)
         self.assertEqual(len(cfg.sensors["control-3"]), 8)
+
+    def test_observe_mode_is_rejected(self):
+        values = config_values()
+        values["mode"] = "observe"
+        with self.assertRaises(ValueError):
+            controller.Config.load(values)
 
     def test_missing_or_changed_policy_is_rejected(self):
         values = {"mode": "observe"}
@@ -194,7 +201,7 @@ class ControllerTests(unittest.TestCase):
         self.assertTrue(guard.ready)
         self.assertEqual(sum(guard.metrics["safe"].values()), 0)
 
-    def test_observe_never_writes(self):
+    def test_enforcement_controller_remains_read_only(self):
         guard = controller.GuardController(config(), Mock())
         guard.reconcile("control-2", 50, datetime.now(UTC))
 
