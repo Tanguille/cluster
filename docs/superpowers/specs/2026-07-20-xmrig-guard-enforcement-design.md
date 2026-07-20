@@ -58,3 +58,18 @@ from superseded PR #4008.
 - Run repository diff checks and the scoped PR validation workflow.
 - Update PR #4035's title and body to cover telemetry repair and active global
   enforcement.
+
+## Implementation verification
+
+- The enforcement-mode test failed against `observe` before the production
+  change, then all 22 controller tests passed in `enforce` mode.
+- Python bytecode compilation and KEDA schema validation passed.
+- `flate test all` rendered all 276 resources successfully; its two warnings
+  are pre-existing unused chart values outside this change.
+- The live composite MetricsQL returned exactly one zero sample while the
+  cluster was unsafe. Synthetic open, closed, and missing-node assertions
+  returned the expected `73`, `0`, and `0` values.
+- The repository-wide PR validator's manifest phase passed. Its only error is
+  a pre-existing ShellCheck SC2164 warning in the unchanged
+  `sglang-env-rebuild.sh`, reproduced byte-for-byte from `origin/main`; this PR
+  changes no shell scripts.
