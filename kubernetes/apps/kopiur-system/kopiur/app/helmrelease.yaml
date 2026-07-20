@@ -33,7 +33,7 @@ spec:
       serviceMonitor:
         enabled: true
       prometheusRule:
-        enabled: true # KopiurBackupStale et al. — live BEFORE any data moves
+        enabled: false # rules moved to repo-side prometheusrule.yaml — de-cardinalized KopiurSnapshotFailed, no per-rule override in this chart
       dashboards:
         enabled: true
         grafanaOperator:
