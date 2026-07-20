@@ -1,0 +1,184 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-model-cache
+  namespace: ai
+  finalizers:
+    - kubernetes.io/pvc-protection
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-triton-cache
+  namespace: ai
+  finalizers:
+    - kubernetes.io/pvc-protection
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen36-27b-awq
+spec:
+  source: hf://mattbucci/Qwen3.6-27B-AWQ@f541031dfc1bf5da3f198b52b9bf44cbd5ceee49
+  format: safetensors
+  refreshPolicy: OnChange
+  files:
+    - model.safetensors
+    - model-vision.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - generation_config.json
+    - chat_template.jinja
+    - processor_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+---
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen36-27b
+spec:
+  modelRef: qwen36-27b-awq
+  runtime: sglang
+  # Scale up only after retiring standalone SGLang; phase one prepares config
+  # without starting a second 87.5%-VRAM workload or staging model files.
+  replicas: 0
+  image: ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201@sha256:be5b0f3a0cf59a1f9d09073549a7d1c6bec70e686c2aa13fa5cbec82f4e74fdd
+  containerPort: 30000
+  endpoint:
+    # v0.9.8 maps endpoint.port to both Service port and targetPort; use the
+    # runtime port so generated traffic reaches SGLang directly.
+    port: 30000
+    type: ClusterIP
+  nodeSelector:
+    kubernetes.io/hostname: control-1
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+    seccompProfile:
+      type: Unconfined
+  modelCache:
+    claimName: qwen36-27b-model-cache
+  sglangConfig:
+    contextLength: 180000
+    memFractionStatic: 0.875
+    maxRunningRequests: 32
+    chunkedPrefillSize: 8192
+    tensorParallelSize: 1
+    quantization: awq
+    kvCacheDtype: fp8_e4m3
+    reasoningParser: qwen3
+  resources:
+    cpu: "2"
+    hostMemory: 24Gi
+  env:
+    - name: HIP_VISIBLE_DEVICES
+      value: "0"
+    - name: ROCR_VISIBLE_DEVICES
+      value: "0"
+    - name: GPU_DEVICE_ORDINAL
+      value: "0"
+    - name: CUDA_VISIBLE_DEVICES
+      value: "0"
+    - name: TRITON_CACHE_DIR
+      value: /cache/sglang/triton
+  extraVolumes:
+    - name: triton-cache
+      persistentVolumeClaim:
+        claimName: qwen36-27b-triton-cache
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 8Gi
+  extraVolumeMounts:
+    - name: triton-cache
+      mountPath: /cache
+    - name: dshm
+      mountPath: /dev/shm
+  probeOverrides:
+    # SGLang's health endpoint is suitable for startup; keep liveness inert so
+    # long model loads or transient GPU work cannot trigger a restart.
+    startup:
+      httpGet:
+        path: /health
+        port: 30000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 120
+    liveness:
+      exec:
+        command:
+          - "true"
+    readiness:
+      tcpSocket:
+        port: 30000
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
+  extraArgs:
+    - --dtype
+    - bfloat16
+    - --num-continuous-decode-steps
+    - "16"
+    - --watchdog-timeout
+    - "600"
+    - --attention-backend
+    - triton
+    - --pre-warm-nccl
+    - --trust-remote-code
+    - --chat-template
+    - /opt/rdna4-inference/scripts/qwen3.6_devrole_chat_template.jinja
+    - --tool-call-parser
+    - qwen3_coder
+    - --disable-custom-all-reduce
+    - --disable-overlap-schedule
+    - --cuda-graph-backend-decode=disabled
+    - --cuda-graph-backend-prefill=disabled
+    - --max-mamba-cache-size
+    - "60"
+    - --served-model-name
+    - qwen-3.6
+    - --mamba-ssm-dtype
+    - bfloat16
+    - --max-queued-requests
+    - "32"
+    - --weight-loader-drop-cache-after-load
+    - --enable-hierarchical-cache
+    - --hicache-io-backend
+    - direct
+    - --hicache-ratio
+    - "1.5"
+    - --model-loader-extra-config
+    - '{"num_threads":2}'
+    - --schedule-conservativeness
+    - "0.1"
+    - --enable-mixed-chunk
+    - --hicache-write-policy
+    - write_through_selective
