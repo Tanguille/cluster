@@ -45,5 +45,12 @@ spec:
       securityContext:
         runAsUser: 568
         runAsGroup: 568
+  # Movers ran BestEffort (no resources) — Talos OOM killer's first victims
+  # under node memory pressure (bootstrap/mover exit 137, 07-20 outage).
+  moverDefaults:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
   scheduleDefaults:
     timezone: ${TIMEZONE}
