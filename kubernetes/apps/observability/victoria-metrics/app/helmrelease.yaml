@@ -314,11 +314,13 @@ spec:
         hostnames: ["vmsingle.${SECRET_DOMAIN}"]
         parentRefs: *internalParentRefs
       spec:
-        retentionPeriod: 365d
+        # 180d: 365d retention couldn't fit the 200Gi PVC at current 140GB usage
+        retentionPeriod: 180d
         resources:
           requests:
             cpu: 250m
-            memory: 1Gi
+            # matches limit for Guaranteed QoS; actual usage was 2.7-3.2GiB against the old 1Gi request
+            memory: 4Gi
           limits:
             cpu: 2
             memory: 4Gi
