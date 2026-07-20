@@ -1,5 +1,117 @@
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: &name kubesearch
+spec:
+  image: ghcr.io/perfectra1n/kubesearch-mcp:master
+  transport: streamable-http
+  mcpPort: &port 3000
+  groupRef:
+    name: resources
+  env:
+    - name: KUBESEARCH_REFRESH_HOURS
+      value: "24"
+  toolConfigRef:
+    name: *name
+  podTemplateSpec:
+    spec:
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      containers:
+        - name: mcp
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          ports:
+            - name: mcp
+              containerPort: *port
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: mcp
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: mcp
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: kubesearch-opt
+spec:
+  image: ghcr.io/perfectra1n/kubesearch-mcp:master
+  transport: streamable-http
+  mcpPort: 3000
+  groupRef:
+    name: all
+  env:
+    - name: KUBESEARCH_REFRESH_HOURS
+      value: "24"
+  toolConfigRef:
+    name: kubesearch
+  podTemplateSpec:
+    spec:
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      containers:
+        - name: mcp
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          ports:
+            - name: mcp
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: mcp
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: mcp
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:
   name: kubesearch

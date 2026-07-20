@@ -8,10 +8,9 @@ spec:
   proxyRef: litellm
   params:
     model: openai/qwen-3.6
-    apiBase: http://sglang.ai.svc.cluster.local/v1
-    # sglang is unauthenticated internally, but litellm's openai provider errors on an
-    # unset api_key; any non-empty value satisfies it (dropped when the old configmap's
-    # os.environ/LLAMA_SERVER_API_KEY was migrated — that env var isn't injected here).
+    apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
+    # Native SGLang is unauthenticated internally, but LiteLLM's OpenAI provider
+    # requires a non-empty api_key.
     apiKey: sk-sglang-noauth
     additional:
       timeout: 1800
@@ -19,8 +18,7 @@ spec:
       num_retries: 0
   info:
     mode: chat
-    # Match SGLang's effective 180K context cap after reserving maxOutputTokens.
-    # EXTRA_ARGS' --context-length 180000 overrides the earlier 200000 argument.
+    # Match the configured 180K native SGLang context cap after reserving maxOutputTokens.
     maxInputTokens: 171808
     maxOutputTokens: 8192
 ---
@@ -33,7 +31,7 @@ spec:
   proxyRef: litellm
   params:
     model: openai/qwen-3.6
-    apiBase: http://sglang.ai.svc.cluster.local/v1
+    apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
     apiKey: sk-sglang-noauth
     additional:
       # 900s (was 600): Hermes compression is a ~100K+ prefill on this alias — under GPU
