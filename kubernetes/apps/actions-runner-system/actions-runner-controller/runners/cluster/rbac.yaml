@@ -9,5 +9,6 @@ kind: ServiceAccount
 metadata:
   name: cluster-runner
 spec:
-  # Only use is 'talosctl image pull' in image-pull.yaml; ImagePull needs os:operator (not os:reader).
-  roles: ["os:operator"]
+  # Only use is 'talosctl image pull'; ImagePull needs more than os:reader, and the
+  # kubernetesTalosAPIAccess allowlist (talos/patches) permits only os:admin/os:reader.
+  roles: ["os:admin"]
