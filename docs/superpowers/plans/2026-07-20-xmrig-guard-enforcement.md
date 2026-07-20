@@ -122,7 +122,7 @@ git commit -m "fix(web3): enable xmrig guard enforcement mode"
 - Consumes: `xmrig_guard_safe{node="control-1|control-2|control-3"}` scraped by VictoriaMetrics.
 - Produces: one composite solar-watt scalar; `0` unless all three fresh guard series equal `1`.
 
-- [ ] **Step 1: Replace the observe-only solar trigger with the fail-closed composite query**
+- [x] **Step 1: Replace the observe-only solar trigger with the fail-closed composite query**
 
 Set the final scale-to-zero delay and scaler fallback:
 
@@ -160,7 +160,7 @@ ignoreNullValues: "false"
 
 Update the nearby comments to explain the global guard, exact node count, 120-second scrape freshness, and zero-replica failure behavior.
 
-- [ ] **Step 2: Validate schema and rendered manifests**
+- [x] **Step 2: Validate schema and rendered manifests**
 
 Run:
 
@@ -171,7 +171,7 @@ mise exec -- flate test all
 
 Expected: no error-severity YAML diagnostics and successful HelmRelease/Kustomization rendering.
 
-- [ ] **Step 3: Exercise the query contract**
+- [x] **Step 3: Exercise the query contract**
 
 Start a read-only port-forward in a dedicated terminal:
 
@@ -199,7 +199,7 @@ These assertions verify:
 Stop the port-forward after the assertions. Do not reconcile or mutate the
 cluster.
 
-- [ ] **Step 4: Commit the active KEDA gate**
+- [x] **Step 4: Commit the active KEDA gate**
 
 ```bash
 git add kubernetes/apps/web3/monero/xmrig/scaledobject.yaml docs/superpowers/plans/2026-07-20-xmrig-guard-enforcement.md
