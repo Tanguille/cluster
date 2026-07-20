@@ -10,6 +10,26 @@ spec:
     name: postgres16
   instances: 2
   type: rw
+  # Same protections as pgbouncer-rw: out of BestEffort (Talos OOM controller
+  # kills request-less pods first) and spread across nodes.
+  template:
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              cnpg.io/poolerName: pgbouncer-session
   pgbouncer:
     poolMode: session
     # Per-DB server cap through this deployment ≈ instances × max_db_connections below.
