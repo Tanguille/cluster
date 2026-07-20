@@ -12,6 +12,8 @@ spec:
 
   values:
     defaultPodOptions:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 90
       securityContext:
         fsGroup: 10000
         fsGroupChangePolicy: OnRootMismatch
@@ -22,12 +24,13 @@ spec:
       hermes:
         annotations:
           reloader.stakater.com/auto: "true"
+        strategy: Recreate
 
         containers:
           app:
             image:
               repository: nousresearch/hermes-agent
-              tag: main@sha256:bab705d11fc668449333d32c6906f83518375e1ef618f73d63f5e29a3e593d60
+              tag: main@sha256:5dcc0b729b14d20285f06a2b21b894b84369d085e8f6d66794720842b33e4cc0
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -42,6 +45,11 @@ spec:
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_HOST: 0.0.0.0
               HERMES_DASHBOARD_PORT: &port 9119
+              # Seconds-based scheduler inactivity watchdog; raised from 600 to align with the shortest provider timeout.
+              HERMES_CRON_TIMEOUT: "900"
+              S6_CMD_RECEIVE_SIGNALS: "1"
+              HERMES_RESTART_DRAIN_TIMEOUT: "45"
+              S6_SERVICES_GRACETIME: "80000"
             envFrom:
               - secretRef:
                   name: hermes-secret
@@ -69,7 +77,9 @@ spec:
                 custom: true
                 spec:
                   httpGet: *httpGet
+                  periodSeconds: 10
                   timeoutSeconds: 5
+                  failureThreshold: 3
             resources:
               requests:
                 cpu: 100m

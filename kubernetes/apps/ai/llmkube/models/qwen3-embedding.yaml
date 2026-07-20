@@ -35,7 +35,7 @@ metadata:
 spec:
   modelRef: qwen3-embedding
   mode: embedding
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8f9522aa4c92eca7732a55009c0c93d2e814c3d47c32077c5fefa33d7b234df0
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5672ed099865337417b3f2d0fd360839740168efb96acf44c80770b7808d896c
   # Two slots are the Vulkan-safe floor; more interleaving did not improve
   # throughput on this compute-bound iGPU. VMCP has its own embedder now.
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)

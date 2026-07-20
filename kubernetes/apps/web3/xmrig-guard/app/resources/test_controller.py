@@ -3,6 +3,7 @@ import math
 import os
 import sys
 import unittest
+import urllib.error
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
@@ -21,8 +22,15 @@ def config():
 class ConfigTests(unittest.TestCase):
     def test_complete_audited_configuration(self):
         cfg = config()
+        self.assertEqual(cfg.mode, "enforce")
         self.assertEqual(len(cfg.sensors["control-2"]), 7)
         self.assertEqual(len(cfg.sensors["control-3"]), 8)
+
+    def test_observe_mode_is_rejected(self):
+        values = config_values()
+        values["mode"] = "observe"
+        with self.assertRaises(ValueError):
+            controller.Config.load(values)
 
     def test_missing_or_changed_policy_is_rejected(self):
         values = {"mode": "observe"}
@@ -68,6 +76,7 @@ class TelemetryTests(unittest.TestCase):
         client = controller.VictoriaMetricsClient("http://vm", transport)
         self.assertEqual(client.query_nvme("control-2", [("nvme_nvme0", "temp1")], now)[0].value, 42)
         self.assertEqual(transport.get.call_args.args[1]["time"], now.isoformat().replace("+00:00", "Z"))
+        self.assertEqual(transport.get.call_args.args[1]["step"], "120s")
         with self.assertRaises(ValueError):
             client.query_nvme("control-2", [("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2")], now)
 
@@ -142,6 +151,32 @@ class TelemetryTests(unittest.TestCase):
         self.assertIsNone(observation.xmrig)
         self.assertTrue(any('node="control-1"' in call.args[1]["query"] for call in transport.get.call_args_list))
 
+    def test_http_rejection_carries_the_query_text(self):
+        transport = Mock()
+        transport.get.side_effect = urllib.error.HTTPError("http://vm", 422, "Unprocessable Entity", None, None)
+        client = controller.VictoriaMetricsClient("http://vm", transport)
+        with self.assertRaisesRegex(ValueError, "node_hwmon_temp_celsius"):
+            client.query_nvme("control-2", [("nvme_nvme0", "temp1")], datetime(2026, 1, 1, tzinfo=UTC))
+
+    def test_all_generated_queries_have_balanced_parentheses(self):
+        transport = Mock()
+        now = datetime(2026, 1, 1, tzinfo=UTC)
+        response = {"status": "success", "data": {"resultType": "vector", "result": [{"metric": {}, "value": [str(now.timestamp()), "10"]}]}}
+        transport.get.return_value = response
+        client = controller.VictoriaMetricsClient("http://vm", transport)
+        client.query_cpu("control-1", now)  # presence > 0 exercises the xmrig branch
+        with self.assertRaises(ValueError):  # identity check fails on the generic mock after issuing both queries
+            client.query_nvme("control-2", [("nvme_nvme0", "temp1")], now)
+        self.assertGreaterEqual(len(transport.get.call_args_list), 8)
+        for call in transport.get.call_args_list:
+            query = call.args[1]["query"]
+            depth = 0
+            for char in query:
+                depth += char == "("
+                depth -= char == ")"
+                self.assertGreaterEqual(depth, 0, query)
+            self.assertEqual(depth, 0, query)
+
     def test_existing_xmrig_with_broken_label_join_is_invalid(self):
         transport = Mock()
         now = datetime(2026, 1, 1, tzinfo=UTC)
@@ -166,7 +201,7 @@ class ControllerTests(unittest.TestCase):
         self.assertTrue(guard.ready)
         self.assertEqual(sum(guard.metrics["safe"].values()), 0)
 
-    def test_observe_never_writes(self):
+    def test_enforcement_controller_remains_read_only(self):
         guard = controller.GuardController(config(), Mock())
         guard.reconcile("control-2", 50, datetime.now(UTC))
 
