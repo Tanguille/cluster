@@ -73,10 +73,10 @@ spec:
     - |
       TOKEN_FILE=/var/run/secrets/kubernetes.io/serviceaccount/token
       CA_FILE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-      API_URL="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS}/apis/apps/v1/namespaces/ai/deployments/sglang"
+      API_URL="https://$${KUBERNETES_SERVICE_HOST}:$${KUBERNETES_SERVICE_PORT_HTTPS}/apis/apps/v1/namespaces/ai/deployments/sglang"
       while true; do
-        if deployment="$(curl -fsS --cacert "${CA_FILE}" -H "Authorization: Bearer $(cat "${TOKEN_FILE}")" "${API_URL}" 2>/dev/null)"; then
-          if python3 -c 'import json, sys; d=json.load(sys.stdin); m=d["metadata"]; s=d["spec"]; t=d.get("status", {}); raise SystemExit(0 if s.get("replicas") == 0 and t.get("observedGeneration", -1) >= m["generation"] and t.get("replicas", 0) == 0 else 1)' <<<"${deployment}"; then
+        if deployment="$(curl -fsS --cacert "$${CA_FILE}" -H "Authorization: Bearer $(cat "$${TOKEN_FILE}")" "$${API_URL}" 2>/dev/null)"; then
+          if python3 -c 'import json, sys; d=json.load(sys.stdin); m=d["metadata"]; s=d["spec"]; t=d.get("status", {}); raise SystemExit(0 if s.get("replicas") == 0 and t.get("observedGeneration", -1) >= m["generation"] and t.get("replicas", 0) == 0 else 1)' <<<"$${deployment}"; then
             break
           fi
         fi
