@@ -20,6 +20,19 @@ spec:
               memory: 256Mi
             limits:
               memory: 2Gi
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  # externalTrafficPolicy: Local means a probe-kill blacks out that node's LB traffic; widen the margin
+                  priorityClassName: system-cluster-critical
+                  containers:
+                    - name: envoy
+                      livenessProbe:
+                        timeoutSeconds: 5
+                        failureThreshold: 6
       envoyService:
         externalTrafficPolicy: Local
   shutdown:

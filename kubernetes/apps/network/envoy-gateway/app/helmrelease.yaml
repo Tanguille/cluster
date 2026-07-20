@@ -12,6 +12,9 @@ spec:
   values:
     global:
       imageRegistry: mirror.gcr.io
+    deployment:
+      # xDS control plane; avoid config-push stalls when the sole replica's node is disrupted
+      replicas: 2
     config:
       envoyGateway:
         extensionApis:
