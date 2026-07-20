@@ -73,14 +73,6 @@
       automerge: true,
       automergeType: "pr"
     },
-    {
-      description: "Auto-merge GitHub Actions",
-      matchManagers: ["github-actions"],
-      matchUpdateTypes: ["minor", "patch", "digest"],
-      automerge: true,
-      automergeType: "branch",
-      minimumReleaseAge: "3 days"
-    },
     // Grouping rules
     {
       description: "sglang-rdna4 build inputs (fork ref + ROCm base digest + miniforge) — one review PR, no automerge; merging fires the GPU-free build workflow and mints a new image digest",
