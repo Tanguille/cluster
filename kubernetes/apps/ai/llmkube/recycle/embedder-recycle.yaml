@@ -1,0 +1,81 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: embedder-recycle
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: embedder-recycle
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [deletecollection]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: embedder-recycle
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: embedder-recycle
+subjects:
+  - kind: ServiceAccount
+    name: embedder-recycle
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: embedder-recycle
+spec:
+  # ggml-Vulkan mode:embedding servers leak pinned iGPU GTT memory cgroups cannot
+  # see (wedged control-2 twice); a nightly recycle caps the accumulation. Targets
+  # every InferenceService that opts in with podLabels gtt-recycle: enabled, so a
+  # new leaky embedder enrolls by adding that label (generative loads don't leak
+  # and omit it). Embeddings are dragonfly-cached, so a restart costs one reload.
+  timeZone: ${TIMEZONE}
+  schedule: "30 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: embedder-recycle
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: recycle
+              image: curlimages/curl:8.21.0@sha256:1ab04d023ece37e6ec991bf3306ad04e0ef0084e94a5c6b6563cfcb9563169db
+              command:
+                - sh
+                - -ec
+                - >-
+                  curl -fsS
+                  --cacert /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                  -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
+                  -X DELETE
+                  "https://kubernetes.default.svc/api/v1/namespaces/ai/pods?labelSelector=gtt-recycle%3Denabled"
+                  > /dev/null
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 32Mi
