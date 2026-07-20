@@ -63,6 +63,8 @@ spec:
 
     controllers:
       app:
+        # First cutover phase; preserve the Service, PVC, and route for rollback.
+        replicas: 0
         # Recreate, not RollingUpdate: singleton holding the node's only squat.ai/dri:1.
         strategy: Recreate
         containers:
