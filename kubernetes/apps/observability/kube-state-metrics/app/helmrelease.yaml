@@ -11,11 +11,6 @@ spec:
   interval: 1h
   values:
     fullnameOverride: kube-state-metrics
-    # KSM holds cluster-wide list/watch RBAC; lock it to apiserver egress +
-    # metrics-port ingress
-    networkPolicy:
-      enabled: true
-      flavor: cilium
     metricLabelsAllowlist:
       - pods=[app.kubernetes.io/component]
     prometheus:
