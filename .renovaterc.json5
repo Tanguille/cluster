@@ -30,6 +30,21 @@
       datasourceTemplate: "github-releases",
       autoReplaceStringTemplate: "{{{newValue}}}"
     },
+    // Literal \n and fixed indentation deliberately match the current three-line YAML list item,
+    // so Renovate captures and replaces only the numeric version in place.
+    {
+      description: "Track Memini vchord Database version with its CNPG image",
+      customType: "regex",
+      managerFilePatterns: [
+        "/^kubernetes/apps/database/cloudnative-pg/databases/memini\\.yaml$/"
+      ],
+      matchStrings: [
+        "    - name: vchord\\n      ensure: present\\n      version:\\s*[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"
+      ],
+      depNameTemplate: "ghcr.io/tensorchord/vchord-scratch",
+      datasourceTemplate: "docker",
+      extractVersionTemplate: "^pg18-v(?<version>.*)$"
+    },
     {
       description: "qBitrr ConfigVersion (semver, no v prefix)",
       customType: "regex",
@@ -132,6 +147,12 @@
       minimumGroupSize: 2
     },
     {
+      description: "VectorChord CNPG images and Memini database version",
+      groupName: "vectorchord",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
+    },
+    {
       description: "Group klipper-exporter image and Grafana dashboard URL",
       groupName: "klipper-exporter",
       matchDatasources: ["docker", "github-releases"],
@@ -177,6 +198,17 @@
         "nousresearch/hermes-agent"
       ],
       versioning: "loose"
+    },
+    {
+      // The upstream cnpg preset forces versioning regex ^pg18-v... on this package, which
+      // rejects the bare X.Y.Z extracted for memini's version field; this rule re-overrides it.
+      description: "Memini vchord version field is bare semver, not a pg18-v tag",
+      matchManagers: ["custom.regex"],
+      matchFileNames: [
+        "kubernetes/apps/database/cloudnative-pg/databases/memini.yaml"
+      ],
+      matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"],
+      versioning: "semver"
     },
     {
       description: "Miniforge build-suffixed tags (24.11.3-2) read as semver prereleases, so stable-only filtering hides every update; loose sorts them numerically",
