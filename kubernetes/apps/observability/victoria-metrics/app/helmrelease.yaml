@@ -370,22 +370,6 @@ spec:
                 for: 5m
                 labels:
                   severity: critical
-              - alert: NVMeTemperatureWarning
-                annotations:
-                  summary: NVMe {{ $labels.chip }} on {{ $labels.nodename }} is running hot ({{ $value }}°C)
-                  description: "{{ $labels.chip }} on {{ $labels.nodename }} has been above 78°C for 10 minutes ({{ $value }}°C). Crash latch is ~92°C and needs a cold power cycle."
-                expr: max by (nodename, chip) (node_hwmon_temp_celsius{chip=~"nvme.*"}) > 78
-                for: 10m
-                labels:
-                  severity: warning
-              - alert: NVMeTemperatureCritical
-                annotations:
-                  summary: NVMe {{ $labels.chip }} on {{ $labels.nodename }} is critically hot ({{ $value }}°C)
-                  description: "{{ $labels.chip }} on {{ $labels.nodename }} has been above 85°C for 5 minutes ({{ $value }}°C). Crash latch is ~92°C and needs a cold power cycle."
-                expr: max by (nodename, chip) (node_hwmon_temp_celsius{chip=~"nvme.*"}) > 85
-                for: 5m
-                labels:
-                  severity: critical
               - alert: NodeCPUPressureSustained
                 annotations:
                   summary: Sustained CPU pressure on {{ $labels.nodename }}
