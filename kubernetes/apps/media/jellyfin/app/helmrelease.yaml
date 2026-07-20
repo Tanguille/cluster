@@ -24,8 +24,9 @@ spec:
                     operator: In
                     values: ["true"]
       securityContext:
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 568
+        runAsGroup: 568
+        runAsNonRoot: true
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups:
@@ -41,29 +42,13 @@ spec:
             image:
               repository: ghcr.io/jellyfin/jellyfin
               tag: 10.11.11@sha256:45f648c382a0c8b552582fcea40e95cb17c5d475473a891cba0eb7523fb92112
+            # pod runs as 568 already (defaultPodOptions.securityContext); no more root->568 setpriv dance
             command:
-              - sh
-              - -c
-              - |
-                echo "=== Fixing Jellyfin web permissions for plugins ==="
-                if [ -f /jellyfin/jellyfin-web/index.html ]; then
-                  chown 568:568 /jellyfin/jellyfin-web/index.html
-                  echo "Fixed permissions for /jellyfin/jellyfin-web/index.html"
-                else
-                  echo "Warning: /jellyfin/jellyfin-web/index.html not found"
-                fi
-                echo "=== Switching to user 568 and starting Jellyfin ==="
-                # Try different user-switching tools in order of preference
-                if command -v setpriv >/dev/null 2>&1; then
-                  # keep video/render groups so user 568 can open /dev/dri for VAAPI
-                  exec setpriv --reuid=568 --regid=568 --groups=44,226 /jellyfin/jellyfin --datadir /config --cachedir /cache
-                else
-                  # Fallback: ensure user exists and use su
-                  if ! id 568 >/dev/null 2>&1; then
-                    adduser -D -u 568 -g 568 jellyfin 2>/dev/null || true
-                  fi
-                  exec su -s /bin/sh -c 'exec /jellyfin/jellyfin --datadir /config --cachedir /cache' "#568"
-                fi
+              - /jellyfin/jellyfin
+              - --datadir
+              - /config
+              - --cachedir
+              - /cache
             env:
               TZ: ${TIMEZONE}
             probes:
@@ -98,6 +83,9 @@ spec:
               limits:
                 memory: 8Gi
                 squat.ai/dri: 1
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
     service:
       app:
         controller: jellyfin
