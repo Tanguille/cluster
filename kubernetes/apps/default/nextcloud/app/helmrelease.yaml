@@ -34,6 +34,13 @@ spec:
               - op: add
                 path: /spec/template/spec/automountServiceAccountToken
                 value: false
+          - target:
+              kind: CronJob
+              name: nextcloud-cron
+            patch: |-
+              - op: add
+                path: /spec/jobTemplate/spec/template/spec/automountServiceAccountToken
+                value: false
 
   values:
     prometheus:
