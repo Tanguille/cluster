@@ -21,7 +21,6 @@ spec:
     failureThreshold: 1
     replicas: 0
   advanced:
-    restoreToOriginalReplicaCount: false
     horizontalPodAutoscalerConfig:
       behavior:
         scaleDown:
@@ -35,13 +34,10 @@ spec:
           # Scale up quickly when solar power is available
           stabilizationWindowSeconds: 60 # 1 minute before scaling up
           policies:
+            # Percent 100 dominates a Pods-1 policy at every reachable replica count
             - type: Percent
-              value: 100 # Can double replicas if needed
+              value: 100
               periodSeconds: 60
-            - type: Pods
-              value: 1 # Or add 1 pod at a time
-              periodSeconds: 60
-          selectPolicy: Max # Use the more aggressive (faster) policy
   triggers:
     - type: prometheus
       metadata:
