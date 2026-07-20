@@ -23,6 +23,19 @@ connectivity:
     interval: 1m
 
 endpoints:
+  - name: Gatus external probe
+    group: external
+    url: https://gatus-probe.${SECRET_DOMAIN}/health
+    interval: 1m
+    client:
+      dns-resolver: tcp://1.1.1.1:53
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: discord
+        enabled: true
+        send-on-resolved: true
+
   - name: Cloudflare
     group: connectivity
     url: icmp://1.1.1.1

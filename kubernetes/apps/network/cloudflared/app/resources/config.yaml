@@ -7,6 +7,11 @@ ingress:
       originServerName: external.${SECRET_DOMAIN}
       tcpKeepAlive: 7200s
     service: &svc https://envoy-external.network.svc.cluster.local:443
+  - hostname: gatus-probe.${SECRET_DOMAIN}
+    originRequest:
+      originServerName: gatus-probe.${SECRET_DOMAIN}
+      http2Origin: true
+    service: https://envoy-external-probe.network.svc.cluster.local:443
   - hostname: "*.${SECRET_DOMAIN}"
     originRequest: *originRequest
     service: *svc
