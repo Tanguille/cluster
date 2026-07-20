@@ -30,6 +30,8 @@
       datasourceTemplate: "github-releases",
       autoReplaceStringTemplate: "{{{newValue}}}"
     },
+    // Literal \n and fixed indentation deliberately match the current three-line YAML list item,
+    // so Renovate captures and replaces only the numeric version in place.
     {
       description: "Track Memini vchord Database version with its CNPG image",
       customType: "regex",
