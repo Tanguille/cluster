@@ -22,6 +22,19 @@ spec:
       valuesKey: FROM_ADDRESS
       targetPath: nextcloud.mail.fromAddress
 
+  # Chart has no automountServiceAccountToken value; nextcloud is the only
+  # internet-exposed app still auto-mounting its default SA token.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: nextcloud
+            patch: |-
+              - op: add
+                path: /spec/template/spec/automountServiceAccountToken
+                value: false
+
   values:
     prometheus:
       rules:
