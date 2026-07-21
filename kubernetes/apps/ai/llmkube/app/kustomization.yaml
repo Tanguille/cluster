@@ -6,11 +6,19 @@ resources:
   - ocirepository.yaml
   - helmrelease.yaml
   - grafanadashboard.yaml
+  - qwen36-27b-grafanadashboard.yaml
+  - qwen36-27b-prometheusrule.yaml
 
 configMapGenerator:
   - name: llmkube-inference-dashboard
     files:
       - dashboard/llmkube-inference.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+  - name: sglang-dashboard
+    files:
+      - dashboard/sglang.json
     options:
       annotations:
         kustomize.toolkit.fluxcd.io/substitute: disabled
