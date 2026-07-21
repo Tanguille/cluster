@@ -12,9 +12,8 @@ spec:
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS
-  # Upstream docs/grafana + chart recording rules expect llamacpp:request_seconds_bucket
-  # and llmkube_gpu_queue_wait_duration_seconds_bucket, which this cluster does not emit
-  # (llamacpp uses llamacpp:* counters; AMD iGPU has no NVIDIA queue histogram).
+  # Custom dashboard: upstream's expects metrics this cluster doesn't emit
+  # (vLLM request histograms; NVIDIA GPU-queue histograms on this AMD iGPU).
   configMapRef:
-    name: llmkube-inference-dashboard
+    name: llmkube-dashboards
     key: llmkube-inference.json

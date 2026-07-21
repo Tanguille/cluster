@@ -7,18 +7,13 @@ resources:
   - helmrelease.yaml
   - grafanadashboard.yaml
   - qwen36-27b-grafanadashboard.yaml
-  - qwen36-27b-prometheusrule.yaml
+  - prometheusrule.yaml
 
 configMapGenerator:
-  - name: llmkube-inference-dashboard
+  - name: llmkube-dashboards
     files:
       - dashboard/llmkube-inference.json
-    options:
-      annotations:
-        kustomize.toolkit.fluxcd.io/substitute: disabled
-  - name: sglang-dashboard
-    files:
-      - dashboard/sglang.json
+      - dashboard/qwen36-27b.json
     options:
       annotations:
         kustomize.toolkit.fluxcd.io/substitute: disabled
