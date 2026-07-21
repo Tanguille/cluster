@@ -3,18 +3,20 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: sglang-rules
+  name: llmkube-rules
 spec:
   groups:
-    - name: sglang.rules
+    - name: llmkube.rules
       rules:
-        - alert: SGLangDown
+        # Per-service via the shared scrape job: covers every current and future
+        # InferenceService, not just qwen36-27b.
+        - alert: LLMKubeInferenceDown
           expr: |-
-            up{job="ai/llmkube-inference", service="qwen36-27b"} == 0
+            up{job="ai/llmkube-inference"} == 0
           for: 10m
           annotations:
             summary: >-
-              sglang has not been scraped for 10m — inference is unavailable
+              InferenceService {{ $labels.service }} has not been scraped for 10m — inference is unavailable
           labels:
             severity: critical
 

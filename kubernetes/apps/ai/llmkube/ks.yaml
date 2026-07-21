@@ -36,6 +36,9 @@ spec:
     - name: llmkube
     - name: generic-device-plugin
       namespace: kube-system
+  # Deliberately gate only qwen36-27b: litellm and memini dependsOn this ks, and
+  # a wedged embedder (known vmcp-embedding affinity deadlock) must not block
+  # their reconciliation.
   healthChecks:
     - apiVersion: inference.llmkube.dev/v1alpha1
       kind: InferenceService

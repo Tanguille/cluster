@@ -4,8 +4,6 @@ kind: PersistentVolumeClaim
 metadata:
   name: qwen36-27b-model-cache
   namespace: ai
-  finalizers:
-    - kubernetes.io/pvc-protection
 spec:
   accessModes:
     - ReadWriteOnce
@@ -19,8 +17,6 @@ kind: PersistentVolumeClaim
 metadata:
   name: qwen36-27b-triton-cache
   namespace: ai
-  finalizers:
-    - kubernetes.io/pvc-protection
 spec:
   accessModes:
     - ReadWriteOnce
@@ -63,14 +59,12 @@ metadata:
 spec:
   modelRef: qwen36-27b-awq
   runtime: sglang
-  replicas: 1
   image: ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201@sha256:3d1561f6a87ce2d61f7c508f6c2f76fd6bbffb094c99d23cb097a89353355bfe
   containerPort: 30000
   endpoint:
     # v0.9.8 maps endpoint.port to both Service port and targetPort; use the
     # runtime port so generated traffic reaches SGLang directly.
     port: 30000
-    type: ClusterIP
   nodeSelector:
     kubernetes.io/hostname: control-1
   podSecurityContext:
@@ -134,6 +128,8 @@ spec:
       exec:
         command:
           - "true"
+      # Inert probe; hourly period avoids a pointless CRI exec every 10s.
+      periodSeconds: 3600
     readiness:
       tcpSocket:
         port: 30000
@@ -180,6 +176,8 @@ spec:
     - --enable-mixed-chunk
     - --hicache-write-policy
     - write_through_selective
-    # Operator hardcodes --host :: (IPv6-only on this IPv4 cluster); last --host wins.
+    # Operator hardcodes --host :: on EVERY InferenceService (IPv6-only bind on
+    # this IPv4 cluster); last --host wins. The llamacpp models need no override
+    # only because llama.cpp binds :: dual-stack — a runtime swap would break them.
     - --host
     - 0.0.0.0

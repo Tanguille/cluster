@@ -18,7 +18,7 @@ spec:
       resources:
         requests:
           cpu: 10m
-          memory: 78Mi
+          memory: 128Mi
         limits:
           memory: 128Mi
 
@@ -36,59 +36,23 @@ spec:
       inferencePodMonitor:
         enabled: true
       prometheusRule:
-        enabled: true
-        namespace: ai
-        rules:
-          # DCGM_FI_* alerts — NVIDIA-only; this cluster uses AMD squat.ai/dri.
-          gpu:
-            enabled: false
+        # Chart alerts key on job="llmkube-inference"/"llmkube-controller" but this
+        # cluster's scrape job is "ai/llmkube-inference", so they can never fire;
+        # its recording rules have no consumers. Repo alerts: prometheusrule.yaml.
+        enabled: false
 
-    # Persistent model cache on ceph-filesystem (CephFS, RWX). It's a SINGLE
-    # shared PVC mounted by the controller-manager and every InferenceService,
-    # which land on different iGPU nodes (qwen3-embedding on control-3, qwen35-2b
-    # on control-2) — so it must be RWX: an RWO volume multi-attach-errors across
-    # nodes. The cache is cold (write-once on download, read-once at model load,
-    # then idle — weights live in VRAM), so CephFS network latency never touches
-    # the inference path; only a few seconds of extra cold-start read.
-    # REQUIRES llmkube >= 0.8.21: with a PVC cache the operator injects a
-    # model-cache-prep init that chowns /models; 0.8.20 regressed it to non-root
-    # (uid 100) → "Operation not permitted" → CrashLoop. 0.8.21 runs it as root
-    # (upstream #888), so the chown succeeds on CephFS (fsGroupPolicy: None) too.
+    # Persistent model cache on ceph-filesystem (CephFS, RWX). A SINGLE shared
+    # PVC mounted by the controller-manager and the iGPU InferenceServices, which
+    # land on different nodes (qwen3-embedding on control-3, qwen35-2b on
+    # control-2) — so it must be RWX: an RWO volume multi-attach-errors across
+    # nodes. qwen36-27b brings its own node-local modelCache.claimName instead.
+    # The cache is cold (write-once on download, read-once at model load, then
+    # idle — weights live in VRAM), so CephFS latency never touches inference.
+    # The operator's model-cache-prep init chowns /models as root, so the chown
+    # succeeds on CephFS (fsGroupPolicy: None) too.
     modelCache:
       # qwen3-embedding 0.64Gi + qwen35-2b 1.18Gi + vmcp-embedding 0.29Gi ≈ 2.1Gi
       # + headroom (chart default is 100Gi)
       size: 4Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany
-
-  postRenderers:
-    - kustomize:
-        patches:
-          # The chart's recording rules assume vLLM histograms and wrong container names.
-          # Replace the group with a corrected version:
-          #  - llamacpp_request:p95_5m dropped (llamacpp:request_seconds_bucket doesn't exist)
-          #  - request_latency:p95_5m dropped (vllm:e2e_request_latency_seconds_bucket, vLLM only)
-          #  - restarts:rate5m fixed: container=~"llm-server" → adds "llama-server" (actual name)
-          # The test op guards the positional replace: if a chart bump reorders/renames the
-          # groups, the render fails loudly instead of silently clobbering the wrong group.
-          - patch: |-
-              - op: test
-                path: /spec/groups/1/name
-                value: llmkube-inference-recording
-              - op: replace
-                path: /spec/groups/1
-                value:
-                  interval: 30s
-                  name: llmkube-inference-recording
-                  rules:
-                    - record: llmkube:inference:restarts:rate5m
-                      expr: |
-                        sum by (service, namespace, runtime) (
-                          rate(kube_pod_container_status_restarts_total{
-                            pod=~".+",
-                            container=~"llamacpp|vllm|tgi|personaplex|llm-server|llama-server"
-                          }[5m])
-                        )
-            target:
-              kind: PrometheusRule
-              name: llmkube-alerts
