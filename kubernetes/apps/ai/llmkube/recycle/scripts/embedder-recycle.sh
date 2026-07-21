@@ -7,7 +7,8 @@ token="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)"
 last_timestamp=
 
 json_field() {
-  printf '%s' "$1" | sed -n "s/.*\"$2\":\([^,}]*\).*/\1/p" | sed -n '1p'
+  # apiserver pretty-prints JSON for curl's User-Agent, so skip the space after the colon
+  printf '%s' "$1" | sed -n "s/.*\"$2\": *\([^,}]*\).*/\1/p" | sed -n '1p'
 }
 
 at_least_one() {
@@ -27,7 +28,9 @@ wait_ready() {
     updated="$(json_field "$status" updatedReplicas || true)"
     available="$(json_field "$status" availableReplicas || true)"
     ready="$(json_field "$status" readyReplicas || true)"
-    if [ "$observed" = "$generation" ] && at_least_one "$updated" && at_least_one "$available" && at_least_one "$ready"; then
+    # llmkube reconciles the Deployment right after our patch, bumping generation past
+    # the value we patched, so require observed >= ours rather than exact equality.
+    if at_least_one "$observed" && [ "$observed" -ge "$generation" ] && at_least_one "$updated" && at_least_one "$available" && at_least_one "$ready"; then
       return 0
     fi
     sleep 5
