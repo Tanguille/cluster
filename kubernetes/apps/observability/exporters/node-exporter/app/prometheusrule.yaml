@@ -1,0 +1,77 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-exporter-rules
+spec:
+  groups:
+    - name: node-exporter.rules
+      rules:
+        - alert: NodeMemoryAvailableLow
+          # kubelet starved at ~444MB in the 2026-07-20 control-2 wedge; 2GiB gives
+          # runway to intervene regardless of what is eating the node
+          expr: |-
+            node_memory_MemAvailable_bytes{kubernetes_node!=""} < 2147483648
+          for: 10m
+          annotations:
+            summary: >-
+              {{ $labels.kubernetes_node }} has under 2GiB memory available —
+              kubelet starvation follows if this keeps falling
+          labels:
+            severity: critical
+        - alert: NodeGTTMemoryHigh
+          # pinned iGPU memory the OOM killer cannot reclaim; normal embedder
+          # footprint is 1-2GB, the control-2 wedge had 4.7GB. Scoped to the two
+          # iGPU nodes — only they expose DRM/GTT.
+          expr: |-
+            node_drm_memory_gtt_used_bytes{kubernetes_node=~"control-[23]"} > 4294967296
+          for: 15m
+          annotations:
+            summary: >-
+              {{ $labels.kubernetes_node }} has over 4GiB of pinned GTT GPU memory —
+              likely the embedder leak; the nightly embedder-recycle should cap it
+          labels:
+            severity: warning
+        - alert: NodeDRMCollectorFailed
+          # A silently-dead DRM collector reads as "no GTT problem" (the xmrig-guard
+          # telemetry gap ran blind 40h this way).
+          expr: |-
+            max by (kubernetes_node) (
+              node_scrape_collector_success{collector="drm", kubernetes_node=~"control-[23]"} == 0
+            )
+          for: 10m
+          annotations:
+            summary: >-
+              DRM collector failed on {{ $labels.kubernetes_node }} — NodeGTTMemoryHigh
+              is blind until it recovers
+          labels:
+            severity: warning
+        - alert: NodeGTTTelemetryMissing
+          # Keep one alert identity per control node, including when the metric is
+          # absent entirely; NodeGTTMemoryHigh is blind until telemetry recovers.
+          expr: |-
+            max by (kubernetes_node) (
+              node_drm_memory_gtt_size_bytes{kubernetes_node=~"control-[23]"}
+            ) <= 0
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-2", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (
+                node_drm_memory_gtt_size_bytes{kubernetes_node="control-2"}
+              )
+            )
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-3", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (
+                node_drm_memory_gtt_size_bytes{kubernetes_node="control-3"}
+              )
+            )
+          for: 10m
+          annotations:
+            summary: >-
+              GTT telemetry is absent or non-positive on {{ $labels.kubernetes_node }} —
+              NodeGTTMemoryHigh is blind until it recovers
+          labels:
+            severity: warning

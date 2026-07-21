@@ -11,6 +11,10 @@ spec:
   interval: 1h
   values:
     fullnameOverride: *app
+    extraArgs:
+      # amdgpu GTT is pinned memory invisible to cgroups — the embedder leak
+      # that wedged control-2 twice is only observable through this collector
+      - --collector.drm
     prometheus:
       monitor:
         enabled: true
