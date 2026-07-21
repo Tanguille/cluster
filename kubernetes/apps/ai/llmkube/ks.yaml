@@ -36,9 +36,6 @@ spec:
     - name: llmkube
     - name: generic-device-plugin
       namespace: kube-system
-    # This only reduces reconciliation races; the in-pod gate guards teardown.
-    - name: sglang
-      namespace: ai
   healthChecks:
     - apiVersion: inference.llmkube.dev/v1alpha1
       kind: InferenceService

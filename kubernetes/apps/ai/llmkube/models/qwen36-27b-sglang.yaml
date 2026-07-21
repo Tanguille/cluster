@@ -65,26 +65,6 @@ spec:
   runtime: sglang
   replicas: 1
   image: ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201@sha256:3d1561f6a87ce2d61f7c508f6c2f76fd6bbffb094c99d23cb097a89353355bfe
-  # Wait for the legacy Deployment to finish scaling down before starting the
-  # native process; model-init may download while the legacy server still serves.
-  command:
-    - /bin/bash
-    - -ec
-    - |
-      TOKEN_FILE=/var/run/secrets/kubernetes.io/serviceaccount/token
-      CA_FILE=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-      API_URL="https://$${KUBERNETES_SERVICE_HOST}:$${KUBERNETES_SERVICE_PORT_HTTPS}/apis/apps/v1/namespaces/ai/deployments/sglang"
-      while true; do
-        if deployment="$(curl -fsS --cacert "$${CA_FILE}" -H "Authorization: Bearer $(cat "$${TOKEN_FILE}")" "$${API_URL}" 2>/dev/null)"; then
-          if python3 -c 'import json, sys; d=json.load(sys.stdin); m=d["metadata"]; s=d["spec"]; t=d.get("status", {}); raise SystemExit(0 if s.get("replicas") == 0 and t.get("observedGeneration", -1) >= m["generation"] and t.get("replicas", 0) == 0 else 1)' <<<"$${deployment}"; then
-            break
-          fi
-        fi
-        sleep 5
-      done
-      sleep 30
-      exec python3 -m sglang.launch_server "$@"
-    - --
   containerPort: 30000
   endpoint:
     # v0.9.8 maps endpoint.port to both Service port and targetPort; use the

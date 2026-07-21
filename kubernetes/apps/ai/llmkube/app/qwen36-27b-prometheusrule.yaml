@@ -10,7 +10,7 @@ spec:
       rules:
         - alert: SGLangDown
           expr: |-
-            up{job="sglang"} == 0
+            up{job="ai/llmkube-inference", service="qwen36-27b"} == 0
           for: 10m
           annotations:
             summary: >-
