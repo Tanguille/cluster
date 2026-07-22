@@ -2,7 +2,7 @@
 # curl -X POST --data-binary @talos/schematic.yaml \
 #  https://factory.talos.dev/schematics
 # Truenas VM (control-1)
-# dfc849d1bd15c28f7e812d46ac70744b563e49fea8aff2cf784d58eeaf47b92d
+# 6b3af3cd9190614d292a3f607b758c0bfdfd6a74b91c25d19fca504506511b73
 ---
 customization:
   extraKernelArgs:
@@ -16,6 +16,9 @@ customization:
     - amd_pstate=active
     - amdgpu.ppfeaturemask=0xffffffff
     - amdgpu.runpm=0
+    # PSP RAS reporting: arms error interrupts + MCA consumption, which NPD's
+    # CperHardwareError* alerts already consume. DF+UMC only, no GFX on this SKU.
+    - amdgpu.ras_enable=1
     - pcie_aspm.policy=performance
     - mitigations=off
     - security=none

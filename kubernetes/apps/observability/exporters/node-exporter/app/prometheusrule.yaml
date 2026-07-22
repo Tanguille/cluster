@@ -20,6 +20,18 @@ spec:
               kubelet starvation follows if this keeps falling
           labels:
             severity: critical
+        - alert: NodeRebooted
+          # control-1 solo-rebooted ~16x in 90d via an uncaptured guest kernel
+          # panic, first symptom a dead jellyfin stream. No `for:` - uptime crosses
+          # this once. Node clock both sides, so NTP skew after boot cannot bias it.
+          expr: |-
+            node_time_seconds{kubernetes_node!=""} - node_boot_time_seconds < 600
+          annotations:
+            summary: >-
+              {{ $labels.kubernetes_node }} booted less than 10 minutes ago —
+              confirm this reboot was intentional
+          labels:
+            severity: warning
         - alert: NodeGTTMemoryHigh
           # pinned iGPU memory the OOM killer cannot reclaim; normal embedder
           # footprint is 1-2GB, the control-2 wedge had 4.7GB. Scoped to the two
