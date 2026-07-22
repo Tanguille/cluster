@@ -2,7 +2,7 @@
 # curl -X POST --data-binary @talos/schematic.yaml \
 #  https://factory.talos.dev/schematics
 # Truenas VM (control-1)
-# dfc849d1bd15c28f7e812d46ac70744b563e49fea8aff2cf784d58eeaf47b92d
+# 6b3af3cd9190614d292a3f607b758c0bfdfd6a74b91c25d19fca504506511b73
 ---
 customization:
   extraKernelArgs:
@@ -16,6 +16,12 @@ customization:
     - amd_pstate=active
     - amdgpu.ppfeaturemask=0xffffffff
     - amdgpu.runpm=0
+    # Arms the PSP RAS trusted application: error-interrupt handling, MCA bank
+    # consumption and EEPROM-backed bad-page retirement. MEM ECC already corrects
+    # without it; this makes errors reportable and bad pages retirable. Adds no
+    # GFX instrumentation - hardware ability[101] is DF+UMC, the GFX bit is absent
+    # on this SKU. Check reported VRAM on first boot before sglang reclaims it.
+    - amdgpu.ras_enable=1
     - pcie_aspm.policy=performance
     - mitigations=off
     - security=none
