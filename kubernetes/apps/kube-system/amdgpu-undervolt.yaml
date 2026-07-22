@@ -28,13 +28,15 @@ spec:
               value: "-82"
             - name: POWER_LIMIT_WATTS
               value: "210"
-            # PMFW regulates on hotspot only; mem runs ~11C hotter. 80 measured as
-            # a no-op (mem 88.00 -> 87.52C): junction already sits 78-81C, so there
-            # was no error signal. The target has to undercut junction to make the
-            # curve ramp at all. Auto-mode scalars, NOT fan_curve (full
-            # OverDriveTable, driver 0x2E vs PMFW 0x32 mismatch on this SKU).
+            # Measured sweep at 209W, 60s avg per point: 82C->3274rpm/mem 80C,
+            # 78->3396/83, 75->3549/70, 72->3960/80, 70->4201/77. Fan tracks the
+            # target cleanly but mem barely moves across the band, so this buys
+            # noise, not cooling - 70 was +36% rpm over the 3088rpm stock average
+            # for ~3C. 82 keeps the controller engaged at +6%. Card has never been
+            # within 6C of its own 108C mem crit. Auto-mode scalars, NOT fan_curve
+            # (full OverDriveTable, driver 0x2E vs PMFW 0x32 mismatch on this SKU).
             - name: FAN_TARGET_TEMP_C
-              value: "70"
+              value: "82"
             - name: ACOUSTIC_TARGET_RPM
               value: "4500"
           command:
