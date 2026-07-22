@@ -21,12 +21,11 @@ spec:
           labels:
             severity: critical
         - alert: NodeRebooted
-          # control-1 has solo-rebooted ~16 times in 90d via an uncaptured guest
-          # kernel panic; the first symptom was always a dead jellyfin stream, not
-          # a page. Fires on planned upgrades too - that is the point, confirm the
-          # reboot was intended. No `for:` - uptime only crosses this once.
+          # control-1 solo-rebooted ~16x in 90d via an uncaptured guest kernel
+          # panic, first symptom a dead jellyfin stream. No `for:` - uptime crosses
+          # this once. Node clock both sides, so NTP skew after boot cannot bias it.
           expr: |-
-            (node_time_seconds{kubernetes_node!=""} - node_boot_time_seconds{kubernetes_node!=""}) < 600
+            node_time_seconds{kubernetes_node!=""} - node_boot_time_seconds < 600
           annotations:
             summary: >-
               {{ $labels.kubernetes_node }} booted less than 10 minutes ago —

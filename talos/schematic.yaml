@@ -16,11 +16,8 @@ customization:
     - amd_pstate=active
     - amdgpu.ppfeaturemask=0xffffffff
     - amdgpu.runpm=0
-    # Arms the PSP RAS trusted application: error-interrupt handling, MCA bank
-    # consumption and EEPROM-backed bad-page retirement. MEM ECC already corrects
-    # without it; this makes errors reportable and bad pages retirable. Adds no
-    # GFX instrumentation - hardware ability[101] is DF+UMC, the GFX bit is absent
-    # on this SKU. Check reported VRAM on first boot before sglang reclaims it.
+    # PSP RAS reporting: arms error interrupts + MCA consumption, which NPD's
+    # CperHardwareError* alerts already consume. DF+UMC only, no GFX on this SKU.
     - amdgpu.ras_enable=1
     - pcie_aspm.policy=performance
     - mitigations=off

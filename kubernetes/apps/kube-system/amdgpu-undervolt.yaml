@@ -28,11 +28,9 @@ spec:
               value: "-82"
             - name: POWER_LIMIT_WATTS
               value: "210"
-            # PMFW regulates the blower on hotspot only and cannot see the memory
-            # sensor, which measures ~11C hotter under load. At the stock 100C
-            # target the controller sits ~17C under its own setpoint and never
-            # ramps, leaving VRAM at 92-96C. Raise both: a lower target so it
-            # ramps at all, a higher acoustic ceiling so it is not capped at 3500.
+            # PMFW regulates on hotspot only; mem runs ~11C hotter and sat at
+            # 92-96C at the stock 100C target, so the curve never ramped. Auto-mode
+            # scalars, NOT fan_curve (full OverDriveTable, driver 0x2E vs PMFW 0x32).
             - name: FAN_TARGET_TEMP_C
               value: "80"
             - name: ACOUSTIC_TARGET_RPM
@@ -50,11 +48,6 @@ spec:
                 printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"
               }
 
-              # Both fan nodes are auto-mode scalars: the firmware curve stays in
-              # charge, only its setpoint moves. Deliberately NOT fan_curve, which
-              # switches modes and pushes a full OverDriveTable - this SKU has a
-              # driver/firmware interface mismatch (driver 0x2E, PMFW 0x32) and
-              # that is not a variable to add while a reboot cause is unexplained.
               apply_fan_setting() {
                 node="$1"
                 want="$2"
