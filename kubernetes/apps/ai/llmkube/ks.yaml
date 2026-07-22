@@ -58,23 +58,3 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: llmkube-recycle
-  namespace: &namespace ai
-spec:
-  interval: 30m
-  # Depends on the models so the allowlisted embedder Deployments exist before
-  # the nightly recycle CronJob targets them.
-  dependsOn:
-    - name: llmkube-models
-  path: ./kubernetes/apps/ai/llmkube/recycle
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  targetNamespace: *namespace

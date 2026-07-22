@@ -1,14 +1,14 @@
 # Embedder: CPU vs iGPU (Vulkan)
 
 Decision record for how the Qwen3 embedders run on the iGPU nodes, and why the
-GTT leak is handled by recycling rather than moving off the GPU.
+GTT leak is handled by native pod-lifetime recycling rather than moving off the GPU.
 
 ## Context
 
 Both ggml-Vulkan embedders (`qwen3-embedding`, `vmcp-embedding`) leak pinned
 iGPU GTT memory that cgroups cannot see, twice wedging control-2 into NotReady
 (2026-07-04, 2026-07-20). These are the two control-2 NotReady incidents that
-motivated the recycle guard. One proposed fix
+motivated the native lifetime guard. One proposed fix
 (PR #4082) was to move both embedders to `Model.spec.hardware.accelerator: cpu`,
 which removes the GTT path entirely and makes memory cgroup-visible. Before
 adopting it, we benchmarked the cost.
@@ -50,16 +50,12 @@ CPU is 5–35× slower — not worth the regression. **PR #4082 closed.** The iG
 stays, along with the nodeSelectors / affinity rules that only make sense while
 the embedders are GPU-pinned.
 
-The leak is bounded instead by a nightly `embedder-recycle` CronJob (PR #4095)
-that sequentially patches the `qwen3-embedding` and `vmcp-embedding` Deployment
-templates, then waits for each Deployment's replacement replicas to become
-Ready. This explicit Deployment allowlist is also enforced by RBAC; adding a
-leaky embedder requires adding its Deployment name to both the CronJob loop and
-the Role's `resourceNames`. A missed 04:30 run may start within the 1800-second
-`startingDeadlineSeconds` window; later runs are skipped rather than started
-late. A generic `llmkube-recycle` subapp keeps it decoupled from any single
-model, and a failed patch/readiness check fails the non-retrying Kubernetes Job
-for existing cluster monitoring to surface.
+The leak is bounded by LLMKube's native `maxPodLifetimeSeconds: 86400` on both
+InferenceServices. This support landed in upstream PR #1182 and is available
+in chart/CRD version 0.9.10; the chart and CRDs must be upgraded before these
+model fields are reconciled. LLMKube copies the lifetime to the generated
+Deployment pod template, so each Vulkan embedder is recycled after 24 hours,
+including startup and model load time, without bespoke controller logic.
 node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable
 <2 GiB, and missing GTT telemetry are the burst-leak backstop.
 
@@ -70,11 +66,10 @@ leak is specific to `mode: embedding`, not the Vulkan runtime.
 ## Alternatives considered
 
 - **llmkube's native eviction watchdog** (`spec.evictionProtection` + the
-  metal-agent reaper) is the reactive node-pressure equivalent and would also
-  catch burst wedges the nightly cron misses. Rejected for now: the metal-agent
-  DaemonSet isn't deployed (only `controllerManager` is), so it's a new
-  privileged node agent rather than a flag-flip — more surface than a tiny
-  CronJob buys. Revisit if a burst wedge recurs between nightly runs.
-- **Upstream fix** is the real resolution: the ggml-Vulkan GTT leak itself
-  (ggml-org/llama.cpp #12531 / #15054, open) or an llmkube pod-TTL field (none
-  exists on the CRD today). The CronJob is the ceiling until one lands.
+  metal-agent reaper) remains the reactive node-pressure equivalent and could
+  catch burst wedges before the 24-hour lifetime. It is not enabled: the
+  metal-agent DaemonSet isn't deployed (only `controllerManager` is), so it
+  would add a privileged node agent rather than use the existing CRD field.
+- **Upstream driver fix** remains the real resolution: the ggml-Vulkan GTT leak
+  itself (ggml-org/llama.cpp #12531 / #15054, open). Native lifetime recycling
+  is the current mitigation until that leak is fixed.

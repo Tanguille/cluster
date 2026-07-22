@@ -30,7 +30,7 @@ spec:
           annotations:
             summary: >-
               {{ $labels.kubernetes_node }} has over 4GiB of pinned GTT GPU memory —
-              likely the embedder leak; the nightly embedder-recycle should cap it
+              likely the embedder leak; native max pod lifetime recycling should cap it
           labels:
             severity: warning
         - alert: NodeDRMCollectorFailed
