@@ -1,0 +1,80 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Build sglang-rdna4 throughput candidate
+run-name: Build sglang-rdna4 throughput candidate ${{ inputs.run_token }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_token:
+        description: Benchmark build identifier
+        required: true
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/tanguille/sglang-rdna4
+  TAG: v0.5.15-gfx1201-decode-ab-086-087-${{ inputs.run_token }}
+  FORK_REF: a7e69a2cf9e13fcbf366a18aefbfb7798da4edcb
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate run token
+        env:
+          RUN_TOKEN: ${{ inputs.run_token }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${RUN_TOKEN}" || ! "${RUN_TOKEN}" =~ ^[a-z0-9-]{1,94}$ ]]; then
+            echo "run_token must contain only lowercase letters, digits, and dashes, with a maximum of 94 characters" >&2
+            exit 1
+          fi
+
+      - name: Move docker storage to /mnt
+        run: |
+          sudo systemctl stop docker.service docker.socket
+          sudo mkdir -p /mnt/docker
+          # Merge, don't clobber: preserve any other daemon settings the runner image ships.
+          echo "$(sudo jq '. + {"data-root":"/mnt/docker"}' /etc/docker/daemon.json 2>/dev/null || echo '{"data-root":"/mnt/docker"}')" \
+            | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker.service
+          docker info --format 'docker data root: {{.DockerRootDir}}'
+          df -h /mnt
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: docker/sglang-rdna4
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.TAG }}
+          build-args: |
+            FORK_REF=${{ env.FORK_REF }}
+          provenance: false
+          sbom: false
+
+      - name: Summary
+        run: echo "${IMAGE}:${TAG}@${{ steps.build.outputs.digest }}" >> "${GITHUB_STEP_SUMMARY}"

@@ -1,11 +1,11 @@
 # SGLang Single-Stream Decode Throughput Experiment
 
-**Status:** Draft for review
+**Status:** Approved, amended for a controlled maintenance window
 **Date:** 2026-07-22
 
 ## Goal
 
-Improve raw single-stream decode throughput for Qwen3.6-27B AWQ on the AMD R9700 (gfx1201), while preserving long-context stability and avoiding any production restart or in-place deployment change during the experiment.
+Improve raw single-stream decode throughput for Qwen3.6-27B AWQ on the AMD R9700 (gfx1201), while preserving long-context stability. Preparation must not affect production; the same-GPU A/B runs only in an explicitly approved maintenance window and production is restored afterward.
 
 ## Current Evidence
 
@@ -33,15 +33,24 @@ Profile the remaining AWQ/GDN GEMV path and develop another targeted optimizatio
 
 ## Experiment Design
 
-Run an offline or isolated A/B comparison:
+Run a sequential A/B comparison during an approved maintenance window because the cluster has one R9700:
 
 - **Control:** current production image and launch configuration.
-- **Candidate:** image rebuilt with patches 086 and 087, with the runtime KV-split sweep available if needed.
+- **Candidate:** a per-dispatch image rebuilt with patches 086 and 087, identified only by its unique run-token tag at its captured immutable `tag@sha256:digest`.
+- Stop the native InferenceService through its GitOps-managed `spec.replicas: 0` state before enabling the benchmark Deployment.
+- In the same GitOps transition, temporarily health-check `apps/v1` Deployment `qwen36-27b-decode-ab` instead of `InferenceService/qwen36-27b`, while retaining the existing InferenceService `healthCheckExprs`; restore the original health check before cleanup is complete.
+- Run control and candidate as sequential revisions of a Flux-managed `Recreate` Deployment on the same GPU; never run them concurrently.
+- Before either arm, fail closed unless the benchmark Pod is the single non-terminating Running/Ready Pod with the expected image, exact command and ordered args, and arm-specific Triton PVC; preserve logs, Pod status/description, and VRAM evidence on every exit.
+- Mount the existing model-cache PVC read-only and use experiment-only Triton-cache PVCs.
 - Same Qwen3.6-27B AWQ checkpoint, TP=1, FP8 KV, and model settings.
 - Single-stream concurrency only.
 - Context points: 2K, 32K, 128K, and approximately 180K tokens.
-- Measure both cold and warm Triton-cache conditions.
-- Use repeated runs at each point and report median plus tail behavior.
+- Measure both cold and warm Triton-cache conditions using the same PVC within
+  each arm; cold starts with a newly created PVC and warm follows an approved
+  same-image Pod-template restart.
+- Run three independent one-prompt processes at each context in both cache
+  states, with fixed seed/input/output validation, and report median plus tail
+  behavior while preserving each raw result.
 
 Record:
 
@@ -65,9 +74,13 @@ If the candidate fails these gates, retain the current image and document the me
 
 ## Safety and Scope
 
-- Do not restart, reconcile, or mutate the production SGLang workload as part of this experiment.
-- Do not change the production HelmRelease, image digest, or PVC contents.
-- Use a separate image reference and isolated pod/workload for testing.
+- Building the candidate and validating manifests must not restart, reconcile, or mutate production.
+- The benchmark interface accepts one argument for control and an arm plus full candidate `tag@sha256:digest`; validate all arm-specific state before issuing benchmark requests.
+- Live execution requires explicit approval for the maintenance window, GitOps stop, benchmark resources, cleanup, and production restore.
+- Do not change the production image digest or mutate the model-cache and production Triton-cache PVC contents.
+- Use a separate image reference, isolated Pods, and experiment-only Triton caches.
+- The temporary benchmark health check keeps `llmkube-models` and dependent Kustomizations healthy while production is intentionally `Stopped`; restore the original `InferenceService/qwen36-27b` health check before closing the window.
+- Restore `spec.replicas: 1` through GitOps after cleanup and verify production readiness before closing the window.
 - Promotion, if justified by the gates, is a separate change requiring explicit approval.
 
 ## Expected Outcome

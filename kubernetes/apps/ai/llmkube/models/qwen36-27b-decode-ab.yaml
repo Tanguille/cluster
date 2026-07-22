@@ -1,0 +1,205 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-decode-ab-control-triton
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-decode-ab-candidate-triton
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen36-27b-decode-ab
+  namespace: ai
+spec:
+  selector:
+    app.kubernetes.io/name: qwen36-27b-decode-ab
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen36-27b-decode-ab
+  namespace: ai
+  labels:
+    app.kubernetes.io/name: qwen36-27b-decode-ab
+spec:
+  replicas: 0
+  revisionHistoryLimit: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qwen36-27b-decode-ab
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: qwen36-27b-decode-ab
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: control-1
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        supplementalGroups:
+          - 44
+          - 226
+        seccompProfile:
+          type: Unconfined
+      containers:
+        - name: sglang
+          image: ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201@sha256:3d1561f6a87ce2d61f7c508f6c2f76fd6bbffb094c99d23cb097a89353355bfe
+          command:
+            - python3
+            - -m
+            - sglang.launch_server
+          args:
+            - --model-path
+            - /models/1bdc22cc0419b237/model.safetensors
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8000"
+            - --enable-metrics
+            - --served-model-name
+            - qwen-3.6
+            - --tp-size
+            - "1"
+            - --context-length
+            - "180000"
+            - --mem-fraction-static
+            - "0.875"
+            - --chunked-prefill-size
+            - "8192"
+            - --max-running-requests
+            - "32"
+            - --quantization
+            - awq
+            - --kv-cache-dtype
+            - fp8_e4m3
+            - --reasoning-parser
+            - qwen3
+            - --dtype
+            - bfloat16
+            - --num-continuous-decode-steps
+            - "16"
+            - --watchdog-timeout
+            - "600"
+            - --attention-backend
+            - triton
+            - --pre-warm-nccl
+            - --trust-remote-code
+            - --chat-template
+            - /opt/rdna4-inference/scripts/qwen3.6_devrole_chat_template.jinja
+            - --tool-call-parser
+            - qwen3_coder
+            - --disable-custom-all-reduce
+            - --disable-overlap-schedule
+            - --cuda-graph-backend-decode=disabled
+            - --cuda-graph-backend-prefill=disabled
+            - --max-mamba-cache-size
+            - "60"
+            - --mamba-ssm-dtype
+            - bfloat16
+            - --max-queued-requests
+            - "32"
+            - --weight-loader-drop-cache-after-load
+            - --enable-hierarchical-cache
+            - --hicache-io-backend
+            - direct
+            - --hicache-ratio
+            - "1.5"
+            - --model-loader-extra-config
+            - '{"num_threads":2}'
+            - --schedule-conservativeness
+            - "0.1"
+            - --enable-mixed-chunk
+            - --hicache-write-policy
+            - write_through_selective
+          env:
+            - name: HIP_VISIBLE_DEVICES
+              value: "0"
+            - name: ROCR_VISIBLE_DEVICES
+              value: "0"
+            - name: GPU_DEVICE_ORDINAL
+              value: "0"
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+            - name: HF_HUB_OFFLINE
+              value: "1"
+            - name: TRANSFORMERS_OFFLINE
+              value: "1"
+            - name: TRITON_CACHE_DIR
+              value: /cache/sglang/triton
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            requests:
+              cpu: "2"
+              memory: 24Gi
+              squat.ai/dri: "1"
+            limits:
+              memory: 24Gi
+              squat.ai/dri: "1"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 120
+          livenessProbe:
+            exec:
+              command:
+                - "true"
+            periodSeconds: 3600
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+              readOnly: true
+            - name: triton-cache
+              mountPath: /cache
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: qwen36-27b-model-cache
+            readOnly: true
+        - name: triton-cache
+          persistentVolumeClaim:
+            claimName: qwen36-27b-decode-ab-control-triton
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi
