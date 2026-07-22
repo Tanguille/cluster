@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: qwen36-27b-sglang-cache
+  name: qwen36-27b-model-cache
   namespace: ai
 spec:
   accessModes:
@@ -60,9 +60,11 @@ spec:
   modelRef: qwen36-27b-awq
   runtime: sglang
   image: ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201@sha256:3d1561f6a87ce2d61f7c508f6c2f76fd6bbffb094c99d23cb097a89353355bfe
-  containerPort: &port 30000
+  containerPort: 30000
   endpoint:
-    port: *port
+    # v0.9.8 maps endpoint.port to both Service port and targetPort; use the
+    # runtime port so generated traffic reaches SGLang directly.
+    port: 30000
   nodeSelector:
     kubernetes.io/hostname: control-1
   podSecurityContext:
@@ -74,7 +76,7 @@ spec:
     seccompProfile:
       type: Unconfined
   modelCache:
-    claimName: qwen36-27b-sglang-cache
+    claimName: qwen36-27b-model-cache
   sglangConfig:
     contextLength: 180000
     memFractionStatic: 0.875

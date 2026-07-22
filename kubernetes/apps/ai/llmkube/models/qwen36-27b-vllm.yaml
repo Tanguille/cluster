@@ -63,7 +63,6 @@ spec:
   image: docker.io/tcclaviger/vllm:latest@sha256:148daaa9a273235de8ce119f193d4adbcb30fef1aa35c289df13d34d0e7810fb
   replicas: 0
   vllmConfig:
-    tensorParallelSize: 1
     maxModelLen: 180000
     quantization: awq
     dtype: bfloat16
@@ -89,5 +88,4 @@ spec:
     cpu: "8"
     memory: 32Gi
   endpoint:
-    type: ClusterIP
     port: 8000
