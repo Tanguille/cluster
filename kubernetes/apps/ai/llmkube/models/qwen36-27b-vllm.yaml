@@ -1,0 +1,80 @@
+---
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen36-27b-vllm
+spec:
+  source: hf://cyankiwi/Qwen3.6-27B-AWQ-INT4@8f269fb53eb3fe3be8f01f9755f20570cef0ebe0
+  format: safetensors
+  quantization: AWQ
+  files:
+    - model-00001-of-00004.safetensors
+    - model-00002-of-00004.safetensors
+    - model-00003-of-00004.safetensors
+    - model-00004-of-00004.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - configuration.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - chat_template.jinja
+    - merges.txt
+    - vocab.json
+    - preprocessor_config.json
+    - video_preprocessor_config.json
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: rocm
+    memoryBudget: 34Gi
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+      memory: 32Gi
+  resources:
+    cpu: "8"
+    memory: 48Gi
+---
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen36-27b-vllm
+spec:
+  modelRef: qwen36-27b-vllm
+  runtime: vllm
+  modelCache:
+    claimName: qwen36-27b-vllm-cache
+  image: docker.io/tcclaviger/vllm:latest@sha256:148daaa9a273235de8ce119f193d4adbcb30fef1aa35c289df13d34d0e7810fb
+  replicas: 0
+  vllmConfig:
+    tensorParallelSize: 1
+    maxModelLen: 180000
+    quantization: awq
+    dtype: bfloat16
+    kvCacheDtype: fp8_e4m3
+    enablePrefixCaching: true
+    enableChunkedPrefill: true
+    maxNumBatchedTokens: 8192
+    gpuMemoryUtilization: 0.875
+  env:
+    - name: VLLM_ROCM_USE_AITER
+      value: "0"
+    - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
+      value: "TRUE"
+  nodeSelector:
+    amd.com/gpu: "true"
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  resources:
+    cpu: "8"
+    memory: 32Gi
+  endpoint:
+    type: ClusterIP
+    port: 8000
