@@ -28,11 +28,13 @@ spec:
               value: "-82"
             - name: POWER_LIMIT_WATTS
               value: "210"
-            # PMFW regulates on hotspot only; mem runs ~11C hotter and sat at
-            # 92-96C at the stock 100C target, so the curve never ramped. Auto-mode
-            # scalars, NOT fan_curve (full OverDriveTable, driver 0x2E vs PMFW 0x32).
+            # PMFW regulates on hotspot only; mem runs ~11C hotter. 80 measured as
+            # a no-op (mem 88.00 -> 87.52C): junction already sits 78-81C, so there
+            # was no error signal. The target has to undercut junction to make the
+            # curve ramp at all. Auto-mode scalars, NOT fan_curve (full
+            # OverDriveTable, driver 0x2E vs PMFW 0x32 mismatch on this SKU).
             - name: FAN_TARGET_TEMP_C
-              value: "80"
+              value: "70"
             - name: ACOUSTIC_TARGET_RPM
               value: "4500"
           command:
