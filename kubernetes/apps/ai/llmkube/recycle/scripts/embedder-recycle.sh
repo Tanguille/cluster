@@ -49,7 +49,10 @@ for deployment in qwen3-embedding vmcp-embedding; do
   patched="$(curl -fsS --connect-timeout 10 --max-time 30 --cacert "$ca" -H "Authorization: Bearer $token" -H "Content-Type: application/merge-patch+json" -X PATCH --data "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$timestamp\"}}}}}" "$api/$deployment")"
   generation="$(json_field "$patched" generation || true)"
   case "$generation" in
-    ''|*[!0-9]*) exit 1 ;;
+    ''|*[!0-9]*)
+      echo "PATCH $deployment: unparseable generation; response: $(printf '%s' "$patched" | head -c 400)" >&2
+      exit 1
+      ;;
   esac
-  wait_ready "$deployment" "$generation"
+  wait_ready "$deployment" "$generation" || { echo "$deployment not ready after recycle (generation $generation)" >&2; exit 1; }
 done
