@@ -28,6 +28,17 @@ spec:
               value: "-82"
             - name: POWER_LIMIT_WATTS
               value: "210"
+            # Measured sweep at 209W, 60s avg per point: 82C->3274rpm/mem 80C,
+            # 78->3396/83, 75->3549/70, 72->3960/80, 70->4201/77. Fan tracks the
+            # target cleanly but mem barely moves across the band, so this buys
+            # noise, not cooling - 70 was +36% rpm over the 3088rpm stock average
+            # for ~3C. 82 keeps the controller engaged at +6%. Card has never been
+            # within 6C of its own 108C mem crit. Auto-mode scalars, NOT fan_curve
+            # (full OverDriveTable, driver 0x2E vs PMFW 0x32 mismatch on this SKU).
+            - name: FAN_TARGET_TEMP_C
+              value: "82"
+            - name: ACOUSTIC_TARGET_RPM
+              value: "4500"
           command:
             - /bin/sh
             - -c
@@ -41,11 +52,32 @@ spec:
                 printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"
               }
 
+              apply_fan_setting() {
+                node="$1"
+                want="$2"
+                node_name=$(basename "$node")
+
+                if [ ! -w "$node" ]; then
+                  log "skipping $${node_name}: not writable"
+                  return
+                fi
+
+                echo "$want" > "$node"
+                echo c > "$node"
+                got=$(tr -d '\000' < "$node" | awk 'NR==2{print $1; exit}')
+                if [ "$got" = "$want" ]; then
+                  log "set $${node_name} to $${want}"
+                else
+                  log "$${node_name} failed: wanted $${want}, got $${got:-unknown}"
+                fi
+              }
+
               apply_gpu_tuning() {
                 card="$1"
                 card_name=$(basename "$(dirname "$card")")
                 od="$card/pp_od_clk_voltage"
                 perf="$card/power_dpm_force_performance_level"
+                fan_ctrl="$card/gpu_od/fan_ctrl"
 
                 if [ -w "$perf" ] && [ -w "$od" ]; then
                   echo manual > "$perf"
@@ -60,6 +92,9 @@ spec:
                 else
                   log "skipping VDDGFX offset for $${card_name}: pp_od or perf level not writable"
                 fi
+
+                apply_fan_setting "$fan_ctrl/fan_target_temperature" "$FAN_TARGET_TEMP_C"
+                apply_fan_setting "$fan_ctrl/acoustic_target_rpm_threshold" "$ACOUSTIC_TARGET_RPM"
 
                 for cap in "$card"/hwmon/hwmon*/power1_cap; do
                   [ -e "$cap" ] || continue

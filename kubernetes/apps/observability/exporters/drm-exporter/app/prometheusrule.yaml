@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: drm-exporter-rules
+spec:
+  groups:
+    - name: drm-exporter.rules
+      rules:
+        - alert: GpuFanStalled
+          # ROCm #6101 and #6078 are filed against this exact SKU (ASUS Turbo
+          # R9700): blower stationary under load, GPU to 109C, thermally
+          # throttling. Root cause is the SMU interface mismatch this card also
+          # reports (driver 0x2e vs fw 0x32) leaving fan registers inaccessible.
+          # No upstream fix, reported still present on kernel 7.0. The fan is the
+          # only thermal margin this card has, so this is the one GPU condition
+          # worth paging on. Floor is 30% PWM (~1650rpm); under 1000 while pulling
+          # >100W is the stall, not a low idle.
+          expr: |-
+            max by (kubernetes_node) (drm_fan_speed_rpm) < 1000
+            and
+            max by (kubernetes_node) (drm_power_watts) > 100
+          for: 5m
+          annotations:
+            summary: >-
+              {{ $labels.kubernetes_node }} GPU fan has stalled under load —
+              card has no thermal margin without it, power off the GPU workload
+          labels:
+            severity: critical
