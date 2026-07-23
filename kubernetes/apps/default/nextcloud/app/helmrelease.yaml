@@ -47,9 +47,7 @@ spec:
       rules:
         enabled: true
 
-    # Preferred, not required: control-1 solo-resets ~16x/90d (NodeRebooted) while
-    # its host stays up; the NFS-backed PVC means this only helps that guest-only
-    # case, but a hard pin made every one of them an outage.
+    # Preferred, not required: control-1 solo-resets ~16x/90d, and a hard pin made every one of those an outage.
     affinity:
       nodeAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:

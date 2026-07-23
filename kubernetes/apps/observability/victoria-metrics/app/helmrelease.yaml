@@ -251,9 +251,7 @@ spec:
           - vmalert.${SECRET_DOMAIN}
         parentRefs: *internalParentRefs
       spec:
-        # The whole pipeline went Pending in the 2026-07-23 outage: nothing was
-        # scraped, no rules evaluated, alertmanager reported 0 active alerts.
-        # Sizes below are observed usage, not the requests a few lines down.
+        # Observed usage, not the request below; pipeline went fully Pending in the 07-23 outage.
         priorityClassName: homelab-critical # 149Mi
         datasource:
           url: *vmqueryUrl
@@ -320,8 +318,7 @@ spec:
         hostnames: ["vmsingle.${SECRET_DOMAIN}"]
         parentRefs: *internalParentRefs
       spec:
-        # The TSDB the other three write to and query; if it cannot schedule,
-        # their being schedulable buys nothing.
+        # TSDB the other three write to/query; scheduling them without this buys nothing.
         priorityClassName: homelab-critical
         # 180d: 365d retention couldn't fit the 200Gi PVC at current 140GB usage
         retentionPeriod: 180d

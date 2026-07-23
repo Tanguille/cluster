@@ -1,9 +1,5 @@
 ---
-# 2026-07-23 outage: scheduler found no preemption victims 126x; 75/81 Pending
-# pods had no priorityClassName, so exporters outranked vmagent/vmalert/vmauth/
-# vmsingle. Unclassified pods stay at 0, so this class alone restores ordering.
-# Only the metrics pipeline is on it so far; grafana and the databases that also
-# went Pending are a follow-up.
+# Unclassified pods default to 0, so this alone restores preemption ordering for vmagent/vmalert/vmauth/vmsingle after the 07-23 outage.
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
