@@ -17,9 +17,6 @@ spec:
   # traffic on the survivor and can exhaust its PgBouncer wait queue.
   template:
     spec:
-      dnsConfig:
-        options:
-          - name: use-vc
       containers:
         - name: pgbouncer
           resources:

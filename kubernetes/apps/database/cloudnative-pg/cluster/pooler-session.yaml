@@ -14,9 +14,6 @@ spec:
   # kills request-less pods first) and spread across nodes.
   template:
     spec:
-      dnsConfig:
-        options:
-          - name: use-vc
       containers:
         - name: pgbouncer
           resources:
