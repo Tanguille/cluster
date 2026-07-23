@@ -47,11 +47,13 @@ spec:
       rules:
         enabled: true
 
+    # Preferred, not required: control-1 solo-resets ~16x/90d, and a hard pin made every one of those an outage.
     affinity:
       nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
                 - key: kubernetes.io/hostname
                   operator: In
                   values:
