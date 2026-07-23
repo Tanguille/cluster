@@ -82,12 +82,7 @@ spec:
       max_connections: "150"
       shared_buffers: 1GB
       effective_cache_size: 4GB
-      # "off", not "try": shared_memory_size is 1111MB so postgres needs 556 pages,
-      # the hugepages-2Mi limit granted 512, and try fell back to 4K silently for
-      # the life of the cluster (HugePages_Rsvd 0 on every node). Dropping the
-      # limit without this would remove the pod-cgroup cap and let postgres finally
-      # take 556 pages, starving xmrig. Hugepages buy ~25MiB of page tables here
-      # and the published gains start above ~80 connections; we run 41.
+      # off, not the try default: without a cap postgres would grab hugepages meant for xmrig once the request below is dropped.
       huge_pages: "off"
       # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
       io_method: "worker"
