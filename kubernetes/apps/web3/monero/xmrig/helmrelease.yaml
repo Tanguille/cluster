@@ -48,11 +48,15 @@ spec:
               requests:
                 cpu: 1
                 memory: 32Mi
-                hugepages-2Mi: 3Gi
+                # Measured need is 1175 pages: 1040 dataset + 128 RandomX cache
+                # (retained to rebuild on seed change) + 6 scratchpads at 6 threads.
+                # 1184 pages leaves room for 8. Do not trim below the cache: xmrig
+                # falls back to _mm_malloc for it, which exceeds the 128Mi limit.
+                hugepages-2Mi: 2368Mi
               limits:
                 cpu: 6
                 memory: 128Mi
-                hugepages-2Mi: 3Gi
+                hugepages-2Mi: 2368Mi
     persistence:
       tmp:
         type: emptyDir

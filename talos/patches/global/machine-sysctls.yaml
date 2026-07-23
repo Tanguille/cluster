@@ -16,4 +16,10 @@ machine:
     net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
     net.ipv4.tcp_slow_start_after_idle: "0" # Preserve congestion window after idle
     user.max_user_namespaces: "11255" # User Namespaces
-    vm.nr_hugepages: "2048"
+    # Sized to xmrig alone (the only real consumer), measured 2026-07-23 with one
+    # miner pinned up: "allocated 2336 MB (2080+256) huge pages 100% 1168/1168"
+    # plus 6 scratchpad pages = 1175 of 2048 used, node HugePages_Free 2048 -> 873.
+    # 1184 leaves margin for 8 threads. CNPG asked for 512 pages but postgres needs
+    # 556, so huge_pages=try silently fell back to 4K and reserved 0 - that request
+    # is dropped in the same change, along with huge_pages: "off" to keep it there.
+    vm.nr_hugepages: "1184"
