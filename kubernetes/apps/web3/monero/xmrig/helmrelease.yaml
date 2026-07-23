@@ -48,11 +48,12 @@ spec:
               requests:
                 cpu: 1
                 memory: 32Mi
-                hugepages-2Mi: 3Gi
+                # 1184 pages measured (1040 dataset + 128 cache + scratchpads); below the cache xmrig falls back to _mm_malloc and OOMs.
+                hugepages-2Mi: 2368Mi
               limits:
                 cpu: 6
                 memory: 128Mi
-                hugepages-2Mi: 3Gi
+                hugepages-2Mi: 2368Mi
     persistence:
       tmp:
         type: emptyDir
