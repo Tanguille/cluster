@@ -1,0 +1,8 @@
+---
+# Unclassified pods default to 0, so this alone restores preemption ordering for vmagent/vmalert/vmauth/vmsingle after the 07-23 outage.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-critical
+value: 500000
+description: "Infrastructure whose loss blinds or breaks the cluster: monitoring pipeline, databases, poolers, gateways"
