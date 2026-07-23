@@ -50,7 +50,8 @@ spec:
       kind: InferenceService
       inProgress: has(status.phase) && status.phase in ['Pending', 'Creating', 'Progressing', 'WaitingForGPU']
       failed: has(status.phase) && status.phase == 'Failed'
-      current: has(status.phase) && status.phase == 'Ready' && has(status.conditions) && status.conditions.exists(e, e.type == 'Available' && e.status == 'True')
+      # Stopped is terminal; the CRD says treat it as Pending, which deadlocks this gate.
+      current: has(status.phase) && (status.phase == 'Stopped' || (status.phase == 'Ready' && has(status.conditions) && status.conditions.exists(e, e.type == 'Available' && e.status == 'True')))
   path: ./kubernetes/apps/ai/llmkube/models
   prune: true
   sourceRef:
