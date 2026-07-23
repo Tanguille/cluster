@@ -12,12 +12,30 @@ spec:
     requests:
       storage: 50Gi
 ---
+# torch.compile + inductor + triton JIT costs ~100s compile plus a long
+# single-threaded warmup; without a volume it lands on the container fs and is
+# re-paid on every restart.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-vllm-compile-cache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
   name: qwen36-27b-vllm
 spec:
-  source: hf://cyankiwi/Qwen3.6-27B-AWQ-INT4@8f269fb53eb3fe3be8f01f9755f20570cef0ebe0
+  # Upstream squashed main 2026-07-21; the previous pin 404s and the downloader
+  # exits 1 on an empty PVC, so a stale sha CrashLoops the init container forever.
+  source: hf://cyankiwi/Qwen3.6-27B-AWQ-INT4@e5cc0400fb2403c437c2c40a7c52fb5ae93fda18
   format: safetensors
   quantization: AWQ
   files:
@@ -47,9 +65,10 @@ spec:
       runtime: rocm
       resourceName: squat.ai/dri
       memory: 32Gi
-  resources:
-    cpu: "8"
-    memory: 48Gi
+  # No resources block: matches qwen36-27b-sglang's Model, whose curl-only
+  # download init containers run with no requests/limits at all. The 8cpu/48Gi
+  # this carried before was never exercised and would starve on a node that
+  # sits at 80% cpu / 93% memory before the serving pod even starts.
 ---
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
@@ -60,22 +79,86 @@ spec:
   runtime: vllm
   modelCache:
     claimName: qwen36-27b-vllm-cache
-  image: docker.io/tcclaviger/vllm:latest@sha256:dfb67a2c947e995978c03fb7e1d7a0b0601cf3d9958865df1659b165a367153f
+  # Official AMD-maintained ROCm line, not the community build: tcclaviger ships
+  # pure-Python overlays onto a binary frozen 2026-07-08, so it structurally cannot
+  # deliver PR #40977 (795 lines of HIP needing compilation). This nightly has it
+  # (merge commit 382bbd51 is an ancestor, behind_by=0) and compiles gfx1201, so
+  # RDNAHybridW4A16LinearKernel outranks the gfx1151-tuned TritonW4A16 fallback.
+  image: docker.io/vllm/vllm-openai-rocm:nightly-4080263bb2c5d10deac17aaeb88e0823bc35bca9@sha256:b72e4aca14bae0f853cca1bb71bcf17dae30ef2e2f9ec39485f4da0506383380
   replicas: 0
+  # 48 GDN linear_attention layers hold ~150MiB of state per slot; the vLLM default
+  # of 256 seqs demands tens of GiB and dies at KV-cache init.
+  parallelSlots: 8
   vllmConfig:
     maxModelLen: 180000
-    quantization: awq
-    dtype: bfloat16
     kvCacheDtype: fp8_e4m3
     enablePrefixCaching: true
-    enableChunkedPrefill: true
     maxNumBatchedTokens: 8192
+    # Matches sglang's memFractionStatic so the benchmark compares runtimes, not
+    # memory budgets; 180K fits here only because --mamba-ssm-cache-dtype bfloat16
+    # halves GDN state (~150 -> ~76MiB/slot), which is what sglang already runs.
+    # quantization/dtype deliberately unset: the checkpoint is compressed-tensors
+    # pack-quantized (not awq) and fp16, and _verify_quantization raises on awq.
     gpuMemoryUtilization: 0.875
   env:
     - name: VLLM_ROCM_USE_AITER
       value: "0"
     - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
       value: "TRUE"
+    # Both set: HIP_VISIBLE_DEVICES gates the HIP runtime, ROCR_VISIBLE_DEVICES
+    # gates the ROCr driver layer underneath it; same single GPU either reads.
+    - name: HIP_VISIBLE_DEVICES
+      value: "0"
+    - name: ROCR_VISIBLE_DEVICES
+      value: "0"
+    # All three JIT layers write under their own root; point each at the PVC.
+    - name: VLLM_CACHE_ROOT
+      value: /cache/vllm
+    - name: TRITON_CACHE_DIR
+      value: /cache/triton
+    - name: TORCHINDUCTOR_CACHE_DIR
+      value: /cache/inductor
+  extraVolumes:
+    - name: compile-cache
+      persistentVolumeClaim:
+        claimName: qwen36-27b-vllm-compile-cache
+  extraVolumeMounts:
+    - name: compile-cache
+      mountPath: /cache
+  extraArgs:
+    # Operator never emits --served-model-name; without it the id is /models/<hash>.
+    - --served-model-name
+    - qwen-3.6
+    # Both preprocessor configs are staged; video dummy-data profiling is what makes
+    # the memory budget above hold.
+    - --limit-mm-per-prompt
+    - '{"image":0,"video":0}'
+    # Matches sglang's --mamba-ssm-dtype bfloat16; halves GDN state so 180K fits
+    # at the same 0.875 budget.
+    - --mamba-ssm-cache-dtype
+    - bfloat16
+    - --trust-remote-code
+    - --host
+    - 0.0.0.0
+  probeOverrides:
+    # Default 30min budget kills the pod mid-startup on this image.
+    startup:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    liveness:
+      exec:
+        command: ["true"]
+      periodSeconds: 3600
+    readiness:
+      tcpSocket:
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
@@ -84,8 +167,10 @@ spec:
     supplementalGroups: [44, 226]
     seccompProfile:
       type: Unconfined
+  # Mirrors sglang: control-1 sits at 80% cpu / 93% memory, so 8 cpu / 32Gi stays
+  # Pending even after sglang releases its share.
   resources:
-    cpu: "8"
-    memory: 32Gi
+    cpu: "2"
+    memory: 24Gi
   endpoint:
     port: 8000
