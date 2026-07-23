@@ -1,22 +1,10 @@
 ---
-# During the 2026-07-23 control-1 outage the scheduler logged "No preemption
-# victims found" 126 times: 75 of 81 Pending pods had no priorityClassName, so
-# exporters and hobby apps held memory while vmagent, vmalert, grafana and
-# litellm queued behind them. Preemption creates no capacity - it only decides
-# what dies first.
+# 2026-07-23 outage: scheduler found no preemption victims 126x; 75/81 Pending
+# pods had no priorityClassName, so exporters outranked vmagent/vmalert/grafana.
+# Unclassified pods stay at 0, so this class alone restores the ordering.
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: homelab-critical
 value: 500000
 description: "Infrastructure whose loss blinds or breaks the cluster: monitoring pipeline, databases, poolers, gateways"
----
-# Sits above low-priority-mining (-1000) but below the unclassified default (0),
-# so these yield to normal workloads without competing with the miners.
-apiVersion: scheduling.k8s.io/v1
-kind: PriorityClass
-metadata:
-  name: homelab-low
-value: -100
-description: "Non-essential workloads that should yield capacity during a node loss"
-preemptionPolicy: Never

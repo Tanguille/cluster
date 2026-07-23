@@ -251,9 +251,10 @@ spec:
           - vmalert.${SECRET_DOMAIN}
         parentRefs: *internalParentRefs
       spec:
-        # 149Mi. Went Pending during the control-1 outage; zero alert rules were
-        # evaluated for the duration and alertmanager reported 0 active alerts.
-        priorityClassName: homelab-critical
+        # The whole pipeline went Pending in the 2026-07-23 outage: nothing was
+        # scraped, no rules evaluated, alertmanager reported 0 active alerts.
+        # Sizes below are observed usage, not the requests a few lines down.
+        priorityClassName: homelab-critical # 149Mi
         datasource:
           url: *vmqueryUrl
         extraArgs:
@@ -277,10 +278,7 @@ spec:
       rbac:
         namespaced: false
       spec:
-        # 274Mi and the single point of failure for all metrics: when this is
-        # Pending nothing is scraped cluster-wide, so every other component is
-        # blind regardless of its own health.
-        priorityClassName: homelab-critical
+        priorityClassName: homelab-critical # 274Mi, sole scrape path
         selectAllByDefault: true
         resources:
           requests:
@@ -296,8 +294,7 @@ spec:
         operated-prometheus: "true"
         self-monitor: "true"
       spec:
-        # 122Mi; the remote query path Grafana reads through.
-        priorityClassName: homelab-critical
+        priorityClassName: homelab-critical # 122Mi, Grafana's query path
         extraArgs:
           requestBufferSize: "65536"
         managedMetadata:
@@ -323,6 +320,9 @@ spec:
         hostnames: ["vmsingle.${SECRET_DOMAIN}"]
         parentRefs: *internalParentRefs
       spec:
+        # The TSDB the other three write to and query; if it cannot schedule,
+        # their being schedulable buys nothing.
+        priorityClassName: homelab-critical
         # 180d: 365d retention couldn't fit the 200Gi PVC at current 140GB usage
         retentionPeriod: 180d
         resources:

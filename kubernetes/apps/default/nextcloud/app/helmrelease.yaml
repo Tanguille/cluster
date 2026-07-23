@@ -47,10 +47,9 @@ spec:
       rules:
         enabled: true
 
-    # Preferred, not required: control-1 solo-resets while its host stays up
-    # (~16x in 90d per the NodeRebooted rule), and a hard pin turns every one of
-    # those into a nextcloud outage for no gain. The data PVC is NFS off the
-    # hypervisor, so scheduling elsewhere is only useful for a guest-only reset.
+    # Preferred, not required: control-1 solo-resets ~16x/90d (NodeRebooted) while
+    # its host stays up; the NFS-backed PVC means this only helps that guest-only
+    # case, but a hard pin made every one of them an outage.
     affinity:
       nodeAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
