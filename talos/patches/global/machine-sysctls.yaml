@@ -16,8 +16,11 @@ machine:
     net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
     net.ipv4.tcp_slow_start_after_idle: "0" # Preserve congestion window after idle
     user.max_user_namespaces: "11255" # User Namespaces
-    # 4Gi/node: CNPG's 1Gi (one instance per node) + xmrig's 3Gi. xmrig scales to
-    # maxReplicaCount 3 with required per-host anti-affinity, so every node is a
-    # miner node; hugepages need request==limit, so anything below 2048 makes
-    # xmrig permanently unschedulable rather than reclaiming idle memory.
+    # Left at 4Gi/node pending a proper resize, NOT because 4Gi is right.
+    # Measured 2026-07-23: HugePages_Free == Total == 2048 on all three nodes,
+    # Rsvd 0 - nothing in the cluster uses a single hugepage. CNPG asks for 1Gi
+    # (512 pages) but needs shared_memory_size_in_huge_pages 556, so huge_pages=try
+    # silently falls back to 4K. xmrig (max 3 replicas, one per node) genuinely
+    # needs 1174 pages: 1040 dataset + 128 retained RandomX cache + 6 scratchpads.
+    # Cutting this without also fixing those two requests starves one or the other.
     vm.nr_hugepages: "2048"
