@@ -26,8 +26,14 @@ spec:
           env:
             - name: VOLTAGE_OFFSET_MV
               value: "-82"
+            # Measured sweep, uncontended, TG read from sglang's own counter:
+            #   210W -> 1027 PP / 23.09 TG   250W -> 1184 PP / 23.24 TG
+            #   290W -> 1150 PP / 27.80 TG   330W -> 1301 PP / 23.29 TG (drew 313)
+            # Decode is bandwidth-bound and flat at ~23 across the whole range, so
+            # watts only buy prefill. 250 takes +15% PP for 2.8% worse PP/W; 330
+            # takes +27% for 15% worse. 210 remains the best tok/W on both metrics.
             - name: POWER_LIMIT_WATTS
-              value: "210"
+              value: "250"
             # Measured sweep at 209W, 60s avg per point: 82C->3274rpm/mem 80C,
             # 78->3396/83, 75->3549/70, 72->3960/80, 70->4201/77. Fan tracks the
             # target cleanly but mem barely moves across the band, so this buys
