@@ -27,8 +27,7 @@ spec:
             io.kubernetes.pod.namespace: security
         - matchLabels:
             io.kubernetes.pod.namespace: database
-        # DNS replies are rev-NAT'd into ingress, so default-deny blocks them.
-        # No toPorts: the reply's dest port is the client's ephemeral, not 53.
+        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
         - matchLabels:
             io.kubernetes.pod.namespace: kube-system
             k8s-app: kube-dns
