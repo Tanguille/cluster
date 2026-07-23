@@ -16,4 +16,7 @@ machine:
     net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
     net.ipv4.tcp_slow_start_after_idle: "0" # Preserve congestion window after idle
     user.max_user_namespaces: "11255" # User Namespaces
-    vm.nr_hugepages: "2048"
+    # 1024 (2Gi/node) not 2048: the 4Gi reservation was sized for CNPG's 1Gi plus
+    # xmrig's 3Gi request, but xmrig is gated to 0 replicas by xmrig-guard, so the
+    # other 2Gi sat stranded on nodes that ran out of schedulable memory.
+    vm.nr_hugepages: "1024"

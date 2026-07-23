@@ -251,6 +251,9 @@ spec:
           - vmalert.${SECRET_DOMAIN}
         parentRefs: *internalParentRefs
       spec:
+        # 149Mi. Went Pending during the control-1 outage; zero alert rules were
+        # evaluated for the duration and alertmanager reported 0 active alerts.
+        priorityClassName: homelab-critical
         datasource:
           url: *vmqueryUrl
         extraArgs:
@@ -274,6 +277,10 @@ spec:
       rbac:
         namespaced: false
       spec:
+        # 274Mi and the single point of failure for all metrics: when this is
+        # Pending nothing is scraped cluster-wide, so every other component is
+        # blind regardless of its own health.
+        priorityClassName: homelab-critical
         selectAllByDefault: true
         resources:
           requests:
@@ -289,6 +296,8 @@ spec:
         operated-prometheus: "true"
         self-monitor: "true"
       spec:
+        # 122Mi; the remote query path Grafana reads through.
+        priorityClassName: homelab-critical
         extraArgs:
           requestBufferSize: "65536"
         managedMetadata:
