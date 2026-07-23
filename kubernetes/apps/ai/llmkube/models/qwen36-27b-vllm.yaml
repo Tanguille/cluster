@@ -12,14 +12,29 @@ spec:
     requests:
       storage: 50Gi
 ---
+# Persist torch, Triton, and Inductor compile caches across restarts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-vllm-compile-cache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
   name: qwen36-27b-vllm
 spec:
-  source: hf://cyankiwi/Qwen3.6-27B-AWQ-INT4@8f269fb53eb3fe3be8f01f9755f20570cef0ebe0
+  # Pin the model revision for reproducible staging.
+  source: hf://cyankiwi/Qwen3.6-27B-AWQ-INT4@e5cc0400fb2403c437c2c40a7c52fb5ae93fda18
   format: safetensors
-  quantization: AWQ
+  quantization: compressed-tensors
   files:
     - model-00001-of-00004.safetensors
     - model-00002-of-00004.safetensors
@@ -47,9 +62,6 @@ spec:
       runtime: rocm
       resourceName: squat.ai/dri
       memory: 32Gi
-  resources:
-    cpu: "8"
-    memory: 48Gi
 ---
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
@@ -60,15 +72,15 @@ spec:
   runtime: vllm
   modelCache:
     claimName: qwen36-27b-vllm-cache
-  image: docker.io/tcclaviger/vllm:latest@sha256:dfb67a2c947e995978c03fb7e1d7a0b0601cf3d9958865df1659b165a367153f
+  # Use the ROCm nightly with the required AMD kernel support.
+  image: docker.io/vllm/vllm-openai-rocm:nightly-4080263bb2c5d10deac17aaeb88e0823bc35bca9@sha256:b72e4aca14bae0f853cca1bb71bcf17dae30ef2e2f9ec39485f4da0506383380
   replicas: 0
+  # Limit concurrent sequence slots to fit the model's cache budget.
+  parallelSlots: 8
   vllmConfig:
     maxModelLen: 180000
-    quantization: awq
-    dtype: bfloat16
     kvCacheDtype: fp8_e4m3
     enablePrefixCaching: true
-    enableChunkedPrefill: true
     maxNumBatchedTokens: 8192
     gpuMemoryUtilization: 0.875
   env:
@@ -76,6 +88,57 @@ spec:
       value: "0"
     - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
       value: "TRUE"
+    - name: HIP_VISIBLE_DEVICES
+      value: "0"
+    - name: ROCR_VISIBLE_DEVICES
+      value: "0"
+    # Keep runtime compile caches on the persistent cache volume.
+    - name: VLLM_CACHE_ROOT
+      value: /cache/vllm
+    - name: TRITON_CACHE_DIR
+      value: /cache/triton
+    - name: TORCHINDUCTOR_CACHE_DIR
+      value: /cache/inductor
+  extraVolumes:
+    - name: compile-cache
+      persistentVolumeClaim:
+        claimName: qwen36-27b-vllm-compile-cache
+  extraVolumeMounts:
+    - name: compile-cache
+      mountPath: /cache
+  extraArgs:
+    # Expose the stable API model name.
+    - --served-model-name
+    - qwen-3.6
+    # Disable image and video multimodal inputs.
+    - --limit-mm-per-prompt
+    - '{"image":0,"video":0}'
+    # Use bfloat16 Mamba cache dtype to reduce memory for the long context window.
+    - --mamba-ssm-cache-dtype
+    - bfloat16
+    - --trust-remote-code
+    - --host
+    - 0.0.0.0
+  probeOverrides:
+    # Allow ample time for model startup and compilation.
+    startup:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    # TODO: Replace this always-successful check with a real health-based liveness probe before production cutover.
+    liveness:
+      exec:
+        command: ["true"]
+      periodSeconds: 3600
+    readiness:
+      tcpSocket:
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
@@ -85,7 +148,7 @@ spec:
     seccompProfile:
       type: Unconfined
   resources:
-    cpu: "8"
-    memory: 32Gi
+    cpu: "2"
+    memory: 24Gi
   endpoint:
     port: 8000
