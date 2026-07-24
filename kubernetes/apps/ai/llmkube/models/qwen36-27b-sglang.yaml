@@ -43,6 +43,8 @@ spec:
     - processor_config.json
     - tokenizer.json
     - tokenizer_config.json
+  # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
+  bindAddress: 0.0.0.0
   hardware:
     accelerator: rocm
     gpu:
@@ -176,8 +178,3 @@ spec:
     - --enable-mixed-chunk
     - --hicache-write-policy
     - write_through_selective
-    # Operator hardcodes --host :: on EVERY InferenceService (IPv6-only bind on
-    # this IPv4 cluster); last --host wins. The llamacpp models need no override
-    # only because llama.cpp binds :: dual-stack — a runtime swap would break them.
-    - --host
-    - 0.0.0.0
