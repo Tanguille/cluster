@@ -52,6 +52,8 @@ spec:
     - preprocessor_config.json
     - video_preprocessor_config.json
   refreshPolicy: OnChange
+  # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
+  bindAddress: 0.0.0.0
   hardware:
     accelerator: rocm
     memoryBudget: 34Gi
@@ -117,8 +119,6 @@ spec:
     - --mamba-ssm-cache-dtype
     - bfloat16
     - --trust-remote-code
-    - --host
-    - 0.0.0.0
   probeOverrides:
     # Allow ample time for model startup and compilation.
     startup:
