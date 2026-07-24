@@ -57,8 +57,6 @@ spec:
     - preprocessor_config.json
     - video_preprocessor_config.json
   refreshPolicy: OnChange
-  # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
-  bindAddress: 0.0.0.0
   hardware:
     accelerator: rocm
     memoryBudget: 34Gi
@@ -77,6 +75,8 @@ metadata:
 spec:
   modelRef: qwen36-27b-vllm
   runtime: vllm
+  # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
+  bindAddress: 0.0.0.0
   modelCache:
     claimName: qwen36-27b-vllm-cache
   # v0.26.0 measured identical to the nightly on KV pool and throughput (2026-07-25).
