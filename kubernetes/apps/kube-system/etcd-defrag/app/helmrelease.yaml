@@ -50,8 +50,8 @@ spec:
               - --cacert=/certs/ca.crt
               - --cert=/certs/server.crt
               - --key=/certs/server.key
-              # Defrag when DB quota usage > 50% OR free space > 100MB
-              - --defrag-rule=dbQuotaUsage > 0.5 || dbSizeFree > 100*1024*1024
+              # Defrag when DB quota usage > 50% OR free space > 50MB
+              - --defrag-rule=dbQuotaUsage > 0.5 || dbSizeFree > 50*1024*1024
               # Move the leader before defragmenting it.
               - --move-leader
               # --cluster defragments all three control-plane etcd members.
