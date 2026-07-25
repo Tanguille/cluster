@@ -61,7 +61,9 @@ At the production 0.875 budget, SGLang serves a **183,240**-token GPU pool plus 
 host-RAM hierarchical KV and 7.14 GB host mamba cache, with 3.71 GB GPU headroom left for
 transcoding. It clamps `max_running_requests` 32 → 20 at this size.
 
-At the invalid 0.95 budget (recorded for completeness, neither is deployable):
+The table below is **0.95-only**: neither column is deployable, and nothing in it has
+been re-measured at 0.875, so no row should be quoted as a property of the production
+configs.
 
 | | vLLM v0.26.0 | SGLang v0.5.15 |
 |---|---|---|
@@ -72,15 +74,15 @@ At the invalid 0.95 budget (recorded for completeness, neither is deployable):
 | conc 16 | **74.50** | 69.46 / 70.60 |
 | 13.8K prefill | served | **OOM, scheduler died** |
 
-Two things carry over to the 0.875 configs:
+Reading the table: SGLang leads single-stream, vLLM leads at concurrency 16, and the
+`13.8K prefill` row is the one that disqualifies the config — SGLang survived short-prompt
+decode and died on the prompt shape we actually serve, while vLLM served it on the same
+budget. That is evidence the 261K pool is unreachable in practice, not evidence about
+0.875 stability; SGLang has run at 0.875 in production for weeks.
 
-- **SGLang is ~3x faster single-stream** (14.2 vs 4.3 tok/s). vLLM only catches up at
-  concurrency 16.
-- **SGLang OOMs at 0.95 on a realistic prefill.** It survives short-prompt decode and
-  dies on the 13.8K-token shape we actually serve (p50 prompt is 35K). vLLM served the
-  identical prompt at the same budget. SGLang's larger pool is only reachable in a config
-  that cannot run production traffic; it also silently clamped `max_running_requests`
-  32 → 20.
+Pool size is the only figure comparable across budgets, since it is reported at startup
+rather than benchmarked. **A like-for-like engine comparison at 0.875 has not been run**
+and is the main gap in this round.
 
 ## Speculative decoding (vLLM, n-gram k=3)
 
@@ -131,9 +133,16 @@ Three things combine:
    over a corrupt file. Nothing checks size against `Content-Length`.
 3. **The fallback keeps bad data.** `elif [ -f "$dest" ]` treats presence as validity.
 
-There is currently no content-integrity mechanism at all — sha256 pinning was rejected on
-the `Model` CRD, leaving only revision pinning — so a `Content-Length` check is the
-cheapest real fix since it needs no schema change.
+There is currently no content-integrity mechanism at all: sha256 pinning was rejected on
+the `Model` CRD, leaving only revision pinning.
+
+A `Content-Length` comparison on the finished file is the cheapest mitigation and needs
+no schema change, but it is only a **truncation guard**, not integrity. It would have
+caught this incident and would not catch a corrupted-but-complete transfer. It also does
+nothing about atomicity: the artifact and its `.etag` are still published as two separate
+non-atomic steps, so a crash between them leaves the same inconsistent state. A real fix
+is download-to-temp plus a single rename, with digest or format-level validation before
+publishing.
 
 **Recovery:** scale the InferenceService to 0, mount the model-cache PVC in a throwaway
 root pod, delete the bad artifact *and* its `.<name>.etag`, scale back up. Deleting the
@@ -160,10 +169,26 @@ weight file alone is not enough; the stale etag will short-circuit the re-downlo
 
 ## Method notes
 
-Scripts live in `.vllm-opt/` (untracked, local only). `concsweep.py` measures aggregate
-decode at concurrency 1/8/16; `spectest.py` measures verbatim-reproduction throughput on
-a 13.8K-token prompt. Both drive the OpenAI `/v1/completions` endpoint so they run
-unmodified against either engine.
+Scripts live in `bench/` next to this doc, so the numbers above stay auditable:
+
+- `concsweep.py` — aggregate decode at concurrency 1/8/16. Short prompts to isolate
+  decode from prefill, unique salt per stream so prefix caching cannot inflate results.
+- `spectest.py` — verbatim-reproduction throughput on a 13.8K-token prompt. This is the
+  coding-agent shape where prompt-lookup n-gram actually hits; a short-prompt test shows
+  near-zero acceptance.
+
+Both drive the OpenAI `/v1/completions` endpoint, so they run unmodified against either
+engine. Port-forward the service and pass the port:
+
+```sh
+kubectl -n ai port-forward svc/qwen36-27b 30000:30000 &
+python3 concsweep.py 30000
+python3 spectest.py 30000
+```
+
+**Discard the first run after a pod restart** (see above), and note `concsweep.py` reports
+aggregate tok/s, not per-stream. Every figure in this doc comes from these two scripts
+against a single-replica service with nothing else on the GPU.
 
 Workload profile driving these choices, from litellm `LiteLLM_SpendLogs` over 21 days
 (14,678 requests): prompt p50 35,346 / p90 88,583 / p99 112,050; generation p50 196 /
