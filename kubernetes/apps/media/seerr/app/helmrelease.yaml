@@ -31,8 +31,6 @@ spec:
                   httpGet:
                     path: /api/v1/status
                     port: &port 5055
-                  periodSeconds: 10
-                  timeoutSeconds: 1
                   failureThreshold: 10
               readiness: *probes
               startup:

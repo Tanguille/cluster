@@ -73,9 +73,7 @@ spec:
                     path: /health
                     port: &port 6969
                   initialDelaySeconds: 10
-                  periodSeconds: 10
                   timeoutSeconds: 2
-                  failureThreshold: 3
               readiness: *probe
               startup:
                 enabled: true

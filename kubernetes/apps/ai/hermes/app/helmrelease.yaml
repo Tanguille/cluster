@@ -24,7 +24,6 @@ spec:
       hermes:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: Recreate
 
         containers:
           app:
@@ -77,9 +76,7 @@ spec:
                 custom: true
                 spec:
                   httpGet: *httpGet
-                  periodSeconds: 10
                   timeoutSeconds: 5
-                  failureThreshold: 3
             resources:
               requests:
                 cpu: 100m

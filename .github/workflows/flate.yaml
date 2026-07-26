@@ -31,10 +31,8 @@ jobs:
     needs: filter
     name: Flate
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        resource: ["helmrelease", "kustomization"]
-      fail-fast: false
+    outputs:
+      images: ${{ steps.images.outputs.images }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,18 +43,31 @@ jobs:
       - name: Install Flate
         uses: home-operations/flate/action@bf3405a189626478b0aa6ec98dc4d6f7d419df17 # v0.4.12
 
+      # All three diffs share one job: the first render warms flate's on-disk cache,
+      # so the other two are near-free. Separate jobs each render from cold.
       - name: Run Flate
         id: flate
         env:
           FLATE_OUTPUT: github
           FLATE_PATH: ./kubernetes/flux/cluster
-          KIND: ${{ matrix.resource }}
         run: |-
-          echo 'diff<<EOF' >> $GITHUB_OUTPUT
-          flate diff $KIND >> $GITHUB_OUTPUT
+          for kind in helmrelease kustomization; do
+            echo "${kind}<<EOF" >> $GITHUB_OUTPUT
+            flate diff "$kind" >> $GITHUB_OUTPUT
+            echo 'EOF' >> $GITHUB_OUTPUT
+          done
+
+      - name: Run Flate (images)
+        id: images
+        env:
+          FLATE_OUTPUT: json
+          FLATE_PATH: ./kubernetes/flux/cluster
+        run: |-
+          echo 'images<<EOF' >> $GITHUB_OUTPUT
+          flate diff images >> $GITHUB_OUTPUT
           echo 'EOF' >> $GITHUB_OUTPUT
 
-      - if: ${{ steps.flate.outputs.diff != '' }}
+      - if: ${{ steps.flate.outputs.helmrelease != '' || steps.flate.outputs.kustomization != '' }}
         name: Generate Token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app-token
@@ -65,20 +76,71 @@ jobs:
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
-      - if: ${{ steps.flate.outputs.diff != '' }}
-        name: Add Comment
+      - if: ${{ steps.flate.outputs.helmrelease != '' }}
+        name: Add Comment (HelmRelease)
         uses: mshick/add-pr-comment@ec328af66588ab8f77cdeb2c264f14aba45bbf59 # v3.12.0
         with:
           repo-token: ${{ steps.app-token.outputs.token }}
-          message-id: ${{ github.event.pull_request.number }}/kubernetes/${{ matrix.resource }}
+          message-id: ${{ github.event.pull_request.number }}/kubernetes/helmrelease
           message: |-
             ```diff
-            ${{ steps.flate.outputs.diff }}
+            ${{ steps.flate.outputs.helmrelease }}
             ```
+
+      - if: ${{ steps.flate.outputs.kustomization != '' }}
+        name: Add Comment (Kustomization)
+        uses: mshick/add-pr-comment@ec328af66588ab8f77cdeb2c264f14aba45bbf59 # v3.12.0
+        with:
+          repo-token: ${{ steps.app-token.outputs.token }}
+          message-id: ${{ github.event.pull_request.number }}/kubernetes/kustomization
+          message: |-
+            ```diff
+            ${{ steps.flate.outputs.kustomization }}
+            ```
+
+  pull:
+    if: >-
+      ${{
+        needs.flate.outputs.images != '[]' &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      }}
+    needs: flate
+    name: Flate - Pull Images
+    runs-on: cluster-runner
+    steps:
+      - name: Install talosctl
+        env:
+          # renovate: datasource=github-releases depName=siderolabs/talos
+          TALOS_VERSION: v1.13.7
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL -o "$HOME/.local/bin/talosctl" \
+            "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64"
+          chmod +x "$HOME/.local/bin/talosctl"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # One runner pod pulls all images to its node; Spegel mirrors the blobs cluster-wide,
+      # so a single node is enough to pre-warm (and beats one pod + talosctl install per image).
+      # yq (not jq): explicitly installed in the home-operations runner image; the guard
+      # fails loudly if the flate output doesn't parse (yq is lenient about garbage input).
+      - name: Pull Images
+        env:
+          IMAGES: ${{ needs.flate.outputs.images }}
+        run: |
+          set -euo pipefail
+          images=$(yq -r '.[]' <<< "$IMAGES")
+          [ -n "$images" ] || { echo "no images parsed from flate output: $IMAGES"; exit 1; }
+          rc=0
+          while IFS= read -r image; do
+            echo "Pulling ${image}"
+            talosctl --nodes "$NODE" image pull "${image}" || rc=1
+          done <<< "$images"
+          exit $rc
 
   success:
     if: ${{ !cancelled() }}
-    needs: flate
+    needs: [flate, pull]
     name: Flate - Success
     runs-on: ubuntu-latest
     steps:
