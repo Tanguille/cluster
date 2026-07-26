@@ -156,9 +156,11 @@ weight file alone is not enough; the stale etag will short-circuit the re-downlo
   decode tuning.
 - **Quant comparison is unfinished.** vLLM runs QuantTrio AWQ, SGLang runs mattbucci AWQ,
   so the engine comparison above is engine+quant. `mattbucci/Qwen3.6-27B-AWQ-CT`
-  (compressed-tensors, 17.34 GiB) is the untested candidate — it would bind
+  (compressed-tensors W4A16) is the untested candidate on **vLLM only**: it should bind
   `RDNAHybridW4A16LinearKernel`, a gfx1201-tuned int4 GEMM for M≤5, which the `auto_awq`
-  path does not.
+  path does not. It is not an SGLang candidate — its card describes it as the raw GPTQ
+  output *before* AWQ repack, so it is upstream of the model SGLang already serves, and
+  SGLang's compressed-tensors support is applied mainly to `w8a8_fp8`.
 - **How much VRAM does transcoding actually need?** 0.875 is treated as fixed. Whether it
   has margin, or is itself too high under concurrent transcode load, has not been
   measured.

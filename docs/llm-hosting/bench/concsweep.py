@@ -7,7 +7,16 @@ the owner cares about concurrency, not batch-1 latency.
 """
 import json, sys, time, threading, urllib.request
 
-URL = f"http://127.0.0.1:{sys.argv[1] if len(sys.argv) > 1 else 8000}/v1/completions"
+def _port():
+    if len(sys.argv) < 2:
+        return 8000
+    p = int(sys.argv[1])
+    if not 1 <= p <= 65535:
+        raise SystemExit(f"port out of range: {p}")
+    return p
+
+
+URL = f"http://127.0.0.1:{_port()}/v1/completions"
 MODEL = "qwen-3.6"
 GEN = 96
 
@@ -46,6 +55,6 @@ for c in [1, 8, 16]:
     ok = [o for o in out if o[0] > 0]
     tot = sum(o[0] for o in ok)
     agg = tot / wall if wall else 0
-    per = agg / c if c else 0
+    per = agg / len(ok) if ok else 0
     print(f"{c:>5} {agg:>10.2f} {per:>11.2f} {wall:>8.1f} {len(ok):>4}", flush=True)
     time.sleep(4)

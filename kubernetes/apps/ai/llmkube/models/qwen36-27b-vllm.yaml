@@ -130,7 +130,7 @@ spec:
     - --trust-remote-code
     # vLLM's profiler leaves the pool at 48,000 tokens; explicit sizing gives 121,302
     # within the same 0.875 budget.
-    - --kv-cache-memory
+    - --kv-cache-memory-bytes
     - "4294967296"
   probeOverrides:
     # Allow ample time for model startup and compilation.

@@ -4,7 +4,16 @@ This is the coding-agent shape (resend file, ask for an edit) where prompt-looku
 n-gram should hit. A short-prompt/novel-output test would show ~zero acceptance.
 """
 import json, time, urllib.request, sys
-URL = f"http://127.0.0.1:{sys.argv[1] if len(sys.argv) > 1 else 8000}/v1/completions"
+def _port():
+    if len(sys.argv) < 2:
+        return 8000
+    p = int(sys.argv[1])
+    if not 1 <= p <= 65535:
+        raise SystemExit(f"port out of range: {p}")
+    return p
+
+
+URL = f"http://127.0.0.1:{_port()}/v1/completions"
 CODE = "\n".join(f"def handler_{i}(request, context):\n"
                  f"    payload = request.get('payload_{i}')\n"
                  f"    if payload is None:\n"
@@ -22,5 +31,14 @@ el = time.perf_counter() - t0
 u = d["usage"]
 print(f"prompt={u['prompt_tokens']} gen={u['completion_tokens']} wall={el:.1f}s "
       f"TG={u['completion_tokens']/el:.2f} tok/s")
+
+# The throughput number is only meaningful if the model actually quoted back the
+# source. Compare against the handler_0..12 text; ignore_eos means output can run
+# past it, so check prefix agreement rather than equality.
+expect = "\n".join(CODE.split("\n\n")[:13]).strip()
+got = d["choices"][0]["text"].strip()
+n = next((i for i, (a, b) in enumerate(zip(expect, got)) if a != b), min(len(expect), len(got)))
+print(f"verbatim: {'OK' if n == min(len(expect), len(got)) else 'DIVERGED'} "
+      f"at char {n}/{len(expect)}")
 print("---- first 200 chars of output ----")
-print(d["choices"][0]["text"][:200])
+print(got[:200])
