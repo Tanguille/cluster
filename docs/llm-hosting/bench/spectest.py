@@ -41,7 +41,8 @@ if got and expect.startswith(got):
     state = "OK" if got == expect else "TRUNCATED"
 else:
     state = "DIVERGED"
-n = next((i for i, (a, b) in enumerate(zip(expect, got)) if a != b), len(got))
+n = next((i for i, (a, b) in enumerate(zip(expect, got)) if a != b),
+         min(len(expect), len(got)))
 print(f"verbatim: {state} at char {n}/{len(expect)}")
 print("---- first 200 chars of output ----")
 print(got[:200])
