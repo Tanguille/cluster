@@ -31,15 +31,20 @@ kind: Model
 metadata:
   name: qwen36-27b-vllm
 spec:
-  # Pin the model revision for reproducible staging.
-  source: hf://cyankiwi/Qwen3.6-27B-AWQ-INT4@e5cc0400fb2403c437c2c40a7c52fb5ae93fda18
+  # Pin the model revision for reproducible staging. QuantTrio is the boot-validated
+  # variant; the prior cyankiwi INT4 pin was never booted.
+  source: hf://QuantTrio/Qwen3.6-27B-AWQ@9b507bdc9afafb87b7898700cc2a591aa6639461
   format: safetensors
-  quantization: compressed-tensors
+  quantization: AWQ
   files:
-    - model-00001-of-00004.safetensors
-    - model-00002-of-00004.safetensors
-    - model-00003-of-00004.safetensors
-    - model-00004-of-00004.safetensors
+    - model-00001-of-00008.safetensors
+    - model-00002-of-00008.safetensors
+    - model-00003-of-00008.safetensors
+    - model-00004-of-00008.safetensors
+    - model-00005-of-00008.safetensors
+    - model-00006-of-00008.safetensors
+    - model-00007-of-00008.safetensors
+    - model-00008-of-00008.safetensors
     - model.safetensors.index.json
     - config.json
     - configuration.json
@@ -74,16 +79,20 @@ spec:
   runtime: vllm
   modelCache:
     claimName: qwen36-27b-vllm-cache
-  # Use the ROCm nightly with the required AMD kernel support.
-  image: vllm/vllm-openai-rocm:nightly@sha256:bd34cea1fe22f0c9f8fef0e362eac2d8b9292971a114eb95d2cfa1026862f5cd
+  # v0.26.0 measured identical to the nightly on KV pool and throughput (2026-07-25).
+  # The nightly self-reports a stale 0.23.1rc1 base tag; tags are not version-ordered.
+  image: vllm/vllm-openai-rocm:v0.26.0@sha256:5709fafe47123becb2f5e61c32d0b97beff1a629bb40bb753c15464f69a97a18
   replicas: 0
-  # Limit concurrent sequence slots to fit the model's cache budget.
-  parallelSlots: 8
+  # 32 slots doubled aggregate throughput vs 8: 40 -> 79 tok/s at concurrency 16.
+  parallelSlots: 32
   vllmConfig:
-    maxModelLen: 180000
+    # 180000 needs ~6.55 GiB KV against a ~4.6 GiB ceiling at 0.875. 64000 covers 74.1%
+    # of measured production prompts.
+    maxModelLen: 64000
     kvCacheDtype: fp8_e4m3
     enablePrefixCaching: true
     maxNumBatchedTokens: 8192
+    # HARD CEILING: shared with Jellyfin transcoding, never raise.
     gpuMemoryUtilization: 0.875
   env:
     - name: VLLM_ROCM_USE_AITER
@@ -119,6 +128,10 @@ spec:
     - --mamba-ssm-cache-dtype
     - bfloat16
     - --trust-remote-code
+    # vLLM's profiler leaves the pool at 48,000 tokens; explicit sizing gives 121,302
+    # within the same 0.875 budget.
+    - --kv-cache-memory-bytes
+    - "4294967296"
   probeOverrides:
     # Allow ample time for model startup and compilation.
     startup:

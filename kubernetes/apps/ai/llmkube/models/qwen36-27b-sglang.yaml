@@ -81,6 +81,9 @@ spec:
     claimName: qwen36-27b-model-cache
   sglangConfig:
     contextLength: 180000
+    # HARD CEILING: the R9700 is shared with Jellyfin transcoding, raising this fails
+    # media workloads. 0.95 grows the pool 183,240 -> 261,019 tokens but OOMs on a
+    # 13.8K-token prefill (2026-07-25).
     memFractionStatic: 0.875
     maxRunningRequests: 32
     chunkedPrefillSize: 8192
