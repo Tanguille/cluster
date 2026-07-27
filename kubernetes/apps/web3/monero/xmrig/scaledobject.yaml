@@ -24,15 +24,17 @@ spec:
     horizontalPodAutoscalerConfig:
       behavior:
         scaleDown:
-          # No stabilization: a thermal trip has to reach the miners inside the 5C band
-          # between the guard's 65C trip and the drives' 70C rating, which at the observed
-          # 1.1C/min leaves ~4.5 minutes. Guard dwell (120s) plus polling (60s) already
-          # spends most of that, and there is no cost to shedding a mining pod early.
+          # A thermal trip has to reach every miner inside the 6C band between the guard's
+          # 64C trip and the drives' 70C rating, which at the observed 1.1C/min peak is
+          # ~5.5 minutes. The budget before this is already ~4 minutes: up to 60s to sample
+          # the crossing, 120s trip dwell, then 60s of KEDA polling. Draining at one pod per
+          # 60s added another 180s from three replicas and blew the band, so both the
+          # stabilization window and the per-pod cap go: all miners leave at once.
           stabilizationWindowSeconds: 0
           policies:
-            - type: Pods
-              value: 1
-              periodSeconds: 60
+            - type: Percent
+              value: 100
+              periodSeconds: 15
         scaleUp:
           # Scale up quickly when solar power is available
           stabilizationWindowSeconds: 60 # 1 minute before scaling up

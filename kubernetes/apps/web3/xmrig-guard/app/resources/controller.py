@@ -245,12 +245,16 @@ class GuardController:
     def __init__(self, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
         self.telemetry = telemetry
         self.clock, self.wall_clock = clock, wall_clock
-        # Trip 65C / recover 60C on Composite, against a 70C drive rating. Mining raises
-        # Composite at up to 1.1C/min, and the loop needs 120s dwell + 60s KEDA poll to
-        # act, so tripping at 65 lands the peak near 68C. Idle Composite never reached
-        # 65C over 7d on either node, and sits at or below 60C for 100%/90% of the time,
-        # so the trip does not false-fire and the recovery band is actually reachable.
-        self.policies = {"control-2": DwellPolicy(60, 65, 600, 120, MAX_SOURCE_GAP_SECONDS), "control-3": DwellPolicy(60, 65, 600, 120, MAX_SOURCE_GAP_SECONDS)}
+        # Trip 64C / recover 60C on Composite, against a 70C drive rating. Mining raises
+        # Composite at up to 1.1C/min, so the 6C band is ~5.5 minutes wide. Worst-case
+        # response is ~4.25: up to one evaluation interval to sample the crossing, 120s
+        # trip dwell, 60s of KEDA polling, then the HPA drop (scaledobject.yaml sheds all
+        # replicas at once for exactly this reason). That leaves the peak near 69C, and is
+        # conservative because it assumes full heat output until the last miner exits.
+        # Idle Composite never exceeded 62C over 7d on either node, so the trip does not
+        # false-fire, and it sits at or below 60C for 100%/90% of the time, so recovery is
+        # reachable rather than the permanent latch the old 60C/70C pair produced.
+        self.policies = {"control-2": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS), "control-3": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS)}
         self.cpu_policy = DwellPolicy(50, 70, 600, 120, MAX_SOURCE_GAP_SECONDS)
         self.ready = False
         self.metrics = {
