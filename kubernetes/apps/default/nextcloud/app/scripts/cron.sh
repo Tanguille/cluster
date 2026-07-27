@@ -11,9 +11,12 @@ run_occ() {
   php occ "$cmd" || echo "WARNING: $warning_msg" >&2
 }
 
+# App list is cached once: each `occ` call is a full Nextcloud bootstrap
+INSTALLED_APPS="$(php occ app:list)"
+
 # Helper function to check if an app is installed
 app_installed() {
-  php occ app:list | grep -q "$1"
+  echo "$INSTALLED_APPS" | grep -q "$1"
 }
 
 # Helper function to run occ command if app is installed

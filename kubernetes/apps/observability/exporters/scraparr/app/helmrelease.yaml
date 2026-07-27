@@ -59,10 +59,6 @@ spec:
                   httpGet:
                     path: /metrics
                     port: &port 7100
-                  initialDelaySeconds: 0
-                  periodSeconds: 10
-                  timeoutSeconds: 1
-                  failureThreshold: 3
               readiness: *probes
             resources:
               requests:
