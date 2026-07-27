@@ -11,13 +11,10 @@
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
-      matchStringsStrategy: "recursive",
       matchStrings: [
-        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/",
-        "(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+        "url:\\s+\"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/"
       ],
-      datasourceTemplate: "github-releases",
-      autoReplaceStringTemplate: "{{{newValue}}}"
+      datasourceTemplate: "github-releases"
     },
     {
       description: "qBitrr ConfigVersion (semver, no v prefix)",

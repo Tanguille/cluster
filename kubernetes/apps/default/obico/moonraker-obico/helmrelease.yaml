@@ -12,7 +12,6 @@ spec:
 
   values:
     defaultPodOptions:
-      automountServiceAccountToken: false
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       securityContext:
@@ -123,7 +122,6 @@ spec:
 
     persistence:
       config:
-        enabled: true
         storageClass: ceph-block
         accessMode: ReadWriteOnce
         size: 1Gi
