@@ -122,8 +122,14 @@ spec:
       value: "0"
     - name: TRITON_CACHE_DIR
       value: /cache/sglang/triton
+    # Correctness knob, not a layout preference. The on-disk page name is
+    # sha256(token_ids, prior_hash, page_size) + "_{model_name}_{tp_rank}_{tp_size}",
+    # so nothing in it encodes the weights revision, the KV dtype or the KV layout.
+    # Same served-model-name plus same tokens hits the same file, which means a
+    # Renovate bump of either the AWQ revision below or the sglang image would serve
+    # KV pages computed by the previous one. Bump this suffix with either of them.
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
-      value: /hicache
+      value: /hicache/sglang-v0.5.15_awq-f541031d
     # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.
     - name: SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE
       value: 64Gi
