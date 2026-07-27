@@ -12,10 +12,8 @@ metadata:
     app.kubernetes.io/part-of: kepler-operator
 spec:
   kepler:
-    config:
-      logLevel: info
     deployment:
-      # Only run on nodes with kepler-node=true (control-2, control-3)
+      # kepler-node=true is control-2/3; control-1 is a VM, scraped via the kepler-truenas ScrapeConfig
       nodeSelector:
         kubernetes.io/os: linux
         kepler-node: "true"

@@ -34,9 +34,7 @@ spec:
         failureThreshold: 3
       readinessProbe: *probes
       securityContext:
-        allowPrivilegeEscalation: false
-        readOnlyRootFilesystem: true
-        capabilities: { add: ["NET_RAW"], drop: ["ALL"] }
+        capabilities: { add: ["NET_RAW"] }
       resources:
         requests:
           cpu: 50m

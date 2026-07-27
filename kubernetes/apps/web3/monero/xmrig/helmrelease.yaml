@@ -31,9 +31,7 @@ spec:
               # Cap mining threads to the CFS quota: 50% of 12 host cores = 6 threads = cpu limit.
               # Without this xmrig auto-detects 12 cores, spawns 12 threads, and is throttled
               # 90-100% of CFS periods (CPUThrottlingHigh), inflating load average on every node.
-              # Revisit if the cpu limit or node core count changes.
               - "--cpu-max-threads-hint=50"
-              # Prefer huge pages (2Mi)
               - "--huge-pages"
               # Enable HTTP API for dashboard
               - "--http-port=42000"
@@ -72,7 +70,6 @@ spec:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
             # Prefer control-2 and control-3 (more power efficient)
-            # A realistic 6-core CPU request gates control-1 usage on actual headroom.
             - weight: 100
               preference:
                 matchExpressions:
