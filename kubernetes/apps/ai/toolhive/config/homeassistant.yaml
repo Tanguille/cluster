@@ -54,7 +54,8 @@ spec:
               memory: 64Mi
             limits:
               cpu: 1
-              memory: 256Mi
+              # 13 OOMKills in 30d at 256Mi; observed peak 255Mi on both servers.
+              memory: 512Mi
   resources:
     requests: *requests
     limits:
@@ -116,7 +117,8 @@ spec:
               memory: 64Mi
             limits:
               cpu: 1
-              memory: 256Mi
+              # 13 OOMKills in 30d at 256Mi; observed peak 255Mi on both servers.
+              memory: 512Mi
   resources:
     requests:
       cpu: 10m
