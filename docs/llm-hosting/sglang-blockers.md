@@ -195,11 +195,31 @@ the pinned fork tree carries stock v0.5.14 hicache code (no fork patch touches i
 population request took 113.3s. After a clean pod restart, the token-exact post-restart extension took
 70.7s, but the file-backend metric recorded only 4,538 backed-up tokens, with zero storage
 prefetches and zero `storage_HiCacheFile` hits. Aggregate completion throughput for C1/C4/C8 was
-11.16/8.74/14.09 tok/s; the C8 sample overlapped real traffic. L3 remains disabled because it
-failed restart recovery. The validated direct I/O, ratio 1.5 L2, and `write_through_selective`
-policy remain enabled; do not propose unverified cache tweaks. Rollback does not remove
-`/cache/sglang/hicache`; it can contain prompt-derived data and requires explicit operator approval
-before deletion.
+11.16/8.74/14.09 tok/s; the C8 sample overlapped real traffic. The validated direct I/O, ratio 1.5
+L2, and `write_through_selective` policy remain enabled; do not propose unverified cache tweaks.
+Rollback does not remove `/cache/sglang/hicache`; it can contain prompt-derived data and requires
+explicit operator approval before deletion.
+
+**Correction (2026-07-27): "failed restart recovery" was the wrong conclusion.** Two defects sat
+upstream of that measurement, and neither is a property of L3.
+
+1. **The backend cannot initialise on this image.** HiCache JIT-compiles `hash_binding.cpp` via
+   `torch.utils.cpp_extension.load`; it `#include`s `<openssl/sha.h>`, and the image shipped the
+   OpenSSL runtime without the headers. The compile is lazy, so `--hicache-storage-backend file`
+   passes startup and health checks, then raises `RuntimeError: Failed to load HiCache native hash
+   extension` from `unified_radix_cache.insert` on the **first prefill**, killing the scheduler.
+   Fixed by adding `libssl-dev` in `docker/sglang-rdna4/Dockerfile`; needs an image rebuild.
+2. **`write_through_selective` blocks first-pass content from ever reaching L2.**
+   `hiradix_cache.py:203` sets `write_through_threshold = 1 if write_through else 2`, gated at
+   `:928` on `node.hit_count`. A novel prompt sent once has `hit_count == 1`, so it is never
+   promoted GPU→host, and L3 can only back up host-resident nodes. That is the likely source of the
+   4,538-of-61,600 backup figure. Any L3 test must run under plain `write_through`.
+
+The 07-15 run did not crash, so it cannot have been on an image with defect 1 — meaning it is not
+comparable to current builds and should not be quoted as evidence either way. **L3 is untested, not
+failed.** Retest sequence: rebuild with `libssl-dev` → `write_through` → synthetic prefill to prove
+the backend initialises → populate/restart/extension probe. Not on the production replica: the
+07-27 attempt took prod down mid-traffic and cost ~40 min across two reloads.
 
 **`hicache-write-policy write_back` trialled and reverted (2026-07-09):** kept alongside the L3 removal
 above as a still-valid L1→L2 (GPU→host) optimization — synthetic testing showed 0 aborts and lower

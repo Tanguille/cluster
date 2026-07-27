@@ -30,9 +30,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     REPO_DIR=/opt/rdna4-inference \
     SGLANG_DIR=/opt/rdna4-inference/components/sglang
 
+# libssl-dev: HiCache JIT-compiles hash_binding.cpp (#include <openssl/sha.h>) on first
+# prefill; without the headers --hicache-storage-backend crashes the scheduler mid-request.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        git curl ca-certificates build-essential python3-pip \
+        git curl ca-certificates build-essential python3-pip libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Rust via rustup stable, not apt (Ubuntu 24.04's cargo is too old for the fork's grpc crate build).
