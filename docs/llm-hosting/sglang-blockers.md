@@ -195,10 +195,9 @@ the pinned fork tree carries stock v0.5.14 hicache code (no fork patch touches i
 population request took 113.3s. After a clean pod restart, the token-exact post-restart extension took
 70.7s, but the file-backend metric recorded only 4,538 backed-up tokens, with zero storage
 prefetches and zero `storage_HiCacheFile` hits. Aggregate completion throughput for C1/C4/C8 was
-11.16/8.74/14.09 tok/s; the C8 sample overlapped real traffic. The validated direct I/O, ratio 1.5
-L2, and `write_through_selective` policy remain enabled; do not propose unverified cache tweaks.
-Rollback does not remove `/cache/sglang/hicache`; it can contain prompt-derived data and requires
-explicit operator approval before deletion.
+11.16/8.74/14.09 tok/s; the C8 sample overlapped real traffic. Direct I/O and ratio 1.5 L2 remain
+validated and enabled; `write_through_selective` was replaced on 07-27, see the retest below. Do
+not propose unverified cache tweaks.
 
 **Correction (2026-07-27): "failed restart recovery" was the wrong conclusion.** Two defects sat
 upstream of that measurement, and neither is a property of L3.
@@ -220,10 +219,47 @@ upstream of that measurement, and neither is a property of L3.
    4,538-of-61,600 backup figure. Any L3 test must run under plain `write_through`.
 
 The 07-15 run did not crash, so it cannot have been on an image with defect 1 — meaning it is not
-comparable to current builds and should not be quoted as evidence either way. **L3 is untested, not
-failed.** Retest sequence: rebuild with `libssl-dev` → `write_through` → synthetic prefill to prove
-the backend initialises → populate/restart/extension probe. Not on the production replica: the
-07-27 attempt took prod down mid-traffic and cost ~40 min across two reloads.
+comparable to current builds and should not be quoted as evidence either way. **L3 was untested,
+not failed.**
+
+**Retest (2026-07-27): L3 works.** Run on image `sha256:72d934d3` under plain `write_through`,
+with `--hicache-storage-backend file` and `SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR`.
+
+| stage | evidence |
+|---|---|
+| backend initialises | synthetic prefill served; pod ran 22 min under live traffic, 0 restarts |
+| L3 writes | 268,176 files / 14 GB on disk, `backuped_tokens_total` 267,978 |
+| L2 saturates | `hicache_host_used_tokens` 267,978 of 274,861 |
+| survives restart | after a cold start, `prefetched_tokens_total{storage_backend="file"}` 63,205 |
+
+The restart figures close exactly: 73,120 newly backed + 63,205 prefetched = 136,325
+`hicache_host_used_tokens`, so every L2 token is accounted for as either a fresh write or a
+read-back from disk. Populate (58,071 tok) PP 196.9 tok/s; extension probe (58,209 tok) PP
+252.9 tok/s, TG 0.56 tok/s. Both ran with production traffic on the GPU, so both are floors,
+not clean numbers.
+
+Three operational notes.
+
+**Sizing.** The evictor is unbounded by default and `openebs-hostpath` enforces no quota, so
+`MAX_SIZE` (64Gi) and `MIN_FREE_SPACE` (100Gi) are the only things between L3 and control-1's
+shared 500G root; the free-space floor is what keeps a full cache from pushing the node under
+kubelet's ~50G nodefs eviction threshold. L3 lives on its own `qwen36-27b-hicache` PVC rather
+than sharing the triton cache, so its footprint is visible where capacity is planned.
+
+**The cache key does not cover the weights or the engine.** `get_hash_str` is
+`sha256(token_ids, prior_hash, page_size)` (`mem_cache/utils.py:106`) and the on-disk name only
+appends `config_suffix = f"_{model_name}"` plus TP/PP/CP ranks (`hicache_storage.py:336-346`).
+Nothing in it encodes the weights revision, the KV dtype or the KV layout, while
+`served-model-name` stays stable across Renovate bumps of both the AWQ revision and the sglang
+image. Either bump would otherwise serve KV pages computed by the previous one, which is a
+wrong-output risk rather than a cache miss. `STORAGE_DIR` therefore carries a revision suffix
+(`/hicache/sglang-v0.5.15_awq-f541031d`) that **must be bumped by hand with either pin**. It sits
+directly above them in the manifest to keep the three visible together; the durable fix is
+upstream folding a model/engine fingerprint into `config_suffix`.
+
+**Deletion needs approval.** Rollback does not remove the directory; it holds prompt-derived
+data. The 07-27 test data still sits at the old `/cache/sglang/hicache` path, orphaned by the
+move to a dedicated PVC.
 
 **`hicache-write-policy write_back` trialled and reverted (2026-07-09):** kept alongside the L3 removal
 above as a still-valid L1→L2 (GPU→host) optimization — synthetic testing showed 0 aborts and lower

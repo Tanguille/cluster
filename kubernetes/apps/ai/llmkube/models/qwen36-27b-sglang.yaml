@@ -25,6 +25,20 @@ spec:
     requests:
       storage: 10Gi
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-hicache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    # hostpath enforces no quota, so the real bound is the evictor's MAX_SIZE below.
+    requests:
+      storage: 64Gi
+---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
@@ -63,6 +77,7 @@ spec:
   runtime: sglang
   # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
   bindAddress: 0.0.0.0
+  # L3 needs OpenSSL headers in the runtime stage; earlier digests kill the scheduler.
   image: ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201@sha256:72d934d335529934bf73cd480b728cd08ae61178c9204dc37a025302b31fd61e
   containerPort: 30000
   endpoint:
@@ -107,10 +122,28 @@ spec:
       value: "0"
     - name: TRITON_CACHE_DIR
       value: /cache/sglang/triton
+    # Correctness knob, not a layout preference. The on-disk page name is
+    # sha256(token_ids, prior_hash, page_size) + "_{model_name}_{tp_rank}_{tp_size}",
+    # so nothing in it encodes the weights revision, the KV dtype or the KV layout.
+    # Same served-model-name plus same tokens hits the same file, which means a
+    # Renovate bump of either the AWQ revision below or the sglang image would serve
+    # KV pages computed by the previous one. Bump this suffix with either of them.
+    - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
+      value: /hicache/sglang-v0.5.15_awq-f541031d
+    # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.
+    - name: SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE
+      value: 64Gi
+    # MAX_SIZE alone is blind to the other tenants of control-1's shared 500G root, so
+    # hold a floor well above kubelet's ~50G nodefs eviction threshold.
+    - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
+      value: 100Gi
   extraVolumes:
     - name: triton-cache
       persistentVolumeClaim:
         claimName: qwen36-27b-triton-cache
+    - name: hicache
+      persistentVolumeClaim:
+        claimName: qwen36-27b-hicache
     - name: dshm
       emptyDir:
         medium: Memory
@@ -118,6 +151,8 @@ spec:
   extraVolumeMounts:
     - name: triton-cache
       mountPath: /cache
+    - name: hicache
+      mountPath: /hicache
     - name: dshm
       mountPath: /dev/shm
   probeOverrides:
@@ -181,5 +216,8 @@ spec:
     - --schedule-conservativeness
     - "0.1"
     - --enable-mixed-chunk
+    # write_through_selective gates promotion on hit_count >= 2, which left L3 empty.
     - --hicache-write-policy
-    - write_through_selective
+    - write_through
+    - --hicache-storage-backend
+    - file
