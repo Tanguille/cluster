@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
@@ -9,7 +10,6 @@ spec:
   groupRef:
     name: search
   env:
-    # Service in default namespace exposes port 8080 (see searxng HelmRelease).
     - name: SEARXNG_URL
       value: http://searxng.default.svc.cluster.local:8080
   toolConfigRef:
@@ -33,6 +33,7 @@ spec:
       cpu: 200m
       memory: 100Mi
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
@@ -43,7 +44,6 @@ spec:
   groupRef:
     name: all
   env:
-    # Service in default namespace exposes port 8080 (see searxng HelmRelease).
     - name: SEARXNG_URL
       value: http://searxng.default.svc.cluster.local:8080
   toolConfigRef:
@@ -67,6 +67,7 @@ spec:
       cpu: 200m
       memory: 100Mi
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:

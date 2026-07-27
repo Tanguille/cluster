@@ -2,7 +2,7 @@
 
 Tracking what needs to land upstream before SGLang can replace vLLM in production without depending on the mattbucci RDNA4 fork.
 
-**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.14** (torch 2.11+rocm7.2, Triton 3.6), baked into the `ghcr.io/tanguille/sglang-rdna4` image by `.github/workflows/build-sglang-rdna4.yaml`. Build/pin/rollback mechanics are in `docker/sglang-rdna4/README.md`. `kubernetes/apps/ai/sglang/app/scripts/sglang-env-rebuild.sh` is the retired PVC-rebuild recipe, kept only as an emergency fallback.
+**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.15** (torch 2.11+rocm7.2, Triton 3.6), baked into the `ghcr.io/tanguille/sglang-rdna4` image by `.github/workflows/build-sglang-rdna4.yaml`. Build/pin/rollback mechanics are in `docker/sglang-rdna4/README.md`. The retired PVC-rebuild recipe is gone with the `sglang` app directory; recover it from git history if ever needed.
 
 ---
 
@@ -147,7 +147,7 @@ mitigation is obsolete.
 **Required RDNA4/TP=1 patch (NOT in the fork — it targets a dual-card TP=2 box):** the JIT
 `store_cache` kernel aborts at TP=1 (`kvcache.cuh:204: CUDA error: the operation cannot be performed
 in the present state`). Force `can_use_store_cache()->False` (naive torch KV store). A stock
-`setup.sh` rebuild without this crashes on the first request — captured in `kubernetes/apps/ai/sglang/app/scripts/sglang-env-rebuild.sh`.
+`setup.sh` rebuild without this crashes on the first request.
 
 A **second RDNA4/TP=1 patch** lives in the same recipe: the sampler's cross-TP token-id all-reduce
 (`_sync_token_ids_across_tp`) runs even at TP=1 — a no-op on a 1-rank group — for grammar/structured-output
@@ -253,7 +253,7 @@ not the kernel, that makes overlap a no-op).
 
 **Root cause:** 067's hunk expects `triton_attention_split_tile_size: Optional[int] = None` to be immediately followed by `num_continuous_decode_steps: int = 1` in the `ServerArgs` dataclass, so it can insert `force_decode_window` between them. Our pinned tree (`FORK_REF=60ffa9501c2c6`) already has four newer fields inserted at that exact location (`prefill_only_disable_kv_cache`, `disable_radix_cache`, `disable_chunked_prefix_cache`, `disable_overlap_schedule`) from later upstream/fork changes the `.CANDIDATE` series was never rebased against. This is real semantic drift, not a cosmetic line-number offset — `patch`'s fuzz matching (already at fuzz=2) can't resolve it.
 
-**Investigated:** 2026-07-01, caught at the dry-run phase with zero production impact — full detail in [[project_sglang_decode_topk_patch069]] and `docs/llm-hosting/decode-topk-pages-test-plan.md` (architectural compatibility with the DeltaNet hybrid was confirmed separately; the patches are sound, just stale against our tree).
+**Investigated:** 2026-07-01, caught at the dry-run phase with zero production impact — full detail in the blocker 7 row below (architectural compatibility with the DeltaNet hybrid was confirmed separately; the patches are sound, just stale against our tree).
 
 **Status:** NO-GO per the test plan's gate — no hand-rebasing the patches (upstream hasn't validated a hand-patched variant). `.CANDIDATE` files and `FORK_REF` left untouched. Retest when upstream rebases the `.CANDIDATE` series past our pin, or incidentally on our next `FORK_REF` bump.
 
@@ -266,7 +266,7 @@ not the kernel, that makes overlap a no-op).
 **Context:** AMD Quark 0.12.0 (2026-07) adds AMDFP4 (E5M3 per-block scales), NVFP4, native MXFP4 inference support, and the SVDQuant algorithm (INT4/MXFP4/NVFP4 weights + low-rank outlier branch). Tempting as a path off the slow AWQ-int4 dense-decode wall.
 
 **Root cause (why none of it helps this box):** Quark is a *quantization producer* — it emits checkpoints. Our dense-decode bottleneck is the RDNA4 **inference kernel** (Triton W4A16 + GatedDeltaNet), an SGLang/fork problem the checkpoint format can't touch. Re-quantizing the same weights to a different FP4 format doesn't change which kernel SGLang dispatches at decode. Producer with no consumer:
-- **MXFP4 / NVFP4 / AMDFP4:** no fused decode kernel in the mattbucci fork for gfx1201 (consistent with the MXFP4/fp4 "ruled out for dense" finding in `sglang-benchmarks.md` and [[project_sglang_rdna4_tp1_results]]).
+- **MXFP4 / NVFP4 / AMDFP4:** no fused decode kernel in the mattbucci fork for gfx1201 (consistent with the MXFP4/fp4 "ruled out for dense" finding in `engine-benchmarks-gfx1201.md`).
 - **SVDQuant:** its runtime is **Nunchaku — CUDA W4A4 + low-rank, Nvidia-only**; no ROCm path, and SGLang has no consumer for the SVDQuant (INT4 + low-rank branch) format on any GPU. Public SVDQuant checkpoints are also almost all diffusion/image models (FLUX, Qwen-Image); no LLM checkpoint exists for Qwen3.6-27B (even Qwen3.5-27B is GPTQ-Int4/AWQ only).
 
 **Investigated:** 2026-07-04, doc-only (no build). SVDQuant quality-vs-AWQ was the one non-throughput angle (better int4 accuracy at equal speed) but we've flagged no quality issue, so not worth the self-quantize + missing-kernel effort.

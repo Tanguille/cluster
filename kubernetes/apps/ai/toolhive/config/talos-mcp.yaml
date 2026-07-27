@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/talos.dev/serviceaccount_v1alpha1.json
 apiVersion: talos.dev/v1alpha1
 kind: ServiceAccount
 metadata:
@@ -6,10 +7,11 @@ metadata:
 spec:
   roles: ["os:reader"]
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
-  name: &name talos-mcp
+  name: talos-mcp
 spec:
   image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2@sha256:ad1b388e20cbe171763ba0ff85ed32856f2573c9c40f5081a83c96b3b57f0d35
   transport: streamable-http
@@ -29,8 +31,6 @@ spec:
       value: http
     - name: TALOS_MCP_HTTP_ADDR
       value: :8080
-  toolConfigRef:
-    name: *name
   podTemplateSpec:
     spec:
       volumes:
@@ -59,6 +59,7 @@ spec:
       cpu: 200m
       memory: 128Mi
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
@@ -82,8 +83,6 @@ spec:
       value: http
     - name: TALOS_MCP_HTTP_ADDR
       value: :8080
-  toolConfigRef:
-    name: talos-mcp
   podTemplateSpec:
     spec:
       volumes:
@@ -111,10 +110,3 @@ spec:
     limits:
       cpu: 200m
       memory: 128Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: talos-mcp
-spec:
-  toolsFilter: []

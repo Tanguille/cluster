@@ -1,8 +1,9 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
-  name: &name kubesearch
+  name: kubesearch
 spec:
   image: ghcr.io/perfectra1n/kubesearch-mcp:master@sha256:6d37df97523963d6457bb7306534518b7fbf2559468ce779afa35e39da768ee7
   transport: streamable-http
@@ -12,8 +13,6 @@ spec:
   env:
     - name: KUBESEARCH_REFRESH_HOURS
       value: "24"
-  toolConfigRef:
-    name: *name
   podTemplateSpec:
     spec:
       volumes:
@@ -55,6 +54,7 @@ spec:
       cpu: 200m
       memory: 256Mi
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
@@ -68,8 +68,6 @@ spec:
   env:
     - name: KUBESEARCH_REFRESH_HOURS
       value: "24"
-  toolConfigRef:
-    name: kubesearch
   podTemplateSpec:
     spec:
       volumes:
@@ -110,10 +108,3 @@ spec:
     limits:
       cpu: 200m
       memory: 256Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: kubesearch
-spec:
-  toolsFilter: []

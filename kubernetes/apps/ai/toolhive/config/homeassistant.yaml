@@ -1,8 +1,9 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
-  name: &name homeassistant
+  name: homeassistant
 spec:
   image: ghcr.io/homeassistant-ai/ha-mcp:7.14.2@sha256:7917b2d385e16e43f45f92fc72a757e5c0aec8d88b3cd69fe64f3b5106cbfe36
   transport: streamable-http
@@ -21,8 +22,6 @@ spec:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
       targetEnvName: HOMEASSISTANT_TOKEN
-  toolConfigRef:
-    name: *name
   podTemplateSpec:
     spec:
       volumes:
@@ -62,6 +61,7 @@ spec:
       cpu: 200m
       memory: 128Mi
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
@@ -84,8 +84,6 @@ spec:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
       targetEnvName: HOMEASSISTANT_TOKEN
-  toolConfigRef:
-    name: homeassistant
   podTemplateSpec:
     spec:
       volumes:
@@ -117,7 +115,6 @@ spec:
               memory: 64Mi
             limits:
               cpu: 1
-              # 13 OOMKills in 30d at 256Mi; observed peak 255Mi on both servers.
               memory: 512Mi
   resources:
     requests:
@@ -126,10 +123,3 @@ spec:
     limits:
       cpu: 200m
       memory: 128Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: homeassistant
-spec:
-  toolsFilter: []
