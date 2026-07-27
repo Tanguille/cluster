@@ -22,7 +22,8 @@ spec:
       resources:
         requests:
           cpu: 50m
-          memory: 512Mi
+          # Peaks at 747Mi over 14d, i.e. above the old 512Mi request.
+          memory: 1Gi
         limits:
           cpu: 1
           memory: 2Gi

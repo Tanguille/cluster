@@ -14,10 +14,11 @@ spec:
     resources:
       requests:
         cpu: 25m
-        memory: 128Mi
+        # Peaks at 166Mi over 14d, i.e. above the old 128Mi request and 65% of the limit.
+        memory: 256Mi
       limits:
         cpu: 500m
-        memory: 256Mi
+        memory: 512Mi
     global:
       image:
         registry: quay.io
