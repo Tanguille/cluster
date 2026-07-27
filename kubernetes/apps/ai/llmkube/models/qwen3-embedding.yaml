@@ -40,11 +40,16 @@ spec:
   # Two slots are the Vulkan-safe floor; more interleaving did not improve
   # throughput on this compute-bound iGPU. VMCP has its own embedder now.
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  contextSize: 8192
-  # Raise the logical batch ceiling without increasing the 2048-token Vulkan
-  # micro-batch; benchmark against the prior implicit 2048 default.
-  batchSize: 4096
-  uBatchSize: 2048
+  # 30d peak prompt is 4030 tokens, and contextSize splits across parallelSlots,
+  # so 8192 left each slot 4096 with 66 tokens of headroom. 10240 restores a
+  # ~27% margin; anything an input overruns fails the embedding outright.
+  contextSize: 10240
+  # No batchSize: llama.cpp forces n_batch = n_ubatch when embeddings are
+  # enabled, so any value above uBatchSize is logged as a warning and discarded.
+  # 512 over 2048: benchmarked identical on this iGPU (194-item batch 3.61s vs
+  # 3.68s median, single 65ms vs 69ms, 4k input 402 vs 390 tok/s) while cutting
+  # GTT ~49%, since the attention scratch scales with the square of the micro-batch.
+  uBatchSize: 512
   extraArgs:
     - "--alias"
     - "qwen3-embedding" # served model name memini sends in /v1/embeddings

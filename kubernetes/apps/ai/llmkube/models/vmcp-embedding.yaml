@@ -46,10 +46,12 @@ spec:
   # Vulkan floor is 2 — warmup hangs at parallel=1 (llama.cpp #24307). The iGPU
   # is compute-bound, so more slots add interleave, not throughput.
   parallelSlots: 2
-  # 8192 tokens/slot; largest single tool description measured 2155 tokens under
-  # harrier's Gemma3 tokenizer (2048/slot rejected it live 2026-07-02).
-  contextSize: 16384
-  uBatchSize: 2048
+  # 6144 tokens/slot. Largest single tool description measured 2155 tokens under
+  # harrier's Gemma3 tokenizer (2048/slot rejected it live 2026-07-02); 30d peak
+  # prompt is 4102, so 12288 keeps ~50% headroom per slot.
+  contextSize: 12288
+  # See qwen3-embedding.yaml: 512 measured identical on throughput, ~49% less GTT.
+  uBatchSize: 512
   # mode: embedding makes the operator inject --embedding --pooling last and
   # --metrics itself (verified on the live qwen3-embedding pod) — don't repeat them.
   extraArgs:
