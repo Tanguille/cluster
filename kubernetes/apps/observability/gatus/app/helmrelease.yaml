@@ -18,7 +18,7 @@ spec:
     gatus:
       image:
         tag: v5.36.0@sha256:c5f210d095fa78e6efaa20ffeb14803f2ba4f10615e16a6d12087697149617f0
-      port: &port 80
+      port: 80
       env:
         TZ: ${TIMEZONE}
       envFrom:
@@ -50,6 +50,10 @@ spec:
         tag: 0.2.2
         digest: sha256:1a68c2ede0397e1c4380e9f874bbebbd06562a6c5750c5978c771743ecab1812
       gatewayNames:
+        # envoy-external is what serves public traffic; the isolated probe only
+        # covers the tunnel and its own gateway, so dropping this in #4086 left
+        # every public hostname unmonitored.
+        - envoy-external
         - envoy-internal
         - envoy-internal-tls
       kinds:
