@@ -49,6 +49,14 @@ spec:
               S6_CMD_RECEIVE_SIGNALS: "1"
               HERMES_RESTART_DRAIN_TIMEOUT: "45"
               S6_SERVICES_GRACETIME: "80000"
+              # Home Assistant platform adapter. Reuses the token the homeassistant
+              # MCPServer already consumes rather than duplicating it into hermes-secret.
+              HASS_URL: http://${HOME_ASSISTANT_IP}:8123
+              HASS_TOKEN:
+                valueFrom:
+                  secretKeyRef:
+                    name: toolhive-secrets
+                    key: HOMEASSISTANT_API_TOKEN
             envFrom:
               - secretRef:
                   name: hermes-secret
