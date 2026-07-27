@@ -37,11 +37,17 @@ jobs:
         with:
           persist-credentials: false
 
+      # / does get used after all: run 30277992056 died at 43min with "No space left on device"
+      # writing the runner's own diag log under /home/runner. Reclaiming the preinstalled
+      # toolchains is ~30GB and costs seconds; the df lines are the evidence for next time.
+      - name: Reclaim / space
+        run: |
+          df -h /
+          sudo rm -rf /opt/hostedtoolcache /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
       # The `builder` stage (ROCm "complete" ~20GB + conda env ~22GB) outgrows /'s free space, so
-      # point docker's data root at the larger ~75GB /mnt volume. That volume alone is enough — a
-      # green build fit in it without touching /, so no disk-reclaim action is needed (the earlier
-      # easimon/maximize-build-space and jlumbroso/free-disk-space steps both only freed /, which
-      # the build never uses).
+      # point docker's data root at the larger ~75GB /mnt volume.
       - name: Move docker storage to /mnt
         run: |
           sudo systemctl stop docker.service docker.socket
