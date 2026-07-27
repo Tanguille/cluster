@@ -1,101 +1,17 @@
+# Disabled: neither transport works on ToolHive v0.40.1.
+#
+# stdio: virtual-MCP health monitoring re-runs `initialize`, which the backend rejects with
+# `duplicate "initialize" received`, degrading the resources and unified gateways (#5890).
+#
+# streamable-http: `server http` takes no server-side token (verified against v1.7.0 --help),
+# so the only path is MCPExternalAuthConfig bearerToken. The operator turns its tokenSecretRef
+# into the thv CLI store reference `toolhive-secrets,target=bearer_token` and never projects
+# the Secret into the proxy pod, so proxyrunner exits on "secrets provider not configured"
+# before it serves. Restore once either is fixed upstream.
 ---
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpexternalauthconfig_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPExternalAuthConfig
+kind: MCPToolConfig
 metadata:
   name: github
 spec:
-  # The `http` subcommand takes no server-side token: unlike stdio, its ServerConfig
-  # carries no Token field and it authenticates per request. The proxy injects the
-  # PAT as an Authorization: Bearer header instead.
-  type: bearerToken
-  bearerToken:
-    tokenSecretRef:
-      name: toolhive-secrets
-      key: GITHUB_PERSONAL_ACCESS_TOKEN
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: &name github
-spec:
-  # streamable-http, not stdio: ToolHive health monitoring re-runs `initialize`,
-  # which the stdio backend rejects with `duplicate "initialize" received` and
-  # which degraded the resources and unified gateways (upstream #5890).
-  image: ghcr.io/github/github-mcp-server:v1.7.0@sha256:c491ffdf6f4c85cb5397021bc655edb8ab825c6f5f568e7597d77a1bd7c4d308
-  transport: streamable-http
-  mcpPort: 8082 # `http` binds 8082 by default and exposes no env-bound port flag
-  proxyPort: 8080
-  groupRef:
-    name: resources
-  permissionProfile:
-    type: builtin
-    name: network
-  externalAuthConfigRef:
-    name: *name
-  args:
-    - http
-    - --read-only
-    # The full server is ~79 tools; this subset keeps the optimizer's index small.
-    - --toolsets
-    - context,repos,issues,pull_requests
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-  resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 200Mi
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: github-opt
-spec:
-  image: ghcr.io/github/github-mcp-server:v1.7.0@sha256:c491ffdf6f4c85cb5397021bc655edb8ab825c6f5f568e7597d77a1bd7c4d308
-  transport: streamable-http
-  mcpPort: 8082
-  proxyPort: 8080
-  groupRef:
-    name: all
-  permissionProfile:
-    type: builtin
-    name: network
-  externalAuthConfigRef:
-    name: github
-  args:
-    - http
-    - --read-only
-    - --toolsets
-    - context,repos,issues,pull_requests
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-  resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 200Mi
+  toolsFilter: []
