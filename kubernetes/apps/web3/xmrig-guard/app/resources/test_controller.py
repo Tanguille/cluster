@@ -160,8 +160,10 @@ class TelemetryTests(unittest.TestCase):
 
 class ControllerTests(unittest.TestCase):
     def test_audited_sensor_sets(self):
-        self.assertEqual(len(controller.SENSORS["control-2"]), 7)
-        self.assertEqual(len(controller.SENSORS["control-3"]), 8)
+        # Composite (temp1) per drive, two drives per node; die sensors are excluded
+        self.assertEqual(len(controller.SENSORS["control-2"]), 2)
+        self.assertEqual(len(controller.SENSORS["control-3"]), 2)
+        self.assertTrue(all(sensor == "temp1" for node in ("control-2", "control-3") for _, sensor in controller.SENSORS[node]))
 
     def test_evaluation_failure_is_fail_closed_and_readiness_is_bounded(self):
         telemetry = Mock()

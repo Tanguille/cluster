@@ -47,7 +47,8 @@ spec:
                   cpu: 10m
                   memory: 256Mi
                 limits:
-                  cpu: 100m
+                  # Throttled 13% of CFS periods at 100m despite a 34m p95.
+                  cpu: "1"
                   memory: 2Gi
               env:
                 - name: GF_SECURITY_ADMIN_PASSWORD

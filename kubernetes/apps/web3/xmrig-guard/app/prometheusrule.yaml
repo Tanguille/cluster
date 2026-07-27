@@ -37,6 +37,24 @@ spec:
               closed and mining is silently disabled (fails closed)
           labels:
             severity: warning
+        - alert: XmrigGuardLatchedUnsafe
+          # A node that trips or hits an evaluation error only re-earns safe=1 after
+          # 600s at or below 60C. Paired here with the temperature actually being in
+          # that band, so this fires for a stuck latch (the 2026-07-27 control-2
+          # sensor-identity blip) and stays quiet when the gate is shut because the
+          # drives are genuinely too hot, which is the expected steady state.
+          expr: |-
+            max_over_time(xmrig_guard_safe{node=~"control-[123]"}[6h]) == 0
+            and on (node)
+            max_over_time(xmrig_guard_nvme_temp_max_celsius{node=~"control-[123]"}[2h]) <= 60
+          for: 30m
+          annotations:
+            summary: >-
+              {{ $labels.node }} has been gated unsafe for 6h while its NVMe stayed
+              within the 60C recovery band, so the guard is latched rather than
+              thermally tripped and mining is disabled with no signal
+          labels:
+            severity: warning
         - alert: XmrigGuardEvaluationErrors
           # 0.01/s ~= 36 errors/h; the 2026-07 telemetry breakage ran 47-100/h
           expr: |-

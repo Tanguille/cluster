@@ -16,10 +16,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+# temp1 is the Composite sensor, which is what the drives' 70C rating specifies and
+# what smartctl reports. temp2-temp4 are internal die sensors that run ~9C hotter and
+# carry no comparable rating, so including them gated a Composite threshold against
+# the wrong reading. Fewer series also means fewer chances for a single missing sample
+# to fail the identity check and latch a node closed.
 SENSORS = {
     "control-1": (),
-    "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2"), ("nvme_nvme0", "temp3"), ("nvme_nvme1", "temp1"), ("nvme_nvme1", "temp2"), ("nvme_nvme1", "temp3"), ("nvme_nvme1", "temp4")),
-    "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme0", "temp2"), ("nvme_nvme0", "temp3"), ("nvme_nvme0", "temp4"), ("nvme_nvme1", "temp1"), ("nvme_nvme1", "temp2"), ("nvme_nvme1", "temp3"), ("nvme_nvme1", "temp4")),
+    "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
+    "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
 }
 ENDPOINT = "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427"
 EVALUATION_INTERVAL_SECONDS = 60
@@ -240,7 +245,16 @@ class GuardController:
     def __init__(self, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
         self.telemetry = telemetry
         self.clock, self.wall_clock = clock, wall_clock
-        self.policies = {"control-2": DwellPolicy(60, 70, 600, 120, MAX_SOURCE_GAP_SECONDS), "control-3": DwellPolicy(60, 70, 600, 120, MAX_SOURCE_GAP_SECONDS)}
+        # Trip 64C / recover 60C on Composite, against a 70C drive rating. Mining raises
+        # Composite at up to 1.1C/min, so the 6C band is ~5.5 minutes wide. Worst-case
+        # response is ~4.25: up to one evaluation interval to sample the crossing, 120s
+        # trip dwell, 60s of KEDA polling, then the HPA drop (scaledobject.yaml sheds all
+        # replicas at once for exactly this reason). That leaves the peak near 69C, and is
+        # conservative because it assumes full heat output until the last miner exits.
+        # Idle Composite never exceeded 62C over 7d on either node, so the trip does not
+        # false-fire, and it sits at or below 60C for 100%/90% of the time, so recovery is
+        # reachable rather than the permanent latch the old 60C/70C pair produced.
+        self.policies = {"control-2": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS), "control-3": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS)}
         self.cpu_policy = DwellPolicy(50, 70, 600, 120, MAX_SOURCE_GAP_SECONDS)
         self.ready = False
         self.metrics = {

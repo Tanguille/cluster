@@ -32,9 +32,10 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Run weekly on Sunday at 3 AM local time.
+          # Daily at 03:00. The previous weekly cadence let fragmentation cross the
+          # 50% alert threshold by day 4; a full 3-member pass costs ~95s.
           timeZone: ${TIMEZONE}
-          schedule: "0 3 * * 0"
+          schedule: "0 3 * * *"
           concurrencyPolicy: Forbid
           backoffLimit: 1
           failedJobsHistory: 1

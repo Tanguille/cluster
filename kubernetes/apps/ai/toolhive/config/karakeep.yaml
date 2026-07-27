@@ -26,7 +26,8 @@ spec:
               memory: 64Mi
             limits:
               cpu: 500m
-              memory: 100Mi
+              # 14d peak 84Mi.
+              memory: 256Mi
   resources:
     requests:
       cpu: 10m
@@ -62,7 +63,8 @@ spec:
               memory: 64Mi
             limits:
               cpu: 500m
-              memory: 100Mi
+              # Peaks at 84Mi, i.e. 84% of the old 100Mi limit.
+              memory: 256Mi
   resources:
     requests:
       cpu: 10m
