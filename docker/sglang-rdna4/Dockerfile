@@ -30,11 +30,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     REPO_DIR=/opt/rdna4-inference \
     SGLANG_DIR=/opt/rdna4-inference/components/sglang
 
-# libssl-dev: HiCache JIT-compiles hash_binding.cpp (#include <openssl/sha.h>) on first
-# prefill; without the headers --hicache-storage-backend crashes the scheduler mid-request.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        git curl ca-certificates build-essential python3-pip libssl-dev \
+        git curl ca-certificates build-essential python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Rust via rustup stable, not apt (Ubuntu 24.04's cargo is too old for the fork's grpc crate build).
@@ -130,6 +128,14 @@ ENV ROCM_PATH=/opt/rocm \
     SGLANG_DIR=/opt/rdna4-inference/components/sglang \
     PATH=/opt/conda/envs/sglang-triton36-v0514/bin:/opt/conda/bin:${PATH}
 
+# HiCache JIT-compiles hash_binding.cpp (#include <openssl/sha.h>) on the first prefill, so the
+# headers are a RUNTIME need, not a build one. g++ and ninja already survive in the slim base;
+# only the OpenSSL headers were missing. Without them --hicache-storage-backend passes startup
+# and health checks, then kills the scheduler mid-request.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # The built conda env (torch+rocm, triton, sglang, native gfx1201 kernels) and the fork repo
 # (launch.sh, common.sh, chat template, editable sglang). Paths match the builder so the env's
 # baked RPATHs/shebangs (/opt/conda/...) resolve unchanged. Build-only tooling (rust, gcc, git,
@@ -142,6 +148,10 @@ COPY --from=builder /opt/rdna4-inference /opt/rdna4-inference
 # It does NOT exercise Triton's runtime JIT — that risk is validated at deploy (cold boot, Triton
 # cache cleared).
 RUN "${CONDA_BASE}/bin/conda" run -n "${ENV_NAME}" python -c "import torch, sglang, sgl_kernel; print('torch', torch.__version__, 'hip', torch.version.hip); print('sglang', sglang.__version__)"
+
+# HiCache's hash extension is JIT-compiled on the first prefill, so a missing toolchain surfaces
+# as a mid-request scheduler crash rather than a boot failure. Build it here instead.
+RUN "${CONDA_BASE}/bin/conda" run -n "${ENV_NAME}" python -c "from sglang.srt.mem_cache.cpp_utils.native_hash import _load_native_hash_module; _load_native_hash_module(); print('hicache_hash_cpp OK')"
 
 # Correctness-critical gfx1201 env from the fork's common.sh::setup_rdna4_env. launch.sh also
 # sets these at runtime (it sources common.sh) — baked here so the image is correct under any
