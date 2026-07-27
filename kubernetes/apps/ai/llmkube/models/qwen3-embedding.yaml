@@ -1,16 +1,13 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
   name: qwen3-embedding
 spec:
-  # Q8_0 over F16: measured 194-item ToolHive batch at ~10s/request isolated,
-  # 19-52s under 3x concurrent (vmcp + memini both hit this server) — GPU
-  # compute-bound on the weak iGPU, not slots/CPU (confirmed via kubectl top:
-  # CPU peaked at 424m of an uncapped budget during the same test). Q8_0 is
-  # ~half the compute of F16 for negligible quality loss on embedding-only
-  # (non-generative) similarity search, and embeddings aren't cached/persisted
-  # across sessions so there's no stale-vector consistency concern either way.
+  # Q8_0 over F16: this iGPU is compute-bound, and Q8_0 halves the compute for
+  # negligible loss on similarity search (194-item batch, ~10s isolated /
+  # 19-52s under 3x concurrent).
   # Revision-pinned (immutable bytes) — Renovate bumps the sha via the git-refs
   # manager in .renovaterc.json5; refreshPolicy makes the bump actually re-fetch.
   source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/370f27d7550e0def9b39c1f16d3fbaa13aa67728/Qwen3-Embedding-0.6B-Q8_0.gguf
@@ -28,6 +25,7 @@ spec:
       # nodeSelector below pins this to the iGPU.
       resourceName: squat.ai/dri
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
@@ -75,6 +73,7 @@ spec:
           topologyKey: kubernetes.io/hostname
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
+  # Mirrored by qwen35-2b and vmcp-embedding.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
@@ -84,8 +83,8 @@ spec:
 
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Current 84746bcc6 revision peaked at ~3.1 GiB working set over 7 days;
-    # reserve 4 GiB so the scheduler accounts for the model's UMA usage.
+    # ~3.1 GiB peak working set over 7 days; 4 GiB so the scheduler accounts for
+    # the model's UMA usage.
     memory: 4Gi
   endpoint:
     path: /v1/embeddings

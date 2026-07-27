@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
@@ -22,6 +23,7 @@ spec:
     maxInputTokens: 171808
     maxOutputTokens: 8192
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
@@ -34,8 +36,8 @@ spec:
     apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
     apiKey: sk-sglang-noauth
     additional:
-      # 900s (was 600): Hermes compression is a ~100K+ prefill on this alias — under GPU
-      # contention the shared prefill rate drops below what 600s covers (observed 2026-07-07).
+      # Hermes compression is a ~100K+ prefill on this alias; under GPU contention
+      # the shared prefill rate drops below what 600s covers (2026-07-07).
       timeout: 900
       stream_timeout: 900
       num_retries: 0
@@ -49,6 +51,5 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    # Match SGLang's effective 180K context cap after reserving maxOutputTokens.
     maxInputTokens: 171808
     maxOutputTokens: 8192

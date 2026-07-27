@@ -1,12 +1,18 @@
-# Qwen3.6-27B serving on R9700 (gfx1201) — Benchmarks & Decision
+# Serving-engine benchmarks on R9700 (gfx1201)
 
-**SUPERSEDED:** production runs SGLang (baked `ghcr.io/tanguille/sglang-rdna4` image) — see
-`docs/llm-hosting/sglang-blockers.md` and `kubernetes/apps/ai/sglang/README.md` for the current
-engine decision. This doc is the historical vLLM-vs-SGLang record from 2026-06-21.
+Multi-engine measurement record for Qwen3.6-27B on RDNA4 — vLLM, SGLang and llama.cpp.
+Measurements are dated and kept as a historical series; the open experiments at the
+bottom are still outstanding.
+
+**Current production engine: SGLang**, baked `ghcr.io/tanguille/sglang-rdna4`. Build,
+pin and rollback mechanics are in `docker/sglang-rdna4/README.md`; outstanding upstream
+gaps are tracked in `docs/llm-hosting/sglang-blockers.md`. The 2026-06-21 round below
+concluded in favour of vLLM and has since been superseded — read its numbers as a
+snapshot of that date, not as current guidance.
 
 ## Round 2 Final Results — 2026-06-21
 
-**All experiments complete. Best engine: vLLM kyuz0 + cyankiwi AWQ-INT4 + MTP×4 + 234K context.**
+**As measured on 2026-06-21 (since superseded): vLLM kyuz0 + cyankiwi AWQ-INT4 + MTP×4 + 234K context.**
 
 ### SGLang 0.5.13 — CANNOT serve Qwen3.6-27B on gfx1201
 
@@ -54,17 +60,17 @@ reference. vLLM 0.23.0 cannot match it for this model due to the breaking V1 eng
 
 ---
 
-## FINAL DECISION — vLLM kyuz0 + MTP×4 + 234K context (2026-06-21)
+## Decision as of 2026-06-21 (superseded — production is SGLang)
 
-Updated from prior llama.cpp recommendation. vLLM kyuz0 with speculative MTP decoding is the production
-engine for multi-user workloads. llama.cpp retained only for single-user interactive work
+Updated from prior llama.cpp recommendation. vLLM kyuz0 with speculative MTP decoding was the chosen
+engine for multi-user workloads at the time. llama.cpp retained only for single-user interactive work
 (better C=1 TG: 39 vs 19.5 tok/s).
 
 ### Complete comparison table (all confirmed on gfx1201)
 
 | Engine | TG C=1 | PP tok/s | Agg TG C=8 | Max ctx | APC | MTP | Note |
 |---|---:|---:|---:|---:|:---:|:---:|---|
-| **vLLM kyuz0 + MTP×4, 234K** | **19.5** | ~1200 | **126.1** | **234,320** | ✅ | ✅ | **PRODUCTION** (multi-user) |
+| **vLLM kyuz0 + MTP×4, 234K** | **19.5** | ~1200 | **126.1** | **234,320** | ✅ | ✅ | Chosen 2026-06-21 (multi-user) |
 | vLLM kyuz0 + MTP×4, 131K | 18.3 | ~1200 | 129.6 | 131,072 | ✅ | ✅ | Better C=4 throughput (70.4 vs 61.2) |
 | vLLM kyuz0 + MTP×4, 32K | 18.4 | ~1200 | 126.8 | 32,768 | ✅ | ✅ | First MTP result (baseline for tuning) |
 | **llama.cpp ROCm + MTP** | **~39** | ~423 cold | ~35 (flat) | ~256K | ✅ | ✅ | Best single-stream; flat agg at all C |
@@ -93,11 +99,7 @@ Why not native 262K context? Gap of 0.93 GiB: 9.48 GiB needed, 8.55 GiB availabl
 - `--kv-offloading-size native`: doesn't extend GPU KV pool (for weight offload, not KV pool)
 - `--swap-space`: flag doesn't exist in kyuz0; `--kv-offloading-size` fills this role for weights
 
-Detailed experiment ledger: [`vllm-optimization-ledger.md`](./vllm-optimization-ledger.md)
-
-Retired trial configs (revival anchors) are in
-[`ai-serving-trials-archive.md`](./ai-serving-trials-archive.md). The rest of this file is the
-**historical sglang/vLLM measurement log** that led to the decision.
+The rest of this file is the **historical sglang/vLLM measurement log** that led to the decision.
 
 ---
 
@@ -502,23 +504,30 @@ token budget per scheduling step. No impact observed at C≤16 with out=200.
 
 ## Open / next experiments
 
-- [x] **bf16 KV cache** — TESTED: *slower* (12.35 vs 14.96) and half capacity. fp8 KV wins on
-      sglang (native gfx1201 fp8 kernels). Keep fp8_e4m3.
-- [x] vLLM kyuz0 batching benchmark — **DONE**: 48.6 tok/s @ C8, 85.8 tok/s @ C16, APC on, CUDAGraphs work on gfx1201 in 0.22.1rc1 (see section above)
-- [x] vLLM FP8 KV + APC coexistence — **DONE**: 128.9 tok/s @ C32 (50% gain over FP16 baseline); bug #13147 doesn't affect kyuz0. FP8 is recommended config.
-- [x] VLLM_ROCM_USE_AITER=1 — **FAILS**: GDN kernel autotune exhausts all configs ≤ 64 KiB SRAM on gfx1201. AITER config tables target MI300X, not gfx1201.
-- [x] **MTP speculative decoding** — **DONE**: `--spec-method mtp --spec-tokens 4`. C=1: 18.4 tok/s (2.6×), C=8: 126.8 tok/s agg (2.7×). Qwen3.6-27B has built-in MTP heads — no separate draft model needed. MTP is now the recommended production config.
-- [ ] vLLM fp8 KV + extended context: `--max-model-len 131072` with fp8 KV — test if 32K→131K context affects throughput
-- [ ] Push MTP C beyond 16 with max_num_seqs=32 — test if C=32 MTP reaches 200+ tok/s
+Done, kept for the result:
+
+- [x] **bf16 KV cache** — *slower* (12.35 vs 14.96) and half capacity. fp8 KV wins on sglang
+      (native gfx1201 fp8 kernels). Keep fp8_e4m3.
+- [x] **vLLM kyuz0 batching** — 48.6 tok/s @ C8, 85.8 tok/s @ C16, APC on; CUDAGraphs work on
+      gfx1201 in 0.22.1rc1.
+- [x] **vLLM FP8 KV + APC coexistence** — 128.9 tok/s @ C32, 50% over the FP16 baseline; bug
+      #13147 does not affect kyuz0.
+- [x] **VLLM_ROCM_USE_AITER=1** — fails: GDN kernel autotune exhausts all configs <= 64 KiB
+      SRAM on gfx1201. AITER config tables target MI300X.
+- [x] **MTP speculative decoding** — `--spec-method mtp --spec-tokens 4`. C=1 18.4 tok/s (2.6x),
+      C=8 126.8 tok/s aggregate (2.7x). Qwen3.6-27B ships MTP heads, no draft model needed.
+
+Still outstanding:
+
+- [ ] **Revalidate the latest SGLang** once upstream rebases the RDNA4 patch series past our
+      `FORK_REF` pin. Blocked on the fork, not on us — see blocker 7 in `sglang-blockers.md`.
+      Re-run the concurrency sweep and the verbatim-reproduction test from `bench/` and compare
+      against the recorded v0.5.15 numbers before moving the production pin.
+- [ ] vLLM fp8 KV + extended context: `--max-model-len 131072` with fp8 KV — does 32K -> 131K
+      move throughput?
+- [ ] Push MTP concurrency beyond 16 with `max_num_seqs=32` — does C=32 MTP reach 200+ tok/s?
 - [ ] `mamba_track_interval` / scheduler tuning under Config B for higher concurrency.
-- [ ] Quality probe (logprob/eval) to fully close the fork's flagged torch-2.12 attention drift
-      (basic coherence already passes).
-- [ ] **llama.cpp gfx1201 tuning sweep** — `-b/-ub`, hipBLASLt env, perf-level, iGPU/`-sm`,
-      Vulkan backend (see "llama.cpp on gfx1201" section). Then cache probe + concurrency sweep.
-
-## Process Instructions
-
-- After completing each step, update the relevant table with the current status.
-- Pause for user confirmation before proceeding to next step.
-- Keep this as a living reference; record the winning config + rationale once chosen and
-  committed to the HelmRelease.
+- [ ] Quality probe (logprob/eval) to close out the fork's flagged torch-2.12 attention drift;
+      basic coherence already passes.
+- [ ] llama.cpp gfx1201 tuning sweep — `-b`/`-ub`, hipBLASLt env, perf level, iGPU/`-sm`, Vulkan
+      backend. Then cache probe and concurrency sweep.

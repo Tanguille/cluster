@@ -2,18 +2,21 @@
 
 Serves **Qwen3.6-27B int4-AWQ** on a single **AMD Radeon AI PRO R9700** (RDNA4 / gfx1201)
 via SGLang + the RDNA4 patch fork. This is the **git-reproducible replacement** for the
-old runtime-from-PVC env (`scripts/sglang-env-rebuild.sh`); see
-[`docs/llm-hosting/sglang-oci-cutover.md`](../../docs/llm-hosting/sglang-oci-cutover.md)
-for the why and the cutover.
+old runtime-from-PVC env, and is now the consolidated reference for building, pinning and
+rolling back the image. The cutover plan it replaced was removed once complete; recover it
+with `git log --diff-filter=D -- docs/llm-hosting/sglang-oci-cutover.md`.
 
 The image vendors [`mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference`](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference)
 at a pinned commit, runs its own `scripts/setup.sh` (the only build path the fork supports —
 conda-only, no upstream Dockerfile), then applies the three TP=1 fixes `setup.sh` omits.
 **Re-pinning `FORK_REF` (and `SGLANG_TAG` on a version bump) is the whole maintenance surface.**
 
-> The `Dockerfile` mirrors `kubernetes/apps/ai/sglang/app/scripts/sglang-env-rebuild.sh`
-> exactly (same `FORK_REF`, `SGLANG_TAG`, and the three patches). Keep them in sync — that
-> script remains the emergency PVC-rebuild fallback if the registry is ever unreachable.
+> The `Dockerfile` was derived from the retired `sglang-env-rebuild.sh` (same `FORK_REF`,
+> `SGLANG_TAG`, and the three patches). That script went with the `kubernetes/apps/ai/sglang`
+> directory in b8f12ae75; if the registry is ever unreachable and the PVC-rebuild path is
+> needed, recover it with
+> `git show b8f12ae75^:kubernetes/apps/ai/sglang/app/scripts/sglang-env-rebuild.sh`.
+> There is no longer a second copy to keep in sync — this Dockerfile is the only build path.
 
 ## Pins (verified against `env-rebuild.sh`, 2026-07-12)
 

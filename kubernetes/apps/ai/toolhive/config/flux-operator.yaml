@@ -1,8 +1,9 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
-  name: &name flux-operator
+  name: flux-operator
 spec:
   image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.57.0@sha256:a53ae414ec4f7671697707c69a61f0209842dfc108ad2fb13461b118d7475e3d
   transport: stdio
@@ -13,8 +14,6 @@ spec:
   env:
     - name: KUBECONFIG
       value: /kubeconfig/kubeconfig
-  toolConfigRef:
-    name: *name
   podTemplateSpec:
     spec:
       volumes:
@@ -45,6 +44,7 @@ spec:
       cpu: 500m
       memory: 200Mi
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
@@ -59,8 +59,6 @@ spec:
   env:
     - name: KUBECONFIG
       value: /kubeconfig/kubeconfig
-  toolConfigRef:
-    name: flux-operator
   podTemplateSpec:
     spec:
       volumes:
@@ -90,10 +88,3 @@ spec:
     limits:
       cpu: 500m
       memory: 200Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: flux-operator
-spec:
-  toolsFilter: []

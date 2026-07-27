@@ -14,10 +14,8 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  # Gate the models (llmkube-models) on the operator being installed: the
-  # HelmRelease only reports Ready once its CRDs are applied and the controller is
-  # up. Targeted healthCheck rather than spec.wait so readiness keys on just the
-  # CRD-providing HelmRelease, not a blanket wait across all rendered resources.
+  # Targeted healthCheck rather than spec.wait: llmkube-models only needs the
+  # CRD-providing HelmRelease Ready, not every rendered resource.
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
@@ -44,13 +42,15 @@ spec:
       kind: InferenceService
       name: qwen36-27b
       namespace: ai
-  timeout: 60m
   healthCheckExprs:
     - apiVersion: inference.llmkube.dev/v1alpha1
       kind: InferenceService
-      inProgress: has(status.phase) && status.phase in ['Pending', 'Creating', 'Progressing', 'WaitingForGPU']
       failed: has(status.phase) && status.phase == 'Failed'
-      # Stopped is terminal; the CRD says treat it as Pending, which deadlocks this gate.
+      # Stopped only ever means spec.replicas=0, i.e. someone parked the service on
+      # purpose (qwen36-27b-vllm today); a model that breaks lands in Failed above.
+      # The CRD tells readiness pollers to treat Stopped as Pending, but this gate asks
+      # "has the Kustomization converged", and a parked service has. Excluding it would
+      # hang llmkube-models forever, and litellm and memini behind it.
       current: has(status.phase) && (status.phase == 'Stopped' || (status.phase == 'Ready' && has(status.conditions) && status.conditions.exists(e, e.type == 'Available' && e.status == 'True')))
   path: ./kubernetes/apps/ai/llmkube/models
   prune: true

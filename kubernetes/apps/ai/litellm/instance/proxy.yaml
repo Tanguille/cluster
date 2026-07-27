@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmproxy_v1alpha1.json
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMProxy
 metadata:
@@ -13,25 +14,10 @@ spec:
       key: LITELLM_MASTER_KEY
   service:
     port: 80
-  env:
-    - name: LITELLM_MASTER_KEY
-      valueFrom:
-        secretKeyRef:
-          name: litellm-secret
-          key: LITELLM_MASTER_KEY
-    - name: LITELLM_SALT_KEY
-      valueFrom:
-        secretKeyRef:
-          name: litellm-secret
-          key: LITELLM_SALT_KEY
-    - name: DATABASE_URL
-      valueFrom:
-        secretKeyRef:
-          name: litellm-secret
-          key: DATABASE_URL
-  # Chart defaults (10s initialDelay, 3x failureThreshold ~= 40s grace) kill the
-  # container mid prisma-migrate on first boot. Measured cold start: ~81s
-  # (pod creation to "Application startup complete"); this budgets ~120s.
+  envFrom:
+    - secretRef:
+        name: litellm-secret
+  # Measured cold start ~81s; the chart's ~40s grace kills prisma-migrate.
   livenessProbe:
     httpGet:
       path: /health/liveliness
@@ -51,9 +37,8 @@ spec:
   litellmSettings:
     callbacks: ["prometheus"]
     service_callback: ["prometheus_system"]
-    # Cache embeddings only (chat is near-unique per turn, ~0 hit rate). vmcp re-embeds the
-    # same ~194 tool descriptions every MCP initialize; caching turns that into dragonfly hits
-    # that survive embedder restarts, fixing the init timeouts. Auth-less, shared with toolhive.
+    # Embeddings only — chat is near-unique per turn (~0 hit rate). vmcp re-embeds
+    # the same ~194 tool descriptions every MCP initialize.
     cache: true
     cache_params:
       type: redis
@@ -64,11 +49,9 @@ spec:
     drop_params: true
     num_retries: 0
   routerSettings:
-    # Per-error override of the global num_retries: 0. A dropped connection to
-    # SGLang surfaces as InternalServerError ("OpenAIException - Connection
-    # error") and costs a whole scheduled run, because Hermes cron has no retry
-    # queue. Timeouts stay at 0 retries — re-running a ~100K prefill that
-    # already burned 900s would only deepen the GPU contention that caused it.
+    # Per-error override of num_retries: 0 — a dropped SGLang connection costs a
+    # whole Hermes cron run. Timeouts stay at 0: re-running a ~100K prefill that
+    # already burned 900s only deepens the contention that caused it.
     retry_policy:
       InternalServerErrorRetries: 2
   route:
