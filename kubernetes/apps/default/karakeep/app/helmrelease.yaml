@@ -191,7 +191,7 @@ spec:
           gethomepage.dev/group: Utilities
           gethomepage.dev/icon: karakeep.png
         hostnames:
-          - karakeep.${SECRET_DOMAIN}
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-internal
             namespace: network

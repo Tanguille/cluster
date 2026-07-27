@@ -9,14 +9,9 @@ spec:
     - name: drm-exporter.rules
       rules:
         - alert: GpuFanStalled
-          # ROCm #6101 and #6078 are filed against this exact SKU (ASUS Turbo
-          # R9700): blower stationary under load, GPU to 109C, thermally
-          # throttling. Root cause is the SMU interface mismatch this card also
-          # reports (driver 0x2e vs fw 0x32) leaving fan registers inaccessible.
-          # No upstream fix, reported still present on kernel 7.0. The fan is the
-          # only thermal margin this card has, so this is the one GPU condition
-          # worth paging on. Floor is 30% PWM (~1650rpm); under 1000 while pulling
-          # >100W is the stall, not a low idle.
+          # ROCm #6101/#6078 on this SKU: SMU mismatch (driver 0x2e vs fw 0x32)
+          # leaves fan registers inaccessible, blower stalls to 109C under load.
+          # Fan floor is 30% PWM (~1650rpm), so <1000 at >100W is a stall, not idle.
           expr: |-
             max by (kubernetes_node) (drm_fan_speed_rpm) < 1000
             and
