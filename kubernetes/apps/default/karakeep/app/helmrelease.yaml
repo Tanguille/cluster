@@ -132,6 +132,9 @@ spec:
               tag: v1.51.0@sha256:a9eb29ee09ab4943db3b4c68620bd6f3382e6b2b0ac4431c0e607b48dbcd4c14
             args:
               - /bin/meilisearch
+              # v1.51 renamed --experimental-dumpless-upgrade to this; without it
+              # the engine refuses to open a database written by the prior version.
+              - --upgrade-db
             env:
               MEILI_NO_ANALYTICS: true
               MEILI_MASTER_KEY:
