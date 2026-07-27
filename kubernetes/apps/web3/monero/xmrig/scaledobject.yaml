@@ -24,8 +24,11 @@ spec:
     horizontalPodAutoscalerConfig:
       behavior:
         scaleDown:
-          # Scale down more quickly when solar power drops
-          stabilizationWindowSeconds: 180 # 3 minutes (reduced from 5)
+          # No stabilization: a thermal trip has to reach the miners inside the 5C band
+          # between the guard's 65C trip and the drives' 70C rating, which at the observed
+          # 1.1C/min leaves ~4.5 minutes. Guard dwell (120s) plus polling (60s) already
+          # spends most of that, and there is no cost to shedding a mining pod early.
+          stabilizationWindowSeconds: 0
           policies:
             - type: Pods
               value: 1

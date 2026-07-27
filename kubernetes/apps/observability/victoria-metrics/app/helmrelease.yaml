@@ -330,7 +330,7 @@ spec:
         resources:
           requests:
             cpu: 250m
-            # Steady state 2.9-3.4Gi; 14d peak 4015Mi.
+            # Live pod p99 2.90Gi over 7d, max 3.10Gi; limit covers the 14d 4015Mi peak.
             memory: 3Gi
           limits:
             cpu: 2
