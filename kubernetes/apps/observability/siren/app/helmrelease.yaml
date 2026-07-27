@@ -33,9 +33,7 @@ spec:
                     path: /livez
                     port: *port
                   initialDelaySeconds: 10
-                  periodSeconds: 10
                   timeoutSeconds: 5
-                  failureThreshold: 3
               readiness:
                 enabled: true
                 custom: true
@@ -46,7 +44,6 @@ spec:
                   initialDelaySeconds: 5
                   periodSeconds: 5
                   timeoutSeconds: 5
-                  failureThreshold: 3
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

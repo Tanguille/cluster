@@ -24,7 +24,6 @@ spec:
           priorityClassName: system-node-critical
     drivers:
       rbd:
-        enabled: true
         name: rook-ceph.rbd.csi.ceph.com
         snapshotPolicy: volumeSnapshot
         controllerPlugin:
@@ -64,7 +63,6 @@ spec:
             plugin:
               requests: { cpu: 100m, memory: 128Mi }
       cephfs:
-        enabled: true
         name: rook-ceph.cephfs.csi.ceph.com
         controllerPlugin:
           replicas: 2
