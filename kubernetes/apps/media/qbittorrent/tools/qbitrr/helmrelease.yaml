@@ -109,20 +109,15 @@ spec:
 
     persistence:
       config:
-        type: persistentVolumeClaim
         storageClass: ceph-block
         accessMode: ReadWriteOnce
         size: 2Gi
-        globalMounts:
-          - path: /config
-            readOnly: false
 
       config-template:
         type: configMap
         name: qbitrr-config
         globalMounts:
-          - path: /config-template
-            readOnly: true
+          - readOnly: true
 
       downloads:
         type: nfs
@@ -130,4 +125,3 @@ spec:
         path: ${MEDIA_NFS_PATH}/Downloads
         globalMounts:
           - path: /completed_downloads
-            readOnly: false

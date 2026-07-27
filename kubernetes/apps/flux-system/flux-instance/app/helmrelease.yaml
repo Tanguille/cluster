@@ -15,11 +15,6 @@ spec:
         artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.56.0
       cluster:
         networkPolicy: false
-      components:
-        - source-controller
-        - kustomize-controller
-        - helm-controller
-        - notification-controller
       sync:
         kind: GitRepository
         url: https://github.com/tanguille/cluster.git

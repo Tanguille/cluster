@@ -15,7 +15,6 @@ spec:
 
   values:
     defaultPodOptions:
-      # squat.ai/dri already hard-pins scheduling to the GPU node
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -55,7 +54,6 @@ spec:
                 enabled: true
                 spec:
                   failureThreshold: 30
-                  periodSeconds: 10
             lifecycle:
               preStop:
                 exec:
@@ -104,10 +102,6 @@ spec:
     persistence:
       config:
         existingClaim: jellyfin
-        advancedMounts:
-          jellyfin:
-            app:
-              - path: /config
 
       # not the nfs-media component: library paths in the db use /ext_media
       media:
@@ -116,13 +110,10 @@ spec:
         path: ${MEDIA_NFS_PATH}
         globalMounts:
           - path: /ext_media
-            readOnly: false
 
       library:
         type: hostPath
         hostPath: "/var/mnt/merged/"
-        globalMounts:
-          - path: /var/mnt/merged/
 
       tmpfs:
         type: emptyDir
