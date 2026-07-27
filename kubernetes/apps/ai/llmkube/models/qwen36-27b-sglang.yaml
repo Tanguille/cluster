@@ -77,7 +77,6 @@ spec:
   runtime: sglang
   # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
   bindAddress: 0.0.0.0
-  # L3 needs OpenSSL headers in the runtime stage; earlier digests kill the scheduler.
   image: ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201@sha256:72d934d335529934bf73cd480b728cd08ae61178c9204dc37a025302b31fd61e
   containerPort: 30000
   endpoint:
@@ -122,12 +121,8 @@ spec:
       value: "0"
     - name: TRITON_CACHE_DIR
       value: /cache/sglang/triton
-    # Correctness knob, not a layout preference. The on-disk page name is
-    # sha256(token_ids, prior_hash, page_size) + "_{model_name}_{tp_rank}_{tp_size}",
-    # so nothing in it encodes the weights revision, the KV dtype or the KV layout.
-    # Same served-model-name plus same tokens hits the same file, which means a
-    # Renovate bump of either the AWQ revision below or the sglang image would serve
-    # KV pages computed by the previous one. Bump this suffix with either of them.
+    # Page names encode neither the weights revision nor the engine, so this suffix MUST be
+    # bumped with the image digest above or the AWQ revision, or stale KV pages get served.
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
       value: /hicache/sglang-v0.5.15_awq-f541031d
     # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.
