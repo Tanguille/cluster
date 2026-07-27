@@ -14,10 +14,8 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  # Gate the models (llmkube-models) on the operator being installed: the
-  # HelmRelease only reports Ready once its CRDs are applied and the controller is
-  # up. Targeted healthCheck rather than spec.wait so readiness keys on just the
-  # CRD-providing HelmRelease, not a blanket wait across all rendered resources.
+  # Targeted healthCheck rather than spec.wait: llmkube-models only needs the
+  # CRD-providing HelmRelease Ready, not every rendered resource.
   healthChecks:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
@@ -44,7 +42,6 @@ spec:
       kind: InferenceService
       name: qwen36-27b
       namespace: ai
-  timeout: 60m
   healthCheckExprs:
     - apiVersion: inference.llmkube.dev/v1alpha1
       kind: InferenceService

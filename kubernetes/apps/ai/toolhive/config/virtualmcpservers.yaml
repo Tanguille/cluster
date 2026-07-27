@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/virtualmcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
@@ -8,11 +9,9 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
-    db: 0
     keyPrefix: "thv:vmcp:flux:session:"
   incomingAuth:
     type: anonymous
-  serviceType: ClusterIP
   groupRef:
     name: flux
   config:
@@ -21,6 +20,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/virtualmcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
@@ -42,11 +42,9 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
-    db: 0
     keyPrefix: "thv:vmcp:observability:session:"
   incomingAuth:
     type: anonymous
-  serviceType: ClusterIP
   groupRef:
     name: observability
   config:
@@ -55,6 +53,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/virtualmcpserver_v1beta1.json
 # Named "ha" to avoid Deployment name collision with MCPServer "homeassistant"
 # (operator creates Deployment = name).
 apiVersion: toolhive.stacklok.dev/v1beta1
@@ -78,11 +77,9 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
-    db: 0
     keyPrefix: "thv:vmcp:ha:session:"
   incomingAuth:
     type: anonymous
-  serviceType: ClusterIP
   groupRef:
     name: homeassistant
   config:
@@ -91,6 +88,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/virtualmcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
@@ -100,11 +98,9 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
-    db: 0
     keyPrefix: "thv:vmcp:search:session:"
   incomingAuth:
     type: anonymous
-  serviceType: ClusterIP
   groupRef:
     name: search
   config:
@@ -113,6 +109,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/virtualmcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
@@ -122,11 +119,9 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
-    db: 0
     keyPrefix: "thv:vmcp:database:session:"
   incomingAuth:
     type: anonymous
-  serviceType: ClusterIP
   groupRef:
     name: database
   config:
@@ -135,6 +130,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/virtualmcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
@@ -144,11 +140,9 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
-    db: 0
     keyPrefix: "thv:vmcp:resources:session:"
   incomingAuth:
     type: anonymous
-  serviceType: ClusterIP
   groupRef:
     name: resources
   config:
@@ -157,6 +151,7 @@ spec:
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/virtualmcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
@@ -207,23 +202,16 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
-    db: 0
     keyPrefix: "thv:vmcp:unified:session:"
   incomingAuth:
     type: anonymous
-  serviceType: ClusterIP
   groupRef:
     name: all
   config:
-    # Session build re-embeds all ~194 tools on initialize; litellm's embedding
-    # cache (kubernetes/apps/ai/litellm/instance/proxy.yaml) makes this a dragonfly
-    # hit in the common case, but a cold cache still takes ~27-35s on the iGPU,
-    # which blew past the 30s operational default (2026-07-03). Kept in sync with
-    # optimizer.embeddingServiceTimeout via anchor since both bound the same call.
-    # ponytail: `default` applies to ALL backend requests, not just session-build,
-    # so every other call now tolerates hangs up to 120s too. perWorkload could
-    # scope this narrower, but the slow leg is the embedding call (not a specific
-    # backend workload) — revisit if a hung backend's slow-failure becomes a problem.
+    # Cold embedding cache takes ~27-35s on the iGPU, past the 30s default
+    # (2026-07-03). Anchored to embeddingServiceTimeout — same call.
+    # ponytail: `default` covers every backend request, not just session-build;
+    # switch to perWorkload if a hung backend's slow failure starts mattering.
     operational:
       timeouts:
         default: &embeddingTimeout 120s

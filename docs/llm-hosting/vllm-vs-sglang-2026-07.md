@@ -204,11 +204,8 @@ file before deciding to transfer.
 
 Scripts live in `bench/` next to this doc, so the numbers above stay auditable:
 
-- `concsweep.py` — aggregate decode at concurrency 1/8/16. Short prompts to isolate
-  decode from prefill, unique salt per stream so prefix caching cannot inflate results.
-- `spectest.py` — verbatim-reproduction throughput on a 13.8K-token prompt. This is the
-  coding-agent shape where prompt-lookup n-gram actually hits; a short-prompt test shows
-  near-zero acceptance.
+- `concsweep.py` — aggregate decode at concurrency 1/8/16.
+- `spectest.py` — verbatim-reproduction throughput on a 13.8K-token prompt.
 
 Both drive the OpenAI `/v1/completions` endpoint, so they run unmodified against either
 engine. Port-forward the service and pass the port:

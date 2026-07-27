@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
@@ -23,6 +24,7 @@ spec:
       layers: -1
       resourceName: squat.ai/dri
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
@@ -31,7 +33,6 @@ spec:
   modelRef: qwen35-2b
   # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
-  # Tracked by the llmkube-models Renovate customManager (.renovaterc.json5).
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:eddb40b8a348a652c8829ef036df9bbbae537755ae7026bf6d4b403840cd468e
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   contextSize: 16384 # GDN keeps KV tiny, so long ctx is cheap; 16K is plenty for offload
@@ -59,7 +60,6 @@ spec:
               app: qwen3-embedding
           topologyKey: kubernetes.io/hostname
 
-  # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
@@ -67,9 +67,8 @@ spec:
       - 44
       - 226
 
-  # No probeOverrides: the operator's llamacpp defaults already probe /health
-  # with a more forgiving startup window. GPU allocation comes from
-  # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields).
+  # GPU allocation comes from Model.hardware.gpu.count; resources.gpu/gpuMemory
+  # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
     # ~2.4 GiB resident under load, 405Mi idle working set; requested low
