@@ -286,7 +286,6 @@ spec:
         resources:
           requests:
             cpu: 100m
-            # Peaks at 274Mi, i.e. above the old 256Mi request.
             memory: 512Mi
           limits:
             cpu: 1
@@ -330,9 +329,8 @@ spec:
         retentionPeriod: 180d
         resources:
           requests:
-            # Steady state is 2.9-3.4Gi; the old 2Gi request made the TSDB burstable
-            # and the 4Gi limit was within 80Mi of the observed 14d peak.
             cpu: 250m
+            # Steady state 2.9-3.4Gi; 14d peak 4015Mi.
             memory: 3Gi
           limits:
             cpu: 2
