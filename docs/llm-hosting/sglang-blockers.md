@@ -208,7 +208,11 @@ upstream of that measurement, and neither is a property of L3.
    OpenSSL runtime without the headers. The compile is lazy, so `--hicache-storage-backend file`
    passes startup and health checks, then raises `RuntimeError: Failed to load HiCache native hash
    extension` from `unified_radix_cache.insert` on the **first prefill**, killing the scheduler.
-   Fixed by adding `libssl-dev` in `docker/sglang-rdna4/Dockerfile`; needs an image rebuild.
+   Fixed by adding `libssl-dev` in `docker/sglang-rdna4/Dockerfile`; needs an image rebuild. The
+   first attempt put it in the **builder** stage and changed nothing: the JIT runs at request time,
+   so the headers are needed in the *runtime* stage. `g++` and `ninja` already survive into the slim
+   base, so only the headers were missing. A build-time gate now compiles the extension so this
+   fails the build instead of a live request.
 2. **`write_through_selective` blocks first-pass content from ever reaching L2.**
    `hiradix_cache.py:203` sets `write_through_threshold = 1 if write_through else 2`, gated at
    `:928` on `node.hit_count`. A novel prompt sent once has `hit_count == 1`, so it is never
