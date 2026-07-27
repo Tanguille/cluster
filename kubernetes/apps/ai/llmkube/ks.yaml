@@ -45,7 +45,6 @@ spec:
   healthCheckExprs:
     - apiVersion: inference.llmkube.dev/v1alpha1
       kind: InferenceService
-      inProgress: has(status.phase) && status.phase in ['Pending', 'Creating', 'Progressing', 'WaitingForGPU']
       failed: has(status.phase) && status.phase == 'Failed'
       # Stopped is terminal; the CRD says treat it as Pending, which deadlocks this gate.
       current: has(status.phase) && (status.phase == 'Stopped' || (status.phase == 'Ready' && has(status.conditions) && status.conditions.exists(e, e.type == 'Available' && e.status == 'True')))
