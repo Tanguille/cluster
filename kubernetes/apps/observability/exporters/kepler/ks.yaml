@@ -20,9 +20,8 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: kepler-power-monitor
-  namespace: &namespace observability
+  namespace: observability
 spec:
-  targetNamespace: *namespace
   dependsOn:
     - name: kepler
       namespace: observability
