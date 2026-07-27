@@ -23,8 +23,8 @@ conda-only, no upstream Dockerfile), then applies the three TP=1 fixes `setup.sh
 | Component | Pin |
 |---|---|
 | Base image | `rocm/dev-ubuntu-24.04:7.2.4-complete` @ `sha256:92f309c5…` |
-| Fork ref | `f9995e9d9f4157d312f9141cb466e0da2dc2e9b1` |
-| SGLang | `v0.5.15` (stock + the fork's own RDNA4 patch series + 3 TP=1 fixes + 1 local v0.5.15 override, see below) |
+| Fork ref | `9fa3df4080de7abba93a75e520f2359dd74db15c` |
+| SGLang | `v0.5.16` @ `fdebc938…` (stock + the fork's own RDNA4 patch series + 3 TP=1 fixes, see below) |
 | PyTorch | `2.11.0+rocm7.2` (setup.sh default; 2.12 nightly is unfetchable + faults `expandable_segments`) |
 | Triton | `3.6.0` |
 | conda env | `sglang-triton36-v0514` (must match the fork's `common.sh` default `launch.sh` activates) |
@@ -38,25 +38,26 @@ crashes on the first request or OOM-restarts hours in on the first grammar/tool-
 2. `srt/layers/sampler.py` — gate the cross-TP token-id all-reduce on `world > 1` (NCCL lazy-init OOM).
 3. `pip uninstall kernels` — transformers-5.x's hub-kernels loader crashes `import sglang`.
 
-### 1 local v0.5.15 patch override remains: 003 (as of fork ref `f9995e9`)
+### No local patch overrides remain (as of fork ref `9fa3df4`, v0.5.16)
 
-Through fork ref `a0445f59e` we carried local overrides for patches 064/073/003 (fork hadn't
-rebased past v0.5.14). mattbucci's v0.5.15 rebase (`6dfa7542f`) shipped 064 (archived
-`.patch.SUPERSEDED`, superseded by upstream itself) and 073 (rebased via `git rebase --onto`) —
-neither needs an override anymore.
+Through fork ref `a0445f59e` we carried local overrides for patches 064/073/003. The v0.5.15
+rebase (`6dfa7542f`) resolved 064 and 073; 003 outlived them because the fork's rebased copy
+only restored the `common_ops` guard and never picked up the hunk our version added for the
+unconditional `infllm_v2` import, which crashed `import sglang` with
+`ModuleNotFoundError: No module named 'sgl_kernel.infllm_v2'`.
 
-**003 does — CI-confirmed 2026-07-12.** The fork's rebased 003 only restores the `common_ops`
-guard (its original v0.5.14 scope); it never picked up the second hunk our version added for
-v0.5.15's own new unconditional `infllm_v2` import. `setup_sgl_kernel.sh` also applies 003 a
-*second* time (independent of the main 47-patch loop), which then fails as "already applied" and
-silently continues — so the missing `infllm_v2` guard reaches the runtime `import sglang` gate
-unguarded and crashes it (`ModuleNotFoundError: No module named 'sgl_kernel.infllm_v2'`). Local
-override restored, verified via `git apply --check` against a fresh v0.5.15 clone. Upstream issue
-([#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3)) updated,
-not closed.
+**The v0.5.16 rebase resolves 003 too.** The fork's own
+`003-rdna4-sgl-kernel-fallbacks.patch` now wraps the `infllm_v2` import in `try/except
+ImportError`, which is what our override existed to add, so the override and the local patch
+file are gone. Upstream issue
+([#3](https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference/issues/3)) can be
+closed.
 
-Re-check on the next `FORK_REF`/`SGLANG_TAG` bump — 003 may resolve upstream, or 073/064 may
-regress (see git history for the exact patch content).
+`SGLANG_TAG` and `FORK_REF` must move together: the series is rebased onto one specific upstream
+tree, and applying the v0.5.16 series to a v0.5.15 clone fails 14 patches (run 30299718239).
+`SGLANG_COMMIT` pins the tree the tag resolved to, so a retag cannot swap it silently.
+
+Re-check the override list on the next bump — a rebase can regress any of them.
 
 ## Building — GPU-free, no build host requirement
 
@@ -85,7 +86,7 @@ by a **cold boot with the Triton cache cleared** (`/cache/sglang/triton`) before
 pinned into the HelmRelease, to prove runtime compilation still works on the slim base.
 
 CI (`.github/workflows/build-sglang-rdna4.yaml`) builds on **`ubuntu-latest`** — zero contact
-with control-1 / live serving, no maintenance window — and pushes the `v0.5.15-gfx1201` tag.
+with control-1 / live serving, no maintenance window — and pushes the `v0.5.16-gfx1201` tag.
 It fires on a merged change to the build inputs (a Renovate `FORK_REF` / base-digest bump;
 docs excluded so a README edit can't repush the image) or on manual dispatch
 (`gh workflow run build-sglang-rdna4.yaml`). Build locally with plain
@@ -99,7 +100,7 @@ the deployment — but the HelmRelease uses the repo-wide `tag: <tag>@sha256:<di
 bare `@digest`: Renovate's flux manager needs the tag present to issue digest-bump PRs.
 
 ```bash
-skopeo inspect docker://ghcr.io/tanguille/sglang-rdna4:v0.5.15-gfx1201 --format '{{.Digest}}'
+skopeo inspect docker://ghcr.io/tanguille/sglang-rdna4:v0.5.16-gfx1201 --format '{{.Digest}}'
 ```
 
 ## What's baked vs. supplied at runtime

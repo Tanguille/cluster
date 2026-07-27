@@ -56,19 +56,17 @@ ARG FORK_REF=9fa3df4080de7abba93a75e520f2359dd74db15c
 RUN git clone "${FORK_REPO}" "${REPO_DIR}" \
     && git -C "${REPO_DIR}" checkout "${FORK_REF}"
 
-# 073 needs no override as of FORK_REF below (fork's own rebase covers it). 003 still does:
-# the fork's rebased 003 only restores the common_ops guard, not the v0.5.15-added unconditional
-# `infllm_v2` import — CI-verified (git apply --check against a real v0.5.15 clone) before use.
-# See README.md for the full story.
-COPY patches/003-rdna4-sgl-kernel-fallbacks-v0515.patch /tmp/003-rebase.patch
-RUN cp /tmp/003-rebase.patch "${REPO_DIR}/patches/003-rdna4-sgl-kernel-fallbacks.patch"
+# No local patch overrides: the fork's v0.5.16 rebase covers both 073 and 003, including the
+# `infllm_v2` guard our 003 override existed for.
 
 # setup.sh: clone stock SGLang @ SGLANG_TAG -> RDNA4 patch series -> conda env $ENV_NAME ->
 # torch 2.11.0+rocm7.2 stable (setup.sh's default; the old 2.12 nightly became unfetchable and
 # faulted with expandable_segments) -> triton 3.6 -> the native gfx1201 HIP kernels.
-# SGLANG_TAG override is REQUIRED: setup.sh defaults to v0.5.13.post1, and the patch series only
-# applies cleanly to the upstream tree it was built against (see the FORK_REF note above).
-ARG SGLANG_TAG=v0.5.15
+# SGLANG_TAG must match the tree FORK_REF's series was rebased onto; mismatch fails 14 patches.
+# SGLANG_COMMIT makes setup.sh verify the tag still resolves to that commit, so a retag cannot
+# swap the tree underneath the series.
+ARG SGLANG_TAG=v0.5.16
+ARG SGLANG_COMMIT=fdebc938f7f4d16fe6b9f55dcd9a767cf0899ea1
 WORKDIR ${REPO_DIR}
 # GPU-free build (explicit PYTORCH_ROCM_ARCH, no device probe) — neuters setup.sh's one fatal
 # GPU touch, `assert torch.cuda.is_available()` (~line 139); grep guards catch upstream moving
@@ -79,7 +77,7 @@ RUN sed -i "s|assert torch.cuda.is_available(), 'CUDA not available'; ||" script
 # conda clean in the SAME layer as the multi-GB download/solve so the pkg cache never lands in a
 # committed layer — keeps the builder small on the runner's build disk (the multi-stage COPY needs
 # builder + runtime bytes resident at once).
-RUN SGLANG_TAG="${SGLANG_TAG}" ./scripts/setup.sh \
+RUN SGLANG_TAG="${SGLANG_TAG}" SGLANG_COMMIT="${SGLANG_COMMIT}" ./scripts/setup.sh \
     && "${CONDA_BASE}/bin/conda" clean -afy
 
 # --- TP=1 fixes the fork's setup.sh omits (it targets dual-card TP=2). Mirrors ---
