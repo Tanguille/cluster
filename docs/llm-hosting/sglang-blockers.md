@@ -219,8 +219,7 @@ upstream of that measurement, and neither is a property of L3.
    4,538-of-61,600 backup figure. Any L3 test must run under plain `write_through`.
 
 The 07-15 run did not crash, so it cannot have been on an image with defect 1 — meaning it is not
-comparable to current builds and should not be quoted as evidence either way. **L3 was untested,
-not failed.**
+comparable to current builds and should not be quoted as evidence either way.
 
 **Retest (2026-07-27): L3 works.** Run on image `sha256:72d934d3` under plain `write_through`,
 with `--hicache-storage-backend file` and `SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR`.
