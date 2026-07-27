@@ -16,11 +16,9 @@ spec:
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
-  # Declarative app roles (CNPG-native, replacing postgres-init). Password sourced from a
-  # basic-auth Secret in this namespace; CNPG enforces it, so the app's DATABASE_URL must match.
-  # Static password: CNPG can rotate a managed role's password, but nothing here re-syncs it
-  # into the app's DATABASE_URL secret. Rotation is not enabled for these roles today; if it
-  # ever is, add a mechanism (e.g. Reloader-driven resync) to keep the two in step.
+  # Declarative app roles (CNPG-native, replacing postgres-init). Password comes from a
+  # basic-auth Secret here and CNPG enforces it, so the app's DATABASE_URL must match.
+  # Nothing re-syncs the two, so password rotation is off for these roles.
   managed:
     roles:
       - name: litellm

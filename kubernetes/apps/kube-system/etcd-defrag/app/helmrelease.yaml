@@ -13,14 +13,12 @@ spec:
   values:
     defaultPodOptions:
       # Must use host network and PID namespace to access Talos etcd on localhost:2379.
-      automountServiceAccountToken: false
       hostNetwork: true
       hostPID: true
       securityContext:
         runAsGroup: 0
         runAsNonRoot: false
         runAsUser: 0
-      # Ensure this only runs on the control plane node
       nodeSelector:
         node-role.kubernetes.io/control-plane: ""
       tolerations:
@@ -32,14 +30,11 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Daily at 03:00. The previous weekly cadence let fragmentation cross the
-          # 50% alert threshold by day 4; a full 3-member pass costs ~95s.
+          # The previous weekly cadence let fragmentation cross the 50% alert
+          # threshold by day 4; a full 3-member pass costs ~95s.
           timeZone: ${TIMEZONE}
           schedule: "0 3 * * *"
-          concurrencyPolicy: Forbid
           backoffLimit: 1
-          failedJobsHistory: 1
-          successfulJobsHistory: 1
         containers:
           app:
             image:
@@ -51,15 +46,12 @@ spec:
               - --cacert=/certs/ca.crt
               - --cert=/certs/server.crt
               - --key=/certs/server.key
-              # Defrag when DB quota usage > 50% OR free space > 50MB
               - --defrag-rule=dbQuotaUsage > 0.5 || dbSizeFree > 50*1024*1024
-              # Move the leader before defragmenting it.
               - --move-leader
               # --cluster defragments all three control-plane etcd members.
               - --wait-between-defrags=30s
               # Talos uses etcd's default --quota-backend-bytes value (2 GiB).
               - --etcd-storage-quota-bytes=2147483648
-              # Auto-disalarm space quota alarms
               - --auto-disalarm
               - --disalarm-threshold=0.8
             resources:
