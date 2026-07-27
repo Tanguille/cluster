@@ -1,8 +1,14 @@
-# Qwen3.6-27B serving on R9700 (gfx1201) — Benchmarks & Decision
+# Serving-engine benchmarks on R9700 (gfx1201)
 
-**SUPERSEDED:** production runs SGLang (baked `ghcr.io/tanguille/sglang-rdna4` image) — see
-`docs/llm-hosting/sglang-blockers.md` and `docker/sglang-rdna4/README.md` for the current
-engine decision. This doc is the historical vLLM-vs-SGLang record from 2026-06-21.
+Multi-engine measurement record for Qwen3.6-27B on RDNA4 — vLLM, SGLang and llama.cpp.
+Measurements are dated and kept as a historical series; the open experiments at the
+bottom are still outstanding.
+
+**Current production engine: SGLang**, baked `ghcr.io/tanguille/sglang-rdna4`. Build,
+pin and rollback mechanics are in `docker/sglang-rdna4/README.md`; outstanding upstream
+gaps are tracked in `docs/llm-hosting/sglang-blockers.md`. The 2026-06-21 round below
+concluded in favour of vLLM and has since been superseded — read its numbers as a
+snapshot of that date, not as current guidance.
 
 ## Round 2 Final Results — 2026-06-21
 
@@ -493,3 +499,35 @@ verify). The max concurrency sweet spot for QoS is C=8.
 
 **Note:** vLLM auto-set `max_num_scheduled_tokens=2048` based on spec config. This limits
 token budget per scheduling step. No impact observed at C≤16 with out=200.
+
+---
+
+## Open / next experiments
+
+Done, kept for the result:
+
+- [x] **bf16 KV cache** — *slower* (12.35 vs 14.96) and half capacity. fp8 KV wins on sglang
+      (native gfx1201 fp8 kernels). Keep fp8_e4m3.
+- [x] **vLLM kyuz0 batching** — 48.6 tok/s @ C8, 85.8 tok/s @ C16, APC on; CUDAGraphs work on
+      gfx1201 in 0.22.1rc1.
+- [x] **vLLM FP8 KV + APC coexistence** — 128.9 tok/s @ C32, 50% over the FP16 baseline; bug
+      #13147 does not affect kyuz0.
+- [x] **VLLM_ROCM_USE_AITER=1** — fails: GDN kernel autotune exhausts all configs <= 64 KiB
+      SRAM on gfx1201. AITER config tables target MI300X.
+- [x] **MTP speculative decoding** — `--spec-method mtp --spec-tokens 4`. C=1 18.4 tok/s (2.6x),
+      C=8 126.8 tok/s aggregate (2.7x). Qwen3.6-27B ships MTP heads, no draft model needed.
+
+Still outstanding:
+
+- [ ] **Revalidate the latest SGLang** once upstream rebases the RDNA4 patch series past our
+      `FORK_REF` pin. Blocked on the fork, not on us — see blocker 7 in `sglang-blockers.md`.
+      Re-run the concurrency sweep and the verbatim-reproduction test from `bench/` and compare
+      against the recorded v0.5.15 numbers before moving the production pin.
+- [ ] vLLM fp8 KV + extended context: `--max-model-len 131072` with fp8 KV — does 32K -> 131K
+      move throughput?
+- [ ] Push MTP concurrency beyond 16 with `max_num_seqs=32` — does C=32 MTP reach 200+ tok/s?
+- [ ] `mamba_track_interval` / scheduler tuning under Config B for higher concurrency.
+- [ ] Quality probe (logprob/eval) to close out the fork's flagged torch-2.12 attention drift;
+      basic coherence already passes.
+- [ ] llama.cpp gfx1201 tuning sweep — `-b`/`-ub`, hipBLASLt env, perf level, iGPU/`-sm`, Vulkan
+      backend. Then cache probe and concurrency sweep.
