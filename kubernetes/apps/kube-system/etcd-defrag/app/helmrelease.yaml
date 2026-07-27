@@ -30,8 +30,8 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Weekly let fragmentation cross the 50% alert threshold by day 4; a
-          # full 3-member pass costs ~95s.
+          # The previous weekly cadence let fragmentation cross the 50% alert
+          # threshold by day 4; a full 3-member pass costs ~95s.
           timeZone: ${TIMEZONE}
           schedule: "0 3 * * *"
           backoffLimit: 1
