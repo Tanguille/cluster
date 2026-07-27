@@ -63,6 +63,14 @@ spec:
       ttl: 604800 # 7d; tool descriptions are stable, dragonfly runs cache_mode (LRU)
     drop_params: true
     num_retries: 0
+  routerSettings:
+    # Per-error override of the global num_retries: 0. A dropped connection to
+    # SGLang surfaces as InternalServerError ("OpenAIException - Connection
+    # error") and costs a whole scheduled run, because Hermes cron has no retry
+    # queue. Timeouts stay at 0 retries — re-running a ~100K prefill that
+    # already burned 900s would only deepen the GPU contention that caused it.
+    retry_policy:
+      InternalServerErrorRetries: 2
   route:
     hostnames:
       - "litellm.${SECRET_DOMAIN}"
