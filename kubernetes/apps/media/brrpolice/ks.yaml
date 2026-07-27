@@ -13,7 +13,7 @@ spec:
   path: ./kubernetes/apps/media/brrpolice/app
   postBuild:
     substitute:
-      APP: brrpolice
+      APP: *app
       KOPIUR_PUID: "1000"
       KOPIUR_PGID: "1000"
   prune: true
