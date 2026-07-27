@@ -132,7 +132,10 @@ ENV ROCM_PATH=/opt/rocm \
 # headers are a RUNTIME need, not a build one. g++ and ninja already survive in the slim base;
 # only the OpenSSL headers were missing. Without them --hicache-storage-backend passes startup
 # and health checks, then kills the scheduler mid-request.
+# upgrade picks up base-image CVE fixes between digest bumps; it costs reproducibility against the
+# pinned base, so the import and hicache gates below are what catch a runtime lib moving underneath.
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
