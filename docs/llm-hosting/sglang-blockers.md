@@ -238,14 +238,28 @@ read-back from disk. Populate (58,071 tok) PP 196.9 tok/s; extension probe (58,2
 252.9 tok/s, TG 0.56 tok/s. Both ran with production traffic on the GPU, so both are floors,
 not clean numbers.
 
-Two operational notes. The evictor is unbounded by default and `openebs-hostpath` enforces no
-quota, so `MAX_SIZE` (64Gi) and `MIN_FREE_SPACE` (100Gi) are the only things between L3 and
-control-1's shared 500G root; the free-space floor is what keeps a full cache from pushing the
-node under kubelet's ~50G nodefs eviction threshold. L3 lives on its own `qwen36-27b-hicache`
-PVC at `/hicache` rather than sharing the triton cache, so its footprint is visible where
-capacity is planned. Rollback does not remove that directory; it holds prompt-derived data and
-needs explicit operator approval before deletion. The 07-27 test data still sits at the old
-`/cache/sglang/hicache` path and is orphaned by this move.
+Three operational notes.
+
+**Sizing.** The evictor is unbounded by default and `openebs-hostpath` enforces no quota, so
+`MAX_SIZE` (64Gi) and `MIN_FREE_SPACE` (100Gi) are the only things between L3 and control-1's
+shared 500G root; the free-space floor is what keeps a full cache from pushing the node under
+kubelet's ~50G nodefs eviction threshold. L3 lives on its own `qwen36-27b-hicache` PVC rather
+than sharing the triton cache, so its footprint is visible where capacity is planned.
+
+**The cache key does not cover the weights or the engine.** `get_hash_str` is
+`sha256(token_ids, prior_hash, page_size)` (`mem_cache/utils.py:106`) and the on-disk name only
+appends `config_suffix = f"_{model_name}"` plus TP/PP/CP ranks (`hicache_storage.py:336-346`).
+Nothing in it encodes the weights revision, the KV dtype or the KV layout, while
+`served-model-name` stays stable across Renovate bumps of both the AWQ revision and the sglang
+image. Either bump would otherwise serve KV pages computed by the previous one, which is a
+wrong-output risk rather than a cache miss. `STORAGE_DIR` therefore carries a revision suffix
+(`/hicache/sglang-v0.5.15_awq-f541031d`) that **must be bumped by hand with either pin**. It sits
+directly above them in the manifest to keep the three visible together; the durable fix is
+upstream folding a model/engine fingerprint into `config_suffix`.
+
+**Deletion needs approval.** Rollback does not remove the directory; it holds prompt-derived
+data. The 07-27 test data still sits at the old `/cache/sglang/hicache` path, orphaned by the
+move to a dedicated PVC.
 
 **`hicache-write-policy write_back` trialled and reverted (2026-07-09):** kept alongside the L3 removal
 above as a still-valid L1→L2 (GPU→host) optimization — synthetic testing showed 0 aborts and lower

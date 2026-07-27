@@ -23,7 +23,7 @@ spec:
   # streamable-http, not stdio: ToolHive health monitoring re-runs `initialize`,
   # which the stdio backend rejects with `duplicate "initialize" received` and
   # which degraded the resources and unified gateways (upstream #5890).
-  image: ghcr.io/github/github-mcp-server:v1.7.0
+  image: ghcr.io/github/github-mcp-server:v1.7.0@sha256:c491ffdf6f4c85cb5397021bc655edb8ab825c6f5f568e7597d77a1bd7c4d308
   transport: streamable-http
   mcpPort: 8082 # `http` binds 8082 by default and exposes no env-bound port flag
   proxyPort: 8080
@@ -65,7 +65,7 @@ kind: MCPServer
 metadata:
   name: github-opt
 spec:
-  image: ghcr.io/github/github-mcp-server:v1.7.0
+  image: ghcr.io/github/github-mcp-server:v1.7.0@sha256:c491ffdf6f4c85cb5397021bc655edb8ab825c6f5f568e7597d77a1bd7c4d308
   transport: streamable-http
   mcpPort: 8082
   proxyPort: 8080
