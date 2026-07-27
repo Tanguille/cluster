@@ -163,9 +163,23 @@ spec:
   replicas: 1
   podTemplateSpec:
     spec:
+      # The operator sets readOnlyRootFilesystem, so the optimizer's FTS5 index has
+      # nowhere to spill: queries whose sorter exceeds memory fail with "disk I/O
+      # error (6410)", which the MCP layer returns as zero matches rather than an
+      # error. An agent reads that as "this tool does not exist".
+      volumes:
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: vmcp
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           env:
+            # sqlite's unix VFS tries /var/tmp before /tmp; both are read-only here,
+            # so point it at the mount explicitly instead of relying on the search order.
+            - name: TMPDIR
+              value: /tmp
             - name: OPENAI_API_KEY
               value: ${LITELLM_API_KEY}
           resources:
