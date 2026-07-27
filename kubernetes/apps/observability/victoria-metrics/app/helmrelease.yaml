@@ -76,8 +76,10 @@ spec:
         # Fires on recording rules that are empty by design: count:up0 (count(up == 0))
         # yields no samples whenever every target is up, as do the orphan-pod variants
         # of namespace_workload_pod:kube_pod_owner:relabel.
-        recordingRulesNoData:
-          create: false
+        # Key is the exact alert name and the field is `enabled`, per the chart's own
+        # example; the camelCased `create: false` form silently matched nothing.
+        RecordingRulesNoData:
+          enabled: false
       groups:
         # vmsingle deployment; the chart's vmcluster group duplicates RequestErrorsToAPI etc.
         # Remove this if the stack ever migrates to vmcluster.
