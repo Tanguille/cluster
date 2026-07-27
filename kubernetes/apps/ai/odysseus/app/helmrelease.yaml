@@ -71,7 +71,7 @@ spec:
           gethomepage.dev/group: AI
           gethomepage.dev/icon: odysseus.png
         hostnames:
-          - "odysseus.${SECRET_DOMAIN}"
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-internal
             namespace: network

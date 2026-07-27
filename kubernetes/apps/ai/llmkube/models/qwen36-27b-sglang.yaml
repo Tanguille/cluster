@@ -25,6 +25,7 @@ spec:
     requests:
       storage: 10Gi
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
@@ -52,6 +53,7 @@ spec:
       runtime: rocm
       resourceName: squat.ai/dri
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:

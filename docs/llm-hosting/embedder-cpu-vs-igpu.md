@@ -51,9 +51,8 @@ stays, along with the nodeSelectors / affinity rules that only make sense while
 the embedders are GPU-pinned.
 
 The leak is bounded by LLMKube's native `maxPodLifetimeSeconds: 86400` on both
-InferenceServices. This support landed in upstream PR #1182 and is available
-in chart/CRD version 0.9.10; the chart and CRDs must be upgraded before these
-model fields are reconciled. LLMKube copies the lifetime to the generated
+InferenceServices. This support landed in upstream PR #1182 and has been
+live since chart/CRD 0.9.10. LLMKube copies the lifetime to the generated
 Deployment pod template, so each Vulkan embedder is recycled after 24 hours,
 including startup and model load time, without bespoke controller logic.
 node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable

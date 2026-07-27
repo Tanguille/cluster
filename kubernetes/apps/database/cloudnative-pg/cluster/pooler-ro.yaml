@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/pooler_v1.json
 # Transaction-mode RO PgBouncer → replicas only (no primary max_connections usage).
 # Per logical DB: up to instances × max_db_connections server conns from this deployment.
 apiVersion: postgresql.cnpg.io/v1
