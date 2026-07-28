@@ -2030,7 +2030,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "expr": "rate(sglang:cached_tokens_total{job=\"$job\", instance=~\"$instance\", cache_source=\"device\"}[$__rate_interval]) > 0",
-          "legendFormat": "hits from GPU",
+          "legendFormat": "GPU hits",
           "refId": "A"
         },
         {
@@ -2039,7 +2039,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "expr": "rate(sglang:cached_tokens_total{job=\"$job\", instance=~\"$instance\", cache_source=\"host\"}[$__rate_interval]) > 0",
-          "legendFormat": "hits from host (HiCache)",
+          "legendFormat": "HiCache hits",
           "refId": "B"
         },
         {
@@ -2048,7 +2048,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "expr": "rate(sglang:evicted_tokens_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]) > 0",
-          "legendFormat": "evicted GPU→host",
+          "legendFormat": "GPU→host evictions",
           "refId": "C"
         },
         {
@@ -2057,7 +2057,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "expr": "rate(sglang:load_back_tokens_total{job=\"$job\", instance=~\"$instance\"}[$__rate_interval]) > 0",
-          "legendFormat": "loaded back host→GPU",
+          "legendFormat": "host→GPU load-back",
           "refId": "D"
         }
       ],
@@ -2072,13 +2072,159 @@
       "interval": "1m"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "control-1 /var filesystem usage. This reflects the shared node filesystem, not an L3-exclusive measurement.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.85
+              },
+              {
+                "color": "red",
+                "value": 0.95
+              }
+            ]
+          },
+          "unit": "percentunit",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "id": 93,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "1 - (node_filesystem_avail_bytes{nodename=\"control-1\", mountpoint=\"/var\"} / node_filesystem_size_bytes{nodename=\"control-1\", mountpoint=\"/var\"})",
+          "instant": true,
+          "legendFormat": "/var usage",
+          "refId": "A"
+        }
+      ],
+      "title": "control-1 /var Filesystem Usage",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 74,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Read/write throughput on control-1's host disk (/dev/vda4, backs the L3 PVC via openebs-hostpath). Shared with the rest of that device's local PVs, so treat as an activity trend, not an L3-exclusive figure.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "Bps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "id": 94,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "rate(node_disk_read_bytes_total{nodename=\"control-1\", device=\"vda\"}[$__rate_interval])",
+          "legendFormat": "disk read",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "expr": "rate(node_disk_written_bytes_total{nodename=\"control-1\", device=\"vda\"}[$__rate_interval])",
+          "legendFormat": "disk write",
+          "refId": "B"
+        }
+      ],
+      "title": "Host Disk I/O — vda (shared)",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 74,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
       "id": 60,
       "type": "row",
       "title": "GPU Hardware (R9700 / gfx1201)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 74,
+        "y": 82,
         "w": 24,
         "h": 1
       },
@@ -2120,7 +2266,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 75,
+        "y": 83,
         "w": 12,
         "h": 8
       },
@@ -2157,7 +2303,7 @@
           "refId": "B"
         }
       ],
-      "title": "VRAM",
+      "title": "VRAM Usage (used vs total)",
       "type": "timeseries"
     },
     {
@@ -2204,7 +2350,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 75,
+        "y": 83,
         "w": 12,
         "h": 8
       },
