@@ -1,17 +1,40 @@
-# Disabled: neither transport works on ToolHive v0.40.1.
-#
-# stdio: virtual-MCP health monitoring re-runs `initialize`, which the backend rejects with
-# `duplicate "initialize" received`, degrading the resources and unified gateways (#5890).
-#
-# streamable-http: `server http` takes no server-side token (verified against v1.7.0 --help),
-# so the only path is MCPExternalAuthConfig bearerToken. The operator turns its tokenSecretRef
-# into the thv CLI store reference `toolhive-secrets,target=bearer_token` and never projects
-# the Secret into the proxy pod, so proxyrunner exits on "secrets provider not configured"
-# before it serves. Restore once either is fixed upstream.
+# GitHub's hosted MCP server instead of the self-run container: stdio dies on the
+# virtual-MCP health check re-running `initialize` (#5890, still open in 0.41.0) and
+# the container's http mode has no server-side token path (#4220). A remote entry has
+# neither problem — headerForward injects the PAT server-side, the same shape context7
+# has run since 2026-04. The endpoint takes a raw PAT (verified: `Bearer <pat>` and a
+# bare `<pat>` both return 200, `token <pat>` returns 400), so the existing secret key
+# goes in unmodified. Despite the hostname, no Copilot entitlement is involved: a token
+# carrying no `copilot` scope lists all 46 repo/issue/PR tools.
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
+kind: MCPServerEntry
 metadata:
   name: github
 spec:
-  toolsFilter: []
+  remoteUrl: https://api.githubcopilot.com/mcp/
+  transport: streamable-http
+  groupRef:
+    name: resources
+  headerForward:
+    addHeadersFromSecret:
+      - headerName: Authorization
+        valueSecretRef:
+          name: toolhive-secrets
+          key: GITHUB_PERSONAL_ACCESS_TOKEN
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServerEntry
+metadata:
+  name: github-opt
+spec:
+  remoteUrl: https://api.githubcopilot.com/mcp/
+  transport: streamable-http
+  groupRef:
+    name: all
+  headerForward:
+    addHeadersFromSecret:
+      - headerName: Authorization
+        valueSecretRef:
+          name: toolhive-secrets
+          key: GITHUB_PERSONAL_ACCESS_TOKEN
