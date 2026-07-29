@@ -123,6 +123,12 @@ spec:
       value: "0"
     - name: CUDA_VISIBLE_DEVICES
       value: "0"
+    # $HOME/.cache/flashinfer/<ver>/ is root-owned in the image (a build-time
+    # `import torch, sglang, sgl_kernel` verification step triggers flashinfer's JIT
+    # logger init as root, before the runtime user exists) -- uid 10001 can enter it
+    # (0755) but not write the JIT log, crashing at import. Redirect off $HOME entirely.
+    - name: FLASHINFER_WORKSPACE_BASE
+      value: /tmp
     - name: TRITON_CACHE_DIR
       value: /cache/sglang/triton
     # Required at TP=1: LLMKube runs launch_server directly, bypassing the image's
