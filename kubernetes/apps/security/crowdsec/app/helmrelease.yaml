@@ -89,6 +89,16 @@ spec:
           - type: ban
             duration: 24h
         on_success: break
+    tls:
+      enabled: true
+      certManager:
+        secretTemplate:
+          labels:
+            app.kubernetes.io/managed-by: crowdsec
+      agent:
+        tlsClientAuth: true
+      appsec:
+        tlsClientAuth: true
     lapi:
       # Reloader reads workload metadata, not pod-template annotations
       deployAnnotations:

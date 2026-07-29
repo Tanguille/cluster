@@ -31,6 +31,7 @@ spec:
         enabled: true
       prometheusRule:
         enabled: true
+        namespace: ai
 
     grafana:
       dashboards:
@@ -38,6 +39,7 @@ spec:
         namespace: observability
         operator:
           enabled: true
+          folder: ai
           mode: auto
           instanceSelector:
             matchLabels:
