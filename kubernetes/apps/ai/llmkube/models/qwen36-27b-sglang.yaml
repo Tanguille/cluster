@@ -121,6 +121,10 @@ spec:
       value: "0"
     - name: TRITON_CACHE_DIR
       value: /cache/sglang/triton
+    # No-op with our own build (patches this unconditionally); required once we run
+    # ghcr.io/mattbucci/sglang-rdna4 directly — see sglang-blockers.md.
+    - name: SGLANG_RDNA4_DISABLE_STORE_CACHE
+      value: "1"
     # Page names encode neither the weights revision nor the engine, so this suffix MUST be
     # bumped with the image digest above or the AWQ revision, or stale KV pages get served.
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR

@@ -4,9 +4,10 @@ Multi-engine measurement record for Qwen3.6-27B on RDNA4 — vLLM, SGLang and ll
 Measurements are dated and kept as a historical series; the open experiments at the
 bottom are still outstanding.
 
-**Current production engine: SGLang**, baked `ghcr.io/tanguille/sglang-rdna4`. Build,
-pin and rollback mechanics are in `docker/sglang-rdna4/README.md`; outstanding upstream
-gaps are tracked in `docs/llm-hosting/sglang-blockers.md`. The 2026-06-21 round below
+**Current production engine: SGLang**, pinned to the last self-built
+`ghcr.io/tanguille/sglang-rdna4` digest (build pipeline retired — see
+`docs/llm-hosting/sglang-blockers.md` "Current approach" for the upstream cutover plan);
+outstanding upstream gaps are tracked in the same doc. The 2026-06-21 round below
 concluded in favour of vLLM and has since been superseded — read its numbers as a
 snapshot of that date, not as current guidance.
 

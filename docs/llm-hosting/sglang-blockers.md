@@ -2,7 +2,7 @@
 
 Tracking what needs to land upstream before SGLang can replace vLLM in production without depending on the mattbucci RDNA4 fork.
 
-**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.15** (torch 2.11+rocm7.2, Triton 3.6), baked into the `ghcr.io/tanguille/sglang-rdna4` image by `.github/workflows/build-sglang-rdna4.yaml`. Build/pin/rollback mechanics are in `docker/sglang-rdna4/README.md`. The retired PVC-rebuild recipe is gone with the `sglang` app directory; recover it from git history if ever needed.
+**Current approach:** running the last self-built `ghcr.io/tanguille/sglang-rdna4` digest (v0.5.16, torch 2.11+rocm7.2, Triton 3.6). Our own build pipeline (`docker/sglang-rdna4/`, `.github/workflows/build-sglang-rdna4.yaml`) has been retired. `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` now publishes its own `ghcr.io/mattbucci/sglang-rdna4` image with the same patch series baked in; cutover is blocked on our upstream PR (`fix/hicache-openssl-headers`, mattbucci#6) landing the HiCache OpenSSL-headers fix, without which the published image crashes HiCache on first prefill. `SGLANG_RDNA4_DISABLE_STORE_CACHE=1` is already prepped in the HelmRelease env ahead of that cutover (see the InferenceService manifest). The retired PVC-rebuild recipe is gone with the `sglang` app directory; recover it from git history if ever needed.
 
 ---
 
@@ -112,7 +112,7 @@ replace the old "quarterly / ROCm CI" trigger — subscribe to #28511 and #30263
 
 ## Blocker 5 — No official SGLang Docker image for gfx1201
 
-**Impact:** Operational. Requires maintaining a custom Dockerfile and image (defined in `docker/sglang-rdna4/`).
+**Impact:** Operational. Previously required maintaining our own Dockerfile and build pipeline; the fork now publishes `ghcr.io/mattbucci/sglang-rdna4` itself, retiring ours (see "Current approach" above).
 
 **Upstream references:**
 - sgl-project/sglang Discussion #12600 — same tracking thread as Blocker 4

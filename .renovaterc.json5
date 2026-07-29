@@ -38,16 +38,6 @@
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
     },
-    {
-      description: "sglang-rdna4 FORK_REF pinned to the fork's main-branch head (the preset's annotated manager can't do git-refs digest pins); a bump PR merge fires the image rebuild workflow",
-      customType: "regex",
-      managerFilePatterns: ["/docker/sglang-rdna4/Dockerfile$/"],
-      matchStrings: ["ARG FORK_REF=(?<currentDigest>[a-f0-9]{40})"],
-      depNameTemplate: "mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference",
-      packageNameTemplate: "https://github.com/mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference",
-      currentValueTemplate: "main",
-      datasourceTemplate: "git-refs"
-    }
   ],
   packageRules: [
     // Auto-merge rules
@@ -60,18 +50,6 @@
       automergeType: "pr"
     },
     // Grouping rules
-    {
-      description: "sglang-rdna4 build inputs (fork ref + ROCm base digest + miniforge) — one review PR, no automerge; merging fires the GPU-free build workflow and mints a new image digest",
-      groupName: "sglang-rdna4",
-      matchFileNames: ["docker/sglang-rdna4/Dockerfile"],
-      automerge: false
-    },
-    {
-      description: "sglang-rdna4 deployed image digest — review before the HelmRelease rolls the serving pod (Recreate on the single GPU)",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/tanguille/sglang-rdna4"],
-      automerge: false
-    },
     {
       description: "Actions Runner Controller Group",
       groupName: "actions-runner-controller",
