@@ -23,16 +23,23 @@ spec:
             env:
               ENVOY_BOUNCER_BOUNCER_BANSTATUSCODE: 418
               ENVOY_BOUNCER_BOUNCER_ENABLED: true
-              ENVOY_BOUNCER_BOUNCER_LAPIURL: http://crowdsec-service.security.svc.cluster.local:8080
+              ENVOY_BOUNCER_BOUNCER_LAPIURL: https://crowdsec-service.security.svc.cluster.local:8080
               ENVOY_BOUNCER_BOUNCER_METRICS: true
+              ENVOY_BOUNCER_BOUNCER_TLS_ENABLED: true
+              ENVOY_BOUNCER_BOUNCER_TLS_CERTPATH: /app/tls/tls.crt
+              ENVOY_BOUNCER_BOUNCER_TLS_KEYPATH: /app/tls/tls.key
+              ENVOY_BOUNCER_BOUNCER_TLS_CAPATH: /app/tls/ca.crt
+              ENVOY_BOUNCER_BOUNCER_TLS_INSECURESKIPVERIFY: false
               ENVOY_BOUNCER_PROMETHEUS_ENABLED: true
               ENVOY_BOUNCER_TEMPLATES_DENIEDTEMPLATEPATH: /ban.html
               ENVOY_BOUNCER_TRUSTEDPROXIES: ${LAN_CIDR},${POD_CIDR}
               ENVOY_BOUNCER_WAF_APPSECURL: http://crowdsec-appsec-service.security.svc.cluster.local:7422
               ENVOY_BOUNCER_WAF_ENABLED: true
-            envFrom:
-              - secretRef:
-                  name: crowdsec-envoy-bouncer-secret
+              ENVOY_BOUNCER_WAF_APIKEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: crowdsec-envoy-bouncer-secret
+                    key: ENVOY_BOUNCER_WAF_APIKEY
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -70,3 +77,9 @@ spec:
         globalMounts:
           - path: /ban.html
             subPath: ban.html
+      tls:
+        type: secret
+        name: crowdsec-bouncer-tls
+        globalMounts:
+          - path: /app/tls
+            readOnly: true
