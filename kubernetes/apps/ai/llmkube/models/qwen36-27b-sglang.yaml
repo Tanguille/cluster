@@ -77,7 +77,7 @@ spec:
   runtime: sglang
   # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
   bindAddress: 0.0.0.0
-  image: ghcr.io/tanguille/sglang-rdna4:v0.5.16-gfx1201@sha256:615cb4265400f5468da4c32221f0086df075b126ce8dbfa78d998e844a5e424d
+  image: ghcr.io/tanguille/sglang-rdna4:sha-cb7b76050cbf8dda9e5a78c07b24df1a783caeb3@sha256:f961fc274eaad4af065097e0921b88ae5a97a478baa0e384e6c5ee440c355b29
   containerPort: 30000
   endpoint:
     # v0.9.8 maps endpoint.port to both Service port and targetPort; use the
@@ -121,14 +121,15 @@ spec:
       value: "0"
     - name: TRITON_CACHE_DIR
       value: /cache/sglang/triton
-    # No-op with our own build (patches this unconditionally); required once we run
-    # ghcr.io/mattbucci/sglang-rdna4 directly — see sglang-blockers.md.
+    # Required at TP=1: LLMKube runs launch_server directly, bypassing the image's
+    # entrypoint.sh/gpu-selection.sh, the only place this is normally set. Without it the
+    # JIT store_cache kernel crashes on first request (kvcache.cuh:204).
     - name: SGLANG_RDNA4_DISABLE_STORE_CACHE
       value: "1"
     # Page names encode neither the weights revision nor the engine, so this suffix MUST be
     # bumped with the image digest above or the AWQ revision, or stale KV pages get served.
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
-      value: /hicache/sglang-v0.5.16_awq-f541031d
+      value: /hicache/sglang-v0.5.16_awq-f541031d_fork-cb7b760
     # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.
     - name: SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE
       value: 64Gi
