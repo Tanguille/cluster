@@ -92,6 +92,13 @@ spec:
     # root became just another uid. Match the image's own user instead of overriding it.
     runAsUser: 10001
     runAsGroup: 10001
+    # The triton-cache and hicache PVCs were written by every prior root-based pod, so
+    # they're root-owned on disk. fsGroup makes kubelet recursively chown volume mounts
+    # to this group at mount time -- the same fix as runAsGroup, but for PVC contents
+    # instead of the image's own baked files. OnRootMismatch: hicache already holds 64G;
+    # skip the recursive chown walk on every future restart once the root matches.
+    fsGroup: 10001
+    fsGroupChangePolicy: OnRootMismatch
     supplementalGroups:
       - 44
       - 226
