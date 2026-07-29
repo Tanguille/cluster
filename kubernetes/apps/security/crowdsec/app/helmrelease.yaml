@@ -91,6 +91,10 @@ spec:
         on_success: break
     tls:
       enabled: true
+      certManager:
+        secretTemplate:
+          labels:
+            app.kubernetes.io/managed-by: crowdsec
       agent:
         tlsClientAuth: true
       appsec:
