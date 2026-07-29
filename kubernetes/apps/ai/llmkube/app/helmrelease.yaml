@@ -22,11 +22,6 @@ spec:
         limits:
           memory: 128Mi
 
-    # Scrapes are auto-converted to VM*Scrapes by the cluster's converter.
-    # secure:false serves operator metrics over plain HTTP, so VM scrapes without
-    # a ServiceAccount token. Chart prometheusRule stays off (its default): the
-    # alerts key on job="llmkube-inference", this cluster scrapes it as
-    # "ai/llmkube-inference". Repo alerts live in prometheusrule.yaml.
     metrics:
       secure: false
     prometheus:
@@ -34,6 +29,23 @@ spec:
         enabled: true
       inferencePodMonitor:
         enabled: true
+      prometheusRule:
+        enabled: true
+        namespace: ai
+
+    grafana:
+      dashboards:
+        enabled: true
+        namespace: observability
+        operator:
+          enabled: true
+          mode: auto
+          instanceSelector:
+            matchLabels:
+              grafana.internal/instance: grafana
+          datasources:
+            - datasourceName: VictoriaMetrics
+              inputName: DS_PROMETHEUS
 
     # Shared RWX cache on CephFS: the controller and the iGPU InferenceServices
     # land on different nodes, so an RWO volume multi-attach-errors. Access is
