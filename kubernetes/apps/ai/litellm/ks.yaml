@@ -11,11 +11,6 @@ spec:
     - name: litellm-operator
     - name: cloudnative-pg-databases
       namespace: database
-    # Embedding cache backend
-    - name: dragonfly-cluster
-      namespace: database
-    - name: llmkube-models
-      namespace: ai
   path: ./kubernetes/apps/ai/litellm/instance
   prune: true
   sourceRef:
