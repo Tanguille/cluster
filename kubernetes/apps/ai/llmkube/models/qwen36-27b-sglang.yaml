@@ -86,8 +86,12 @@ spec:
   nodeSelector:
     kubernetes.io/hostname: control-1
   podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
+    # The image's own USER 10001:10001 owns /home/sglang/.cache 0700 (flashinfer's JIT
+    # workspace lives there). The operator drops ALL capabilities on the container, so
+    # runAsUser: 0 no longer gets CAP_DAC_OVERRIDE to force its way past that ownership --
+    # root became just another uid. Match the image's own user instead of overriding it.
+    runAsUser: 10001
+    runAsGroup: 10001
     supplementalGroups:
       - 44
       - 226
