@@ -2,7 +2,7 @@
 
 Tracking what needs to land upstream before SGLang can replace vLLM in production without depending on the mattbucci RDNA4 fork.
 
-**Current approach:** `mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference` fork, **v0.5.15** (torch 2.11+rocm7.2, Triton 3.6), baked into the `ghcr.io/tanguille/sglang-rdna4` image by `.github/workflows/build-sglang-rdna4.yaml`. Build/pin/rollback mechanics are in `docker/sglang-rdna4/README.md`. The retired PVC-rebuild recipe is gone with the `sglang` app directory; recover it from git history if ever needed.
+**Current approach:** running `ghcr.io/tanguille/sglang-rdna4:sha-cb7b7605...` (torch 2.11+rocm7.2, Triton 3.6, SGLang v0.5.16), built by our fork's own `build-image.yaml` `publish` job (`Tanguille/2x-R9700-RDNA4-GFX1201-sglang-inference`, `main`), not by a pipeline in this repo — `docker/sglang-rdna4/` and `.github/workflows/build-sglang-rdna4.yaml` are retired. That fork branch carries mattbucci's full patch series plus our HiCache OpenSSL-headers fix (`fix/hicache-openssl-headers`, upstream PR mattbucci#6, still open/unmerged there — this is our own fork build, not the upstream package). `SGLANG_RDNA4_DISABLE_STORE_CACHE=1` is required in the HelmRelease env because LLMKube bypasses the image's entrypoint (see the InferenceService manifest). Once mattbucci#6 merges upstream, re-point at `ghcr.io/mattbucci/sglang-rdna4` directly and drop the fork build. The retired PVC-rebuild recipe is gone with the `sglang` app directory; recover it from git history if ever needed.
 
 ---
 
@@ -112,7 +112,7 @@ replace the old "quarterly / ROCm CI" trigger — subscribe to #28511 and #30263
 
 ## Blocker 5 — No official SGLang Docker image for gfx1201
 
-**Impact:** Operational. Requires maintaining a custom Dockerfile and image (defined in `docker/sglang-rdna4/`).
+**Impact:** Operational. Previously required maintaining our own Dockerfile and build pipeline; the fork now publishes `ghcr.io/mattbucci/sglang-rdna4` itself, retiring ours (see "Current approach" above).
 
 **Upstream references:**
 - sgl-project/sglang Discussion #12600 — same tracking thread as Blocker 4
