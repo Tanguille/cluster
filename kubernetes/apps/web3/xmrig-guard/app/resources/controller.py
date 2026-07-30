@@ -22,6 +22,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # the wrong reading. Fewer series also means fewer chances for a single missing sample
 # to fail the identity check and latch a node closed.
 SENSORS = {
+    # empty tuple = no NVMe visible to this node (control-1 is a VM); it is gated on CPU
+    # headroom instead, which is what every `if sensors` branch below keys off.
     "control-1": (),
     "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
     "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
@@ -110,7 +112,7 @@ def cpu_value(observation):
 
 
 class VictoriaMetricsClient:
-    def __init__(self, endpoint, transport=None, timeout=10, step_seconds=120):
+    def __init__(self, endpoint, transport=None, timeout=HTTP_TIMEOUT_SECONDS, step_seconds=120):
         self.endpoint = endpoint.rstrip("/")
         self.transport = transport or _HTTPTransport(timeout)
         self.step = f"{int(step_seconds)}s"
@@ -186,36 +188,35 @@ class VictoriaMetricsClient:
             if len(values) != 1:
                 raise ValueError(f"CPU source must be one scalar: {query}")
             return next(iter(values.values()))
-        def stamps(*selectors):
+        def oldest(*selectors):
             out = []
             for selector in selectors:
                 rows = self._query("timestamp(" + selector + ")", evaluation)
                 if not rows:
                     raise ValueError(f"missing raw timestamps: {selector}")
                 out.extend(self._sources(rows, raw_timestamp=True).values())
-            return out
+            return min(item.timestamp for item in out)
         presence = one(xmrig_presence_query)
         if presence.value < 0:
             raise ValueError("invalid labelled XMRig presence source")
         if presence.value > 0:
             # the membership stamps date both the presence count and the subtraction, so
             # they are fetched once and reused rather than queried twice per evaluation
-            membership = stamps(labels_raw, node_pods_raw)
-            presence = Source(presence.value, min(item.timestamp for item in membership))
+            membership = oldest(labels_raw, node_pods_raw)
+            presence = Source(presence.value, membership)
             # cadvisor joins the same membership selectors, so cadvisor freshness is
             # verified exactly when its data enters the subtraction
-            xmrig_stamps = membership + stamps(cadvisor_raw)
-            xmrig = Source(one(xmrig_query).value, min(item.timestamp for item in xmrig_stamps))
+            xmrig = Source(one(xmrig_query).value, min(membership, oldest(cadvisor_raw)))
         else:
             # no labelled miner on this node: anchor presence freshness to pod-info stamps
-            presence = Source(0, min(item.timestamp for item in stamps(ksm_raw)))
+            presence = Source(0, oldest(ksm_raw))
             xmrig = None
-        host = Source(one(host_query).value, min(item.timestamp for item in stamps(host_raw)))
+        host = Source(one(host_query).value, oldest(host_raw))
         return CPUObservation(host, xmrig, presence)
 
 
 class _HTTPTransport:
-    def __init__(self, timeout=10):
+    def __init__(self, timeout=HTTP_TIMEOUT_SECONDS):
         self.timeout = timeout
 
     def get(self, url, params):
@@ -248,9 +249,9 @@ class GuardController:
         self.metrics = {
             "evaluations": 0, "query_errors": {node: 0 for node in SENSORS},
             "safe": {node: 0 for node in SENSORS},
-            "nvme_temp_max": {node: 0.0 for node in SENSORS if node != "control-1"},
+            "nvme_temp_max": {node: 0.0 for node in SENSORS if SENSORS[node]},
             "source_age_seconds": {node: 0.0 for node in SENSORS},
-            "cpu_non_xmrig": 0.0,
+            "cpu_non_xmrig": {node: 0.0 for node in SENSORS if not SENSORS[node]},
         }
         self._last_source_stamps = {node: () for node in SENSORS}
 
@@ -259,7 +260,7 @@ class GuardController:
         previous = self._last_source_stamps[node]
         if previous:
             if len(previous) != len(stamps):
-                raise ValueError("CPU source membership changed")
+                raise ValueError("source membership changed")
             if any(current - old > MAX_SOURCE_GAP_SECONDS for current, old in zip(stamps, previous)):
                 raise ValueError("source gap exceeded maximum")
             if any(current <= old for current, old in zip(stamps, previous)):
@@ -274,17 +275,18 @@ class GuardController:
             try:
                 # no sensors means a node with no visible NVMe (control-1, a VM): it is gated
                 # on CPU headroom instead. The dwell policy and metrics are keyed identically.
-                obs = self.telemetry.query_cpu(node, evaluation) if not sensors else None
-                samples = (obs.host, obs.presence) + ((obs.xmrig,) if obs.xmrig else ()) if obs else self.telemetry.query_nvme(node, sensors, evaluation)
-                if not samples or not all(_fresh(item.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for item in samples):
-                    raise ValueError(f"stale or future {'CPU' if obs else 'NVMe'} source")
-                if obs:
-                    value, stamp = cpu_value(obs), min(item.timestamp for item in samples)
-                    self.metrics["cpu_non_xmrig"] = value
-                else:
+                if sensors:
+                    samples = self.telemetry.query_nvme(node, sensors, evaluation)
                     # trip on the hottest drive, date it by the newest sample it was read from
                     value, stamp = max(item.value for item in samples), max(item.timestamp for item in samples)
                     self.metrics["nvme_temp_max"][node] = value
+                else:
+                    obs = self.telemetry.query_cpu(node, evaluation)
+                    samples = (obs.host, obs.presence) + ((obs.xmrig,) if obs.xmrig else ())
+                    value, stamp = cpu_value(obs), min(item.timestamp for item in samples)
+                    self.metrics["cpu_non_xmrig"][node] = value
+                if not samples or not all(_fresh(item.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for item in samples):
+                    raise ValueError("stale or future source")
                 policy = self.policies[node]
                 safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
                 self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples).timestamp())
@@ -300,7 +302,7 @@ class GuardController:
                 if sensors:
                     self.metrics["nvme_temp_max"][node] = float("nan")
                 else:
-                    self.metrics["cpu_non_xmrig"] = float("nan")
+                    self.metrics["cpu_non_xmrig"][node] = float("nan")
         self.metrics["evaluations"] += 1
         self.ready = True
         return dict(self.metrics["safe"])
@@ -308,15 +310,13 @@ class GuardController:
 
 def render_metrics(controller):
     m = controller.metrics
-    lines = [
-        f'xmrig_guard_evaluations_total {m["evaluations"]}',
-        f'xmrig_guard_cpu_non_xmrig_percent {m["cpu_non_xmrig"]}',
-    ]
+    lines = [f'xmrig_guard_evaluations_total {m["evaluations"]}']
     for metric, values in (
         ("safe", m["safe"]),
         ("query_errors_total", m["query_errors"]),
         ("source_age_seconds", m["source_age_seconds"]),
         ("nvme_temp_max_celsius", m["nvme_temp_max"]),
+        ("cpu_non_xmrig_percent", m["cpu_non_xmrig"]),
     ):
         metric_name = "xmrig_guard_" + metric
         lines.extend(f'{metric_name}{{node="{node}"}} {value}' for node, value in values.items())

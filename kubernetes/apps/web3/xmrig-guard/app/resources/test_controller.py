@@ -98,9 +98,12 @@ class TelemetryTests(unittest.TestCase):
         observation = controller.VictoriaMetricsClient("http://vm", transport).query_cpu("control-1", now)
         self.assertIsNotNone(observation.xmrig)
         self.assertEqual(controller.cpu_value(observation), 0)
+        queries = [call.args[1]["query"] for call in transport.get.call_args_list]
         # membership stamps date both the presence count and the subtraction; fetching them
-        # twice cost 9 round trips, so this pins the reuse
-        self.assertEqual(transport.get.call_count, 7)
+        # twice cost 9 round trips, so this pins the reuse without pinning a query count
+        self.assertEqual(len(queries), len(set(queries)))
+        xmrig_query = next(query for query in queries if "sum by (namespace,pod)" in query)
+        self.assertLess(xmrig_query.index("sum by (namespace,pod)"), xmrig_query.index("/ count(count"))
 
     def test_xmrig_present_on_another_node_is_zero_for_control1(self):
         transport = Mock()

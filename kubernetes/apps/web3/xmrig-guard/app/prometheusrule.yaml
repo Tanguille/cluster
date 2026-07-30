@@ -50,12 +50,12 @@ spec:
           # that band, so this fires for a stuck latch (the 2026-07-27 control-2
           # sensor-identity blip) and stays quiet when the gate is shut because the
           # drives are genuinely too hot, which is the expected steady state.
-          # control-1 is excluded on purpose: it emits no NVMe metric, so the join could
-          # never match it and the wider regex claimed coverage this query cannot deliver.
+          # No node matcher: only NVMe-gated nodes emit a temperature, so the join itself
+          # selects them and a future node needs no edit here.
           expr: |-
-            max_over_time(xmrig_guard_safe{node=~"control-[23]"}[6h]) == 0
+            max_over_time(xmrig_guard_safe[6h]) == 0
             and on (node)
-            max_over_time(xmrig_guard_nvme_temp_max_celsius{node=~"control-[23]"}[2h]) <= 60
+            max_over_time(xmrig_guard_nvme_temp_max_celsius[2h]) <= 60
           for: 30m
           annotations:
             summary: >-
