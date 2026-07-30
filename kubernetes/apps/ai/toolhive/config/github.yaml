@@ -10,22 +10,6 @@
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServerEntry
 metadata:
-  name: github
-spec:
-  remoteUrl: https://api.githubcopilot.com/mcp/
-  transport: streamable-http
-  groupRef:
-    name: resources
-  headerForward:
-    addHeadersFromSecret:
-      - headerName: Authorization
-        valueSecretRef:
-          name: toolhive-secrets
-          key: GITHUB_PERSONAL_ACCESS_TOKEN
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServerEntry
-metadata:
   name: github-opt
 spec:
   remoteUrl: https://api.githubcopilot.com/mcp/
