@@ -28,6 +28,12 @@ SENSORS = {
     "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
     "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
 }
+# Miner slot priority, best first. control-1 has no NVMe to cook and was safe 96% of the
+# last 7d against 60%/30% for the bare-metal nodes. Each ScaledObject counts how many safe
+# nodes outrank it and subtracts one miner's draw per rank, so this order decides who gets
+# scarce watts. It lives here rather than in the manifests because it is a property of the
+# node telemetry, and a future headroom-derived ranking replaces this tuple alone.
+PRIORITY = ("control-1", "control-2", "control-3")
 ENDPOINT = "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427"
 EVALUATION_INTERVAL_SECONDS = 60
 SOURCE_SAMPLE_MAX_AGE_SECONDS = 120
@@ -252,6 +258,7 @@ class GuardController:
             "nvme_temp_max": {node: 0.0 for node in SENSORS if SENSORS[node]},
             "source_age_seconds": {node: 0.0 for node in SENSORS},
             "cpu_non_xmrig": {node: 0.0 for node in SENSORS if not SENSORS[node]},
+            "rank": {node: PRIORITY.index(node) for node in SENSORS},
         }
         self._last_source_stamps = {node: () for node in SENSORS}
 
@@ -317,6 +324,7 @@ def render_metrics(controller):
         ("source_age_seconds", m["source_age_seconds"]),
         ("nvme_temp_max_celsius", m["nvme_temp_max"]),
         ("cpu_non_xmrig_percent", m["cpu_non_xmrig"]),
+        ("rank", m["rank"]),
     ):
         metric_name = "xmrig_guard_" + metric
         lines.extend(f'{metric_name}{{node="{node}"}} {value}' for node, value in values.items())

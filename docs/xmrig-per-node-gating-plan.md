@@ -64,11 +64,20 @@ recover 60C.
 
 - `kubernetes/apps/web3/monero/xmrig/resourceset.yaml` replaces `helmrelease.yaml` and
   `scaledobject.yaml`. Inputs are the three nodes plus a staggered activation threshold.
-- Activation staggered 25W / 75W / 125W at 50W per miner, so miners add on in sequence as
-  export grows. Without the stagger, 50W of export would light all three.
-- Stagger order follows measured thermal availability (c1 96% → c3 30%), which inverts the old
-  "prefer control-2/control-3, more power efficient" preference. Thermal availability dominates
-  efficiency by an order of magnitude in the measured data.
+- Each trigger subtracts 50W per *safe* node that outranks it and takes what is left, with a
+  uniform 25W activation. Without that subtraction, three ScaledObjects reading one global
+  export figure would all start at 50W. Unlike a fixed activation threshold it does not
+  reserve watts for a node that is unavailable: if control-1 is CPU-saturated, control-2
+  takes the first slot rather than waiting for 75W.
+- Ranking is the guard's `xmrig_guard_rank`, ordered by measured thermal availability
+  (c1 96% → c3 30%), which inverts the old "prefer control-2/control-3, more power efficient"
+  preference. It lives in the guard's `PRIORITY` tuple, so re-prioritising needs no manifest
+  edit, and a future headroom-derived ranking replaces that tuple alone.
+- Measured worth of dynamic over the static 25/75/125 stagger it replaced: 0.02 replica-hours
+  over 7d, 0.6 over 30d. The reason it is small is that export here is bimodal (44.6h of the
+  47.5h above 25W last week sat at the 150W cap), so the ranking rarely binds. It was adopted
+  for removing three hardcoded numbers that had to stay consistent with `threshold: 50`, not
+  for the throughput.
 - Each HelmRelease pins its Deployment to one node with a `nodeSelector`.
   `podAntiAffinity` goes away: one replica per node is now structural.
 - The gate query per node collapses from the `min() x count()==3 x freshness` cardinality dance
@@ -82,8 +91,10 @@ recover 60C.
 
 Known accepted behaviours:
 
-- At 50W export with control-1 unsafe, nobody mines even though control-2 is free. The gates do
-  not reshuffle. Today nobody mines in that case either.
+- If the guard's rank series is missing for a node, that node's `scalar()` yields NaN, every
+  rank comparison is false, and it behaves as top priority. That fails open on *allocation*
+  only (worst case one extra miner, 50W over-drawn); the safety gate is a separate factor in
+  the same query and still fails closed.
 - The dashboard polls one Service and gets whichever pod answers, so it under-reports total
   hashrate when more than one miner runs. Pre-existing, unchanged by this step.
 - With `maxReplicaCount: 1` the HPA `behavior` block is probably inert (0->1 and 1->0 are KEDA

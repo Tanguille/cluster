@@ -9,16 +9,9 @@ spec:
   # cannot do this: the HPA sheds an arbitrary pod, so nothing guarantees the pod on the
   # node that just tripped is the one that dies.
   inputs:
-    # activation is the export needed for this miner to start, at ~50W each; staggering is
-    # what keeps three ScaledObjects reading the same global figure from all firing at 50W.
-    # Ordered by measured 7d thermal availability (safe 96%/60%/30%), not by power
-    # efficiency: control-3 is the first node heat locks out.
     - node: control-1
-      activation: "25"
     - node: control-2
-      activation: "75"
     - node: control-3
-      activation: "125"
   resources:
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
@@ -143,16 +136,29 @@ spec:
           - type: prometheus
             metadata:
               serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-              # Preserve the 15-minute solar average and 150W physical cap, but expose it only
-              # while this node reports a fresh safe=1. The aggregations strip labels for the
-              # on() match and reject duplicate guard series; the timestamp check closes the
-              # gate within 120s if guard scraping stops, and the final fallback covers absent
-              # guard data.
+              # Preserve the 15-minute solar average and 150W physical cap, then hand this
+              # node only the surplus left after every safe node that outranks it has taken
+              # its 50W. That subtraction is what stops three ScaledObjects reading one global
+              # figure from all starting at 50W, and unlike a fixed activation threshold it
+              # skips a node that is unavailable instead of reserving watts for it. Ranking
+              # is the guard's xmrig_guard_rank, so priority changes need no manifest edit.
+              # The aggregations strip labels for the on() match and reject duplicate guard
+              # series; the timestamp check closes the gate within 120s if guard scraping
+              # stops, and the final fallback covers absent guard data.
               query: >-
                 (
-                  clamp_max(
-                    clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0),
-                    150
+                  clamp_min(
+                    clamp_max(
+                      clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0),
+                      150
+                    )
+                    - 50 * (
+                      count(
+                        (xmrig_guard_safe == 1)
+                        and on(node) (xmrig_guard_rank < scalar(xmrig_guard_rank{node="<< inputs.node >>"}))
+                      ) or vector(0)
+                    ),
+                    0
                   )
                   * on()
                   (
@@ -162,5 +168,6 @@ spec:
                   )
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)
-              activationThreshold: "<< inputs.activation >>"
+              # half a miner's draw, the same tolerance the single-Deployment version used
+              activationThreshold: "25"
               ignoreNullValues: "false"
