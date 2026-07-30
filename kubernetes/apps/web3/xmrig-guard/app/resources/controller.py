@@ -180,64 +180,47 @@ class VictoriaMetricsClient:
         xmrig_presence_raw = f'kube_pod_labels{{{label_selector}}} * on(namespace,pod) group_left(node) {node_pods_raw}'
         xmrig_presence_query = f'count({xmrig_presence_raw}) or vector(0)'
         xmrig_query = f'100 * (sum((sum by (namespace,pod) (rate({cadvisor_raw}[{window}])) * on(namespace,pod) group_left(node) ({xmrig_presence_raw})) or vector(0)) / count(count({idle_raw}) by (cpu)))'
-        def one(query, optional=False, raw_timestamp=False):
-            rows = self._query(query, evaluation)
-            if not rows and optional:
-                return None
-            values = self._sources(rows, raw_timestamp=raw_timestamp)
+        labels_raw = f'kube_pod_labels{{{label_selector}}}'
+        def one(query):
+            values = self._sources(self._query(query, evaluation))
             if len(values) != 1:
-                raise ValueError("CPU source must be one scalar")
+                raise ValueError(f"CPU source must be one scalar: {query}")
             return next(iter(values.values()))
-        def source(query, raw_selector, optional=False):
-            value = one(query, optional)
-            if value is None:
-                if optional:
-                    return None
-                raise ValueError("incomplete CPU source")
-            selectors = (raw_selector,) if isinstance(raw_selector, str) else raw_selector
-            stamps = []
+        def stamps(*selectors):
+            out = []
             for selector in selectors:
                 rows = self._query("timestamp(" + selector + ")", evaluation)
                 if not rows:
-                    raise ValueError("missing raw CPU timestamps")
-                stamps.extend(self._sources(rows, raw_timestamp=True).values())
-            return Source(value.value, min(item.timestamp for item in stamps))
-        presence_rows = self._query(xmrig_presence_query, evaluation)
-        presence_values = self._sources(presence_rows)
-        if len(presence_values) != 1 or next(iter(presence_values.values())).value < 0:
+                    raise ValueError(f"missing raw timestamps: {selector}")
+                out.extend(self._sources(rows, raw_timestamp=True).values())
+            return out
+        presence = one(xmrig_presence_query)
+        if presence.value < 0:
             raise ValueError("invalid labelled XMRig presence source")
-        presence = next(iter(presence_values.values()))
         if presence.value > 0:
-            presence_timestamps = []
-            for raw_selector in (f'kube_pod_labels{{{label_selector}}}', node_pods_raw):
-                rows = self._query("timestamp(" + raw_selector + ")", evaluation)
-                if not rows:
-                    raise ValueError("missing raw XMRig membership timestamps")
-                presence_timestamps.extend(self._sources(rows, raw_timestamp=True).values())
-            presence = Source(presence.value, min(item.timestamp for item in presence_timestamps))
-            # xmrig's raw selectors include cadvisor_raw, so cadvisor freshness is
+            # the membership stamps date both the presence count and the subtraction, so
+            # they are fetched once and reused rather than queried twice per evaluation
+            membership = stamps(labels_raw, node_pods_raw)
+            presence = Source(presence.value, min(item.timestamp for item in membership))
+            # cadvisor joins the same membership selectors, so cadvisor freshness is
             # verified exactly when its data enters the subtraction
-            xmrig = source(
-                xmrig_query,
-                (cadvisor_raw, f'kube_pod_labels{{{label_selector}}}', node_pods_raw),
-            )
+            xmrig_stamps = membership + stamps(cadvisor_raw)
+            xmrig = Source(one(xmrig_query).value, min(item.timestamp for item in xmrig_stamps))
         else:
             # no labelled miner on this node: anchor presence freshness to pod-info stamps
-            rows = self._query("timestamp(" + ksm_raw + ")", evaluation)
-            if not rows:
-                raise ValueError("missing raw pod-info timestamps")
-            presence = Source(0, min(item.timestamp for item in self._sources(rows, raw_timestamp=True).values()))
+            presence = Source(0, min(item.timestamp for item in stamps(ksm_raw)))
             xmrig = None
-        return CPUObservation(source(host_query, host_raw), xmrig, presence)
+        host = Source(one(host_query).value, min(item.timestamp for item in stamps(host_raw)))
+        return CPUObservation(host, xmrig, presence)
 
 
 class _HTTPTransport:
-    def __init__(self, timeout=10, headers=None, context=None):
-        self.timeout, self.headers, self.context = timeout, headers or {}, context
+    def __init__(self, timeout=10):
+        self.timeout = timeout
 
     def get(self, url, params):
-        request = urllib.request.Request(url + "?" + urllib.parse.urlencode(params), headers=self.headers)
-        with urllib.request.urlopen(request, timeout=self.timeout, context=self.context) as response:
+        request = urllib.request.Request(url + "?" + urllib.parse.urlencode(params))
+        with urllib.request.urlopen(request, timeout=self.timeout) as response:
             return json.load(response)
 
 
@@ -254,8 +237,13 @@ class GuardController:
         # Idle Composite never exceeded 62C over 7d on either node, so the trip does not
         # false-fire, and it sits at or below 60C for 100%/90% of the time, so recovery is
         # reachable rather than the permanent latch the old 60C/70C pair produced.
-        self.policies = {"control-2": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS), "control-3": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS)}
-        self.cpu_policy = DwellPolicy(50, 70, 600, 120, MAX_SOURCE_GAP_SECONDS)
+        # control-1 is keyed the same way on CPU headroom rather than temperature; SENSORS
+        # decides which source feeds which node, so the policy dict needs no special case.
+        self.policies = {
+            "control-1": DwellPolicy(50, 70, 600, 120, MAX_SOURCE_GAP_SECONDS),
+            "control-2": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS),
+            "control-3": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS),
+        }
         self.ready = False
         self.metrics = {
             "evaluations": 0, "query_errors": {node: 0 for node in SENSORS},
@@ -269,12 +257,13 @@ class GuardController:
     def _new_source_set(self, node, sources):
         stamps = tuple(source.timestamp.timestamp() for source in sources)
         previous = self._last_source_stamps[node]
-        if previous and len(previous) != len(stamps):
-            raise ValueError("CPU source membership changed")
-        if previous and len(previous) == len(stamps) and any(current - old > MAX_SOURCE_GAP_SECONDS for current, old in zip(stamps, previous)):
-            raise ValueError("source gap exceeded maximum")
-        if previous and len(previous) == len(stamps) and any(current <= old for current, old in zip(stamps, previous)):
-            return False
+        if previous:
+            if len(previous) != len(stamps):
+                raise ValueError("CPU source membership changed")
+            if any(current - old > MAX_SOURCE_GAP_SECONDS for current, old in zip(stamps, previous)):
+                raise ValueError("source gap exceeded maximum")
+            if any(current <= old for current, old in zip(stamps, previous)):
+                return False
         self._last_source_stamps[node] = stamps
         return True
 
@@ -283,41 +272,35 @@ class GuardController:
         now = self.clock()
         for node, sensors in SENSORS.items():
             try:
-                if node == "control-1":
-                    obs = self.telemetry.query_cpu(node, evaluation)
-                    sources = (obs.host, obs.presence) + ((obs.xmrig,) if obs.xmrig else ())
-                    if not all(_fresh(source.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for source in sources):
-                        raise ValueError("stale or future CPU source")
-                    if self._new_source_set(node, sources):
-                        safe = self.cpu_policy.observe(cpu_value(obs), min(source.timestamp for source in sources), now)
-                    else:
-                        safe = self.cpu_policy.safe
-                    self.metrics["cpu_non_xmrig"] = cpu_value(obs)
-                    self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(source.timestamp for source in sources).timestamp())
+                # no sensors means a node with no visible NVMe (control-1, a VM): it is gated
+                # on CPU headroom instead. The dwell policy and metrics are keyed identically.
+                obs = self.telemetry.query_cpu(node, evaluation) if not sensors else None
+                samples = (obs.host, obs.presence) + ((obs.xmrig,) if obs.xmrig else ()) if obs else self.telemetry.query_nvme(node, sensors, evaluation)
+                if not samples or not all(_fresh(item.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for item in samples):
+                    raise ValueError(f"stale or future {'CPU' if obs else 'NVMe'} source")
+                if obs:
+                    value, stamp = cpu_value(obs), min(item.timestamp for item in samples)
+                    self.metrics["cpu_non_xmrig"] = value
                 else:
-                    samples = self.telemetry.query_nvme(node, sensors, evaluation)
-                    if not samples or not all(_fresh(sample.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for sample in samples):
-                        raise ValueError("stale or future NVMe source")
-                    if self._new_source_set(node, samples):
-                        safe = self.policies[node].observe(max(sample.value for sample in samples), max(sample.timestamp for sample in samples), now)
-                    else:
-                        safe = self.policies[node].safe
-                    self.metrics["nvme_temp_max"][node] = max(sample.value for sample in samples)
-                    self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(sample.timestamp for sample in samples).timestamp())
+                    # trip on the hottest drive, date it by the newest sample it was read from
+                    value, stamp = max(item.value for item in samples), max(item.timestamp for item in samples)
+                    self.metrics["nvme_temp_max"][node] = value
+                policy = self.policies[node]
+                safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
+                self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples).timestamp())
                 self.metrics["safe"][node] = int(safe)
             except Exception as exc:
                 # one line per failure, no traceback: the query text travels in the exception
                 logging.error(f"evaluation failed for {node}: {exc!r}")
                 self.metrics["query_errors"][node] += 1
-                policy = self.cpu_policy if node == "control-1" else self.policies[node]
-                policy.invalidate()
+                self.policies[node].invalidate()
                 self._last_source_stamps[node] = ()
                 self.metrics["safe"][node] = 0
                 self.metrics["source_age_seconds"][node] = float("nan")
-                if node == "control-1":
-                    self.metrics["cpu_non_xmrig"] = float("nan")
-                else:
+                if sensors:
                     self.metrics["nvme_temp_max"][node] = float("nan")
+                else:
+                    self.metrics["cpu_non_xmrig"] = float("nan")
         self.metrics["evaluations"] += 1
         self.ready = True
         return dict(self.metrics["safe"])
