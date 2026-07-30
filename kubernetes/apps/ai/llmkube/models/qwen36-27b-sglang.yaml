@@ -39,16 +39,11 @@ spec:
     requests:
       storage: 64Gi
 ---
-# Prunes superseded HiCache generations. The storage dir below is versioned per image
-# digest because reuse across a bump is unsafe -- page names encode neither the weights
-# revision nor the engine, and SGLang's own config_suffix only covers --served-model-name
-# and TP, both constant across bumps. Nothing in the CRD can prune the old directory (no
-# initContainers field), so it was manual, and a missed cleanup orphaned 64G on 2026-07-30.
-# That matters more than it looks: control-1's disk is a SPARSE zvol on TrueNAS SSD_Pool,
-# which had 60.3G available on 2026-07-30. Orphaned generations consume real pool space,
-# and exhausting that pool stops the VM.
-# Tradeoff: rolling back to a previous image more than a day after a bump finds its cache
-# already pruned, so that rollback pays cold TTFT until the store refills.
+# Prunes HiCache generations superseded by an image bump (why they are versioned at all:
+# see SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR below). This CRD has no initContainers field
+# to automate it, so it was manual, and one missed cleanup orphaned 64G on 2026-07-30 --
+# against 60.3G free on control-1's sparse TrueNAS zvol, where filling the pool stops the
+# VM. Tradeoff: rolling back >1 day after a bump finds that cache pruned (cold TTFT).
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -66,15 +61,12 @@ spec:
         spec:
           restartPolicy: OnFailure
           securityContext:
-            # Superseded generations were written by root-era pods (pre-4a4b06f), so the
-            # pruner needs uid 0 to unlink them. It mounts nothing but this PVC.
+            # Superseded generations were written by root-era pods (pre-4a4b06f).
             runAsUser: 0
           containers:
             - name: prune
               image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
               securityContext:
-                # uid 0 is needed to unlink root-owned generations, but nothing here needs
-                # to escalate, write outside /hicache, or hold a capability.
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
                 capabilities:
@@ -85,21 +77,19 @@ spec:
                 - |
                   set -eu
                   cd /hicache
-                  # Newest by mtime is the live generation. mtime tracks writes, not reads,
-                  # which is sound here only because write_through writes every prefill, so
-                  # any generation actually serving keeps its directory fresh. Never prune
-                  # it, nor anything written in the last day, so a draining pod keeps its
-                  # cache through a rollout.
+                  # Newest mtime = the live generation (write_through writes every prefill,
+                  # so anything serving stays fresh). Skip it and anything written in the
+                  # last day, so a draining pod keeps its cache through a rollout.
                   newest="$(ls -1dt -- */ 2>/dev/null | head -1)"
                   for d in */; do
                     [ -d "$d" ] || continue
                     [ "$d" = "$newest" ] && continue
                     [ -n "$(find "$d" -maxdepth 0 -mmin +1440)" ] || continue
-                    echo "pruning superseded generation: $d ($(du -sh "$d" | cut -f1))"
+                    echo "pruning superseded generation: $d"
                     rm -rf -- "$d"
                   done
-                  # Count only -- a `du -sh .` here would stat the whole live generation
-                  # (682,508 files on 2026-07-30) every run just to log a number.
+                  # Names/counts only: du here would stat the whole store (682,508 files on
+                  # 2026-07-30) on top of the walk rm already does, just to log a number.
                   echo "remaining: $(ls -1d -- */ 2>/dev/null | wc -l) generation(s)"
               volumeMounts:
                 - name: hicache
@@ -108,10 +98,10 @@ spec:
                 requests:
                   cpu: 10m
                   memory: 64Mi
-                # Bounded so an unexpectedly large generation cannot crowd the inference
-                # server it shares control-1 with. busybox rm/du stream, they do not buffer.
+                # Memory only: busybox rm streams, so this just bounds the pathological
+                # case. No cpu limit -- the job is iowait-bound, where CFS quota cannot
+                # throttle, and if entries are cache-hot it would stretch the run instead.
                 limits:
-                  cpu: 500m
                   memory: 128Mi
           volumes:
             - name: hicache
@@ -191,23 +181,22 @@ spec:
     # media workloads. 0.95 grows the pool 183,240 -> 261,019 tokens but OOMs on a
     # 13.8K-token prefill (2026-07-25).
     memFractionStatic: 0.875
-    # No maxRunningRequests: the mamba clamp always wins, so setting it here only misleads.
-    # resolve_max_num_reqs() takes min(requested, max_mamba_cache_size // 3), and unset it
-    # takes min(estimated, ...) where estimated floors at 2048 -- both land on 48//3 = 16.
+    # No maxRunningRequests: the mamba clamp below always wins over a requested value
+    # (resolve_max_num_reqs), so setting one here would only misstate the real ceiling.
     chunkedPrefillSize: 8192
-    # No tensorParallelSize (1 is the default) and no quantization: the checkpoint's
-    # config.json carries quant_method awq and dtype bfloat16, and model_config.py
-    # auto-detects both. awq_marlin, the one override that could diverge, hard-returns
-    # False off CUDA (awq.py:388). kvCacheDtype does NOT auto-detect -- it buys the pool.
+    # No tensorParallelSize (1 is the default) or quantization: config.json carries
+    # quant_method awq and dtype bfloat16, both auto-detected; awq_marlin, the one override
+    # that could diverge, hard-returns False off CUDA (awq.py:388). Raising TP also means
+    # re-adding the flags dropped as TP=1 no-ops under extraArgs. kvCacheDtype does NOT
+    # auto-detect -- it buys the pool.
     kvCacheDtype: fp8_e4m3
     reasoningParser: qwen3
   resources:
     cpu: "2"
     hostMemory: 24Gi
   env:
-    # No *_VISIBLE_DEVICES/GPU_DEVICE_ORDINAL: the device plugin hands this container a
-    # single render node (card0 + renderD128), and torch reports exactly one device, so
-    # selecting "0" of 1 was the identity mapping four times over.
+    # No *_VISIBLE_DEVICES/GPU_DEVICE_ORDINAL: the device plugin hands over one render node
+    # (card0 + renderD128) and torch sees one device, so "0" was the identity mapping x4.
     # $HOME/.cache/flashinfer/<ver>/ is root-owned in the image (a build-time
     # `import torch, sglang, sgl_kernel` verification step triggers flashinfer's JIT
     # logger init as root, before the runtime user exists) -- uid 10001 can enter it
@@ -225,9 +214,8 @@ spec:
     # bumped with the image digest above or the AWQ revision, or stale KV pages get served.
     # SGLang's own per-model cache key (config_suffix, HiCacheFile.__init__) only covers
     # --served-model-name/TP, which stays "qwen-3.6" across bumps -- it doesn't catch this.
-    # SGLang's own evictor only manages its own configured path, so the OLD suffix's
-    # directory is orphaned on every bump; the qwen36-27b-hicache-prune CronJob above
-    # reclaims it a day later.
+    # Its evictor only manages its own configured path, so the old suffix's directory is
+    # orphaned on every bump; the qwen36-27b-hicache-prune CronJob above reclaims it.
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
       value: /hicache/sglang-v0.5.16_awq-f541031d_fork-cb7b760
     # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.
@@ -237,17 +225,15 @@ spec:
     # hold a floor well above kubelet's ~50G nodefs eviction threshold.
     - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
       value: 100Gi
-    # Without this, a lookup miss walks the whole store with os.scandir; the directory held
-    # 682,508 files on 2026-07-30. Upstream #29716 measured P99 TTFT -22.1% at 157K files.
-    # Off by default. The startup scan it adds is a single os.listdir with no per-file stat
-    # (hicache_storage.py:441), measured at 0.31s over the live store, so it is nowhere near
-    # the ~30min startup-probe budget below.
+    # Without this a lookup miss walks the store with os.scandir; it held 682,508 files on
+    # 2026-07-30. Upstream #29716 measured P99 TTFT -22.1% at 157K files. Off by default.
+    # The startup scan it adds is one os.listdir, no per-file stat (hicache_storage.py:441),
+    # measured 0.31s -- nowhere near the ~30min startup-probe budget below.
     - name: SGLANG_HICACHE_FILE_BACKEND_ENABLE_METADATA_CACHE
       value: "1"
-    # The 5s default TTL expires every entry the startup scan just inserted, leaving only
-    # the (still worthwhile) scandir-avoidance. -1 is special-cased as never-expire
-    # (hicache_storage.py:340); staleness is safe because the evictor wires on_evict ->
-    # metadata_cache.remove. ~140MB of dict for 682K keys.
+    # The 5s default expires every entry the startup scan just inserted. -1 is special-cased
+    # as never-expire (hicache_storage.py:340); the dict stays a 1:1 shadow of what is on
+    # disk because the evictor wires on_evict -> remove. ~140MB for 682K keys.
     - name: SGLANG_HICACHE_FILE_BACKEND_METADATA_TTL
       value: "-1"
   extraVolumes:
@@ -292,10 +278,9 @@ spec:
       timeoutSeconds: 5
       failureThreshold: 6
   extraArgs:
-    # Dropped as no-ops at TP=1 on this checkpoint: --dtype bfloat16 (auto resolves to the
-    # checkpoint's own dtype), --trust-remote-code (the model dir has no auto_map and no .py
-    # files), --pre-warm-nccl (gated on tp/pp/ep > 1, distributed/bootstrap.py:109) and
-    # --disable-custom-all-reduce (never constructed at world_size 1, parallel_state.py:438).
+    # Dropped as no-ops at TP=1 on this checkpoint: --dtype bfloat16 (auto-resolves),
+    # --trust-remote-code (no auto_map, no .py files), --pre-warm-nccl (gated on tp/pp/ep>1,
+    # bootstrap.py:109), --disable-custom-all-reduce (never built at world_size 1, :438).
     - --num-continuous-decode-steps
     - "16"
     - --watchdog-timeout
@@ -309,18 +294,11 @@ spec:
     - --disable-overlap-schedule
     - --cuda-graph-backend-decode=disabled
     - --cuda-graph-backend-prefill=disabled
-    # Mamba slots and full-KV tokens share one byte budget (unified_memory_pool.py), so
-    # unused slots are KV tokens forgone: measured 4.46G/60 slots = 74.3MB each, against
-    # 5.60G/183,240 KV tokens. Peak slots actually used over 14d is 32, peak concurrency 16.
-    # 48 = 16 running x the no_buffer ratio of 3, so this value alone sets the concurrency
-    # ceiling. Frees ~892M -> ~29K more KV tokens, expected max_total_num_tokens ~212,430
-    # (+16%); if a rollout logs materially less, something else moved. Concurrency reached
-    # >=16 in 6 of 51,008 active samples over 14d, and mamba slots peaked at 32, so 48 keeps
-    # headroom on both. Overflow queues (--max-queued-requests 32) rather than aborting until
-    # the queue itself fills; watch num_queue_reqs after rollout, since a roomier pool lets
-    # demand that KV pressure used to suppress reach this ceiling.
-    # Host RAM is ~neutral by construction: the L2 KV pool grows with the device pool
-    # (+1.44G) while the host mamba pool shrinks with the slot count (-1.43G).
+    # Mamba slots and KV tokens share one byte budget (unified_memory_pool.py), so unused
+    # slots are KV tokens forgone: 4.46G/60 slots = 74.3MB each vs 5.60G/183,240 KV tokens.
+    # Over 14d, slots peaked at 32 and concurrency at 16, so 48 = 16 x the no_buffer ratio
+    # of 3 keeps headroom on both while setting the concurrency ceiling. Expect
+    # max_total_num_tokens ~212,430 (+16%). Host RAM is neutral: L2 KV +1.44G, host mamba -1.43G.
     - --max-mamba-cache-size
     - "48"
     - --served-model-name
