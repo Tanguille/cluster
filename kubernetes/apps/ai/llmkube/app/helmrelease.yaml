@@ -32,11 +32,20 @@ spec:
       prometheusRule:
         enabled: true
         namespace: ai
+        rules:
+          # The gpu alerts key on DCGM_FI_DEV_* (NVIDIA); this cluster is AMD
+          # and exports drm_*, so they can never fire.
+          gpu:
+            enabled: false
 
     grafana:
       dashboards:
         enabled: true
         namespace: observability
+        # The rest render blank here: amd-gpu-observability queries amdgpu_*
+        # (we run drm-exporter), llmkube-quota and model-router need features we
+        # don't deploy, llmkube-slo needs pyrra burn-rate rules.
+        only: [llmkube-inference, sglang-dashboard]
         operator:
           enabled: true
           folder: ai
