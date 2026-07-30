@@ -16,8 +16,8 @@ spec:
           for: 15m
           annotations:
             summary: >-
-              VirtualMCPServer {{ $labels.name }} is {{ $labels.phase }} — a backend is
-              unreachable and its tools are missing from the gateway
+              VirtualMCPServer {{ $labels.exported_namespace }}/{{ $labels.name }} is not
+              ready (phase={{ $labels.phase }}) — tools may be missing from the gateway
           labels:
             severity: warning
 
