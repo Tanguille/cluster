@@ -92,8 +92,10 @@ spec:
     tls:
       enabled: true
       certManager:
+        # appsec-certificate.yaml emits secretTemplate.annotations unconditionally;
+        # empty renders as null and cert-manager rejects it, so keep one entry here
         secretTemplate:
-          labels:
+          annotations:
             app.kubernetes.io/managed-by: crowdsec
       agent:
         tlsClientAuth: true
