@@ -9,21 +9,21 @@ spec:
     - name: xmrig-guard.rules
       rules:
         - alert: XmrigGuardEnforcementBypassed
-          # absent/partial guard data counts as unsafe, mirroring the ScaledObject's
-          # exact-cardinality gate; catches KEDA-operator-down, HPA wedges, manual scales
+          # Per-node since each miner is its own Deployment gated on its own node: a global
+          # min() would fire whenever any one node is unsafe while another legitimately mines.
+          # `unless` covers safe=0 and a missing guard series in one expression - both leave
+          # the node without a safe=1 to subtract. Catches KEDA-operator-down, HPA wedges,
+          # manual scales.
           expr: |-
-            (
-              min(xmrig_guard_safe{node=~"control-[123]"}) == 0
-              or count(xmrig_guard_safe{node=~"control-[123]"}) != 3
-              or absent(xmrig_guard_safe{node=~"control-[123]"})
-            )
-            and on ()
-            kube_deployment_status_replicas{namespace="web3", deployment="xmrig"} > 0
+            kube_deployment_status_replicas{namespace="web3", deployment=~"xmrig-control-.+"} > 0
+            unless on (deployment)
+            label_replace(xmrig_guard_safe == 1, "deployment", "xmrig-$1", "node", "(.*)")
           for: 10m
           annotations:
             summary: >-
-              Miners are running while the thermal gate should be closed —
-              the KEDA trip is not being enforced (operator down, HPA wedged, or manual scale)
+              {{ $labels.deployment }} is running while its node's thermal gate should be
+              closed — the KEDA trip is not being enforced (operator down, HPA wedged, or
+              manual scale)
           labels:
             severity: critical
         - alert: XmrigGuardAbsent
