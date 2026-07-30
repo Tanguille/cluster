@@ -47,6 +47,8 @@ spec:
 # That matters more than it looks: control-1's disk is a SPARSE zvol on TrueNAS SSD_Pool,
 # which had 60.3G available on 2026-07-30. Orphaned generations consume real pool space,
 # and exhausting that pool stops the VM.
+# Tradeoff: rolling back to a previous image more than a day after a bump finds its cache
+# already pruned, so that rollback pays cold TTFT until the store refills.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -88,7 +90,7 @@ spec:
                     rm -rf -- "$d"
                   done
                   # Count only -- a `du -sh .` here would stat the whole live generation
-                  # (619,346 files on 2026-07-30) every run just to log a number.
+                  # (682,508 files on 2026-07-30) every run just to log a number.
                   echo "remaining: $(ls -1d -- */ 2>/dev/null | wc -l) generation(s)"
               volumeMounts:
                 - name: hicache
@@ -179,22 +181,19 @@ spec:
     # resolve_max_num_reqs() takes min(requested, max_mamba_cache_size // 3), and unset it
     # takes min(estimated, ...) where estimated floors at 2048 -- both land on 48//3 = 16.
     chunkedPrefillSize: 8192
-    tensorParallelSize: 1
-    quantization: awq
+    # No tensorParallelSize (1 is the default) and no quantization: the checkpoint's
+    # config.json carries quant_method awq and dtype bfloat16, and model_config.py
+    # auto-detects both. awq_marlin, the one override that could diverge, hard-returns
+    # False off CUDA (awq.py:388). kvCacheDtype does NOT auto-detect -- it buys the pool.
     kvCacheDtype: fp8_e4m3
     reasoningParser: qwen3
   resources:
     cpu: "2"
     hostMemory: 24Gi
   env:
-    - name: HIP_VISIBLE_DEVICES
-      value: "0"
-    - name: ROCR_VISIBLE_DEVICES
-      value: "0"
-    - name: GPU_DEVICE_ORDINAL
-      value: "0"
-    - name: CUDA_VISIBLE_DEVICES
-      value: "0"
+    # No *_VISIBLE_DEVICES/GPU_DEVICE_ORDINAL: the device plugin hands this container a
+    # single render node (card0 + renderD128), and torch reports exactly one device, so
+    # selecting "0" of 1 was the identity mapping four times over.
     # $HOME/.cache/flashinfer/<ver>/ is root-owned in the image (a build-time
     # `import torch, sglang, sgl_kernel` verification step triggers flashinfer's JIT
     # logger init as root, before the runtime user exists) -- uid 10001 can enter it
@@ -224,13 +223,19 @@ spec:
     # hold a floor well above kubelet's ~50G nodefs eviction threshold.
     - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
       value: 100Gi
-    # Without this every L3 lookup walks the store with os.scandir/os.path.exists; the
-    # directory holds 619,346 files (2026-07-30). Upstream #29716 measured P99 TTFT -22.1%
-    # at 157K files. Off by default. Costs a one-time startup scan of the store, which runs
-    # against the ~30min startup-probe budget below (120 x 15s) -- time a cold restart and
-    # record it here; a scan longer than that budget turns this into a CrashLoopBackOff.
+    # Without this, a lookup miss walks the whole store with os.scandir; the directory held
+    # 682,508 files on 2026-07-30. Upstream #29716 measured P99 TTFT -22.1% at 157K files.
+    # Off by default. The startup scan it adds is a single os.listdir with no per-file stat
+    # (hicache_storage.py:441), measured at 0.31s over the live store, so it is nowhere near
+    # the ~30min startup-probe budget below.
     - name: SGLANG_HICACHE_FILE_BACKEND_ENABLE_METADATA_CACHE
       value: "1"
+    # The 5s default TTL expires every entry the startup scan just inserted, leaving only
+    # the (still worthwhile) scandir-avoidance. -1 is special-cased as never-expire
+    # (hicache_storage.py:340); staleness is safe because the evictor wires on_evict ->
+    # metadata_cache.remove. ~140MB of dict for 682K keys.
+    - name: SGLANG_HICACHE_FILE_BACKEND_METADATA_TTL
+      value: "-1"
   extraVolumes:
     - name: triton-cache
       persistentVolumeClaim:
@@ -273,21 +278,20 @@ spec:
       timeoutSeconds: 5
       failureThreshold: 6
   extraArgs:
-    - --dtype
-    - bfloat16
+    # Dropped as no-ops at TP=1 on this checkpoint: --dtype bfloat16 (auto resolves to the
+    # checkpoint's own dtype), --trust-remote-code (the model dir has no auto_map and no .py
+    # files), --pre-warm-nccl (gated on tp/pp/ep > 1, distributed/bootstrap.py:109) and
+    # --disable-custom-all-reduce (never constructed at world_size 1, parallel_state.py:438).
     - --num-continuous-decode-steps
     - "16"
     - --watchdog-timeout
     - "600"
     - --attention-backend
     - triton
-    - --pre-warm-nccl
-    - --trust-remote-code
     - --chat-template
     - /opt/rdna4-inference/scripts/qwen3.6_devrole_chat_template.jinja
     - --tool-call-parser
     - qwen3_coder
-    - --disable-custom-all-reduce
     - --disable-overlap-schedule
     - --cuda-graph-backend-decode=disabled
     - --cuda-graph-backend-prefill=disabled
@@ -295,8 +299,14 @@ spec:
     # unused slots are KV tokens forgone: measured 4.46G/60 slots = 74.3MB each, against
     # 5.60G/183,240 KV tokens. Peak slots actually used over 14d is 32, peak concurrency 16.
     # 48 = 16 running x the no_buffer ratio of 3, so this value alone sets the concurrency
-    # ceiling. Frees ~892M -> ~29K more KV tokens (+16% pool). Concurrency touched 16 once
-    # in 14d (typical peak 8-12), and the aborts we do see cluster at 8-11, not at a ceiling.
+    # ceiling. Frees ~892M -> ~29K more KV tokens, expected max_total_num_tokens ~212,430
+    # (+16%); if a rollout logs materially less, something else moved. Concurrency reached
+    # >=16 in 6 of 51,008 active samples over 14d, and mamba slots peaked at 32, so 48 keeps
+    # headroom on both. Overflow queues (--max-queued-requests 32) rather than aborting until
+    # the queue itself fills; watch num_queue_reqs after rollout, since a roomier pool lets
+    # demand that KV pressure used to suppress reach this ceiling.
+    # Host RAM is ~neutral by construction: the L2 KV pool grows with the device pool
+    # (+1.44G) while the host mamba pool shrinks with the slot count (-1.43G).
     - --max-mamba-cache-size
     - "48"
     - --served-model-name
