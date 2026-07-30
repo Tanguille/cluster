@@ -110,6 +110,12 @@ No threshold change. Buys back the time that step 3 spends.
 - new zero-dwell panic trip at 68C in `DwellPolicy.observe()`, plus a critical alert for
   `nvme_temp > 68 and replicas > 0` (the panic line crossed with miners still running means the
   fast path failed)
+- `HTTP_TIMEOUT_SECONDS` 10 -> 5, and a deadline-based sleep. One evaluation now issues 13
+  queries (7 for control-1, 3 per NVMe node), so a hung VictoriaMetrics blocks up to 130s of
+  serial wait against a 120s freshness budget: the guard fails closed on every node plus a
+  stale scrape, later and more expensively than a faster timeout would. The loop also sleeps
+  a flat 60s *after* the work, so the true period drifts by the evaluation duration;
+  `time.sleep(max(0, deadline - time.monotonic()))` fixes both. Two lines, no new concepts.
 
 **Measure**: observed trip-to-drain latency on a real or forced trip, target < 2.5 min.
 
