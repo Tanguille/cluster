@@ -87,3 +87,23 @@ spec:
               NodeGTTMemoryHigh is blind until it recovers
           labels:
             severity: warning
+        - alert: TrueNASSSDPoolSpaceLow
+          # control-1's disk is a SPARSE zvol on this pool (SSD_Pool/vm/TALOS.block,
+          # refreservation none), so exhausting the pool fails guest writes and stops the
+          # VM rather than just filling a share. Every other node alert here is scoped
+          # kubernetes_node!="", which excludes this external target, so the pool backing
+          # the cluster's only VM had no space alerting at all.
+          # It has already run dry once, unnoticed: 2026-07-28 21:10-22:26 the pool sat
+          # under 20GiB for 76 minutes and bottomed at 0.00GiB, during back-to-back image
+          # bumps that wrote a second 64G HiCache generation alongside the live one.
+          expr: |-
+            node_filesystem_avail_bytes{job="node-exporter", fstype="zfs", mountpoint="/mnt/SSD_Pool"} < 21474836480
+          # 15m would have fired at 21:25 in that event, ~1h before it hit zero, while
+          # still riding out the 04:00 snapshot task that frees and re-pins tens of GB.
+          for: 15m
+          annotations:
+            summary: >-
+              TrueNAS SSD_Pool has under 20GiB free —
+              control-1's thin-provisioned disk fails writes if this pool fills
+          labels:
+            severity: critical
