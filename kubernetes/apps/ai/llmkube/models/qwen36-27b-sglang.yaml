@@ -39,6 +39,69 @@ spec:
     requests:
       storage: 64Gi
 ---
+# Prunes superseded HiCache generations. The storage dir below is versioned per image
+# digest because reuse across a bump is unsafe -- page names encode neither the weights
+# revision nor the engine, and SGLang's own config_suffix only covers --served-model-name
+# and TP, both constant across bumps. Nothing in the CRD can prune the old directory (no
+# initContainers field), so it was manual, and a missed cleanup orphaned 64G on 2026-07-30.
+# That matters more than it looks: control-1's disk is a SPARSE zvol on TrueNAS SSD_Pool,
+# which had 60.3G available on 2026-07-30. Orphaned generations consume real pool space,
+# and exhausting that pool stops the VM.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qwen36-27b-hicache-prune
+  namespace: ai
+spec:
+  schedule: "30 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            # Superseded generations were written by root-era pods (pre-4a4b06f), so the
+            # pruner needs uid 0 to unlink them. It mounts nothing but this PVC.
+            runAsUser: 0
+          containers:
+            - name: prune
+              image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  cd /hicache
+                  # Newest by mtime is the live generation; the running pod writes to it
+                  # constantly. Never prune it, and never prune anything touched in the
+                  # last day, so a rollout's outgoing pod keeps its cache while draining.
+                  newest="$(ls -1dt -- */ 2>/dev/null | head -1)"
+                  for d in */; do
+                    [ -d "$d" ] || continue
+                    [ "$d" = "$newest" ] && continue
+                    [ -n "$(find "$d" -maxdepth 0 -mmin +1440)" ] || continue
+                    echo "pruning superseded generation: $d ($(du -sh "$d" | cut -f1))"
+                    rm -rf -- "$d"
+                  done
+                  # Count only -- a `du -sh .` here would stat the whole live generation
+                  # (619,346 files on 2026-07-30) every run just to log a number.
+                  echo "remaining: $(ls -1d -- */ 2>/dev/null | wc -l) generation(s)"
+              volumeMounts:
+                - name: hicache
+                  mountPath: /hicache
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+          volumes:
+            - name: hicache
+              persistentVolumeClaim:
+                claimName: qwen36-27b-hicache
+---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
@@ -147,10 +210,9 @@ spec:
     # bumped with the image digest above or the AWQ revision, or stale KV pages get served.
     # SGLang's own per-model cache key (config_suffix, HiCacheFile.__init__) only covers
     # --served-model-name/TP, which stays "qwen-3.6" across bumps -- it doesn't catch this.
-    # Nothing prunes the OLD suffix's directory after a bump (no initContainer/lifecycle hook
-    # on this CRD, and SGLang's own evictor only manages its own configured path): after the
-    # new pod is confirmed healthy, manually `kubectl exec` in and `rm -rf` the prior
-    # generation's directory under /hicache (done for this bump, 2026-07-29).
+    # SGLang's own evictor only manages its own configured path, so the OLD suffix's
+    # directory is orphaned on every bump; the qwen36-27b-hicache-prune CronJob above
+    # reclaims it a day later.
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
       value: /hicache/sglang-v0.5.16_awq-f541031d_fork-cb7b760
     # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.
@@ -160,6 +222,13 @@ spec:
     # hold a floor well above kubelet's ~50G nodefs eviction threshold.
     - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
       value: 100Gi
+    # Without this every L3 lookup walks the store with os.scandir/os.path.exists; the
+    # directory holds 619,346 files (2026-07-30). Upstream #29716 measured P99 TTFT -22.1%
+    # at 157K files. Off by default. Costs a one-time startup scan of the store, which runs
+    # against the ~30min startup-probe budget below (120 x 15s) -- time a cold restart and
+    # record it here; a scan longer than that budget turns this into a CrashLoopBackOff.
+    - name: SGLANG_HICACHE_FILE_BACKEND_ENABLE_METADATA_CACHE
+      value: "1"
   extraVolumes:
     - name: triton-cache
       persistentVolumeClaim:
@@ -220,8 +289,13 @@ spec:
     - --disable-overlap-schedule
     - --cuda-graph-backend-decode=disabled
     - --cuda-graph-backend-prefill=disabled
+    # Mamba slots and full-KV tokens share one byte budget (unified_memory_pool.py), so
+    # unused slots are KV tokens forgone: measured 4.46G/60 slots = 74.3MB each, against
+    # 5.60G/183,240 KV tokens. Peak slots actually used over 14d is 32, peak concurrency 16.
+    # 48 = 16 running x the no_buffer ratio of 3 (max_running is min(32, size//3), so 60 was
+    # already capping us at 20, not 32). Frees ~892M -> ~29K more KV tokens (+16% pool).
     - --max-mamba-cache-size
-    - "60"
+    - "48"
     - --served-model-name
     - qwen-3.6
     - --mamba-ssm-dtype
