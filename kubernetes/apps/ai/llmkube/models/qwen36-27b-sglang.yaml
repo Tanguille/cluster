@@ -145,6 +145,12 @@ spec:
       value: "1"
     # Page names encode neither the weights revision nor the engine, so this suffix MUST be
     # bumped with the image digest above or the AWQ revision, or stale KV pages get served.
+    # SGLang's own per-model cache key (config_suffix, HiCacheFile.__init__) only covers
+    # --served-model-name/TP, which stays "qwen-3.6" across bumps -- it doesn't catch this.
+    # Nothing prunes the OLD suffix's directory after a bump (no initContainer/lifecycle hook
+    # on this CRD, and SGLang's own evictor only manages its own configured path): after the
+    # new pod is confirmed healthy, manually `kubectl exec` in and `rm -rf` the prior
+    # generation's directory under /hicache (done for this bump, 2026-07-29).
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
       value: /hicache/sglang-v0.5.16_awq-f541031d_fork-cb7b760
     # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.

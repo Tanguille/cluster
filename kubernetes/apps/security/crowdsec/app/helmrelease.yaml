@@ -114,6 +114,9 @@ spec:
       env:
         - name: TZ
           value: ${TIMEZONE}
+        # LAPI defaults to agent-ou only; the appsec client cert carries appsec-ou
+        - name: AGENTS_ALLOWED_OU
+          value: agent-ou,appsec-ou
         - name: ENROLL_INSTANCE_NAME
           value: cluster
         - name: DB_TYPE
