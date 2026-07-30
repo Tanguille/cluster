@@ -61,3 +61,26 @@ Verified live at every step before touching the next:
 **Operational notes for next time:**
 - `age.key` is now dual-identity and the sole local copy of both private keys outside the cluster — keep a durable offline backup of it.
 - Multi-recipient decrypt is per-recipient-independent by design (verified against `kustomize-controller`/SOPS source) — worth re-confirming for any similarly self-referential secret-store change.
+
+## Recovering `age.key` from the cluster
+
+If the local `age.key` decrypts `talos/*` but fails on `kubernetes/*` with *"no master key was
+able to decrypt"*, it has lost its PQ half: `.sops.yaml` targets the classical recipient for
+`talos/.*` and the PQ recipient (`age1pq1...`) for `(bootstrap|kubernetes)/.*`, so a
+classical-only identity file silently covers one path_regex and not the other.
+
+The authoritative copy of **both** identities is the `sops-age` Secret that Flux uses:
+
+```sh
+kubectl -n flux-system get secret sops-age -o jsonpath='{.data.age\.agekey}' | base64 -d > age.key
+chmod 600 age.key
+grep '^# public key:' age.key   # expect two lines: age12gul... and age1pq1...
+SOPS_AGE_KEY_FILE=age.key sops -d kubernetes/apps/ai/toolhive/app/secret.sops.yaml >/dev/null && echo ok
+```
+
+`age.key` is gitignored (`/age.key` and `*.key`). Keep the classical-only file as a backup
+before overwriting; the cluster copy supersedes it, since it carries both identities.
+
+This works because the migration left the `sops-age` Secret's *plaintext* holding both private
+keys (see step 7 above) — the cluster is a live escrow for the key, as long as the cluster runs.
+An offline backup is still the real safety net.
