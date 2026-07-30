@@ -72,15 +72,24 @@ spec:
           containers:
             - name: prune
               image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+              securityContext:
+                # uid 0 is needed to unlink root-owned generations, but nothing here needs
+                # to escalate, write outside /hicache, or hold a capability.
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
               command:
                 - /bin/sh
                 - -c
                 - |
                   set -eu
                   cd /hicache
-                  # Newest by mtime is the live generation; the running pod writes to it
-                  # constantly. Never prune it, and never prune anything touched in the
-                  # last day, so a rollout's outgoing pod keeps its cache while draining.
+                  # Newest by mtime is the live generation. mtime tracks writes, not reads,
+                  # which is sound here only because write_through writes every prefill, so
+                  # any generation actually serving keeps its directory fresh. Never prune
+                  # it, nor anything written in the last day, so a draining pod keeps its
+                  # cache through a rollout.
                   newest="$(ls -1dt -- */ 2>/dev/null | head -1)"
                   for d in */; do
                     [ -d "$d" ] || continue
@@ -99,6 +108,11 @@ spec:
                 requests:
                   cpu: 10m
                   memory: 64Mi
+                # Bounded so an unexpectedly large generation cannot crowd the inference
+                # server it shares control-1 with. busybox rm/du stream, they do not buffer.
+                limits:
+                  cpu: 500m
+                  memory: 128Mi
           volumes:
             - name: hicache
               persistentVolumeClaim:
