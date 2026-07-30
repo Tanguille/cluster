@@ -17,6 +17,11 @@ spec:
       monitor:
         enabled: true
         honorLabels: true
+    # Chart ships no requests: BestEffort made this the kubelet's first kill under
+    # control-3 pressure; 150Mi steady, 678Mi peak
+    resources:
+      requests:
+        memory: 256Mi
     rbac:
       extraRules:
         - apiGroups:
