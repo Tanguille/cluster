@@ -12,12 +12,19 @@ spec:
           # Per-node since each miner is its own Deployment gated on its own node: a global
           # min() would fire whenever any one node is unsafe while another legitimately mines.
           # `unless` covers safe=0 and a missing guard series in one expression - both leave
-          # the node without a safe=1 to subtract. Catches KEDA-operator-down, HPA wedges,
+          # the node without a safe=1 to subtract. The cardinality and 120s freshness filters
+          # mirror the ScaledObject's gate exactly, so a duplicate or stale safe=1 that closes
+          # KEDA cannot also suppress this alert. Catches KEDA-operator-down, HPA wedges,
           # manual scales.
           expr: |-
             kube_deployment_status_replicas{namespace="web3", deployment=~"xmrig-control-.+"} > 0
             unless on (deployment)
-            label_replace(xmrig_guard_safe == 1, "deployment", "xmrig-$1", "node", "(.*)")
+            label_replace(
+              (xmrig_guard_safe == 1)
+              and on (node) (count by (node) (xmrig_guard_safe) == 1)
+              and on (node) (timestamp(xmrig_guard_safe) >= time() - 120),
+              "deployment", "xmrig-$1", "node", "(.*)"
+            )
           for: 10m
           annotations:
             summary: >-
