@@ -43,6 +43,13 @@ spec:
           verbs:
             - list
             - watch
+        - apiGroups:
+            - toolhive.stacklok.dev
+          resources:
+            - virtualmcpservers
+          verbs:
+            - list
+            - watch
     customResourceState:
       enabled: true
       config:
@@ -384,3 +391,32 @@ spec:
                     webhook_path:
                       - status
                       - webhookPath
+            # vmcp readiness lives only in the CR: the gateway keeps serving on a
+            # dead backend, so nothing else in the cluster reports it
+            - groupVersionKind:
+                group: toolhive.stacklok.dev
+                version: v1beta1
+                kind: VirtualMCPServer
+              metricNamePrefix: toolhive
+              metrics:
+                - name: resource_info
+                  help: The current state of a Toolhive VirtualMCPServer resource.
+                  each:
+                    type: Info
+                    info:
+                      labelsFromPath:
+                        name:
+                          - metadata
+                          - name
+                  labelsFromPath:
+                    exported_namespace:
+                      - metadata
+                      - namespace
+                    ready:
+                      - status
+                      - conditions
+                      - "[type=Ready]"
+                      - status
+                    phase:
+                      - status
+                      - phase

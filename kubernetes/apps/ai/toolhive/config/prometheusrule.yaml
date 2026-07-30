@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: toolhive-rules
+spec:
+  groups:
+    - name: toolhive.rules
+      rules:
+        # Gatus probes each vmcp with a real MCP initialize, which stays green while
+        # individual backends drop out; only the CR reports per-backend health
+        - alert: VirtualMCPServerNotReady
+          expr: |-
+            toolhive_resource_info{ready!="True"} == 1
+          for: 15m
+          annotations:
+            summary: >-
+              VirtualMCPServer {{ $labels.name }} is {{ $labels.phase }} — a backend is
+              unreachable and its tools are missing from the gateway
+          labels:
+            severity: warning
+
+        - alert: VirtualMCPServerAbsent
+          expr: |-
+            absent(toolhive_resource_info)
+          for: 5m
+          annotations:
+            summary: >-
+              No VirtualMCPServer metrics — kube-state-metrics lost the toolhive CRs, gateway health is unmonitored
+          labels:
+            severity: warning
