@@ -1,13 +1,13 @@
-# Postgres MCP: buffer stats, `pg_stat_statements`, and roles
+# Buffer stats, `pg_stat_statements`, and monitoring roles
 
-## Buffer cache stats (empty in MCP health checks)
+## Buffer cache stats (often empty for read-only clients)
 
-[crystaldba/postgres-mcp](https://github.com/crystaldba/postgres-mcp) health tooling (PgHero-style) reads **per-table / per-index buffer statistics** from views such as `pg_statio_user_tables` and `pg_statio_user_indexes`. Those require:
+PgHero-style health tooling reads **per-table / per-index buffer statistics** from views such as `pg_statio_user_tables` and `pg_statio_user_indexes`. Those require:
 
-1. **Privileges** — a minimal read-only login often cannot see stats views. Grant the predefined role **`pg_monitor`** (PostgreSQL 10+) to the MCP user so it can read `pg_statio_*`, `pg_stat_*`, and related monitoring views:
+1. **Privileges** — a minimal read-only login often cannot see stats views. Grant the predefined role **`pg_monitor`** (PostgreSQL 10+) to the monitoring user so it can read `pg_statio_*`, `pg_stat_*`, and related monitoring views:
 
    ```sql
-   GRANT pg_monitor TO your_mcp_username;
+   GRANT pg_monitor TO your_monitoring_username;
    ```
 
    Alternatively, **`pg_read_all_stats`** covers statistics views; **`pg_monitor`** is broader and is the usual choice for observability users.
@@ -24,7 +24,7 @@ It is **not free**, but for typical clusters it is **small** compared to query e
 - **Memory:** Bounded by **`pg_stat_statements.max`** (each entry holds a normalized query text and counters). If you are memory-constrained, lower `max` before disabling the extension.
 - **`track`:** **`top`** (what we use in `cluster.yaml`) records only **top-level** statements; **`all`** also counts nested statements (e.g. inside functions) and costs more. Postgres docs recommend **`top`** for many production workloads.
 
-If you need **zero** statement tracking, remove `pg_stat_statements` from `shared_preload_libraries` and drop the extension—then you lose `get_top_queries`-style tooling.
+If you need **zero** statement tracking, remove `pg_stat_statements` from `shared_preload_libraries` and drop the extension—then you lose top-query tooling.
 
 ## CloudNativePG 1.29.0 (Mar 31, 2026) and this setup
 
@@ -49,7 +49,7 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 Run as a superuser or a role with rights to create extensions (e.g. on CloudNative-PG, `kubectl cnpg psql postgres16 -n database` then `\c yourdb` as appropriate).
 
-Then postgres-mcp tools such as **`get_top_queries`** can use `pg_stat_statements` data.
+Then top-query tooling can use `pg_stat_statements` data.
 
 ## Rollout
 
