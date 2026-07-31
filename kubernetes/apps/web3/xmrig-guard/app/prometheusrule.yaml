@@ -9,21 +9,28 @@ spec:
     - name: xmrig-guard.rules
       rules:
         - alert: XmrigGuardEnforcementBypassed
-          # absent/partial guard data counts as unsafe, mirroring the ScaledObject's
-          # exact-cardinality gate; catches KEDA-operator-down, HPA wedges, manual scales
+          # Per-node since each miner is its own Deployment gated on its own node: a global
+          # min() would fire whenever any one node is unsafe while another legitimately mines.
+          # `unless` covers safe=0 and a missing guard series in one expression - both leave
+          # the node without a safe=1 to subtract. The cardinality and 120s freshness filters
+          # mirror the ScaledObject's gate exactly, so a duplicate or stale safe=1 that closes
+          # KEDA cannot also suppress this alert. Catches KEDA-operator-down, HPA wedges,
+          # manual scales.
           expr: |-
-            (
-              min(xmrig_guard_safe{node=~"control-[123]"}) == 0
-              or count(xmrig_guard_safe{node=~"control-[123]"}) != 3
-              or absent(xmrig_guard_safe{node=~"control-[123]"})
+            kube_deployment_status_replicas{namespace="web3", deployment=~"xmrig-control-.+"} > 0
+            unless on (deployment)
+            label_replace(
+              (xmrig_guard_safe == 1)
+              and on (node) (count by (node) (xmrig_guard_safe) == 1)
+              and on (node) (timestamp(xmrig_guard_safe) >= time() - 120),
+              "deployment", "xmrig-$1", "node", "(.*)"
             )
-            and on ()
-            kube_deployment_status_replicas{namespace="web3", deployment="xmrig"} > 0
           for: 10m
           annotations:
             summary: >-
-              Miners are running while the thermal gate should be closed —
-              the KEDA trip is not being enforced (operator down, HPA wedged, or manual scale)
+              {{ $labels.deployment }} is running while its node's thermal gate should be
+              closed — the KEDA trip is not being enforced (operator down, HPA wedged, or
+              manual scale)
           labels:
             severity: critical
         - alert: XmrigGuardAbsent
@@ -43,10 +50,12 @@ spec:
           # that band, so this fires for a stuck latch (the 2026-07-27 control-2
           # sensor-identity blip) and stays quiet when the gate is shut because the
           # drives are genuinely too hot, which is the expected steady state.
+          # No node matcher: only NVMe-gated nodes emit a temperature, so the join itself
+          # selects them and a future node needs no edit here.
           expr: |-
-            max_over_time(xmrig_guard_safe{node=~"control-[123]"}[6h]) == 0
+            max_over_time(xmrig_guard_safe[6h]) == 0
             and on (node)
-            max_over_time(xmrig_guard_nvme_temp_max_celsius{node=~"control-[123]"}[2h]) <= 60
+            max_over_time(xmrig_guard_nvme_temp_max_celsius[2h]) <= 60
           for: 30m
           annotations:
             summary: >-
