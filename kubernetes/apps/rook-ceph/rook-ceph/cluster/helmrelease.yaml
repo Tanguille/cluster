@@ -51,6 +51,9 @@ spec:
           # Network optimization for 2.5Gbps
           ms_osd_compress_min_size: "1024"
           ms_osd_compression_algorithm: snappy
+        mon:
+          # Suppress pgmap/audit debug spam; keeps INF/WRN/ERR (was debug).
+          mon_cluster_log_level: info
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
       csi:
