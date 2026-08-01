@@ -314,11 +314,19 @@ class ControllerTests(unittest.TestCase):
         guard = controller.GuardController(Mock())
         first, second = controller.SENSORS["control-2"]
         base = datetime(2026, 1, 1, tzinfo=UTC)
-        self.assertTrue(guard._new_source_set("control-2", {first: controller.Source(40, base), second: controller.Source(41, base)}))
-        later = base + timedelta(seconds=30)
-        self.assertTrue(guard._new_source_set("control-2", {second: controller.Source(41, later), first: controller.Source(40, later)}))
+        previous = {
+            first: controller.Source(40, base),
+            second: controller.Source(41, base + timedelta(seconds=30)),
+        }
+        self.assertTrue(guard._new_source_set("control-2", previous))
+        # advance each sensor's own timestamp, then reverse the iteration order
+        reordered = {
+            second: controller.Source(41, base + timedelta(seconds=60)),
+            first: controller.Source(40, base + timedelta(seconds=30)),
+        }
+        self.assertTrue(guard._new_source_set("control-2", reordered))
         # and the anti-replay check still binds across the reorder
-        self.assertFalse(guard._new_source_set("control-2", {second: controller.Source(41, later), first: controller.Source(40, later)}))
+        self.assertFalse(guard._new_source_set("control-2", reordered))
 
     def test_shared_key_gap_fails_closed_even_when_a_source_is_added(self):
         guard = controller.GuardController(Mock())
