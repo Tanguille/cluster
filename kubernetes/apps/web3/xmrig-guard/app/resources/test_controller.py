@@ -290,6 +290,36 @@ class ControllerTests(unittest.TestCase):
         # the shared keys are still checked: unchanged stamps mean no advancement
         self.assertFalse(guard._new_source_set("control-1", later | {"xmrig": controller.Source(1, stamp)}))
 
+    def test_miner_starting_and_stopping_never_faults_control1(self):
+        # the regression this replaces: the xmrig source appearing and disappearing changed the
+        # sample count, read as tampering, and drained the miner it was caused by
+        telemetry = Mock()
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        mining = [False]
+
+        def cpu(_node, evaluation):
+            source = controller.Source(30, evaluation)
+            return controller.CPUObservation(source, controller.Source(5, evaluation) if mining[0] else None, source)
+
+        telemetry.query_cpu.side_effect = cpu
+        telemetry.query_nvme.side_effect = lambda _n, sensors, evaluation: [controller.Source(40, evaluation)] * len(sensors)
+        guard = controller.GuardController(telemetry, clock=lambda: 0)
+        for step, running in enumerate([False, True, True, False, True]):
+            mining[0] = running
+            guard.evaluate(base + timedelta(seconds=30 * step))
+        self.assertEqual(guard.metrics["query_errors"]["control-1"], 0)
+
+    def test_nvme_source_keys_survive_reordering(self):
+        # keys are the sensor identities themselves, so iteration order must not matter
+        guard = controller.GuardController(Mock())
+        first, second = controller.SENSORS["control-2"]
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        self.assertTrue(guard._new_source_set("control-2", {first: controller.Source(40, base), second: controller.Source(41, base)}))
+        later = base + timedelta(seconds=30)
+        self.assertTrue(guard._new_source_set("control-2", {second: controller.Source(41, later), first: controller.Source(40, later)}))
+        # and the anti-replay check still binds across the reorder
+        self.assertFalse(guard._new_source_set("control-2", {second: controller.Source(41, later), first: controller.Source(40, later)}))
+
     def test_shared_key_gap_fails_closed_even_when_a_source_is_added(self):
         guard = controller.GuardController(Mock())
         stamp = datetime(2026, 1, 1, tzinfo=UTC)
