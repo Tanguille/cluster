@@ -1,5 +1,6 @@
 import math
 import os
+import re
 import sys
 import unittest
 import urllib.error
@@ -10,6 +11,17 @@ sys.path.insert(0, os.path.dirname(__file__))
 import controller
 
 UTC = timezone.utc
+# The other two legs of the trip-to-drain budget live in the miner's manifest, so they are read
+# from it rather than copied: a manifest-only change must fail the budget test, not pass it.
+RESOURCESET = os.path.join(os.path.dirname(__file__), "..", "..", "..", "monero", "xmrig", "resourceset.yaml")
+
+
+def manifest_seconds(field):
+    with open(RESOURCESET) as handle:
+        found = re.findall(rf"^\s*{field}:\s*(\d+)\s*(?:#.*)?$", handle.read(), re.MULTILINE)
+    if len(found) != 1:
+        raise AssertionError(f"expected exactly one {field} in resourceset.yaml, found {len(found)}")
+    return int(found[0])
 
 
 class PolicyTests(unittest.TestCase):
@@ -300,10 +312,11 @@ class ControllerTests(unittest.TestCase):
         self.assertTrue(p.observe(60, source + timedelta(seconds=3), 302.0))
 
     def test_trip_to_drain_budget_fits_the_thermal_margin(self):
-        # The 65C trip is sized on a 135s chain against a 70C rating at ~1.1C/min. Two legs live
-        # here; KEDA pollingInterval (30s) and terminationGracePeriodSeconds (15s) are in
-        # kubernetes/apps/web3/monero/xmrig/resourceset.yaml and must move with these.
-        keda_poll, drain, rise_c_per_min, rating = 30, 15, 1.1, 70
+        # The 65C trip is sized on a 135s chain against a 70C rating at ~1.1C/min. Two legs are
+        # policy here, two are read from the miner's manifest, so either side drifting fails this.
+        keda_poll = manifest_seconds("pollingInterval")
+        drain = manifest_seconds("terminationGracePeriodSeconds")
+        rise_c_per_min, rating = 1.1, 70
         policies = controller.GuardController(Mock()).policies
         for node in ("control-2", "control-3"):
             policy = policies[node]
