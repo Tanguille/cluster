@@ -35,10 +35,11 @@ SENSORS = {
 # node telemetry, and a future headroom-derived ranking replaces this tuple alone.
 PRIORITY = ("control-1", "control-2", "control-3")
 ENDPOINT = "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427"
-EVALUATION_INTERVAL_SECONDS = 60
+EVALUATION_INTERVAL_SECONDS = 30
 SOURCE_SAMPLE_MAX_AGE_SECONDS = 120
 MAX_SOURCE_GAP_SECONDS = 120
-HTTP_TIMEOUT_SECONDS = 10
+# 7 serial queries per CPU evaluation: at 10s a hung VictoriaMetrics blocked 70s against a 30s interval
+HTTP_TIMEOUT_SECONDS = 5
 
 
 def _dt(value):
@@ -55,9 +56,10 @@ def _fresh(timestamp, evaluation, max_age):
 
 
 class DwellPolicy:
-    def __init__(self, recovery_limit, trip_limit, recovery_dwell, trip_dwell, max_gap_seconds=120):
+    def __init__(self, recovery_limit, trip_limit, recovery_dwell, trip_dwell, max_gap_seconds=120, panic_limit=None):
         self.recovery_limit, self.trip_limit = recovery_limit, trip_limit
         self.recovery_dwell, self.trip_dwell = recovery_dwell, trip_dwell
+        self.panic_limit = panic_limit
         self.max_gap = float(max_gap_seconds)
         self.safe = False
         self._last_source = None
@@ -80,6 +82,12 @@ class DwellPolicy:
             if gap > self.max_gap:
                 self._pending = self._since = None
         self._last_source = source_seconds
+        # third, dwell-free state: 2C from the rating, confirming the reading over a 60s dwell
+        # would spend most of the margin. Clearing _pending forces a full recovery dwell after.
+        if self.panic_limit is not None and value >= self.panic_limit:
+            self.safe = False
+            self._pending = self._since = None
+            return False
         kind = "recover" if value <= self.recovery_limit else "trip" if value >= self.trip_limit else None
         if kind is None:
             self._pending = self._since = None
@@ -235,21 +243,19 @@ class GuardController:
     def __init__(self, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
         self.telemetry = telemetry
         self.clock, self.wall_clock = clock, wall_clock
-        # Trip 64C / recover 60C on Composite, against a 70C drive rating. Mining raises
-        # Composite at up to 1.1C/min, so the 6C band is ~5.5 minutes wide. Worst-case
-        # response is ~4.25: up to one evaluation interval to sample the crossing, 120s
-        # trip dwell, 60s of KEDA polling, then the HPA drop (scaledobject.yaml sheds all
-        # replicas at once for exactly this reason). That leaves the peak near 69C, and is
-        # conservative because it assumes full heat output until the last miner exits.
-        # Idle Composite never exceeded 62C over 7d on either node, so the trip does not
-        # false-fire, and it sits at or below 60C for 100%/90% of the time, so recovery is
-        # reachable rather than the permanent latch the old 60C/70C pair produced.
+        # Trip 65C / recover 62C on Composite, against a 70C drive rating. Mining raises
+        # Composite at up to 1.1C/min. Trip-to-drain is 135s (30s evaluation + 60s dwell + 30s
+        # KEDA poll + 15s drain), so 2.5C of rise to a ~67.5C peak; test_trip_to_drain_budget
+        # pins it. The 68C panic trip is dwell-free and peaks near 69.4C.
+        # The drives idle in the 60-64C band on warm afternoons, so recovery sits at 62C:
+        # replaying 7d puts control-2/3 at 55.0%/38.8% safe against 44.7%/31.5% at 60C/600s.
         # control-1 is keyed the same way on CPU headroom rather than temperature; SENSORS
-        # decides which source feeds which node, so the policy dict needs no special case.
+        # decides which source feeds which node, so the policy dict needs no special case. No
+        # panic limit there: a busy CPU has no equivalent of a drive's absolute rating.
         self.policies = {
             "control-1": DwellPolicy(50, 70, 600, 120, MAX_SOURCE_GAP_SECONDS),
-            "control-2": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS),
-            "control-3": DwellPolicy(60, 64, 600, 120, MAX_SOURCE_GAP_SECONDS),
+            "control-2": DwellPolicy(62, 65, 300, 60, MAX_SOURCE_GAP_SECONDS, panic_limit=68),
+            "control-3": DwellPolicy(62, 65, 300, 60, MAX_SOURCE_GAP_SECONDS, panic_limit=68),
         }
         self.ready = False
         self.metrics = {
@@ -260,18 +266,21 @@ class GuardController:
             "cpu_non_xmrig": {node: 0.0 for node in SENSORS if not SENSORS[node]},
             "rank": {node: PRIORITY.index(node) for node in SENSORS},
         }
-        self._last_source_stamps = {node: () for node in SENSORS}
+        self._last_source_stamps = {node: {} for node in SENSORS}
 
     def _new_source_set(self, node, sources):
-        stamps = tuple(source.timestamp.timestamp() for source in sources)
+        # Keyed by source identity, not position: a miner starting or stopping adds or removes
+        # the xmrig source, and comparing by position made that look like tampering. It failed
+        # control-1 closed 19 times in 12h, draining the miner, which changed the set back.
+        # Only keys in both sets are comparable; a genuinely new key is exempt for one cycle
+        # rather than the whole evaluation going unchecked.
+        stamps = {key: source.timestamp.timestamp() for key, source in sources.items()}
         previous = self._last_source_stamps[node]
-        if previous:
-            if len(previous) != len(stamps):
-                raise ValueError("source membership changed")
-            if any(current - old > MAX_SOURCE_GAP_SECONDS for current, old in zip(stamps, previous)):
-                raise ValueError("source gap exceeded maximum")
-            if any(current <= old for current, old in zip(stamps, previous)):
-                return False
+        shared = stamps.keys() & previous.keys()
+        if any(stamps[key] - previous[key] > MAX_SOURCE_GAP_SECONDS for key in shared):
+            raise ValueError("source gap exceeded maximum")
+        if shared and any(stamps[key] <= previous[key] for key in shared):
+            return False
         self._last_source_stamps[node] = stamps
         return True
 
@@ -283,27 +292,31 @@ class GuardController:
                 # no sensors means a node with no visible NVMe (control-1, a VM): it is gated
                 # on CPU headroom instead. The dwell policy and metrics are keyed identically.
                 if sensors:
-                    samples = self.telemetry.query_nvme(node, sensors, evaluation)
+                    samples = dict(zip(sensors, self.telemetry.query_nvme(node, sensors, evaluation)))
                     # trip on the hottest drive, date it by the newest sample it was read from
-                    value, stamp = max(item.value for item in samples), max(item.timestamp for item in samples)
+                    value = max(item.value for item in samples.values())
+                    stamp = max(item.timestamp for item in samples.values())
                     self.metrics["nvme_temp_max"][node] = value
                 else:
                     obs = self.telemetry.query_cpu(node, evaluation)
-                    samples = (obs.host, obs.presence) + ((obs.xmrig,) if obs.xmrig else ())
-                    value, stamp = cpu_value(obs), min(item.timestamp for item in samples)
+                    samples = {"host": obs.host, "presence": obs.presence}
+                    if obs.xmrig:
+                        samples["xmrig"] = obs.xmrig
+                    value = cpu_value(obs)
+                    stamp = min(item.timestamp for item in samples.values())
                     self.metrics["cpu_non_xmrig"][node] = value
-                if not samples or not all(_fresh(item.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for item in samples):
+                if not samples or not all(_fresh(item.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for item in samples.values()):
                     raise ValueError("stale or future source")
                 policy = self.policies[node]
                 safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
-                self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples).timestamp())
+                self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples.values()).timestamp())
                 self.metrics["safe"][node] = int(safe)
             except Exception as exc:
                 # one line per failure, no traceback: the query text travels in the exception
                 logging.error(f"evaluation failed for {node}: {exc!r}")
                 self.metrics["query_errors"][node] += 1
                 self.policies[node].invalidate()
-                self._last_source_stamps[node] = ()
+                self._last_source_stamps[node] = {}
                 self.metrics["safe"][node] = 0
                 self.metrics["source_age_seconds"][node] = float("nan")
                 if sensors:
@@ -356,8 +369,11 @@ def main():
     server = ThreadingHTTPServer(("0.0.0.0", 8080), _StatusHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     while True:
+        # sleep to a deadline, not a flat interval: sleeping after the work made the true
+        # period drift by the evaluation duration, stretching it against a fixed freshness budget
+        deadline = time.monotonic() + EVALUATION_INTERVAL_SECONDS
         controller.evaluate()
-        time.sleep(EVALUATION_INTERVAL_SECONDS)
+        time.sleep(max(0, deadline - time.monotonic()))
 
 
 if __name__ == "__main__":

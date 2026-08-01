@@ -1,5 +1,6 @@
 import math
 import os
+import re
 import sys
 import unittest
 import urllib.error
@@ -10,6 +11,17 @@ sys.path.insert(0, os.path.dirname(__file__))
 import controller
 
 UTC = timezone.utc
+# The other two legs of the trip-to-drain budget live in the miner's manifest, so they are read
+# from it rather than copied: a manifest-only change must fail the budget test, not pass it.
+RESOURCESET = os.path.join(os.path.dirname(__file__), "..", "..", "..", "monero", "xmrig", "resourceset.yaml")
+
+
+def manifest_seconds(field):
+    with open(RESOURCESET) as handle:
+        found = re.findall(rf"^\s*{field}:\s*(\d+)\s*(?:#.*)?$", handle.read(), re.MULTILINE)
+    if len(found) != 1:
+        raise AssertionError(f"expected exactly one {field} in resourceset.yaml, found {len(found)}")
+    return int(found[0])
 
 
 class PolicyTests(unittest.TestCase):
@@ -267,13 +279,95 @@ class ControllerTests(unittest.TestCase):
         self.assertIn("xmrig_guard_source_age_seconds", text)
         self.assertIn("xmrig_guard_query_errors_total", text)
 
-    def test_cpu_membership_change_is_fail_closed(self):
+    def test_miner_arriving_exempts_only_the_new_source(self):
+        # a miner starting adds the xmrig source, which must not fail the node closed
         guard = controller.GuardController(Mock())
         stamp = datetime(2026, 1, 1, tzinfo=UTC)
-        sources = [controller.Source(1, stamp)] * 3
-        self.assertTrue(guard._new_source_set("control-1", sources))
+        base = {"host": controller.Source(1, stamp), "presence": controller.Source(1, stamp)}
+        self.assertTrue(guard._new_source_set("control-1", base))
+        later = {key: controller.Source(1, stamp + timedelta(seconds=30)) for key in base}
+        self.assertTrue(guard._new_source_set("control-1", later | {"xmrig": controller.Source(1, stamp)}))
+        # the shared keys are still checked: unchanged stamps mean no advancement
+        self.assertFalse(guard._new_source_set("control-1", later | {"xmrig": controller.Source(1, stamp)}))
+
+    def test_miner_starting_and_stopping_never_faults_control1(self):
+        # the regression this replaces: the xmrig source appearing and disappearing changed the
+        # sample count, read as tampering, and drained the miner it was caused by
+        telemetry = Mock()
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        mining = [False]
+
+        def cpu(_node, evaluation):
+            source = controller.Source(30, evaluation)
+            return controller.CPUObservation(source, controller.Source(5, evaluation) if mining[0] else None, source)
+
+        telemetry.query_cpu.side_effect = cpu
+        telemetry.query_nvme.side_effect = lambda _n, sensors, evaluation: [controller.Source(40, evaluation)] * len(sensors)
+        guard = controller.GuardController(telemetry, clock=lambda: 0)
+        for step, running in enumerate([False, True, True, False, True]):
+            mining[0] = running
+            guard.evaluate(base + timedelta(seconds=30 * step))
+        self.assertEqual(guard.metrics["query_errors"]["control-1"], 0)
+
+    def test_nvme_source_keys_survive_reordering(self):
+        # keys are the sensor identities themselves, so iteration order must not matter
+        guard = controller.GuardController(Mock())
+        first, second = controller.SENSORS["control-2"]
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        previous = {
+            first: controller.Source(40, base),
+            second: controller.Source(41, base + timedelta(seconds=30)),
+        }
+        self.assertTrue(guard._new_source_set("control-2", previous))
+        # advance each sensor's own timestamp, then reverse the iteration order
+        reordered = {
+            second: controller.Source(41, base + timedelta(seconds=60)),
+            first: controller.Source(40, base + timedelta(seconds=30)),
+        }
+        self.assertTrue(guard._new_source_set("control-2", reordered))
+        # and the anti-replay check still binds across the reorder
+        self.assertFalse(guard._new_source_set("control-2", reordered))
+
+    def test_shared_key_gap_fails_closed_even_when_a_source_is_added(self):
+        guard = controller.GuardController(Mock())
+        stamp = datetime(2026, 1, 1, tzinfo=UTC)
+        base = {"host": controller.Source(1, stamp), "presence": controller.Source(1, stamp)}
+        self.assertTrue(guard._new_source_set("control-1", base))
+        far = stamp + timedelta(seconds=controller.MAX_SOURCE_GAP_SECONDS + 1)
+        stale = {key: controller.Source(1, far) for key in base}
         with self.assertRaises(ValueError):
-            guard._new_source_set("control-1", sources + [controller.Source(1, stamp)])
+            guard._new_source_set("control-1", stale | {"xmrig": controller.Source(1, far)})
+
+    def test_panic_limit_trips_without_dwell_and_needs_full_recovery(self):
+        p = controller.DwellPolicy(62, 65, 300, 60, 120, panic_limit=68)
+        source = datetime(2026, 1, 1, tzinfo=UTC)
+        p.safe = True
+        self.assertFalse(p.observe(68, source, 0.0))
+        self.assertFalse(p.safe)
+        # recovery is not instant afterwards: the full 300s dwell must elapse below 62C
+        self.assertFalse(p.observe(60, source + timedelta(seconds=1), 1.0))
+        self.assertFalse(p.observe(60, source + timedelta(seconds=2), 299.0))
+        self.assertTrue(p.observe(60, source + timedelta(seconds=3), 302.0))
+
+    def test_trip_to_drain_budget_fits_the_thermal_margin(self):
+        # The 65C trip is sized on a 135s chain against a 70C rating at ~1.1C/min. Two legs are
+        # policy here, two are read from the miner's manifest, so either side drifting fails this.
+        keda_poll = manifest_seconds("pollingInterval")
+        drain = manifest_seconds("terminationGracePeriodSeconds")
+        rise_c_per_min, rating = 1.1, 70
+        policies = controller.GuardController(Mock()).policies
+        for node in ("control-2", "control-3"):
+            policy = policies[node]
+            budget = controller.EVALUATION_INTERVAL_SECONDS + policy.trip_dwell + keda_poll + drain
+            peak = policy.trip_limit + rise_c_per_min * budget / 60
+            self.assertLessEqual(budget, 135, node)
+            self.assertLess(peak, rating, f"{node} peaks at {peak}C against a {rating}C rating")
+
+    def test_nvme_policies_carry_the_panic_limit_and_control1_does_not(self):
+        guard = controller.GuardController(Mock())
+        self.assertEqual(guard.policies["control-2"].panic_limit, 68)
+        self.assertEqual(guard.policies["control-3"].panic_limit, 68)
+        self.assertIsNone(guard.policies["control-1"].panic_limit)
 
     def test_failure_invalidates_values(self):
         telemetry = Mock()
