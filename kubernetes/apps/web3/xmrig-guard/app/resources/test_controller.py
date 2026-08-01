@@ -267,13 +267,56 @@ class ControllerTests(unittest.TestCase):
         self.assertIn("xmrig_guard_source_age_seconds", text)
         self.assertIn("xmrig_guard_query_errors_total", text)
 
-    def test_cpu_membership_change_is_fail_closed(self):
+    def test_miner_arriving_exempts_only_the_new_source(self):
+        # a miner starting adds the xmrig source, which must not fail the node closed
         guard = controller.GuardController(Mock())
         stamp = datetime(2026, 1, 1, tzinfo=UTC)
-        sources = [controller.Source(1, stamp)] * 3
-        self.assertTrue(guard._new_source_set("control-1", sources))
+        base = {"host": controller.Source(1, stamp), "presence": controller.Source(1, stamp)}
+        self.assertTrue(guard._new_source_set("control-1", base))
+        later = {key: controller.Source(1, stamp + timedelta(seconds=30)) for key in base}
+        self.assertTrue(guard._new_source_set("control-1", later | {"xmrig": controller.Source(1, stamp)}))
+        # the shared keys are still checked: unchanged stamps mean no advancement
+        self.assertFalse(guard._new_source_set("control-1", later | {"xmrig": controller.Source(1, stamp)}))
+
+    def test_shared_key_gap_fails_closed_even_when_a_source_is_added(self):
+        guard = controller.GuardController(Mock())
+        stamp = datetime(2026, 1, 1, tzinfo=UTC)
+        base = {"host": controller.Source(1, stamp), "presence": controller.Source(1, stamp)}
+        self.assertTrue(guard._new_source_set("control-1", base))
+        far = stamp + timedelta(seconds=controller.MAX_SOURCE_GAP_SECONDS + 1)
+        stale = {key: controller.Source(1, far) for key in base}
         with self.assertRaises(ValueError):
-            guard._new_source_set("control-1", sources + [controller.Source(1, stamp)])
+            guard._new_source_set("control-1", stale | {"xmrig": controller.Source(1, far)})
+
+    def test_panic_limit_trips_without_dwell_and_needs_full_recovery(self):
+        p = controller.DwellPolicy(62, 65, 300, 60, 120, panic_limit=68)
+        source = datetime(2026, 1, 1, tzinfo=UTC)
+        p.safe = True
+        self.assertFalse(p.observe(68, source, 0.0))
+        self.assertFalse(p.safe)
+        # recovery is not instant afterwards: the full 300s dwell must elapse below 62C
+        self.assertFalse(p.observe(60, source + timedelta(seconds=1), 1.0))
+        self.assertFalse(p.observe(60, source + timedelta(seconds=2), 299.0))
+        self.assertTrue(p.observe(60, source + timedelta(seconds=3), 302.0))
+
+    def test_trip_to_drain_budget_fits_the_thermal_margin(self):
+        # The 65C trip is sized on a 135s chain against a 70C rating at ~1.1C/min. Two legs live
+        # here; KEDA pollingInterval (30s) and terminationGracePeriodSeconds (15s) are in
+        # kubernetes/apps/web3/monero/xmrig/resourceset.yaml and must move with these.
+        keda_poll, drain, rise_c_per_min, rating = 30, 15, 1.1, 70
+        policies = controller.GuardController(Mock()).policies
+        for node in ("control-2", "control-3"):
+            policy = policies[node]
+            budget = controller.EVALUATION_INTERVAL_SECONDS + policy.trip_dwell + keda_poll + drain
+            peak = policy.trip_limit + rise_c_per_min * budget / 60
+            self.assertLessEqual(budget, 135, node)
+            self.assertLess(peak, rating, f"{node} peaks at {peak}C against a {rating}C rating")
+
+    def test_nvme_policies_carry_the_panic_limit_and_control1_does_not(self):
+        guard = controller.GuardController(Mock())
+        self.assertEqual(guard.policies["control-2"].panic_limit, 68)
+        self.assertEqual(guard.policies["control-3"].panic_limit, 68)
+        self.assertIsNone(guard.policies["control-1"].panic_limit)
 
     def test_failure_invalidates_values(self):
         telemetry = Mock()

@@ -107,7 +107,9 @@ spec:
         minReplicaCount: 0
         maxReplicaCount: 1
         cooldownPeriod: 0 # Guard dwell already debounces trips and recovery
-        pollingInterval: 60
+        # 30s to match the guard's evaluation interval: this is the last serial leg of the
+        # 135s trip-to-drain chain the 65C trip is sized against.
+        pollingInterval: 30
         fallback:
           # A VictoriaMetrics/scaler error is unsafe: do not keep miners running on stale state.
           failureThreshold: 1

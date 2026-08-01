@@ -46,7 +46,7 @@ spec:
             severity: warning
         - alert: XmrigGuardLatchedUnsafe
           # A node that trips or hits an evaluation error only re-earns safe=1 after
-          # 600s at or below 60C. Paired here with the temperature actually being in
+          # 300s at or below 62C. Paired here with the temperature actually being in
           # that band, so this fires for a stuck latch (the 2026-07-27 control-2
           # sensor-identity blip) and stays quiet when the gate is shut because the
           # drives are genuinely too hot, which is the expected steady state.
@@ -55,15 +55,35 @@ spec:
           expr: |-
             max_over_time(xmrig_guard_safe[6h]) == 0
             and on (node)
-            max_over_time(xmrig_guard_nvme_temp_max_celsius[2h]) <= 60
+            max_over_time(xmrig_guard_nvme_temp_max_celsius[2h]) <= 62
           for: 30m
           annotations:
             summary: >-
               {{ $labels.node }} has been gated unsafe for 6h while its NVMe stayed
-              within the 60C recovery band, so the guard is latched rather than
+              within the 62C recovery band, so the guard is latched rather than
               thermally tripped and mining is disabled with no signal
           labels:
             severity: warning
+        - alert: XmrigGuardThermalPanic
+          # The 68C panic trip skips the dwell, so a miner still running above it means the
+          # fast path itself failed (guard wedged, KEDA down, HPA stuck). 70C is the rating,
+          # and the drive climbs ~1.1C/min under load, so this is roughly 1.8 minutes of margin.
+          # Mirrors XmrigGuardEnforcementBypassed's deployment<->node join with the regex
+          # reversed; the "xmrig-<node>" convention lives in both and must change together.
+          expr: |-
+            max by (node) (xmrig_guard_nvme_temp_max_celsius) > 68
+            and on (node)
+            label_replace(
+              kube_deployment_status_replicas{namespace="web3", deployment=~"xmrig-control-.+"} > 0,
+              "node", "$1", "deployment", "xmrig-(.*)"
+            )
+          for: 2m
+          annotations:
+            summary: >-
+              {{ $labels.node }} is above the 68C panic trip with a miner still running —
+              the zero-dwell fast path did not shed it and the drive is near its 70C rating
+          labels:
+            severity: critical
         - alert: XmrigGuardEvaluationErrors
           # 0.01/s ~= 36 errors/h; the 2026-07 telemetry breakage ran 47-100/h
           expr: |-
