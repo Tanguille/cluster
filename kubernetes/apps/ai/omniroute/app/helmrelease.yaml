@@ -39,10 +39,10 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
+                memory: 128Mi
               limits:
                 cpu: 1000m
-                memory: 1Gi
+                memory: 512Mi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -56,7 +56,6 @@ spec:
             port: *port
     persistence:
       data:
-        enabled: true
-        storageClass: ceph-block
-        accessMode: ReadWriteOnce
-        size: 5Gi
+        existingClaim: omniroute
+        globalMounts:
+          - path: /app/data
