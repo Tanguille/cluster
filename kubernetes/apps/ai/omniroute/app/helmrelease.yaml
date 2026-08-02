@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: omniroute
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  interval: 30m
+
+  values:
+    controllers:
+      omniroute:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/diegosouzapw/omniroute
+              tag: 3.8.49
+            env:
+              TZ: ${TIMEZONE}
+              DATA_DIR: /app/data
+              PORT: &port 20128
+              # Internal-only ClusterIP — litellm is the sole caller, same
+              # unauthenticated-backend + non-empty-apiKey convention as the
+              # qwen-3.6 SGLang model (LiteLLMModel requires apiKey non-empty).
+              REQUIRE_API_KEY: "false"
+            envFrom:
+              - secretRef:
+                  name: "{{ .Release.Name }}-secret"
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 1000m
+                memory: 512Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    persistence:
+      data:
+        existingClaim: omniroute
+        globalMounts:
+          - path: /app/data
