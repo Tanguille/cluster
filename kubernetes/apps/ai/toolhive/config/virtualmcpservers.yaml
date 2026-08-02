@@ -77,6 +77,11 @@ spec:
     operational:
       timeouts:
         default: &embeddingTimeout 120s
+      # Default healthCheckTimeout (10s) marks a backend "degraded" past ~5s (half-timeout
+      # heuristic) -- routine control-1 latency blips cross that and flap every backend's
+      # status at once. Raised so a transient node stall doesn't read as a backend outage.
+      failureHandling:
+        healthCheckTimeout: 20s
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
