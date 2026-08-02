@@ -320,6 +320,9 @@ spec:
     - --schedule-conservativeness
     - "0.1"
     - --enable-mixed-chunk
+    # Without this SGLang returns prompt_tokens_details:None and hermes logs
+    # cache_read_tokens=0 regardless of the real hit rate.
+    - --enable-cache-report
     # Promote only on hit_count >= 2. page_size is pinned at 1 by mamba no_buffer, so
     # write_through is ~1 file per prompt token, which halved per-request decode.
     - --hicache-write-policy
