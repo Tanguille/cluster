@@ -53,3 +53,25 @@ spec:
     mode: chat
     maxInputTokens: 171808
     maxOutputTokens: 8192
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: omniroute
+spec:
+  modelName: omniroute
+  proxyRef: litellm
+  params:
+    # "auto" is OmniRoute's zero-config smart-routing model id — it builds a
+    # virtual combo from whichever free/keyed providers are connected.
+    model: openai/auto
+    apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
+    # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
+    # a non-empty api_key (same convention as the qwen-3.6 sk-sglang-noauth).
+    apiKey: sk-omniroute-noauth
+    additional:
+      timeout: 300
+      num_retries: 0
+  info:
+    mode: chat
