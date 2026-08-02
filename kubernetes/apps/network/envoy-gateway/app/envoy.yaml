@@ -254,6 +254,7 @@ spec:
     failOpen: true
     grpc:
       backendRefs:
+        # name pinned via fullnameOverride in bouncers/envoy/helmrelease.yaml
         - name: crowdsec-envoy-bouncer
           namespace: security
           port: 8080
