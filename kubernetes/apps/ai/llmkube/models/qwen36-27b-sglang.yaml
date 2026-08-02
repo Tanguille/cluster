@@ -77,9 +77,9 @@ spec:
                 - |
                   set -eu
                   cd /hicache
-                  # Newest mtime = the live generation (write_through writes every prefill,
-                  # so anything serving stays fresh). Skip it and anything written in the
-                  # last day, so a draining pod keeps its cache through a rollout.
+                  # Newest mtime = the live generation; a serving pod keeps promoting into
+                  # it. Skip it and anything written in the last day, so a draining pod
+                  # keeps its cache through a rollout.
                   newest="$(ls -1dt -- */ 2>/dev/null | head -1)"
                   for d in */; do
                     [ -d "$d" ] || continue
@@ -221,15 +221,16 @@ spec:
     # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.
     # 64Gi made L3 write-only: the store sat at 64.05G against the cap, so it evicted
     # every entry before it was ever read back (11,441 tokens served in 20h on 2026-07-30).
-    # 128Gi leaves the 58G store at ~45% so eviction stops firing. Deliberately above the
+    # 128Gi stops that; the store then refilled to the cap in 2 days, which is what forced
+    # write_through_selective below. Deliberately above the
     # PVC's nominal 64Gi -- hostpath enforces no quota and openebs-hostpath has no volume
     # expansion, so the PVC number cannot be raised and this env var is the real bound.
     - name: SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE
       value: 128Gi
     # MAX_SIZE alone is blind to the other tenants of control-1's shared 500G root, so
-    # hold a floor well above kubelet's ~50G nodefs eviction threshold. At 192G free with a
-    # 58G store (2026-07-31) the 128Gi cap binds first and this stays a backstop, with ~22G
-    # of margin; if the rest of the root grows past that, writes are refused rather than
+    # hold a floor well above kubelet's ~50G nodefs eviction threshold. At 163G free with a
+    # 128G store (2026-08-02) the cap binds first and this stays a backstop, with ~63G of
+    # margin; if the rest of the root grows past that, writes are refused rather than
     # filling the disk.
     - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
       value: 100Gi
@@ -333,8 +334,11 @@ spec:
     - --schedule-conservativeness
     - "0.1"
     - --enable-mixed-chunk
-    # write_through_selective gates promotion on hit_count >= 2, which left L3 empty.
+    # Promote only on hit_count >= 2. write_through at the 128Gi cap drove vda to 26 MB/s
+    # sustained and halved per-request decode (4.09 -> 2.07 tok/s) on 2026-07-31.
+    # page_size is pinned at 1 by mamba no_buffer (server_args.py:4868), so write_through
+    # is ~1 file per prompt token.
     - --hicache-write-policy
-    - write_through
+    - write_through_selective
     - --hicache-storage-backend
     - file
