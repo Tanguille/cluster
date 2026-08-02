@@ -27,5 +27,8 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
+      # Chart default is true. Caps pod ingress to 9080 (web) and 8080 (metrics, kept
+      # because serviceMonitor.create is on); `from` is namespaceSelector:{}, so reach
+      # to the anonymous UI is unchanged — the read-only roleRef is what limits it.
       networkPolicy:
-        create: false
+        create: true

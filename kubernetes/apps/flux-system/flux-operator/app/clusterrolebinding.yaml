@@ -10,5 +10,10 @@ subjects:
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole
-  name: flux-web-admin
+  # The web UI authenticates as Anonymous, so this role is granted to anyone who can
+  # reach envoy-internal. flux-web-admin adds create on batch/jobs (arbitrary pod
+  # execution), patch/restart on workloads and delete on pods; flux-web-user is the
+  # chart's read-only variant. It still carries get/list/watch on *, which includes
+  # Secrets -- only real auth or dropping web.httpRoute closes that.
+  name: flux-web-user
   apiGroup: rbac.authorization.k8s.io
