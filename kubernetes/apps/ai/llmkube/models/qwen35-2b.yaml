@@ -42,9 +42,8 @@ spec:
   extraArgs:
     - "--alias"
     - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
-    # Unsloth's recommended instruct (non-thinking) sampling for Qwen3.5 Small,
-    # which otherwise repeats itself; set at the server so it applies regardless
-    # of caller (litellm's auto-registered alias doesn't carry sampling params).
+    # Unsloth's recommended non-thinking sampling for Qwen3.5 Small (repeats otherwise);
+    # set here since litellm's auto-registered alias carries no sampling params.
     - "--temp"
     - "0.7"
     - "--top-p"
