@@ -6,3 +6,13 @@ resources:
   - grafanadashboard.yaml
   - helmrelease.yaml
   - secret.sops.yaml
+
+configMapGenerator:
+  - name: scraparr-dashboard
+    files:
+      - dashboard/scraparr.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
