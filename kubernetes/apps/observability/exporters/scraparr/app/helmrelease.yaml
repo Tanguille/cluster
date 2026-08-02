@@ -37,12 +37,12 @@ spec:
           app:
             image:
               repository: ghcr.io/thecfu/scraparr
-              tag: 3.0.3@sha256:44f09d30009508a2a422ae7cd9cce38fa36122d6bd0592f2e4158398d9ccb7a6
+              tag: 3.1.0@sha256:c794a9396564e798f9a68fb9dae617db92414cd5c4d41176929657b64873d8bd
             env:
               BAZARR_URL: http://bazarr.media.svc.cluster.local:6767
               JELLYFIN_URL: http://jellyfin.media.svc.cluster.local:8096
-              JELLYSEERR_URL: http://seerr.media.svc.cluster.local:5055
-              JELLYSEERR_API_KEY: ${JELLYSEERR_API_KEY}
+              SEERR_URL: http://seerr.media.svc.cluster.local:5055
+              SEERR_API_KEY: ${JELLYSEERR_API_KEY}
               RADARR_URL: http://radarr.media.svc.cluster.local
               RADARR_API_KEY: ${RADARR_API_KEY}
               SONARR_URL: http://sonarr.media.svc.cluster.local
