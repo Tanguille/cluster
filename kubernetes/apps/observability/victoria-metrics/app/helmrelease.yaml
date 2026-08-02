@@ -283,7 +283,7 @@ spec:
       rbac:
         namespaced: false
       spec:
-        priorityClassName: homelab-critical # 274Mi, sole scrape path
+        priorityClassName: homelab-critical # 512Mi, sole scrape path
         selectAllByDefault: true
         resources:
           requests:
@@ -299,7 +299,15 @@ spec:
         operated-prometheus: "true"
         self-monitor: "true"
       spec:
-        priorityClassName: homelab-critical # 122Mi, Grafana's query path
+        priorityClassName: homelab-critical # 89Mi, Grafana's query path
+        # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its
+        # 25Mi default, which its 39Mi peak already exceeds; raising that is a separate change.
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
         extraArgs:
           requestBufferSize: "65536"
         managedMetadata:

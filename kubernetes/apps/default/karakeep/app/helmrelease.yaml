@@ -152,7 +152,8 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 256Mi
+                # 91Mi cgroup peak over 30d; recheck after a meilisearch version bump
+                memory: 128Mi
               limits:
                 cpu: 1
                 memory: 4Gi
