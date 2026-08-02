@@ -4,6 +4,8 @@ Tracking what needs to land upstream before SGLang can replace vLLM in productio
 
 **Current approach:** running `ghcr.io/tanguille/sglang-rdna4:sha-cb7b7605...` (torch 2.11+rocm7.2, Triton 3.6, SGLang v0.5.16), built by our fork's own `build-image.yaml` `publish` job (`Tanguille/2x-R9700-RDNA4-GFX1201-sglang-inference`, `main`), not by a pipeline in this repo — `docker/sglang-rdna4/` and `.github/workflows/build-sglang-rdna4.yaml` are retired. That fork branch carries mattbucci's full patch series plus our HiCache OpenSSL-headers fix (`fix/hicache-openssl-headers`, upstream PR mattbucci#6, still open/unmerged there — this is our own fork build, not the upstream package). `SGLANG_RDNA4_DISABLE_STORE_CACHE=1` is required in the HelmRelease env because LLMKube bypasses the image's entrypoint (see the InferenceService manifest). Once mattbucci#6 merges upstream, re-point at `ghcr.io/mattbucci/sglang-rdna4` directly and drop the fork build. The retired PVC-rebuild recipe is gone with the `sglang` app directory; recover it from git history if ever needed.
 
+**Fork state check (2026-08-01):** the deployed image `sha-cb7b76050cbf` already sits on the fork's v0.5.16 rebase (`689339d`, 2026-07-27), so blocker 6's #31648 (mamba LRU) is live in production — it ships in the v0.5.16 release. Fork patches 086 (AMD Triton `num_kv_splits` 16→64, claimed 2.14× @256K) and 087 (bf16 page-vector attention, claimed +21% @256K) are also in that image; both are model-agnostic (verified via patch content) but were only A/B'd on `coder-reap-25b`, not Qwen3.6-27B. A clean TP=1 re-bench of the deployed image is still outstanding (the 2026-08-01 attempt ran under production load and is recorded as a floor in `engine-benchmarks-gfx1201.md`). `diff cb7b760..origin/main` is docs/eval-only, so a rebuild on current fork main gains no runtime changes today.
+
 ---
 
 ## Blocker 1 — Spec-decode net-negative on dense DeltaNet (verify wall, no depth gate)
@@ -132,17 +134,11 @@ measured **7.6× TTFT** (cold ~16s → cache-hit ~2.1s; server log `#cached-toke
 which is what stops it tripping `agent.gateway_timeout` / litellm aborts. The earlier StreamingSession
 mitigation is obsolete.
 
-**The cache-vs-batch question is now a config choice, not a blocker:**
-- **cache ON** (`no_buffer` + radix, **prod**): overlap scheduler off, but single-stream ~13.4 tok/s
-  (decode-steps 16) and batch ~34 @conc8 / ~63 @conc16, max_running 16. Chosen — the long-context
-  agent is the primary workload.
-- **cache OFF** (`--disable-radix-cache`): overlap on, batch ~99 @conc32, but every agent turn
-  re-prefills the full context (the original failure). A 97k cold prefill measured **303s** — the
-  cost the cache eliminates.
-- **`extra_buffer`** (overlap on *with* cache): boots on ROCm via a 1-line `is_hip()` patch to the
-  `server_args.py` device assert, but gives **no** batch gain (~35 @conc8) and *worse* single-stream
-  (~12) — RDNA4 dense-DeltaNet decode is compute-bound, so the overlap scheduler has nothing to hide
-  and it halves max_running (→9). Ruled out; we stay on `no_buffer`.
+> Measured results recorded in the [benchmark log](engine-benchmarks-gfx1201.md).
+>
+> **Decision:** production stays on cache ON (`no_buffer` + radix) — the long-context agent is the
+> primary workload. `extra_buffer` (overlap ON *with* cache) was ruled out: it boots on ROCm only
+> via a 1-line `is_hip()` patch, gives no batch gain, and halves `max_running`.
 
 **Required RDNA4/TP=1 patch (NOT in the fork — it targets a dual-card TP=2 box):** the JIT
 `store_cache` kernel aborts at TP=1 (`kvcache.cuh:204: CUDA error: the operation cannot be performed
