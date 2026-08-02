@@ -62,14 +62,18 @@ spec:
               INFERENCE_IMAGE_MODEL: qwen-3.6-fast
               INFERENCE_NUM_WORKERS: "2"
               INFERENCE_OUTPUT_SCHEMA: "plain"
-              INFERENCE_ENABLE_AUTO_TAGGING: "true"
               INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
               # 12K fits within the 2B's 16K-per-slot llama.cpp ctx (contextSize
               # 32768 / parallelSlots 2) with headroom for output + prompt overhead.
               INFERENCE_CONTEXT_LENGTH: "12000"
               INFERENCE_JOB_TIMEOUT_SEC: "300"
-              INFERENCE_FETCH_TIMEOUT_SEC: "600"
               OCR_USE_LLM: "true"
+              # qwen3-embedding is llmkube-managed and auto-registered in litellm
+              # (see qwen35-2b comment above); without this, EMBEDDING_ENABLE_AUTO_INDEXING
+              # defaults on (OPENAI_API_KEY is set) and calls the nonexistent
+              # OpenAI default text-embedding-3-small.
+              EMBEDDING_TEXT_MODEL: qwen3-embedding
+              EMBEDDING_DIMENSIONS: "1024"
             probes:
               liveness:
                 enabled: true
