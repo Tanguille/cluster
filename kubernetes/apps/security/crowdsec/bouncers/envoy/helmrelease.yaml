@@ -1,85 +1,72 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: crowdsec-envoy-bouncer
+  name: &app crowdsec-envoy-bouncer
 spec:
   chartRef:
     kind: OCIRepository
-    name: app-template
+    name: crowdsec-envoy-bouncer
   interval: 1h
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: *app
+            patch: |-
+              - op: add
+                path: /metadata/annotations
+                value:
+                  reloader.stakater.com/auto: "true"
   values:
-    controllers:
-      crowdsec-envoy-bouncer:
-        annotations:
-          reloader.stakater.com/auto: "true"
-        strategy: RollingUpdate
-        containers:
-          app:
-            image:
-              repository: ghcr.io/kdwils/envoy-proxy-bouncer
-              tag: v0.6.3@sha256:85c9f802eca3ad32aa4a8cb5b63e5c5a5642b07cff623beca0bab634c2128020
-            env:
-              ENVOY_BOUNCER_BOUNCER_BANSTATUSCODE: 418
-              ENVOY_BOUNCER_BOUNCER_ENABLED: true
-              ENVOY_BOUNCER_BOUNCER_LAPIURL: https://crowdsec-service.security.svc.cluster.local:8080
-              ENVOY_BOUNCER_BOUNCER_METRICS: true
-              ENVOY_BOUNCER_BOUNCER_TLS_ENABLED: true
-              ENVOY_BOUNCER_BOUNCER_TLS_CERTPATH: /app/tls/tls.crt
-              ENVOY_BOUNCER_BOUNCER_TLS_KEYPATH: /app/tls/tls.key
-              ENVOY_BOUNCER_BOUNCER_TLS_CAPATH: /app/tls/ca.crt
-              ENVOY_BOUNCER_BOUNCER_TLS_INSECURESKIPVERIFY: false
-              ENVOY_BOUNCER_PROMETHEUS_ENABLED: true
-              ENVOY_BOUNCER_TEMPLATES_DENIEDTEMPLATEPATH: /ban.html
-              ENVOY_BOUNCER_TRUSTEDPROXIES: ${LAN_CIDR},${POD_CIDR}
-              ENVOY_BOUNCER_WAF_APPSECURL: http://crowdsec-appsec-service.security.svc.cluster.local:7422
-              ENVOY_BOUNCER_WAF_ENABLED: true
-              ENVOY_BOUNCER_WAF_APIKEY:
-                valueFrom:
-                  secretKeyRef:
-                    name: crowdsec-envoy-bouncer-secret
-                    key: ENVOY_BOUNCER_WAF_APIKEY
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
-            resources:
-              requests:
-                cpu: 50m
-                memory: 64Mi
-              limits:
-                cpu: 500m
-                memory: 128Mi
-    defaultPodOptions:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-    service:
-      app:
-        ports:
-          http:
-            port: 8080
-          metrics:
-            port: 9090
-    serviceMonitor:
-      app:
-        serviceName: crowdsec-envoy-bouncer
-        endpoints:
-          - port: metrics
-            path: /metrics
-            interval: 1m
-    persistence:
-      ban:
-        type: configMap
-        name: "{{ .Release.Name }}-configmap"
-        globalMounts:
-          - path: /ban.html
-            subPath: ban.html
-      tls:
-        type: secret
-        name: crowdsec-bouncer-tls
-        globalMounts:
-          - path: /app/tls
-            readOnly: true
+    # fullnameOverride pins the Service/Deployment name consumed by
+    # kubernetes/apps/network/envoy-gateway/app/envoy.yaml's extAuth backendRef
+    fullnameOverride: *app
+    image:
+      tag: v0.7.0@sha256:994783a3b93a01eae23a3ba28ef272471725510aeec25e406414551d95643fae
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+    config:
+      trustedProxies:
+        - "${LAN_CIDR}"
+        - "${POD_CIDR}"
+      bouncer:
+        lapiURL: https://crowdsec-service.security.svc.cluster.local:8080
+        metrics: true
+        banStatusCode: 418
+        tls:
+          enabled: true
+        tlsSecretRef:
+          name: crowdsec-bouncer-tls
+      waf:
+        enabled: true
+        appSecURL: http://crowdsec-appsec-service.security.svc.cluster.local:7422
+        apiKeySecretRef:
+          name: crowdsec-envoy-bouncer-secret
+          key: ENVOY_BOUNCER_WAF_APIKEY
+      prometheus:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+          interval: 1m
+      templates:
+        deniedTemplatePath: /ban.html
+    referenceGrant:
+      create: true
+      fromNamespaces: ["network"]
+    volumes:
+      - name: ban-html
+        configMap:
+          name: crowdsec-envoy-bouncer-configmap
+    volumeMounts:
+      - name: ban-html
+        mountPath: /ban.html
+        subPath: ban.html
+        readOnly: true
