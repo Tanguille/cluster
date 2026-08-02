@@ -12,7 +12,7 @@
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
       matchStrings: [
-        "url:\\s+\"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/"
+        'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
       ],
       datasourceTemplate: "github-releases"
     },
@@ -37,7 +37,7 @@
       packageNameTemplate: "https://huggingface.co/{{depName}}",
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
-    },
+    }
   ],
   packageRules: [
     // Auto-merge rules
@@ -152,12 +152,6 @@
         "ghcr.io/sethforprivacy/p2pool",
         "nousresearch/hermes-agent"
       ],
-      versioning: "loose"
-    },
-    {
-      description: "Miniforge build-suffixed tags (24.11.3-2) read as semver prereleases, so stable-only filtering hides every update; loose sorts them numerically",
-      matchDatasources: ["github-releases"],
-      matchPackageNames: ["conda-forge/miniforge"],
       versioning: "loose"
     },
     // Labeling rules
