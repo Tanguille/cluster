@@ -24,10 +24,13 @@ spec:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
               PORT: &port 20128
-              # Internal-only ClusterIP — litellm is the sole caller, same
-              # unauthenticated-backend + non-empty-apiKey convention as the
-              # qwen-3.6 SGLang model (LiteLLMModel requires apiKey non-empty).
+              # Only litellm's /v1/* proxy calls skip auth (unauthenticated-backend
+              # + non-empty-apiKey convention, same as the qwen-3.6 SGLang model);
+              # the dashboard at the internal route below still requires
+              # INITIAL_PASSWORD login.
               REQUIRE_API_KEY: "false"
+              # envoy-internal-tls terminates TLS at the gateway.
+              AUTH_COOKIE_SECURE: "true"
             envFrom:
               - secretRef:
                   name: "{{ .Release.Name }}-secret"
@@ -54,6 +57,12 @@ spec:
         ports:
           http:
             port: *port
+    route:
+      app:
+        hostnames: ["omniroute.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
     persistence:
       data:
         existingClaim: omniroute
