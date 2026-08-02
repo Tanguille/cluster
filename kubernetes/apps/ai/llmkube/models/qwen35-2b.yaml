@@ -50,6 +50,11 @@ spec:
     - "0.8"
     - "--presence-penalty"
     - "1.5"
+    # Qwen3.5's chat template thinks by default; without this it burns the whole
+    # output budget on reasoning_content and returns empty content (verified live
+    # 2026-08-02). Sampling flags above don't touch this — it's a template setting.
+    - "--reasoning"
+    - "off"
 
   # Both iGPU nodes advertise 2 squat.ai/dri slots; the embedders pair up on
   # qwen3-embedding's node (via podAffinity there), leaving the other iGPU
