@@ -55,15 +55,17 @@ spec:
               OPENAI_API_KEY: ${LITELLM_API_KEY}
               # Text tasks (auto-tags, summaries) run on the 2B iGPU model to
               # spare the 27B; image tagging/OCR stay on the 27B (vision) because
-              # the qwen35-2b GGUF is text-only.
-              INFERENCE_TEXT_MODEL: qwen-3.5-2b
+              # the qwen35-2b GGUF is text-only. qwen35-2b is llmkube-managed, so
+              # its LiteLLMModel is auto-registered (litellm-operator autoRegister)
+              # under the InferenceService's name, not a hand-written alias.
+              INFERENCE_TEXT_MODEL: qwen35-2b
               INFERENCE_IMAGE_MODEL: qwen-3.6-fast
               INFERENCE_NUM_WORKERS: "2"
               INFERENCE_OUTPUT_SCHEMA: "plain"
               INFERENCE_ENABLE_AUTO_TAGGING: "true"
               INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
-              # 12K fits the 2B's 16K llama.cpp ctx (llmkube contextSize: 16384)
-              # with ~2K output and prompt overhead; 16000 would overflow it.
+              # 12K fits within the 2B's 16K-per-slot llama.cpp ctx (contextSize
+              # 32768 / parallelSlots 2) with headroom for output + prompt overhead.
               INFERENCE_CONTEXT_LENGTH: "12000"
               INFERENCE_JOB_TIMEOUT_SEC: "300"
               INFERENCE_FETCH_TIMEOUT_SEC: "600"
