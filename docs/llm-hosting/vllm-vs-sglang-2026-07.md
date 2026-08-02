@@ -15,6 +15,8 @@ recorded below and both are rejected.
 
 ## What was overturned
 
+> Historical numbers superseded — full records in the [benchmark log](engine-benchmarks-gfx1201.md).
+
 ### The "decode ceiling" was KV-pool starvation
 
 Earlier rounds concluded aggregate throughput plateaued near 40 tok/s and that this was a
@@ -106,6 +108,16 @@ Skip the release, cherry-pick one commit. The release relocated the kernel tree
 
 `#31648` (mamba LRU) is the one worth taking: prefix hit rate 0.61 → 0.83. Not yet
 applied — it needs a fork rebuild.
+
+**Correction (2026-08-01): this section is stale — the fork did the rebase.** The fork
+carried its 69-patch RDNA4 series onto v0.5.16 on 2026-07-27 (`689339d`) and the deployed
+image `sha-cb7b76050cbf` is built on that tree. Because `#31648` ships *in* the v0.5.16
+release (per its release notes), it is **already live in production** — no cherry-pick
+needed. The "needs a fork rebuild" note above applied to the pre-rebase v0.5.15 pin and
+should not be quoted again. Fork patches 086 (AMD Triton `num_kv_splits` 16→64) and 087
+(bf16 page-vector attention) are also in that image; both are model-agnostic but were
+only verified on `coder-reap-25b`, so their effect on Qwen3.6-27B at TP=1 remains
+unmeasured (see the 2026-08-01 floor bench in `engine-benchmarks-gfx1201.md`).
 
 ## Operational hazard: patching during a model download corrupts the cache
 

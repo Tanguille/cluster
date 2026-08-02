@@ -1,6 +1,8 @@
 # Useful Commands for Kubernetes / Talos
 
-Short reference for debugging and day-to-day ops. Prefer **GitOps**: change manifests in Git and run `task reconcile` rather than editing resources in-cluster.
+Short index for debugging and day-to-day ops. Prefer **GitOps**: change manifests in Git and run `task reconcile` rather than editing resources in-cluster.
+
+For validation, SOPS, and common workflows, see [common operations](../.agents/common-operations.md). For structured troubleshooting, use the [debug-cluster skill](../.agents/skills/debug-cluster/SKILL.md).
 
 ---
 
@@ -44,7 +46,7 @@ task talos:upgrade-k8s
 task talos:schematics-update
 ```
 
-Then run `task talos:generate-config` and apply or upgrade nodes as needed.
+After updating schematics, run `task talos:generate-config` and apply or upgrade nodes as needed.
 
 ---
 
@@ -106,60 +108,43 @@ kubectl exec -it -n <ns> deployment/<name> -- /bin/sh
 
 Optional: [kubectl-browse-pvc](https://github.com/clbx/kubectl-browse-pvc) to browse PVCs.
 
-PVC restore from backup: see [kopiur-restore.md](kopiur-restore.md).
+> Full PVC backup/restore procedure: see the [backup-restore skill](../.agents/skills/backup-restore/SKILL.md).
 
 ---
 
 ## Troubleshooting failed HelmReleases
 
-Prefer fixing the cause in Git (values, chart version, dependencies) and running `task reconcile`. If a release is stuck and you need to force recreation:
-
-```bash
-# 1. Inspect status and events
-kubectl describe helmrelease <name> -n <ns>
-
-# 2. (Optional) Delete the HelmRelease so Flux recreates it on next reconcile
-kubectl delete helmrelease <name> -n <ns>
-
-# 3. Reconcile and watch
-flux reconcile kustomization <parent-ks> --with-source
-kubectl get pods -n <ns> -w
-```
-
-Avoid deleting other resources (Deployment, Service) that are owned by the HelmRelease; Flux/Helm will manage them.
+> Full procedure: see the [debug-cluster skill](../.agents/skills/debug-cluster/SKILL.md).
 
 ---
 
 ## PostgreSQL (CNPG)
-
-**Application credentials:** each app uses its own sops secret (`INIT_POSTGRES_*` for postgres-init apps) or its managed role's passwordSecret (e.g. `litellm-db`) in the database namespace. There is no shared `-app` secret.
-
 **Connect with psql:**
 
 ```bash
 psql -h <cluster-name>-rw.database.svc.cluster.local -U <app-username> -d <app-database-name> -W
 ```
 
-Superuser (postgres) password: secret `cloudnative-pg-secret` in the database namespace (spec.superuserSecret).
+The superuser (`postgres`) password is in the `cloudnative-pg-secret` secret in the database namespace (`spec.superuserSecret`).
 
 ---
 
 ## Nextcloud: database restore
 
-1. **Debug pod with DB access:**
+1. Start a debug pod with database access:
 
    ```bash
    kubectl run tmp-psql --rm -i --tty --image ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie -n database -- bash
    ```
 
-2. **Connect as postgres and fix permissions if needed:**
+2. Connect as `postgres` and fix permissions if needed:
 
    ```bash
    psql -h postgres16-rw.database.svc.cluster.local -U postgres -d nextcloud
    # e.g. GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO nextcloud;
    ```
 
-3. **Restore backup:**
+3. Restore a dump:
 
    ```bash
    pg_restore -h postgres16-rw.database.svc.cluster.local -U nextcloud -d nextcloud \
@@ -167,17 +152,16 @@ Superuser (postgres) password: secret `cloudnative-pg-secret` in the database na
      <backup-file>.dump
    ```
 
-   Plain-text `.sql` dumps: pipe to `psql` instead.
+   For plain-text `.sql` dumps, pipe the file to `psql` instead.
 
-4. **After restore: data-fingerprint (and optionally turn off maintenance mode):**
+4. Run the data fingerprint after restoring:
 
    ```bash
    kubectl exec -it <nextcloud-pod> -n default -c nextcloud -- \
      su -s /bin/sh www-data -c "php occ maintenance:data-fingerprint"
-   # If you enabled maintenance mode: php occ maintenance:mode --off
    ```
 
-Tip: put Nextcloud in maintenance mode during restore (`php occ maintenance:mode --on` / `--off`).
+   Put Nextcloud in maintenance mode during the restore when appropriate (`php occ maintenance:mode --on` / `--off`).
 
 ---
 
@@ -216,4 +200,4 @@ done
 ```
 
 - `speedMbit`: link speed in Mbps; `4294967295` usually means virtual/unknown.
-- Physical NICs show real speeds (e.g. 1000, 2500, 10000).
+- Physical NICs show real speeds (for example, 1000, 2500, or 10000).

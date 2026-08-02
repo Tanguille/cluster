@@ -2,6 +2,8 @@
 
 **When to use:** validation, tooling, add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, kopiur, snapshot.
 
+Also serves as the authoritative command reference linked from `docs/useful_commands.md`.
+
 Step-by-step procedures for frequent cluster tasks.
 
 ## Validation and tooling

@@ -12,6 +12,46 @@ upstream cutover plan; outstanding upstream gaps are tracked in the same doc. Th
 concluded in favour of vLLM and has since been superseded — read its numbers as a
 snapshot of that date, not as current guidance.
 
+## Round 3 — 2026-08-01 floor bench (contaminated, do NOT compare to clean rows)
+
+Attempt to re-validate the deployed v0.5.16-rebase image (`sha-cb7b76050cbf`, fork
+patches 086/087 + #31648 already live) against the recorded baselines. **Invalid as a
+measurement** — the GPU was under production load the whole time: 92% busy, VRAM
+34.19/34.2 GB (99.97%), 6 concurrent requests, live `gen_throughput` 22.6 tok/s. The sweep
+numbers land right at the live aggregate, i.e. they measured leftover bandwidth, not engine
+capability. Kept only as worst-case floors; a clean-GPU re-bench remains outstanding.
+
+| Metric | conc 1 | conc 8 | conc 16 | 13.8K spectest TG |
+|---|---:|---:|---:|---:|
+| 2026-08-01 floors | 2.38 | 16.28 | 19.68 | 1.80 |
+
+Operational finding from the same check: the 0.875 VRAM "ceiling" is effectively saturated
+(99.97% used) when agents are loaded — the ~4.6 GB Jellyfin reservation is already handed
+out, so a concurrent transcode would contend with LLM serving (or OOM). Known latent risk,
+unchanged config.
+
+## Model-fit verdict — DeepSeek-V4-Flash-0731 (2026-08-01, NO-GO, do not re-ask)
+
+284B-param MoE (13B active/token, 1M context, CSA/HCA hybrid). Official weights ~167 GB
+(mixed FP4/FP8, ~184 GB w/ overhead); smallest community GGUF ~88–91 GB (IQ2). Cannot fit
+~28 GB usable VRAM at any quantization; weight streaming over PCIe 4.0 x16 caps at ~1–3
+tok/s; engine support only validated on MI300/MI350/MI355 (not gfx1201). Not viable on this
+box. Requires MI300X-class (192 GB+) memory or multi-node serving. The 27B Qwen3.6 already
+served is at the sensible ceiling for a single R9700. Active-parameter count (13B) is
+irrelevant to fitting — total weights must be resident.
+
+**Engine nuance (2026-08-01, lib-3 follow-up):** one engine IS RDNA4-validated for the
+hybrid arch — antirez's **DwarfStar 4 (`ds4`)**, purpose-built for DeepSeek-V4 (CSA/HCA),
+with a documented R9700/gfx1201 ROCm 7.2.2 PR (#558): 2-bit GGUF (~81 GB) + SSD expert
+streaming, measured **4.4–4.7 gen tok/s** (no Jellyfin reservation). It exposes an
+OpenAI-compatible server (`/v1/chat/completions`, SSE, tool calls), but: no 14K-prompt
+TTFT/prefill measurement on R9700 (decisive for agentic latency), single graph worker
+(no continuous batching), no OCI image/Helm/Flux path (bare-metal `make`, Ubuntu-tested),
+self-labeled "beta", streaming documented mainly for Metal/GLM-ROCm. Even if tuned, 4.5
+tok/s ≈ 3× slower than today's Qwen3.6-27B. Verdict: experiment-only curiosity, NOT a
+production replacement. vLLM has only an 8×R9700 TP=8/EP=8 datapoint (#41961); mattbucci
+SGLang fork has no DeepSeek-V4 support.
+
 ## Round 2 Final Results — 2026-06-21
 
 **As measured on 2026-06-21 (since superseded): vLLM kyuz0 + cyankiwi AWQ-INT4 + MTP×4 + 234K context.**
@@ -521,10 +561,12 @@ Done, kept for the result:
 
 Still outstanding:
 
-- [ ] **Revalidate the latest SGLang** once upstream rebases the RDNA4 patch series past our
-      `FORK_REF` pin. Blocked on the fork, not on us — see blocker 7 in `sglang-blockers.md`.
-      Re-run the concurrency sweep and the verbatim-reproduction test from `bench/` and compare
-      against the recorded v0.5.15 numbers before moving the production pin.
+- [ ] **Clean re-validation of the deployed v0.5.16-rebase image.** The fork rebase that
+      this item waited on has happened (v0.5.16, `689339d`, deployed at `sha-cb7b76050cbf`
+      with 086/087/#31648 live), so the "blocked on the fork" condition is met. What remains
+      is a clean-GPU re-run of the concurrency sweep and the verbatim-reproduction test from
+      `bench/` compared against the recorded v0.5.15 numbers — the 2026-08-01 attempt ran
+      under production load and is only a floor (see Round 3 above).
 - [ ] vLLM fp8 KV + extended context: `--max-model-len 131072` with fp8 KV — does 32K -> 131K
       move throughput?
 - [ ] Push MTP concurrency beyond 16 with `max_num_seqs=32` — does C=32 MTP reach 200+ tok/s?
