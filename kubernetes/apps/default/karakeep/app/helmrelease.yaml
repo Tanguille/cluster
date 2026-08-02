@@ -30,9 +30,6 @@ spec:
               tag: 0.33.1@sha256:5467873df817ab3aa837f2b06bd7f2b0974132ba1ae5bce0b7e2fd134abc269b
             env:
               BROWSER_WEB_URL: http://karakeep-chrome.default.svc.cluster.local:9222
-              CRAWLER_DOWNLOAD_BANNER_IMAGE: true
-              CRAWLER_ENABLE_ADBLOCKER: true
-              CRAWLER_STORE_SCREENSHOT: true
               DATA_DIR: /data
               DISABLE_SIGNUPS: true
               MEILI_ADDR: http://karakeep-meilisearch.default.svc.cluster.local:7700
@@ -49,20 +46,30 @@ spec:
               NEXTAUTH_URL: https://karakeep.${SECRET_DOMAIN}
               DISABLE_NEW_RELEASE_CHECK: true
               COREPACK_INTEGRITY_KEYS: 0
-              WORKERS_ENABLED_WORKERS: "inference"
               # OpenAI-compatible endpoint (via litellm); must match /v1/models ids.
               OPENAI_BASE_URL: http://litellm.ai.svc.cluster.local/v1
               OPENAI_API_KEY: ${LITELLM_API_KEY}
-              INFERENCE_TEXT_MODEL: qwen-3.6-fast
+              # Text tasks (auto-tags, summaries) run on the 2B iGPU model to
+              # spare the 27B; image tagging/OCR stay on the 27B (vision) because
+              # the qwen35-2b GGUF is text-only. qwen35-2b is llmkube-managed, so
+              # its LiteLLMModel is auto-registered (litellm-operator autoRegister)
+              # under the InferenceService's name, not a hand-written alias.
+              INFERENCE_TEXT_MODEL: qwen35-2b
               INFERENCE_IMAGE_MODEL: qwen-3.6-fast
               INFERENCE_NUM_WORKERS: "2"
               INFERENCE_OUTPUT_SCHEMA: "plain"
-              INFERENCE_ENABLE_AUTO_TAGGING: "true"
               INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
-              INFERENCE_CONTEXT_LENGTH: "16000"
+              # Leaves headroom under the 2B's 16K-per-slot budget (see qwen35-2b.yaml).
+              INFERENCE_CONTEXT_LENGTH: "12000"
               INFERENCE_JOB_TIMEOUT_SEC: "300"
-              INFERENCE_FETCH_TIMEOUT_SEC: "600"
               OCR_USE_LLM: "true"
+              # enableAutoIndexing defaults to off whenever OPENAI_BASE_URL is set (v0.33.1
+              # packages/shared/config.ts), so it must be explicit here. The embedding client
+              # falls back to OPENAI_BASE_URL/OPENAI_API_KEY when EMBEDDING_OPENAI_* isn't set
+              # (packages/shared/inference.ts), so no separate EMBEDDING_OPENAI_BASE_URL is needed.
+              EMBEDDING_ENABLE_AUTO_INDEXING: "true"
+              EMBEDDING_TEXT_MODEL: qwen3-embedding
+              EMBEDDING_DIMENSIONS: "1024"
             probes:
               liveness:
                 enabled: true
@@ -145,7 +152,8 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 256Mi
+                # 91Mi cgroup peak over 30d; recheck after a meilisearch version bump
+                memory: 128Mi
               limits:
                 cpu: 1
                 memory: 4Gi

@@ -35,11 +35,21 @@ spec:
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:f8ec293aa54a6d42fa60bbfe3f37f6d4878d9df0d2e96e80f5d2dc514bcea182
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  contextSize: 16384 # GDN keeps KV tiny, so long ctx is cheap; 16K is plenty for offload
+  # llama.cpp splits contextSize across parallelSlots, so 32768/2 = 16384 per slot.
+  # GDN keeps KV tiny, so long ctx is cheap; 16K per slot is plenty for offload.
+  contextSize: 32768
   jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
   extraArgs:
     - "--alias"
     - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
+    # Unsloth's recommended non-thinking sampling for Qwen3.5 Small (repeats otherwise);
+    # set here since litellm's auto-registered alias carries no sampling params.
+    - "--temp"
+    - "0.7"
+    - "--top-p"
+    - "0.8"
+    - "--presence-penalty"
+    - "1.5"
 
   # Both iGPU nodes advertise 2 squat.ai/dri slots; the embedders pair up on
   # qwen3-embedding's node (via podAffinity there), leaving the other iGPU
