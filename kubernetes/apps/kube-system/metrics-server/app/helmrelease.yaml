@@ -25,6 +25,13 @@ spec:
       - --kubelet-use-node-status-port
       - --metric-resolution=10s
       - --kubelet-request-timeout=2s
+    # 79Mi cgroup peak over 30d against the chart's 200Mi default. Both replicas currently land
+    # on control-3, which the soft topologySpreadConstraint above permits, so this counts twice
+    # on the node that has the least headroom.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
     metrics:
       enabled: true
     serviceMonitor:
