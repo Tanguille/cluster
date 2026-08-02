@@ -38,14 +38,16 @@ jobs:
           github_token: ${{ github.token }}
           ai_base_url: http://litellm.ai.svc.cluster.local/v1
           ai_api_key: ${{ secrets.LITELLM_API_KEY }}
-          ai_model: qwen-3.6-fast # thinking-off litellm twin (see litellm configmap)
-          # Empty omits the field (action default sends 0.1); SGLang runs sampling_defaults=model,
-          # so the model's generation_config applies (temp 1.0, top_k 20, top_p 0.95) — Qwen's
-          # shipped sampling; near-greedy decoding is the documented repetition-loop trigger.
-          ai_temperature: ""
+          # omniroute routes to a larger free-tier model than the self-hosted 27B
+          # (see litellm routerSettings.fallbacks); falls back to qwen-3.6-fast
+          # automatically if the free provider fails or times out.
+          ai_model: omniroute
+          # omniroute's proxied models don't share SGLang's sampling_defaults, so
+          # an empty temperature has no known-good fallback here — pin explicitly.
+          ai_temperature: "0.2"
           ai_response_format: json_schema
-          # This GPU does ~10 tok/s with ~155-220s cold prefills near ~100K ctx (validated), so the
-          # action's 300s default per-request timeout is too tight. Raise it.
+          # Covers both omniroute (observed 2-74s) and, on fallback, qwen-3.6-fast's
+          # ~10 tok/s cold prefill on this GPU (155-220s near ~100K ctx, validated).
           ai_request_timeout_sec: "600"
           verdict_policy: findings_severity_gated
           inline_findings: "true"
