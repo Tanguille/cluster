@@ -53,3 +53,32 @@ spec:
     mode: chat
     maxInputTokens: 171808
     maxOutputTokens: 8192
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: qwen-3.5-2b
+spec:
+  modelName: qwen-3.5-2b
+  proxyRef: litellm
+  params:
+    # llama.cpp advertises the --alias as the model id; this gguf runs on the
+    # RDNA2 iGPU (Vulkan) and is text-only (no vision, no thinking by default).
+    model: openai/qwen3.5-2b
+    apiBase: http://qwen35-2b.ai.svc.cluster.local:8080/v1
+    apiKey: sk-llama-noauth
+    additional:
+      timeout: 300
+      stream_timeout: 300
+      num_retries: 0
+      # Unsloth instruct (non-thinking) sampling for Qwen3.5 Small. Karakeep
+      # sends no sampling params of its own, so these become the defaults.
+      temperature: 0.7
+      top_p: 0.8
+      presence_penalty: 1.5
+  info:
+    mode: chat
+    # llmkube contextSize is 16384; leave room for output + prompt overhead.
+    maxInputTokens: 13000
+    maxOutputTokens: 4096
