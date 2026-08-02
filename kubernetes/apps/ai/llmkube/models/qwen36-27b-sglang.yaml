@@ -218,38 +218,24 @@ spec:
     # orphaned on every bump; the qwen36-27b-hicache-prune CronJob above reclaims it.
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
       value: /hicache/sglang-v0.5.16_awq-f541031d_fork-cb7b760
-    # Unset defaults to unbounded; a full L2 measured 14G on 2026-07-27.
-    # 64Gi made L3 write-only: the store sat at 64.05G against the cap, so it evicted
-    # every entry before it was ever read back (11,441 tokens served in 20h on 2026-07-30).
-    # 128Gi stops that; the store then refilled to the cap in 2 days, which is what forced
-    # write_through_selective below. Deliberately above the
-    # PVC's nominal 64Gi -- hostpath enforces no quota and openebs-hostpath has no volume
-    # expansion, so the PVC number cannot be raised and this env var is the real bound.
+    # Unset defaults to unbounded. 64Gi made L3 write-only: it evicted every entry before
+    # it was read back. Deliberately above the PVC's nominal 64Gi -- hostpath enforces no
+    # quota and openebs-hostpath cannot expand, so this env var is the real bound.
     - name: SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE
       value: 128Gi
-    # MAX_SIZE alone is blind to the other tenants of control-1's shared 500G root, so
-    # hold a floor well above kubelet's ~50G nodefs eviction threshold. At 163G free with a
-    # 128G store (2026-08-02) the cap binds first and this stays a backstop, with ~63G of
-    # margin; if the rest of the root grows past that, writes are refused rather than
-    # filling the disk.
+    # MAX_SIZE is blind to the other tenants of control-1's shared root, so hold a floor
+    # above kubelet's nodefs eviction threshold: refuse writes rather than fill the disk.
     - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
       value: 100Gi
-    # Not the eviction trigger, despite the name the log prints: eviction fires when the
-    # store would exceed MAX_SIZE, and this is the low-water mark it drains down to
-    # (target = cap * ratio, lru_file_evictor.py:387). 0.95 keeps ~122G rather than ~115G
-    # after each pass, trading more frequent evictions for a warmer cache. Only engages
-    # once the store actually reaches 128Gi. Values outside (0, 1.0] silently fall back.
+    # Not the eviction trigger despite the log's wording: eviction fires at MAX_SIZE and
+    # this is the low-water mark it drains to. Higher = warmer cache, more frequent passes.
     - name: SGLANG_HICACHE_FILE_BACKEND_EVICTION_RATIO
       value: "0.95"
-    # Without this a lookup miss walks the store with os.scandir; it held 682,508 files on
-    # 2026-07-30. Upstream #29716 measured P99 TTFT -22.1% at 157K files. Off by default.
-    # The startup scan it adds is one os.listdir, no per-file stat (hicache_storage.py:441),
-    # measured 0.31s -- nowhere near the ~30min startup-probe budget below.
+    # Without this a lookup miss walks the whole store with os.scandir. The startup scan it
+    # adds is one os.listdir, not a per-file stat. Off by default.
     - name: SGLANG_HICACHE_FILE_BACKEND_ENABLE_METADATA_CACHE
       value: "1"
-    # The 5s default expires every entry the startup scan just inserted. -1 is special-cased
-    # as never-expire (hicache_storage.py:340); the dict stays a 1:1 shadow of what is on
-    # disk because the evictor wires on_evict -> remove. ~140MB for 682K keys.
+    # The 5s default expires every entry the startup scan just inserted; -1 never expires.
     - name: SGLANG_HICACHE_FILE_BACKEND_METADATA_TTL
       value: "-1"
   extraVolumes:
@@ -334,10 +320,8 @@ spec:
     - --schedule-conservativeness
     - "0.1"
     - --enable-mixed-chunk
-    # Promote only on hit_count >= 2. write_through at the 128Gi cap drove vda to 26 MB/s
-    # sustained and halved per-request decode (4.09 -> 2.07 tok/s) on 2026-07-31.
-    # page_size is pinned at 1 by mamba no_buffer (server_args.py:4868), so write_through
-    # is ~1 file per prompt token.
+    # Promote only on hit_count >= 2. page_size is pinned at 1 by mamba no_buffer, so
+    # write_through is ~1 file per prompt token, which halved per-request decode.
     - --hicache-write-policy
     - write_through_selective
     - --hicache-storage-backend
