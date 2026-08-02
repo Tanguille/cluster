@@ -1,6 +1,8 @@
 machine:
   kubelet:
     extraConfig:
+      crashLoopBackOff:
+        maxContainerRestartPeriod: 60s
       enableSystemLogHandler: true
       enableSystemLogQuery: true
       mergeDefaultEvictionSettings: true
