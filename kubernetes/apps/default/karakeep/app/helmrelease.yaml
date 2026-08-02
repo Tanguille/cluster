@@ -30,9 +30,6 @@ spec:
               tag: 0.33.1@sha256:5467873df817ab3aa837f2b06bd7f2b0974132ba1ae5bce0b7e2fd134abc269b
             env:
               BROWSER_WEB_URL: http://karakeep-chrome.default.svc.cluster.local:9222
-              CRAWLER_DOWNLOAD_BANNER_IMAGE: true
-              CRAWLER_ENABLE_ADBLOCKER: true
-              CRAWLER_STORE_SCREENSHOT: true
               DATA_DIR: /data
               DISABLE_SIGNUPS: true
               MEILI_ADDR: http://karakeep-meilisearch.default.svc.cluster.local:7700
@@ -49,7 +46,6 @@ spec:
               NEXTAUTH_URL: https://karakeep.${SECRET_DOMAIN}
               DISABLE_NEW_RELEASE_CHECK: true
               COREPACK_INTEGRITY_KEYS: 0
-              WORKERS_ENABLED_WORKERS: "inference"
               # OpenAI-compatible endpoint (via litellm); must match /v1/models ids.
               OPENAI_BASE_URL: http://litellm.ai.svc.cluster.local/v1
               OPENAI_API_KEY: ${LITELLM_API_KEY}
