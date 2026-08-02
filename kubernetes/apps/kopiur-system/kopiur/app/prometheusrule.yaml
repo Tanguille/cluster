@@ -1,0 +1,73 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kopiur-rules
+spec:
+  groups:
+    # The chart ships its own `kopiur.rules` group (monitoring.prometheusRule.enabled
+    # in the HelmRelease); group and alert names here must not collide with it.
+    - name: kopiur.freshness.rules
+      rules:
+        # Backups were down 44h in July before anyone noticed: nothing watched
+        # freshness. Snapshots run hourly, so 6h is 6 missed runs, not a slow one.
+        # Named Overdue, not Stale: the chart's KopiurBackupStale fires off the same
+        # metric with the same severity, so a shared name is one alert fingerprint.
+        - alert: KopiurBackupOverdue
+          expr: |-
+            time() - kopiur_policy_last_backup_success_timestamp_seconds > 6 * 60 * 60
+          for: 30m
+          annotations:
+            summary: >-
+              kopiur {{ $labels.namespace }}/{{ $labels.policy }} has no successful backup
+              for {{ $value | humanizeDuration }} — restore point is aging
+          labels:
+            severity: warning
+
+        - alert: KopiurBackupCritical
+          expr: |-
+            time() - kopiur_policy_last_backup_success_timestamp_seconds > 24 * 60 * 60
+          for: 30m
+          annotations:
+            summary: >-
+              kopiur {{ $labels.namespace }}/{{ $labels.policy }} has not backed up
+              successfully in {{ $value | humanizeDuration }}
+          labels:
+            severity: critical
+
+        # The July outage removed the CSI snapshot CRDs, so policies stopped reporting
+        # rather than reporting failure. Absence is the failure mode to catch.
+        - alert: KopiurPolicyMetricsAbsent
+          expr: |-
+            absent(kopiur_policy_last_backup_success_timestamp_seconds)
+          for: 30m
+          annotations:
+            summary: >-
+              No kopiur policy backup metrics at all — the controller is down or every
+              policy stopped reporting; backup state is unknown, not healthy
+          labels:
+            severity: critical
+
+        # A repo whose snapshot count only ever grows means retention is not pruning;
+        # a drop to zero means the repo was emptied under us.
+        - alert: KopiurRepoEmpty
+          expr: |-
+            kopiur_repo_snapshot_count == 0
+          for: 1h
+          annotations:
+            summary: >-
+              kopiur repository {{ $labels.name }} reports zero snapshots — the repo is
+              empty or unreadable
+          labels:
+            severity: critical
+
+        - alert: KopiurControllerNotLeader
+          expr: |-
+            max(kopiur_leader_is_leader) == 0
+          for: 30m
+          annotations:
+            summary: >-
+              No kopiur controller holds the leader lease — nothing is scheduling backups
+          labels:
+            severity: critical
