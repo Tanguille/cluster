@@ -36,8 +36,8 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                # 237Mi cgroup peak over 30d; 320Mi keeps ~35% headroom on control-2
-                memory: 320Mi
+                # 237Mi cgroup peak over 30d, so this still covers peak; limit stays 14Gi
+                memory: 256Mi
               limits:
                 cpu: 4
                 memory: 14Gi
