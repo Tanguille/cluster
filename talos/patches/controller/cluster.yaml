@@ -14,6 +14,11 @@ cluster:
   etcd:
     extraArgs:
       listen-metrics-urls: http://0.0.0.0:2381
+      # Keep the etcd database lean by compacting old revisions hourly; this
+      # replaces the nightly defrag job (compaction prevents growth, defrag
+      # only reclaims space the file already holds).
+      auto-compaction-mode: periodic
+      auto-compaction-retention: 1h
     advertisedSubnets: [192.168.0.0/24]
   proxy:
     disabled: true
