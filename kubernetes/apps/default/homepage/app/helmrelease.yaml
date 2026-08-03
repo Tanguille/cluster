@@ -73,6 +73,10 @@ spec:
 
     defaultPodOptions:
       automountServiceAccountToken: true
+      labels:
+        # kubernetes mode: cluster — without this the default-namespace apiserver deny
+        # blanks every node/ingress/httproute widget.
+        egress.home.arpa/kube-apiserver: allow
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000

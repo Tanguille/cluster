@@ -1,9 +1,12 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
-# Internet-exposed app namespaces must not reach the kube-apiserver. enableDefaultDeny
-# egress:false keeps this a pure deny overlay — DNS/internet/cluster egress stay
-# default-allow. kopiur movers (managed-by=kopiur) legitimately need the apiserver, so
-# they are excluded via NotIn (also matches label-absent app pods => they ARE denied).
+# Internet-exposed app namespaces must not reach the kube-apiserver. Namespace membership
+# is a coarse proxy for exposure: not every pod in these namespaces is externally routed.
+# enableDefaultDeny egress:false keeps this a pure deny overlay — DNS/internet/cluster
+# egress stay default-allow. kopiur movers (managed-by=kopiur) legitimately need the
+# apiserver, so they are excluded via NotIn (also matches label-absent app pods => they ARE
+# denied). Workloads that need the apiserver opt out with the pod label
+# egress.home.arpa/kube-apiserver: allow, declared in their own HelmRelease.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -15,6 +18,9 @@ spec:
       - key: app.kubernetes.io/managed-by
         operator: NotIn
         values: [kopiur]
+      - key: egress.home.arpa/kube-apiserver
+        operator: NotIn
+        values: [allow]
   enableDefaultDeny:
     egress: false
   egressDeny:
@@ -28,16 +34,14 @@ metadata:
   name: deny-kube-apiserver-egress
   namespace: default
 spec:
-  # homepage runs kubernetes mode: cluster — denying it the apiserver blanks every
-  # node/ingress/httproute widget on home.${SECRET_DOMAIN}.
   endpointSelector:
     matchExpressions:
       - key: app.kubernetes.io/managed-by
         operator: NotIn
         values: [kopiur]
-      - key: app.kubernetes.io/name
+      - key: egress.home.arpa/kube-apiserver
         operator: NotIn
-        values: [homepage]
+        values: [allow]
   enableDefaultDeny:
     egress: false
   egressDeny:
@@ -56,6 +60,9 @@ spec:
       - key: app.kubernetes.io/managed-by
         operator: NotIn
         values: [kopiur]
+      - key: egress.home.arpa/kube-apiserver
+        operator: NotIn
+        values: [allow]
   enableDefaultDeny:
     egress: false
   egressDeny:
