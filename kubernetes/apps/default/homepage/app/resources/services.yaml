@@ -21,15 +21,9 @@
         description: Out-of-band management
         siteMonitor: https://ipmi.${SECRET_DOMAIN}
 
-- Security:
-    - CrowdSec:
-        icon: crowdsec.png
-        description: Community IPS (LAPI)
-        widget:
-          type: crowdsec
-          url: http://crowdsec-service.security.svc.cluster.local:8080
-          username: "{{HOMEPAGE_VAR_CROWDSEC_USERNAME}}"
-          password: "{{HOMEPAGE_VAR_CROWDSEC_PASSWORD}}"
+# No CrowdSec tile: the widget logs into LAPI as a watcher (machine), and machines
+# self-register from the chart's agents — there is no declarative slot for one, so the
+# credential would live only in the LAPI database. It 400'd on login for as long as it existed.
 
 # kromgo cluster metrics — service tiles because customapi only exists as a
 # service widget (the global header cannot host it). Widgets are proxied
