@@ -28,11 +28,16 @@ metadata:
   name: deny-kube-apiserver-egress
   namespace: default
 spec:
+  # homepage runs kubernetes mode: cluster — denying it the apiserver blanks every
+  # node/ingress/httproute widget on home.${SECRET_DOMAIN}.
   endpointSelector:
     matchExpressions:
       - key: app.kubernetes.io/managed-by
         operator: NotIn
         values: [kopiur]
+      - key: app.kubernetes.io/name
+        operator: NotIn
+        values: [homepage]
   enableDefaultDeny:
     egress: false
   egressDeny:
