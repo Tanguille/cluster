@@ -63,10 +63,9 @@ spec:
   modelName: omniroute
   proxyRef: litellm
   params:
-    # "auto" is OmniRoute's zero-config smart-routing model id — it builds a
-    # virtual combo from whichever free/keyed providers are connected and
-    # picks the best-scoring one live per request (quota/health/cost/taskFit).
-    model: openai/auto
+    # Bare "auto" sticks to the last-known-good provider regardless of quality;
+    # auto/smart scores live on quota/health/cost/taskFit instead.
+    model: openai/auto/smart
     apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
     # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
     # a non-empty api_key (same convention as the qwen-3.6 sk-sglang-noauth).
