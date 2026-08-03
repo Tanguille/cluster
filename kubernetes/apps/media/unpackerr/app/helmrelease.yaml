@@ -33,8 +33,13 @@ spec:
               UN_ACTIVITY: true
               UN_SONARR_0_URL: http://sonarr.media.svc.cluster.local
               UN_SONARR_0_PATHS_0: /media/Downloads/tv-sonarr
+              # Default 1m start delay + ~1-2m extraction time gave Sonarr's own
+              # completed-download scan a window to import a bundled Sample/ file
+              # before the real episode was extracted. Shrinking the delay narrows it.
+              UN_SONARR_0_START_DELAY: 10s
               UN_RADARR_0_URL: http://radarr.media.svc.cluster.local
               UN_RADARR_0_PATHS_0: /media/Downloads/radarr
+              UN_RADARR_0_START_DELAY: 10s
               UN_RADARR_0_API_KEY: ${RADARR_API_KEY}
               UN_SONARR_0_API_KEY: ${SONARR_API_KEY}
             probes:
