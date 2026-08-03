@@ -48,10 +48,11 @@ importMode = "Auto"
 RssSyncTimer = 5
 RefreshDownloadsTimer = 5
 # Arr messages treated as failure; qBitrr removes files and reports failed to Arr
+# "Unable to determine if file is a sample" excluded: false-positives on irregular-runtime
+# content (e.g. reality TV), causing good files to be blocklisted
 ArrErrorCodesToBlocklist = [
   "Not an upgrade for existing episode file(s)",
-  "Not a preferred word upgrade for existing episode file(s)",
-  "Unable to determine if file is a sample"
+  "Not a preferred word upgrade for existing episode file(s)"
 ]
 
 [Sonarr-TV.EntrySearch]
@@ -130,10 +131,11 @@ importMode = "Auto"
 RssSyncTimer = 5
 RefreshDownloadsTimer = 5
 # Arr messages treated as failure; qBitrr removes files and reports failed to Arr
+# "Unable to determine if file is a sample" excluded: false-positives on short/irregular
+# runtime content, causing good files to be blocklisted
 ArrErrorCodesToBlocklist = [
   "Not an upgrade for existing movie file(s)",
-  "Not a preferred word upgrade for existing movie file(s)",
-  "Unable to determine if file is a sample"
+  "Not a preferred word upgrade for existing movie file(s)"
 ]
 
 [Radarr.EntrySearch]
