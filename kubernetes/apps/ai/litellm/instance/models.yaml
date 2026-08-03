@@ -72,7 +72,12 @@ spec:
     # a non-empty api_key (same convention as the qwen-3.6 sk-sglang-noauth).
     apiKey: sk-omniroute-noauth
     additional:
-      timeout: 300
+      # 300s + retry_policy's 2 retries could exceed the pr-reviewer-action's
+      # 600s curl timeout, so the action gives up and retries blind instead of
+      # letting the qwen-3.6-fast fallback fire (observed 2026-08-03: 60min
+      # run, fallback never triggered). 90s keeps worst case (3 attempts) at
+      # 270s, inside the action's window.
+      timeout: 90
       num_retries: 0
   info:
     mode: chat
