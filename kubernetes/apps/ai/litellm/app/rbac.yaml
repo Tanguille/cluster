@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/clusterrole_v1.json
+# litellm-operator 0.0.10 added LiteLLMTeam/LiteLLMVirtualKey controllers
+# without matching RBAC in the chart's ClusterRole, so the manager's
+# informer cache never syncs and it crashloops on every startup
+# (leader election lost -> shutdown -> restart). Additive grant, survives
+# chart upgrades; drop once upstream ships the missing rules.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: litellm-operator-team-rbac-patch
+rules:
+  - apiGroups: ["litellm.home-operations.com"]
+    resources: ["litellmteams", "litellmvirtualkeys"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["litellm.home-operations.com"]
+    resources: ["litellmteams/status", "litellmvirtualkeys/status"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: litellm-operator-team-rbac-patch
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: litellm-operator-team-rbac-patch
+subjects:
+  - kind: ServiceAccount
+    name: litellm-operator
+    namespace: ai
