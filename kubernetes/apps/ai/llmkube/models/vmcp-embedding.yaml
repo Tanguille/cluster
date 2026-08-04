@@ -57,6 +57,9 @@ spec:
   extraArgs:
     - "--alias"
     - "vmcp-embedding" # served model name litellm/vmcp-unified send in /v1/embeddings
+    # Same as qwen3-embedding: 8192 MiB host prompt cache, never hit, never released.
+    - "--cache-ram"
+    - "0"
 
   # Defense-in-depth: keeps the iGPU pin even if qwen3-embedding's own pin is
   # ever loosened (the podAffinity below would otherwise follow it anywhere).
