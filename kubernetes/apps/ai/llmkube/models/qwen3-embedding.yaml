@@ -53,6 +53,10 @@ spec:
   extraArgs:
     - "--alias"
     - "qwen3-embedding" # served model name memini sends in /v1/embeddings
+    # Host prompt cache (default 8192 MiB) is never released: 100 distinct
+    # embedding requests took anon 0.08 -> 8.06 GiB. One-shot embeddings never hit it.
+    - "--cache-ram"
+    - "0"
 
   # Pin to the iGPU node; without this the scheduler could place it on the dGPU
   # node (which also advertises squat.ai/dri) and steal a dGPU slot from sglang.
