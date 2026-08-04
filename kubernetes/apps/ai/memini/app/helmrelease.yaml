@@ -35,6 +35,10 @@ spec:
               MEMINI_EMBED_MAX_BATCH: "8"
               MEMINI_EMBED_MAX_BATCH_CHARS: "12000"
               MEMINI_EMBED_MAX_ITEM_CHARS: "4000"
+              # The 5s default drops writes to vectorless whenever the shared
+              # iGPU embedder is busy; the two from 2026-08-04 20:50 never got
+              # a vector back and are keyword-only.
+              MEMINI_WRITE_EMBED_TIMEOUT: "15s"
             resources:
               requests:
                 cpu: 50m
