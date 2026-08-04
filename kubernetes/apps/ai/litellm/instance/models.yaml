@@ -77,6 +77,13 @@ spec:
       # run, fallback never triggered). 90s keeps worst case (3 attempts) at
       # 270s, inside the action's window.
       timeout: 90
+      # Without this, litellm falls back through _get_stream_timeout to plain
+      # `timeout`, but that's an httpx per-chunk read timeout — it resets on
+      # every byte, so a stream that trickles keep-alives without ever
+      # completing (observed 2026-08-04: response_format error on a streamed
+      # call to opencode/deepseek-v4-flash-free) never gets cut off server-side
+      # and rides out to the action's own 600s curl ceiling instead.
+      stream_timeout: 90
       num_retries: 0
   info:
     mode: chat
