@@ -72,12 +72,20 @@
       minimumGroupSize: 2
     },
     {
-      // installer image (talosupgrade.yaml) + talosctl via aqua (.mise.toml) and github-releases
-      // (image-pull.yaml) all track the same Talos release — one PR instead of three
+      // Installer image (talosupgrade.yaml → docker), siderolabs/talos + talosctl releases
+      // (image-pull.yaml → github-releases) and the mise tool aqua:siderolabs/talos (.mise.toml
+      // → github-tags) all track the same Talos release — one PR instead of three.
+      // Exact names (no regex) so the freed trailing-slash regex no longer silently misses
+      // every package. "github-tags" is the datasource the aqua:mise tool actually carries.
       description: "Talos Group",
       groupName: "talos",
-      matchDatasources: ["docker", "aqua", "github-releases"],
-      matchPackageNames: ["/siderolabs\\/(talos|installer)/"]
+      matchDatasources: ["docker", "github-releases", "github-tags"],
+      matchPackageNames: [
+        "ghcr.io/siderolabs/installer",
+        "siderolabs/talos",
+        "siderolabs/talosctl",
+        "aqua:siderolabs/talos"
+      ]
     },
     {
       description: "Rook-Ceph Group",
