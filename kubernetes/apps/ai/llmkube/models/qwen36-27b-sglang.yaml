@@ -219,10 +219,14 @@ spec:
     - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
       value: /hicache/sglang-v0.5.16_awq-f541031d_fork-cb7b760
     # Unset defaults to unbounded. 64Gi made L3 write-only: it evicted every entry before
-    # it was read back. Deliberately above the PVC's nominal 64Gi -- hostpath enforces no
-    # quota and openebs-hostpath cannot expand, so this env var is the real bound.
+    # it was read back. 128Gi didn't fix it either -- the store still sat at ~99% full
+    # continuously (2026-08-04 measurement), so it was still evicting under write
+    # pressure just as before, only less visibly. 192Gi gives real headroom: control-1's
+    # /var had 268.7Gi free and SSD_Pool (backing the zvol) had 364Gi free at time of
+    # writing. Deliberately above the PVC's nominal 64Gi -- hostpath enforces no quota
+    # and openebs-hostpath cannot expand, so this env var is the real bound.
     - name: SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE
-      value: 128Gi
+      value: 192Gi
     # MAX_SIZE is blind to the other tenants of control-1's shared root, so hold a floor
     # above kubelet's nodefs eviction threshold: refuse writes rather than fill the disk.
     - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
