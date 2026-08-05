@@ -10,13 +10,7 @@ Stable, non-sensitive facts about this cluster and tooling.
 
 ## ToolHive / MCP
 
-- MCP server manifests live in `kubernetes/apps/ai/toolhive/config/`; all route through the single `all` MCPGroup (`mcpgroups.yaml`). Prefer these tools over raw kubectl for their domains; use the `flux-operator` server by default.
-- Servers: `flux-operator`, `github`, `grafana` (Grafana + Prometheus + Alertmanager), `homeassistant`, `karakeep`, `kubesearch`, `searxng`, `context7`, `talos-mcp` (read-only Talos), and the `unified` VirtualMCPServer gateway.
 - MCPServer secret-backed env vars use `spec.secrets` with `targetEnvName`; `env[].valueFrom` is unsupported. Transport values are `streamable-http` (e.g. `talos-mcp`) or `stdio` (e.g. `grafana`) — never `streamablehttp`.
-- Keep `*-opt` MCPServer objects in the same file as the primary object and fully duplicate `spec`; YAML anchors do not resolve across `---` documents.
-- VirtualMCPServer and MCPServer must not share a name in one namespace because both create a Deployment with that name.
-- For ToolHive versions, treat `kubernetes/apps/ai/toolhive/app/ocirepository.yaml` and `kubernetes/apps/ai/toolhive/crds/ocirepository.yaml` as authoritative.
-- Public `mcp-*.${SECRET_DOMAIN}` routes target VirtualMCPServer backends. The optimizer endpoint is `mcp-unified.${SECRET_DOMAIN}` to `vmcp-unified` in namespace `ai`, port `4483`, path `/mcp`. Inside the cluster, use `vmcp-*` Services on port `4483`, not `mcp-*-proxy` Services on `8080`.
 - VMCP session storage uses Redis at `dragonfly.database.svc.cluster.local:6379`.
 
 ## Talos
