@@ -68,15 +68,22 @@ jobs:
           # whenever it can resolve a changelog source — don't re-fetch those. When fetching is
           # needed, use the authenticated gh_api tool — web_fetch of github.com HTML truncates to
           # page boilerplate at the response cap and never yielded usable notes (validated in run
-          # logs). The trailing quality-rules paragraph distills a fleet audit of past reviews.
+          # logs). Projects that publish no GitHub releases (e.g. Ceph) return 404/empty from
+          # gh_api, so fall back to the project official release-notes documentation page. The
+          # trailing quality-rules paragraph distills a fleet audit of past reviews.
           system_prompt: >-
             ${{ contains(github.event.pull_request.body, '### Release Notes')
             && 'The PR body already contains upstream release notes from Renovate. Do not fetch
             release notes externally. Summarize the embedded notes in a **Release notes** section
             in review_markdown: user-visible changes, breaking changes, and security fixes.'
             || 'For dependency upgrade and Renovate PRs the body lacks upstream release notes.
-            Fetch them with the gh_api tool (api.github.com /repos/OWNER/REPO/releases JSON); do
-            not web_fetch github.com HTML pages, they truncate to boilerplate. Summarize them in a
+            Fetch them with the gh_api tool (api.github.com /repos/OWNER/REPO/releases JSON) first.
+            If that returns 404 or an empty list (the project does not publish GitHub releases,
+            e.g. Ceph), fall back to web_fetch of the project official release-notes documentation
+            page (e.g. docs.ceph.com/en/latest/releases/tentacle/#v20-2-3-tentacle) rather than
+            github.com HTML pages, which truncate to boilerplate. Large changelogs (Ceph lists
+            hundreds of backported PRs) exhaust the context budget if fetched whole: extract only
+            the target version section and its Notable Changes summary, then stop. Summarize in a
             **Release notes** section in review_markdown: user-visible changes, breaking changes,
             and security fixes.' }}
             Review quality rules: Before flagging a config, env var, or resource as missing,
