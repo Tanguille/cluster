@@ -85,10 +85,10 @@ spec:
       resources:
         requests:
           cpu: 50m
-          memory: 64Mi
+          memory: 128Mi
         limits:
           cpu: 200m
-          memory: 128Mi
+          memory: 256Mi
 
     nextcloud:
       datadir: /var/www/data
@@ -169,7 +169,7 @@ spec:
           extension=exif
           extension=intl
           extension=gd
-          memory_limit = 8G
+          memory_limit = 512M
           opcache.memory_consumption = 512
           opcache.max_accelerated_files = 20000
           opcache.revalidate_freq = 60
@@ -438,6 +438,13 @@ spec:
     cronjob:
       enabled: true
       type: cronjob
+      resources:
+        requests:
+          cpu: 100m
+          memory: 500Mi
+        limits:
+          cpu: 1
+          memory: 2Gi
       cronjob:
         failedJobsHistoryLimit: 1
         successfulJobsHistoryLimit: 2
