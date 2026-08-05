@@ -464,6 +464,13 @@ spec:
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 500Mi
+          limits:
+            cpu: "1"
+            memory: 2Gi
 
     startupProbe:
       enabled: true
