@@ -51,6 +51,8 @@ spec:
           # Network optimization for 2.5Gbps
           ms_osd_compress_min_size: "1024"
           ms_osd_compression_algorithm: snappy
+          # Auto-archive Ceph crashes after 1 day (86400 seconds)
+          mgr/crash/warn_recent_interval: "86400"
         mon:
           # Suppress pgmap/audit debug spam; keeps INF/WRN/ERR (was debug).
           mon_cluster_log_level: info
