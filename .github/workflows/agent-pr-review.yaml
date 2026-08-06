@@ -17,7 +17,9 @@ permissions:
 
 jobs:
   review:
-    runs-on: cluster-runner
+    # review-runner, not cluster-runner: this job feeds untrusted PR text to a tool-calling model,
+    # and cluster-runner mounts Talos os:admin into every pod it schedules.
+    runs-on: review-runner
     # Renovate's type/digest PRs do not need model review.
     if: >-
       ${{

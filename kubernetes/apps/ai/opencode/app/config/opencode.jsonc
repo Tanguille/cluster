@@ -1,10 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "opencode/minimax-m2.5-free",
+  // Pinned: these execute in-process in an agent pod, so an unpinned npm range is remote code
+  // execution on any upstream publish. No Renovate manager covers this file yet.
   "plugin": [
-    "cc-safety-net",
-    "@tarquinen/opencode-dcp@latest",
-    "oh-my-opencode-slim"
+    "cc-safety-net@1.0.6",
+    "@tarquinen/opencode-dcp@3.1.14",
+    "oh-my-opencode-slim@2.2.10"
   ],
   "mcp": {
     "toolhive": {

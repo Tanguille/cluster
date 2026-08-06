@@ -1,0 +1,15 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# Opt-in PSA enforcement. Only for namespaces verified to have zero baseline violations —
+# ai/default/media run privileged kopiur movers, kube-system/rook-ceph/observability/security
+# run privileged infra, so none of those can take this.
+patches:
+  - target:
+      kind: Namespace
+      name: not-used
+    patch: |
+      - op: add
+        path: /metadata/labels/pod-security.kubernetes.io~1enforce
+        value: baseline

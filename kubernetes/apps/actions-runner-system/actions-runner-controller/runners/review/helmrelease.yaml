@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app cluster-runner
+  name: &app review-runner
 spec:
   chartRef:
     kind: OCIRepository
@@ -12,10 +12,8 @@ spec:
   values:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
-    # Talos os:admin is mounted here, so only flate's image-pull job runs on this scale set.
-    # Idle at 0: flate fires only on kubernetes/** changes and tolerates a cold start.
-    minRunners: 0
-    maxRunners: 2
+    minRunners: 1
+    maxRunners: 5
     containerMode:
       type: kubernetes
       kubernetesModeWorkVolumeClaim:
@@ -36,30 +34,14 @@ spec:
             env:
               - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
                 value: "false"
-              - name: NODE
-                valueFrom:
-                  fieldRef:
-                    fieldPath: status.hostIP
-            # Runners had no requests, so the scheduler packed all 3 onto one memory-tight node;
-            # each batch of concurrent reviews then starved kubelet (MemAvailable 1.2Gi → 0.22Gi,
-            # 2026-07-02 batch-kills). Peak observed usage is ~0.32Gi; limits stop any runaway from
-            # taking the node down again.
+            # Matches cluster-runner: peak observed usage ~0.32Gi.
             resources:
               requests:
                 cpu: 250m
                 memory: 512Mi
               limits:
                 memory: 1Gi
-            volumeMounts:
-              - mountPath: /var/run/secrets/talos.dev
-                name: talos
-                readOnly: true
-              - mountPath: /tool-cache
-                name: tool-cache
         serviceAccountName: *app
-        # runner is uid/gid 1001; without fsGroup the CephFS mount lands root-owned
-        securityContext:
-          fsGroup: 1001
         # Best-effort spread so one node blip can't kill a whole review batch (3× on 2026-07-02).
         # ScheduleAnyway (not DoNotSchedule) so CI still runs when a node is down.
         topologySpreadConstraints:
@@ -69,10 +51,3 @@ spec:
             labelSelector:
               matchLabels:
                 actions.github.com/scale-set-name: *app
-        volumes:
-          - name: talos
-            secret:
-              secretName: *app
-          - name: tool-cache
-            persistentVolumeClaim:
-              claimName: runner-tool-cache
