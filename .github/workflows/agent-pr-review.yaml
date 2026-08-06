@@ -33,6 +33,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
+          # this job checks out untrusted PR code; don't leave a usable token in .git/config
+          persist-credentials: false
 
       - name: Run reviewer
         uses: misospace/pr-reviewer-action@6f4fb724b222f6d9a83096d6b41cd636ef3a044e # v2.1.10
