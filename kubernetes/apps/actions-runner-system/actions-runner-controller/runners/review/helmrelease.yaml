@@ -12,16 +12,13 @@ spec:
   values:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
-    minRunners: 1
-    maxRunners: 5
-    containerMode:
-      type: kubernetes
-      kubernetesModeWorkVolumeClaim:
-        accessModes: ["ReadWriteOnce"]
-        storageClassName: openebs-hostpath
-        resources:
-          requests:
-            storage: 25Gi
+    # No workflow targets this scale set until the follow-up PR switches agent-pr-review over,
+    # so idle at 0 until then. Ceiling is 3, not 5: combined with cluster-runner that caps the
+    # cluster at 5 concurrent runners, matching today's ceiling (10 OOM-cascaded the apiserver).
+    minRunners: 0
+    maxRunners: 3
+    # No containerMode: REQUIRE_JOB_CONTAINER is false and no workflow declares `container:`,
+    # so the k8s hooks never fire. _work falls back to emptyDir instead of a 25Gi PVC per pod.
     controllerServiceAccount:
       name: actions-runner-controller
       namespace: actions-runner-system
@@ -42,8 +39,8 @@ spec:
               limits:
                 memory: 1Gi
         serviceAccountName: *app
-        # Best-effort spread so one node blip can't kill a whole review batch (3× on 2026-07-02).
-        # ScheduleAnyway (not DoNotSchedule) so CI still runs when a node is down.
+        # Same rationale as cluster-runner: best-effort spread, ScheduleAnyway so CI still runs
+        # when a node is down.
         topologySpreadConstraints:
           - maxSkew: 1
             topologyKey: kubernetes.io/hostname

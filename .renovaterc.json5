@@ -37,6 +37,15 @@
       packageNameTemplate: "https://huggingface.co/{{depName}}",
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
+    },
+    {
+      description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
+      customType: "regex",
+      managerFilePatterns: ["/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/"],
+      matchStrings: [
+        '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
+      ],
+      datasourceTemplate: "npm"
     }
   ],
   packageRules: [
