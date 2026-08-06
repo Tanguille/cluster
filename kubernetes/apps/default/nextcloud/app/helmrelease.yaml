@@ -14,8 +14,7 @@ spec:
   # FROM_ADDRESS lives in the app's sops secret, NOT in cluster-secrets — ${VAR}
   # substitution never resolved it (silently empty until flux strict mode made it
   # a build error). Chart 9.2.0 has no fromAddressKey in existingSecret (it reads
-  # a plain value at nextcloud.mail.fromAddress). Re-checked at 9.2.5: still absent.
-  # Inject it flux-natively here.
+  # a plain value at nextcloud.mail.fromAddress), still absent at 9.2.5, so inject it here.
   # SMTP_HOST needs no injection: existingSecret.smtpHostKey wires it directly.
   valuesFrom:
     - kind: Secret

@@ -5,8 +5,7 @@ kind: ResourceSet
 metadata:
   name: external-service-http
 spec:
-  # Plain HTTP to an off-cluster host, fronted on :80. Add one here to add a service.
-  # service is the in-cluster name, targetPort the port the host actually listens on.
+  # Plain HTTP to an off-cluster host, fronted on :80. One input entry per service.
   inputs:
     - name: arm
       service: internal-arm

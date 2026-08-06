@@ -108,12 +108,8 @@ jobs:
     name: Flate - Pull Images
     runs-on: cluster-runner
     steps:
-      # 96MiB per run, and this job fires on every container PR. /tool-cache is an RWX
-      # PVC shared by all runner pods, so it is one download per Talos version, not per
-      # run. Optional: absent until the runner HelmRelease rolls out, unreachable if
-      # CephFS is down. Its contents are untrusted, since any job on any runner can write
-      # to the share, so the binary is checked against the release sha256 every run and
-      # copied to job-local storage before it goes on PATH.
+      # 96MiB per run, on every container PR. /tool-cache is a shared RWX cache: optional,
+      # and writable by any job, so every binary is sha256-checked against the release.
       - name: Install talosctl
         env:
           # renovate: datasource=github-releases depName=siderolabs/talos
@@ -129,23 +125,21 @@ jobs:
           [[ -n "$want" ]] || { echo "no sha256 published for talosctl-linux-amd64"; exit 1; }
           verify() { [[ -f "$1" ]] && echo "${want}  $1" | sha256sum --check --status; }
 
-          # copy first, then verify what was actually copied: checking the shared entry
-          # before reading it leaves a window for another job to swap it in between.
-          # Any miss, mismatch or vanished entry falls through to a plain download.
+          # verify the copy, not the shared entry: check-then-read leaves a swap window
           if cp "$cache" "$bin/talosctl" 2>/dev/null && verify "$bin/talosctl"; then
             echo "talosctl ${TALOS_VERSION} served from cache"
           else
             curl -fsSL -o "$bin/talosctl" "${base}/talosctl-linux-amd64"
             verify "$bin/talosctl" || { echo "sha256 mismatch on downloaded talosctl"; exit 1; }
             if [[ -w /tool-cache ]]; then
-              # mktemp, not $$: PIDs are not unique across runner pods sharing the mount
+              # mktemp, not $$: PIDs collide across pods sharing the mount
               tmp=$(mktemp "/tool-cache/.talosctl.XXXXXX")
               trap 'rm -f -- "$tmp"' EXIT
               cp "$bin/talosctl" "$tmp"
               chmod 0644 "$tmp"
               mv -f "$tmp" "$cache"
               trap - EXIT
-              # only the pinned version is ever read; stale ones just consume the 2Gi share
+              # only the pinned version is read
               find /tool-cache -maxdepth 1 -name 'talosctl-*' ! -name "talosctl-${TALOS_VERSION}" -delete
             fi
           fi

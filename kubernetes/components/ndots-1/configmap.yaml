@@ -3,10 +3,8 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ndots-1
-# Default ndots:5 search-expands any name with fewer than 5 dots against the pod's
-# search path before trying it absolute. Two costs: a *.svc.cluster.local lookup burns
-# three NXDOMAIN round-trips first, and an external name that collides with a local
-# Service is hijacked outright (opencode.ai -> opencode.ai.svc.cluster.local).
+# ndots:5 search-expands names with under 5 dots before trying them absolute: three
+# NXDOMAIN round-trips per in-cluster FQDN, and opencode.ai loses to a local Service.
 data:
   values.yaml: |
     defaultPodOptions:
