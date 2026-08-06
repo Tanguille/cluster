@@ -168,11 +168,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_json({"error": message}, status_code)
 
     def proxy(self, request, error_prefix, error_status, timeout=5):
-        """Stream an upstream JSON response through without buffering it.
+        """Stream an upstream JSON response through, relaying Content-Encoding.
 
         Observer bodies reach 9MB, held whole in a 256Mi container by r.read().
-        Content-Encoding is relayed untouched. A mid-stream failure propagates
-        and closes the connection: headers are already sent by then.
         """
         try:
             r = urllib.request.urlopen(request, timeout=timeout)
@@ -219,8 +217,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # Map /observer/... to the actual API path
         api_path = self.path[len("/observer/"):]  # e.g. "shares?limit=1" or "payouts/..."
         url = f"{OBSERVER_URL}/{api_path}"
-        # /shares?limit=10000 measures 9.2MB plain, 3.0MB gzipped, and every open
-        # tab refetches it every 10s — urllib does not ask for gzip on its own.
+        # 9.2MB plain vs 3.0MB gzipped, refetched every 10s per tab; urllib will not ask.
         request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
         self.proxy(request, "Observer API error", 502, timeout=15)
 

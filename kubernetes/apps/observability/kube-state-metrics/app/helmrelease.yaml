@@ -49,8 +49,7 @@ spec:
       enabled: true
       config:
         spec:
-          # Every resource_info shares the same name/namespace/ready/suspend shape;
-          # anchors leave each kind's block showing only what actually differs.
+          # Anchored: each kind's block shows only what differs from the shared shape.
           resources:
             - groupVersionKind:
                 group: kustomize.toolkit.fluxcd.io

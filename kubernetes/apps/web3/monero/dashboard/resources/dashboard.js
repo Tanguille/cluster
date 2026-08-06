@@ -582,8 +582,7 @@ function initOrUpdateChart(canvas, state, stateKey, chartConfig) {
   if (!canvas) return;
 
   if (!state[stateKey]) {
-    // Options and their callbacks are only read at construction; building them
-    // on the update path allocated two trees and four closures per 10s tick.
+    // options are read only at construction; building them per tick was pure waste
     state[stateKey] = new Chart(canvas, {
       type: "line",
       data: {
