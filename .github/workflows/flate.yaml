@@ -109,25 +109,34 @@ jobs:
     runs-on: cluster-runner
     steps:
       # 96MiB per run, and this job fires on every container PR. /tool-cache is an RWX
-      # PVC shared by all runner pods, so it is one download per Talos version, not per run.
+      # PVC shared by all runner pods, so it is one download per Talos version, not per
+      # run. Treated as optional: it is absent until the runner HelmRelease rolls out and
+      # unreachable if CephFS is down, neither of which should fail image pre-warming.
       - name: Install talosctl
         env:
           # renovate: datasource=github-releases depName=siderolabs/talos
           TALOS_VERSION: v1.13.8
         run: |
           set -euo pipefail
-          cached="/tool-cache/talosctl-${TALOS_VERSION}"
-          if [[ ! -x "$cached" ]]; then
-            tmp="${cached}.$$"
-            curl -fsSL -o "$tmp" \
-              "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64"
-            chmod +x "$tmp"
-            # atomic within the mount: concurrent runners may race the same download
-            mv -f "$tmp" "$cached"
+          url="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64"
+          bin="$HOME/.local/bin"
+          mkdir -p "$bin"
+          if [[ -w /tool-cache ]]; then
+            cached="/tool-cache/talosctl-${TALOS_VERSION}"
+            if [[ ! -x "$cached" ]]; then
+              tmp="${cached}.$$"
+              curl -fsSL -o "$tmp" "$url"
+              chmod +x "$tmp"
+              # atomic within the mount: concurrent runners may race the same download
+              mv -f "$tmp" "$cached"
+            fi
+            ln -sf "$cached" "$bin/talosctl"
+          else
+            echo "::notice::/tool-cache unavailable, downloading talosctl for this run only"
+            curl -fsSL -o "$bin/talosctl" "$url"
+            chmod +x "$bin/talosctl"
           fi
-          mkdir -p "$HOME/.local/bin"
-          ln -sf "$cached" "$HOME/.local/bin/talosctl"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$bin" >> "$GITHUB_PATH"
 
       # One runner pod pulls all images to its node; Spegel mirrors the blobs cluster-wide,
       # so a single node is enough to pre-warm (and beats one pod + talosctl install per image).
