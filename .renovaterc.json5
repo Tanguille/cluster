@@ -72,12 +72,13 @@
       minimumGroupSize: 2
     },
     {
-      // installer image (talosupgrade.yaml) + talosctl via aqua (.mise.toml) and github-releases
-      // (image-pull.yaml) all track the same Talos release — one PR instead of three
+      // installer image (talosupgrade.yaml) + talosctl via github-releases (image-pull.yaml)
+      // all track the same Talos release — one PR instead of two
       description: "Talos Group",
       groupName: "talos",
-      matchDatasources: ["docker", "aqua", "github-releases"],
-      matchPackageNames: ["/siderolabs\\/(talos|installer)/"]
+      matchDatasources: ["docker", "github-releases"],
+      // matches all siderolabs/* packages (talos, installer, etc.)
+      matchPackageNames: ["/siderolabs\\/"],
     },
     {
       description: "Rook-Ceph Group",
