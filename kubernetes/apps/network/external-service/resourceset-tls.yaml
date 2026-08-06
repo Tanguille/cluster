@@ -1,0 +1,60 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
+metadata:
+  name: external-service-tls
+spec:
+  # Passthrough TLS to an off-cluster host on 443. Add one here to add a service.
+  inputs:
+    - name: ipmi
+      ip: ${IPMI_IP}
+    - name: opnsense
+      ip: ${OPNSENSE_IP}
+    - name: truenas
+      ip: ${TRUENAS_IP}
+  resources:
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: internal-<< inputs.name >>
+        namespace: network
+      spec:
+        clusterIP: None
+        ports:
+          - port: 443
+            name: https
+
+    - apiVersion: discovery.k8s.io/v1
+      kind: EndpointSlice
+      metadata:
+        name: internal-<< inputs.name >>
+        namespace: network
+        labels:
+          kubernetes.io/service-name: internal-<< inputs.name >>
+      addressType: IPv4
+      endpoints:
+        - addresses:
+            - << inputs.ip | quote >>
+      ports:
+        - port: 443
+          name: https
+
+    - apiVersion: gateway.networking.k8s.io/v1alpha2
+      kind: TLSRoute
+      metadata:
+        name: external-service-tlsroute-<< inputs.name >>
+        namespace: network
+        annotations:
+          external-dns.alpha.kubernetes.io/target: internal-tls.${SECRET_DOMAIN}
+      spec:
+        parentRefs:
+          - name: envoy-internal-tls
+            namespace: network
+            sectionName: tls
+        hostnames:
+          - << inputs.name >>.${SECRET_DOMAIN}
+        rules:
+          - backendRefs:
+              - name: internal-<< inputs.name >>
+                port: 443
