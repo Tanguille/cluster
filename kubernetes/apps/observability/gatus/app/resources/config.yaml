@@ -17,6 +17,9 @@ ui:
 alerting:
   discord:
     webhook-url: $${DISCORD_WEBHOOK_URL}
+    # Merged into every endpoint alert of type discord that leaves the field unset
+    default-alert:
+      send-on-resolved: true
 connectivity:
   checker:
     target: 1.1.1.1:53
@@ -33,8 +36,6 @@ endpoints:
       - "[STATUS] == 200"
     alerts:
       - type: discord
-        enabled: true
-        send-on-resolved: true
 
   - name: Cloudflare
     group: connectivity
@@ -44,8 +45,6 @@ endpoints:
       - "[CONNECTED] == true"
     alerts:
       - type: discord
-        enabled: true
-        send-on-resolved: true
 
   - name: Google
     group: connectivity
@@ -55,8 +54,6 @@ endpoints:
       - "[CONNECTED] == true"
     alerts:
       - type: discord
-        enabled: true
-        send-on-resolved: true
 
   - name: Quad9
     group: connectivity
@@ -66,8 +63,6 @@ endpoints:
       - "[CONNECTED] == true"
     alerts:
       - type: discord
-        enabled: true
-        send-on-resolved: true
 
   # Real MCP-protocol probe: POST an initialize. The /health endpoint and the
   # VirtualMCPServer Ready status stayed green while POST /mcp was unusable (the optimizer
@@ -94,5 +89,3 @@ endpoints:
       - "[RESPONSE_TIME] < 30000"
     alerts:
       - type: discord
-        enabled: true
-        send-on-resolved: true

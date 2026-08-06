@@ -232,7 +232,6 @@ spec:
           - name: envoy-internal
             namespace: network
       spec:
-        selectAllByDefault: true
         externalURL: https://vmalertmanager.${SECRET_DOMAIN}
         image:
           repository: quay.io/prometheus/alertmanager
@@ -284,7 +283,6 @@ spec:
         namespaced: false
       spec:
         priorityClassName: homelab-critical # 512Mi, sole scrape path
-        selectAllByDefault: true
         resources:
           requests:
             cpu: 100m
