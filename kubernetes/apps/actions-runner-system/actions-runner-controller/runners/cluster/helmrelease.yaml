@@ -52,7 +52,12 @@ spec:
               - mountPath: /var/run/secrets/talos.dev
                 name: talos
                 readOnly: true
+              - mountPath: /tool-cache
+                name: tool-cache
         serviceAccountName: *app
+        # runner is uid/gid 1001; without fsGroup the CephFS mount lands root-owned
+        securityContext:
+          fsGroup: 1001
         # Best-effort spread so one node blip can't kill a whole review batch (3× on 2026-07-02).
         # ScheduleAnyway (not DoNotSchedule) so CI still runs when a node is down.
         topologySpreadConstraints:
@@ -66,3 +71,6 @@ spec:
           - name: talos
             secret:
               secretName: *app
+          - name: tool-cache
+            persistentVolumeClaim:
+              claimName: runner-tool-cache
