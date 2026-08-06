@@ -61,6 +61,9 @@ jobs:
           inline_findings: "true"
           inline_findings_max: "12"
           publish_mode: review_comment
+          # concise targets ~300 words and leaves minor/info to the findings array; it patches the
+          # bundled default prompt, which only system_prompt_mode: append keeps.
+          review_verbosity: concise
           system_prompt_mode: append
           # v2.1.1 bundles the release-notes STYLE rules (no raw PR/issue/SHA links, summarize in
           # prose, at most one URL) for renovate-ish PR kinds, so this addendum only steers FETCH
@@ -94,8 +97,8 @@ jobs:
             release in the old-to-new range (releases or compare API) and flag when a chart
             bump moves the embedded appVersion across a major version. Translate upgrade steps
             written for docker-compose or .env files into their Kubernetes/Helm equivalent
-            before flagging them as missing. Keep review length proportional to the change.
-            Inline findings must require action; never post praise as a finding.
+            before flagging them as missing. Inline findings must require action; never post
+            praise as a finding.
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
           model_context_tokens: "120000"
