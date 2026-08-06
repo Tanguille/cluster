@@ -58,6 +58,11 @@ spec:
           mon_cluster_log_level: info
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
+      # Off: the sidecar duplicates to host disk what daemons already write to stdout and
+      # victoria-logs already collects. It also costs a 100Mi request on every ceph daemon
+      # pod, which is what left rook-ceph-exporter-control-2 unschedulable (2026-08-06).
+      logCollector:
+        enabled: false
       csi:
         readAffinity:
           enabled: true
