@@ -16,7 +16,6 @@ spec:
       cluster:
         networkPolicy: false
       sync:
-        kind: GitRepository
         url: https://github.com/tanguille/cluster.git
         ref: refs/heads/main
         path: kubernetes/flux/cluster
@@ -36,11 +35,12 @@ spec:
               name: (helm-controller|source-controller)
           - # Individual memory limits per controller based on 30-day usage analysis
             # Peak usage: helm=330MB, kustomize=203MB, source=127MB, notification=96MB, operator=291MB
+            # metadata.name is ignored; target.name selects
             patch: |
               apiVersion: apps/v1
               kind: Deployment
               metadata:
-                name: helm-controller
+                name: not-used
               spec:
                 template:
                   spec:
@@ -51,28 +51,12 @@ spec:
                             memory: 512Mi
             target:
               kind: Deployment
-              name: helm-controller
+              name: (helm|kustomize)-controller
           - patch: |
               apiVersion: apps/v1
               kind: Deployment
               metadata:
-                name: kustomize-controller
-              spec:
-                template:
-                  spec:
-                    containers:
-                      - name: manager
-                        resources:
-                          limits:
-                            memory: 512Mi
-            target:
-              kind: Deployment
-              name: kustomize-controller
-          - patch: |
-              apiVersion: apps/v1
-              kind: Deployment
-              metadata:
-                name: source-controller
+                name: not-used
               spec:
                 template:
                   spec:
@@ -83,23 +67,7 @@ spec:
                             memory: 256Mi
             target:
               kind: Deployment
-              name: source-controller
-          - patch: |
-              apiVersion: apps/v1
-              kind: Deployment
-              metadata:
-                name: notification-controller
-              spec:
-                template:
-                  spec:
-                    containers:
-                      - name: manager
-                        resources:
-                          limits:
-                            memory: 256Mi
-            target:
-              kind: Deployment
-              name: notification-controller
+              name: (source|notification)-controller
           - # kustomize-controller: higher concurrency + in-memory builds
             patch: |
               - op: add
