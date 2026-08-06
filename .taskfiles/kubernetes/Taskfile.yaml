@@ -42,10 +42,11 @@ tasks:
   upgrade-arc:
     desc: Upgrade the ARC
     cmds:
-      - helm -n actions-runner-system uninstall cluster-runner
+      # Enumerated, not hardcoded: every scale set must be uninstalled before the controller.
+      - for r in $(helm -n actions-runner-system ls -q | grep -v '^actions-runner-controller$'); do helm -n actions-runner-system uninstall "$r"; done
       - helm -n actions-runner-system uninstall actions-runner-controller
       - sleep 5
       - flux -n actions-runner-system reconcile hr actions-runner-controller
-      - flux -n actions-runner-system reconcile hr cluster-runner
+      - for r in $(flux -n actions-runner-system get hr --no-header | awk '{print $1}' | grep -v '^actions-runner-controller$'); do flux -n actions-runner-system reconcile hr "$r"; done
     preconditions:
       - which flux helm
