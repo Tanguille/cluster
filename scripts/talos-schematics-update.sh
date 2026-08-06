@@ -17,28 +17,28 @@ SCHEMATIC="${TALOS_DIR}/schematic.yaml"
 TALCONFIG="${TALOS_DIR}/talconfig.yaml"
 
 for f in "$SCHEMATIC" "$TALCONFIG"; do
-  if [[ ! -f "$f" ]]; then
-    echo "Error: missing $f" >&2
-    exit 1
-  fi
+    if [[ ! -f "$f" ]]; then
+        echo "Error: missing $f" >&2
+        exit 1
+    fi
 done
 
 get_schematic_id() {
-  local doc_index=$1
-  yq eval-all "select(di == ${doc_index})" "$SCHEMATIC" |
-    curl -fsS --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 1 --retry-all-errors \
-      -X POST --data-binary @- -H "Content-Type: application/x-yaml" https://factory.talos.dev/schematics |
-    jq -r '.id'
+    local doc_index=$1
+    yq eval-all "select(di == ${doc_index})" "$SCHEMATIC" |
+        curl -fsS --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 1 --retry-all-errors \
+            -X POST --data-binary @- -H "Content-Type: application/x-yaml" https://factory.talos.dev/schematics |
+        jq -r '.id'
 }
 
 ID1=$(get_schematic_id 0)
 ID2=$(get_schematic_id 1)
 
 for id in "$ID1" "$ID2"; do
-  if [[ -z "$id" || "$id" == "null" ]]; then
-    echo "Error: failed to retrieve Talos schematic ID from factory.talos.dev" >&2
-    exit 1
-  fi
+    if [[ -z "$id" || "$id" == "null" ]]; then
+        echo "Error: failed to retrieve Talos schematic ID from factory.talos.dev" >&2
+        exit 1
+    fi
 done
 
 export ID1 ID2
