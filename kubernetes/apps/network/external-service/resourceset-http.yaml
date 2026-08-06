@@ -5,6 +5,8 @@ kind: ResourceSet
 metadata:
   name: external-service-http
 spec:
+  # ResourceSet.spec.wait defaults to false.
+  wait: true
   # Plain HTTP to an off-cluster host, fronted on :80. One input entry per service.
   inputs:
     - name: arm

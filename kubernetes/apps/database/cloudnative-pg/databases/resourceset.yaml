@@ -1,0 +1,51 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
+metadata:
+  name: cloudnative-pg-databases
+spec:
+  # ResourceSet.spec.wait defaults to false.
+  wait: true
+  # db: only when the physical database name differs from the app name.
+  inputs:
+    - name: bazarr
+    - name: crowdsec
+      extensions:
+        # vector is the pgvector bundled in the cluster's vchord-scratch image — bump manually
+        # when the image bumps; a wrong pin fails visibly via the Database CR going not-Ready.
+        - name: vector
+          version: "0.8.5"
+    - name: gatus
+    - name: grafana
+    - name: jellystat
+      db: jfstat
+    - name: litellm
+    - name: memini
+      extensions:
+        # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
+        # vchord version is Renovate-tracked with the cluster's vchord-scratch image;
+        # vector is the pgvector bundled in that image — bump manually when the image bumps.
+        - name: vchord
+          version: "1.1.1"
+        - name: vector
+          version: "0.8.5"
+    - name: nextcloud
+    - name: prowlarr
+    - name: radarr
+    - name: sonarr
+    - name: spoolman
+  resources:
+    - apiVersion: postgresql.cnpg.io/v1
+      kind: Database
+      metadata:
+        name: << inputs.name >>
+        namespace: database
+      spec:
+        cluster:
+          name: postgres16
+        name: << dig "db" inputs.name inputs >>
+        owner: << inputs.name >>
+        # Adopted live DBs; never drop on prune.
+        databaseReclaimPolicy: retain
+        extensions: << dig "extensions" list inputs | toYaml | nindent 10 >>
