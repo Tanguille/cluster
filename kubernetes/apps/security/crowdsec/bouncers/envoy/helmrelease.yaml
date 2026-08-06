@@ -16,9 +16,11 @@ spec:
               kind: Deployment
               name: *app
             patch: |-
-              - op: add
-                path: /metadata/annotations
-                value:
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: not-used
+                annotations:
                   reloader.stakater.com/auto: "true"
   values:
     # fullnameOverride pins the Service/Deployment name consumed by
@@ -32,7 +34,6 @@ spec:
         memory: 64Mi
       limits:
         cpu: 500m
-        memory: 128Mi
     config:
       trustedProxies:
         - "${LAN_CIDR}"

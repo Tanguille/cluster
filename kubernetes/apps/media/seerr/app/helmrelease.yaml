@@ -9,6 +9,9 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  valuesFrom:
+    - kind: ConfigMap
+      name: ndots-1
 
   values:
     controllers:
@@ -50,10 +53,6 @@ spec:
                 cpu: 2
                 memory: 1Gi
     defaultPodOptions:
-      dnsConfig:
-        options:
-          - name: ndots
-            value: "1"
       securityContext:
         runAsNonRoot: true
         runAsUser: 568

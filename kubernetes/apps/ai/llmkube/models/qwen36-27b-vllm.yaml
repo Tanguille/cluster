@@ -105,7 +105,6 @@ spec:
       value: "0"
     - name: ROCR_VISIBLE_DEVICES
       value: "0"
-    # Keep runtime compile caches on the persistent cache volume.
     - name: VLLM_CACHE_ROOT
       value: /cache/vllm
     - name: TRITON_CACHE_DIR
@@ -120,7 +119,6 @@ spec:
     - name: compile-cache
       mountPath: /cache
   extraArgs:
-    # Expose the stable API model name.
     - --served-model-name
     - qwen-3.6
     # Disable image and video multimodal inputs.
@@ -135,7 +133,6 @@ spec:
     - --kv-cache-memory-bytes
     - "4294967296"
   probeOverrides:
-    # Allow ample time for model startup and compilation.
     startup:
       httpGet:
         path: /health

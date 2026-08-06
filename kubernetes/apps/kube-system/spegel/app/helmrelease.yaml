@@ -19,8 +19,7 @@ spec:
     spegel:
       containerdRegistryConfigPath: /etc/cri/conf.d/hosts
     grafanaDashboard:
+      # The chart's default Sidecar mode just emits the ConfigMap; grafanadashboard.yaml
+      # consumes it via configMapRef so it can also carry the DS_PROMETHEUS datasource
+      # mapping, which the chart's GrafanaOperator mode cannot express.
       enabled: true
-      # Sidecar just emits the ConfigMap; grafanadashboard.yaml consumes it via
-      # configMapRef so it can also carry the DS_PROMETHEUS datasource mapping,
-      # which the chart's GrafanaOperator mode cannot express.
-      mode: Sidecar
