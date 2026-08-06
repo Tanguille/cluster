@@ -305,7 +305,7 @@ class GuardController:
                     value = cpu_value(obs)
                     stamp = min(item.timestamp for item in samples.values())
                     self.metrics["cpu_non_xmrig"][node] = value
-                if not samples or not all(_fresh(item.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for item in samples.values()):
+                if not all(_fresh(item.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for item in samples.values()):
                     raise ValueError("stale or future source")
                 policy = self.policies[node]
                 safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
@@ -364,7 +364,7 @@ class _StatusHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    controller = GuardController(VictoriaMetricsClient(ENDPOINT, timeout=HTTP_TIMEOUT_SECONDS, step_seconds=SOURCE_SAMPLE_MAX_AGE_SECONDS))
+    controller = GuardController(VictoriaMetricsClient(ENDPOINT, step_seconds=SOURCE_SAMPLE_MAX_AGE_SECONDS))
     _StatusHandler.controller = controller
     server = ThreadingHTTPServer(("0.0.0.0", 8080), _StatusHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
