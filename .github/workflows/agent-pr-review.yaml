@@ -109,8 +109,8 @@ jobs:
           # "*" keeps the action's read-only path allowlist (releases/commits; secrets denied).
           tool_allowed_gh_api_repos: "*"
           # Default 120s caps the WHOLE native_loop — less than one cold ~100K prefill on this GPU.
-          # 900s lets a serialized review finish its tool loop (within-review prefix cache keeps
-          # later turns cheap; runner maxRunners:1 serializes the renovate burst).
+          # 900s lets a review finish its tool loop (within-review prefix cache keeps later turns
+          # cheap; review-runner maxRunners:3 caps how much of the renovate burst runs at once).
           tool_loop_wall_clock_sec: "900"
           # Native-loop turns use a separate total timeout; 60s expired during 155-220s prefills.
           tool_planning_timeout_sec: "600"

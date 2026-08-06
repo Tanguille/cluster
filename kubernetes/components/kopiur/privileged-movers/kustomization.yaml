@@ -2,6 +2,9 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
+# Movers run privileged, so this namespace cannot enforce baseline.
+components:
+  - ../../psa-privileged
 patches:
   - target:
       kind: Namespace
@@ -13,6 +16,3 @@ patches:
         name: not-used
         annotations:
           kopiur.home-operations.com/privileged-movers: "true"
-        labels:
-          # Movers run privileged, so this namespace cannot enforce baseline.
-          pod-security.kubernetes.io/enforce: privileged

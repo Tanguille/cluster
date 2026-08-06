@@ -16,8 +16,9 @@ spec:
     # runners, matching the pre-split ceiling (10 OOM-cascaded the apiserver).
     minRunners: 1
     maxRunners: 3
-    # No containerMode: REQUIRE_JOB_CONTAINER is false and no workflow declares `container:`,
-    # so the k8s hooks never fire. _work falls back to emptyDir instead of a 25Gi PVC per pod.
+    # No containerMode: no workflow declares `container:`, so the k8s hooks never fire and _work
+    # falls back to emptyDir instead of a 25Gi PVC per pod. Also makes the chart create its own
+    # zero-permission ServiceAccount, so no talos.dev ServiceAccount exists for this scale set.
     controllerServiceAccount:
       name: actions-runner-controller
       namespace: actions-runner-system
@@ -27,9 +28,6 @@ spec:
           - name: runner
             image: ghcr.io/home-operations/actions-runner:2.336.0@sha256:281a9a090522fafbf4967f158b8c97d03552b1978b688893c5f7cb1944bc5fe5
             command: ["/home/runner/run.sh"]
-            env:
-              - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
-                value: "false"
             # Matches cluster-runner: peak observed usage ~0.32Gi.
             resources:
               requests:
@@ -37,9 +35,9 @@ spec:
                 memory: 512Mi
               limits:
                 memory: 1Gi
-        serviceAccountName: *app
-        # Same rationale as cluster-runner: best-effort spread, ScheduleAnyway so CI still runs
-        # when a node is down.
+        # This runner holds no credentials, so it has no use for an API token either.
+        automountServiceAccountToken: false
+        # Same rationale as cluster-runner.
         topologySpreadConstraints:
           - maxSkew: 1
             topologyKey: kubernetes.io/hostname
