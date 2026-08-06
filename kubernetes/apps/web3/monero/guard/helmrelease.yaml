@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: xmrig-guard
+  name: guard
 spec:
   chartRef:
     kind: OCIRepository
@@ -11,7 +11,7 @@ spec:
   interval: 1h
   values:
     controllers:
-      xmrig-guard:
+      guard:
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -73,14 +73,14 @@ spec:
           type: RuntimeDefault
     service:
       app:
-        controller: xmrig-guard
+        controller: guard
         ports:
           http:
             port: 8080
     persistence:
       config:
         type: configMap
-        name: xmrig-guard
+        name: guard
         globalMounts:
           - path: /config
             readOnly: true

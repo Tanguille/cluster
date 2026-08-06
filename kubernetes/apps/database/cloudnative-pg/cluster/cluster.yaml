@@ -80,7 +80,7 @@ spec:
       max_connections: "150"
       shared_buffers: 1GB
       effective_cache_size: 4GB
-      # off, not the try default: without a cap postgres would grab hugepages meant for xmrig once the request below is dropped.
+      # off, not the try default: no hugepages are reserved on any node, so try would log an allocation failure every start.
       huge_pages: "off"
       # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
       io_method: "worker"
