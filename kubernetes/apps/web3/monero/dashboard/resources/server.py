@@ -2,13 +2,16 @@
 """
 P2Pool Data Logger & HTTP Server
 
-This script fetches real-time mining stats from xmrig, pool, and monerod,
-logs them in a rolling in-memory buffer (last 24h), serves them via HTTP endpoints,
-and fetches XMR prices from multiple sources with fallback.
+This script fetches real-time mining stats from xmrig, pool, and monerod, logs
+them in two rolling in-memory tiers (10s samples for 24h, 5-minute means for
+90d), serves them via HTTP endpoints, and fetches XMR prices from multiple
+sources with fallback.
 """
 
+import bisect
 import http.server
 import json
+import math
 import os
 import shutil
 import urllib.request
@@ -18,6 +21,8 @@ import threading
 import signal
 import sys
 from collections import deque
+from itertools import islice
+from urllib.parse import parse_qs
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=8080, help="HTTP server port")
@@ -29,7 +34,9 @@ parser.add_argument("--wallet", type=str, help="Monero wallet address for p2pool
 parser.add_argument("--observer-url", type=str,
                     default="https://nano.p2pool.observer/api",
                     help="p2pool observer API base URL")
-args = parser.parse_args()
+# parse_known_args, not parse_args: every option has a default, so the test
+# module can import this file without argparse choking on the runner's argv.
+args = parser.parse_known_args()[0]
 
 PORT = args.port
 DATA_DIR = args.data_dir
@@ -37,9 +44,23 @@ OBSERVER_URL = args.observer_url
 
 WALLET_ADDRESS = args.wallet or ""
 
-LOG_FILE = os.path.join(DATA_DIR, "stats_log.json")   # persistent JSON log file
+LOG_FILE = os.path.join(DATA_DIR, "stats_log.json")      # 10s samples, last 24h
+ROLLUP_FILE = os.path.join(DATA_DIR, "stats_rollup.json")  # 5min means, last 90d
 STATS_MOD_FILE = os.path.join(DATA_DIR, "stats_mod")  # configuration for min payment
 MAX_LOG_AGE = 24 * 3600  # seconds, keep last 24h of data
+
+# Second retention tier. 10s samples cost 8640 points/day, so the 24h buffer is
+# as far back as the fine log can reach without the JSON outgrowing the browser.
+# 5-minute means over 90d are 25920 points — the same order of magnitude, three
+# months of range.
+ROLLUP_INTERVAL = 300
+ROLLUP_MAX_AGE = 90 * 86400
+
+# Charts are ~600 CSS px wide, so more points than this land sub-pixel. Bounds
+# the response at every range: 90d downsamples to the same payload as 1h.
+CHART_MAX_POINTS = 720
+
+SERIES = ("myHash", "poolHash", "netHash", "price")
 
 # Service endpoints - use Kubernetes service names
 XMRIG_API_URL = os.getenv("XMRIG_API_URL", "http://xmrig.web3.svc.cluster.local:42000/2/summary")
@@ -48,16 +69,17 @@ MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# Using deque for efficient append/pop from left (for rolling window)
-log = {
-    "timestamps": deque(),
-    "myHash": deque(),
-    "poolHash": deque(),
-    "netHash": deque(),
-    "price": deque()
-}
+def new_series():
+    """Empty column store. deque gives O(1) eviction from the left."""
+    return {"timestamps": deque(), **{k: deque() for k in SERIES}}
 
-# Thread-safe access to log
+log = new_series()
+rollup = new_series()
+
+# Open rollup bucket: sums plus a count, divided into a mean when the bucket closes.
+_bucket = {"key": None, "count": 0, **{k: 0.0 for k in SERIES}}
+
+# Thread-safe access to log and rollup
 log_lock = threading.Lock()
 
 # Price changes on minute timescales; the chart has 6 axis ticks over 24h.
@@ -132,6 +154,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
       - /monerod_stats         : proxies Monero daemon get_info
       - /xmrig_summary         : proxies xmrig summary
       - /stats_log.json        : serves rolling log JSON
+      - /stats_history.json    : serves a downsampled window for the charts
       - /min_payment_threshold : serves min payout threshold
       - /observer_config       : observer URL + wallet for the frontend
       - /observer/*            : proxies p2pool observer API (CORS)
@@ -140,17 +163,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
     """
 
     def do_GET(self):
-        if self.path == "/monerod_stats":
+        path, _, query = self.path.partition("?")
+        if path == "/monerod_stats":
             self.proxy_monerod()
-        elif self.path == "/xmrig_summary":
+        elif path == "/xmrig_summary":
             self.proxy_xmrig()
-        elif self.path == "/stats_log.json":
+        elif path == "/stats_log.json":
             self.serve_log()
-        elif self.path == "/min_payment_threshold":
+        elif path == "/stats_history.json":
+            self.serve_history(query)
+        elif path == "/min_payment_threshold":
             self.send_json({"minPaymentThreshold": get_min_payment_threshold()})
-        elif self.path == "/observer_config":
+        elif path == "/observer_config":
             self.send_json({"wallet": WALLET_ADDRESS, "observer": OBSERVER_URL})
-        elif self.path.startswith("/observer/"):
+        elif path.startswith("/observer/"):
             self.proxy_observer_api()
         else:
             self.send_json_error("Not found", 404)
@@ -206,6 +232,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
             data = {k: list(v) for k, v in log.items()}
         self.send_json(data)
 
+    def serve_history(self, query):
+        """Serve a bounded, downsampled window for the charts: ?hours=<float>."""
+        try:
+            hours = float(parse_qs(query).get("hours", ["24"])[0])
+        except ValueError:
+            hours = 24.0
+        hours = min(max(hours, 0.1), ROLLUP_MAX_AGE / 3600)
+        # The 10s log only reaches back MAX_LOG_AGE; beyond that the rollup is
+        # the only source, and inside it the fine samples give a truer shape.
+        source = log if hours * 3600 <= MAX_LOG_AGE else rollup
+        self.send_json(downsample(source, hours))
+
     def proxy_observer_api(self):
         """Proxy requests to p2pool.observer API to avoid CORS issues in browser.
 
@@ -221,20 +259,54 @@ class Handler(http.server.BaseHTTPRequestHandler):
         request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
         self.proxy(request, "Observer API error", 502, timeout=15)
 
-def load_log_disk():
-    """Load existing stats_log.json into memory at startup"""
-    if not os.path.exists(LOG_FILE):
-        print("No existing stats_log.json found, starting fresh")
+def load_tier(path, target):
+    """Restore one retention tier from disk; leave it empty if unreadable."""
+    if not os.path.exists(path):
+        print(f"No existing {os.path.basename(path)} found, starting fresh")
         return
     try:
-        with open(LOG_FILE) as f:
+        with open(path) as f:
             data = json.load(f)
-        with log_lock:
-            for k in log:
-                log[k] = deque(data.get(k, []))
-        print(f"Loaded {len(log['timestamps'])} old log entries")
+        for k in target:
+            target[k] = deque(data.get(k, []))
+        print(f"Loaded {len(target['timestamps'])} entries from {os.path.basename(path)}")
     except Exception as e:
-        print(f"Error reading existing stats_log.json, starting fresh: {e}")
+        print(f"Error reading {os.path.basename(path)}, starting fresh: {e}")
+
+def load_log_disk():
+    """Load both retention tiers at startup, back-filling the rollup if it is new."""
+    with log_lock:
+        load_tier(LOG_FILE, log)
+        load_tier(ROLLUP_FILE, rollup)
+        # First start after the rollup was introduced: replay the 24h log through
+        # the bucketer so the long ranges are not blank for the first three months.
+        if not rollup["timestamps"] and log["timestamps"]:
+            columns = {k: list(log[k]) for k in SERIES}
+            for i, ts in enumerate(list(log["timestamps"])):
+                accumulate_rollup(ts, {k: columns[k][i] for k in SERIES})
+            print(f"Seeded {len(rollup['timestamps'])} rollup buckets from the 24h log")
+
+def accumulate_rollup(ts, values):
+    """Fold one 10s sample into its 5-minute bucket, emitting the mean once it closes.
+
+    Caller holds log_lock. A bucket is only written out when a sample from the
+    *next* one arrives, so the in-progress bucket never reaches the chart
+    half-averaged.
+    """
+    key = ts // ROLLUP_INTERVAL
+    if _bucket["key"] is not None and key != _bucket["key"]:
+        rollup["timestamps"].append(_bucket["key"] * ROLLUP_INTERVAL)
+        for k in SERIES:
+            rollup[k].append(_bucket[k] / _bucket["count"])
+        cutoff = ts - ROLLUP_MAX_AGE
+        while rollup["timestamps"] and rollup["timestamps"][0] < cutoff:
+            for series in rollup.values():
+                series.popleft()
+        _bucket.update(count=0, **{k: 0.0 for k in SERIES})
+    _bucket["key"] = key
+    _bucket["count"] += 1
+    for k in SERIES:
+        _bucket[k] += values[k]
 
 def append_log(myHash, poolHash, netHash, price):
     """
@@ -243,26 +315,62 @@ def append_log(myHash, poolHash, netHash, price):
     """
     ts = int(time.time())
     cutoff = ts - MAX_LOG_AGE
+    values = {"myHash": myHash, "poolHash": poolHash, "netHash": netHash, "price": price}
     with log_lock:
         log["timestamps"].append(ts)
-        log["myHash"].append(myHash)
-        log["poolHash"].append(poolHash)
-        log["netHash"].append(netHash)
-        log["price"].append(price)
+        for k in SERIES:
+            log[k].append(values[k])
 
         # Remove old entries
         while log["timestamps"] and log["timestamps"][0] < cutoff:
-            for k in log:
-                log[k].popleft()
+            for series in log.values():
+                series.popleft()
+
+        accumulate_rollup(ts, values)
+
+def downsample(source, hours, max_points=CHART_MAX_POINTS):
+    """Mean-aggregate the last `hours` of `source` into at most max_points buckets.
+
+    Mean rather than decimation: a miner that is gated off for part of a bucket
+    should pull that bucket's hashrate down, not vanish between samples.
+    """
+    cutoff = time.time() - hours * 3600
+    with log_lock:
+        # bisect only needs __len__/__getitem__, so the deque is searched in
+        # place: a 1h request against a full 90d rollup then copies ~12 of its
+        # 25920 buckets instead of all of them, and holds the lock for less.
+        start = bisect.bisect_left(source["timestamps"], cutoff)
+        timestamps = list(islice(source["timestamps"], start, None))
+        series = {k: list(islice(source[k], start, None)) for k in SERIES}
+
+    if not timestamps:
+        return new_empty_window()
+
+    width = math.ceil(len(timestamps) / max_points)
+    out = new_empty_window()
+    for i in range(0, len(timestamps), width):
+        out["timestamps"].append(timestamps[i])
+        for k in SERIES:
+            chunk = series[k][i:i + width]
+            out[k].append(sum(chunk) / len(chunk) if chunk else 0)
+    return out
+
+def new_empty_window():
+    """Empty result shape, shared by the no-data path and the accumulator."""
+    return {"timestamps": [], **{k: [] for k in SERIES}}
 
 def save_log_disk():
-    """Write rolling log to disk atomically"""
-    tmp_file = LOG_FILE + ".tmp"
+    """Write both retention tiers to disk atomically"""
     with log_lock:
-        data = {k: list(v) for k, v in log.items()}
-    with open(tmp_file, "w") as f:
-        json.dump(data, f)
-    os.replace(tmp_file, LOG_FILE)
+        tiers = [
+            (LOG_FILE, {k: list(v) for k, v in log.items()}),
+            (ROLLUP_FILE, {k: list(v) for k, v in rollup.items()})
+        ]
+    for path, data in tiers:
+        tmp_file = path + ".tmp"
+        with open(tmp_file, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp_file, path)
 
 def log_loop():
     """
@@ -310,31 +418,34 @@ def log_loop():
 
 shutdown_event = threading.Event()
 
-# Load old logs before appending new info to prevent the log being overwritten
-load_log_disk()
-threading.Thread(target=log_loop, daemon=True).start()
-
-# Exec-form container command makes python PID 1: translate SIGTERM into the
-# same clean-shutdown path as Ctrl+C so the final save_log_disk() runs.
-def _sigterm(*_):
-    raise KeyboardInterrupt
-signal.signal(signal.SIGTERM, _sigterm)
-
 class Server(http.server.ThreadingHTTPServer):
     # ThreadingHTTPServer daemonises request threads; ThreadingTCPServer did not.
     # Non-daemon threads make server_close() wait for an in-flight observer proxy
     # instead of truncating it mid-write on SIGTERM.
     daemon_threads = False
 
-print(f"Serving HTTP on 0.0.0.0:{PORT}")
+# Exec-form container command makes python PID 1: translate SIGTERM into the
+# same clean-shutdown path as Ctrl+C so the final save_log_disk() runs.
+def _sigterm(*_):
+    raise KeyboardInterrupt
 
-try:
-    with Server(("", PORT), Handler) as httpd:
-        httpd.serve_forever()
-except KeyboardInterrupt:
-    print("\nCTRL+C received, shutting down cleanly...")
-finally:
-    shutdown_event.set()   # signal logger thread to stop
-    save_log_disk()        # persist current log to disk
-    print("Server stopped cleanly.")
-    sys.exit(0)
+def main():
+    # Load old logs before appending new info to prevent the log being overwritten
+    load_log_disk()
+    threading.Thread(target=log_loop, daemon=True).start()
+    signal.signal(signal.SIGTERM, _sigterm)
+
+    print(f"Serving HTTP on 0.0.0.0:{PORT}")
+    try:
+        with Server(("", PORT), Handler) as httpd:
+            httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\nCTRL+C received, shutting down cleanly...")
+    finally:
+        shutdown_event.set()   # signal logger thread to stop
+        save_log_disk()        # persist current log to disk
+        print("Server stopped cleanly.")
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()
