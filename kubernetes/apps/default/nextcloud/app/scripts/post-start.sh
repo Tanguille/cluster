@@ -7,7 +7,7 @@ mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
 log() {
   local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
   echo "$*"
-  echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
+  echo "$msg" >>"$LOG_FILE" 2>/dev/null || true
 }
 
 run_occ() {
@@ -53,8 +53,6 @@ for i in {1..30}; do
   [ "$i" -lt 30 ] && sleep 2
 done
 [ "$i" -eq 30 ] && log "WARNING: Nextcloud not ready after 60 seconds"
-
-
 
 log "Configuring tools..."
 tool_path=$(find_tool "convert")
