@@ -897,7 +897,7 @@ function updateTrueLuck(
         ? `${Math.round(timeWindow / 60)}m window`
         : displayHours < 24
           ? `${displayHours.toFixed(1)}h window`
-          : `${displayDays.toFixed(1)}d window`;
+          : `${cappedWindowDays.toFixed(1)}d window`;
     setTextContent("trueLuckWindow", windowText);
 
     setTooltipContent(
