@@ -1,0 +1,15 @@
+---
+# Shared tool cache for runner pods. talosctl is a 96MiB download and the Flate
+# pull job runs on every container PR (~400/month), all over the home uplink.
+# RWX so every runner pod on every node shares one copy per Talos version.
+# 2Gi holds ~20 versions; nothing prunes it, so clear it by hand if it ever fills.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: runner-tool-cache
+spec:
+  storageClassName: ceph-filesystem
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 2Gi
