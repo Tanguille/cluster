@@ -153,12 +153,12 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   The request is deliberately under the ~2336Mi RandomX actually uses: post-reclaim headroom is
   2389Mi/2373Mi on control-2/3, and requesting the true figure would park the miner Pending
   forever behind `preemptionPolicy: Never`. The overshoot bursts against the 3Gi limit.
-- **The CPU path gets a 180s freshness budget, the NVMe path keeps 120s.** cadvisor scrapes at
+- **The CPU path gets a 180s freshness budget, the NVMe path keeps 120s.** cAdvisor scrapes at
   60s where the other six sources scrape at 20s, and `query_cpu` dates the observation by `min()`
   across all of them. At 120s control-1 ran an age p99 of 102s against a 120s ceiling and
   self-invalidated 465 times in 10.26d (45 and 49 on the NVMe nodes), each latching a 600s
   recovery dwell. It was self-reinforcing: 1.7 errors/h idle against 4.8/h with a miner present,
-  because the cadvisor join only engages when one is. 85 of control-1's 118 mining bursts died
+  because the cAdvisor join only engages when one is. 85 of control-1's 118 mining bursts died
   under 5 minutes to this, not to its thresholds, which replay at 93.8% safe against 75.8% live.
 - **The dashboard under-reports hashrate when more than one miner runs**, because it polls one
   Service and gets whichever pod answers.

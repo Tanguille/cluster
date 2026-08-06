@@ -71,8 +71,8 @@ WHERE datname NOT IN ('template0','template1');
 
 Interpretation:
 
-- **cache_hit_pct** — Should be high (> 99%) with 2GB shared_buffers and NVMe.
-- **temp_files / temp_bytes** — Should stay low with work_mem 12MB; if high, consider per-session `SET work_mem` for heavy queries.
+- **cache_hit_pct** — Should be high (> 99%) with a well-sized shared_buffers and NVMe.
+- **temp_files / temp_bytes** — Should stay low with work_mem 16MB; if high, consider per-session `SET work_mem` for heavy queries.
 - **commits / tup_*** — Throughput; compare before/after if you have a baseline.
 
 ## 3. Observability MCP
@@ -104,12 +104,12 @@ Use **instant** for a snapshot; use **range** with `now-24h` → `now` and `step
 
 ## 4. Memory cost vs benefit / longer-term comparison
 
-Current tuning uses a lot of memory (see `cluster.yaml`): **shared_buffers 2GB**, **work_mem 12MB** (peak ~2.4GB with 200 conn), **maintenance_work_mem 1GB**, **limit 8Gi** per instance (`huge_pages: off`; none are reserved on any node). If cache hit stays in the 80–90% range and doesn’t approach >99%, extra shared_buffers may not be paying off — the working set may be larger than 2GB or not very cache-friendly, so more RAM doesn’t improve hit rate.
+Current tuning (see `cluster.yaml`): **shared_buffers 1GB**, **work_mem 16MB** (peak ~2.4GB with 150 connections), **maintenance_work_mem 512MB**, **limit 3Gi** per instance (`huge_pages: off`; none are reserved on any node). If cache hit stays in the 80–90% range and doesn’t approach >99%, extra shared_buffers is not paying off — the working set is larger than shared_buffers or not very cache-friendly, so more RAM doesn’t improve hit rate.
 
-**What the optimization clearly helps:**
+**What the optimization clearly helps** (24h observations, also from the previous config):
 
 - **Checkpoints:** 2 requested in 24h (WAL/checkpoint tuning is effective).
-- **Temp files:** Low overall; only jfstat showed moderate temp usage (~185 files in 24h). work_mem 12MB is likely reducing spill elsewhere.
+- **Temp files:** Low overall; only jfstat showed moderate temp usage (~185 files in 24h). work_mem is likely reducing spill elsewhere.
 - **No long-running transactions** in observed snapshots.
 
 **To compare over a longer period** (e.g. 7d), run these with the observability MCP or Grafana (range queries, `startTime`: `now-7d`, `endTime`: `now`, `stepSeconds`: `3600`):
@@ -121,13 +121,13 @@ Current tuning uses a lot of memory (see `cluster.yaml`): **shared_buffers 2GB**
 | Temp files over 7d | `sum(increase(cnpg_pg_stat_database_temp_files[7d])) by (pod, datname)` |
 | Throughput trend | `sum(rate(cnpg_pg_stat_database_xact_commit[5m]))` |
 
-If cache hit stays flat in the 80s over 7d, consider **reducing shared_buffers** (e.g. to 1GB) to free memory; keep **work_mem** and **WAL/checkpoint** settings — they show measurable benefit. If you have a baseline from before tuning, compare blks_read rate and temp_files; lower blks_read or temp_files after tuning would indicate the optimization did help despite the modest cache hit ratio.
+shared_buffers has since been reduced to 1GB on the strength of the snapshot below; **work_mem** and **WAL/checkpoint** settings were kept, as they show measurable benefit. If you have a baseline from before tuning, compare blks_read rate and temp_files; lower blks_read or temp_files after tuning would indicate the optimization did help despite the modest cache hit ratio.
 
-**Example 7d snapshot (from observability MCP):**
+**Example 7d snapshot (from observability MCP), measured under the previous shared_buffers 2GB / work_mem 12MB config:**
 
 - **Cache hit (cluster):** 52–95% over 7d (hourly); often in the 70–90% band; latest ~80%. No sustained >99%.
 - **blks_read by pod:** The **primary** (whichever pod) consistently shows 1.5–6k blocks/s read; replicas near 0. So disk read is inherent to the primary; 2GB shared_buffers is not eliminating it.
 - **Temp files (7d):** jfstat ~236–301 per instance; crowdsec 1–3; all other DBs 0. work_mem is containing spill except for jfstat.
 - **Throughput (xact_commit):** 1–4k/s depending on load and role changes; latest ~2.3k/s.
 
-**Takeaway:** Cache hit and primary blks_read do not show a clear win from the current shared_buffers size over 7d. Reducing shared_buffers (e.g. to 1GB) is reasonable to save memory; keep work_mem and WAL/checkpoint tuning.
+**Takeaway:** Cache hit and primary blks_read showed no clear win from 2GB shared_buffers over 7d, which is why it is now 1GB; work_mem and WAL/checkpoint tuning were kept.

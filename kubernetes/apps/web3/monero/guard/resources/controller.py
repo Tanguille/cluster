@@ -367,7 +367,7 @@ class _StatusHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
-    def log_message(self, format, *args):
+    def log_message(self, message_format, *args):
         return
 
 
