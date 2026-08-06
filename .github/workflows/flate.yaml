@@ -129,8 +129,10 @@ jobs:
           [[ -n "$want" ]] || { echo "no sha256 published for talosctl-linux-amd64"; exit 1; }
           verify() { [[ -f "$1" ]] && echo "${want}  $1" | sha256sum --check --status; }
 
-          # any miss, mismatch or vanished cache entry falls through to a plain download
-          if verify "$cache" && cp "$cache" "$bin/talosctl" 2>/dev/null; then
+          # copy first, then verify what was actually copied: checking the shared entry
+          # before reading it leaves a window for another job to swap it in between.
+          # Any miss, mismatch or vanished entry falls through to a plain download.
+          if cp "$cache" "$bin/talosctl" 2>/dev/null && verify "$bin/talosctl"; then
             echo "talosctl ${TALOS_VERSION} served from cache"
           else
             curl -fsSL -o "$bin/talosctl" "${base}/talosctl-linux-amd64"
