@@ -47,7 +47,8 @@ spec:
                     # Without this xmrig auto-detects 12 cores, spawns 12 threads, and is throttled
                     # 90-100% of CFS periods (CPUThrottlingHigh), inflating load average on every node.
                     - "--cpu-max-threads-hint=50"
-                    - "--huge-pages"
+                    # No hugepages are reserved on any node; xmrig would otherwise warn and fall back anyway.
+                    - "--no-huge-pages"
                     # Enable HTTP API for dashboard
                     - "--http-port=42000"
                     - "--http-host=0.0.0.0"
@@ -56,28 +57,25 @@ spec:
                     readOnlyRootFilesystem: true
                     capabilities:
                       drop: ["ALL"]
-                      add: ["IPC_LOCK"]
                   resources:
                     requests:
                       cpu: 1
-                      memory: 32Mi
-                      # 1184 pages measured (1040 dataset + 128 cache + scratchpads); below the cache xmrig falls back to _mm_malloc and OOMs.
-                      hugepages-2Mi: 2368Mi
+                      # RandomX fast mode needs ~2336Mi of regular pages once hugepages are gone.
+                      # Requested under that: the sysctl removal frees 2368Mi, leaving 2389/2373Mi on
+                      # control-2/3, and requesting the true figure parks the miner Pending forever.
+                      memory: 2Gi
                     limits:
                       cpu: 6
-                      memory: 128Mi
-                      hugepages-2Mi: 2368Mi
+                      memory: 3Gi
           persistence:
             tmp:
               type: emptyDir
               medium: Memory
+              # Capped since the RandomX dataset moved out of hugetlb: tmpfs pages and the ~2336Mi
+              # dataset now share one 3Gi limit, so an unbounded /tmp reaches it.
+              sizeLimit: 64Mi
               globalMounts:
                 - path: /tmp
-            hugepages:
-              type: emptyDir
-              medium: HugePages
-              globalMounts:
-                - path: /dev/hugepages
           defaultPodOptions:
             terminationGracePeriodSeconds: 15
             priorityClassName: low-priority-mining

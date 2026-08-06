@@ -104,7 +104,7 @@ Use **instant** for a snapshot; use **range** with `now-24h` → `now` and `step
 
 ## 4. Memory cost vs benefit / longer-term comparison
 
-Current tuning uses a lot of memory (see `cluster.yaml`): **shared_buffers 2GB**, **work_mem 12MB** (peak ~2.4GB with 200 conn), **maintenance_work_mem 1GB**, **hugepages 2Gi**, **limit 8Gi** per instance. If cache hit stays in the 80–90% range and doesn’t approach >99%, extra shared_buffers may not be paying off — the working set may be larger than 2GB or not very cache-friendly, so more RAM doesn’t improve hit rate.
+Current tuning uses a lot of memory (see `cluster.yaml`): **shared_buffers 2GB**, **work_mem 12MB** (peak ~2.4GB with 200 conn), **maintenance_work_mem 1GB**, **limit 8Gi** per instance (`huge_pages: off`; none are reserved on any node). If cache hit stays in the 80–90% range and doesn’t approach >99%, extra shared_buffers may not be paying off — the working set may be larger than 2GB or not very cache-friendly, so more RAM doesn’t improve hit rate.
 
 **What the optimization clearly helps:**
 

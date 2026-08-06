@@ -23,7 +23,7 @@ preempt with).
 
 ## The guard
 
-`kubernetes/apps/web3/xmrig-guard/app/resources/controller.py` polls VictoriaMetrics every 30s
+`kubernetes/apps/web3/monero/guard/resources/controller.py` polls VictoriaMetrics every 30s
 and exports `xmrig_guard_safe{node}` plus `xmrig_guard_rank{node}`. It treats telemetry as
 untrusted: a complete set of fresh samples is required before a node can be safe, and every
 failure path fails closed. Policy is code, so changing a threshold requires a reviewed diff.
@@ -34,8 +34,8 @@ is gated on CPU headroom; the bare-metal mini PCs are gated on NVMe Composite te
 | node | source | recover | trip | recovery dwell | trip dwell | panic |
 |---|---|---|---|---|---|---|
 | control-1 | non-xmrig CPU % | 50 | 70 | 600s | 120s | — |
-| control-2 | NVMe Composite C | 62 | 65 | 300s | 60s | 68C |
-| control-3 | NVMe Composite C | 62 | 65 | 300s | 60s | 68C |
+| control-2 | NVMe Composite C | 62 | 65 | 180s | 60s | 67C |
+| control-3 | NVMe Composite C | 62 | 65 | 180s | 60s | 67C |
 
 Only `temp1` (Composite) is read. `temp2`-`temp4` are internal die sensors running ~9C hotter
 with no comparable rating, so including them gated a Composite threshold against the wrong value.
@@ -44,7 +44,9 @@ The CPU gate has no panic limit: a busy CPU carries no equivalent of a drive's a
 
 ### Timing budget
 
-The 65C trip is sized against the 70C drive rating and a measured ~1.1C/min rise under load:
+The 65C trip is sized against the 70C drive rating. Across 1151 miner starts over 180d the rise
+is p50 0.88 / p90 1.13 / p99 **1.35** C/min, so the 1.1C/min this was originally sized on is the
+p90, not a worst case:
 
 | leg | seconds |
 |---|---|
@@ -54,8 +56,14 @@ The 65C trip is sized against the 70C drive rating and a measured ~1.1C/min rise
 | drain (`terminationGracePeriodSeconds`) | 15 |
 | **total** | **135** |
 
-135s is 2.5C of rise, peaking near 67.5C, leaving 2.5C of margin. The 68C panic trip skips the
-dwell entirely (75s, ~69.4C) and bounds the case where the ramp beats the dwell.
+135s is 3.0C of rise at the p99 rate, so the trip path alone would peak near 68.0C. It does not
+get there: the 67C panic trip skips the dwell entirely, so a ramp that outruns the dwell sheds at
+67 rather than riding the full 135s.
+
+**Measured, this is tighter than the model.** Real mining bursts under these parameters peaked at
+p50 67.8 / p90 68.8 / **max 69.8C** against the 70C rating. There is 0.2C of margin. Nothing here
+may be loosened, and raising `trip` is where all the cost sits: 65→66 multiplies hours-spent-safe-
+above-65C by 4-6x to buy +3-5pp of safe time.
 
 Changing any leg invalidates the trip threshold. They move together.
 
@@ -87,24 +95,46 @@ Per-node gating, first 24h after rollout (2026-07-31):
 | capture vs solar hours ≥25W | 6% | 51% |
 | peak concurrent miners | 1 | 3 |
 
-Replaying 7d of real telemetry through `DwellPolicy` (`recover 60/trip 64/600s/120s` →
-`62/65/300s/60s` + 68C panic): 65.4h → 84.2h of delivered replica-hours, +29%. control-2 44.7%
-→ 62.3% safe, control-3 31.5% → 40.4%.
+The original commissioning replay (7d, `recover 60/trip 64/600s/120s` → `62/65/300s/60s` + 68C
+panic) put delivered replica-hours at 65.4h → 84.2h, +29%. **Its magnitudes are superseded** —
+see the re-audit below, which found that window predated both the `temp1` sensor fix and
+enforcement, so every percentage from it is measured against a reading ~9C hotter than Composite.
 
-That replay is an upper bound: it applies a more permissive policy to temperatures recorded
-under the restrictive one, and more mining means more heat. It matched actuals closely on the
-*current* policy (control-2 20.0% modelled vs 20.4% actual, control-3 8.5% vs 8.5%), which
-validates the harness but not the counterfactual.
+The structural caveat still holds: any replay is an upper bound, because it applies a more
+permissive policy to temperatures recorded under a restrictive one, and more mining means more
+heat. It validated the harness, not the counterfactual.
 
-Threshold tuning is worth roughly 5h per node per degree. The per-node split was the 8x; the
-thresholds are the next ~30%.
+### Re-audit, 2026-08-06
+
+Replayed against 180d of `node_hwmon_temp_celsius` (VM retention) at the native 20s cadence.
+Downsampling to 60s hides 9C spikes and inflates safe-time by ~10pp, so do not replay at 60s.
+
+Only **2026-07-27 14:02 onward** reflects the deployed policy: before that the guard read all
+sensors rather than `temp1`, gating on a value ~9C hotter, and 2026-07-17→21 it emitted without
+enforcing. Every safe-percentage figure recorded before this audit — in the Measured section
+above and in the `controller.py` comments — came from those windows and does not reproduce on
+either sensor set. The direction holds everywhere; the magnitudes were stale.
+
+The guard works: **zero samples ≥70C occurred while `safe=1`.** Before it existed, ungated mining
+put control-3 over its rating 51% of the time it mined, peaking at 86C.
+
+Tuning outcome: the existing values are near-optimal. Two free changes applied — recovery dwell
+300→180s (+0.8pp/+1.1pp over 30d, no change in exposure above 65C) and panic 68→67C (0.0pp cost,
+caps the hottest sample called safe at 66.8C). `recover 62`, `trip 65` and `trip_dwell 60` all
+held against a 612-candidate grid.
+
+**The binding constraint is one drive, not a threshold.** The `nvme1` Micron 7450 480GB runs ~10C
+hotter than the 980 PRO beside it and sets the gate on both nodes (control-2 p90 70C vs 58C;
+control-3 p90 73C vs 64C). During surplus hours the idle baseline is already 63-64C against a
+workload that adds 8.5C in 7 minutes, which is why 68-72% of free solar watts go unmined.
+Cooling that drive converts directly into safe-time; no threshold change can.
 
 ## Alerts
 
 | alert | fires when |
 |---|---|
 | `XmrigGuardEnforcementBypassed` | a miner runs while its node's gate should be shut (KEDA down, HPA wedged, manual scale). Mirrors KEDA's cardinality and freshness gate exactly, so a stale `safe=1` cannot suppress it. |
-| `XmrigGuardThermalPanic` | a drive is above 68C with a miner still running: the zero-dwell fast path failed |
+| `XmrigGuardThermalPanic` | a drive is above 67C with a miner still running: the zero-dwell fast path failed |
 | `XmrigGuardAbsent` | guard signal missing or wrong cardinality (gate closed, mining silently off) |
 | `XmrigGuardLatchedUnsafe` | gated unsafe 6h while the drive stayed within the 62C recovery band, i.e. latched rather than hot |
 | `XmrigGuardEvaluationErrors` | >0.01/s evaluation failures; affected nodes cannot re-earn `safe=1` |
@@ -115,9 +145,21 @@ thresholds are the next ~30%.
   another node. control-2 and control-3 have 21.7Gi allocatable and sit near 99% memory
   requests, which cost 1.69 replica-hours in the first 24h. `preemptionPolicy: Never` on
   `low-priority-mining` means the miner waits rather than evicting real work, which is correct.
-- **The miner needs all of a node's hugepages.** 2368Mi requested against 2368Mi allocatable,
-  so exactly one miner fits per node. Any other hugepages consumer on a control node blocks a
-  miner outright; the CNPG cluster carries an explicit cap for this reason.
+- **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every
+  node's allocatable memory even at 0 replicas, so it was dropped. The reclaim is 2368Mi while
+  idle but only ~320Mi while mining, since xmrig then requests 2Gi of regular pages instead.
+  RandomX loses hashrate without hugepages; that is the accepted price for giving the two 29GB
+  nodes their memory back for the ~94% of the time no miner is running.
+  The request is deliberately under the ~2336Mi RandomX actually uses: post-reclaim headroom is
+  2389Mi/2373Mi on control-2/3, and requesting the true figure would park the miner Pending
+  forever behind `preemptionPolicy: Never`. The overshoot bursts against the 3Gi limit.
+- **The CPU path gets a 180s freshness budget, the NVMe path keeps 120s.** cadvisor scrapes at
+  60s where the other six sources scrape at 20s, and `query_cpu` dates the observation by `min()`
+  across all of them. At 120s control-1 ran an age p99 of 102s against a 120s ceiling and
+  self-invalidated 465 times in 10.26d (45 and 49 on the NVMe nodes), each latching a 600s
+  recovery dwell. It was self-reinforcing: 1.7 errors/h idle against 4.8/h with a miner present,
+  because the cadvisor join only engages when one is. 85 of control-1's 118 mining bursts died
+  under 5 minutes to this, not to its thresholds, which replay at 93.8% safe against 75.8% live.
 - **The dashboard under-reports hashrate when more than one miner runs**, because it polls one
   Service and gets whichever pod answers.
 - **A missing rank series fails open on allocation only.** `scalar()` yields NaN, every rank
