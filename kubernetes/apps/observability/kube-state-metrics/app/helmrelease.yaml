@@ -28,18 +28,13 @@ spec:
             - source.toolkit.fluxcd.io
             - kustomize.toolkit.fluxcd.io
             - helm.toolkit.fluxcd.io
-            - notification.toolkit.fluxcd.io
           resources:
             - gitrepositories
             - buckets
             - helmrepositories
-            - helmcharts
             - ocirepositories
             - kustomizations
             - helmreleases
-            - alerts
-            - providers
-            - receivers
           verbs:
             - list
             - watch
@@ -54,6 +49,8 @@ spec:
       enabled: true
       config:
         spec:
+          # Every resource_info shares the same name/namespace/ready/suspend shape;
+          # anchors leave each kind's block showing only what actually differs.
           resources:
             - groupVersionKind:
                 group: kustomize.toolkit.fluxcd.io
@@ -63,7 +60,7 @@ spec:
               metrics:
                 - name: resource_info
                   help: The current state of a Flux Kustomization resource.
-                  each:
+                  each: &eachName
                     type: Info
                     info:
                       labelsFromPath:
@@ -71,15 +68,15 @@ spec:
                           - metadata
                           - name
                   labelsFromPath:
-                    exported_namespace:
+                    exported_namespace: &namespacePath
                       - metadata
                       - namespace
-                    ready:
+                    ready: &readyPath
                       - status
                       - conditions
                       - "[type=Ready]"
                       - status
-                    suspended:
+                    suspended: &suspendPath
                       - spec
                       - suspend
                     revision:
@@ -97,25 +94,11 @@ spec:
               metrics:
                 - name: resource_info
                   help: The current state of a Flux HelmRelease resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
+                  each: *eachName
                   labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    ready:
-                      - status
-                      - conditions
-                      - "[type=Ready]"
-                      - status
-                    suspended:
-                      - spec
-                      - suspend
+                    exported_namespace: *namespacePath
+                    ready: *readyPath
+                    suspended: *suspendPath
                     revision:
                       - status
                       - history
@@ -149,30 +132,16 @@ spec:
               metrics:
                 - name: resource_info
                   help: The current state of a Flux GitRepository resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
+                  each: *eachName
                   labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    ready:
-                      - status
-                      - conditions
-                      - "[type=Ready]"
-                      - status
-                    suspended:
-                      - spec
-                      - suspend
-                    revision:
+                    exported_namespace: *namespacePath
+                    ready: *readyPath
+                    suspended: *suspendPath
+                    revision: &artifactRevision
                       - status
                       - artifact
                       - revision
-                    url:
+                    url: &urlPath
                       - spec
                       - url
             - groupVersionKind:
@@ -183,29 +152,12 @@ spec:
               metrics:
                 - name: resource_info
                   help: The current state of a Flux Bucket resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
+                  each: *eachName
                   labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    ready:
-                      - status
-                      - conditions
-                      - "[type=Ready]"
-                      - status
-                    suspended:
-                      - spec
-                      - suspend
-                    revision:
-                      - status
-                      - artifact
-                      - revision
+                    exported_namespace: *namespacePath
+                    ready: *readyPath
+                    suspended: *suspendPath
+                    revision: *artifactRevision
                     endpoint:
                       - spec
                       - endpoint
@@ -220,69 +172,13 @@ spec:
               metrics:
                 - name: resource_info
                   help: The current state of a Flux HelmRepository resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
+                  each: *eachName
                   labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    ready:
-                      - status
-                      - conditions
-                      - "[type=Ready]"
-                      - status
-                    suspended:
-                      - spec
-                      - suspend
-                    revision:
-                      - status
-                      - artifact
-                      - revision
-                    url:
-                      - spec
-                      - url
-            - groupVersionKind:
-                group: source.toolkit.fluxcd.io
-                version: v1
-                kind: HelmChart
-              metricNamePrefix: gotk
-              metrics:
-                - name: resource_info
-                  help: The current state of a Flux HelmChart resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
-                  labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    ready:
-                      - status
-                      - conditions
-                      - "[type=Ready]"
-                      - status
-                    suspended:
-                      - spec
-                      - suspend
-                    revision:
-                      - status
-                      - artifact
-                      - revision
-                    chart_name:
-                      - spec
-                      - chart
-                    chart_version:
-                      - spec
-                      - version
+                    exported_namespace: *namespacePath
+                    ready: *readyPath
+                    suspended: *suspendPath
+                    revision: *artifactRevision
+                    url: *urlPath
             - groupVersionKind:
                 group: source.toolkit.fluxcd.io
                 version: v1
@@ -291,106 +187,13 @@ spec:
               metrics:
                 - name: resource_info
                   help: The current state of a Flux OCIRepository resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
+                  each: *eachName
                   labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    ready:
-                      - status
-                      - conditions
-                      - "[type=Ready]"
-                      - status
-                    suspended:
-                      - spec
-                      - suspend
-                    revision:
-                      - status
-                      - artifact
-                      - revision
-                    url:
-                      - spec
-                      - url
-            - groupVersionKind:
-                group: notification.toolkit.fluxcd.io
-                version: v1beta3
-                kind: Alert
-              metricNamePrefix: gotk
-              metrics:
-                - name: resource_info
-                  help: The current state of a Flux Alert resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
-                  labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    suspended:
-                      - spec
-                      - suspend
-            - groupVersionKind:
-                group: notification.toolkit.fluxcd.io
-                version: v1beta3
-                kind: Provider
-              metricNamePrefix: gotk
-              metrics:
-                - name: resource_info
-                  help: The current state of a Flux Provider resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
-                  labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    suspended:
-                      - spec
-                      - suspend
-            - groupVersionKind:
-                group: notification.toolkit.fluxcd.io
-                version: v1
-                kind: Receiver
-              metricNamePrefix: gotk
-              metrics:
-                - name: resource_info
-                  help: The current state of a Flux Receiver resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
-                  labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    ready:
-                      - status
-                      - conditions
-                      - "[type=Ready]"
-                      - status
-                    suspended:
-                      - spec
-                      - suspend
-                    webhook_path:
-                      - status
-                      - webhookPath
+                    exported_namespace: *namespacePath
+                    ready: *readyPath
+                    suspended: *suspendPath
+                    revision: *artifactRevision
+                    url: *urlPath
             # vmcp readiness lives only in the CR: the gateway keeps serving on a
             # dead backend, so nothing else in the cluster reports it
             - groupVersionKind:
@@ -401,22 +204,10 @@ spec:
               metrics:
                 - name: resource_info
                   help: The current state of a Toolhive VirtualMCPServer resource.
-                  each:
-                    type: Info
-                    info:
-                      labelsFromPath:
-                        name:
-                          - metadata
-                          - name
+                  each: *eachName
                   labelsFromPath:
-                    exported_namespace:
-                      - metadata
-                      - namespace
-                    ready:
-                      - status
-                      - conditions
-                      - "[type=Ready]"
-                      - status
+                    exported_namespace: *namespacePath
+                    ready: *readyPath
                     phase:
                       - status
                       - phase
