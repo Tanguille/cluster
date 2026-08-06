@@ -77,8 +77,9 @@
       description: "Talos Group",
       groupName: "talos",
       matchDatasources: ["docker", "github-releases"],
-      // matches all siderolabs/* packages (talos, installer, etc.)
-      matchPackageNames: ["/siderolabs\\/"],
+      // matches all siderolabs/* packages (talos, installer, etc.); both slashes are regex
+      // delimiters, so the inner one must stay escaped AND closed or config validation fails
+      matchPackageNames: ["/siderolabs\\//"],
     },
     {
       description: "Rook-Ceph Group",
