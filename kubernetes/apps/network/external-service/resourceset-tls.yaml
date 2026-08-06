@@ -5,7 +5,7 @@ kind: ResourceSet
 metadata:
   name: external-service-tls
 spec:
-  # Passthrough TLS to an off-cluster host on 443. Add one here to add a service.
+  # Passthrough TLS to an off-cluster host on 443. One input entry per service.
   inputs:
     - name: ipmi
       ip: ${IPMI_IP}
