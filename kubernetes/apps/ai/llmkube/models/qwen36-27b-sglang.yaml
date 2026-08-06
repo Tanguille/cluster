@@ -183,7 +183,7 @@ spec:
     memFractionStatic: 0.875
     # No maxRunningRequests: the mamba clamp below always wins over a requested value
     # (resolve_max_num_reqs), so setting one here would only misstate the real ceiling.
-    chunkedPrefillSize: 8192
+    chunkedPrefillSize: 4096
     # No tensorParallelSize (1 is the default) or quantization: config.json carries
     # quant_method awq and dtype bfloat16, both auto-detected; awq_marlin, the one override
     # that could diverge, hard-returns False off CUDA (awq.py:388). Raising TP also means
@@ -322,7 +322,7 @@ spec:
     - --model-loader-extra-config
     - '{"num_threads":2}'
     - --schedule-conservativeness
-    - "0.1"
+    - "1.0"
     - --enable-mixed-chunk
     # Without this SGLang returns prompt_tokens_details:None and hermes logs
     # cache_read_tokens=0 regardless of the real hit rate.
