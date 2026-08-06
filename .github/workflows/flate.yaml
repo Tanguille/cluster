@@ -108,16 +108,25 @@ jobs:
     name: Flate - Pull Images
     runs-on: cluster-runner
     steps:
+      # 96MiB per run, and this job fires on every container PR. /tool-cache is an RWX
+      # PVC shared by all runner pods, so it is one download per Talos version, not per run.
       - name: Install talosctl
         env:
           # renovate: datasource=github-releases depName=siderolabs/talos
           TALOS_VERSION: v1.13.8
         run: |
           set -euo pipefail
+          cached="/tool-cache/talosctl-${TALOS_VERSION}"
+          if [[ ! -x "$cached" ]]; then
+            tmp="${cached}.$$"
+            curl -fsSL -o "$tmp" \
+              "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64"
+            chmod +x "$tmp"
+            # atomic within the mount: concurrent runners may race the same download
+            mv -f "$tmp" "$cached"
+          fi
           mkdir -p "$HOME/.local/bin"
-          curl -fsSL -o "$HOME/.local/bin/talosctl" \
-            "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64"
-          chmod +x "$HOME/.local/bin/talosctl"
+          ln -sf "$cached" "$HOME/.local/bin/talosctl"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       # One runner pod pulls all images to its node; Spegel mirrors the blobs cluster-wide,
