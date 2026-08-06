@@ -14,8 +14,6 @@ spec:
     podAnnotations:
       reloader.stakater.com/auto: "true"
     securityContext:
-      readOnlyRootFilesystem: true
-      allowPrivilegeEscalation: false
       capabilities: { add: ["NET_RAW"] }
     config:
       modules:

@@ -25,13 +25,8 @@ spec:
         - secretRef:
             name: "{{ .Release.Name }}-secret"
       livenessProbe: &probes
-        httpGet:
-          path: /health
-          port: http
         initialDelaySeconds: 0
         periodSeconds: 10
-        timeoutSeconds: 1
-        failureThreshold: 3
       readinessProbe: *probes
       securityContext:
         capabilities: { add: ["NET_RAW"] }

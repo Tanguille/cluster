@@ -20,8 +20,6 @@ spec:
         runAsGroup: *uid
         fsGroup: *uid
         fsGroupChangePolicy: OnRootMismatch
-      # Graceful SQLite / WAL checkpoint on SIGTERM (upstream recommends ~30s before SIGKILL)
-      terminationGracePeriodSeconds: 30
 
     controllers:
       qbitrr:

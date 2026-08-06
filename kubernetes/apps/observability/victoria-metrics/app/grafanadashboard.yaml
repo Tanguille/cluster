@@ -1,212 +1,104 @@
 ---
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
 metadata:
-  name: kubernetes-hpa
+  name: victoria-metrics-dashboards
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: autoscaling
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  url: https://raw.githubusercontent.com/monitoring-mixins/website/b200a115e32a4db3045c7e1be1567a315d35cc4e/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-hpa.json
+  # Renovate's grafana-dashboards manager needs this filename and a nested grafanaCom: id/revision.
+  inputs:
+    - name: node-exporter-full
+      folder: hardware
+      grafanaCom:
+        id: 1860
+        revision: 45
+    - name: kubernetes-api-server
+      folder: kubernetes
+      grafanaCom:
+        id: 15761
+        revision: 21
+    - name: kubernetes-coredns
+      folder: kubernetes
+      grafanaCom:
+        id: 15762
+        revision: 22
+    - name: kubernetes-etcd
+      folder: kubernetes
+      grafanaCom:
+        id: 21473
+        revision: 3
+    - name: kubernetes-global
+      folder: kubernetes
+      grafanaCom:
+        id: 15757
+        revision: 43
+    - name: kubernetes-namespaces
+      folder: kubernetes
+      grafanaCom:
+        id: 15758
+        revision: 46
+    - name: kubernetes-nodes
+      folder: kubernetes
+      grafanaCom:
+        id: 15759
+        revision: 40
+    - name: kubernetes-pods
+      folder: kubernetes
+      grafanaCom:
+        id: 15760
+        revision: 39
+    - name: kubernetes-volumes
+      folder: kubernetes
+      grafanaCom:
+        id: 11454
+        revision: 14
+    - name: zfs
+      folder: nas
+      grafanaCom:
+        id: 24987
+        revision: 2
+  resources:
+    - apiVersion: grafana.integreatly.org/v1beta1
+      kind: GrafanaDashboard
+      metadata:
+        name: << inputs.name >>
+        namespace: observability
+      spec:
+        allowCrossNamespaceImport: true
+        instanceSelector:
+          matchLabels:
+            grafana.internal/instance: grafana
+        folder: << inputs.folder >>
+        datasources:
+          - datasourceName: VictoriaMetrics
+            inputName: DS_PROMETHEUS
+        grafanaCom: << inputs.grafanaCom | toYaml | nindent 10 >>
 ---
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
 metadata:
-  name: kubernetes-pdb
+  name: victoria-metrics-dashboards-mixin
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: autoscaling
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  url: https://raw.githubusercontent.com/monitoring-mixins/website/b200a115e32a4db3045c7e1be1567a315d35cc4e/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-pdb.json
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: node-exporter-full
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: hardware
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 1860
-    revision: 45
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: kubernetes-api-server
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: kubernetes
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 15761
-    revision: 21
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: kubernetes-coredns
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: kubernetes
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 15762
-    revision: 22
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: kubernetes-etcd
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: kubernetes
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 21473
-    revision: 3
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: kubernetes-global
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: kubernetes
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 15757
-    revision: 43
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: kubernetes-namespaces
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: kubernetes
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 15758
-    revision: 46
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: kubernetes-nodes
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: kubernetes
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 15759
-    revision: 40
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: kubernetes-pods
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: kubernetes
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 15760
-    revision: 39
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: kubernetes-volumes
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: kubernetes
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 11454
-    revision: 14
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: zfs
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: nas
-  datasources:
-    - datasourceName: VictoriaMetrics
-      inputName: DS_PROMETHEUS
-  grafanaCom:
-    id: 24987
-    revision: 2
+  # monitoring-mixins assets, commit-pinned.
+  inputs:
+    - name: kubernetes-hpa
+      asset: hpa
+    - name: kubernetes-pdb
+      asset: pdb
+  resources:
+    - apiVersion: grafana.integreatly.org/v1beta1
+      kind: GrafanaDashboard
+      metadata:
+        name: << inputs.name >>
+        namespace: observability
+      spec:
+        allowCrossNamespaceImport: true
+        instanceSelector:
+          matchLabels:
+            grafana.internal/instance: grafana
+        folder: autoscaling
+        datasources:
+          - datasourceName: VictoriaMetrics
+            inputName: DS_PROMETHEUS
+        url: https://raw.githubusercontent.com/monitoring-mixins/website/b200a115e32a4db3045c7e1be1567a315d35cc4e/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-<< inputs.asset >>.json
