@@ -12,10 +12,9 @@ spec:
   values:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
-    # No workflow targets this scale set until the follow-up PR switches agent-pr-review over,
-    # so idle at 0 until then. Ceiling is 3, not 5: combined with cluster-runner that caps the
-    # cluster at 5 concurrent runners, matching today's ceiling (10 OOM-cascaded the apiserver).
-    minRunners: 0
+    # Serves agent-pr-review. Ceiling 3 + cluster-runner's 2 keeps the cluster at 5 concurrent
+    # runners, matching the pre-split ceiling (10 OOM-cascaded the apiserver).
+    minRunners: 1
     maxRunners: 3
     # No containerMode: REQUIRE_JOB_CONTAINER is false and no workflow declares `container:`,
     # so the k8s hooks never fire. _work falls back to emptyDir instead of a 25Gi PVC per pod.

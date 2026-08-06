@@ -6,5 +6,8 @@ metadata:
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
   labels:
+    # Enforced by default; namespaces running privileged workloads override to privileged via
+    # components/psa-privileged or components/kopiur/privileged-movers.
+    pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/audit: baseline
