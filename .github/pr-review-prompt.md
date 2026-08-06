@@ -7,3 +7,5 @@
 - For version bumps spanning multiple releases, enumerate every release in the old-to-new range (releases or compare API), and flag when a chart bump moves the embedded appVersion across a major version.
 - Translate upgrade steps written for docker-compose or .env files into their Kubernetes/Helm equivalent before flagging them as missing.
 - Inline findings must require action. Never post praise as a finding.
+- Omit any section you have nothing to report in, Tool Harness Findings and Release notes included. Never write a section whose only content is that it does not apply. Unknowns is the one exception: keep it whenever evidence is incomplete.
+- On a PR that only changes a version, digest or pin, the whole review is the recommendation plus one line per changed file.
