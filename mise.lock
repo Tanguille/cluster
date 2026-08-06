@@ -41,6 +41,25 @@ checksum = "sha256:740ee9143aed9964811ce027276f2e382c1add4baa7f38bcf142099c919ae
 url = "https://github.com/budimanjojo/talhelper/releases/download/v3.1.16/talhelper_darwin_arm64.tar.gz"
 url_api = "https://api.github.com/repos/budimanjojo/talhelper/releases/assets/503622662"
 
+[[tools."aqua:casey/just"]]
+version = "1.58.0"
+backend = "aqua:casey/just"
+
+[tools."aqua:casey/just"."platforms.linux-arm64"]
+checksum = "sha256:748237128c4c40cbdabc65e841d05ceba13cc23a91eaba395495894c1d9764df"
+url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/casey/just/releases/assets/500510099"
+
+[tools."aqua:casey/just"."platforms.linux-x64"]
+checksum = "sha256:4a5cc2f53e6f0f8c59092a6cc38291eb729d46a7dd95d3ae582008881b84931d"
+url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/casey/just/releases/assets/500509978"
+
+[tools."aqua:casey/just"."platforms.macos-arm64"]
+checksum = "sha256:50ae3e996c974a0bf32ea7d10f495070df33f1b43e0616b2769e3d4821ed8f48"
+url = "https://github.com/casey/just/releases/download/1.58.0/just-1.58.0-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/casey/just/releases/assets/500509965"
+
 [[tools."aqua:cilium/cilium-cli"]]
 version = "0.19.7"
 backend = "aqua:cilium/cilium-cli"
@@ -197,25 +216,6 @@ url_api = "https://api.github.com/repos/getsops/sops/releases/assets/486808198"
 
 [tools."aqua:getsops/sops"."platforms.macos-arm64".provenance.slsa]
 url = "https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.intoto.jsonl"
-
-[[tools."aqua:go-task/task"]]
-version = "3.52.0"
-backend = "aqua:go-task/task"
-
-[tools."aqua:go-task/task"."platforms.linux-arm64"]
-checksum = "sha256:7e0044108830cec0534577b289564e3b7c83e6df276feb631a1edc63d04e4ebe"
-url = "https://github.com/go-task/task/releases/download/v3.52.0/task_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/go-task/task/releases/assets/464613352"
-
-[tools."aqua:go-task/task"."platforms.linux-x64"]
-checksum = "sha256:02c679ffae53dca791804847d78b31731615894e292948397c971c87ac9e95bd"
-url = "https://github.com/go-task/task/releases/download/v3.52.0/task_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/go-task/task/releases/assets/464613330"
-
-[tools."aqua:go-task/task"."platforms.macos-arm64"]
-checksum = "sha256:debfa9a3bc06fcb5d5550b44725ecd22bb305499ce057bd6d7a774db5cdaa7b8"
-url = "https://github.com/go-task/task/releases/download/v3.52.0/task_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/go-task/task/releases/assets/464613319"
 
 [[tools."aqua:google/go-containerregistry"]]
 version = "0.21.9"

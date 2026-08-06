@@ -2,6 +2,11 @@
 parallel = true
 skip = ["merge", "rebase"]
 
+[pre-commit.commands.format-just]
+glob = ["*.just", ".justfile"]
+run = 'for f in {staged_files}; do just --justfile "$f" --fmt; done'
+stage_fixed = true
+
 [pre-commit.commands.format-mise]
 glob = [".mise.toml", ".mise/config.toml"]
 run = "mise fmt"
@@ -12,13 +17,12 @@ glob = ["*.json", "*.json5", "*.jsonc"]
 run = "oxfmt {staged_files}"
 stage_fixed = true
 
-[pre-commit.commands.format-markdown]
-glob = ["*.md", "*.markdown", "*.mdx"]
-run = "oxfmt {staged_files}"
-stage_fixed = true
-
+# cluster-template's format-markdown is omitted: .prettierignore excludes **/*.md
+# (markdownlint owns markdown here), and oxfmt exits 2 when every input is ignored.
+# The same exit-2 applies to sops files, so they are excluded before oxfmt sees them.
 [pre-commit.commands.format-yaml]
 glob = ["*.yaml", "*.yml"]
+exclude = ["*.sops.yaml"]
 run = "oxfmt {staged_files}"
 stage_fixed = true
 
