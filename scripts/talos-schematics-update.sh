@@ -25,10 +25,10 @@ done
 
 get_schematic_id() {
   local doc_index=$1
-  yq eval-all "select(di == ${doc_index})" "$SCHEMATIC" \
-    | curl -fsS --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 1 --retry-all-errors \
-      -X POST --data-binary @- -H "Content-Type: application/x-yaml" https://factory.talos.dev/schematics \
-    | jq -r '.id'
+  yq eval-all "select(di == ${doc_index})" "$SCHEMATIC" |
+    curl -fsS --connect-timeout 10 --max-time 60 --retry 3 --retry-delay 1 --retry-all-errors \
+      -X POST --data-binary @- -H "Content-Type: application/x-yaml" https://factory.talos.dev/schematics |
+    jq -r '.id'
 }
 
 ID1=$(get_schematic_id 0)

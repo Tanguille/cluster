@@ -2,7 +2,10 @@
 set -u
 
 # Change to Nextcloud directory (required for occ commands)
-cd /var/www/html || { echo "ERROR: Cannot cd to /var/www/html" >&2; exit 1; }
+cd /var/www/html || {
+  echo "ERROR: Cannot cd to /var/www/html" >&2
+  exit 1
+}
 
 # Helper function to run occ commands with error handling
 run_occ() {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Radarr SQLite to PostgreSQL Migration Script
 # This script automates the migration from SQLite to PostgreSQL
@@ -10,7 +10,7 @@
 #
 # Use inpod-* functions for modular execution within Kubernetes pods
 
-set -e
+set -euo pipefail
 
 # Configuration
 NAMESPACE="media"
