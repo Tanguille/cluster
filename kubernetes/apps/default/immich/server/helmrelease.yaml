@@ -17,6 +17,9 @@ spec:
         runAsUser: 568
         runAsGroup: 568
         fsGroup: 568
+        # 100Gi CephFS upload volume: without this kubelet recursively chowns it on
+        # every pod start
+        fsGroupChangePolicy: OnRootMismatch
     controllers:
       immich-server:
         strategy: RollingUpdate

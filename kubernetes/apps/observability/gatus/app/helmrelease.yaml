@@ -27,8 +27,6 @@ spec:
       livenessProbe: &probes
         initialDelaySeconds: 0
         periodSeconds: 10
-        timeoutSeconds: 1
-        failureThreshold: 3
       readinessProbe: *probes
       securityContext:
         capabilities: { add: ["NET_RAW"] }

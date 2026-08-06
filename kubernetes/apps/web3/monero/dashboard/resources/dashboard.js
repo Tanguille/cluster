@@ -798,9 +798,7 @@ function updateWindowLuck({
       return;
     }
 
-    const sortedShares = [...shares].sort((a, b) => a.timestamp - b.timestamp);
-
-    const myWindowShares = sortedShares.filter(
+    const myWindowShares = shares.filter(
       (share) => share.timestamp >= windowStart
     );
     const totalDifficulty = myWindowShares.reduce(
@@ -893,8 +891,7 @@ function updateTrueLuck(
     setTextContent("trueLuckFactor", trueLuckFactor.toFixed(2));
 
     // Show the time window context so users understand accuracy
-    const displayDays = Math.min(timeWindowDays, MAX_WINDOW_DAYS);
-    const displayHours = displayDays * 24;
+    const displayHours = cappedWindowDays * 24;
     const windowText =
       displayHours < 1
         ? `${Math.round(timeWindow / 60)}m window`
