@@ -139,8 +139,10 @@ jobs:
               chmod 0644 "$tmp"
               mv -f "$tmp" "$cache"
               trap - EXIT
-              # only the pinned version is read
-              find /tool-cache -maxdepth 1 -name 'talosctl-*' ! -name "talosctl-${TALOS_VERSION}" -delete
+              # only the pinned version is read; -ignore_readdir_race so a concurrent
+              # pruner removing the same entry is not a failure
+              find /tool-cache -maxdepth 1 -ignore_readdir_race \
+                -name 'talosctl-*' ! -name "talosctl-${TALOS_VERSION}" -delete
             fi
           fi
           chmod +x "$bin/talosctl"
