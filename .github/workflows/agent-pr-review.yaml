@@ -72,8 +72,10 @@ jobs:
           # needed, use the authenticated gh_api tool — web_fetch of github.com HTML truncates to
           # page boilerplate at the response cap and never yielded usable notes (validated in run
           # logs). Projects that publish no GitHub releases (e.g. Ceph) return 404/empty from
-          # gh_api, so fall back to the project official release-notes documentation page. The
-          # trailing quality-rules paragraph distills a fleet audit of past reviews.
+          # gh_api, so fall back to the project official release-notes documentation page.
+          # v2.1.11 concatenates file then inline (upstream #426), so the standing rules live in a
+          # diffable file and only the per-PR branch stays in this scalar.
+          system_prompt_file: .github/pr-review-prompt.md
           system_prompt: >-
             ${{ contains(github.event.pull_request.body, '### Release Notes')
             && 'The PR body already contains upstream release notes from Renovate. Do not fetch
@@ -89,16 +91,6 @@ jobs:
             the target version section and its Notable Changes summary, then stop. Summarize in a
             **Release notes** section in review_markdown: user-visible changes, breaking changes,
             and security fixes.' }}
-            Review quality rules: Before flagging a config, env var, or resource as missing,
-            read the file that would contain it; if unverifiable, file it under Unknowns at
-            info severity, never as a blocker or major. Cite only sources fetched this run;
-            on a failed or empty fetch write "not verified" (never "confirmed") and list the
-            gap under Unknowns. For version bumps spanning multiple releases, enumerate every
-            release in the old-to-new range (releases or compare API) and flag when a chart
-            bump moves the embedded appVersion across a major version. Translate upgrade steps
-            written for docker-compose or .env files into their Kubernetes/Helm equivalent
-            before flagging them as missing. Inline findings must require action; never post
-            praise as a finding.
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
           model_context_tokens: "120000"
