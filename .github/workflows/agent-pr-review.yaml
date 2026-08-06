@@ -86,8 +86,9 @@ jobs:
             github.com HTML pages, which truncate to boilerplate. Large changelogs (Ceph lists
             hundreds of backported PRs) exhaust the context budget if fetched whole: extract only
             the target version section and its Notable Changes summary, then stop.' }}
-            Summarize them in a **Release notes** section in review_markdown: user-visible
-            changes, breaking changes, and security fixes.
+            Only when the PR changes a dependency version or digest, summarize them in a
+            **Release notes** section in review_markdown: user-visible changes, breaking
+            changes, and security fixes.
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
           model_context_tokens: "120000"
