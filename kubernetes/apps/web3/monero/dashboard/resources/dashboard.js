@@ -781,7 +781,7 @@ function updateSharesDisplay(
 // LUCK CALCULATION FUNCTIONS
 // ==============================
 
-async function updateWindowLuck({
+function updateWindowLuck({
   shares,
   pplnsWeight,
   avgMyHashPPLNS,
@@ -1237,7 +1237,7 @@ async function updateStats() {
         ? await Promise.all([
             fetchJSON(`/observer/payouts/${state.observerWallet}`),
             fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`),
-            fetchJSON(`/observer/pool_info`)
+            fetchJSON("/observer/pool_info")
           ])
         : [null, null, null];
 
@@ -1276,7 +1276,7 @@ async function updateStats() {
     );
 
     // Update luck cards
-    await updateWindowLuck({
+    updateWindowLuck({
       shares: minerShares,
       pplnsWeight,
       avgMyHashPPLNS,

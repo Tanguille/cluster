@@ -2,8 +2,8 @@
 # Shared tool cache for runner pods. talosctl is a 96MiB download and the Flate
 # pull job runs on every container PR (~400/month), all over the home uplink.
 # RWX so every runner pod on every node shares one copy per Talos version.
-# 2Gi holds ~20 versions; nothing prunes it, so clear it by hand if it ever fills.
-# The workflow treats the mount as optional and falls back to a per-run download.
+# The workflow prunes superseded versions, treats the mount as optional, and verifies
+# every read against the release sha256, so the share is a cache and not a trust root.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
