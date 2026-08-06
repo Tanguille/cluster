@@ -61,8 +61,7 @@ jobs:
           inline_findings: "true"
           inline_findings_max: "12"
           publish_mode: review_comment
-          # concise targets ~300 words and leaves minor/info to the findings array; it patches the
-          # bundled default prompt, which only system_prompt_mode: append keeps.
+          # concise patches the bundled default prompt, so it needs system_prompt_mode: append below.
           review_verbosity: concise
           system_prompt_mode: append
           # v2.1.1 bundles the release-notes STYLE rules (no raw PR/issue/SHA links, summarize in
@@ -73,14 +72,12 @@ jobs:
           # page boilerplate at the response cap and never yielded usable notes (validated in run
           # logs). Projects that publish no GitHub releases (e.g. Ceph) return 404/empty from
           # gh_api, so fall back to the project official release-notes documentation page.
-          # v2.1.11 concatenates file then inline (upstream #426), so the standing rules live in a
-          # diffable file and only the per-PR branch stays in this scalar.
+          # v2.1.11 concatenates system_prompt_file then system_prompt (upstream #426).
           system_prompt_file: .github/pr-review-prompt.md
           system_prompt: >-
             ${{ contains(github.event.pull_request.body, '### Release Notes')
             && 'The PR body already contains upstream release notes from Renovate. Do not fetch
-            release notes externally. Summarize the embedded notes in a **Release notes** section
-            in review_markdown: user-visible changes, breaking changes, and security fixes.'
+            release notes externally; summarize the embedded notes.'
             || 'For dependency upgrade and Renovate PRs the body lacks upstream release notes.
             Fetch them with the gh_api tool (api.github.com /repos/OWNER/REPO/releases JSON) first.
             If that returns 404 or an empty list (the project does not publish GitHub releases,
@@ -88,9 +85,9 @@ jobs:
             page (e.g. docs.ceph.com/en/latest/releases/tentacle/#v20-2-3-tentacle) rather than
             github.com HTML pages, which truncate to boilerplate. Large changelogs (Ceph lists
             hundreds of backported PRs) exhaust the context budget if fetched whole: extract only
-            the target version section and its Notable Changes summary, then stop. Summarize in a
-            **Release notes** section in review_markdown: user-visible changes, breaking changes,
-            and security fixes.' }}
+            the target version section and its Notable Changes summary, then stop.' }}
+            Summarize them in a **Release notes** section in review_markdown: user-visible
+            changes, breaking changes, and security fixes.
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
           model_context_tokens: "120000"
