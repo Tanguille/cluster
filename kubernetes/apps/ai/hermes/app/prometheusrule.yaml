@@ -16,9 +16,12 @@ spec:
       rules:
         # The scheduler already records per-job status in cron/jobs.json; nothing read
         # it, so a dead cron stayed dark 40h.
+        # A paused job's last status is frozen history, not a live failure: it will never
+        # re-run, so the alert would never clear (kanban-actualizer, paused 2026-08-05).
         - alert: HermesCronJobFailed
           expr: |-
             last_over_time(hermes_cron_last_status_ok[30m]) == 0
+              unless on (id) last_over_time(hermes_cron_paused[30m]) == 1
           for: 15m
           annotations:
             summary: >-
@@ -32,6 +35,7 @@ spec:
         - alert: HermesCronDeliveryFailed
           expr: |-
             last_over_time(hermes_cron_delivery_failed[30m]) == 1
+              unless on (id) last_over_time(hermes_cron_paused[30m]) == 1
           for: 15m
           annotations:
             summary: >-
