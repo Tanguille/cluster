@@ -3,6 +3,7 @@
 # pull job runs on every container PR (~400/month), all over the home uplink.
 # RWX so every runner pod on every node shares one copy per Talos version.
 # 2Gi holds ~20 versions; nothing prunes it, so clear it by hand if it ever fills.
+# The workflow treats the mount as optional and falls back to a per-run download.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
