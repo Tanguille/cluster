@@ -2,7 +2,18 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
     "abandonments:recommended",
-    "github>home-operations/renovate-presets#5.0.0",
+    // v6 flattened every config/managers/overrides/policies file into default.json and moved
+    // app-specific presets to apps/, opt-in only — the old config/baseConfig.json5 etc. paths
+    // this repo's default.json used to extend no longer exist past 5.0.0, which is why pinning
+    // "github>home-operations/renovate-presets#5.0.0" started failing to resolve: nested extends
+    // in their default.json carry no ref of their own, so Renovate re-resolves them against the
+    // default branch (now v7's flat layout) instead of inheriting the #5.0.0 pin.
+    "github>home-operations/renovate-presets#7.0.0",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#7.0.0",
+    "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#7.0.0",
+    "github>home-operations/renovate-presets//apps/llamacpp.json5#7.0.0",
+    "github>home-operations/renovate-presets//apps/searxng.json5#7.0.0",
+    "github>home-operations/renovate-presets//apps/talosFactory.json5#7.0.0",
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
