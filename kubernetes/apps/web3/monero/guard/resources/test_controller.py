@@ -13,7 +13,7 @@ import controller
 UTC = timezone.utc
 # The other two legs of the trip-to-drain budget live in the miner's manifest, so they are read
 # from it rather than copied: a manifest-only change must fail the budget test, not pass it.
-RESOURCESET = os.path.join(os.path.dirname(__file__), "..", "..", "..", "monero", "xmrig", "resourceset.yaml")
+RESOURCESET = os.path.join(os.path.dirname(__file__), "..", "..", "xmrig", "resourceset.yaml")
 
 
 def manifest_seconds(field):
@@ -333,7 +333,7 @@ class ControllerTests(unittest.TestCase):
         stamp = datetime(2026, 1, 1, tzinfo=UTC)
         base = {"host": controller.Source(1, stamp), "presence": controller.Source(1, stamp)}
         self.assertTrue(guard._new_source_set("control-1", base))
-        far = stamp + timedelta(seconds=controller.MAX_SOURCE_GAP_SECONDS + 1)
+        far = stamp + timedelta(seconds=guard.policies["control-1"].max_gap + 1)
         stale = {key: controller.Source(1, far) for key in base}
         with self.assertRaises(ValueError):
             guard._new_source_set("control-1", stale | {"xmrig": controller.Source(1, far)})
@@ -350,11 +350,12 @@ class ControllerTests(unittest.TestCase):
         self.assertTrue(p.observe(60, source + timedelta(seconds=3), 302.0))
 
     def test_trip_to_drain_budget_fits_the_thermal_margin(self):
-        # The 65C trip is sized on a 135s chain against a 70C rating at ~1.1C/min. Two legs are
-        # policy here, two are read from the miner's manifest, so either side drifting fails this.
+        # The 65C trip is sized on a 135s chain against a 70C rating. Two legs are policy here,
+        # two are read from the miner's manifest, so either side drifting fails this. The rate is
+        # the p99 of 1151 measured miner starts, not the p90 1.1C/min the comments used to quote.
         keda_poll = manifest_seconds("pollingInterval")
         drain = manifest_seconds("terminationGracePeriodSeconds")
-        rise_c_per_min, rating = 1.1, 70
+        rise_c_per_min, rating = 1.35, 70
         policies = controller.GuardController(Mock()).policies
         for node in ("control-2", "control-3"):
             policy = policies[node]
@@ -362,12 +363,38 @@ class ControllerTests(unittest.TestCase):
             peak = policy.trip_limit + rise_c_per_min * budget / 60
             self.assertLessEqual(budget, 135, node)
             self.assertLess(peak, rating, f"{node} peaks at {peak}C against a {rating}C rating")
+            # At the p99 rate the trip path models 68.0C, above the panic limit, so panic is what
+            # actually sheds the miner on a fast ramp. Its budget is the same chain without the dwell.
+            panic_budget = controller.EVALUATION_INTERVAL_SECONDS + keda_poll + drain
+            panic_peak = policy.panic_limit + rise_c_per_min * panic_budget / 60
+            self.assertLess(policy.panic_limit, peak, f"{node} panic is not the governing path")
+            self.assertLess(panic_peak, rating, f"{node} panics to {panic_peak}C against {rating}C")
 
     def test_nvme_policies_carry_the_panic_limit_and_control1_does_not(self):
         guard = controller.GuardController(Mock())
-        self.assertEqual(guard.policies["control-2"].panic_limit, 68)
-        self.assertEqual(guard.policies["control-3"].panic_limit, 68)
+        self.assertEqual(guard.policies["control-2"].panic_limit, 67)
+        self.assertEqual(guard.policies["control-3"].panic_limit, 67)
         self.assertIsNone(guard.policies["control-1"].panic_limit)
+
+    def test_cpu_gated_node_tolerates_the_cadvisor_scrape_lag(self):
+        # A 150s-old CPU sample is within cadvisor's 60s scrape reality but was over the 120s
+        # NVMe budget, which invalidated control-1 465 times in 10d and drained its miner.
+        # Two evaluations 150s apart, so the source-gap branch runs too: freshness, the gap check
+        # and the dwell reset all read one per-node budget and a 150s gap must clear none of them.
+        telemetry = Mock()
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        def cpu(_node, evaluation):
+            source = controller.Source(30, evaluation - timedelta(seconds=150))
+            return controller.CPUObservation(source, None, source)
+        telemetry.query_cpu.side_effect = cpu
+        telemetry.query_nvme.side_effect = ValueError("not exercised")
+        guard = controller.GuardController(telemetry, clock=lambda: 0, wall_clock=lambda: base)
+        guard.evaluate(base)
+        guard.evaluate(base + timedelta(seconds=150))
+        self.assertEqual(guard.metrics["query_errors"]["control-1"], 0)
+        # the NVMe nodes keep the tighter budget: their sources all scrape at 20s
+        self.assertEqual(guard.policies["control-1"].max_gap, controller.CPU_SAMPLE_MAX_AGE_SECONDS)
+        self.assertEqual(guard.policies["control-2"].max_gap, controller.SOURCE_SAMPLE_MAX_AGE_SECONDS)
 
     def test_failure_invalidates_values(self):
         telemetry = Mock()
