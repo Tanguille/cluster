@@ -609,16 +609,16 @@ function lineDataset(label, data) {
 /**
  * Creates or updates a Chart.js instance.
  * @param {HTMLCanvasElement} canvas
- * @param {Object} state - state object
+ * @param {Object} chartState - state object
  * @param {string} stateKey - key in state (e.g. 'hashrateChart')
  * @param {Object} chartConfig - { label, data, yTicks, tooltipCallbacks }
  */
-function initOrUpdateChart(canvas, state, stateKey, chartConfig) {
+function initOrUpdateChart(canvas, chartState, stateKey, chartConfig) {
   if (!canvas) return;
 
-  if (!state[stateKey]) {
+  if (!chartState[stateKey]) {
     // options are read only at construction; building them per tick was pure waste
-    state[stateKey] = new Chart(canvas, {
+    chartState[stateKey] = new Chart(canvas, {
       type: "line",
       data: {
         labels: chartConfig.labels,
@@ -630,9 +630,9 @@ function initOrUpdateChart(canvas, state, stateKey, chartConfig) {
       })
     });
   } else {
-    state[stateKey].data.labels = chartConfig.labels;
-    state[stateKey].data.datasets[0].data = chartConfig.data;
-    state[stateKey].update();
+    chartState[stateKey].data.labels = chartConfig.labels;
+    chartState[stateKey].data.datasets[0].data = chartConfig.data;
+    chartState[stateKey].update();
   }
 }
 
