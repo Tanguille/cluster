@@ -5,21 +5,17 @@ kind: HelmRelease
 metadata:
   name: k8s-gpu-dra-driver
 spec:
-  # No OCI chart is published upstream (see gitrepository.yaml) — sourced straight from
-  # ROCm's in-tree helm-charts-k8s instead of chartRef, which only takes OCIRepository/HelmChart.
+  # No OCI chart is published upstream (see helmrepository.yaml) — sourced from ROCm's GitHub
+  # Pages Helm repo instead of chartRef, which only takes OCIRepository/HelmChart.
   chart:
     spec:
-      chart: ./helm-charts-k8s
-      version: v0.2.0
+      chart: k8s-gpu-dra-driver
+      version: v1.0.1
       sourceRef:
-        kind: GitRepository
+        kind: HelmRepository
         name: k8s-gpu-dra-driver
   interval: 1h
   values:
-    image:
-      # Chart.yaml's appVersion (v0.1.0) predates the gitrepository.yaml tag pin; the image
-      # actually shipped at v1.0.1 is this, not the chart's baked-in default.
-      tag: v1.0.1
     kubeletPlugin:
       # dGPU (control-1) only — iGPU nodes stay on generic-device-plugin's
       # squat.ai/dri (see kube-system/generic-device-plugin): the AMD DRA driver
