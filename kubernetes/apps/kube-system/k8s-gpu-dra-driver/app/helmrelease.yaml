@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: k8s-gpu-dra-driver
+spec:
+  # No OCI chart is published upstream (see helmrepository.yaml) — sourced from ROCm's GitHub
+  # Pages Helm repo instead of chartRef, which only takes OCIRepository/HelmChart.
+  chart:
+    spec:
+      chart: k8s-gpu-dra-driver
+      version: v1.0.1
+      sourceRef:
+        kind: HelmRepository
+        name: k8s-gpu-dra-driver
+  interval: 1h
+  values:
+    kubeletPlugin:
+      # dGPU (control-1) only — iGPU nodes stay on generic-device-plugin's
+      # squat.ai/dri (see kube-system/generic-device-plugin): the AMD DRA driver
+      # has no timeslicing/consumable-capacity support, so it can't serve the
+      # iGPU's multi-tenant embedding-model sharing the way squat.ai/dri does.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: amd.com/gpu
+                    operator: In
+                    values: ["true"]
