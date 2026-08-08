@@ -11,6 +11,26 @@ spec:
     - name: envoy-internal
       namespace: network
   rules:
-    - backendRefs:
+    # Native CORS filter rather than an Envoy Gateway SecurityPolicy: same fields, one less
+    # vendor CRD. The rule matches every method, so preflight OPTIONS reaches the filter.
+    - filters:
+        - type: CORS
+          cors:
+            allowOrigins:
+              - https://opencode.${SECRET_DOMAIN}
+            allowCredentials: true
+            allowMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowHeaders:
+              - Authorization
+              - Content-Type
+              - Accept
+              - Last-Event-ID
+      backendRefs:
         - name: opencode-vm
           port: 4096

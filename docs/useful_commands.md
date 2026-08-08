@@ -1,6 +1,6 @@
 # Useful Commands for Kubernetes / Talos
 
-Short index for debugging and day-to-day ops. Prefer **GitOps**: change manifests in Git and run `task reconcile` rather than editing resources in-cluster.
+Short index for debugging and day-to-day ops. Prefer **GitOps**: change manifests in Git and run `just reconcile` rather than editing resources in-cluster.
 
 For validation, SOPS, and common workflows, see [common operations](../.agents/common-operations.md). For structured troubleshooting, use the [debug-cluster skill](../.agents/skills/debug-cluster/SKILL.md).
 
@@ -9,11 +9,11 @@ For validation, SOPS, and common workflows, see [common operations](../.agents/c
 ## Flux / GitOps
 
 ```bash
-# List tasks (primary entry point)
-task
+# List recipes (primary entry point)
+just
 
 # Pull latest from Git and reconcile (preferred after config changes)
-task reconcile
+just reconcile
 
 # Reconcile a single Kustomization with source
 flux reconcile kustomization <name> --with-source
@@ -32,21 +32,21 @@ flux get helmreleases -A
 
 ```bash
 # Generate Talos config (from talconfig)
-task talos:generate-config
+just talos generate-config
 
 # Apply config to a node / upgrade node / upgrade Kubernetes
-task talos:apply-node IP=<node-ip>
-task talos:upgrade-node IP=<node-ip>
-task talos:upgrade-k8s
+just talos apply-node <node-ip>
+just talos upgrade-node <node-ip>
+just talos upgrade-k8s
 ```
 
 **Update schematics (build both from `talos/schematic.yaml` and write installer URLs into `talconfig.yaml`):**
 
 ```bash
-task talos:schematics-update
+just talos schematics-update
 ```
 
-After updating schematics, run `task talos:generate-config` and apply or upgrade nodes as needed.
+After updating schematics, run `just talos generate-config` and apply or upgrade nodes as needed.
 
 ---
 
