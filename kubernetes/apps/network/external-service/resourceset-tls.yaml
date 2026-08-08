@@ -5,6 +5,8 @@ kind: ResourceSet
 metadata:
   name: external-service-tls
 spec:
+  # ResourceSet.spec.wait defaults to false.
+  wait: true
   # Passthrough TLS to an off-cluster host on 443. One input entry per service.
   inputs:
     - name: ipmi

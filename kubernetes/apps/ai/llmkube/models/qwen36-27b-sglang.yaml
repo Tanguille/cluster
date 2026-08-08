@@ -229,8 +229,10 @@ spec:
       value: 192Gi
     # MAX_SIZE is blind to the other tenants of control-1's shared root, so hold a floor
     # above kubelet's nodefs eviction threshold: refuse writes rather than fill the disk.
+    # 160Gi, not 100Gi: rook-ceph's mon-c store shares this 500G filesystem and MON_DISK_LOW
+    # fires below 30% avail (150Gi), which a 100Gi floor guarantees (2026-08-06).
     - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
-      value: 100Gi
+      value: 160Gi
     # Not the eviction trigger despite the log's wording: eviction fires at MAX_SIZE and
     # this is the low-water mark it drains to. Higher = warmer cache, more frequent passes.
     - name: SGLANG_HICACHE_FILE_BACKEND_EVICTION_RATIO
@@ -302,11 +304,10 @@ spec:
     - --cuda-graph-backend-prefill=disabled
     # Mamba slots and KV tokens share one byte budget (unified_memory_pool.py), so unused
     # slots are KV tokens forgone: 4.46G/60 slots = 74.3MB each vs 5.60G/183,240 KV tokens.
-    # Over 14d, slots peaked at 32 and concurrency at 16, so 48 = 16 x the no_buffer ratio
-    # of 3 keeps headroom on both while setting the concurrency ceiling. Expect
-    # max_total_num_tokens ~212,430 (+16%). Host RAM is neutral: L2 KV +1.44G, host mamba -1.43G.
+    # 14d utilization (3643 5m samples): slots hit 32 in only 2 samples (0.055%), never higher.
+    # 32 matches the observed peak with zero margin, freeing 16 slots (~1.2G) to the KV pool.
     - --max-mamba-cache-size
-    - "48"
+    - "32"
     - --served-model-name
     - qwen-3.6
     - --mamba-ssm-dtype

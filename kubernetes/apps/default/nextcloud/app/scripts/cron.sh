@@ -11,9 +11,6 @@ run_occ() {
   php occ "$cmd" || echo "WARNING: $warning_msg" >&2
 }
 
-# App list is cached once: each `occ` call is a full Nextcloud bootstrap
-INSTALLED_APPS="$(php occ app:list)"
-
 # Helper function to check if an app is installed
 app_installed() {
   echo "$INSTALLED_APPS" | grep -q "$1"
@@ -32,10 +29,14 @@ run_if_app_installed() {
 
 echo "Starting Nextcloud cron job at $(date)"
 
-if ! run_occ "status" >/dev/null 2>&1; then
+# Not run_occ: it swallows the exit code, so the guard could never fire
+if ! php occ status >/dev/null 2>&1; then
   echo "WARNING: Nextcloud not ready, skipping cron job" >&2
   exit 0
 fi
+
+# Cached once: each `occ` call is a full Nextcloud bootstrap
+INSTALLED_APPS="$(php occ app:list)"
 
 # Run standard Nextcloud cron (every 5 minutes)
 # This is the main cron job that Nextcloud requires

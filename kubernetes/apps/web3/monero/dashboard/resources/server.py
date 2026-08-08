@@ -320,10 +320,16 @@ def _sigterm(*_):
     raise KeyboardInterrupt
 signal.signal(signal.SIGTERM, _sigterm)
 
+class Server(http.server.ThreadingHTTPServer):
+    # ThreadingHTTPServer daemonises request threads; ThreadingTCPServer did not.
+    # Non-daemon threads make server_close() wait for an in-flight observer proxy
+    # instead of truncating it mid-write on SIGTERM.
+    daemon_threads = False
+
 print(f"Serving HTTP on 0.0.0.0:{PORT}")
 
 try:
-    with http.server.ThreadingHTTPServer(("", PORT), Handler) as httpd:
+    with Server(("", PORT), Handler) as httpd:
         httpd.serve_forever()
 except KeyboardInterrupt:
     print("\nCTRL+C received, shutting down cleanly...")
