@@ -17,7 +17,9 @@ permissions:
 
 jobs:
   review:
-    runs-on: cluster-runner
+    # review-runner, not cluster-runner: this job feeds untrusted PR text to a tool-calling model,
+    # and cluster-runner mounts Talos os:admin into every pod it schedules.
+    runs-on: review-runner
     # Renovate's type/digest PRs do not need model review.
     if: >-
       ${{
@@ -31,6 +33,8 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
+          # this job checks out untrusted PR code; don't leave a usable token in .git/config
+          persist-credentials: false
 
       - name: Run reviewer
         uses: misospace/pr-reviewer-action@99e7764a4906f94d99c249231d2016c3cda8997e # v2.2.0
@@ -103,8 +107,8 @@ jobs:
           # "*" keeps the action's read-only path allowlist (releases/commits; secrets denied).
           tool_allowed_gh_api_repos: "*"
           # Default 120s caps the WHOLE native_loop — less than one cold ~100K prefill on this GPU.
-          # 900s lets a serialized review finish its tool loop (within-review prefix cache keeps
-          # later turns cheap; runner maxRunners:1 serializes the renovate burst).
+          # 900s lets a review finish its tool loop (within-review prefix cache keeps later turns
+          # cheap; review-runner maxRunners:3 caps how much of the renovate burst runs at once).
           tool_loop_wall_clock_sec: "900"
           # Native-loop turns use a separate total timeout; 60s expired during 155-220s prefills.
           tool_planning_timeout_sec: "600"
