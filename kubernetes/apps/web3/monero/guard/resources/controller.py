@@ -37,7 +37,11 @@ PRIORITY = ("control-1", "control-2", "control-3")
 ENDPOINT = "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427"
 EVALUATION_INTERVAL_SECONDS = 30
 SOURCE_SAMPLE_MAX_AGE_SECONDS = 120
-MAX_SOURCE_GAP_SECONDS = 120
+# The CPU path joins cadvisor, which scrapes at 60s where the other six sources scrape at 20s,
+# and query_cpu dates the observation by min() across all of them. At 120s control-1 ran an age
+# p99 of 102s against that ceiling and self-invalidated 465 times in 10.26d (45 and 49 on the
+# NVMe nodes), each latching a 600s recovery dwell that drained the miner that caused it.
+CPU_SAMPLE_MAX_AGE_SECONDS = 180
 # 7 serial queries per CPU evaluation: at 10s a hung VictoriaMetrics blocked 70s against a 30s interval
 HTTP_TIMEOUT_SECONDS = 5
 
@@ -56,7 +60,7 @@ def _fresh(timestamp, evaluation, max_age):
 
 
 class DwellPolicy:
-    def __init__(self, recovery_limit, trip_limit, recovery_dwell, trip_dwell, max_gap_seconds=120, panic_limit=None):
+    def __init__(self, recovery_limit, trip_limit, recovery_dwell, trip_dwell, max_gap_seconds=SOURCE_SAMPLE_MAX_AGE_SECONDS, panic_limit=None):
         self.recovery_limit, self.trip_limit = recovery_limit, trip_limit
         self.recovery_dwell, self.trip_dwell = recovery_dwell, trip_dwell
         self.panic_limit = panic_limit
@@ -243,19 +247,19 @@ class GuardController:
     def __init__(self, telemetry, clock=time.monotonic, wall_clock=lambda: datetime.now(timezone.utc)):
         self.telemetry = telemetry
         self.clock, self.wall_clock = clock, wall_clock
-        # Trip 65C / recover 62C on Composite, against a 70C drive rating. Mining raises
-        # Composite at up to 1.1C/min. Trip-to-drain is 135s (30s evaluation + 60s dwell + 30s
-        # KEDA poll + 15s drain), so 2.5C of rise to a ~67.5C peak; test_trip_to_drain_budget
-        # pins it. The 68C panic trip is dwell-free and peaks near 69.4C.
-        # The drives idle in the 60-64C band on warm afternoons, so recovery sits at 62C:
-        # replaying 7d puts control-2/3 at 55.0%/38.8% safe against 44.7%/31.5% at 60C/600s.
-        # control-1 is keyed the same way on CPU headroom rather than temperature; SENSORS
-        # decides which source feeds which node, so the policy dict needs no special case. No
-        # panic limit there: a busy CPU has no equivalent of a drive's absolute rating.
+        # Trip 65C / recover 62C on Composite, against a 70C drive rating. Over 1151 measured
+        # miner starts the rise is p50 0.88 / p90 1.13 / p99 1.35 C/min. Trip-to-drain is 135s
+        # (30s evaluation + 60s dwell + 30s KEDA poll + 15s drain) = 3.0C at p99, and
+        # test_trip_to_drain_budget pins it. Real bursts under these parameters peaked at p50 67.8
+        # / p90 68.8 / max 69.8C, so the margin to the rating is 0.2C and nothing may be loosened.
+        # max_gap is each node's slowest scrape: it dates the freshness check, the anti-replay gap
+        # and the dwell reset, which must agree or a gap inside one budget resets dwell under
+        # another. control-1 has no NVMe to cook and no panic limit; a busy CPU carries no
+        # equivalent of a drive's absolute rating.
         self.policies = {
-            "control-1": DwellPolicy(50, 70, 600, 120, MAX_SOURCE_GAP_SECONDS),
-            "control-2": DwellPolicy(62, 65, 300, 60, MAX_SOURCE_GAP_SECONDS, panic_limit=68),
-            "control-3": DwellPolicy(62, 65, 300, 60, MAX_SOURCE_GAP_SECONDS, panic_limit=68),
+            "control-1": DwellPolicy(50, 70, 600, 120, CPU_SAMPLE_MAX_AGE_SECONDS),
+            "control-2": DwellPolicy(62, 65, 180, 60, panic_limit=67),
+            "control-3": DwellPolicy(62, 65, 180, 60, panic_limit=67),
         }
         self.ready = False
         self.metrics = {
@@ -277,7 +281,7 @@ class GuardController:
         stamps = {key: source.timestamp.timestamp() for key, source in sources.items()}
         previous = self._last_source_stamps[node]
         shared = stamps.keys() & previous.keys()
-        if any(stamps[key] - previous[key] > MAX_SOURCE_GAP_SECONDS for key in shared):
+        if any(stamps[key] - previous[key] > self.policies[node].max_gap for key in shared):
             raise ValueError("source gap exceeded maximum")
         if shared and any(stamps[key] <= previous[key] for key in shared):
             return False
@@ -305,9 +309,9 @@ class GuardController:
                     value = cpu_value(obs)
                     stamp = min(item.timestamp for item in samples.values())
                     self.metrics["cpu_non_xmrig"][node] = value
-                if not all(_fresh(item.timestamp, evaluation, SOURCE_SAMPLE_MAX_AGE_SECONDS) for item in samples.values()):
-                    raise ValueError("stale or future source")
                 policy = self.policies[node]
+                if not samples or not all(_fresh(item.timestamp, evaluation, policy.max_gap) for item in samples.values()):
+                    raise ValueError("stale or future source")
                 safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
                 self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples.values()).timestamp())
                 self.metrics["safe"][node] = int(safe)
@@ -358,13 +362,19 @@ class _StatusHandler(BaseHTTPRequestHandler):
             self._send(404, "not found\n", "text/plain")
     def _send(self, status, body, content_type):
         data = body.encode()
-        self.send_response(status); self.send_header("Content-Type", content_type); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
-    def log_message(self, format, *args):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+    def log_message(self, message_format, *args):
         return
 
 
 def main():
-    controller = GuardController(VictoriaMetricsClient(ENDPOINT, step_seconds=SOURCE_SAMPLE_MAX_AGE_SECONDS))
+    # step bounds VM's lookbehind, so it must cover the loosest budget or the CPU path could never
+    # return the 121-180s samples its own policy accepts. Per-node max_gap still rejects them for NVMe.
+    controller = GuardController(VictoriaMetricsClient(ENDPOINT, step_seconds=CPU_SAMPLE_MAX_AGE_SECONDS))
     _StatusHandler.controller = controller
     server = ThreadingHTTPServer(("0.0.0.0", 8080), _StatusHandler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
