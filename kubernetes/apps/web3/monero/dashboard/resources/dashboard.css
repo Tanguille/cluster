@@ -1,630 +1,716 @@
 /* =========================================================
-   P2POOL DASHBOARD - INSTRUMENT PANEL THEME
-   Black background, red accents, refined typography
+   P2POOL DASHBOARD
+   Dark instrument panel. One accent (Monero orange) for the
+   live series and current selection; red and green are
+   reserved for state, never decoration.
    ========================================================= */
 
-/* =========================================================
-   RESET & BASE STYLING
-   ========================================================= */
-* {
-  margin: 0;
-  padding: 0;
+:root {
+  /* Neutrals carry a trace of the accent's hue rather than a default warm tint */
+  --bg: oklch(0.16 0.006 60);
+  --surface: oklch(0.2 0.007 60);
+  --surface-raised: oklch(0.245 0.008 60);
+  --line: oklch(0.3 0.01 60);
+  --line-strong: oklch(0.38 0.012 60);
+
+  /* Every ink step clears 4.5:1 on --surface */
+  --ink: oklch(0.97 0.004 60);
+  --ink-2: oklch(0.8 0.006 60);
+  --ink-3: oklch(0.66 0.008 60);
+
+  --accent: oklch(0.72 0.175 55);
+  --accent-dim: color-mix(in oklch, var(--accent) 14%, transparent);
+  --accent-line: color-mix(in oklch, var(--accent) 35%, transparent);
+  /* Chart.js reads these through getComputedStyle, so they live here too */
+  --chart-fill: color-mix(in oklch, var(--accent) 12%, transparent);
+  --chart-grid: color-mix(in oklch, var(--line) 60%, transparent);
+
+  --positive: oklch(0.76 0.15 155);
+  --positive-line: color-mix(in oklch, var(--positive) 40%, transparent);
+  --negative: oklch(0.68 0.19 25);
+
+  --font-ui:
+    system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Figures are the content here: a mono keeps columns and deltas aligned */
+  --font-num:
+    ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
+    monospace;
+
+  --step--2: 0.6875rem;
+  --step--1: 0.75rem;
+  --step-0: 0.8125rem;
+  --step-1: 0.875rem;
+  --step-2: 1rem;
+  --step-3: 1.25rem;
+  --step-4: 1.625rem;
+  --step-5: 2rem;
+
+  --gap: 1rem;
+  --pad: 1.125rem;
+  --radius: 10px;
+  --radius-sm: 6px;
+
+  --chart-h: 240px;
+  --chart-h-tall: 300px;
+
+  /* ease-out-quart: fast departure, no overshoot */
+  --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --speed: 160ms;
+
+  --z-sticky: 10;
+}
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  background: #000000;
-  color: #e5e7eb;
-  overflow-x: hidden;
-  font-weight: 400;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: var(--step-0);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* =========================================================
-   HEADER
-   ========================================================= */
-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1.5rem 1rem 0;
-  border-bottom: 1px solid #1f2937;
-  margin-bottom: 1.5rem;
-}
-
-header h1 {
+h1,
+h2,
+h3,
+h4,
+p,
+dl,
+dd,
+figure {
   margin: 0;
-  color: #f9fafb;
-  font-size: 1.5rem;
-  font-weight: 300;
-  letter-spacing: 2px;
-  text-transform: uppercase;
 }
 
-.header-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: #6b7280;
-  margin-top: 0.75rem;
-  margin-bottom: 0.75rem;
+:where(a, button, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-.status-dot,
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.status-indicator {
-  display: inline-block;
-  margin-right: 6px;
-  vertical-align: middle;
-}
-
-.status-active,
-.status-dot {
-  background: #ef4444;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.status-inactive {
-  background: #6b7280;
-  box-shadow: none;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* =========================================================
-   SMALL TEXT / LEGEND STYLING
-   ========================================================= */
-#earnLegend,
-#lastRefreshed {
-  color: #6b7280;
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
-  letter-spacing: 0.5px;
-}
-
-/* =========================================================
-   TOOLTIP ICON STYLING
-   ========================================================= */
-.tooltip-icon {
-  display: inline-block;
-  margin-left: 4px;
-  color: #ef4444;
-  font-weight: normal;
-  font-size: 0.7rem;
-  vertical-align: super;
-  cursor: help;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.tooltip-icon:hover {
-  opacity: 1;
-}
-
-/* =========================================================
-   MAIN GRID LAYOUT
-   ========================================================= */
-main.grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 1.5rem;
-  padding: 0 1.5rem 2rem;
-  width: 100%;
-  max-width: 150rem;
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
-/* =========================================================
-   CARD STYLING
-   ========================================================= */
-.card {
-  background: #0a0a0a;
-  padding: 1.25rem;
-  border-radius: 8px;
-  border: 1px solid #1f2937;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  box-sizing: border-box;
-  max-width: 100%;
-  position: relative;
-  overflow: hidden;
-  transition: border-color 0.2s;
-}
-
-.card:hover {
-  border-color: #374151;
-}
-
-/* Red accent line at top of each card */
-.card::before {
-  content: "";
+.visually-hidden {
   position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* =========================================================
+   MASTHEAD
+   ========================================================= */
+.masthead {
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #ef4444, transparent);
-  opacity: 0.8;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 0.875rem clamp(0.75rem, 3vw, 2rem);
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
 }
 
-.card h2 {
-  margin-top: 0;
+.masthead h1 {
+  font-size: var(--step-3);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.masthead__sub {
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+.masthead__state {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.masthead__stamp {
+  font-family: var(--font-num);
+  font-size: var(--step--2);
+  color: var(--ink-3);
+}
+
+/* State pill: the one place colour means status rather than brand */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem 0.25rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: var(--step--1);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.pill__dot,
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: none;
+}
+
+.dot {
+  display: inline-block;
+  margin-right: 0.4rem;
+  vertical-align: 0.05em;
+}
+
+.is-live .pill__dot,
+.dot.is-live {
+  background: var(--positive);
+  animation: breathe 2.4s var(--ease) infinite;
+}
+
+.is-down .pill__dot,
+.dot.is-down {
+  background: var(--negative);
+}
+
+.is-live {
+  border-color: var(--positive-line);
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* =========================================================
+   PAGE SHELL
+   ========================================================= */
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  max-width: 100rem;
+  margin: 0 auto;
+  padding: 1.5rem clamp(0.75rem, 3vw, 2rem) 3rem;
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 0.75rem;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: #6b7280;
-  font-weight: 500;
 }
 
-/* Large numeric values */
-.big {
-  font-size: 1.75rem;
-  font-weight: 200;
-  margin: 0.5rem 0;
-  color: #f9fafb;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-}
-
-.big-med {
-  font-size: 1.2rem;
-  font-weight: 300;
-  margin: 0.4rem 0;
-  color: #e5e7eb;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Smaller info text */
-.sub,
-.small-stat,
-.stat {
-  font-size: 0.8rem;
-  margin: 0.25rem 0;
-  color: #6b7280;
-}
-
-.sub-sub {
-  font-size: 0.7rem;
-  margin: 0.125rem 0;
-  color: #4b5563;
+.section-head h2 {
+  font-size: var(--step-2);
+  font-weight: 600;
+  color: var(--ink);
 }
 
 /* =========================================================
-   GRID POSITIONS
+   OVERVIEW STRIP
    ========================================================= */
-
-/* Top row - Charts take full width, split 50/50 */
-#hashrateCard {
-  grid-column: 1 / 7;
-  grid-row: 1;
-}
-#priceCard {
-  grid-column: 7 / 13;
-  grid-row: 1;
-}
-
-/* Second row */
-#paymentsCard {
-  grid-column: 1 / 4;
-  grid-row: 2;
-}
-#combinedLuckCard {
-  grid-column: 4 / 9;
-  grid-row: 2;
-}
-#earningsCard {
-  grid-column: 9 / 11;
-  grid-row: 2;
-}
-#sharesCard {
-  grid-column: 11 / 13;
-  grid-row: 2;
-}
-
-/* Third row - Old dashboard stats */
-#poolStatusCard {
-  grid-column: 1 / 8;
-  grid-row: 3;
-}
-#workersCard {
-  grid-column: 8 / 13;
-  grid-row: 3;
-}
-
-/* =========================================================
-   COMBINED LUCK CARD
-   ========================================================= */
-#combinedLuckCard .luck-grid {
+.overview {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
-#combinedLuckCard .luck-section {
-  background: #111827;
-  padding: 0.75rem;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  border: 1px solid #1f2937;
-}
-
-#combinedLuckCard .luck-section h3 {
-  margin: 0;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-/* =========================================================
-   TRUE LUCK WINDOW LABEL
-   ========================================================= */
-#trueLuckWindow {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  margin-top: 0.25rem;
-  margin-bottom: 0.25rem;
-  font-variant-numeric: tabular-nums;
-}
-
-/* =========================================================
-   CANVAS / CHART STYLING
-   ========================================================= */
-.chart-container {
-  position: relative;
-  width: 100%;
-  height: 200px;
-  margin-top: 0.75rem;
-}
-
-canvas {
-  border-radius: 4px;
-}
-
-/* =========================================================
-   DROPDOWN STYLING
-   ========================================================= */
-select#earnPeriod {
-  padding: 0.4rem 0.6rem;
-  background: #111827;
-  color: #e5e7eb;
-  border: 1px solid #1f2937;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
-  appearance: none;
-  cursor: pointer;
-  font-variant-numeric: tabular-nums;
-  transition: border-color 0.2s;
-}
-
-#earnPeriod:hover {
-  border-color: #374151;
-}
-
-#earnPeriod:focus {
-  outline: none;
-  border-color: #ef4444;
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
-}
-
-#earnPeriod::-ms-expand {
-  display: none;
-}
-
-/* =========================================================
-   EARNINGS CARD
-   ========================================================= */
-#earnXMR {
-  font-size: 2rem;
-  font-weight: 200;
-  margin-bottom: 0.1rem;
-  font-variant-numeric: tabular-nums;
-}
-
-#earnEUR {
-  font-size: 0.9rem;
-  color: #6b7280;
-  display: block;
-  margin-top: 0.05rem;
-  margin-bottom: 0.7rem;
-  font-variant-numeric: tabular-nums;
-}
-
-#eurThisWindow {
-  font-size: 0.75rem;
-  color: #6b7280;
-  margin-top: 0.05rem;
-  margin-bottom: 0.5rem;
-  font-variant-numeric: tabular-nums;
-}
-
-#totalEurEarned {
-  font-size: 0.9rem;
-  color: #6b7280;
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-#paymentsCard .total-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.bottom-stats {
-  margin-top: auto;
+.metric {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.8rem;
-  color: #6b7280;
+  padding: var(--pad);
+  background: var(--surface);
 }
 
-/* =========================================================
-   PAYMENTS TABLE
-   ========================================================= */
-#paymentsTable {
-  width: 100%;
-  margin-top: 0.75rem;
-  border-collapse: collapse;
+.metric__label {
+  font-size: var(--step--1);
+  color: var(--ink-3);
 }
 
-#paymentsTable thead tr {
-  border-bottom: 1px solid #1f2937;
-}
-
-#paymentsTable th {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #4b5563;
-  text-align: left;
-  padding: 0.5rem 0;
+.metric__value {
+  font-family: var(--font-num);
+  font-size: var(--step-5);
   font-weight: 500;
-}
-
-#paymentsTable th:nth-child(2),
-#paymentsTable th:nth-child(3) {
-  text-align: right;
-}
-
-#paymentsTable td {
-  padding: 0.5rem 0;
-  font-size: 0.8rem;
-  color: #9ca3af;
-  border-bottom: 1px solid #111827;
+  line-height: 1.1;
+  /* Mono runs wide at display sizes; pull it back so "2.41 kH/s" reads as one figure */
+  letter-spacing: -0.03em;
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 
-#paymentsTable td:nth-child(2),
-#paymentsTable td:nth-child(3) {
+.metric__value--sm {
+  font-size: var(--step-4);
+}
+
+.metric__note {
+  font-size: var(--step--1);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================
+   RANGE CONTROL
+   ========================================================= */
+.range {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.range__opt {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    color var(--speed) var(--ease),
+    background-color var(--speed) var(--ease);
+}
+
+.range__opt:hover {
+  color: var(--ink);
+  background: var(--surface-raised);
+}
+
+.range__opt[aria-pressed="true"] {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* =========================================================
+   PANELS
+   ========================================================= */
+.trends__grid,
+.panels {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: 1fr;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: var(--pad);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  min-width: 0;
+  transition: border-color var(--speed) var(--ease);
+}
+
+.panel:hover {
+  border-color: var(--line-strong);
+}
+
+.panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.panel__title {
+  font-size: var(--step-1);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* =========================================================
+   FIGURES & FACTS
+   ========================================================= */
+.figure {
+  font-family: var(--font-num);
+  font-size: var(--step-4);
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.figure--sm {
+  font-size: var(--step-3);
+}
+
+.figure__note {
+  font-size: var(--step-0);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.footnote {
+  font-size: var(--step--1);
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+
+.pair + .pair {
+  margin-top: 0.5rem;
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+}
+
+.facts--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem 1.25rem;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: var(--step--1);
+}
+
+.facts--grid .fact {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.fact dt {
+  color: var(--ink-3);
+}
+
+.fact dd {
+  font-family: var(--font-num);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
-/* Utility class for right-aligned table cells */
+.facts--grid .fact dd {
+  font-size: var(--step-0);
+  color: var(--ink);
+  text-align: left;
+}
+
+/* Help affordance — a badge, not a superscript glyph */
+.info {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 0.3rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-style: italic;
+  line-height: 1;
+  color: var(--ink-3);
+  cursor: help;
+  vertical-align: 0.15em;
+  transition:
+    color var(--speed) var(--ease),
+    border-color var(--speed) var(--ease);
+}
+
+.info:hover,
+.info:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+/* =========================================================
+   CHARTS
+   ========================================================= */
+.chart {
+  position: relative;
+  width: 100%;
+  height: var(--chart-h);
+  margin-top: 0.25rem;
+}
+
+.chart--tall {
+  height: var(--chart-h-tall);
+}
+
+/* An explicit `display` beats the UA rule for [hidden], so restore it */
+[hidden] {
+  display: none !important;
+}
+
+.chart__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 1.5rem;
+  max-width: 34ch;
+  margin: auto;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+
+/* =========================================================
+   LUCK
+   ========================================================= */
+.luck {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+/* A rule, not a nested card: the panel is already the container */
+.luck__part + .luck__part {
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.luck__label {
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--ink-3);
+  margin-bottom: 0.25rem;
+}
+
+/* =========================================================
+   SELECT
+   ========================================================= */
+.select {
+  position: relative;
+  display: inline-flex;
+}
+
+.select::after {
+  content: "";
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.select select {
+  appearance: none;
+  padding: 0.3rem 1.75rem 0.3rem 0.6rem;
+  background: var(--surface-raised);
+  color: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--step--1);
+  cursor: pointer;
+  transition: border-color var(--speed) var(--ease);
+}
+
+.select select:hover {
+  border-color: var(--line-strong);
+}
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+.table-scroll {
+  overflow-x: auto;
+}
+
+#paymentsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+#paymentsTable th {
+  position: sticky;
+  top: 0;
+  padding: 0.4rem 0.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--step--2);
+  font-weight: 500;
+  color: var(--ink-3);
+  text-align: left;
+  white-space: nowrap;
+}
+
+#paymentsTable td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-num);
+  font-size: var(--step--1);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+#paymentsTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+#paymentsTable tbody tr:hover td {
+  background: var(--surface-raised);
+}
+
 .cell-right {
   text-align: right;
 }
 
-#paymentsTable tbody tr:last-child td {
-  border-bottom: none;
-}
-
 /* =========================================================
-   POOL STATUS & STATS
+   WORKERS
    ========================================================= */
-.stat-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-top: 0.75rem;
-}
-
-.stat-item {
+.workers {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-}
-
-.stat-label {
-  font-size: 0.65rem;
-  color: #4b5563;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 500;
-}
-
-.stat-item .stat-value {
-  font-size: 0.9rem;
-  font-weight: 400;
-  color: #e5e7eb;
-  font-variant-numeric: tabular-nums;
-}
-
-/* =========================================================
-    WORKERS LIST
-    ========================================================= */
-.workers-list {
-  margin-top: 0.75rem;
-  max-height: 300px;
+  gap: 0.35rem;
+  max-height: 320px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: #1f2937 transparent;
-}
-
-.workers-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.workers-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.workers-list::-webkit-scrollbar-thumb {
-  background: #1f2937;
-  border-radius: 2px;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 .worker-item {
-  margin: 0.5rem 0;
-  padding: 0.75rem;
-  background: #111827;
-  border-radius: 4px;
-  font-size: 0.85rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  border: 1px solid #1f2937;
-  transition: border-color 0.2s;
-}
-
-.worker-item:hover {
-  border-color: #374151;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  font-size: var(--step--1);
 }
 
 .worker-name {
-  color: #e5e7eb;
-  font-weight: 500;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .worker-hash {
-  color: #9ca3af;
+  font-family: var(--font-num);
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .no-workers {
+  padding: 1.25rem 0;
   text-align: center;
-  opacity: 0.5;
-  font-style: italic;
-  padding: 1.5rem;
-  color: #6b7280;
-  font-size: 0.85rem;
+  font-size: var(--step--1);
+  color: var(--ink-3);
 }
 
 /* =========================================================
-   MOBILE RESPONSIVENESS
+   LOADING SKELETON
+   Replaced by real text on first paint; never gates content
+   visibility, so a headless render still shows the markup.
    ========================================================= */
-@media (max-width: 1024px) {
-  main.grid {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 1rem;
-    padding: 0 1rem 1.5rem;
-  }
+.skeleton {
+  display: inline-block;
+  width: 5ch;
+  height: 0.7em;
+  vertical-align: middle;
+  border-radius: 3px;
+  background: linear-gradient(
+      90deg,
+      var(--surface-raised),
+      var(--line),
+      var(--surface-raised)
+    )
+    0 0 / 200% 100%;
+  animation: sweep 1.4s linear infinite;
+}
 
-  #hashrateCard,
-  #priceCard {
-    grid-column: 1 / 7;
-    grid-row: auto;
-  }
-
-  #paymentsCard,
-  #combinedLuckCard,
-  #earningsCard,
-  #sharesCard {
-    grid-column: 1 / 7;
-    grid-row: auto;
-  }
-
-  #poolStatusCard,
-  #workersCard {
-    grid-column: 1 / 7;
-    grid-row: auto;
+@keyframes sweep {
+  to {
+    background-position: -200% 0;
   }
 }
 
-@media (max-width: 600px) {
-  main.grid {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-    padding: 0 0.75rem 1rem;
-  }
-
-  #hashrateCard,
-  #priceCard,
-  #paymentsCard,
-  #earningsCard,
-  #sharesCard,
-  #combinedLuckCard,
-  #poolStatusCard,
-  #workersCard {
-    grid-column: auto;
-    grid-row: auto;
-  }
-
-  .card {
-    padding: 1rem;
-  }
-
-  header h1 {
-    font-size: 1.25rem;
-  }
-
-  .card h2 {
-    font-size: 0.65rem;
-  }
-
-  .big {
-    font-size: 1.5rem;
-  }
-
-  .big-med {
-    font-size: 1rem;
-  }
-
-  .sub,
-  .small-stat,
-  .stat {
-    font-size: 0.75rem;
-  }
-
-  #earnXMR {
-    font-size: 1.5rem;
-  }
-
-  #earnEUR {
-    font-size: 0.8rem;
-  }
-
-  #combinedLuckCard .luck-grid {
-    grid-template-columns: 1fr;
-  }
-
-  #combinedLuckCard .luck-section {
-    padding: 0.5rem;
-  }
-
-  #earnPeriod {
-    width: 100%;
-  }
-
-  .stat-row {
+/* =========================================================
+   BREAKPOINTS
+   Structural only: column counts and chart height, never
+   fluid type.
+   ========================================================= */
+@media (min-width: 40rem) {
+  .luck {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .luck__part + .luck__part {
+    padding-top: 0;
+    padding-left: 1rem;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --chart-h-tall: 340px;
+  }
+
+  .trends__grid {
+    grid-template-columns: 1.7fr 1fr;
+  }
+
+  .panels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .panel--wide {
+    grid-column: span 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .skeleton {
+    background: var(--surface-raised);
   }
 }

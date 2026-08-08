@@ -29,6 +29,7 @@ const CONFIG = {
   // Default values
   DEFAULT_RANGE_HOURS: 24,
   DEFAULT_MIN_PAYMENT: 0.01,
+  RANGE_STORAGE_KEY: "p2pool.chartRangeHours",
   REFRESH_INTERVAL_MS: 10000, // match server.py's 10s log cadence — faster polls fetch identical data
   MOVING_AVERAGE_WINDOW_SECONDS: 600,
   OBSERVER_SHARES_LIMIT: 10000,
@@ -49,6 +50,9 @@ const CONFIG = {
 // ==============================
 const state = {
   history: null,
+  // Chart series come from /stats_history.json, which is downsampled server-side
+  // and reaches back further than the 24h buffer `history` holds for the maths.
+  chartWindow: null,
   hashrateChart: null,
   priceChart: null,
   currentRangeHours: CONFIG.DEFAULT_RANGE_HOURS,
@@ -105,7 +109,12 @@ function cacheDOMElements() {
     "blocks-found",
     "last-share-time",
     "last-block-time",
-    "workers-list"
+    "workers-list",
+    "rangeControl",
+    "minerState",
+    "minerStateText",
+    "hashrateEmpty",
+    "priceEmpty"
   ];
 
   ids.forEach((id) => {
@@ -495,6 +504,22 @@ function setTooltipContent(tooltipId, content) {
 // CHART FUNCTIONS
 // ==============================
 
+// Chart.js takes plain colour strings, so the palette is read straight off
+// :root rather than transcribed — one source of truth with dashboard.css.
+// Canvas accepts oklch()/color-mix() as-is in every browser this targets.
+const ROOT_STYLE = getComputedStyle(document.documentElement);
+const CHART_COLORS = Object.fromEntries(
+  Object.entries({
+    accent: "--accent",
+    accentFill: "--chart-fill",
+    surface: "--surface-raised",
+    line: "--line",
+    grid: "--chart-grid",
+    ink: "--ink-3",
+    inkStrong: "--ink"
+  }).map(([name, token]) => [name, ROOT_STYLE.getPropertyValue(token).trim()])
+);
+
 /**
  * Shared Chart.js options used by both hashrate and price charts.
  * Override yTicks or tooltipCallbacks as needed.
@@ -505,13 +530,14 @@ function sharedChartOptions(overrides = {}) {
   return {
     responsive: true,
     maintainAspectRatio: false,
+    animation: { duration: 160 },
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: "#111827",
-        titleColor: "#e5e7eb",
-        bodyColor: "#9ca3af",
-        borderColor: "#1f2937",
+        backgroundColor: CHART_COLORS.surface,
+        titleColor: CHART_COLORS.inkStrong,
+        bodyColor: CHART_COLORS.ink,
+        borderColor: CHART_COLORS.line,
         borderWidth: 1,
         padding: 10,
         displayColors: false,
@@ -522,27 +548,33 @@ function sharedChartOptions(overrides = {}) {
       x: {
         type: "time",
         time: {
-          tooltipFormat: "dd/MM/yyyy HH:mm:ss",
+          tooltipFormat: "dd/MM/yyyy HH:mm",
+          // The range control spans 1h to 90d, so every unit Chart.js may pick
+          // needs a format — an unset one falls back to an unreadable default.
           displayFormats: {
-            hour: "dd/MM/yyyy HH:mm",
-            minute: "dd/MM/yyyy HH:mm"
+            minute: "HH:mm",
+            hour: "dd/MM HH:mm",
+            day: "dd/MM",
+            week: "dd/MM",
+            month: "MMM yyyy"
           }
         },
-        grid: {
-          color: "rgba(31, 41, 55, 0.5)",
-          drawBorder: false
-        },
+        grid: { display: false },
+        border: { color: CHART_COLORS.line },
         ticks: {
-          color: "#6b7280",
+          color: CHART_COLORS.ink,
           font: { size: 10 },
-          maxTicksLimit: 6
+          maxTicksLimit: 6,
+          maxRotation: 0,
+          autoSkipPadding: 16
         }
       },
       y: {
         ...(yTicks ? { ticks: yTicks } : {}),
+        border: { display: false },
         grid: {
-          color: "rgba(31, 41, 55, 0.5)",
-          drawBorder: false
+          color: CHART_COLORS.grid,
+          drawTicks: false
         }
       }
     },
@@ -560,30 +592,33 @@ function lineDataset(label, data) {
   return {
     label,
     data,
-    borderColor: "#ef4444",
-    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderColor: CHART_COLORS.accent,
+    backgroundColor: CHART_COLORS.accentFill,
     borderWidth: 1.5,
     fill: true,
-    tension: 0.3,
+    // Straight segments: over 90d the smoothing invented dips between buckets
+    tension: 0,
     pointRadius: 0,
     pointHoverRadius: 4,
-    pointHoverBackgroundColor: "#ef4444"
+    pointHoverBackgroundColor: CHART_COLORS.accent,
+    pointHoverBorderColor: CHART_COLORS.surface,
+    pointHoverBorderWidth: 2
   };
 }
 
 /**
  * Creates or updates a Chart.js instance.
  * @param {HTMLCanvasElement} canvas
- * @param {Object} state - state object
+ * @param {Object} chartState - state object
  * @param {string} stateKey - key in state (e.g. 'hashrateChart')
  * @param {Object} chartConfig - { label, data, yTicks, tooltipCallbacks }
  */
-function initOrUpdateChart(canvas, state, stateKey, chartConfig) {
+function initOrUpdateChart(canvas, chartState, stateKey, chartConfig) {
   if (!canvas) return;
 
-  if (!state[stateKey]) {
+  if (!chartState[stateKey]) {
     // options are read only at construction; building them per tick was pure waste
-    state[stateKey] = new Chart(canvas, {
+    chartState[stateKey] = new Chart(canvas, {
       type: "line",
       data: {
         labels: chartConfig.labels,
@@ -595,39 +630,74 @@ function initOrUpdateChart(canvas, state, stateKey, chartConfig) {
       })
     });
   } else {
-    state[stateKey].data.labels = chartConfig.labels;
-    state[stateKey].data.datasets[0].data = chartConfig.data;
-    state[stateKey].update();
+    chartState[stateKey].data.labels = chartConfig.labels;
+    chartState[stateKey].data.datasets[0].data = chartConfig.data;
+    chartState[stateKey].update();
   }
 }
 
+/**
+ * Fetch the chart window for the selected range. The server downsamples to a
+ * fixed point budget and switches to the 5-minute rollup past 24h, so a 90d
+ * request costs the same on the wire as a 1h one.
+ */
+function fetchChartWindow() {
+  return fetchJSON(`/stats_history.json?hours=${state.currentRangeHours}`);
+}
+
+/** Draw an already-fetched window; a null response leaves the last one up. */
+function applyChartWindow(window) {
+  if (!isValidObject(window) || !Array.isArray(window.timestamps)) return;
+
+  state.chartWindow = {
+    labels: window.timestamps.map((t) => t * 1000),
+    myHash: window.myHash || [],
+    price: window.price || []
+  };
+  initializeCharts();
+}
+
+/** Fetch and draw. Only for the range control — the poll batches its own fetch. */
+async function refreshChartWindow() {
+  applyChartWindow(await fetchChartWindow());
+}
+
 function initializeCharts() {
-  if (!state.history) return;
+  if (!state.chartWindow) return;
   if (typeof Chart === "undefined") {
     console.warn("Chart.js not loaded");
     return;
   }
 
-  const slicedHistoryData = sliceHistory(
-    state.currentRangeHours,
-    state.history
-  );
-  if (!slicedHistoryData) return;
-
-  initializeHashrateChart(slicedHistoryData);
-  initializePriceChart(slicedHistoryData);
+  initializeHashrateChart(state.chartWindow);
+  initializePriceChart(state.chartWindow);
 }
 
-function initializeHashrateChart(slicedHistoryData) {
+/** Show the empty note only when the range genuinely holds no samples. */
+function toggleChartEmpty(noteId, canvas, isEmpty) {
+  const note = DOM[noteId];
+  if (note) note.hidden = !isEmpty;
+  if (canvas) canvas.style.visibility = isEmpty ? "hidden" : "";
+}
+
+function initializeHashrateChart(chartWindow) {
   try {
+    toggleChartEmpty(
+      "hashrateEmpty",
+      DOM.hashrateChart,
+      chartWindow.myHash.length === 0
+    );
     initOrUpdateChart(DOM.hashrateChart, state, "hashrateChart", {
       label: "Your Hashrate",
-      data: slicedHistoryData.myHash,
-      labels: slicedHistoryData.labels,
+      data: chartWindow.myHash,
+      labels: chartWindow.labels,
       yTicks: {
         callback: scaleHashrate,
-        color: "#6b7280",
+        color: CHART_COLORS.ink,
         font: { size: 10 }
+      },
+      tooltipCallbacks: {
+        label: (ctx) => scaleHashrate(ctx.parsed.y)
       }
     });
   } catch (error) {
@@ -635,15 +705,20 @@ function initializeHashrateChart(slicedHistoryData) {
   }
 }
 
-function initializePriceChart(slicedHistoryData) {
+function initializePriceChart(chartWindow) {
   try {
+    toggleChartEmpty(
+      "priceEmpty",
+      DOM.priceChart,
+      chartWindow.price.length === 0
+    );
     initOrUpdateChart(DOM.priceChart, state, "priceChart", {
       label: "XMR Price (EUR)",
-      data: slicedHistoryData.price,
-      labels: slicedHistoryData.labels,
+      data: chartWindow.price,
+      labels: chartWindow.labels,
       yTicks: {
         callback: (v) => `€${v.toFixed(2)}`,
-        color: "#6b7280",
+        color: CHART_COLORS.ink,
         font: { size: 10 }
       },
       tooltipCallbacks: {
@@ -772,8 +847,9 @@ function updateSharesDisplay(
 ) {
   setTextContent("sharesSinceLastPayout", sharesSince);
   setTextContent("unclesSinceLastPayout", unclesSince);
-  setTextContent("totalSharesMined", `Total shares: ${totalShares}`);
-  setTextContent("totalUnclesMined", `Total uncles: ${totalUncles}`);
+  // The <dt> carries the label now, so the value is the bare count
+  setTextContent("totalSharesMined", totalShares);
+  setTextContent("totalUnclesMined", totalUncles);
 }
 
 // ==============================
@@ -834,7 +910,8 @@ also multiplied by the pool luck (derived from the pool effort).
     );
 
     setTextContent("luckFactor", betterLuckFactor.toFixed(2));
-    setTextContent("xmrThisWindow", accumulatedXMR.toFixed(12));
+    // 12 decimals is one atomic unit — six is the payout threshold's own precision
+    setTextContent("xmrThisWindow", accumulatedXMR.toFixed(6));
     setTextContent("eurThisWindow", `≈ €${accumulatedEUR.toFixed(2)}`);
     setTextContent("dayHash", scaleHashrate(myWindowHash));
     setTextContent(
@@ -926,8 +1003,18 @@ function updatePoolStatus() {
   if (!poolStatus || !poolStatusText) return;
 
   const isActive = state.oldStatsData?.connections > 0;
-  poolStatus.className = `status-indicator status-${isActive ? "active" : "inactive"}`;
+  poolStatus.className = `dot ${isActive ? "is-live" : "is-down"}`;
   poolStatusText.textContent = isActive ? "Active" : "Inactive";
+}
+
+/**
+ * The miner is KEDA-gated on excess solar, so "offline" is the expected
+ * daily state rather than a fault — the pill says idle, not error.
+ */
+function updateMinerState(xmrigOnline) {
+  if (!DOM.minerState) return;
+  DOM.minerState.className = `pill ${xmrigOnline ? "is-live" : "is-down"}`;
+  setTextContent("minerStateText", xmrigOnline ? "Mining" : "Idle");
 }
 
 function updateHashrate24hDisplay() {
@@ -1023,7 +1110,8 @@ async function fetchDashboardData() {
     fetchJSON("/network/stats"),
     fetchJSON("/min_payment_threshold"),
     fetchJSON("/stats_log.json"),
-    fetchJSON("/local/stratum")
+    fetchJSON("/local/stratum"),
+    fetchChartWindow()
   ]);
 
   return results.map((r) => (r.status === "fulfilled" ? r.value : null));
@@ -1129,14 +1217,11 @@ function updateStatsDisplay(
       : `Based on ${avgWindowHours.toFixed(1)}h moving average`;
   setTextContent("earnLegend", legendText);
 
-  setTextContent(
-    "lastRefreshed",
-    `Last refreshed: ${formatDate24(new Date())}`
-  );
+  setTextContent("lastRefreshed", `Updated ${formatDate24(new Date())}`);
   setTextContent("payoutInterval", payoutInfo.intervalText);
 
   // Update payout tooltip
-  const tooltipIcon = document.querySelector(".bottom-stats .tooltip-icon");
+  const tooltipIcon = document.querySelector(".bottom-stats .info");
   if (tooltipIcon && payoutInfo.intervalHours !== null) {
     tooltipIcon.title = `Average payout interval: ~${payoutInfo.intervalHours.toFixed(1)} hours\nYour actual payouts can be shorter or longer, depending on mining luck.`;
   }
@@ -1146,18 +1231,24 @@ async function updateStats() {
   if (!state.isTabVisible) return;
 
   try {
-    const [xmrigData, poolData, networkData, thresholdObj, hist, oldStats] =
-      await fetchDashboardData();
+    const [
+      xmrigData,
+      poolData,
+      networkData,
+      thresholdObj,
+      hist,
+      oldStats,
+      chartWindow
+    ] = await fetchDashboardData();
 
     state.history = hist;
     state.oldStatsData = oldStats || {};
 
-    if (state.history) {
-      initializeCharts();
-    }
+    applyChartWindow(chartWindow);
 
     // Extract instantaneous values
     const xmrigOnline = isValidObject(xmrigData);
+    updateMinerState(xmrigOnline);
     const instMyHash = xmrigOnline ? extractXMRigHashrate(xmrigData) : 0;
     const instPoolHash = extractPoolHashrate(poolData);
     const instNetHash = calculateNetworkHashrate(networkData);
@@ -1317,7 +1408,9 @@ function handleStatsError() {
   ];
   errorElements.forEach((id) => {
     const el = DOM[id];
-    if (el?.textContent === "Loading…") {
+    // Only the never-populated ones: these still hold their loading skeleton,
+    // so blank text means the first fetch failed rather than a transient one.
+    if (el && !el.textContent.trim()) {
       el.textContent = "Error";
     }
   });
@@ -1336,6 +1429,47 @@ function handleVisibilityChange() {
 
 function handleEarnPeriodChange() {
   updateStats();
+}
+
+/** Reflect the selected range on the segmented control. */
+function markActiveRange() {
+  DOM.rangeControl?.querySelectorAll(".range__opt").forEach((button) => {
+    const isActive = Number(button.dataset.hours) === state.currentRangeHours;
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+}
+
+function handleRangeChange(event) {
+  const button = event.target.closest(".range__opt");
+  if (!button) return;
+
+  state.currentRangeHours = Number(button.dataset.hours);
+  markActiveRange();
+  // localStorage is unavailable in private-mode Safari; the range still works.
+  try {
+    localStorage.setItem(CONFIG.RANGE_STORAGE_KEY, state.currentRangeHours);
+  } catch {
+    /* not persisted */
+  }
+  refreshChartWindow();
+}
+
+function restoreRange() {
+  let stored = null;
+  try {
+    stored = Number(localStorage.getItem(CONFIG.RANGE_STORAGE_KEY));
+  } catch {
+    /* fall through to the default */
+  }
+  // Only accept a value the control actually offers, so a stale or hand-edited
+  // key cannot leave every button unpressed.
+  const offered = [
+    ...(DOM.rangeControl?.querySelectorAll(".range__opt") || [])
+  ];
+  if (offered.some((button) => Number(button.dataset.hours) === stored)) {
+    state.currentRangeHours = stored;
+  }
+  markActiveRange();
 }
 
 function cleanup() {
@@ -1361,6 +1495,10 @@ async function initialize() {
   if (DOM.earnPeriod) {
     DOM.earnPeriod.addEventListener("change", handleEarnPeriodChange);
   }
+
+  // One delegated listener rather than six: the buttons never change
+  DOM.rangeControl?.addEventListener("click", handleRangeChange);
+  restoreRange();
 
   // updateStats() refetches /stats_log.json and calls initializeCharts() itself
   await updateStats();
