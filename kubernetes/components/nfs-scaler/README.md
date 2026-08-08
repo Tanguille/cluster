@@ -27,7 +27,7 @@ spec:
 
 ## Example
 
-See `kubernetes/apps/volsync-system/kopia/ks.yaml` for a complete example.
+See `kubernetes/apps/kopiur-system/kopia/ks.yaml` for a complete example.
 
 ## Configuration
 

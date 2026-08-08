@@ -12,7 +12,6 @@ spec:
 
   values:
     defaultPodOptions:
-      automountServiceAccountToken: false
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       securityContext:
@@ -26,14 +25,13 @@ spec:
 
     controllers:
       moonraker-obico:
-        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
           render-config:
             image:
               repository: busybox
-              tag: 1.38.0@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+              tag: 1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
             command:
               - /bin/sh
               - -ec
@@ -101,7 +99,7 @@ spec:
           moonraker-proxy:
             image:
               repository: nginx
-              tag: 1.31.2-alpine@sha256:54f2a904c251d5a34adf545a72d32515a15e08418dae0266e23be2e18c66fefa
+              tag: 1.31.3-alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752
             command:
               - nginx
             args:
@@ -124,7 +122,6 @@ spec:
 
     persistence:
       config:
-        enabled: true
         storageClass: ceph-block
         accessMode: ReadWriteOnce
         size: 1Gi

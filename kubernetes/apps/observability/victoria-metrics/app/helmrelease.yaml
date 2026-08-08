@@ -57,7 +57,7 @@ spec:
             jsonData:
               httpMethod: POST
               queryTimeout: 60s
-              timeInterval: 15s
+              timeInterval: 30s
               seriesLimit: 40000
       alertmanager:
         datasources:
@@ -73,6 +73,13 @@ spec:
       rules:
         etcdMemberCommunicationSlow:
           create: false
+        # Fires on recording rules that are empty by design: count:up0 (count(up == 0))
+        # yields no samples whenever every target is up, as do the orphan-pod variants
+        # of namespace_workload_pod:kube_pod_owner:relabel.
+        # Key is the exact alert name and the field is `enabled`, per the chart's own
+        # example; the camelCased `create: false` form silently matched nothing.
+        RecordingRulesNoData:
+          enabled: false
       groups:
         # vmsingle deployment; the chart's vmcluster group duplicates RequestErrorsToAPI etc.
         # Remove this if the stack ever migrates to vmcluster.
@@ -89,18 +96,7 @@ spec:
       enabled: false
 
     kubelet:
-      enabled: true
       vmScrapes:
-        cadvisor:
-          enabled: true
-          spec:
-            path: /metrics/cadvisor
-        kubelet:
-          spec: {}
-        probes:
-          enabled: true
-          spec:
-            path: /metrics/probes
         # /metrics/resource duplicates the container CPU/memory series cAdvisor already provides
         resources:
           enabled: false
@@ -118,6 +114,24 @@ spec:
             - action: labeldrop
               regex: (beta_kubernetes_io_.*|extensions_talos_dev_.*|feature_node_kubernetes_io_.*|amd_com_.*|openebs_io_.*|kepler_node)
 
+    kubeApiServer:
+      vmScrape:
+        spec:
+          endpoints:
+            # chart default endpoint restated (list is wholesale-replaced);
+            # /metrics outgrew vmagent's 16MiB default cap, and the dropped
+            # histograms are used by no alert rule (only *_sli_* buckets are)
+            - bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+              max_scrape_size: 64MiB
+              port: https
+              scheme: https
+              tlsConfig:
+                caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                serverName: kubernetes
+              metricRelabelConfigs:
+                - action: drop
+                  sourceLabels: [__name__]
+                  regex: (apiserver_request_duration_seconds|etcd_request_duration_seconds|apiserver_request_body_size_bytes)_bucket
     kubeControllerManager:
       vmScrape:
         spec:
@@ -137,8 +151,6 @@ spec:
         spec:
           endpoints:
             - scheme: http
-    kubeProxy:
-      enabled: false
     kubeScheduler:
       vmScrape:
         spec:
@@ -150,7 +162,6 @@ spec:
                 insecureSkipVerify: true
 
     alertmanager:
-      enabled: true
       useManagedConfig: true
       config:
         route:
@@ -221,7 +232,6 @@ spec:
           - name: envoy-internal
             namespace: network
       spec:
-        selectAllByDefault: true
         externalURL: https://vmalertmanager.${SECRET_DOMAIN}
         image:
           repository: quay.io/prometheus/alertmanager
@@ -241,14 +251,14 @@ spec:
                   storage: 1Gi
 
     vmalert:
-      enabled: true
-      remoteWriteVMAgent: false
       route:
         enabled: true
         hostnames:
           - vmalert.${SECRET_DOMAIN}
         parentRefs: *internalParentRefs
       spec:
+        # Observed usage, not the request below; pipeline went fully Pending in the 07-23 outage.
+        priorityClassName: homelab-critical # 149Mi
         datasource:
           url: *vmqueryUrl
         extraArgs:
@@ -269,15 +279,14 @@ spec:
             memory: 512Mi
 
     vmagent:
-      enabled: true
       rbac:
         namespaced: false
       spec:
-        selectAllByDefault: true
+        priorityClassName: homelab-critical # 512Mi, sole scrape path
         resources:
           requests:
             cpu: 100m
-            memory: 256Mi
+            memory: 512Mi
           limits:
             cpu: 1
             memory: 1Gi
@@ -288,6 +297,15 @@ spec:
         operated-prometheus: "true"
         self-monitor: "true"
       spec:
+        priorityClassName: homelab-critical # 89Mi, Grafana's query path
+        # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its
+        # 25Mi default, which its 39Mi peak already exceeds; raising that is a separate change.
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
         extraArgs:
           requestBufferSize: "65536"
         managedMetadata:
@@ -308,22 +326,24 @@ spec:
               url_prefix: http://victoria-logs.observability.svc.cluster.local:9428
 
     vmsingle:
-      enabled: true
       route:
         enabled: true
         hostnames: ["vmsingle.${SECRET_DOMAIN}"]
         parentRefs: *internalParentRefs
       spec:
-        retentionPeriod: 365d
+        # TSDB the other three write to/query; scheduling them without this buys nothing.
+        priorityClassName: homelab-critical
+        # 180d: 365d retention couldn't fit the 200Gi PVC at current 140GB usage
+        retentionPeriod: 180d
         resources:
           requests:
             cpu: 250m
-            memory: 1Gi
+            # Live pod p99 2.90Gi over 7d, max 3.10Gi; limit covers the 14d 4015Mi peak.
+            memory: 3Gi
           limits:
             cpu: 2
-            memory: 4Gi
+            memory: 6Gi
         storage:
-          accessModes: [ReadWriteOnce]
           resources:
             requests:
               storage: 200Gi
@@ -358,3 +378,39 @@ spec:
                 for: 5m
                 labels:
                   severity: critical
+      node-hardware-rules:
+        groups:
+          - name: node-hardware
+            rules:
+              - alert: NVMeCriticalWarning
+                annotations:
+                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} reports a critical warning
+                  description: smartctl_device_critical_warning is nonzero on {{ $labels.device }} ({{ $labels.instance }}) — confirmed precursor to an XFS forced-shutdown crash.
+                expr: smartctl_device_critical_warning > 0
+                for: 5m
+                labels:
+                  severity: critical
+              - alert: NodeCPUPressureSustained
+                annotations:
+                  summary: Sustained CPU pressure on {{ $labels.nodename }}
+                  description: CPU PSI wait on {{ $labels.nodename }} has been above 0.5s/s for 15 minutes ({{ $value }}s/s) — precedes cold-reload storms and runner starvation.
+                expr: rate(node_pressure_cpu_waiting_seconds_total[5m]) > 0.5
+                for: 15m
+                labels:
+                  severity: warning
+              - alert: NodeMemoryPressureSustained
+                annotations:
+                  summary: Sustained memory pressure on {{ $labels.nodename }}
+                  description: Memory PSI wait on {{ $labels.nodename }} has been above 0.3s/s for 15 minutes ({{ $value }}s/s).
+                expr: rate(node_pressure_memory_waiting_seconds_total[5m]) > 0.3
+                for: 15m
+                labels:
+                  severity: warning
+              - alert: NodeVarFillingUp
+                annotations:
+                  summary: /var on {{ $labels.nodename }} is filling up
+                  description: "/var on {{ $labels.nodename }} has less than 15% free space ({{ $value | humanizePercentage }})." # plain threshold; predict_linear false-fires on fresh series
+                expr: node_filesystem_avail_bytes{mountpoint="/var"} / node_filesystem_size_bytes{mountpoint="/var"} < 0.15
+                for: 30m
+                labels:
+                  severity: warning

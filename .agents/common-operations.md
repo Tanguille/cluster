@@ -1,21 +1,27 @@
 # Common Operations
 
-**When to use:** add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, volsync, snapshot.
+**When to use:** validation, tooling, add app, new application, upgrade, SOPS, secrets, encrypt, debug, troubleshooting, logs, backup, restore, kopiur, snapshot.
+
+Also serves as the authoritative command reference linked from `docs/useful_commands.md`.
 
 Step-by-step procedures for frequent cluster tasks.
 
+## Validation and tooling
+
+- Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talhelper`, `talosctl`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
+- Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (flate — renders Helm charts, not just Kustomization YAML — and shellcheck).
+- Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
+- Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
+
 ## Adding a new application
 
-Use **add-app-to-cluster** skill for full procedure.
+Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full procedure.
 
-1. Create namespace in `kubernetes/components/common/`
+1. For a new namespace, create `kubernetes/apps/<namespace>/kustomization.yaml` with `namespace: <ns>` and component `../../components/common`; existing namespaces need no namespace step
 2. Add OCIRepository if external
-3. Create app in `kubernetes/apps/<app>/`
+3. Create app in `kubernetes/apps/<namespace>/<app>/`
 4. Add Kustomization in appropriate `ks.yaml`
-5. Run validation on the new app (`<namespace>`, `<app-name>`):
-   - `mise exec -- kustomize build kubernetes/apps/<namespace>/<app-name>/`
-   - `mise exec -- shellcheck scripts/*.sh`
-   - Or: `bash .agents/skills/pr-review/scripts/validate-pr.sh`
+5. Run validation on the new app: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (or `mise exec -- flate test all` directly, which renders the HelmRelease too — `kustomize build` alone doesn't)
 
 ## Secrets management (SOPS)
 
@@ -29,8 +35,12 @@ Post-quantum age (age1pq1) is supported; see [sops-post-quantum.md](../docs/sops
 
 ## Debugging
 
-Use **debug-cluster** skill for structured 5-Whys analysis and troubleshooting.
+Use [debug-cluster](skills/debug-cluster/SKILL.md) skill for structured 5-Whys analysis and troubleshooting.
 
 ## Backup & Restore
 
-Use **backup-restore** skill for VolSync Kopia operations.
+Use [backup-restore](skills/backup-restore/SKILL.md) skill for kopiur Kopia operations.
+
+## Other skills
+
+See the [skill catalog](../AGENTS.md#load-context-on-demand) for git-worktree-isolation, k8s-at-home-research, pr-review, and prometheus-cluster-health.

@@ -36,7 +36,8 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 512Mi
+                # 237Mi cgroup peak over 30d, so this still covers peak; limit stays 14Gi
+                memory: 256Mi
               limits:
                 cpu: 4
                 memory: 14Gi
@@ -51,7 +52,6 @@ spec:
                   initialDelaySeconds: 10
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  failureThreshold: 3
               readiness: *probes
     service:
       app:

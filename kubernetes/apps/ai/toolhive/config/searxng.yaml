@@ -1,19 +1,18 @@
----
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
-  name: &name searxng
+  name: searxng
 spec:
-  image: ghcr.io/rcdailey/mcp-searxng:0.8.0
+  image: ghcr.io/rcdailey/mcp-searxng:0.8.0@sha256:5f4359be5f43b3bb77daabc60884dcd8c1d05a3c0b761ad78730da8453a660a2
   transport: stdio
   groupRef:
-    name: search
+    name: all
   env:
-    # Service in default namespace exposes port 8080 (see searxng HelmRelease).
     - name: SEARXNG_URL
       value: http://searxng.default.svc.cluster.local:8080
   toolConfigRef:
-    name: *name
+    name: searxng
   podTemplateSpec:
     spec:
       containers:
@@ -33,40 +32,7 @@ spec:
       cpu: 200m
       memory: 100Mi
 ---
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: searxng-opt
-spec:
-  image: ghcr.io/rcdailey/mcp-searxng:0.8.0
-  transport: stdio
-  groupRef:
-    name: all
-  env:
-    # Service in default namespace exposes port 8080 (see searxng HelmRelease).
-    - name: SEARXNG_URL
-      value: http://searxng.default.svc.cluster.local:8080
-  toolConfigRef:
-    name: searxng
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 110Mi
-  resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 100Mi
----
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:

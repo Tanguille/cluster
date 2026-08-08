@@ -2,7 +2,7 @@
 # curl -X POST --data-binary @talos/schematic.yaml \
 #  https://factory.talos.dev/schematics
 # Truenas VM (control-1)
-# dfc849d1bd15c28f7e812d46ac70744b563e49fea8aff2cf784d58eeaf47b92d
+# c68c8884333629a78b939df2c920651ecddd733c41ca9bd0a872ec53dc060d8e
 ---
 customization:
   extraKernelArgs:
@@ -16,6 +16,10 @@ customization:
     - amd_pstate=active
     - amdgpu.ppfeaturemask=0xffffffff
     - amdgpu.runpm=0
+    # Explicit 0, not absent: GECC persists in PSP firmware state once armed, so
+    # dropping the flag leaves it on. It costs exactly 2GiB of VRAM (6.25% carve-out)
+    # and sglang runs at 99.6% allocation. MEM ECC corrects regardless of this.
+    - amdgpu.ras_enable=0
     - pcie_aspm.policy=performance
     - mitigations=off
     - security=none

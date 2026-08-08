@@ -21,9 +21,6 @@ spec:
               repository: ghcr.io/athennamind/opnsense-exporter
               tag: 0.0.16@sha256:64469206eb955b6c87ec2737cd4884b0bec01b518408cf1ac6d5c153f6c0cf1f
             args:
-              # - --log.level=debug
-              # - --log.format=json
-              - --exporter.instance-label=gw
               - --web.listen-address=:8080
             env:
               OPNSENSE_EXPORTER_INSTANCE_LABEL: "gw"
@@ -65,7 +62,5 @@ spec:
         serviceName: *app
         endpoints:
           - port: http
-            scheme: http
-            path: /metrics
             interval: 5m
             scrapeTimeout: 30s

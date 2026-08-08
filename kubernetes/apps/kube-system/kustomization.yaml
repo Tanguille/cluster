@@ -22,6 +22,7 @@ patches:
           resource.kubernetes.io/admin-access: "true"
 resources:
   - ./amdgpu-undervolt.yaml
+  - ./priorityclass.yaml
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
   - ./descheduler/ks.yaml
@@ -29,6 +30,8 @@ resources:
   - ./generic-device-plugin/ks.yaml
   - ./k8s-gpu-dra-driver/ks.yaml
   - ./metrics-server/ks.yaml
+  - ./network-policies/ks.yaml
+  - ./node-problem-detector/ks.yaml
   - ./reloader/ks.yaml
   - ./snapshot-controller/ks.yaml
   - ./spegel/ks.yaml

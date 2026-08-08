@@ -2,51 +2,19 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
     "abandonments:recommended",
-    "github>home-operations/renovate-presets#2.1.0",
+    "github>home-operations/renovate-presets#5.0.0",
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   customManagers: [
     {
-      description: "Detect ToolHive MCPServer spec.image container references",
-      customType: "regex",
-      managerFilePatterns: ["/kubernetes/apps/ai/toolhive/config/.+\\.ya?ml$/"],
-      matchStrings: [
-        "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
-      ],
-      datasourceTemplate: "docker"
-    },
-    {
-      description: "Detect llmkube InferenceService spec.image container references",
-      customType: "regex",
-      managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
-      matchStrings: [
-        "image:\\s+(?<depName>[^:@\\s]+(?:/[^:@\\s]+)*)(?::(?<currentValue>[^@\\s]+))?(?:@(?<currentDigest>sha256:[a-f0-9]+))?"
-      ],
-      datasourceTemplate: "docker"
-    },
-    {
-      description: "Process Grafana dashboards in GrafanaDashboard CRs",
-      customType: "regex",
-      managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
-      matchStrings: [
-        "grafanaCom:\\s*\\n\\s*id:\\s*(?<depName>\\d+)\\s*\\n\\s*revision:\\s*(?<currentValue>\\d+)"
-      ],
-      datasourceTemplate: "custom.grafana-dashboards",
-      versioningTemplate: "regex:^(?<major>\\d+)$",
-      autoReplaceStringTemplate: "grafanaCom:\n    id: {{depName}}\n    revision: {{newValue}}"
-    },
-    {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
-      matchStringsStrategy: "recursive",
       matchStrings: [
-        "url:\\s+https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/",
-        "(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+        'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
       ],
-      datasourceTemplate: "github-releases",
-      autoReplaceStringTemplate: "{{{newValue}}}"
+      datasourceTemplate: "github-releases"
     },
     {
       description: "qBitrr ConfigVersion (semver, no v prefix)",
@@ -69,16 +37,6 @@
       packageNameTemplate: "https://huggingface.co/{{depName}}",
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
-    },
-    {
-      description: "SGLang release version in sglang-rocm Dockerfile ARG",
-      customType: "regex",
-      managerFilePatterns: ["/docker/sglang-rocm/Dockerfile$/"],
-      matchStrings: [
-        "# renovate: datasource=github-releases depName=sglang-project/sglang\\nARG SGLANG_VERSION=(?<currentValue>\\S+)"
-      ],
-      depNameTemplate: "sglang-project/sglang",
-      datasourceTemplate: "github-releases"
     }
   ],
   packageRules: [
@@ -91,40 +49,19 @@
       automerge: true,
       automergeType: "pr"
     },
-    {
-      description: "Auto-merge GitHub Actions",
-      matchManagers: ["github-actions"],
-      matchUpdateTypes: ["minor", "patch", "digest"],
-      automerge: true,
-      automergeType: "branch",
-      minimumReleaseAge: "3 days"
-    },
     // Grouping rules
     {
-      description: "sglang-rocm build inputs (sglang fork version + ROCm base image digest) — one review PR, no automerge; merging triggers the image-builder build workflow",
-      groupName: "sglang-rocm",
-      matchFileNames: ["docker/sglang-rocm/Dockerfile"],
-      automerge: false,
-      addLabels: ["sglang-rocm"]
-    },
-    {
-      description: "sglang-rocm deployed image digest — review before a HelmRelease rolls a new build",
+      description: "sglang-rdna4 deployed image digest — built by our fork of the upstream RDNA4 image, not a pipeline in this repo; review before the HelmRelease rolls the serving pod (Recreate on the single GPU)",
       matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/tanguille/sglang-rocm-gfx1201"],
-      automerge: false,
-      addLabels: ["sglang-rocm"]
+      matchPackageNames: ["ghcr.io/tanguille/sglang-rdna4"],
+      automerge: false
     },
     {
       description: "Actions Runner Controller Group",
       groupName: "actions-runner-controller",
       matchDatasources: ["docker"],
-      matchPackageNames: [
-        "/gha-runner-scale-set-controller/",
-        "/gha-runner-scale-set/"
-      ],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
+      // matches both gha-runner-scale-set and gha-runner-scale-set-controller
+      matchPackageNames: ["/gha-runner-scale-set/"],
       minimumGroupSize: 2
     },
     {
@@ -132,19 +69,24 @@
       groupName: "flux-operator",
       matchDatasources: ["docker"],
       matchPackageNames: ["/flux-operator/", "/flux-instance/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
       minimumGroupSize: 2
+    },
+    {
+      // installer image (talosupgrade.yaml) + talosctl via github-releases (image-pull.yaml)
+      // all track the same Talos release — one PR instead of two
+      description: "Talos Group",
+      groupName: "talos",
+      matchDatasources: ["docker", "github-releases"],
+      // matches all siderolabs/* packages (talos, installer, etc.); both slashes are regex
+      // delimiters, so the inner one must stay escaped AND closed or config validation fails
+      matchPackageNames: ["/siderolabs\\//"],
     },
     {
       description: "Rook-Ceph Group",
       groupName: "rook-ceph",
       matchDatasources: ["docker"],
-      matchPackageNames: ["/rook-ceph/", "/rook-ceph-cluster/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
+      // matches both rook-ceph and rook-ceph-cluster
+      matchPackageNames: ["/rook-ceph/"],
       minimumGroupSize: 2
     },
     {
@@ -152,9 +94,6 @@
       groupName: "toolhive",
       matchDatasources: ["docker"],
       matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
       minimumGroupSize: 2
     },
     {
@@ -162,37 +101,31 @@
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
       matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group"
-      },
       minimumGroupSize: 2
+    },
+    {
+      description: "VectorChord CNPG images and Memini database version",
+      groupName: "vectorchord",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
     },
     {
       description: "Group klipper-exporter image and Grafana dashboard URL",
       groupName: "klipper-exporter",
       matchDatasources: ["docker", "github-releases"],
-      matchPackageNames: ["/prometheus-klipper-exporter/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}}"
-      }
+      matchPackageNames: ["/prometheus-klipper-exporter/"]
     },
     {
       description: "Group spegel chart and Grafana dashboard URL",
       groupName: "spegel",
       matchDatasources: ["docker", "github-releases"],
-      matchPackageNames: ["/spegel-org/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}}"
-      }
+      matchPackageNames: ["/spegel-org/"]
     },
     {
       description: "nginx sidecar images group",
       groupName: "nginx",
       matchDatasources: ["docker"],
       matchPackageNames: ["nginx"],
-      group: {
-        commitMessageTopic: "{{{groupName}}}"
-      },
       minimumGroupSize: 2
     },
     {
@@ -203,10 +136,7 @@
       groupName: "qbitrr",
       matchDatasources: ["docker"],
       matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
-      matchPackageNames: ["/feramance\\/qbitrr/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}}"
-      }
+      matchPackageNames: ["/feramance\\/qbitrr/"]
     },
     {
       matchManagers: ["custom.regex"],
@@ -246,10 +176,6 @@
     {
       matchDatasources: ["docker"],
       addLabels: ["renovate/container"]
-    },
-    {
-      matchDatasources: ["helm"],
-      addLabels: ["renovate/helm"]
     },
     {
       matchDatasources: ["custom.grafana-dashboards"],

@@ -5,14 +5,3 @@ kind: Kustomization
 resources:
   - ocirepository.yaml
   - helmrelease.yaml
-  - grafanadashboard.yaml
-
-configMapGenerator:
-  - name: llmkube-inference-dashboard
-    files:
-      - dashboard/llmkube-inference.json
-    options:
-      annotations:
-        kustomize.toolkit.fluxcd.io/substitute: disabled
-generatorOptions:
-  disableNameSuffixHash: true

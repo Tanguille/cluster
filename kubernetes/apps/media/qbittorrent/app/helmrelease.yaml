@@ -12,6 +12,8 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
+    - kind: ConfigMap
+      name: nfs-media
   values:
     controllers:
       qbittorrent:
@@ -21,7 +23,7 @@ spec:
           app:
             image:
               repository: ghcr.io/home-operations/qbittorrent
-              tag: 5.2.2@sha256:24f2d793cb7f7a93e755e5d22e533be818e62eadc864f4a82315b901b6ffe807
+              tag: 5.2.3@sha256:4fcf15b7f265c2c8d7bc2a7e13240a07e0593c326f3cf3b5b9bb69eec5b79299
             env:
               TZ: ${TIMEZONE}
               QBT_WEBUI_PORT: &port 80
@@ -34,16 +36,12 @@ spec:
                   httpGet:
                     path: /api/v2/app/version
                     port: *port
-                  initialDelaySeconds: 0
-                  periodSeconds: 10
-                  timeoutSeconds: 1
-                  failureThreshold: 3
+                  timeoutSeconds: 5
               readiness: *probes
               startup:
                 enabled: true
                 spec:
                   failureThreshold: 30
-                  periodSeconds: 10
             lifecycle:
               preStop:
                 exec:
@@ -92,25 +90,9 @@ spec:
           - name: envoy-internal
             namespace: network
 
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: *port
     persistence:
       config:
         existingClaim: *app
-        advancedMounts:
-          qbittorrent:
-            app:
-              - path: /config
-
-      media:
-        type: nfs
-        server: ${TRUENAS_IP}
-        path: ${MEDIA_NFS_PATH}
-        globalMounts:
-          - path: /media
-            readOnly: false
 
       tmp:
         type: emptyDir

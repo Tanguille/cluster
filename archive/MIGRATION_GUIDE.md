@@ -70,10 +70,10 @@ Use the automated migration script:
 
 ```bash
 # Make the script executable
-chmod +x kubernetes/apps/media/radarr/migrate-to-postgres.sh
+chmod +x archive/migrate-to-postgres.sh
 
 # Run the migration
-./kubernetes/apps/media/radarr/migrate-to-postgres.sh
+./archive/migrate-to-postgres.sh
 ```
 
 **Or run the migration manually:**

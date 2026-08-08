@@ -1,0 +1,172 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
+metadata:
+  name: xmrig
+spec:
+  # One miner per node, each gated on its own node's guard verdict. A single Deployment
+  # cannot do this: the HPA sheds an arbitrary pod, so nothing guarantees the pod on the
+  # node that just tripped is the one that dies.
+  inputs:
+    - node: control-1
+    - node: control-2
+    - node: control-3
+  resources:
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      metadata:
+        name: xmrig-<< inputs.node >>
+        namespace: web3
+      spec:
+        chartRef:
+          kind: OCIRepository
+          name: app-template
+        interval: 1h
+        values:
+          controllers:
+            xmrig-<< inputs.node >>:
+              pod:
+                labels:
+                  # the shared xmrig Service selects on this across all three Deployments
+                  app.kubernetes.io/component: thermal-guarded
+              containers:
+                app:
+                  image:
+                    repository: djerfy/xmrig
+                    tag: 6.26.0@sha256:bd72a33a41d67a74956fd494ab7ee0d79efdf616db8f0829fb5186eec91152d3
+                  command: ["/usr/bin/xmrig"]
+                  args:
+                    - "-o"
+                    - "p2pool.web3.svc.cluster.local:3333"
+                    - "-u"
+                    - "x+5000"
+                    - "-k"
+                    - "--coin=monero"
+                    # Cap mining threads to the CFS quota: 50% of 12 host cores = 6 threads = cpu limit.
+                    # Without this xmrig auto-detects 12 cores, spawns 12 threads, and is throttled
+                    # 90-100% of CFS periods (CPUThrottlingHigh), inflating load average on every node.
+                    - "--cpu-max-threads-hint=50"
+                    # No hugepages are reserved on any node; xmrig would otherwise warn and fall back anyway.
+                    - "--no-huge-pages"
+                    # Enable HTTP API for dashboard
+                    - "--http-port=42000"
+                    - "--http-host=0.0.0.0"
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    readOnlyRootFilesystem: true
+                    capabilities:
+                      drop: ["ALL"]
+                  resources:
+                    requests:
+                      cpu: 1
+                      # RandomX fast mode needs ~2336Mi of regular pages once hugepages are gone.
+                      # Requested under that: the sysctl removal frees 2368Mi, leaving 2389/2373Mi on
+                      # control-2/3, and requesting the true figure parks the miner Pending forever.
+                      memory: 2Gi
+                    limits:
+                      cpu: 6
+                      memory: 3Gi
+          persistence:
+            tmp:
+              type: emptyDir
+              medium: Memory
+              # Capped since the RandomX dataset moved out of hugetlb: tmpfs pages and the ~2336Mi
+              # dataset now share one 3Gi limit, so an unbounded /tmp reaches it.
+              sizeLimit: 64Mi
+              globalMounts:
+                - path: /tmp
+          defaultPodOptions:
+            terminationGracePeriodSeconds: 15
+            priorityClassName: low-priority-mining
+            # Hard pin, not a preference: this Deployment's ScaledObject reads only this
+            # node's guard verdict, so a pod anywhere else would be ungated.
+            nodeSelector:
+              kubernetes.io/hostname: << inputs.node >>
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 1000
+              runAsGroup: 1000
+              fsGroup: 1000
+              fsGroupChangePolicy: OnRootMismatch
+    - apiVersion: keda.sh/v1alpha1
+      kind: ScaledObject
+      metadata:
+        name: xmrig-<< inputs.node >>
+        namespace: web3
+        labels:
+          app.kubernetes.io/name: xmrig-<< inputs.node >>
+          app.kubernetes.io/component: autoscaler
+      spec:
+        scaleTargetRef:
+          apiVersion: apps/v1
+          kind: Deployment
+          name: xmrig-<< inputs.node >>
+        minReplicaCount: 0
+        maxReplicaCount: 1
+        cooldownPeriod: 0 # Guard dwell already debounces trips and recovery
+        # 30s to match the guard's evaluation interval: this is the last serial leg of the
+        # 135s trip-to-drain chain the 65C trip is sized against.
+        pollingInterval: 30
+        fallback:
+          # A VictoriaMetrics/scaler error is unsafe: do not keep miners running on stale state.
+          failureThreshold: 1
+          replicas: 0
+        advanced:
+          horizontalPodAutoscalerConfig:
+            behavior:
+              # At maxReplicaCount 1 both transitions are KEDA activation rather than HPA
+              # scaling, so this block should be inert. It stays until a measured trip proves
+              # the drain latency: if that assumption is wrong the HPA default is a 300s
+              # scaleDown stabilization, which on its own blows the thermal budget.
+              scaleDown:
+                stabilizationWindowSeconds: 0
+                policies:
+                  - type: Percent
+                    value: 100
+                    periodSeconds: 15
+              scaleUp:
+                stabilizationWindowSeconds: 60
+                policies:
+                  - type: Percent
+                    value: 100
+                    periodSeconds: 60
+        triggers:
+          - type: prometheus
+            metadata:
+              serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+              # Preserve the 15-minute solar average and 150W physical cap, then hand this
+              # node only the surplus left after every safe node that outranks it has taken
+              # its 50W. That subtraction is what stops three ScaledObjects reading one global
+              # figure from all starting at 50W, and unlike a fixed activation threshold it
+              # skips a node that is unavailable instead of reserving watts for it. Ranking
+              # is the guard's xmrig_guard_rank, so priority changes need no manifest edit.
+              # The aggregations strip labels for the on() match and reject duplicate guard
+              # series; the timestamp check closes the gate within 120s if guard scraping
+              # stops, and the final fallback covers absent guard data.
+              query: >-
+                (
+                  clamp_min(
+                    clamp_max(
+                      clamp_min(-avg_over_time(hass_sensor_power_w{entity="sensor.p1_meter_power",job="homeassistant"}[15m]), 0),
+                      150
+                    )
+                    - 50 * (
+                      count(
+                        (xmrig_guard_safe == 1)
+                        and on(node) (xmrig_guard_rank < scalar(xmrig_guard_rank{node="<< inputs.node >>"}))
+                      ) or vector(0)
+                    ),
+                    0
+                  )
+                  * on()
+                  (
+                    min(xmrig_guard_safe{node="<< inputs.node >>"})
+                    * (count(xmrig_guard_safe{node="<< inputs.node >>"}) == bool 1)
+                    * (min(timestamp(xmrig_guard_safe{node="<< inputs.node >>"})) >= bool (time() - 120))
+                  )
+                ) or vector(0)
+              threshold: "50" # 50W per replica (each miner consumes ~50W)
+              # half a miner's draw, the same tolerance the single-Deployment version used
+              activationThreshold: "25"
+              ignoreNullValues: "false"

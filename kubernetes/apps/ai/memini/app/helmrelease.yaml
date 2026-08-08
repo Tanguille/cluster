@@ -17,18 +17,11 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
 
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: 18
-            envFrom: &envFrom
-              - secretRef:
-                  name: memini-secret
-
         containers:
           main:
-            envFrom: *envFrom
+            envFrom:
+              - secretRef:
+                  name: memini-secret
             env:
               TZ: ${TIMEZONE}
               MEMINI_BACKEND: "postgres"
@@ -36,6 +29,16 @@ spec:
               MEMINI_EMBED_API_KEY: ${LITELLM_API_KEY}
               MEMINI_EMBED_MODEL: "qwen3-embedding"
               MEMINI_EMBED_DIMS: "1024"
+              # Bound capture/dedup embedding work to short, serial batches so
+              # it cannot create the multi-second recall tail under load.
+              MEMINI_EMBED_MAX_CONCURRENCY: "1"
+              MEMINI_EMBED_MAX_BATCH: "8"
+              MEMINI_EMBED_MAX_BATCH_CHARS: "12000"
+              MEMINI_EMBED_MAX_ITEM_CHARS: "4000"
+              # The 5s default drops writes to vectorless whenever the shared
+              # iGPU embedder is busy; the two from 2026-08-04 20:50 never got
+              # a vector back and are keyword-only.
+              MEMINI_WRITE_EMBED_TIMEOUT: "15s"
             resources:
               requests:
                 cpu: 50m

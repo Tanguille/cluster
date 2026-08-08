@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
@@ -23,6 +24,7 @@ spec:
       layers: -1
       resourceName: squat.ai/dri
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
@@ -31,14 +33,28 @@ spec:
   modelRef: qwen35-2b
   # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
-  # Tracked by the llmkube-models Renovate customManager (.renovaterc.json5).
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8fe0c6ae757c2f5118ab765622d7de1c9f9c4ab5416aa245222332f21e2182bb
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:e1913c98d60819b92873d0959f8221483d6961361892b8d36a0cb3440d92aea7
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  contextSize: 16384 # GDN keeps KV tiny, so long ctx is cheap; 16K is plenty for offload
+  # llama.cpp splits contextSize across parallelSlots, so 32768/2 = 16384 per slot.
+  # GDN keeps KV tiny, so long ctx is cheap; 16K per slot is plenty for offload.
+  contextSize: 32768
   jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
   extraArgs:
     - "--alias"
     - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
+    # Unsloth's recommended non-thinking sampling for Qwen3.5 Small (repeats otherwise);
+    # set here since litellm's auto-registered alias carries no sampling params.
+    - "--temp"
+    - "0.7"
+    - "--top-p"
+    - "0.8"
+    - "--presence-penalty"
+    - "1.5"
+    # Qwen3.5's chat template thinks by default; without this it burns the whole
+    # output budget on reasoning_content and returns empty content (verified live
+    # 2026-08-02). Sampling flags above don't touch this — it's a template setting.
+    - "--reasoning"
+    - "off"
 
   # Both iGPU nodes advertise 2 squat.ai/dri slots; the embedders pair up on
   # qwen3-embedding's node (via podAffinity there), leaving the other iGPU
@@ -59,7 +75,6 @@ spec:
               app: qwen3-embedding
           topologyKey: kubernetes.io/hostname
 
-  # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
@@ -67,12 +82,11 @@ spec:
       - 44
       - 226
 
-  # No probeOverrides: the operator's llamacpp defaults already probe /health
-  # with a more forgiving startup window. GPU allocation comes from
-  # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields at 0.8.26).
+  # GPU allocation comes from Model.hardware.gpu.count; resources.gpu/gpuMemory
+  # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
-    # ~2.4 GiB resident; requested low (no limit set by llmkube) so it schedules
-    # on the iGPU node's tight request budget and bursts into its real free RAM.
-    memory: 1536Mi
+    # ~2.4 GiB resident under load, 405Mi idle working set; requested low
+    # (no limit set by llmkube) so it schedules and bursts into free RAM.
+    memory: 1Gi
   # endpoint omitted — operator defaults to a ClusterIP Service on :8080.

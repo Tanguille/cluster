@@ -1,0 +1,109 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-exporter-rules
+spec:
+  groups:
+    - name: node-exporter.rules
+      rules:
+        - alert: NodeMemoryAvailableLow
+          # kubelet starved at ~444MB in the 2026-07-20 control-2 wedge; 2GiB gives
+          # runway to intervene regardless of what is eating the node
+          expr: |-
+            node_memory_MemAvailable_bytes{kubernetes_node!=""} < 2147483648
+          for: 10m
+          annotations:
+            summary: >-
+              {{ $labels.kubernetes_node }} has under 2GiB memory available —
+              kubelet starvation follows if this keeps falling
+          labels:
+            severity: critical
+        - alert: NodeRebooted
+          # control-1 solo-rebooted ~16x in 90d via an uncaptured guest kernel
+          # panic, first symptom a dead jellyfin stream. No `for:` - uptime crosses
+          # this once. Node clock both sides, so NTP skew after boot cannot bias it.
+          expr: |-
+            node_time_seconds{kubernetes_node!=""} - node_boot_time_seconds < 600
+          annotations:
+            summary: >-
+              {{ $labels.kubernetes_node }} booted less than 10 minutes ago —
+              confirm this reboot was intentional
+          labels:
+            severity: warning
+        - alert: NodeGTTMemoryHigh
+          # pinned iGPU memory the OOM killer cannot reclaim; normal embedder
+          # footprint is 1-2GB, the control-2 wedge had 4.7GB. Scoped to the two
+          # iGPU nodes — only they expose DRM/GTT.
+          expr: |-
+            node_drm_memory_gtt_used_bytes{kubernetes_node=~"control-[23]"} > 4294967296
+          for: 15m
+          annotations:
+            summary: >-
+              {{ $labels.kubernetes_node }} has over 4GiB of pinned GTT GPU memory —
+              likely the embedder leak; native max pod lifetime recycling should cap it
+          labels:
+            severity: warning
+        - alert: NodeDRMCollectorFailed
+          # A silently-dead DRM collector reads as "no GTT problem" (the xmrig-guard
+          # telemetry gap ran blind 40h this way).
+          expr: |-
+            max by (kubernetes_node) (
+              node_scrape_collector_success{collector="drm", kubernetes_node=~"control-[23]"} == 0
+            )
+          for: 10m
+          annotations:
+            summary: >-
+              DRM collector failed on {{ $labels.kubernetes_node }} — NodeGTTMemoryHigh
+              is blind until it recovers
+          labels:
+            severity: warning
+        - alert: NodeGTTTelemetryMissing
+          # Keep one alert identity per control node, including when the metric is
+          # absent entirely; NodeGTTMemoryHigh is blind until telemetry recovers.
+          expr: |-
+            max by (kubernetes_node) (
+              node_drm_memory_gtt_size_bytes{kubernetes_node=~"control-[23]"}
+            ) <= 0
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-2", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (
+                node_drm_memory_gtt_size_bytes{kubernetes_node="control-2"}
+              )
+            )
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-3", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (
+                node_drm_memory_gtt_size_bytes{kubernetes_node="control-3"}
+              )
+            )
+          for: 10m
+          annotations:
+            summary: >-
+              GTT telemetry is absent or non-positive on {{ $labels.kubernetes_node }} —
+              NodeGTTMemoryHigh is blind until it recovers
+          labels:
+            severity: warning
+        - alert: TrueNASSSDPoolSpaceLow
+          # control-1's disk is a SPARSE zvol on this pool (SSD_Pool/vm/TALOS.block,
+          # refreservation none), so exhausting the pool fails guest writes and stops the
+          # VM rather than just filling a share. Every other node alert here is scoped
+          # kubernetes_node!="", which excludes this external target, so the pool backing
+          # the cluster's only VM had no space alerting at all.
+          # It has already run dry once, unnoticed: 2026-07-28 21:10-22:26 the pool sat
+          # under 20GiB for 76 minutes and bottomed at 0.00GiB, during back-to-back image
+          # bumps that wrote a second 64G HiCache generation alongside the live one.
+          expr: |-
+            node_filesystem_avail_bytes{job="node-exporter", fstype="zfs", mountpoint="/mnt/SSD_Pool"} < 21474836480
+          # 15m would have fired at 21:25 in that event, ~1h before it hit zero, while
+          # still riding out the 04:00 snapshot task that frees and re-pins tens of GB.
+          for: 15m
+          annotations:
+            summary: >-
+              TrueNAS SSD_Pool has under 20GiB free —
+              control-1's thin-provisioned disk fails writes if this pool fills
+          labels:
+            severity: critical

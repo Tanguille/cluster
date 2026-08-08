@@ -1,0 +1,159 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
+apiVersion: fluxcd.controlplane.io/v1
+kind: ResourceSet
+metadata:
+  name: external-service-http
+spec:
+  # ResourceSet.spec.wait defaults to false.
+  wait: true
+  # Plain HTTP to an off-cluster host, fronted on :80. One input entry per service.
+  inputs:
+    - name: arm
+      service: internal-arm
+      ip: ${TRUENAS_IP}
+      targetPort: 30173
+      gateway: envoy-internal
+      hostname: arm
+      annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: ARM
+        gethomepage.dev/group: External
+        gethomepage.dev/icon: mdi-server-network
+        # external target — no pods to health-check
+        gethomepage.dev/pod-selector: ""
+
+    - name: avr
+      service: internal-avr
+      ip: ${AVR_IP}
+      targetPort: 11080
+      gateway: envoy-internal
+      hostname: avr
+      annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: AVR
+        gethomepage.dev/group: External
+        gethomepage.dev/icon: mdi-server-network
+        gethomepage.dev/pod-selector: ""
+
+    - name: centauri-carbon
+      service: internal-centauri-carbon
+      ip: ${CENTAURI_CARBON_IP}
+      targetPort: 80
+      gateway: envoy-internal
+      hostname: cc
+      annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: Centauri Carbon
+        gethomepage.dev/description: 3D printer web UI
+        gethomepage.dev/group: External
+        gethomepage.dev/icon: mdi:printer-3d
+        gethomepage.dev/pod-selector: ""
+
+    - name: homeassistant
+      service: external-homeassistant
+      ip: ${HOME_ASSISTANT_IP}
+      targetPort: 8123
+      gateway: envoy-external
+      hostname: homeassistant
+      annotations:
+        gatus.home-operations.com/endpoint: |-
+          conditions: ["[STATUS] == 200"]
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: Home Assistant
+        gethomepage.dev/description: Home automation
+        gethomepage.dev/group: Portals
+        gethomepage.dev/icon: home-assistant.png
+        gethomepage.dev/pod-selector: ""
+        gethomepage.dev/widget.type: homeassistant
+        gethomepage.dev/widget.url: https://homeassistant.${SECRET_DOMAIN}
+        gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_HOMEASSISTANT_TOKEN}}"
+
+    - name: ntopg
+      service: internal-ntopg
+      ip: ${OPNSENSE_IP}
+      targetPort: 3000
+      gateway: envoy-internal
+      hostname: ntopg
+      annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: ntopng
+        gethomepage.dev/description: Network traffic analysis
+        gethomepage.dev/group: External
+        gethomepage.dev/icon: ntopng.png
+        gethomepage.dev/pod-selector: ""
+
+    - name: scrutiny
+      service: internal-scrutiny
+      ip: ${TRUENAS_IP}
+      targetPort: 31054
+      gateway: envoy-internal
+      hostname: scrutiny
+      annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: Scrutiny
+        gethomepage.dev/description: Disk SMART monitoring
+        gethomepage.dev/group: External
+        gethomepage.dev/icon: scrutiny.png
+        gethomepage.dev/widget.type: scrutiny
+        gethomepage.dev/widget.url: https://scrutiny.${SECRET_DOMAIN}
+        gethomepage.dev/pod-selector: ""
+
+    - name: vaultwarden
+      service: internal-vaultwarden
+      ip: ${TRUENAS_IP}
+      targetPort: 30032
+      gateway: envoy-internal
+      hostname: vaultwarden
+      annotations:
+        gethomepage.dev/enabled: "true"
+        gethomepage.dev/name: Vaultwarden
+        gethomepage.dev/description: Password manager
+        gethomepage.dev/group: Utilities
+        gethomepage.dev/icon: vaultwarden.png
+        gethomepage.dev/pod-selector: ""
+
+  resources:
+    - apiVersion: v1
+      kind: Service
+      metadata:
+        name: << inputs.service >>
+        namespace: network
+      spec:
+        clusterIP: None
+        ports:
+          - port: 80
+            targetPort: << inputs.targetPort >>
+            name: http
+
+    - apiVersion: discovery.k8s.io/v1
+      kind: EndpointSlice
+      metadata:
+        name: << inputs.service >>
+        namespace: network
+        labels:
+          kubernetes.io/service-name: << inputs.service >>
+      addressType: IPv4
+      endpoints:
+        - addresses:
+            - << inputs.ip | quote >>
+      ports:
+        - port: << inputs.targetPort >>
+          name: http
+
+    - apiVersion: gateway.networking.k8s.io/v1
+      kind: HTTPRoute
+      metadata:
+        name: external-service-httproute-<< inputs.name >>
+        namespace: network
+        annotations: << inputs.annotations | toYaml | nindent 10 >>
+      spec:
+        parentRefs:
+          - name: << inputs.gateway >>
+            namespace: network
+        hostnames:
+          - << inputs.hostname >>.${SECRET_DOMAIN}
+        rules:
+          - backendRefs:
+              - name: << inputs.service >>
+                port: 80

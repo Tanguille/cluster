@@ -4,6 +4,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: crowdsec
+  namespace: &namespace security
 spec:
   dependsOn:
     - name: cloudnative-pg-cluster
@@ -15,7 +16,7 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: security
+  targetNamespace: *namespace
   wait: true
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
@@ -23,14 +24,15 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: crowdsec-bouncers
+  namespace: &namespace security
 spec:
   dependsOn:
     - name: crowdsec
   interval: 1h
-  path: ./kubernetes/apps/security/crowdsec/bouncers
+  path: ./kubernetes/apps/security/crowdsec/bouncers/envoy
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: security
+  targetNamespace: *namespace

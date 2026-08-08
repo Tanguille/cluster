@@ -60,17 +60,17 @@ echo "=== SearXNG service in default namespace (for SEARXNG_URL) ==="
 kubectl get svc -n default -l app.kubernetes.io/name=searxng -o wide 2>/dev/null || kubectl get svc -n default 2>/dev/null | grep -E 'NAME|searxng'
 
 echo ""
-echo "=== vmcp-tools-gateway Service backends (Endpoints vs EndpointSlices) ==="
+echo "=== vmcp-unified Service backends (Endpoints vs EndpointSlices) ==="
 # Legacy Endpoints: one object per Service, same name as Service (deprecated in K8s 1.33+)
-kubectl get endpoints -n "$NS" vmcp-tools-gateway 2>/dev/null || true
-# EndpointSlices: use label (controller gives slices names like vmcp-tools-gateway-<suffix>, not the Service name)
-echo "EndpointSlices for vmcp-tools-gateway (label selector):"
-kubectl get endpointslice -n "$NS" -l kubernetes.io/service-name=vmcp-tools-gateway 2>/dev/null || true
+kubectl get endpoints -n "$NS" vmcp-unified 2>/dev/null || true
+# EndpointSlices: use label (controller gives slices names like vmcp-unified-<suffix>, not the Service name)
+echo "EndpointSlices for vmcp-unified (label selector):"
+kubectl get endpointslice -n "$NS" -l kubernetes.io/service-name=vmcp-unified 2>/dev/null || true
 
 echo ""
-echo "=== VirtualMCPServer tools-gateway status (discoveredBackends) ==="
-kubectl get virtualmcpserver tools-gateway -n "$NS" -o jsonpath='{.status.discoveredBackends}' 2>/dev/null | jq . 2>/dev/null || kubectl get virtualmcpserver tools-gateway -n "$NS" -o yaml 2>/dev/null | grep -A 200 'discoveredBackends'
+echo "=== VirtualMCPServer unified status (discoveredBackends) ==="
+kubectl get virtualmcpserver unified -n "$NS" -o jsonpath='{.status.discoveredBackends}' 2>/dev/null | jq . 2>/dev/null || kubectl get virtualmcpserver unified -n "$NS" -o yaml 2>/dev/null | grep -A 200 'discoveredBackends'
 
 echo ""
-echo "=== tools-gateway logs (last 30 lines) ==="
-kubectl logs -n "$NS" deployment/tools-gateway --tail=30 2>/dev/null || echo "(tools-gateway not found)"
+echo "=== vmcp-unified logs (last 30 lines) ==="
+kubectl logs -n "$NS" deployment/vmcp-unified --tail=30 2>/dev/null || echo "(vmcp-unified not found)"

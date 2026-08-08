@@ -12,25 +12,19 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
+    - kind: ConfigMap
+      name: nfs-media
 
   values:
     controllers:
       radarr:
         annotations:
           reloader.stakater.com/auto: "true"
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: 18
-            envFrom: &envFrom
-              - secretRef:
-                  name: radarr-secret
         containers:
           app:
             image:
               repository: ghcr.io/home-operations/radarr
-              tag: 6.2.1.10461@sha256:a566e7d364b96ce8ffb1b582266e656c69f3a12dec289d72bb0daa647ed4725e
+              tag: 6.4.1.10545@sha256:260469d707617f4b5be1cd11a40be7e4889c63c5e7cdbc6a429626dc05863b6b
             env:
               RADARR__APP__INSTANCENAME: Radarr
               RADARR__APP__THEME: dark
@@ -42,7 +36,9 @@ spec:
               RADARR__UPDATE__BRANCH: develop
               RADARR__AUTH__APIKEY: ${RADARR_API_KEY}
               TZ: ${TIMEZONE}
-            envFrom: *envFrom
+            envFrom:
+              - secretRef:
+                  name: radarr-secret
             probes:
               liveness: &probes
                 enabled: true
@@ -80,7 +76,6 @@ spec:
               capabilities: { drop: ["ALL"] }
 
     defaultPodOptions:
-      enableServiceLinks: false
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -120,11 +115,3 @@ spec:
       tmp:
         type: emptyDir
         medium: Memory
-
-      media:
-        type: nfs
-        server: ${TRUENAS_IP}
-        path: ${MEDIA_NFS_PATH}
-        globalMounts:
-          - path: /media
-            readOnly: false

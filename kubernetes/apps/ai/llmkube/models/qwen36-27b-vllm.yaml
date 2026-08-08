@@ -1,0 +1,166 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-vllm-cache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 50Gi
+---
+# Persist torch, Triton, and Inductor compile caches across restarts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-vllm-compile-cache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen36-27b-vllm
+spec:
+  # Pin the model revision for reproducible staging. QuantTrio is the boot-validated
+  # variant; the prior cyankiwi INT4 pin was never booted.
+  source: hf://QuantTrio/Qwen3.6-27B-AWQ@9b507bdc9afafb87b7898700cc2a591aa6639461
+  format: safetensors
+  quantization: AWQ
+  files:
+    - model-00001-of-00008.safetensors
+    - model-00002-of-00008.safetensors
+    - model-00003-of-00008.safetensors
+    - model-00004-of-00008.safetensors
+    - model-00005-of-00008.safetensors
+    - model-00006-of-00008.safetensors
+    - model-00007-of-00008.safetensors
+    - model-00008-of-00008.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - configuration.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - chat_template.jinja
+    - merges.txt
+    - vocab.json
+    - preprocessor_config.json
+    - video_preprocessor_config.json
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: rocm
+    memoryBudget: 34Gi
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+      memory: 32Gi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen36-27b-vllm
+spec:
+  modelRef: qwen36-27b-vllm
+  runtime: vllm
+  # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
+  bindAddress: 0.0.0.0
+  modelCache:
+    claimName: qwen36-27b-vllm-cache
+  # v0.26.0 measured identical to the nightly on KV pool and throughput (2026-07-25).
+  # The nightly self-reports a stale 0.23.1rc1 base tag; tags are not version-ordered.
+  image: vllm/vllm-openai-rocm:v0.26.0@sha256:5709fafe47123becb2f5e61c32d0b97beff1a629bb40bb753c15464f69a97a18
+  replicas: 0
+  # 32 slots doubled aggregate throughput vs 8: 40 -> 79 tok/s at concurrency 16.
+  parallelSlots: 32
+  vllmConfig:
+    # 180000 needs ~6.55 GiB KV against a ~4.6 GiB ceiling at 0.875. 64000 covers 74.1%
+    # of measured production prompts.
+    maxModelLen: 64000
+    kvCacheDtype: fp8_e4m3
+    enablePrefixCaching: true
+    maxNumBatchedTokens: 8192
+    # HARD CEILING: shared with Jellyfin transcoding, never raise.
+    gpuMemoryUtilization: 0.875
+  env:
+    - name: VLLM_ROCM_USE_AITER
+      value: "0"
+    - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
+      value: "TRUE"
+    - name: HIP_VISIBLE_DEVICES
+      value: "0"
+    - name: ROCR_VISIBLE_DEVICES
+      value: "0"
+    - name: VLLM_CACHE_ROOT
+      value: /cache/vllm
+    - name: TRITON_CACHE_DIR
+      value: /cache/triton
+    - name: TORCHINDUCTOR_CACHE_DIR
+      value: /cache/inductor
+  extraVolumes:
+    - name: compile-cache
+      persistentVolumeClaim:
+        claimName: qwen36-27b-vllm-compile-cache
+  extraVolumeMounts:
+    - name: compile-cache
+      mountPath: /cache
+  extraArgs:
+    - --served-model-name
+    - qwen-3.6
+    # Disable image and video multimodal inputs.
+    - --limit-mm-per-prompt
+    - '{"image":0,"video":0}'
+    # Use bfloat16 Mamba cache dtype to reduce memory for the long context window.
+    - --mamba-ssm-cache-dtype
+    - bfloat16
+    - --trust-remote-code
+    # vLLM's profiler leaves the pool at 48,000 tokens; explicit sizing gives 121,302
+    # within the same 0.875 budget.
+    - --kv-cache-memory-bytes
+    - "4294967296"
+  probeOverrides:
+    startup:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    # TODO: Replace this always-successful check with a real health-based liveness probe before production cutover.
+    liveness:
+      exec:
+        command: ["true"]
+      periodSeconds: 3600
+    readiness:
+      tcpSocket:
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
+  nodeSelector:
+    amd.com/gpu: "true"
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  resources:
+    cpu: "2"
+    memory: 24Gi
+  endpoint:
+    port: 8000

@@ -39,22 +39,17 @@ spec:
         type: Recreate
       template:
         spec:
-          initContainers:
-            - name: init-db
-              image: ghcr.io/home-operations/postgres-init:18
-              envFrom:
-                - secretRef:
-                    name: &secret grafana-db-secret
           containers:
             - name: grafana
-              image: grafana/grafana:13.1.0
+              image: grafana/grafana:13.1.3
               resources:
                 requests:
                   cpu: 10m
                   memory: 256Mi
                 limits:
-                  cpu: 100m
-                  memory: 1Gi
+                  # Throttled 13% of CFS periods at 100m despite a 34m p95.
+                  cpu: "1"
+                  memory: 2Gi
               env:
                 - name: GF_SECURITY_ADMIN_PASSWORD
                   valueFrom:
@@ -63,7 +58,7 @@ spec:
                       key: GF_SECURITY_ADMIN_PASSWORD
               envFrom:
                 - secretRef:
-                    name: *secret
+                    name: grafana-db-secret
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true

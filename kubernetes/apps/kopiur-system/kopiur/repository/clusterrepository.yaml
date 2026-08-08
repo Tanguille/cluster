@@ -1,0 +1,56 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/clusterrepository_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: ClusterRepository
+metadata:
+  name: kopia-nas
+spec:
+  allowedNamespaces:
+    list:
+      - ai
+      - default
+      - kopiur-system
+      - media
+  backend:
+    filesystem:
+      path: /repo
+      volume:
+        nfs:
+          server: "${TRUENAS_IP}"
+          path: ${BACKUP_NFS_PATH}
+  encryption:
+    passwordSecretRef:
+      name: kopia-nas-password
+      # Looks redundant (same namespace as this resource) but is required:
+      # kopiur#232, the schema doc string implies optional, the controller
+      # rejects reconcile without it. Don't remove as a "cleanup".
+      namespace: kopiur-system
+      key: KOPIA_PASSWORD
+  bootstrap:
+    failurePolicy:
+      # default 120s too short to bootstrap-verify the multi-GB repo over NFS
+      activeDeadlineSeconds: 2700
+  credentialProjection:
+    allowed: true
+  # NOT set on moverDefaults: moverDefaults.securityContext is baked onto
+  # every mover's *container* securityContext, which always wins over the
+  # per-app explicit mover.securityContext that components/kopiur/backup
+  # and restore set — silently clobbering source-PVC reads for any app
+  # whose real uid or gid isn't 568 (confirmed for both fields: hermes's
+  # explicit fsGroup:10000 was overridden back to runAsGroup:568 at
+  # container level). Scoped to maintenance.mover instead, which has no
+  # PVC to inherit from and so nothing to clobber.
+  maintenance:
+    mover:
+      securityContext:
+        runAsUser: 568
+        runAsGroup: 568
+  # Movers ran BestEffort (no resources) — Talos OOM killer's first victims
+  # under node memory pressure (bootstrap/mover exit 137, 07-20 outage).
+  moverDefaults:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+  scheduleDefaults:
+    timezone: ${TIMEZONE}

@@ -10,8 +10,6 @@ spec:
     name: spegel
   interval: 1h
   values:
-    grafanaDashboard:
-      enabled: false
     service:
       registry:
         hostPort: 29999
@@ -19,5 +17,9 @@ spec:
     serviceMonitor:
       enabled: true
     spegel:
-      containerdSock: /run/containerd/containerd.sock
       containerdRegistryConfigPath: /etc/cri/conf.d/hosts
+    grafanaDashboard:
+      # The chart's default Sidecar mode just emits the ConfigMap; grafanadashboard.yaml
+      # consumes it via configMapRef so it can also carry the DS_PROMETHEUS datasource
+      # mapping, which the chart's GrafanaOperator mode cannot express.
+      enabled: true

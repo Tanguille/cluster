@@ -11,31 +11,6 @@
       "type": "remote",
       "url": "http://vmcp-unified.ai.svc.cluster.local:4483/mcp",
       "enabled": true
-    },
-    "flux": {
-      "type": "remote",
-      "url": "http://vmcp-flux.ai.svc.cluster.local:4483/mcp",
-      "enabled": true
-    },
-    "observability": {
-      "type": "remote",
-      "url": "http://vmcp-observability.ai.svc.cluster.local:4483/mcp",
-      "enabled": true
-    },
-    "homeassistant": {
-      "type": "remote",
-      "url": "http://vmcp-ha.ai.svc.cluster.local:4483/mcp",
-      "enabled": true
-    },
-    "search": {
-      "type": "remote",
-      "url": "http://vmcp-search.ai.svc.cluster.local:4483/mcp",
-      "enabled": true
-    },
-    "resources": {
-      "type": "remote",
-      "url": "http://vmcp-resources.ai.svc.cluster.local:4483/mcp",
-      "enabled": true
     }
   },
   "provider": {
@@ -45,13 +20,6 @@
       "options": {
         "baseURL": "http://litellm.ai.svc.cluster.local/v1",
         "apiKey": "{env:LITELLM_API_KEY}"
-      }
-    },
-    "lmstudio": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "LM Studio",
-      "options": {
-        "baseURL": "http://192.168.0.26:1234/v1"
       }
     }
   }

@@ -1,6 +1,5 @@
 #!/bin/bash
 # PR Validation Script - Run locally before pushing
-# 2026 GitOps best practices: https://oneuptime.com/blog/post/2026-03-06-implement-gitops-pull-request-validation-flux-cd
 
 set -euo pipefail
 
@@ -34,10 +33,19 @@ warn() {
     WARNINGS=$((WARNINGS + 1))
 }
 
-# Phase 1: Kustomize Build Validation
-# (also validates YAML syntax and duplicate keys — kustomize rejects both, so no separate yaml linter)
-echo "[1/4] Kustomize Build Validation..."
-if command -v kustomize &> /dev/null; then
+# Phase 1: Flux Manifest Validation
+# flate renders every Kustomization + HelmRelease with the real Helm/Kustomize SDKs, catching
+# Helm template errors a bare `kustomize build` can't see (chartRef: OCIRepository is opaque
+# to kustomize) — also validates YAML syntax and duplicate keys, so no separate yaml linter.
+# Falls back to kustomize build (Kustomization-only, no Helm render) if flate isn't installed.
+echo "[1/4] Flux Manifest Validation..."
+if command -v flate &> /dev/null; then
+    if flate test all -p "${REPO_ROOT}" > /dev/null 2>&1; then
+        pass "flate test all passed"
+    else
+        fail "flate test all found issues"
+    fi
+elif command -v kustomize &> /dev/null; then
     KUSTOMIZE_ERRORS=0
     while IFS= read -r -d '' ks_file; do
         app_dir=$(dirname "$ks_file")
@@ -51,16 +59,17 @@ if command -v kustomize &> /dev/null; then
         pass "All kustomize builds passed"
     fi
 else
-    warn "kustomize not installed"
+    warn "neither flate nor kustomize installed"
 fi
 echo ""
 
 # Phase 2: Shellcheck (if shell scripts exist)
 echo "[2/4] Shell Script Validation..."
 # exclude the repo-local .claude dir (session configs, worktrees) — anchored to REPO_ROOT so
-# running from inside a .claude/worktrees/* worktree doesn't exclude the entire tree — and
+# running from inside a .claude/worktrees/* worktree doesn't exclude the entire tree —
+# .worktrees/ (parallel checkouts validate themselves), and
 # archive/ (retired one-off scripts kept for reference; not held to the gate)
-SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/.claude/*" -not -path "${REPO_ROOT}/archive/*" 2>/dev/null | head -20)
+SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/.claude/*" -not -path "${REPO_ROOT}/.worktrees/*" -not -path "${REPO_ROOT}/archive/*" 2>/dev/null)
 if [ -n "$SHELL_SCRIPTS" ]; then
     if command -v shellcheck &> /dev/null; then
         # shellcheck disable=SC2086 # word-splitting the list is intended; quoting it passes all paths as one filename
@@ -105,7 +114,7 @@ SECURITY_ERRORS=0
 
 # Check for hardcoded secrets (basic patterns)
 while IFS= read -r -d '' file; do
-    if grep -qiE '(password|secret|token|key):[[:space:]]*[^$"{]' "$file" 2>/dev/null; then
+    if grep -qiE '(password|secret|token|key):[[:space:]]*[^$"{[:space:]]' "$file" 2>/dev/null; then
         if ! grep -q 'sops:' "$file" 2>/dev/null; then
             warn "Possible hardcoded secret in: $file"
             SECURITY_ERRORS=$((SECURITY_ERRORS + 1))

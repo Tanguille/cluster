@@ -17,17 +17,10 @@ spec:
         enabled: false
       resources:
         requests:
-          cpu: 10m
-          memory: 78Mi
+          memory: 128Mi
         limits:
           memory: 128Mi
 
-    # Observability (auto-converted to VM*Scrapes by the cluster's converter):
-    #  - inferencePodMonitor scrapes llama-server /metrics on the inference pods
-    #    (the operator injects --metrics into every InferenceService itself)
-    #  - serviceMonitor scrapes the operator; secure:false serves it over plain
-    #    HTTP so VM can scrape without a ServiceAccount token (metrics.enabled
-    #    defaults true).
     metrics:
       secure: false
     prometheus:
@@ -39,56 +32,38 @@ spec:
         enabled: true
         namespace: ai
         rules:
-          # DCGM_FI_* alerts — NVIDIA-only; this cluster uses AMD squat.ai/dri.
+          # The gpu alerts key on DCGM_FI_DEV_* (NVIDIA); this cluster is AMD
+          # and exports drm_*, so they can never fire.
           gpu:
             enabled: false
 
-    # Persistent model cache on ceph-filesystem (CephFS, RWX). It's a SINGLE
-    # shared PVC mounted by the controller-manager and every InferenceService,
-    # which land on different iGPU nodes (qwen3-embedding on control-3, qwen35-2b
-    # on control-2) — so it must be RWX: an RWO volume multi-attach-errors across
-    # nodes. The cache is cold (write-once on download, read-once at model load,
-    # then idle — weights live in VRAM), so CephFS network latency never touches
-    # the inference path; only a few seconds of extra cold-start read.
-    # REQUIRES llmkube >= 0.8.21: with a PVC cache the operator injects a
-    # model-cache-prep init that chowns /models; 0.8.20 regressed it to non-root
-    # (uid 100) → "Operation not permitted" → CrashLoop. 0.8.21 runs it as root
-    # (upstream #888), so the chown succeeds on CephFS (fsGroupPolicy: None) too.
+    grafana:
+      dashboards:
+        enabled: true
+        namespace: observability
+        # The rest render blank here: amd-gpu-observability queries amdgpu_*
+        # (we run drm-exporter), llmkube-quota and model-router need features we
+        # don't deploy, llmkube-slo needs pyrra burn-rate rules.
+        only: [llmkube-inference, sglang-dashboard]
+        operator:
+          enabled: true
+          folder: ai
+          instanceSelector:
+            matchLabels:
+              grafana.internal/instance: grafana
+          datasources:
+            - datasourceName: VictoriaMetrics
+              inputName: DS_PROMETHEUS
+
+    # Shared RWX cache on CephFS: the controller and the iGPU InferenceServices
+    # land on different nodes, so an RWO volume multi-attach-errors. Access is
+    # write-once on download then read-once at load, so CephFS latency never
+    # touches inference. qwen36-27b brings its own node-local modelCache.
+    # The model-cache-prep init chowns /models as root, so CephFS (fsGroupPolicy:
+    # None) works too.
     modelCache:
       # qwen3-embedding 0.64Gi + qwen35-2b 1.18Gi + vmcp-embedding 0.29Gi ≈ 2.1Gi
       # + headroom (chart default is 100Gi)
       size: 4Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany
-
-  postRenderers:
-    - kustomize:
-        patches:
-          # The chart's recording rules assume vLLM histograms and wrong container names.
-          # Replace the group with a corrected version:
-          #  - llamacpp_request:p95_5m dropped (llamacpp:request_seconds_bucket doesn't exist)
-          #  - request_latency:p95_5m dropped (vllm:e2e_request_latency_seconds_bucket, vLLM only)
-          #  - restarts:rate5m fixed: container=~"llm-server" → adds "llama-server" (actual name)
-          # The test op guards the positional replace: if a chart bump reorders/renames the
-          # groups, the render fails loudly instead of silently clobbering the wrong group.
-          - patch: |-
-              - op: test
-                path: /spec/groups/1/name
-                value: llmkube-inference-recording
-              - op: replace
-                path: /spec/groups/1
-                value:
-                  interval: 30s
-                  name: llmkube-inference-recording
-                  rules:
-                    - record: llmkube:inference:restarts:rate5m
-                      expr: |
-                        sum by (service, namespace, runtime) (
-                          rate(kube_pod_container_status_restarts_total{
-                            pod=~".+",
-                            container=~"llamacpp|vllm|tgi|personaplex|llm-server|llama-server"
-                          }[5m])
-                        )
-            target:
-              kind: PrometheusRule
-              name: llmkube-alerts

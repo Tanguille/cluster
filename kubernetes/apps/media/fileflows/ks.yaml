@@ -11,8 +11,9 @@ spec:
       namespace: kube-system
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
     - ../../../../components/nfs-scaler
+    - ../../../../components/nfs-media
+    - ../../../../components/kopiur
   wait: true
   path: ./kubernetes/apps/media/fileflows/app
   prune: true
@@ -24,4 +25,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 2Gi
+      PVC_CAPACITY: 2Gi

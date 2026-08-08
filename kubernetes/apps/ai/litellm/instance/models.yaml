@@ -1,0 +1,89 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: qwen-3.6
+spec:
+  modelName: qwen-3.6
+  proxyRef: litellm
+  params:
+    model: openai/qwen-3.6
+    apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
+    # Native SGLang is unauthenticated internally, but LiteLLM's OpenAI provider
+    # requires a non-empty api_key.
+    apiKey: sk-sglang-noauth
+    additional:
+      timeout: 1800
+      stream_timeout: 1800
+      num_retries: 0
+  info:
+    mode: chat
+    # Match the configured 180K native SGLang context cap after reserving maxOutputTokens.
+    maxInputTokens: 171808
+    maxOutputTokens: 8192
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: qwen-3.6-fast
+spec:
+  modelName: qwen-3.6-fast
+  proxyRef: litellm
+  params:
+    model: openai/qwen-3.6
+    apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
+    apiKey: sk-sglang-noauth
+    additional:
+      # Hermes compression is a ~100K+ prefill on this alias; under GPU contention
+      # the shared prefill rate drops below what 600s covers (2026-07-07).
+      timeout: 900
+      stream_timeout: 900
+      num_retries: 0
+      # Vendor non-thinking sampling (Qwen3.6 model card) — generation_config ships thinking-mode
+      # values (1.0/0.95/presence 0). Defaults only: client-set params win (v1.91.0 router merge).
+      temperature: 0.7
+      top_p: 0.8
+      presence_penalty: 1.5
+      extra_body:
+        chat_template_kwargs:
+          enable_thinking: false
+  info:
+    mode: chat
+    maxInputTokens: 171808
+    maxOutputTokens: 8192
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: omniroute
+spec:
+  modelName: omniroute
+  proxyRef: litellm
+  params:
+    # Bare "auto" sticks to the last-known-good provider regardless of quality;
+    # auto/smart scores live on quota/health/cost/taskFit instead.
+    model: openai/auto/smart
+    apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
+    # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
+    # a non-empty api_key (same convention as the qwen-3.6 sk-sglang-noauth).
+    apiKey: sk-omniroute-noauth
+    additional:
+      # 300s + retry_policy's 2 retries could exceed the pr-reviewer-action's
+      # 600s curl timeout, so the action gives up and retries blind instead of
+      # letting the qwen-3.6-fast fallback fire (observed 2026-08-03: 60min
+      # run, fallback never triggered). 90s keeps worst case (3 attempts) at
+      # 270s, inside the action's window.
+      timeout: 90
+      # Without this, litellm falls back through _get_stream_timeout to plain
+      # `timeout`, but that's an httpx per-chunk read timeout — it resets on
+      # every byte, so a stream that trickles keep-alives without ever
+      # completing (observed 2026-08-04: response_format error on a streamed
+      # call to opencode/deepseek-v4-flash-free) never gets cut off server-side
+      # and rides out to the action's own 600s curl ceiling instead.
+      stream_timeout: 90
+      num_retries: 0
+  info:
+    mode: chat

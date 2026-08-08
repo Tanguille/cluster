@@ -12,6 +12,8 @@ spec:
 
   values:
     defaultPodOptions:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 90
       securityContext:
         fsGroup: 10000
         fsGroupChangePolicy: OnRootMismatch
@@ -20,7 +22,6 @@ spec:
 
     controllers:
       hermes:
-        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
 
@@ -28,7 +29,7 @@ spec:
           app:
             image:
               repository: nousresearch/hermes-agent
-              tag: main@sha256:ebca75961594a0b1afd78a5ac36e3615a49155c7456bdd34c0a45ff45e6d2ca8
+              tag: v2026.8.3@sha256:16788311e2fa3035456bdc1bafb8ec2b1777db64ebf020af9bb7eb73c3712c9e
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -43,6 +44,15 @@ spec:
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_HOST: 0.0.0.0
               HERMES_DASHBOARD_PORT: &port 9119
+              # Seconds-based scheduler inactivity watchdog; raised from 600 to align with the shortest provider timeout.
+              HERMES_CRON_TIMEOUT: "900"
+              S6_CMD_RECEIVE_SIGNALS: "1"
+              HERMES_RESTART_DRAIN_TIMEOUT: "45"
+              S6_SERVICES_GRACETIME: "80000"
+              # Chromium's sandbox can't work under non-root uid 10000, and browser_tool.py's
+              # own bypass detection doesn't recognise a containerd pod. Value matches the one
+              # it injects itself.
+              AGENT_BROWSER_ARGS: "--no-sandbox,--disable-dev-shm-usage"
             envFrom:
               - secretRef:
                   name: hermes-secret
@@ -63,23 +73,18 @@ spec:
                 custom: true
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 5
-                  failureThreshold: 3
               readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet: *httpGet
-                  initialDelaySeconds: 10
-                  periodSeconds: 10
                   timeoutSeconds: 5
-                  failureThreshold: 3
             resources:
               requests:
                 cpu: 100m
-                memory: 1Gi
+                memory: 2Gi
               limits:
                 cpu: 2
                 memory: 4Gi
@@ -89,8 +94,7 @@ spec:
         controller: *app
         ports:
           http:
-            port: 80
-            targetPort: *port
+            port: *port
 
     route:
       app:
@@ -105,10 +109,6 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: 80
 
     persistence:
       data:

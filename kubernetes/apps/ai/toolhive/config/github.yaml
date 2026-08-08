@@ -1,79 +1,24 @@
+# GitHub's hosted MCP server instead of the self-run container: stdio dies on the
+# virtual-MCP health check re-running `initialize` (#5890, still open in 0.41.0) and
+# the container's http mode has no server-side token path (#4220). A remote entry has
+# neither problem — headerForward injects the PAT server-side, the same shape context7
+# has run since 2026-04. The endpoint takes a raw PAT (verified: `Bearer <pat>` and a
+# bare `<pat>` both return 200, `token <pat>` returns 400), so the existing secret key
+# goes in unmodified. Despite the hostname, no Copilot entitlement is involved: a token
+# carrying no `copilot` scope lists all 46 repo/issue/PR tools.
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: &name github
-spec:
-  image: ghcr.io/github/github-mcp-server:v1.5.0
-  transport: stdio
-  groupRef:
-    name: resources
-  args:
-    - stdio
-  secrets:
-    - name: toolhive-secrets
-      key: GITHUB_PERSONAL_ACCESS_TOKEN
-      targetEnvName: GITHUB_PERSONAL_ACCESS_TOKEN
-  toolConfigRef:
-    name: *name
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-  resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 200Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: github-opt
-spec:
-  image: ghcr.io/github/github-mcp-server:v1.5.0
-  transport: stdio
-  groupRef:
-    name: all
-  args:
-    - stdio
-  secrets:
-    - name: toolhive-secrets
-      key: GITHUB_PERSONAL_ACCESS_TOKEN
-      targetEnvName: GITHUB_PERSONAL_ACCESS_TOKEN
-  toolConfigRef:
-    name: github
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-  resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 200Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
+kind: MCPServerEntry
 metadata:
   name: github
 spec:
-  toolsFilter: []
+  remoteUrl: https://api.githubcopilot.com/mcp/
+  transport: streamable-http
+  groupRef:
+    name: all
+  headerForward:
+    addHeadersFromSecret:
+      - headerName: Authorization
+        valueSecretRef:
+          name: toolhive-secrets
+          key: GITHUB_PERSONAL_ACCESS_TOKEN

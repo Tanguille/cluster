@@ -11,8 +11,8 @@ spec:
       namespace: kube-system
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
     - ../../../../components/nfs-scaler
+    - ../../../../components/kopiur
   path: ./kubernetes/apps/media/jellyfin/app
   prune: true
   sourceRef:
@@ -23,4 +23,4 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 30Gi
+      PVC_CAPACITY: 40Gi

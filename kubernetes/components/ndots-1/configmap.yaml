@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ndots-1
+# ndots:5 search-expands names with under 5 dots before trying them absolute: three
+# NXDOMAIN round-trips per in-cluster FQDN, and opencode.ai loses to a local Service.
+data:
+  values.yaml: |
+    defaultPodOptions:
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"

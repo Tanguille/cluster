@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/pooler_v1.json
 # Transaction-mode RW PgBouncer → primary. Per pod, max_db_connections caps server conns
 # to one Postgres database (PgBouncer docs). Through this Pooler only: up to
 # instances × max_db_connections per DB; multiple DBs on the primary add separately.
@@ -13,6 +14,27 @@ spec:
     name: postgres16
   instances: 3
   type: rw
+  # Avoid BestEffort eviction: losing pooler replicas concentrates all client
+  # traffic on the survivor and can exhaust its PgBouncer wait queue.
+  template:
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+      # Hard spread (one per node): soft ScheduleAnyway let all 3 rw pods pile onto one node after a flap.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              cnpg.io/poolerName: pgbouncer-rw
   pgbouncer:
     poolMode: transaction
     parameters:

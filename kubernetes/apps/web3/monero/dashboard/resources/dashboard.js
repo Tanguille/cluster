@@ -581,20 +581,19 @@ function lineDataset(label, data) {
 function initOrUpdateChart(canvas, state, stateKey, chartConfig) {
   if (!canvas) return;
 
-  const config = {
-    type: "line",
-    data: {
-      labels: chartConfig.labels,
-      datasets: [lineDataset(chartConfig.label, chartConfig.data)]
-    },
-    options: sharedChartOptions({
-      yTicks: chartConfig.yTicks,
-      tooltipCallbacks: chartConfig.tooltipCallbacks
-    })
-  };
-
   if (!state[stateKey]) {
-    state[stateKey] = new Chart(canvas, config);
+    // options are read only at construction; building them per tick was pure waste
+    state[stateKey] = new Chart(canvas, {
+      type: "line",
+      data: {
+        labels: chartConfig.labels,
+        datasets: [lineDataset(chartConfig.label, chartConfig.data)]
+      },
+      options: sharedChartOptions({
+        yTicks: chartConfig.yTicks,
+        tooltipCallbacks: chartConfig.tooltipCallbacks
+      })
+    });
   } else {
     state[stateKey].data.labels = chartConfig.labels;
     state[stateKey].data.datasets[0].data = chartConfig.data;
@@ -781,15 +780,16 @@ function updateSharesDisplay(
 // LUCK CALCULATION FUNCTIONS
 // ==============================
 
-async function updateWindowLuck(
+function updateWindowLuck({
   shares,
   pplnsWeight,
   avgMyHashPPLNS,
   windowStart,
   windowDuration,
   priceEUR,
-  blockReward
-) {
+  blockReward,
+  poolInfo
+}) {
   if (!isObserverReady()) return;
 
   try {
@@ -798,9 +798,7 @@ async function updateWindowLuck(
       return;
     }
 
-    const sortedShares = [...shares].sort((a, b) => a.timestamp - b.timestamp);
-
-    const myWindowShares = sortedShares.filter(
+    const myWindowShares = shares.filter(
       (share) => share.timestamp >= windowStart
     );
     const totalDifficulty = myWindowShares.reduce(
@@ -812,8 +810,6 @@ async function updateWindowLuck(
     const myWindowHash =
       windowDuration > 0 ? totalDifficulty / windowDuration : 0;
     const luckFactor = avgMyHashPPLNS > 0 ? myWindowHash / avgMyHashPPLNS : 0;
-
-    const poolInfo = await fetchJSON(`/observer/pool_info`);
 
     const avgCurrentEffort = poolInfo?.sidechain?.effort?.average200 || 100;
     const betterLuckFactor =
@@ -895,14 +891,13 @@ function updateTrueLuck(
     setTextContent("trueLuckFactor", trueLuckFactor.toFixed(2));
 
     // Show the time window context so users understand accuracy
-    const displayDays = Math.min(timeWindowDays, MAX_WINDOW_DAYS);
-    const displayHours = displayDays * 24;
+    const displayHours = cappedWindowDays * 24;
     const windowText =
       displayHours < 1
         ? `${Math.round(timeWindow / 60)}m window`
         : displayHours < 24
           ? `${displayHours.toFixed(1)}h window`
-          : `${displayDays.toFixed(1)}d window`;
+          : `${cappedWindowDays.toFixed(1)}d window`;
     setTextContent("trueLuckWindow", windowText);
 
     setTooltipContent(
@@ -1233,13 +1228,14 @@ async function updateStats() {
     // Fetch observer data once — shared by payments, shares, and luck
     // Note: p2pool.observer /shares does NOT support ?miner= filter,
     // so we fetch all recent shares and filter client-side.
-    const [payouts, allShares] =
+    const [payouts, allShares, poolInfo] =
       state.observerBase && state.observerWallet
         ? await Promise.all([
             fetchJSON(`/observer/payouts/${state.observerWallet}`),
-            fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`)
+            fetchJSON(`/observer/shares?limit=${CONFIG.OBSERVER_SHARES_LIMIT}`),
+            fetchJSON("/observer/pool_info")
           ])
-        : [null, null];
+        : [null, null, null];
 
     // Filter shares to only this miner's
     // Note: API returns `miner` as a numeric ID, so we match on `miner_address`
@@ -1276,15 +1272,16 @@ async function updateStats() {
     );
 
     // Update luck cards
-    await updateWindowLuck(
-      minerShares,
+    updateWindowLuck({
+      shares: minerShares,
       pplnsWeight,
       avgMyHashPPLNS,
       windowStart,
       windowDuration,
       priceEUR,
-      blockReward
-    );
+      blockReward,
+      poolInfo
+    });
 
     // Update true luck — auto-detect mining start from history data
     if (
@@ -1355,13 +1352,6 @@ function cleanup() {
 async function initialize() {
   cacheDOMElements();
 
-  // Load initial history
-  try {
-    state.history = await fetchJSON("/stats_log.json");
-  } catch {
-    state.history = null;
-  }
-
   await loadObserverConfig();
 
   // Setup event listeners
@@ -1372,8 +1362,7 @@ async function initialize() {
     DOM.earnPeriod.addEventListener("change", handleEarnPeriodChange);
   }
 
-  // Initialize charts and stats
-  initializeCharts();
+  // updateStats() refetches /stats_log.json and calls initializeCharts() itself
   await updateStats();
 
   // Start periodic updates

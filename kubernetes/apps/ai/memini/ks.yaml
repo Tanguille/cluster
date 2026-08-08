@@ -9,7 +9,6 @@ spec:
   interval: 30m
   dependsOn:
     - name: litellm
-    - name: llmkube-models
     - name: cloudnative-pg-cluster
       namespace: database
   path: ./kubernetes/apps/ai/memini/app
