@@ -108,17 +108,45 @@ jobs:
     name: Flate - Pull Images
     runs-on: cluster-runner
     steps:
+      # 96MiB per run, on every container PR. /tool-cache is a shared RWX cache: optional,
+      # and writable by any job, so every binary is sha256-checked against the release.
       - name: Install talosctl
         env:
           # renovate: datasource=github-releases depName=siderolabs/talos
-          TALOS_VERSION: v1.13.7
+          TALOS_VERSION: v1.13.8
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.local/bin"
-          curl -fsSL -o "$HOME/.local/bin/talosctl" \
-            "https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}/talosctl-linux-amd64"
-          chmod +x "$HOME/.local/bin/talosctl"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          base="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}"
+          bin="$HOME/.local/bin"
+          cache="/tool-cache/talosctl-${TALOS_VERSION}"
+          mkdir -p "$bin"
+
+          want=$(curl -fsSL "${base}/sha256sum.txt" | awk '$2 == "talosctl-linux-amd64" { print $1 }')
+          [[ -n "$want" ]] || { echo "no sha256 published for talosctl-linux-amd64"; exit 1; }
+          verify() { [[ -f "$1" ]] && echo "${want}  $1" | sha256sum --check --status; }
+
+          # verify the copy, not the shared entry: check-then-read leaves a swap window
+          if cp "$cache" "$bin/talosctl" 2>/dev/null && verify "$bin/talosctl"; then
+            echo "talosctl ${TALOS_VERSION} served from cache"
+          else
+            curl -fsSL -o "$bin/talosctl" "${base}/talosctl-linux-amd64"
+            verify "$bin/talosctl" || { echo "sha256 mismatch on downloaded talosctl"; exit 1; }
+            if [[ -w /tool-cache ]]; then
+              # mktemp, not $$: PIDs collide across pods sharing the mount
+              tmp=$(mktemp "/tool-cache/.talosctl.XXXXXX")
+              trap 'rm -f -- "$tmp"' EXIT
+              cp "$bin/talosctl" "$tmp"
+              chmod 0644 "$tmp"
+              mv -f "$tmp" "$cache"
+              trap - EXIT
+              # only the pinned version is read; -ignore_readdir_race so a concurrent
+              # pruner removing the same entry is not a failure
+              find /tool-cache -maxdepth 1 -ignore_readdir_race \
+                -name 'talosctl-*' ! -name "talosctl-${TALOS_VERSION}" -delete
+            fi
+          fi
+          chmod +x "$bin/talosctl"
+          echo "$bin" >> "$GITHUB_PATH"
 
       # One runner pod pulls all images to its node; Spegel mirrors the blobs cluster-wide,
       # so a single node is enough to pre-warm (and beats one pod + talosctl install per image).

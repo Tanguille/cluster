@@ -33,7 +33,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run reviewer
-        uses: misospace/pr-reviewer-action@1cb6bed7a29f0d528ff5ba56bcf57092bf096af1 # v2.1.9
+        uses: misospace/pr-reviewer-action@99e7764a4906f94d99c249231d2016c3cda8997e # v2.2.0
         with:
           github_token: ${{ github.token }}
           ai_base_url: http://litellm.ai.svc.cluster.local/v1
@@ -42,6 +42,14 @@ jobs:
           # (see litellm routerSettings.fallbacks); falls back to qwen-3.6-fast
           # automatically if the free provider fails or times out.
           ai_model: omniroute
+          # v2.1.10 inherits ai_fallback_base_url from ai_base_url when unset, then
+          # requires ai_fallback_model whenever ai_fallback_base_url is set (even
+          # inherited) — fails fast with no model call otherwise. Point this at
+          # qwen-3.6-fast directly (same litellm endpoint) rather than duplicating
+          # ai_model: litellm's routerSettings.fallbacks already retries omniroute
+          # failures internally, so this only fires if that whole chain fails —
+          # a real second attempt via a distinct model, not a no-op retry.
+          ai_fallback_model: qwen-3.6-fast
           # omniroute's proxied models don't share SGLang's sampling_defaults, so
           # an empty temperature has no known-good fallback here — pin explicitly.
           ai_temperature: "0.2"
@@ -53,6 +61,8 @@ jobs:
           inline_findings: "true"
           inline_findings_max: "12"
           publish_mode: review_comment
+          # concise patches the bundled default prompt, so it needs system_prompt_mode: append below.
+          review_verbosity: concise
           system_prompt_mode: append
           # v2.1.1 bundles the release-notes STYLE rules (no raw PR/issue/SHA links, summarize in
           # prose, at most one URL) for renovate-ish PR kinds, so this addendum only steers FETCH
@@ -60,32 +70,33 @@ jobs:
           # whenever it can resolve a changelog source — don't re-fetch those. When fetching is
           # needed, use the authenticated gh_api tool — web_fetch of github.com HTML truncates to
           # page boilerplate at the response cap and never yielded usable notes (validated in run
-          # logs). The trailing quality-rules paragraph distills a fleet audit of past reviews.
+          # logs). Projects that publish no GitHub releases (e.g. Ceph) return 404/empty from
+          # gh_api, so fall back to the project official release-notes documentation page.
+          # v2.1.11 concatenates system_prompt_file then system_prompt (upstream #426).
+          system_prompt_file: .github/pr-review-prompt.md
           system_prompt: >-
             ${{ contains(github.event.pull_request.body, '### Release Notes')
             && 'The PR body already contains upstream release notes from Renovate. Do not fetch
-            release notes externally. Summarize the embedded notes in a **Release notes** section
-            in review_markdown: user-visible changes, breaking changes, and security fixes.'
+            release notes externally; summarize the embedded notes.'
             || 'For dependency upgrade and Renovate PRs the body lacks upstream release notes.
-            Fetch them with the gh_api tool (api.github.com /repos/OWNER/REPO/releases JSON); do
-            not web_fetch github.com HTML pages, they truncate to boilerplate. Summarize them in a
-            **Release notes** section in review_markdown: user-visible changes, breaking changes,
-            and security fixes.' }}
-            Review quality rules: Before flagging a config, env var, or resource as missing,
-            read the file that would contain it; if unverifiable, file it under Unknowns at
-            info severity, never as a blocker or major. Cite only sources fetched this run;
-            on a failed or empty fetch write "not verified" (never "confirmed") and list the
-            gap under Unknowns. For version bumps spanning multiple releases, enumerate every
-            release in the old-to-new range (releases or compare API) and flag when a chart
-            bump moves the embedded appVersion across a major version. Translate upgrade steps
-            written for docker-compose or .env files into their Kubernetes/Helm equivalent
-            before flagging them as missing. Keep review length proportional to the change.
-            Inline findings must require action; never post praise as a finding.
+            Fetch them with the gh_api tool (api.github.com /repos/OWNER/REPO/releases JSON) first.
+            If that returns 404 or an empty list (the project does not publish GitHub releases,
+            e.g. Ceph), fall back to web_fetch of the project official release-notes documentation
+            page (e.g. docs.ceph.com/en/latest/releases/tentacle/#v20-2-3-tentacle) rather than
+            github.com HTML pages, which truncate to boilerplate. Large changelogs (Ceph lists
+            hundreds of backported PRs) exhaust the context budget if fetched whole: extract only
+            the target version section and its Notable Changes summary, then stop.' }}
+            Only when the PR changes a dependency version or digest, summarize them in a
+            **Release notes** section in review_markdown: user-visible changes, breaking
+            changes, and security fixes.
           # Engine hard cap is 126,848 tokens (KV pool); 131072 was over it -> HTTP 500 on
           # max-packed reviews (validated). 120000 stays under the cap and trims cold-prefill time.
           model_context_tokens: "120000"
           allowed_source_hosts: "github.com,api.github.com,raw.githubusercontent.com,gitlab.com,registry.terraform.io,artifacthub.io,www.talos.dev,talos.dev,fluxcd.io,kubernetes.io,cilium.io"
           tool_mode: native_loop
+          # 42 of the last 83 reviews stopped at exactly the default 4 calls, none exceeded it.
+          # tool_max_rounds stays at 3 (6 turns): if counts now plateau at 6, that is the next cap.
+          tool_max_requests: "8"
           # gh_api is the tool loop's only authenticated fetch path; left unset it is locked to
           # this repo, so upstream release lookups fell back to anonymous HTML scraping and failed
           # ("GitHub API access was restricted for the external repository" in posted reviews).

@@ -28,7 +28,8 @@ spec:
         kind: Secret
         optional: true
   patches:
-    - # Add Kustomization defaults for all child Kustomizations
+    - # Add Kustomization defaults for all child Kustomizations.
+      # Replaces substituteFrom/timeout/retryInterval wholesale — setting them in a child is a no-op.
       patch: |-
         apiVersion: kustomize.toolkit.fluxcd.io/v1
         kind: Kustomization
@@ -75,6 +76,3 @@ spec:
       target:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
-        # Escape hatch: label a child Kustomization with flux.toolkit.fluxcd.io/substitute-from: skip
-        # to opt out of these defaults (the patch REPLACES spec.postBuild.substituteFrom wholesale).
-        labelSelector: "flux.toolkit.fluxcd.io/substitute-from notin (skip)"

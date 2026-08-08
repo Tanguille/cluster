@@ -46,11 +46,11 @@ spec:
     - apiVersion: inference.llmkube.dev/v1alpha1
       kind: InferenceService
       failed: has(status.phase) && status.phase == 'Failed'
-      # Stopped only ever means spec.replicas=0, i.e. someone parked the service on
-      # purpose (qwen36-27b-vllm today); a model that breaks lands in Failed above.
-      # The CRD tells readiness pollers to treat Stopped as Pending, but this gate asks
-      # "has the Kustomization converged", and a parked service has. Excluding it would
-      # hang llmkube-models forever, and litellm and memini behind it.
+      # Stopped only ever means spec.replicas=0, i.e. qwen36-27b was parked on purpose;
+      # a model that breaks lands in Failed above. The CRD tells readiness pollers to
+      # treat Stopped as Pending, but this gate asks "has the Kustomization converged",
+      # and a parked service has. Excluding it would hang llmkube-models forever, and
+      # litellm and memini behind it.
       current: has(status.phase) && (status.phase == 'Stopped' || (status.phase == 'Ready' && has(status.conditions) && status.conditions.exists(e, e.type == 'Available' && e.status == 'True')))
   path: ./kubernetes/apps/ai/llmkube/models
   prune: true

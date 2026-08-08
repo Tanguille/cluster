@@ -48,7 +48,6 @@ spec:
                     # 90-100% of CFS periods (CPUThrottlingHigh), inflating load average on every node.
                     - "--cpu-max-threads-hint=50"
                     - "--huge-pages"
-                    # Enable HTTP API for dashboard
                     - "--http-port=42000"
                     - "--http-host=0.0.0.0"
                   securityContext:
@@ -128,7 +127,6 @@ spec:
                     value: 100
                     periodSeconds: 15
               scaleUp:
-                # Scale up quickly when solar power is available
                 stabilizationWindowSeconds: 60
                 policies:
                   - type: Percent

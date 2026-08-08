@@ -42,7 +42,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:f8ec293aa54a6d42fa60bbfe3f37f6d4878d9df0d2e96e80f5d2dc514bcea182
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:e1913c98d60819b92873d0959f8221483d6961361892b8d36a0cb3440d92aea7
   # Vulkan floor is 2 — warmup hangs at parallel=1 (llama.cpp #24307). The iGPU
   # is compute-bound, so more slots add interleave, not throughput.
   parallelSlots: 2
@@ -57,6 +57,9 @@ spec:
   extraArgs:
     - "--alias"
     - "vmcp-embedding" # served model name litellm/vmcp-unified send in /v1/embeddings
+    # Same as qwen3-embedding: 8192 MiB host prompt cache, never hit, never released.
+    - "--cache-ram"
+    - "0"
 
   # Defense-in-depth: keeps the iGPU pin even if qwen3-embedding's own pin is
   # ever loosened (the podAffinity below would otherwise follow it anywhere).

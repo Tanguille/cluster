@@ -2,7 +2,7 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
     "abandonments:recommended",
-    "github>home-operations/renovate-presets#3.0.0",
+    "github>home-operations/renovate-presets#5.0.0",
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
@@ -72,12 +72,14 @@
       minimumGroupSize: 2
     },
     {
-      // installer image (talosupgrade.yaml) + talosctl via aqua (.mise.toml) and github-releases
-      // (image-pull.yaml) all track the same Talos release — one PR instead of three
+      // installer image (talosupgrade.yaml) + talosctl via github-releases (image-pull.yaml)
+      // all track the same Talos release — one PR instead of two
       description: "Talos Group",
       groupName: "talos",
-      matchDatasources: ["docker", "aqua", "github-releases"],
-      matchPackageNames: ["/siderolabs\\/(talos|installer)/"]
+      matchDatasources: ["docker", "github-releases"],
+      // matches all siderolabs/* packages (talos, installer, etc.); both slashes are regex
+      // delimiters, so the inner one must stay escaped AND closed or config validation fails
+      matchPackageNames: ["/siderolabs\\//"],
     },
     {
       description: "Rook-Ceph Group",

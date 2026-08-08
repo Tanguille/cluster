@@ -65,6 +65,14 @@ spec:
               reason: "envoy bouncer response to already banned ips"
               expression:
                 - "evt.Meta.http_status == '418'"
+          jellyfin-crawl-whitelist.yaml: |-
+            name: hydaz/jellyfin-crawl-whitelist
+            description: "Jellyfin clients fan out to dozens of unique /HomeScreen/CachedImage URIs per page load, which reads as http-crawl-non_statics"
+            filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log' && evt.Meta.target_fqdn == 'jellyfin.${SECRET_DOMAIN}'"
+            whitelist:
+              reason: "successful jellyfin api traffic"
+              expression:
+                - "evt.Meta.http_status startsWith '2' or evt.Meta.http_status startsWith '3'"
       config.yaml.local: |-
         api:
           server:
@@ -97,10 +105,6 @@ spec:
         secretTemplate:
           annotations:
             app.kubernetes.io/managed-by: crowdsec
-      agent:
-        tlsClientAuth: true
-      appsec:
-        tlsClientAuth: true
     lapi:
       # Reloader reads workload metadata, not pod-template annotations
       deployAnnotations:
