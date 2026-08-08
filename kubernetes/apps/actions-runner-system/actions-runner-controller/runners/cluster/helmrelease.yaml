@@ -12,8 +12,10 @@ spec:
   values:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
-    minRunners: 1
-    maxRunners: 5
+    # Talos os:admin is mounted here, so only flate's image-pull job runs on this scale set.
+    # Idle at 0: flate fires only on kubernetes/** changes and tolerates a cold start.
+    minRunners: 0
+    maxRunners: 2
     containerMode:
       type: kubernetes
       kubernetesModeWorkVolumeClaim:

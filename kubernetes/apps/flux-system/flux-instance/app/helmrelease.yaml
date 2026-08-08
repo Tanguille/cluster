@@ -12,7 +12,7 @@ spec:
   values:
     instance:
       distribution:
-        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.57.0
+        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.58.0
       cluster:
         networkPolicy: false
       sync:
@@ -33,10 +33,10 @@ spec:
             target:
               kind: Deployment
               name: (helm-controller|source-controller)
-          - # Individual memory limits per controller based on 30-day usage analysis
-            # Peak usage: helm=330MB, kustomize=203MB, source=127MB, notification=96MB, operator=291MB
-            # metadata.name is ignored; target.name selects
-            patch: |
+          # Individual memory limits per controller based on 30-day usage analysis
+          # Peak usage: helm=330MB, kustomize=203MB, source=127MB, notification=96MB, operator=291MB
+          # metadata.name is ignored; target.name selects
+          - patch: |
               apiVersion: apps/v1
               kind: Deployment
               metadata:
@@ -132,10 +132,10 @@ spec:
             target:
               kind: Deployment
               name: helm-controller
-          - # DefaultToRetryOnFailure: automatically retry failed HelmReleases rather than requiring manual intervention.
-            # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
-            # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
-            patch: |-
+          # DefaultToRetryOnFailure: automatically retry failed HelmReleases rather than requiring manual intervention.
+          # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
+          # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
+          - patch: |-
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --feature-gates=DefaultToRetryOnFailure=true,DisableChartDigestTracking=true

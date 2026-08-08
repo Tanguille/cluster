@@ -20,7 +20,7 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 - [Learned workspace](.agents/learned-workspace.md): cluster-specific Kubernetes, ToolHive, database, storage, Talos, and media facts
 - [Common operations](.agents/common-operations.md): validation, app operations, SOPS, debugging, and backup/restore
 - [Skill catalog](.agents/skills/): add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation, k8s-at-home-research, pr-review, prometheus-cluster-health — one `SKILL.md` per directory
-- [Useful commands](docs/useful_commands.md): flux/task/talos/sops command reference and app-specific runbooks
+- [Useful commands](docs/useful_commands.md): flux/just/talos/sops command reference and app-specific runbooks
 - [LLM hosting](docs/llm-hosting/): sglang/vLLM tuning constraints and benchmark history for `kubernetes/apps/ai/`
 
 Read only references whose trigger keywords match the task. The learned files are authoritative and maintained by continual learning.
@@ -34,5 +34,5 @@ Read-only dependency source repositories are available under `.slim/clonedeps/re
 ## Safety and permissions (three-tier)
 
 - **Always:** Read-only inspection and local validation, formatting, or linting.
-- **Ask first:** Git push (always ask before any push), push to main, force push, applying to live cluster (`task reconcile`, `flux reconcile`, `talos apply`), decrypting/editing SOPS secrets, deleting resources.
+- **Ask first:** Git push (always ask before any push), push to main, force push, applying to live cluster (`just reconcile`, `flux reconcile`, `talos apply`), decrypting/editing SOPS secrets, deleting resources.
 - **Never:** Commit secrets or age.key (no exceptions).
