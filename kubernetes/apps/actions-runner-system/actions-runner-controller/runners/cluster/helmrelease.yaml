@@ -13,7 +13,7 @@ spec:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
     minRunners: 1
-    maxRunners: 3
+    maxRunners: 5
     containerMode:
       type: kubernetes
       kubernetesModeWorkVolumeClaim:
@@ -29,7 +29,7 @@ spec:
       spec:
         containers:
           - name: runner
-            image: ghcr.io/home-operations/actions-runner:2.335.1@sha256:0c6f38e8194f6c3714aa86c6dc8a72574484818ed625dd66074920b25c118508
+            image: ghcr.io/home-operations/actions-runner:2.336.0@sha256:281a9a090522fafbf4967f158b8c97d03552b1978b688893c5f7cb1944bc5fe5
             command: ["/home/runner/run.sh"]
             env:
               - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
@@ -52,7 +52,12 @@ spec:
               - mountPath: /var/run/secrets/talos.dev
                 name: talos
                 readOnly: true
+              - mountPath: /tool-cache
+                name: tool-cache
         serviceAccountName: *app
+        # runner is uid/gid 1001; without fsGroup the CephFS mount lands root-owned
+        securityContext:
+          fsGroup: 1001
         # Best-effort spread so one node blip can't kill a whole review batch (3× on 2026-07-02).
         # ScheduleAnyway (not DoNotSchedule) so CI still runs when a node is down.
         topologySpreadConstraints:
@@ -66,3 +71,6 @@ spec:
           - name: talos
             secret:
               secretName: *app
+          - name: tool-cache
+            persistentVolumeClaim:
+              claimName: runner-tool-cache

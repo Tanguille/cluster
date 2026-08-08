@@ -2,7 +2,7 @@
 
 [Settings]
 # ConfigVersion: qBitrr schema version (Renovate-synced with feramance/qbitrr tag)
-ConfigVersion = "5.12.7"
+ConfigVersion = "5.12.12"
 CompletedDownloadFolder = "/completed_downloads"
 FreeSpaceFolder = "/completed_downloads"
 # Desired free space in download dir (K/M/G/T, -1 = disable)
@@ -48,10 +48,11 @@ importMode = "Auto"
 RssSyncTimer = 5
 RefreshDownloadsTimer = 5
 # Arr messages treated as failure; qBitrr removes files and reports failed to Arr
+# "Unable to determine if file is a sample" excluded: false-positives on irregular-runtime
+# content (e.g. reality TV), causing good files to be blocklisted
 ArrErrorCodesToBlocklist = [
   "Not an upgrade for existing episode file(s)",
-  "Not a preferred word upgrade for existing episode file(s)",
-  "Unable to determine if file is a sample"
+  "Not a preferred word upgrade for existing episode file(s)"
 ]
 
 [Sonarr-TV.EntrySearch]
@@ -102,7 +103,7 @@ FileExtensionAllowlist = [
   ".!qB",
   ".parts"
 ]
-AutoDelete = true
+AutoDelete = false
 # Max remaining ETA in seconds before removal (604800 = 7 days)
 MaximumETA = 604800
 # Don't delete torrents above this completion % (0.99 = 99%)
@@ -130,10 +131,11 @@ importMode = "Auto"
 RssSyncTimer = 5
 RefreshDownloadsTimer = 5
 # Arr messages treated as failure; qBitrr removes files and reports failed to Arr
+# "Unable to determine if file is a sample" excluded: false-positives on short/irregular
+# runtime content, causing good files to be blocklisted
 ArrErrorCodesToBlocklist = [
   "Not an upgrade for existing movie file(s)",
-  "Not a preferred word upgrade for existing movie file(s)",
-  "Unable to determine if file is a sample"
+  "Not a preferred word upgrade for existing movie file(s)"
 ]
 
 [Radarr.EntrySearch]
@@ -180,7 +182,7 @@ FileExtensionAllowlist = [
   ".!qB",
   ".parts"
 ]
-AutoDelete = true
+AutoDelete = false
 # Max remaining ETA in seconds before removal (604800 = 7 days)
 MaximumETA = 604800
 # Don't delete torrents above this completion % (0.99 = 99%)

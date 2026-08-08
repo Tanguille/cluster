@@ -8,8 +8,9 @@ metadata:
 spec:
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
     - ../../../../components/nfs-scaler
+    - ../../../../components/nfs-media
+    - ../../../../components/kopiur
   dependsOn:
     - name: cloudnative-pg-cluster
       namespace: database
@@ -24,4 +25,3 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 5Gi

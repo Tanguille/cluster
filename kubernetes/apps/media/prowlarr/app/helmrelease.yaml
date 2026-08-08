@@ -12,7 +12,6 @@ spec:
 
   values:
     defaultPodOptions:
-      enableServiceLinks: false
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -25,19 +24,11 @@ spec:
       prowlarr:
         annotations:
           reloader.stakater.com/auto: "true"
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: 18
-            envFrom: &envFrom
-              - secretRef:
-                  name: prowlarr-secret
         containers:
           app:
             image:
               repository: ghcr.io/home-operations/prowlarr
-              tag: 2.5.0.5422@sha256:9c89ef21672a20f4cd4a766b5a085ae5a61de54a79e0841e136330a711b85447
+              tag: 2.6.1.5509@sha256:ce5d6bdd5be6529f503df77aa9d2bad20239031d7c660406e8fb1c6d621dd020
             env:
               PROWLARR__APP__INSTANCENAME: Prowlarr
               PROWLARR__APP__THEME: dark
@@ -49,7 +40,9 @@ spec:
               PROWLARR__UPDATE__BRANCH: develop
               PROWLARR__AUTH__APIKEY: ${PROWLARR_API_KEY}
               TZ: ${TIMEZONE}
-            envFrom: *envFrom
+            envFrom:
+              - secretRef:
+                  name: prowlarr-secret
 
             probes:
               liveness: &probes

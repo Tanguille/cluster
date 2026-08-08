@@ -12,6 +12,8 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
+    - kind: ConfigMap
+      name: nfs-media
 
   values:
     defaultPodOptions:
@@ -24,7 +26,9 @@ spec:
                     operator: In
                     values: ["true"]
       securityContext:
-        runAsUser: 568
+        # revenz/fileflows entrypoint must start as root (apt/groupadd on boot),
+        # then drops to PUID/PGID=568 itself. #3569 wrongly "simplified" this to 568.
+        runAsUser: 0
         runAsGroup: 568
         fsGroup: 568
         fsGroupChangePolicy: OnRootMismatch
@@ -39,12 +43,11 @@ spec:
       fileflows:
         annotations:
           reloader.stakater.com/auto: "true"
-        strategy: Recreate
         initContainers:
           init-dirs:
             image:
               repository: busybox
-              tag: 1.38.0@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+              tag: 1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
             command:
               - sh
               - -c
@@ -58,7 +61,7 @@ spec:
           app:
             image:
               repository: revenz/fileflows
-              tag: 26.06@sha256:377d3b7c05ba705ac0fe2b338c1f5eef9426d0493a0a91101de97071cbbc0b9b
+              tag: 26.07@sha256:a9ce79d8ad21a37ff1579f59cfa8844aded4026fd094e5a893ff476ffe0eaf93
             env:
               TZ: ${TIMEZONE}
               PUID: "568"
@@ -101,18 +104,6 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /app/Data
-            readOnly: false
 
       temp:
         type: emptyDir
-        globalMounts:
-          - path: /temp
-            readOnly: false
-
-      media:
-        type: nfs
-        server: ${TRUENAS_IP}
-        path: ${MEDIA_NFS_PATH}
-        globalMounts:
-          - path: /media
-            readOnly: false

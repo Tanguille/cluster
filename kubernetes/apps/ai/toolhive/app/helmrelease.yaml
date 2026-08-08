@@ -1,4 +1,5 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -10,8 +11,7 @@ spec:
   interval: 1h
   values:
     operator:
-      replicaCount: 1
-      # Chart sets GOMEMLIMIT=150MiB; default limit 128Mi is lower → OOMKilled. Raise limit so runtime stays under cgroup.
+      # Chart lowered GOMEMLIMIT to 110MiB in 0.41.0, but live RSS sits at 128Mi — exactly the chart's default limit. Keep headroom.
       resources:
         requests:
           memory: 128Mi

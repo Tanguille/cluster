@@ -16,7 +16,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/simple-monerod
-              tag: v0.18.5.0@sha256:54b68cae321119c794930af32e4fec6772d9bd9e5a2b1a2e2b8efcf49ae68d8f
+              tag: v0.18.5.1@sha256:42863e2703fcee53b8ee937499d37d49a94e99c6122660c3b3e53d15e4a864ec
             args:
               - "--data-dir=/home/monero/.bitmonero"
               - "--log-file=/var/log/monero/monerod.log"
@@ -65,7 +65,6 @@ spec:
                     path: /get_info
                     port: 18089
                   failureThreshold: 60
-                  periodSeconds: 10
     defaultPodOptions:
       securityContext:
         fsGroup: 1000

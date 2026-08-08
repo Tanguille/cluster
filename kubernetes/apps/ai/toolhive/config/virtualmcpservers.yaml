@@ -1,138 +1,5 @@
 ---
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: VirtualMCPServer
-metadata:
-  name: flux
-spec:
-  replicas: 2
-  sessionStorage:
-    provider: redis
-    address: dragonfly.database.svc.cluster.local:6379
-    db: 0
-    keyPrefix: "thv:vmcp:flux:session:"
-  incomingAuth:
-    type: anonymous
-  serviceType: ClusterIP
-  groupRef:
-    name: flux
-  config:
-    aggregation:
-      conflictResolution: prefix
-      conflictResolutionConfig:
-        prefixFormat: "{workload}_"
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: VirtualMCPServer
-metadata:
-  name: observability
-spec:
-  replicas: 2
-  sessionStorage:
-    provider: redis
-    address: dragonfly.database.svc.cluster.local:6379
-    db: 0
-    keyPrefix: "thv:vmcp:observability:session:"
-  incomingAuth:
-    type: anonymous
-  serviceType: ClusterIP
-  groupRef:
-    name: observability
-  config:
-    aggregation:
-      conflictResolution: prefix
-      conflictResolutionConfig:
-        prefixFormat: "{workload}_"
----
-# Named "ha" to avoid Deployment name collision with MCPServer "homeassistant"
-# (operator creates Deployment = name).
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: VirtualMCPServer
-metadata:
-  name: ha
-spec:
-  replicas: 2
-  sessionStorage:
-    provider: redis
-    address: dragonfly.database.svc.cluster.local:6379
-    db: 0
-    keyPrefix: "thv:vmcp:ha:session:"
-  incomingAuth:
-    type: anonymous
-  serviceType: ClusterIP
-  groupRef:
-    name: homeassistant
-  config:
-    aggregation:
-      conflictResolution: prefix
-      conflictResolutionConfig:
-        prefixFormat: "{workload}_"
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: VirtualMCPServer
-metadata:
-  name: search
-spec:
-  replicas: 2
-  sessionStorage:
-    provider: redis
-    address: dragonfly.database.svc.cluster.local:6379
-    db: 0
-    keyPrefix: "thv:vmcp:search:session:"
-  incomingAuth:
-    type: anonymous
-  serviceType: ClusterIP
-  groupRef:
-    name: search
-  config:
-    aggregation:
-      conflictResolution: prefix
-      conflictResolutionConfig:
-        prefixFormat: "{workload}_"
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: VirtualMCPServer
-metadata:
-  name: database
-spec:
-  replicas: 2
-  sessionStorage:
-    provider: redis
-    address: dragonfly.database.svc.cluster.local:6379
-    db: 0
-    keyPrefix: "thv:vmcp:database:session:"
-  incomingAuth:
-    type: anonymous
-  serviceType: ClusterIP
-  groupRef:
-    name: database
-  config:
-    aggregation:
-      conflictResolution: prefix
-      conflictResolutionConfig:
-        prefixFormat: "{workload}_"
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: VirtualMCPServer
-metadata:
-  name: resources
-spec:
-  replicas: 2
-  sessionStorage:
-    provider: redis
-    address: dragonfly.database.svc.cluster.local:6379
-    db: 0
-    keyPrefix: "thv:vmcp:resources:session:"
-  incomingAuth:
-    type: anonymous
-  serviceType: ClusterIP
-  groupRef:
-    name: resources
-  config:
-    aggregation:
-      conflictResolution: prefix
-      conflictResolutionConfig:
-        prefixFormat: "{workload}_"
----
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/virtualmcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: VirtualMCPServer
 metadata:
@@ -144,35 +11,85 @@ spec:
   replicas: 1
   podTemplateSpec:
     spec:
+      # The operator sets readOnlyRootFilesystem, so the optimizer's FTS5 index has
+      # nowhere to spill: queries whose sorter exceeds memory fail with "disk I/O
+      # error (6410)", which the MCP layer returns as zero matches rather than an
+      # error. An agent reads that as "this tool does not exist".
+      volumes:
+        - name: tmp
+          emptyDir: {}
       containers:
         - name: vmcp
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           env:
+            # sqlite's unix VFS tries /var/tmp before /tmp; both are read-only here,
+            # so point it at the mount explicitly instead of relying on the search order.
+            - name: TMPDIR
+              value: /tmp
             - name: OPENAI_API_KEY
               value: ${LITELLM_API_KEY}
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 200m
+              memory: 1Gi
             limits:
               cpu: 500m
-              memory: 1Gi
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            failureThreshold: 30
+            periodSeconds: 5
+            initialDelaySeconds: 0
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 10
+            initialDelaySeconds: 120
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+              scheme: HTTP
+            failureThreshold: 3
+            periodSeconds: 10
+            initialDelaySeconds: 30
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
-    db: 0
     keyPrefix: "thv:vmcp:unified:session:"
   incomingAuth:
     type: anonymous
-  serviceType: ClusterIP
   groupRef:
     name: all
   config:
+    # Cold embedding cache takes ~27-35s on the iGPU, past the 30s default
+    # (2026-07-03). Anchored to embeddingServiceTimeout — same call.
+    # ponytail: `default` covers every backend request, not just session-build;
+    # switch to perWorkload if a hung backend's slow failure starts mattering.
+    operational:
+      timeouts:
+        default: &embeddingTimeout 120s
+      # Default healthCheckTimeout (10s) marks a backend "degraded" past ~5s (half-timeout
+      # heuristic) -- routine control-1 latency blips cross that and flap every backend's
+      # status at once. Raised so a transient node stall doesn't read as a backend outage.
+      failureHandling:
+        healthCheckTimeout: 20s
     aggregation:
       conflictResolution: prefix
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
     optimizer:
+      # embeddingServerRef omitted: operator rejects when embeddingProvider is "openai".
+      # Routes to litellm -> existing iGPU embedder instead.
       embeddingProvider: openai
       embeddingService: http://litellm.ai.svc.cluster.local/v1
       embeddingModel: vmcp-embedding
-      embeddingServiceTimeout: 120s
+      embeddingServiceTimeout: *embeddingTimeout

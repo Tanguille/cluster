@@ -1,26 +1,17 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
   name: vmcp-embedding
 spec:
-  # harrier-oss-v1-270m (Microsoft, 2026-03-30): Gemma3-270m-based decoder embedder,
-  # MIT, 640-dim, 32K native context, MTEB v2 66.5 — dedicated to vmcp-unified's
-  # tool-description search only, decoupling its per-session ~194-tool/~1166-token
-  # batch from qwen3-embedding's contention with memini.
-  # Known tradeoff: harrier is instruction-tuned (query-side prefixes); ToolHive
-  # sends bare queries, so we run slightly below its benchmark quality — accepted,
-  # still above the non-instructed alternatives for a 194-doc search space.
-  # Placement: shares ONE iGPU with qwen3-embedding (both tiny: 292MB + 639MB Q8;
-  # the iGPU generic-device-plugin advertises count: 2 for exactly this pair).
-  # Dedicated server = own slots/queue, so vmcp's session-build batch no longer
-  # queues behind memini/find_tool traffic at the model level; raw iGPU compute
-  # is still shared — if session failures return, check contention here first
-  # (the old shared-model setup measured 19-52s under 3x concurrency).
-  # Community GGUF (no first-party one) — mykor's is the most-downloaded conversion.
-  # Pinned to a repo revision (immutable bytes — community GGUFs can be rebuilt
-  # in place under the same filename); Renovate bumps the sha via the git-refs
-  # custom manager in .renovaterc.json5 when upstream main moves.
+  # harrier-oss-v1-270m Q8_0, 640-dim, 32K ctx — dedicated to vmcp-unified tool
+  # search so its ~194-tool batch doesn't queue behind memini on qwen3-embedding.
+  # Shares one iGPU with qwen3-embedding (292MB + 639MB; the device plugin
+  # advertises count: 2 for exactly this pair), so raw compute is still shared:
+  # check contention here first if session failures return.
+  # Community GGUF pinned to a repo revision — the same filename can be rebuilt
+  # in place. Renovate git-refs manager bumps the sha.
   source: https://huggingface.co/mykor/harrier-oss-v1-270m-GGUF/resolve/fe07a2a15994730f1b8f13943927bc8198bd7fa7/harrier-oss-v1-270M-Q8_0.gguf
   quantization: Q8_0
   # Re-fetch when the source changes. Without this, a source change keeps
@@ -40,6 +31,7 @@ spec:
       # nodeSelector below keeps this off the dGPU node.
       resourceName: squat.ai/dri
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
@@ -47,31 +39,33 @@ metadata:
 spec:
   modelRef: vmcp-embedding
   mode: embedding
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:8fe0c6ae757c2f5118ab765622d7de1c9f9c4ab5416aa245222332f21e2182bb
-  # 2 slots (the Vulkan floor — warmup hangs at parallel=1, llama.cpp #24307):
-  # the iGPU is compute-bound, so extra slots add interleave, not throughput
-  # (measured on qwen3-embedding: 4 slots didn't move latency, Q8_0 did). Two
-  # slots let find_tool queries flow past an in-flight session-build batch while
-  # halving the UMA buffer allocation on the shared iGPU.
+  # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
+  # startup and model load before this Vulkan embedder is recycled.
+  maxPodLifetimeSeconds: 86400
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:e1913c98d60819b92873d0959f8221483d6961361892b8d36a0cb3440d92aea7
+  # Vulkan floor is 2 — warmup hangs at parallel=1 (llama.cpp #24307). The iGPU
+  # is compute-bound, so more slots add interleave, not throughput.
   parallelSlots: 2
-  # 8192 tokens/slot — the real batch's largest single tool description is
-  # 2155 tokens under harrier's Gemma3 tokenizer (~1.85x qwen3's count for the
-  # same text; 2048/slot rejected it live 2026-07-02). Harrier's native window
-  # is 32K and KV for a 270m model is tens of MB, so headroom is cheap.
-  contextSize: 16384
-  uBatchSize: 2048
+  # 6144 tokens/slot. Largest single tool description measured 2155 tokens under
+  # harrier's Gemma3 tokenizer (2048/slot rejected it live 2026-07-02); 30d peak
+  # prompt is 4102, so 12288 keeps ~50% headroom per slot.
+  contextSize: 12288
+  # See qwen3-embedding.yaml: 512 measured identical on throughput, ~49% less GTT.
+  uBatchSize: 512
   # mode: embedding makes the operator inject --embedding --pooling last and
   # --metrics itself (verified on the live qwen3-embedding pod) — don't repeat them.
   extraArgs:
     - "--alias"
     - "vmcp-embedding" # served model name litellm/vmcp-unified send in /v1/embeddings
+    # Same as qwen3-embedding: 8192 MiB host prompt cache, never hit, never released.
+    - "--cache-ram"
+    - "0"
 
   # Defense-in-depth: keeps the iGPU pin even if qwen3-embedding's own pin is
   # ever loosened (the podAffinity below would otherwise follow it anywhere).
   nodeSelector:
     amd.com/igpu: "true"
 
-  # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
@@ -79,11 +73,8 @@ spec:
       - 44
       - 226
 
-  # Co-locate with qwen3-embedding's pod (same node, whichever iGPU node that
-  # currently is — qwen3-embedding itself isn't hard-pinned to one, see
-  # qwen3-embedding.yaml): the two embedders deliberately share that node's iGPU
-  # (one squat.ai/dri slot each of the node's 2), and same-node networking for
-  # litellm/unified comes along for free.
+  # Co-locate with qwen3-embedding: the two embedders share that node's iGPU,
+  # one squat.ai/dri slot each of the node's 2.
   affinity:
     podAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -92,11 +83,10 @@ spec:
               app: qwen3-embedding
           topologyKey: kubernetes.io/hostname
 
-  # No probeOverrides: the operator's llamacpp defaults already probe /health
-  # with a more forgiving startup window (180x10s). GPU allocation comes from
-  # Model.hardware.gpu.count (resources.gpu/gpuMemory are dead fields at 0.8.26).
+  # GPU allocation comes from Model.hardware.gpu.count; resources.gpu/gpuMemory
+  # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    memory: 1Gi # Q8_0 weights are 292MB; UMA iGPU allocates from system RAM
+    memory: 512Mi # 292MB Q8_0 weights via UMA; measured 436Mi working set
   endpoint:
     path: /v1/embeddings

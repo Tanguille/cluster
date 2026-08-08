@@ -5,12 +5,14 @@ kind: Kustomization
 namespace: ai
 components:
   - ../../components/common
+  - ../../components/ndots-1
+  - ../../components/kopiur/privileged-movers
 resources:
   - ./hermes/ks.yaml
   - ./litellm/ks.yaml
   - ./memini/ks.yaml
+  - ./omniroute/ks.yaml
   - ./llmkube/ks.yaml
   - ./opencode/ks.yaml
   - ./odysseus/ks.yaml
   - ./toolhive/ks.yaml
-  - ./sglang/ks.yaml

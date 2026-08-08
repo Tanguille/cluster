@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/refs/heads/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -19,22 +19,16 @@ spec:
           speedtest-exporter:
             image:
               repository: ghcr.io/heathcliff26/speedtest-exporter
-              tag: v1.6.1@sha256:79c4ae1b5ff87092012ecf383401de4b447e9a8a8b2147980aca85d20aa3a059
+              tag: v1.6.2@sha256:5c4899cae36ba7c0f3fcfc47f9564668f7ab7d312780af6108ba5b46445a284b
             env:
               OOKLA_EULA_GDPR: "true"
-            probes:
-              liveness:
-                enabled: false
-              readiness:
-                enabled: false
-              startup:
-                enabled: false
             resources:
               requests:
                 cpu: 10m
                 memory: 64Mi
               limits:
-                cpu: 100m
+                # Throttled 74% of CFS periods at 100m, capping the throughput it measures.
+                cpu: "1"
                 memory: 128Mi
             securityContext:
               allowPrivilegeEscalation: false
@@ -56,8 +50,6 @@ spec:
         serviceName: speedtest-exporter
         endpoints:
           - port: http
-            scheme: http
-            path: /metrics
             interval: 30m
             scrapeTimeout: 5m
             metricRelabelings:

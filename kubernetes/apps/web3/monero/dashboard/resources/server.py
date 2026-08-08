@@ -8,9 +8,9 @@ and fetches XMR prices from multiple sources with fallback.
 """
 
 import http.server
-import socketserver
 import json
 import os
+import shutil
 import urllib.request
 import time
 import argparse
@@ -19,9 +19,6 @@ import signal
 import sys
 from collections import deque
 
-# ==============================
-# COMMAND LINE ARGUMENTS
-# ==============================
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=8080, help="HTTP server port")
 
@@ -51,9 +48,6 @@ MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
-# ==============================
-# IN-MEMORY ROLLING LOGS
-# ==============================
 # Using deque for efficient append/pop from left (for rolling window)
 log = {
     "timestamps": deque(),
@@ -66,15 +60,19 @@ log = {
 # Thread-safe access to log
 log_lock = threading.Lock()
 
-# ==============================
-# HELPER FUNCTIONS
-# ==============================
-
 # Price changes on minute timescales; the chart has 6 axis ticks over 24h.
 # Refetch at most every 5 min instead of every 10s loop iteration — public
 # APIs (CoinGecko) rate-limit well below 6 req/min sustained.
 PRICE_CACHE_TTL = 300
 _price_cache = {"value": 0.0, "ts": 0.0}
+
+def monerod_get_info_request():
+    """get_info RPC request, shared by the HTTP proxy and the logger thread."""
+    return urllib.request.Request(
+        MONEROD_RPC_URL,
+        data=json.dumps({"jsonrpc": "2.0", "id": "0", "method": "get_info"}).encode(),
+        headers={"Content-Type": "application/json"}
+    )
 
 def get_xmr_price():
     """
@@ -128,10 +126,6 @@ def get_min_payment_threshold():
     except Exception:
         return 0.01
 
-# ==============================
-# HTTP SERVER HANDLER
-# ==============================
-
 class Handler(http.server.BaseHTTPRequestHandler):
     """
     Handles HTTP GET requests for:
@@ -153,13 +147,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif self.path == "/stats_log.json":
             self.serve_log()
         elif self.path == "/min_payment_threshold":
-            self.serve_threshold()
+            self.send_json({"minPaymentThreshold": get_min_payment_threshold()})
         elif self.path == "/observer_config":
-            self.serve_observer_config()
+            self.send_json({"wallet": WALLET_ADDRESS, "observer": OBSERVER_URL})
         elif self.path.startswith("/observer/"):
             self.proxy_observer_api()
         else:
             self.send_json_error("Not found", 404)
+
+    def send_json(self, payload, status=200):
+        """Serialize payload and send it as a JSON response."""
+        body = json.dumps(payload).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_json_error(self, message, status_code):
+        """Send a JSON error response."""
+        self.send_json({"error": message}, status_code)
+
+    def proxy(self, request, error_prefix, error_status, timeout=5):
+        """Stream an upstream JSON response through, relaying Content-Encoding.
+
+        Observer bodies reach 9MB, held whole in a 256Mi container by r.read().
+        """
+        try:
+            r = urllib.request.urlopen(request, timeout=timeout)
+        except Exception as e:
+            self.send_json_error(f"{error_prefix}: {e}", error_status)
+            return
+        with r:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            if r.headers.get("Content-Encoding"):
+                self.send_header("Content-Encoding", r.headers["Content-Encoding"])
+            self.end_headers()
+            shutil.copyfileobj(r, self.wfile)
 
     def proxy_xmrig(self):
         """Proxy xmrig summary with graceful fallback when miner is scaled to 0.
@@ -168,65 +192,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         solar power, the pod scales down and has no endpoints. Instead of
         crashing with ConnectionRefusedError, return a 503 JSON response.
         """
-        try:
-            with urllib.request.urlopen(XMRIG_API_URL, timeout=5) as r:
-                data = r.read()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(data)
-        except Exception as e:
-            self.send_json_error(f"XMRig miner offline: {e}", 503)
+        self.proxy(urllib.request.Request(XMRIG_API_URL), "XMRig miner offline", 503)
 
     def proxy_monerod(self):
         """Send a get_info RPC call to monerod and return JSON.
 
         Returns 503 JSON if monerod is unreachable instead of crashing."""
-        payload = json.dumps({
-            "jsonrpc": "2.0",
-            "id": "0",
-            "method": "get_info"
-        }).encode()
-        req = urllib.request.Request(
-            MONEROD_RPC_URL,
-            data=payload,
-            headers={"Content-Type": "application/json"}
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=5) as r:
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(r.read())
-        except Exception as e:
-            self.send_json_error(f"Monerod unavailable: {e}", 503)
+        self.proxy(monerod_get_info_request(), "Monerod unavailable", 503)
 
     def serve_log(self):
         """Serve in-memory rolling log as JSON"""
         with log_lock:
             data = {k: list(v) for k, v in log.items()}
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode())
-
-    def serve_threshold(self):
-        """Serve min payment threshold as JSON"""
-        threshold = get_min_payment_threshold()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps({"minPaymentThreshold": threshold}).encode())
-
-    def serve_observer_config(self):
-        data = {
-            "wallet": WALLET_ADDRESS,
-            "observer": OBSERVER_URL
-        }
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps(data).encode())
+        self.send_json(data)
 
     def proxy_observer_api(self):
         """Proxy requests to p2pool.observer API to avoid CORS issues in browser.
@@ -239,27 +217,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # Map /observer/... to the actual API path
         api_path = self.path[len("/observer/"):]  # e.g. "shares?limit=1" or "payouts/..."
         url = f"{OBSERVER_URL}/{api_path}"
-
-        try:
-            with urllib.request.urlopen(url, timeout=15) as r:
-                data = r.read()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(data)
-        except Exception as e:
-            self.send_json_error(f"Observer API error: {e}", 502)
-
-    def send_json_error(self, message, status_code):
-        """Send a JSON error response."""
-        self.send_response(status_code)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps({"error": message}).encode())
-
-# ==============================
-# LOGGING FUNCTIONS
-# ==============================
+        # 9.2MB plain vs 3.0MB gzipped, refetched every 10s per tab; urllib will not ask.
+        request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
+        self.proxy(request, "Observer API error", 502, timeout=15)
 
 def load_log_disk():
     """Load existing stats_log.json into memory at startup"""
@@ -304,10 +264,6 @@ def save_log_disk():
         json.dump(data, f)
     os.replace(tmp_file, LOG_FILE)
 
-# ==============================
-# LOGGER LOOP THREAD
-# ==============================
-
 def log_loop():
     """
     Continuously fetch stats from xmrig, pool, monerod, and XMR price.
@@ -332,12 +288,7 @@ def log_loop():
             poolHash = pool["pool_statistics"]["hashRate"]
 
             # Fetch network difficulty from monerod
-            req = urllib.request.Request(
-                MONEROD_RPC_URL,
-                data=json.dumps({"jsonrpc": "2.0", "id": "0", "method": "get_info"}).encode(),
-                headers={"Content-Type": "application/json"}
-            )
-            net = json.loads(urllib.request.urlopen(req, timeout=5).read())
+            net = json.loads(urllib.request.urlopen(monerod_get_info_request(), timeout=5).read())
             netHash = net["result"]["difficulty"] / 120
 
             # Fetch XMR price
@@ -357,32 +308,28 @@ def log_loop():
 
         shutdown_event.wait(10)  # sleep or wait until shutdown
 
-# ==============================
-# SHUTDOWN EVENT
-# ==============================
 shutdown_event = threading.Event()
 
-# ==============================
-# START LOGGER THREAD
-# ==============================
 # Load old logs before appending new info to prevent the log being overwritten
 load_log_disk()
 threading.Thread(target=log_loop, daemon=True).start()
 
-# ==============================
-# START HTTP SERVER
-# ==============================
 # Exec-form container command makes python PID 1: translate SIGTERM into the
 # same clean-shutdown path as Ctrl+C so the final save_log_disk() runs.
 def _sigterm(*_):
     raise KeyboardInterrupt
 signal.signal(signal.SIGTERM, _sigterm)
 
-socketserver.ThreadingTCPServer.allow_reuse_address = True
+class Server(http.server.ThreadingHTTPServer):
+    # ThreadingHTTPServer daemonises request threads; ThreadingTCPServer did not.
+    # Non-daemon threads make server_close() wait for an in-flight observer proxy
+    # instead of truncating it mid-write on SIGTERM.
+    daemon_threads = False
+
 print(f"Serving HTTP on 0.0.0.0:{PORT}")
 
 try:
-    with socketserver.ThreadingTCPServer(("", PORT), Handler) as httpd:
+    with Server(("", PORT), Handler) as httpd:
         httpd.serve_forever()
 except KeyboardInterrupt:
     print("\nCTRL+C received, shutting down cleanly...")

@@ -9,11 +9,10 @@ spec:
   path: ./kubernetes/apps/media/qui/app
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
     - ../../../../components/nfs-scaler
+    - ../../../../components/nfs-media
+    - ../../../../components/kopiur
   dependsOn:
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
     - name: qbittorrent
   wait: false
   prune: true
@@ -25,4 +24,3 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 5Gi

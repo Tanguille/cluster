@@ -1,9 +1,10 @@
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: toolhive-operator-crds
-  namespace: ai
+  namespace: &namespace ai
 spec:
   commonMetadata:
     labels:
@@ -15,13 +16,14 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: ai
+  targetNamespace: *namespace
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: toolhive-operator
-  namespace: ai
+  namespace: &namespace ai
 spec:
   commonMetadata:
     labels:
@@ -35,27 +37,25 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: ai
+  targetNamespace: *namespace
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: toolhive
-  namespace: ai
+  name: &app toolhive
+  namespace: &namespace ai
 spec:
   commonMetadata:
     labels:
-      app.kubernetes.io/name: toolhive
+      app.kubernetes.io/name: *app
   dependsOn:
     - name: toolhive-operator
   interval: 1h
   path: ./kubernetes/apps/ai/toolhive/config
-  postBuild:
-    substitute:
-      APP: toolhive
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  targetNamespace: ai
+  targetNamespace: *namespace

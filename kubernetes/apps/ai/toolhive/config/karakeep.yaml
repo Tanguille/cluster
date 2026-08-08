@@ -1,46 +1,10 @@
----
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
-  name: &name karakeep
+  name: karakeep
 spec:
-  image: ghcr.io/karakeep-app/karakeep-mcp:0.32.0
-  transport: stdio
-  groupRef:
-    name: resources
-  env:
-    - name: KARAKEEP_API_ADDR
-      value: http://karakeep.default.svc.cluster.local:3000
-  secrets:
-    - name: toolhive-secrets
-      key: KARAKEEP_API_KEY
-  toolConfigRef:
-    name: *name
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 100Mi
-  resources:
-    requests:
-      cpu: 10m
-      memory: 64Mi
-    limits:
-      cpu: 200m
-      memory: 100Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: karakeep-opt
-spec:
-  image: ghcr.io/karakeep-app/karakeep-mcp:0.32.0
+  image: ghcr.io/karakeep-app/karakeep-mcp:0.33.1@sha256:758a7612cfbecc5e78f7a20c0955814dce1e64bc8eeeabc34ede7efe12fa807f
   transport: stdio
   groupRef:
     name: all
@@ -62,7 +26,7 @@ spec:
               memory: 64Mi
             limits:
               cpu: 500m
-              memory: 100Mi
+              memory: 256Mi
   resources:
     requests:
       cpu: 10m
@@ -71,6 +35,7 @@ spec:
       cpu: 200m
       memory: 100Mi
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPToolConfig
 metadata:

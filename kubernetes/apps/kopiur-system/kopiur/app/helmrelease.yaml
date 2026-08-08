@@ -1,0 +1,42 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kopiur
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kopiur
+  interval: 1h
+  values:
+    # The controller pod itself needs direct NFS access to the repo, not just
+    # the per-app movers — kopiur#137, filesystem Restore fails with
+    # "/repo not mounted" without this. Confirmed by every NFS-backend adopter.
+    extraVolumes:
+      - name: repo
+        nfs:
+          server: "${TRUENAS_IP}"
+          path: ${BACKUP_NFS_PATH}
+    extraVolumeMounts:
+      - name: repo
+        mountPath: /repo
+    podSecurityContext:
+      # 568 not chart-default 65534: must read the uid-568 NFS repo
+      runAsUser: 568
+      runAsGroup: 568
+      fsGroup: 568
+    features:
+      credentialProjection:
+        enabled: true # shared repo, movers in many namespaces
+    monitoring:
+      serviceMonitor:
+        enabled: true
+      prometheusRule:
+        enabled: true
+      dashboards:
+        enabled: true
+        grafanaOperator:
+          enabled: true
+          matchLabels:
+            grafana.internal/instance: grafana

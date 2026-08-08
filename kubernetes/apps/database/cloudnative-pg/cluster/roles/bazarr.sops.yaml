@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bazarr-db
+  labels:
+    cnpg.io/reload: "true"
+  namespace: database
+type: kubernetes.io/basic-auth
+stringData:
+  username: ENC[AES256_GCM,data:QQiBEm4C,iv:y0XFhSUu8Gbk3JvxQ5y44ejD6b5evA5PAJiB+x3KHRE=,tag:PQmLYr/4RBGAEarioVuSiw==,type:str]
+  password: ENC[AES256_GCM,data:ymculc+mge0=,iv:Ij9R74sWelMgOQLUU8OkznWSX3zBMntTQ7cJom3Cn1c=,tag:s+7uYwBQ/c3Wi16bQf73Ng==,type:str]
+sops:
+  age:
+    - enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBPUThqaXQxWTFvOWhtQkVH
+        QVJzRDRIYlowRXQ0NTJ1UC9pSzRHTjk0OW5RCjJhMmlpb2dBYkJVRGVTYWRTcTNX
+        dmJ0MDZxeENxa2RXcmJpcmN4L2RzdmMKLS0tIDE5WExYdzA4alVlUTIrQ1A1Sy9a
+        UzBsYmRuSjBsUGl5UHFaVUp3eENIbjgKw7tTOius/etT6eGY43GeeNpzCyNVniYv
+        Wt9VhKo5d31PRHvEOcd7dvF4/oey/2Tju4NIxDs4nsuf+2vsVfYZ8w==
+        -----END AGE ENCRYPTED FILE-----
+      recipient: age12gul5m0dg9nn2gk69uvzwdxyluh5xt02m8wvyg9hn7c93nz7xehswmdenq
+  encrypted_regex: ^(data|stringData)$
+  lastmodified: "2026-06-25T22:53:30Z"
+  mac: ENC[AES256_GCM,data:hDMDXNNKw1RoZPYUdUOKWYyTuCl90BTIkvSh6KgzO7bhUbMgEo7oXhi1ak8V7CI78e3wrd13jXTzKwgVhKmDKRfni/Ub8EVQyXohh1KE0/kz5e+wWszBZVHkLWnEOn2HvugJnCIr6FSHNOHzvEReW5/hIqE94hkAbn/GK7PKQMg=,iv:MwUo+35K6DuD5tXjFDEHO218Y4jsYIaeKh5bFumHUE4=,tag:gSxff+yiLMO8o0wH5WRWSQ==,type:str]
+  mac_only_encrypted: true
+  version: 3.13.1

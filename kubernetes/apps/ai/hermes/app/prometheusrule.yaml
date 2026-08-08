@@ -1,0 +1,83 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: hermes-rules
+spec:
+  groups:
+    - name: hermes.rules
+      # scripts/cron_health_export.py (on the hermes PVC, not in git) pushes
+      # cron/jobs.json state every 10m. Pushed, not scraped, so VM's 5m default
+      # staleness makes a bare instant selector return nothing between pushes:
+      # absent() would flap and the failure rules would go blind exactly half the
+      # time. last_over_time() pins every rule to the newest real sample instead of
+      # the staleness window.
+      rules:
+        # The scheduler already records per-job status in cron/jobs.json; nothing read
+        # it, so a dead cron stayed dark 40h.
+        # A paused job's last status is frozen history, not a live failure: it will never
+        # re-run, so the alert would never clear (kanban-actualizer, paused 2026-08-05).
+        - alert: HermesCronJobFailed
+          expr: |-
+            last_over_time(hermes_cron_last_status_ok[30m]) == 0
+              unless on (id) last_over_time(hermes_cron_paused[30m]) == 1
+          for: 15m
+          annotations:
+            summary: >-
+              Hermes cron {{ $labels.name }} last run failed — it will keep failing on
+              schedule until the cause is fixed
+          labels:
+            severity: warning
+
+        # Delivery is a separate failure from execution: the job can succeed and the
+        # Discord post still vanish, which reads green everywhere else.
+        - alert: HermesCronDeliveryFailed
+          expr: |-
+            last_over_time(hermes_cron_delivery_failed[30m]) == 1
+              unless on (id) last_over_time(hermes_cron_paused[30m]) == 1
+          for: 15m
+          annotations:
+            summary: >-
+              Hermes cron {{ $labels.name }} ran but could not deliver its output —
+              the result is lost, not late
+          labels:
+            severity: warning
+
+        # Already excludes disabled and paused jobs at export time. One hour of slack
+        # absorbs a long-running predecessor without flapping.
+        - alert: HermesCronOverdue
+          expr: |-
+            last_over_time(hermes_cron_overdue_seconds[30m]) > 3600
+          for: 15m
+          annotations:
+            summary: >-
+              Hermes cron {{ $labels.name }} is {{ $value | humanizeDuration }} past its
+              scheduled run — the scheduler is not firing it
+          labels:
+            severity: warning
+
+        # The exporter runs inside hermes, so a stale heartbeat means hermes itself is
+        # down. Without this the other three rules go quiet exactly when they matter.
+        - alert: HermesCronExporterStale
+          expr: |-
+            time() - last_over_time(hermes_cron_export_timestamp[2h]) > 1800
+          for: 5m
+          annotations:
+            summary: >-
+              Hermes cron health metrics are {{ $value | humanizeDuration }} stale —
+              cron alerting is blind, check the hermes pod
+          labels:
+            severity: warning
+
+        # No for:: absent() over a 2h-integrated window cannot flap, and any delay here
+        # reopens the gap where Stale has already resolved but Absent has not yet fired,
+        # which reports "recovered" in the middle of an outage.
+        - alert: HermesCronExporterAbsent
+          expr: |-
+            absent(last_over_time(hermes_cron_export_timestamp[2h]))
+          annotations:
+            summary: >-
+              No Hermes cron health metrics at all — the exporter never ran or was removed
+          labels:
+            severity: warning

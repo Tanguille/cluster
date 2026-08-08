@@ -1,0 +1,334 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-model-cache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-triton-cache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-hicache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    # hostpath enforces no quota, so the real bound is the evictor's MAX_SIZE below.
+    requests:
+      storage: 64Gi
+---
+# Prunes HiCache generations superseded by an image bump (why they are versioned at all:
+# see SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR below). This CRD has no initContainers field
+# to automate it, so it was manual, and one missed cleanup orphaned 64G on 2026-07-30 --
+# against 60.3G free on control-1's sparse TrueNAS zvol, where filling the pool stops the
+# VM. Tradeoff: rolling back >1 day after a bump finds that cache pruned (cold TTFT).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qwen36-27b-hicache-prune
+  namespace: ai
+spec:
+  schedule: "30 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            # Superseded generations were written by root-era pods (pre-4a4b06f).
+            runAsUser: 0
+          containers:
+            - name: prune
+              image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  cd /hicache
+                  # Newest mtime = the live generation; a serving pod keeps promoting into
+                  # it. Skip it and anything written in the last day, so a draining pod
+                  # keeps its cache through a rollout.
+                  newest="$(ls -1dt -- */ 2>/dev/null | head -1)"
+                  for d in */; do
+                    [ -d "$d" ] || continue
+                    [ "$d" = "$newest" ] && continue
+                    [ -n "$(find "$d" -maxdepth 0 -mmin +1440)" ] || continue
+                    echo "pruning superseded generation: $d"
+                    rm -rf -- "$d"
+                  done
+                  # Names/counts only: du here would stat the whole store (682,508 files on
+                  # 2026-07-30) on top of the walk rm already does, just to log a number.
+                  echo "remaining: $(ls -1d -- */ 2>/dev/null | wc -l) generation(s)"
+              volumeMounts:
+                - name: hicache
+                  mountPath: /hicache
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                # Memory only: busybox rm streams, so this just bounds the pathological
+                # case. No cpu limit -- the job is iowait-bound, where CFS quota cannot
+                # throttle, and if entries are cache-hot it would stretch the run instead.
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: hicache
+              persistentVolumeClaim:
+                claimName: qwen36-27b-hicache
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen36-27b-awq
+spec:
+  source: hf://mattbucci/Qwen3.6-27B-AWQ@f541031dfc1bf5da3f198b52b9bf44cbd5ceee49
+  format: safetensors
+  refreshPolicy: OnChange
+  files:
+    - model.safetensors
+    - model-vision.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - generation_config.json
+    - chat_template.jinja
+    - processor_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen36-27b
+spec:
+  modelRef: qwen36-27b-awq
+  runtime: sglang
+  # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
+  bindAddress: 0.0.0.0
+  image: ghcr.io/tanguille/sglang-rdna4:sha-cb7b76050cbf8dda9e5a78c07b24df1a783caeb3@sha256:f961fc274eaad4af065097e0921b88ae5a97a478baa0e384e6c5ee440c355b29
+  containerPort: 30000
+  endpoint:
+    # v0.9.8 maps endpoint.port to both Service port and targetPort; use the
+    # runtime port so generated traffic reaches SGLang directly.
+    port: 30000
+  nodeSelector:
+    kubernetes.io/hostname: control-1
+  podSecurityContext:
+    # The image's own USER 10001:10001 owns /home/sglang/.cache 0700 (flashinfer's JIT
+    # workspace lives there). The operator drops ALL capabilities on the container, so
+    # runAsUser: 0 no longer gets CAP_DAC_OVERRIDE to force its way past that ownership --
+    # root became just another uid. Match the image's own user instead of overriding it.
+    runAsUser: 10001
+    runAsGroup: 10001
+    # The triton-cache and hicache PVCs were written by every prior root-based pod, so
+    # they're root-owned on disk. fsGroup makes kubelet recursively chown volume mounts
+    # to this group at mount time -- the same fix as runAsGroup, but for PVC contents
+    # instead of the image's own baked files. OnRootMismatch: hicache already holds 64G;
+    # skip the recursive chown walk on every future restart once the root matches.
+    fsGroup: 10001
+    fsGroupChangePolicy: OnRootMismatch
+    supplementalGroups:
+      - 44
+      - 226
+    seccompProfile:
+      type: Unconfined
+  modelCache:
+    claimName: qwen36-27b-model-cache
+  sglangConfig:
+    contextLength: 180000
+    # HARD CEILING: the R9700 is shared with Jellyfin transcoding, raising this fails
+    # media workloads. 0.95 grows the pool 183,240 -> 261,019 tokens but OOMs on a
+    # 13.8K-token prefill (2026-07-25).
+    memFractionStatic: 0.875
+    # No maxRunningRequests: the mamba clamp below always wins over a requested value
+    # (resolve_max_num_reqs), so setting one here would only misstate the real ceiling.
+    chunkedPrefillSize: 4096
+    # No tensorParallelSize (1 is the default) or quantization: config.json carries
+    # quant_method awq and dtype bfloat16, both auto-detected; awq_marlin, the one override
+    # that could diverge, hard-returns False off CUDA (awq.py:388). Raising TP also means
+    # re-adding the flags dropped as TP=1 no-ops under extraArgs. kvCacheDtype does NOT
+    # auto-detect -- it buys the pool.
+    kvCacheDtype: fp8_e4m3
+    reasoningParser: qwen3
+  resources:
+    cpu: "2"
+    hostMemory: 24Gi
+  env:
+    # No *_VISIBLE_DEVICES/GPU_DEVICE_ORDINAL: the device plugin hands over one render node
+    # (card0 + renderD128) and torch sees one device, so "0" was the identity mapping x4.
+    # $HOME/.cache/flashinfer/<ver>/ is root-owned in the image (a build-time
+    # `import torch, sglang, sgl_kernel` verification step triggers flashinfer's JIT
+    # logger init as root, before the runtime user exists) -- uid 10001 can enter it
+    # (0755) but not write the JIT log, crashing at import. Redirect off $HOME entirely.
+    - name: FLASHINFER_WORKSPACE_BASE
+      value: /tmp
+    - name: TRITON_CACHE_DIR
+      value: /cache/sglang/triton
+    # Required at TP=1: LLMKube runs launch_server directly, bypassing the image's
+    # entrypoint.sh/gpu-selection.sh, the only place this is normally set. Without it the
+    # JIT store_cache kernel crashes on first request (kvcache.cuh:204).
+    - name: SGLANG_RDNA4_DISABLE_STORE_CACHE
+      value: "1"
+    # Page names encode neither the weights revision nor the engine, so this suffix MUST be
+    # bumped with the image digest above or the AWQ revision, or stale KV pages get served.
+    # SGLang's own per-model cache key (config_suffix, HiCacheFile.__init__) only covers
+    # --served-model-name/TP, which stays "qwen-3.6" across bumps -- it doesn't catch this.
+    # Its evictor only manages its own configured path, so the old suffix's directory is
+    # orphaned on every bump; the qwen36-27b-hicache-prune CronJob above reclaims it.
+    - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
+      value: /hicache/sglang-v0.5.16_awq-f541031d_fork-cb7b760
+    # Unset defaults to unbounded. 64Gi made L3 write-only: it evicted every entry before
+    # it was read back. 128Gi didn't fix it either -- the store still sat at ~99% full
+    # continuously (2026-08-04 measurement), so it was still evicting under write
+    # pressure just as before, only less visibly. 192Gi gives real headroom: control-1's
+    # /var had 268.7Gi free and SSD_Pool (backing the zvol) had 364Gi free at time of
+    # writing. Deliberately above the PVC's nominal 64Gi -- hostpath enforces no quota
+    # and openebs-hostpath cannot expand, so this env var is the real bound.
+    - name: SGLANG_HICACHE_FILE_BACKEND_MAX_SIZE
+      value: 192Gi
+    # MAX_SIZE is blind to the other tenants of control-1's shared root, so hold a floor
+    # above kubelet's nodefs eviction threshold: refuse writes rather than fill the disk.
+    # 160Gi, not 100Gi: rook-ceph's mon-c store shares this 500G filesystem and MON_DISK_LOW
+    # fires below 30% avail (150Gi), which a 100Gi floor guarantees (2026-08-06).
+    - name: SGLANG_HICACHE_FILE_BACKEND_MIN_FREE_SPACE
+      value: 160Gi
+    # Not the eviction trigger despite the log's wording: eviction fires at MAX_SIZE and
+    # this is the low-water mark it drains to. Higher = warmer cache, more frequent passes.
+    - name: SGLANG_HICACHE_FILE_BACKEND_EVICTION_RATIO
+      value: "0.95"
+    # Without this a lookup miss walks the whole store with os.scandir. The startup scan it
+    # adds is one os.listdir, not a per-file stat. Off by default.
+    - name: SGLANG_HICACHE_FILE_BACKEND_ENABLE_METADATA_CACHE
+      value: "1"
+    # The 5s default expires every entry the startup scan just inserted; -1 never expires.
+    - name: SGLANG_HICACHE_FILE_BACKEND_METADATA_TTL
+      value: "-1"
+  extraVolumes:
+    - name: triton-cache
+      persistentVolumeClaim:
+        claimName: qwen36-27b-triton-cache
+    - name: hicache
+      persistentVolumeClaim:
+        claimName: qwen36-27b-hicache
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 8Gi
+  extraVolumeMounts:
+    - name: triton-cache
+      mountPath: /cache
+    - name: hicache
+      mountPath: /hicache
+    - name: dshm
+      mountPath: /dev/shm
+  probeOverrides:
+    # SGLang's health endpoint is suitable for startup; keep liveness inert so
+    # long model loads or transient GPU work cannot trigger a restart.
+    startup:
+      httpGet:
+        path: /health
+        port: 30000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 120
+    liveness:
+      exec:
+        command:
+          - "true"
+      # Inert probe; hourly period avoids a pointless CRI exec every 10s.
+      periodSeconds: 3600
+    readiness:
+      tcpSocket:
+        port: 30000
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
+  extraArgs:
+    # Dropped as no-ops at TP=1 on this checkpoint: --dtype bfloat16 (auto-resolves),
+    # --trust-remote-code (no auto_map, no .py files), --pre-warm-nccl (gated on tp/pp/ep>1,
+    # bootstrap.py:109), --disable-custom-all-reduce (never built at world_size 1, :438).
+    - --num-continuous-decode-steps
+    - "16"
+    - --watchdog-timeout
+    - "600"
+    - --attention-backend
+    - triton
+    - --chat-template
+    - /opt/rdna4-inference/scripts/qwen3.6_devrole_chat_template.jinja
+    - --tool-call-parser
+    - qwen3_coder
+    - --disable-overlap-schedule
+    - --cuda-graph-backend-decode=disabled
+    - --cuda-graph-backend-prefill=disabled
+    # Mamba slots and KV tokens share one byte budget (unified_memory_pool.py), so unused
+    # slots are KV tokens forgone: 4.46G/60 slots = 74.3MB each vs 5.60G/183,240 KV tokens.
+    # 14d utilization (3643 5m samples): slots hit 32 in only 2 samples (0.055%), never higher.
+    # 32 matches the observed peak with zero margin, freeing 16 slots (~1.2G) to the KV pool.
+    - --max-mamba-cache-size
+    - "32"
+    - --served-model-name
+    - qwen-3.6
+    - --mamba-ssm-dtype
+    - bfloat16
+    - --max-queued-requests
+    - "32"
+    - --weight-loader-drop-cache-after-load
+    - --enable-hierarchical-cache
+    - --hicache-io-backend
+    - direct
+    - --hicache-ratio
+    - "1.5"
+    - --model-loader-extra-config
+    - '{"num_threads":2}'
+    - --enable-mixed-chunk
+    # Without this SGLang returns prompt_tokens_details:None and hermes logs
+    # cache_read_tokens=0 regardless of the real hit rate.
+    - --enable-cache-report
+    # Promote only on hit_count >= 2. page_size is pinned at 1 by mamba no_buffer, so
+    # write_through is ~1 file per prompt token, which halved per-request decode.
+    - --hicache-write-policy
+    - write_through_selective
+    - --hicache-storage-backend
+    - file

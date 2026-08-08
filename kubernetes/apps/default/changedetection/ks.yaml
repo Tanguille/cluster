@@ -8,7 +8,7 @@ metadata:
 spec:
   targetNamespace: *namespace
   components:
-    - ../../../../components/volsync
+    - ../../../../components/kopiur
   path: ./kubernetes/apps/default/changedetection/app
   prune: true
   sourceRef:
@@ -20,4 +20,7 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 2Gi
+      PVC_CAPACITY: 2Gi
+      KOPIUR_PUID: "0"
+      KOPIUR_PGID: "0"
+      KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"

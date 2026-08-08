@@ -40,4 +40,4 @@ The docs note that **modules loaded only via `shared_preload_libraries`** still 
 - **Custom** extension images (e.g. vchord) are **not** in the stock community catalog; you either maintain a **custom `ImageCatalog`** that references your operand + vchord images, or keep **direct `image.reference`** overrides on the `Cluster` (supported: catalog defaults can be overridden per cluster).
 - Migrating from **`imageName`** → **`imageCatalogRef`** is a **planned** change (recovery, bootstrap, and image digests must stay consistent).
 
-For day-to-day tuning context, see also `postgres-mcp-stats-and-pg-stat-statements.md`.
+For day-to-day tuning context, see also `pg-stat-statements-and-monitoring-roles.md`.

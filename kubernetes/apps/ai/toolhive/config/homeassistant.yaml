@@ -1,72 +1,10 @@
----
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
-  name: &name homeassistant
+  name: homeassistant
 spec:
-  image: ghcr.io/homeassistant-ai/ha-mcp:7.9.0@sha256:eb7cf2349e4ad99d8a0a55447e8c67a942d35602d9cb455649ff0063de6dfa09
-  transport: streamable-http
-  mcpPort: &port 8086
-  proxyPort: 8080
-  groupRef:
-    name: homeassistant
-  env:
-    - name: HOMEASSISTANT_URL
-      value: http://${HOME_ASSISTANT_IP}:8123
-    - name: FASTMCP_HOST
-      value: "0.0.0.0"
-    - name: TMPDIR
-      value: /tmp
-  secrets:
-    - name: toolhive-secrets
-      key: HOMEASSISTANT_API_TOKEN
-      targetEnvName: HOMEASSISTANT_TOKEN
-  toolConfigRef:
-    name: *name
-  podTemplateSpec:
-    spec:
-      volumes:
-        - name: tmp
-          emptyDir: {}
-      containers:
-        - name: mcp
-          command: ["fastmcp", "run", "fastmcp-http.json"]
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
-          ports:
-            - name: mcp
-              containerPort: *port
-          startupProbe:
-            tcpSocket:
-              port: mcp
-            periodSeconds: 2
-            failureThreshold: 30
-          readinessProbe:
-            tcpSocket:
-              port: mcp
-            periodSeconds: 3
-            timeoutSeconds: 2
-            failureThreshold: 3
-          resources:
-            requests: &requests
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 1
-              memory: 256Mi
-  resources:
-    requests: *requests
-    limits:
-      cpu: 200m
-      memory: 128Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPServer
-metadata:
-  name: homeassistant-opt
-spec:
-  image: ghcr.io/homeassistant-ai/ha-mcp:7.9.0@sha256:eb7cf2349e4ad99d8a0a55447e8c67a942d35602d9cb455649ff0063de6dfa09
+  image: ghcr.io/homeassistant-ai/ha-mcp:8.1.1@sha256:e1d76a6ee54e26054a13a6c04089824b76d4d370246239591a02a2e4445ad2c9
   transport: streamable-http
   mcpPort: 8086
   proxyPort: 8080
@@ -83,8 +21,6 @@ spec:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
       targetEnvName: HOMEASSISTANT_TOKEN
-  toolConfigRef:
-    name: homeassistant
   podTemplateSpec:
     spec:
       volumes:
@@ -116,7 +52,7 @@ spec:
               memory: 64Mi
             limits:
               cpu: 1
-              memory: 256Mi
+              memory: 512Mi
   resources:
     requests:
       cpu: 10m
@@ -124,10 +60,3 @@ spec:
     limits:
       cpu: 200m
       memory: 128Mi
----
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: homeassistant
-spec:
-  toolsFilter: []

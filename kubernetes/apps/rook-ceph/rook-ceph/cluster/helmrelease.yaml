@@ -39,35 +39,44 @@ spec:
             namespace: network
     cephImage:
       repository: quay.io/ceph/ceph
-      tag: v20.2.2@sha256:6b4b5ae33acd3d736eb26d2a19238bce71a22f9cfb99cca887ba6312d0957644
+      tag: v20.2.3@sha256:d195020de02512030118e772cef7859e92904e91eb4cb21acb503f8b94118137
     cephClusterSpec:
       cephConfig:
         global:
-          bdev_enable_discard: "true" # string value required
-          bdev_async_discard_threads: "1" # string value required
-          osd_class_update_on_start: "false" # string value required
+          # Rook rejects non-string cephConfig values.
+          bdev_enable_discard: "true"
+          bdev_async_discard_threads: "1"
+          osd_class_update_on_start: "false"
           device_failure_prediction_mode: local # requires mgr module
           # Network optimization for 2.5Gbps
           ms_osd_compress_min_size: "1024"
           ms_osd_compression_algorithm: snappy
+          # Auto-archive Ceph crashes after 1 day (86400 seconds)
+          mgr/crash/warn_recent_interval: "86400"
+        mon:
+          # Suppress pgmap/audit debug spam; keeps INF/WRN/ERR (was debug).
+          mon_cluster_log_level: info
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
-      crashCollector:
-        disable: false
+      # Off: the sidecar duplicates to host disk what daemons already write to stdout and
+      # victoria-logs already collects. It also costs a 100Mi request on every ceph daemon
+      # pod, which is what left rook-ceph-exporter-control-2 unschedulable (2026-08-06).
+      logCollector:
+        enabled: false
       csi:
         readAffinity:
           enabled: true
       dashboard:
-        enabled: true
         urlPrefix: /
         ssl: false
         prometheusEndpoint: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
       mgr:
         modules:
+          # Active mgr holds 4Gi vs 189Mi on the standby; both optional modules dropped
           - name: diskprediction_local
-            enabled: true
+            enabled: false
           - name: insights
-            enabled: true
+            enabled: false
           - name: pg_autoscaler
             enabled: true
           - name: rook
@@ -95,7 +104,6 @@ spec:
         mgr:
           requests:
             cpu: "200m"
-            memory: "512Mi"
           limits:
             memory: "2Gi"
       storage:
@@ -153,8 +161,6 @@ spec:
     cephBlockPoolsVolumeSnapshotClass:
       enabled: true
       name: csi-ceph-blockpool
-      isDefault: false
-      deletionPolicy: Delete
     cephFileSystems:
       - name: &cephFileSystemName ceph-filesystem
         spec:
@@ -192,9 +198,7 @@ spec:
                 memory: "4Gi"
         storageClass:
           enabled: true
-          isDefault: false
           name: ceph-filesystem
-          pool: data0
           reclaimPolicy: Delete
           allowVolumeExpansion: true
           volumeBindingMode: Immediate
@@ -210,5 +214,4 @@ spec:
       enabled: true
       name: csi-ceph-filesystem
       isDefault: false
-      deletionPolicy: Delete
     cephObjectStores: []

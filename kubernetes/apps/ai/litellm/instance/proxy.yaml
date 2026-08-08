@@ -1,0 +1,75 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmproxy_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMProxy
+metadata:
+  name: litellm
+spec:
+  image: ghcr.io/berriai/litellm:v1.95.0@sha256:af806882b7a6ced41658db5b6a7e98ed7b9b51d03b935e0417bf1c8552d688af
+  applyMode: api
+  replicas: 2
+  apiAccess:
+    masterKeyRef:
+      name: litellm-secret
+      key: LITELLM_MASTER_KEY
+  service:
+    port: 80
+  envFrom:
+    - secretRef:
+        name: litellm-secret
+  # Measured cold start ~81s; the chart's ~40s grace kills prisma-migrate.
+  livenessProbe:
+    httpGet:
+      path: /health/liveliness
+      port: 4000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 10
+    timeoutSeconds: 5
+  readinessProbe:
+    httpGet:
+      path: /health/readiness
+      port: 4000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 10
+    timeoutSeconds: 5
+  litellmSettings:
+    callbacks: ["prometheus"]
+    service_callback: ["prometheus_system"]
+    # Embeddings only — chat is near-unique per turn (~0 hit rate). vmcp re-embeds
+    # the same ~194 tool descriptions every MCP initialize.
+    cache: true
+    cache_params:
+      type: redis
+      host: dragonfly.database.svc.cluster.local
+      port: 6379
+      supported_call_types: ["embedding", "aembedding"]
+      ttl: 604800 # 7d; tool descriptions are stable, dragonfly runs cache_mode (LRU)
+    drop_params: true
+    num_retries: 0
+  routerSettings:
+    # Per-error override of num_retries: 0 — a dropped SGLang connection costs a
+    # whole Hermes cron run. Timeouts stay at 0: re-running a ~100K prefill that
+    # already burned 900s only deepens the contention that caused it.
+    retry_policy:
+      InternalServerErrorRetries: 2
+    # omniroute's free providers have no SLA and can fail/time out without
+    # warning; fall back to the self-hosted (slower but always-available)
+    # qwen-3.6-fast alias so a flaky free provider doesn't take out the PR
+    # review action.
+    fallbacks:
+      - omniroute: ["qwen-3.6-fast"]
+  route:
+    hostnames:
+      - "litellm.${SECRET_DOMAIN}"
+    parentRefs:
+      - name: envoy-internal
+        namespace: network
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi # measured ~1.05GiB usage, was invisible to the scheduler at 512Mi
+    limits:
+      cpu: 2
+      memory: 5Gi

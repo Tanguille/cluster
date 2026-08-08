@@ -10,8 +10,6 @@ spec:
     name: crowdsec
   interval: 1h
   values:
-    podAnnotations:
-      reloader.stakater.com/auto: "true"
     container_runtime: containerd
     config:
       parsers:
@@ -67,6 +65,14 @@ spec:
               reason: "envoy bouncer response to already banned ips"
               expression:
                 - "evt.Meta.http_status == '418'"
+          jellyfin-crawl-whitelist.yaml: |-
+            name: hydaz/jellyfin-crawl-whitelist
+            description: "Jellyfin clients fan out to dozens of unique /HomeScreen/CachedImage URIs per page load, which reads as http-crawl-non_statics"
+            filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log' && evt.Meta.target_fqdn == 'jellyfin.${SECRET_DOMAIN}'"
+            whitelist:
+              reason: "successful jellyfin api traffic"
+              expression:
+                - "evt.Meta.http_status startsWith '2' or evt.Meta.http_status startsWith '3'"
       config.yaml.local: |-
         api:
           server:
@@ -82,14 +88,6 @@ spec:
           db_name: $${DB_NAME}
           host: $${DB_HOST}
           port: 5432
-      agent_config.yaml.local: |-
-        api:
-          client:
-            unregister_on_exit: false
-      appsec_config.yaml.local: |-
-        api:
-          client:
-            unregister_on_exit: true
       profiles.yaml: |-
         name: default_ip_remediation
         debug: false
@@ -99,14 +97,18 @@ spec:
           - type: ban
             duration: 24h
         on_success: break
+    tls:
+      enabled: true
+      certManager:
+        # appsec-certificate.yaml emits secretTemplate.annotations unconditionally;
+        # empty renders as null and cert-manager rejects it, so keep one entry here
+        secretTemplate:
+          annotations:
+            app.kubernetes.io/managed-by: crowdsec
     lapi:
-      # Create/verify the crowdsec Postgres database before LAPI starts
-      extraInitContainers:
-        - name: init-db
-          image: ghcr.io/home-operations/postgres-init:18
-          envFrom:
-            - secretRef:
-                name: crowdsec-secret
+      # Reloader reads workload metadata, not pod-template annotations
+      deployAnnotations:
+        reloader.stakater.com/auto: "true"
       # CPU only: chart default 500m vs ~13m observed; memory left at chart default
       resources:
         requests:
@@ -116,6 +118,9 @@ spec:
       env:
         - name: TZ
           value: ${TIMEZONE}
+        # LAPI defaults to agent-ou only; the appsec client cert carries appsec-ou
+        - name: AGENTS_ALLOWED_OU
+          value: agent-ou,appsec-ou
         - name: ENROLL_INSTANCE_NAME
           value: cluster
         - name: DB_TYPE
@@ -131,19 +136,13 @@ spec:
         config:
           enabled: false
       metrics:
-        enabled: true
         serviceMonitor:
           enabled: true
     agent:
+      daemonsetAnnotations:
+        reloader.stakater.com/auto: "true"
       startupProbe:
-        httpGet:
-          path: /metrics
-          port: metrics
-          scheme: HTTP
         initialDelaySeconds: 30
-        periodSeconds: 10
-        successThreshold: 1
-        timeoutSeconds: 5
         failureThreshold: 60
       resources:
         requests:
@@ -163,8 +162,23 @@ spec:
         - name: TZ
           value: ${TIMEZONE}
       metrics:
-        enabled: true
         serviceMonitor:
           enabled: true
     appsec:
-      enabled: false
+      enabled: true
+      deployAnnotations:
+        reloader.stakater.com/auto: "true"
+      # Serves the envoy bouncer's WAF calls on crowdsec-appsec-service:7422
+      acquisitions:
+        - source: appsec
+          listen_addr: 0.0.0.0:7422
+          path: /
+          appsec_config: crowdsecurity/appsec-default
+          labels:
+            type: appsec
+      env:
+        - name: COLLECTIONS
+          value: crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+      metrics:
+        serviceMonitor:
+          enabled: true

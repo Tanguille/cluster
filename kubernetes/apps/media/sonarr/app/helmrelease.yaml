@@ -13,25 +13,19 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: affinity-control-1
+    - kind: ConfigMap
+      name: nfs-media
 
   values:
     controllers:
       sonarr:
         annotations:
           reloader.stakater.com/auto: "true"
-        initContainers:
-          init-db:
-            image:
-              repository: ghcr.io/home-operations/postgres-init
-              tag: 18
-            envFrom: &envFrom
-              - secretRef:
-                  name: sonarr-secret
         containers:
           app:
             image:
               repository: ghcr.io/home-operations/sonarr
-              tag: 4.0.18.2978@sha256:2cd77fb3d81909a734d61bb8f71462044cb9d2f187e626a28a05a5c4e4be8fd2
+              tag: 4.0.19.2997@sha256:01db3e6a923f6e0f3a217baa94b4660cf2f9b45d4166b2fc8c20c67c5221cb78
             env:
               SONARR__AUTH__METHOD: External
               SONARR__AUTH__REQUIRED: DisabledForLocalAddresses
@@ -44,7 +38,9 @@ spec:
               SONARR__UPDATE__BRANCH: develop
               SONARR__AUTH__APIKEY: ${SONARR_API_KEY}
               TZ: ${TIMEZONE}
-            envFrom: *envFrom
+            envFrom:
+              - secretRef:
+                  name: sonarr-secret
 
             probes:
               liveness: &probes
@@ -83,7 +79,6 @@ spec:
               capabilities: { drop: ["ALL"] }
 
     defaultPodOptions:
-      enableServiceLinks: false
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -123,11 +118,3 @@ spec:
       tmp:
         type: emptyDir
         medium: Memory
-
-      media:
-        type: nfs
-        server: ${TRUENAS_IP}
-        path: ${MEDIA_NFS_PATH}
-        globalMounts:
-          - path: /media
-            readOnly: false

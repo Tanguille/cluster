@@ -5,9 +5,7 @@
 # It is not intended to be used with helmfile apply or helmfile sync.
 
 # Command:
-# helmfile --file bootstrap/helmfile.d/00-crds.yaml template |
-# yq eval-all --exit-status 'select(.kind == "CustomResourceDefinition") |
-# kubectl apply --server-side --filename -
+# helmfile --file bootstrap/helmfile.d/00-crds.yaml template | yq eval-all --exit-status 'select(.kind == "CustomResourceDefinition")' | kubectl apply --server-side --filename -
 
 helmDefaults:
   args:
@@ -23,7 +21,7 @@ releases:
   - name: envoy-gateway
     namespace: network
     chart: oci://mirror.gcr.io/envoyproxy/gateway-helm
-    version: v1.8.2
+    version: 1.8.3
 
   - name: grafana-operator
     namespace: observability
@@ -33,9 +31,9 @@ releases:
   - name: prometheus-operator-crds
     namespace: observability
     chart: oci://ghcr.io/prometheus-community/charts/prometheus-operator-crds
-    version: 30.0.1
+    version: 31.0.0
 
   - name: keda
     namespace: observability
     chart: oci://ghcr.io/home-operations/charts-mirror/keda
-    version: 2.20.1
+    version: 2.20.2

@@ -1,0 +1,13 @@
+---
+# talosctl is 96MiB and the Flate pull job runs on ~400 container PRs a month.
+# RWX so all runner pods share one copy per version; the workflow verifies and prunes.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: runner-tool-cache
+spec:
+  storageClassName: ceph-filesystem
+  accessModes: ["ReadWriteMany"]
+  resources:
+    requests:
+      storage: 2Gi

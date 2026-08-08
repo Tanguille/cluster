@@ -1,0 +1,54 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: ${APP}
+spec:
+  repository:
+    kind: ClusterRepository
+    name: kopia-nas
+  sources:
+    - pvc:
+        name: ${APP}
+      # The fork's mover always recorded /data regardless of the app's real
+      # mount path — kopiur's own default (/pvc/<name>) would start a new
+      # identity strand instead of continuing the adopted history.
+      sourcePathOverride: /data
+  # Explicit identity, not inheritSecurityContextFrom: inheritance looks up
+  # a live pod mounting the PVC, which silently no-ops for any app whose
+  # pod spec doesn't declare a uid (common for s6-overlay/entrypoint
+  # privilege-drop images) and can't work at all for restore (app is
+  # always scaled to 0 first). ${KOPIUR_PUID:=568}/${KOPIUR_PGID:=568}
+  # covers this cluster's default convention; per-app overrides for
+  # anything else (root, or a one-off uid like hermes/karakeep).
+  # KOPIUR_MOVER_CAPS_ADD is only needed for root: DAC_READ_SEARCH bypasses
+  # read-permission checks to read pre-existing files it doesn't own — the
+  # hardened mover baseline drops all capabilities otherwise, and root
+  # alone (no capability) still can't read another uid's files. The whole
+  # substitution token is the list value (not nested inside literal `[]`)
+  # since `${VAR}`'s braces break flow-sequence YAML parsing when nested.
+  mover:
+    securityContext:
+      runAsUser: ${KOPIUR_PUID:=568}
+      runAsGroup: ${KOPIUR_PGID:=568}
+      capabilities:
+        add: ${KOPIUR_MOVER_CAPS_ADD:=[]}
+  # Verification is opt-in and nobody had opted in: snapshots ran hourly for 18d with
+  # LAST-VERIFIED empty on all 18 policies. A repo that stops being restorable reads
+  # identical to a healthy one until the restore. Fixed hour + 3h jitter spreads the
+  # fleet wider than `H 3 * * 0` would (a single hashed minute inside one hour), which
+  # matters because quick verify walks the whole repo.
+  verification:
+    quick:
+      schedule:
+        cron: 0 3 * * 0
+        jitter: 3h
+  compression:
+    compressor: zstd
+  retention:
+    keepHourly: 24
+    keepDaily: 7
+  volumeSnapshotClassName: ${BACKUP_SNAPSHOTCLASS:=csi-ceph-blockpool}
+  credentialProjection:
+    enabled: true

@@ -22,9 +22,6 @@ spec:
     domain: "${SECRET_DOMAIN}"
     ttl: 1
     service:
-      type: LoadBalancer
-      port: 53
       annotations:
         lbipam.cilium.io/ips: ${K8S_GATEWAY_IP}
-      externalTrafficPolicy: Cluster
     watchedResources: ["HTTPRoute", "TLSRoute", "Service"]
