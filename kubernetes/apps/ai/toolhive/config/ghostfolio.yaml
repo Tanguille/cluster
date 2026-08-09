@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: ghostfolio
+spec:
+  image: ghcr.io/mhajder/ghostfolio-mcp:1.5.0@sha256:4436268d0a1604e5bc1c9080f0005e7b5e0b80163803f95519b7a4537cd6660c
+  transport: streamable-http
+  mcpPort: 8000
+  proxyPort: 8080
+  groupRef:
+    name: all
+  env:
+    - name: GHOSTFOLIO_URL
+      value: http://ghostfolio.default.svc.cluster.local:3333
+    # Cautious default: the agent gets read access first; flip once its
+    # recommendations are trusted enough to let it place trades/edit activities.
+    - name: READ_ONLY_MODE
+      value: "true"
+  secrets:
+    - name: toolhive-secrets
+      key: GHOSTFOLIO_TOKEN
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi

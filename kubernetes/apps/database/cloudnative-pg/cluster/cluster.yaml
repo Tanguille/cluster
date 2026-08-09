@@ -79,6 +79,10 @@ spec:
           - pg_monitor
         passwordSecret:
           name: postgres-mcp-db
+      - name: ghostfolio
+        login: true
+        passwordSecret:
+          name: ghostfolio-db
   postgresql:
     parameters:
       wal_level: replica
