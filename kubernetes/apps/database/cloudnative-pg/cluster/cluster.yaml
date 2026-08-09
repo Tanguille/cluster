@@ -73,15 +73,7 @@ spec:
         passwordSecret:
           name: crowdsec-db
       - name: postgres-mcp
-        login: true
-        # Read-only tuning visibility (pg_stat_statements, pg_statio_*), no app database of its own.
-        # Currently unused: crystaldba/postgres-mcp's bundled mcp SDK (1.6.0) crashes on the
-        # server/discover handshake ToolHive's client sends by default, so it can't join the
-        # vmcp gateway. Kept for whichever maintained postgres MCP server replaces it.
-        inRoles:
-          - pg_monitor
-        passwordSecret:
-          name: postgres-mcp-db
+        ensure: absent
   postgresql:
     parameters:
       wal_level: replica
