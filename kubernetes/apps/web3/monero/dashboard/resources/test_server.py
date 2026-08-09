@@ -91,5 +91,26 @@ class DownsampleTest(unittest.TestCase):
         self.assertEqual(out["myHash"], [])
 
 
+class BreakGapsTest(unittest.TestCase):
+    def window(self, stamps):
+        return {"timestamps": list(stamps), **{k: [1.0] * len(stamps) for k in server.SERIES}}
+
+    def test_a_stall_becomes_a_null_the_chart_can_break_on(self):
+        # Steady 10s cadence, then an hour with no logger, then steady again.
+        stamps = [0, 10, 20, 30, 3630, 3640, 3650]
+
+        out = server.break_gaps(self.window(stamps))
+
+        self.assertEqual(out["myHash"].count(None), 1)
+        gap_at = out["myHash"].index(None)
+        self.assertTrue(30 < out["timestamps"][gap_at] < 3630)
+
+    def test_an_evenly_sampled_window_is_left_alone(self):
+        out = server.break_gaps(self.window(range(0, 100, 10)))
+
+        self.assertNotIn(None, out["myHash"])
+        self.assertEqual(len(out["timestamps"]), 10)
+
+
 if __name__ == "__main__":
     unittest.main()
