@@ -283,7 +283,10 @@ def load_log_disk():
         # the bucketer so the long ranges are not blank for the first three months.
         if not rollup["timestamps"] and log["timestamps"]:
             columns = {k: list(log[k]) for k in SERIES}
-            for i, ts in enumerate(list(log["timestamps"])):
+            # A ragged column (missing/short series in stats_log.json) must not
+            # index past its own length and crash startup before the HTTP server binds.
+            usable = min(len(log["timestamps"]), *(len(c) for c in columns.values()))
+            for i, ts in enumerate(list(log["timestamps"])[:usable]):
                 accumulate_rollup(ts, {k: columns[k][i] for k in SERIES})
             print(f"Seeded {len(rollup['timestamps'])} rollup buckets from the 24h log")
 

@@ -642,17 +642,22 @@ function initOrUpdateChart(canvas, chartState, stateKey, chartConfig) {
  * request costs the same on the wire as a 1h one.
  */
 function fetchChartWindow() {
-  return fetchJSON(`/stats_history.json?hours=${state.currentRangeHours}`);
+  const hours = state.currentRangeHours;
+  return fetchJSON(`/stats_history.json?hours=${hours}`).then((data) =>
+    data ? { ...data, hours } : data
+  );
 }
 
 /** Draw an already-fetched window; a null response leaves the last one up. */
-function applyChartWindow(window) {
-  if (!isValidObject(window) || !Array.isArray(window.timestamps)) return;
+function applyChartWindow(payload) {
+  if (!isValidObject(payload) || !Array.isArray(payload.timestamps)) return;
+  // A slower response for a range the user has since left must not redraw.
+  if (payload.hours !== state.currentRangeHours) return;
 
   state.chartWindow = {
-    labels: window.timestamps.map((t) => t * 1000),
-    myHash: window.myHash || [],
-    price: window.price || []
+    labels: payload.timestamps.map((t) => t * 1000),
+    myHash: payload.myHash || [],
+    price: payload.price || []
   };
   initializeCharts();
 }
