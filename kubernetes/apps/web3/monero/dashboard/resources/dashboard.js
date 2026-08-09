@@ -1228,7 +1228,9 @@ async function updateStats() {
 
   // Config is fetched once at boot; a tab opened while the backend was down
   // would otherwise stay stuck on "Observer not configured" until reloaded.
-  if (!isObserverReady()) await loadObserverConfig();
+  // Unawaited: initialize() already blocks on it, so this is only the retry
+  // path, and it must not sit in front of every poll when the wallet is unset.
+  if (!isObserverReady()) loadObserverConfig();
 
   try {
     const [
