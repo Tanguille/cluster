@@ -36,6 +36,13 @@ spec:
                   secretKeyRef:
                     name: ghostfolio-secret
                     key: DATABASE_URL
+              # pgbouncer-rw runs in transaction mode; Prisma migrations need session-level
+              # continuity (advisory locks), so they go straight at CNPG, bypassing the pooler.
+              DIRECT_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: DIRECT_URL
               ACCESS_TOKEN_SALT:
                 valueFrom:
                   secretKeyRef:

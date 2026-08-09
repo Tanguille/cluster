@@ -37,9 +37,13 @@ duplicate the shared-cluster convention already in place).
 - Env (from Ghostfolio's own `.env.example`):
   - `REDIS_HOST=dragonfly.database.svc.cluster.local`, `REDIS_PORT=6379` (no Dragonfly auth
     configured cluster-wide, so no `REDIS_PASSWORD`).
-  - `DATABASE_URL=postgresql://ghostfolio:$(GHOSTFOLIO_DB_PASSWORD)@pgbouncer-rw.database.svc.cluster.local:5432/ghostfolio?connect_timeout=300`
-    — password sourced from `ghostfolio-secret` (`secretKeyRef`), same shape as other apps'
-    `DATABASE_URL` construction in this repo.
+  - `DATABASE_URL` — full `postgresql://ghostfolio:<password>@pgbouncer-rw.database.svc.cluster.local:5432/ghostfolio?connect_timeout=300`
+    connection string, password baked in directly, stored whole in `ghostfolio-secret`
+    (`secretKeyRef`) — Ghostfolio reads `DATABASE_URL` as one opaque string, not
+    template pieces, so there's no separate password env to interpolate.
+  - `DIRECT_URL` — same connection string but pointed at `postgres16-rw` (the CNPG cluster's own
+    service), bypassing `pgbouncer-rw`. Required because the pooler runs in `transaction` mode and
+    Prisma migrations need session-level continuity (advisory locks) that mode doesn't provide.
   - `ACCESS_TOKEN_SALT`, `JWT_SECRET_KEY` — random strings, generated at implementation time and
     stored in `app/secret.sops.yaml`.
 - `route`: internal HTTPRoute via `envoy-internal`, homepage annotations — mirror karakeep.
@@ -74,6 +78,19 @@ duplicate the shared-cluster convention already in place).
   DB/Redis declares (now added, with `wait: true` to match `nextcloud`).
 - Opened as a **draft** PR (explicit user request, despite this being the primary repo rather than
   an upstream one).
+- Rebased onto `main` after it moved (a `postgres-mcp` toolhive server and a crowdsec rule change
+  landed concurrently) — resolved conflicts in the shared CNPG role list, its kustomization, and
+  `toolhive-secrets` (re-added `GHOSTFOLIO_TOKEN` via `sops --set` onto main's version rather than
+  text-merging ciphertext).
+- CodeRabbit's review found real issues, fixed: (1) `ks.yaml` was missing `dependsOn` on
+  `cloudnative-pg-databases` — the `ghostfolio` Database CR is applied by that Kustomization, not
+  `cloudnative-pg-cluster`; (2) missing `DIRECT_URL` — `pgbouncer-rw` runs in `transaction` mode,
+  which doesn't support the session-level continuity Prisma migrations need, so migrations need a
+  direct path to `postgres16-rw`; (3) doc accuracy: CoinGecko MCP attribution, an unsupported ToS
+  enforcement-risk claim, and stale recommendations superseded by the actual deployed shape — all
+  corrected in `docs/financial-tracking-research.md`. One finding (add `ROOT_URL`) was verified
+  against Ghostfolio's own source and `.env.example` and found to not exist as a real config
+  variable — skipped as a false positive.
 
 **Manual follow-up after Flux reconciles** (not scriptable from the PR):
 1. Log into Ghostfolio's first-run setup and create the account.
