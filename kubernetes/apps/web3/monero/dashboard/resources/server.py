@@ -19,6 +19,7 @@ import time
 import argparse
 import threading
 import signal
+import statistics
 import sys
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -69,6 +70,15 @@ MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.
 
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
+
+def num(v):
+    """Coerce a series value to a finite float.
+
+    xmrig reports hashrate.total[0] as null while the miner is idle, and that
+    null reaches both tiers: it breaks accumulate_rollup's += and downsample's
+    sum(). Idle means 0 H/s, so clamp it here rather than at every consumer.
+    """
+    return float(v) if isinstance(v, (int, float)) and math.isfinite(v) else 0.0
 
 def new_series():
     """Empty column store. deque gives O(1) eviction from the left."""
@@ -245,7 +255,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # The 10s log only reaches back MAX_LOG_AGE; beyond that the rollup is
         # the only source, and inside it the fine samples give a truer shape.
         source = log if hours * 3600 <= MAX_LOG_AGE else rollup
-        self.send_json(downsample(source, hours))
+        self.send_json(break_gaps(downsample(source, hours)))
 
     def proxy_observer_api(self):
         """Proxy requests to p2pool.observer API to avoid CORS issues in browser.
@@ -270,8 +280,10 @@ def load_tier(path, target):
     try:
         with open(path) as f:
             data = json.load(f)
-        for k in target:
-            target[k] = deque(data.get(k, []))
+        target["timestamps"] = deque(data.get("timestamps", []))
+        # Files written before num() existed still hold nulls from an idle miner.
+        for k in SERIES:
+            target[k] = deque(num(v) for v in data.get(k, []))
         print(f"Loaded {len(target['timestamps'])} entries from {os.path.basename(path)}")
     except Exception as e:
         print(f"Error reading {os.path.basename(path)}, starting fresh: {e}")
@@ -321,7 +333,7 @@ def append_log(myHash, poolHash, netHash, price):
     """
     ts = int(time.time())
     cutoff = ts - MAX_LOG_AGE
-    values = {"myHash": myHash, "poolHash": poolHash, "netHash": netHash, "price": price}
+    values = dict(zip(SERIES, map(num, (myHash, poolHash, netHash, price))))
     with log_lock:
         log["timestamps"].append(ts)
         for k in SERIES:
@@ -359,6 +371,30 @@ def downsample(source, hours, max_points=CHART_MAX_POINTS):
         for k in SERIES:
             chunk = series[k][i:i + width]
             out[k].append(sum(chunk) / len(chunk) if chunk else 0)
+    return out
+
+def break_gaps(window, tolerance=3):
+    """Insert a null datum wherever sampling stopped, so the chart breaks there.
+
+    Chart.js draws a straight segment through missing points, which renders a
+    logger outage as steady mining at the pre-outage rate. The threshold is the
+    window's own median step rather than a tier constant, so it self-calibrates
+    across both retention tiers and every range.
+    """
+    stamps = window["timestamps"]
+    if len(stamps) < 3:
+        return window
+    limit = tolerance * statistics.median(b - a for a, b in zip(stamps, stamps[1:]))
+
+    out = new_empty_window()
+    for i, ts in enumerate(stamps):
+        if i and ts - stamps[i - 1] > limit:
+            out["timestamps"].append(stamps[i - 1] + (ts - stamps[i - 1]) // 2)
+            for k in SERIES:
+                out[k].append(None)
+        out["timestamps"].append(ts)
+        for k in SERIES:
+            out[k].append(window[k][i])
     return out
 
 def new_empty_window():
@@ -405,8 +441,15 @@ def log_loop():
                     pool = json.load(f)
                 poolHash = pool["pool_statistics"]["hashRate"]
 
-                xmrig = xmrig_future.result()
-                myHash = xmrig["hashrate"]["total"][0]
+                # KEDA scales xmrig to 0 replicas without excess solar, so an
+                # unreachable miner is the normal night-time state, not an error.
+                # Raising here discarded the whole sample — price, pool and
+                # network hashrate included — so every idle stretch became a hole
+                # in the log that the charts then bridged with a straight line.
+                try:
+                    myHash = xmrig_future.result()["hashrate"]["total"][0]
+                except Exception:
+                    myHash = 0.0
 
                 net = net_future.result()
                 netHash = net["result"]["difficulty"] / 120

@@ -702,7 +702,8 @@ function initializeHashrateChart(chartWindow) {
         font: { size: 10 }
       },
       tooltipCallbacks: {
-        label: (ctx) => scaleHashrate(ctx.parsed.y)
+        label: (ctx) =>
+          ctx.parsed.y == null ? "No data" : scaleHashrate(ctx.parsed.y)
       }
     });
   } catch (error) {
@@ -727,7 +728,9 @@ function initializePriceChart(chartWindow) {
         font: { size: 10 }
       },
       tooltipCallbacks: {
-        label: (ctx) => `€${ctx.parsed.y.toFixed(2)}`
+        // The server nulls out logger gaps; hovering one has no price to show
+        label: (ctx) =>
+          ctx.parsed.y == null ? "No data" : `€${ctx.parsed.y.toFixed(2)}`
       }
     });
   } catch (error) {
@@ -1222,6 +1225,10 @@ function updateStatsDisplay(
 
 async function updateStats() {
   if (!state.isTabVisible) return;
+
+  // Config is fetched once at boot; a tab opened while the backend was down
+  // would otherwise stay stuck on "Observer not configured" until reloaded.
+  if (!isObserverReady()) await loadObserverConfig();
 
   try {
     const [

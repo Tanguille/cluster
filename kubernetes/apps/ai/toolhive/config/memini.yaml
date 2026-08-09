@@ -5,7 +5,16 @@ kind: MCPServerEntry
 metadata:
   name: memini
 spec:
-  remoteUrl: http://memini.ai.svc.cluster.local:8080/mcp
+  # ToolHive's SSRF guard rejects any remoteUrl hostname matching a hardcoded blocklist
+  # (localhost, *.cluster.local, kubernetes.default*, metadata.google.internal), by exact
+  # match or suffix — no allow-list escape hatch exists. `.svc` isn't on that list, and the
+  # operator does no DNS resolution to catch what it resolves to, so it passes; the in-cluster
+  # resolver's search path still finds memini.ai.svc.cluster.local via ndots. This is exploiting
+  # an incomplete blocklist, not a supported mechanism — a future ToolHive release tightening
+  # it to `.svc` would break this. If it does, there is no other way to register an in-cluster
+  # MCP-speaking Service through MCPServerEntry/MCPRemoteProxy (both remote-only by design);
+  # MCPServer can't adopt an existing Service either (always deploys its own container).
+  remoteUrl: http://memini.ai.svc:8080/mcp
   transport: streamable-http
   groupRef:
     name: all
