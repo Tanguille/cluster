@@ -8,6 +8,13 @@ spec:
   groups:
     - name: guard.rules
       rules:
+        # Single source for the "xmrig-<node>" Deployment-naming convention — both
+        # alerts below join through this instead of each running their own
+        # label_replace, so a rename only needs to change one expression.
+        # xmrig_guard_rank is always present (one series per configured node,
+        # emitted regardless of query success), unlike xmrig_guard_safe.
+        - record: xmrig_guard_deployment_node
+          expr: label_replace(xmrig_guard_rank, "deployment", "xmrig-$1", "node", "(.*)")
         - alert: XmrigGuardEnforcementBypassed
           # Per-node since each miner is its own Deployment gated on its own node: a global
           # min() would fire whenever any one node is unsafe while another legitimately mines.
@@ -19,11 +26,14 @@ spec:
           expr: |-
             kube_deployment_status_replicas{namespace="web3", deployment=~"xmrig-control-.+"} > 0
             unless on (deployment)
-            label_replace(
-              (xmrig_guard_safe == 1)
-              and on (node) (count by (node) (xmrig_guard_safe) == 1)
-              and on (node) (timestamp(xmrig_guard_safe) >= time() - 120),
-              "deployment", "xmrig-$1", "node", "(.*)"
+            (
+              xmrig_guard_deployment_node
+              and on (node)
+              (
+                (xmrig_guard_safe == 1)
+                and on (node) (count by (node) (xmrig_guard_safe) == 1)
+                and on (node) (timestamp(xmrig_guard_safe) >= time() - 120)
+              )
             )
           for: 10m
           annotations:
@@ -68,14 +78,15 @@ spec:
           # The 67C panic trip skips the dwell, so a miner still running above it means the
           # fast path itself failed (guard wedged, KEDA down, HPA stuck). 70C is the rating, and
           # the drive climbs 1.35C/min at the p99 of 1151 measured starts, so this is roughly
-          # 2.2 minutes of margin. Mirrors XmrigGuardEnforcementBypassed's deployment<->node join
-          # with the regex reversed; the "xmrig-<node>" convention lives in both and must change together.
+          # 2.2 minutes of margin. Mirrors XmrigGuardEnforcementBypassed's deployment<->node join,
+          # both via xmrig_guard_deployment_node.
           expr: |-
             max by (node) (xmrig_guard_nvme_temp_max_celsius) > 67
             and on (node)
-            label_replace(
-              kube_deployment_status_replicas{namespace="web3", deployment=~"xmrig-control-.+"} > 0,
-              "node", "$1", "deployment", "xmrig-(.*)"
+            (
+              xmrig_guard_deployment_node
+              and on (deployment)
+              (kube_deployment_status_replicas{namespace="web3", deployment=~"xmrig-control-.+"} > 0)
             )
           for: 2m
           annotations:

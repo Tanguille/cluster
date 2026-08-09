@@ -104,12 +104,7 @@ spec:
         advancedMounts:
           dashboard:
             web:
-              - path: /usr/share/nginx/html/index.html
-                subPath: dashboard.html
-              - path: /usr/share/nginx/html/dashboard.css
-                subPath: dashboard.css
-              - path: /usr/share/nginx/html/dashboard.js
-                subPath: dashboard.js
+              - path: /usr/share/nginx/html
       dashboard-server-script:
         type: configMap
         name: dashboard-server-script
