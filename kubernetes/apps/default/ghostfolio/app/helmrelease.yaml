@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ghostfolio
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+
+    controllers:
+      ghostfolio:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/ghostfolio/ghostfolio
+              tag: 3.45.0@sha256:6a3fd2566c3bebeb5ce1a875c54333fb84e6fb8975a7b43a1623f2091b3f516b
+            env:
+              PORT: "3333"
+              REDIS_HOST: dragonfly.database.svc.cluster.local
+              REDIS_PORT: "6379"
+              DATABASE_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: DATABASE_URL
+              # pgbouncer-rw runs in transaction mode; Prisma migrations need session-level
+              # continuity (advisory locks), so they go straight at CNPG, bypassing the pooler.
+              DIRECT_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: DIRECT_URL
+              ACCESS_TOKEN_SALT:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: ACCESS_TOKEN_SALT
+              JWT_SECRET_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: JWT_SECRET_KEY
+            probes:
+              liveness: &probes
+                enabled: true
+                spec:
+                  httpGet:
+                    path: /api/v1/health
+                    port: 3333
+              readiness: *probes
+              startup:
+                enabled: true
+                spec:
+                  httpGet:
+                    path: /api/v1/health
+                    port: 3333
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 10m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+
+    service:
+      app:
+        controller: ghostfolio
+        ports:
+          http:
+            port: 3333
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Ghostfolio
+          gethomepage.dev/description: Wealth management
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: ghostfolio.png
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: http
