@@ -21,6 +21,7 @@ import threading
 import signal
 import sys
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from itertools import islice
 from urllib.parse import parse_qs
 
@@ -372,6 +373,10 @@ def save_log_disk():
             json.dump(data, f)
         os.replace(tmp_file, path)
 
+def _fetch_json(request, timeout=5):
+    with urllib.request.urlopen(request, timeout=timeout) as r:
+        return json.load(r)
+
 def log_loop():
     """
     Continuously fetch stats from xmrig, pool, monerod, and XMR price.
@@ -381,40 +386,42 @@ def log_loop():
     Runs in a separate daemon thread.
     """
     last_save = 0
-    while not shutdown_event.is_set():
-        try:
-            # Fetch instantaneous hashrates
-            xmrig = json.loads(
-                urllib.request.urlopen(XMRIG_API_URL, timeout=5).read()
-            )
-            myHash = xmrig["hashrate"]["total"][0]
+    with ThreadPoolExecutor(max_workers=2) as pool_executor:
+        while not shutdown_event.is_set():
+            try:
+                # xmrig and monerod are independent HTTP calls (5s timeout each) —
+                # fire both concurrently instead of stacking their worst-case latency
+                xmrig_future = pool_executor.submit(_fetch_json, XMRIG_API_URL)
+                net_future = pool_executor.submit(_fetch_json, monerod_get_info_request())
 
-            # Read pool stats directly from file
-            pool_stats_path = os.path.join(DATA_DIR, "pool", "stats")
-            with open(pool_stats_path, "r") as f:
-                pool = json.load(f)
-            poolHash = pool["pool_statistics"]["hashRate"]
+                # Read pool stats directly from file
+                pool_stats_path = os.path.join(DATA_DIR, "pool", "stats")
+                with open(pool_stats_path, "r") as f:
+                    pool = json.load(f)
+                poolHash = pool["pool_statistics"]["hashRate"]
 
-            # Fetch network difficulty from monerod
-            net = json.loads(urllib.request.urlopen(monerod_get_info_request(), timeout=5).read())
-            netHash = net["result"]["difficulty"] / 120
+                xmrig = xmrig_future.result()
+                myHash = xmrig["hashrate"]["total"][0]
 
-            # Fetch XMR price
-            price = get_xmr_price()
+                net = net_future.result()
+                netHash = net["result"]["difficulty"] / 120
 
-            # Append to in-memory log
-            append_log(myHash, poolHash, netHash, price)
+                # Fetch XMR price
+                price = get_xmr_price()
 
-            # Periodically save to disk (every 5 min)
-            if time.time() - last_save > 300:
-                save_log_disk()
-                last_save = time.time()
+                # Append to in-memory log
+                append_log(myHash, poolHash, netHash, price)
 
-        except Exception as e:
-            if not shutdown_event.is_set():
-                print("Log error:", e)
+                # Periodically save to disk (every 5 min)
+                if time.time() - last_save > 300:
+                    save_log_disk()
+                    last_save = time.time()
 
-        shutdown_event.wait(10)  # sleep or wait until shutdown
+            except Exception as e:
+                if not shutdown_event.is_set():
+                    print("Log error:", e)
+
+            shutdown_event.wait(10)  # sleep or wait until shutdown
 
 shutdown_event = threading.Event()
 
