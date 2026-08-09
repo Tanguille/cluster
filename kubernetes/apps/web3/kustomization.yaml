@@ -6,7 +6,8 @@ namespace: web3
 
 components:
   - ../../components/common
+  # xmrig adds IPC_LOCK, which is outside the baseline capability allowlist.
+  - ../../components/psa-privileged
 
 resources:
   - ./monero/ks.yaml
-  - ./xmrig-guard/ks.yaml

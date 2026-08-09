@@ -734,7 +734,7 @@ function initializePriceChart(chartWindow) {
 // PAYMENTS & SHARES FUNCTIONS
 // ==============================
 
-async function updateRecentPayments(payouts, priceEUR) {
+function updateRecentPayments(payouts, priceEUR) {
   if (!isObserverReady()) {
     setTextContent("paymentsStatus", "Observer not configured");
     setTextContent("totalEarned", "–");
@@ -803,7 +803,7 @@ async function updateRecentPayments(payouts, priceEUR) {
   }
 }
 
-async function updateSharesCard(shares, payouts) {
+function updateSharesCard(shares, payouts) {
   if (!isObserverReady()) {
     updateSharesDisplay("–", "–", "–", "–");
     return;

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Collect status and logs for ToolHive MCP servers (HA, Grafana, SearXNG) for debugging.
-# Run: task kubernetes:debug-toolhive-mcp
+# Run: just kube debug-toolhive-mcp
 
 set -euo pipefail
 

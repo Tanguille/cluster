@@ -2,6 +2,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
+# Movers run privileged, so consumers must also pull in components/psa-privileged.
 patches:
   - target:
       kind: Namespace
