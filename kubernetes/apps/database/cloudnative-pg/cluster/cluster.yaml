@@ -74,6 +74,10 @@ spec:
           name: crowdsec-db
       - name: postgres-mcp
         ensure: absent
+      - name: ghostfolio
+        login: true
+        passwordSecret:
+          name: ghostfolio-db
   postgresql:
     parameters:
       wal_level: replica
