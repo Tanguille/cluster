@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: postgres
+spec:
+  image: crystaldba/postgres-mcp:0.3.0@sha256:dbbd346860d29f1543e991f30f3284bf4ab5f096d049ecc3426528f20b1b6e6b
+  # sse leaves the proxy without the /mcp endpoint vmcp health-checks
+  transport: stdio
+  proxyPort: 8080
+  groupRef:
+    name: all
+  args:
+    - "--access-mode=restricted"
+    - "--transport=stdio"
+  secrets:
+    - name: toolhive-secrets
+      key: POSTGRES_MCP_DATABASE_URI
+      targetEnvName: DATABASE_URI
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
