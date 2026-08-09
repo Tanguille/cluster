@@ -70,6 +70,15 @@ MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.
 # Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
+def num(v):
+    """Coerce a series value to a finite float.
+
+    xmrig reports hashrate.total[0] as null while the miner is idle, and that
+    null reaches both tiers: it breaks accumulate_rollup's += and downsample's
+    sum(). Idle means 0 H/s, so clamp it here rather than at every consumer.
+    """
+    return float(v) if isinstance(v, (int, float)) and math.isfinite(v) else 0.0
+
 def new_series():
     """Empty column store. deque gives O(1) eviction from the left."""
     return {"timestamps": deque(), **{k: deque() for k in SERIES}}
@@ -270,8 +279,10 @@ def load_tier(path, target):
     try:
         with open(path) as f:
             data = json.load(f)
-        for k in target:
-            target[k] = deque(data.get(k, []))
+        target["timestamps"] = deque(data.get("timestamps", []))
+        # Files written before num() existed still hold nulls from an idle miner.
+        for k in SERIES:
+            target[k] = deque(num(v) for v in data.get(k, []))
         print(f"Loaded {len(target['timestamps'])} entries from {os.path.basename(path)}")
     except Exception as e:
         print(f"Error reading {os.path.basename(path)}, starting fresh: {e}")
@@ -321,7 +332,7 @@ def append_log(myHash, poolHash, netHash, price):
     """
     ts = int(time.time())
     cutoff = ts - MAX_LOG_AGE
-    values = {"myHash": myHash, "poolHash": poolHash, "netHash": netHash, "price": price}
+    values = dict(zip(SERIES, map(num, (myHash, poolHash, netHash, price))))
     with log_lock:
         log["timestamps"].append(ts)
         for k in SERIES:

@@ -45,6 +45,15 @@ class RollupTest(unittest.TestCase):
         newest = server.rollup["timestamps"][-1]
         self.assertGreaterEqual(server.rollup["timestamps"][0], newest - server.ROLLUP_MAX_AGE)
 
+    def test_an_idle_miners_null_hashrate_does_not_break_either_tier(self):
+        # xmrig reports hashrate.total[0] as null while idle; it used to crash
+        # accumulate_rollup on startup replay and downsample on every request.
+        server.append_log(None, 1.0, 1.0, 1.0)
+        self.feed(int(time.time()) + 600, 1)
+
+        self.assertEqual(list(server.log["myHash"]), [0.0])
+        self.assertTrue(server.downsample(server.log, 1)["myHash"])
+
 
 class DownsampleTest(unittest.TestCase):
     def build(self, count, step, now):
