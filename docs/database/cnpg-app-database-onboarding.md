@@ -83,8 +83,8 @@ secret by hand to match.
    `databaseReclaimPolicy: retain`, and `extensions:` if the DB uses any).
 5. Reference it in `cloudnative-pg/databases/kustomization.yaml`.
 
-Monitoring-only roles (e.g. granted `pg_monitor` via `inRoles`, like `postgres-mcp`) skip touch
-points 4-5 — there's no app database to own, so no `Database` CR.
+Monitoring-only roles (e.g. granted `pg_monitor` via `inRoles`) skip touch points 4-5 — there's
+no app database to own, so no `Database` CR.
 
 Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys (see gotchas below).
 
