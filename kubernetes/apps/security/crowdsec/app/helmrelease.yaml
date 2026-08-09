@@ -65,14 +65,22 @@ spec:
               reason: "envoy bouncer response to already banned ips"
               expression:
                 - "evt.Meta.http_status == '418'"
-          jellyfin-crawl-whitelist.yaml: |-
-            name: hydaz/jellyfin-crawl-whitelist
-            description: "Jellyfin clients fan out to dozens of unique /HomeScreen/CachedImage URIs per page load, which reads as http-crawl-non_statics"
-            filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log' && evt.Meta.target_fqdn == 'jellyfin.${SECRET_DOMAIN}'"
+          pseudo-ipv4-whitelist.yaml: |-
+            name: hydaz/pseudo-ipv4-whitelist
+            description: "Cloudflare Pseudo IPv4 rewrites IPv6 clients to class E; a ban on one synthetic address blocks every IPv6 client sharing it"
+            filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log'"
             whitelist:
-              reason: "successful jellyfin api traffic"
-              expression:
-                - "evt.Meta.http_status startsWith '2' or evt.Meta.http_status startsWith '3'"
+              reason: "synthetic address, not a real client"
+              cidr:
+                - "240.0.0.0/4"
+          # s02-enrich runs in filename order; this must sort after http-logs.yaml
+          static-image-endpoints.yaml: |-
+            name: hydaz/static-image-endpoints
+            description: "crowdsecurity/http-logs infers static_ressource from the file extension, so extensionless image endpoints read as crawlable content"
+            filter: "evt.Meta.target_fqdn == 'jellyfin.${SECRET_DOMAIN}' && evt.Meta.http_verb in ['GET', 'HEAD'] && evt.Meta.http_path matches '(?i)^/(homescreen/cachedimage|items/[^/]+/images/)'"
+            statics:
+              - parsed: static_ressource
+                value: "true"
       config.yaml.local: |-
         api:
           server:
