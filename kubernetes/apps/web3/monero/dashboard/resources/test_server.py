@@ -8,6 +8,7 @@ import os
 import tempfile
 import time
 import unittest
+import unittest.mock
 
 os.chdir(tempfile.mkdtemp())  # server.py mkdirs its --data-dir at import
 import server  # noqa: E402
@@ -97,12 +98,11 @@ class BackfillPriceTest(unittest.TestCase):
         server._bucket.update(key=None, count=0, **{k: 0.0 for k in server.SERIES})
 
     def seed(self, prices):
-        server.backfill_price_history.__globals__["_fetch_json"] = (
-            lambda *a, **k: {"prices": prices}
+        patcher = unittest.mock.patch.object(
+            server, "_fetch_json", lambda *a, **k: {"prices": prices}
         )
-
-    def tearDown(self):
-        server.backfill_price_history.__globals__["_fetch_json"] = server._fetch_json
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_price_only_buckets_carry_no_invented_hashrate(self):
         self.seed([[0, 300.0], [3_600_000, 310.0]])
@@ -114,6 +114,19 @@ class BackfillPriceTest(unittest.TestCase):
         # A window over those buckets must report no hashrate, not a flat zero
         out = server.downsample(server.rollup, 24 * 90)
         self.assertTrue(all(v is None for v in out["myHash"]))
+
+    def test_a_backfilled_bucket_survives_a_restart_as_no_data(self):
+        # save/load used to run every value through num(), so the first restart
+        # turned "never measured" into a real 0 H/s reading the chart believed.
+        self.seed([[0, 300.0]])
+        server.backfill_price_history()
+        server.save_log_disk()
+
+        server.rollup = server.new_series()
+        server.load_tier(server.ROLLUP_FILE, server.rollup, keep_missing=True)
+
+        self.assertEqual(list(server.rollup["myHash"]), [None])
+        self.assertEqual(list(server.rollup["price"]), [300.0])
 
     def test_a_logged_bucket_is_never_overwritten(self):
         server.accumulate_rollup(0, {k: 5.0 for k in server.SERIES})

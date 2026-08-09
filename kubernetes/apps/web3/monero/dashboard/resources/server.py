@@ -272,8 +272,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
         self.proxy(request, "Observer API error", 502, timeout=15)
 
-def load_tier(path, target):
-    """Restore one retention tier from disk; leave it empty if unreadable."""
+def load_tier(path, target, keep_missing=False):
+    """Restore one retention tier from disk; leave it empty if unreadable.
+
+    keep_missing distinguishes the two tiers' nulls. In the 10s log a null is
+    junk from a legacy file and coerces to 0.0; in the rollup it is the
+    backfill's "never measured" marker and has to survive the round trip, or
+    the first restart turns every price-only bucket into a real 0 H/s reading.
+    """
     if not os.path.exists(path):
         print(f"No existing {os.path.basename(path)} found, starting fresh")
         return
@@ -281,9 +287,9 @@ def load_tier(path, target):
         with open(path) as f:
             data = json.load(f)
         target["timestamps"] = deque(data.get("timestamps", []))
-        # Files written before num() existed still hold nulls from an idle miner.
         for k in SERIES:
-            target[k] = deque(num(v) for v in data.get(k, []))
+            target[k] = deque(None if keep_missing and v is None else num(v)
+                              for v in data.get(k, []))
         print(f"Loaded {len(target['timestamps'])} entries from {os.path.basename(path)}")
     except Exception as e:
         print(f"Error reading {os.path.basename(path)}, starting fresh: {e}")
@@ -292,7 +298,7 @@ def load_log_disk():
     """Load both retention tiers at startup, back-filling the rollup if it is new."""
     with log_lock:
         load_tier(LOG_FILE, log)
-        load_tier(ROLLUP_FILE, rollup)
+        load_tier(ROLLUP_FILE, rollup, keep_missing=True)
         # First start after the rollup was introduced: replay the 24h log through
         # the bucketer so the long ranges are not blank for the first three months.
         if not rollup["timestamps"] and log["timestamps"]:
@@ -439,24 +445,21 @@ def backfill_price_history():
         return
 
     with log_lock:
-        have = {ts // ROLLUP_INTERVAL for ts in rollup["timestamps"]}
-        added = {}
+        buckets = {ts: {k: rollup[k][i] for k in SERIES}
+                   for i, ts in enumerate(rollup["timestamps"])}
+        logged = len(buckets)
         for ms, price in points:
-            key = int(ms / 1000) // ROLLUP_INTERVAL
-            if key not in have:
-                added[key] = price
-        if not added:
+            ts = int(ms / 1000) // ROLLUP_INTERVAL * ROLLUP_INTERVAL
+            # setdefault, not assignment: a bucket we logged has a real price
+            # and a real hashrate, and CoinGecko must not flatten either.
+            buckets.setdefault(ts, {**{k: None for k in SERIES}, "price": price})
+        if len(buckets) == logged:
             return
 
-        # Key on the timestamp alone: tuple ordering would fall through to
-        # comparing a None hashrate against a float.
-        merged = sorted(list(zip(rollup["timestamps"], *(rollup[k] for k in SERIES)))
-                        + [(k * ROLLUP_INTERVAL, None, None, None, p) for k, p in added.items()],
-                        key=lambda row: row[0])
-        rollup["timestamps"] = deque(row[0] for row in merged)
-        for i, k in enumerate(SERIES, start=1):
-            rollup[k] = deque(row[i] for row in merged)
-    print(f"Backfilled {len(added)} price-only rollup buckets from CoinGecko")
+        rollup["timestamps"] = deque(sorted(buckets))
+        for k in SERIES:
+            rollup[k] = deque(buckets[ts][k] for ts in rollup["timestamps"])
+    print(f"Backfilled {len(buckets) - logged} price-only rollup buckets from CoinGecko")
 
 def read_pool_hashrate():
     """p2pool writes its stats to the shared API dir; no HTTP hop needed."""
