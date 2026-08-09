@@ -1025,15 +1025,6 @@ function updateHashrate24hDisplay() {
   el.textContent = isPositiveNumber(hashrate) ? scaleHashrate(hashrate) : "–";
 }
 
-function updateSharesDisplayOld() {
-  setTextContent("shares-found", state.oldStatsData?.shares_found ?? "–");
-  setTextContent("shares-failed", state.oldStatsData?.shares_failed ?? "–");
-}
-
-function updateConnectionsDisplay() {
-  setTextContent("connections", state.oldStatsData?.connections ?? "–");
-}
-
 function updateRewardShareDisplay() {
   const el = DOM["reward-share"];
   if (!el) return;
@@ -1048,13 +1039,6 @@ function updateBlockInfo(poolData) {
   setTextContent(
     "last-block-time",
     formatTime(poolData?.pool_statistics?.lastBlockFoundTime)
-  );
-}
-
-function updateShareTimes() {
-  setTextContent(
-    "last-share-time",
-    formatTime(state.oldStatsData?.last_share_found_time)
   );
 }
 
@@ -1091,11 +1075,15 @@ function updateWorkersList() {
 function updateOldDashboardStats(poolData) {
   updatePoolStatus();
   updateHashrate24hDisplay();
-  updateSharesDisplayOld();
-  updateConnectionsDisplay();
+  setTextContent("shares-found", state.oldStatsData?.shares_found ?? "–");
+  setTextContent("shares-failed", state.oldStatsData?.shares_failed ?? "–");
+  setTextContent("connections", state.oldStatsData?.connections ?? "–");
   updateRewardShareDisplay();
   updateBlockInfo(poolData);
-  updateShareTimes();
+  setTextContent(
+    "last-share-time",
+    formatTime(state.oldStatsData?.last_share_found_time)
+  );
   updateWorkersList();
 }
 
