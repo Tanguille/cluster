@@ -935,27 +935,29 @@ also multiplied by the pool luck (derived from the pool effort).
   }
 }
 
-function updateTrueLuck(
-  startedMiningTimestamp,
-  newestPayoutTime,
-  xmrPerDayAvg,
-  totalXMR
-) {
+function updateTrueLuck(payouts, newestPayoutTime, xmrPerDayAvg, totalXMR) {
   const reset = () => {
     setTextContent("trueLuckFactor", "–");
     setTextContent("trueLuckWindow", "–");
   };
 
   try {
+    // The window has to span the payouts being compared. Anchoring it to the
+    // 24h log's first sample made it negative whenever the newest payout was
+    // more than a day old — which, on a solar-gated miner, is most of the time.
+    const oldestPayoutTime = payouts?.length
+      ? Math.min(...payouts.map((p) => p.timestamp))
+      : 0;
+
     if (
       !isPositiveNumber(newestPayoutTime) ||
-      !isPositiveNumber(startedMiningTimestamp)
+      !isPositiveNumber(oldestPayoutTime)
     ) {
       reset();
       return;
     }
 
-    const timeWindow = newestPayoutTime - startedMiningTimestamp;
+    const timeWindow = newestPayoutTime - oldestPayoutTime;
     if (timeWindow <= 0) {
       reset();
       return;
@@ -1376,20 +1378,8 @@ async function updateStats() {
       poolInfo
     });
 
-    // Update true luck — auto-detect mining start from history data
-    if (
-      state.history &&
-      Array.isArray(state.history.timestamps) &&
-      state.history.timestamps.length > 0
-    ) {
-      const historyStart = state.history.timestamps[0];
-      updateTrueLuck(
-        historyStart,
-        newestPayoutTime,
-        earnings.xmrPerDayAvg,
-        totalXMR
-      );
-    }
+    // Update true luck — the window is the span the payouts themselves cover
+    updateTrueLuck(payouts, newestPayoutTime, earnings.xmrPerDayAvg, totalXMR);
 
     // Update old dashboard stats
     updateOldDashboardStats(poolData);
