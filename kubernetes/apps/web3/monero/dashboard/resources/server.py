@@ -239,6 +239,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             hours = float(parse_qs(query).get("hours", ["24"])[0])
         except ValueError:
             hours = 24.0
+        if not math.isfinite(hours):
+            hours = 24.0
         hours = min(max(hours, 0.1), ROLLUP_MAX_AGE / 3600)
         # The 10s log only reaches back MAX_LOG_AGE; beyond that the rollup is
         # the only source, and inside it the fine samples give a truer shape.
