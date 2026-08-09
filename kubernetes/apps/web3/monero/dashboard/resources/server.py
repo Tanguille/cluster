@@ -272,8 +272,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         request = urllib.request.Request(url, headers={"Accept-Encoding": "gzip"})
         self.proxy(request, "Observer API error", 502, timeout=15)
 
-def load_tier(path, target):
-    """Restore one retention tier from disk; leave it empty if unreadable."""
+def load_tier(path, target, keep_missing=False):
+    """Restore one retention tier from disk; leave it empty if unreadable.
+
+    keep_missing distinguishes the two tiers' nulls. In the 10s log a null is
+    junk from a legacy file and coerces to 0.0; in the rollup it is the
+    backfill's "never measured" marker and has to survive the round trip, or
+    the first restart turns every price-only bucket into a real 0 H/s reading.
+    """
     if not os.path.exists(path):
         print(f"No existing {os.path.basename(path)} found, starting fresh")
         return
@@ -281,9 +287,9 @@ def load_tier(path, target):
         with open(path) as f:
             data = json.load(f)
         target["timestamps"] = deque(data.get("timestamps", []))
-        # Files written before num() existed still hold nulls from an idle miner.
         for k in SERIES:
-            target[k] = deque(num(v) for v in data.get(k, []))
+            target[k] = deque(None if keep_missing and v is None else num(v)
+                              for v in data.get(k, []))
         print(f"Loaded {len(target['timestamps'])} entries from {os.path.basename(path)}")
     except Exception as e:
         print(f"Error reading {os.path.basename(path)}, starting fresh: {e}")
@@ -292,7 +298,7 @@ def load_log_disk():
     """Load both retention tiers at startup, back-filling the rollup if it is new."""
     with log_lock:
         load_tier(LOG_FILE, log)
-        load_tier(ROLLUP_FILE, rollup)
+        load_tier(ROLLUP_FILE, rollup, keep_missing=True)
         # First start after the rollup was introduced: replay the 24h log through
         # the bucketer so the long ranges are not blank for the first three months.
         if not rollup["timestamps"] and log["timestamps"]:
@@ -369,8 +375,10 @@ def downsample(source, hours, max_points=CHART_MAX_POINTS):
     for i in range(0, len(timestamps), width):
         out["timestamps"].append(timestamps[i])
         for k in SERIES:
-            chunk = series[k][i:i + width]
-            out[k].append(sum(chunk) / len(chunk) if chunk else 0)
+            # None marks "never measured" — a backfilled price bucket has no
+            # hashrate. Averaging it as 0 would invent a reading.
+            chunk = [v for v in series[k][i:i + width] if v is not None]
+            out[k].append(sum(chunk) / len(chunk) if chunk else None)
     return out
 
 def break_gaps(window, tolerance=3):
@@ -418,6 +426,64 @@ def _fetch_json(request, timeout=5):
     with urllib.request.urlopen(request, timeout=timeout) as r:
         return json.load(r)
 
+PRICE_HISTORY_URL = (f"https://api.coingecko.com/api/v3/coins/monero/market_chart"
+                     f"?vs_currency=eur&days={ROLLUP_MAX_AGE // 86400}")
+
+def backfill_price_history():
+    """Seed the rollup's price series for buckets the logger never recorded.
+
+    Until the logger learned to run through an idle miner it only sampled while
+    xmrig was up, so on the long ranges the price line exists exactly where the
+    solar gate happened to be open. CoinGecko serves hourly closes over the
+    retention horizon; fill only the buckets we have nothing for, leaving the
+    hashrate series None there rather than claiming we measured 0 H/s.
+    """
+    try:
+        points = _fetch_json(PRICE_HISTORY_URL, timeout=15)["prices"]
+    except Exception as e:
+        print(f"Price backfill unavailable, charting logged prices only: {e}")
+        return
+
+    with log_lock:
+        buckets = {ts: {k: rollup[k][i] for k in SERIES}
+                   for i, ts in enumerate(rollup["timestamps"])}
+        logged = len(buckets)
+        for ms, price in points:
+            ts = int(ms / 1000) // ROLLUP_INTERVAL * ROLLUP_INTERVAL
+            # setdefault, not assignment: a bucket we logged has a real price
+            # and a real hashrate, and CoinGecko must not flatten either.
+            buckets.setdefault(ts, {**{k: None for k in SERIES}, "price": price})
+        if len(buckets) == logged:
+            return
+
+        rollup["timestamps"] = deque(sorted(buckets))
+        for k in SERIES:
+            rollup[k] = deque(buckets[ts][k] for ts in rollup["timestamps"])
+    print(f"Backfilled {len(buckets) - logged} price-only rollup buckets from CoinGecko")
+
+def read_pool_hashrate():
+    """p2pool writes its stats to the shared API dir; no HTTP hop needed."""
+    with open(os.path.join(DATA_DIR, "pool", "stats")) as f:
+        return json.load(f)["pool_statistics"]["hashRate"]
+
+def last_logged(key):
+    """Most recent value for `key`, or 0.0 on an empty log."""
+    with log_lock:
+        return log[key][-1] if log[key] else 0.0
+
+def fetch_or(source, fallback):
+    """Read one series' source, substituting `fallback` if it is unavailable.
+
+    Every source used to share one try block, so any single failure discarded
+    the whole sample. That is what punched 17.7h of holes into a 24h log: xmrig
+    is unreachable by design most nights, and a monerod blip or a pool stats
+    file caught mid-rename does the same for a tick.
+    """
+    try:
+        return source()
+    except Exception:
+        return fallback
+
 def log_loop():
     """
     Continuously fetch stats from xmrig, pool, monerod, and XMR price.
@@ -427,6 +493,8 @@ def log_loop():
     Runs in a separate daemon thread.
     """
     last_save = 0
+    # Runs here rather than in main(): a slow CoinGecko must not delay the bind.
+    backfill_price_history()
     with ThreadPoolExecutor(max_workers=2) as pool_executor:
         while not shutdown_event.is_set():
             try:
@@ -435,24 +503,13 @@ def log_loop():
                 xmrig_future = pool_executor.submit(_fetch_json, XMRIG_API_URL)
                 net_future = pool_executor.submit(_fetch_json, monerod_get_info_request())
 
-                # Read pool stats directly from file
-                pool_stats_path = os.path.join(DATA_DIR, "pool", "stats")
-                with open(pool_stats_path, "r") as f:
-                    pool = json.load(f)
-                poolHash = pool["pool_statistics"]["hashRate"]
-
-                # KEDA scales xmrig to 0 replicas without excess solar, so an
-                # unreachable miner is the normal night-time state, not an error.
-                # Raising here discarded the whole sample — price, pool and
-                # network hashrate included — so every idle stretch became a hole
-                # in the log that the charts then bridged with a straight line.
-                try:
-                    myHash = xmrig_future.result()["hashrate"]["total"][0]
-                except Exception:
-                    myHash = 0.0
-
-                net = net_future.result()
-                netHash = net["result"]["difficulty"] / 120
+                # KEDA scales xmrig to 0 replicas without excess solar, so a
+                # gated-off miner really is 0 H/s. The network and the pool did
+                # not stop when their read blipped, so those carry forward.
+                myHash = fetch_or(lambda: xmrig_future.result()["hashrate"]["total"][0], 0.0)
+                poolHash = fetch_or(read_pool_hashrate, last_logged("poolHash"))
+                netHash = fetch_or(lambda: net_future.result()["result"]["difficulty"] / 120,
+                                   last_logged("netHash"))
 
                 # Fetch XMR price
                 price = get_xmr_price()

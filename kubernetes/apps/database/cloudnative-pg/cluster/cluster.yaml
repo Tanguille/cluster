@@ -73,12 +73,7 @@ spec:
         passwordSecret:
           name: crowdsec-db
       - name: postgres-mcp
-        login: true
-        # Read-only tuning visibility (pg_stat_statements, pg_statio_*), no app database of its own.
-        inRoles:
-          - pg_monitor
-        passwordSecret:
-          name: postgres-mcp-db
+        ensure: absent
       - name: ghostfolio
         login: true
         passwordSecret:
