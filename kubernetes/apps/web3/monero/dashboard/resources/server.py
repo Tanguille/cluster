@@ -418,6 +418,29 @@ def _fetch_json(request, timeout=5):
     with urllib.request.urlopen(request, timeout=timeout) as r:
         return json.load(r)
 
+def read_pool_hashrate():
+    """p2pool writes its stats to the shared API dir; no HTTP hop needed."""
+    with open(os.path.join(DATA_DIR, "pool", "stats")) as f:
+        return json.load(f)["pool_statistics"]["hashRate"]
+
+def last_logged(key):
+    """Most recent value for `key`, or 0.0 on an empty log."""
+    with log_lock:
+        return log[key][-1] if log[key] else 0.0
+
+def fetch_or(source, fallback):
+    """Read one series' source, substituting `fallback` if it is unavailable.
+
+    Every source used to share one try block, so any single failure discarded
+    the whole sample. That is what punched 17.7h of holes into a 24h log: xmrig
+    is unreachable by design most nights, and a monerod blip or a pool stats
+    file caught mid-rename does the same for a tick.
+    """
+    try:
+        return source()
+    except Exception:
+        return fallback
+
 def log_loop():
     """
     Continuously fetch stats from xmrig, pool, monerod, and XMR price.
@@ -435,24 +458,13 @@ def log_loop():
                 xmrig_future = pool_executor.submit(_fetch_json, XMRIG_API_URL)
                 net_future = pool_executor.submit(_fetch_json, monerod_get_info_request())
 
-                # Read pool stats directly from file
-                pool_stats_path = os.path.join(DATA_DIR, "pool", "stats")
-                with open(pool_stats_path, "r") as f:
-                    pool = json.load(f)
-                poolHash = pool["pool_statistics"]["hashRate"]
-
-                # KEDA scales xmrig to 0 replicas without excess solar, so an
-                # unreachable miner is the normal night-time state, not an error.
-                # Raising here discarded the whole sample — price, pool and
-                # network hashrate included — so every idle stretch became a hole
-                # in the log that the charts then bridged with a straight line.
-                try:
-                    myHash = xmrig_future.result()["hashrate"]["total"][0]
-                except Exception:
-                    myHash = 0.0
-
-                net = net_future.result()
-                netHash = net["result"]["difficulty"] / 120
+                # KEDA scales xmrig to 0 replicas without excess solar, so a
+                # gated-off miner really is 0 H/s. The network and the pool did
+                # not stop when their read blipped, so those carry forward.
+                myHash = fetch_or(lambda: xmrig_future.result()["hashrate"]["total"][0], 0.0)
+                poolHash = fetch_or(read_pool_hashrate, last_logged("poolHash"))
+                netHash = fetch_or(lambda: net_future.result()["result"]["difficulty"] / 120,
+                                   last_logged("netHash"))
 
                 # Fetch XMR price
                 price = get_xmr_price()
