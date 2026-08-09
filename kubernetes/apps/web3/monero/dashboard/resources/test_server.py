@@ -91,6 +91,40 @@ class DownsampleTest(unittest.TestCase):
         self.assertEqual(out["myHash"], [])
 
 
+class BackfillPriceTest(unittest.TestCase):
+    def setUp(self):
+        server.rollup = server.new_series()
+        server._bucket.update(key=None, count=0, **{k: 0.0 for k in server.SERIES})
+
+    def seed(self, prices):
+        server.backfill_price_history.__globals__["_fetch_json"] = (
+            lambda *a, **k: {"prices": prices}
+        )
+
+    def tearDown(self):
+        server.backfill_price_history.__globals__["_fetch_json"] = server._fetch_json
+
+    def test_price_only_buckets_carry_no_invented_hashrate(self):
+        self.seed([[0, 300.0], [3_600_000, 310.0]])
+
+        server.backfill_price_history()
+
+        self.assertEqual(list(server.rollup["price"]), [300.0, 310.0])
+        self.assertEqual(list(server.rollup["myHash"]), [None, None])
+        # A window over those buckets must report no hashrate, not a flat zero
+        out = server.downsample(server.rollup, 24 * 90)
+        self.assertTrue(all(v is None for v in out["myHash"]))
+
+    def test_a_logged_bucket_is_never_overwritten(self):
+        server.accumulate_rollup(0, {k: 5.0 for k in server.SERIES})
+        server.accumulate_rollup(server.ROLLUP_INTERVAL, {k: 5.0 for k in server.SERIES})
+        self.seed([[0, 999.0]])
+
+        server.backfill_price_history()
+
+        self.assertEqual(list(server.rollup["price"]), [5.0])
+
+
 class BreakGapsTest(unittest.TestCase):
     def window(self, stamps):
         return {"timestamps": list(stamps), **{k: [1.0] * len(stamps) for k in server.SERIES}}

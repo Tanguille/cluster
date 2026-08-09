@@ -369,8 +369,10 @@ def downsample(source, hours, max_points=CHART_MAX_POINTS):
     for i in range(0, len(timestamps), width):
         out["timestamps"].append(timestamps[i])
         for k in SERIES:
-            chunk = series[k][i:i + width]
-            out[k].append(sum(chunk) / len(chunk) if chunk else 0)
+            # None marks "never measured" — a backfilled price bucket has no
+            # hashrate. Averaging it as 0 would invent a reading.
+            chunk = [v for v in series[k][i:i + width] if v is not None]
+            out[k].append(sum(chunk) / len(chunk) if chunk else None)
     return out
 
 def break_gaps(window, tolerance=3):
@@ -418,6 +420,44 @@ def _fetch_json(request, timeout=5):
     with urllib.request.urlopen(request, timeout=timeout) as r:
         return json.load(r)
 
+PRICE_HISTORY_URL = (f"https://api.coingecko.com/api/v3/coins/monero/market_chart"
+                     f"?vs_currency=eur&days={ROLLUP_MAX_AGE // 86400}")
+
+def backfill_price_history():
+    """Seed the rollup's price series for buckets the logger never recorded.
+
+    Until the logger learned to run through an idle miner it only sampled while
+    xmrig was up, so on the long ranges the price line exists exactly where the
+    solar gate happened to be open. CoinGecko serves hourly closes over the
+    retention horizon; fill only the buckets we have nothing for, leaving the
+    hashrate series None there rather than claiming we measured 0 H/s.
+    """
+    try:
+        points = _fetch_json(PRICE_HISTORY_URL, timeout=15)["prices"]
+    except Exception as e:
+        print(f"Price backfill unavailable, charting logged prices only: {e}")
+        return
+
+    with log_lock:
+        have = {ts // ROLLUP_INTERVAL for ts in rollup["timestamps"]}
+        added = {}
+        for ms, price in points:
+            key = int(ms / 1000) // ROLLUP_INTERVAL
+            if key not in have:
+                added[key] = price
+        if not added:
+            return
+
+        # Key on the timestamp alone: tuple ordering would fall through to
+        # comparing a None hashrate against a float.
+        merged = sorted(list(zip(rollup["timestamps"], *(rollup[k] for k in SERIES)))
+                        + [(k * ROLLUP_INTERVAL, None, None, None, p) for k, p in added.items()],
+                        key=lambda row: row[0])
+        rollup["timestamps"] = deque(row[0] for row in merged)
+        for i, k in enumerate(SERIES, start=1):
+            rollup[k] = deque(row[i] for row in merged)
+    print(f"Backfilled {len(added)} price-only rollup buckets from CoinGecko")
+
 def read_pool_hashrate():
     """p2pool writes its stats to the shared API dir; no HTTP hop needed."""
     with open(os.path.join(DATA_DIR, "pool", "stats")) as f:
@@ -450,6 +490,8 @@ def log_loop():
     Runs in a separate daemon thread.
     """
     last_save = 0
+    # Runs here rather than in main(): a slow CoinGecko must not delay the bind.
+    backfill_price_history()
     with ThreadPoolExecutor(max_workers=2) as pool_executor:
         while not shutdown_event.is_set():
             try:
