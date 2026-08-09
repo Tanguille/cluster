@@ -37,10 +37,11 @@ duplicate the shared-cluster convention already in place).
 - Env (from Ghostfolio's own `.env.example`):
   - `REDIS_HOST=dragonfly.database.svc.cluster.local`, `REDIS_PORT=6379` (no Dragonfly auth
     configured cluster-wide, so no `REDIS_PASSWORD`).
-  - `DATABASE_URL` — full `postgresql://ghostfolio:<password>@pgbouncer-rw.database.svc.cluster.local:5432/ghostfolio?connect_timeout=300`
+  - `DATABASE_URL` — full `postgresql://ghostfolio:<password>@pgbouncer-rw.database.svc.cluster.local:5432/ghostfolio?connect_timeout=300&pgbouncer=true`
     connection string, password baked in directly, stored whole in `ghostfolio-secret`
-    (`secretKeyRef`) — Ghostfolio reads `DATABASE_URL` as one opaque string, not
-    template pieces, so there's no separate password env to interpolate.
+    (`secretKeyRef`) — Ghostfolio reads `DATABASE_URL` as one opaque string, not template pieces,
+    so there's no separate password env to interpolate. `pgbouncer=true` tells Prisma to skip
+    prepared statements, which don't work under `pgbouncer-rw`'s transaction-mode pooling.
   - `DIRECT_URL` — same connection string but pointed at `postgres16-rw` (the CNPG cluster's own
     service), bypassing `pgbouncer-rw`. Required because the pooler runs in `transaction` mode and
     Prisma migrations need session-level continuity (advisory locks) that mode doesn't provide.
@@ -54,9 +55,10 @@ duplicate the shared-cluster convention already in place).
 - `kubernetes/apps/ai/toolhive/config/ghostfolio.yaml`: new `MCPServer` (`toolhive.stacklok.dev/v1beta1`),
   `image: ghcr.io/mhajder/ghostfolio-mcp:1.5.0@sha256:4436268d0a1604e5bc1c9080f0005e7b5e0b80163803f95519b7a4537cd6660c`,
   `transport: stdio`, `groupRef: {name: all}`, env `GHOSTFOLIO_URL: http://ghostfolio.default.svc.cluster.local:3333`,
-  `READ_ONLY_MODE: "true"` initially (matches the cluster's cautious-by-default posture; can be
-  turned off later once the agent's recommendations are trusted), secret `GHOSTFOLIO_TOKEN` from
-  `toolhive-secrets` — mirror `karakeep.yaml`.
+  `READ_ONLY_MODE: "true"`, secret `GHOSTFOLIO_TOKEN` from `toolhive-secrets` — mirror
+  `karakeep.yaml`. `READ_ONLY_MODE` stays enforced — matches the cluster's cautious-by-default
+  posture and isn't a setting to flip once recommendations "feel trusted"; enabling writes needs
+  its own decision later (explicit confirmation, least-privilege credentials, audit logging).
 - `kubernetes/apps/ai/toolhive/app/secret.sops.yaml`: add `GHOSTFOLIO_TOKEN` key (a Ghostfolio API
   token generated once the app is up — manual step, needs Tanguille to log in and mint it).
 - `kubernetes/apps/ai/toolhive/config/kustomization.yaml`: add `ghostfolio.yaml`.
