@@ -72,6 +72,13 @@ spec:
         login: true
         passwordSecret:
           name: crowdsec-db
+      - name: postgres-mcp
+        login: true
+        # Read-only tuning visibility (pg_stat_statements, pg_statio_*), no app database of its own.
+        inRoles:
+          - pg_monitor
+        passwordSecret:
+          name: postgres-mcp-db
   postgresql:
     parameters:
       wal_level: replica
