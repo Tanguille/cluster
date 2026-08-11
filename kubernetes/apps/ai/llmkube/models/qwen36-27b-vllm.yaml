@@ -83,7 +83,7 @@ spec:
     claimName: qwen36-27b-vllm-cache
   # v0.26.0 measured identical to the nightly on KV pool and throughput (2026-07-25).
   # The nightly self-reports a stale 0.23.1rc1 base tag; tags are not version-ordered.
-  image: vllm/vllm-openai-rocm:v0.26.0@sha256:5709fafe47123becb2f5e61c32d0b97beff1a629bb40bb753c15464f69a97a18
+  image: vllm/vllm-openai-rocm:v0.27.1@sha256:bb44b39aea26798cce43030a98bf48efd0322ca7147367db86e38b96bd80f0e7
   replicas: 0
   # 32 slots doubled aggregate throughput vs 8: 40 -> 79 tok/s at concurrency 16.
   parallelSlots: 32
