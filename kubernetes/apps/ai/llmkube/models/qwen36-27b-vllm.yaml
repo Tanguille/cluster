@@ -166,8 +166,7 @@ spec:
     # Largest context that fits the 121,302-token pool below; SGLang's 180K needs ~6.55 GiB.
     maxModelLen: 112000
     kvCacheDtype: fp8_e4m3
-    # Load-bearing, not a default: without it mamba leaves 'align' mode and the
-    # offloading connector asserts on tokens_per_block vs tokens_per_hash.
+    # Off, mamba leaves 'align' mode and the offloading connector asserts.
     enablePrefixCaching: true
     maxNumBatchedTokens: 8192
     # HARD CEILING: shared with Jellyfin transcoding, never raise.
@@ -195,8 +194,7 @@ spec:
     - name: kv-offload
       persistentVolumeClaim:
         claimName: qwen36-27b-vllm-kv-offload
-    # The CPU offload tier mmaps cpu_bytes_to_use here; the 64M default EFAULTs on
-    # its MADV_POPULATE_WRITE. Sized above 8Gi so the pre-fault has slack.
+    # The CPU offload tier mmaps 8Gi here; the 64M default EFAULTs on pre-fault.
     - name: dshm
       emptyDir:
         medium: Memory
