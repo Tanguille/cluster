@@ -60,7 +60,7 @@ spec:
     # speculativeDecoding can't express this: no CRD field names the drafter weights.
     - "--spec-type"
     - "draft-dflash"
-    # Path is sha256(Model.spec.source)[:16]; a Renovate sha bump changes it.
+    # Path is sha256(Model.spec.source)[:16]; recompute it if the source sha changes.
     - "--spec-draft-model"
     - "/models/28e769b306130581/dflash-kquant.gguf"
     # AMD's own published config for this drafter on this GPU.
