@@ -26,6 +26,79 @@ spec:
     requests:
       storage: 10Gi
 ---
+# L3 tier for the fs secondary tier -- the vLLM analogue of SGLang's HiCache file backend.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen36-27b-vllm-kv-offload
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    # hostpath enforces no quota, so the real bound is the free-space guard below.
+    requests:
+      storage: 128Gi
+---
+# vLLM's fs tier has no evictor at v0.27.1, and control-1's root fs is shared with
+# rook-ceph's mon-c store. Enforces the 160Gi floor SGLang's file backend enforces itself.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qwen36-27b-vllm-kv-offload-guard
+  namespace: ai
+spec:
+  # Daily: SGLang's store took weeks to reach 147G.
+  schedule: "0 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            # The serving pod runs runAsUser 0, so the store is root-owned on disk.
+            runAsUser: 0
+          containers:
+            - name: guard
+              image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  floor=167772160
+                  # df, not du: the store reaches hundreds of thousands of files.
+                  avail="$(df -kP /kvoffload | awk 'NR==2{print $4}')"
+                  echo "avail: ${avail}K (floor: ${floor}K)"
+                  if [ "$avail" -lt "$floor" ]; then
+                    # ponytail: wipe-all, not LRU -- no per-entry recency on disk to sort by.
+                    echo "below floor, wiping the L3 store"
+                    rm -rf -- /kvoffload/*
+                  fi
+              volumeMounts:
+                - name: kv-offload
+                  mountPath: /kvoffload
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: kv-offload
+              persistentVolumeClaim:
+                claimName: qwen36-27b-vllm-kv-offload
+---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
@@ -83,14 +156,14 @@ spec:
     claimName: qwen36-27b-vllm-cache
   # v0.26.0 measured identical to the nightly on KV pool and throughput (2026-07-25).
   # The nightly self-reports a stale 0.23.1rc1 base tag; tags are not version-ordered.
-  image: vllm/vllm-openai-rocm:v0.26.0@sha256:5709fafe47123becb2f5e61c32d0b97beff1a629bb40bb753c15464f69a97a18
-  replicas: 0
+  image: vllm/vllm-openai-rocm:v0.27.1@sha256:bb44b39aea26798cce43030a98bf48efd0322ca7147367db86e38b96bd80f0e7
+  # Validation window: SGLang is at replicas 0 so this owns the GPU. Revert both together.
+  replicas: 1
   # 32 slots doubled aggregate throughput vs 8: 40 -> 79 tok/s at concurrency 16.
   parallelSlots: 32
   vllmConfig:
-    # 180000 needs ~6.55 GiB KV against a ~4.6 GiB ceiling at 0.875. 64000 covers 74.1%
-    # of measured production prompts.
-    maxModelLen: 64000
+    # Largest context that fits the 121,302-token pool below; SGLang's 180K needs ~6.55 GiB.
+    maxModelLen: 112000
     kvCacheDtype: fp8_e4m3
     enablePrefixCaching: true
     maxNumBatchedTokens: 8192
@@ -111,13 +184,21 @@ spec:
       value: /cache/triton
     - name: TORCHINDUCTOR_CACHE_DIR
       value: /cache/inductor
+    # Pins the fs tier's block-hash seed; unset it is random per process and restarts lose it.
+    - name: PYTHONHASHSEED
+      value: "0"
   extraVolumes:
     - name: compile-cache
       persistentVolumeClaim:
         claimName: qwen36-27b-vllm-compile-cache
+    - name: kv-offload
+      persistentVolumeClaim:
+        claimName: qwen36-27b-vllm-kv-offload
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
+    - name: kv-offload
+      mountPath: /kvoffload
   extraArgs:
     - --served-model-name
     - qwen-3.6
@@ -128,10 +209,21 @@ spec:
     - --mamba-ssm-cache-dtype
     - bfloat16
     - --trust-remote-code
+    # Without these the gateway gets thinking blocks and tool calls as raw text.
+    - --reasoning-parser
+    - qwen3
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - qwen3_coder
     # vLLM's profiler leaves the pool at 48,000 tokens; explicit sizing gives 121,302
     # within the same 0.875 budget.
     - --kv-cache-memory-bytes
     - "4294967296"
+    # Hierarchical KV cache: CPU tier = SGLang's --hicache-ratio (9.01 GB measured), fs tier
+    # = its file backend. No block_size -- Qwen3.6's hybrid groups trip a divisibility assert.
+    - --kv-transfer-config
+    - >-
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":8589934592,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   probeOverrides:
     startup:
       httpGet:
@@ -161,6 +253,7 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    memory: 24Gi
+    # 24Gi base + the 8 GiB the CPU offload tier pins.
+    memory: 32Gi
   endpoint:
     port: 8000

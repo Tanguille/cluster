@@ -144,6 +144,8 @@ metadata:
 spec:
   modelRef: qwen36-27b-awq
   runtime: sglang
+  # Parked for the vLLM validation window. Kept in the kustomization: removal prunes the PVCs.
+  replicas: 0
   # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
   bindAddress: 0.0.0.0
   image: ghcr.io/tanguille/sglang-rdna4:sha-cb7b76050cbf8dda9e5a78c07b24df1a783caeb3@sha256:f961fc274eaad4af065097e0921b88ae5a97a478baa0e384e6c5ee440c355b29
