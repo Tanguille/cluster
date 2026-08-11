@@ -23,13 +23,14 @@ spec:
   source: hf://unsloth/Muse-Glimmer-30B-GGUF@faa5b025c584459c13febfa5c59883516710ae39
   quantization: Q4_K_XL
   refreshPolicy: OnChange
-  # First entry is primary; mmproj omitted, it costs ~1000 tok/s of prefill (#26873).
   files:
     - Muse-Glimmer-30B-UD-Q4_K_XL.gguf
     - dflash-kquant.gguf
+  # Vision, at a measured cost: prefill drops persistently once loaded (#26873).
+  mmproj: mmproj-Muse-Glimmer-30B-BF16.gguf
   hardware:
     accelerator: rocm
-    memoryBudget: 30Gi
+    memoryBudget: 28Gi
     gpu:
       enabled: true
       count: 1
@@ -53,11 +54,12 @@ spec:
   image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10362@sha256:2a078f50e40253167620f4b7002253db2254368e335149aa58e51a3cf2c09313
   # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
   bindAddress: 0.0.0.0
-  # Under --kv-unified this is the pool AND each slot's limit: ~1.9 GiB KV at q8_0.
-  contextSize: 262144
-  parallelSlots: 4
+  # Shared pool under --kv-unified, 6x the 131072 per-slot cap the "capping" log line applies.
+  contextSize: 786432
+  # 4 slots left prefill queueing behind them: TTFT 32.5s at concurrency 8.
+  parallelSlots: 16
   flashAttention: true
-  # 13 KiB/token vs Qwen3.6's 64: KV is cheap enough to stop trading quality for bytes.
+  # 13 KiB/token vs Qwen3.6's 64 at q8_0.
   cacheTypeK: q8_0
   cacheTypeV: q8_0
   jinja: true

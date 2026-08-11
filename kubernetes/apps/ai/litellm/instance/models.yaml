@@ -19,8 +19,8 @@ spec:
       num_retries: 0
   info:
     mode: chat
-    # llama.cpp's 262144 per-slot limit minus maxOutputTokens.
-    maxInputTokens: 253952
+    # llama.cpp caps the slot at n_ctx_train 131072; minus maxOutputTokens.
+    maxInputTokens: 122880
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
@@ -41,13 +41,15 @@ spec:
       timeout: 900
       stream_timeout: 900
       num_retries: 0
-      # Meta's defaults. enable_thinking dropped: that kwarg is Qwen's, and this model
-      # gates reasoning by effort level instead.
       temperature: 1.0
       top_p: 0.95
+      extra_body:
+        chat_template_kwargs:
+          # Its own chat-template kwarg; the 'high' default burned 94 tokens answering "OK".
+          reasoning_strength: low
   info:
     mode: chat
-    maxInputTokens: 253952
+    maxInputTokens: 122880
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
