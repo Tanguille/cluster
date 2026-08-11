@@ -166,15 +166,12 @@ spec:
     # Largest context that fits the 121,302-token pool below; SGLang's 180K needs ~6.55 GiB.
     maxModelLen: 112000
     kvCacheDtype: fp8_e4m3
-    enablePrefixCaching: true
     maxNumBatchedTokens: 8192
     # HARD CEILING: shared with Jellyfin transcoding, never raise.
     gpuMemoryUtilization: 0.875
   env:
     - name: VLLM_ROCM_USE_AITER
       value: "0"
-    - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
-      value: "TRUE"
     - name: HIP_VISIBLE_DEVICES
       value: "0"
     - name: ROCR_VISIBLE_DEVICES
