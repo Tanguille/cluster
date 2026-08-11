@@ -22,10 +22,10 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              # Provider integrations move faster than the semver tags (3.8.49 sat
-              # 12 days while main got provider fixes); track main by digest so
-              # Renovate raises a digest PR per upstream push.
-              tag: main@sha256:6479dac204c67e0d328fe73e3c55627bff43eb346cf14fea83368358ff3826b6
+              # Tried main@digest 2026-08-11 and reverted: main is only dependabot
+              # bumps ahead of this tag (provider work lives on the `next` image,
+              # which has no public branch to audit) and its CI run was cancelled.
+              tag: 3.8.49@sha256:92c768c56e2de32c51a0621ef182835018b00b288c9bb235c5c5e4514658c1a1
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
