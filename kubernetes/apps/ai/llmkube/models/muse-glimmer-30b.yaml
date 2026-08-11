@@ -26,8 +26,8 @@ spec:
   files:
     - Muse-Glimmer-30B-UD-Q4_K_XL.gguf
     - dflash-kquant.gguf
-  # Vision, at a measured cost: prefill drops persistently once loaded (#26873).
-  mmproj: mmproj-Muse-Glimmer-30B-BF16.gguf
+  # Q8_0 not BF16: the 3.85GB projector put VRAM at 0.891, over the 0.875 ceiling.
+  mmproj: mmproj-Muse-Glimmer-30B-Q8_0.gguf
   hardware:
     accelerator: rocm
     memoryBudget: 28Gi
