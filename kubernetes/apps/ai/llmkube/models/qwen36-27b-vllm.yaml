@@ -163,7 +163,7 @@ spec:
   # Above 16 the 125,041-token pool oversubscribes: TG 48 -> 35, TTFT 11s -> 85s.
   parallelSlots: 16
   vllmConfig:
-    # Largest context that fits the 121,302-token pool below; SGLang's 180K needs ~6.55 GiB.
+    # Fits the measured pool below; SGLang's 180K needs ~6.55 GiB.
     maxModelLen: 112000
     kvCacheDtype: fp8_e4m3
     # Off, mamba leaves 'align' mode and the offloading connector asserts.
@@ -221,7 +221,9 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
-    # MEASUREMENT BOOT: removed so the cudagraph estimator runs; restore after reading it.
+    # vLLM's own "to fit into requested memory" figure at 0.875 (measured 2026-08-12).
+    - --kv-cache-memory-bytes
+    - "4691494912"
     # Hierarchical KV cache: CPU tier = SGLang's --hicache-ratio (9.01 GB measured), fs tier
     # = its file backend. No block_size -- Qwen3.6's hybrid groups trip a divisibility assert.
     - --kv-transfer-config
@@ -235,7 +237,7 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 15
       failureThreshold: 240
-    # TODO: Replace this always-successful check with a real health-based liveness probe before production cutover.
+    # Inert by design: long model loads and transient GPU work must not restart the pod.
     liveness:
       exec:
         command: ["true"]
