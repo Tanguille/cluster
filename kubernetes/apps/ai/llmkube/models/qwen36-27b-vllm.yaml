@@ -192,17 +192,24 @@ spec:
     - name: kv-offload
       persistentVolumeClaim:
         claimName: qwen36-27b-vllm-kv-offload
+    # The CPU offload tier mmaps cpu_bytes_to_use here; the 64M default EFAULTs on
+    # its MADV_POPULATE_WRITE. Sized above 8Gi so the pre-fault has slack.
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 10Gi
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
     - name: kv-offload
       mountPath: /kvoffload
+    - name: dshm
+      mountPath: /dev/shm
   extraArgs:
     - --served-model-name
     - qwen-3.6
-    # Disable image and video multimodal inputs.
-    - --limit-mm-per-prompt
-    - '{"image":0,"video":0}'
+    # Zeroes every modality limit, so the vision tower loads on the meta device.
+    - --language-model-only
     # Use bfloat16 Mamba cache dtype to reduce memory for the long context window.
     - --mamba-ssm-cache-dtype
     - bfloat16
