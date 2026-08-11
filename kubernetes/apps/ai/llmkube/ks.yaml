@@ -34,19 +34,19 @@ spec:
     - name: llmkube
     - name: generic-device-plugin
       namespace: kube-system
-  # Deliberately gate only qwen36-27b: litellm and memini dependsOn this ks, and
-  # a wedged embedder (known vmcp-embedding affinity deadlock) must not block
-  # their reconciliation.
+  # Deliberately gate only the serving generation model: litellm and memini dependsOn
+  # this ks, and a wedged embedder (known vmcp-embedding affinity deadlock) must not
+  # block their reconciliation.
   healthChecks:
     - apiVersion: inference.llmkube.dev/v1alpha1
       kind: InferenceService
-      name: qwen36-27b
+      name: muse-glimmer-30b
       namespace: ai
   healthCheckExprs:
     - apiVersion: inference.llmkube.dev/v1alpha1
       kind: InferenceService
       failed: has(status.phase) && status.phase == 'Failed'
-      # Stopped only ever means spec.replicas=0, i.e. qwen36-27b was parked on purpose;
+      # Stopped only ever means spec.replicas=0, i.e. the model was parked on purpose;
       # a model that breaks lands in Failed above. The CRD tells readiness pollers to
       # treat Stopped as Pending, but this gate asks "has the Kustomization converged",
       # and a parked service has. Excluding it would hang llmkube-models forever, and
