@@ -31,8 +31,8 @@ metadata:
   name: muse-glimmer-30b
 spec:
   modelRef: muse-glimmer-30b
-  # Evaluation only: arch landed 2026-08-10 (#26841); scale up only with qwen36-27b-vllm at 0.
-  replicas: 0
+  # Owns the R9700 for the evaluation window; qwen36-27b-vllm drops to 0 in the same commit.
+  replicas: 1
   # Needs >= b10361 for muse_glimmer.
   image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10362@sha256:2a078f50e40253167620f4b7002253db2254368e335149aa58e51a3cf2c09313
   # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
