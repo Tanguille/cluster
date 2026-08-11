@@ -158,8 +158,8 @@ spec:
   # v0.26.0 measured identical to the nightly on KV pool and throughput (2026-07-25).
   # The nightly self-reports a stale 0.23.1rc1 base tag; tags are not version-ordered.
   image: vllm/vllm-openai-rocm:v0.27.1@sha256:bb44b39aea26798cce43030a98bf48efd0322ca7147367db86e38b96bd80f0e7
-  # Validation window: SGLang is at replicas 0 so this owns the GPU. Revert both together.
-  replicas: 1
+  # Parked for the muse-glimmer-30b evaluation window; measured table in the PR that parked it.
+  replicas: 0
   # Above 16 the 125,041-token pool oversubscribes: TG 48 -> 35, TTFT 11s -> 85s.
   parallelSlots: 16
   vllmConfig:
