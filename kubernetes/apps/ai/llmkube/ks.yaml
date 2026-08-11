@@ -34,24 +34,8 @@ spec:
     - name: llmkube
     - name: generic-device-plugin
       namespace: kube-system
-  # Deliberately gate only the serving generation model: litellm and memini dependsOn
-  # this ks, and a wedged embedder (known vmcp-embedding affinity deadlock) must not
-  # block their reconciliation.
-  healthChecks:
-    - apiVersion: inference.llmkube.dev/v1alpha1
-      kind: InferenceService
-      name: muse-glimmer-30b
-      namespace: ai
-  healthCheckExprs:
-    - apiVersion: inference.llmkube.dev/v1alpha1
-      kind: InferenceService
-      failed: has(status.phase) && status.phase == 'Failed'
-      # Stopped only ever means spec.replicas=0, i.e. the model was parked on purpose;
-      # a model that breaks lands in Failed above. The CRD tells readiness pollers to
-      # treat Stopped as Pending, but this gate asks "has the Kustomization converged",
-      # and a parked service has. Excluding it would hang llmkube-models forever, and
-      # litellm and memini behind it.
-      current: has(status.phase) && (status.phase == 'Stopped' || (status.phase == 'Ready' && has(status.conditions) && status.conditions.exists(e, e.type == 'Available' && e.status == 'True')))
+  # No healthChecks: litellm and memini dependsOn this ks, and a model that is slow to
+  # boot or wedged must not block their reconciliation.
   path: ./kubernetes/apps/ai/llmkube/models
   prune: true
   sourceRef:
