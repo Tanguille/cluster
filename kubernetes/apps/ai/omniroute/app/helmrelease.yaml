@@ -22,7 +22,10 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              tag: 3.8.49
+              # Provider integrations move faster than the semver tags (3.8.49 sat
+              # 12 days while main got provider fixes); track main by digest so
+              # Renovate raises a digest PR per upstream push.
+              tag: main@sha256:6479dac204c67e0d328fe73e3c55627bff43eb346cf14fea83368358ff3826b6
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
