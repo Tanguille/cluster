@@ -160,8 +160,8 @@ spec:
   image: vllm/vllm-openai-rocm:v0.27.1@sha256:bb44b39aea26798cce43030a98bf48efd0322ca7147367db86e38b96bd80f0e7
   # Validation window: SGLang is at replicas 0 so this owns the GPU. Revert both together.
   replicas: 1
-  # 32 slots doubled aggregate throughput vs 8: 40 -> 79 tok/s at concurrency 16.
-  parallelSlots: 32
+  # Above 16 the 125,041-token pool oversubscribes: TG 48 -> 35, TTFT 11s -> 85s.
+  parallelSlots: 16
   vllmConfig:
     # Largest context that fits the 121,302-token pool below; SGLang's 180K needs ~6.55 GiB.
     maxModelLen: 112000
