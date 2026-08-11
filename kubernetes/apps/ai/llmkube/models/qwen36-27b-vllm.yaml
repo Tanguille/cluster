@@ -166,6 +166,9 @@ spec:
     # Largest context that fits the 121,302-token pool below; SGLang's 180K needs ~6.55 GiB.
     maxModelLen: 112000
     kvCacheDtype: fp8_e4m3
+    # Load-bearing, not a default: without it mamba leaves 'align' mode and the
+    # offloading connector asserts on tokens_per_block vs tokens_per_hash.
+    enablePrefixCaching: true
     maxNumBatchedTokens: 8192
     # HARD CEILING: shared with Jellyfin transcoding, never raise.
     gpuMemoryUtilization: 0.875
