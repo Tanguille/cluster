@@ -1,4 +1,18 @@
 ---
+# The shared llmkube-model-cache is 4Gi; these weights are ~17.5 GB.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: muse-glimmer-30b-model-cache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 32Gi
+---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
@@ -31,6 +45,8 @@ metadata:
   name: muse-glimmer-30b
 spec:
   modelRef: muse-glimmer-30b
+  modelCache:
+    claimName: muse-glimmer-30b-model-cache
   # Owns the R9700 for the evaluation window; qwen36-27b-vllm drops to 0 in the same commit.
   replicas: 1
   # Needs >= b10361 for muse_glimmer.
