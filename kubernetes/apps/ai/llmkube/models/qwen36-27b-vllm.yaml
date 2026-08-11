@@ -168,7 +168,7 @@ spec:
     kvCacheDtype: fp8_e4m3
     # Off, mamba leaves 'align' mode and the offloading connector asserts.
     enablePrefixCaching: true
-    maxNumBatchedTokens: 8192
+    maxNumBatchedTokens: 4096
     # HARD CEILING: shared with Jellyfin transcoding, never raise.
     gpuMemoryUtilization: 0.875
   env:
@@ -221,10 +221,7 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
-    # vLLM's profiler leaves the pool at 48,000 tokens; explicit sizing gives 121,302
-    # within the same 0.875 budget.
-    - --kv-cache-memory-bytes
-    - "4294967296"
+    # MEASUREMENT BOOT: removed so the cudagraph estimator runs; restore after reading it.
     # Hierarchical KV cache: CPU tier = SGLang's --hicache-ratio (9.01 GB measured), fs tier
     # = its file backend. No block_size -- Qwen3.6's hybrid groups trip a divisibility assert.
     - --kv-transfer-config
