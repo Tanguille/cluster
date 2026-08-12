@@ -86,5 +86,12 @@ spec:
       # and rides out to the action's own 600s curl ceiling instead.
       stream_timeout: 150
       num_retries: 0
+      # omniroute's pii-masker guardrail rewrites any bare 10-digit number as
+      # [PHONE_REDACTED] (its phone_us regex matches \d{3}\d{3}\d{4}), so byte
+      # counts and memory limits reach the model corrupted and it reports the
+      # redaction as the defect (2026-08-12: 8 of 9 review runs). Guardrails have
+      # no persisted toggle — per-request opt-out only. credential-masker stays on.
+      extra_headers:
+        x-omniroute-disabled-guardrails: pii-masker
   info:
     mode: chat
