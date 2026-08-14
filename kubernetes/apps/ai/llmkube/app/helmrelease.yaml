@@ -12,6 +12,15 @@ spec:
   values:
     namespace: ai
 
+    # Render the Foreman CRS ConfigMap into the observability namespace so
+    # kube-state-metrics (which runs there) can mount it via a ConfigMap
+    # volume. Requires foreman.crs.enabled=true for the ConfigMap to exist;
+    # the namespace override is a no-op when the Foreman chart is absent.
+    foreman:
+      crs:
+        enabled: true
+        namespace: observability
+
     controllerManager:
       leaderElection:
         enabled: false

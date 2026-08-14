@@ -45,6 +45,14 @@ spec:
           verbs:
             - list
             - watch
+        - apiGroups:
+            - inference.llmkube.dev
+          resources:
+            - inferenceservices
+            - modelpools
+          verbs:
+            - list
+            - watch
     customResourceState:
       enabled: true
       config:
@@ -210,3 +218,94 @@ spec:
                     phase:
                       - status
                       - phase
+            # llmkube core CRDs: InferenceService and ModelPool status fields
+            # exposed as Prometheus gauges so dashboards and alerts can query
+            # readiness, phase, and replica counts without a custom exporter.
+            - groupVersionKind:
+                group: inference.llmkube.dev
+                version: v1alpha1
+                kind: InferenceService
+              metricNamePrefix: llmkube_inferenceservice
+              metrics:
+                - name: resource_info
+                  help: The current state of an llmkube InferenceService resource.
+                  each: *eachName
+                  labelsFromPath:
+                    exported_namespace: *namespacePath
+                    ready: *readyPath
+                    phase:
+                      - status
+                      - phase
+                    mode:
+                      - status
+                      - mode
+                    runtime:
+                      - spec
+                      - runtime
+                    model_ref:
+                      - spec
+                      - modelRef
+                    scheduling_status:
+                      - status
+                      - schedulingStatus
+                - name: ready_replicas
+                  help: Number of ready InferenceService pods.
+                  each:
+                    type: Gauge
+                    gauge:
+                      path:
+                        - status
+                        - readyReplicas
+                - name: desired_replicas
+                  help: Desired number of InferenceService pods.
+                  each:
+                    type: Gauge
+                    gauge:
+                      path:
+                        - status
+                        - desiredReplicas
+                - name: replicas
+                  help: Current number of running InferenceService pods.
+                  each:
+                    type: Gauge
+                    gauge:
+                      path:
+                        - status
+                        - replicas
+                - name: model_ready
+                  help: Whether the referenced Model is in Ready state.
+                  each:
+                    type: Gauge
+                    gauge:
+                      path:
+                        - status
+                        - modelReady
+                - name: queue_position
+                  help: Position among pending InferenceServices cluster-wide.
+                  each:
+                    type: Gauge
+                    gauge:
+                      path:
+                        - status
+                        - queuePosition
+            - groupVersionKind:
+                group: inference.llmkube.dev
+                version: v1alpha1
+                kind: ModelPool
+              metricNamePrefix: llmkube_modelpool
+              metrics:
+                - name: resource_info
+                  help: The current state of an llmkube ModelPool resource.
+                  each: *eachName
+                  labelsFromPath:
+                    exported_namespace: *namespacePath
+                    ready: *readyPath
+                    phase:
+                      - status
+                      - phase
+                    resident_member:
+                      - status
+                      - residentMember
+                    pending_member:
+                      - status
+                      - pendingMember
