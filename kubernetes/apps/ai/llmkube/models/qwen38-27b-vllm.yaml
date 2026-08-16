@@ -156,11 +156,11 @@ spec:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
     # Hermes hard-requires >=64K context (refuses to start below it); its own
-    # measured p100 session usage is 112K, p90 is 94K (docs/hermes-config.md).
-    # 112000 didn't fit: with vision kept loaded (unlike qwen36-27b-vllm's
-    # --language-model-only), vLLM's own boot-time estimate at this budget is
-    # 98400 max. 96000 gives margin below that and covers p90.
-    maxModelLen: 96000
+    # measured percentiles are p90 94K, p95 106K, p100 112K
+    # (docs/hermes-config.md). --mamba-cache-dtype (below) freed enough room
+    # to push from the initial 96000 to 98000 (106000 didn't fit — vLLM's own
+    # estimate at this budget tops out at 100000); covers p90 with margin.
+    maxModelLen: 98000
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
@@ -229,6 +229,12 @@ spec:
     # wedges to ~0.2 tok/s (100x regression) under concurrent tool traffic
     # on this exact hardware. Do not re-add without re-testing that wedge.
     # Use bfloat16 Mamba cache dtype to reduce memory for the long context window.
+    # --mamba-cache-dtype covers the conv-state cache too (a separate pool from
+    # --mamba-ssm-cache-dtype's SSM-state-only scope, left at auto in the
+    # qwen36 reference this was ported from); bfloat16/float16/float32 are
+    # the only options vLLM supports for either, so this is the floor.
+    - --mamba-cache-dtype
+    - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
