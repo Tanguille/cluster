@@ -8,19 +8,26 @@ spec:
   modelName: qwen-3.6
   proxyRef: litellm
   params:
-    model: openai/qwen-3.6
-    apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
+    # Alias name kept as qwen-3.6 for downstream compat (karakeep, omniroute,
+    # etc. hardcode this litellm alias); backend swapped to qwen38-27b-vllm
+    # 2026-08-16 — beats the old SGLang baseline at every measured
+    # concurrency. See qwen38-27b-vllm.yaml for the qualification numbers.
+    model: openai/qwen-3.8
+    apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     # Native vLLM/SGLang are unauthenticated internally, but LiteLLM's OpenAI provider
     # requires a non-empty api_key.
-    apiKey: sk-sglang-noauth
+    apiKey: sk-vllm-noauth
     additional:
       timeout: 1800
       stream_timeout: 1800
       num_retries: 0
   info:
     mode: chat
-    # SGLang's 180000 ctx minus maxOutputTokens.
-    maxInputTokens: 171808
+    # vLLM's maxModelLen (96000) minus maxOutputTokens. Still a real
+    # reduction from SGLang's 180000, but the OffloadingConnector
+    # (qwen38-27b-vllm.yaml, ported from qwen36-27b-vllm.yaml's proven
+    # pattern) closes most of the gap — was 24576 before that landed.
+    maxInputTokens: 87808
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
@@ -32,17 +39,18 @@ spec:
   modelName: qwen-3.6-fast
   proxyRef: litellm
   params:
-    model: openai/qwen-3.6
-    apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
-    apiKey: sk-sglang-noauth
+    model: openai/qwen-3.8
+    apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
+    apiKey: sk-vllm-noauth
     additional:
       # Hermes compression is a ~100K+ prefill on this alias; under GPU contention
       # the shared prefill rate drops below what 600s covers (2026-07-07).
       timeout: 900
       stream_timeout: 900
       num_retries: 0
-      # Vendor non-thinking sampling (Qwen3.6 model card) — generation_config ships thinking-mode
-      # values (1.0/0.95/presence 0). Defaults only: client-set params win (v1.91.0 router merge).
+      # Non-thinking instruct-mode sampling — matches Qwen3.8's model card
+      # exactly (temperature/top_p/presence_penalty), same as Qwen3.6's.
+      # Defaults only: client-set params win (v1.91.0 router merge).
       temperature: 0.7
       top_p: 0.8
       presence_penalty: 1.5
@@ -51,7 +59,7 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    maxInputTokens: 171808
+    maxInputTokens: 87808
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json

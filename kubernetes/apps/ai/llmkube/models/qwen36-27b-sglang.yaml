@@ -144,8 +144,10 @@ metadata:
 spec:
   modelRef: qwen36-27b-awq
   runtime: sglang
-  # Owns the R9700: more context, faster decode and working vision than vLLM at 0.
-  replicas: 1
+  # Superseded 2026-08-16 by qwen38-27b-vllm: the new RDNAHybridW4A16LinearKernel
+  # (vLLM v0.27.1) beats this lane's own baseline at every measured concurrency
+  # (C1 +28%, C8 +14%, C16 +199%). Parked, not deleted, for rollback.
+  replicas: 0
   # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
   bindAddress: 0.0.0.0
   image: ghcr.io/tanguille/sglang-rdna4:sha-cb7b76050cbf8dda9e5a78c07b24df1a783caeb3@sha256:f961fc274eaad4af065097e0921b88ae5a97a478baa0e384e6c5ee440c355b29
