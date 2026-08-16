@@ -1,0 +1,294 @@
+---
+# Temporary compatibility lane. Activate only one service at a time: the two
+# services request the same physical RDNA4 GPU and have no GPU exclusivity.
+# Before activation, scale production Qwen down and verify its GPU process is
+# absent; replicas: 0 is the safe GitOps default, not GPU isolation.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-bench-sglang-model-cache
+  namespace: ai
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-bench-sglang-triton-cache
+  namespace: ai
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-bench-sglang-hicache
+  namespace: ai
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 64Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-bench-vllm-model-cache
+  namespace: ai
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-bench-vllm-compile-cache
+  namespace: ai
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-27b-benchmark
+  namespace: ai
+spec:
+  source: hf://cyankiwi/Qwen3.8-27B-AWQ-INT4@63768c10df38c0395e12ef49edac1bd539eaeeea
+  format: safetensors
+  quantization: compressed-tensors
+  refreshPolicy: OnChange
+  # Keep the manifest explicit so the benchmark is a cold, reproducible stage.
+  files:
+    - model-00001-of-00005.safetensors
+    - model-00002-of-00005.safetensors
+    - model-00003-of-00005.safetensors
+    - model-00004-of-00005.safetensors
+    - model-00005-of-00005.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - chat_template.jinja
+    - merges.txt
+    - vocab.json
+    - preprocessor_config.json
+    - video_preprocessor_config.json
+  hardware:
+    accelerator: rocm
+    memoryBudget: 28Gi
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen38-27b-bench-sglang
+  namespace: ai
+spec:
+  modelRef: qwen38-27b-benchmark
+  runtime: sglang
+  # Compatibility/boot probe only, not a performance lane: compressed-tensors
+  # on this SGLang ROCm/RDNA4 path is not yet supported by evidence.
+  # Before activation, scale production Qwen down and verify its GPU process is
+  # absent; then activate this probe serially with the vLLM service.
+  replicas: 0
+  bindAddress: 0.0.0.0
+  image: ghcr.io/tanguille/sglang-rdna4:sha-cb7b76050cbf8dda9e5a78c07b24df1a783caeb3@sha256:f961fc274eaad4af065097e0921b88ae5a97a478baa0e384e6c5ee440c355b29
+  containerPort: 30001
+  endpoint:
+    port: 30001
+  nodeSelector:
+    kubernetes.io/hostname: control-1
+  podSecurityContext:
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    fsGroupChangePolicy: OnRootMismatch
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  modelCache:
+    claimName: qwen38-27b-bench-sglang-model-cache
+  sglangConfig:
+    contextLength: 32768
+    memFractionStatic: 0.875
+    chunkedPrefillSize: 4096
+    kvCacheDtype: fp8_e4m3
+    reasoningParser: qwen3
+  resources:
+    cpu: "2"
+    hostMemory: 24Gi
+  env:
+    - name: FLASHINFER_WORKSPACE_BASE
+      value: /tmp/qwen38-bench-flashinfer
+    - name: TRITON_CACHE_DIR
+      value: /qwen38-sglang-triton/triton
+    - name: SGLANG_RDNA4_DISABLE_STORE_CACHE
+      value: "1"
+    - name: SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR
+      value: /qwen38-sglang-hicache/sglang-v0.5.16_qwen38-benchmark
+  extraVolumes:
+    - name: triton-cache
+      persistentVolumeClaim:
+        claimName: qwen38-27b-bench-sglang-triton-cache
+    - name: hicache
+      persistentVolumeClaim:
+        claimName: qwen38-27b-bench-sglang-hicache
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 8Gi
+  extraVolumeMounts:
+    - name: triton-cache
+      mountPath: /qwen38-sglang-triton
+    - name: hicache
+      mountPath: /qwen38-sglang-hicache
+    - name: dshm
+      mountPath: /dev/shm
+  extraArgs:
+    - --num-continuous-decode-steps
+    - "16"
+    - --watchdog-timeout
+    - "600"
+    - --attention-backend
+    - triton
+    - --disable-overlap-schedule
+    - --cuda-graph-backend-decode=disabled
+    - --cuda-graph-backend-prefill=disabled
+    - --served-model-name
+    - qwen-3.8-benchmark-sglang
+  probeOverrides:
+    startup:
+      httpGet:
+        path: /health
+        port: 30001
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 120
+    liveness:
+      exec:
+        command: ["true"]
+      periodSeconds: 3600
+    readiness:
+      tcpSocket:
+        port: 30001
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
+---
+# Temporary lane: activate serially with qwen38-27b-bench-sglang only.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen38-27b-bench-vllm
+  namespace: ai
+spec:
+  modelRef: qwen38-27b-benchmark
+  runtime: vllm
+  # Initial qualification intentionally disables filesystem KV offload. This
+  # isolates model/runtime compatibility before adding another storage tier.
+  # Before activation, scale production Qwen down and verify its GPU process is
+  # absent; activate this service serially with the SGLang boot probe.
+  replicas: 0
+  bindAddress: 0.0.0.0
+  image: vllm/vllm-openai-rocm:v0.27.1@sha256:bb44b39aea26798cce43030a98bf48efd0322ca7147367db86e38b96bd80f0e7
+  modelCache:
+    claimName: qwen38-27b-bench-vllm-model-cache
+  vllmConfig:
+    maxModelLen: 32768
+    kvCacheDtype: fp8_e4m3
+    enablePrefixCaching: true
+    maxNumBatchedTokens: 4096
+    gpuMemoryUtilization: 0.875
+  env:
+    - name: VLLM_ROCM_USE_AITER
+      value: "0"
+    - name: HIP_VISIBLE_DEVICES
+      value: "0"
+    - name: ROCR_VISIBLE_DEVICES
+      value: "0"
+    - name: VLLM_CACHE_ROOT
+      value: /qwen38-vllm-compile/vllm
+    - name: TRITON_CACHE_DIR
+      value: /qwen38-vllm-compile/triton
+    - name: TORCHINDUCTOR_CACHE_DIR
+      value: /qwen38-vllm-compile/inductor
+    - name: PYTHONHASHSEED
+      value: "0"
+  extraVolumes:
+    - name: compile-cache
+      persistentVolumeClaim:
+        claimName: qwen38-27b-bench-vllm-compile-cache
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 10Gi
+  extraVolumeMounts:
+    - name: compile-cache
+      mountPath: /qwen38-vllm-compile
+    - name: dshm
+      mountPath: /dev/shm
+  extraArgs:
+    - --served-model-name
+    - qwen-3.8-benchmark-vllm
+    - --trust-remote-code
+    - --reasoning-parser
+    - qwen3
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - qwen3_coder
+  nodeSelector:
+    amd.com/gpu: "true"
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  resources:
+    cpu: "2"
+    memory: 32Gi
+  endpoint:
+    port: 8001
+  probeOverrides:
+    startup:
+      httpGet:
+        path: /health
+        port: 8001
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    liveness:
+      exec:
+        command: ["true"]
+      periodSeconds: 3600
+    readiness:
+      tcpSocket:
+        port: 8001
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
