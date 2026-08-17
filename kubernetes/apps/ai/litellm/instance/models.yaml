@@ -23,12 +23,14 @@ spec:
       num_retries: 0
   info:
     mode: chat
-    # vLLM's maxModelLen (98000) minus maxOutputTokens. Still a real
-    # reduction from SGLang's 180000, but the OffloadingConnector
+    # vLLM's maxModelLen (112000) minus maxOutputTokens. Still a reduction from
+    # SGLang's 180000, but it now covers Hermes' measured p100 (112K), so
+    # routine sessions never truncate. The OffloadingConnector
     # (qwen38-27b-vllm.yaml, ported from qwen36-27b-vllm.yaml's proven
-    # pattern) plus --mamba-cache-dtype closes most of the gap — was 24576
-    # with neither, then 87808 with the offload tier alone.
-    maxInputTokens: 89808
+    # pattern) plus an explicit --kv-cache-memory got it there — was 24576
+    # with neither, 87808 with the offload tier alone, 89808 before the KV
+    # pool was sized explicitly.
+    maxInputTokens: 103808
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
@@ -60,7 +62,7 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    maxInputTokens: 89808
+    maxInputTokens: 103808
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json

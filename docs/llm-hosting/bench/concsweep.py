@@ -5,7 +5,7 @@ Short prompts on purpose: isolates DECODE from prefill. Unique salt per stream s
 prefix caching cannot fake the numbers. Aggregate tok/s is the number that matters -
 the owner cares about concurrency, not batch-1 latency.
 """
-import json, sys, time, threading, urllib.request
+import json, os, sys, time, threading, urllib.request
 
 def _port():
     if len(sys.argv) < 2:
@@ -17,7 +17,9 @@ def _port():
 
 
 URL = f"http://127.0.0.1:{_port()}/v1/completions"
-MODEL = "qwen-3.6"
+# Served name changed with the 3.8 cutover; env override keeps the script usable
+# against either backend without an edit.
+MODEL = os.environ.get("BENCH_MODEL", "qwen-3.8")
 GEN = 96
 
 

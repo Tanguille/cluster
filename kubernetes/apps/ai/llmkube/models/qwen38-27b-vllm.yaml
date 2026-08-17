@@ -48,8 +48,17 @@ metadata:
   name: qwen38-27b-vllm-kv-offload-guard
   namespace: ai
 spec:
-  # Daily: SGLang's store took weeks to reach 147G.
-  schedule: "0 4 * * *"
+  # Hourly, not daily. openebs-hostpath enforces no quota, so the PVC's 128Gi
+  # request is documentation rather than a limit and this job is the only thing
+  # standing between the fs tier and control-1's root fs (shared with rook-ceph's
+  # mon-c store). A daily window let a busy day cross the floor and stay there
+  # for hours; hourly bounds that exposure to one hour of writes. This is still
+  # a periodic control, not a hard cap -- a bounded storage class is the real
+  # fix, and it costs the L3 tier its local-disk latency, so it is deliberately
+  # not taken here.
+  # ponytail: hourly sweep, move to a quota-enforcing storage class if the
+  # floor is ever actually breached.
+  schedule: "0 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
@@ -157,16 +166,18 @@ spec:
   vllmConfig:
     # Hermes hard-requires >=64K context (refuses to start below it); its own
     # measured percentiles are p90 94K, p95 106K, p100 112K
-    # (docs/hermes-config.md). --mamba-cache-dtype (below) freed enough room
-    # to push from the initial 96000 to 98000 (106000 didn't fit — vLLM's own
-    # estimate at this budget tops out at 100000); covers p90 with margin.
-    maxModelLen: 98000
+    # (docs/hermes-config.md). 112000 covers p100, so routine sessions never
+    # truncate. Reachable only with the explicit --kv-cache-memory below;
+    # the earlier 98000 was a symptom of sizing KV off gpuMemoryUtilization.
+    maxModelLen: 112000
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
     enablePrefixCaching: true
     maxNumBatchedTokens: 4096
-    gpuMemoryUtilization: 0.875
+    # Paired with --kv-cache-memory below: this only has to be high enough to
+    # admit weights + activations + that KV block, not to size KV itself.
+    gpuMemoryUtilization: 0.97
   env:
     - name: VLLM_ROCM_USE_AITER
       value: "0"
@@ -237,6 +248,15 @@ spec:
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
+    # Size the KV pool explicitly instead of letting it take whatever
+    # gpuMemoryUtilization happens to leave over. Deriving it from the
+    # utilization fraction gave 3.22 GiB (99,519 tokens, 1.02x concurrency at
+    # 98K -- i.e. a second full-length request had to wait). vLLM's own
+    # profiler on this card reports 6.88 GiB as the ceiling that still fits;
+    # 6 GiB takes nearly all of it and leaves ~0.9 GiB for fragmentation.
+    # Measured result: 187,945 tokens, 1.68x concurrency at 112K.
+    - --kv-cache-memory
+    - "6442450944"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
@@ -266,10 +286,19 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 15
       failureThreshold: 240
+    # Real check, not the no-op inherited from qwen36-27b-vllm.yaml. The startup
+    # probe above owns the whole load/compile window, so liveness only ever runs
+    # against a serving engine and a wedged one now gets restarted. Thresholds
+    # are deliberately slack: /health queues behind a saturated GPU, and a
+    # restart mid-decode costs ~2min of compile-cached reload, so only a
+    # 10-minute outage (20 x 30s) is treated as death.
     liveness:
-      exec:
-        command: ["true"]
-      periodSeconds: 3600
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 20
     readiness:
       tcpSocket:
         port: 8000
