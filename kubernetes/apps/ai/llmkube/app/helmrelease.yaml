@@ -41,11 +41,12 @@ spec:
       dashboards:
         enabled: true
         namespace: observability
-        # Both runtimes we ship manifests for are listed and left to
-        # operator.mode: auto below, which publishes a runtime dashboard only
-        # while an InferenceService on that runtime exists. vllm follows qwen38
-        # and llamacpp follows muse-glimmer (replicas 0 today), so neither this
-        # list nor a dashboard goes stale when one is parked or scaled up.
+        # Both runtimes we ship manifests for are listed and left to the
+        # operator's default auto mode, which publishes a runtime dashboard
+        # only while an InferenceService on that runtime exists. vllm follows
+        # qwen38 and llamacpp follows muse-glimmer (replicas 0 today), so
+        # neither this list nor a dashboard goes stale when one is parked or
+        # scaled up.
         # sglang-dashboard is omitted rather than left to auto: that lane is
         # deleted, so it could never publish. Re-add it if SGLang returns.
         #
@@ -56,9 +57,6 @@ spec:
         only: [llmkube-inference, vllm-dashboard, llamacpp-dashboard]
         operator:
           enabled: true
-          # Chart default, pinned explicitly: this is what gates the runtime
-          # dashboards above. "all" would publish them unconditionally.
-          mode: auto
           folder: ai
           instanceSelector:
             matchLabels:

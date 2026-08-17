@@ -18,9 +18,7 @@ spec:
   # series and all 10 metrics the dashboard queries, so upstream works and the
   # local copy is just drift waiting to happen.
   #
-  # Revision pinned so a dashboard rewrite upstream can't land unreviewed;
-  # bump it deliberately (no Renovate manager covers grafanaCom, unlike the
-  # spec.url dashboards).
+  # No revision: track upstream's latest. The operator re-resolves on its
+  # resync, so dashboard fixes arrive without a bump here.
   grafanaCom:
     id: 24965
-    revision: 2
