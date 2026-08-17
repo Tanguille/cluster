@@ -48,10 +48,10 @@ spec:
   modelRef: muse-glimmer-30b
   modelCache:
     claimName: muse-glimmer-30b-model-cache
-  # Config is evaluated and kept; scale to 1 only with qwen36-27b-vllm at 0.
+  # Config is evaluated and kept; scale to 1 only with qwen38-27b-vllm at 0.
   replicas: 0
   # Needs >= b10361 for muse_glimmer.
-  image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10398@sha256:b7ac7765edaddd39412502839768af23b033436d3c6777cbbcdb29e9b6372e44
+  image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10454@sha256:799571945f574c640d1151633f49c202cd778bf5a227df6ef314a1f08623f5d3
   # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
   bindAddress: 0.0.0.0
   # Shared pool under --kv-unified, 6x the 131072 per-slot cap the "capping" log line applies.
