@@ -166,6 +166,18 @@ spec:
       memory: 32Gi
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+#
+# Qualification (concsweep.py, warm, aggregate decode tok/s) against the SGLang
+# qwen-3.6 baseline this replaces:
+#
+#   conc |  SGLang | this config
+#      1 |   14.96 |      14.88
+#      8 |   36.24 |      53.93
+#     16 |   34.49 |     100.82
+#
+# Parity at batch-1, ~1.5x at 8, ~2.9x at 16 -- the concurrency end is what
+# matters here. Take batch-1 numbers only from a warm engine: the first sweep
+# after a restart read 12.19 purely from cold-start.
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
@@ -193,9 +205,14 @@ spec:
     # real traffic on the sibling qwen36 config).
     enablePrefixCaching: true
     maxNumBatchedTokens: 4096
-    # Paired with --kv-cache-memory below: this only has to be high enough to
-    # admit weights + activations + that KV block, not to size KV itself.
-    gpuMemoryUtilization: 0.97
+    # HARD CEILING: the R9700 is shared with Jellyfin transcoding (single
+    # renderD128 on this node), and the ~4.6 GB free at 0.875 is that
+    # reservation, not slack -- see docs/llm-hosting/vllm-vs-sglang-2026-07.md.
+    # Note this value is inert while --kv-cache-memory is set below: vLLM logs
+    # "skipped memory profiling ... does not respect the gpu_memory_utilization
+    # config". It is kept honest anyway, because removing that flag hands
+    # sizing straight back to this number.
+    gpuMemoryUtilization: 0.875
   env:
     - name: VLLM_ROCM_USE_AITER
       value: "0"
@@ -266,15 +283,20 @@ spec:
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
-    # Size the KV pool explicitly instead of letting it take whatever
-    # gpuMemoryUtilization happens to leave over. Deriving it from the
-    # utilization fraction gave 3.22 GiB (99,519 tokens, 1.02x concurrency at
-    # 98K -- i.e. a second full-length request had to wait). vLLM's own
-    # profiler on this card reports 6.88 GiB as the ceiling that still fits;
-    # 6 GiB takes nearly all of it and leaves ~0.9 GiB for fragmentation.
-    # Measured result: 187,945 tokens, 1.68x concurrency at 112K.
+    # Size the KV pool explicitly: vLLM's profiler is conservative here and
+    # derived only 3.22 GiB (99,519 tokens, 1.02x at 98K -- a second
+    # full-length request had to wait), which is what forced the old 98K
+    # ceiling. This flag skips profiling entirely, so it -- not
+    # gpuMemoryUtilization -- is the real KV control.
+    #
+    # 5 GiB is the largest value that still clears Jellyfin's ~4.6 GB
+    # reservation. Measured on this card: 28.75 of 34.21 GB used, 5.46 GB free
+    # (0.86 GB over the reservation), 156,493 tokens, 1.40x concurrency at
+    # 112K. 6 GiB scores better (187,945 tokens, 1.68x) but lands at 3.41 GB
+    # free -- under the reservation, so it is not a valid production candidate
+    # no matter how it benchmarks. Do not raise without re-measuring free VRAM.
     - --kv-cache-memory
-    - "6442450944"
+    - "5368709120"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —

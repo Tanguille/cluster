@@ -11,9 +11,9 @@ spec:
     # Renamed from qwen-3.6 together with every consumer that hardcodes it
     # (karakeep, agent-pr-review.yaml, proxy.yaml fallbacks, hermes profiles) --
     # the alias is a bare string, so the rename is only safe as one atomic
-    # change across all of them. Backend swapped to qwen38-27b-vllm 2026-08-16;
-    # beats the old SGLang baseline at every measured concurrency. See
-    # qwen38-27b-vllm.yaml for the qualification numbers.
+    # change across all of them. Backend swapped to qwen38-27b-vllm 2026-08-16:
+    # parity with the old SGLang baseline at batch-1, ~1.5x at 8 and ~2.9x at
+    # 16. See qwen38-27b-vllm.yaml for the qualification numbers.
     model: openai/qwen-3.8
     apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     # Native vLLM/SGLang are unauthenticated internally, but LiteLLM's OpenAI provider
