@@ -3,46 +3,55 @@
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
-  name: qwen-3.6
+  name: qwen-3.8
 spec:
-  modelName: qwen-3.6
+  modelName: qwen-3.8
   proxyRef: litellm
   params:
-    model: openai/qwen-3.6
-    apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
-    # Native vLLM/SGLang are unauthenticated internally, but LiteLLM's OpenAI provider
+    # Renamed from qwen-3.6 together with the consumers that hardcode it:
+    # karakeep, agent-pr-review.yaml, proxy.yaml fallbacks. NOT hermes -- its
+    # profiles live on the hermes data PVC, so they are edited by hand and no
+    # rollback of this repo touches them.
+    # Backend swapped to qwen38-27b-vllm 2026-08-16 -- numbers in that file.
+    model: openai/qwen-3.8
+    apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
+    # Native vLLM is unauthenticated internally, but LiteLLM's OpenAI provider
     # requires a non-empty api_key.
-    apiKey: sk-sglang-noauth
+    apiKey: sk-vllm-noauth
     additional:
       timeout: 1800
       stream_timeout: 1800
       num_retries: 0
   info:
     mode: chat
-    # SGLang's 180000 ctx minus maxOutputTokens.
-    maxInputTokens: 171808
+    # vLLM's maxModelLen (112000) minus maxOutputTokens; covers Hermes' measured
+    # p100 (112K), so routine sessions never truncate. Takes both the
+    # OffloadingConnector and an explicit --kv-cache-memory to reach — see
+    # qwen38-27b-vllm.yaml.
+    maxInputTokens: 103808
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
-  name: qwen-3.6-fast
+  name: qwen-3.8-fast
 spec:
-  modelName: qwen-3.6-fast
+  modelName: qwen-3.8-fast
   proxyRef: litellm
   params:
-    model: openai/qwen-3.6
-    apiBase: http://qwen36-27b.ai.svc.cluster.local:30000/v1
-    apiKey: sk-sglang-noauth
+    model: openai/qwen-3.8
+    apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
+    apiKey: sk-vllm-noauth
     additional:
       # Hermes compression is a ~100K+ prefill on this alias; under GPU contention
       # the shared prefill rate drops below what 600s covers (2026-07-07).
       timeout: 900
       stream_timeout: 900
       num_retries: 0
-      # Vendor non-thinking sampling (Qwen3.6 model card) — generation_config ships thinking-mode
-      # values (1.0/0.95/presence 0). Defaults only: client-set params win (v1.91.0 router merge).
+      # Non-thinking instruct-mode sampling — matches Qwen3.8's model card
+      # exactly (temperature/top_p/presence_penalty), same as Qwen3.6's.
+      # Defaults only: client-set params win (v1.91.0 router merge).
       temperature: 0.7
       top_p: 0.8
       presence_penalty: 1.5
@@ -51,7 +60,8 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    maxInputTokens: 171808
+    # 112000 - 8192, as above.
+    maxInputTokens: 103808
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
@@ -68,10 +78,10 @@ spec:
     model: openai/auto/smart
     apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
     # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
-    # a non-empty api_key (same convention as the qwen-3.6 sk-sglang-noauth).
+    # a non-empty api_key (same convention as qwen-3.8's sk-vllm-noauth).
     apiKey: sk-omniroute-noauth
     additional:
-      # Bounded so the qwen-3.6-fast fallback fires inside the pr-reviewer-action's
+      # Bounded so the qwen-3.8-fast fallback fires inside the pr-reviewer-action's
       # 600s curl timeout instead of the action giving up and retrying blind
       # (observed 2026-08-03: 60min run, fallback never triggered). Timeouts
       # aren't in the proxy's retry_policy and num_retries is 0, so one attempt
