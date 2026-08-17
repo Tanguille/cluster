@@ -1,0 +1,311 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-vllm-model-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 50Gi
+---
+# Persist torch, Triton, and Inductor compile caches across restarts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-vllm-compile-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+# L3 tier for the fs secondary tier -- the vLLM analogue of SGLang's HiCache
+# file backend. Ported from qwen36-27b-vllm.yaml: proven pattern, same
+# hardware, same GPU-memory ceiling.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-vllm-kv-offload
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    # hostpath enforces no quota, so the real bound is the free-space guard below.
+    requests:
+      storage: 128Gi
+---
+# vLLM's fs tier has no evictor at v0.27.1, and this node's root fs is shared with
+# rook-ceph's mon store, so the tier needs an external one.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qwen38-27b-vllm-kv-offload-guard
+spec:
+  # Hourly, not daily: a daily window let a busy day cross the floor and sit
+  # there for hours. Safe to run this often only because eviction is now
+  # incremental (see the script) rather than a full wipe.
+  # ponytail: periodic sweep, not a hard cap -- move to a quota-enforcing
+  # storage class if the floor is ever actually breached.
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            # The serving pod runs runAsUser 0, so the store is root-owned on disk.
+            runAsUser: 0
+          containers:
+            - name: guard
+              image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # $$ throughout: Flux postBuild envsubst substitutes bare $VAR.
+                  set -eu
+                  # 80Gi, not the 160Gi this started as: unreachable on a 500G
+                  # disk with ~370G held elsewhere, so the guard wiped the whole
+                  # tier every run. The prefix-hit rate needs the store to survive.
+                  floor=83886080
+                  # df, not du: the store reaches hundreds of thousands of files.
+                  avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
+                  echo "avail: $${avail}K (floor: $${floor}K)"
+                  if [ "$$avail" -ge "$$floor" ]; then
+                    echo "above floor, nothing to do"
+                    exit 0
+                  fi
+                  # Oldest-first, not a wipe: blocks are write-once so mtime is
+                  # real recency. Walk down only until back above the floor.
+                  for age in 30 14 7 3 1 0; do
+                    find /kvoffload -type f -mtime +$$age -delete 2>/dev/null || true
+                    avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
+                    echo "evicted >$${age}d, avail now $${avail}K"
+                    if [ "$$avail" -ge "$$floor" ]; then
+                      exit 0
+                    fi
+                  done
+                  # Still short with only <24h blocks left: the shortfall is
+                  # elsewhere on the shared fs. Fail loudly -- a guard that
+                  # silently misses its floor reads healthy until the node fills.
+                  echo "floor unreachable: $${avail}K < $${floor}K, only <24h blocks left" >&2
+                  exit 1
+              volumeMounts:
+                - name: kv-offload
+                  mountPath: /kvoffload
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: kv-offload
+              persistentVolumeClaim:
+                claimName: qwen38-27b-vllm-kv-offload
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-27b-vllm
+spec:
+  source: hf://cyankiwi/Qwen3.8-27B-AWQ-INT4@63768c10df38c0395e12ef49edac1bd539eaeeea
+  format: safetensors
+  quantization: compressed-tensors
+  refreshPolicy: OnChange
+  files:
+    - model-00001-of-00005.safetensors
+    - model-00002-of-00005.safetensors
+    - model-00003-of-00005.safetensors
+    - model-00004-of-00005.safetensors
+    - model-00005-of-00005.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - chat_template.jinja
+    - merges.txt
+    - vocab.json
+    - preprocessor_config.json
+    - video_preprocessor_config.json
+  hardware:
+    accelerator: rocm
+    memoryBudget: 28Gi
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+      memory: 32Gi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+# concsweep.py, warm, agg tok/s vs the SGLang qwen-3.6 baseline (conc 1/8/16):
+# 14.88/53.93/100.82 vs 14.96/36.24/34.49. Bench warm only -- cold reads ~12.
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen38-27b-vllm
+spec:
+  modelRef: qwen38-27b-vllm
+  runtime: vllm
+  replicas: 1
+  # Matches the proven qwen36 production concurrency ceiling; operator
+  # translates this to --max-num-seqs for the vllm runtime.
+  parallelSlots: 16
+  bindAddress: 0.0.0.0
+  image: vllm/vllm-openai-rocm:v0.27.1@sha256:bb44b39aea26798cce43030a98bf48efd0322ca7147367db86e38b96bd80f0e7
+  modelCache:
+    claimName: qwen38-27b-vllm-model-cache
+  vllmConfig:
+    # Hermes hard-requires >=64K context (refuses to start below it); its
+    # measured percentiles are p90 94K, p95 106K, p100 112K, so this covers
+    # p100 and routine sessions never truncate. Reachable only with the
+    # explicit --kv-cache-memory below.
+    maxModelLen: 112000
+    kvCacheDtype: fp8_e4m3
+    # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
+    # real traffic on the sibling qwen36 config).
+    enablePrefixCaching: true
+    maxNumBatchedTokens: 4096
+    # INERT while --kv-cache-memory is set below (vLLM skips profiling and logs
+    # that it ignores this). Kept because dropping that flag hands sizing back
+    # here, and 0.875 is the hard ceiling: the ~4.6 GB free at this value is
+    # Jellyfin's transcode reservation, not slack, and nothing enforces it
+    # (docs/llm-hosting/vllm-vs-sglang-2026-07.md).
+    gpuMemoryUtilization: 0.875
+  env:
+    - name: VLLM_ROCM_USE_AITER
+      value: "0"
+    - name: HIP_VISIBLE_DEVICES
+      value: "0"
+    - name: ROCR_VISIBLE_DEVICES
+      value: "0"
+    - name: VLLM_CACHE_ROOT
+      value: /cache/vllm
+    - name: TRITON_CACHE_DIR
+      value: /cache/triton
+    - name: TORCHINDUCTOR_CACHE_DIR
+      value: /cache/inductor
+    # Pins the fs tier's block-hash seed; unset it is random per process and restarts lose it.
+    - name: PYTHONHASHSEED
+      value: "0"
+  extraVolumes:
+    - name: compile-cache
+      persistentVolumeClaim:
+        claimName: qwen38-27b-vllm-compile-cache
+    - name: kv-offload
+      persistentVolumeClaim:
+        claimName: qwen38-27b-vllm-kv-offload
+    # The CPU offload tier mmaps 8Gi here; the 64M default EFAULTs on pre-fault.
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 10Gi
+  extraVolumeMounts:
+    - name: compile-cache
+      mountPath: /cache
+    - name: kv-offload
+      mountPath: /kvoffload
+    - name: dshm
+      mountPath: /dev/shm
+  extraArgs:
+    - --served-model-name
+    - qwen-3.8
+    - --trust-remote-code
+    - --reasoning-parser
+    - qwen3
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - qwen3_coder
+    # Qwen3.5-family GDN hybrids OOM during CUDA-graph capture at vLLM's
+    # default 512-size ceiling regardless of gpuMemoryUtilization/
+    # enablePrefixCaching (vLLM #39010 on gfx1201). Cap capture sizes to the
+    # production concurrency ceiling (16) instead of disabling graphs
+    # outright, to keep decode throughput on par with 3.6.
+    # Also fixes a real crash, not just perf: hybrid Mamba/GDN cache only had
+    # 71 blocks available at this budget, and vLLM's default max-num-seqs
+    # (256) overshoots it — spec.parallelSlots above must stay <= that.
+    - --compilation-config
+    - '{"cudagraph_capture_sizes": [1, 2, 4, 8, 16]}'
+    # Keep prior-turn reasoning in context; matches production qwen36 config.
+    - --default-chat-template-kwargs
+    - '{"preserve_thinking": true}'
+    # MTP speculative decoding is deliberately OMITTED: measured on this
+    # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
+    # regression) under concurrent tool traffic. Re-test that wedge before
+    # re-adding.
+    # Covers the conv-state and SSM pools both (--mamba-ssm-cache-dtype
+    # defaults to following this), and bfloat16 is the smallest vLLM accepts.
+    - --mamba-cache-dtype
+    - bfloat16
+    # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
+    # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
+    # 5 GiB is the most that still clears Jellyfin's ~4.6 GB: 5.46 GB free,
+    # 156,493 tokens, 1.40x at 112K. 6 GiB gives 1.68x but only 3.41 GB free,
+    # under the reservation. Re-measure free VRAM before raising.
+    - --kv-cache-memory
+    - "5368709120"
+    # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
+    # philosophy) + fs tier (SGLang's file backend analogue). Ported from
+    # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
+    # Hermes' auxiliary.vision block actively uses this model's vision tower,
+    # so it must stay loaded even though that costs some context headroom.
+    - --kv-transfer-config
+    - >-
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":8589934592,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+  nodeSelector:
+    amd.com/gpu: "true"
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  resources:
+    cpu: "2"
+    # Measured steady state is 13.3Gi (8Gi of it the shm offload tier, which is
+    # tmpfs and so charged here). Kept at 32Gi for the model-load spike rather
+    # than trimmed to the steady state -- an OOMKill mid-load throws away the
+    # compile cache this node takes ~40min to rebuild.
+    memory: 32Gi
+  endpoint:
+    port: 8000
+  probeOverrides:
+    startup:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    # Startup owns the load/compile window, so this only ever sees a serving
+    # engine. Slack on purpose: a restart costs ~2min, so only a 10-minute
+    # outage (20 x 30s) counts as death.
+    liveness:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 20
+    readiness:
+      tcpSocket:
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6

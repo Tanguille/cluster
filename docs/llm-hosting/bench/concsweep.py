@@ -17,7 +17,9 @@ def _port():
 
 
 URL = f"http://127.0.0.1:{_port()}/v1/completions"
-MODEL = "qwen-3.6"
+# 2nd arg overrides the served-model-name, since the port-forward target decides
+# which engine answers. Hardcoding it once cost a whole run of silent 0.00 tok/s.
+MODEL = sys.argv[2] if len(sys.argv) > 2 else "qwen-3.8"
 GEN = 96
 
 

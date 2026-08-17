@@ -59,7 +59,8 @@ spec:
     - "0"
 
   # Pin to the iGPU node; without this the scheduler could place it on the dGPU
-  # node (which also advertises squat.ai/dri) and steal a dGPU slot from sglang.
+  # node (which also advertises squat.ai/dri) and steal a dGPU slot from the
+  # 27B serving pod.
   nodeSelector:
     amd.com/igpu: "true"
 
