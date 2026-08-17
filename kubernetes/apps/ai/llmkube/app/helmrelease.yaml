@@ -43,8 +43,12 @@ spec:
         namespace: observability
         # The rest render blank here: amd-gpu-observability queries amdgpu_*
         # (we run drm-exporter), llmkube-quota and model-router need features we
-        # don't deploy, llmkube-slo needs pyrra burn-rate rules.
-        only: [llmkube-inference]
+        # don't deploy, llmkube-slo needs pyrra burn-rate rules, llamacpp only
+        # has muse-glimmer at replicas 0. `only` is a hard ship-list and does
+        # not react to what is deployed -- operator.mode below is what gates
+        # the runtime dashboards on a live InferenceService, so vllm-dashboard
+        # self-suppresses if qwen38 is ever parked rather than going blank.
+        only: [llmkube-inference, vllm-dashboard]
         operator:
           enabled: true
           folder: ai
