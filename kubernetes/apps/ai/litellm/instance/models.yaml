@@ -24,11 +24,10 @@ spec:
       num_retries: 0
   info:
     mode: chat
-    # vLLM's maxModelLen (112000) minus maxOutputTokens; covers Hermes' measured
-    # p100 (112K), so routine sessions never truncate. Takes both the
-    # OffloadingConnector and an explicit --kv-cache-memory to reach — see
-    # qwen38-27b-vllm.yaml.
-    maxInputTokens: 103808
+    # vLLM's maxModelLen (148000) minus maxOutputTokens. Must be re-derived
+    # whenever that changes -- nothing enforces the subtraction across the two
+    # CRDs. Comfortably over Hermes' measured p100 of 112K.
+    maxInputTokens: 139808
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
@@ -60,8 +59,8 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    # 112000 - 8192, as above.
-    maxInputTokens: 103808
+    # 148000 - 8192, as above.
+    maxInputTokens: 139808
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json

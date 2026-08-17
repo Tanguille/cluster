@@ -172,11 +172,14 @@ spec:
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
-    # Hermes hard-requires >=64K context (refuses to start below it); its
-    # measured percentiles are p90 94K, p95 106K, p100 112K, so this covers
-    # p100 and routine sessions never truncate. Reachable only with the
-    # explicit --kv-cache-memory below.
-    maxModelLen: 112000
+    # This is the ONLY per-request cap on KV blocks (max-num-seqs reserves
+    # nothing, max-num-batched-tokens is a compute budget), so it decides how
+    # much of the pool one session can hold. Sized just under the pool so a
+    # single stream can take ~94% of it: measured 158,073 tokens, 1.07x.
+    # Hermes needs >=64K to start and peaks at p100 112K, so this is headroom
+    # over its real traffic, not a routine working size. The model itself
+    # allows 262,144 (max_position_embeddings); KV is the binding limit.
+    maxModelLen: 148000
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
