@@ -1,0 +1,120 @@
+---
+# The shared llmkube-model-cache is 4Gi; these weights are ~17.5 GB.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: muse-glimmer-30b-model-cache
+  namespace: ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 32Gi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: muse-glimmer-30b
+spec:
+  # unsloth, not meta-models: the official GGUF crashes the DFlash drafter (llama.cpp #26894).
+  source: hf://unsloth/Muse-Glimmer-30B-GGUF@faa5b025c584459c13febfa5c59883516710ae39
+  quantization: Q4_K_XL
+  refreshPolicy: OnChange
+  files:
+    - Muse-Glimmer-30B-UD-Q4_K_XL.gguf
+    - dflash-kquant.gguf
+  # Q8_0 not BF16: the 3.85GB projector put VRAM at 0.891, over the 0.875 ceiling.
+  mmproj: mmproj-Muse-Glimmer-30B-Q8_0.gguf
+  hardware:
+    accelerator: rocm
+    memoryBudget: 28Gi
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      layers: -1
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: muse-glimmer-30b
+spec:
+  modelRef: muse-glimmer-30b
+  modelCache:
+    claimName: muse-glimmer-30b-model-cache
+  # Config is evaluated and kept; scale to 1 only with qwen38-27b-vllm at 0.
+  replicas: 0
+  # Needs >= b10361 for muse_glimmer.
+  image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10454@sha256:799571945f574c640d1151633f49c202cd778bf5a227df6ef314a1f08623f5d3
+  # Operator default binds :: (IPv6-only on this IPv4 cluster); override to v4.
+  bindAddress: 0.0.0.0
+  # Shared pool under --kv-unified, 6x the 131072 per-slot cap the "capping" log line applies.
+  contextSize: 786432
+  # 4 slots left prefill queueing behind them: TTFT 32.5s at concurrency 8.
+  parallelSlots: 16
+  flashAttention: true
+  # 13 KiB/token vs Qwen3.6's 64 at q8_0.
+  cacheTypeK: q8_0
+  cacheTypeV: q8_0
+  jinja: true
+  extraArgs:
+    - "--alias"
+    - "muse-glimmer-30b"
+    # Defaults to false once -np is set explicitly, which would hard-partition the pool.
+    - "--kv-unified"
+    # Meta's defaults; litellm's auto-registered alias carries no sampling params.
+    - "--temp"
+    - "1.0"
+    - "--top-p"
+    - "0.95"
+    - "--top-k"
+    - "64"
+    # speculativeDecoding can't express this: no CRD field names the drafter weights.
+    - "--spec-type"
+    - "draft-dflash"
+    # Path is sha256(Model.spec.source)[:16]; recompute it if the source sha changes.
+    - "--spec-draft-model"
+    - "/models/28e769b306130581/dflash-kquant.gguf"
+    # AMD's own published config for this drafter on this GPU.
+    - "--spec-draft-n-max"
+    - "2"
+  env:
+    # HIP graph cache is unbounded and never evicted with parallel slots (llama.cpp #25082).
+    - name: GGML_CUDA_DISABLE_GRAPHS
+      value: "1"
+  nodeSelector:
+    amd.com/gpu: "true"
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  probeOverrides:
+    startup:
+      httpGet:
+        path: /health
+        port: 8080
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    # Inert by design: long model loads and transient GPU work must not restart the pod.
+    liveness:
+      exec:
+        command: ["true"]
+      periodSeconds: 3600
+    readiness:
+      tcpSocket:
+        port: 8080
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
+  resources:
+    cpu: "2"
+    memory: 8Gi

@@ -22,13 +22,16 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              tag: 3.8.49
+              # Tried main@digest 2026-08-11 and reverted: main is only dependabot
+              # bumps ahead of this tag (provider work lives on the `next` image,
+              # which has no public branch to audit) and its CI run was cancelled.
+              tag: 3.8.49@sha256:92c768c56e2de32c51a0621ef182835018b00b288c9bb235c5c5e4514658c1a1
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
               PORT: &port 20128
               # Only litellm's /v1/* proxy calls skip auth (unauthenticated-backend
-              # + non-empty-apiKey convention, same as the qwen-3.6 SGLang model);
+              # + non-empty-apiKey convention, same as the qwen-3.8 vLLM model);
               # the dashboard at the internal route below still requires
               # INITIAL_PASSWORD login.
               REQUIRE_API_KEY: "false"
