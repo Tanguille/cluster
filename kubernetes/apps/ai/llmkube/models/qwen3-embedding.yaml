@@ -21,8 +21,12 @@ spec:
       vendor: amd
       runtime: vulkan
       layers: -1
-      # Slot counts live at the device plugin (kube-system/generic-device-plugin);
-      # nodeSelector below pins this to the iGPU.
+      # iGPU stays on generic-device-plugin (squat.ai/dri), NOT DRA: main has since
+      # grown a 3-way concurrent squat.ai/dri sharing scenario on the iGPU nodes
+      # (qwen3-embedding + vmcp-embedding + qwen35-2b, count:2/node) via pod
+      # (anti-)affinity. The AMD DRA driver has no timeslicing/consumable-capacity
+      # support, so a DRA claim here would be exclusive and break that sharing.
+      # DRA migration (components/dra-dgpu) is scoped to the exclusive dGPU only.
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
@@ -58,8 +62,8 @@ spec:
     - "--cache-ram"
     - "0"
 
-  # Pin to the iGPU node; without this the scheduler could place it on the dGPU
-  # node (which also advertises squat.ai/dri) and steal a dGPU slot from sglang.
+  # Pin to the iGPU node — narrows to the shared squat.ai/dri iGPU slots and
+  # keeps this off the exclusive dGPU node reserved for sglang.
   nodeSelector:
     amd.com/igpu: "true"
 
