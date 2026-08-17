@@ -12,13 +12,8 @@ spec:
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS
-  # Was a hand-maintained 542-line copy: 24965's $job/$instance vars query
-  # litellm_proxy_total_requests_metric_created, which litellm did not export
-  # back then, so every panel came up blank. v1.97.0 exports the _created
-  # series and all 10 metrics the dashboard queries, so upstream works and the
-  # local copy is just drift waiting to happen.
-  #
-  # No revision: track upstream's latest. The operator re-resolves on its
-  # resync, so dashboard fixes arrive without a bump here.
+  # Was a vendored copy: 24965's $job/$instance vars need
+  # litellm_proxy_total_requests_metric_created, unexported until v1.97.0.
+  # No revision -- track latest.
   grafanaCom:
     id: 24965

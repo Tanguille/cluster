@@ -41,19 +41,11 @@ spec:
       dashboards:
         enabled: true
         namespace: observability
-        # Both runtimes we ship manifests for are listed and left to the
-        # operator's default auto mode, which publishes a runtime dashboard
-        # only while an InferenceService on that runtime exists. vllm follows
-        # qwen38 and llamacpp follows muse-glimmer (replicas 0 today), so
-        # neither this list nor a dashboard goes stale when one is parked or
-        # scaled up.
-        # sglang-dashboard is omitted rather than left to auto: that lane is
-        # deleted, so it could never publish. Re-add it if SGLang returns.
-        #
-        # The excluded ones are not runtime-gated and would render blank
-        # regardless: amd-gpu-observability queries amdgpu_* (we run
-        # drm-exporter), llmkube-quota and model-router need features we don't
-        # deploy, llmkube-slo needs pyrra burn-rate rules.
+        # Runtime dashboards are gated by the operator's default auto mode, so
+        # vllm/llamacpp follow their InferenceServices without an edit here.
+        # The rest aren't gated and would render blank: no pyrra (slo), we
+        # export drm_* not amdgpu_*, and quota/model-router need features we
+        # don't deploy.
         only: [llmkube-inference, vllm-dashboard, llamacpp-dashboard]
         operator:
           enabled: true

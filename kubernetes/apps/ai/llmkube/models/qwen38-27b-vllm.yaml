@@ -80,12 +80,9 @@ spec:
                 - |
                   # $$ throughout: Flux postBuild envsubst substitutes bare $VAR.
                   set -eu
-                  # 80Gi, not the 160Gi this started as. That number was never
-                  # reachable on this node -- the disk is 500G with ~370G held by
-                  # everything else, so df never reported 160G free even with the
-                  # store empty, and the guard wiped the whole tier on every single
-                  # run. An L3 cache that is deleted daily is not a cache; the
-                  # 95%+ external prefix-hit rate only exists if the store survives.
+                  # 80Gi, not the 160Gi this started as: unreachable on a 500G
+                  # disk with ~370G held elsewhere, so the guard wiped the whole
+                  # tier every run. The prefix-hit rate needs the store to survive.
                   floor=83886080
                   # df, not du: the store reaches hundreds of thousands of files.
                   avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
@@ -94,11 +91,8 @@ spec:
                     echo "above floor, nothing to do"
                     exit 0
                   fi
-                  # Evict oldest-first instead of wiping everything: blocks are
-                  # written once and never updated, so mtime IS the recency this
-                  # previously claimed the store had no way to sort by. Walk the
-                  # age cutoff down only until back above the floor, so a small
-                  # overshoot costs a slice of cold blocks, not weeks of warm ones.
+                  # Oldest-first, not a wipe: blocks are write-once so mtime is
+                  # real recency. Walk down only until back above the floor.
                   for age in 30 14 7 3 1 0; do
                     find /kvoffload -type f -mtime +$$age -delete 2>/dev/null || true
                     avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
@@ -107,10 +101,9 @@ spec:
                       exit 0
                     fi
                   done
-                  # Evicted everything but the last 24h and still short: the
-                  # shortfall is something else on the shared root fs, not this
-                  # cache. Fail loudly rather than exit 0 -- a guard that silently
-                  # misses its floor reads as healthy right up until the node fills.
+                  # Still short with only <24h blocks left: the shortfall is
+                  # elsewhere on the shared fs. Fail loudly -- a guard that
+                  # silently misses its floor reads healthy until the node fills.
                   echo "floor unreachable: $${avail}K < $${floor}K, only <24h blocks left" >&2
                   exit 1
               volumeMounts:
@@ -166,18 +159,8 @@ spec:
       memory: 32Gi
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
-#
-# Qualification (concsweep.py, warm, aggregate decode tok/s) against the SGLang
-# qwen-3.6 baseline this replaces:
-#
-#   conc |  SGLang | this config
-#      1 |   14.96 |      14.88
-#      8 |   36.24 |      53.93
-#     16 |   34.49 |     100.82
-#
-# Parity at batch-1, ~1.5x at 8, ~2.9x at 16 -- the concurrency end is what
-# matters here. Take batch-1 numbers only from a warm engine: the first sweep
-# after a restart read 12.19 purely from cold-start.
+# concsweep.py, warm, agg tok/s vs the SGLang qwen-3.6 baseline (conc 1/8/16):
+# 14.88/53.93/100.82 vs 14.96/36.24/34.49. Bench warm only -- cold reads ~12.
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
@@ -205,13 +188,10 @@ spec:
     # real traffic on the sibling qwen36 config).
     enablePrefixCaching: true
     maxNumBatchedTokens: 4096
-    # HARD CEILING: the R9700 is shared with Jellyfin transcoding (single
-    # renderD128 on this node), and the ~4.6 GB free at 0.875 is that
-    # reservation, not slack -- see docs/llm-hosting/vllm-vs-sglang-2026-07.md.
-    # Note this value is inert while --kv-cache-memory is set below: vLLM logs
-    # "skipped memory profiling ... does not respect the gpu_memory_utilization
-    # config". It is kept honest anyway, because removing that flag hands
-    # sizing straight back to this number.
+    # HARD CEILING: shared with Jellyfin transcoding; the ~4.6 GB free here is
+    # its reservation, not slack (docs/llm-hosting/vllm-vs-sglang-2026-07.md).
+    # Inert while --kv-cache-memory is set, but kept honest: dropping that flag
+    # hands sizing straight back to this.
     gpuMemoryUtilization: 0.875
   env:
     - name: VLLM_ROCM_USE_AITER
@@ -283,18 +263,11 @@ spec:
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
-    # Size the KV pool explicitly: vLLM's profiler is conservative here and
-    # derived only 3.22 GiB (99,519 tokens, 1.02x at 98K -- a second
-    # full-length request had to wait), which is what forced the old 98K
-    # ceiling. This flag skips profiling entirely, so it -- not
-    # gpuMemoryUtilization -- is the real KV control.
-    #
-    # 5 GiB is the largest value that still clears Jellyfin's ~4.6 GB
-    # reservation. Measured on this card: 28.75 of 34.21 GB used, 5.46 GB free
-    # (0.86 GB over the reservation), 156,493 tokens, 1.40x concurrency at
-    # 112K. 6 GiB scores better (187,945 tokens, 1.68x) but lands at 3.41 GB
-    # free -- under the reservation, so it is not a valid production candidate
-    # no matter how it benchmarks. Do not raise without re-measuring free VRAM.
+    # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
+    # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
+    # 5 GiB is the most that still clears Jellyfin's ~4.6 GB: 5.46 GB free,
+    # 156,493 tokens, 1.40x at 112K. 6 GiB gives 1.68x but only 3.41 GB free,
+    # under the reservation. Re-measure free VRAM before raising.
     - --kv-cache-memory
     - "5368709120"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
@@ -326,11 +299,9 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 15
       failureThreshold: 240
-    # The startup probe above owns the whole load/compile window, so liveness
-    # only ever runs against a serving engine and a wedged one gets restarted.
-    # Thresholds are deliberately slack: a restart mid-decode costs ~2min of
-    # compile-cached reload, so only a 10-minute outage (20 x 30s) counts as death.
-    # The sibling models still use an inert probe; this is the pattern to copy.
+    # Startup owns the load/compile window, so this only ever sees a serving
+    # engine. Slack on purpose: a restart costs ~2min, so only a 10-minute
+    # outage (20 x 30s) counts as death.
     liveness:
       httpGet:
         path: /health
