@@ -44,7 +44,7 @@ spec:
         # The rest render blank here: amd-gpu-observability queries amdgpu_*
         # (we run drm-exporter), llmkube-quota and model-router need features we
         # don't deploy, llmkube-slo needs pyrra burn-rate rules.
-        only: [llmkube-inference, sglang-dashboard]
+        only: [llmkube-inference]
         operator:
           enabled: true
           folder: ai
@@ -58,7 +58,7 @@ spec:
     # Shared RWX cache on CephFS: the controller and the iGPU InferenceServices
     # land on different nodes, so an RWO volume multi-attach-errors. Access is
     # write-once on download then read-once at load, so CephFS latency never
-    # touches inference. qwen36-27b brings its own node-local modelCache.
+    # touches inference. qwen38-27b-vllm brings its own node-local modelCache.
     # The model-cache-prep init chowns /models as root, so CephFS (fsGroupPolicy:
     # None) works too.
     modelCache:

@@ -52,7 +52,9 @@
     {
       description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
       customType: "regex",
-      managerFilePatterns: ["/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/"],
+      managerFilePatterns: [
+        "/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/"
+      ],
       matchStrings: [
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
@@ -70,12 +72,6 @@
       automergeType: "pr"
     },
     // Grouping rules
-    {
-      description: "sglang-rdna4 deployed image digest — built by our fork of the upstream RDNA4 image, not a pipeline in this repo; review before the HelmRelease rolls the serving pod (Recreate on the single GPU)",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/tanguille/sglang-rdna4"],
-      automerge: false
-    },
     {
       description: "Actions Runner Controller Group",
       groupName: "actions-runner-controller",
@@ -99,7 +95,7 @@
       matchDatasources: ["docker", "github-releases"],
       // matches all siderolabs/* packages (talos, installer, etc.); both slashes are regex
       // delimiters, so the inner one must stay escaped AND closed or config validation fails
-      matchPackageNames: ["/siderolabs\\//"],
+      matchPackageNames: ["/siderolabs\\//"]
     },
     {
       description: "Rook-Ceph Group",

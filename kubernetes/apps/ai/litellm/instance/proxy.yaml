@@ -49,7 +49,7 @@ spec:
     drop_params: true
     num_retries: 0
   routerSettings:
-    # Per-error override of num_retries: 0 — a dropped SGLang connection costs a
+    # Per-error override of num_retries: 0 — a dropped backend connection costs a
     # whole Hermes cron run. Timeouts stay at 0: re-running a ~100K prefill that
     # already burned 900s only deepens the contention that caused it.
     retry_policy:
