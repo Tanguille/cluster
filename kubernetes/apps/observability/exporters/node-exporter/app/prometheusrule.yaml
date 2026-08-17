@@ -45,18 +45,61 @@ spec:
               likely the embedder leak; native max pod lifetime recycling should cap it
           labels:
             severity: warning
+        - alert: DgpuVramLow
+          # control-1's dGPU is shared between vLLM and Jellyfin/fileflows
+          # transcoding, and nothing enforces the split: squat.ai/dri counts
+          # device nodes, not bytes, so either side can take the whole card.
+          # vLLM is sized to leave 2 GiB (--kv-cache-memory in
+          # qwen38-27b-vllm.yaml) against a measured 0.85 GB DV transcode +
+          # 0.69 GB fileflows. A third concurrent transcode would breach it and
+          # evict KV instead of failing, so this is the only detector.
+          expr: |-
+            node_drm_memory_vram_size_bytes{kubernetes_node="control-1"}
+              - node_drm_memory_vram_used_bytes{kubernetes_node="control-1"}
+              < 2147483648
+          for: 10m
+          annotations:
+            summary: >-
+              {{ $labels.kubernetes_node }} dGPU has under 2GiB VRAM free — the
+              transcode reserve is breached; check concurrent transcodes before
+              raising vLLM's --kv-cache-memory
+          labels:
+            severity: warning
         - alert: NodeDRMCollectorFailed
           # A silently-dead DRM collector reads as "no GTT problem" (the xmrig-guard
-          # telemetry gap ran blind 40h this way).
+          # telemetry gap ran blind 40h this way). control-1 included since
+          # DgpuVramLow depends on the same collector.
           expr: |-
             max by (kubernetes_node) (
-              node_scrape_collector_success{collector="drm", kubernetes_node=~"control-[23]"} == 0
+              node_scrape_collector_success{collector="drm", kubernetes_node=~"control-[123]"} == 0
             )
           for: 10m
           annotations:
             summary: >-
-              DRM collector failed on {{ $labels.kubernetes_node }} — NodeGTTMemoryHigh
-              is blind until it recovers
+              DRM collector failed on {{ $labels.kubernetes_node }} — its GPU memory
+              alert (GTT on control-2/3, dGPU VRAM on control-1) is blind until it
+              recovers
+          labels:
+            severity: warning
+        - alert: DgpuVramTelemetryMissing
+          # Same reasoning as NodeGTTTelemetryMissing, for the dGPU: DgpuVramLow is a
+          # subtraction, so it returns NO SAMPLE if either metric disappears rather
+          # than firing. NodeDRMCollectorFailed does not cover that case either --
+          # node_scrape_collector_success vanishes too when the exporter is gone.
+          # absent(), not the label_replace/unless idiom NodeGTTTelemetryMissing
+          # uses: that shape exists to synthesise one series per node across
+          # two nodes, and here there is only control-1. It also missed the
+          # case where _size_bytes alone vanishes -- absent() on both covers
+          # each metric independently and keeps the node label for the summary.
+          expr: |-
+            absent(node_drm_memory_vram_used_bytes{kubernetes_node="control-1"})
+            or absent(node_drm_memory_vram_size_bytes{kubernetes_node="control-1"})
+            or node_drm_memory_vram_size_bytes{kubernetes_node="control-1"} <= 0
+          for: 10m
+          annotations:
+            summary: >-
+              dGPU VRAM telemetry is absent or non-positive on
+              {{ $labels.kubernetes_node }} — DgpuVramLow is blind until it recovers
           labels:
             severity: warning
         - alert: NodeGTTTelemetryMissing
