@@ -30,6 +30,15 @@ Operational finding from the same check: the 0.875 VRAM "ceiling" is effectively
 out, so a concurrent transcode would contend with LLM serving (or OOM). Known latent risk,
 unchanged config.
 
+**2026-08-17 — the 4.6 GB figure was wrong, and the risk was real but misattributed.**
+Measured with `node_drm_memory_vram_used_bytes` across transcode start/stop: a 4K Dolby
+Vision transcode costs 0.85 GB, fileflows ~0.69 GB, ~1.1 GB peak for both — not 4.6 GB.
+Production reserves 2 GiB and sizes KV explicitly (`--kv-cache-memory 7 GiB`, 221,612
+tokens). The contention that *does* bite is compute: DV tone mapping runs on Vulkan
+shaders, so a transcode crawls at 1.15x while vLLM saturates the CUs. Throttling vLLM to
+fix it is not viable — `maxNumBatchedTokens: 2048` cost 4-16x TTFT on this prefill-bound
+workload (129:1 prompt:output).
+
 ## Model-fit verdict — DeepSeek-V4-Flash-0731 (2026-08-01, NO-GO, do not re-ask)
 
 284B-param MoE (13B active/token, 1M context, CSA/HCA hybrid). Official weights ~167 GB

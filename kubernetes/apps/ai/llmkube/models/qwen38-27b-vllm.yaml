@@ -172,10 +172,11 @@ spec:
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
-    # The only per-request cap on KV blocks, so it sets how much of the pool
-    # one session can hold: 67% of the measured 221,612 tokens (1.50x). Hermes
-    # peaks at 112K, so this is headroom. Engine refuses to start if the pool
-    # can't hold one full sequence.
+    # The only per-request cap on KV blocks. Headroom, not a working size:
+    # Hermes peaks at 112K and p90 prompts are 20K. The pool (221,612 tokens)
+    # is bounded by parallelSlots, not by this -- 16 slots at p90 would want
+    # ~320K, so raising this further buys nothing. Engine refuses to start if
+    # the pool cannot hold one full sequence.
     maxModelLen: 148000
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
@@ -188,9 +189,7 @@ spec:
     maxNumBatchedTokens: 4096
     # INERT while --kv-cache-memory is set below (vLLM skips profiling and logs
     # that it ignores this); kept only so dropping that flag falls back to a
-    # sane value. Note the doc's "0.875 leaves Jellyfin's 4.6 GB" was never a
-    # measurement -- media actually peaks ~1.1 GB, so --kv-cache-memory now
-    # sets the split against a 2 GiB reserve instead.
+    # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
     - name: VLLM_ROCM_USE_AITER
@@ -268,10 +267,12 @@ spec:
     - bfloat16
     # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
     # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
-    # Sized against a measured 2 GiB transcode reserve, not the old 4.6 GB
-    # guess: a worst-case 4K Dolby Vision transcode costs 0.85 GB and
-    # fileflows ~0.69 GB, ~1.1 GB peak for both (2026-08-17, drm VRAM).
-    # 7 GiB leaves ~2.6 GB free. Re-measure free VRAM before raising.
+    # Sized against a 2 GiB transcode reserve, not the old 4.6 GB guess, which
+    # was never measured. Measured separately 2026-08-17 (drm VRAM): a 4K Dolby
+    # Vision transcode 0.85 GB, fileflows 0.69 GB -- 1.54 GB if they ever peak
+    # together, which was not observed but is the number the reserve must cover.
+    # Jellyfin has no transcode concurrency cap, so a third stream would exceed
+    # 2 GiB and evict KV; see the DgpuVramLow alert. 7 GiB leaves ~2.6 GB free.
     - --kv-cache-memory
     - "7516192768"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing

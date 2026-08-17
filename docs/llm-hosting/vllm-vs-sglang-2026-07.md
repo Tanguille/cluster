@@ -13,6 +13,19 @@ Any benchmark taken above 0.875 is invalid as a production candidate no matter h
 it scores. Two were run during this round before the constraint was known; both are
 recorded below and both are rejected.
 
+> **Superseded 2026-08-17.** The 4.6 GB above was never measured — it was whatever
+> 0.875 happened to leave over. Measured on the live GPU (`node_drm_memory_vram_used_bytes`,
+> transcode on/off): a worst-case 4K Dolby Vision transcode costs **0.85 GB**, fileflows
+> **~0.69 GB**, **~1.1 GB peak** for both. Production now reserves **2 GiB** and sizes KV
+> with `--kv-cache-memory` instead, which makes `gpuMemoryUtilization` inert (vLLM skips
+> profiling when it is set). The benchmarks below remain valid as engine comparisons.
+>
+> The real contention is **compute, not memory**: Dolby Vision tone mapping runs on Vulkan
+> shaders (VCN covers only decode/encode), so it competes with vLLM for the same CUs. A 4K DV
+> transcode ran at 1.15x while vLLM held the shaders at 100%. Lowering
+> `maxNumBatchedTokens` to 2048 to free shader time was tried and rejected: TTFT p50 went
+> 5s -> 80s because this workload is prefill-bound (~129:1 prompt:output).
+
 ## What was overturned
 
 > Historical numbers superseded — full records in the [benchmark log](engine-benchmarks-gfx1201.md).
