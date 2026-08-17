@@ -14,6 +14,8 @@ def _port():
 
 
 URL = f"http://127.0.0.1:{_port()}/v1/completions"
+# Optional 2nd arg so the parked qwen-3.6 can still be benched for comparison.
+MODEL = sys.argv[2] if len(sys.argv) > 2 else "qwen-3.8"
 CODE = "\n".join(f"def handler_{i}(request, context):\n"
                  f"    payload = request.get('payload_{i}')\n"
                  f"    if payload is None:\n"
@@ -21,7 +23,7 @@ CODE = "\n".join(f"def handler_{i}(request, context):\n"
                  f"    return {{'status': 200, 'body': payload}}\n" for i in range(240))
 prompt = (f"Here is a Python module:\n\n{CODE}\n\n"
           "Reproduce handler_0 through handler_12 EXACTLY as written above, verbatim:\n\n")
-b = json.dumps({"model": "qwen-3.6", "prompt": prompt, "max_tokens": 400,
+b = json.dumps({"model": MODEL, "prompt": prompt, "max_tokens": 400,
                 "temperature": 0, "ignore_eos": True}).encode()
 t0 = time.perf_counter()
 rq = urllib.request.Request(URL, data=b, headers={"Content-Type": "application/json"})

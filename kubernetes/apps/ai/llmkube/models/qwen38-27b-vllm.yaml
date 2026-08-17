@@ -40,24 +40,19 @@ spec:
     requests:
       storage: 128Gi
 ---
-# vLLM's fs tier has no evictor at v0.27.1, and control-1's root fs is shared with
-# rook-ceph's mon-c store. Enforces the 160Gi floor SGLang's file backend enforces itself.
+# vLLM's fs tier has no evictor at v0.27.1, and this node's root fs is shared with
+# rook-ceph's mon store, so the tier needs an external one.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: qwen38-27b-vllm-kv-offload-guard
   namespace: ai
 spec:
-  # Hourly, not daily. openebs-hostpath enforces no quota, so the PVC's 128Gi
-  # request is documentation rather than a limit and this job is the only thing
-  # standing between the fs tier and control-1's root fs (shared with rook-ceph's
-  # mon-c store). A daily window let a busy day cross the floor and stay there
-  # for hours; hourly bounds that exposure to one hour of writes. This is still
-  # a periodic control, not a hard cap -- a bounded storage class is the real
-  # fix, and it costs the L3 tier its local-disk latency, so it is deliberately
-  # not taken here.
-  # ponytail: hourly sweep, move to a quota-enforcing storage class if the
-  # floor is ever actually breached.
+  # Hourly, not daily: a daily window let a busy day cross the floor and sit
+  # there for hours. Safe to run this often only because eviction is now
+  # incremental (see the script) rather than a full wipe.
+  # ponytail: periodic sweep, not a hard cap -- move to a quota-enforcing
+  # storage class if the floor is ever actually breached.
   schedule: "0 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
@@ -85,15 +80,33 @@ spec:
                 - |
                   # $$ throughout: Flux postBuild envsubst substitutes bare $VAR.
                   set -eu
-                  floor=167772160
+                  # 80Gi, not the 160Gi this started as. That number was never
+                  # reachable on this node -- the disk is 500G with ~370G held by
+                  # everything else, so df never reported 160G free even with the
+                  # store empty, and the guard wiped the whole tier on every single
+                  # run. An L3 cache that is deleted daily is not a cache; the
+                  # 95%+ external prefix-hit rate only exists if the store survives.
+                  floor=83886080
                   # df, not du: the store reaches hundreds of thousands of files.
                   avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
                   echo "avail: $${avail}K (floor: $${floor}K)"
-                  if [ "$$avail" -lt "$$floor" ]; then
-                    # ponytail: wipe-all, not LRU -- no per-entry recency on disk to sort by.
-                    echo "below floor, wiping the L3 store"
-                    rm -rf -- /kvoffload/*
+                  if [ "$$avail" -ge "$$floor" ]; then
+                    echo "above floor, nothing to do"
+                    exit 0
                   fi
+                  # Evict oldest-first instead of wiping everything: blocks are
+                  # written once and never updated, so mtime IS the recency this
+                  # previously claimed the store had no way to sort by. Walk the
+                  # age cutoff down only until back above the floor, so a small
+                  # overshoot costs a slice of cold blocks, not weeks of warm ones.
+                  for age in 30 14 7 3 1 0; do
+                    find /kvoffload -type f -mtime +$$age -delete 2>/dev/null || true
+                    avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
+                    echo "evicted >$${age}d, avail now $${avail}K"
+                    if [ "$$avail" -ge "$$floor" ]; then
+                      break
+                    fi
+                  done
               volumeMounts:
                 - name: kv-offload
                   mountPath: /kvoffload
@@ -167,8 +180,7 @@ spec:
     # Hermes hard-requires >=64K context (refuses to start below it); its own
     # measured percentiles are p90 94K, p95 106K, p100 112K
     # (docs/hermes-config.md). 112000 covers p100, so routine sessions never
-    # truncate. Reachable only with the explicit --kv-cache-memory below;
-    # the earlier 98000 was a symptom of sizing KV off gpuMemoryUtilization.
+    # truncate. Reachable only with the explicit --kv-cache-memory below.
     maxModelLen: 112000
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
@@ -286,12 +298,11 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 15
       failureThreshold: 240
-    # Real check, not the no-op inherited from qwen36-27b-vllm.yaml. The startup
-    # probe above owns the whole load/compile window, so liveness only ever runs
-    # against a serving engine and a wedged one now gets restarted. Thresholds
-    # are deliberately slack: /health queues behind a saturated GPU, and a
-    # restart mid-decode costs ~2min of compile-cached reload, so only a
-    # 10-minute outage (20 x 30s) is treated as death.
+    # The startup probe above owns the whole load/compile window, so liveness
+    # only ever runs against a serving engine and a wedged one gets restarted.
+    # Thresholds are deliberately slack: a restart mid-decode costs ~2min of
+    # compile-cached reload, so only a 10-minute outage (20 x 30s) counts as death.
+    # The sibling models still use an inert probe; this is the pattern to copy.
     liveness:
       httpGet:
         path: /health
