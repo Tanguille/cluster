@@ -255,9 +255,14 @@ spec:
     # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
     # regression) under concurrent tool traffic. Re-test that wedge before
     # re-adding.
-    # Covers the conv-state and SSM pools both (--mamba-ssm-cache-dtype
-    # defaults to following this), and bfloat16 is the smallest vLLM accepts.
+    # Two separate pools, both needed: --mamba-cache-dtype is the conv-state
+    # cache, --mamba-ssm-cache-dtype the SSM-state cache. Dropping the ssm one
+    # on the theory that it inherits from the other cost 7,160 KV tokens
+    # (156,493 -> 149,333) and halved the CPU offload tier (327 -> 167 blocks),
+    # measured 2026-08-17. bfloat16 is the smallest vLLM accepts for either.
     - --mamba-cache-dtype
+    - bfloat16
+    - --mamba-ssm-cache-dtype
     - bfloat16
     # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
     # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
