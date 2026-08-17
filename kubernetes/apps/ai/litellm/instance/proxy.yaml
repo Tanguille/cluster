@@ -56,10 +56,10 @@ spec:
       InternalServerErrorRetries: 2
     # omniroute's free providers have no SLA and can fail/time out without
     # warning; fall back to the self-hosted (slower but always-available)
-    # qwen-3.6-fast alias so a flaky free provider doesn't take out the PR
+    # qwen-3.8-fast alias so a flaky free provider doesn't take out the PR
     # review action.
     fallbacks:
-      - omniroute: ["qwen-3.6-fast"]
+      - omniroute: ["qwen-3.8-fast"]
   route:
     hostnames:
       - "litellm.${SECRET_DOMAIN}"

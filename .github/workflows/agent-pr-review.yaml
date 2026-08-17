@@ -43,22 +43,22 @@ jobs:
           ai_base_url: http://litellm.ai.svc.cluster.local/v1
           ai_api_key: ${{ secrets.LITELLM_API_KEY }}
           # omniroute routes to a larger free-tier model than the self-hosted 27B
-          # (see litellm routerSettings.fallbacks); falls back to qwen-3.6-fast
+          # (see litellm routerSettings.fallbacks); falls back to qwen-3.8-fast
           # automatically if the free provider fails or times out.
           ai_model: omniroute
           # v2.1.10 inherits ai_fallback_base_url from ai_base_url when unset, then
           # requires ai_fallback_model whenever ai_fallback_base_url is set (even
           # inherited) — fails fast with no model call otherwise. Point this at
-          # qwen-3.6-fast directly (same litellm endpoint) rather than duplicating
+          # qwen-3.8-fast directly (same litellm endpoint) rather than duplicating
           # ai_model: litellm's routerSettings.fallbacks already retries omniroute
           # failures internally, so this only fires if that whole chain fails —
           # a real second attempt via a distinct model, not a no-op retry.
-          ai_fallback_model: qwen-3.6-fast
+          ai_fallback_model: qwen-3.8-fast
           # omniroute's proxied models don't share SGLang's sampling_defaults, so
           # an empty temperature has no known-good fallback here — pin explicitly.
           ai_temperature: "0.2"
           ai_response_format: json_schema
-          # Covers both omniroute (observed 2-74s) and, on fallback, qwen-3.6-fast's
+          # Covers both omniroute (observed 2-74s) and, on fallback, qwen-3.8-fast's
           # ~10 tok/s cold prefill on this GPU (155-220s near ~100K ctx, validated).
           ai_request_timeout_sec: "600"
           verdict_policy: findings_severity_gated

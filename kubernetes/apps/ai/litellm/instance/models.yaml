@@ -3,15 +3,17 @@
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
-  name: qwen-3.6
+  name: qwen-3.8
 spec:
-  modelName: qwen-3.6
+  modelName: qwen-3.8
   proxyRef: litellm
   params:
-    # Alias name kept as qwen-3.6 for downstream compat (karakeep, omniroute,
-    # etc. hardcode this litellm alias); backend swapped to qwen38-27b-vllm
-    # 2026-08-16 — beats the old SGLang baseline at every measured
-    # concurrency. See qwen38-27b-vllm.yaml for the qualification numbers.
+    # Renamed from qwen-3.6 together with every consumer that hardcodes it
+    # (karakeep, agent-pr-review.yaml, proxy.yaml fallbacks, hermes profiles) --
+    # the alias is a bare string, so the rename is only safe as one atomic
+    # change across all of them. Backend swapped to qwen38-27b-vllm 2026-08-16;
+    # beats the old SGLang baseline at every measured concurrency. See
+    # qwen38-27b-vllm.yaml for the qualification numbers.
     model: openai/qwen-3.8
     apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     # Native vLLM/SGLang are unauthenticated internally, but LiteLLM's OpenAI provider
@@ -34,9 +36,9 @@ spec:
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
-  name: qwen-3.6-fast
+  name: qwen-3.8-fast
 spec:
-  modelName: qwen-3.6-fast
+  modelName: qwen-3.8-fast
   proxyRef: litellm
   params:
     model: openai/qwen-3.8
@@ -77,10 +79,10 @@ spec:
     model: openai/auto/smart
     apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
     # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
-    # a non-empty api_key (same convention as the qwen-3.6 sk-sglang-noauth).
+    # a non-empty api_key (same convention as qwen-3.8's sk-vllm-noauth).
     apiKey: sk-omniroute-noauth
     additional:
-      # Bounded so the qwen-3.6-fast fallback fires inside the pr-reviewer-action's
+      # Bounded so the qwen-3.8-fast fallback fires inside the pr-reviewer-action's
       # 600s curl timeout instead of the action giving up and retrying blind
       # (observed 2026-08-03: 60min run, fallback never triggered). Timeouts
       # aren't in the proxy's retry_policy and num_retries is 0, so one attempt
