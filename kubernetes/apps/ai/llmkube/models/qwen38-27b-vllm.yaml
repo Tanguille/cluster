@@ -224,8 +224,14 @@ spec:
     - name: dshm
       mountPath: /dev/shm
   extraArgs:
+    # First name is what vLLM reports back as `model`, so qwen-3.8 stays
+    # primary. The second is an alias: the operator derives a LiteLLMModel from
+    # this InferenceService's own name and has no field to override it, so
+    # without the alias that generated model group sends model=qwen38-27b-vllm
+    # and vLLM 404s it (verified 2026-08-17). Keep it in sync with metadata.name.
     - --served-model-name
     - qwen-3.8
+    - qwen38-27b-vllm
     - --trust-remote-code
     - --reasoning-parser
     - qwen3
