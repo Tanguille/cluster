@@ -173,7 +173,7 @@ spec:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
     # The only per-request cap on KV blocks, so it sets how much of the pool
-    # one session can hold: 94% of the measured 158,073 tokens (1.07x). Hermes
+    # one session can hold: 67% of the measured 221,612 tokens (1.50x). Hermes
     # peaks at 112K, so this is headroom. Engine refuses to start if the pool
     # can't hold one full sequence.
     maxModelLen: 148000
@@ -181,13 +181,11 @@ spec:
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
     enablePrefixCaching: true
-    # 2048, not the 4096 that maximises prefill: this GPU is shared with
-    # Jellyfin, whose Dolby Vision tone mapping runs on Vulkan shaders (VCN
-    # only covers decode/encode). At 4096 vLLM held the shaders at 100% and a
-    # 4K DV transcode crawled at 1.15x -- buffering on any burst. Smaller
-    # steps leave gaps ffmpeg can use. Costs prefill throughput, which is
-    # where this workload lives (measured 129:1 prompt:output).
-    maxNumBatchedTokens: 2048
+    # Do NOT lower this to buy transcode headroom: 2048 was tried and cost
+    # 4-16x TTFT (p50 5s -> 80s, avg 13.8s -> 58.5s) because a 20K-token
+    # prompt then needs 10 prefill steps instead of 5 and decode starves
+    # behind them. This workload is prefill-bound (129:1 prompt:output).
+    maxNumBatchedTokens: 4096
     # INERT while --kv-cache-memory is set below (vLLM skips profiling and logs
     # that it ignores this); kept only so dropping that flag falls back to a
     # sane value. Note the doc's "0.875 leaves Jellyfin's 4.6 GB" was never a
