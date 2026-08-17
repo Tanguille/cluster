@@ -41,14 +41,11 @@ spec:
       dashboards:
         enabled: true
         namespace: observability
-        # Two filters, not one. `only` picks which dashboards ship at all; of
-        # those, the operator's default auto mode publishes vllm/llamacpp only
-        # while an InferenceService on that runtime exists, so parking qwen38
-        # or scaling up muse-glimmer needs no edit -- but a NEW runtime does.
-        # Everything omitted is ungated and would render blank forever: no
-        # pyrra (slo), we export drm_* not amdgpu_*, quota/model-router need
-        # features we don't deploy.
-        only: [llmkube-inference, vllm-dashboard, llamacpp-dashboard]
+        # No `only`: ship everything and let the operator's default auto mode
+        # gate the runtime dashboards on a live InferenceService. Auto covers
+        # sglang/vllm/llamacpp only, so amd-gpu-observability, llmkube-quota,
+        # llmkube-slo and model-router ship unconditionally and render blank
+        # (no pyrra, and we export drm_* not amdgpu_*).
         operator:
           enabled: true
           folder: ai
