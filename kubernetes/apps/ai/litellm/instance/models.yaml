@@ -24,9 +24,8 @@ spec:
       num_retries: 0
   info:
     mode: chat
-    # vLLM's maxModelLen (148000) minus maxOutputTokens. Must be re-derived
-    # whenever that changes -- nothing enforces the subtraction across the two
-    # CRDs. Comfortably over Hermes' measured p100 of 112K.
+    # maxModelLen (148000) minus maxOutputTokens; re-derive if that changes,
+    # nothing enforces it across the two CRDs.
     maxInputTokens: 139808
     maxOutputTokens: 8192
 ---

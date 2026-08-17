@@ -172,13 +172,10 @@ spec:
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
-    # This is the ONLY per-request cap on KV blocks (max-num-seqs reserves
-    # nothing, max-num-batched-tokens is a compute budget), so it decides how
-    # much of the pool one session can hold. Sized just under the pool so a
-    # single stream can take ~94% of it: measured 158,073 tokens, 1.07x.
-    # Hermes needs >=64K to start and peaks at p100 112K, so this is headroom
-    # over its real traffic, not a routine working size. The model itself
-    # allows 262,144 (max_position_embeddings); KV is the binding limit.
+    # The only per-request cap on KV blocks, so it sets how much of the pool
+    # one session can hold: 94% of the measured 158,073 tokens (1.07x). Hermes
+    # peaks at 112K, so this is headroom. Engine refuses to start if the pool
+    # can't hold one full sequence.
     maxModelLen: 148000
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
@@ -258,11 +255,9 @@ spec:
     # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
     # regression) under concurrent tool traffic. Re-test that wedge before
     # re-adding.
-    # Two separate pools, both needed: --mamba-cache-dtype is the conv-state
-    # cache, --mamba-ssm-cache-dtype the SSM-state cache. Dropping the ssm one
-    # on the theory that it inherits from the other cost 7,160 KV tokens
-    # (156,493 -> 149,333) and halved the CPU offload tier (327 -> 167 blocks),
-    # measured 2026-08-17. bfloat16 is the smallest vLLM accepts for either.
+    # Separate pools, both needed -- ssm does NOT inherit from the other on
+    # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
+    # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.
     - --mamba-cache-dtype
     - bfloat16
     - --mamba-ssm-cache-dtype
