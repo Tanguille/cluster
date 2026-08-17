@@ -12,8 +12,15 @@ spec:
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS
-  # grafana.com 24965 job/instance vars use litellm_proxy_total_requests_metric_created
-  # (not exported); leaves $job empty and every panel blank.
-  configMapRef:
-    name: litellm-dashboard
-    key: litellm.json
+  # Was a hand-maintained 542-line copy: 24965's $job/$instance vars query
+  # litellm_proxy_total_requests_metric_created, which litellm did not export
+  # back then, so every panel came up blank. v1.97.0 exports the _created
+  # series and all 10 metrics the dashboard queries, so upstream works and the
+  # local copy is just drift waiting to happen.
+  #
+  # Revision pinned so a dashboard rewrite upstream can't land unreviewed;
+  # bump it deliberately (no Renovate manager covers grafanaCom, unlike the
+  # spec.url dashboards).
+  grafanaCom:
+    id: 24965
+    revision: 2

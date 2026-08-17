@@ -41,16 +41,24 @@ spec:
       dashboards:
         enabled: true
         namespace: observability
-        # The rest render blank here: amd-gpu-observability queries amdgpu_*
-        # (we run drm-exporter), llmkube-quota and model-router need features we
-        # don't deploy, llmkube-slo needs pyrra burn-rate rules, llamacpp only
-        # has muse-glimmer at replicas 0. `only` is a hard ship-list and does
-        # not react to what is deployed -- operator.mode below is what gates
-        # the runtime dashboards on a live InferenceService, so vllm-dashboard
-        # self-suppresses if qwen38 is ever parked rather than going blank.
-        only: [llmkube-inference, vllm-dashboard]
+        # Both runtimes we ship manifests for are listed and left to
+        # operator.mode: auto below, which publishes a runtime dashboard only
+        # while an InferenceService on that runtime exists. vllm follows qwen38
+        # and llamacpp follows muse-glimmer (replicas 0 today), so neither this
+        # list nor a dashboard goes stale when one is parked or scaled up.
+        # sglang-dashboard is omitted rather than left to auto: that lane is
+        # deleted, so it could never publish. Re-add it if SGLang returns.
+        #
+        # The excluded ones are not runtime-gated and would render blank
+        # regardless: amd-gpu-observability queries amdgpu_* (we run
+        # drm-exporter), llmkube-quota and model-router need features we don't
+        # deploy, llmkube-slo needs pyrra burn-rate rules.
+        only: [llmkube-inference, vllm-dashboard, llamacpp-dashboard]
         operator:
           enabled: true
+          # Chart default, pinned explicitly: this is what gates the runtime
+          # dashboards above. "all" would publish them unconditionally.
+          mode: auto
           folder: ai
           instanceSelector:
             matchLabels:
