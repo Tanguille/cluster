@@ -236,9 +236,10 @@ Both drive the OpenAI `/v1/completions` endpoint, so they run unmodified against
 engine. Port-forward the service and pass the port:
 
 ```sh
-kubectl -n ai port-forward svc/qwen36-27b 30000:30000 &
-python3 concsweep.py 30000
-python3 spectest.py 30000
+kubectl -n ai port-forward svc/qwen38-27b-vllm 8000:8000 &
+python3 concsweep.py 8000
+python3 spectest.py 8000
+# optional 2nd arg overrides the served-model-name (default qwen-3.8)
 ```
 
 **Discard the first run after a pod restart** (see above), and note `concsweep.py` reports

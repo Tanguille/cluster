@@ -54,7 +54,7 @@ jobs:
           # failures internally, so this only fires if that whole chain fails —
           # a real second attempt via a distinct model, not a no-op retry.
           ai_fallback_model: qwen-3.8-fast
-          # omniroute's proxied models don't share SGLang's sampling_defaults, so
+          # omniroute's proxied models don't share the self-hosted model's defaults, so
           # an empty temperature has no known-good fallback here — pin explicitly.
           ai_temperature: "0.2"
           ai_response_format: json_schema

@@ -8,12 +8,14 @@ spec:
   modelName: qwen-3.8
   proxyRef: litellm
   params:
-    # Renamed from qwen-3.6 atomically with every consumer that hardcodes it
-    # (karakeep, agent-pr-review.yaml, proxy.yaml fallbacks, hermes profiles).
+    # Renamed from qwen-3.6 together with the consumers that hardcode it:
+    # karakeep, agent-pr-review.yaml, proxy.yaml fallbacks. NOT hermes -- its
+    # profiles live on the hermes data PVC, so they are edited by hand and no
+    # rollback of this repo touches them.
     # Backend swapped to qwen38-27b-vllm 2026-08-16 -- numbers in that file.
     model: openai/qwen-3.8
     apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
-    # Native vLLM/SGLang are unauthenticated internally, but LiteLLM's OpenAI provider
+    # Native vLLM is unauthenticated internally, but LiteLLM's OpenAI provider
     # requires a non-empty api_key.
     apiKey: sk-vllm-noauth
     additional:

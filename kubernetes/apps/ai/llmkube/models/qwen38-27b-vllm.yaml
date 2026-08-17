@@ -3,7 +3,6 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: qwen38-27b-vllm-model-cache
-  namespace: ai
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: openebs-hostpath
@@ -16,7 +15,6 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: qwen38-27b-vllm-compile-cache
-  namespace: ai
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: openebs-hostpath
@@ -31,7 +29,6 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: qwen38-27b-vllm-kv-offload
-  namespace: ai
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: openebs-hostpath
@@ -46,7 +43,6 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: qwen38-27b-vllm-kv-offload-guard
-  namespace: ai
 spec:
   # Hourly, not daily: a daily window let a busy day cross the floor and sit
   # there for hours. Safe to run this often only because eviction is now
@@ -125,7 +121,6 @@ apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
   name: qwen38-27b-vllm
-  namespace: ai
 spec:
   source: hf://cyankiwi/Qwen3.8-27B-AWQ-INT4@63768c10df38c0395e12ef49edac1bd539eaeeea
   format: safetensors
@@ -165,7 +160,6 @@ apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
-  namespace: ai
 spec:
   modelRef: qwen38-27b-vllm
   runtime: vllm
@@ -178,20 +172,21 @@ spec:
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
-    # Hermes hard-requires >=64K context (refuses to start below it); its own
-    # measured percentiles are p90 94K, p95 106K, p100 112K
-    # (docs/hermes-config.md). 112000 covers p100, so routine sessions never
-    # truncate. Reachable only with the explicit --kv-cache-memory below.
+    # Hermes hard-requires >=64K context (refuses to start below it); its
+    # measured percentiles are p90 94K, p95 106K, p100 112K, so this covers
+    # p100 and routine sessions never truncate. Reachable only with the
+    # explicit --kv-cache-memory below.
     maxModelLen: 112000
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
     enablePrefixCaching: true
     maxNumBatchedTokens: 4096
-    # HARD CEILING: shared with Jellyfin transcoding; the ~4.6 GB free here is
-    # its reservation, not slack (docs/llm-hosting/vllm-vs-sglang-2026-07.md).
-    # Inert while --kv-cache-memory is set, but kept honest: dropping that flag
-    # hands sizing straight back to this.
+    # INERT while --kv-cache-memory is set below (vLLM skips profiling and logs
+    # that it ignores this). Kept because dropping that flag hands sizing back
+    # here, and 0.875 is the hard ceiling: the ~4.6 GB free at this value is
+    # Jellyfin's transcode reservation, not slack, and nothing enforces it
+    # (docs/llm-hosting/vllm-vs-sglang-2026-07.md).
     gpuMemoryUtilization: 0.875
   env:
     - name: VLLM_ROCM_USE_AITER
@@ -250,18 +245,13 @@ spec:
     # Keep prior-turn reasoning in context; matches production qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
-    # MTP speculative decoding is deliberately OMITTED: verdict-final per
-    # project_vllm_toolcalling_specdecode.md — MTP + tool-calling grammar
-    # wedges to ~0.2 tok/s (100x regression) under concurrent tool traffic
-    # on this exact hardware. Do not re-add without re-testing that wedge.
-    # Use bfloat16 Mamba cache dtype to reduce memory for the long context window.
-    # --mamba-cache-dtype covers the conv-state cache too (a separate pool from
-    # --mamba-ssm-cache-dtype's SSM-state-only scope, left at auto in the
-    # qwen36 reference this was ported from); bfloat16/float16/float32 are
-    # the only options vLLM supports for either, so this is the floor.
+    # MTP speculative decoding is deliberately OMITTED: measured on this
+    # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
+    # regression) under concurrent tool traffic. Re-test that wedge before
+    # re-adding.
+    # Covers the conv-state and SSM pools both (--mamba-ssm-cache-dtype
+    # defaults to following this), and bfloat16 is the smallest vLLM accepts.
     - --mamba-cache-dtype
-    - bfloat16
-    - --mamba-ssm-cache-dtype
     - bfloat16
     # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
     # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
@@ -288,6 +278,10 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
+    # Measured steady state is 13.3Gi (8Gi of it the shm offload tier, which is
+    # tmpfs and so charged here). Kept at 32Gi for the model-load spike rather
+    # than trimmed to the steady state -- an OOMKill mid-load throws away the
+    # compile cache this node takes ~40min to rebuild.
     memory: 32Gi
   endpoint:
     port: 8000
