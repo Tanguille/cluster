@@ -104,9 +104,15 @@ spec:
                     avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
                     echo "evicted >$${age}d, avail now $${avail}K"
                     if [ "$$avail" -ge "$$floor" ]; then
-                      break
+                      exit 0
                     fi
                   done
+                  # Evicted everything but the last 24h and still short: the
+                  # shortfall is something else on the shared root fs, not this
+                  # cache. Fail loudly rather than exit 0 -- a guard that silently
+                  # misses its floor reads as healthy right up until the node fills.
+                  echo "floor unreachable: $${avail}K < $${floor}K, only <24h blocks left" >&2
+                  exit 1
               volumeMounts:
                 - name: kv-offload
                   mountPath: /kvoffload

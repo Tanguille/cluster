@@ -97,9 +97,12 @@ spec:
                     avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
                     echo "evicted >$${age}d, avail now $${avail}K"
                     if [ "$$avail" -ge "$$floor" ]; then
-                      break
+                      exit 0
                     fi
                   done
+                  # Evicted all but the last 24h and still short -- see qwen38-27b-vllm.yaml.
+                  echo "floor unreachable: $${avail}K < $${floor}K, only <24h blocks left" >&2
+                  exit 1
               volumeMounts:
                 - name: kv-offload
                   mountPath: /kvoffload
