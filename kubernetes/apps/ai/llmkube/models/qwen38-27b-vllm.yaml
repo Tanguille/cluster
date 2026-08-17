@@ -172,11 +172,11 @@ spec:
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
-    # Hermes hard-requires >=64K context (refuses to start below it); its
-    # measured percentiles are p90 94K, p95 106K, p100 112K, so this covers
-    # p100 and routine sessions never truncate. Reachable only with the
-    # explicit --kv-cache-memory below.
-    maxModelLen: 112000
+    # The only per-request cap on KV blocks, so it sets how much of the pool
+    # one session can hold: 94% of the measured 158,073 tokens (1.07x). Hermes
+    # peaks at 112K, so this is headroom. Engine refuses to start if the pool
+    # can't hold one full sequence.
+    maxModelLen: 148000
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
@@ -224,8 +224,14 @@ spec:
     - name: dshm
       mountPath: /dev/shm
   extraArgs:
+    # First name is what vLLM reports back as `model`, so qwen-3.8 stays
+    # primary. The second is an alias: the operator derives a LiteLLMModel from
+    # this InferenceService's own name and has no field to override it, so
+    # without the alias that generated model group sends model=qwen38-27b-vllm
+    # and vLLM 404s it (verified 2026-08-17). Keep it in sync with metadata.name.
     - --served-model-name
     - qwen-3.8
+    - qwen38-27b-vllm
     - --trust-remote-code
     - --reasoning-parser
     - qwen3
@@ -249,9 +255,12 @@ spec:
     # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
     # regression) under concurrent tool traffic. Re-test that wedge before
     # re-adding.
-    # Covers the conv-state and SSM pools both (--mamba-ssm-cache-dtype
-    # defaults to following this), and bfloat16 is the smallest vLLM accepts.
+    # Separate pools, both needed -- ssm does NOT inherit from the other on
+    # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
+    # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.
     - --mamba-cache-dtype
+    - bfloat16
+    - --mamba-ssm-cache-dtype
     - bfloat16
     # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
     # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
