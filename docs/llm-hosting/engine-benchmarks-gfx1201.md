@@ -32,7 +32,8 @@ unchanged config.
 
 **2026-08-17 — the 4.6 GB figure was wrong, and the risk was real but misattributed.**
 Measured with `node_drm_memory_vram_used_bytes` across transcode start/stop: a 4K Dolby
-Vision transcode costs 0.85 GB, fileflows ~0.69 GB, ~1.1 GB peak for both — not 4.6 GB.
+Vision transcode costs 0.85 GB, fileflows 0.69 GB — measured separately, never
+concurrently, so the bound is their sum, 1.54 GB — not 4.6 GB.
 Production reserves 2 GiB and sizes KV explicitly (`--kv-cache-memory 7 GiB`, 221,612
 tokens). The contention that *does* bite is compute: DV tone mapping runs on Vulkan
 shaders, so a transcode crawls at 1.15x while vLLM saturates the CUs. Throttling vLLM to

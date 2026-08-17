@@ -173,13 +173,21 @@ spec:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
     # The only per-request cap on KV blocks, so it decides how much of the pool
-    # a single session can hold. Set just under the measured pool (221,612
-    # tokens) so one session can take ~97% of it; the ~5.6K shortfall is margin
-    # because the engine refuses to start if the pool cannot hold one full
-    # sequence. Headroom, not a working size -- Hermes peaks at 112K and p90
-    # prompts are 20K, and concurrency for normal traffic is unaffected since
-    # KV is paged and allocated on demand. Model allows 262,144.
-    maxModelLen: 216000
+    # a single session can hold. Set to the pool so one session can use
+    # effectively all of it: verified booting at this value, which reports
+    # 223,172 tokens (raising it improves block packing slightly) = 1.01x, so
+    # a session reaches 99.3%. Headroom, not a working size -- Hermes peaks at
+    # 112K and p90 prompts are 20K, and normal concurrency is unaffected
+    # because KV is paged and allocated on demand.
+    #
+    # Deliberately no margin: if a future change shrinks the pool below this
+    # the engine refuses to start rather than silently truncating, and Flux
+    # applies automatically. Re-read "GPU KV cache size" from the boot log and
+    # match it after ANY of: --kv-cache-memory, the mamba cache dtypes, the
+    # attention block size, or a vLLM image bump. That last one is the easy
+    # miss -- Renovate opens it as an ordinary reviewed PR.
+    # The model itself allows 262,144; KV memory is the binding limit.
+    maxModelLen: 221612
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
@@ -274,7 +282,8 @@ spec:
     # Vision transcode 0.85 GB, fileflows 0.69 GB -- 1.54 GB if they ever peak
     # together, which was not observed but is the number the reserve must cover.
     # Jellyfin has no transcode concurrency cap, so a third stream would exceed
-    # 2 GiB and evict KV; see the DgpuVramLow alert. 7 GiB leaves ~2.6 GB free.
+    # 2 GiB and evict KV; see the DgpuVramLow alert. Measured free at this
+    # config: 2.81 GB.
     - --kv-cache-memory
     - "7516192768"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing

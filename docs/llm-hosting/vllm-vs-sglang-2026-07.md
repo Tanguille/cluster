@@ -16,7 +16,8 @@ recorded below and both are rejected.
 > **Superseded 2026-08-17.** The 4.6 GB above was never measured — it was whatever
 > 0.875 happened to leave over. Measured on the live GPU (`node_drm_memory_vram_used_bytes`,
 > transcode on/off): a worst-case 4K Dolby Vision transcode costs **0.85 GB**, fileflows
-> **~0.69 GB**, **~1.1 GB peak** for both. Production now reserves **2 GiB** and sizes KV
+> **0.69 GB**. They were measured **separately, never concurrently**, so the bound the
+> reserve must cover is their sum, **1.54 GB**. Production reserves **2 GiB** and sizes KV
 > with `--kv-cache-memory` instead, which makes `gpuMemoryUtilization` inert (vLLM skips
 > profiling when it is set). The benchmarks below remain valid as engine comparisons.
 >

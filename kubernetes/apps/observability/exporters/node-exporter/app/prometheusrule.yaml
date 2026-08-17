@@ -86,17 +86,15 @@ spec:
           # subtraction, so it returns NO SAMPLE if either metric disappears rather
           # than firing. NodeDRMCollectorFailed does not cover that case either --
           # node_scrape_collector_success vanishes too when the exporter is gone.
+          # absent(), not the label_replace/unless idiom NodeGTTTelemetryMissing
+          # uses: that shape exists to synthesise one series per node across
+          # two nodes, and here there is only control-1. It also missed the
+          # case where _size_bytes alone vanishes -- absent() on both covers
+          # each metric independently and keeps the node label for the summary.
           expr: |-
-            max by (kubernetes_node) (
-              node_drm_memory_vram_size_bytes{kubernetes_node="control-1"}
-            ) <= 0
-            or (
-              label_replace(vector(1), "kubernetes_node", "control-1", "", "")
-              unless on(kubernetes_node)
-              max by (kubernetes_node) (
-                node_drm_memory_vram_used_bytes{kubernetes_node="control-1"}
-              )
-            )
+            absent(node_drm_memory_vram_used_bytes{kubernetes_node="control-1"})
+            or absent(node_drm_memory_vram_size_bytes{kubernetes_node="control-1"})
+            or node_drm_memory_vram_size_bytes{kubernetes_node="control-1"} <= 0
           for: 10m
           annotations:
             summary: >-
