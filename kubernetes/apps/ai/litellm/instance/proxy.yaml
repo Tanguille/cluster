@@ -54,12 +54,12 @@ spec:
     # already burned 900s only deepens the contention that caused it.
     retry_policy:
       InternalServerErrorRetries: 2
-    # omniroute's free providers have no SLA and can fail/time out without
-    # warning; fall back to the self-hosted (slower but always-available)
-    # qwen-3.8-fast alias so a flaky free provider doesn't take out the PR
-    # review action.
+    # omniroute's free providers have no SLA; qwen-3.8-fast catches that.
+    # qwen35-2b is the last resort because a single-entry chain went hard-down
+    # on 2026-08-17 when the 27B was scaled to 0 -- it is iGPU-pinned, so it
+    # never shares control-1's dGPU. Degraded, not down.
     fallbacks:
-      - omniroute: ["qwen-3.8-fast"]
+      - omniroute: ["qwen-3.8-fast", "qwen35-2b"]
   route:
     hostnames:
       - "litellm.${SECRET_DOMAIN}"
