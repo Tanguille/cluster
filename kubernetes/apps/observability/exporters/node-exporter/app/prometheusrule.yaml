@@ -76,8 +76,32 @@ spec:
           for: 10m
           annotations:
             summary: >-
-              DRM collector failed on {{ $labels.kubernetes_node }} — NodeGTTMemoryHigh
-              and DgpuVramLow are blind until it recovers
+              DRM collector failed on {{ $labels.kubernetes_node }} — its GPU memory
+              alert (GTT on control-2/3, dGPU VRAM on control-1) is blind until it
+              recovers
+          labels:
+            severity: warning
+        - alert: DgpuVramTelemetryMissing
+          # Same reasoning as NodeGTTTelemetryMissing, for the dGPU: DgpuVramLow is a
+          # subtraction, so it returns NO SAMPLE if either metric disappears rather
+          # than firing. NodeDRMCollectorFailed does not cover that case either --
+          # node_scrape_collector_success vanishes too when the exporter is gone.
+          expr: |-
+            max by (kubernetes_node) (
+              node_drm_memory_vram_size_bytes{kubernetes_node="control-1"}
+            ) <= 0
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-1", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (
+                node_drm_memory_vram_used_bytes{kubernetes_node="control-1"}
+              )
+            )
+          for: 10m
+          annotations:
+            summary: >-
+              dGPU VRAM telemetry is absent or non-positive on
+              {{ $labels.kubernetes_node }} — DgpuVramLow is blind until it recovers
           labels:
             severity: warning
         - alert: NodeGTTTelemetryMissing
