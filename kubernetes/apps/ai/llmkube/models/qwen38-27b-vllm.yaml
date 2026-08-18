@@ -168,7 +168,10 @@ spec:
   # translates this to --max-num-seqs for the vllm runtime.
   parallelSlots: 16
   bindAddress: 0.0.0.0
-  image: vllm/vllm-openai-rocm:v0.27.1@sha256:bb44b39aea26798cce43030a98bf48efd0322ca7147367db86e38b96bd80f0e7
+  # Nightly, pinned to the commit-tagged build rather than the rolling
+  # `nightly` tag so the digest and the vLLM commit stay traceable to each
+  # other. v0.27.1 is the newest release and predates gfx1201 AITER support.
+  image: vllm/vllm-openai-rocm:nightly-aa9903490c616dc6871e5acc62cec7bb1e5e9434@sha256:d16558a215144a1a90f3ecfa377559fac4143e74424fa7c4fab2020dd947eb9e
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
@@ -202,8 +205,13 @@ spec:
     # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
+    # gfx1201 gained AITER Triton paths in vLLM #43615 (merged 2026-08-03);
+    # every release up to v0.27.1 gated them behind MI3xx and fell back to
+    # generic ROCm. The FP8 linear kernels it adds do not apply to this
+    # W4A16 checkpoint -- what applies is the gfx12 attention-backend
+    # reorder (ROCM_AITER_UNIFIED_ATTN first) and the GDN linear-attn path.
     - name: VLLM_ROCM_USE_AITER
-      value: "0"
+      value: "1"
     - name: HIP_VISIBLE_DEVICES
       value: "0"
     - name: ROCR_VISIBLE_DEVICES
