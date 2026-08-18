@@ -7,23 +7,15 @@ metadata:
 spec:
   groups:
     - name: litellm.rules
-      # Nothing watched this gateway until 2026-08-17, when omniroute's free tier
-      # went dry, its fallback turned out to point at a deployment scaled to 0,
-      # and the first symptom anyone saw was PR review jobs failing ~6h later.
-      # The counter-based rules below read litellm's own metrics, scraped every
-      # 60s by the sibling ServiceMonitor; increase() is deliberate over rate()
-      # because traffic is
-      # bursty and tiny (7 requests overnight, dozens during a Renovate burst),
-      # so a per-second rate rounds to noise. increase() also rides out the
-      # counter resets that come with litellm's frequent pod rolls.
-      # The window is the debounce — a blip stays in view for its full duration —
-      # so `for` only has to survive one bad evaluation. Setting it to something
-      # comparable to the window just adds the two together (a 30m window with
-      # for: 30m took an hour to fire) and hides the real latency from anyone
-      # reading the threshold.
+      # increase() over rate(): traffic is bursty and tiny (single digits
+      # overnight, dozens during a Renovate burst), so a per-second rate rounds
+      # to noise. It also rides out the counter resets from litellm's pod rolls.
+      # The window is the debounce, so `for` only has to survive one bad
+      # evaluation -- setting it comparable to the window adds the two together
+      # and hides the real firing delay from anyone reading the threshold.
       rules:
-        # The one that matters: a caller got an error back. Everything else here
-        # is early warning, this is the outage itself.
+        # A caller got an error back. Everything else here is early warning;
+        # this is the outage itself.
         - alert: LiteLLMRequestsFailing
           expr: |-
             sum by (requested_model, exception_status) (
@@ -37,18 +29,16 @@ spec:
           labels:
             severity: critical
 
-        # Structural, not traffic-derived: the other rules here need a real
-        # request to fail before they see anything, which at 7-requests-overnight
-        # volume is the same multi-hour lag that let the 2026-08-17 outage run
-        # ~6h. This fires at 3am on zero traffic. It watches the one invariant
-        # proxy.yaml's fallback chain leans on -- qwen-3.8-fast must point at a
-        # live deployment -- and covers the actual cause (scaled to 0) plus
-        # crashloop, unschedulable, and the deployment being retired out from
-        # under the chain (absent(), the earlier qwen-3.6-fast case).
-        # The deployment name is hardcoded because it is the fallback target
-        # named in proxy.yaml; nothing derives one from the other, so both move
-        # together or this goes quiet. qwen-3.8 (hermes' primary) shares this
-        # same backend, so a hit here means no local model at all, not degraded.
+        # The only structural rule here: every other one needs a real request to
+        # fail first, which at this traffic volume means hours of lag. This
+        # fires on zero traffic and enforces the invariant proxy.yaml's chain
+        # depends on -- qwen-3.8-fast must point at a live deployment. absent()
+        # covers the target being retired out from under the chain, == 0 covers
+        # scaled-to-0, crashloop and unschedulable.
+        # Deployment name is hardcoded: nothing derives it from proxy.yaml's
+        # fallback target, so the two move together or this silently stops
+        # watching. Critical, not warning -- qwen-3.8 shares this backend, so a
+        # hit means hermes has no local model either.
         - alert: LiteLLMFallbackBackendDown
           expr: |-
             kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"} == 0
@@ -63,10 +53,9 @@ spec:
           labels:
             severity: critical
 
-        # Complements the structural rule above, which cannot see a target that
-        # is up but rejects the payload -- qwen35-2b's 16384-token window turning
-        # review-sized 503s into 400s was exactly that. > 0 because the chain is
-        # one deep (see proxy.yaml): a single failed fallback is the whole net.
+        # Catches what the structural rule cannot: a target that is up but
+        # rejects the payload. > 0 because the chain is one deep (see
+        # proxy.yaml) -- a single failed fallback is the whole safety net.
         - alert: LiteLLMFallbackTargetUnavailable
           expr: |-
             sum by (requested_model, fallback_model) (
@@ -80,10 +69,10 @@ spec:
           labels:
             severity: warning
 
-        # omniroute dropping to fallback for a minute is normal: its free tier
-        # cycles quota roughly every 5m and recovers on its own. Sustained use
+        # omniroute briefly dropping to fallback is normal -- its free tier
+        # cycles quota every few minutes and recovers itself. Sustained use
         # means it is not recovering and the self-hosted models are carrying
-        # production traffic they were never sized for.
+        # traffic they were never sized for.
         - alert: LiteLLMPrimaryDegraded
           expr: |-
             sum by (requested_model, fallback_model) (

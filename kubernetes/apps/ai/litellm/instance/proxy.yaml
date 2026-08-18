@@ -55,14 +55,12 @@ spec:
     retry_policy:
       InternalServerErrorRetries: 2
     # omniroute's free providers have no SLA; qwen-3.8-fast catches that.
-    # qwen35-2b was briefly a second tier and is deliberately not one now (the
-    # model still runs — karakeep uses it — it is just not a fallback): llama.cpp
-    # splits contextSize across parallelSlots, so it served a 16384-token window
-    # and rejected every review-sized payload that reached it -- turning a 503
-    # into a 400. Widening it costs iGPU-node RAM that is not worth spending on
-    # a last resort, so the chain is one deep. That is only safe while
-    # qwen-3.8-fast points at a live deployment: the 2026-08-17 outage was this
-    # same single-entry chain aimed at a deployment scaled to 0.
+    # Deliberately one deep. qwen35-2b is not a second tier: llama.cpp splits
+    # contextSize across parallelSlots, so it serves a 16384-token window and
+    # rejects review-sized payloads, turning a 503 into a 400. Widening it costs
+    # iGPU-node RAM not worth spending on a last resort. (The model itself still
+    # runs -- karakeep uses it.) A one-deep chain is only safe while its target
+    # is live, which LiteLLMFallbackBackendDown enforces.
     fallbacks:
       - omniroute: ["qwen-3.8-fast"]
   route:

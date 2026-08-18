@@ -22,19 +22,15 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              # On `next` for a specific upstream fix, not for novelty: 3.8.49
-              # never clears the last-known-good-provider pin when its target
-              # starts failing, so every request re-selects the same exhausted
-              # model instead of failing over (upstream #10034, merged
-              # 2026-08-13 -- observed here as omniroute re-picking a dry
-              # antigravity model until it 503'd). No tagged release carries it;
-              # `main` was built 04:05Z that day, three hours before the merge.
-              # Source is public (github.com/diegosouzapw/OmniRoute, default
-              # branch release/v3.8.50) so this is auditable -- move to the
-              # v3.8.50 tag once it ships -- Renovate cannot prompt that, since
-              # `next` is not a version it can compute an update from; it will
-              # only offer digest bumps that walk this further along the branch.
-              # Digest-pinned so the branch moving does not silently move us.
+              # On `next` for one upstream fix, not for novelty: 3.8.49 never
+              # clears the last-known-good-provider pin when its target starts
+              # failing, so every request re-selects the same exhausted model
+              # instead of failing over (upstream #10034). No tagged release
+              # carries it yet; move to the v3.8.50 tag once it ships.
+              # Renovate cannot prompt that move -- `next` is not a version it
+              # can diff against, so it will only ever offer digest bumps that
+              # walk this further along the branch. Digest-pinned so the branch
+              # moving does not silently move us.
               tag: next@sha256:2dd8dee4c5247c372af2ebbdfb98d72b4abacca77a07dd41aa6de6aa77e527cc
             env:
               TZ: ${TIMEZONE}
