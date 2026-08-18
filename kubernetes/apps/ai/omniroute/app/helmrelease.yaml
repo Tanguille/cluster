@@ -22,10 +22,17 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              # Tried main@digest 2026-08-11 and reverted: main is only dependabot
-              # bumps ahead of this tag (provider work lives on the `next` image,
-              # which has no public branch to audit) and its CI run was cancelled.
-              tag: 3.8.49@sha256:92c768c56e2de32c51a0621ef182835018b00b288c9bb235c5c5e4514658c1a1
+              # On `next` for a specific upstream fix, not for novelty: 3.8.49
+              # never clears the last-known-good-provider pin when its target
+              # starts failing, so every request re-selects the same exhausted
+              # model instead of failing over (upstream #10034, merged
+              # 2026-08-13 -- observed here as omniroute re-picking a dry
+              # antigravity model until it 503'd). No tagged release carries it;
+              # `main` was built 04:05Z that day, three hours before the merge.
+              # Source is public (github.com/diegosouzapw/OmniRoute, default
+              # branch release/v3.8.50) so this is auditable -- move to the
+              # v3.8.50 tag once it ships. Digest-pinned so Flux re-pulls.
+              tag: next@sha256:2dd8dee4c5247c372af2ebbdfb98d72b4abacca77a07dd41aa6de6aa77e527cc
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
