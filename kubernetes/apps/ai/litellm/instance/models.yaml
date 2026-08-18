@@ -22,6 +22,12 @@ spec:
       timeout: 1800
       stream_timeout: 1800
       num_retries: 0
+      # Template default is xhigh; medium is the better quality/latency point for
+      # most turns. Only affects this alias -- qwen-3.8-fast sets enable_thinking
+      # false, and the template gates effort behind thinking.
+      extra_body:
+        chat_template_kwargs:
+          reasoning_effort: medium
   info:
     mode: chat
     # maxModelLen (221612) minus maxOutputTokens; re-derive if that changes,
