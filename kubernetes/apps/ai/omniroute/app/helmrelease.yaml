@@ -22,13 +22,22 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              tag: 3.8.49
+              # On `next` for one upstream fix, not for novelty: 3.8.49 never
+              # clears the last-known-good-provider pin when its target starts
+              # failing, so every request re-selects the same exhausted model
+              # instead of failing over (upstream #10034). No tagged release
+              # carries it yet; move to the v3.8.50 tag once it ships.
+              # Renovate cannot prompt that move -- `next` is not a version it
+              # can diff against, so it will only ever offer digest bumps that
+              # walk this further along the branch. Digest-pinned so the branch
+              # moving does not silently move us.
+              tag: next@sha256:2dd8dee4c5247c372af2ebbdfb98d72b4abacca77a07dd41aa6de6aa77e527cc
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
               PORT: &port 20128
               # Only litellm's /v1/* proxy calls skip auth (unauthenticated-backend
-              # + non-empty-apiKey convention, same as the qwen-3.6 SGLang model);
+              # + non-empty-apiKey convention, same as the qwen-3.8 vLLM model);
               # the dashboard at the internal route below still requires
               # INITIAL_PASSWORD login.
               REQUIRE_API_KEY: "false"

@@ -4,10 +4,10 @@ Multi-engine measurement record for Qwen3.6-27B on RDNA4 — vLLM, SGLang and ll
 Measurements are dated and kept as a historical series; the open experiments at the
 bottom are still outstanding.
 
-**Current production engine: SGLang**, `ghcr.io/tanguille/sglang-rdna4`, built by our fork
-of the upstream RDNA4 image rather than a pipeline in this repo — see
-`docs/llm-hosting/sglang-blockers.md` "Current approach" for the build source and the
-upstream cutover plan; outstanding upstream gaps are tracked in the same doc. The
+**Current production engine: vLLM**, serving Qwen 3.8 as `qwen38-27b-vllm` (2026-08-16).
+SGLang and the whole Qwen 3.6 lane were retired with that cutover;
+`docs/llm-hosting/sglang-blockers.md` is kept as the record of why SGLang never
+displaced vLLM here. The
 2026-06-21 round below
 concluded in favour of vLLM and has since been superseded — read its numbers as a
 snapshot of that date, not as current guidance.
@@ -29,6 +29,16 @@ Operational finding from the same check: the 0.875 VRAM "ceiling" is effectively
 (99.97% used) when agents are loaded — the ~4.6 GB Jellyfin reservation is already handed
 out, so a concurrent transcode would contend with LLM serving (or OOM). Known latent risk,
 unchanged config.
+
+**2026-08-17 — the 4.6 GB figure was wrong, and the risk was real but misattributed.**
+Measured with `node_drm_memory_vram_used_bytes` across transcode start/stop: a 4K Dolby
+Vision transcode costs 0.85 GB, fileflows 0.69 GB — measured separately, never
+concurrently, so the bound is their sum, 1.54 GB — not 4.6 GB.
+Production reserves 2 GiB and sizes KV explicitly (`--kv-cache-memory 7 GiB`, 221,612
+tokens). The contention that *does* bite is compute: DV tone mapping runs on Vulkan
+shaders, so a transcode crawls at 1.15x while vLLM saturates the CUs. Throttling vLLM to
+fix it is not viable — `maxNumBatchedTokens: 2048` cost 4-16x TTFT on this prefill-bound
+workload (129:1 prompt:output).
 
 ## Model-fit verdict — DeepSeek-V4-Flash-0731 (2026-08-01, NO-GO, do not re-ask)
 
