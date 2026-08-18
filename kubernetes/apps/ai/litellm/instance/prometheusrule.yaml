@@ -15,6 +15,11 @@ spec:
       # bursty and tiny (7 requests overnight, dozens during a Renovate burst),
       # so a per-second rate rounds to noise. increase() also rides out the
       # counter resets that come with litellm's frequent pod rolls.
+      # The window is the debounce — a blip stays in view for its full duration —
+      # so `for` only has to survive one bad evaluation. Setting it to something
+      # comparable to the window just adds the two together (a 30m window with
+      # for: 30m took an hour to fire) and hides the real latency from anyone
+      # reading the threshold.
       rules:
         # The one that matters: a caller got an error back. Everything else here
         # is early warning, this is the outage itself.
@@ -32,17 +37,16 @@ spec:
             severity: critical
 
         # Fires while requests still succeed, so it is the one that buys time: a
-        # configured fallback target that is itself broken. Both real instances of
-        # this were invisible until they mattered — qwen-3.6-fast pointing at a
-        # retired deployment, then qwen35-2b rejecting every review-sized payload
-        # on a 16384-token window. Chain depth silently drops to zero and nothing
-        # else reports it.
+        # configured fallback target that is itself broken drops the chain's real
+        # depth to zero, and nothing else reports that. > 0 because the chain is
+        # one deep (see proxy.yaml) — a single failed fallback is already the
+        # whole safety net.
         - alert: LiteLLMFallbackTargetUnavailable
           expr: |-
             sum by (requested_model, fallback_model) (
               increase(litellm_deployment_failed_fallbacks_total[30m])
             ) > 0
-          for: 15m
+          for: 5m
           annotations:
             summary: >-
               Fallback {{ $labels.fallback_model }} for {{ $labels.requested_model }}
@@ -59,10 +63,10 @@ spec:
             sum by (requested_model, fallback_model) (
               increase(litellm_deployment_successful_fallbacks_total[30m])
             ) > 5
-          for: 30m
+          for: 5m
           annotations:
             summary: >-
-              {{ $labels.requested_model }} has been served by fallback
-              {{ $labels.fallback_model }} for 30m — the primary is not recovering
+              {{ $labels.requested_model }} has leaned on fallback
+              {{ $labels.fallback_model }} repeatedly — the primary is not recovering
           labels:
             severity: warning
