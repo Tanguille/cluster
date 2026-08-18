@@ -55,11 +55,14 @@ spec:
     retry_policy:
       InternalServerErrorRetries: 2
     # omniroute's free providers have no SLA; qwen-3.8-fast catches that.
-    # qwen35-2b is the last resort because a single-entry chain went hard-down
-    # on 2026-08-17 when the 27B was scaled to 0 -- it is iGPU-pinned, so it
-    # never shares control-1's dGPU. Degraded, not down.
+    # Deliberately one deep. qwen35-2b is not a second tier: llama.cpp splits
+    # contextSize across parallelSlots, so it serves a 16384-token window and
+    # rejects review-sized payloads, turning a 503 into a 400. Widening it costs
+    # iGPU-node RAM not worth spending on a last resort. (The model itself still
+    # runs -- karakeep uses it.) A one-deep chain is only safe while its target
+    # is live, which LiteLLMFallbackBackendDown enforces.
     fallbacks:
-      - omniroute: ["qwen-3.8-fast", "qwen35-2b"]
+      - omniroute: ["qwen-3.8-fast"]
   route:
     hostnames:
       - "litellm.${SECRET_DOMAIN}"
