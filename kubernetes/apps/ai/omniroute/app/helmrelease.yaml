@@ -31,7 +31,10 @@ spec:
               # `main` was built 04:05Z that day, three hours before the merge.
               # Source is public (github.com/diegosouzapw/OmniRoute, default
               # branch release/v3.8.50) so this is auditable -- move to the
-              # v3.8.50 tag once it ships. Digest-pinned so Flux re-pulls.
+              # v3.8.50 tag once it ships -- Renovate cannot prompt that, since
+              # `next` is not a version it can compute an update from; it will
+              # only offer digest bumps that walk this further along the branch.
+              # Digest-pinned so the branch moving does not silently move us.
               tag: next@sha256:2dd8dee4c5247c372af2ebbdfb98d72b4abacca77a07dd41aa6de6aa77e527cc
             env:
               TZ: ${TIMEZONE}
