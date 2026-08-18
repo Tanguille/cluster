@@ -1,0 +1,68 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: litellm-rules
+spec:
+  groups:
+    - name: litellm.rules
+      # Nothing watched this gateway until 2026-08-17, when omniroute's free tier
+      # went dry, its fallback turned out to point at a deployment scaled to 0,
+      # and the first symptom anyone saw was PR review jobs failing ~6h later.
+      # All three rules below are counters scraped every 60s by the sibling
+      # ServiceMonitor; increase() is deliberate over rate() because traffic is
+      # bursty and tiny (7 requests overnight, dozens during a Renovate burst),
+      # so a per-second rate rounds to noise. increase() also rides out the
+      # counter resets that come with litellm's frequent pod rolls.
+      rules:
+        # The one that matters: a caller got an error back. Everything else here
+        # is early warning, this is the outage itself.
+        - alert: LiteLLMRequestsFailing
+          expr: |-
+            sum by (requested_model, exception_status) (
+              increase(litellm_proxy_failed_requests_metric_total[15m])
+            ) > 2
+          for: 10m
+          annotations:
+            summary: >-
+              litellm is returning {{ $labels.exception_status }} for
+              {{ $labels.requested_model }} — the fallback chain is not covering it
+          labels:
+            severity: critical
+
+        # Fires while requests still succeed, so it is the one that buys time: a
+        # configured fallback target that is itself broken. Both real instances of
+        # this were invisible until they mattered — qwen-3.6-fast pointing at a
+        # retired deployment, then qwen35-2b rejecting every review-sized payload
+        # on a 16384-token window. Chain depth silently drops to zero and nothing
+        # else reports it.
+        - alert: LiteLLMFallbackTargetUnavailable
+          expr: |-
+            sum by (requested_model, fallback_model) (
+              increase(litellm_deployment_failed_fallbacks_total[30m])
+            ) > 0
+          for: 15m
+          annotations:
+            summary: >-
+              Fallback {{ $labels.fallback_model }} for {{ $labels.requested_model }}
+              is failing — the chain is shorter than it looks
+          labels:
+            severity: warning
+
+        # omniroute dropping to fallback for a minute is normal: its free tier
+        # cycles quota roughly every 5m and recovers on its own. Sustained use
+        # means it is not recovering and the self-hosted models are carrying
+        # production traffic they were never sized for.
+        - alert: LiteLLMPrimaryDegraded
+          expr: |-
+            sum by (requested_model, fallback_model) (
+              increase(litellm_deployment_successful_fallbacks_total[30m])
+            ) > 5
+          for: 30m
+          annotations:
+            summary: >-
+              {{ $labels.requested_model }} has been served by fallback
+              {{ $labels.fallback_model }} for 30m — the primary is not recovering
+          labels:
+            severity: warning
