@@ -68,7 +68,9 @@ spec:
     # None) works too.
     modelCache:
       # qwen3-embedding 0.64Gi + qwen35-2b 1.18Gi + vmcp-embedding 0.29Gi ≈ 2.1Gi
-      # + headroom (chart default is 100Gi)
-      size: 4Gi
+      # + headroom. Doubled from 4Gi to 8Gi: PVC hit 100% capacity
+      # (KubePersistentVolumeFillingUp). StorageClass ceph-filesystem has
+      # allowVolumeExpansion: true, so the in-place resize is supported.
+      size: 8Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany
