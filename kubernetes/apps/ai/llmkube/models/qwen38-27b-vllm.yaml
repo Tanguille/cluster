@@ -232,11 +232,13 @@ spec:
     - name: kv-offload
       persistentVolumeClaim:
         claimName: qwen38-27b-vllm-kv-offload
-    # The CPU offload tier mmaps 8Gi here; the 64M default EFAULTs on pre-fault.
+    # The CPU offload tier mmaps cpu_bytes_to_use here; the 64M default
+    # EFAULTs on pre-fault, and the connector needs this strictly larger
+    # than that value. 18Gi leaves 2Gi of margin over the 16Gi tier.
     - name: dshm
       emptyDir:
         medium: Memory
-        sizeLimit: 10Gi
+        sizeLimit: 18Gi
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -294,6 +296,11 @@ spec:
     # config: 2.81 GB.
     - --kv-cache-memory
     - "7516192768"
+    # CPU tier raised 8 -> 16 GiB: measured 8.0G of the 10Gi /dev/shm in use
+    # (80% full), i.e. the tier was saturated, not idle. At the ~33.7 B/token
+    # this config yields (7 GiB GPU pool = 223,172 tokens), 8 GiB held only
+    # ~1.1x the GPU pool; 16 GiB holds ~2.3x. Paid from the pod's own
+    # reservation -- it requests 32Gi and was measured using 14.8Gi total.
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
@@ -301,7 +308,7 @@ spec:
     # so it must stay loaded even though that costs some context headroom.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":8589934592,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":17179869184,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
