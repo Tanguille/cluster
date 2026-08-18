@@ -28,6 +28,10 @@ spec:
         enabled: true
       inferencePodMonitor:
         enabled: true
+      # Scrapes the router-proxy metrics port (9090); matches nothing until a
+      # ModelRouter is deployed, but keeps future proxies observable.
+      routerPodMonitor:
+        enabled: true
       prometheusRule:
         enabled: true
         namespace: ai
