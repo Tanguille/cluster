@@ -226,6 +226,7 @@ spec:
       trustedCIDRs:
         - ${POD_CIDR}
   http2:
+    initialStreamWindowSize: 1Mi
     onInvalidMessage: TerminateStream
   http3: {}
   connection:
