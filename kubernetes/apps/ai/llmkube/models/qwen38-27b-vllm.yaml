@@ -131,20 +131,18 @@ spec:
   format: safetensors
   quantization: compressed-tensors
   refreshPolicy: OnChange
+  # MUST match the layout of `source` above -- the init container fetches exactly
+  # these names and exits 1 on a 404. philbert ships one model.safetensors, not
+  # cyankiwi's 5 shards, and folds merges/vocab into tokenizer.json.
   files:
-    - model-00001-of-00005.safetensors
-    - model-00002-of-00005.safetensors
-    - model-00003-of-00005.safetensors
-    - model-00004-of-00005.safetensors
-    - model-00005-of-00005.safetensors
+    - model.safetensors
+    - model-mtp.safetensors
     - model.safetensors.index.json
     - config.json
     - generation_config.json
     - tokenizer.json
     - tokenizer_config.json
     - chat_template.jinja
-    - merges.txt
-    - vocab.json
     - preprocessor_config.json
     - video_preprocessor_config.json
   hardware:
