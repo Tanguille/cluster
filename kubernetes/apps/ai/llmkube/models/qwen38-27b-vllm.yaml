@@ -310,6 +310,10 @@ spec:
     # CPU tier 22Gi: the 16Gi tier cascaded 3.5 GB/hour to the fs tier, i.e.
     # eviction pressure. Benefit NOT yet validated -- needs a restart-free
     # window, since this tier is an emptyDir tmpfs that every restart wipes.
+    # Roll back to 17179869184 (16Gi, dshm 18Gi, memory 32Gi) if after a 24h
+    # restart-free soak vllm:external_prefix_cache_hits_total/queries_total has
+    # not beaten its 0.5333 pre-change baseline, or if control-1 shows memory
+    # pressure or OOMKills.
     # DO NOT remove the fs secondary tier to save Ceph writes: its 4.5% hit
     # rate is not its job. Removing it halved single-stream decode (15.5 vs
     # 31 tok/s, exact-revert confirmed) -- it keeps eviction asynchronous.
@@ -326,8 +330,8 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # tmpfs is charged here, so this tracks cpu_bytes_to_use: measured 28Gi
-    # total with the tier full. Headroom kept for the load spike rather than
+    # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
+    # under 4x32K concurrent load with the tier full (7.7Gi headroom). Headroom kept for the load spike rather than
     # trimmed -- an OOMKill mid-load throws away the compile cache this node
     # takes ~40min to rebuild.
     memory: 36Gi
