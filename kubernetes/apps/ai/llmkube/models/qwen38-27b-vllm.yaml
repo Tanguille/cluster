@@ -188,18 +188,27 @@ spec:
     # 112K and p90 prompts are 20K, and normal concurrency is unaffected
     # because KV is paged and allocated on demand.
     #
-    # A decode-performance ceiling, NOT a pool-matching value: the pool is
-    # 287,159 tokens (1.30x this cap) and that margin is deliberate. DO NOT
-    # raise this toward the model's 262,144 limit -- 262,144 measured ~half the
-    # single-stream decode (15.8-17.1 vs 29.7-32.0 tok/s), confirmed by exact
-    # revert; mechanism unexplained. Production prompts are 47-56K anyway.
+    # A decode-performance ceiling, NOT a pool-matching value. Single-stream
+    # decode falls off a cliff once the pool/cap ratio drops below ~1.17x;
+    # bisected 2026-08-19, two concsweeps per point, run-after-restart discarded:
+    #
+    #   cap      pool     ratio  conc-1 tok/s  verdict
+    #   241,878  288,061  1.19x  31.46         fast
+    #   246,944  288,493  1.17x  31.65         fast   <- this value
+    #   249,477  288,702  1.16x  25.12 / 1.95  UNSTABLE, do not ship
+    #   252,011  288,012  1.14x  18.93         slow
+    #   262,144  --       1.10x  15.8-17.1     slow
+    #
+    # Mechanism unexplained; only conc-1 cliffs, conc-16 stays ~185 throughout.
+    # DO NOT raise past this without re-running the bisect -- the next step up
+    # measured unstable, not merely slower. Production prompts are 47-56K.
     #
     # If the pool ever shrinks below this cap the engine refuses to start
     # rather than silently truncating. Re-read "GPU KV cache size" from the
     # boot log after ANY of: --kv-cache-memory, the mamba cache dtypes, the
     # attention block size, or a vLLM image bump -- Renovate raises that last
     # one as a digest-bump PR, so re-check this value when reviewing it.
-    maxModelLen: 221612
+    maxModelLen: 246944
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
