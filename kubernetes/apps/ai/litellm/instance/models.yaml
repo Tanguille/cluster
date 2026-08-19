@@ -30,9 +30,9 @@ spec:
           reasoning_effort: medium
   info:
     mode: chat
-    # maxModelLen (221612) minus maxOutputTokens; re-derive if that changes,
+    # maxModelLen (246944) minus maxOutputTokens; re-derive if that changes,
     # nothing enforces it across the two CRDs.
-    maxInputTokens: 213420
+    maxInputTokens: 238752
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
@@ -64,8 +64,8 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    # 221612 - 8192, as above.
-    maxInputTokens: 213420
+    # 246944 - 8192, as above.
+    maxInputTokens: 238752
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
