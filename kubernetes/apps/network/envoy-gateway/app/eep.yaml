@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.envoyproxy.io/envoyextensionpolicy_v1alpha1.json
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: eep
+spec:
+  targetSelectors:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+  wasm:
+    - name: eep
+      rootID: eep
+      code:
+        type: Image
+        image:
+          url: oci://ghcr.io/ishioni/eep:0.2.1@sha256:0d5b4e3f6fb16b82c05e03c5cce88dd6c283221ca4bb8e1f58ba4b47f0fdffeb
+      config:
+        theme: connection
+        showDetails: false
+        locale: auto
+        logLevel: warn
+        filterCodes: [404, "500-599"]
+      failOpen: true
