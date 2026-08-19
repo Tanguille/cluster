@@ -75,6 +75,12 @@
       automerge: true,
       automergeType: "pr"
     },
+    {
+      description: "vllm-openai-rocm nightly digest — the rolling `nightly` tag is digest-pinned so Renovate can detect new builds at all; never auto-merge, a bump rolls the single-GPU serving pod and can move the KV pool that maxModelLen is sized against",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["vllm/vllm-openai-rocm"],
+      automerge: false
+    },
     // Grouping rules
     {
       description: "Actions Runner Controller Group",

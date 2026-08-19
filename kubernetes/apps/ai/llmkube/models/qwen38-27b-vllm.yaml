@@ -122,7 +122,12 @@ kind: Model
 metadata:
   name: qwen38-27b-vllm
 spec:
-  source: hf://cyankiwi/Qwen3.8-27B-AWQ-INT4@63768c10df38c0395e12ef49edac1bd539eaeeea
+  # philbert g128 over cyankiwi g32: ignore lists match on 311/313 entries, so
+  # group_size is the only material difference. 1.5 GB smaller, and the only
+  # build documenting thinking-mode calibration (llm-compressor #2680 corrupts
+  # <think> without it; thinking is on by default here).
+  # Pinned to the 2026-08-15 tokenizer fix; earlier revisions 400 on image input.
+  source: hf://philbert440/Qwen3.8-27B-W4A16-AWQ@7908d42a71077a5e4dc458f273682b12dfe384a0
   format: safetensors
   quantization: compressed-tensors
   refreshPolicy: OnChange
@@ -168,27 +173,32 @@ spec:
   # translates this to --max-num-seqs for the vllm runtime.
   parallelSlots: 16
   bindAddress: 0.0.0.0
-  # Commit-tagged nightly, not the rolling `nightly` tag.
-  # v0.27.1 is the newest release and predates gfx1201 AITER support.
-  image: vllm/vllm-openai-rocm:nightly-aa9903490c616dc6871e5acc62cec7bb1e5e9434@sha256:d16558a215144a1a90f3ecfa377559fac4143e74424fa7c4fab2020dd947eb9e
+  # Rolling `nightly` tag pinned by digest, same shape as
+  # kubesearch-mcp:master@sha256:. The digest is what gets pulled, so this is
+  # as immutable as a commit tag -- but Renovate can re-resolve the tag and
+  # open a digest-bump PR, which it can never do for an immutable
+  # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
+  # v0.27.1 is the newest release and predates gfx1201 support.
+  image: vllm/vllm-openai-rocm:nightly@sha256:5ea7099b53cdf9049ddcd446f15d831f32bce06c2822d6f8f228b819f189fc48
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
     # The only per-request cap on KV blocks, so it decides how much of the pool
-    # a single session can hold. Set to the pool so one session can use
-    # effectively all of it: verified booting at this value, which reports
-    # 223,172 tokens (raising it improves block packing slightly) = 1.01x, so
-    # a session reaches 99.3%. Headroom, not a working size -- Hermes peaks at
+    # a single session can hold. Headroom, not a working size -- Hermes peaks at
     # 112K and p90 prompts are 20K, and normal concurrency is unaffected
     # because KV is paged and allocated on demand.
     #
-    # Deliberately no margin: if a future change shrinks the pool below this
-    # the engine refuses to start rather than silently truncating, and Flux
-    # applies automatically. Re-read "GPU KV cache size" from the boot log and
-    # match it after ANY of: --kv-cache-memory, the mamba cache dtypes, the
-    # attention block size, or a vLLM image bump. That last one is the easy
-    # miss -- Renovate opens it as an ordinary reviewed PR.
-    # The model itself allows 262,144; KV memory is the binding limit.
+    # A decode-performance ceiling, NOT a pool-matching value: the pool is
+    # 287,159 tokens (1.30x this cap) and that margin is deliberate. DO NOT
+    # raise this toward the model's 262,144 limit -- 262,144 measured ~half the
+    # single-stream decode (15.8-17.1 vs 29.7-32.0 tok/s), confirmed by exact
+    # revert; mechanism unexplained. Production prompts are 47-56K anyway.
+    #
+    # If the pool ever shrinks below this cap the engine refuses to start
+    # rather than silently truncating. Re-read "GPU KV cache size" from the
+    # boot log after ANY of: --kv-cache-memory, the mamba cache dtypes, the
+    # attention block size, or a vLLM image bump -- Renovate raises that last
+    # one as a digest-bump PR, so re-check this value when reviewing it.
     maxModelLen: 221612
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
@@ -204,9 +214,10 @@ spec:
     # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
-    # gfx1201 AITER Triton paths (vLLM #43615). Its FP8 linear kernels do
-    # not apply to this W4A16 checkpoint; the attention-backend reorder
-    # (ROCM_AITER_UNIFIED_ATTN first) and the GDN linear-attn path do.
+    # Inert for attention: with a KV connector set, rocm.py:703 rejects
+    # ROCM_AITER_UNIFIED_ATTN and selects TRITON_ATTN. FP8 linear kernels do
+    # not apply to W4A16 either. Kept for the GDN linear-attn path.
+    # Forcing AITER attention measured +84% decode but ~10x worse prefill.
     - name: VLLM_ROCM_USE_AITER
       value: "1"
     - name: HIP_VISIBLE_DEVICES
@@ -229,12 +240,13 @@ spec:
     - name: kv-offload
       persistentVolumeClaim:
         claimName: qwen38-27b-vllm-kv-offload
-    # The CPU offload tier mmaps cpu_bytes_to_use (16Gi) here; the 64M
-    # default EFAULTs on pre-fault. 18Gi = 16Gi + 2Gi margin.
+    # The CPU offload tier mmaps cpu_bytes_to_use here; the 64M default
+    # EFAULTs on pre-fault. Keep this at cpu_bytes_to_use + 2Gi. Nothing
+    # enforces that -- the kv-offload-guard CronJob only sweeps /kvoffload.
     - name: dshm
       emptyDir:
         medium: Memory
-        sizeLimit: 18Gi
+        sizeLimit: 24Gi
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -289,18 +301,29 @@ spec:
     # together, which was not observed but is the number the reserve must cover.
     # Jellyfin has no transcode concurrency cap, so a third stream would exceed
     # 2 GiB and evict KV; see the DgpuVramLow alert. Measured free at this
-    # config: 2.81 GB.
+    # config: 2.57 GB at peak load (was 2.81 GB at 7 GiB) -- this raise spends
+    # 0.24 GB of that reserve. Pool 223,172 -> 287,159 tokens, concurrency
+    # 1.01x -> 1.30x. Retention benefit NOT yet measured.
     - --kv-cache-memory
-    - "7516192768"
+    - "9663676416"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
     # Hermes' auxiliary.vision block actively uses this model's vision tower,
     # so it must stay loaded even though that costs some context headroom.
-    # CPU tier 16Gi: 8Gi measured 80% full in production, i.e. saturated.
+    # CPU tier 22Gi: the 16Gi tier cascaded 3.5 GB/hour to the fs tier, i.e.
+    # eviction pressure. Benefit NOT yet validated -- needs a restart-free
+    # window, since this tier is an emptyDir tmpfs that every restart wipes.
+    # Roll back to 17179869184 (16Gi, dshm 18Gi, memory 32Gi) if after a 24h
+    # restart-free soak vllm:external_prefix_cache_hits_total/queries_total has
+    # not beaten its 0.5333 pre-change baseline, or if control-1 shows memory
+    # pressure or OOMKills.
+    # DO NOT remove the fs secondary tier to save Ceph writes: its 4.5% hit
+    # rate is not its job. Removing it halved single-stream decode (15.5 vs
+    # 31 tok/s, exact-revert confirmed) -- it keeps eviction asynchronous.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":17179869184,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
@@ -311,11 +334,12 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Steady state was 13.3Gi with an 8Gi shm offload tier (tmpfs, so charged
-    # here); the 16Gi tier projects ~21Gi. Kept at 32Gi for the load spike rather
-    # than trimmed to the steady state -- an OOMKill mid-load throws away the
-    # compile cache this node takes ~40min to rebuild.
-    memory: 32Gi
+    # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
+    # under 4x32K concurrent load with the tier full (7.7Gi headroom).
+    # Headroom kept for the load spike rather than trimmed -- an OOMKill
+    # mid-load throws away the compile cache this node takes ~40min to
+    # rebuild.
+    memory: 36Gi
   endpoint:
     port: 8000
   probeOverrides:
