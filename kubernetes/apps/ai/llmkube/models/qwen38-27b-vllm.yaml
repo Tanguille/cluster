@@ -173,9 +173,13 @@ spec:
   # translates this to --max-num-seqs for the vllm runtime.
   parallelSlots: 16
   bindAddress: 0.0.0.0
-  # Commit-tagged nightly, not the rolling `nightly` tag.
+  # Rolling `nightly` tag pinned by digest, same shape as
+  # kubesearch-mcp:master@sha256:. The digest is what gets pulled, so this is
+  # as immutable as a commit tag -- but Renovate can re-resolve the tag and
+  # open a digest-bump PR, which it can never do for an immutable
+  # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
   # v0.27.1 is the newest release and predates gfx1201 support.
-  image: vllm/vllm-openai-rocm:nightly-5a4c8d99242e9e069b604d0e9b969e77f7dd501d@sha256:5ea7099b53cdf9049ddcd446f15d831f32bce06c2822d6f8f228b819f189fc48
+  image: vllm/vllm-openai-rocm:nightly@sha256:5ea7099b53cdf9049ddcd446f15d831f32bce06c2822d6f8f228b819f189fc48
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
@@ -193,8 +197,8 @@ spec:
     # If the pool ever shrinks below this cap the engine refuses to start
     # rather than silently truncating. Re-read "GPU KV cache size" from the
     # boot log after ANY of: --kv-cache-memory, the mamba cache dtypes, the
-    # attention block size, or a vLLM image bump -- and check by hand, since
-    # Renovate cannot order a commit-tagged nightly and will not open that PR.
+    # attention block size, or a vLLM image bump -- Renovate raises that last
+    # one as a digest-bump PR, so re-check this value when reviewing it.
     maxModelLen: 221612
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
