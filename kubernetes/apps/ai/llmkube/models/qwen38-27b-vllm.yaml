@@ -331,9 +331,10 @@ spec:
   resources:
     cpu: "2"
     # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
-    # under 4x32K concurrent load with the tier full (7.7Gi headroom). Headroom kept for the load spike rather than
-    # trimmed -- an OOMKill mid-load throws away the compile cache this node
-    # takes ~40min to rebuild.
+    # under 4x32K concurrent load with the tier full (7.7Gi headroom).
+    # Headroom kept for the load spike rather than trimmed -- an OOMKill
+    # mid-load throws away the compile cache this node takes ~40min to
+    # rebuild.
     memory: 36Gi
   endpoint:
     port: 8000
