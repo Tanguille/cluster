@@ -43,7 +43,7 @@
       customType: "regex",
       managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
       // Two source forms in use: the resolve/ URL for single-file GGUFs, and
-      // hf://repo@sha for multi-file repos (qwen38, muse-glimmer). Without the
+      // hf://repo@sha for multi-file repos (qwen38). Without the
       // second, the primary serving model's weights digest tracks nothing.
       matchStrings: [
         "source:\\s+https://huggingface\\.co/(?<depName>[^/\\s]+/[^/\\s]+)/resolve/(?<currentDigest>[a-f0-9]{40})/",
