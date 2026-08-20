@@ -43,9 +43,11 @@ just talos upgrade-k8s
 
 Schematics no longer need a separate update step: `just talos schematic-id <node>` resolves the
 Image Factory ID at render time and templates it into the installer image. Editing
-`talos/schematic.yaml.j2` (or a per-node override) is enough.
+`talos/schematic.yaml` (or a per-node `talos/nodes/<role>/<node>.schematic.yaml` override) is
+enough. These are plain YAML, not templates.
 
-Always run `just talos diff-node` against every node and confirm `No changes.` before applying.
+Always run `just talos diff-node <node> <node-ip>` against every node and confirm `No changes.`
+before applying.
 See [talos/README.md](../talos/README.md) for the layer model.
 
 ---
