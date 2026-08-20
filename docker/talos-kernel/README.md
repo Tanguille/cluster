@@ -240,20 +240,20 @@ reported "All nodes are up to date" only because `findNextNodes` skips every nod
 `Status.CompletedNodes` before it ever compares versions; that list resets when the CR
 generation changes, i.e. on the next Talos bump.
 
-Two things must therefore land together with the first node's cutover, and neither is in this
-change:
+Two things have to be true for a node, and both are now done for control-2:
 
-1. **`.machine.install.image` repointed** to `ghcr.io/tanguille/installer/<node>`, or
-   the node annotated with `tuppr.home-operations.com/factory-url` +
-   `tuppr.home-operations.com/schematic`. The annotation route is the one tuppr documents for
-   a self-hosted factory and is the only one that works when runtime reports no schematic.
-2. **A single composed version string.** tuppr compares against one value, so
-   `spec.talos.version` has to read `v1.13.9-k7.1.9` — but that field carries
-   `# renovate: datasource=github-releases depName=siderolabs/talos`, which rewrites it to
-   `v1.13.10` and eats the kernel suffix. Two Renovate inputs have to compose into one string
-   and nothing composes them yet. Until that is solved, a kernel bump is a manual edit of
-   `spec.talos.version` (or a per-node `tuppr.home-operations.com/version` annotation, which
-   takes precedence over the CR).
+1. **`.machine.install.image` repointed** to `ghcr.io/tanguille/installer/<schematic>`. Left on
+   `factory.talos.dev`, tuppr's bare `<repo>:<targetVersion>` substitution silently reinstalls
+   the stock kernel.
+2. **A version string tuppr will actually ask for.** It compares one value, so the node has to
+   advertise `v<talos>-k<kernel>`. `spec.talos.version` cannot carry it — that field is
+   Renovate-managed against `siderolabs/talos` and would rewrite `v1.13.9-k7.1.9` to
+   `v1.13.10`, eating the suffix. So the kernel half lives in a per-node
+   `machine.nodeAnnotations."tuppr.home-operations.com/version"`, which `getTargetVersion`
+   prefers over the CR (`upgrade.go:855`). control-1 and control-3 keep taking the plain
+   version from `spec.talos.version` and still resolve against the Factory.
 
-Until both are done, treat every Talos bump as "re-run the build and re-cut the affected
-nodes by hand", and keep at least one node on stock so a bad kernel cannot take the fleet.
+Still outstanding for the other two nodes: build their installers, repoint and annotate them
+the same way, and flip each new ghcr package public. Until then treat a Talos bump as "re-run
+the build and re-cut the affected nodes by hand", and keep at least one node on stock so a bad
+kernel cannot take the fleet.

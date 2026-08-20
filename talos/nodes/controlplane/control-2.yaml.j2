@@ -19,7 +19,7 @@ machine:
     # starts private (there is no way to default them public), stranding the node on an
     # unpullable ref.
     image: ghcr.io/tanguille/installer/shared:{{ pinned }}
-  # getTargetVersion prefers this over spec.talos.version, so control-1 and control-3 keep
+  # getTargetVersion (upgrade.go:855) prefers this over spec.talos.version, so control-1 and control-3 keep
   # taking the plain version from the tuppr CR and still resolve against factory.talos.dev.
   # It must match the tag above exactly or tuppr requests an image that was never published.
   nodeAnnotations:
