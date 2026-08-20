@@ -183,14 +183,27 @@ for node in "$@"; do
         continue
     fi
     log "installer for ${node}"
-    mapfile -t args < <(yq -r '.customization.extraKernelArgs[] | "--extra-kernel-arg=" + .' "${schematic}")
+    # Read into variables first, NOT `< <(yq ...)`. A process substitution's exit status never
+    # reaches the enclosing command, so `set -e` cannot see it: a failed yq yields an empty
+    # array and the build happily publishes an installer with no kernel args (no
+    # module.sig_enforce=1, no talos.platform=metal) or no extensions (no amdgpu). It succeeds
+    # and produces a plausible, broken artifact. As assignments the failure aborts here.
+    kargs="$(yq -r '.customization.extraKernelArgs[] | "--extra-kernel-arg=" + .' "${schematic}")"
+    exts="$(yq -r '.customization.systemExtensions.officialExtensions[]' "${schematic}")"
+    [[ -n "${kargs}" && -n "${exts}" ]] || {
+        echo "empty kernel args or extensions from ${schematic}" >&2; exit 1
+    }
+    mapfile -t args <<<"${kargs}"
     while read -r ext; do
         if [[ "${ext}" == "siderolabs/amdgpu" ]]; then
             args+=(--system-extension-image "${AMDGPU_REF}")
         else
-            args+=(--system-extension-image "$(grep -m1 -F "ghcr.io/${ext}:" <<<"${DIGESTS}")")
+            # Also an assignment: in argument position a failed grep would expand to "" and
+            # hand the imager --system-extension-image with an empty value.
+            digest="$(grep -m1 -F "ghcr.io/${ext}:" <<<"${DIGESTS}")"
+            args+=(--system-extension-image "${digest}")
         fi
-    done < <(yq -r '.customization.systemExtensions.officialExtensions[]' "${schematic}")
+    done <<<"${exts}"
     docker run --rm -v "${WORK}/out:/out" \
         -v "${HOME}/.docker:/dockercfg:ro" -e DOCKER_CONFIG=/dockercfg \
         "${PREFIX}/imager:${VERSION}" installer \
