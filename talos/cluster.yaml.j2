@@ -110,9 +110,9 @@ content: |
   [plugins."io.containerd.cri.v1.images"]
     discard_unpacked_layers = false
 ---
-# fstrim. Absent on an upgraded cluster means no automatic trimming at all, and every node here
-# is NVMe. Talos picks a stable hash-derived slot per volume per node, so the fleet does not trim
-# in lockstep.
+# fstrim. Absent on an upgraded cluster means no automatic trimming at all. Talos picks a stable
+# hash-derived slot per volume per node, so the fleet does not trim in lockstep. control-1 is the
+# TrueNAS VM with no NVMe device, so its discards pass through to the hypervisor.
 # Interval is stated rather than defaulted: talosctl accepts 0s while rejecting 1s against its own
 # 10s minimum, so zero is an unset sentinel and an omitted field lands on it.
 apiVersion: v1alpha1
