@@ -11,33 +11,16 @@ spec:
     - name: cilium.loadbalancer.rules
       interval: 30s
       rules:
+        # Probe job labels are namespace-qualified: probe/<namespace>/<Probe name>.
         - alert: LoadBalancerIPUnreachable
           expr: |
-            probe_success{job="probe/loadbalancer-ips",service="blackbox-exporter"} == 0
+            probe_success{job="probe/observability/loadbalancer-ips",service="blackbox-exporter"} == 0
           for: 5m
           annotations:
             summary: LoadBalancer IP {{ $labels.instance }} is unreachable
             description: >-
               LoadBalancer IP {{ $labels.instance }} has been unreachable for more than 5 minutes.
               This may indicate a Cilium L2 announcement issue after node restarts.
-          labels:
-            severity: critical
-            component: cilium
-            type: loadbalancer
-
-        - alert: LoadBalancerIPNotAnnounced
-          expr: |
-            (
-              probe_success{job="probe/loadbalancer-ips",service="blackbox-exporter"} == 0
-              and
-              kube_service_status_load_balancer_ingress{namespace="network"} == 1
-            )
-          for: 10m
-          annotations:
-            summary: LoadBalancer IP {{ $labels.instance }} is assigned but not reachable
-            description: >-
-              LoadBalancer IP {{ $labels.instance }} is assigned to a service but not reachable.
-              This likely indicates a Cilium L2 announcement failure. Check Cilium operator logs.
           labels:
             severity: critical
             component: cilium

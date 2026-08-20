@@ -54,15 +54,21 @@ spec:
                     name: ghostfolio-secret
                     key: JWT_SECRET_KEY
             probes:
-              liveness: &probes
+              # /api/v1/health 503s when Postgres or dragonfly is down: gates readiness and
+              # startup, never liveness (a pooler blip would restart a healthy pod).
+              liveness:
                 enabled: true
+              readiness:
+                enabled: true
+                custom: true
                 spec:
                   httpGet:
                     path: /api/v1/health
                     port: 3333
-              readiness: *probes
+                  timeoutSeconds: 5
               startup:
                 enabled: true
+                custom: true
                 spec:
                   httpGet:
                     path: /api/v1/health
