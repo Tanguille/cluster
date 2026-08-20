@@ -17,10 +17,19 @@ render-config node:
     role="$(just talos node-role "{{ node }}")"
     # One context for every layer, so any layer may reference any of these.
     ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}" -D "schematic=${schematic}")
+    # Each layer is rendered to a variable BEFORE talosctl runs, not inline as <(just template).
+    # A process substitution is asynchronous: its exit status never reaches talosctl, so a failed
+    # layer was silently dropped. Verified by breaking controlplane.yaml.j2 -- render-config
+    # exited 0 and emitted a config with no machine.type, which apply-node pipes straight to a
+    # control-plane node. Assigning first also means a failure aborts before anything reaches
+    # stdout, so a consumer can never see a partial config.
+    cluster_layer="$(just template "{{ source_directory() }}/cluster.yaml.j2" "${ctx[@]}")"
+    role_layer="$(just template "{{ source_directory() }}/${role}.yaml.j2" "${ctx[@]}")"
+    node_layer="$(just template "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" "${ctx[@]}")"
     talosctl machineconfig patch \
-        <(just template "{{ source_directory() }}/cluster.yaml.j2" "${ctx[@]}") \
-        -p @<(just template "{{ source_directory() }}/${role}.yaml.j2" "${ctx[@]}") \
-        -p @<(just template "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" "${ctx[@]}")
+        <(printf '%s' "${cluster_layer}") \
+        -p @<(printf '%s' "${role_layer}") \
+        -p @<(printf '%s' "${node_layer}")
 
 [doc('Generate the Talos client config from the secrets bundle')]
 talosconfig:
