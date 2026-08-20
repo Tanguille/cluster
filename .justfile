@@ -18,8 +18,8 @@ tuppr-version kind:
     yq -e '.spec.{{ kind }}.version' \
         "{{ justfile_directory() }}/kubernetes/apps/system-upgrade/tuppr/upgrades/{{ kind }}upgrade.yaml"
 
-# Decrypts on stdout only; callers consume it through process substitution so the plaintext
-# lives no longer than the command and never reaches disk or a shell variable.
+# Decrypts on stdout only; callers pipe it so the plaintext lives no longer than the command
+# and never reaches disk or a shell variable.
 [private]
 talsecret:
     sops -d "{{ justfile_directory() }}/talos/talsecret.sops.yaml"
@@ -36,10 +36,13 @@ template file *args:
     # baked into a node's install image. As bare assignments these abort the recipe instead.
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
-    minijinja-cli --strict --format=yaml --autoescape=none \
+    # Piped, not <(just talsecret): a process substitution's producer exit status is invisible to
+    # the outer command, so a failed decrypt would hand minijinja an empty context instead of
+    # aborting. Through a pipe, `pipefail` fails the recipe. Verified both ways.
+    just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
         -D "talosVersion=${talos_version}" \
         -D "kubernetesVersion=${kubernetes_version}" \
-        {{ args }} "{{ file }}" <(just talsecret)
+        {{ args }} "{{ file }}" -
 
 [doc('Force Flux to pull in changes from the Git repository')]
 reconcile:
