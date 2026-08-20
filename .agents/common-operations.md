@@ -8,7 +8,7 @@ Step-by-step procedures for frequent cluster tasks.
 
 ## Validation and tooling
 
-- Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talhelper`, `talosctl`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
+- Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talosctl`, `minijinja-cli`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
 - Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (flate — renders Helm charts, not just Kustomization YAML — and shellcheck).
 - Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
 - Documentation-only changes: run `git diff --check` and verify every changed local reference exists.

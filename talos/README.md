@@ -1,0 +1,77 @@
+# Talos
+
+Declarative [Talos Linux](https://www.talos.dev) machine configuration, built from composable
+multi-document layers. Nothing here is applied automatically; configs are rendered on demand and
+pushed to nodes with `talosctl`.
+
+## Layout
+
+| Path                                    | Purpose                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| `cluster.yaml.j2`                       | Documents applied to every node                                           |
+| `controlplane.yaml.j2`                  | Control-plane-only documents, including `machine.type`                    |
+| `workers.yaml.j2`                       | Worker-only documents (does not exist yet; created with the first worker) |
+| `nodes/<role>/<node>.yaml.j2`           | Per-node documents (hostname, address, MAC selector, install disk, labels)|
+| `nodes/<role>/<node>.schematic.yaml.j2` | Optional per-node schematic override                                      |
+| `schematic.yaml.j2`                     | Shared [Image Factory](https://factory.talos.dev) schematic               |
+| `talsecret.sops.yaml`                   | SOPS-encrypted secrets bundle (native `talosctl` format)                  |
+| `mod.just`                              | Recipes (`just talos ...`)                                                |
+
+## Rendering
+
+`just talos render-config <node>` builds the final machine config in three layers:
+
+```
+talosctl machineconfig patch <(cluster.yaml.j2) \
+    -p @<(controlplane.yaml.j2 | workers.yaml.j2) \
+    -p @<(nodes/<role>/<node>.yaml.j2)
+```
+
+Each layer passes through `minijinja-cli` before `talosctl` merges them. Later patches strategically
+merge into earlier ones: maps deep-merge, lists replace, and documents with the same kind/name merge.
+
+Two conventions keep the layers honest:
+
+- **Directory placement is the single source of truth for a node's role.** The role layer is chosen
+  by which `nodes/<role>/` directory contains the node file, and `machine.type` is set by the role
+  layer, not the node file. A node cannot claim one role by filename and another by content.
+- **Secrets never appear in this repo in plaintext.** `talsecret.sops.yaml` is decrypted at render
+  time and handed to minijinja as the *template context*, so templates reference its own key names
+  (`{{ certs.os.crt }}`, `{{ trustdinfo.token }}`). Nothing is written to disk.
+
+Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
+CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
+
+## Schematics
+
+`just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
+content-addressed ID, which is templated into the installer image.
+
+Resolution is per node: `nodes/<role>/<node>.schematic.yaml.j2` wins when present, otherwise
+`schematic.yaml.j2` applies. Overrides are complete files, not deltas. Today only `control-1`
+overrides, because it is the TrueNAS VM and the only dGPU host.
+
+## Gotchas
+
+- `machine.ca` and `cluster.ca` merge as a cert+key **unit**: a layer supplying only `key` blanks
+  `crt`. This is why `controlplane.yaml.j2` repeats the `crt` alongside the keys.
+- `minijinja-cli` must run with `--autoescape=none`. The default JSON-escapes every substitution,
+  which silently wraps certs and versions in quotes and produces a config that looks right and is not.
+- `talsecret.sops.yaml` is the native `talosctl` secrets bundle, not a talhelper format. `talosctl gen
+  config --with-secrets` consumes it directly. Do not rename its keys; the templates and
+  `just talos talosconfig` both depend on them.
+
+## Common tasks
+
+```sh
+just talos render-config <node>          # render a node's full machine config to stdout
+just talos diff-node <node> <ip>         # dry-run the rendered config against the running node
+just talos apply-node <node> <ip>        # render and apply
+just talos upgrade-node <node> <ip>      # upgrade Talos using the node's schematic image
+just talos upgrade-k8s                   # upgrade Kubernetes to the version in the tuppr CR
+just talos talosconfig                   # regenerate the client config from the secrets bundle
+just talos download-image <node> <ver>   # fetch a metal ISO from the Image Factory
+```
+
+Verify any refactor of these templates by running `diff-node` against **every** node and confirming
+each reports `No changes.` before applying anything.
