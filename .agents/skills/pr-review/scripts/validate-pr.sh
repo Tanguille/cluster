@@ -66,10 +66,9 @@ echo ""
 # Phase 2: Shellcheck (if shell scripts exist)
 echo "[2/4] Shell Script Validation..."
 # exclude the repo-local .claude dir (session configs, worktrees) — anchored to REPO_ROOT so
-# running from inside a .claude/worktrees/* worktree doesn't exclude the entire tree —
-# .worktrees/ (parallel checkouts validate themselves), and
-# archive/ (retired one-off scripts kept for reference; not held to the gate)
-SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/.claude/*" -not -path "${REPO_ROOT}/.worktrees/*" -not -path "${REPO_ROOT}/archive/*" 2>/dev/null)
+# running from inside a .claude/worktrees/* worktree doesn't exclude the entire tree — and
+# .worktrees/ (parallel checkouts validate themselves)
+SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/.claude/*" -not -path "${REPO_ROOT}/.worktrees/*" 2>/dev/null)
 if [ -n "$SHELL_SCRIPTS" ]; then
     if command -v shellcheck &> /dev/null; then
         # shellcheck disable=SC2086 # word-splitting the list is intended; quoting it passes all paths as one filename
