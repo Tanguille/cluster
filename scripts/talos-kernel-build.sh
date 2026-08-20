@@ -154,7 +154,15 @@ mkdir -p "${WORK}/out"
 declare -A BUILT=()
 for node in "$@"; do
     schematic="$(just talos schematic-file "${node}")"
-    dst="${PREFIX}/installer/${node}:${VERSION}"
+    # Repo naming mirrors the schematic layout: nodes on the shared talos/schematic.yaml share
+    # the (already public) installer repo, and only a node with its own schematic override gets
+    # its own. ghcr packages default to private with no way to change that default, so this is
+    # the minimum number of one-time visibility flips: one, and only when a node diverges.
+    if [[ "${schematic}" == "${REPO_ROOT}/talos/schematic.yaml" ]]; then
+        dst="${PREFIX}/installer:${VERSION}"
+    else
+        dst="${PREFIX}/installer/${node}:${VERSION}"
+    fi
     # Nodes sharing a schematic build byte-identical installers, so the second is a registry
     # copy rather than another imager run.
     if [[ -n "${BUILT[${schematic}]:-}" ]]; then
@@ -179,4 +187,4 @@ for node in "$@"; do
     BUILT[${schematic}]="${dst}"
 done
 
-log "done: ${PREFIX}/installer/<node>:${VERSION}"
+log "done: ${PREFIX}/installer[/<node>]:${VERSION}"

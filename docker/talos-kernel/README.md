@@ -90,8 +90,9 @@ official images by digest.
 
 ## Version tagging
 
-Tag installers `v<talos>-k<kernel>`, e.g. `v1.13.9-k7.1.9`, and publish them per node:
-`ghcr.io/tanguille/installer/<node>:v<talos>-k<kernel>`.
+Tag installers `v<talos>-k<kernel>`, e.g. `v1.13.9-k7.1.9`. Nodes on the shared schematic
+publish to `ghcr.io/tanguille/installer`; a node with its own schematic override publishes to
+`ghcr.io/tanguille/installer/<node>`.
 
 `TAG` is embedded into `pkg/machinery/gendata` (talos `Dockerfile:313-323`) and becomes what
 the node reports over the gRPC `Version()` API. tuppr reads exactly that (`client.go:161`
@@ -107,22 +108,27 @@ schematic still build only once — the second is a registry copy, not another i
 
 The suffix satisfies tuppr's CRD pattern `^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\-\.]+)?$`.
 
-## Two things that will bite once per node
+## Two things that will bite
 
-**GHCR package visibility.** Installers are published to `ghcr.io/tanguille/installer/<node>`,
-and GHCR treats each nested path as its **own package**, which defaults to **private**. The
+**GHCR package visibility.** New packages are **private** and there is no way to change that
+default: GitHub's docs state a personal-account package "default visibility is private", and a
+package inherits the linked repository's access permissions "but not the visibility". The
 machine config carries no registry credentials, so a private package means the node cannot pull
-its own installer, and `ghcr.io/tanguille/installer` being public does **not** cover
-`.../installer/<node>`. Flip each to public once in GitHub package settings — visibility is
-per package, so every future tag inherits it and there is nothing to do per kernel bump. The
-intermediates (`kernel`, `amdgpu`, `installer-base`, `imager`) stay private because only the
-local build and the imager touch them.
+its own installer — and `ghcr.io/tanguille/installer` being public does **not** cover
+`.../installer/<anything>`, which is a separate package.
 
-This is why the repo is named per **node** and not per schematic id, even though the id is
-content-addressed and would let control-2 and control-3 share one repo: the id moves whenever a
-schematic is edited, and each new id is a fresh package that starts private — so a one-line
-`extraKernelArgs` change would silently strand nodes on a ref they cannot pull. A node name
-never moves, so the flips are three, once, forever.
+Since the flip cannot be defaulted away, the naming minimises how many are ever needed. Repos
+mirror the schematic layout: nodes on the shared `talos/schematic.yaml` publish to
+`ghcr.io/tanguille/installer` (already public), and only a node carrying its own schematic
+override gets `ghcr.io/tanguille/installer/<node>` and one flip, once. Visibility is per
+package, so every later tag inherits it — there is nothing to do per kernel bump.
+
+Not the schematic id, even though it is content-addressed: the id moves whenever a schematic is
+edited, and each new id is a fresh private package, so a one-line `extraKernelArgs` change
+would silently strand nodes on an unpullable ref.
+
+The intermediates (`kernel`, `amdgpu`, `installer-base`, `imager`) stay private because only
+the local build and the imager touch them.
 
 Verify it the way a node would, not with bare `crane` — `crane digest` silently uses whatever
 is in `~/.docker/config.json` and will happily report success on a private ref:
