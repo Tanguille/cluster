@@ -62,15 +62,31 @@ make -C "${WORK}/extensions" amdgpu PUSH=true PLATFORM=linux/amd64 \
     REGISTRY="${REGISTRY}" USERNAME="${USERNAME}" \
     PKGS_PREFIX="${PREFIX}" PKGS="${VERSION}"
 
+# The extension composes its own tag as <firmware-version>-<extensions-tag> (e.g.
+# 20260810-v1.14.0-rc.1), NOT ${VERSION}. Discover what was actually published instead of
+# assuming: guessing cost a whole pipeline run, with the imager failing on a tag that never
+# existed. Filtering on the extensions tag keeps it unambiguous across repeated builds.
+EXT_TAG="$(git -C "${WORK}/extensions" describe --tag --always --match 'v[0-9]*')"
+AMDGPU_TAG="$(crane ls "${PREFIX}/amdgpu" | grep -F -- "-${EXT_TAG}" | tail -1)"
+: "${AMDGPU_TAG:?amdgpu extension was not published under any tag ending in -${EXT_TAG}}"
+AMDGPU_REF="${PREFIX}/amdgpu:${AMDGPU_TAG}"
+echo "    extension published as ${AMDGPU_REF}"
+
 # talos Dockerfile installs every module in hack/modules-amd64.txt by exact path and fails the
 # build on the first one missing, so a kernel bump that moves or drops one breaks the installer
 # with an opaque error. Rewrite moved paths, drop vanished modules. The printed list is the
 # per-bump review item. Only the member NAMES are needed, so list the tar rather than
 # extracting ~250 MiB of modules into tmpfs to run existence tests against.
 log "reconciling module allowlist"
-MODS="$(crane export "${PREFIX}/kernel:${VERSION}" - | tar -tf - \
-    | sed -n 's|^usr/lib/modules/[^/]*/||p')"
+KIMG="${PREFIX}/kernel:${VERSION}"
+# Two streamed exports rather than one local copy: only names and modules.dep are needed, so
+# nothing is written to disk. modules.dep alone will not do — the list also carries non-.ko
+# entries (modules.builtin, modules.order) that exist only in the file listing.
+MODS="$(crane export "${KIMG}" - | tar -tf - | sed -n 's|^usr/lib/modules/[^/]*/||p')"
+DEPS="$(crane export "${KIMG}" - | tar -xO --wildcards 'usr/lib/modules/*/modules.dep')"
 LIST="${WORK}/talos/hack/modules-amd64.txt"
+
+# Pass 1: rewrite paths that moved, drop modules the config no longer produces.
 while IFS= read -r entry; do
     [[ -n "${entry}" ]] || continue
     if grep -qxF "${entry}" <<<"${MODS}"; then
@@ -81,8 +97,36 @@ while IFS= read -r entry; do
     else
         echo "    DROPPED ${entry}" >&2
     fi
-done < "${LIST}" > "${LIST}.new"
-mv "${LIST}.new" "${LIST}"
+done < "${LIST}" > "${LIST}.stage1"
+
+# Pass 2: close the set over modules.dep. Talos 1.14 fails the installer build when
+# `depmod --errsyms` prints anything at all, and 7.x split stmmac_libpci.ko out of
+# stmmac-pci.ko, leaving a list written against 6.18 with a dangling dependency. Closing over
+# the dependency graph handles that whole class instead of hand-patching each upstream split.
+# (1.13 shipped the same dangling dep; it simply had no gate to catch it.)
+declare -A DEPOF=() WANT=()
+while IFS= read -r line; do
+    [[ "${line}" == *:* ]] || continue
+    DEPOF["${line%%:*}"]="${line#*:}"
+done <<<"${DEPS}"
+queue=()
+while IFS= read -r e; do [[ -n "${e}" ]] && queue+=("${e}"); done < "${LIST}.stage1"
+while ((${#queue[@]})); do
+    e="${queue[-1]}"; unset 'queue[-1]'
+    [[ -n "${WANT[${e}]:-}" ]] && continue
+    WANT["${e}"]=1
+    for d in ${DEPOF[${e}]:-}; do
+        [[ -n "${WANT[${d}]:-}" ]] || queue+=("${d}")
+    done
+done
+cp "${LIST}.stage1" "${LIST}"
+for m in "${!WANT[@]}"; do
+    grep -qxF "${m}" "${LIST}.stage1" && continue
+    echo "    ADDED   ${m} (dependency)" >&2
+    printf '%s\n' "${m}" >> "${LIST}"
+done
+rm -f "${LIST}.stage1"
+
 # Committed so talos' `SHA ?= $(git describe --dirty)` does not stamp "-dirty" into gendata.
 git -C "${WORK}/talos" -c user.email=noreply@local -c user.name=build \
     commit -qam "reconcile module list for ${KERNEL_VERSION}"
@@ -116,12 +160,14 @@ for node in "$@"; do
     mapfile -t args < <(yq -r '.customization.extraKernelArgs[] | "--extra-kernel-arg=" + .' "${schematic}")
     while read -r ext; do
         if [[ "${ext}" == "siderolabs/amdgpu" ]]; then
-            args+=(--system-extension-image "${PREFIX}/amdgpu:${VERSION}")
+            args+=(--system-extension-image "${AMDGPU_REF}")
         else
             args+=(--system-extension-image "$(grep -m1 -F "ghcr.io/${ext}:" <<<"${DIGESTS}")")
         fi
     done < <(yq -r '.customization.systemExtensions.officialExtensions[]' "${schematic}")
-    docker run --rm -v "${WORK}/out:/out" "${PREFIX}/imager:${VERSION}" installer \
+    docker run --rm -v "${WORK}/out:/out" \
+        -v "${HOME}/.docker:/dockercfg:ro" -e DOCKER_CONFIG=/dockercfg \
+        "${PREFIX}/imager:${VERSION}" installer \
         --arch amd64 --base-installer-image "${PREFIX}/installer-base:${VERSION}" "${args[@]}"
     crane push "${WORK}/out/installer-amd64.tar" "${PREFIX}/installer/${id}:${VERSION}"
     PUSHED[${id}]="${node}"
