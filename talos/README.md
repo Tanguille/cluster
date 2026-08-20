@@ -12,8 +12,8 @@ pushed to nodes with `talosctl`.
 | `controlplane.yaml.j2`                  | Control-plane-only documents, including `machine.type`                    |
 | `workers.yaml.j2`                       | Worker-only documents (does not exist yet; created with the first worker) |
 | `nodes/<role>/<node>.yaml.j2`           | Per-node documents (hostname, address, MAC selector, install disk, labels)|
-| `nodes/<role>/<node>.schematic.yaml.j2` | Optional per-node schematic override                                      |
-| `schematic.yaml.j2`                     | Shared [Image Factory](https://factory.talos.dev) schematic               |
+| `nodes/<role>/<node>.schematic.yaml`    | Optional per-node schematic override                                      |
+| `schematic.yaml`                        | Shared [Image Factory](https://factory.talos.dev) schematic               |
 | `talsecret.sops.yaml`                   | SOPS-encrypted secrets bundle (native `talosctl` format)                  |
 | `mod.just`                              | Recipes (`just talos ...`)                                                |
 
@@ -47,9 +47,13 @@ CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managi
 `just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
 content-addressed ID, which is templated into the installer image.
 
-Resolution is per node: `nodes/<role>/<node>.schematic.yaml.j2` wins when present, otherwise
-`schematic.yaml.j2` applies. Overrides are complete files, not deltas. Today only `control-1`
+Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
+`schematic.yaml` applies. Overrides are complete files, not deltas. Today only `control-1`
 overrides, because it is the TrueNAS VM and the only dGPU host.
+
+Schematics are plain YAML, deliberately not templates. Routing them through `template` would
+decrypt the secrets bundle to render a file that references no secrets, on the hot path of nearly
+every `just talos` command. If a schematic ever needs a variable, add the extension back.
 
 ## Gotchas
 
