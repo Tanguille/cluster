@@ -34,7 +34,7 @@ unreachable there regardless.
 | GTT visible to the memory subsystem (`NR_GPU_ACTIVE`) | **Live in `/proc/meminfo`** (~1.4 GiB), the first-party fix for the iGPU GTT leak that is invisible to `kubectl top`. **Not yet exported** — node-exporter v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be alerted on. |
 | eBPF verifier state pruning (7.0/7.1) | Applies. Upstream's veristat numbers are measured on Cilium's own objects (`bpf_lxc.o` `tail_ipv4_ct_egress` -44%). Not re-measured here. |
 | HRTICK / HRTICK_DL default on | Applies; `CONFIG_HRTIMER_REARM_DEFERRED=y` in the built config. EEVDF slice enforcement moves off the 4 ms tick. |
-| r8169 LTR enabled for RTL8125 (7.0) | **Watch item, not a gain.** control-2's `eno1`/`enp2s0` are both RTL8125B in `bond0`. New PCIe power-management behaviour on that node's only NICs; first bisect candidate for latency spikes or OSD heartbeat timeouts. |
+| r8169 LTR enabled for RTL8125 (7.0) | **Not applicable on this hardware.** Looked like the main regression risk (both NICs are RTL8125B in `bond0`), but ACPI `_OSC` on both Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel and the commit cannot engage. Same `_OSC` line on control-3, so this is a property of the box, not of 7.x. It also means AER reporting is unavailable, i.e. PCIe correctable/uncorrectable errors are invisible here by construction — do not write alerts against AER on these nodes. |
 
 The Ceph `aes256k` feature this was built for is **not yet in use** — it also needs Rook's
 `spec.security.cephx.allowedCiphers`, which cannot be set while any node is below 7.0.
@@ -108,6 +108,31 @@ and the two nodes sharing `talos/schematic.yaml` share one artifact.
 
 The suffix satisfies tuppr's CRD pattern `^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\-\.]+)?$`.
 
+## Two things that will bite on every new schematic
+
+**GHCR package visibility.** Installers are published to
+`ghcr.io/tanguille/installer/<schematic-id>`, and GHCR treats each schematic path as its **own
+package**, which defaults to **private**. The machine config carries no registry credentials,
+so a private package means the node cannot pull its own installer. `ghcr.io/tanguille/installer`
+being public does **not** cover `ghcr.io/tanguille/installer/<id>`. Flip each new one to public
+in GitHub package settings; the intermediates (`kernel`, `amdgpu`, `installer-base`, `imager`)
+stay private because only the local build and the imager touch them.
+
+Verify it the way a node would, not with bare `crane` — `crane digest` silently uses whatever
+is in `~/.docker/config.json` and will happily report success on a private ref:
+
+```sh
+TOK=$(curl -s "https://ghcr.io/token?scope=repository%3A<repo>%3Apull&service=ghcr.io" | jq -r .token)
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOK" \
+    -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
+    "https://ghcr.io/v2/<repo>/manifests/<tag>"     # 200 = a node can pull it
+```
+
+**The amdgpu extension names its own tag.** It publishes as
+`<firmware-date>-<extensions-tag>` (e.g. `20260810-v1.14.0-rc.1`), *not* as the pipeline's
+`v<talos>-k<kernel>`. The build discovers the published tag rather than assuming it; do not
+hardcode one.
+
 ## Per-bump maintenance
 
 Renovate opens a PR bumping `ARG KERNEL_VERSION`. The tarball is verified by Greg KH's
@@ -116,7 +141,7 @@ committed PGP key, so there is no second field to update. Then rebuild and read 
 | surface | measured, 6.18.44 -> 7.1.9 |
 |---|---|
 | `olddefconfig` delta | +206 / -149 |
-| `hack/modules-amd64.txt` reconciliation | 3 entries |
+| `hack/modules-amd64.txt` reconciliation | 3 entries (1.13) / 3 + 1 dependency (1.14) |
 
 The delta is not cosmetic: the 6.18.44 -> 7.1.9 one flipped `CONFIG_PREEMPT_NONE` to
 `CONFIG_PREEMPT`, changing the scheduling profile of a Ceph and etcd node without anyone
@@ -125,6 +150,12 @@ compiled-in default that upstream can move.
 
 That is one measurement spanning three feature releases (6.19, 7.0, 7.1); a single-minor bump
 has not been measured yet, so treat it as an upper bound rather than a per-bump expectation.
+
+Talos **1.14 added a second gate**: `depmod --errsyms` must print nothing at all, so a listed
+module whose dependency is absent now fails the build. 7.x split `stmmac_libpci.ko` out of
+`stmmac-pci.ko`, which upstream's list (written against 6.18) does not carry — so the list is
+closed over `modules.dep` rather than patched per split. Note 1.13 ships the same dangling
+dependency; it simply has no gate to catch it.
 
 The module list is a hard gate: talos `Dockerfile:687` runs
 `xargs -a modules-amd64.txt -I {} install -D usr/lib/modules/$KERNELRELEASE/{}`, which
