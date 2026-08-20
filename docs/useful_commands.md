@@ -30,29 +30,17 @@ flux get helmreleases -A
 
 ## Talos
 
-These use the repo's pinned `talosctl` and `minijinja-cli`, which `.envrc` puts on `PATH` via mise.
-Without direnv, either add the shims to `PATH` (`fish_add_path ~/.local/share/mise/shims`) or prefix
-each command with `mise exec --`.
+Machine configs are rendered on demand and pushed by hand; nothing applies them automatically.
+See [talos/README.md](../talos/README.md) for the layer model, the full recipe list, and the
+toolchain the bare `just` commands assume.
 
 ```bash
-# Render a node's machine config, and diff it against what the node is running
-just talos render-config <node>
-just talos diff-node <node> <node-ip>
-
-# Apply config to a node / upgrade node / upgrade Kubernetes
-just talos apply-node <node> <node-ip>
-just talos upgrade-node <node> <node-ip>
-just talos upgrade-k8s
+just talos diff-node <node> <node-ip>     # dry-run against the running node
+just talos apply-node <node> <node-ip>    # render and apply
 ```
 
-Schematics no longer need a separate update step: `just talos schematic-id <node>` resolves the
-Image Factory ID at render time and templates it into the installer image. Editing
-`talos/schematic.yaml` (or a per-node `talos/nodes/<role>/<node>.schematic.yaml` override) is
-enough. These are plain YAML, not templates.
-
-Always run `just talos diff-node <node> <node-ip>` against every node and confirm `No changes.`
-before applying.
-See [talos/README.md](../talos/README.md) for the layer model.
+Run `diff-node` against **every** node and confirm `No changes.` before applying anything.
+Upgrade `control-1` last: it is the TrueNAS VM and the only dGPU host.
 
 ---
 
