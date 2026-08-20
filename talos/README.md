@@ -122,6 +122,11 @@ Evaluate separately rather than adopting blindly: NRI is enabled by default in 1
 
 ## Common tasks
 
+These use the repo's pinned `talosctl` and `minijinja-cli`. `.envrc` puts them on `PATH` via mise,
+so the bare commands below are the pinned ones. Without direnv, add the shims
+(`export PATH="$HOME/.local/share/mise/shims:$PATH"`) or prefix with `mise exec --`; a `talosctl`
+picked up from the system `PATH` is a different version than this pipeline is tested against.
+
 ```sh
 just talos render-config <node>          # render a node's full machine config to stdout
 just talos diff-node <node> <ip>         # dry-run the rendered config against the running node
