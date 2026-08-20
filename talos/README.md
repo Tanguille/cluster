@@ -33,16 +33,20 @@ with SOPS in place of 1Password.
 
 ## Rendering
 
-`just talos render-config <node>` builds the final machine config in three layers:
+`just talos render-config <node>` builds the final machine config in three layers. Conceptually,
+where `<role>` is `controlplane` or `workers`, chosen by which directory holds the node file:
 
-```
-talosctl machineconfig patch <(cluster.yaml.j2) \
-    -p @<(controlplane.yaml.j2 | workers.yaml.j2) \
-    -p @<(nodes/<role>/<node>.yaml.j2)
+```text
+     cluster.yaml.j2          every node
+  +  <role>.yaml.j2           role layer, sets machine.type
+  +  nodes/<role>/<node>.yaml.j2
+  =  the node's machine config
 ```
 
-Each layer passes through `minijinja-cli` before `talosctl` merges them. Later patches strategically
-merge into earlier ones: maps deep-merge, lists replace, and documents with the same kind/name merge.
+The executable form is in `talos/mod.just`: each layer is rendered by `just template` and the results
+are merged by `talosctl machineconfig patch`, the first as the base and the rest as `-p @` patches.
+Later patches strategically merge into earlier ones: maps deep-merge, lists replace, and documents
+with the same kind/name merge.
 
 Two conventions keep the layers honest:
 
