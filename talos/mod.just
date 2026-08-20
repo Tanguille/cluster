@@ -4,24 +4,34 @@ set default-script
 set script-interpreter := ['bash', '-euo', 'pipefail']
 set shell := ['bash', '-euo', 'pipefail', '-c']
 
+# Cluster-wide addresses, defined once: the VIP is referenced from every layer and from
+# talosconfig, and the retired talconfig.yaml used a YAML anchor for the same reason.
+vip := "192.168.0.2"
+gateway := "192.168.0.1"
+
 [doc('Render a node full machine config to stdout')]
 render-config node:
+    # Bare assignments: a failing command substitution inside an argument or array element does
+    # NOT trip `set -e`, so these would silently render as empty.
     schematic="$(just talos schematic-id "{{ node }}")"
     role="$(just talos node-role "{{ node }}")"
+    # One context for every layer, so any layer may reference any of these.
+    ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}" -D "schematic=${schematic}")
     talosctl machineconfig patch \
-        <(just template "{{ source_directory() }}/cluster.yaml.j2" -D "schematic=${schematic}") \
-        -p @<(just template "{{ source_directory() }}/${role}.yaml.j2" -D "schematic=${schematic}") \
-        -p @<(just template "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" -D "schematic=${schematic}")
+        <(just template "{{ source_directory() }}/cluster.yaml.j2" "${ctx[@]}") \
+        -p @<(just template "{{ source_directory() }}/${role}.yaml.j2" "${ctx[@]}") \
+        -p @<(just template "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" "${ctx[@]}")
 
 [doc('Generate the Talos client config from the secrets bundle')]
 talosconfig:
     out="{{ source_directory() }}/talosconfig"
-    talosctl gen config kubernetes https://192.168.0.2:6443 --force \
+    talosctl gen config kubernetes https://{{ vip }}:6443 --force \
         --with-secrets <(just talsecret) \
         --output-types talosconfig --output "${out}"
-    ips="$(just talos node-ips)"
-    talosctl --talosconfig "${out}" config endpoint ${ips}
-    talosctl --talosconfig "${out}" config node ${ips}
+    endpoints="$(just talos node-ips controlplane)"
+    nodes="$(just talos node-ips)"
+    talosctl --talosconfig "${out}" config endpoint ${endpoints}
+    talosctl --talosconfig "${out}" config node ${nodes}
 
 [doc('Diff a node rendered config against what the node is running')]
 diff-node node ip:
@@ -67,9 +77,11 @@ node-role node:
     echo "no node file found for {{ node }}" >&2; exit 1
 
 # ponytail: one address per node file, so a grep is enough; render and parse if that stops holding.
+# Defaults to every role; talosconfig passes `controlplane` because endpoints must be
+# control-plane nodes and a worker file would otherwise be injected into the endpoint list.
 [private]
-node-ips:
-    grep -hoP '^\s+- address:\s*\K[0-9.]+' "{{ source_directory() }}"/nodes/*/*.yaml.j2 | sort -u | tr '\n' ' '
+node-ips role="*":
+    grep -hoP '^\s+- address:\s*\K[0-9.]+' "{{ source_directory() }}"/nodes/{{ role }}/*.yaml.j2 | sort -u | tr '\n' ' '
 
 # Per-node override wins when present, otherwise the shared fleet schematic applies.
 [private]

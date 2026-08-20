@@ -59,6 +59,13 @@ Two conventions keep the layers honest:
 
 Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
 CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
+`vip` and `gateway` are defined once in `mod.just` and passed to every layer alongside the node's
+schematic id, so each address has a single definition rather than one per file that references it.
+
+Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
+a document between layers reorders the output stream and reads as a change even when the content is
+byte-identical. Content shared by every node (the installer image) lives in the layer that owns it;
+documents that are identical per node but would reorder the stream stay put.
 
 ## Schematics
 

@@ -3,7 +3,6 @@
 machine:
   install:
     disk: /dev/nvme1n1
-    image: factory.talos.dev/installer/{{ schematic }}:{{ talosVersion }}
   nodeLabels:
     amd.com/igpu: "true"
     kepler-node: "true"
@@ -21,7 +20,7 @@ selector:
 ---
 apiVersion: v1alpha1
 kind: Layer2VIPConfig
-name: 192.168.0.2
+name: {{ vip }}
 link: ethSel0
 ---
 apiVersion: v1alpha1
@@ -31,4 +30,4 @@ mtu: 1500
 addresses:
   - address: 192.168.0.12/24
 routes:
-  - gateway: 192.168.0.1
+  - gateway: {{ gateway }}

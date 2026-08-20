@@ -10,7 +10,7 @@ machine:
     crt: {{ certs.os.crt }}
   certSANs:
     - 127.0.0.1
-    - 192.168.0.2
+    - {{ vip }}
   kubelet:
     image: ghcr.io/siderolabs/kubelet:{{ kubernetesVersion }}
     defaultRuntimeSeccompProfileEnabled: true
@@ -58,10 +58,12 @@ machine:
           - rw
   network:
     nameservers:
-      - 192.168.0.1 # OPNsense Unbound
+      - {{ gateway }} # OPNsense Unbound
   install:
     wipe: false
     grubUseUKICmdline: true
+    # Identical for every node; the schematic id is resolved per node and passed in.
+    image: factory.talos.dev/installer/{{ schematic }}:{{ talosVersion }}
   files:
     - op: create
       path: /etc/cri/conf.d/20-customization.part
@@ -71,7 +73,7 @@ machine:
           discard_unpacked_layers = false
   time:
     disabled: false
-    servers: [192.168.0.1]
+    servers: [{{ gateway }}]
   sysctls:
     fs.inotify.max_user_watches: "1048576" # Watchdog
     fs.inotify.max_user_instances: "8192" # Watchdog
@@ -107,7 +109,7 @@ cluster:
     crt: {{ certs.k8s.crt }}
   clusterName: kubernetes
   controlPlane:
-    endpoint: https://192.168.0.2:6443
+    endpoint: https://{{ vip }}:6443
   network:
     # Built-in CNI disabled; Cilium is installed by Flux.
     cni:
