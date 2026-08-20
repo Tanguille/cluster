@@ -15,6 +15,11 @@ render-config node:
     # NOT trip `set -e`, so these would silently render as empty.
     schematic="$(just talos schematic-id "{{ node }}")"
     role="$(just talos node-role "{{ node }}")"
+    # Assignment alone catches a non-zero exit; these catch the other half, a producer that
+    # succeeds with empty output. schematic feeds an install image path, where empty renders a
+    # plausible ref that resolves to nothing.
+    [[ -n "${schematic}" ]] || { echo "empty schematic id for {{ node }}" >&2; exit 1; }
+    [[ -n "${role}" ]] || { echo "empty role for {{ node }}" >&2; exit 1; }
     # One context for every layer, so any layer may reference any of these.
     ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}" -D "schematic=${schematic}")
     # Each layer is rendered to a variable BEFORE talosctl runs, not inline as <(just template).
@@ -112,8 +117,12 @@ schematic-file node:
 # in an installer reference.
 [private]
 schematic-id node:
+    # Assigned, not inlined into --data-binary: a command substitution in argument position
+    # discards its exit status, so a failed lookup would POST the literal path "@" instead.
+    file="$(just talos schematic-file "{{ node }}")"
+    [[ -f "${file}" ]] || { echo "no schematic file for {{ node }}: ${file}" >&2; exit 1; }
     curl -sfX POST --connect-timeout 5 --max-time 30 --retry 3 --retry-max-time 60 \
-        --data-binary @"$(just talos schematic-file "{{ node }}")" \
+        --data-binary @"${file}" \
         https://factory.talos.dev/schematics \
         | jq -er '.id | strings | select(length > 0)'
 
