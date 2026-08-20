@@ -7,74 +7,79 @@
 #   /usr/share/spdx/kernel.spdx.json  (:919 — copied unconditionally; the imager
 #                                      build fails with "not found" without it)
 #
-# Mirrors siderolabs/pkgs kernel/{prepare,build,kernel}/pkg.yaml. See README.md for
-# the per-bump maintenance surface and the full build pipeline.
+# The toolchain is upstream's own, not a distro's: siderolabs builds this kernel with
+# ghcr.io/siderolabs/{tools,llvm} at TOOLS_REV, so using them gives the exact clang the
+# config was generated against and pins the compiler to the same ref Talos pins. A distro
+# base would drift its clang independently of anything in this repo.
+#
+# The kernel config and module-signing key are fetched from pkgs at PKGS_SHA rather than
+# vendored: they are upstream files we do not modify, and fetching them means they always
+# match the Talos version being built instead of needing a manual refresh every minor.
+# See README.md for the per-bump maintenance surface.
 # syntax=docker/dockerfile:1
 
-FROM fedora:44 AS builder
-SHELL ["/bin/bash", "-c"]
+# Both pins are passed by scripts/talos-kernel-build.sh, read out of the Talos release's own
+# Makefile. No defaults on purpose: a stale default would silently build against the wrong
+# toolchain for the Talos version being targeted.
+ARG TOOLS_REV
 
-# clang is not optional: the Talos config sets CONFIG_LTO_CLANG_THIN=y, so gcc cannot
-# build this tree. dwarves supplies pahole for CONFIG_DEBUG_INFO_BTF=y.
-RUN dnf -y install --setopt=install_weak_deps=False \
-      clang lld llvm dwarves bc bison flex \
-      elfutils-libelf-devel openssl openssl-devel \
-      python3 cpio kmod rsync zstd perl make patch tar xz gnupg2 \
-      findutils diffutils gawk hostname \
-    && dnf clean all
+# Verification needs gpg, which the Talos toolchain images do not carry, so the download
+# happens in its own stage and only the extracted tree crosses into the build.
+FROM alpine:3.22 AS source
+RUN apk add --no-cache gnupg tar xz curl
 
 # renovate: datasource=custom.linux-kernel depName=linux
 ARG KERNEL_VERSION=7.1.9
 
-# One committed key covers every version Renovate can bump us to: Greg KH signs the
-# mainline and stable tarballs alike (Linus signs git tags, not tarballs). Verifying the
-# tarball signature directly is both simpler and stronger than a bot-maintained sha256 —
-# and unlike a checksum, it survives a version bump with no second field to update.
-# The .sign covers the UNCOMPRESSED tar, hence the xz -cd pipe.
+# One committed key covers every version Renovate can bump us to: Greg KH signs mainline and
+# stable tarballs alike (Linus signs git tags, not tarballs). Verifying the signature directly
+# is simpler and stronger than a bot-maintained sha256, and unlike a checksum it survives a
+# version bump with no second field to update. The .sign covers the UNCOMPRESSED tar.
 # gpgv, not gpg --verify: fixed keyring, no trust model, no auto key fetch.
 COPY kernel-signing-key.asc /tmp/
 RUN gpg --batch --dearmor -o /tmp/korg.gpg < /tmp/kernel-signing-key.asc \
-    && V="${KERNEL_VERSION}" MAJ="${KERNEL_VERSION%%.*}" \
+    && V="${KERNEL_VERSION}" && MAJ="${V%%.*}" \
     && curl -fsSL -O "https://cdn.kernel.org/pub/linux/kernel/v${MAJ}.x/linux-${V}.tar.xz" \
     && curl -fsSL -O "https://cdn.kernel.org/pub/linux/kernel/v${MAJ}.x/linux-${V}.tar.sign" \
     && xz -cd "linux-${V}.tar.xz" | gpgv --keyring /tmp/korg.gpg "linux-${V}.tar.sign" - \
-    && mkdir -p /src && tar -xJf "linux-${V}.tar.xz" --strip-components=1 -C /src \
-    && rm -f "linux-${V}.tar.xz" "linux-${V}.tar.sign" /tmp/korg.gpg /tmp/kernel-signing-key.asc \
-    && cd /src && make mrproper
+    && mkdir -p /src && tar -xJf "linux-${V}.tar.xz" --strip-components=1 -C /src
 
-COPY config-amd64 /pkg/config-amd64
-COPY certs/ /pkg/certs/
-COPY patches/ /pkg/patches/
-
-# Upstream aborts on the first patch that will not apply. We dry-run all of them and
-# report the full verdict in one pass, so a version bump yields the complete triage list
-# instead of surfacing failures one rebuild at a time. Patches that no longer apply are
-# skipped, not silently dropped — the build log names them and README.md explains the call.
+# pkgs pins its kernel config alongside the toolchain; keep both on the same Talos release.
+ARG PKGS_SHA
 RUN cd /src \
-    && for patch in $(find /pkg/patches -type f -name '*.patch' | sort); do \
-         if patch -p1 --dry-run --silent < "$patch" >/dev/null 2>&1; then \
-           patch -p1 < "$patch" >/dev/null && echo "APPLIED  $(basename "$patch")"; \
-         else \
-           echo "SKIPPED  $(basename "$patch") (does not apply to ${KERNEL_VERSION})"; \
-         fi; \
-       done
+    && curl -fsSL -o .config \
+       "https://raw.githubusercontent.com/siderolabs/pkgs/${PKGS_SHA}/kernel/build/config-amd64" \
+    && curl -fsSL -o certs/x509.genkey \
+       "https://raw.githubusercontent.com/siderolabs/pkgs/${PKGS_SHA}/kernel/build/certs/x509.genkey"
 
-# olddefconfig resolves the symbol delta by taking upstream defaults for every new
-# option. The printed counts are the per-bump review surface: inspect them on a minor bump.
+FROM ghcr.io/siderolabs/llvm:${TOOLS_REV} AS llvm
+
+FROM ghcr.io/siderolabs/tools:${TOOLS_REV} AS builder
+SHELL ["/bin/bash", "-c"]
+COPY --from=llvm / /
+COPY --from=source /src /src
+ARG KERNEL_VERSION
+
+# siderolabs carries 6 patches, all backports for hardware this cluster does not have
+# (three are Cadence/Atmel macb ethernet; CONFIG_MACB is not even set) or fixes already
+# upstream in 7.x. They are deliberately not vendored: on 7.1.9 the only two that still
+# applied were the macb pair, so the whole set contributed nothing to the built kernel while
+# costing a triage pass every bump. Re-add individually if a real need appears.
+
+# olddefconfig resolves the symbol delta by taking upstream defaults for every new option.
+# The printed counts are the per-bump review surface: inspect them on a minor bump.
 RUN cd /src \
-    && cp /pkg/config-amd64 .config \
-    && cp /pkg/certs/* certs/ \
     && cp .config /tmp/config.before \
     && make LLVM=1 olddefconfig \
-    && echo "config delta: +$(grep -c '^+[^+]' <(diff -u /tmp/config.before .config) || true)" \
-            "-$(grep -c '^-[^-]' <(diff -u /tmp/config.before .config) || true)"
+    && diff -u /tmp/config.before .config > /tmp/delta.diff || true \
+    && echo "config delta: +$(grep -c '^+[^+]' /tmp/delta.diff || true) -$(grep -c '^-[^-]' /tmp/delta.diff || true)"
 
 RUN cd /src && make LLVM=1 -j"$(nproc)" && make LLVM=1 -j"$(nproc)" modules
 
-# Layout per pkgs kernel/kernel/pkg.yaml. INSTALL_MOD_STRIP=1 strips before signing, so
-# the modules keep the "~Module signature appended~" trailer the amdgpu extension asserts.
+# Layout per pkgs kernel/kernel/pkg.yaml. INSTALL_MOD_STRIP=1 strips before signing, so the
+# modules keep the "~Module signature appended~" trailer the amdgpu extension asserts.
 RUN cd /src \
-    && mkdir -p /rootfs/boot /rootfs/certs \
+    && mkdir -p /rootfs/boot \
     && mv arch/x86/boot/bzImage /rootfs/boot/vmlinuz \
     && cp System.map /rootfs/boot/System.map \
     && KERNELRELEASE=$(cat include/config/kernel.release) \

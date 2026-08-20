@@ -69,7 +69,6 @@ committed PGP key, so there is no second field to update. Then rebuild and read 
 
 | surface | measured 6.18.44 -> 7.1.9 (two minors) | typical single minor |
 |---|---|---|
-| Talos patches that stop applying | **4 of 6** | 0-3 |
 | `olddefconfig` delta | +213 / -154 | ~+70 / -55 |
 | `hack/modules-amd64.txt` reconciliation | 3 entries | 0-2 |
 
@@ -80,14 +79,26 @@ was `kernel/crypto/xor.ko` -> `kernel/lib/raid/xor/xor.ko` (moved), and dropping
 `kernel/crypto/hkdf.ko` (`CONFIG_CRYPTO_HKDF` deleted upstream) and
 `kernel/drivers/watchdog/iTCO_vendor_support.ko` (removed in 7.0).
 
-Skipped patches are a judgement call, not automatic breakage. Of the four that stopped
-applying, `0001` and `0003` are Cadence/Atmel MACB ethernet fixes irrelevant to this
-hardware; `0004` (PCI bridge window), `0006` (page_table_check) and `0007` (tun dst
-unclone) should be re-checked against upstream before being written off.
+## What is deliberately not carried
 
-`config-amd64`, `certs/` and `patches/` are vendored from `siderolabs/pkgs` at
-`v1.13.0-60-gf541ca4` (the `PKGS` pin in talos v1.13.9 `Makefile:31`). Refresh them from
-the matching `PKGS` tag when moving to a new Talos minor.
+**siderolabs' 6 kernel patches.** On 7.1.9 only `0002` and `0003` still applied, and both
+are Cadence/Atmel MACB ethernet backports — `CONFIG_MACB` is not set in this config and
+these nodes are `r8169`, so the entire set changed nothing in the built kernel while
+costing a triage pass every bump. `0004` (PCI bridge window), `0006` (page_table_check)
+and `0007` (tun dst unclone) do touch enabled subsystems but no longer apply, which for
+backports usually means the fix is already upstream. Re-add individually if a real need
+appears; do not re-vendor the set wholesale.
+
+**The kernel config and signing key.** Fetched from `siderolabs/pkgs` at `PKGS_SHA`
+(`f541ca4`, the `PKGS` pin in talos v1.13.9 `Makefile:31`) rather than committed. They are
+upstream files this repo does not modify, and fetching them means they track the Talos
+version being built instead of needing a manual refresh every minor. Bump `PKGS_SHA` and
+`TOOLS_REV` together when moving to a new Talos release.
+
+**A distro toolchain.** The builder is `ghcr.io/siderolabs/{tools,llvm}` at `TOOLS_REV` —
+the same images pkgs builds with — so the compiler is upstream's exact clang, pinned to a
+ref this repo controls. A distro base would drift its clang independently of anything here,
+which matters because `CONFIG_LTO_CLANG_THIN=y` makes the compiler load-bearing.
 
 ## Build
 

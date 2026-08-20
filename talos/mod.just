@@ -132,28 +132,7 @@ machine-image node:
     echo "${image}"
 
 
-[doc('Build the custom-kernel Talos installer artifacts (see docker/talos-kernel/README.md)')]
-kernel-build kernel talos:
-    "{{ justfile_directory() }}/scripts/talos-kernel-build.sh" "{{ kernel }}" "{{ talos }}"
-
-# The schematic is the source of truth for both node variants, so the imager flags are derived
-# from it rather than duplicated here. amdgpu is redirected to our rebuild: its modules come out
-# of the kernel package and module.sig_enforce=1 rejects any other build's signature.
-[doc('Render a custom-kernel installer for a node from its schematic')]
-kernel-installer node version registry='ghcr.io/tanguille':
-    schematic="$(just talos schematic-file "{{ node }}")"
-    digests="$(crane export "ghcr.io/siderolabs/extensions:${TALOS_VERSION:-$(just tuppr-version talos)}" - | tar -xO image-digests)"
-    args=()
-    while read -r arg; do args+=(--extra-kernel-arg "${arg}"); done \
-        < <(yq -r '.customization.extraKernelArgs[]' "${schematic}")
-    while read -r ext; do
-        if [[ "${ext}" == "siderolabs/amdgpu" ]]; then
-            args+=(--system-extension-image "{{ registry }}/amdgpu:{{ version }}")
-        else
-            args+=(--system-extension-image "$(grep -F "ghcr.io/${ext}:" <<<"${digests}" | head -1)")
-        fi
-    done < <(yq -r '.customization.systemExtensions.officialExtensions[]' "${schematic}")
-    mkdir -p "{{ source_directory() }}/_out"
-    docker run --rm -v "{{ source_directory() }}/_out:/out" "{{ registry }}/imager:{{ version }}" installer \
-        --arch amd64 --base-installer-image "{{ registry }}/installer-base:{{ version }}" "${args[@]}"
-    crane push "{{ source_directory() }}/_out/installer-amd64.tar" "{{ registry }}/installer:{{ version }}"
+[doc('Build the custom-kernel Talos installer for the given nodes (docker/talos-kernel/README.md)')]
+kernel-build kernel +nodes:
+    "{{ justfile_directory() }}/scripts/talos-kernel-build.sh" \
+        "{{ kernel }}" "$(just tuppr-version talos)" {{ nodes }}
