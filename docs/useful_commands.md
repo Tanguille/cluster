@@ -30,23 +30,29 @@ flux get helmreleases -A
 
 ## Talos
 
+These use the repo's pinned `talosctl` and `minijinja-cli`, which `.envrc` puts on `PATH` via mise.
+Without direnv, either add the shims to `PATH` (`fish_add_path ~/.local/share/mise/shims`) or prefix
+each command with `mise exec --`.
+
 ```bash
-# Generate Talos config (from talconfig)
-just talos generate-config
+# Render a node's machine config, and diff it against what the node is running
+just talos render-config <node>
+just talos diff-node <node> <node-ip>
 
 # Apply config to a node / upgrade node / upgrade Kubernetes
-just talos apply-node <node-ip>
-just talos upgrade-node <node-ip>
+just talos apply-node <node> <node-ip>
+just talos upgrade-node <node> <node-ip>
 just talos upgrade-k8s
 ```
 
-**Update schematics (build both from `talos/schematic.yaml` and write installer URLs into `talconfig.yaml`):**
+Schematics no longer need a separate update step: `just talos schematic-id <node>` resolves the
+Image Factory ID at render time and templates it into the installer image. Editing
+`talos/schematic.yaml` (or a per-node `talos/nodes/<role>/<node>.schematic.yaml` override) is
+enough. These are plain YAML, not templates.
 
-```bash
-just talos schematics-update
-```
-
-After updating schematics, run `just talos generate-config` and apply or upgrade nodes as needed.
+Always run `just talos diff-node <node> <node-ip>` against every node and confirm `No changes.`
+before applying.
+See [talos/README.md](../talos/README.md) for the layer model.
 
 ---
 

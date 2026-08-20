@@ -22,25 +22,6 @@ url = "https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-da
 url_api = "https://api.github.com/repos/FiloSottile/age/releases/assets/333752669"
 provenance = "github-attestations"
 
-[[tools."aqua:budimanjojo/talhelper"]]
-version = "3.1.16"
-backend = "aqua:budimanjojo/talhelper"
-
-[tools."aqua:budimanjojo/talhelper"."platforms.linux-arm64"]
-checksum = "sha256:2050e9f95e372a9f1471eb0d3fc0f966a2a52e78798a50252d7e0b02dc86aa2b"
-url = "https://github.com/budimanjojo/talhelper/releases/download/v3.1.16/talhelper_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/budimanjojo/talhelper/releases/assets/503622645"
-
-[tools."aqua:budimanjojo/talhelper"."platforms.linux-x64"]
-checksum = "sha256:07d564dbace1841afd8c619210bf213f6bcf08ba81105583d2781d873633343f"
-url = "https://github.com/budimanjojo/talhelper/releases/download/v3.1.16/talhelper_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/budimanjojo/talhelper/releases/assets/503622646"
-
-[tools."aqua:budimanjojo/talhelper"."platforms.macos-arm64"]
-checksum = "sha256:740ee9143aed9964811ce027276f2e382c1add4baa7f38bcf142099c919aed37"
-url = "https://github.com/budimanjojo/talhelper/releases/download/v3.1.16/talhelper_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/budimanjojo/talhelper/releases/assets/503622662"
-
 [[tools."aqua:casey/just"]]
 version = "1.58.0"
 backend = "aqua:casey/just"
@@ -369,26 +350,45 @@ url = "https://github.com/mikefarah/yq/releases/download/v4.53.6/yq_darwin_arm64
 url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/522028033"
 provenance = "cosign"
 
+[[tools."aqua:mitsuhiko/minijinja"]]
+version = "2.24.0"
+backend = "aqua:mitsuhiko/minijinja"
+
+[tools."aqua:mitsuhiko/minijinja"."platforms.linux-arm64"]
+checksum = "sha256:b60f741e4101c0701a22a1115b2295fd8e4ae13cdffc0ebf4d1821d876e93347"
+url = "https://github.com/mitsuhiko/minijinja/releases/download/2.24.0/minijinja-cli-aarch64-unknown-linux-gnu.tar.xz"
+url_api = "https://api.github.com/repos/mitsuhiko/minijinja/releases/assets/511868827"
+
+[tools."aqua:mitsuhiko/minijinja"."platforms.linux-x64"]
+checksum = "sha256:04651ea786eee8e6d5311caf96e01874d984ff72f3d3d91c2195851f0b414580"
+url = "https://github.com/mitsuhiko/minijinja/releases/download/2.24.0/minijinja-cli-x86_64-unknown-linux-gnu.tar.xz"
+url_api = "https://api.github.com/repos/mitsuhiko/minijinja/releases/assets/511868860"
+
+[tools."aqua:mitsuhiko/minijinja"."platforms.macos-arm64"]
+checksum = "sha256:a0f1525bcac485a80313cec7e835ed03335bd55bc14dc5cf070c7eb9789d9905"
+url = "https://github.com/mitsuhiko/minijinja/releases/download/2.24.0/minijinja-cli-aarch64-apple-darwin.tar.xz"
+url_api = "https://api.github.com/repos/mitsuhiko/minijinja/releases/assets/511868818"
+
 [[tools."aqua:siderolabs/talos"]]
-version = "1.13.9"
+version = "1.14.0-rc.1"
 backend = "aqua:siderolabs/talos"
 
 [tools."aqua:siderolabs/talos"."platforms.linux-arm64"]
-checksum = "sha256:51caed158eda73d2888cbf2df2d67551f9c9f8229aa42d3725e481d073e76f0b"
-url = "https://github.com/siderolabs/talos/releases/download/v1.13.9/talosctl-linux-arm64"
-url_api = "https://api.github.com/repos/siderolabs/talos/releases/assets/520547649"
+checksum = "sha256:1056acb3f5c1dde5d248379789191aadea33e714623306ad41c50096762497fd"
+url = "https://github.com/siderolabs/talos/releases/download/v1.14.0-rc.1/talosctl-linux-arm64"
+url_api = "https://api.github.com/repos/siderolabs/talos/releases/assets/514819467"
 provenance = "cosign"
 
 [tools."aqua:siderolabs/talos"."platforms.linux-x64"]
-checksum = "sha256:7e1d4b7d5846964bdcf63a794e3c8161bb6ef2983d5ace58ea5322f3bf32a27e"
-url = "https://github.com/siderolabs/talos/releases/download/v1.13.9/talosctl-linux-amd64"
-url_api = "https://api.github.com/repos/siderolabs/talos/releases/assets/520547641"
+checksum = "sha256:0d2e777a9859236a6de5be76e5c7aab5e592d015c0d43bb7a3f75e1ee22d2c61"
+url = "https://github.com/siderolabs/talos/releases/download/v1.14.0-rc.1/talosctl-linux-amd64"
+url_api = "https://api.github.com/repos/siderolabs/talos/releases/assets/514819464"
 provenance = "cosign"
 
 [tools."aqua:siderolabs/talos"."platforms.macos-arm64"]
-checksum = "sha256:ab4c27a959ff6c52f62c6cc2af07b22ca86ed27f1a138ed57582fa67f7b50f98"
-url = "https://github.com/siderolabs/talos/releases/download/v1.13.9/talosctl-darwin-arm64"
-url_api = "https://api.github.com/repos/siderolabs/talos/releases/assets/520547612"
+checksum = "sha256:641f49d1a43f0e014d5b40b5c8e27997074fa442c01d24879b8039ba8fc9a59c"
+url = "https://github.com/siderolabs/talos/releases/download/v1.14.0-rc.1/talosctl-darwin-arm64"
+url_api = "https://api.github.com/repos/siderolabs/talos/releases/assets/514819472"
 provenance = "cosign"
 
 [[tools."aqua:zizmorcore/zizmor"]]

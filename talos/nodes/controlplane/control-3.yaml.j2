@@ -1,0 +1,34 @@
+---
+# Chuwi ubox. Runs in-cluster Kepler. Install disk is addressed by-id because the
+# Micron 7450 has a thermal-shutdown history and must stay unambiguous across reseats.
+machine:
+  install:
+    disk: /dev/disk/by-id/nvme-Micron_7450_MTFDKBA480TFR_241548387F46
+  nodeLabels:
+    amd.com/igpu: "true"
+    kepler-node: "true"
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto: "off"
+hostname: control-3
+---
+apiVersion: v1alpha1
+kind: LinkAliasConfig
+name: ethSel0
+selector:
+  match: glob("84:47:09:6d:18:a4", mac(link.hardware_addr))
+---
+apiVersion: v1alpha1
+kind: Layer2VIPConfig
+name: {{ vip }}
+link: ethSel0
+---
+apiVersion: v1alpha1
+kind: LinkConfig
+name: ethSel0
+mtu: 1500
+addresses:
+  - address: 192.168.0.13/24
+routes:
+  - gateway: {{ gateway }}
