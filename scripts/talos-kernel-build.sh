@@ -166,8 +166,15 @@ for node in "$@"; do
     # Nodes sharing a schematic build byte-identical installers, so the second is a registry
     # copy rather than another imager run.
     if [[ -n "${BUILT[${schematic}]:-}" ]]; then
-        log "installer for ${node} (same schematic as ${BUILT[${schematic}]##*/}, copying)"
-        crane copy "${BUILT[${schematic}]}" "${dst}"
+        # Same schematic means a byte-identical installer. Nodes that also resolve to the same
+        # repo (both on the shared schematic) are already done; only a divergent repo needs a
+        # copy, and copying a ref onto itself would be a confusing no-op.
+        if [[ "${BUILT[${schematic}]}" == "${dst}" ]]; then
+            log "installer for ${node}: already published as ${dst}"
+        else
+            log "installer for ${node}: copying from ${BUILT[${schematic}]}"
+            crane copy "${BUILT[${schematic}]}" "${dst}"
+        fi
         continue
     fi
     log "installer for ${node}"
