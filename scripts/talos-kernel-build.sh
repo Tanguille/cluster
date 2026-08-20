@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 # Build a Talos installer carrying a custom Linux kernel, without forking siderolabs.
 #
-# Two version inputs, nothing else to keep in sync: the kernel version (Renovate-managed,
-# in docker/talos-kernel/Dockerfile) and the Talos version (from the tuppr CR). The toolchain
-# and kernel-config pins are read out of the Talos release's own Makefile, so they cannot
-# drift from the release being built. See docker/talos-kernel/README.md.
+# Nothing has to be typed to run this: the kernel version comes from the Renovate-managed
+# ARG in docker/talos-kernel/Dockerfile, the Talos version from the tuppr CR, and the
+# toolchain and kernel-config pins out of the Talos release's own Makefile, so none of them
+# can drift from the release being built. See docker/talos-kernel/README.md.
 set -euo pipefail
 
-KERNEL_VERSION="${1:?usage: talos-kernel-build.sh <kernel-version> <talos-version> [node...]}"
-TALOS_VERSION="${2:?usage: talos-kernel-build.sh <kernel-version> <talos-version> [node...]}"
-shift 2
-NODES=("$@")
+TALOS_VERSION="${1:?usage: talos-kernel-build.sh <talos-version> <node>...}"
+shift
 
 REGISTRY="${REGISTRY:-ghcr.io}"
 USERNAME="${USERNAME:-tanguille}"
@@ -18,6 +16,13 @@ PREFIX="${REGISTRY}/${USERNAME}"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
+
+# Read the kernel version out of the Renovate-managed line rather than taking it as an
+# argument: a bump PR is then what changes the build. Taken separately, Renovate could edit
+# the Dockerfile while the tag and the built kernel came from whatever number was typed.
+KERNEL_DOCKERFILE="${REPO_ROOT}/docker/talos-kernel/Dockerfile"
+KERNEL_VERSION="$(sed -nE 's/^ARG KERNEL_VERSION=(.+)$/\1/p' "${KERNEL_DOCKERFILE}")"
+: "${KERNEL_VERSION:?no 'ARG KERNEL_VERSION=' line in ${KERNEL_DOCKERFILE}}"
 
 # tuppr compares this to the version the node reports, so the kernel has to be IN the string
 # or a kernel-only bump is invisible to it. See README.md "Version tagging".
@@ -43,11 +48,10 @@ docker push -q "${PREFIX}/kernel:${VERSION}"
 
 # The amdgpu extension wants kernel and linux-firmware at the SAME prefix and tag. Firmware is
 # kernel-independent, so mirror upstream's current blobs; rebuilding from an older pkgs tag
-# would regress the GPU microcode.
+# would regress the GPU microcode. Registry-to-registry, so the ~950 MiB of blobs are
+# cross-repo mounted rather than pulled through the local daemon and pushed back.
 log "linux-firmware (mirrored, not rebuilt)"
-docker pull -q "ghcr.io/siderolabs/linux-firmware:${PKGS_REV}"
-docker tag "ghcr.io/siderolabs/linux-firmware:${PKGS_REV}" "${PREFIX}/linux-firmware:${VERSION}"
-docker push -q "${PREFIX}/linux-firmware:${VERSION}"
+crane copy "ghcr.io/siderolabs/linux-firmware:${PKGS_REV}" "${PREFIX}/linux-firmware:${VERSION}"
 
 # Must be rebuilt against THIS kernel build: the modules come out of the kernel package, the
 # kernel generates a fresh signing key per build, and module.sig_enforce=1 rejects any other.
@@ -61,21 +65,17 @@ make -C "${WORK}/extensions" amdgpu PUSH=true PLATFORM=linux/amd64 \
 # talos Dockerfile installs every module in hack/modules-amd64.txt by exact path and fails the
 # build on the first one missing, so a kernel bump that moves or drops one breaks the installer
 # with an opaque error. Rewrite moved paths, drop vanished modules. The printed list is the
-# per-bump review item.
+# per-bump review item. Only the member NAMES are needed, so list the tar rather than
+# extracting ~250 MiB of modules into tmpfs to run existence tests against.
 log "reconciling module allowlist"
-cid="$(docker create "${PREFIX}/kernel:${VERSION}" /bin/true)"
-docker export "${cid}" | tar -C "${WORK}" -xf - 'usr/lib/modules' 2>/dev/null || true
-docker rm -f "${cid}" >/dev/null
-MODROOT="${WORK}/usr/lib/modules/$(ls "${WORK}/usr/lib/modules")"
+MODS="$(crane export "${PREFIX}/kernel:${VERSION}" - | tar -tf - \
+    | sed -n 's|^usr/lib/modules/[^/]*/||p')"
 LIST="${WORK}/talos/hack/modules-amd64.txt"
 while IFS= read -r entry; do
     [[ -n "${entry}" ]] || continue
-    if [[ -e "${MODROOT}/${entry}" ]]; then
+    if grep -qxF "${entry}" <<<"${MODS}"; then
         printf '%s\n' "${entry}"
-        continue
-    fi
-    hits="$(cd "${MODROOT}" && find . -name "$(basename "${entry}")" -type f | sed 's|^\./||')"
-    if [[ "$(grep -c . <<<"${hits}")" == 1 && -n "${hits}" ]]; then
+    elif hits="$(grep -F "/${entry##*/}" <<<"${MODS}")" && [[ "${hits}" != *$'\n'* ]]; then
         echo "    MOVED   ${entry} -> ${hits}" >&2
         printf '%s\n' "${hits}"
     else
@@ -83,36 +83,48 @@ while IFS= read -r entry; do
     fi
 done < "${LIST}" > "${LIST}.new"
 mv "${LIST}.new" "${LIST}"
+# Committed so talos' `SHA ?= $(git describe --dirty)` does not stamp "-dirty" into gendata.
 git -C "${WORK}/talos" -c user.email=noreply@local -c user.name=build \
     commit -qam "reconcile module list for ${KERNEL_VERSION}"
 
 log "installer-base + imager"
-for target in installer-base imager; do
-    make -C "${WORK}/talos" "${target}" PUSH=true PLATFORM=linux/amd64 \
-        INSTALLER_ARCH=targetarch TAG="${VERSION}" \
-        REGISTRY="${REGISTRY}" USERNAME="${USERNAME}" \
-        PKG_KERNEL="${PREFIX}/kernel:${VERSION}"
-done
+make -C "${WORK}/talos" installer-base imager PUSH=true PLATFORM=linux/amd64 \
+    INSTALLER_ARCH=targetarch TAG="${VERSION}" \
+    REGISTRY="${REGISTRY}" USERNAME="${USERNAME}" \
+    PKG_KERNEL="${PREFIX}/kernel:${VERSION}"
 
-# One installer per distinct schematic. Flags are derived from the schematic file so the node
-# config stays the single source of truth for kernel args and extensions.
+# One installer per distinct schematic, published under the schematic id.
+#
+# The id has to be in the REPO PATH, not the tag: tuppr rebuilds the target ref as
+# "<repo>:<targetVersion>" (upgrade.go buildTalosUpgradeImage), discarding the current tag
+# entirely, so a per-node tag suffix is a tag tuppr can never ask for. Under the id, the ref
+# is exactly what tuppr's factory-url mode composes as "<base>/<schematic>:<version>", and
+# nodes sharing a schematic (control-2 and control-3) share one artifact for free.
 DIGESTS="$(crane export "ghcr.io/siderolabs/extensions:${TALOS_VERSION}" - | tar -xO image-digests)"
-for node in "${NODES[@]}"; do
-    log "installer for ${node}"
+# Pre-created so it is owned by us: docker would create the bind-mount target as root, and the
+# EXIT trap then cannot unlink the imager's output, leaking it and failing the script's exit.
+mkdir -p "${WORK}/out"
+declare -A PUSHED=()
+for node in "$@"; do
     schematic="$(just talos schematic-file "${node}")"
-    args=()
-    while read -r arg; do args+=(--extra-kernel-arg "${arg}"); done \
-        < <(yq -r '.customization.extraKernelArgs[]' "${schematic}")
+    id="$(just talos schematic-id "${node}")"
+    if [[ -n "${PUSHED[${id}]:-}" ]]; then
+        echo "    ${node}: same schematic as ${PUSHED[${id}]}, already published"
+        continue
+    fi
+    log "installer for ${node} (schematic ${id})"
+    mapfile -t args < <(yq -r '.customization.extraKernelArgs[] | "--extra-kernel-arg=" + .' "${schematic}")
     while read -r ext; do
         if [[ "${ext}" == "siderolabs/amdgpu" ]]; then
             args+=(--system-extension-image "${PREFIX}/amdgpu:${VERSION}")
         else
-            args+=(--system-extension-image "$(grep -F "ghcr.io/${ext}:" <<<"${DIGESTS}" | head -1)")
+            args+=(--system-extension-image "$(grep -m1 -F "ghcr.io/${ext}:" <<<"${DIGESTS}")")
         fi
     done < <(yq -r '.customization.systemExtensions.officialExtensions[]' "${schematic}")
     docker run --rm -v "${WORK}/out:/out" "${PREFIX}/imager:${VERSION}" installer \
         --arch amd64 --base-installer-image "${PREFIX}/installer-base:${VERSION}" "${args[@]}"
-    crane push "${WORK}/out/installer-amd64.tar" "${PREFIX}/installer:${VERSION}-${node}"
+    crane push "${WORK}/out/installer-amd64.tar" "${PREFIX}/installer/${id}:${VERSION}"
+    PUSHED[${id}]="${node}"
 done
 
-log "done: ${PREFIX}/installer:${VERSION}-<node>"
+log "done: ${PREFIX}/installer/<schematic-id>:${VERSION}"

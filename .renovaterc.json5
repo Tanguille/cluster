@@ -18,11 +18,9 @@
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   customDatasources: {
-    // kernel.org publishes one release per moniker, so the transform yields exactly one
-    // version: whatever "stable" currently points at. Filtering on the moniker rather than a
-    // version range is what survives a series bump (7.1.x -> 7.2.x) with no config change.
-    // A git mirror was the obvious alternative and is wrong: gregkh/linux carries mainline and
-    // -rc tags in the same stream, so Renovate would offer 7.1.9 -> 7.2 as an "update".
+    // Filtering on the moniker, not a version range, is what survives a series bump
+    // (7.1.x -> 7.2.x) with no config change. Not a git mirror: gregkh/linux carries mainline
+    // and -rc tags in the same stream, so Renovate would offer -rc builds as updates.
     "linux-kernel": {
       defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
       format: "json",
@@ -222,16 +220,12 @@
       addLabels: ["renovate/grafana-dashboard"]
     },
     {
-      // Not a container: a source tarball that triggers a local image build, so it gets its
-      // own scope rather than being filed under renovate/container.
       matchDatasources: ["custom.linux-kernel"],
       // stable is X.Y.Z most of the time but a bare X.Y for a freshly promoted series, which
       // semver rejects — the update would silently stop. The annotation syntax cannot carry a
       // versioning field, so it has to be set here.
       versioning: "loose",
-      semanticCommitType: "fix",
       semanticCommitScope: "kernel",
-      commitMessageTopic: "linux kernel",
       addLabels: ["renovate/kernel"]
     },
     {

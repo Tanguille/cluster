@@ -133,6 +133,6 @@ machine-image node:
 
 
 [doc('Build the custom-kernel Talos installer for the given nodes (docker/talos-kernel/README.md)')]
-kernel-build kernel +nodes:
+kernel-build +nodes:
     "{{ justfile_directory() }}/scripts/talos-kernel-build.sh" \
-        "{{ kernel }}" "$(just tuppr-version talos)" {{ nodes }}
+        "$(just tuppr-version talos)" {{ nodes }}
