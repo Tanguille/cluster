@@ -1,0 +1,33 @@
+---
+# Chuwi ubox. Runs in-cluster Kepler (has RAPL, unlike the control-1 VM).
+machine:
+  install:
+    disk: /dev/nvme1n1
+  nodeLabels:
+    amd.com/igpu: "true"
+    kepler-node: "true"
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto: "off"
+hostname: control-2
+---
+apiVersion: v1alpha1
+kind: LinkAliasConfig
+name: ethSel0
+selector:
+  match: glob("84:47:09:6d:0d:2f", mac(link.hardware_addr))
+---
+apiVersion: v1alpha1
+kind: Layer2VIPConfig
+name: {{ vip }}
+link: ethSel0
+---
+apiVersion: v1alpha1
+kind: LinkConfig
+name: ethSel0
+mtu: 1500
+addresses:
+  - address: 192.168.0.12/24
+routes:
+  - gateway: {{ gateway }}
