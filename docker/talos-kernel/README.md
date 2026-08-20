@@ -30,7 +30,7 @@ unreachable there regardless.
 
 | change | status on control-2 |
 |---|---|
-| Preemption `none` -> `full` | **Live and unintended.** `Dynamic Preempt: full` vs `none` on control-3. 7.0 made `PREEMPT_NONE` depend on `ARCH_NO_PREEMPT`, so `olddefconfig` silently promoted it. |
+| Preemption `none` -> `full` | **Live, unintended, probably benign.** `Dynamic Preempt: full` vs `none` on control-3. 7.0 made `PREEMPT_NONE` depend on `ARCH_NO_PREEMPT`, so `olddefconfig` took the new default. Full preemption trades a few percent of throughput for better tail latency, which suits etcd and Ceph OSDs, so the direction is fine — the problem is that nobody chose it and control-2 now schedules unlike its twin, confounding any cross-node latency comparison. `CONFIG_PREEMPT_DYNAMIC=y`, so `preempt=` on the cmdline settles it without a rebuild; control-1's schematic already pins `preempt=voluntary`. Pinning it in `talos/schematic.yaml` too would make a future `olddefconfig` unable to move it — at the cost of changing the schematic id, and therefore the installer repo path. |
 | GTT visible to the memory subsystem (`NR_GPU_ACTIVE`) | **Live in `/proc/meminfo`** (~1.4 GiB), the first-party fix for the iGPU GTT leak that is invisible to `kubectl top`. **Not yet exported** — node-exporter v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be alerted on. |
 | eBPF verifier state pruning (7.0/7.1) | Applies. Upstream's veristat numbers are measured on Cilium's own objects (`bpf_lxc.o` `tail_ipv4_ct_egress` -44%). Not re-measured here. |
 | HRTICK / HRTICK_DL default on | Applies; `CONFIG_HRTIMER_REARM_DEFERRED=y` in the built config. EEVDF slice enforcement moves off the 4 ms tick. |
@@ -118,8 +118,10 @@ committed PGP key, so there is no second field to update. Then rebuild and read 
 | `olddefconfig` delta | +206 / -149 |
 | `hack/modules-amd64.txt` reconciliation | 3 entries |
 
-The delta is not cosmetic: the 6.18.44 -> 7.1.9 one silently flipped `CONFIG_PREEMPT_NONE`
-to `CONFIG_PREEMPT`, changing the scheduling profile of a Ceph and etcd node. Read it.
+The delta is not cosmetic: the 6.18.44 -> 7.1.9 one flipped `CONFIG_PREEMPT_NONE` to
+`CONFIG_PREEMPT`, changing the scheduling profile of a Ceph and etcd node without anyone
+choosing it. Read it, and pin anything load-bearing on the cmdline rather than relying on a
+compiled-in default that upstream can move.
 
 That is one measurement spanning three feature releases (6.19, 7.0, 7.1); a single-minor bump
 has not been measured yet, so treat it as an upper bound rather than a per-bump expectation.
