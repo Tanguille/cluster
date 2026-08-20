@@ -70,7 +70,7 @@ spec:
   config:
     # Cold embedding cache takes ~27-35s on the iGPU, past the 30s default
     # (2026-07-03). Anchored to embeddingServiceTimeout — same call.
-    # ponytail: `default` covers every backend request, not just session-build;
+    # `default` covers every backend request, not just session-build;
     # switch to perWorkload if a hung backend's slow failure starts mattering.
     operational:
       timeouts:
