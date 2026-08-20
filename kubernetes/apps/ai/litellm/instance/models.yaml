@@ -21,6 +21,11 @@ spec:
     additional:
       timeout: 1800
       stream_timeout: 1800
+      # Tail guard against a runaway client, not a tuning knob: the pool holds
+      # 288,493 KV tokens against 47-56K prompts, i.e. ~5 concurrent full-size
+      # requests. Queues, does not reject. PER-DEPLOYMENT -- the semaphore keys
+      # on model_info.id, so this and qwen-3.8-fast's 5 let the GPU see 10.
+      max_parallel_requests: 5
       num_retries: 0
       # Template default is xhigh; medium is the better quality/latency point for
       # most turns. Only affects this alias -- qwen-3.8-fast sets enable_thinking
@@ -52,6 +57,8 @@ spec:
       # the shared prefill rate drops below what 600s covers (2026-07-07).
       timeout: 900
       stream_timeout: 900
+      # Second half of the per-deployment cap; rationale on qwen-3.8 above.
+      max_parallel_requests: 5
       num_retries: 0
       # Non-thinking instruct-mode sampling — matches Qwen3.8's model card
       # exactly (temperature/top_p/presence_penalty), same as Qwen3.6's.
