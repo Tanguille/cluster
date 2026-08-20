@@ -4,6 +4,20 @@ Declarative [Talos Linux](https://www.talos.dev) machine configuration, built fr
 multi-document layers. Nothing here is applied automatically; configs are rendered on demand and
 pushed to nodes with `talosctl`.
 
+## Why not talhelper
+
+talhelper cannot express Talos 1.14, so this directory renders configs with `talosctl` directly.
+
+Both talhelper `master` and `v3.1.16` pin machinery `v1.14.0-alpha.2`. Rebuilt against `rc.1` it
+panics under the 1.14 version contract: machinery sets `MachineInstall` to `nil` (replaced by
+`UnattendedInstallConfig`) and talhelper dereferences it unguarded. Staying on the 1.13 contract
+instead leaves the whole `Kube*` document family and `UnattendedInstallConfig` unreachable, because
+they are mutually exclusive with the v1alpha1 base talhelper emits.
+
+`talosctl machineconfig patch` generates no competing v1alpha1 base, so every document kind is
+reachable. The layer model below follows [onedr0p/home-ops](https://github.com/onedr0p/home-ops),
+with SOPS in place of 1Password.
+
 ## Layout
 
 | Path                                    | Purpose                                                                   |
@@ -64,6 +78,29 @@ every `just talos` command. If a schematic ever needs a variable, add the extens
 - `talsecret.sops.yaml` is the native `talosctl` secrets bundle, not a talhelper format. `talosctl gen
   config --with-secrets` consumes it directly. Do not rename its keys; the templates and
   `just talos talosconfig` both depend on them.
+
+## Talos 1.14 adoption
+
+The version lives in the tuppr CR, not here. Once the cluster is on 1.14, these documents become
+available and each should land as its own change with a `diff-node` review. Swept and confirmed
+renderable against this pipeline:
+
+| Document | Replaces / adds |
+| --- | --- |
+| `CRICustomizationConfig` | `machine.files` CRI drop-in; no reboot needed to change CRI config |
+| `FilesystemTrimConfig` | absent on upgraded clusters, so trimming is off by default |
+| `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd). Check first: no in-tree iSCSI volume plugin. Ceph CSI is unaffected |
+| `SysctlConfig` / `SysfsConfig` / `KernelModuleConfig` / `UdevRulesConfig` | the deprecated `machine.*` equivalents |
+| `KubeletConfig` + `KubeNodeConfig` | most of the kubelet block and the node labels |
+| `FilesystemScrubConfig` | XFS scrub; note control-3's XFS shutdown history |
+| `EtcFileConfig`, `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
+
+`VolumeConfig`'s `filesystem.xfs.minAllocationGroupSize` only affects volumes Talos formats, so it
+is a wipe-time decision rather than a live one.
+
+Evaluate separately rather than adopting blindly: NRI is enabled by default in 1.14,
+`net.ipv4.conf.*.send_redirects` defaults to `0`, and etcd's HTTP endpoints move `2379` → `2383`
+(we are unaffected, `listen-metrics-urls` is pinned to `2381`, but re-verify the scrape).
 
 ## Common tasks
 
