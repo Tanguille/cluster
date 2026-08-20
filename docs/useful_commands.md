@@ -30,18 +30,19 @@ flux get helmreleases -A
 
 ## Talos
 
-Prefixed with `mise exec --` so they use the repo's pinned `talosctl` and `minijinja-cli`. Drop the
-prefix only if direnv is active, which puts the same toolchain on `PATH`.
+These use the repo's pinned `talosctl` and `minijinja-cli`, which `.envrc` puts on `PATH` via mise.
+Without direnv, either add the shims to `PATH` (`fish_add_path ~/.local/share/mise/shims`) or prefix
+each command with `mise exec --`.
 
 ```bash
 # Render a node's machine config, and diff it against what the node is running
-mise exec -- just talos render-config <node>
-mise exec -- just talos diff-node <node> <node-ip>
+just talos render-config <node>
+just talos diff-node <node> <node-ip>
 
 # Apply config to a node / upgrade node / upgrade Kubernetes
-mise exec -- just talos apply-node <node> <node-ip>
-mise exec -- just talos upgrade-node <node> <node-ip>
-mise exec -- just talos upgrade-k8s
+just talos apply-node <node> <node-ip>
+just talos upgrade-node <node> <node-ip>
+just talos upgrade-k8s
 ```
 
 Schematics no longer need a separate update step: `just talos schematic-id <node>` resolves the
@@ -49,8 +50,8 @@ Image Factory ID at render time and templates it into the installer image. Editi
 `talos/schematic.yaml` (or a per-node `talos/nodes/<role>/<node>.schematic.yaml` override) is
 enough. These are plain YAML, not templates.
 
-Always run `mise exec -- just talos diff-node <node> <node-ip>` against every node and confirm
-`No changes.` before applying.
+Always run `just talos diff-node <node> <node-ip>` against every node and confirm `No changes.`
+before applying.
 See [talos/README.md](../talos/README.md) for the layer model.
 
 ---
