@@ -152,7 +152,15 @@ hardcode one.
 ## Per-bump maintenance
 
 Renovate opens a PR bumping `ARG KERNEL_VERSION`. The tarball is verified by Greg KH's
-committed PGP key, so there is no second field to update. Then rebuild and read the log:
+committed PGP key, so there is no second field to update. The key's fingerprint was
+cross-checked against the one kernel.org publishes on <https://www.kernel.org/signature.html>:
+
+```
+committed:   647F28654894E3BD457199BE38DBBDC86092693E
+kernel.org:  647F 2865 4894 E3BD 4571  99BE 38DB BDC8 6092 693E
+```
+
+Re-check it with `gpg --show-keys --with-fingerprint` if the key is ever replaced. Then rebuild and read the log:
 
 | surface | measured, 6.18.44 -> 7.1.9 |
 |---|---|
