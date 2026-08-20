@@ -32,10 +32,16 @@ talsecret:
 template file *args:
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
+    # Renovate maintains the kernel version in one place, the Dockerfile ARG. Reading it here
+    # stops a node advertising a version whose image was never built. Guarded because sed exits
+    # 0 with empty output, which --strict cannot catch.
+    kernel_version="$(sed -nE 's/^ARG KERNEL_VERSION=(.+)$/\1/p' "{{ justfile_directory() }}/docker/talos-kernel/Dockerfile")"
+    [ -n "${kernel_version}" ] || { echo "no 'ARG KERNEL_VERSION=' in docker/talos-kernel/Dockerfile" >&2; exit 1; }
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
         -D "talosVersion=${talos_version}" \
         -D "kubernetesVersion=${kubernetes_version}" \
+        -D "kernelVersion=${kernel_version}" \
         {{ args }} "{{ file }}" -
 
 [doc('Force Flux to pull in changes from the Git repository')]

@@ -1,9 +1,8 @@
-{%- set kernel = "7.1.9" -%}
-{%- set pinned = talosVersion ~ "-k" ~ kernel -%}
+{%- set pinned = talosVersion ~ "-k" ~ kernelVersion -%}
 ---
 # Chuwi ubox. Runs in-cluster Kepler (has RAPL, unlike the control-1 VM).
 #
-# The only node on a self-built kernel: Linux {{ kernel }} for the in-kernel Ceph client's
+# The only node on a self-built kernel: Linux {{ kernelVersion }} for the in-kernel Ceph client's
 # aes256k support, which 6.18.x does not have. Both lines below are load-bearing together —
 # see docker/talos-kernel/README.md "The rollout is not self-closing yet".
 machine:
