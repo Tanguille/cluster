@@ -21,7 +21,7 @@ ARG TOOLS_REV
 
 # Verification needs gpg, which the Talos toolchain images do not carry, so the download
 # happens in its own stage and only the extracted tree crosses into the build.
-FROM alpine:3.22 AS source
+FROM alpine:3.24 AS source
 RUN apk add --no-cache gnupg tar xz curl
 ARG KERNEL_VERSION
 
