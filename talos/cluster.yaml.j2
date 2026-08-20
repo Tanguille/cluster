@@ -64,13 +64,6 @@ machine:
     grubUseUKICmdline: true
     # Identical for every node; the schematic id is resolved per node and passed in.
     image: factory.talos.dev/installer/{{ schematic }}:{{ talosVersion }}
-  files:
-    - op: create
-      path: /etc/cri/conf.d/20-customization.part
-      permissions: 0o0
-      content: |
-        [plugins."io.containerd.cri.v1.images"]
-          discard_unpacked_layers = false
   time:
     disabled: false
     servers: [{{ gateway }}]
@@ -123,3 +116,27 @@ cluster:
       kubernetes:
         disabled: true
       service: {}
+---
+# Was a machine.files drop-in at /etc/cri/conf.d/20-customization.part, which needed a reboot to
+# change. As a document, applying or editing it restarts CRI on its own.
+# Keeps unpacked layers so Talos can serve them without re-unpacking after an image GC.
+apiVersion: v1alpha1
+kind: CRICustomizationConfig
+name: keep-unpacked-layers
+content: |
+  [plugins."io.containerd.cri.v1.images"]
+    discard_unpacked_layers = false
+---
+# fstrim. Absent on an upgraded cluster means no automatic trimming at all, and every node here
+# is NVMe. Talos picks a stable hash-derived slot per volume per node, so the fleet does not trim
+# in lockstep.
+apiVersion: v1alpha1
+kind: FilesystemTrimConfig
+interval: 168h0m0s
+---
+# xfs_scrub, off by default. Closes #4289. Weekly is the Talos default and the scrub slot is
+# hash-derived per volume per node, so control-3 (Micron 7450, thermal-shutdown history) never
+# scrubs at the same moment as its peers.
+apiVersion: v1alpha1
+kind: FilesystemScrubConfig
+interval: 168h0m0s

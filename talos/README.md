@@ -101,18 +101,39 @@ fails to pull. Check which nodes use a non-Factory installer before changing a s
 
 ## Talos 1.14 adoption
 
-The version lives in the tuppr CR, not here. Once the cluster is on 1.14, these documents become
-available and each should land as its own change with a `diff-node` review. Swept and confirmed
-renderable against this pipeline:
+The version lives in the tuppr CR, not here.
+
+**These documents cannot be applied before the nodes are on 1.14.** Not a style rule, a hard
+gate: a 1.13.9 node rejects the config outright rather than ignoring what it does not know.
+
+```text
+error decoding document v1alpha1/CRICustomizationConfig/keep-unpacked-layers:
+  "CRICustomizationConfig" "v1alpha1": not registered
+```
+
+So `apply-node` and `diff-node` both fail against a node that has not been upgraded yet. Adopt
+only after tuppr has rolled every node, and re-run `diff-node` on all three before applying.
+
+### Adopted
 
 | Document | Replaces / adds |
 | --- | --- |
-| `CRICustomizationConfig` | `machine.files` CRI drop-in; no reboot needed to change CRI config |
-| `FilesystemTrimConfig` | absent on upgraded clusters, so trimming is off by default |
-| `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd). Check first: no in-tree iSCSI volume plugin. Ceph CSI is unaffected |
-| `SysctlConfig` / `SysfsConfig` / `KernelModuleConfig` / `UdevRulesConfig` | the deprecated `machine.*` equivalents |
-| `KubeletConfig` + `KubeNodeConfig` | most of the kubelet block and the node labels |
-| `FilesystemScrubConfig` | XFS scrub; note control-3's XFS shutdown history |
+| `CRICustomizationConfig` | the `machine.files` drop-in at `/etc/cri/conf.d/20-customization.part`. Editing it restarts CRI instead of needing a reboot |
+| `FilesystemTrimConfig` | fstrim, weekly. Absent means no automatic trimming at all, and every node is NVMe |
+| `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default. Closes #4289 |
+
+Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does
+not scrub or trim in lockstep. That is what makes weekly safe on control-3 despite its
+thermal-shutdown history: it never runs at the same moment as its peers.
+
+### Deliberately not adopted
+
+| Document | Why not |
+| --- | --- |
+| `OOMConfig` | a PSI-expression OOM handler. Real potential here given this cluster's OOM cascades, but it changes which cgroup dies under pressure. Needs a baseline first, not a blind default |
+| `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd) is a runtime change for every workload; wants its own change and its own rollback |
+| `KubeletConfig` + `KubeNodeConfig` | would restate a working kubelet block with no functional gain |
+| `SysctlConfig` / `SysfsConfig` / `KernelModuleConfig` / `UdevRulesConfig` | mechanical renames of `machine.*` fields that still work; churn without benefit until they are actually removed |
 | `EtcFileConfig`, `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
 
 `VolumeConfig`'s `filesystem.xfs.minAllocationGroupSize` only affects volumes Talos formats, so it
