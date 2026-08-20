@@ -17,7 +17,7 @@ render-config node:
 talosconfig:
     out="{{ source_directory() }}/talosconfig"
     talosctl gen config kubernetes https://192.168.0.2:6443 --force \
-        --with-secrets <(sops -d "{{ source_directory() }}/talsecret.sops.yaml") \
+        --with-secrets <(just talsecret) \
         --output-types talosconfig --output "${out}"
     ips="$(just talos node-ips)"
     talosctl --talosconfig "${out}" config endpoint ${ips}
@@ -39,8 +39,7 @@ upgrade-node node ip:
 
 [doc('Upgrade Kubernetes')]
 upgrade-k8s:
-    upgrades="{{ justfile_directory() }}/kubernetes/apps/system-upgrade/tuppr/upgrades"
-    talosctl upgrade-k8s --to "$(yq '.spec.kubernetes.version' "${upgrades}/kubernetesupgrade.yaml")"
+    talosctl upgrade-k8s --to "$(just tuppr-version kubernetes)"
 
 # wipe=false skips the STATE/EPHEMERAL wipe, leaving the installed system on disk.
 [confirm('This will reset the node to maintenance mode. Continue? [y|N]')]
@@ -75,15 +74,16 @@ node-ips:
 # Per-node override wins when present, otherwise the shared fleet schematic applies.
 [private]
 schematic-file node:
-    file="{{ source_directory() }}/schematic.yaml.j2"
-    for f in "{{ source_directory() }}"/nodes/*/"{{ node }}".schematic.yaml.j2; do
-        [[ -f "$f" ]] && file="$f"
+    for f in "{{ source_directory() }}"/nodes/*/"{{ node }}".schematic.yaml; do
+        [[ -f "$f" ]] && { echo "$f"; exit 0; }
     done
-    echo "$file"
+    echo "{{ source_directory() }}/schematic.yaml"
 
+# Schematics are plain YAML, not templates: POST the file directly rather than routing it through
+# `template`, which would decrypt the secrets bundle to render a file that references no secrets.
 [private]
 schematic-id node:
-    curl -sfX POST --data-binary @<(just template "$(just talos schematic-file "{{ node }}")") \
+    curl -sfX POST --data-binary @"$(just talos schematic-file "{{ node }}")" \
         https://factory.talos.dev/schematics | jq -r '.id'
 
 [private]
