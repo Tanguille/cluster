@@ -47,7 +47,7 @@ spec:
   # Hourly, not daily: a daily window let a busy day cross the floor and sit
   # there for hours. Safe to run this often only because eviction is now
   # incremental (see the script) rather than a full wipe.
-  # ponytail: periodic sweep, not a hard cap -- move to a quota-enforcing
+  # Periodic sweep, not a hard cap -- move to a quota-enforcing
   # storage class if the floor is ever actually breached.
   schedule: "0 * * * *"
   concurrencyPolicy: Forbid
