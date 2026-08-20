@@ -94,7 +94,7 @@ node-role node:
     done
     echo "no node file found for {{ node }}" >&2; exit 1
 
-# ponytail: one address per node file, so a grep is enough; render and parse if that stops holding.
+# One address per node file, so a grep is enough; render and parse if that stops holding.
 # Defaults to every role; talosconfig passes `controlplane` because endpoints must be
 # control-plane nodes and a worker file would otherwise be injected into the endpoint list.
 [private]
