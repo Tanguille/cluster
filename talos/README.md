@@ -69,6 +69,13 @@ Schematics are plain YAML, deliberately not templates. Routing them through `tem
 decrypt the secrets bundle to render a file that references no secrets, on the hot path of nearly
 every `just talos` command. If a schematic ever needs a variable, add the extension back.
 
+**The ID is content-addressed, so any edit to a schematic moves it** — including a one-character
+change to `extraKernelArgs`. Every installer reference derived from that ID moves with it. For nodes
+pointing at the Image Factory that is invisible and self-healing, because the Factory builds the new
+ID on demand. It is *not* self-healing for any node whose installer is mirrored to another registry
+under the schematic path: that mirror must be republished under the new ID first, or the next upgrade
+fails to pull. Check which nodes use a non-Factory installer before changing a schematic.
+
 ## Gotchas
 
 - `machine.ca` and `cluster.ca` merge as a cert+key **unit**: a layer supplying only `key` blanks
