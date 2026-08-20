@@ -60,7 +60,8 @@ Two conventions keep the layers honest:
 Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
 CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
 `vip` and `gateway` are defined once in `mod.just` and passed to every layer alongside the node's
-schematic id, so each address has a single definition rather than one per file that references it.
+schematic id. Node addresses and the `192.168.0.0/24` subnet are still literals in the files that
+use them; only these two are centralised.
 
 Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
 a document between layers reorders the output stream and reads as a change even when the content is
@@ -80,8 +81,9 @@ Schematics are plain YAML, deliberately not templates. Routing them through `tem
 decrypt the secrets bundle to render a file that references no secrets, on the hot path of nearly
 every `just talos` command. If a schematic ever needs a variable, add the extension back.
 
-**The ID is content-addressed, so any edit to a schematic moves it** — including a one-character
-change to `extraKernelArgs`. Every installer reference derived from that ID moves with it. For nodes
+**The ID is content-addressed, so any change to a schematic's fields moves it** — including a
+one-character change to `extraKernelArgs`. Comments and formatting do not: the Factory canonicalises
+the YAML before hashing, verified by stripping a comment and getting the same id back. Every installer reference derived from that ID moves with it. For nodes
 pointing at the Image Factory that is invisible and self-healing, because the Factory builds the new
 ID on demand. It is *not* self-healing for any node whose installer is mirrored to another registry
 under the schematic path: that mirror must be republished under the new ID first, or the next upgrade
