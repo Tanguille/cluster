@@ -137,26 +137,32 @@ make -C "${WORK}/talos" installer-base imager PUSH=true PLATFORM=linux/amd64 \
     REGISTRY="${REGISTRY}" USERNAME="${USERNAME}" \
     PKG_KERNEL="${PREFIX}/kernel:${VERSION}"
 
-# One installer per distinct schematic, published under the schematic id.
+# One installer per node, published to a per-node repo.
 #
-# The id has to be in the REPO PATH, not the tag: tuppr rebuilds the target ref as
+# The node has to be in the REPO PATH, not the tag: tuppr rebuilds the target ref as
 # "<repo>:<targetVersion>" (upgrade.go buildTalosUpgradeImage), discarding the current tag
-# entirely, so a per-node tag suffix is a tag tuppr can never ask for. Under the id, the ref
-# is exactly what tuppr's factory-url mode composes as "<base>/<schematic>:<version>", and
-# nodes sharing a schematic (control-2 and control-3) share one artifact for free.
+# entirely, so a per-node tag suffix names an image tuppr can never ask for.
+#
+# A per-node name rather than the schematic id, even though the id is content-addressed and
+# would let nodes sharing a schematic share a repo: the id MOVES whenever a schematic is
+# edited, and each new id is a new ghcr package that starts private, so every schematic edit
+# would silently strand nodes on an unpullable ref. A node name never moves.
 DIGESTS="$(crane export "ghcr.io/siderolabs/extensions:${TALOS_VERSION}" - | tar -xO image-digests)"
 # Pre-created so it is owned by us: docker would create the bind-mount target as root, and the
 # EXIT trap then cannot unlink the imager's output, leaking it and failing the script's exit.
 mkdir -p "${WORK}/out"
-declare -A PUSHED=()
+declare -A BUILT=()
 for node in "$@"; do
     schematic="$(just talos schematic-file "${node}")"
-    id="$(just talos schematic-id "${node}")"
-    if [[ -n "${PUSHED[${id}]:-}" ]]; then
-        echo "    ${node}: same schematic as ${PUSHED[${id}]}, already published"
+    dst="${PREFIX}/installer/${node}:${VERSION}"
+    # Nodes sharing a schematic build byte-identical installers, so the second is a registry
+    # copy rather than another imager run.
+    if [[ -n "${BUILT[${schematic}]:-}" ]]; then
+        log "installer for ${node} (same schematic as ${BUILT[${schematic}]##*/}, copying)"
+        crane copy "${BUILT[${schematic}]}" "${dst}"
         continue
     fi
-    log "installer for ${node} (schematic ${id})"
+    log "installer for ${node}"
     mapfile -t args < <(yq -r '.customization.extraKernelArgs[] | "--extra-kernel-arg=" + .' "${schematic}")
     while read -r ext; do
         if [[ "${ext}" == "siderolabs/amdgpu" ]]; then
@@ -169,8 +175,8 @@ for node in "$@"; do
         -v "${HOME}/.docker:/dockercfg:ro" -e DOCKER_CONFIG=/dockercfg \
         "${PREFIX}/imager:${VERSION}" installer \
         --arch amd64 --base-installer-image "${PREFIX}/installer-base:${VERSION}" "${args[@]}"
-    crane push "${WORK}/out/installer-amd64.tar" "${PREFIX}/installer/${id}:${VERSION}"
-    PUSHED[${id}]="${node}"
+    crane push "${WORK}/out/installer-amd64.tar" "${dst}"
+    BUILT[${schematic}]="${dst}"
 done
 
-log "done: ${PREFIX}/installer/<schematic-id>:${VERSION}"
+log "done: ${PREFIX}/installer/<node>:${VERSION}"

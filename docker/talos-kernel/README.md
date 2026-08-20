@@ -90,8 +90,8 @@ official images by digest.
 
 ## Version tagging
 
-Tag installers `v<talos>-k<kernel>`, e.g. `v1.13.9-k7.1.9`, and publish them under the
-schematic id: `ghcr.io/tanguille/installer/<schematic-id>:v<talos>-k<kernel>`.
+Tag installers `v<talos>-k<kernel>`, e.g. `v1.13.9-k7.1.9`, and publish them per node:
+`ghcr.io/tanguille/installer/<node>:v<talos>-k<kernel>`.
 
 `TAG` is embedded into `pkg/machinery/gendata` (talos `Dockerfile:313-323`) and becomes what
 the node reports over the gRPC `Version()` API. tuppr reads exactly that (`client.go:161`
@@ -100,23 +100,29 @@ returns `version.GetTag()`) and compares it to its target with plain string ineq
 the Talos version unchanged would be **invisible** to tuppr. Encoding the kernel in the suffix
 is what makes a kernel-only rollout visible at all.
 
-The id belongs in the **repo path, not the tag**. `buildTalosUpgradeImage` rebuilds the target
-as `<repo>:<targetVersion>` after `strings.Cut(currentImage, ":")` discards the current tag
-wholesale, so a per-node tag suffix names an image tuppr can never request. Under the id the
-ref matches what tuppr's `factory-url` mode composes anyway (`<base>/<schematic>:<version>`),
-and the two nodes sharing `talos/schematic.yaml` share one artifact.
+The node belongs in the **repo path, not the tag**. `buildTalosUpgradeImage` rebuilds the
+target as `<repo>:<targetVersion>` after `strings.Cut(currentImage, ":")` discards the current
+tag wholesale, so a per-node tag suffix names an image tuppr can never request. Nodes sharing a
+schematic still build only once — the second is a registry copy, not another imager run.
 
 The suffix satisfies tuppr's CRD pattern `^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\-\.]+)?$`.
 
-## Two things that will bite on every new schematic
+## Two things that will bite once per node
 
-**GHCR package visibility.** Installers are published to
-`ghcr.io/tanguille/installer/<schematic-id>`, and GHCR treats each schematic path as its **own
-package**, which defaults to **private**. The machine config carries no registry credentials,
-so a private package means the node cannot pull its own installer. `ghcr.io/tanguille/installer`
-being public does **not** cover `ghcr.io/tanguille/installer/<id>`. Flip each new one to public
-in GitHub package settings; the intermediates (`kernel`, `amdgpu`, `installer-base`, `imager`)
-stay private because only the local build and the imager touch them.
+**GHCR package visibility.** Installers are published to `ghcr.io/tanguille/installer/<node>`,
+and GHCR treats each nested path as its **own package**, which defaults to **private**. The
+machine config carries no registry credentials, so a private package means the node cannot pull
+its own installer, and `ghcr.io/tanguille/installer` being public does **not** cover
+`.../installer/<node>`. Flip each to public once in GitHub package settings — visibility is
+per package, so every future tag inherits it and there is nothing to do per kernel bump. The
+intermediates (`kernel`, `amdgpu`, `installer-base`, `imager`) stay private because only the
+local build and the imager touch them.
+
+This is why the repo is named per **node** and not per schematic id, even though the id is
+content-addressed and would let control-2 and control-3 share one repo: the id moves whenever a
+schematic is edited, and each new id is a fresh package that starts private — so a one-line
+`extraKernelArgs` change would silently strand nodes on a ref they cannot pull. A node name
+never moves, so the flips are three, once, forever.
 
 Verify it the way a node would, not with bare `crane` — `crane digest` silently uses whatever
 is in `~/.docker/config.json` and will happily report success on a private ref:
@@ -201,7 +207,7 @@ the running node reports (`upgrade.go`), which is what happens the moment a node
 points at this registry while it is still booted on a Factory image:
 
 ```sh
-talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<schematic-id>:<version> \
+talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<node>:<version> \
     --reboot-mode powercycle
 ```
 
@@ -227,7 +233,7 @@ generation changes, i.e. on the next Talos bump.
 Two things must therefore land together with the first node's cutover, and neither is in this
 change:
 
-1. **`.machine.install.image` repointed** to `ghcr.io/tanguille/installer/<schematic-id>`, or
+1. **`.machine.install.image` repointed** to `ghcr.io/tanguille/installer/<node>`, or
    the node annotated with `tuppr.home-operations.com/factory-url` +
    `tuppr.home-operations.com/schematic`. The annotation route is the one tuppr documents for
    a self-hosted factory and is the only one that works when runtime reports no schematic.

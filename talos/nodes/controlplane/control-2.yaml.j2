@@ -13,7 +13,10 @@ machine:
     # "<repo>:<targetVersion>", taking <repo> from this very field. Left pointing at
     # factory.talos.dev, the next Talos bump reinstalls the stock kernel with no error,
     # because a locally imaged node reports no schematic and both of tuppr's guards no-op.
-    image: ghcr.io/tanguille/installer/{{ schematic }}:{{ pinned }}
+    # Named per node, not per schematic id: the id moves whenever a schematic is edited and
+    # each new id is a fresh ghcr package that starts private, which would strand the node
+    # on a ref it cannot pull. This name never moves.
+    image: ghcr.io/tanguille/installer/control-2:{{ pinned }}
   # getTargetVersion prefers this over spec.talos.version, so control-1 and control-3 keep
   # taking the plain version from the tuppr CR and still resolve against factory.talos.dev.
   # It must match the tag above exactly or tuppr requests an image that was never published.
