@@ -59,11 +59,15 @@ apply-node node ip *args:
 [confirm('Upgrade Talos on the node. Continue? [y|N]')]
 [doc('Upgrade Talos on a single node')]
 upgrade-node node ip:
-    talosctl -n "{{ ip }}" upgrade -i "$(just talos machine-image "{{ node }}")" -m powercycle --timeout=15m
+    # Assigned, not inlined: in argument position a failed substitution does not trip `set -e`,
+    # so an empty image would reach `upgrade -i ""` and powercycle the node anyway.
+    image="$(just talos machine-image "{{ node }}")"
+    talosctl -n "{{ ip }}" upgrade -i "${image}" -m powercycle --timeout=15m
 
 [doc('Upgrade Kubernetes')]
 upgrade-k8s:
-    talosctl upgrade-k8s --to "$(just tuppr-version kubernetes)"
+    version="$(just tuppr-version kubernetes)"
+    talosctl upgrade-k8s --to "${version}"
 
 # wipe=false skips the STATE/EPHEMERAL wipe, leaving the installed system on disk.
 [confirm('This will reset the node to maintenance mode. Continue? [y|N]')]
@@ -128,4 +132,9 @@ schematic-id node:
 
 [private]
 machine-image node:
-    just talos render-config "{{ node }}" | yq -r 'select(.machine.install != null) | .machine.install.image'
+    # -e, and checked: plain `yq -r` exits 0 with EMPTY output when the selector matches nothing,
+    # and this value becomes `talosctl upgrade -i ""` against a live node. The selector breaks the
+    # moment the install image moves document (UnattendedInstallConfig), which is not hypothetical.
+    image="$(just talos render-config "{{ node }}" | yq -er 'select(.machine.install != null) | .machine.install.image')"
+    [[ -n "${image}" ]] || { echo "no install image in rendered config for {{ node }}" >&2; exit 1; }
+    echo "${image}"

@@ -40,6 +40,10 @@ Assigning first also means a failure emits **nothing** to stdout. That matters w
 the output somewhere consequential: `wait $!` on the process substitution recovers the status, but
 only after the consumer has already streamed a partial result to whoever was reading.
 
+It bites **verification code** too, and there it is worse: a check that reads the wrong status
+reports a false PASS, laundering the bug as verified. `rc=$?` after a pipe reads the last stage,
+not the one that failed — use `${PIPESTATUS[0]}`, or do not pipe the command under test.
+
 Two related traps in the same family:
 
 - A tool that exits 0 while producing nothing useful. `yq` prints `null` and exits 0 for a missing
