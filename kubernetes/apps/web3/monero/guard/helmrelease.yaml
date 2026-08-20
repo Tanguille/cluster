@@ -73,10 +73,14 @@ spec:
           type: RuntimeDefault
     service:
       app:
-        controller: guard
         ports:
           http:
             port: 8080
+    serviceMonitor:
+      app:
+        serviceName: guard
+        endpoints:
+          - port: http
     persistence:
       config:
         type: configMap

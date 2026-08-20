@@ -21,15 +21,10 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 - [Common operations](.agents/common-operations.md): validation, app operations, SOPS, debugging, and backup/restore
 - [Skill catalog](.agents/skills/): add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation, k8s-at-home-research, pr-review, prometheus-cluster-health — one `SKILL.md` per directory
 - [Useful commands](docs/useful_commands.md): flux/just/talos/sops command reference and app-specific runbooks
+- [Archived migrations](docs/archived-migrations.md): completed ZFS→Ceph, Radarr→Postgres and OPNsense BGP procedures, with git recovery pointers
 - [LLM hosting](docs/llm-hosting/): sglang/vLLM tuning constraints and benchmark history for `kubernetes/apps/ai/`
 
 Read only references whose trigger keywords match the task. The learned files are authoritative and maintained by continual learning.
-
-## Cloned Dependency Source
-
-Read-only dependency source repositories are available under `.slim/clonedeps/repos/` for inspection. Do not edit these clones. Make sure they are up to date before referencing them.
-
-- `.slim/clonedeps/repos/defilantech__LLMKube/` — LLMKube at `v0.9.7`; inspect it for the vLLM multi-file model-staging controller fix.
 
 ## Safety and permissions (three-tier)
 

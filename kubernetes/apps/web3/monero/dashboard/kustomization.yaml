@@ -16,6 +16,9 @@ configMapGenerator:
   - name: dashboard-nginx-config
     files:
       - nginx.conf=./resources/nginx.conf
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
   - name: dashboard-server-script
     files:
       - server.py=./resources/server.py
