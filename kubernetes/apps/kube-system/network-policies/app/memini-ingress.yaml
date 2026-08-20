@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: memini-ingress-allowlist
+  namespace: ai
+spec:
+  # memini serves an unauthenticated API: /v1/handshake reports admin=true,
+  # read_only=false to any caller, so reachability is the only access control
+  # there is. Scoped to memini alone, not the namespace: the rest of ai stays
+  # default-allow. Egress untouched (postgres, litellm embeddings, DNS).
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: memini
+  ingress:
+    - fromEndpoints:
+        # ai = hermes' native memory provider (:8080) and toolhive's MCP entry,
+        # which reaches it at memini.ai.svc:8080/mcp from this same namespace.
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+        # network = envoy-internal fronting the memini UI route (:8081).
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+        # observability = vmagent scraping the serviceMonitor (:9090).
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns

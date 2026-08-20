@@ -28,7 +28,15 @@ spec:
               MEMINI_EMBED_BASE_URL: "http://litellm.ai.svc.cluster.local/v1"
               MEMINI_EMBED_API_KEY: ${LITELLM_API_KEY}
               MEMINI_EMBED_MODEL: "qwen3-embedding"
+              # Native width of Qwen3-Embedding-0.6B; not a truncation, raising it needs a bigger model.
               MEMINI_EMBED_DIMS: "1024"
+              # Qwen3-Embedding is instruct-tuned and asymmetric: the query side wants this prefix,
+              # the document side must not have it. Query-only, so stored vectors stay valid.
+              MEMINI_EMBED_QUERY_PREFIX: |-
+                Instruct: Given a search query, retrieve relevant memories that answer the query
+                Query:
+              # Re-embed rather than silently mixing vector spaces if the model or dims ever change.
+              MEMINI_REEMBED_ON_MODEL_CHANGE: "true"
               # Bound capture/dedup embedding work to short, serial batches so
               # it cannot create the multi-second recall tail under load.
               MEMINI_EMBED_MAX_CONCURRENCY: "1"
@@ -39,6 +47,9 @@ spec:
               # iGPU embedder is busy; the two from 2026-08-04 20:50 never got
               # a vector back and are keyword-only.
               MEMINI_WRITE_EMBED_TIMEOUT: "15s"
+              # Same failure on the read path, with a tighter 2s default: a busy embedder
+              # makes recall degrade to keyword_only instead of returning vector hits.
+              MEMINI_RECALL_EMBED_TIMEOUT: "20s"
             resources:
               requests:
                 cpu: 50m
