@@ -6,17 +6,15 @@ metadata:
   name: memini-ingress-allowlist
   namespace: ai
 spec:
-  # memini serves an unauthenticated API: /v1/handshake reports admin=true,
-  # read_only=false to any caller, so reachability is the only access control
-  # there is. Scoped to memini alone, not the namespace: the rest of ai stays
-  # default-allow. Egress untouched (postgres, litellm embeddings, DNS).
+  # /v1/handshake reports admin=true, read_only=false to any caller, so
+  # reachability is the only access control there is. Scoped to memini alone;
+  # the rest of ai stays default-allow. Egress untouched.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: memini
   ingress:
     - fromEndpoints:
-        # ai = hermes' native memory provider (:8080) and toolhive's MCP entry,
-        # which reaches it at memini.ai.svc:8080/mcp from this same namespace.
+        # ai = hermes' memory provider and toolhive's MCP entry, both :8080.
         - matchLabels:
             io.kubernetes.pod.namespace: ai
         # network = envoy-internal fronting the memini UI route (:8081).
