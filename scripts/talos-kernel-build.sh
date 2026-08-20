@@ -35,7 +35,13 @@ git clone -q --depth 1 --branch "${TALOS_VERSION}" \
     https://github.com/siderolabs/talos.git "${WORK}/talos"
 TOOLS_REV="$(sed -nE 's/^TOOLS \?= (.*)$/\1/p' "${WORK}/talos/Makefile")"
 PKGS_REV="$(sed -nE 's/^PKGS \?= (.*)$/\1/p' "${WORK}/talos/Makefile")"
+# PKGS is pinned as vX.Y.Z-N-g<sha>; the strip yields the sha. Guarded because a format change
+# upstream would otherwise leave PKGS_SHA holding the whole pin, and the config fetch would 404
+# into a build against the wrong kernel config rather than failing here.
 PKGS_SHA="${PKGS_REV##*-g}"
+[[ "${PKGS_SHA}" =~ ^[0-9a-f]{7,40}$ ]] || {
+    echo "PKGS pin '${PKGS_REV}' did not yield a sha (got '${PKGS_SHA}')" >&2; exit 1
+}
 echo "    derived TOOLS=${TOOLS_REV} PKGS=${PKGS_REV}"
 
 log "kernel package"
