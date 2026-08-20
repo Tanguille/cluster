@@ -134,8 +134,15 @@ done
 rm -f "${LIST}.stage1"
 
 # Committed so talos' `SHA ?= $(git describe --dirty)` does not stamp "-dirty" into gendata.
-git -C "${WORK}/talos" -c user.email=noreply@local -c user.name=build \
-    commit -qam "reconcile module list for ${KERNEL_VERSION}"
+# Only when something changed: `git commit` exits 1 with nothing staged, and under `set -e`
+# that kills the build on the most ordinary case there is — a patch bump inside a series that
+# needs no reconciliation at all.
+if ! git -C "${WORK}/talos" diff --quiet -- hack/modules-amd64.txt; then
+    git -C "${WORK}/talos" -c user.email=noreply@local -c user.name=build \
+        commit -qam "reconcile module list for ${KERNEL_VERSION}"
+else
+    echo "    module list unchanged, nothing to commit"
+fi
 
 log "installer-base + imager"
 make -C "${WORK}/talos" installer-base imager PUSH=true PLATFORM=linux/amd64 \

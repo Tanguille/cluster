@@ -63,7 +63,7 @@ the Renovate datasource filter to `moniker="longterm"` once a 7.x LTS exists is 
 Four artifacts, each steered by a make variable. `PKGS`/`PKGS_PREFIX` and `PKG_KERNEL`
 are the only handles required — no forks.
 
-```
+```text
 docker/talos-kernel/Dockerfile   ->  ghcr.io/tanguille/kernel:<tag>
                                        |
 siderolabs/pkgs linux-firmware   ------+   (mirrored as-is; firmware is kernel-independent,
@@ -155,7 +155,7 @@ Renovate opens a PR bumping `ARG KERNEL_VERSION`. The tarball is verified by Gre
 committed PGP key, so there is no second field to update. The key's fingerprint was
 cross-checked against the one kernel.org publishes on <https://www.kernel.org/signature.html>:
 
-```
+```text
 committed:   647F28654894E3BD457199BE38DBBDC86092693E
 kernel.org:  647F 2865 4894 E3BD 4571  99BE 38DB BDC8 6092 693E
 ```
