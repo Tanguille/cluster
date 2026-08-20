@@ -81,7 +81,11 @@ node-role node:
 # control-plane nodes and a worker file would otherwise be injected into the endpoint list.
 [private]
 node-ips role="*":
-    grep -hoP '^\s+- address:\s*\K[0-9.]+' "{{ source_directory() }}"/nodes/{{ role }}/*.yaml.j2 | sort -u | tr '\n' ' '
+    ips="$(grep -hoP '^\s+- address:\s*\K[0-9.]+' "{{ source_directory() }}"/nodes/{{ role }}/*.yaml.j2 | sort -u | tr '\n' ' ')"
+    # An empty result means the grep stopped matching (indentation or key rename), not that the
+    # cluster has no nodes. Fail rather than hand talosctl an empty endpoint list.
+    [[ -n "${ips// /}" ]] || { echo "no addresses matched under nodes/{{ role }}/" >&2; exit 1; }
+    echo "${ips}"
 
 # Per-node override wins when present, otherwise the shared fleet schematic applies.
 [private]
