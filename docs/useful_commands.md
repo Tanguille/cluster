@@ -31,22 +31,22 @@ flux get helmreleases -A
 ## Talos
 
 ```bash
-# Generate Talos config (from talconfig)
-just talos generate-config
+# Render a node's machine config, and diff it against what the node is running
+just talos render-config <node>
+just talos diff-node <node> <node-ip>
 
 # Apply config to a node / upgrade node / upgrade Kubernetes
-just talos apply-node <node-ip>
-just talos upgrade-node <node-ip>
+just talos apply-node <node> <node-ip>
+just talos upgrade-node <node> <node-ip>
 just talos upgrade-k8s
 ```
 
-**Update schematics (build both from `talos/schematic.yaml` and write installer URLs into `talconfig.yaml`):**
+Schematics no longer need a separate update step: `just talos schematic-id <node>` resolves the
+Image Factory ID at render time and templates it into the installer image. Editing
+`talos/schematic.yaml.j2` (or a per-node override) is enough.
 
-```bash
-just talos schematics-update
-```
-
-After updating schematics, run `just talos generate-config` and apply or upgrade nodes as needed.
+Always run `just talos diff-node` against every node and confirm `No changes.` before applying.
+See [talos/README.md](../talos/README.md) for the layer model.
 
 ---
 

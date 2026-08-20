@@ -1,0 +1,65 @@
+---
+# Control-plane-only documents. machine.type lives here, never in a node file,
+# so a node cannot claim one role by filename and another by content.
+machine:
+  type: controlplane
+  # ca merges as a cert+key unit; crt must be repeated alongside key or it is blanked.
+  ca:
+    crt: {{ certs.os.crt }}
+    key: {{ certs.os.key }}
+  features:
+    kubernetesTalosAPIAccess:
+      enabled: true
+      allowedRoles: ["os:admin", "os:reader"]
+      allowedKubernetesNamespaces: [actions-runner-system, system-upgrade, ai]
+  nodeLabels:
+    node.kubernetes.io/exclude-from-external-load-balancers: ""
+cluster:
+  # ca merges as a cert+key unit; crt must be repeated alongside key or it is blanked.
+  ca:
+    crt: {{ certs.k8s.crt }}
+    key: {{ certs.k8s.key }}
+  aggregatorCA:
+    crt: {{ certs.k8saggregator.crt }}
+    key: {{ certs.k8saggregator.key }}
+  serviceAccount:
+    key: {{ certs.k8sserviceaccount.key }}
+  allowSchedulingOnControlPlanes: true
+  apiServer:
+    image: registry.k8s.io/kube-apiserver:{{ kubernetesVersion }}
+    certSANs:
+      - 127.0.0.1
+      - 192.168.0.2
+    extraArgs:
+      # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
+      enable-aggregator-routing: "true"
+    auditPolicy:
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        - level: Metadata
+  controllerManager:
+    image: registry.k8s.io/kube-controller-manager:{{ kubernetesVersion }}
+    extraArgs:
+      bind-address: 0.0.0.0
+  scheduler:
+    image: registry.k8s.io/kube-scheduler:{{ kubernetesVersion }}
+    extraArgs:
+      bind-address: 0.0.0.0
+  proxy:
+    disabled: true
+    image: registry.k8s.io/kube-proxy:{{ kubernetesVersion }}
+  coreDNS:
+    disabled: true
+  etcd:
+    ca:
+      crt: {{ certs.etcd.crt }}
+      key: {{ certs.etcd.key }}
+    extraArgs:
+      listen-metrics-urls: http://0.0.0.0:2381
+      # Keep the etcd database lean by compacting old revisions hourly; this
+      # replaces the nightly defrag job (compaction prevents growth, defrag
+      # only reclaims space the file already holds).
+      auto-compaction-mode: periodic
+      auto-compaction-retention: 1h
+    advertisedSubnets: [192.168.0.0/24]

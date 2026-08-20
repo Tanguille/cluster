@@ -4,42 +4,88 @@ set default-script
 set script-interpreter := ['bash', '-euo', 'pipefail']
 set shell := ['bash', '-euo', 'pipefail', '-c']
 
-upgrades := justfile_directory() / 'kubernetes/apps/system-upgrade/tuppr/upgrades'
+[doc('Render a node full machine config to stdout')]
+render-config node:
+    schematic="$(just talos schematic-id "{{ node }}")"
+    role="$(just talos node-role "{{ node }}")"
+    talosctl machineconfig patch \
+        <(just template "{{ source_directory() }}/cluster.yaml.j2" -D "schematic=${schematic}") \
+        -p @<(just template "{{ source_directory() }}/${role}.yaml.j2" -D "schematic=${schematic}") \
+        -p @<(just template "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" -D "schematic=${schematic}")
 
-# talconfig.yaml substitutes ${talosVersion} and ${kubernetesVersion} at parse time, so
-# every talhelper call needs both in the environment. Evaluated only when a recipe runs.
-export talosVersion := shell('yq $1 $2', '.spec.talos.version', upgrades / 'talosupgrade.yaml')
-export kubernetesVersion := shell('yq $1 $2', '.spec.kubernetes.version', upgrades / 'kubernetesupgrade.yaml')
+[doc('Generate the Talos client config from the secrets bundle')]
+talosconfig:
+    out="{{ source_directory() }}/talosconfig"
+    talosctl gen config kubernetes https://192.168.0.2:6443 --force \
+        --with-secrets <(sops -d "{{ source_directory() }}/talsecret.sops.yaml") \
+        --output-types talosconfig --output "${out}"
+    ips="$(just talos node-ips)"
+    talosctl --talosconfig "${out}" config endpoint ${ips}
+    talosctl --talosconfig "${out}" config node ${ips}
 
-[doc('Generate Talos configuration')]
-[working-directory(source_directory())]
-generate-config:
-    talhelper genconfig
+[doc('Diff a node rendered config against what the node is running')]
+diff-node node ip:
+    just talos render-config "{{ node }}" | talosctl -n "{{ ip }}" apply-config -f /dev/stdin --dry-run
 
+[confirm('Apply Talos config to the node. Continue? [y|N]')]
 [doc('Apply Talos config to a node')]
-[working-directory(source_directory())]
-apply-node node mode='auto':
-    talhelper gencommand apply --node {{ node }} --extra-flags "--mode={{ mode }}" | bash
+apply-node node ip *args:
+    just talos render-config "{{ node }}" | talosctl -n "{{ ip }}" apply-config -f /dev/stdin {{ args }}
 
+[confirm('Upgrade Talos on the node. Continue? [y|N]')]
 [doc('Upgrade Talos on a single node')]
-[working-directory(source_directory())]
-upgrade-node node:
-    image="$(yq '.nodes[] | select(.ipAddress == "{{ node }}") | .talosImageURL' talconfig.yaml)"
-    talhelper gencommand upgrade --node {{ node }} \
-        --extra-flags "--image='${image}:${talosVersion}' --timeout=15m" | bash
+upgrade-node node ip:
+    talosctl -n "{{ ip }}" upgrade -i "$(just talos machine-image "{{ node }}")" -m powercycle --timeout=15m
 
 [doc('Upgrade Kubernetes')]
-[working-directory(source_directory())]
 upgrade-k8s:
-    talhelper gencommand upgrade-k8s --extra-flags "--to ${kubernetesVersion}" | bash
+    upgrades="{{ justfile_directory() }}/kubernetes/apps/system-upgrade/tuppr/upgrades"
+    talosctl upgrade-k8s --to "$(yq '.spec.kubernetes.version' "${upgrades}/kubernetesupgrade.yaml")"
 
 # wipe=false skips the STATE/EPHEMERAL wipe, leaving the installed system on disk.
-[confirm('This will destroy the cluster and reset nodes to maintenance mode. Continue? [y|N]')]
-[doc('Reset nodes back to maintenance mode')]
-[working-directory(source_directory())]
-reset wipe='true':
-    talhelper gencommand reset --extra-flags="--reboot --graceful=false --wait=false{{ if wipe == 'true' { ' --system-labels-to-wipe STATE --system-labels-to-wipe EPHEMERAL' } else { '' } }}" | bash
+[confirm('This will reset the node to maintenance mode. Continue? [y|N]')]
+[doc('Reset a node back to maintenance mode')]
+reset-node ip wipe='true':
+    talosctl -n "{{ ip }}" reset --reboot --graceful=false --wait=false \
+        {{ if wipe == 'true' { '--system-labels-to-wipe STATE --system-labels-to-wipe EPHEMERAL' } else { '' } }}
 
-[doc('Build both schematics and update talconfig.yaml with new installer URLs')]
-schematics-update:
-    TALOS_DIR="{{ source_directory() }}" "{{ justfile_directory() }}/scripts/talos-schematics-update.sh"
+[doc('Download a Talos ISO from the Image Factory for a node')]
+download-image node version:
+    schematic="$(just talos schematic-id "{{ node }}")"
+    curl -fL --remove-on-error --retry 5 --retry-delay 5 --retry-all-errors --progress-bar \
+        -o "{{ source_directory() }}/talos-{{ version }}-${schematic:0:8}.iso" \
+        "https://factory.talos.dev/image/${schematic}/{{ version }}/metal-amd64.iso"
+
+# Directory placement is the single source of truth for a node's role; machine.type is
+# set by the role layer, so a node cannot claim one role by filename and another by content.
+[private]
+node-role node:
+    for role in controlplane workers; do
+        if [[ -f "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" ]]; then
+            echo "${role}"; exit 0
+        fi
+    done
+    echo "no node file found for {{ node }}" >&2; exit 1
+
+# ponytail: one address per node file, so a grep is enough; render and parse if that stops holding.
+[private]
+node-ips:
+    grep -hoP '^\s+- address:\s*\K[0-9.]+' "{{ source_directory() }}"/nodes/*/*.yaml.j2 | sort -u | tr '\n' ' '
+
+# Per-node override wins when present, otherwise the shared fleet schematic applies.
+[private]
+schematic-file node:
+    file="{{ source_directory() }}/schematic.yaml.j2"
+    for f in "{{ source_directory() }}"/nodes/*/"{{ node }}".schematic.yaml.j2; do
+        [[ -f "$f" ]] && file="$f"
+    done
+    echo "$file"
+
+[private]
+schematic-id node:
+    curl -sfX POST --data-binary @<(just template "$(just talos schematic-file "{{ node }}")") \
+        https://factory.talos.dev/schematics | jq -r '.id'
+
+[private]
+machine-image node:
+    just talos render-config "{{ node }}" | yq -r 'select(.machine.install != null) | .machine.install.image'
