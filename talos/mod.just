@@ -81,10 +81,16 @@ schematic-file node:
 
 # Schematics are plain YAML, not templates: POST the file directly rather than routing it through
 # `template`, which would decrypt the secrets bundle to render a file that references no secrets.
+# Bounded because a stalled factory blocks every render. Retries are safe: the endpoint is
+# content-addressed, so re-POSTing identical content returns the same id.
+# jq -er, not -r: a response without a usable .id must fail loudly, not print "null" and end up
+# in an installer reference.
 [private]
 schematic-id node:
-    curl -sfX POST --data-binary @"$(just talos schematic-file "{{ node }}")" \
-        https://factory.talos.dev/schematics | jq -r '.id'
+    curl -sfX POST --connect-timeout 5 --max-time 30 --retry 3 --retry-max-time 60 \
+        --data-binary @"$(just talos schematic-file "{{ node }}")" \
+        https://factory.talos.dev/schematics \
+        | jq -er '.id | strings | select(length > 0)'
 
 [private]
 machine-image node:
