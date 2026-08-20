@@ -17,6 +17,22 @@
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
+  customDatasources: {
+    // Filtering on the moniker, not a version range, is what survives a series bump
+    // (7.1.x -> 7.2.x) with no config change. Not a git mirror: gregkh/linux carries mainline
+    // and -rc tags in the same stream, so Renovate would offer -rc builds as updates.
+    // Feed shape verified against the live endpoint: {"releases":[{"moniker","version",
+    // "changelog","iseol",...}], "latest_stable":{...}}, exactly one moniker=="stable" entry.
+    // Re-check with: curl -s https://www.kernel.org/releases.json | jq '.releases[]|select(.moniker=="stable")'
+    // If the shape ever changes the transform yields zero releases and bumps stop SILENTLY.
+    "linux-kernel": {
+      defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
+      format: "json",
+      transformTemplates: [
+        '{"releases":[releases[moniker="stable"].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
+      ]
+    }
+  },
   customManagers: [
     {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
@@ -206,6 +222,15 @@
     {
       matchDatasources: ["custom.grafana-dashboards"],
       addLabels: ["renovate/grafana-dashboard"]
+    },
+    {
+      matchDatasources: ["custom.linux-kernel"],
+      // stable is X.Y.Z most of the time but a bare X.Y for a freshly promoted series, which
+      // semver rejects — the update would silently stop. The annotation syntax cannot carry a
+      // versioning field, so it has to be set here.
+      versioning: "loose",
+      semanticCommitScope: "kernel",
+      addLabels: ["renovate/kernel"]
     },
     {
       matchManagers: ["github-actions"],

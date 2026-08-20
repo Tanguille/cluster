@@ -130,3 +130,9 @@ machine-image node:
     image="$(just talos render-config "{{ node }}" | yq -er 'select(.machine.install != null) | .machine.install.image')"
     [[ -n "${image}" ]] || { echo "no install image in rendered config for {{ node }}" >&2; exit 1; }
     echo "${image}"
+
+
+[doc('Build the custom-kernel Talos installer for the given nodes (docker/talos-kernel/README.md)')]
+kernel-build +nodes:
+    "{{ justfile_directory() }}/scripts/talos-kernel-build.sh" \
+        "$(just tuppr-version talos)" {{ nodes }}
