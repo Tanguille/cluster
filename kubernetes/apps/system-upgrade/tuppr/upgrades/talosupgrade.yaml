@@ -6,7 +6,9 @@ metadata:
   name: talos
 spec:
   talos:
-    # renovate: datasource=docker depName=ghcr.io/siderolabs/installer
+    # Tracks the Talos release, not ghcr.io/siderolabs/installer: that image stopped being
+    # published with releases as of v1.14, so a docker datasource would silently freeze here.
+    # renovate: datasource=github-releases depName=siderolabs/talos
     version: v1.13.9
   policy:
     rebootMode: powercycle
