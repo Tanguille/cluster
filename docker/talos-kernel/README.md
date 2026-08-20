@@ -90,9 +90,8 @@ official images by digest.
 
 ## Version tagging
 
-Tag installers `v<talos>-k<kernel>`, e.g. `v1.13.9-k7.1.9`. Nodes on the shared schematic
-publish to `ghcr.io/tanguille/installer`; a node with its own schematic override publishes to
-`ghcr.io/tanguille/installer/<node>`.
+Tag installers `v<talos>-k<kernel>`, e.g. `v1.13.9-k7.1.9`, and publish one per schematic:
+`ghcr.io/tanguille/installer/shared` or `ghcr.io/tanguille/installer/<node>` for an override.
 
 `TAG` is embedded into `pkg/machinery/gendata` (talos `Dockerfile:313-323`) and becomes what
 the node reports over the gRPC `Version()` API. tuppr reads exactly that (`client.go:161`
@@ -114,14 +113,19 @@ The suffix satisfies tuppr's CRD pattern `^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\-
 default: GitHub's docs state a personal-account package "default visibility is private", and a
 package inherits the linked repository's access permissions "but not the visibility". The
 machine config carries no registry credentials, so a private package means the node cannot pull
-its own installer — and `ghcr.io/tanguille/installer` being public does **not** cover
-`.../installer/<anything>`, which is a separate package.
+its own installer — and each nested path is a separate package, so making one public covers none of the others.
 
-Since the flip cannot be defaulted away, the naming minimises how many are ever needed. Repos
-mirror the schematic layout: nodes on the shared `talos/schematic.yaml` publish to
-`ghcr.io/tanguille/installer` (already public), and only a node carrying its own schematic
-override gets `ghcr.io/tanguille/installer/<node>` and one flip, once. Visibility is per
-package, so every later tag inherits it — there is nothing to do per kernel bump.
+Since the flip cannot be defaulted away, the naming minimises how many packages ever exist:
+**one image per schematic, not per node.** Two schematics means two packages and two flips,
+once, no matter how many nodes join.
+
+| image | schematic | nodes |
+|---|---|---|
+| `ghcr.io/tanguille/installer/shared` | `talos/schematic.yaml` | control-2, control-3 |
+| `ghcr.io/tanguille/installer/control-1` | `control-1.schematic.yaml` | control-1 |
+
+Visibility is per package, so every later tag inherits it — there is nothing to do per kernel
+bump, and a fourth node on the shared schematic needs no new package at all.
 
 Not the schematic id, even though it is content-addressed: the id moves whenever a schematic is
 edited, and each new id is a fresh private package, so a one-line `extraKernelArgs` change
