@@ -4,6 +4,10 @@ set default-script
 set script-interpreter := ['bash', '-euo', 'pipefail']
 set shell := ['bash', '-euo', 'pipefail', '-c']
 
+# Values are assigned and checked before use throughout this file. Process substitutions and
+# argument-position command substitutions discard their producer's exit status, and some tools
+# exit 0 with empty output; see .agents/common-operations.md.
+
 # Cluster-wide addresses, defined once: the VIP is referenced from every layer and from
 # talosconfig, and the retired talconfig.yaml used a YAML anchor for the same reason.
 vip := "192.168.0.2"
@@ -11,23 +15,17 @@ gateway := "192.168.0.1"
 
 [doc('Render a node full machine config to stdout')]
 render-config node:
-    # Bare assignments: a failing command substitution inside an argument or array element does
-    # NOT trip `set -e`, so these would silently render as empty.
     schematic="$(just talos schematic-id "{{ node }}")"
     role="$(just talos node-role "{{ node }}")"
-    # Assignment alone catches a non-zero exit; these catch the other half, a producer that
-    # succeeds with empty output. schematic feeds an install image path, where empty renders a
-    # plausible ref that resolves to nothing.
+    # Belt and braces: both callees already fail on empty, but schematic feeds an install image
+    # path where an empty value renders a plausible ref that resolves to nothing.
     [[ -n "${schematic}" ]] || { echo "empty schematic id for {{ node }}" >&2; exit 1; }
     [[ -n "${role}" ]] || { echo "empty role for {{ node }}" >&2; exit 1; }
     # One context for every layer, so any layer may reference any of these.
     ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}" -D "schematic=${schematic}")
-    # Each layer is rendered to a variable BEFORE talosctl runs, not inline as <(just template).
-    # A process substitution is asynchronous: its exit status never reaches talosctl, so a failed
-    # layer was silently dropped. Verified by breaking controlplane.yaml.j2 -- render-config
-    # exited 0 and emitted a config with no machine.type, which apply-node pipes straight to a
-    # control-plane node. Assigning first also means a failure aborts before anything reaches
-    # stdout, so a consumer can never see a partial config.
+    # Rendered to variables before talosctl runs, so a failed layer aborts before a single byte
+    # reaches stdout. Inline <(just template) dropped the layer silently and still emitted a
+    # config, which apply-node pipes straight to a node.
     cluster_layer="$(just template "{{ source_directory() }}/cluster.yaml.j2" "${ctx[@]}")"
     role_layer="$(just template "{{ source_directory() }}/${role}.yaml.j2" "${ctx[@]}")"
     node_layer="$(just template "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" "${ctx[@]}")"
@@ -59,8 +57,7 @@ apply-node node ip *args:
 [confirm('Upgrade Talos on the node. Continue? [y|N]')]
 [doc('Upgrade Talos on a single node')]
 upgrade-node node ip:
-    # Assigned, not inlined: in argument position a failed substitution does not trip `set -e`,
-    # so an empty image would reach `upgrade -i ""` and powercycle the node anyway.
+    # Assigned: inlined, an empty image would reach `upgrade -i ""` and powercycle the node anyway.
     image="$(just talos machine-image "{{ node }}")"
     talosctl -n "{{ ip }}" upgrade -i "${image}" -m powercycle --timeout=15m
 
@@ -117,12 +114,8 @@ schematic-file node:
 # `template`, which would decrypt the secrets bundle to render a file that references no secrets.
 # Bounded because a stalled factory blocks every render. Retries are safe: the endpoint is
 # content-addressed, so re-POSTing identical content returns the same id.
-# jq -er, not -r: a response without a usable .id must fail loudly, not print "null" and end up
-# in an installer reference.
 [private]
 schematic-id node:
-    # Assigned, not inlined into --data-binary: a command substitution in argument position
-    # discards its exit status, so a failed lookup would POST the literal path "@" instead.
     file="$(just talos schematic-file "{{ node }}")"
     [[ -f "${file}" ]] || { echo "no schematic file for {{ node }}: ${file}" >&2; exit 1; }
     curl -sfX POST --connect-timeout 5 --max-time 30 --retry 3 --retry-max-time 60 \
@@ -132,9 +125,8 @@ schematic-id node:
 
 [private]
 machine-image node:
-    # -e, and checked: plain `yq -r` exits 0 with EMPTY output when the selector matches nothing,
-    # and this value becomes `talosctl upgrade -i ""` against a live node. The selector breaks the
-    # moment the install image moves document (UnattendedInstallConfig), which is not hypothetical.
+    # Read back from the render rather than rebuilt from schematic+version: the field moves
+    # document under UnattendedInstallConfig, and this value becomes `talosctl upgrade -i`.
     image="$(just talos render-config "{{ node }}" | yq -er 'select(.machine.install != null) | .machine.install.image')"
     [[ -n "${image}" ]] || { echo "no install image in rendered config for {{ node }}" >&2; exit 1; }
     echo "${image}"

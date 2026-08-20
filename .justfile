@@ -12,7 +12,6 @@ mod talos "talos"
 
 # The tuppr upgrade CRs are the single source for both versions, so Renovate manages them in
 # one place. `kind` names both the file and the spec key (talos -> talosupgrade.yaml).
-# -e so a missing or null key exits non-zero; without it yq prints "null" and exits 0.
 [private]
 tuppr-version kind:
     yq -e '.spec.{{ kind }}.version' \
@@ -31,14 +30,9 @@ talsecret:
 # --strict makes a typo'd variable an error rather than an empty string.
 [private]
 template file *args:
-    # Assigned before the render rather than inline: a failing command substitution inside an
-    # argument does NOT trip `set -e`, so a renamed key would silently render as "null" and be
-    # baked into a node's install image. As bare assignments these abort the recipe instead.
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
-    # Piped, not <(just talsecret): a process substitution's producer exit status is invisible to
-    # the outer command, so a failed decrypt would hand minijinja an empty context instead of
-    # aborting. Through a pipe, `pipefail` fails the recipe. Verified both ways.
+    # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
         -D "talosVersion=${talos_version}" \
         -D "kubernetesVersion=${kubernetes_version}" \
