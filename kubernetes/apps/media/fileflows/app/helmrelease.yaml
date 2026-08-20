@@ -10,8 +10,8 @@ spec:
     kind: OCIRepository
     name: app-template
   valuesFrom:
-    - kind: ConfigMap
-      name: affinity-control-1
+    # No affinity-control-1: the amd.com/gpu requirement below already pins this
+    # to control-1, the only node carrying that label.
     - kind: ConfigMap
       name: nfs-media
 
