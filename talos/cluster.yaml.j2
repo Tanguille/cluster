@@ -67,23 +67,6 @@ machine:
   time:
     disabled: false
     servers: [{{ gateway }}]
-  sysctls:
-    fs.inotify.max_user_watches: "1048576" # Watchdog
-    fs.inotify.max_user_instances: "8192" # Watchdog
-    net.core.default_qdisc: "fq" # Fair Queuing - improves network fairness and reduces latency
-    net.core.rmem_max: "67108864" # Maximum TCP receive window (64MB) - improves throughput
-    net.core.wmem_max: "67108864" # Maximum TCP send window (64MB) - improves throughput
-    net.ipv4.tcp_congestion_control: "bbr" # BBR congestion control - better performance than cubic
-    net.ipv4.tcp_fastopen: "3" # Enables TCP Fast Open for both client and server
-    net.ipv4.tcp_mtu_probing: "1" # Enables automatic MTU probing for optimal packet size
-    net.ipv4.tcp_rmem: "4096 87380 33554432" # TCP receive buffer sizes (min, default, max)
-    net.ipv4.tcp_wmem: "4096 65536 33554432" # TCP send buffer sizes (min, default, max)
-    net.ipv4.tcp_window_scaling: "1" # Enables TCP window scaling for better throughput
-    net.ipv4.neigh.default.gc_thresh1: "4096" # Prevent ARP cache overflows
-    net.ipv4.neigh.default.gc_thresh2: "8192" # Prevent ARP cache overflows
-    net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
-    net.ipv4.tcp_slow_start_after_idle: "0" # Preserve congestion window after idle
-    user.max_user_namespaces: "11255" # User Namespaces
   features:
     diskQuotaSupport: true
     kubePrism:
@@ -142,3 +125,26 @@ interval: 168h0m0s
 apiVersion: v1alpha1
 kind: FilesystemScrubConfig
 interval: 168h0m0s
+---
+# Was machine.sysctls, which Talos 1.14 deprecates (the marker is in this document's own schema
+# description, not the v1alpha1 one). Same keys and values; the field is `params`, not `sysctls`.
+# The two merge with this document winning on conflicts, so keeping both would only hide drift.
+apiVersion: v1alpha1
+kind: SysctlConfig
+params:
+  fs.inotify.max_user_watches: "1048576" # Watchdog
+  fs.inotify.max_user_instances: "8192" # Watchdog
+  net.core.default_qdisc: "fq" # Fair Queuing - improves network fairness and reduces latency
+  net.core.rmem_max: "67108864" # Maximum TCP receive window (64MB) - improves throughput
+  net.core.wmem_max: "67108864" # Maximum TCP send window (64MB) - improves throughput
+  net.ipv4.tcp_congestion_control: "bbr" # BBR congestion control - better performance than cubic
+  net.ipv4.tcp_fastopen: "3" # Enables TCP Fast Open for both client and server
+  net.ipv4.tcp_mtu_probing: "1" # Enables automatic MTU probing for optimal packet size
+  net.ipv4.tcp_rmem: "4096 87380 33554432" # TCP receive buffer sizes (min, default, max)
+  net.ipv4.tcp_wmem: "4096 65536 33554432" # TCP send buffer sizes (min, default, max)
+  net.ipv4.tcp_window_scaling: "1" # Enables TCP window scaling for better throughput
+  net.ipv4.neigh.default.gc_thresh1: "4096" # Prevent ARP cache overflows
+  net.ipv4.neigh.default.gc_thresh2: "8192" # Prevent ARP cache overflows
+  net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
+  net.ipv4.tcp_slow_start_after_idle: "0" # Preserve congestion window after idle
+  user.max_user_namespaces: "11255" # User Namespaces
