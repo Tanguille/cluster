@@ -62,6 +62,13 @@ spec:
           securityContext:
             # The serving pod runs runAsUser 0, so the store is root-owned on disk.
             runAsUser: 0
+          # The hostPath PV pins this pod to control-1, so it must tolerate the
+          # exact condition it exists to relieve -- 08-21: DiskPressure locked
+          # the guard out for 1h+ right when the floor was breached.
+          tolerations:
+            - key: node.kubernetes.io/disk-pressure
+              operator: Exists
+              effect: NoSchedule
           containers:
             - name: guard
               image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
@@ -87,20 +94,32 @@ spec:
                     echo "above floor, nothing to do"
                     exit 0
                   fi
-                  # Oldest-first, not a wipe: blocks are write-once so mtime is
-                  # real recency. Walk down only until back above the floor.
-                  for age in 30 14 7 3 1 0; do
-                    find /kvoffload -type f -mtime +$$age -delete 2>/dev/null || true
-                    avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
-                    echo "evicted >$${age}d, avail now $${avail}K"
-                    if [ "$$avail" -ge "$$floor" ]; then
-                      exit 0
+                  # True LRU by mtime, oldest first, regardless of absolute age --
+                  # blocks are write-once so mtime is real recency. The old
+                  # age-bucketed sweep (30/14/7/3/1/0d) bottomed out at "older
+                  # than 24h" and failed outright once a same-day refill (a
+                  # restart can regrow the tier past the floor in under a day)
+                  # left nothing that old to evict.
+                  n=0
+                  find /kvoffload -type f -printf '%T@ %p\n' | sort -n | cut -d' ' -f2- |
+                  while IFS= read -r f; do
+                    rm -f -- "$$f"
+                    n=$$((n + 1))
+                    if [ $$((n % 2000)) -eq 0 ]; then
+                      avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
+                      echo "evicted $${n} files, avail now $${avail}K"
+                      [ "$$avail" -ge "$$floor" ] && break
                     fi
                   done
-                  # Still short with only <24h blocks left: the shortfall is
+                  avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
+                  if [ "$$avail" -ge "$$floor" ]; then
+                    echo "avail now $${avail}K, above floor"
+                    exit 0
+                  fi
+                  # Still short after evicting every block: the shortfall is
                   # elsewhere on the shared fs. Fail loudly -- a guard that
                   # silently misses its floor reads healthy until the node fills.
-                  echo "floor unreachable: $${avail}K < $${floor}K, only <24h blocks left" >&2
+                  echo "floor unreachable: $${avail}K < $${floor}K, tier fully evicted" >&2
                   exit 1
               volumeMounts:
                 - name: kv-offload
