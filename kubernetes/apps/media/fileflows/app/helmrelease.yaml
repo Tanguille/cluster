@@ -67,6 +67,12 @@ spec:
               requests:
                 cpu: 100m
                 memory: 512Mi
+                # Transcode scratch lives on the container filesystem, ~1.3GiB
+                # steady. With no request, usage-over-request ranking made this
+                # the first pod kubelet evicted when control-1 brushed its
+                # ephemeral-storage threshold (2026-08-20 19:40, exit 137).
+                # No limit on purpose: a limit evicts the pod itself mid-transcode.
+                ephemeral-storage: 2Gi
                 squat.ai/dri: 1
               limits:
                 cpu: 2
