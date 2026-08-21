@@ -44,10 +44,14 @@ spec:
       # Ceph 20 flags cipher `aes` as HEALTH_ERR, which makes Rook refuse the OSD upgrade
       # ("refusing to upgrade"), stranding OSDs on 20.2.3 while mon/mgr/mds ran 20.2.4.
       # aes256k needs the in-kernel Ceph client from Linux 7.0; all nodes run 7.1.9 since 2026-08-21.
-      # keyType is a no-op unless keyRotationPolicy is set. allowedCiphers is deliberately NOT set
-      # here: restricting to aes256k before every key has rotated locks out the aes clients.
+      # keyType is a no-op unless keyRotationPolicy is set.
       security:
         cephx:
+          # Rotation is complete (all groups gen=2/aes256k as of 2026-08-21), so drop `aes`.
+          # This is what clears AUTH_INSECURE_SERVICE_TICKETS, KEYS_ALLOWED, KEYS_CREATABLE and
+          # Rook's transitional AUTH_EMERGENCY_CIPHERS_SET. Safe only once no entity still uses an
+          # aes key -- setting it earlier locks out the CSI clients that mount the PVs.
+          allowedCiphers: ["aes256k"]
           daemon:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
@@ -56,8 +60,10 @@ spec:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
             keyType: aes256k
-            # Keeps the prior key active so in-flight PV connections survive the rotation.
-            keepPriorKeyCountMax: 1
+            # 1 during the rotation kept the prior key alive so in-flight PV connections survived
+            # (they did, zero pods disrupted). 0 now deletes the stale generation-1 `aes` keys,
+            # which are the only remaining AUTH_INSECURE_CLIENT_KEY_TYPE entities.
+            keepPriorKeyCountMax: 0
           rbdMirrorPeer:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
