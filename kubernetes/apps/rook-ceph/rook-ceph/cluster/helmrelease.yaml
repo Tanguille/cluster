@@ -47,11 +47,11 @@ spec:
       # keyType is a no-op unless keyRotationPolicy is set.
       security:
         cephx:
-          # Rotation is complete (all groups gen=2/aes256k as of 2026-08-21), so drop `aes`.
-          # This is what clears AUTH_INSECURE_SERVICE_TICKETS, KEYS_ALLOWED, KEYS_CREATABLE and
-          # Rook's transitional AUTH_EMERGENCY_CIPHERS_SET. Safe only once no entity still uses an
-          # aes key -- setting it earlier locks out the CSI clients that mount the PVs.
-          allowedCiphers: ["aes256k"]
+          # allowedCiphers: ["aes256k"] REVERTED 2026-08-21. Every key is aes256k, but restricting
+          # the cluster to it broke rbd provisioning: `failed to get connection: rados: ret=-22`,
+          # PVCs stuck Pending. ceph-csi v3.17.0 ships librados 20.2.1 against a 20.2.4 cluster.
+          # Restarting the CSI plugins did not clear it. Re-enable only once that is understood and
+          # a fresh PVC binds; the keys below already give the security win without it.
           daemon:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
