@@ -283,6 +283,14 @@ spec:
         namespaced: false
       spec:
         priorityClassName: homelab-critical # 512Mi, sole scrape path
+        # vllm:cache_config_info carries 43 labels, past vmsingle's 30-label cap, so every
+        # 30s scrape is rejected and logged: it fired RowsRejectedOnIngestion and TooManyLogs
+        # while never being stored. Dropped at the agent rather than raising the cap, since
+        # kv_cache_max_concurrency is a float that churns a new series on every restart.
+        inlineRelabelConfig:
+          - action: drop
+            sourceLabels: [__name__]
+            regex: vllm:cache_config_info
         resources:
           requests:
             cpu: 100m
