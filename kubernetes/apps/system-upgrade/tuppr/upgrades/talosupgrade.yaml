@@ -11,6 +11,13 @@ spec:
     # the default, so a docker datasource would silently freeze at the last tag it ever saw.
     # renovate: datasource=github-releases depName=siderolabs/talos
     version: v1.14.0-rc.1
+  talosctl:
+    image:
+      # tuppr derives this tag from the node's CURRENT version. Custom-kernel nodes report
+      # v1.13.9-k7.1.9, which siderolabs never publishes, so leaving it unset ImagePullBackOffs
+      # the upgrade job on the second roll of any such node.
+      # renovate: datasource=github-releases depName=siderolabs/talos
+      tag: v1.14.0-rc.1
   policy:
     rebootMode: powercycle
   healthChecks:
