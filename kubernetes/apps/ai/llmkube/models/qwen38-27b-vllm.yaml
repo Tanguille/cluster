@@ -83,10 +83,13 @@ spec:
                 - |
                   # $$ throughout: Flux postBuild envsubst substitutes bare $VAR.
                   set -eu
-                  # 80Gi, not the 160Gi this started as: unreachable on a 500G
-                  # disk with ~370G held elsewhere, so the guard wiped the whole
-                  # tier every run. The prefix-hit rate needs the store to survive.
-                  floor=83886080
+                  # 160Gi. The 80Gi this sat at is 15% of the 499.6Gi disk, under
+                  # mon_data_avail_warn=27, so mon.c (hostPath on this disk) warned
+                  # from inside the guard's own target and could never clear.
+                  # 160Gi holds 32% avail. The earlier "160Gi is unreachable" note
+                  # assumed ~370G held outside the tier; measured 2026-08-22 it is
+                  # 128Gi, leaving 211Gi of tier at this floor against 253Gi today.
+                  floor=167772160
                   # df, not du: the store reaches hundreds of thousands of files.
                   avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
                   echo "avail: $${avail}K (floor: $${floor}K)"
