@@ -5,9 +5,8 @@
 machine:
   install:
     disk: /dev/disk/by-id/nvme-Micron_7450_MTFDKBA480TFR_241548387F46
-    # Same shared installer as control-2: both nodes use talos/schematic.yaml, so the image is
-    # byte-identical. Pointing this at our registry rather than the Factory is what stops the
-    # next Talos bump silently reinstalling the stock 6.18 kernel.
+    # Shared with control-2 (same schematic). Our registry, not the Factory: tuppr rebuilds the
+    # upgrade target from this field, so leaving it on factory.talos.dev reinstalls the stock kernel.
     image: ghcr.io/tanguille/installer/shared:{{ pinned }}
   # Must match the tag above exactly; getTargetVersion prefers this over spec.talos.version.
   nodeAnnotations:
