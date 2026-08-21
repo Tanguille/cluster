@@ -1,0 +1,80 @@
+---
+# Builds the custom-kernel Talos installers and publishes them to ghcr, so a Renovate kernel
+# bump produces the artifact its own config change depends on. Without this, merging a bump
+# points nodes at a tag nobody built.
+name: Talos Kernel
+
+on:
+  pull_request:
+    paths:
+      - docker/talos-kernel/**
+      - scripts/talos-kernel-build.sh
+      - talos/schematic.yaml
+      - talos/nodes/**/*.schematic.yaml
+      - kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml
+  workflow_dispatch:
+    inputs:
+      talos-version:
+        description: "Talos version to build against; defaults to the tuppr CR's"
+        required: false
+
+# A push supersedes the in-flight run rather than racing it. Learned the hard way: without
+# this, successive pushes leave cancelled runs that look like a wedged runner.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # ~2h45m measured shape: the ThinLTO kernel compile dominates and a hosted runner is 4 vCPU
+    # against the 24 threads this takes locally. Well under the 6h job ceiling, but nowhere near
+    # the default 360m step budget, so it is set explicitly.
+    timeout-minutes: 340
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The pipeline needs ~35-40 GB: the kernel build layer alone is ~17.7 GB. Docker's
+      # data-root lives on /, which has only 21-31 GB free on a hosted runner, so the build dies
+      # mid-compile with an opaque ENOSPC. /mnt is undocumented but present with ~66 GB free.
+      # This is cheaper and more reliable than the disk-reclaim actions.
+      - name: Move Docker data-root to /mnt
+        run: |
+          df -h / /mnt
+          sudo systemctl stop docker.service docker.socket
+          sudo mkdir -p /mnt/docker
+          printf '{"data-root":"/mnt/docker"}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl start docker.service
+          docker info --format '{{.DockerRootDir}}'
+
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+
+      # GITHUB_TOKEN can push to ghcr.io/<repo-owner>/* — but only to packages the repo has
+      # been granted access to. These packages were created by hand from a workstation, so they
+      # are NOT linked to this repo and the first run 403s until each is given write access
+      # under Package settings -> Manage Actions access -> Add repository. One-time, per package:
+      # kernel, linux-firmware, amdgpu, installer-base, imager, installer/shared, installer/control-1.
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The script derives everything else itself: the kernel version from the Renovate-managed
+      # ARG, and TOOLS/PKGS from the Talos release's own Makefile.
+      - name: Build and publish installers
+        # Through env, not interpolated into the shell: a workflow_dispatch input expanded
+        # directly into a run block is a code-injection vector.
+        env:
+          TALOS_VERSION_INPUT: ${{ inputs.talos-version }}
+        run: |
+          talos_version="${TALOS_VERSION_INPUT}"
+          [ -n "${talos_version}" ] || talos_version="$(just tuppr-version talos)"
+          # The node list comes from talos/nodes/, and the script writes its own job summary
+          # naming every ref it published.
+          scripts/talos-kernel-build.sh "${talos_version}" $(just talos nodes)
