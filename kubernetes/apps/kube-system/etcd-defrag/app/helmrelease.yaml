@@ -30,11 +30,8 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Weekly, not the daily cadence this ran at before #4290 removed it.
-          # Hourly auto-compaction stays and does hold the live keyspace flat
-          # (in-use 137-160MB across 20d), but it cannot shrink the file, so the
-          # free space still ramps ~8MB/day and crossed the 50% fragmentation
-          # alert on its own. A full 3-member pass costs ~95s.
+          # Auto-compaction holds in-use flat (137-160MB over 20d) but cannot
+          # shrink the file; free space ramps ~8MB/day. A 3-member pass costs ~95s.
           timeZone: ${TIMEZONE}
           schedule: "0 3 * * 0"
           backoffLimit: 1
