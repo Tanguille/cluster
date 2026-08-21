@@ -186,9 +186,9 @@ spec:
   modelRef: qwen38-27b-vllm
   runtime: vllm
   replicas: 1
-  # Matches the proven qwen36 production concurrency ceiling; operator
-  # translates this to --max-num-seqs for the vllm runtime.
-  parallelSlots: 16
+  # TPOT probe 08-21: kernel-dispatch cliff at M=6 (MAX_SKINNY_BATCH_SIZE=5
+  # in rdna_hybrid_w4a16.py), 23.6 -> 13.3 tok/s/stream. Operator -> --max-num-seqs.
+  parallelSlots: 6
   bindAddress: 0.0.0.0
   # Rolling `nightly` tag pinned by digest, same shape as
   # kubesearch-mcp:master@sha256:. The digest is what gets pulled, so this is
@@ -295,16 +295,12 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
-    # Qwen3.5-family GDN hybrids OOM during CUDA-graph capture at vLLM's
-    # default 512-size ceiling regardless of gpuMemoryUtilization/
-    # enablePrefixCaching (vLLM #39010 on gfx1201). Cap capture sizes to the
-    # production concurrency ceiling (16) instead of disabling graphs
-    # outright, to keep decode throughput on par with 3.6.
-    # Also fixes a real crash, not just perf: hybrid Mamba/GDN cache only had
-    # 71 blocks available at this budget, and vLLM's default max-num-seqs
-    # (256) overshoots it — spec.parallelSlots above must stay <= that.
+    # GDN hybrids OOM CUDA-graph capture at vLLM's default 512 ceiling
+    # (vLLM #39010 on gfx1201). Sizes match parallelSlots above -- also
+    # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
+    # (256) would overshoot.
     - --compilation-config
-    - '{"cudagraph_capture_sizes": [1, 2, 4, 8, 16]}'
+    - '{"cudagraph_capture_sizes": [1, 2, 4, 6]}'
     # Keep prior-turn reasoning in context; matches production qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
