@@ -83,11 +83,18 @@ echo "    extension published as ${AMDGPU_REF}"
 # extracting ~250 MiB of modules into tmpfs to run existence tests against.
 log "reconciling module allowlist"
 KIMG="${PREFIX}/kernel:${VERSION}"
-# Two streamed exports rather than one local copy: only names and modules.dep are needed, so
-# nothing is written to disk. modules.dep alone will not do — the list also carries non-.ko
-# entries (modules.builtin, modules.order) that exist only in the file listing.
-MODS="$(crane export "${KIMG}" - | tar -tf - | sed -n 's|^usr/lib/modules/[^/]*/||p')"
-DEPS="$(crane export "${KIMG}" - | tar -xO --wildcards 'usr/lib/modules/*/modules.dep')"
+# Exported off the local daemon, not the registry: `docker build` above put this image there,
+# so crane would re-download what was just pushed. Streamed rather than copied out, so nothing
+# is written to disk. Two passes are cheap now that both read the local layer store; modules.dep
+# alone will not do — the list also carries non-.ko entries (modules.builtin, modules.order)
+# that exist only in the file listing.
+# The image is FROM scratch with no CMD, so `create` needs an argv it never runs -- the
+# container is only ever a handle to export, never started.
+CID="$(docker create "${KIMG}" /nonexistent)"
+: "${CID:?docker create returned no container id for ${KIMG}}"
+trap 'docker rm -f "${CID}" >/dev/null 2>&1 || true; rm -rf "${WORK}"' EXIT
+MODS="$(docker export "${CID}" | tar -tf - | sed -n 's|^usr/lib/modules/[^/]*/||p')"
+DEPS="$(docker export "${CID}" | tar -xO --wildcards 'usr/lib/modules/*/modules.dep')"
 LIST="${WORK}/talos/hack/modules-amd64.txt"
 
 # Pass 1: rewrite paths that moved, drop modules the config no longer produces.
