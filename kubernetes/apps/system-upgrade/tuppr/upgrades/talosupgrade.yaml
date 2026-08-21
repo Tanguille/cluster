@@ -13,10 +13,8 @@ spec:
     version: &talosVersion v1.14.0-rc.1
   talosctl:
     image:
-      # tuppr derives this tag from the node's CURRENT version. Custom-kernel nodes report
-      # v1.13.9-k7.1.9, which siderolabs never publishes, so leaving it unset ImagePullBackOffs
-      # the upgrade job on the second roll of any such node. Aliased, not repeated: the two must
-      # agree, and the preset's regex handles `&anchor` so Renovate still bumps the one literal.
+      # Unset, tuppr derives this from the node's CURRENT version; a -k<kernel> one is unpublished
+      # and the job ImagePullBackOffs. Aliased so the two cannot drift.
       tag: *talosVersion
   policy:
     rebootMode: powercycle
