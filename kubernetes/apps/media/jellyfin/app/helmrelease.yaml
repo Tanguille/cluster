@@ -9,12 +9,12 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  valuesFrom:
-    - kind: ConfigMap
-      name: affinity-control-1
-
+  # No affinity-control-1: the R9700 (tone mapping) and the RWO config PVC are both on control-1,
+  # and the soft preference let an eviction reschedule this onto control-3 with neither.
   values:
     defaultPodOptions:
+      nodeSelector:
+        kubernetes.io/hostname: control-1
       securityContext:
         runAsUser: 568
         runAsGroup: 568
