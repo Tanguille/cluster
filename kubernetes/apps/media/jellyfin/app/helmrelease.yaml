@@ -15,6 +15,7 @@ spec:
     defaultPodOptions:
       nodeSelector:
         kubernetes.io/hostname: control-1
+      priorityClassName: homelab-important
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -66,6 +67,9 @@ spec:
                 cpu: 100m
                 # 549Mi RSS at idle
                 memory: 1Gi
+                # matches the tmpfs sizeLimit below; without it the transcode cache
+                # counts as 100% over request and ranks first for nodefs eviction
+                ephemeral-storage: 10Gi
                 squat.ai/dri: 1
               limits:
                 cpu: 8 # 90d max was 5.97 cores
