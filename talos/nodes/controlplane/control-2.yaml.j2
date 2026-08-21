@@ -1,4 +1,3 @@
-{%- set pinned = talosVersion ~ "-k" ~ kernelVersion -%}
 ---
 # Chuwi ubox. Runs in-cluster Kepler (has RAPL, unlike the control-1 VM).
 #
@@ -8,19 +7,13 @@
 machine:
   install:
     disk: /dev/nvme1n1
-    # Our registry, not the Factory: tuppr rebuilds the upgrade target as
-    # "<repo>:<targetVersion>", taking <repo> from this very field. Left pointing at
-    # factory.talos.dev, the next Talos bump reinstalls the stock kernel with no error,
-    # because a locally imaged node reports no schematic and both of tuppr's guards no-op.
-    # One image per schematic, not per node: this node and control-3 both use
-    # talos/schematic.yaml and so share a byte-identical installer. Not the schematic id —
-    # that moves whenever a schematic is edited, and each new id is a fresh ghcr package that
-    # starts private (there is no way to default them public), stranding the node on an
-    # unpullable ref.
+    # Our registry, not the Factory: tuppr rebuilds the upgrade target from this field, so
+    # leaving it on factory.talos.dev reinstalls the stock kernel. Shared with control-3 (same
+    # schematic); the repo is named for the schematic, not its id, which moves on every edit.
+    # Full rationale: docker/talos-kernel/README.md "Version tagging".
     image: ghcr.io/tanguille/installer/shared:{{ pinned }}
-  # getTargetVersion (upgrade.go:855) prefers this over spec.talos.version, so control-1 and control-3 keep
-  # taking the plain version from the tuppr CR and still resolve against factory.talos.dev.
-  # It must match the tag above exactly or tuppr requests an image that was never published.
+  # getTargetVersion (upgrade.go:855) prefers this over spec.talos.version. Must match the tag
+  # above exactly or tuppr requests an image that was never published.
   nodeAnnotations:
     tuppr.home-operations.com/version: {{ pinned }}
   nodeLabels:

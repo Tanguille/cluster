@@ -62,8 +62,6 @@ machine:
   install:
     wipe: false
     grubUseUKICmdline: true
-    # Identical for every node; the schematic id is resolved per node and passed in.
-    image: factory.talos.dev/installer/{{ schematic }}:{{ talosVersion }}
   time:
     disabled: false
     servers: [{{ gateway }}]
