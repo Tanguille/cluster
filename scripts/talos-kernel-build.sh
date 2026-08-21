@@ -20,9 +20,7 @@ trap 'rm -rf "${WORK}"' EXIT
 # Read the kernel version out of the Renovate-managed line rather than taking it as an
 # argument: a bump PR is then what changes the build. Taken separately, Renovate could edit
 # the Dockerfile while the tag and the built kernel came from whatever number was typed.
-KERNEL_DOCKERFILE="${REPO_ROOT}/docker/talos-kernel/Dockerfile"
-KERNEL_VERSION="$(sed -nE 's/^ARG KERNEL_VERSION=(.+)$/\1/p' "${KERNEL_DOCKERFILE}")"
-: "${KERNEL_VERSION:?no 'ARG KERNEL_VERSION=' line in ${KERNEL_DOCKERFILE}}"
+KERNEL_VERSION="$(just kernel-version)"
 
 # tuppr compares this to the version the node reports, so the kernel has to be IN the string
 # or a kernel-only bump is invisible to it. See README.md "Version tagging".
@@ -165,6 +163,7 @@ DIGESTS="$(crane export "ghcr.io/siderolabs/extensions:${TALOS_VERSION}" - | tar
 # EXIT trap then cannot unlink the imager's output, leaking it and failing the script's exit.
 mkdir -p "${WORK}/out"
 declare -A BUILT=()
+PUBLISHED=()
 for node in "$@"; do
     schematic="$(just talos schematic-file "${node}")"
     # One image per SCHEMATIC, not per node — two schematics, two images, however many nodes.
@@ -186,6 +185,7 @@ for node in "$@"; do
         else
             log "installer for ${node}: copying from ${BUILT[${schematic}]}"
             crane copy "${BUILT[${schematic}]}" "${dst}"
+            PUBLISHED+=("${dst}")
         fi
         continue
     fi
@@ -217,6 +217,15 @@ for node in "$@"; do
         --arch amd64 --base-installer-image "${PREFIX}/installer-base:${VERSION}" "${args[@]}"
     crane push "${WORK}/out/installer-amd64.tar" "${dst}"
     BUILT[${schematic}]="${dst}"
+    PUBLISHED+=("${dst}")
 done
 
-log "done: ${PREFIX}/installer[/<node>]:${VERSION}"
+# Reported from here rather than rebuilt in CI: the mapping from schematic to repo lives in the
+# loop above, and a second copy in a workflow step drifts. Under Actions this becomes the job
+# summary; locally it is the closing log line.
+{
+    echo "### Talos custom kernel"
+    echo "Linux \`${KERNEL_VERSION}\` on Talos \`${TALOS_VERSION}\`"
+    echo
+    for ref in "${PUBLISHED[@]}"; do echo "- \`${ref}\`"; done
+} >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"

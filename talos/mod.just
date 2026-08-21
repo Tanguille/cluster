@@ -76,6 +76,14 @@ download-image node version:
         -o "{{ source_directory() }}/talos-{{ version }}-${schematic:0:8}.iso" \
         "https://factory.talos.dev/image/${schematic}/{{ version }}/metal-amd64.iso"
 
+# The node files are the fleet inventory, so a caller cannot build against a stale hand-written
+# list. Schematics are `<node>.schematic.yaml`, so the glob picks up node files only.
+[private]
+nodes:
+    names="$(basename -s .yaml.j2 -a "{{ source_directory() }}"/nodes/*/*.yaml.j2 | sort | tr '\n' ' ')"
+    [[ -n "${names// /}" ]] || { echo "no node files under nodes/" >&2; exit 1; }
+    echo "${names}"
+
 # Directory placement is the single source of truth for a node's role; machine.type is
 # set by the role layer, so a node cannot claim one role by filename and another by content.
 [private]
@@ -128,7 +136,9 @@ machine-image node:
     [[ -n "${image}" ]] || { echo "no install image in rendered config for {{ node }}" >&2; exit 1; }
     echo "${image}"
 
-[doc('Build the custom-kernel Talos installer for the given nodes (docker/talos-kernel/README.md)')]
-kernel-build +nodes:
+[doc('Build the custom-kernel Talos installers; defaults to every node (docker/talos-kernel/README.md)')]
+kernel-build *nodes:
+    names="{{ nodes }}"
+    [[ -n "${names}" ]] || names="$(just talos nodes)"
     "{{ justfile_directory() }}/scripts/talos-kernel-build.sh" \
-        "$(just tuppr-version talos)" {{ nodes }}
+        "$(just tuppr-version talos)" ${names}
