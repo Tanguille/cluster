@@ -41,17 +41,11 @@ spec:
       repository: quay.io/ceph/ceph
       tag: v20.2.4@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
     cephClusterSpec:
-      # Ceph 20 flags cipher `aes` as HEALTH_ERR, which makes Rook refuse the OSD upgrade
-      # ("refusing to upgrade"), stranding OSDs on 20.2.3 while mon/mgr/mds ran 20.2.4.
-      # aes256k needs the in-kernel Ceph client from Linux 7.0; all nodes run 7.1.9 since 2026-08-21.
-      # keyType is a no-op unless keyRotationPolicy is set.
+      # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
+      # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
       security:
         cephx:
-          # allowedCiphers: ["aes256k"] REVERTED 2026-08-21. Every key is aes256k, but restricting
-          # the cluster to it broke rbd provisioning: `failed to get connection: rados: ret=-22`,
-          # PVCs stuck Pending. ceph-csi v3.17.0 ships librados 20.2.1 against a 20.2.4 cluster.
-          # Restarting the CSI plugins did not clear it. Re-enable only once that is understood and
-          # a fresh PVC binds; the keys below already give the security win without it.
+          # allowedCiphers ["aes256k"] reverted: it broke rbd provisioning with rados ret=-22.
           daemon:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
@@ -60,9 +54,7 @@ spec:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
             keyType: aes256k
-            # 1 during the rotation kept the prior key alive so in-flight PV connections survived
-            # (they did, zero pods disrupted). 0 now deletes the stale generation-1 `aes` keys,
-            # which are the only remaining AUTH_INSECURE_CLIENT_KEY_TYPE entities.
+            # 0 deletes prior-generation keys; raise to 1 to keep them alive across a rotation.
             keepPriorKeyCountMax: 0
           rbdMirrorPeer:
             keyRotationPolicy: KeyGeneration
