@@ -64,6 +64,17 @@ RUN cd /src \
     && { diff -u /tmp/config.before .config > /tmp/delta.diff || true; } \
     && echo "config delta: +$(grep -c '^+[^+]' /tmp/delta.diff) -$(grep -c '^-[^-]' /tmp/delta.diff)"
 
+# objtool sets up an alternate signal stack sized from the libc SIGSTKSZ constant. musl (this
+# builder) fixes that at compile time, while the x86 kernel raises sigaltstack's accepted
+# minimum on CPUs with a large XSAVE frame (AMX) -- so on such a host the call fails with
+# ENOMEM, which glibc renders as the misleading "Out of memory". Nothing is short of memory;
+# the stack is just declared too small. Scaling every SIGSTKSZ use keeps the malloc and the
+# ss_size consistent. Guarded because a silent no-op here reads as "the fix did not work".
+ARG SIGSTKSZ_SCALE=16
+RUN cd /src \
+    && grep -q '\bSIGSTKSZ\b' tools/objtool/signal.c \
+    && sed -i "s/\bSIGSTKSZ\b/(SIGSTKSZ * ${SIGSTKSZ_SCALE})/g" tools/objtool/signal.c
+
 # No separate `make modules`: the top-level Makefile makes modules part of the default goal
 # whenever CONFIG_MODULES is set (7.1.9 Makefile:1677 `all: modules`).
 RUN cd /src && make LLVM=1 -j"$(nproc)"
