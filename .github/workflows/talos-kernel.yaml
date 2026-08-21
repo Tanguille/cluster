@@ -52,6 +52,32 @@ jobs:
           sudo systemctl start docker.service
           docker info --format '{{.DockerRootDir}}'
 
+      # CONFIG_LTO_CLANG_THIN is set, so the vmlinux link runs an lld backend per hardware
+      # thread, each holding gigabytes -- peak link memory blows past the runner's 16 GB and
+      # the runner process is killed ("lost communication with the server") ~43m in, after the
+      # far lighter compile phase has already succeeded. Swap rather than fewer backends: the
+      # kernel that comes out is identical, and the compile phase that dominates the ~2h45m
+      # keeps every core.
+      #
+      # On /, not /mnt: the step above hands /mnt's ~66 GB to Docker, which needs ~35-40 GB of
+      # it, so a swapfile there would re-create the ENOSPC that move exists to avoid. Moving
+      # the data-root leaves / idle, so take the swap out of the space Docker just vacated.
+      # Sized from what is actually free, keeping 5 GB back, rather than assuming a figure.
+      - name: Add swap for the ThinLTO link
+        run: |
+          free -h
+          free_g="$(df -BG --output=avail / | tail -1 | tr -dc '0-9')"
+          swap_g=$(( free_g - 5 ))
+          # 32G caps it at 3x the shortfall seen; more just costs fallocate time on a bigger runner.
+          [[ "${swap_g}" -le 32 ]] || swap_g=32
+          [[ "${swap_g}" -ge 8 ]] || { echo "only ${free_g}G free on /, refusing to size swap" >&2; exit 1; }
+          echo "allocating ${swap_g}G swap of ${free_g}G free"
+          sudo fallocate -l "${swap_g}G" /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
 
       # GITHUB_TOKEN can push to ghcr.io/<repo-owner>/* — but only to packages the repo has
