@@ -15,14 +15,10 @@ gateway := "192.168.0.1"
 
 [doc('Render a node full machine config to stdout')]
 render-config node:
-    schematic="$(just talos schematic-id "{{ node }}")"
     role="$(just talos node-role "{{ node }}")"
-    # Belt and braces: both callees already fail on empty, but schematic feeds an install image
-    # path where an empty value renders a plausible ref that resolves to nothing.
-    [[ -n "${schematic}" ]] || { echo "empty schematic id for {{ node }}" >&2; exit 1; }
     [[ -n "${role}" ]] || { echo "empty role for {{ node }}" >&2; exit 1; }
     # One context for every layer, so any layer may reference any of these.
-    ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}" -D "schematic=${schematic}")
+    ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}")
     # Rendered to variables before talosctl runs, so a failed layer aborts before a single byte
     # reaches stdout. Inline <(just template) dropped the layer silently and still emitted a
     # config, which apply-node pipes straight to a node.
@@ -110,6 +106,8 @@ schematic-file node:
     done
     echo "{{ source_directory() }}/schematic.yaml"
 
+# Not on the render path: every node pins its own installer, so nothing templates a Factory ref.
+# Kept for download-image, and scripts/talos-kernel-build.sh reads the schematic files themselves.
 # Schematics are plain YAML, not templates: POST the file directly rather than routing it through
 # `template`, which would decrypt the secrets bundle to render a file that references no secrets.
 # Bounded because a stalled factory blocks every render. Retries are safe: the endpoint is
@@ -130,7 +128,6 @@ machine-image node:
     image="$(just talos render-config "{{ node }}" | yq -er 'select(.machine.install != null) | .machine.install.image')"
     [[ -n "${image}" ]] || { echo "no install image in rendered config for {{ node }}" >&2; exit 1; }
     echo "${image}"
-
 
 [doc('Build the custom-kernel Talos installer for the given nodes (docker/talos-kernel/README.md)')]
 kernel-build +nodes:

@@ -13,6 +13,18 @@ Step-by-step procedures for frequent cluster tasks.
 - Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
 - Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
 
+## Ceph: `crash ls-new` is a window, not a history
+
+`ceph crash ls-new` only retains entries newer than `mgr/crash/warn_recent_interval` (86400s here),
+so its oldest entry is the floor of that window, not when the problem started. Reading a first-seen
+date off it under-reports age, in one case by eight months. Use `ceph crash ls` for the real start.
+
+## Ceph: `crash ls-new` is a window, not a history
+
+`ceph crash ls-new` only retains entries newer than `mgr/crash/warn_recent_interval` (86400s here),
+so its oldest entry is the floor of that window, not when the problem started. Reading a first-seen
+date off it under-reports age, in one case by eight months. Use `ceph crash ls` for the real start.
+
 ## Shell: statuses `set -e` does not see
 
 `set -euo pipefail` does **not** catch a failure in a process substitution, or in a command
