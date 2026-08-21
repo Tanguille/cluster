@@ -17,6 +17,15 @@ tuppr-version kind:
     yq -e '.spec.{{ kind }}.version' \
         "{{ justfile_directory() }}/kubernetes/apps/system-upgrade/tuppr/upgrades/{{ kind }}upgrade.yaml"
 
+# Renovate maintains the kernel version in one place, the Dockerfile ARG. Read here rather than
+# re-parsed per caller, so a node cannot advertise a version whose image was never built.
+# Guarded because sed exits 0 with empty output, which neither --strict nor `set -e` catches.
+[private]
+kernel-version:
+    version="$(sed -nE 's/^ARG KERNEL_VERSION=(.+)$/\1/p' "{{ justfile_directory() }}/docker/talos-kernel/Dockerfile")"
+    [[ -n "${version}" ]] || { echo "no 'ARG KERNEL_VERSION=' in docker/talos-kernel/Dockerfile" >&2; exit 1; }
+    echo "${version}"
+
 # Decrypts on stdout only; callers pipe it so the plaintext lives no longer than the command
 # and never reaches disk or a shell variable.
 [private]
@@ -32,11 +41,7 @@ talsecret:
 template file *args:
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
-    # Renovate maintains the kernel version in one place, the Dockerfile ARG. Reading it here
-    # stops a node advertising a version whose image was never built. Guarded because sed exits
-    # 0 with empty output, which --strict cannot catch.
-    kernel_version="$(sed -nE 's/^ARG KERNEL_VERSION=(.+)$/\1/p' "{{ justfile_directory() }}/docker/talos-kernel/Dockerfile")"
-    [ -n "${kernel_version}" ] || { echo "no 'ARG KERNEL_VERSION=' in docker/talos-kernel/Dockerfile" >&2; exit 1; }
+    kernel_version="$(just kernel-version)"
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
         -D "talosVersion=${talos_version}" \
