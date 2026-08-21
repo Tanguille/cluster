@@ -110,8 +110,8 @@ schematic-file node:
 # Kept for download-image, and scripts/talos-kernel-build.sh reads the schematic files themselves.
 # Schematics are plain YAML, not templates: POST the file directly rather than routing it through
 # `template`, which would decrypt the secrets bundle to render a file that references no secrets.
-# Bounded because a stalled factory blocks every render. Retries are safe: the endpoint is
-# content-addressed, so re-POSTing identical content returns the same id.
+# Bounded so `download-image` fails rather than hanging on a stalled factory. Retries are safe:
+# the endpoint is content-addressed, so re-POSTing identical content returns the same id.
 [private]
 schematic-id node:
     file="$(just talos schematic-file "{{ node }}")"
