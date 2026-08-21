@@ -61,7 +61,7 @@ jobs:
       #
       # On /, not /mnt: the step above hands /mnt's ~66 GB to Docker, which needs ~35-40 GB of
       # it, so a swapfile there would re-create the ENOSPC that move exists to avoid. Moving
-      # the data-root leaves / idle, so take the swap out of the space Docker just vacated.
+      # the data-root leaves / idle with 87 GB free (measured), so take the swap from there.
       # Sized from what is actually free, keeping 5 GB back, rather than assuming a figure.
       - name: Add swap for the ThinLTO link
         run: |
@@ -72,10 +72,13 @@ jobs:
           [[ "${swap_g}" -le 32 ]] || swap_g=32
           [[ "${swap_g}" -ge 8 ]] || { echo "only ${free_g}G free on /, refusing to size swap" >&2; exit 1; }
           echo "allocating ${swap_g}G swap of ${free_g}G free"
-          sudo fallocate -l "${swap_g}G" /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          # Not /swapfile: the runner already has one there, active, and fallocate on a swapped-on
+          # file fails with ETXTBSY. This is added alongside it rather than replacing it.
+          sudo fallocate -l "${swap_g}G" /swapfile-thinlto
+          sudo chmod 600 /swapfile-thinlto
+          sudo mkswap /swapfile-thinlto
+          sudo swapon /swapfile-thinlto
+          swapon --show
           free -h
 
       - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
