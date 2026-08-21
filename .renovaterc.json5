@@ -96,7 +96,11 @@
       // merged, so a comment on the pin does not hold it -- the PR has to not exist.
       description: 'omniroute next digest -- HELD. The current `next` build ships package.json with "type": "module" while server.js still calls require(), so the entrypoint throws at boot and the pod crashloops (upstream d87b97a78, no fixed build as of 2026-08-21). Re-enable together with the hold note in the omniroute HelmRelease once a `next` build starts cleanly.',
       matchDatasources: ["docker"],
-      matchPackageNames: ["diegosouzapw/omniroute"],
+      // regex form on purpose: the HelmRelease writes the image as
+      // docker.io/diegosouzapw/omniroute, so the depName carries the registry
+      // prefix and the bare exact-match name never matched -- the first attempt
+      // at this rule was bypassed by two bumps within 90 seconds.
+      matchPackageNames: ["/diegosouzapw\\/omniroute/"],
       enabled: false
     },
     {
