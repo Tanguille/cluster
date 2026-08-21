@@ -104,7 +104,10 @@ spec:
                   # restart can regrow the tier past the floor in under a day)
                   # left nothing that old to evict.
                   n=0
-                  find /kvoffload -type f -printf '%T@ %p\n' | sort -n | cut -d' ' -f2- |
+                  # stat -c, not find -printf: busybox find has no -printf, so the
+                  # eviction path exited 1 without deleting anything. Never hit before
+                  # 2026-08-22 because avail always cleared the old 80Gi floor.
+                  find /kvoffload -type f -exec stat -c '%Y %n' {} + | sort -n | cut -d' ' -f2- |
                   while IFS= read -r f; do
                     rm -f -- "$$f"
                     n=$$((n + 1))
