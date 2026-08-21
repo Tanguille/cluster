@@ -106,8 +106,7 @@ schematic-file node:
     done
     echo "{{ source_directory() }}/schematic.yaml"
 
-# Not on the render path: every node pins its own installer, so nothing templates a Factory ref.
-# Kept for download-image, and scripts/talos-kernel-build.sh reads the schematic files themselves.
+# Off the render path since every node pins its own installer: `download-image` is the only caller.
 # Schematics are plain YAML, not templates: POST the file directly rather than routing it through
 # `template`, which would decrypt the secrets bundle to render a file that references no secrets.
 # Bounded so `download-image` fails rather than hanging on a stalled factory. Retries are safe:

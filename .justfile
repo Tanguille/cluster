@@ -42,6 +42,7 @@ template file *args:
         -D "talosVersion=${talos_version}" \
         -D "kubernetesVersion=${kubernetes_version}" \
         -D "kernelVersion=${kernel_version}" \
+        -D "pinned=${talos_version}-k${kernel_version}" \
         {{ args }} "{{ file }}" -
 
 [doc('Force Flux to pull in changes from the Git repository')]
