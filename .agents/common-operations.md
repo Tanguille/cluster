@@ -13,11 +13,14 @@ Step-by-step procedures for frequent cluster tasks.
 - Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
 - Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
 
-## Ceph: `crash ls-new` is a window, not a history
+## Ceph: `crash ls-new` hides archived crashes, not old ones
 
-`ceph crash ls-new` only retains entries newer than `mgr/crash/warn_recent_interval` (86400s here),
-so its oldest entry is the floor of that window, not when the problem started. Reading a first-seen
-date off it under-reports age, in one case by eight months. Use `ceph crash ls` for the real start.
+`ceph crash ls-new` filters on exactly one thing, whether a crash is archived (`crash/module.py`
+`do_ls_new`); age plays no part. `mgr/crash/warn_recent_interval` (86400s here) only gates the
+`RECENT_CRASH` health warning, so it is **not** what bounds this list. The oldest entry is the floor
+of "since the last `crash archive`/`archive-all`", not when the problem started -- which is how a
+first-seen date read off it under-reported an age by eight months. Use `ceph crash ls`, which lists
+archived crashes too, and `ceph crash info <crash-id>` for the real timestamps.
 
 ## Shell: statuses `set -e` does not see
 
