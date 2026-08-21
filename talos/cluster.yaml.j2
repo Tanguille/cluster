@@ -64,33 +64,9 @@ machine:
     grubUseUKICmdline: true
     # Identical for every node; the schematic id is resolved per node and passed in.
     image: factory.talos.dev/installer/{{ schematic }}:{{ talosVersion }}
-  files:
-    - op: create
-      path: /etc/cri/conf.d/20-customization.part
-      permissions: 0o0
-      content: |
-        [plugins."io.containerd.cri.v1.images"]
-          discard_unpacked_layers = false
   time:
     disabled: false
     servers: [{{ gateway }}]
-  sysctls:
-    fs.inotify.max_user_watches: "1048576" # Watchdog
-    fs.inotify.max_user_instances: "8192" # Watchdog
-    net.core.default_qdisc: "fq" # Fair Queuing - improves network fairness and reduces latency
-    net.core.rmem_max: "67108864" # Maximum TCP receive window (64MB) - improves throughput
-    net.core.wmem_max: "67108864" # Maximum TCP send window (64MB) - improves throughput
-    net.ipv4.tcp_congestion_control: "bbr" # BBR congestion control - better performance than cubic
-    net.ipv4.tcp_fastopen: "3" # Enables TCP Fast Open for both client and server
-    net.ipv4.tcp_mtu_probing: "1" # Enables automatic MTU probing for optimal packet size
-    net.ipv4.tcp_rmem: "4096 87380 33554432" # TCP receive buffer sizes (min, default, max)
-    net.ipv4.tcp_wmem: "4096 65536 33554432" # TCP send buffer sizes (min, default, max)
-    net.ipv4.tcp_window_scaling: "1" # Enables TCP window scaling for better throughput
-    net.ipv4.neigh.default.gc_thresh1: "4096" # Prevent ARP cache overflows
-    net.ipv4.neigh.default.gc_thresh2: "8192" # Prevent ARP cache overflows
-    net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
-    net.ipv4.tcp_slow_start_after_idle: "0" # Preserve congestion window after idle
-    user.max_user_namespaces: "11255" # User Namespaces
   features:
     diskQuotaSupport: true
     kubePrism:
@@ -123,3 +99,52 @@ cluster:
       kubernetes:
         disabled: true
       service: {}
+---
+# Was a machine.files drop-in at /etc/cri/conf.d/20-customization.part, which needed a reboot to
+# change. As a document, applying or editing it restarts CRI on its own.
+# Keeps unpacked layers so Talos can serve them without re-unpacking after an image GC.
+apiVersion: v1alpha1
+kind: CRICustomizationConfig
+name: keep-unpacked-layers
+content: |
+  [plugins."io.containerd.cri.v1.images"]
+    discard_unpacked_layers = false
+---
+# fstrim. Absent on an upgraded cluster means no automatic trimming at all. Talos picks a stable
+# hash-derived slot per volume per node, so the fleet does not trim in lockstep. control-1 is the
+# TrueNAS VM with no NVMe device, so its discards pass through to the hypervisor.
+# Interval is stated rather than defaulted: talosctl accepts 0s while rejecting 1s against its own
+# 10s minimum, so zero is an unset sentinel and an omitted field lands on it.
+apiVersion: v1alpha1
+kind: FilesystemTrimConfig
+interval: 168h0m0s
+---
+# xfs_scrub, off until this document exists. Closes #4289. The scrub slot is hash-derived per
+# volume per node, so control-3 (Micron 7450, thermal-shutdown history) never scrubs at the same
+# moment as its peers. Interval stated for the same reason as the trim document above.
+apiVersion: v1alpha1
+kind: FilesystemScrubConfig
+interval: 168h0m0s
+---
+# Was machine.sysctls, which Talos 1.14 deprecates (the marker is in this document's own schema
+# description, not the v1alpha1 one). Same keys and values; the field is `params`, not `sysctls`.
+# The two merge with this document winning on conflicts, so keeping both would only hide drift.
+apiVersion: v1alpha1
+kind: SysctlConfig
+params:
+  fs.inotify.max_user_watches: "1048576" # Watchdog
+  fs.inotify.max_user_instances: "8192" # Watchdog
+  net.core.default_qdisc: "fq" # Fair Queuing - improves network fairness and reduces latency
+  net.core.rmem_max: "67108864" # Maximum TCP receive window (64MB) - improves throughput
+  net.core.wmem_max: "67108864" # Maximum TCP send window (64MB) - improves throughput
+  net.ipv4.tcp_congestion_control: "bbr" # BBR congestion control - better performance than cubic
+  net.ipv4.tcp_fastopen: "3" # Enables TCP Fast Open for both client and server
+  net.ipv4.tcp_mtu_probing: "1" # Enables automatic MTU probing for optimal packet size
+  net.ipv4.tcp_rmem: "4096 87380 33554432" # TCP receive buffer sizes (min, default, max)
+  net.ipv4.tcp_wmem: "4096 65536 33554432" # TCP send buffer sizes (min, default, max)
+  net.ipv4.tcp_window_scaling: "1" # Enables TCP window scaling for better throughput
+  net.ipv4.neigh.default.gc_thresh1: "4096" # Prevent ARP cache overflows
+  net.ipv4.neigh.default.gc_thresh2: "8192" # Prevent ARP cache overflows
+  net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
+  net.ipv4.tcp_slow_start_after_idle: "0" # Preserve congestion window after idle
+  user.max_user_namespaces: "11255" # User Namespaces
