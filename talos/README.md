@@ -101,19 +101,46 @@ fails to pull. Check which nodes use a non-Factory installer before changing a s
 
 ## Talos 1.14 adoption
 
-The version lives in the tuppr CR, not here. Once the cluster is on 1.14, these documents become
-available and each should land as its own change with a `diff-node` review. Swept and confirmed
-renderable against this pipeline:
+The version lives in the tuppr CR, not here.
+
+**These documents cannot be applied before the nodes are on 1.14.** Not a style rule, a hard
+gate: a 1.13.9 node rejects the config outright rather than ignoring what it does not know.
+
+```text
+error decoding document v1alpha1/CRICustomizationConfig/keep-unpacked-layers:
+  "CRICustomizationConfig" "v1alpha1": not registered
+```
+
+So `apply-node` and `diff-node` both fail against a node that has not been upgraded yet. Adopt
+only after tuppr has rolled every node, and re-run `diff-node` on all three before applying.
+
+### Adopted
 
 | Document | Replaces / adds |
 | --- | --- |
-| `CRICustomizationConfig` | `machine.files` CRI drop-in; no reboot needed to change CRI config |
-| `FilesystemTrimConfig` | absent on upgraded clusters, so trimming is off by default |
-| `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd). Check first: no in-tree iSCSI volume plugin. Ceph CSI is unaffected |
-| `SysctlConfig` / `SysfsConfig` / `KernelModuleConfig` / `UdevRulesConfig` | the deprecated `machine.*` equivalents |
-| `KubeletConfig` + `KubeNodeConfig` | most of the kubelet block and the node labels |
-| `FilesystemScrubConfig` | XFS scrub; note control-3's XFS shutdown history |
-| `EtcFileConfig`, `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
+| `CRICustomizationConfig` | the `machine.files` drop-in at `/etc/cri/conf.d/20-customization.part`. Editing it restarts CRI instead of needing a reboot |
+| `FilesystemTrimConfig` | fstrim, weekly. Absent means no automatic trimming at all |
+| `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default. Closes #4289 |
+| `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates. All 16 keys verified identical |
+
+Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does
+not scrub or trim in lockstep. That is what makes weekly safe on control-3 despite its
+thermal-shutdown history: it never runs at the same moment as its peers.
+
+Trim reaches only what the node can discard. control-2 and control-3 install to real NVMe; control-1
+is the TrueNAS VM, installs to `/dev/vda`, and has no NVMe device at all (`talosctl get disks` shows
+only virtio and rbd), so its discards pass through to whatever the hypervisor does with them.
+
+### Deliberately not adopted
+
+| Document | Why not |
+| --- | --- |
+| `OOMConfig` | a PSI-expression OOM handler. Real potential here given this cluster's OOM cascades, but it changes which cgroup dies under pressure. Needs a baseline first, not a blind default |
+| `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd) is a runtime change for every workload; wants its own change and its own rollback |
+| `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.0-rc.1) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
+| `SysfsConfig` / `CRIBaseRuntimeSpecConfig` | the other two v1alpha1 fields 1.14 deprecates; neither is used in this repo |
+| `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
+| `EtcFileConfig` | not needed *yet*, but upstream uses it for `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize). Our five NFS mounts run at kernel defaults; worth its own change |
 
 `VolumeConfig`'s `filesystem.xfs.minAllocationGroupSize` only affects volumes Talos formats, so it
 is a wipe-time decision rather than a live one.
