@@ -361,11 +361,11 @@ spec:
   resources:
     cpu: "2"
     # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
-    # under 4x32K concurrent load with the tier full (7.7Gi headroom).
-    # Headroom kept for the load spike rather than trimmed -- an OOMKill
-    # mid-load throws away the compile cache this node takes ~40min to
-    # rebuild.
-    memory: 36Gi
+    # under 4x32K concurrent load with the tier full (3.7Gi headroom).
+    # There is no memory limit, so this is scheduler bookkeeping only: it
+    # must stay above the 28.3Gi peak to keep vllm under-request and off
+    # the eviction list, but every Gi above that is reserved and unusable.
+    memory: 32Gi
   endpoint:
     port: 8000
   probeOverrides:
