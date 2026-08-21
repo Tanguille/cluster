@@ -45,15 +45,19 @@ spec:
       # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
       security:
         cephx:
-          # allowedCiphers ["aes256k"] reverted: it broke rbd provisioning with rados ret=-22.
+          # allowedCiphers ["aes256k"] omitted: ceph-csi still needs aes to be accepted.
           daemon:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
             keyType: aes256k
           csi:
             keyRotationPolicy: KeyGeneration
-            keyGeneration: 2
-            keyType: aes256k
+            # gen 3 rotates back to aes. ceph-csi v3.17.0 ships librados 20.2.1, which cannot use
+            # an aes256k key: provisioning failed with `rados: ret=-22` for 9h. Proven by the same
+            # key working from the 20.2.4 toolbox and failing from the CSI pod. Return to aes256k
+            # once ceph-csi ships a librados that supports it.
+            keyGeneration: 3
+            keyType: aes
             # 0 deletes prior-generation keys; raise to 1 to keep them alive across a rotation.
             keepPriorKeyCountMax: 0
           rbdMirrorPeer:
