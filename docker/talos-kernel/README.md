@@ -232,7 +232,7 @@ talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<node>:<version> \
 Do one node at a time and confirm `etcd` rejoins between each — the fleet is three
 control-plane nodes and etcd tolerates exactly one down.
 
-### The rollout is not self-closing yet
+### The rollout is not self-closing
 
 Booting a node off a locally imaged installer does **not** finish the job, and the failure is
 silent. A locally imaged node reports no `schematic` extension, and `looksLikeGenericInstaller`
@@ -248,7 +248,7 @@ reported "All nodes are up to date" only because `findNextNodes` skips every nod
 `Status.CompletedNodes` before it ever compares versions; that list resets when the CR
 generation changes, i.e. on the next Talos bump.
 
-Two things have to be true for a node, and both are now done for control-2:
+Two things have to be true for a node. All three nodes satisfy both as of 2026-08-21:
 
 1. **`.machine.install.image` repointed** to `ghcr.io/tanguille/installer/<schematic>`. Left on
    `factory.talos.dev`, tuppr's bare `<repo>:<targetVersion>` substitution silently reinstalls
@@ -258,10 +258,18 @@ Two things have to be true for a node, and both are now done for control-2:
    Renovate-managed against `siderolabs/talos` and would rewrite `v1.13.9-k7.1.9` to
    `v1.13.10`, eating the suffix. So the kernel half lives in a per-node
    `machine.nodeAnnotations."tuppr.home-operations.com/version"`, which `getTargetVersion`
-   prefers over the CR (`upgrade.go:855`). control-1 and control-3 keep taking the plain
-   version from `spec.talos.version` and still resolve against the Factory.
+   prefers over the CR (`upgrade.go:855`).
 
-Still outstanding for the other two nodes: build their installers, repoint and annotate them
-the same way, and flip each new ghcr package public. Until then treat a Talos bump as "re-run
-the build and re-cut the affected nodes by hand", and keep at least one node on stock so a bad
-kernel cannot take the fleet.
+Keep the annotation per-node rather than hoisting it to a shared layer: it is what allows one
+node to move while the others stay put, which is how all three were rolled.
+
+**A third thing is true for the CR.** Once a node reports `v<talos>-k<kernel>`, tuppr derives the
+talosctl job image tag from that same string and pulls
+`ghcr.io/siderolabs/talosctl:v1.13.9-k7.1.9`, which siderolabs never publishes — the job hangs in
+ImagePullBackOff until `policy.timeout`. Measured on control-2 on 2026-08-21. `spec.talosctl.image.tag`
+is pinned to the plain upstream version to stop it. It only bites on the *second* roll of a node,
+because the first still has an unsuffixed version at the moment the job is built.
+
+Since every node now runs a custom kernel, no node is left on stock as a fallback, and a Talos bump
+still means "re-run the build, then re-cut the nodes" — `just talos upgrade-node <node> <ip>` reads
+the pinned image straight out of the rendered config.
