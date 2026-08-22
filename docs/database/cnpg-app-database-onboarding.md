@@ -100,9 +100,14 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
   ```
 - **Extensions.** Declare them by name and version on `Database.spec.extensions` (memini:
   `vchord` + `vector`; crowdsec: `vector`). `vchord` versions are Renovate-grouped with the
-  cluster's vchord-scratch image; `vector` is the pgvector bundled in that image, so read its
-  version from the pinned image (not an upstream pgvector release) and bump it in the same PR
-  as the image. A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
+  cluster's vchord-scratch image. `vector` is pgvector, which ships in the base CNPG postgresql
+  image, **not** vchord-scratch (that image contains only `vchord.so`) — Renovate doesn't track
+  it, so bump it manually whenever the base image bumps, reading the true version from the
+  image itself rather than assuming it moved:
+  ```
+  docker run --rm --entrypoint cat <cluster.yaml imageName> /usr/share/postgresql/18/extension/vector.control
+  ```
+  A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
 - **YAML anchor trap.** Some app-template HelmReleases define the secret `envFrom` anchor
   (`&envFrom` / `&secret`) **on the `init-db` container** and alias it on the app container. Deleting
   the init-db block also deletes the anchor and breaks the alias — relocate an explicit `secretRef`
