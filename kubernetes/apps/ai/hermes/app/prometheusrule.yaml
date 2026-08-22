@@ -18,15 +18,21 @@ spec:
         # it, so a dead cron stayed dark 40h.
         # A paused job's last status is frozen history, not a live failure: it will never
         # re-run, so the alert would never clear (kanban-actualizer, paused 2026-08-05).
+        # The 24h clause bounds the same staleness for infrequent jobs: last_status_ok
+        # holds the previous run's result until the next one, so a weekly cron that hit
+        # a transient backend error fired for 5 days straight (life-os-weekly-review,
+        # 2026-08-17). One notification per broken cron per day; a job that keeps
+        # failing re-fires every cycle, so nothing is hidden.
         - alert: HermesCronJobFailed
           expr: |-
             last_over_time(hermes_cron_last_status_ok[30m]) == 0
               unless on (id) last_over_time(hermes_cron_paused[30m]) == 1
+              and on (id) (time() - last_over_time(hermes_cron_last_run_timestamp[30m])) < 86400
           for: 15m
           annotations:
             summary: >-
-              Hermes cron {{ $labels.name }} last run failed — it will keep failing on
-              schedule until the cause is fixed
+              Hermes cron {{ $labels.name }} failed within the last 24h — it will keep
+              failing on schedule until the cause is fixed
           labels:
             severity: warning
 
