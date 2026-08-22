@@ -52,14 +52,17 @@ spec:
             keyType: aes256k
           csi:
             keyRotationPolicy: KeyGeneration
-            # gen 3 rotates back to aes. ceph-csi v3.17.0 ships librados 20.2.1, which cannot use
-            # an aes256k key: provisioning failed with `rados: ret=-22` for 9h. Proven by the same
-            # key working from the 20.2.4 toolbox and failing from the CSI pod. Return to aes256k
-            # once ceph-csi ships a librados that supports it.
-            keyGeneration: 3
-            keyType: aes
-            # 0 deletes prior-generation keys; raise to 1 to keep them alive across a rotation.
-            keepPriorKeyCountMax: 0
+            # gen 3 held aes because ceph-csi v3.17.0 ships librados 20.2.1, which cannot use an
+            # aes256k key: provisioning failed with `rados: ret=-22` for 9h. v3.17.1 ships 20.2.4.
+            # Verified 2026-08-22 before this flip: a throwaway aes256k entity read ceph-blockpool
+            # from a v3.17.1 csi-rbdplugin pod (rados ls, exit 0), the same call that failed on
+            # v3.17.0. Requires the v3.17.1 pin in ../app/helmrelease.yaml.
+            keyGeneration: 4
+            keyType: aes256k
+            # 1, not 0, in the same commit as the flip above: 0 deletes the prior-generation key
+            # immediately, so a rotation that fails has nothing to fall back to. That is what made
+            # the 2026-08-21 outage 9h instead of minutes.
+            keepPriorKeyCountMax: 1
           rbdMirrorPeer:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
