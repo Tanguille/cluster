@@ -72,11 +72,9 @@ RUN cd /src \
 # ss_size consistent. Guarded because a silent no-op here reads as "the fix did not work".
 # 16 puts musl's 8 KiB x86_64 SIGSTKSZ at 128 KiB, well past the largest sigframe x86 defines,
 # and it costs one short-lived mapping in a build tool -- so err high rather than tune it.
-ARG SIGSTKSZ_SCALE=16
 RUN cd /src \
-    && [[ "${SIGSTKSZ_SCALE}" =~ ^[1-9][0-9]*$ ]] \
     && grep -q '\bSIGSTKSZ\b' tools/objtool/signal.c \
-    && sed -i "s/\bSIGSTKSZ\b/(SIGSTKSZ * ${SIGSTKSZ_SCALE})/g" tools/objtool/signal.c
+    && sed -i 's/\bSIGSTKSZ\b/(SIGSTKSZ * 16)/g' tools/objtool/signal.c
 
 # No separate `make modules`: the top-level Makefile makes modules part of the default goal
 # whenever CONFIG_MODULES is set (7.1.9 Makefile:1677 `all: modules`).
