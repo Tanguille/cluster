@@ -4,3 +4,20 @@ apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 resources:
   - scaledobject.yaml
+patches:
+  # This component's ScaledObject drives Deployment/${APP} to 0 replicas; drift
+  # detection must not fight that back to the chart's hardcoded replicas: 1.
+  - patch: |-
+      apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      metadata:
+        name: not-used
+      spec:
+        driftDetection:
+          ignore:
+            - paths: ["/spec/replicas"]
+              target:
+                kind: Deployment
+    target:
+      group: helm.toolkit.fluxcd.io
+      kind: HelmRelease
