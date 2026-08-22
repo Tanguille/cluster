@@ -81,7 +81,7 @@ Tested 7Gi vs 8Gi at matched ~92% pool utilization margin: 8Gi measured
 **worse** (98 tok/s vs 113, P99 ITL spiked to 1.6s) -- more KV reservation
 means less free VRAM for the dynamic buffers, not more headroom. 7Gi shipped.
 
-## max-model-len: 262144 -> 147456
+## max-model-len: 246944 -> 147456
 
 The old value (246,944, via `vllmConfig.maxModelLen`) came from a pre-DFlash2
 bisection of the pool/cap concurrency-decode ratio -- not re-validated under
