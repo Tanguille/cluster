@@ -10,6 +10,10 @@ on:
       - kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml
       - kubernetes/apps/database/cloudnative-pg/databases/resourceset.yaml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
