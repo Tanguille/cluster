@@ -25,16 +25,9 @@ spec:
               # On `next` for two upstream fixes: LKGP pin never clears on
               # failure (#10034) and auto/* credential lookups misresolve
               # "opencode" as "opencode-zen" (#10892). Both merged into
-              # release/v3.8.50 as of 2026-08-22; no tagged release carries
-              # them yet -- move to v3.8.50 once it ships. Digest-pinned since
-              # Renovate can't diff `next` as a version, only offer digest
-              # bumps that walk the branch forward.
-              # Bumped past the prior e8e2e69 hold (ac9606f crashloop: `"type":
-              # "module"` in package.json vs require() in server.js). That
-              # server.js is gone on release/v3.8.50 (start script is now
-              # `node scripts/dev/run-next.mjs start`), but re-verify pod health
-              # after rollout before re-enabling the matching disabled Renovate
-              # rule in .renovaterc.json5.
+              # release/v3.8.50; no tagged release carries them yet -- move to
+              # v3.8.50 once it ships. Digest-pinned since Renovate can't diff
+              # `next` as a version, only offer digest bumps.
               tag: next@sha256:1dd9bdd8582b6bc04500dc73578ae010581550f8f3e399893881784ae9d4a455
             env:
               TZ: ${TIMEZONE}

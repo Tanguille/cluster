@@ -92,24 +92,6 @@
       automergeType: "pr"
     },
     {
-      // Was a hard `enabled: false` hold: Renovate auto-merged this rolling `next`
-      // digest twice within minutes, once landing a build whose package.json
-      // gained "type": "module" while server.js still called require(), crashlooping
-      // the pod at boot (upstream d87b97a78). A comment on the pin didn't hold it --
-      // the PR had to not exist -- but a full block also means Renovate stops
-      // surfacing new `next` builds at all, which is how that break went unnoticed
-      // for a day. Re-enabled with auto-merge off instead (same pattern as
-      // vllm-openai-rocm nightly below): Renovate still opens the PR so a new
-      // digest is visible, a human just has to merge it after checking pod health.
-      description: "omniroute next digest — never auto-merge; rolling `next` tag has shipped a crashlooping build before, verify pod health before merging",
-      matchDatasources: ["docker"],
-      // regex form on purpose: the HelmRelease writes the image as
-      // docker.io/diegosouzapw/omniroute, so the depName carries the registry
-      // prefix and the bare exact-match name never matched.
-      matchPackageNames: ["/diegosouzapw\\/omniroute/"],
-      automerge: false
-    },
-    {
       description: "vllm-openai-rocm nightly digest — the rolling `nightly` tag is digest-pinned so Renovate can detect new builds at all; never auto-merge, a bump rolls the single-GPU serving pod and can move the KV pool that maxModelLen is sized against",
       matchDatasources: ["docker"],
       matchPackageNames: ["vllm/vllm-openai-rocm"],
