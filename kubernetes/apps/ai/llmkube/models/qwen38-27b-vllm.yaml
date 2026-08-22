@@ -192,9 +192,15 @@ spec:
   modelRef: qwen38-27b-vllm
   runtime: vllm
   replicas: 1
-  # TPOT probe 08-21: kernel-dispatch cliff at M=6 (MAX_SKINNY_BATCH_SIZE=5
-  # in rdna_hybrid_w4a16.py), 23.6 -> 13.3 tok/s/stream. Operator -> --max-num-seqs.
-  parallelSlots: 6
+  # TPOT probe 08-21 found a kernel-dispatch cliff at M=6 (MAX_SKINNY_BATCH_SIZE=5
+  # in rdna_hybrid_w4a16.py). DFlash2 (see --speculative-config below) verifies
+  # 1+num_speculative_tokens=8 positions per step, so decode already runs past
+  # that threshold every step regardless of parallelSlots -- confirmed via a
+  # round-1 OOM trace shaped (48,128) = 6 (old parallelSlots) * 8. Swept
+  # 6/8/10 via vllm bench serve (max-concurrency matched, random 50in/100out):
+  # 8 peaks at 113 tok/s / 60ms TPOT; 10 regresses to 104 tok/s / 77ms TPOT,
+  # TTFT mean 465ms -> 1277ms. Operator -> --max-num-seqs.
+  parallelSlots: 8
   bindAddress: 0.0.0.0
   # Rolling `nightly` tag pinned by digest, same shape as
   # kubesearch-mcp:master@sha256:. The digest is what gets pulled, so this is
@@ -211,27 +217,34 @@ spec:
     # 112K and p90 prompts are 20K, and normal concurrency is unaffected
     # because KV is paged and allocated on demand.
     #
-    # A decode-performance ceiling, NOT a pool-matching value. Single-stream
-    # decode falls off a cliff once the pool/cap ratio drops below ~1.17x;
-    # bisected 2026-08-19, two concsweeps per point, run-after-restart discarded:
+    # DFlash2 (see --speculative-config below) changes the KV math: its draft
+    # model draws on the same fixed --kv-cache-memory pool, so the pool/cap
+    # ratio-cliff bisection this field used to carry (2026-08-19, conc-1
+    # cliff below 1.17x) was NOT re-validated under DFlash2 and no longer
+    # applies as-is -- see git history for that table if reviving the old,
+    # non-spec-decode config.
     #
-    #   cap      pool     ratio  conc-1 tok/s  verdict
-    #   241,878  288,061  1.19x  31.46         fast
-    #   246,944  288,493  1.17x  31.65         fast   <- this value
-    #   249,477  288,702  1.16x  25.12 / 1.95  UNSTABLE, do not ship
-    #   252,011  288,012  1.14x  18.93         slow
-    #   262,144  --       1.10x  15.8-17.1     slow
-    #
-    # Mechanism unexplained; only conc-1 cliffs, conc-16 stays ~185 throughout.
-    # DO NOT raise past this without re-running the bisect -- the next step up
-    # measured unstable, not merely slower. Production prompts are 47-56K.
+    # Ceiling at kv-cache-memory=7Gi (7,516,192,768 bytes) is 160,160 tokens,
+    # read directly from vLLM's own KV-budget ValueError at zero slack.
+    # 147,456 (92%) leaves ~8% pool slack for DFlash2's dynamic scratch
+    # buffers (candidate-selector, grouped-conv): round-1 testing crashed the
+    # engine with a CUDA OOM (31.86GiB card, 0 bytes free) at zero slack
+    # (9Gi/212,960) under a single tool-call request -- the OOM trace showed a
+    # (48,128)-shaped buffer, confirming verify-step batches scale with
+    # concurrency and aren't covered by the KV-only ceiling math.
+    # Tested stable under load: tool-calling, a 2000-token-prompt/
+    # 500-token-gen stress test, a 31K-token real prompt. NOT tested:
+    # prompts near the 160,160 ceiling (a synthetic 140K-token prefill didn't
+    # finish in 400s -- pod stayed healthy, just impractically slow, not a
+    # safety issue) or concurrent near-ceiling requests at parallelSlots=8
+    # together -- treat 147456 as validated, the literal ceiling as not.
     #
     # If the pool ever shrinks below this cap the engine refuses to start
     # rather than silently truncating. Re-read "GPU KV cache size" from the
     # boot log after ANY of: --kv-cache-memory, the mamba cache dtypes, the
     # attention block size, or a vLLM image bump -- Renovate raises that last
     # one as a digest-bump PR, so re-check this value when reviewing it.
-    maxModelLen: 246944
+    maxModelLen: 147456
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
@@ -306,14 +319,28 @@ spec:
     # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
     # (256) would overshoot.
     - --compilation-config
-    - '{"cudagraph_capture_sizes": [1, 2, 4, 6]}'
+    - '{"cudagraph_capture_sizes": [1, 2, 4, 6, 8]}'
     # Keep prior-turn reasoning in context; matches production qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
     # MTP speculative decoding is deliberately OMITTED: measured on this
     # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
-    # regression) under concurrent tool traffic. Re-test that wedge before
-    # re-adding.
+    # regression) under concurrent tool traffic.
+    #
+    # DFlash2 below re-tests that wedge with a different mechanism -- an
+    # external draft model (NOT an MTP head), verifying
+    # 1+num_speculative_tokens positions per step. Confirmed clean: the same
+    # tool-calling request that would have hit the MTP wedge resolves
+    # correctly under load, no wedge. A mixed tool-call+reasoning real-
+    # workload test (matched baseline vs DFlash2, same requests) measured
+    # -42% TPOT and 34.7% draft acceptance (vs 15-18% on synthetic random-
+    # token benchmarks -- real tool-call/reasoning text is far more
+    # predictable for the draft model). num_speculative_tokens swept 3/5/7
+    # (draft's own block_size=8 recommends 7) -- 7 won at both ends of a
+    # concurrency sweep. Draft model is public, apache-2.0, fine-tuned
+    # specifically for this base model (z-lab/Qwen3.8-27B-DFlash2).
+    - --speculative-config
+    - '{"method": "dflash", "model": "z-lab/Qwen3.8-27B-DFlash2", "num_speculative_tokens": 7}'
     # Separate pools, both needed -- ssm does NOT inherit from the other on
     # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
     # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.
@@ -321,19 +348,19 @@ spec:
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
-    # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
-    # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
-    # Sized against a 2 GiB transcode reserve, not the old 4.6 GB guess, which
-    # was never measured. Measured separately 2026-08-17 (drm VRAM): a 4K Dolby
-    # Vision transcode 0.85 GB, fileflows 0.69 GB -- 1.54 GB if they ever peak
-    # together, which was not observed but is the number the reserve must cover.
-    # Jellyfin has no transcode concurrency cap, so a third stream would exceed
-    # 2 GiB and evict KV; see the DgpuVramLow alert. Measured free at this
-    # config: 2.57 GB at peak load (was 2.81 GB at 7 GiB) -- this raise spends
-    # 0.24 GB of that reserve. Pool 223,172 -> 287,159 tokens, concurrency
-    # 1.01x -> 1.30x. Retention benefit NOT yet measured.
+    # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV.
+    # 7Gi (7,516,192,768 bytes), down from 9Gi: DFlash2's dynamic scratch
+    # buffers (candidate-selector, grouped-conv) need real headroom beyond
+    # the KV pool itself -- 9Gi maxed to its own zero-slack ceiling crashed
+    # the engine with a CUDA OOM under a single tool-call request (see
+    # maxModelLen above). Tested 7Gi vs 8Gi at matched ~92% pool utilization:
+    # 8Gi measured WORSE (98 tok/s vs 113, P99 ITL 1.6s vs normal) -- more KV
+    # reservation means less free VRAM for the dynamic buffers, not more
+    # headroom. The old 2 GiB Jellyfin-transcode-reserve math this comment
+    # used to carry (drm VRAM, 2026-08-17) is unaffected by this change --
+    # see git history if re-deriving it.
     - --kv-cache-memory
-    - "9663676416"
+    - "7516192768"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
