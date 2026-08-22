@@ -1,0 +1,32 @@
+---
+# The render path has no other CI coverage: `render-config` needs the age key, so it only ever
+# runs on a workstation. This check needs no secret -- sops leaves the key structure in
+# cleartext -- so it can run here and catch the one class of regression that would otherwise
+# surface at `apply-node` time, against a live node.
+name: Talos Render
+
+on:
+  pull_request:
+    paths:
+      - talos/**
+      - .justfile
+      - scripts/talos-template-vars.sh
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  template-vars:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+
+      - name: Check template variables
+        run: scripts/talos-template-vars.sh
