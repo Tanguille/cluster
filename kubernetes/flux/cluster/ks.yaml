@@ -78,3 +78,43 @@ spec:
       target:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
+    # Kustomization-level patches replace the whole spec.patches list, so a rook-ceph-cluster
+    # HelmRelease patch can't just add driftDetection.mode: disabled on top of the one above -
+    # it must replace it wholesale, defaults included. Its dry-run diff can't handle
+    # CephBlockPool/CephFilesystem, whose live spec.replicated.minSize isn't declared in the
+    # installed CRD schema, which puts the release into a permanent StateError otherwise.
+    - patch: |-
+        apiVersion: kustomize.toolkit.fluxcd.io/v1
+        kind: Kustomization
+        metadata:
+          name: not-used
+        spec:
+          patches:
+            - patch: |-
+                apiVersion: helm.toolkit.fluxcd.io/v2
+                kind: HelmRelease
+                metadata:
+                  name: _
+                spec:
+                  driftDetection:
+                    mode: disabled
+                  install:
+                    crds: CreateReplace
+                  rollback:
+                    cleanupOnFail: true
+                  upgrade:
+                    cleanupOnFail: true
+                    crds: CreateReplace
+                    strategy:
+                      name: RemediateOnFailure
+                    remediation:
+                      remediateLastFailure: true
+                      retries: 2
+              target:
+                group: helm.toolkit.fluxcd.io
+                kind: HelmRelease
+      target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization
+        name: rook-ceph-cluster
+        namespace: rook-ceph

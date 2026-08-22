@@ -5,12 +5,6 @@ kind: HelmRelease
 metadata:
   name: rook-ceph-cluster
 spec:
-  # Overrides the fleet-wide default: drift detection's dry-run can't diff
-  # CephBlockPool/CephFilesystem, whose live spec.replicated.minSize isn't
-  # declared in the installed CRD schema, which puts this release into a
-  # permanent StateError instead of just skipping that one field.
-  driftDetection:
-    mode: disabled
   chartRef:
     kind: OCIRepository
     name: rook-ceph-cluster
