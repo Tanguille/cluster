@@ -12,25 +12,38 @@ spec:
     - name: bazarr
     - name: crowdsec
       extensions:
-        # vector is the pgvector bundled in the cluster's vchord-scratch image — bump manually
-        # when the image bumps; a wrong pin fails visibly via the Database CR going not-Ready.
+        # vector is the pgvector bundled in the base CNPG postgresql image (not vchord-scratch,
+        # which ships only vchord.so) — bump manually when that image bumps; a wrong pin fails
+        # visibly via the Database CR going not-Ready. Check with:
+        #   docker run --rm --entrypoint cat <cluster.yaml imageName> /usr/share/postgresql/18/extension/vector.control
         - name: vector
-          version: "0.8.5"
+          version: "0.8.6"
     - name: gatus
     - name: ghostfolio
+      extensions:
+        # vector is the pgvector bundled in the base CNPG postgresql image (see crowdsec's
+        # extensions comment above for how to check it) — bump manually when that bumps.
+        - name: vector
+          version: "0.8.6"
     - name: grafana
     - name: jellystat
       db: jfstat
     - name: litellm
+      extensions:
+        # vector is the pgvector bundled in the base CNPG postgresql image (see crowdsec's
+        # extensions comment above for how to check it) — bump manually when that bumps.
+        - name: vector
+          version: "0.8.6"
     - name: memini
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
         # vchord version is Renovate-tracked with the cluster's vchord-scratch image;
-        # vector is the pgvector bundled in that image — bump manually when the image bumps.
+        # vector is the pgvector bundled in the base CNPG postgresql image (see crowdsec's
+        # extensions comment above for how to check it) — bump manually when that bumps.
         - name: vchord
           version: "1.1.1"
         - name: vector
-          version: "0.8.5"
+          version: "0.8.6"
     - name: nextcloud
     - name: prowlarr
     - name: radarr
