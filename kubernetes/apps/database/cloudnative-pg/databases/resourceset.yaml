@@ -15,7 +15,8 @@ spec:
         # vector is the pgvector bundled in the base CNPG postgresql image (not vchord-scratch,
         # which ships only vchord.so) — bump manually when that image bumps; a wrong pin fails
         # visibly via the Database CR going not-Ready. Check with:
-        #   docker run --rm --entrypoint cat <cluster.yaml imageName> /usr/share/postgresql/18/extension/vector.control
+        #   img=$(yq '.spec.imageName' kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml)
+        #   docker run --rm --entrypoint cat "$img" /usr/share/postgresql/18/extension/vector.control
         - name: vector
           version: "0.8.6"
     - name: gatus
