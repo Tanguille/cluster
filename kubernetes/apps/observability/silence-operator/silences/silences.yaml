@@ -35,3 +35,37 @@ spec:
   matchers:
     - name: alertname
       value: KubeMemoryOvercommit
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/observability.giantswarm.io/silence_v1alpha2.json
+apiVersion: observability.giantswarm.io/v1alpha2
+kind: Silence
+metadata:
+  # Structural: priority -1000 with a hard per-node pin makes Pending on a full node
+  # xmrig's designed resting state. Nothing sits below it to preempt, and its
+  # ScaledObject reads only that node's thermal verdict so the pod cannot move.
+  name: xmrig-pending-on-full-node
+spec:
+  matchers:
+    - name: alertname
+      value: KubePodNotReady
+    - name: namespace
+      value: web3
+    - name: pod
+      value: xmrig-.*
+      matchType: "=~"
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/observability.giantswarm.io/silence_v1alpha2.json
+apiVersion: observability.giantswarm.io/v1alpha2
+kind: Silence
+metadata:
+  # Same cause as xmrig-pending-on-full-node, seen from the Deployment side.
+  name: xmrig-replicas-mismatch-on-full-node
+spec:
+  matchers:
+    - name: alertname
+      value: KubeDeploymentReplicasMismatch
+    - name: namespace
+      value: web3
+    - name: deployment
+      value: xmrig-.*
+      matchType: "=~"
