@@ -338,9 +338,13 @@ spec:
     # predictable for the draft model). num_speculative_tokens swept 3/5/7
     # (draft's own block_size=8 recommends 7) -- 7 won at both ends of a
     # concurrency sweep. Draft model is public, apache-2.0, fine-tuned
-    # specifically for this base model (z-lab/Qwen3.8-27B-DFlash2).
+    # specifically for this base model (z-lab/Qwen3.8-27B-DFlash2). Pinned to
+    # its HF commit sha, matching the modelRef Model source above -- an
+    # unpinned repo ref here would pull whatever revision is latest on the
+    # Hub at pod start, same remote-code-execution risk that source pin
+    # exists to close.
     - --speculative-config
-    - '{"method": "dflash", "model": "z-lab/Qwen3.8-27B-DFlash2", "num_speculative_tokens": 7}'
+    - '{"method": "dflash", "model": "z-lab/Qwen3.8-27B-DFlash2", "revision": "50307d4c4cde6860d4eee73e2547cd786fe8e8a4", "num_speculative_tokens": 7}'
     # Separate pools, both needed -- ssm does NOT inherit from the other on
     # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
     # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.
