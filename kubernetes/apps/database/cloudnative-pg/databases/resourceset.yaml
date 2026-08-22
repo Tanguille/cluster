@@ -20,10 +20,20 @@ spec:
           version: "0.8.6"
     - name: gatus
     - name: ghostfolio
+      extensions:
+        # vector is the pgvector bundled in the base CNPG postgresql image (see crowdsec's
+        # extensions comment above for how to check it) — bump manually when that bumps.
+        - name: vector
+          version: "0.8.6"
     - name: grafana
     - name: jellystat
       db: jfstat
     - name: litellm
+      extensions:
+        # vector is the pgvector bundled in the base CNPG postgresql image (see crowdsec's
+        # extensions comment above for how to check it) — bump manually when that bumps.
+        - name: vector
+          version: "0.8.6"
     - name: memini
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
