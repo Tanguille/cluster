@@ -192,9 +192,9 @@ spec:
   modelRef: qwen38-27b-vllm
   runtime: vllm
   replicas: 1
-  # Empirical peak (swept 6/8/10): 8 beats both. Operator -> --max-num-seqs.
-  # Full rationale + DFlash2 interaction: docs/llm-hosting/qwen38-dflash2-tuning.md
-  parallelSlots: 8
+  # TPOT probe 08-21: kernel-dispatch cliff at M=6 (MAX_SKINNY_BATCH_SIZE=5
+  # in rdna_hybrid_w4a16.py), 23.6 -> 13.3 tok/s/stream. Operator -> --max-num-seqs.
+  parallelSlots: 6
   bindAddress: 0.0.0.0
   # Rolling `nightly` tag pinned by digest, same shape as
   # kubesearch-mcp:master@sha256:. The digest is what gets pulled, so this is
@@ -206,19 +206,32 @@ spec:
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
-    # The only per-request cap on KV blocks. Headroom, not a working size --
-    # Hermes peaks at 112K and p90 prompts are 20K. 92% of the kv-cache-memory
-    # ceiling (7Gi -> 160,160 tokens); leaves DFlash2's dynamic scratch
-    # buffers real headroom. Tested stable, including a worst-case 8-concurrent
-    # ~18K-token-prompt run (aggregate ~141K tokens, near the pool ceiling).
-    # Full rationale + numbers: docs/llm-hosting/qwen38-dflash2-tuning.md
+    # The only per-request cap on KV blocks, so it decides how much of the pool
+    # a single session can hold. Headroom, not a working size -- Hermes peaks at
+    # 112K and p90 prompts are 20K, and normal concurrency is unaffected
+    # because KV is paged and allocated on demand.
+    #
+    # A decode-performance ceiling, NOT a pool-matching value. Single-stream
+    # decode falls off a cliff once the pool/cap ratio drops below ~1.17x;
+    # bisected 2026-08-19, two concsweeps per point, run-after-restart discarded:
+    #
+    #   cap      pool     ratio  conc-1 tok/s  verdict
+    #   241,878  288,061  1.19x  31.46         fast
+    #   246,944  288,493  1.17x  31.65         fast   <- this value
+    #   249,477  288,702  1.16x  25.12 / 1.95  UNSTABLE, do not ship
+    #   252,011  288,012  1.14x  18.93         slow
+    #   262,144  --       1.10x  15.8-17.1     slow
+    #
+    # Mechanism unexplained; only conc-1 cliffs, conc-16 stays ~185 throughout.
+    # DO NOT raise past this without re-running the bisect -- the next step up
+    # measured unstable, not merely slower. Production prompts are 47-56K.
     #
     # If the pool ever shrinks below this cap the engine refuses to start
     # rather than silently truncating. Re-read "GPU KV cache size" from the
     # boot log after ANY of: --kv-cache-memory, the mamba cache dtypes, the
     # attention block size, or a vLLM image bump -- Renovate raises that last
     # one as a digest-bump PR, so re-check this value when reviewing it.
-    maxModelLen: 147456
+    maxModelLen: 246944
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
     # real traffic on the sibling qwen36 config).
@@ -293,21 +306,14 @@ spec:
     # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
     # (256) would overshoot.
     - --compilation-config
-    - '{"cudagraph_capture_sizes": [1, 2, 4, 6, 8]}'
+    - '{"cudagraph_capture_sizes": [1, 2, 4, 6]}'
     # Keep prior-turn reasoning in context; matches production qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
     # MTP speculative decoding is deliberately OMITTED: measured on this
     # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
-    # regression) under concurrent tool traffic. DFlash2 below re-tests that
-    # wedge with a different mechanism (external draft model, not an MTP
-    # head) and is confirmed clean under load. Pinned to its HF commit sha,
-    # matching the modelRef Model source above -- an unpinned ref here would
-    # pull whatever revision is latest on the Hub at pod start, same RCE risk
-    # that source pin exists to close.
-    # Full rationale + numbers: docs/llm-hosting/qwen38-dflash2-tuning.md
-    - --speculative-config
-    - '{"method": "dflash", "model": "z-lab/Qwen3.8-27B-DFlash2", "revision": "50307d4c4cde6860d4eee73e2547cd786fe8e8a4", "num_speculative_tokens": 7}'
+    # regression) under concurrent tool traffic. Re-test that wedge before
+    # re-adding.
     # Separate pools, both needed -- ssm does NOT inherit from the other on
     # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
     # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.
@@ -315,15 +321,19 @@ spec:
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
-    # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV.
-    # 7Gi, down from 9Gi: DFlash2's dynamic scratch buffers need real headroom
-    # beyond the KV pool itself (tested 7Gi vs 8Gi at matched pool
-    # utilization -- 8Gi measured WORSE, more reservation left less free VRAM
-    # for those buffers). The 2 GiB Jellyfin-transcode reserve this field also
-    # sizes against is unaffected by this change.
-    # Full rationale + numbers: docs/llm-hosting/qwen38-dflash2-tuning.md
+    # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
+    # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
+    # Sized against a 2 GiB transcode reserve, not the old 4.6 GB guess, which
+    # was never measured. Measured separately 2026-08-17 (drm VRAM): a 4K Dolby
+    # Vision transcode 0.85 GB, fileflows 0.69 GB -- 1.54 GB if they ever peak
+    # together, which was not observed but is the number the reserve must cover.
+    # Jellyfin has no transcode concurrency cap, so a third stream would exceed
+    # 2 GiB and evict KV; see the DgpuVramLow alert. Measured free at this
+    # config: 2.57 GB at peak load (was 2.81 GB at 7 GiB) -- this raise spends
+    # 0.24 GB of that reserve. Pool 223,172 -> 287,159 tokens, concurrency
+    # 1.01x -> 1.30x. Retention benefit NOT yet measured.
     - --kv-cache-memory
-    - "7516192768"
+    - "9663676416"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
