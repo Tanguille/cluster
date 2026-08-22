@@ -43,12 +43,20 @@ PKGS_SHA="${PKGS_REV##*-g}"
 echo "    derived TOOLS=${TOOLS_REV} PKGS=${PKGS_REV}"
 
 log "kernel package"
-docker build \
+# Registry cache, keyed on the Dockerfile + build-args rather than the target tag: a rerun
+# against the same kernel/talos version (e.g. retrying after a package-permission fix) hits
+# every layer instead of repeating the ~2h45m ThinLTO compile. Same package as the image
+# itself so it rides the access grant that package already has, rather than needing its own.
+# :buildcache is a BuildKit cache manifest, not a version ref anything else resolves against —
+# deliberately the one mutable tag in an otherwise fully pinned pipeline (see README.md
+# "Version tagging" for why every other tag here is one build, never reused).
+docker buildx build \
     --build-arg "KERNEL_VERSION=${KERNEL_VERSION}" \
     --build-arg "TOOLS_REV=${TOOLS_REV}" \
     --build-arg "PKGS_SHA=${PKGS_SHA}" \
-    -t "${PREFIX}/kernel:${VERSION}" "${REPO_ROOT}/docker/talos-kernel"
-docker push -q "${PREFIX}/kernel:${VERSION}"
+    --cache-from "type=registry,ref=${PREFIX}/kernel:buildcache" \
+    --cache-to "type=registry,ref=${PREFIX}/kernel:buildcache,mode=min" \
+    -t "${PREFIX}/kernel:${VERSION}" --push "${REPO_ROOT}/docker/talos-kernel"
 
 # The amdgpu extension wants kernel and linux-firmware at the SAME prefix and tag. Firmware is
 # kernel-independent, so mirror upstream's current blobs; rebuilding from an older pkgs tag

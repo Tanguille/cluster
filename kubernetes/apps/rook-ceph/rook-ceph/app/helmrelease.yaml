@@ -12,6 +12,12 @@ spec:
   values:
     image:
       repository: ghcr.io/rook/ceph
+    csi:
+      cephcsi:
+        # v3.17.1 links librados 20.2.4 (CEPH_SHA1 7f793731, same build as the mons);
+        # v3.17.0 links 20.2.1, which cannot read an aes256k cephx key. Untagged
+        # upstream: published to quay, no GitHub release, Renovate does not offer it.
+        tag: v3.17.1
     monitoring:
       enabled: true
     resources:
