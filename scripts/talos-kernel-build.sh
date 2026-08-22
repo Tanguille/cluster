@@ -43,6 +43,11 @@ PKGS_SHA="${PKGS_REV##*-g}"
 echo "    derived TOOLS=${TOOLS_REV} PKGS=${PKGS_REV}"
 
 log "kernel package"
+# The default docker driver can't export a registry cache. CI sets a docker-container builder
+# up itself (docker/setup-buildx-action), but `just kernel-build` also runs this directly on a
+# workstation (README.md), which may still be on the default driver.
+docker buildx inspect --bootstrap 2>/dev/null | grep -q '^Driver:[[:space:]]*docker-container' \
+    || docker buildx create --driver docker-container --use --bootstrap >/dev/null
 # Registry cache, keyed on the Dockerfile + build-args rather than the target tag: a rerun
 # against the same kernel/talos version (e.g. retrying after a package-permission fix) hits
 # every layer instead of repeating the ~2h45m ThinLTO compile. Same package as the image

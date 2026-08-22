@@ -66,7 +66,9 @@ jobs:
       - name: Add swap for the ThinLTO link
         run: |
           free -h
-          free_g="$(df -BG --output=avail / | tail -1 | tr -dc '0-9')"
+          # -B1, not -BG: df's GiB output rounds UP, so e.g. 12.1G free reports as 13G and an
+          # 8G swapfile would leave only 4.1G, not the intended 5G margin. Floor from bytes.
+          free_g="$(( $(df -B1 --output=avail / | tail -1 | tr -dc '0-9') / 1073741824 ))"
           swap_g=$(( free_g - 5 ))
           # 32G caps it at 3x the shortfall seen; more just costs fallocate time on a bigger runner.
           [[ "${swap_g}" -le 32 ]] || swap_g=32
