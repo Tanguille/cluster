@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+# TrueNAS management MCP (hongkongkiwi/truenas-master-mcp) — pools, datasets,
+# apps, VMs, shares, SMART, tasks — exposed to the ToolHive optimizer.
+#
+# Streamable-HTTP on :3000 (the server's --transport=http mode serves the
+# /mcp endpoint). Health: GET / returns a JSON status banner in both http
+# and sse server modes (see src/main.rs run_http / run_sse).
+#
+# SECURITY: --readonly disables every modifying tool; the TrueNAS API key
+# should be a minimal, read-only API key (System → Operators → API Keys).
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: truenas
+spec:
+  image: ghcr.io/hongkongkiwi/truenas-master-mcp:v0.1.11@sha256:fd320e3c994715461cb6554ae6fe2bd172879bc81a724f39df7af7cf9d01bff4
+  transport: streamable-http
+  mcpPort: 3000
+  proxyPort: 8080
+  groupRef:
+    name: all
+  # Outbound to the TrueNAS VM on the LAN (192.168.0.27) — not covered by
+  # the default allowlist (k8s API / registries / package mirrors).
+  permissionProfile:
+    type: builtin
+    name: network
+  env:
+    # Verifying cert: reached via the internal TLSRoute (truenas.${SECRET_DOMAIN})
+    # which terminates with the Let's Encrypt cert the operator already trusts.
+    # No TRUENAS_VERIFY_SSL=false — do not weaken TLS to reach the LAN IP.
+    - name: TRUENAS_SERVER_URL
+      value: https://truenas.${SECRET_DOMAIN}
+    - name: TRUENAS_TIMEOUT
+      value: "30"
+  # CLI-only flag of the upstream binary (no env equivalent) — enforce
+  # read-only at the tool layer, in front of whatever the API key allows.
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          command:
+            - truenas-master-mcp
+            - --transport=http
+            - --host=0.0.0.0
+            - --port=3000
+            - --readonly
+          ports:
+            - name: mcp
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /
+              port: mcp
+              scheme: HTTP
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: mcp
+              scheme: HTTP
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  # Dedicated secret (see ../app/truenas-secret.sops.yaml, placeholder to be
+  # replaced + encrypted — same pattern as the talos-mcp secret) so filling in
+  # the API key never requires re-encrypting the shared toolhive-secrets.
+  secrets:
+    - name: truenas-mcp
+      key: TRUENAS_API_KEY
+      targetEnvName: TRUENAS_API_KEY
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
