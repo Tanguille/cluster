@@ -103,6 +103,58 @@ refutes the premise the drop-it question rested on:
    different measurement from the 4.5% figure in the manifest comment — don't
    conflate the two.)
 
+## Step 1 — DFlash2 retest — **BLOCKED 2026-08-23: DFlash2 is broken in the current vLLM nightly**
+
+Sizing boot attempted in a real GPU window (production scaled to 0, restored
+after). **Both draft variants failed to load, identically**, before any
+profiling happened:
+
+```
+ValueError: There is no module or parameter named 'layers.0.attention_conv'
+in DFlash2Qwen3Model. The available parameters belonging to layers.0
+(DFlashQwen3DecoderLayer) are: {...}
+```
+
+Image under test: `vllm/vllm-openai-rocm:nightly@sha256:3a064e7a78dd45df3de3db2a7fa10e46f88414324b6e814153ada059f0ac0088`
+(what production runs today).
+
+**This is not a quantization problem and not a gfx1201 problem** — the two
+things this plan predicted the risk would be. The bf16 `z-lab/Qwen3.8-27B-DFlash2`
+draft, the exact checkpoint #4651 ran successfully in production for 2.5h,
+fails with the same error on the current image. Ruled out along the way:
+
+- **Not a malformed checkpoint.** `syvai`'s and `z-lab`'s `dflash_config` are
+  identical (`conv_kernel_size: 2`, `selector_rank: 256`, same
+  `target_layer_ids`), both `architectures: ['DFlash2DraftModel']`.
+- **Not a missing conv tensor.** Both checkpoints contain
+  `layers.0.attention_conv.base_kernel` and `.kernel_projection.weight`.
+- **Not the fused-vs-split QKV difference** between them (syvai ships 154
+  tensors with fused `qkv_proj.weight_packed`; z-lab ships 81 with split
+  `q_proj`/`k_proj`/`v_proj`) — bf16 fails too.
+
+**Mechanism:** vLLM builds the draft out of `DFlashQwen3DecoderLayer` (no conv
+modules) instead of `DFlash2Qwen3DecoderLayer` (has them —
+`qwen3_dflash2.py:104,134`). `DFlash2Qwen3Model` declares
+`decoder_layer_cls = DFlash2Qwen3DecoderLayer`, but `decoder_layer_cls` appears
+**nowhere** in the parent `qwen3_dflash.py`, so the override never takes
+effect. That reads as an upstream regression introduced between the nightly
+#4651 ran (`ge9d1398d9`) and the current pin.
+
+**What this costs the plan:** the sizing boot cannot produce numbers on this
+image, so the kv-cache-memory question below stays open. The whole DFlash2
+step is blocked on upstream, not on our config or our hardware.
+
+**Next actions, cheapest first:**
+1. Check whether a newer nightly fixes it before spending another GPU window —
+   a `grep decoder_layer_cls vllm/model_executor/models/qwen3_dflash.py`
+   inside a candidate image answers it without booting anything.
+2. If still broken, file upstream against `vllm-project/vllm` with the trace
+   above; it is a clean, minimal repro.
+3. Only pin back to `ge9d1398d9` if DFlash2 becomes a priority — that trades
+   every other nightly fix since for one feature, and is not currently worth it.
+
+### Original framing (kept — still the protocol once unblocked)
+
 ## Step 1 — DFlash2 retest, gated on an explicit grammar-concurrency stress test
 
 DFlash2 (PR #4651) showed a genuine win on real mixed traffic (TPOT -42%,
@@ -188,22 +240,49 @@ not hours, though the GPU still needs to be briefly freed (single shared
 card) the same as any other test here.
 
 **In the same pass, compare a quantized draft against the bf16 default.**
-Community quants exist on Hugging Face — checked 2026-08-23, both repos
-present: `lued/Qwen3.8-27B-INT8-W8A16-DFlash2` and
-`syvai/Qwen3.8-27B-DFlash2-W4A16` are the closest match to our existing
-compressed-tensors/AWQ pattern. **Existence confirmed; ROCm/gfx1201 support
-is NOT confirmed** — treat both as unvalidated until the sizing boot actually
-loads and runs them; a checkpoint existing on the Hub says nothing about
-whether it loads cleanly on this stack, and neither has any track record
-here. Speculative-decode verification stays exact against the target
+Weight sizes measured from the HF API 2026-08-23, not estimated:
+
+| checkpoint | weights | note |
+|---|---|---|
+| `z-lab/Qwen3.8-27B-DFlash2` (bf16) | 3,848,817,896 B (3.58 GiB) | baseline drafter |
+| `syvai/Qwen3.8-27B-DFlash2-W4A16` | 1,280,633,960 B (**1.19 GiB**) | drafter, compressed-tensors |
+| `lued/Qwen3.8-27B-INT8-W8A16-DFlash2` | 29,535,195,512 B (**27.51 GiB**, 6 shards) | **NOT a drafter** |
+
+**The W8A16 repo is not a draft model** — at 27.51 GiB across 6 shards it is a
+quantized full 27B *target*, despite the DFlash2 name. An earlier draft of this
+plan listed it as a draft candidate; it is not one and must not be used as one.
+
+That leaves W4A16 as the only real quantized drafter, and it is the one worth
+testing: **1.19 GiB vs 3.58 GiB saves 2.39 GiB**, which is on the same order as
+the ~2 GiB the 9Gi→7Gi KV cut was buying — i.e. it could avoid most of that cut
+outright. **Existence and size confirmed; ROCm/gfx1201 support is NOT
+confirmed** — treat it as unvalidated until the sizing boot actually loads and
+runs it; a checkpoint existing on the Hub says nothing about whether its kernels
+work on RDNA4, and it has no track record here. Speculative-decode verification stays exact against the target
 regardless of draft precision — a worse draft only costs *acceptance rate*
 (less speedup), never wrong output — so quantizing the draft is safe for
 correctness by construction, but that's a claim about the algorithm, not
 about whether these specific checkpoints load and run correctly on gfx1201.
 What it changes if it works: W4A16 would take the ~3.58GiB draft down to
 roughly ~1GiB, which could avoid most of the kv-cache-memory cut entirely.
-Run the sizing boot once per candidate draft variant (bf16 baseline, W4A16,
-optionally W8A16) — a load failure or crash on a given variant is itself a
+**Prefix sharing between target and draft is already on; there is nothing to
+configure.** Verified against the running build, not docs:
+`vllm/v1/spec_decode/dflash.py:327-328` defaults `use_aux_hidden_state` to
+`True`, so the drafter consumes the target's aux hidden states EAGLE3-style
+instead of re-prefilling the prefix itself. There is no separate
+automatic-prefix-caching (APC) knob for the drafter — `grep -r prefix_cach`
+across `v1/spec_decode/` and `config/speculative.py` returns zero matches;
+`--enable-prefix-caching` is engine-global and already set in production.
+
+**Boot-time failure mode to watch for:** the same file errors out if the
+attention backend lacks **non-causal** support, with a message pointing at
+FlashAttention. We run TRITON_ATTN (forced by the KV connector, per
+`rocm.py:703`). #4651 ran DFlash2 in production for 2.5h, so TRITON_ATTN
+evidently satisfies this — but a boot that dies here is that assumption
+breaking, not a mystery.
+
+Run the sizing boot once per candidate draft variant (W4A16 first, bf16 as the
+comparison baseline) — a load failure or crash on a given variant is itself a
 valid, useful result, not just a successful measurement — and fold the same
 4-6 concurrent grammar-burst comparison from steps 2-3 below into each for
 any variant that does load: record **draft acceptance rate** alongside
