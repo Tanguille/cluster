@@ -1,11 +1,13 @@
 ---
 # Builds the custom-kernel Talos installers and publishes them to ghcr, so a Renovate kernel
-# bump produces the artifact its own config change depends on. Without this, merging a bump
-# points nodes at a tag nobody built.
+# bump merges into main, it publishes the artifact those config changes point at. Without
+# this, a merged bump leaves nodes pointing at a tag nobody built. (Not on PRs: the ~3h
+# build would re-fire on every Renovate push to the bump's branch.)
 name: Talos Kernel
 
 on:
-  pull_request:
+  push:
+    branches: ["main"]
     paths:
       - docker/talos-kernel/**
       - scripts/talos-kernel-build.sh
@@ -22,6 +24,9 @@ on:
 # this, successive pushes leave cancelled runs that look like a wedged runner.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # The PR number in the group is always empty now (no pull_request trigger): the group
+  # keys on the ref, i.e. main. A workflow_dispatch shares that group on purpose -- one
+  # build in flight, a re-dispatch supersedes the in-flight run like a new push does.
   cancel-in-progress: true
 
 jobs:
