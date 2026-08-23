@@ -45,12 +45,11 @@ prompt to *defeat* prefix caching (it's a cache-cold-only tool for
 `maxNumBatchedTokens`-style sweeps), so it structurally cannot produce a
 cache-hit sample.
 
-**Prerequisite, corrected from the original draft of this plan:** the manifest
-does not currently pass `--enable-prompt-tokens-details`, which vLLM defaults
-to `False` — meaning `prompt_tokens_details.cached_tokens` is absent from
-production responses entirely right now, not just unmeasured. This step
-therefore isn't the zero-config-change step it was first written as: flip
-that flag on first (small, low-risk, additive-only — it only adds a field to
+**Prerequisite:** the manifest does not currently pass
+`--enable-prompt-tokens-details`, which vLLM defaults to `False` — meaning
+`prompt_tokens_details.cached_tokens` is absent from production responses
+entirely right now, not just unmeasured. Flip that flag on first (small,
+low-risk, additive-only — it only adds a field to
 the usage payload, changes nothing about serving behavior), then correlate
 per-request TTFT against `prompt_tokens_details.cached_tokens` from vLLM's
 own request logs/metrics over a fixed recent window.
@@ -156,7 +155,7 @@ free move — #4651's 9Gi→7Gi cut cost ~22% of the pool (287,159→223,172
 tokens, concurrency multiplier 1.30x→1.01x). Whether the actual cut needs to
 be that deep is exactly what the sizing boot below settles — don't assume
 7Gi is the right number until it's measured for the draft variant chosen.
-**Correction from the original draft of this plan:** the ~1.17x pool/ceiling
+The ~1.17x pool/ceiling
 ratio is specific to the *current* 9Gi/no-spec-decode config
 (287,159/246,944 ≈ 1.16) — it is not a fixed constant to reapply. The
 numbers don't hold once `parallelSlots` also changes: #4651's own 7Gi attempt

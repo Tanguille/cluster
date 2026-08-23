@@ -10,7 +10,16 @@ configs are compared cache-cold. Streaming, so TTFT is the real first-token time
 """
 import json, re, statistics, sys, threading, time, urllib.request
 
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+def _port():
+    if len(sys.argv) < 2:
+        return 8000
+    p = int(sys.argv[1])
+    if not 1 <= p <= 65535:
+        raise SystemExit(f"port out of range: {p}")
+    return p
+
+
+PORT = _port()
 MODEL = sys.argv[2] if len(sys.argv) > 2 else "qwen-3.8"
 PROMPT_WORDS = int(sys.argv[3]) if len(sys.argv) > 3 else 50000
 URL = f"http://127.0.0.1:{PORT}/v1/completions"
@@ -22,11 +31,13 @@ WORDS = ("storage replication consensus quorum latency throughput partition ledg
          "durability coordinator epoch lease tombstone compress index segment").split()
 
 
-def make_prompt(salt):
-    # salt first: a distinct opening token block defeats prefix-cache reuse entirely.
+def make_body():
     # PROMPT_WORDS counts words selected here, not tokenizer tokens - the real
     # per-request token count comes back in the response's usage.prompt_tokens.
-    parts = [f"Session {salt} unique run identifier. Technical corpus follows.\n"]
+    # Salt-independent, so built once per concurrency round (see the call site)
+    # rather than once per thread - identical work was previously redone by
+    # every concurrent stream, on the timed path, contending for the GIL.
+    parts = []
     rnd = 0
     for i in range(PROMPT_WORDS):
         rnd = (rnd * 1103515245 + 12345 + i) & 0x7FFFFFFF
@@ -35,6 +46,11 @@ def make_prompt(salt):
             parts.append(".\n")
     parts.append("\n\nSummarize the corpus above in one sentence.")
     return " ".join(parts)
+
+
+def make_prompt(salt, body):
+    # salt first: a distinct opening token block defeats prefix-cache reuse entirely.
+    return f"Session {salt} unique run identifier. Technical corpus follows.\n{body}"
 
 
 def check_idle():
@@ -54,15 +70,15 @@ def check_idle():
         sys.exit(1)
 
 
-def stream(salt, t_launch, out, lk):
-    body = json.dumps({
-        "model": MODEL, "prompt": make_prompt(salt), "max_tokens": GEN,
+def stream(salt, body, t_launch, out, lk):
+    req_body = json.dumps({
+        "model": MODEL, "prompt": make_prompt(salt, body), "max_tokens": GEN,
         "temperature": 0.7, "ignore_eos": True, "stream": True,
         "stream_options": {"include_usage": True},
     }).encode()
     ttft, ntok, usage = None, 0, {}
     try:
-        rq = urllib.request.Request(URL, data=body, headers={"Content-Type": "application/json"})
+        rq = urllib.request.Request(URL, data=req_body, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(rq, timeout=1800) as r:
             for raw in r:
                 if not raw.startswith(b"data: "):
@@ -97,9 +113,10 @@ print(f"target prompt words: {PROMPT_WORDS}  model: {MODEL}  gen: {GEN}")
 print(f"{'conc':>5} {'ttft med s':>11} {'ttft p90 s':>11} {'PP tok/s':>10} {'TG tok/s':>9} {'cached':>9} {'ok':>4}")
 for c in [1, 4]:
     out, lk, th = [], threading.Lock(), []
+    body = make_body()  # built once per round, not once per thread - see make_body's docstring
     t_launch = time.perf_counter()  # shared launch barrier - see the aggregate-rate note below
     for i in range(c):
-        t = threading.Thread(target=stream, args=(f"{time.time_ns()}-c{c}s{i}", t_launch, out, lk))
+        t = threading.Thread(target=stream, args=(f"{time.time_ns()}-c{c}s{i}", body, t_launch, out, lk))
         t.start()
         th.append(t)
     for t in th:

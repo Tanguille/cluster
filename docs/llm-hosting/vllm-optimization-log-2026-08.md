@@ -42,12 +42,12 @@ not isolated) — see the PR history, not this file.
    `maxModelLen` is *derived* from the resulting pool via the 1.17x ceiling
    (see finding 5 below), so any resweep must re-derive maxModelLen per pool
    size — comparing ceilings across different pools is meaningless.
-3. **AITER unified attention (+84% decode) is mutually exclusive with the
-   KV offload connector**, not a flag flip — `rocm.py:703` rejects it whenever
-   `--kv-transfer-config` is set. The trade got worse once the connector was
-   proven to carry 72.1% of fallthrough and to save a GPU-cache collapse
-   (91.2% combined vs 18.6% GPU-only) — the ~10x prefill regression alone
-   likely disqualifies it for this 47-56K-token workload regardless.
+3. **AITER unified attention is mutually exclusive with the KV offload
+   connector** (mechanism in "Compressed findings" below). The trade got
+   worse once the connector was proven to carry 72.1% of fallthrough and to
+   save a GPU-cache collapse (91.2% combined vs 18.6% GPU-only) — the ~10x
+   prefill regression alone likely disqualifies it for this 47-56K-token
+   workload regardless.
 4. **Inherited, never re-challenged:** `kvCacheDtype: fp8_e4m3` (never
    compared to fp16 KV — quality cost on this hybrid GDN model unmeasured);
    `gpuMemoryUtilization: 0.875` (inert now that `--kv-cache-memory` bypasses
@@ -88,12 +88,9 @@ not isolated) — see the PR history, not this file.
   to measure *active/pinned* blocks, not cached content — a tier full of
   useful cached-but-idle blocks reads near 0%. Two separate wrong conclusions
   in this log came from trusting an unverified gauge.
-- **A restart costs hours, not the ~4 min boot.** It wipes the tmpfs CPU
-  offload tier and collapses the GPU prefix cache; with `scheduler_reserve_full_isl`
-  on by default, a cold cache pushes nearly every request onto the
-  `load_kv_async` admission path, which stalls admission under reservation
-  pressure. Recovery is load-dependent, not time-dependent. Don't restart
-  under load; batch config changes and prefer the admin API where possible.
+- **A restart costs hours, not the ~4 min boot** — mechanism and root cause
+  in "Compressed findings" below. Don't restart under load; batch config
+  changes and prefer the admin API where possible.
 - **Re-derive coupled invariants together, every time.** `max_concurrent_sessions
   <= KV pool / typical prompt tokens`, litellm `maxInputTokens + maxOutputTokens
   == maxModelLen`, and Hermes `context_length` all move together with
