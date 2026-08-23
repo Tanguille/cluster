@@ -38,7 +38,38 @@ complexity for a win that mostly shows up in a different regime. Sequence
 below goes cheapest/safest → most disruptive, with later steps gated on
 earlier ones where that's cheap to check.
 
-## Step 1 — Instrument TTFT by prefix-cache outcome (near-zero risk, one small config prerequisite)
+## Step 1 — Instrument TTFT by prefix-cache outcome — **mostly DONE 2026-08-23, without the restart**
+
+**The `--enable-prompt-tokens-details` restart is not needed for the token-level
+answer.** vLLM already exports the cache-outcome breakdown as a server-side
+metric this deployment is scraping today:
+`vllm:prompt_tokens_by_source_total`, labelled by `source`. Measured over 24h,
+`service="qwen38-27b-vllm"`:
+
+| source | prompt tokens (24h) | share |
+|---|---|---|
+| `external_kv_transfer` | 34,669,600 | 51.7% |
+| `local_cache_hit` | 27,822,400 | 41.5% |
+| `local_compute` | **4,503,759** | **6.7%** |
+
+Cross-checks against `vllm:prompt_tokens_cached_total / vllm:prompt_tokens_total`
+= **93.3%**, consistent with the 6.7% computed share above.
+
+**The headline result: only 6.7% of prompt tokens are actually recomputed.**
+The earlier "85% hit rate" figure is stale and understated the current state —
+the combined rate is now 92-93% (see Step 3's table for the block-level view,
+which independently lands at 92.1%).
+
+**What the flag would still buy**, if it's ever wanted: per-request correlation
+of TTFT against that request's own cached ratio, which the aggregate metric
+can't give. That is now a low-value ask — with 6.7% of prompt tokens left to
+compute, there is very little prefill headroom for the correlation to point at.
+Not worth a restart on its own; fold it into the next restart that happens for
+another reason.
+
+**Consequence for Step 2:** effectively answered, see below.
+
+### Original framing (kept for context)
 
 **Not a job for `ttftsweep.py` as-is** — that script deliberately salts every
 prompt to *defeat* prefix caching (it's a cache-cold-only tool for
@@ -74,7 +105,18 @@ in this Grafana instance).
 
 **Gate:** none — do this first regardless of what else gets picked up.
 
-## Step 2 — Hermes-side prefix stabilization (gated on Step 1)
+## Step 2 — Hermes-side prefix stabilization — **DROPPED 2026-08-23, gate not met**
+
+Step 1's gate was "only pursue if the data supports it — don't guess." It
+doesn't. Cache misses cannot dominate TTFT when **6.7% of prompt tokens are
+the entire uncached remainder**. Even a perfect prefix-stabilization fix in
+Hermes is bounded by that 6.7%, and the prefix is evidently already stable
+enough to be producing a 93.3% token-level hit rate. Not worth investigating.
+
+Revisit only if the `local_compute` share climbs materially (say, past 15%) —
+that would be the signal that something upstream started perturbing the prefix.
+
+### Original framing (kept for context)
 
 If Step 1 shows cache misses dominate p95 TTFT: investigate whether Hermes'
 system-prompt / tool-schema serialization order is stable turn-to-turn. An
@@ -85,7 +127,51 @@ cause.
 
 **Gate:** only pursue if Step 1's data supports it — don't guess.
 
-## Step 3 — Reassess the fs-tier KV-offload cost/benefit
+## Step 3 — Reassess the fs-tier KV-offload cost/benefit — **DONE 2026-08-23: KEEP the tier**
+
+**Verdict: keep it, and stop revisiting this.** Two independent lines of
+evidence, one pre-existing and one measured now, both say drop-the-tier is the
+wrong move — and the second one refutes the specific premise this step was
+built on.
+
+1. Already settled experimentally, recorded in the manifest itself
+   (`qwen38-27b-vllm.yaml:349-351`): removing the fs tier **halved
+   single-stream decode** (15.5 vs 31 tok/s, exact-revert confirmed). Its hit
+   rate was never the point — it keeps eviction asynchronous. This step's
+   framing ("if the contribution is small, that's grounds to drop the tier")
+   is answered: the contribution is not the hit rate.
+2. **The long-lookup tail is not fs-specific** — measured over 24h across the
+   service, which is what actually kills the drop-it hypothesis:
+
+   | metric (24h, `service="qwen38-27b-vllm"`) | fs/tiering | CPU tier |
+   |---|---|---|
+   | `kv_offload_*lookup_async_delay_seconds_count` | 4,287 | 1,025 |
+   | fraction `<= 10s` | 89.3% | 86.4% |
+   | p50 delay | 0.23s | 0.26s |
+
+   The CPU tier's >10s tail is *slightly worse* than the fs tier's. Dropping
+   the fs tier would not remove the stall — it's the connector's serialized
+   per-tier lookup thread, exactly as root-caused in memory
+   `vllm-kvoffload-lookup-stall`, and it belongs upstream, not here.
+
+**Cache rates over the same 24h window**, for the record (read combined, never
+either tier alone):
+
+- GPU-local prefix hit rate: **40.7%**
+- External (offload, all tiers) hit rate: **86.7%** (35,361,600 / 40,802,816)
+- Combined `gpu + (1-gpu) * ext` = **92.1%**
+- fs-tier chunk-level hit rate (`kv_offload_tiering_chunk_hits/queries`):
+  **59.5%** on 80,085 queries. Note this is a *chunk-level* metric and is not
+  the same measurement as the 4.5% figure in the manifest comment — don't
+  conflate them.
+- fs-tier read throughput: 25.0 GB over 17.93s of read time ≈ **1.39 GB/s**
+  effective, consistent with the memory note that the O_DIRECT data path is
+  fast and the stall is in lookup scheduling, not disk.
+
+**Follow-up, not blocking:** the only real action left is upstream — the
+single serialized lookup thread per tier. Nothing to change in this repo.
+
+### Original framing (kept for context)
 
 We already have a root-caused, documented issue with the fs secondary
 offload tier: lookups serialize through a single background thread per tier
