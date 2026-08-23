@@ -103,7 +103,7 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
   ```
 
 - **Extensions.** Declare them by name and version on `Database.spec.extensions` (memini:
-  `vchord` + `vector`; crowdsec: `vector`). `vchord` versions are Renovate-grouped with the
+  `vchord` + `vector`; crowdsec, ghostfolio, litellm: `vector`). `vchord` versions are Renovate-grouped with the
   cluster's vchord-scratch image. `vector` is pgvector, which ships in the base CNPG postgresql
   image, **not** vchord-scratch (that image contains only `vchord.so`) — Renovate doesn't track
   it, so bump it manually whenever the base image bumps, reading the true version from the
@@ -111,7 +111,8 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
 
   ```sh
   img=$(yq '.spec.imageName' kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml)
-  docker run --rm --entrypoint cat "$img" /usr/share/postgresql/18/extension/vector.control
+  pg=$(sed -E 's/.*:([0-9]+)\..*/\1/' <<<"$img")
+  docker run --rm --entrypoint cat "$img" "/usr/share/postgresql/$pg/extension/vector.control"
   ```
 
   A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
@@ -132,7 +133,7 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
 
 | App | DB | Role | Host | Extensions | Live owner was |
 |-----|----|------|------|------------|----------------|
-| litellm | litellm | litellm | pgbouncer-rw | – | role |
+| litellm | litellm | litellm | pgbouncer-rw | vector | role |
 | jellystat | jfstat | jellystat | pgbouncer-rw | – | `postgres` (ALTERed) |
 | radarr | radarr | radarr | pgbouncer-rw | – | role |
 | bazarr | bazarr | bazarr | pgbouncer-rw | – | role |
@@ -144,6 +145,7 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
 | spoolman | spoolman | spoolman | pgbouncer-rw | – | role |
 | memini | memini | memini | pgbouncer-rw | vchord, vector | role |
 | crowdsec | crowdsec | crowdsec | pgbouncer-rw | vector | role |
+| ghostfolio | ghostfolio | ghostfolio | pgbouncer-rw | vector | role |
 
 ## Not onboarded
 

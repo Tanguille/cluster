@@ -16,7 +16,8 @@ spec:
         # not track it; bump manually when that image bumps. A wrong pin fails visibly via the
         # Database CR going not-Ready. Check with:
         #   img=$(yq '.spec.imageName' kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml)
-        #   docker run --rm --entrypoint cat "$img" /usr/share/postgresql/18/extension/vector.control
+        #   pg=$(sed -E 's/.*:([0-9]+)\..*/\1/' <<<"$img")
+        #   docker run --rm --entrypoint cat "$img" "/usr/share/postgresql/$pg/extension/vector.control"
         - &vector
           name: vector
           version: "0.8.6"
