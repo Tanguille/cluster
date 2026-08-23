@@ -19,9 +19,9 @@ not isolated) — see the PR history, not this file.
 | quant | `philbert440/Qwen3.8-27B-W4A16-AWQ`, g128 |
 | image | vLLM nightly (ROCm) |
 | maxNumBatchedTokens | 4096 |
-| maxModelLen | 246,944 (pool 288,493 tok, 1.17x) |
+| maxModelLen | 246,944 (pool 288,493 tok from the ceiling-sweep measurement, ~1.17x — the separate 287,159-tok figure below is from the kv-cache-memory-raise measurement, a different snapshot; the two are close but not the same run) |
 | `--kv-cache-memory` | 9 GiB |
-| `cpu_bytes_to_use` (CPU offload tier) | 22 GiB — validated over a 9h restart-free window |
+| `cpu_bytes_to_use` (CPU offload tier) | 22 GiB — stability-tested over a 9h restart-free window only; the manifest's own bar is a 24h restart-free soak beating the 0.5333 pre-change external-cache-hit baseline, which has NOT run yet. Manifest still says "Benefit NOT yet validated" — don't read the 9h result as validation |
 | fs secondary offload tier | present — **load-bearing for decode speed, not just its hit rate** |
 | spec-decode | off |
 | cpu / memory | 2 / 36Gi |
@@ -176,8 +176,13 @@ ceiling at 288,493 tokens; Hermes was allowing 8. Capping
 Queueing at the source is strictly cheaper than admitting a request and then
 discarding its prefill under preemption.
 
-**CPU offload tier 16→22 GiB: validated over a 9h restart-free window**
-(external tier fallthrough rose from a 62.6% pre-change baseline to 72.1%).
+**CPU offload tier 16→22 GiB: stability-tested (not yet validated) over a 9h
+restart-free window** (external tier fallthrough rose from a 62.6% pre-change
+baseline to 72.1%). The manifest's own validation bar is stricter — a 24h
+restart-free soak beating a 0.5333 pre-change `external_prefix_cache_hits/
+queries` baseline, or rollback to 16Gi — and hasn't run that long yet; the
+manifest itself still reads "Benefit NOT yet validated." Treat this 9h result
+as a positive early signal, not a settled result.
 The tier's occupancy gauge reads near-zero even while serving 88%+ of
 fallthrough — it's a fast staging layer over the much larger fs (Ceph) tier,
 not a bulk store, so low occupancy is by design, not evidence to reclaim the

@@ -38,17 +38,31 @@ complexity for a win that mostly shows up in a different regime. Sequence
 below goes cheapest/safest → most disruptive, with later steps gated on
 earlier ones where that's cheap to check.
 
-## Step 1 — Instrument TTFT by prefix-cache outcome (no risk, no config change)
+## Step 1 — Instrument TTFT by prefix-cache outcome (near-zero risk, one small config prerequisite)
 
 **Not a job for `ttftsweep.py` as-is** — that script deliberately salts every
 prompt to *defeat* prefix caching (it's a cache-cold-only tool for
 `maxNumBatchedTokens`-style sweeps), so it structurally cannot produce a
-cache-hit sample. Use real production telemetry instead: correlate per-request
-TTFT against `prompt_tokens_details.cached_tokens` from vLLM's own request
-logs/metrics over a fixed recent window, bucketed as full-hit
-(`cached_tokens` ≈ `prompt_tokens`), partial-hit, and miss — not a binary
-`cached_tokens > 0` split, which would misclassify a 90%-cached long prompt
-as the same "hit" bucket as a 5%-cached one.
+cache-hit sample.
+
+**Prerequisite, corrected from the original draft of this plan:** the manifest
+does not currently pass `--enable-prompt-tokens-details`, which vLLM defaults
+to `False` — meaning `prompt_tokens_details.cached_tokens` is absent from
+production responses entirely right now, not just unmeasured. This step
+therefore isn't the zero-config-change step it was first written as: flip
+that flag on first (small, low-risk, additive-only — it only adds a field to
+the usage payload, changes nothing about serving behavior), then correlate
+per-request TTFT against `prompt_tokens_details.cached_tokens` from vLLM's
+own request logs/metrics over a fixed recent window.
+
+**Bucket thresholds, made executable, not a vague `≈`:**
+- **Full hit**: `cached_tokens / prompt_tokens >= 0.95`
+- **Partial hit**: `0 < cached_tokens / prompt_tokens < 0.95`
+- **Miss**: `cached_tokens == 0`, or the field is present with `cached_tokens: 0`
+- **Unavailable**: `prompt_tokens_details` missing from the response entirely
+  (shouldn't occur once the flag above is set, but don't silently coerce a
+  missing field to a miss if it does — that conflates "we don't know" with
+  "confirmed cold")
 
 Also: **the 85% figure is a token-level hit rate, not "15% of requests
 miss"** — don't conflate the two when writing up results; a request can be a
@@ -105,9 +119,14 @@ under load, root cause not isolated at the time.
 **Current production baseline** (verify against the manifest before trusting
 any of this — it changes): `--kv-cache-memory` is **9663676416 (9Gi)**,
 buying a 287,159-token pool at 1.30x concurrency multiplier, with 2.57GB free
-VRAM measured at peak load. The manifest's own comment records that the
-*prior* 7Gi config left *more* headroom — 2.81GB free, 223,172-token pool
-(1.01x) — because a smaller KV-cache-memory budget allocates less VRAM to KV
+VRAM measured at peak load. The live `maxModelLen` (246,944) is derived from
+this same 9Gi pool, at a ~1.17x pool/ceiling ratio — the two numbers aren't
+independent; changing the pool means re-deriving the ceiling from it, not
+reusing 246,944 (see the retest protocol below for why this can't be a fixed
+formula once `parallelSlots` also changes). The manifest's own comment
+records that the *prior* 7Gi config left *more* headroom — 2.81GB free,
+223,172-token pool (1.01x) — because a smaller KV-cache-memory budget
+allocates less VRAM to KV
 before DFlash2 enters the picture at all.
 
 Investigation since the revert:
@@ -137,13 +156,19 @@ free move — #4651's 9Gi→7Gi cut cost ~22% of the pool (287,159→223,172
 tokens, concurrency multiplier 1.30x→1.01x). Whether the actual cut needs to
 be that deep is exactly what the sizing boot below settles — don't assume
 7Gi is the right number until it's measured for the draft variant chosen.
-Whatever the resulting pool size is, `maxModelLen` is *derived* from it via
-the ~1.17x pool/ceiling ratio documented in `vllm-optimization-log-2026-08.md`
-and must be re-derived, not left at the current 246,944 — #4651's own 7Gi
-attempt correspondingly dropped it to 147,456. Any `maxModelLen` change
-cascades to litellm's `maxInputTokens` and Hermes' `context_length`, per the
-coupling documented in that same log — re-derive all three together, don't
-change kv-cache-memory in isolation.
+**Correction from the original draft of this plan:** the ~1.17x pool/ceiling
+ratio is specific to the *current* 9Gi/no-spec-decode config
+(287,159/246,944 ≈ 1.16) — it is not a fixed constant to reapply. The
+numbers don't hold once `parallelSlots` also changes: #4651's own 7Gi attempt
+(223,172-token pool, `maxModelLen` dropped to 147,456, `parallelSlots` 6→8
+in the same change) works out to 223,172/147,456 ≈ 1.51, a different ratio
+entirely. **Do not apply a fixed ratio formula.** Re-derive `maxModelLen`
+directly from the manifest and the sizing boot's profiler result for
+whichever draft variant and `parallelSlots` value is actually selected, not
+by scaling 246,944 by any ratio. Any `maxModelLen` change cascades to
+litellm's `maxInputTokens` and Hermes' `context_length`, per the coupling
+documented in `vllm-optimization-log-2026-08.md` — re-derive all three
+together, don't change kv-cache-memory in isolation.
 
 **Prerequisite: size the actual scratch cost before picking a kv-cache-memory
 cut — don't reuse the old 7Gi figure blindly.**
@@ -170,19 +195,26 @@ not hours, though the GPU still needs to be briefly freed (single shared
 card) the same as any other test here.
 
 **In the same pass, compare a quantized draft against the bf16 default.**
-Community quants already exist: `lued/Qwen3.8-27B-INT8-W8A16-DFlash2` and
+Community quants exist on Hugging Face — checked 2026-08-23, both repos
+present: `lued/Qwen3.8-27B-INT8-W8A16-DFlash2` and
 `syvai/Qwen3.8-27B-DFlash2-W4A16` are the closest match to our existing
-compressed-tensors/AWQ pattern. Speculative-decode verification stays exact
-against the target regardless of draft precision — a worse draft only costs
-*acceptance rate* (less speedup), never wrong output — so quantizing the
-draft is safe for correctness by construction. What it changes: W4A16 would
-take the ~3.58GiB draft down to roughly ~1GiB, which could avoid most of the
-kv-cache-memory cut entirely; but neither quant has any track record on our
-ROCm/gfx1201 stack, so treat it with the same scrutiny the target model quant
-got. Run the sizing boot once per candidate draft variant (bf16 baseline,
-W4A16, optionally W8A16), and fold the same 4-6 concurrent grammar-burst
-comparison from steps 2-3 below into each — record **draft acceptance rate**
-alongside PP/TG/TPOT this time, not just the first time, since acceptance
+compressed-tensors/AWQ pattern. **Existence confirmed; ROCm/gfx1201 support
+is NOT confirmed** — treat both as unvalidated until the sizing boot actually
+loads and runs them; a checkpoint existing on the Hub says nothing about
+whether it loads cleanly on this stack, and neither has any track record
+here. Speculative-decode verification stays exact against the target
+regardless of draft precision — a worse draft only costs *acceptance rate*
+(less speedup), never wrong output — so quantizing the draft is safe for
+correctness by construction, but that's a claim about the algorithm, not
+about whether these specific checkpoints load and run correctly on gfx1201.
+What it changes if it works: W4A16 would take the ~3.58GiB draft down to
+roughly ~1GiB, which could avoid most of the kv-cache-memory cut entirely.
+Run the sizing boot once per candidate draft variant (bf16 baseline, W4A16,
+optionally W8A16) — a load failure or crash on a given variant is itself a
+valid, useful result, not just a successful measurement — and fold the same
+4-6 concurrent grammar-burst comparison from steps 2-3 below into each for
+any variant that does load: record **draft acceptance rate** alongside
+PP/TG/TPOT this time, not just the first time, since acceptance
 rate is the number a quantized draft can actually move. Pick whichever
 variant clears the burst-test gate with the smallest KV-pool cost.
 
