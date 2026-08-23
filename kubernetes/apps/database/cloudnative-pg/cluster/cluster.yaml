@@ -134,6 +134,14 @@ spec:
       - name: vchord
         image:
           reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.1.1
+        # vchord-scratch mirrors the base image's real install tree (usr/lib/postgresql/18/lib,
+        # usr/share/postgresql/18/extension) instead of CNPG's default extension-image layout
+        # (lib/, share/ at the image root), so the default search path never finds vchord.so.
+        # These paths are resolved relative to this extension's own mount.
+        dynamic_library_path:
+          - /usr/lib/postgresql/18/lib
+        extension_control_path:
+          - /usr/share/postgresql/18
       - name: vector
         image:
           reference: ghcr.io/cloudnative-pg/pgvector:0.8.6-18-trixie
