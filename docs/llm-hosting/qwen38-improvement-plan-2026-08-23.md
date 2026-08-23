@@ -408,7 +408,21 @@ variant clears the burst-test gate with the smallest KV-pool cost.
 there's a suitable window; give it real patience once started (see the linked memory above),
 don't self-impose a downtime cap that isn't in this protocol.
 
-## Step 2 — minisglang-rdna4: bounded spike only, not a production candidate
+## Step 2 — minisglang-rdna4 — **DEFERRED 2026-08-23: wait for the project to mature**
+
+Not run. Weights were pre-staged (23 GB, `cyankiwi/Qwen3.8-27B-AWQ-INT4`) onto a
+CephFS RWX volume so the boot test would cost only a short GPU window instead of
+a download plus a window — that decoupling worked and is the pattern to reuse if
+this is revisited. The test itself was called off on judgement, not failure:
+even a clean boot would not displace the tuned vLLM stack (hierarchical KV
+offload, 93.3% token-level cache hit rate, 246,944 ctx, working tool parser),
+none of which minisglang has been shown to replicate, and the maintainer's own
+validation (TP=2, 16 GB cards, a different checkpoint) does not transfer to our
+TP=1/32 GB setup.
+
+Scratch PVC and pods deleted; nothing left behind.
+
+### Original framing (kept for whenever it is revisited)
 
 `ghcr.io/patcarter883/minisglang-rdna4` — retry the live test aborted this
 week (aborted prematurely at ~25 min during what was likely legitimate
@@ -434,6 +448,46 @@ fork (`mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference`) is active but
 trails upstream (v0.5.17-era as of this writing, v0.5.18 is current
 upstream). Nothing to do here now — revisit if/when an official or
 actively-maintained community image targeting gfx1201 appears.
+
+## Open, and now the highest-value thing left: TTFT is bad and unexplained
+
+Measured 2026-08-23. This is **not** an artifact of that day's restarts — a
+clean window (`[16h] offset 8h`, before any experiment) gives the same numbers.
+
+| TTFT | share of requests |
+|---|---|
+| ≤ 10s | 22% |
+| ≤ 20s | 42% |
+| ≤ 80s | 71% |
+| > 160s | 16% |
+
+p50 ≈ 35s, mean ≈ 80.7s (98,074s over 1,215 requests), p95 ≈ 512s.
+
+**What it is not:** KV-offload load is *not* on the critical path —
+`kv_offload_load_time_total` totals **373.8s across the whole 24h**, i.e. ~0.4%
+of the 98,074s of TTFT, while moving 1.27 TB (≈3.4 GB/s). Sync lookup delay p95
+is **0**. `num_requests_waiting_by_reason` is 0 for both `capacity` and
+`deferred`, so it is not admission queueing either.
+
+**Why it is strange:** with 93.3% of prompt tokens served from cache, a typical
+47-56K prompt should only need ~3.4K tokens of real prefill. At the measured
+~3,515 tok/s prefill rate that is ~1s of compute, not 35s.
+
+**Unresolved leads, in rough priority order:**
+1. **70 preemptions in 24h** (5.8% of 1,215 requests) — a preempted request
+   recomputes, which is exactly the shape of a long tail. Start here.
+2. Prefill/decode interleaving: `maxNumBatchedTokens` is 4096, so a long prompt
+   is chunked and each chunk competes with in-flight decode. Note 4096 is
+   already bisected-optimal and 8192 measured *worse* on both prefill and
+   decode — so the fix, if this is the cause, is not simply raising it.
+3. Whether the manifest's "p50 5s" figure (recorded when `maxNumBatchedTokens`
+   was set to 4096) was production telemetry or a benchmark number. If the
+   former, this is a real regression and worth bisecting against; if the latter,
+   the comparison is invalid. **Confirm the measurement basis before treating
+   35s vs 5s as a regression.**
+
+This is an investigation, not a config change — no knob currently identified is
+both safe and likely to help.
 
 ## Explicitly deprioritized / not pursuing
 
