@@ -526,9 +526,15 @@ Reproducible in both runs:
   contexts. Any future concurrency tuning must be measured at production
   context length.
 
-**Action: `parallelSlots: 6 → 4`**, and `cudagraph_capture_sizes` to `[1, 2, 4]`
-to match (the manifest comment ties them together). Expected ~17% aggregate and
-~1.75x per-stream. Requires a restart.
+**Candidate action: `parallelSlots: 6 → 4`**, and `cudagraph_capture_sizes` to
+`[1, 2, 4]` to match (the manifest comment ties them together). Expected ~17%
+aggregate and ~1.75x per-stream. Requires a restart.
+
+**Do not ship this yet.** A later test (see "REFUTED: no cached-prefix decode
+penalty") found decode on this engine varies up to 16x between identical runs
+when production traffic can join mid-measurement. Both sweep runs agreed on
+*ordering*, which is why the finding is kept — but re-run it with in-run
+concurrency sampling, and ideally on an idle engine, before changing config.
 
 **Caveat that strengthens the case:** every stream in the sweep shared one
 identical prompt, so prefix caching gave all of them a single shared 48K KV
@@ -549,12 +555,38 @@ likely *worse* than measured, not better.
   counter ratio, never the gauge. An earlier revision of this plan claimed
   production "never exceeds concurrency 1.0" on the gauge's word; that was wrong.
 
-**Open confound worth its own look:** decode measured 22.8 tok/s at conc 1 with
-a *freshly computed* 48K prefix, but only ~10 tok/s at conc 1 with a *cached*
-one. Production is 93.3% cache-hit and shows 3.96 tok/s, i.e. the cached number
-is the one that resembles production. Something about serving from cached KV is
-slower than serving from just-computed KV — unexplained, and potentially worth
-more than the parallelSlots change.
+### REFUTED: no cached-prefix decode penalty — and decode measurement is unreliable
+
+Hypothesis was that decoding against cached KV is slower than against
+just-computed KV (22.8 vs ~10 tok/s observed as a side effect). Tested properly
+with `cachedecode.py` — same endpoint, same `max_tokens`, same context, identical
+prompt replayed for the warm half:
+
+```
+pair 1:  cold 124 tok in 89.20s =  1.39 tok/s   |  warm 120 tok in  7.86s = 15.27 tok/s
+pair 2:  cold 124 tok in  5.65s = 21.95 tok/s   |  warm  75 tok in 10.77s =  6.96 tok/s
+mean cold 11.67   mean warm 11.12   penalty 1.05x
+```
+
+**No penalty (1.05x).** More importantly, **cold varied 1.39 → 21.95 tok/s, a 16x
+swing between identical runs**, and the two pairs disagree on direction. The
+original 22.8-vs-10 observation was noise, not an effect.
+
+**Consequence for everything measured here: single-sample decode numbers on this
+engine are not trustworthy.** 22.8 / 11.5 / 9.85 / 10.16 were all n=1. The
+`parallelSlots` finding above survives better because both runs agreed on
+*ordering*, but it should get more samples before any config change ships.
+
+**Root cause is the test design, not the engine (probably):** runs were gated on
+the engine being idle *at start*, but production Hermes traffic arrives
+continuously and can join mid-run — pair 1's cold run (124 tokens in 89s) looks
+exactly like GPU sharing. Also unexplained: no run reached the requested 128
+tokens (124/120/124/75) despite `ignore_eos`.
+
+**Fix before trusting any further decode benchmark here:** sample
+`num_requests_running` *throughout* each measurement and discard any run that
+saw company, rather than checking idle once at the start. Same instrumentation
+gap that made the gauge mislead on concurrency above.
 
 **Other unresolved leads, in rough priority order:**
 1. **70 preemptions in 24h** (5.8% of 1,215 requests) — a preempted request
