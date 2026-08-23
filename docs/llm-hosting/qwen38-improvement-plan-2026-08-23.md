@@ -131,23 +131,68 @@ Investigation since the revert:
   regime that wedged MTP to 0.2 tok/s. DFlash2 is **not proven safe** from
   this, only untested against it.
 
-**The trade this retest is actually proposing:** dropping `kv-cache-memory`
-9Gi→7Gi to make room for DFlash2 costs ~22% of the KV pool (287,159→223,172
-tokens, concurrency multiplier 1.30x→1.01x) — book this as a real cost of
-the feature, not a free move. Because `maxModelLen` (246,944) is *derived*
-from the pool via the ~1.17x pool/ceiling ratio documented in
-`vllm-optimization-log-2026-08.md`, it must be re-derived for the smaller
-7Gi pool, not left at 246,944 — #4651 correspondingly dropped it to 147,456.
-Any `maxModelLen` change cascades to litellm's `maxInputTokens` and Hermes'
-`context_length`, per the coupling documented in that same log — re-derive
-all three together, don't change kv-cache-memory in isolation.
+**The trade this retest is actually proposing:** DFlash2 needs real KV-pool
+budget freed for its own use, and that's a real cost of the feature, not a
+free move — #4651's 9Gi→7Gi cut cost ~22% of the pool (287,159→223,172
+tokens, concurrency multiplier 1.30x→1.01x). Whether the actual cut needs to
+be that deep is exactly what the sizing boot below settles — don't assume
+7Gi is the right number until it's measured for the draft variant chosen.
+Whatever the resulting pool size is, `maxModelLen` is *derived* from it via
+the ~1.17x pool/ceiling ratio documented in `vllm-optimization-log-2026-08.md`
+and must be re-derived, not left at the current 246,944 — #4651's own 7Gi
+attempt correspondingly dropped it to 147,456. Any `maxModelLen` change
+cascades to litellm's `maxInputTokens` and Hermes' `context_length`, per the
+coupling documented in that same log — re-derive all three together, don't
+change kv-cache-memory in isolation.
+
+**Prerequisite: size the actual scratch cost before picking a kv-cache-memory
+cut — don't reuse the old 7Gi figure blindly.**
+
+The draft checkpoint's static weight footprint is directly measurable and
+already surprising: `z-lab/Qwen3.8-27B-DFlash2/model.safetensors` is
+**3,848,817,896 bytes (~3.58GiB, bf16)** — it doesn't carry its own
+embedding/lm_head copies at the full 248,320-token vocab (those are shared
+with the target at runtime), but 3.58GiB of static draft weights is still
+larger than the ~2GiB the 9Gi→7Gi cut nominally frees, before any per-slot
+scratch (candidate buffers, aux-hidden-state capture, conv state) is counted.
+This is a plausible explanation for why that cut measured only 0.24GB of
+actual free-VRAM gain instead of the full ~2GB the flag value changed by —
+something was already eating into it.
+
+Get the real number from a boot, not more arithmetic: deploy a standalone
+throwaway pod (same pattern as the minisglang-rdna4 test — a Pod outside the
+production InferenceService, not a config change to it) running the DFlash2
+speculative-config **without** `--kv-cache-memory` set, so vLLM's own
+profiler runs and logs the actual breakdown (target weights / draft weights
+/ KV pool it chooses / non-KV reserved). Capture that log, delete the pod.
+No sustained serving needed — this is a startup-profiling capture, minutes
+not hours, though the GPU still needs to be briefly freed (single shared
+card) the same as any other test here.
+
+**In the same pass, compare a quantized draft against the bf16 default.**
+Community quants already exist: `lued/Qwen3.8-27B-INT8-W8A16-DFlash2` and
+`syvai/Qwen3.8-27B-DFlash2-W4A16` are the closest match to our existing
+compressed-tensors/AWQ pattern. Speculative-decode verification stays exact
+against the target regardless of draft precision — a worse draft only costs
+*acceptance rate* (less speedup), never wrong output — so quantizing the
+draft is safe for correctness by construction. What it changes: W4A16 would
+take the ~3.58GiB draft down to roughly ~1GiB, which could avoid most of the
+kv-cache-memory cut entirely; but neither quant has any track record on our
+ROCm/gfx1201 stack, so treat it with the same scrutiny the target model quant
+got. Run the sizing boot once per candidate draft variant (bf16 baseline,
+W4A16, optionally W8A16), and fold the same 4-6 concurrent grammar-burst
+comparison from steps 2-3 below into each — record **draft acceptance rate**
+alongside PP/TG/TPOT this time, not just the first time, since acceptance
+rate is the number a quantized draft can actually move. Pick whichever
+variant clears the burst-test gate with the smallest KV-pool cost.
 
 **Retest protocol (all of these, not a subset):**
 1. `parallelSlots` back to **6** (not 8) — this is the actual overspend from
-   #4651, revert it. `num_speculative_tokens` **5** (not 7). Accept the
-   `kv-cache-memory` 9Gi→7Gi cut as DFlash2's real cost (see above), and
-   re-derive `maxModelLen`/litellm `maxInputTokens`/Hermes `context_length`
-   together for the resulting pool — don't reuse the 246,944 baseline figure.
+   #4651, revert it. `num_speculative_tokens` **5** (not 7). Size
+   `kv-cache-memory`'s cut from the prerequisite sizing boot above (for
+   whichever draft variant was chosen), not by reusing the old 7Gi figure —
+   and re-derive `maxModelLen`/litellm `maxInputTokens`/Hermes
+   `context_length` together for the resulting pool.
 2. **Control run first, same day, same traffic shape:** run the identical
    4-6 concurrent grammar-constrained tool-calling burst against the
    *current, unmodified* baseline config and record PP tok/s, TG tok/s, and
