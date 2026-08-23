@@ -503,6 +503,59 @@ untested hypothesis: production traffic is **grammar-constrained tool-calling**
 while this test sent a plain completion — the same code path that wedged MTP
 100x here. Testable with a tool-schema request at conc 1; not yet done.
 
+### RESOLVED: batching barely helps at production context; parallelSlots 6 is past the peak
+
+`longconcsweep.py`, ~48K shared cached prefix so prefill is a cache hit and
+concurrency is the only variable. Two independent runs:
+
+| conc | run 1 | run 2 | mean agg tok/s | per-stream |
+|---|---|---|---|---|
+| 1 | 9.85 | 10.16 | **10.01** | 10.01 |
+| 2 | 7.75 | 9.79 | **8.77** | 4.38 |
+| 4 | 13.15 | 12.76 | **12.96** | 3.24 |
+| 6 | 11.77 | 10.37 | **11.07** | 1.85 |
+
+Reproducible in both runs:
+- **Peak is conc 4, not 6.** conc 6 is ~15% worse on aggregate and nearly halves
+  per-stream rate (1.85 vs 3.24) — the documented M=6 dispatch cliff, now
+  confirmed at production context rather than on short prompts.
+- **conc 2 dips below conc 1** — the M=2 `down_proj` LDS gate is real (21% in
+  run 1, 4% in run 2, so directionally solid but noisy in magnitude).
+- **Batching buys +29% at best** (10.01 → 12.96). `concsweep.py`'s short-prompt
+  result (14.88 → 100.82 agg at conc 1 → 16) does **not** transfer to 48K
+  contexts. Any future concurrency tuning must be measured at production
+  context length.
+
+**Action: `parallelSlots: 6 → 4`**, and `cudagraph_capture_sizes` to `[1, 2, 4]`
+to match (the manifest comment ties them together). Expected ~17% aggregate and
+~1.75x per-stream. Requires a restart.
+
+**Caveat that strengthens the case:** every stream in the sweep shared one
+identical prompt, so prefix caching gave all of them a single shared 48K KV
+block set. Real traffic carries distinct contexts, so the true conc-6 penalty is
+likely *worse* than measured, not better.
+
+### Refuted along the way (recorded so they are not re-litigated)
+
+- **Grammar-constrained tool calling costs nothing on decode.** Same 48K
+  context, conc 1, only variable a 2-tool schema: 22.84 vs 22.89 tok/s = 1.00x.
+- **Context is not the decode driver** — 1.8x from 0.4K to 48K.
+- **Not KV bandwidth.** GPU KV usage averages 6.2% (max 12.3%, ~18K tokens
+  resident). This is a GDN hybrid: most layers are linear-attention with
+  fixed-size state, so long contexts barely occupy KV.
+- **`num_requests_running` is not trustworthy for concurrency.** The gauge is
+  scrape-sampled and reports mean 0.6 / max 1.0, but counters give
+  304,819 request-seconds over 86,400s = **mean concurrency 3.53**. Use the
+  counter ratio, never the gauge. An earlier revision of this plan claimed
+  production "never exceeds concurrency 1.0" on the gauge's word; that was wrong.
+
+**Open confound worth its own look:** decode measured 22.8 tok/s at conc 1 with
+a *freshly computed* 48K prefix, but only ~10 tok/s at conc 1 with a *cached*
+one. Production is 93.3% cache-hit and shows 3.96 tok/s, i.e. the cached number
+is the one that resembles production. Something about serving from cached KV is
+slower than serving from just-computed KV — unexplained, and potentially worth
+more than the parallelSlots change.
+
 **Other unresolved leads, in rough priority order:**
 1. **70 preemptions in 24h** (5.8% of 1,215 requests) — a preempted request
    recomputes, which is exactly the shape of a long tail. Start here.
