@@ -13,7 +13,8 @@ from. See "Why order matters" before skipping ahead.
   typical live snapshot), not sustained high-QPS batch traffic.
 - Context is large and retention-heavy: 246,944 max-model-len, hierarchical
   KV offload (CPU tier + fs/Ceph tier) specifically to retain context across
-  turns. External prefix-cache hit rate recently measured at 85%.
+  turns. Combined prefix-cache hit rate measured at 92-93% (see "Already
+  resolved" below).
   `docs/llm-hosting/vllm-optimization-log-2026-08.md` has the full tuning
   history behind this state.
 - Many requests are prefill-bound, not decode-bound (129:1-ish prompt:output
@@ -31,19 +32,28 @@ from. See "Why order matters" before skipping ahead.
 
 Published spec-decode/throughput numbers (GSM8K sweeps, conc=32 batch
 benchmarks, H200 datacenter runs) measure a workload shape we don't have.
-Two independent reviews (below) agreed the highest-value, lowest-risk moves
-are the ones that improve *our actual traffic shape* (prefix-cache
-efficiency, prefill cost) before touching anything that trades GPU-side
-complexity for a win that mostly shows up in a different regime. Sequence
-below goes cheapest/safest → most disruptive, with later steps gated on
-earlier ones where that's cheap to check.
+Two independent reviews agreed the highest-value, lowest-risk moves are the
+ones that improve *our actual traffic shape* (prefix-cache efficiency, prefill
+cost) before touching anything that trades GPU-side complexity for a win that
+mostly shows up in a different regime.
 
-## Step 1 — Instrument TTFT by prefix-cache outcome — **mostly DONE 2026-08-23, without the restart**
+Those cheap moves have now been measured, and they came back **already
+optimal** — see "Already resolved" below. That result is what makes the
+remaining steps worth their cost: with 6.7% of prompt tokens left to compute,
+there is no cheap prefill win left to take first, so the only headroom is
+decode-side (Step 1) or a different engine (Steps 2-3). Remaining steps are
+ordered cheapest/safest → most disruptive.
 
-**The `--enable-prompt-tokens-details` restart is not needed for the token-level
-answer.** vLLM already exports the cache-outcome breakdown as a server-side
-metric this deployment is scraping today:
-`vllm:prompt_tokens_by_source_total`, labelled by `source`. Measured over 24h,
+## Already resolved 2026-08-23 — measurement only, no restart, no config change
+
+Three planned investigations (prefix-cache instrumentation, Hermes prefix
+stabilization, and the fs-tier keep/drop decision) turned out to be answerable
+from telemetry already being scraped. Results, not plans:
+
+**Prefix caching is already near its ceiling.**
+`vllm:prompt_tokens_by_source_total` exports the cache-outcome breakdown
+server-side, so the `--enable-prompt-tokens-details` restart that was going to
+be the prerequisite here is not needed for the token-level answer. Over 24h,
 `service="qwen38-27b-vllm"`:
 
 | source | prompt tokens (24h) | share |
@@ -52,96 +62,29 @@ metric this deployment is scraping today:
 | `local_cache_hit` | 27,822,400 | 41.5% |
 | `local_compute` | **4,503,759** | **6.7%** |
 
-Cross-checks against `vllm:prompt_tokens_cached_total / vllm:prompt_tokens_total`
-= **93.3%**, consistent with the 6.7% computed share above.
+Only 6.7% of prompt tokens are actually recomputed. Cross-checks against
+`vllm:prompt_tokens_cached_total / vllm:prompt_tokens_total` = **93.3%**, and
+against the independent block-level combined rate of **92.1%** (GPU-local
+40.7%, external 86.7%, `combined = gpu + (1-gpu) * ext`). The "85%" figure
+carried in older docs was stale and understated this.
 
-**The headline result: only 6.7% of prompt tokens are actually recomputed.**
-The earlier "85% hit rate" figure is stale and understated the current state —
-the combined rate is now 92-93% (see Step 3's table for the block-level view,
-which independently lands at 92.1%).
+Consequence: **Hermes-side prefix stabilization is dropped.** Its gate was
+"only pursue if the data supports it" — a perfect fix is bounded by that 6.7%,
+and a 93.3% hit rate is evidence the prefix is already stable. Revisit only if
+`local_compute` climbs past ~15%, which would signal something upstream started
+perturbing the prefix. `--enable-prompt-tokens-details` would still buy
+per-request TTFT-vs-cached-ratio correlation that the aggregate can't give;
+that's now low-value, so fold it into some future restart rather than spending
+one on it.
 
-**What the flag would still buy**, if it's ever wanted: per-request correlation
-of TTFT against that request's own cached ratio, which the aggregate metric
-can't give. That is now a low-value ask — with 6.7% of prompt tokens left to
-compute, there is very little prefill headroom for the correlation to point at.
-Not worth a restart on its own; fold it into the next restart that happens for
-another reason.
+**Keep the fs offload tier.** Two independent lines of evidence, and the second
+refutes the premise the drop-it question rested on:
 
-**Consequence for Step 2:** effectively answered, see below.
-
-### Original framing (kept for context)
-
-**Not a job for `ttftsweep.py` as-is** — that script deliberately salts every
-prompt to *defeat* prefix caching (it's a cache-cold-only tool for
-`maxNumBatchedTokens`-style sweeps), so it structurally cannot produce a
-cache-hit sample.
-
-**Prerequisite:** the manifest does not currently pass
-`--enable-prompt-tokens-details`, which vLLM defaults to `False` — meaning
-`prompt_tokens_details.cached_tokens` is absent from production responses
-entirely right now, not just unmeasured. Flip that flag on first (small,
-low-risk, additive-only — it only adds a field to
-the usage payload, changes nothing about serving behavior), then correlate
-per-request TTFT against `prompt_tokens_details.cached_tokens` from vLLM's
-own request logs/metrics over a fixed recent window.
-
-**Bucket thresholds, made executable, not a vague `≈`:**
-- **Full hit**: `cached_tokens / prompt_tokens >= 0.95`
-- **Partial hit**: `0 < cached_tokens / prompt_tokens < 0.95`
-- **Miss**: `cached_tokens == 0`, or the field is present with `cached_tokens: 0`
-- **Unavailable**: `prompt_tokens_details` missing from the response entirely
-  (shouldn't occur once the flag above is set, but don't silently coerce a
-  missing field to a miss if it does — that conflates "we don't know" with
-  "confirmed cold")
-
-Also: **the 85% figure is a token-level hit rate, not "15% of requests
-miss"** — don't conflate the two when writing up results; a request can be a
-majority-cached partial hit and still pay real prefill cost on the uncached
-remainder.
-
-Query this via the existing datasource-proxy validation path, not a new
-Grafana dashboard — dashboard creation is blocked (403 on `dashboards:create`
-in this Grafana instance).
-
-**Gate:** none — do this first regardless of what else gets picked up.
-
-## Step 2 — Hermes-side prefix stabilization — **DROPPED 2026-08-23, gate not met**
-
-Step 1's gate was "only pursue if the data supports it — don't guess." It
-doesn't. Cache misses cannot dominate TTFT when **6.7% of prompt tokens are
-the entire uncached remainder**. Even a perfect prefix-stabilization fix in
-Hermes is bounded by that 6.7%, and the prefix is evidently already stable
-enough to be producing a 93.3% token-level hit rate. Not worth investigating.
-
-Revisit only if the `local_compute` share climbs materially (say, past 15%) —
-that would be the signal that something upstream started perturbing the prefix.
-
-### Original framing (kept for context)
-
-If Step 1 shows cache misses dominate p95 TTFT: investigate whether Hermes'
-system-prompt / tool-schema serialization order is stable turn-to-turn. An
-unstable prefix (e.g. tool list reordered, timestamp/nonce injected near the
-front) defeats prefix caching for reasons that have nothing to do with the
-engine. This is a free win (zero VRAM cost, no GPU-side risk) if it's the
-cause.
-
-**Gate:** only pursue if Step 1's data supports it — don't guess.
-
-## Step 3 — Reassess the fs-tier KV-offload cost/benefit — **DONE 2026-08-23: KEEP the tier**
-
-**Verdict: keep it, and stop revisiting this.** Two independent lines of
-evidence, one pre-existing and one measured now, both say drop-the-tier is the
-wrong move — and the second one refutes the specific premise this step was
-built on.
-
-1. Already settled experimentally, recorded in the manifest itself
+1. Already settled experimentally, recorded in the manifest
    (`qwen38-27b-vllm.yaml:349-351`): removing the fs tier **halved
    single-stream decode** (15.5 vs 31 tok/s, exact-revert confirmed). Its hit
-   rate was never the point — it keeps eviction asynchronous. This step's
-   framing ("if the contribution is small, that's grounds to drop the tier")
-   is answered: the contribution is not the hit rate.
-2. **The long-lookup tail is not fs-specific** — measured over 24h across the
-   service, which is what actually kills the drop-it hypothesis:
+   rate was never the point — it keeps eviction asynchronous.
+2. **The long-lookup tail is not fs-specific**, measured over 24h:
 
    | metric (24h, `service="qwen38-27b-vllm"`) | fs/tiering | CPU tier |
    |---|---|---|
@@ -149,53 +92,18 @@ built on.
    | fraction `<= 10s` | 89.3% | 86.4% |
    | p50 delay | 0.23s | 0.26s |
 
-   The CPU tier's >10s tail is *slightly worse* than the fs tier's. Dropping
-   the fs tier would not remove the stall — it's the connector's serialized
-   per-tier lookup thread, exactly as root-caused in memory
-   `vllm-kvoffload-lookup-stall`, and it belongs upstream, not here.
+   The CPU tier's >10s tail is *slightly worse*. Dropping fs would not remove
+   the stall — it's the connector's serialized per-tier lookup thread, as
+   root-caused in memory `vllm-kvoffload-lookup-stall`. The fs read path
+   measures ≈**1.39 GB/s** (25.0 GB over 17.93s of read time), confirming the
+   bottleneck is lookup scheduling, not disk. The only real action left is
+   upstream; nothing to change in this repo.
 
-**Cache rates over the same 24h window**, for the record (read combined, never
-either tier alone):
+   (The fs tier's chunk-level hit rate is 59.5% on 80,085 queries. That is a
+   different measurement from the 4.5% figure in the manifest comment — don't
+   conflate the two.)
 
-- GPU-local prefix hit rate: **40.7%**
-- External (offload, all tiers) hit rate: **86.7%** (35,361,600 / 40,802,816)
-- Combined `gpu + (1-gpu) * ext` = **92.1%**
-- fs-tier chunk-level hit rate (`kv_offload_tiering_chunk_hits/queries`):
-  **59.5%** on 80,085 queries. Note this is a *chunk-level* metric and is not
-  the same measurement as the 4.5% figure in the manifest comment — don't
-  conflate them.
-- fs-tier read throughput: 25.0 GB over 17.93s of read time ≈ **1.39 GB/s**
-  effective, consistent with the memory note that the O_DIRECT data path is
-  fast and the stall is in lookup scheduling, not disk.
-
-**Follow-up, not blocking:** the only real action left is upstream — the
-single serialized lookup thread per tier. Nothing to change in this repo.
-
-### Original framing (kept for context)
-
-We already have a root-caused, documented issue with the fs secondary
-offload tier: lookups serialize through a single background thread per tier
-and have caused `vllm:kv_offload_lookup_async_delay_seconds` spikes up to
-373s under memory pressure (see memory: `vllm-kvoffload-lookup-stall`, and
-`vllm-optimization-log-2026-08.md`'s note that the tier is "load-bearing for
-decode speed, not just its hit rate").
-
-**Decision metrics, not a vague comparison:** the fs tier's contribution to
-the *combined* hit rate (`combined = gpu + (1-gpu) * ext`, per the
-methodology lesson in `vllm-optimization-log-2026-08.md` — never read either
-tier alone) versus `kv_offload_lookup_async_delay_seconds` p99 over the same
-window. Do NOT use either tier's `usage_perc` gauge — already documented as
-measuring active/pinned blocks, not cached content, and has produced two
-wrong conclusions before. If the fs tier's combined-hit-rate contribution is
-small relative to the CPU tier alone, and the p99 lookup delay is
-recurring (not a one-off memory-pressure event), that's grounds to drop the
-tier; if the contribution is large, the tax is probably worth it and the fix
-belongs upstream (single-thread lookup serialization) rather than here.
-
-**Gate:** independent of Steps 1-2; can run in parallel with them. Pure
-measurement, no config change until a decision is made.
-
-## Step 4 — DFlash2 retest, gated on an explicit grammar-concurrency stress test
+## Step 1 — DFlash2 retest, gated on an explicit grammar-concurrency stress test
 
 DFlash2 (PR #4651) showed a genuine win on real mixed traffic (TPOT -42%,
 throughput +55-119%) before being reverted (PR #4652) for VRAM instability
@@ -343,11 +251,11 @@ variant clears the burst-test gate with the smallest KV-pool cost.
    will likely be smaller than the -42% TPOT headline — budget for that
    rather than treating a smaller real gain as a failure.
 
-**Gate:** independent of Steps 1-3. Can run whenever there's a suitable
-window; give it real patience once started (see the linked memory above),
+**Gate:** none — independent of everything resolved above. Can run whenever
+there's a suitable window; give it real patience once started (see the linked memory above),
 don't self-impose a downtime cap that isn't in this protocol.
 
-## Step 5 — minisglang-rdna4: bounded spike only, not a production candidate
+## Step 2 — minisglang-rdna4: bounded spike only, not a production candidate
 
 `ghcr.io/patcarter883/minisglang-rdna4` — retry the live test aborted this
 week (aborted prematurely at ~25 min during what was likely legitimate
@@ -358,7 +266,7 @@ Scope this strictly as "does it boot and serve a coherent response" — not a
 production evaluation. The maintainer's own validation (TP=2 on 16GB cards,
 `cyankiwi/Qwen3.6-27B-AWQ-INT4`) doesn't transfer to our TP=1/32GB/Qwen3.8
 setup, and a clean boot wouldn't come close to justifying a swap away from
-the tuned vLLM stack (hierarchical KV offload, 85% prefix-cache hit rate,
+the tuned vLLM stack (hierarchical KV offload, 92-93% prefix-cache hit rate,
 246,944 ctx, working tool parser) — none of which minisglang-rdna4 has been
 shown to replicate.
 
@@ -366,7 +274,7 @@ shown to replicate.
 off and costs a full downtime window per attempt, same idle-window scarcity
 problem as before.
 
-## Step 6 — Official SGLang gfx1201 image: watch only
+## Step 3 — Official SGLang gfx1201 image: watch only
 
 No official image exists (only gfx942/gfx950 CDNA targets). The community
 fork (`mattbucci/2x-R9700-RDNA4-GFX1201-sglang-inference`) is active but
@@ -385,7 +293,7 @@ actively-maintained community image targeting gfx1201 appears.
   planned.
 - KV-cache quant/quality sweeps and other never-validated-but-not-broken
   open questions in `vllm-optimization-log-2026-08.md` — real gaps, but
-  lower expected value than Steps 1-4 above; tracked there, not duplicated
+  lower expected value than the steps above; tracked there, not duplicated
   into this plan.
 
 ## Process Instructions
