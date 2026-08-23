@@ -473,7 +473,37 @@ is **0**. `num_requests_waiting_by_reason` is 0 for both `capacity` and
 47-56K prompt should only need ~3.4K tokens of real prefill. At the measured
 ~3,515 tok/s prefill rate that is ~1s of compute, not 35s.
 
-**Unresolved leads, in rough priority order:**
+**Measured 2026-08-23, conc 1, engine confirmed idle, cache-cold (salted):**
+
+```
+  short ~0.4K: prompt=   407 tok  TTFT=  1.12s  decode 58 tok in 2.75s = 21.13 tok/s
+    long ~52K: prompt= 48623 tok  TTFT=259.09s  decode 60 tok in 5.22s = 11.50 tok/s
+```
+
+**Context is NOT the cause** — it costs only 1.8x on decode. The hypothesis that
+long context explained the decode gap is refuted.
+
+**The tuning history was measured at a concurrency production never reaches.**
+Max `num_requests_running` over 24h is **1.0** (avg 0.6). Single-stream cold
+prefill measures **188 tok/s** (48,623 tok in 259s); an independent 15m window
+gives 147 tok/s (127,370 computed tokens / 863.88s TTFT). The documented
+"PP ~3515 tok/s" is *aggregate at conc 32* — ÷32 ≈ 110 tok/s/stream, i.e.
+consistent. It was never a per-request figure. So `maxNumBatchedTokens: 4096`,
+`parallelSlots: 6`, and the M=6 kernel cliff were all tuned in a regime this
+workload does not enter. **Re-validate them at conc 1 with production-length
+prompts before trusting any of them as optimal.**
+
+**KV offload is cleared on both paths:** over the window containing both test
+requests, store time was **1.92s** and load time **0.0s**. The 259s is compute.
+(Lookup delay remains a separate, real cost on the queue path — see above.)
+
+**Still unexplained:** production decode is 3.8 tok/s, but conc-1 at 48K context
+measures 11.5 tok/s. The ~3x gap is not context and not concurrency. Leading
+untested hypothesis: production traffic is **grammar-constrained tool-calling**
+while this test sent a plain completion — the same code path that wedged MTP
+100x here. Testable with a tool-schema request at conc 1; not yet done.
+
+**Other unresolved leads, in rough priority order:**
 1. **70 preemptions in 24h** (5.8% of 1,215 requests) — a preempted request
    recomputes, which is exactly the shape of a long tail. Start here.
 2. Prefill/decode interleaving: `maxNumBatchedTokens` is 4096, so a long prompt
