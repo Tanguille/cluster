@@ -135,23 +135,41 @@ fails with the same error on the current image. Ruled out along the way:
 **Mechanism:** vLLM builds the draft out of `DFlashQwen3DecoderLayer` (no conv
 modules) instead of `DFlash2Qwen3DecoderLayer` (has them —
 `qwen3_dflash2.py:104,134`). `DFlash2Qwen3Model` declares
-`decoder_layer_cls = DFlash2Qwen3DecoderLayer`, but `decoder_layer_cls` appears
-**nowhere** in the parent `qwen3_dflash.py`, so the override never takes
-effect. That reads as an upstream regression introduced between the nightly
-#4651 ran (`ge9d1398d9`) and the current pin.
+`decoder_layer_cls = DFlash2Qwen3DecoderLayer`, but the parent
+`qwen3_dflash.py` hardcodes the base class at line 442 instead of consulting
+it, so the override is dead code.
 
-**What this costs the plan:** the sizing boot cannot produce numbers on this
-image, so the kv-cache-memory question below stays open. The whole DFlash2
-step is blocked on upstream, not on our config or our hardware.
+**Bisected to the exact commit** — `2f55ef254c70`, "[Model] Add Qwen3-Omni
+DSpark support" (vllm-project/vllm#52560), 2026-08-22T22:35Z. It is the only
+commit touching `qwen3_dflash.py` between the working nightly and ours:
 
-**Next actions, cheapest first:**
-1. Check whether a newer nightly fixes it before spending another GPU window —
-   a `grep decoder_layer_cls vllm/model_executor/models/qwen3_dflash.py`
-   inside a candidate image answers it without booting anything.
-2. If still broken, file upstream against `vllm-project/vllm` with the trace
-   above; it is a clean, minimal repro.
-3. Only pin back to `ge9d1398d9` if DFlash2 becomes a priority — that trades
-   every other nightly fix since for one feature, and is not currently worth it.
+| commit | date | `decoder_layer_cls` attr | line 442 |
+|---|---|---|---|
+| `b389ac29465b` (the DFlash2 PR) | 08-21 | present (line 380) | `self.decoder_layer_cls(` ✅ |
+| `e9d1398d9edf` (nightly 08-22) | 08-22 03:23 | present | ✅ |
+| **`2f55ef254c70` (#52560)** | **08-22 22:35** | **removed** | `DFlashQwen3DecoderLayer(` ❌ |
+| `a3561ef8e49d` (nightly 08-23, current pin) | 08-23 04:34 | removed | ❌ |
+
+**Still broken in upstream `main` as of 2026-08-23** — not just our pin.
+
+**The last good build is `nightly-e9d1398d9edfd90fcc1cf783805240e3effec013`**
+= digest `sha256:0539b7e121748a245859f58a519ec2fd4e77543cb04cae18124b204116ba5409`,
+which is our own previous pin (#4644). vLLM builds nightlies once daily at
+~05:30 UTC and the regression landed at 22:35, so no build exists between the
+last good one and the first bad one. Confirmed still pullable.
+
+**What this costs the plan:** the sizing boot cannot produce numbers on the
+current image, so the kv-cache-memory question below stays open.
+
+**Next actions:**
+1. File upstream against `vllm-project/vllm` — the trace plus the bisect above
+   is a clean, minimal repro, and `main` is still affected.
+2. Pinning back to `0539b7e1` costs exactly **one** nightly (`a3561ef8e`,
+   headline: a Mistral3 image-placeholder-grid fix, irrelevant here) — a day,
+   not a backlog. Cheap enough to be a real option if DFlash2 proves out.
+3. Any DFlash2 measurement must run on `0539b7e1` until upstream fixes this.
+   Note #4651 validated **bf16** on that image, never the W4A16 quant, so the
+   quant remains unproven there.
 
 ### Original framing (kept — still the protocol once unblocked)
 
