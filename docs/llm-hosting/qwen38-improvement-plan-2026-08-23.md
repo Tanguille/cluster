@@ -158,8 +158,44 @@ which is our own previous pin (#4644). vLLM builds nightlies once daily at
 ~05:30 UTC and the regression landed at 22:35, so no build exists between the
 last good one and the first bad one. Confirmed still pullable.
 
-**What this costs the plan:** the sizing boot cannot produce numbers on the
-current image, so the kv-cache-memory question below stays open.
+## VERDICT 2026-08-23: DFlash2 is disqualified on VRAM. Measured, not modelled.
+
+The sizing boot ran successfully on the last good image (`0539b7e1`) with the
+bf16 draft. vLLM's own profiler, whole card, `gpu_memory_utilization 0.875`:
+
+| component | GiB |
+|---|---|
+| consumed (weights + non-torch) | 22.52 |
+| peak activation | 2.80 |
+| CUDAGraph | 0.41 |
+| **max KV that fits, entire card, zero reserve** | **5.92** |
+
+vLLM's own line: *"`--kv-cache-memory=6353409024` (5.92 GiB) to fully utilize
+gpu memory."* Production runs **9 GiB** today. Subtract the mandatory 2 GiB
+Jellyfin transcode reserve and DFlash2 leaves **~3.9 GiB of KV — a 56% pool
+cut**, i.e. roughly 125K tokens of pool and a `maxModelLen` near 107K, which is
+**below Hermes' measured 112K peak**. That is not a tuning problem, it is a
+ceiling.
+
+Target checkpoint is 18.21 GiB, so 22.52 − 18.21 ≈ **3.6 GiB of draft weights**,
+matching the 3.58 GiB measured on HF. The cost is *static weights*, which is
+why it cannot be tuned away: draft `kv_cache_dtype` and draft `max_model_len`
+(both real knobs in `SpeculativeConfig`) only affect draft **KV**, not weights.
+The one mechanism that reduces weights is quantization — proven unloadable
+above. There is no remaining lever.
+
+Weigh this against what the pool buys us: a 93.3% token-level cache hit rate on
+a 129:1 prefill-bound workload (see "Already resolved"). Halving the pool to buy
+decode speed is the wrong trade for this workload even if it worked.
+
+**Do not revisit** unless upstream both fixes the quantized-draft path *and*
+the W4A16 draft's 2.39 GiB saving proves sufficient — which, against a 3.1 GiB
+shortfall (9 → 5.92), it still would not be on its own.
+
+### Earlier finding: the current nightly can't load any DFlash2 draft
+
+**What this cost this window:** the sizing boot could not run on the current
+image at all, which is why it ran on `0539b7e1`.
 
 **Next actions:**
 1. File upstream against `vllm-project/vllm` — the trace plus the bisect above
@@ -168,8 +204,28 @@ current image, so the kv-cache-memory question below stays open.
    headline: a Mistral3 image-placeholder-grid fix, irrelevant here) — a day,
    not a backlog. Cheap enough to be a real option if DFlash2 proves out.
 3. Any DFlash2 measurement must run on `0539b7e1` until upstream fixes this.
-   Note #4651 validated **bf16** on that image, never the W4A16 quant, so the
-   quant remains unproven there.
+
+### Quantized DFlash drafts are structurally unsupported in vLLM
+
+Tested on `0539b7e1` (the image *without* the regression above), the W4A16
+draft still fails — with a different, deeper error:
+
+```
+AttributeError: 'QKVParallelLinear' object has no attribute 'weight'
+  qwen3_dflash.py:490, in _build_context_kv_buffers
+    kv_weights = [a.qkv_proj.weight[a.q_size :] for a in layers_attn]
+```
+
+DFlash builds its fused KV buffers by reading the draft's raw `.weight` tensor.
+A compressed-tensors layer has no `.weight` — it has `weight_packed`,
+`weight_scale`, `weight_shape`. So **no quantized DFlash draft can load on any
+image**; the `decoder_layer_cls` regression was merely masking this. Not
+gfx1201, not the checkpoint.
+
+Note this also makes the plan's earlier "quantizing the draft is safe for
+correctness by construction" argument moot: correctness was never the
+obstacle — loading is. Worth an upstream feature request, but it is not a
+blocker we can route around.
 
 ### Original framing (kept — still the protocol once unblocked)
 
