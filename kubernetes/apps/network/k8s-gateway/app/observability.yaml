@@ -30,9 +30,9 @@ spec:
             # serving an empty zone (informer synced against an empty initial LIST, so /ready
             # never flips) while its sibling stays healthy. A fleet-aggregate rate hides that,
             # since roughly half of requests still succeed via the good replica.
-            sum by (pod) (rate(coredns_dns_responses_total{namespace="network", rcode="NXDOMAIN"}[10m]))
+            sum by (pod) (rate(coredns_dns_responses_total{namespace="network", pod=~"k8s-gateway-.*", rcode="NXDOMAIN"}[10m]))
               /
-            sum by (pod) (rate(coredns_dns_responses_total{namespace="network"}[10m]))
+            sum by (pod) (rate(coredns_dns_responses_total{namespace="network", pod=~"k8s-gateway-.*"}[10m]))
               > 0.5
           for: 10m
           annotations:
