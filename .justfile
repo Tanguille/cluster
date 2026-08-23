@@ -44,7 +44,6 @@ template file *args:
     kernel_version="$(just kernel-version)"
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
-        -D "talosVersion=${talos_version}" \
         -D "kubernetesVersion=${kubernetes_version}" \
         -D "kernelVersion=${kernel_version}" \
         -D "pinned=${talos_version}-k${kernel_version}" \
