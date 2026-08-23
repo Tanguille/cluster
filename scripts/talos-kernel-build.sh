@@ -43,6 +43,11 @@ PKGS_SHA="${PKGS_REV##*-g}"
 echo "    derived TOOLS=${TOOLS_REV} PKGS=${PKGS_REV}"
 
 log "kernel package"
+# The default docker driver can't export a registry cache. CI sets a docker-container builder
+# up itself (docker/setup-buildx-action), but `just kernel-build` also runs this directly on a
+# workstation (README.md), which may still be on the default driver.
+docker buildx inspect --bootstrap 2>/dev/null | grep -q '^Driver:[[:space:]]*docker-container' \
+    || docker buildx create --driver docker-container --use --bootstrap >/dev/null
 # Registry cache, keyed on the Dockerfile + build-args rather than the target tag: a rerun
 # against the same kernel/talos version (e.g. retrying after a package-permission fix) hits
 # every layer instead of repeating the ~2h45m ThinLTO compile. Same package as the image
@@ -93,7 +98,9 @@ log "reconciling module allowlist"
 KIMG="${PREFIX}/kernel:${VERSION}"
 # Two streamed exports rather than one local copy: only names and modules.dep are needed, so
 # nothing is written to disk. modules.dep alone will not do — the list also carries non-.ko
-# entries (modules.builtin, modules.order) that exist only in the file listing.
+# entries (modules.builtin, modules.order) that exist only in the file listing. The kernel
+# build above pushes via buildx with no --load, so the local daemon never has this image —
+# crane's registry export is the only path, and streams rather than materializing the layers.
 MODS="$(crane export "${KIMG}" - | tar -tf - | sed -n 's|^usr/lib/modules/[^/]*/||p')"
 DEPS="$(crane export "${KIMG}" - | tar -xO --wildcards 'usr/lib/modules/*/modules.dep')"
 LIST="${WORK}/talos/hack/modules-amd64.txt"
