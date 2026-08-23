@@ -136,11 +136,7 @@ spec:
           reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.1.1
       - name: vector
         image:
-          reference: ghcr.io/tensorchord/vchord-scratch:pg18-v1.1.1
-        dynamic_library_path:
-          - /usr/lib/postgresql/18/lib
-        extension_control_path:
-          - /usr/share/postgresql/18/
+          reference: ghcr.io/cloudnative-pg/pgvector:0.8.6-18-trixie
   nodeMaintenanceWindow:
     inProgress: false
     reusePVC: true

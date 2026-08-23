@@ -94,15 +94,28 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
   `Database` CR's `owner:` triggers a one-time, idempotent `ALTER DATABASE … OWNER TO <role>` on
   first reconcile, then converges. `owner:` is required and stays as declarative state — there is
   nothing to remove afterward. After first apply, confirm convergence:
+
+  ```sh
+  db=memini
+  primary=$(kubectl -n database get cluster postgres16 -o jsonpath='{.status.currentPrimary}')
+  kubectl -n database exec "$primary" -c postgres -- psql -U postgres -tAc \
+    "SELECT datname, pg_catalog.pg_get_userbyid(datdba) FROM pg_database WHERE datname = '$db';"
   ```
-  kubectl -n database exec postgres16-<primary> -c postgres -- psql -U postgres -tAc \
-    "SELECT datname, pg_catalog.pg_get_userbyid(datdba) FROM pg_database WHERE datname = '<db>';"
-  ```
+
 - **Extensions.** Declare them by name and version on `Database.spec.extensions` (memini:
-  `vchord` + `vector`; crowdsec: `vector`). `vchord` versions are Renovate-grouped with the
-  cluster's vchord-scratch image; `vector` is the pgvector bundled in that image, so read its
-  version from the pinned image (not an upstream pgvector release) and bump it in the same PR
-  as the image. A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
+  `vchord` + `vector`; crowdsec, ghostfolio, litellm: `vector`). `vchord` versions are Renovate-grouped with the
+  cluster's vchord-scratch image. `vector` is pgvector, which ships in the base CNPG postgresql
+  image, **not** vchord-scratch (that image contains only `vchord.so`) — Renovate doesn't track
+  it, so bump it manually whenever the base image bumps, reading the true version from the
+  image itself rather than assuming it moved:
+
+  ```sh
+  img=$(yq '.spec.imageName' kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml)
+  pg=$(sed -E 's/.*:([0-9]+)\..*/\1/' <<<"$img")
+  docker run --rm --entrypoint cat "$img" "/usr/share/postgresql/$pg/extension/vector.control"
+  ```
+
+  A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
 - **YAML anchor trap.** Some app-template HelmReleases define the secret `envFrom` anchor
   (`&envFrom` / `&secret`) **on the `init-db` container** and alias it on the app container. Deleting
   the init-db block also deletes the anchor and breaks the alias — relocate an explicit `secretRef`
@@ -120,7 +133,7 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
 
 | App | DB | Role | Host | Extensions | Live owner was |
 |-----|----|------|------|------------|----------------|
-| litellm | litellm | litellm | pgbouncer-rw | – | role |
+| litellm | litellm | litellm | pgbouncer-rw | vector | role |
 | jellystat | jfstat | jellystat | pgbouncer-rw | – | `postgres` (ALTERed) |
 | radarr | radarr | radarr | pgbouncer-rw | – | role |
 | bazarr | bazarr | bazarr | pgbouncer-rw | – | role |
@@ -132,6 +145,7 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
 | spoolman | spoolman | spoolman | pgbouncer-rw | – | role |
 | memini | memini | memini | pgbouncer-rw | vchord, vector | role |
 | crowdsec | crowdsec | crowdsec | pgbouncer-rw | vector | role |
+| ghostfolio | ghostfolio | ghostfolio | pgbouncer-rw | vector | role |
 
 ## Not onboarded
 

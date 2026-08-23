@@ -12,25 +12,28 @@ spec:
     - name: bazarr
     - name: crowdsec
       extensions:
-        # vector is the pgvector bundled in the cluster's vchord-scratch image — bump manually
-        # when the image bumps; a wrong pin fails visibly via the Database CR going not-Ready.
-        - name: vector
-          version: "0.8.5"
+        # vector is the official ghcr.io/cloudnative-pg/pgvector extension image (cluster.yaml);
+        # Renovate tracks that image tag directly, no more manual drift checks against the base image.
+        - &vector
+          name: vector
+          version: "0.8.6"
     - name: gatus
     - name: ghostfolio
+      extensions:
+        - *vector
     - name: grafana
     - name: jellystat
       db: jfstat
     - name: litellm
+      extensions:
+        - *vector
     - name: memini
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
-        # vchord version is Renovate-tracked with the cluster's vchord-scratch image;
-        # vector is the pgvector bundled in that image — bump manually when the image bumps.
+        # Both versions are Renovate-tracked with their respective cluster.yaml extension images.
         - name: vchord
           version: "1.1.1"
-        - name: vector
-          version: "0.8.5"
+        - *vector
     - name: nextcloud
     - name: prowlarr
     - name: radarr
