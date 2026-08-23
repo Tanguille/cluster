@@ -40,9 +40,8 @@ spec:
 apiVersion: observability.giantswarm.io/v1alpha2
 kind: Silence
 metadata:
-  # Structural: priority -1000 with a hard per-node pin makes Pending on a full node
-  # xmrig's designed resting state. Nothing sits below it to preempt, and its
-  # ScaledObject reads only that node's thermal verdict so the pod cannot move.
+  # Structural: at priority -1000 with a hard node pin, xmrig has nothing below it to
+  # preempt and nowhere to move, so Pending on a full node is its resting state.
   name: xmrig-pending-on-full-node
 spec:
   matchers:
