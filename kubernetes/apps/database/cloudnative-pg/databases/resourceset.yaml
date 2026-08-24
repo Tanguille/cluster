@@ -12,12 +12,8 @@ spec:
     - name: bazarr
     - name: crowdsec
       extensions:
-        # pgvector ships in the base CNPG postgresql image, not vchord-scratch, so Renovate does
-        # not track it; bump manually when that image bumps. A wrong pin fails visibly via the
-        # Database CR going not-Ready. Check with:
-        #   img=$(yq '.spec.imageName' kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml)
-        #   pg=$(sed -E 's/.*:([0-9]+)\..*/\1/' <<<"$img")
-        #   docker run --rm --entrypoint cat "$img" "/usr/share/postgresql/$pg/extension/vector.control"
+        # vector is the official ghcr.io/cloudnative-pg/pgvector extension image (cluster.yaml);
+        # Renovate tracks that image tag directly, no more manual drift checks against the base image.
         - &vector
           name: vector
           version: "0.8.6"
@@ -34,7 +30,7 @@ spec:
     - name: memini
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
-        # vchord is Renovate-tracked with the cluster's vchord-scratch image.
+        # Both versions are Renovate-tracked with their respective cluster.yaml extension images.
         - name: vchord
           version: "1.1.1"
         - *vector

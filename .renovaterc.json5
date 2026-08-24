@@ -79,6 +79,20 @@
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
       datasourceTemplate: "npm"
+    },
+    {
+      // Mirrors the cnpg.json5 preset's vchord manager (that one only matches "vchord"), so the
+      // Database CR's vector version pin tracks the pgvector OCI image tag in cluster.yaml
+      // instead of drifting silently against the base postgresql image.
+      description: "CNPG Database CRD vector extension version pin",
+      customType: "regex",
+      managerFilePatterns: ["/resourceset\\.yaml$/"],
+      matchStrings: [
+        "name:\\s+vector\\b(?:\\n[ \\t]*|\\n +[^-\\s][^\\n]*)*?\\n +version:\\s*[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"
+      ],
+      depNameTemplate: "ghcr.io/cloudnative-pg/pgvector",
+      datasourceTemplate: "docker",
+      extractVersionTemplate: "^(?<version>\\d+\\.\\d+\\.\\d+)-\\d+-\\w+$"
     }
   ],
   packageRules: [
@@ -150,6 +164,12 @@
       groupName: "vectorchord",
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
+    },
+    {
+      description: "pgvector CNPG extension image and Database CRD version pins",
+      groupName: "pgvector",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/cloudnative-pg/pgvector"]
     },
     {
       description: "Group klipper-exporter image and Grafana dashboard URL",
