@@ -260,6 +260,15 @@ python3 spectest.py 8000
 aggregate tok/s, not per-stream. Every figure in this doc comes from these two scripts
 against a single-replica service with nothing else on the GPU.
 
+Later additions, all production-context (~48K) rather than short-prompt, written for
+`qwen38-improvement-plan-2026-08-23.md`:
+
+- `ttftsweep.py` — prefill/TTFT with production-shaped prompts; aborts unless the engine is idle.
+- `longconcsweep.py` — aggregate decode vs concurrency at production context.
+- `ctxdecode.py` — decode rate, short vs production context.
+- `cachedecode.py` — decode after a cold prefix vs a cached one.
+- `grammartest.py` — decode with and without a tool schema attached.
+
 Workload profile driving these choices, from litellm `LiteLLM_SpendLogs` over 21 days
 (14,678 requests): prompt p50 35,346 / p90 88,583 / p99 112,050; generation p50 196 /
 p90 2,324; concurrency 4–6. **54.4% of real requests exceed a 32K context.**

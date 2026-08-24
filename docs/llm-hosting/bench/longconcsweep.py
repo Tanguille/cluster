@@ -71,6 +71,8 @@ def stream(prompt, t0, out, lk):
                     if ttft is None:
                         ttft = time.perf_counter() - t0
                     n += 1
+        # usage is authoritative: an SSE chunk is not guaranteed to carry exactly one token.
+        n = usage.get("completion_tokens") or n
         with lk:
             out.append({"ttft": ttft, "done": time.perf_counter() - t0, "gen": n,
                         "prompt": usage.get("prompt_tokens", 0),

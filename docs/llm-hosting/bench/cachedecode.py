@@ -56,6 +56,8 @@ def run(prompt, tag):
                 if ttft is None:
                     ttft = time.perf_counter() - t0
                 n += 1
+    # usage is authoritative: an SSE chunk is not guaranteed to carry exactly one token.
+    n = usage.get("completion_tokens") or n
     decode = (time.perf_counter() - t0) - ttft if ttft else 0
     rate = n / decode if decode else 0
     print(f"    {tag:>18}: TTFT={ttft:8.2f}s  decode {n:>3} tok in {decode:6.2f}s "

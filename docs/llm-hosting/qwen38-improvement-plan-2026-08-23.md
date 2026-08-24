@@ -161,7 +161,12 @@ last good one and the first bad one. Confirmed still pullable.
 ## VERDICT 2026-08-23: DFlash2 is disqualified on VRAM. Measured, not modelled.
 
 The sizing boot ran successfully on the last good image (`0539b7e1`) with the
-bf16 draft. vLLM's own profiler, whole card, `gpu_memory_utilization 0.875`:
+bf16 draft. vLLM's own profiler, on a boot *without* `--kv-cache-memory` (that
+flag pins the pool and makes `gpu_memory_utilization` inert, so it has to be
+absent for the profiler to report a ceiling). The four rows below sum to
+31.65 GiB, i.e. the profiler was budgeting essentially the whole 32 GiB card,
+not `0.875 x 32`; the exact invocation was not recorded, so treat the split as
+measured and the budget line as inferred from that sum:
 
 | component | GiB |
 |---|---|
@@ -177,8 +182,9 @@ cut**, i.e. roughly 125K tokens of pool and a `maxModelLen` near 107K, which is
 **below Hermes' measured 112K peak**. That is not a tuning problem, it is a
 ceiling.
 
-Target checkpoint is 18.21 GiB, so 22.52 − 18.21 ≈ **3.6 GiB of draft weights**,
-matching the 3.58 GiB measured on HF. The cost is *static weights*, which is
+Target checkpoint is 18.21 GiB. The 22.52 GiB row is weights *plus* non-torch
+memory, so the 4.31 GiB difference is **3.58 GiB of draft weights** (the value
+measured directly on HF) plus ~0.7 GiB of non-torch overhead. The cost is *static weights*, which is
 why it cannot be tuned away: draft `kv_cache_dtype` and draft `max_model_len`
 (both real knobs in `SpeculativeConfig`) only affect draft **KV**, not weights.
 The one mechanism that reduces weights is quantization — proven unloadable
@@ -218,8 +224,9 @@ AttributeError: 'QKVParallelLinear' object has no attribute 'weight'
 
 DFlash builds its fused KV buffers by reading the draft's raw `.weight` tensor.
 A compressed-tensors layer has no `.weight` — it has `weight_packed`,
-`weight_scale`, `weight_shape`. So **no quantized DFlash draft can load on any
-image**; the `decoder_layer_cls` regression was merely masking this. Not
+`weight_scale`, `weight_shape`. So **no quantized DFlash draft loads on either image tested here**
+(`0539b7e1` and current `main`); the `decoder_layer_cls` regression was merely
+masking this. Whether a future image fixes it is untested. Not
 gfx1201, not the checkpoint.
 
 Note this also makes the plan's earlier "quantizing the draft is safe for
@@ -483,8 +490,12 @@ is **0**. `num_requests_waiting_by_reason` is 0 for both `capacity` and
 **Context is NOT the cause** — it costs only 1.8x on decode. The hypothesis that
 long context explained the decode gap is refuted.
 
-**The tuning history was measured at a concurrency production never reaches.**
-Max `num_requests_running` over 24h is **1.0** (avg 0.6). Single-stream cold
+**The tuning history was measured at a concurrency production rarely reaches.**
+The `num_requests_running` gauge reads max **1.0** over 24h (avg 0.6), but that
+gauge is scrape-sampled and understates bursts — the request counters give a
+*mean* concurrency of 3.53 (see "not trustworthy for concurrency" below). Mean
+is not peak, so this is evidence that conc 32 is far above the operating point,
+not proof that conc 6+ is never reached. Single-stream cold
 prefill measures **188 tok/s** (48,623 tok in 259s); an independent 15m window
 gives 147 tok/s (127,370 computed tokens / 863.88s TTFT). The documented
 "PP ~3515 tok/s" is *aggregate at conc 32* — ÷32 ≈ 110 tok/s/stream, i.e.
@@ -498,10 +509,11 @@ requests, store time was **1.92s** and load time **0.0s**. The 259s is compute.
 (Lookup delay remains a separate, real cost on the queue path — see above.)
 
 **Still unexplained:** production decode is 3.8 tok/s, but conc-1 at 48K context
-measures 11.5 tok/s. The ~3x gap is not context and not concurrency. Leading
-untested hypothesis: production traffic is **grammar-constrained tool-calling**
-while this test sent a plain completion — the same code path that wedged MTP
-100x here. Testable with a tool-schema request at conc 1; not yet done.
+measures 11.5 tok/s. The ~3x gap is not context and not concurrency. The leading
+hypothesis at the time — production traffic is **grammar-constrained
+tool-calling** while this test sent a plain completion — has since been tested
+and refuted (`grammartest.py`, conc 1, same 48K context, 2-tool schema: 1.00x;
+see "Refuted along the way" below). The gap remains open.
 
 ### RESOLVED: batching barely helps at production context; parallelSlots 6 is past the peak
 
@@ -530,8 +542,8 @@ Reproducible in both runs:
 `[1, 2, 4]` to match (the manifest comment ties them together). Expected ~17%
 aggregate and ~1.75x per-stream. Requires a restart.
 
-**Do not ship this yet.** A later test (see "REFUTED: no cached-prefix decode
-penalty") found decode on this engine varies up to 16x between identical runs
+**Do not ship this yet.** A later test (see "NO PENALTY OBSERVED (n=2,
+inconclusive): cached-prefix decode") found decode on this engine varies up to 16x between identical runs
 when production traffic can join mid-measurement. Both sweep runs agreed on
 *ordering*, which is why the finding is kept — but re-run it with in-run
 concurrency sampling, and ideally on an idle engine, before changing config.
@@ -546,16 +558,18 @@ likely *worse* than measured, not better.
 - **Grammar-constrained tool calling costs nothing on decode.** Same 48K
   context, conc 1, only variable a 2-tool schema: 22.84 vs 22.89 tok/s = 1.00x.
 - **Context is not the decode driver** — 1.8x from 0.4K to 48K.
-- **Not KV bandwidth.** GPU KV usage averages 6.2% (max 12.3%, ~18K tokens
-  resident). This is a GDN hybrid: most layers are linear-attention with
-  fixed-size state, so long contexts barely occupy KV.
+- **KV residency is low; KV bandwidth is untested.** GPU KV usage averages 6.2%
+  (max 12.3%, ~18K tokens resident). This is a GDN hybrid: most layers are
+  linear-attention with fixed-size state, so long contexts barely occupy KV.
+  That bounds the KV *footprint*, not KV read bandwidth or access latency —
+  closing the bandwidth hypothesis needs a direct measurement, not this.
 - **`num_requests_running` is not trustworthy for concurrency.** The gauge is
   scrape-sampled and reports mean 0.6 / max 1.0, but counters give
   304,819 request-seconds over 86,400s = **mean concurrency 3.53**. Use the
   counter ratio, never the gauge. An earlier revision of this plan claimed
   production "never exceeds concurrency 1.0" on the gauge's word; that was wrong.
 
-### REFUTED: no cached-prefix decode penalty — and decode measurement is unreliable
+### NO PENALTY OBSERVED (n=2, inconclusive): cached-prefix decode — and decode measurement is unreliable
 
 Hypothesis was that decoding against cached KV is slower than against
 just-computed KV (22.8 vs ~10 tok/s observed as a side effect). Tested properly
@@ -568,9 +582,11 @@ pair 2:  cold 124 tok in  5.65s = 21.95 tok/s   |  warm  75 tok in 10.77s =  6.9
 mean cold 11.67   mean warm 11.12   penalty 1.05x
 ```
 
-**No penalty (1.05x).** More importantly, **cold varied 1.39 → 21.95 tok/s, a 16x
-swing between identical runs**, and the two pairs disagree on direction. The
-original 22.8-vs-10 observation was noise, not an effect.
+**No penalty in the mean (1.05x)** — but only two pairs were measured, cold
+varied **1.39 → 21.95 tok/s, a 16x swing between identical runs**, and the two
+pairs disagree on direction. That is enough to say the original 22.8-vs-10
+observation was not a reproducible effect; it is *not* enough to close the
+hypothesis. Keep it open until it is re-run with in-run concurrency sampling.
 
 **Consequence for everything measured here: single-sample decode numbers on this
 engine are not trustworthy.** 22.8 / 11.5 / 9.85 / 10.16 were all n=1. The
@@ -585,7 +601,7 @@ tokens (124/120/124/75) despite `ignore_eos`.
 
 **Fix before trusting any further decode benchmark here:** sample
 `num_requests_running` *throughout* each measurement and discard any run that
-saw company, rather than checking idle once at the start. Same instrumentation
+saw concurrent requests, rather than checking idle once at the start. Same instrumentation
 gap that made the gauge mislead on concurrency above.
 
 **Other unresolved leads, in rough priority order:**

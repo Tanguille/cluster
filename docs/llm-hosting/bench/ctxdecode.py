@@ -8,6 +8,7 @@ concurrency, only context differs - this measures that difference directly.
 """
 import json, sys, time, urllib.request
 
+# Port 18000 assumes a `kubectl port-forward` to the vLLM pod.
 URL = "http://127.0.0.1:18000/v1/completions"
 GEN = 64
 WORDS = ("storage replication consensus quorum latency throughput partition ledger "
@@ -52,6 +53,8 @@ def run(nwords, label):
                 if ttft is None:
                     ttft = time.perf_counter() - t0
                 n += 1
+    # usage is authoritative: an SSE chunk is not guaranteed to carry exactly one token.
+    n = usage.get("completion_tokens") or n
     total = time.perf_counter() - t0
     decode = total - ttft if ttft else 0
     rate = n / decode if decode else 0

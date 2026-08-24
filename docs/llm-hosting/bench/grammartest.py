@@ -82,6 +82,8 @@ def run(nwords, with_tools, label):
                 if ttft is None:
                     ttft = time.perf_counter() - t0
                 n += 1
+    # usage is authoritative: an SSE delta is not guaranteed to carry exactly one token.
+    n = usage.get("completion_tokens") or n
     total = time.perf_counter() - t0
     decode = total - ttft if ttft else 0
     rate = n / decode if decode else 0

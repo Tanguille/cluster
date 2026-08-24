@@ -93,6 +93,8 @@ def stream(salt, body, t_launch, out, lk):
                     if ttft is None:
                         ttft = time.perf_counter() - t_launch
                     ntok += 1
+        # usage is authoritative: an SSE chunk is not guaranteed to carry exactly one token.
+        ntok = usage.get("completion_tokens") or ntok
         completed = time.perf_counter() - t_launch
         details = usage.get("prompt_tokens_details")
         # Preserve "field absent" as unavailable rather than coercing to a
@@ -108,10 +110,10 @@ def stream(salt, body, t_launch, out, lk):
             out.append({"err": str(e)[:120]})
 
 
-check_idle()
 print(f"target prompt words: {PROMPT_WORDS}  model: {MODEL}  gen: {GEN}")
 print(f"{'conc':>5} {'ttft med s':>11} {'ttft p90 s':>11} {'PP tok/s':>10} {'TG tok/s':>9} {'cached':>9} {'ok':>4}")
 for c in [1, 4]:
+    check_idle()  # per round: production traffic can arrive between rounds
     out, lk, th = [], threading.Lock(), []
     body = make_body()  # built once per round, not once per thread - see make_body's docstring
     t_launch = time.perf_counter()  # shared launch barrier - see the aggregate-rate note below
