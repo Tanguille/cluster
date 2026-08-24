@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/podmonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: k8s-gateway
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - network
+  podMetricsEndpoints:
+    - port: metrics
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k8s-gateway
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k8s-gateway-rules
+spec:
+  groups:
+    - name: k8s-gateway.rules
+      rules:
+        - alert: K8sGatewayReplicaStale
+          expr: |-
+            # Per-pod, not fleet-wide: the failure mode this catches is one replica silently
+            # serving an empty zone (informer synced against an empty initial LIST, so /ready
+            # never flips) while its sibling stays healthy. A fleet-aggregate rate hides that,
+            # since roughly half of requests still succeed via the good replica.
+            sum by (pod) (rate(coredns_dns_responses_total{namespace="network", pod=~"k8s-gateway-.*", rcode="NXDOMAIN"}[10m]))
+              /
+            sum by (pod) (rate(coredns_dns_responses_total{namespace="network", pod=~"k8s-gateway-.*"}[10m]))
+              > 0.5
+          for: 10m
+          annotations:
+            summary: >-
+              k8s-gateway pod {{ $labels.pod }} is returning NXDOMAIN for over half its
+              responses -- likely serving a stale/empty zone; restart the pod
+          labels:
+            severity: warning
