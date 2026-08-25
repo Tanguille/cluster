@@ -33,10 +33,6 @@ spec:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
               PORT: &port 20128
-              # Only litellm's /v1/* proxy calls skip auth (unauthenticated-backend
-              # + non-empty-apiKey convention, same as the qwen-3.8 vLLM model);
-              # the dashboard at the internal route below still requires
-              # INITIAL_PASSWORD login.
               REQUIRE_API_KEY: "false"
               # envoy-internal-tls terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"
