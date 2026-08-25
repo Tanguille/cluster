@@ -79,8 +79,7 @@ spec:
             target:
               kind: Deployment
               name: kustomize-controller
-          - # In-memory builds. Merged by volume name: an index would rewrite whichever
-            # volume upstream happens to put first.
+          - # In-memory builds. Merged by volume name
             patch: |
               apiVersion: apps/v1
               kind: Deployment
