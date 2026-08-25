@@ -1,8 +1,8 @@
 # Talos kernel package
 
 Builds a Talos-compatible Linux kernel package so the cluster can run a newer kernel
-than Talos ships. Talos v1.13.9 and v1.14.0-rc.1 both ship **Linux 6.18.44**; this
-tracks kernel.org **stable** (7.1.9 at time of writing).
+than Talos ships. Talos v1.13.9 ships **Linux 6.18.44** and v1.14.0-rc.2 ships
+**Linux 6.18.46**; this tracks kernel.org **stable** (7.1.10 at time of writing).
 
 Neither `siderolabs/talos` nor `siderolabs/pkgs` is forked. Both are consumed at their
 release tags and steered with make variables.
@@ -28,24 +28,24 @@ Everything gfx12/ROCm-related is **not** in this list: the R9700 lives on contro
 still on 6.18.44, and control-2's iGPU group gets `/dev/dri` without `/dev/kfd`, so amdkfd is
 unreachable there regardless.
 
-| change | status on control-2 |
-|---|---|
-| Preemption `none` -> `full` | **Live, unintended, probably benign.** `Dynamic Preempt: full` vs `none` on control-3. 7.0 made `PREEMPT_NONE` depend on `ARCH_NO_PREEMPT`, so `olddefconfig` took the new default. Full preemption trades a few percent of throughput for better tail latency, which suits etcd and Ceph OSDs, so the direction is fine — the problem is that nobody chose it and control-2 now schedules unlike its twin, confounding any cross-node latency comparison. `CONFIG_PREEMPT_DYNAMIC=y`, so `preempt=` on the cmdline settles it without a rebuild; control-1's schematic already pins `preempt=voluntary`. Pinning it in `talos/schematic.yaml` too would make a future `olddefconfig` unable to move it — at the cost of changing the schematic id, and therefore the installer repo path. |
-| GTT visible to the memory subsystem (`NR_GPU_ACTIVE`) | **Live in `/proc/meminfo`** (~1.4 GiB), the first-party fix for the iGPU GTT leak that is invisible to `kubectl top`. **Not yet exported** — node-exporter v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be alerted on. |
-| eBPF verifier state pruning (7.0/7.1) | Applies. Upstream's veristat numbers are measured on Cilium's own objects (`bpf_lxc.o` `tail_ipv4_ct_egress` -44%). Not re-measured here. |
-| HRTICK / HRTICK_DL default on | Applies; `CONFIG_HRTIMER_REARM_DEFERRED=y` in the built config. EEVDF slice enforcement moves off the 4 ms tick. |
-| r8169 LTR enabled for RTL8125 (7.0) | **Not applicable on this hardware.** Looked like the main regression risk (both NICs are RTL8125B in `bond0`), but ACPI `_OSC` on both Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel and the commit cannot engage. Same `_OSC` line on control-3, so this is a property of the box, not of 7.x. It also means AER reporting is unavailable, i.e. PCIe correctable/uncorrectable errors are invisible here by construction — do not write alerts against AER on these nodes. |
+| change                                                | status on control-2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Preemption `none` -> `full`                           | **Live, unintended, probably benign.** `Dynamic Preempt: full` vs `none` on control-3. 7.0 made `PREEMPT_NONE` depend on `ARCH_NO_PREEMPT`, so `olddefconfig` took the new default. Full preemption trades a few percent of throughput for better tail latency, which suits etcd and Ceph OSDs, so the direction is fine — the problem is that nobody chose it and control-2 now schedules unlike its twin, confounding any cross-node latency comparison. `CONFIG_PREEMPT_DYNAMIC=y`, so `preempt=` on the cmdline settles it without a rebuild; control-1's schematic already pins `preempt=voluntary`. Pinning it in `talos/schematic.yaml` too would make a future `olddefconfig` unable to move it — at the cost of changing the schematic id, and therefore the installer repo path. |
+| GTT visible to the memory subsystem (`NR_GPU_ACTIVE`) | **Live in `/proc/meminfo`** (~1.4 GiB), the first-party fix for the iGPU GTT leak that is invisible to `kubectl top`. **Not yet exported** — node-exporter v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be alerted on.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| eBPF verifier state pruning (7.0/7.1)                 | Applies. Upstream's veristat numbers are measured on Cilium's own objects (`bpf_lxc.o` `tail_ipv4_ct_egress` -44%). Not re-measured here.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| HRTICK / HRTICK_DL default on                         | Applies; `CONFIG_HRTIMER_REARM_DEFERRED=y` in the built config. EEVDF slice enforcement moves off the 4 ms tick.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| r8169 LTR enabled for RTL8125 (7.0)                   | **Not applicable on this hardware.** Looked like the main regression risk (both NICs are RTL8125B in `bond0`), but ACPI `_OSC` on both Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel and the commit cannot engage. Same `_OSC` line on control-3, so this is a property of the box, not of 7.x. It also means AER reporting is unavailable, i.e. PCIe correctable/uncorrectable errors are invisible here by construction — do not write alerts against AER on these nodes.                                                                                                                                                                                         |
 
 The Ceph `aes256k` feature this was built for is **not yet in use** — it also needs Rook's
 `spec.security.cephx.allowedCiphers`, which cannot be set while any node is below 7.0.
 
 ### The counterweight: 7.x is not LTS
 
-| | 6.18 | 7.1 |
-|---|---|---|
-| kernel.org moniker | **longterm** | stable |
-| Projected EOL | Dec 2028 | none published; 7.2 shipped 2026-08-16 |
-| `siderolabs/pkgs` | `release-1.13` and `release-1.14` both pin 6.18.44 | never shipped |
+|                    | 6.18                                               | 7.1                                    |
+|--------------------|----------------------------------------------------|----------------------------------------|
+| kernel.org moniker | **longterm**                                       | stable                                 |
+| Projected EOL      | Dec 2028                                           | none published; 7.2 shipped 2026-08-16 |
+| `siderolabs/pkgs`  | `release-1.13` and `release-1.14` both pin 6.18.44 | never shipped                          |
 
 Measured series lifetimes: 6.19.y made its last release 9 days after 7.0 shipped, 7.0.y 13
 days after 7.1. 7.2 is already out, so 7.1.y is likely within weeks of EOL. Mainline cadence
@@ -119,10 +119,10 @@ Since the flip cannot be defaulted away, the naming minimises how many packages 
 **one image per schematic, not per node.** Two schematics means two packages and two flips,
 once, no matter how many nodes join.
 
-| image | schematic | nodes |
-|---|---|---|
-| `ghcr.io/tanguille/installer/shared` | `talos/schematic.yaml` | control-2, control-3 |
-| `ghcr.io/tanguille/installer/control-1` | `control-1.schematic.yaml` | control-1 |
+| image                                   | schematic                  | nodes                |
+|-----------------------------------------|----------------------------|----------------------|
+| `ghcr.io/tanguille/installer/shared`    | `talos/schematic.yaml`     | control-2, control-3 |
+| `ghcr.io/tanguille/installer/control-1` | `control-1.schematic.yaml` | control-1            |
 
 Visibility is per package, so every later tag inherits it — there is nothing to do per kernel
 bump, and a fourth node on the shared schematic needs no new package at all.
@@ -145,7 +145,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $TOK" \
 ```
 
 **The amdgpu extension names its own tag.** It publishes as
-`<firmware-date>-<extensions-tag>` (e.g. `20260810-v1.14.0-rc.1`), *not* as the pipeline's
+`<firmware-date>-<extensions-tag>` (e.g. `20260810-v1.14.0-rc.2`), *not* as the pipeline's
 `v<talos>-k<kernel>`. The build discovers the published tag rather than assuming it; do not
 hardcode one.
 
@@ -162,9 +162,9 @@ kernel.org:  647F 2865 4894 E3BD 4571  99BE 38DB BDC8 6092 693E
 
 Re-check it with `gpg --show-keys --with-fingerprint` if the key is ever replaced. Then rebuild and read the log:
 
-| surface | measured, 6.18.44 -> 7.1.9 |
-|---|---|
-| `olddefconfig` delta | +206 / -149 |
+| surface                                 | measured, 6.18.44 -> 7.1.9                 |
+|-----------------------------------------|--------------------------------------------|
+| `olddefconfig` delta                    | +206 / -149                                |
 | `hack/modules-amd64.txt` reconciliation | 3 entries (1.13) / 3 + 1 dependency (1.14) |
 
 The delta is not cosmetic: the 6.18.44 -> 7.1.9 one flipped `CONFIG_PREEMPT_NONE` to
