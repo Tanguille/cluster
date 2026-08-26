@@ -16,12 +16,19 @@ ARG VERSION=v0.0.6
 # match the platform being built, not the host running the build.
 FROM golang:1.25 AS fetch
 ARG VERSION
+# Verify against the release's own checksums.txt. The download MUST keep the
+# exact asset name recorded in checksums.txt: sha256sum -c matches on the
+# recorded filename, and a renamed tarball makes it "no file was verified"
+# (exit 1) even with --ignore-missing.
 RUN set -eux; \
-    url="https://github.com/truenas/truenas-mcp/releases/download/${VERSION}/truenas-mcp-linux-amd64.tar.gz"; \
-    curl -fsSL --retry 3 -o /tmp/truenas-mcp.tar.gz -o /tmp/checksums.txt \
-        "$url" "https://github.com/truenas/truenas-mcp/releases/download/${VERSION}/checksums.txt"; \
+    ver="${VERSION}"; \
+    base="https://github.com/truenas/truenas-mcp/releases/download/${ver}"; \
+    curl -fsSL --retry 3 -o /tmp/truenas-mcp-linux-amd64.tar.gz \
+        "${base}/truenas-mcp-linux-amd64.tar.gz"; \
+    curl -fsSL --retry 3 -o /tmp/checksums.txt \
+        "${base}/checksums.txt"; \
     ( cd /tmp && sha256sum -c --ignore-missing checksums.txt ); \
-    tar -xzf /tmp/truenas-mcp.tar.gz -C /tmp
+    tar -xzf /tmp/truenas-mcp-linux-amd64.tar.gz -C /tmp
 
 # debian:bookworm-slim: small glibc base so the dynamically-linked Go binary
 # runs with no further deps (ldd: libc.so.6 only). No shell, no user, no

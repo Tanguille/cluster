@@ -57,3 +57,14 @@ jobs:
             -t "ghcr.io/${{ github.repository }}/truenas-mcp:latest" \
             --push \
             docker/truenas-mcp/
+
+      # Print the immutable manifest-list digest the push served, so the
+      # MCPServer manifest can pin tag@sha256: (same posture as every other
+      # image in this repo). buildx --push prints it as the final line.
+      - name: Print published digest
+        run: |
+          digest="$(docker buildx imagetools inspect "ghcr.io/${{ github.repository }}/truenas-mcp:${{ steps.version.outputs.tag }}" | grep -m1 '^Digest:' | awk '{print $2}')"
+          [ -n "${digest}" ] || { echo "no digest read back" >&2; exit 1; }
+          echo "truenas-mcp:ghcr.io/${{ github.repository }}/truenas-mcp@${digest}"
+          echo "truenas-mcp:${digest}" >> "$GITHUB_STEPS_SUMMARY.md" || true
+          { echo "### Published"; echo "ghcr.io/${{ github.repository }}/truenas-mcp:${{ steps.version.outputs.tag }}@${digest}"; } >> "$GITHUB_STEP_SUMMARY"
