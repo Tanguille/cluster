@@ -349,9 +349,17 @@ spec:
     # DO NOT remove the fs secondary tier to save Ceph writes: its 4.5% hit
     # rate is not its job. Removing it halved single-stream decode (15.5 vs
     # 31 tok/s, exact-revert confirmed) -- it keeps eviction asynchronous.
+    # blocks_per_chunk: 4 coalesces 4 GPU blocks (800 tok each, mamba-page-
+    # forced) into one offload lookup key, cutting per-request fs/CPU tier
+    # lookup calls ~4x (a 48K-token prompt: ~60 calls -> ~15) to shrink the
+    # burst size that overwhelms the single-threaded async lookup manager
+    # (see kv_offload_lookup_async_delay_seconds stalls). Raise to 8 if a
+    # soak still shows bad lookup delay/preemptions; watch that
+    # external_kv_transfer's prompt-token share doesn't drop as the cost of
+    # coarser partial-prefix matching.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
