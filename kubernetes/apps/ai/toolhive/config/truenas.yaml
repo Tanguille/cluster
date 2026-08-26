@@ -1,86 +1,74 @@
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
-# TrueNAS management MCP (hongkongkiwi/truenas-master-mcp) — pools, datasets,
-# apps, VMs, shares, SMART, tasks — exposed to the ToolHive optimizer.
+# TrueNAS MCP (github.com/truenas/truenas-mcp, official iXsystems) — pools,
+# datasets, apps, VMs, shares, tasks, system info — exposed to the ToolHive
+# optimizer.
 #
-# Streamable-HTTP on :3000 (the server's --transport=http mode serves the
-# /mcp endpoint). Health: GET / returns a JSON status banner in both http
-# and sse server modes (see src/main.rs run_http / run_sse).
+# v0.0.6 is the newest release at publish time (2026-07-22); Renovate bumps
+# the Dockerfile's VERSION ARG (datasource=github-releases), the image
+# workflow rebuilds ghcr.io/tanguille/truenas-mcp, and the tag here follows.
 #
-# SECURITY: --readonly disables every modifying tool; the TrueNAS API key
-# should be a minimal, read-only API key (System → Operators → API Keys).
+# Why not the previously-proposed truenas-master-mcp: that third-party
+# server is pure REST (reqwest) and every tool 404s on TrueNAS 26, where
+# the REST API is gone — only the JSON-RPC WebSocket API is served. The
+# official server speaks exactly that protocol (wss:// + auth.login_with_api_key).
+#
+# Stdio transport (like karakeep/talos-mcp): the official binary has no
+# HTTP/SSE server mode and no official container image — the image is a
+# thin glibc wrapper around the release binary. The operator runs it and
+# speaks MCP over stdio, so there is no mcpPort/proxyPort and no httpGet
+# probes.
+#
+# SECURITY: the official binary has no --readonly flag (that was a
+# truenas-master-mcp flag), so read-only posture rests on the TrueNAS API
+# key: a minimal key with no permissions (System → API Keys → Add). TLS
+# stays verified — the box is reached through its Let's Encrypt name
+# (truenas.${SECRET_DOMAIN}); no TRUENAS_INSECURE.
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
   name: truenas
 spec:
-  image: ghcr.io/hongkongkiwi/truenas-master-mcp:v0.1.11@sha256:fd320e3c994715461cb6554ae6fe2bd172879bc81a724f39df7af7cf9d01bff4
-  transport: streamable-http
-  mcpPort: 3000
-  proxyPort: 8080
+  # Self-built: upstream ships no image (static Go release binary only).
+  # Built by .github/workflows/truenas-mcp-image.yaml from
+  # docker/truenas-mcp/Dockerfile, digest-pinned once the first build lands.
+  image: ghcr.io/tanguille/truenas-mcp:v0.0.6
+  transport: stdio
   groupRef:
     name: all
-  # Outbound to the TrueNAS VM on the LAN (192.168.0.27) — not covered by
-  # the default allowlist (k8s API / registries / package mirrors).
+  # Outbound to the TrueNAS box on the LAN — not covered by the default
+  # allowlist (k8s API / registries / package mirrors).
   permissionProfile:
     type: builtin
     name: network
   env:
-    # Verifying cert: reached via the internal TLSRoute (truenas.${SECRET_DOMAIN})
-    # which terminates with the Let's Encrypt cert the operator already trusts.
-    # No TRUENAS_VERIFY_SSL=false — do not weaken TLS to reach the LAN IP.
-    - name: TRUENAS_SERVER_URL
+    # Resolved by Flux from toolhive-secrets (same pattern as the other
+    # toolhive servers). Public Let's Encrypt name, so the binary's default
+    # certificate verification passes — the in-cluster name
+    # (truenas.29586b5a0e77.internal) is not in the cert's SAN.
+    - name: TRUENAS_URL
       value: https://truenas.${SECRET_DOMAIN}
-    - name: TRUENAS_TIMEOUT
-      value: "30"
-  # CLI-only flag of the upstream binary (no env equivalent) — enforce
-  # read-only at the tool layer, in front of whatever the API key allows.
-  podTemplateSpec:
-    spec:
-      containers:
-        - name: mcp
-          command:
-            - truenas-master-mcp
-            - --transport=http
-            - --host=0.0.0.0
-            - --port=3000
-            - --readonly
-          ports:
-            - name: mcp
-              containerPort: 3000
-          startupProbe:
-            httpGet:
-              path: /
-              port: mcp
-              scheme: HTTP
-            periodSeconds: 2
-            failureThreshold: 30
-          readinessProbe:
-            httpGet:
-              path: /
-              port: mcp
-              scheme: HTTP
-            periodSeconds: 3
-            timeoutSeconds: 2
-            failureThreshold: 3
-          resources:
-            requests:
-              cpu: 10m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 256Mi
-  # Dedicated secret (see ../app/truenas-secret.sops.yaml, placeholder to be
-  # replaced + encrypted — same pattern as the talos-mcp secret) so filling in
-  # the API key never requires re-encrypting the shared toolhive-secrets.
+  # Dedicated secret (see ../app/truenas-secret.sops.yaml) so filling in the
+  # API key never requires re-encrypting the shared toolhive-secrets.
   secrets:
     - name: truenas-mcp
       key: TRUENAS_API_KEY
       targetEnvName: TRUENAS_API_KEY
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
   resources:
     requests:
       cpu: 10m
-      memory: 64Mi
+      memory: 32Mi
     limits:
       cpu: 200m
       memory: 128Mi
