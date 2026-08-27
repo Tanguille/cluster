@@ -12,6 +12,11 @@ spec:
 
   values:
     fullnameOverride: *app
+    # v0.22.0: annotation prefix changed from external-dns.alpha.kubernetes.io/ to
+    # external-dns.kubernetes.io/ (no fallback; #6424). Must land together with the
+    # annotation flips in envoy-gateway + external-service, or all DNS records are deleted.
+    image:
+      tag: v0.22.0@sha256:5fdcaf7deb5c158f93a1fc6fe169cdff4cfb9ae0172bee1a90ab0ef74fb9c9cf
     resources:
       requests:
         cpu: 10m
