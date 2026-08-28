@@ -42,7 +42,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:71da21f3ca71dba2150c729b98cdf76a827747221af65ac36219d35ab7cb6ab7
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:74b3e5244810dafac2a6f2e173548676eec2333b16cec2203cfedf6ed0ebdabe
   # Vulkan floor is 2 — warmup hangs at parallel=1 (llama.cpp #24307). The iGPU
   # is compute-bound, so more slots add interleave, not throughput.
   parallelSlots: 2
