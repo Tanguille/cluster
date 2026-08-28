@@ -4,7 +4,7 @@ kind: MCPServer
 metadata:
   name: ghostfolio
 spec:
-  image: ghcr.io/mhajder/ghostfolio-mcp:1.6.0@sha256:756ff45cac65ad30f9f1d846f1a6fbc319ec450f2b83fbe4d1b4f8d233a7f1f2
+  image: ghcr.io/mhajder/ghostfolio-mcp:1.6.1@sha256:6c83e5d2da1a2a6fe2fb664215fabd458b22fe9be3877fa8ce35ab4d0876b419
   # ghostfolio-mcp's own transport selection only recognizes "http"/"sse" as literal
   # values (src/ghostfolio_mcp/server.py); toolhive injects spec.transport verbatim as
   # MCP_TRANSPORT, so "streamable-http" silently falls through to its stdio default
