@@ -11,6 +11,10 @@ on:
       - talos/**
       - .justfile
       - scripts/talos-template-vars.sh
+      - scripts/talos-installer-published.sh
+      # Both feed `pinned`, so a bump to either renames every installer ref a node config asks for.
+      - docker/talos-kernel/Dockerfile
+      - kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -30,3 +34,22 @@ jobs:
 
       - name: Check template variables
         run: scripts/talos-template-vars.sh
+
+  # Its own job, not another step: this one is red for as long as a kernel bump sits unbuilt, and
+  # that is a different question from whether the templates are sound. Keeping them separate means
+  # the build gate can be re-run on its own once the installer lands, without re-running the rest.
+  installer-published:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+      # No registry login on purpose: the check is whether a node, which has no credentials
+      # either, could pull this. See the script header.
+      - name: Check the installers this PR names are published
+        run: scripts/talos-installer-published.sh
