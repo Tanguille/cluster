@@ -1,0 +1,123 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-flash-next
+spec:
+  # REAP-256: community expert-pruned to 256 of the 512 routed experts. Chosen
+  # over the stock unsloth quants purely on resident footprint -- measured from
+  # the GGUF tensor headers, with the PLE table excluded (it stays on NVMe, see
+  # --tensor-read-lazy below):
+  #
+  #   GGUF                     PLE (NVMe)  experts  other  RESIDENT  file
+  #   REAP-256 UD-Q3_K_XL         26.82     25.99    4.87   30.9Gi   57.7Gi
+  #   unsloth  UD-IQ1_S           26.82     37.10    3.62   40.7Gi   67.6Gi
+  #   unsloth  UD-Q2_K_XL         26.82     42.92    3.70   46.6Gi   73.5Gi
+  #
+  # Only the REAP variant fits the R9700's 32Gi (minus Jellyfin's 2Gi reserve).
+  # The PLE tensor is a constant 26.82Gi in every unsloth tier -- they keep it
+  # at IQ4_NL regardless of the quant name, so a lower quant does not shrink it.
+  #
+  # Unsloth's one hard caveat for this architecture is that the PLE/n-gram
+  # layers must stay at 4-bit or better -- their random access pattern makes
+  # aggressive quantization disproportionately damaging. Verified directly
+  # against this artifact's GGUF header rather than assumed: the Q3_K_XL name
+  # refers to the expert tiers only, and per_layer_token_embd.weight is
+  # type 20 (IQ4_NL, 4.5 bpw). It clears the floor.
+  #
+  # Revision-pinned: HF repos re-upload fixed GGUFs under the same filename, so
+  # `main` is not immutable. Renovate bumps this via the git-refs manager.
+  source: hf://AnonimousA/Qwen3.8-Flash-Next-REAP-256-duo-GGUF@829b8ec59549492c8db50305517c39231cabd33c
+  # Two shards; the first is the primary passed to llama-server, which resolves
+  # the rest itself.
+  files:
+    - Qwen3.8-Flash-Next-UD-Q3_K_XL-reap256-00001-of-00002.gguf
+    - Qwen3.8-Flash-Next-UD-Q3_K_XL-reap256-00002-of-00002.gguf
+  format: gguf
+  quantization: UD-Q3_K_XL
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      layers: -1
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen38-flash-next
+spec:
+  modelRef: qwen38-flash-next
+  # b10689 = upstream rev 57291f2, the first release tag carrying qwen4exp
+  # (ggml-org/llama.cpp#27742, merged 2026-08-27). The official ROCm image
+  # builds gfx1201 in its target list, so no custom build is needed:
+  #   gfx908;gfx90a;gfx942;gfx1030;gfx1100;gfx1101;gfx1102;gfx1151;gfx1150;gfx1200;gfx1201
+  image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10689
+  bindAddress: 0.0.0.0
+  # UNVALIDATED. The outgoing vLLM config serves 246944 and Hermes peaks at
+  # 112K, so anything below ~131072 is a functional regression for it, not just
+  # a tuning choice. llama.cpp splits contextSize across parallelSlots, hence
+  # slots=1 -- this is a single-GPU box with no room to divide.
+  # 131072 is chosen to clear Hermes's peak, NOT because the KV footprint has
+  # been measured: 26.0Gi of experts already spills 8 layers to host RAM, and
+  # whatever QSA's cache costs at this depth comes out of the same 32Gi card.
+  # Measure at validation and reconcile with moeCPULayers before merging.
+  contextSize: 131072
+  parallelSlots: 1
+  jinja: true
+  # 26.0Gi of routed experts against ~30Gi usable VRAM leaves no room for the
+  # 4.9Gi of always-resident tensors plus KV, so some expert layers spill to
+  # host RAM. 8 is a starting point to be tuned against real VRAM headroom at
+  # validation time -- lower it if the card has room, raise it if it OOMs.
+  moeCPULayers: 8
+  extraArgs:
+    # The reason this model is runnable here at all. The PLE n-gram table is a
+    # single 26.82Gi tensor ([160, 320001536], 51.2B of the model's 176.9B
+    # params); llama.cpp reads its rows from disk on demand instead of keeping
+    # it resident. Upstream calls this out explicitly in the loader:
+    # "keep PLE / engrams embd tensors on disk, read them on demand".
+    #
+    # `auto` (the default) would also catch it, since it lazies any marked
+    # tensor over 4Gi -- set explicitly so the behaviour is stated, not
+    # inherited. Requires mmap, so do not combine with --load-mode none.
+    #
+    # NOTE: renamed to -lzm/--lazy-mode in llama.cpp#27969, which landed two
+    # hours after b10689 was built. Rename this when the image is next bumped.
+    - "--tensor-read-lazy"
+    - "on"
+    - "--alias"
+    - "qwen-3.8-flash-next"
+    # Unsloth's thinking-mode values (unsloth.ai/docs/models/qwen3.8-next). Set
+    # here for the same reason qwen35-2b does: the LiteLLM alias carries no
+    # sampling params, so without these the server defaults apply. The outgoing
+    # qwen-3.8 alias runs thinking (reasoning_effort medium), so these are the
+    # matching set -- non-thinking would be temp 0.7 / top-p 0.80 / presence 1.5.
+    - "--temp"
+    - "1.0"
+    - "--top-p"
+    - "0.95"
+    - "--top-k"
+    - "20"
+    - "--min-p"
+    - "0.0"
+  nodeSelector:
+    amd.com/gpu: "true"
+  # Mirrors the vLLM pod's GPU access: root plus video(44)/render(226).
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  resources:
+    cpu: "4"
+    # Host-side room for the 8 spilled expert layers plus the page cache the
+    # lazy PLE reads depend on -- that cache is what keeps the on-demand row
+    # gathers off the disk hot path.
+    memory: 24Gi
