@@ -213,6 +213,13 @@
       matchPackageNames: ["/feramance\\/qbitrr/"],
       extractVersion: "^v(?<version>.*)$"
     },
+    {
+      // Last release 2025-08-04, past `abandonments:recommended`, but still used by pre-commit.
+      // matchPackageNames misses: the mise preset rewrites packageName to koalaman/shellcheck.
+      description: "shellcheck releases rarely; not abandoned",
+      matchDepNames: ["aqua:koalaman/shellcheck"],
+      abandonmentThreshold: null
+    },
     // Versioning overrides
     {
       description: "Mixed-segment tags (p2pool v4.15/v4.15.1, hermes v2026.5.29/v2026.5.29.2); docker versioning skips patch bumps",
