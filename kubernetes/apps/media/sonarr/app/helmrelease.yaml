@@ -25,12 +25,14 @@ spec:
           app:
             image:
               repository: ghcr.io/home-operations/sonarr
-              tag: 4.0.19.3007@sha256:57ddf9972fa347a025504135bf73f5c84e4b67d33285b43f170a501145d8c43b
+              tag: 4.0.19.3008@sha256:bd8f94115e6b9314fb50aff83b5913e249f086beaa9902f5dcd813c4fe6368e0
             env:
               SONARR__AUTH__METHOD: External
               SONARR__AUTH__REQUIRED: DisabledForLocalAddresses
               SONARR__APP__INSTANCENAME: Sonarr
               SONARR__SERVER__PORT: &port 80
+              SONARR__SERVER__ALLOWEDHOSTS: "{{ .Release.Name }}.${SECRET_DOMAIN},sonarr.media.svc.cluster.local"
+              SONARR__SERVER__TRUSTEDNETWORKS: 10.42.0.0/16
               SONARR__LOG__DBENABLED: "False"
               SONARR__LOG__LEVEL: info
               SONARR__APP__THEME: dark
@@ -43,17 +45,25 @@ spec:
                   name: sonarr-secret
 
             probes:
-              liveness: &probes
+              liveness:
+                enabled: true
+                spec:
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
                     path: /ping
                     port: *port
-                  periodSeconds: 30
-                  timeoutSeconds: 10
+                    httpHeaders:
+                      - name: Host
+                        value: localhost
+                  periodSeconds: 10
+                  timeoutSeconds: 5
                   failureThreshold: 5
-              readiness: *probes
               startup:
                 enabled: true
                 spec:
