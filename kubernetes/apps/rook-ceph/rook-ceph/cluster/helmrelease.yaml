@@ -56,9 +56,9 @@ spec:
             # aes256k needs ceph-csi >= v3.17.1 (librados 20.2.4); v3.17.0's 20.2.1 fails
             # provisioning with `rados: ret=-22`. Pin is in ../app/helmrelease.yaml.
             keyType: aes256k
-            # Keeps the prior-gen key as rollback. Those retained gen-3 keys are aes, so
-            # AUTH_INSECURE_CLIENT_KEY_TYPE stays until this drops back to 0.
-            keepPriorKeyCountMax: 1
+            # Gen-4 aes256k has been serving CSI since 2026-08-26; the gen-3 aes rollback
+            # keys are what kept AUTH_INSECURE_CLIENT_KEY_TYPE up, so drop them.
+            keepPriorKeyCountMax: 0
           rbdMirrorPeer: *cephxKey
       cephConfig:
         global:
