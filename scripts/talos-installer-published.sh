@@ -18,10 +18,25 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 pinned="$(just tuppr-version talos)-k$(just kernel-version)"
 
 # The refs live literally in the node templates; only the tag is templated. Read them from there
-# rather than rendering, which would need the secrets bundle.
-refs="$(grep -hoP '^\s+image:\s*\K\S+installer/\S+(?=:\{\{ pinned \}\})' \
-    "${REPO_ROOT}"/talos/nodes/*/*.yaml.j2 | sort -u)"
-[[ -n "${refs}" ]] || { echo "no installer image refs found under talos/nodes/" >&2; exit 1; }
+# rather than rendering, which would need the secrets bundle. `:{{ pinned }}` alone identifies
+# them -- matching the repo path too would go green if a repo is ever renamed.
+#
+# Per file, not over the union: every node must repoint .machine.install.image at this registry
+# (README.md "The rollout is not self-closing"), so a file yielding nothing is either that
+# requirement broken or the grep no longer matching. Checked across the union, one template
+# reformatted to `{{pinned}}` would drop out of `sort -u` while the others still matched, and
+# that node's ref would go unverified with the check still green.
+refs=""
+for f in "${REPO_ROOT}"/talos/nodes/*/*.yaml.j2; do
+    # || true so an empty result reaches the check below with a filename, rather than exiting
+    # on grep's no-match status with no output at all.
+    ref="$(grep -oP '^\s+image:\s*\K\S+(?=:\{\{ pinned \}\})' "${f}" || true)"
+    [[ -n "${ref}" ]] || { echo "no pinned install image in ${f}" >&2; exit 1; }
+    refs+="${ref}"$'\n'
+done
+# Trailing newline stripped before the herestring adds its own, or the blank line survives
+# `sort -u` and the loop below asks the registry for an empty repo.
+refs="$(sort -u <<<"${refs%$'\n'}")"
 
 rc=0
 while IFS= read -r ref; do
