@@ -151,6 +151,18 @@ hardcode one.
 
 ## Per-bump maintenance
 
+Build from the bump branch **before** merging it:
+
+```sh
+gh workflow run talos-kernel.yaml --ref renovate/linux-7.x
+```
+
+The push trigger builds on merge, but the build takes ~2h45m and `pinned` becomes
+`v<talos>-k<new-kernel>` the moment the merge lands — so between the two, every rendered config
+names an installer tag that does not exist yet. Dispatching on the branch closes that window:
+the workflow checks out that ref, so it builds that branch's `ARG KERNEL_VERSION` against that
+branch's tuppr CR, and the merge only ratifies an image that is already published.
+
 Renovate opens a PR bumping `ARG KERNEL_VERSION`. The tarball is verified by Greg KH's
 committed PGP key, so there is no second field to update. The key's fingerprint was
 cross-checked against the one kernel.org publishes on <https://www.kernel.org/signature.html>:
