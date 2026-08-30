@@ -6,6 +6,10 @@ on:
     branches: ["main"]
     paths:
       - docker/talos-kernel/**
+      # Negated rather than listing the build inputs, so a file added there still triggers a
+      # build; only the docs are known not to be one. Editing the README cost an 11m run
+      # (33327983434) that rebuilt nothing.
+      - "!docker/talos-kernel/README.md"
       - scripts/talos-kernel-build.sh
       - talos/schematic.yaml
       - talos/nodes/**/*.schematic.yaml
