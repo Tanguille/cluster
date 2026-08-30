@@ -28,7 +28,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # ~2h45m measured shape
+    # GitHub's hosted-job ceiling (360m) less headroom, not an estimate of the build: it is "let
+    # it run" in the only unit Actions offers. Measured runs are 87-112m, so this does not move
+    # when the build gets slower.
     timeout-minutes: 340
     permissions:
       contents: read
@@ -60,22 +62,22 @@ jobs:
       #
       # On /, not /mnt: the step above hands /mnt's ~66 GB to Docker, which needs ~35-40 GB of
       # it, so a swapfile there would re-create the ENOSPC that move exists to avoid. Moving
-      # the data-root leaves / idle with 87 GB free (measured), so take the swap from there.
-      # Sized from what is actually free, keeping 5 GB back, rather than assuming a figure.
+      # the data-root leaves / idle with ~85 GB free (measured), so take the swap from there.
       - name: Add swap for the ThinLTO link
         run: |
           free -h
-          # -B1, not -BG: df's GiB output rounds UP, so e.g. 12.1G free reports as 13G and an
-          # 8G swapfile would leave only 4.1G, not the intended 5G margin. Floor from bytes.
+          # A flat 32G, which is 3x the shortfall seen; more just costs fallocate time. This used
+          # to size itself from free space, but with 85G free the cap pinned it to 32 on every
+          # run -- adaptive sizing a hard cap makes unreachable is decoration, not adaptivity.
+          # The precondition is the part worth keeping: it names the failure if GitHub ever
+          # shrinks the runner image, instead of letting fallocate ENOSPC on its own.
+          # -B1, not -BG: df's GiB output rounds UP, so 36.2G free would report as 37G and pass.
           free_g="$(( $(df -B1 --output=avail / | tail -1 | tr -dc '0-9') / 1073741824 ))"
-          swap_g=$(( free_g - 5 ))
-          # 32G caps it at 3x the shortfall seen; more just costs fallocate time on a bigger runner.
-          [[ "${swap_g}" -le 32 ]] || swap_g=32
-          [[ "${swap_g}" -ge 8 ]] || { echo "only ${free_g}G free on /, refusing to size swap" >&2; exit 1; }
-          echo "allocating ${swap_g}G swap of ${free_g}G free"
+          [[ "${free_g}" -ge 37 ]] || { echo "only ${free_g}G free on /, need 37G for a 32G swapfile" >&2; exit 1; }
+          echo "allocating 32G swap of ${free_g}G free"
           # Not /swapfile: the runner already has one there, active, and fallocate on a swapped-on
           # file fails with ETXTBSY. This is added alongside it rather than replacing it.
-          sudo fallocate -l "${swap_g}G" /swapfile-thinlto
+          sudo fallocate -l 32G /swapfile-thinlto
           sudo chmod 600 /swapfile-thinlto
           sudo mkswap /swapfile-thinlto
           sudo swapon /swapfile-thinlto
