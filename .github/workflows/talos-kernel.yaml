@@ -10,14 +10,15 @@ on:
       - talos/schematic.yaml
       - talos/nodes/**/*.schematic.yaml
       - kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml
+  # Dispatch against the bump branch to build BEFORE merging it — the only way to have the
+  # installer exist by the time main starts naming it:
+  #     gh workflow run talos-kernel.yaml --ref <branch>
+  # No version input: the ref already selects both versions, from that branch's Dockerfile ARG
+  # and its tuppr CR, so an input could only disagree with the tree being built.
   workflow_dispatch:
-    inputs:
-      talos-version:
-        description: "Talos version to build against; defaults to the tuppr CR's"
-        required: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -87,16 +88,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The script derives everything else itself: the kernel version from the Renovate-managed
-      # ARG, and TOOLS/PKGS from the Talos release's own Makefile.
+      # Everything is derived from the tree: the Talos version from the tuppr CR, the kernel from
+      # the Renovate-managed Dockerfile ARG, TOOLS/PKGS from the Talos release's own Makefile,
+      # and the node list from talos/nodes/. The script writes its own job summary naming every
+      # ref it published. Same entrypoint as a workstation build, so the two cannot drift.
       - name: Build and publish installers
-        # Through env, not interpolated into the shell: a workflow_dispatch input expanded
-        # directly into a run block is a code-injection vector.
-        env:
-          TALOS_VERSION_INPUT: ${{ inputs.talos-version }}
-        run: |
-          talos_version="${TALOS_VERSION_INPUT}"
-          [ -n "${talos_version}" ] || talos_version="$(just tuppr-version talos)"
-          # The node list comes from talos/nodes/, and the script writes its own job summary
-          # naming every ref it published.
-          scripts/talos-kernel-build.sh "${talos_version}" $(just talos nodes)
+        run: just talos kernel-build
