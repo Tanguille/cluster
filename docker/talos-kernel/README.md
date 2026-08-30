@@ -181,18 +181,19 @@ kernel.org:  647F 2865 4894 E3BD 4571  99BE 38DB BDC8 6092 693E
 
 Re-check it with `gpg --show-keys --with-fingerprint` if the key is ever replaced. Then rebuild and read the log:
 
-| surface                                 | measured, 6.18.44 -> 7.1.9                 |
-|-----------------------------------------|--------------------------------------------|
-| `olddefconfig` delta                    | +206 / -149                                |
-| `hack/modules-amd64.txt` reconciliation | 3 entries (1.13) / 3 + 1 dependency (1.14) |
+| surface                                 | 6.18.44 -> 7.1.9                           | 7.1.10 -> 7.2.2         |
+|-----------------------------------------|--------------------------------------------|-------------------------|
+| `olddefconfig` delta                    | +206 / -149                                | +241 / -164             |
+| `hack/modules-amd64.txt` reconciliation | 3 entries (1.13) / 3 + 1 dependency (1.14) | 5 entries + 3 (1.14)    |
 
 The delta is not cosmetic: the 6.18.44 -> 7.1.9 one flipped `CONFIG_PREEMPT_NONE` to
 `CONFIG_PREEMPT`, changing the scheduling profile of a Ceph and etcd node without anyone
 choosing it. Read it, and pin anything load-bearing on the cmdline rather than relying on a
 compiled-in default that upstream can move.
 
-That is one measurement spanning three feature releases (6.19, 7.0, 7.1); a single-minor bump
-has not been measured yet, so treat it as an upper bound rather than a per-bump expectation.
+The two columns bracket the range: the first spans three feature releases (6.19, 7.0, 7.1), the
+second is a single minor. They are close, so the delta tracks the series handover rather than
+the number of releases crossed — a minor bump is not the cheap case.
 
 Talos **1.14 added a second gate**: `depmod --errsyms` must print nothing at all, so a listed
 module whose dependency is absent now fails the build. 7.x split `stmmac_libpci.ko` out of
@@ -206,6 +207,68 @@ fails the build on any listed module the config did not produce. The 7.1.9 recon
 was `kernel/crypto/xor.ko` -> `kernel/lib/raid/xor/xor.ko` (moved), and dropping
 `kernel/crypto/hkdf.ko` (`CONFIG_CRYPTO_HKDF` deleted upstream) and
 `kernel/drivers/watchdog/iTCO_vendor_support.ko` (removed in 7.0).
+
+### Hold: 7.2 is blocked on Cilium, do not merge the bump
+
+**A green build does not mean a bootable fleet.** 7.2.2 built, published and booted cleanly;
+the node was still lost, because the break is in userspace and the pipeline cannot see it.
+
+Cilium's feature probe passes a *pointer* to `bpf_set_retval`, which has always taken an
+integer. The kernel tolerated it until [`b1f7f67b74c2e`][k-commit] ("bpf: Add validation for
+bpf_set_retval argument") landed in **7.2-rc1**. The agent now dies at startup and never writes
+a CNI config, so the node stays `NotReady` with no network:
+
+```text
+level=fatal msg="failed to probe helper"
+  error="detect support for FnSetRetval for program type CGroupSock: load program:
+         invalid argument: 0: (85) call bpf_set_retval#187: R1 is not a scalar"
+  progType=CGroupSock helper=FnSetRetval
+```
+
+Tracked as [cilium/cilium#48016][issue]. It is a Cilium bug the kernel exposed, not a kernel
+regression, and it is **not** version-specific to our 1.20: upstream reports 1.18, 1.19, 1.20
+and 1.21.0-pre.0 all failing on 7.2 while the same builds run fine on 7.1.
+
+The fix is [`67c619c`][fix] (probe via `bpf_core_enum_value_exists()` instead of emitting the
+call). Measured on 2026-08-30: present on the `v1.20` branch as `b73ca6e8d` (2026-08-28), absent
+from `v1.19` and `v1.18`, and in **no release** — 1.20.1 shipped 2026-08-18, ten days before the
+backport. Re-check with:
+
+```sh
+gh api "repos/cilium/cilium/commits?sha=v1.20&per_page=100" \
+    -q '[.[] | select(.commit.message | test("HAVE_SET_RETVAL"))] | length'
+gh release list --repo cilium/cilium --limit 5
+```
+
+**Lift the hold when a Cilium release containing that commit is deployed here** — 1.20.2 or
+later. Until then `ARG KERNEL_VERSION` stays on 7.1.y and Renovate's 7.2.x PR stays open and
+unmerged; the open PR is the reminder. It is deliberately not pinned via `allowedVersions`:
+combined with the `iseol=false` filter in `.renovaterc.json5`, a `<7.2` bound empties the feed
+once 7.1 leaves `moniker=stable`, and bumps then stop **silently** — which is worse than a PR
+someone has to decline. The cost of the hold is that 7.1.y patch bumps stop too, since Renovate
+only ever offers the highest stable.
+
+[k-commit]: https://github.com/torvalds/linux/commit/b1f7f67b74c2e
+[issue]: https://github.com/cilium/cilium/issues/48016
+[fix]: https://github.com/cilium/cilium/commit/67c619cb0a43c7178bf843c9281fc77fe64fe13f
+
+### Rolling a bump back
+
+Reverting the *running* kernel is one command, but it leaves the node's **stored config** still
+naming the new installer and carrying the new `tuppr.home-operations.com/version` annotation.
+tuppr reads that annotation: a node running 7.1.10 while annotated 7.2.2 is a node tuppr may
+upgrade straight back into the break. Re-apply the config from the pre-bump tree as well:
+
+```sh
+talosctl -n <ip> upgrade -i ghcr.io/tanguille/installer/<schematic>:<old-version> \
+    -m powercycle --timeout=15m
+git checkout <bump-commit>~1        # renders the old pinned
+just --yes talos apply-node <node> <ip>
+kubectl get nodes \
+    -o custom-columns=NAME:.metadata.name,TUPPR:'.metadata.annotations.tuppr\.home-operations\.com/version'
+```
+
+The last command is the check that matters — all nodes must report the same version.
 
 ## What is deliberately not carried
 
@@ -250,6 +313,16 @@ talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<node>:<version> \
 
 Do one node at a time and confirm `etcd` rejoins between each — the fleet is three
 control-plane nodes and etcd tolerates exactly one down.
+
+`etcd` is not a sufficient check. Every Talos service can report `Running/OK` on a node that
+has no working network: the first node on 7.2.2 did exactly that, with `cilium` in
+`CrashLoopBackOff` and `Ready=False / cni plugin not initialized`. Wait for the node to reach
+`Ready` and confirm its agent pod is up before touching the next one:
+
+```sh
+kubectl get node <node>
+kubectl -n kube-system get pods -o wide | grep "cilium.*<node>"
+```
 
 ### The rollout is not self-closing
 
