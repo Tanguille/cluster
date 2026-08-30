@@ -1,51 +1,43 @@
 ---
+# Node-local NVMe, NOT the shared llmkube modelCache. That one is 8Gi of CephFS
+# sized for the ~2.1Gi of embedding models, and its own comment assumes
+# "read-once at load, so CephFS latency never touches inference" -- which is
+# exactly false here: --tensor-read-lazy reads PLE rows from this volume on
+# every token, so it has to be local disk. Same pattern as qwen38-27b-vllm.
+# 85Gi holds the 73.5Gi three-shard GGUF with room to re-stage on a bump.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-flash-next-model-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 85Gi
+---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
   name: qwen38-flash-next
 spec:
-  # Resident footprints measured from the GGUF tensor headers, with the PLE
-  # table excluded -- it stays on NVMe (see --tensor-read-lazy below). "spill"
-  # is what does not fit the ~30Gi of usable VRAM and lands in host RAM via
-  # moeCPULayers:
+  # Measured from the GGUF tensor headers. RESIDENT excludes the PLE table,
+  # which stays on NVMe (see --tensor-read-lazy); "spill" is what exceeds the
+  # ~30Gi of usable VRAM and lands in host RAM via moeCPULayers:
+  #   UD-Q2_K_XL  experts 42.92Gi + other 3.70Gi = 46.6Gi resident, ~17Gi spill
+  # Parking vLLM frees 27.4Gi of host RAM (15.4Gi -> ~42.8Gi), which is what
+  # makes that spill fit. Rationale for this tier over the others is in #4764.
   #
-  #   GGUF                     PLE(NVMe)  experts  other  RESIDENT  spill  top-1
-  #   REAP-256 UD-Q3_K_XL         26.82    25.99    4.87   30.9Gi    ~1Gi   none
-  #   unsloth  UD-IQ1_S           26.82    37.10    3.62   40.7Gi   ~11Gi  ~79.7%
-  #   unsloth  UD-Q2_K_XL         26.82    42.92    3.70   46.6Gi   ~17Gi   82.7%
-  #   unsloth  UD-IQ3_XXS         26.82    45.29    4.21   49.5Gi   ~20Gi     --
-  #   unsloth  UD-Q3_K_XL         26.82    51.99    4.98   57.0Gi   ~27Gi     --
+  # PLE/n-gram layers must stay at 4-bit or better -- their random access
+  # pattern makes aggressive quantization disproportionately damaging. Checked,
+  # not assumed: Q2_K_XL names only the expert tiers, and
+  # per_layer_token_embd.weight is type 20 (IQ4_NL, 4.5 bpw).
   #
-  # The budget is VRAM+RAM, not VRAM alone: parking the vLLM service releases
-  # 27.4Gi, taking control-1 from 15.4Gi to ~42.8Gi available. Q2_K_XL's 17Gi
-  # spill fits that with room left for the node.
-  #
-  # REAP-256 fits VRAM outright but prunes half the 512 routed experts by a
-  # community process with NO published evals -- an unmeasured quality risk
-  # stacked on top of Q3 quantization, which is the wrong basis for a
-  # quality evaluation. Q2_K_XL is the cheapest tier with a published number.
-  #
-  # Spill cost is real but bounded: llama.cpp#27861 measured this exact model
-  # (UD-Q4_K_XL, 28 expert layers host-pinned, 2x3090, one populated RAM
-  # channel per socket) at 18.4 tok/s decode, 24.2 with their GPU LRU cache.
-  # Roughly half of this box's current 31.8-33.9 tok/s, not an order of magnitude.
-  #
-  # The PLE tensor is a constant 26.82Gi in every unsloth tier -- they keep it
-  # at IQ4_NL regardless of the quant name, so a lower quant does not shrink it.
-  #
-  # Unsloth's one hard caveat for this architecture is that the PLE/n-gram
-  # layers must stay at 4-bit or better -- their random access pattern makes
-  # aggressive quantization disproportionately damaging. Verified directly
-  # against this artifact's GGUF header rather than assumed: the Q2_K_XL name
-  # refers to the expert tiers only, and per_layer_token_embd.weight is
-  # type 20 (IQ4_NL, 4.5 bpw). It clears the floor.
-  #
-  # Revision-pinned: HF repos re-upload fixed GGUFs under the same filename, so
+  # Revision-pinned: HF re-uploads fixed GGUFs under the same filename, so
   # `main` is not immutable. Renovate bumps this via the git-refs manager.
   source: hf://unsloth/Qwen3.8-Flash-Next-GGUF@c8b5954a88c2775c546b92593eda40ea041d3176
-  # Three shards; the first is the primary passed to llama-server, which
-  # resolves the rest itself.
+  # First entry is the primary passed to llama-server; it resolves the rest.
   files:
     - UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00001-of-00003.gguf
     - UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00002-of-00003.gguf
@@ -71,53 +63,43 @@ metadata:
 spec:
   modelRef: qwen38-flash-next
   # b10689 = upstream rev 57291f2, the first release tag carrying qwen4exp
-  # (ggml-org/llama.cpp#27742, merged 2026-08-27). The official ROCm image
-  # builds gfx1201 in its target list, so no custom build is needed:
-  #   gfx908;gfx90a;gfx942;gfx1030;gfx1100;gfx1101;gfx1102;gfx1151;gfx1150;gfx1200;gfx1201
+  # (ggml-org/llama.cpp#27742). The official ROCm image builds gfx1201, so no
+  # custom build is needed.
   image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10689
+  modelCache:
+    claimName: qwen38-flash-next-model-cache
   bindAddress: 0.0.0.0
-  # UNVALIDATED. The outgoing vLLM config serves 246944 and Hermes peaks at
-  # 112K, so anything below ~131072 is a functional regression for it, not just
-  # a tuning choice. llama.cpp splits contextSize across parallelSlots, hence
-  # slots=1 -- this is a single-GPU box with no room to divide.
-  # 131072 is chosen to clear Hermes's peak, NOT because the KV footprint has
-  # been measured: half the expert layers already spill to host RAM, and
-  # whatever QSA's cache costs at this depth comes out of the same 32Gi card.
-  # Measure at validation and reconcile with moeCPULayers before merging.
+  # llama.cpp splits contextSize across parallelSlots, so slots=1 gives the
+  # whole window to one stream. 131072 clears Hermes's 112K peak; it is NOT
+  # derived from a measured KV footprint, and competes with moeCPULayers for
+  # the same VRAM.
   contextSize: 131072
   parallelSlots: 1
   jinja: true
-  # 42.92Gi of routed experts over 48 layers is ~0.9Gi/layer. Usable VRAM is
-  # ~30Gi (32 minus Jellyfin's 2Gi reserve); subtract the 3.7Gi of
-  # always-resident tensors and leave ~4Gi for KV and compute, so ~22Gi holds
-  # roughly 24 expert layers on the card and the other 24 (~21Gi) go to host
-  # RAM -- inside the ~42.8Gi freed by parking vLLM.
-  # A starting point, not a measured optimum: lower it if VRAM has room, raise
-  # it if the server OOMs. Tune together with contextSize, which competes for
-  # the same 4Gi of KV headroom.
+  # 42.92Gi of experts over 48 layers is ~0.9Gi/layer. Usable VRAM ~30Gi (32
+  # minus Jellyfin's 2Gi reserve), less 3.7Gi always-resident and ~4Gi for KV,
+  # leaves ~22Gi -- about 24 layers on the card, 24 (~21Gi) in host RAM.
   moeCPULayers: 24
+  # A 73.5Gi mmap load with on-demand PLE row reads has a long, disk-bound
+  # cold start, and warmup would fault in exactly the pages --tensor-read-lazy
+  # exists to keep off the resident path. First request pays instead.
+  noWarmup: true
   extraArgs:
-    # The reason this model is runnable here at all. The PLE n-gram table is a
-    # single 26.82Gi tensor ([160, 320001536], 51.2B of the model's 176.9B
-    # params); llama.cpp reads its rows from disk on demand instead of keeping
-    # it resident. Upstream calls this out explicitly in the loader:
-    # "keep PLE / engrams embd tensors on disk, read them on demand".
-    #
-    # `auto` (the default) would also catch it, since it lazies any marked
-    # tensor over 4Gi -- set explicitly so the behaviour is stated, not
-    # inherited. Requires mmap, so do not combine with --load-mode none.
-    #
-    # NOTE: renamed to -lzm/--lazy-mode in llama.cpp#27969, which landed two
-    # hours after b10689 was built. Rename this when the image is next bumped.
+    # The reason this model runs here at all: the PLE n-gram table is a single
+    # 26.82Gi tensor (51.2B of the model's 176.9B params) that llama.cpp reads
+    # from disk on demand rather than keeping resident. `auto` would also catch
+    # it (>4Gi), but this deployment's whole viability rests on the behaviour,
+    # so it is pinned rather than inherited.
+    # Renamed to -lzm/--lazy-mode in llama.cpp#27969, which post-dates b10689 --
+    # rename on the next image bump.
     - "--tensor-read-lazy"
     - "on"
     - "--alias"
     - "qwen-3.8-flash-next"
     # Unsloth's thinking-mode values (unsloth.ai/docs/models/qwen3.8-next). Set
     # here for the same reason qwen35-2b does: the LiteLLM alias carries no
-    # sampling params, so without these the server defaults apply. The outgoing
-    # qwen-3.8 alias runs thinking (reasoning_effort medium), so these are the
-    # matching set -- non-thinking would be temp 0.7 / top-p 0.80 / presence 1.5.
+    # sampling params. qwen-3.8-fast overrides these per-request for its
+    # non-thinking mode; client-set params win.
     - "--temp"
     - "1.0"
     - "--top-p"
@@ -136,9 +118,31 @@ spec:
     seccompProfile:
       type: Unconfined
   resources:
-    cpu: "4"
-    # Host-side room for the ~21Gi of spilled expert layers plus the page cache
-    # the lazy PLE reads depend on -- that cache is what keeps the on-demand row
-    # gathers off the disk hot path. Fits the ~42.8Gi freed by parking vLLM,
-    # which requested 32Gi for the same reason.
+    # 3, not 4: control-1 has 11 cores and 7665m stays requested once vLLM is
+    # suspended, so 4 would not schedule. No CPU limit is set, so the 24 CPU
+    # expert layers can still burst past this -- but if decode is slower than
+    # llama.cpp#27861's 18.4 tok/s, CPU contention is the first thing to check.
+    cpu: "3"
+    # ~21Gi of spilled expert layers plus page cache for the on-demand PLE
+    # reads. Fits the 35.5Gi that frees up when vLLM is suspended.
     memory: 32Gi
+  endpoint:
+    port: 8080
+  probeOverrides:
+    # Cold start reads 73.5Gi off NVMe through mmap. The sibling vLLM config
+    # budgets ~60min for its load for the same reason; without an override the
+    # operator default kills the pod mid-load and restarts the whole read.
+    startup:
+      httpGet:
+        path: /health
+        port: 8080
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    # Startup owns the load window, so this only ever sees a serving engine.
+    liveness:
+      httpGet:
+        path: /health
+        port: 8080
+      periodSeconds: 30
+      failureThreshold: 20

@@ -50,7 +50,10 @@ spec:
   proxyRef: litellm
   params:
     model: openai/qwen-3.8
-    apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
+    # Moves with qwen-3.8 above -- this alias is proxy.yaml's only fallback
+    # target, so leaving it on the suspended vLLM would point the whole
+    # one-deep chain at nothing.
+    apiBase: http://qwen38-flash-next.ai.svc.cluster.local:8080/v1
     apiKey: sk-vllm-noauth
     additional:
       # Hermes compression is a ~100K+ prefill on this alias; under GPU contention
@@ -69,8 +72,8 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    # 246944 - 8192, as above.
-    maxInputTokens: 238752
+    # 131072 - 8192, as above.
+    maxInputTokens: 122880
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
