@@ -5,37 +5,53 @@ kind: Model
 metadata:
   name: qwen38-flash-next
 spec:
-  # REAP-256: community expert-pruned to 256 of the 512 routed experts. Chosen
-  # over the stock unsloth quants purely on resident footprint -- measured from
-  # the GGUF tensor headers, with the PLE table excluded (it stays on NVMe, see
-  # --tensor-read-lazy below):
+  # Resident footprints measured from the GGUF tensor headers, with the PLE
+  # table excluded -- it stays on NVMe (see --tensor-read-lazy below). "spill"
+  # is what does not fit the ~30Gi of usable VRAM and lands in host RAM via
+  # moeCPULayers:
   #
-  #   GGUF                     PLE (NVMe)  experts  other  RESIDENT  file
-  #   REAP-256 UD-Q3_K_XL         26.82     25.99    4.87   30.9Gi   57.7Gi
-  #   unsloth  UD-IQ1_S           26.82     37.10    3.62   40.7Gi   67.6Gi
-  #   unsloth  UD-Q2_K_XL         26.82     42.92    3.70   46.6Gi   73.5Gi
+  #   GGUF                     PLE(NVMe)  experts  other  RESIDENT  spill  top-1
+  #   REAP-256 UD-Q3_K_XL         26.82    25.99    4.87   30.9Gi    ~1Gi   none
+  #   unsloth  UD-IQ1_S           26.82    37.10    3.62   40.7Gi   ~11Gi  ~79.7%
+  #   unsloth  UD-Q2_K_XL         26.82    42.92    3.70   46.6Gi   ~17Gi   82.7%
+  #   unsloth  UD-IQ3_XXS         26.82    45.29    4.21   49.5Gi   ~20Gi     --
+  #   unsloth  UD-Q3_K_XL         26.82    51.99    4.98   57.0Gi   ~27Gi     --
   #
-  # Only the REAP variant fits the R9700's 32Gi (minus Jellyfin's 2Gi reserve).
+  # The budget is VRAM+RAM, not VRAM alone: parking the vLLM service releases
+  # 27.4Gi, taking control-1 from 15.4Gi to ~42.8Gi available. Q2_K_XL's 17Gi
+  # spill fits that with room left for the node.
+  #
+  # REAP-256 fits VRAM outright but prunes half the 512 routed experts by a
+  # community process with NO published evals -- an unmeasured quality risk
+  # stacked on top of Q3 quantization, which is the wrong basis for a
+  # quality evaluation. Q2_K_XL is the cheapest tier with a published number.
+  #
+  # Spill cost is real but bounded: llama.cpp#27861 measured this exact model
+  # (UD-Q4_K_XL, 28 expert layers host-pinned, 2x3090, one populated RAM
+  # channel per socket) at 18.4 tok/s decode, 24.2 with their GPU LRU cache.
+  # Roughly half of this box's current 31.8-33.9 tok/s, not an order of magnitude.
+  #
   # The PLE tensor is a constant 26.82Gi in every unsloth tier -- they keep it
   # at IQ4_NL regardless of the quant name, so a lower quant does not shrink it.
   #
   # Unsloth's one hard caveat for this architecture is that the PLE/n-gram
   # layers must stay at 4-bit or better -- their random access pattern makes
   # aggressive quantization disproportionately damaging. Verified directly
-  # against this artifact's GGUF header rather than assumed: the Q3_K_XL name
+  # against this artifact's GGUF header rather than assumed: the Q2_K_XL name
   # refers to the expert tiers only, and per_layer_token_embd.weight is
   # type 20 (IQ4_NL, 4.5 bpw). It clears the floor.
   #
   # Revision-pinned: HF repos re-upload fixed GGUFs under the same filename, so
   # `main` is not immutable. Renovate bumps this via the git-refs manager.
-  source: hf://AnonimousA/Qwen3.8-Flash-Next-REAP-256-duo-GGUF@829b8ec59549492c8db50305517c39231cabd33c
-  # Two shards; the first is the primary passed to llama-server, which resolves
-  # the rest itself.
+  source: hf://unsloth/Qwen3.8-Flash-Next-GGUF@c8b5954a88c2775c546b92593eda40ea041d3176
+  # Three shards; the first is the primary passed to llama-server, which
+  # resolves the rest itself.
   files:
-    - Qwen3.8-Flash-Next-UD-Q3_K_XL-reap256-00001-of-00002.gguf
-    - Qwen3.8-Flash-Next-UD-Q3_K_XL-reap256-00002-of-00002.gguf
+    - UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00001-of-00003.gguf
+    - UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00002-of-00003.gguf
+    - UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00003-of-00003.gguf
   format: gguf
-  quantization: UD-Q3_K_XL
+  quantization: UD-Q2_K_XL
   refreshPolicy: OnChange
   hardware:
     accelerator: rocm
@@ -65,17 +81,21 @@ spec:
   # a tuning choice. llama.cpp splits contextSize across parallelSlots, hence
   # slots=1 -- this is a single-GPU box with no room to divide.
   # 131072 is chosen to clear Hermes's peak, NOT because the KV footprint has
-  # been measured: 26.0Gi of experts already spills 8 layers to host RAM, and
+  # been measured: half the expert layers already spill to host RAM, and
   # whatever QSA's cache costs at this depth comes out of the same 32Gi card.
   # Measure at validation and reconcile with moeCPULayers before merging.
   contextSize: 131072
   parallelSlots: 1
   jinja: true
-  # 26.0Gi of routed experts against ~30Gi usable VRAM leaves no room for the
-  # 4.9Gi of always-resident tensors plus KV, so some expert layers spill to
-  # host RAM. 8 is a starting point to be tuned against real VRAM headroom at
-  # validation time -- lower it if the card has room, raise it if it OOMs.
-  moeCPULayers: 8
+  # 42.92Gi of routed experts over 48 layers is ~0.9Gi/layer. Usable VRAM is
+  # ~30Gi (32 minus Jellyfin's 2Gi reserve); subtract the 3.7Gi of
+  # always-resident tensors and leave ~4Gi for KV and compute, so ~22Gi holds
+  # roughly 24 expert layers on the card and the other 24 (~21Gi) go to host
+  # RAM -- inside the ~42.8Gi freed by parking vLLM.
+  # A starting point, not a measured optimum: lower it if VRAM has room, raise
+  # it if the server OOMs. Tune together with contextSize, which competes for
+  # the same 4Gi of KV headroom.
+  moeCPULayers: 24
   extraArgs:
     # The reason this model is runnable here at all. The PLE n-gram table is a
     # single 26.82Gi tensor ([160, 320001536], 51.2B of the model's 176.9B
@@ -117,7 +137,8 @@ spec:
       type: Unconfined
   resources:
     cpu: "4"
-    # Host-side room for the 8 spilled expert layers plus the page cache the
-    # lazy PLE reads depend on -- that cache is what keeps the on-demand row
-    # gathers off the disk hot path.
-    memory: 24Gi
+    # Host-side room for the ~21Gi of spilled expert layers plus the page cache
+    # the lazy PLE reads depend on -- that cache is what keeps the on-demand row
+    # gathers off the disk hot path. Fits the ~42.8Gi freed by parking vLLM,
+    # which requested 32Gi for the same reason.
+    memory: 32Gi
