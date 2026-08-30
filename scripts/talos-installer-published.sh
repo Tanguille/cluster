@@ -38,20 +38,29 @@ done
 # `sort -u` and the loop below asks the registry for an empty repo.
 refs="$(sort -u <<<"${refs%$'\n'}")"
 
+# One anonymous token for every repo at once: ghcr accepts repeated scope params and returns a
+# token covering all of them. The token call succeeding proves nothing -- ghcr issues one for a
+# private or even a nonexistent repo, it just does not authorize the manifest. Only the per-ref
+# manifest status below answers the question.
+scope_args=()
+while IFS= read -r ref; do
+    scope_args+=(--data-urlencode "scope=repository:${ref#ghcr.io/}:pull")
+done <<<"${refs}"
+token="$(curl -sf --get "${scope_args[@]}" --data-urlencode "service=ghcr.io" \
+    https://ghcr.io/token | jq -er '.token')"
+
 rc=0
 while IFS= read -r ref; do
     repo="${ref#ghcr.io/}"
-    # Anonymous pull token. ghcr issues one for a private repo too -- it just does not authorize
-    # the manifest -- so the token call succeeding proves nothing; only the manifest status does.
-    token="$(curl -sf --get --data-urlencode "scope=repository:${repo}:pull" \
-        --data-urlencode "service=ghcr.io" https://ghcr.io/token | jq -er '.token')"
     code="$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${token}" \
         -H 'Accept: application/vnd.oci.image.index.v1+json' \
         -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
         "https://ghcr.io/v2/${repo}/manifests/${pinned}")"
     case "${code}" in
         200) echo "ok        ${ref}:${pinned}" ;;
-        403 | 401) echo "PRIVATE   ${ref}:${pinned} exists but is not anonymously pullable; flip the package public" >&2; rc=1 ;;
+        # ghcr answers 403 for a private package AND for one that does not exist at all, so this
+        # cannot claim the package exists -- measured against a deliberately absent repo.
+        403 | 401) echo "NOPULL    ${ref}:${pinned} not anonymously pullable; the package is private or absent -- flip it public under Package settings" >&2; rc=1 ;;
         *) echo "MISSING   ${ref}:${pinned} (HTTP ${code}) -- build it before merging: gh workflow run talos-kernel.yaml --ref \"\$(git branch --show-current)\"" >&2; rc=1 ;;
     esac
 done <<<"${refs}"
