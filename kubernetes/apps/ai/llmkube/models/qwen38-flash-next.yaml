@@ -65,6 +65,16 @@ spec:
   # b10689 = upstream rev 57291f2, the first release tag carrying qwen4exp
   # (ggml-org/llama.cpp#27742). The official ROCm image builds gfx1201, so no
   # custom build is needed.
+  #
+  # BUMP BEFORE VALIDATING. b10689 is the newest container build (all backends
+  # stop there; release tags are already at b10701 and images lag 9-22 tags),
+  # but it predates llama.cpp#27837 by ~10h, and that fix matters here: the old
+  # code gated the lazy decision on `use_mmap`, which is false during the
+  # memory-fit pass (no_alloc, no mmap), so the fit pass counts the whole
+  # 26.82Gi PLE against available memory. On a 32Gi card already spilling to
+  # host RAM that plausibly refuses or silently shrinks contextSize below.
+  # The same build will carry the -lzm rename (#27969), so both changes land
+  # together -- see extraArgs.
   image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10689
   modelCache:
     claimName: qwen38-flash-next-model-cache
