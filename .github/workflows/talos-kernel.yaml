@@ -6,9 +6,7 @@ on:
     branches: ["main"]
     paths:
       - docker/talos-kernel/**
-      # Negated rather than listing the build inputs, so a file added there still triggers a
-      # build; only the docs are known not to be one. Editing the README cost an 11m run
-      # (33327983434) that rebuilt nothing.
+      # Not a build input; editing it cost an 11m no-op run (33327983434).
       - "!docker/talos-kernel/README.md"
       - scripts/talos-kernel-build.sh
       - talos/schematic.yaml
@@ -28,9 +26,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # GitHub's hosted-job ceiling (360m) less headroom, not an estimate of the build: it is "let
-    # it run" in the only unit Actions offers. Measured runs are 87-112m, so this does not move
-    # when the build gets slower.
+    # GitHub's 360m hosted ceiling less headroom, not a build estimate; runs are 87-112m.
     timeout-minutes: 340
     permissions:
       contents: read
@@ -57,8 +53,8 @@ jobs:
       # thread, each holding gigabytes -- peak link memory blows past the runner's 16 GB and
       # the runner process is killed ("lost communication with the server") ~43m in, after the
       # far lighter compile phase has already succeeded. Swap rather than fewer backends: the
-      # kernel that comes out is identical, and the compile phase that dominates the ~2h45m
-      # keeps every core.
+      # kernel that comes out is identical, and the compile phase that dominates the run keeps
+      # every core.
       #
       # On /, not /mnt: the step above hands /mnt's ~66 GB to Docker, which needs ~35-40 GB of
       # it, so a swapfile there would re-create the ENOSPC that move exists to avoid. Moving
@@ -66,11 +62,7 @@ jobs:
       - name: Add swap for the ThinLTO link
         run: |
           free -h
-          # A flat 32G, which is 3x the shortfall seen; more just costs fallocate time. This used
-          # to size itself from free space, but with 85G free the cap pinned it to 32 on every
-          # run -- adaptive sizing a hard cap makes unreachable is decoration, not adaptivity.
-          # The precondition is the part worth keeping: it names the failure if GitHub ever
-          # shrinks the runner image, instead of letting fallocate ENOSPC on its own.
+          # 32G is 3x the shortfall seen. Sizing from free space always hit this cap anyway.
           # -B1, not -BG: df's GiB output rounds UP, so 36.2G free would report as 37G and pass.
           free_g="$(( $(df -B1 --output=avail / | tail -1 | tr -dc '0-9') / 1073741824 ))"
           [[ "${free_g}" -ge 37 ]] || { echo "only ${free_g}G free on /, need 37G for a 32G swapfile" >&2; exit 1; }
