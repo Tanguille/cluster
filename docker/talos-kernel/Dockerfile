@@ -13,7 +13,7 @@
 # `ARG KERNEL_VERSION`. Two declarations with only one default silently produced an SPDX
 # document with an empty version and an unmatchable CPE on any build not passing --build-arg.
 # renovate: datasource=custom.linux-kernel depName=linux
-ARG KERNEL_VERSION=7.2.2
+ARG KERNEL_VERSION=7.1.10
 
 # Passed by scripts/talos-kernel-build.sh, read out of the Talos release's own Makefile. No
 # default on purpose: a stale one would silently build against the wrong toolchain.
