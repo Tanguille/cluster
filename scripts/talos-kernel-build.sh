@@ -80,7 +80,7 @@ make -C "${WORK}/extensions" amdgpu PUSH=true PLATFORM=linux/amd64 \
     PKGS_PREFIX="${PREFIX}" PKGS="${VERSION}"
 
 # The extension composes its own tag as <firmware-version>-<extensions-tag> (e.g.
-# 20260810-v1.14.0-rc.1), NOT ${VERSION}. Discover what was actually published instead of
+# 20260810-v1.14.0-rc.2), NOT ${VERSION}. Discover what was actually published instead of
 # assuming: guessing cost a whole pipeline run, with the imager failing on a tag that never
 # existed. Filtering on the extensions tag keeps it unambiguous across repeated builds.
 EXT_TAG="$(git -C "${WORK}/extensions" describe --tag --always --match 'v[0-9]*')"

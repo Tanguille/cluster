@@ -7,7 +7,12 @@ metadata:
 spec:
   kubernetes:
     # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
-    version: v1.36.4
+    version: v1.37.0
+  talosctl:
+    image:
+      # Unset, tuppr derives this from the node's CURRENT version; a -k<kernel> one is unpublished
+      # and the job ImagePullBackOffs. Same trap as talosupgrade.yaml, hits this CRD too.
+      tag: v1.14.0-rc.2
   healthChecks:
     - apiVersion: v1
       kind: Node

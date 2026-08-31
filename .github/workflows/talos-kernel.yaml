@@ -1,35 +1,32 @@
 ---
-# Builds the custom-kernel Talos installers and publishes them to ghcr, so a Renovate kernel
-# bump produces the artifact its own config change depends on. Without this, merging a bump
-# points nodes at a tag nobody built.
 name: Talos Kernel
 
 on:
-  pull_request:
+  push:
+    branches: ["main"]
     paths:
       - docker/talos-kernel/**
+      # Not a build input; editing it cost an 11m no-op run (33327983434).
+      - "!docker/talos-kernel/README.md"
       - scripts/talos-kernel-build.sh
       - talos/schematic.yaml
       - talos/nodes/**/*.schematic.yaml
       - kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml
+  # Dispatch against the bump branch to build BEFORE merging it — the only way to have the
+  # installer exist by the time main starts naming it:
+  #     gh workflow run talos-kernel.yaml --ref <branch>
+  # No version input: the ref already selects both versions, from that branch's Dockerfile ARG
+  # and its tuppr CR, so an input could only disagree with the tree being built.
   workflow_dispatch:
-    inputs:
-      talos-version:
-        description: "Talos version to build against; defaults to the tuppr CR's"
-        required: false
 
-# A push supersedes the in-flight run rather than racing it. Learned the hard way: without
-# this, successive pushes leave cancelled runs that look like a wedged runner.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    # ~2h45m measured shape: the ThinLTO kernel compile dominates and a hosted runner is 4 vCPU
-    # against the 24 threads this takes locally. Well under the 6h job ceiling, but nowhere near
-    # the default 360m step budget, so it is set explicitly.
+    # GitHub's 360m hosted ceiling less headroom, not a build estimate; runs are 87-112m.
     timeout-minutes: 340
     permissions:
       contents: read
@@ -56,59 +53,42 @@ jobs:
       # thread, each holding gigabytes -- peak link memory blows past the runner's 16 GB and
       # the runner process is killed ("lost communication with the server") ~43m in, after the
       # far lighter compile phase has already succeeded. Swap rather than fewer backends: the
-      # kernel that comes out is identical, and the compile phase that dominates the ~2h45m
-      # keeps every core.
+      # kernel that comes out is identical, and the compile phase that dominates the run keeps
+      # every core.
       #
       # On /, not /mnt: the step above hands /mnt's ~66 GB to Docker, which needs ~35-40 GB of
       # it, so a swapfile there would re-create the ENOSPC that move exists to avoid. Moving
-      # the data-root leaves / idle with 87 GB free (measured), so take the swap from there.
-      # Sized from what is actually free, keeping 5 GB back, rather than assuming a figure.
+      # the data-root leaves / idle with ~85 GB free (measured), so take the swap from there.
       - name: Add swap for the ThinLTO link
         run: |
           free -h
-          # -B1, not -BG: df's GiB output rounds UP, so e.g. 12.1G free reports as 13G and an
-          # 8G swapfile would leave only 4.1G, not the intended 5G margin. Floor from bytes.
+          # 32G is 3x the shortfall seen. Sizing from free space always hit this cap anyway.
+          # -B1, not -BG: df's GiB output rounds UP, so 36.2G free would report as 37G and pass.
           free_g="$(( $(df -B1 --output=avail / | tail -1 | tr -dc '0-9') / 1073741824 ))"
-          swap_g=$(( free_g - 5 ))
-          # 32G caps it at 3x the shortfall seen; more just costs fallocate time on a bigger runner.
-          [[ "${swap_g}" -le 32 ]] || swap_g=32
-          [[ "${swap_g}" -ge 8 ]] || { echo "only ${free_g}G free on /, refusing to size swap" >&2; exit 1; }
-          echo "allocating ${swap_g}G swap of ${free_g}G free"
+          [[ "${free_g}" -ge 37 ]] || { echo "only ${free_g}G free on /, need 37G for a 32G swapfile" >&2; exit 1; }
+          echo "allocating 32G swap of ${free_g}G free"
           # Not /swapfile: the runner already has one there, active, and fallocate on a swapped-on
           # file fails with ETXTBSY. This is added alongside it rather than replacing it.
-          sudo fallocate -l "${swap_g}G" /swapfile-thinlto
+          sudo fallocate -l 32G /swapfile-thinlto
           sudo chmod 600 /swapfile-thinlto
           sudo mkswap /swapfile-thinlto
           sudo swapon /swapfile-thinlto
           swapon --show
           free -h
 
-      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
-      # The default docker driver can't export a registry cache; docker-container can.
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
-      # GITHUB_TOKEN can push to ghcr.io/<repo-owner>/* — but only to packages the repo has
-      # been granted access to. These packages were created by hand from a workstation, so they
-      # are NOT linked to this repo and the first run 403s until each is given write access
-      # under Package settings -> Manage Actions access -> Add repository. One-time, per package:
-      # kernel, linux-firmware, amdgpu, installer-base, imager, installer/shared, installer/control-1.
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The script derives everything else itself: the kernel version from the Renovate-managed
-      # ARG, and TOOLS/PKGS from the Talos release's own Makefile.
+      # Everything is derived from the tree: the Talos version from the tuppr CR, the kernel from
+      # the Renovate-managed Dockerfile ARG, TOOLS/PKGS from the Talos release's own Makefile,
+      # and the node list from talos/nodes/. The script writes its own job summary naming every
+      # ref it published. Same entrypoint as a workstation build, so the two cannot drift.
       - name: Build and publish installers
-        # Through env, not interpolated into the shell: a workflow_dispatch input expanded
-        # directly into a run block is a code-injection vector.
-        env:
-          TALOS_VERSION_INPUT: ${{ inputs.talos-version }}
-        run: |
-          talos_version="${TALOS_VERSION_INPUT}"
-          [ -n "${talos_version}" ] || talos_version="$(just tuppr-version talos)"
-          # The node list comes from talos/nodes/, and the script writes its own job summary
-          # naming every ref it published.
-          scripts/talos-kernel-build.sh "${talos_version}" $(just talos nodes)
+        run: just talos kernel-build

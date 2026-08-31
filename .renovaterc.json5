@@ -22,14 +22,19 @@
     // (7.1.x -> 7.2.x) with no config change. Not a git mirror: gregkh/linux carries mainline
     // and -rc tags in the same stream, so Renovate would offer -rc builds as updates.
     // Feed shape verified against the live endpoint: {"releases":[{"moniker","version",
-    // "changelog","iseol",...}], "latest_stable":{...}}, exactly one moniker=="stable" entry.
+    // "changelog","iseol",...}], "latest_stable":{...}}.
     // Re-check with: curl -s https://www.kernel.org/releases.json | jq '.releases[]|select(.moniker=="stable")'
     // If the shape ever changes the transform yields zero releases and bumps stop SILENTLY.
+    //
+    // There can be TWO stable entries while a series hands over — 7.2.2 and 7.1.12 both appeared
+    // on 2026-08-28 — so this is not a single-row feed and Renovate picks the highest. iseol is
+    // filtered because a dead series lingers in the feed with its final version: without it, a
+    // hold on the older series would sit on an unpatched kernel and look current.
     "linux-kernel": {
       defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
       format: "json",
       transformTemplates: [
-        '{"releases":[releases[moniker="stable"].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
+        '{"releases":[releases[moniker="stable" and iseol=false].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
       ]
     }
   },
@@ -207,6 +212,13 @@
       ],
       matchPackageNames: ["/feramance\\/qbitrr/"],
       extractVersion: "^v(?<version>.*)$"
+    },
+    {
+      // Last release 2025-08-04, past `abandonments:recommended`, but still used by pre-commit.
+      // matchPackageNames misses: the mise preset rewrites packageName to koalaman/shellcheck.
+      description: "shellcheck releases rarely; not abandoned",
+      matchDepNames: ["aqua:koalaman/shellcheck"],
+      abandonmentThreshold: null
     },
     // Versioning overrides
     {

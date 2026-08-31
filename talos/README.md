@@ -8,7 +8,7 @@ pushed to nodes with `talosctl`.
 
 talhelper cannot express Talos 1.14, so this directory renders configs with `talosctl` directly.
 
-Both talhelper `master` and `v3.1.16` pin machinery `v1.14.0-alpha.2`. Rebuilt against `rc.1` it
+Both talhelper `master` and `v3.1.16` pin machinery `v1.14.0-alpha.2`. Rebuilt against `rc.2` it
 panics under the 1.14 version contract: machinery sets `MachineInstall` to `nil` (replaced by
 `UnattendedInstallConfig`) and talhelper dereferences it unguarded. Staying on the 1.13 contract
 instead leaves the whole `Kube*` document family and `UnattendedInstallConfig` unreachable, because
@@ -137,7 +137,7 @@ only virtio and rbd), so its discards pass through to whatever the hypervisor do
 | --- | --- |
 | `OOMConfig` | a PSI-expression OOM handler. Real potential here given this cluster's OOM cascades, but it changes which cgroup dies under pressure. Needs a baseline first, not a blind default |
 | `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd) is a runtime change for every workload; wants its own change and its own rollback |
-| `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.0-rc.1) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
+| `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.0-rc.2) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
 | `SysfsConfig` / `CRIBaseRuntimeSpecConfig` | the other two v1alpha1 fields 1.14 deprecates; neither is used in this repo |
 | `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
 | `EtcFileConfig` | not needed *yet*, but upstream uses it for `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize). Our five NFS mounts run at kernel defaults; worth its own change |

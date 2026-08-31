@@ -27,9 +27,11 @@ spec:
                 cpu: 10m
                 memory: 64Mi
               limits:
-                # Throttled 74% of CFS periods at 100m, capping the throughput it measures.
-                cpu: "1"
-                memory: 128Mi
+                # Speedtest cycle spikes ~254Mi at ~30min intervals (Go download
+                # workers + checksumming); 1 core also saturates (998m), starving
+                # download workers and skewing measured download speed.
+                cpu: 2
+                memory: 512Mi
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }

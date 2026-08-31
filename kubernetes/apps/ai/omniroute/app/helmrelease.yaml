@@ -28,15 +28,11 @@ spec:
               # release/v3.8.50; no tagged release carries them yet -- move to
               # v3.8.50 once it ships. Digest-pinned since Renovate can't diff
               # `next` as a version, only offer digest bumps.
-              tag: next@sha256:6f95064bf0981c16a18aa9beee08bc3d9741c9e130154c79a785562b0ab7b0e2
+              tag: next@sha256:92a141487282c1c925a6f7de2025e9230fdf753f52d085a5c1184072e998c4d1
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
               PORT: &port 20128
-              # Only litellm's /v1/* proxy calls skip auth (unauthenticated-backend
-              # + non-empty-apiKey convention, same as the qwen-3.8 vLLM model);
-              # the dashboard at the internal route below still requires
-              # INITIAL_PASSWORD login.
               REQUIRE_API_KEY: "false"
               # envoy-internal-tls terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"
