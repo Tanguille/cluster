@@ -42,12 +42,14 @@ not isolated) — see the PR history, not this file.
    `maxModelLen` is *derived* from the resulting pool via the 1.17x ceiling
    (see finding 5 below), so any resweep must re-derive maxModelLen per pool
    size — comparing ceilings across different pools is meaningless.
-3. **AITER unified attention is mutually exclusive with the KV offload
-   connector** (mechanism in "Compressed findings" below). The trade got
-   worse once the connector was proven to carry 72.1% of fallthrough and to
-   save a GPU-cache collapse (91.2% combined vs 18.6% GPU-only) — the ~10x
-   prefill regression alone likely disqualifies it for this 47-56K-token
-   workload regardless.
+3. ~~**AITER unified attention vs the KV offload connector.**~~ **CLOSED
+   2026-08-31 by live measurement.** The exclusion is an upstream bug and is
+   removable (mechanism in "Compressed findings" below), but lifting it costs
+   decode 31.50 → ~1.89 tok/s on gfx1201 with no prefill gain at our 50K shape.
+   The connector it would have cost carries 72.1% of fallthrough and holds
+   combined hit rate at 91.2% vs 18.6% GPU-only, so the trade was already
+   unattractive before the decode number settled it. Not worth revisiting
+   until vllm#45916 lands. Do not reopen this as an untested option.
 4. **Inherited, never re-challenged:** `kvCacheDtype: fp8_e4m3` (never
    compared to fp16 KV — quality cost on this hybrid GDN model unmeasured);
    `gpuMemoryUtilization: 0.875` (inert now that `--kv-cache-memory` bypasses
@@ -99,12 +101,28 @@ not isolated) — see the PR history, not this file.
 
 ## Compressed findings, in order
 
-**ROCM_AITER_UNIFIED_ATTN cannot be used with the KV connector.** The backend
-declares `forward_includes_kv_cache_update = False` and is rejected outright
-whenever `--kv-transfer-config` is set — an either/or between hierarchical KV
-offload and AITER unified attention, not a tunable combination. What AITER
-*does* still contribute here: `AITER_LINEAR`, `AITER_TRITON_GEMM`, `AITER_MHA`,
-`AITER_RMSNORM` stay on by default regardless.
+**ROCM_AITER_UNIFIED_ATTN is refused whenever a KV connector is set.** The
+gate is `backend.py:323` — `use_kv_connector and not cls.supports_kv_connector()`.
+`RocmAiterUnifiedAttentionBackend` inherits `supports_kv_connector() -> False`
+from `RocmAttentionBackend` and never overrides it.
+
+NOT `forward_includes_kv_cache_update`, as an earlier revision of this file
+claimed: `TRITON_ATTN` declares that `False` too and is the backend actually
+selected here, so it cannot be the discriminator.
+
+The inherited `False` is an upstream bug. The parent justifies it by its own
+`(2, num_blocks, ...)` layout, which the subclass does not use — it overrides
+`customize_spec` and advertises `LBHNC`, and
+`OffloadingConnector.get_required_kvcache_layout()` returns exactly `LBHNC`.
+Confirmed live 2026-08-31 by injecting the override: the backend selected and
+ran with the connector attached, tiers created, KV pool unchanged. It was still
+rejected, on measurement — decode 31.50 → ~1.89 tok/s with no prefill gain.
+Full write-up in `aiter-unified-attn-kv-connector-plan-2026-08-31.md`.
+
+What AITER *does* still contribute here: `AITER_LINEAR`, `AITER_TRITON_GEMM`,
+`AITER_MHA`. **Not** `AITER_RMSNORM` — #43615 defaults
+`VLLM_ROCM_USE_AITER_RMSNORM` to `False` on gfx12 because the kernel has known
+issues there, and the running engine confirms it (`rms_norm=['native']`).
 
 **MTP is blocked**, both by an open upstream issue (vllm-project/vllm#49002,
 spec-decode + structured-output/tool-call → second-scale decode stalls) and
