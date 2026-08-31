@@ -334,15 +334,23 @@ request paid the same cost as the first). Decomposing 75.5 s: prefill 50K at
 measured on short contexts and, per its own text, validated on
 Qwen3-30B-A3B-FP8 — not a GDN hybrid at `head_dim=256` behind a KV connector.
 
-**Correction to an intermediate hypothesis:** the decode collapse was first
-attributed to AITER losing FULL cudagraph capture. That is wrong. The reverted
-TRITON baseline captures `PIECEWISE` only as well, so graph mode is identical on
-both arms and is not the differentiator. The likelier cause is the one already
-open upstream as **#45916** — on gfx12 at `head_dim=256`, decode falls onto an
-unoptimised Triton paged path; AITER unified attn routes decode through
-`kernel_unified_attention_2d`, exactly that path, while TRITON_ATTN's own decode
-path is better served for this shape. Not proven here, and worth stating as a
-hypothesis rather than a finding.
+**Two intermediate hypotheses were wrong. Both are recorded because the
+evidence that killed them is cheap to re-check and expensive to rediscover.**
+
+1. *Lost FULL cudagraph capture.* Wrong. The reverted TRITON baseline captures
+   `PIECEWISE` only as well, so graph mode is identical on both arms.
+2. *#45916 would fix it.* Wrong, and worse: #45916 patches
+   `vllm/v1/attention/ops/chunked_prefill_paged_decode.py`, which is imported by
+   **`rocm_attn.py` only**. ROCM_ATTN is the backend whose
+   `supports_kv_connector() -> False` is *legitimate* — its
+   `(2, num_blocks, ...)` packing really is connector-incompatible, which is why
+   the parent comment exists. So #45916 optimises a decode path this deployment
+   cannot reach while the offload connector is in use.
+
+The actual cause of AITER's slow decode is **not identified**. The observation
+is that it routes decode through the Triton `kernel_unified_attention_2d` and
+lands at ~1.89 tok/s where TRITON_ATTN's own path gives 31.50. Naming a fix for
+it would be another guess of the kind this section already had to retract twice.
 
 ## Upstream value
 
@@ -351,11 +359,13 @@ The one-line fix is still correct and worth reporting: the parent's stated reaso
 `customize_spec` and advertises `LBHNC`, which is what
 `OffloadingConnector.get_required_kvcache_layout()` requires. But the honest
 report must carry the gfx1201 measurement too: unblocking it here is a large
-decode regression, so it should not be enabled by default on this arch without
-#45916-class decode work landing first.
+decode regression, so it should not be enabled by default on this arch until
+AITER unified attention's own decode path is competitive on gfx12.
 
-**Do not retry this on gfx1201 until #45916 (Triton split-KV paged decode for
-gfx12, head_dim=256) merges.** That PR is the prerequisite, not this patch.
+**Do not retry this on gfx1201 without a specific, verified reason to think
+AITER's decode path has changed.** No open PR currently supplies that reason —
+#45916 does not, per the correction above. Re-measure decode before prefill:
+prefill was never the problem here.
 
 ## Revert proof
 

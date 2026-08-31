@@ -48,8 +48,10 @@ not isolated) — see the PR history, not this file.
    decode 31.50 → ~1.89 tok/s on gfx1201 with no prefill gain at our 50K shape.
    The connector it would have cost carries 72.1% of fallthrough and holds
    combined hit rate at 91.2% vs 18.6% GPU-only, so the trade was already
-   unattractive before the decode number settled it. Not worth revisiting
-   until vllm#45916 lands. Do not reopen this as an untested option.
+   unattractive before the decode number settled it. Do not reopen this as an
+   untested option, and note that vllm#45916 is **not** the unblocker: it
+   patches `chunked_prefill_paged_decode.py`, imported by `rocm_attn.py` only,
+   a backend genuinely incompatible with the connector.
 4. **Inherited, never re-challenged:** `kvCacheDtype: fp8_e4m3` (never
    compared to fp16 KV — quality cost on this hybrid GDN model unmeasured);
    `gpuMemoryUtilization: 0.875` (inert now that `--kv-cache-memory` bypasses
