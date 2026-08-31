@@ -13,10 +13,11 @@ spec:
     # profiles live on the hermes data PVC, so they are edited by hand and no
     # rollback of this repo touches them.
     # Backend swapped to qwen38-27b-vllm 2026-08-16 -- numbers in that file.
-    # Swapped again to qwen38-flash-next (llama-server): port moves 8000 -> 8080
-    # with the engine, so both halves of this line change together.
+    # Swapped to qwen38-flash-next (llama-server) 2026-08-31 and reverted the
+    # same evening: it served, but at ~57x the prefill cost. Measurements and
+    # the VRAM budget that causes it are in the flash-next manifest header.
     model: openai/qwen-3.8
-    apiBase: http://qwen38-flash-next.ai.svc.cluster.local:8080/v1
+    apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     # Native vLLM is unauthenticated internally, but LiteLLM's OpenAI provider
     # requires a non-empty api_key.
     apiKey: sk-vllm-noauth
@@ -32,12 +33,9 @@ spec:
           reasoning_effort: medium
   info:
     mode: chat
-    # contextSize (131072) minus maxOutputTokens; re-derive if that changes,
-    # nothing enforces it across the two CRDs. This drops from 238752 with the
-    # engine swap -- llama-server splits contextSize across parallelSlots and
-    # the card has no room to divide, so the window is the whole budget.
-    # Hermes peaks at 112K, which this clears; nothing else observed goes near it.
-    maxInputTokens: 122880
+    # maxModelLen (246944) minus maxOutputTokens; re-derive if that changes,
+    # nothing enforces it across the two CRDs.
+    maxInputTokens: 238752
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
@@ -51,9 +49,8 @@ spec:
   params:
     model: openai/qwen-3.8
     # Moves with qwen-3.8 above -- this alias is proxy.yaml's only fallback
-    # target, so leaving it on the suspended vLLM would point the whole
-    # one-deep chain at nothing.
-    apiBase: http://qwen38-flash-next.ai.svc.cluster.local:8080/v1
+    # target, so the two must always name the same live backend.
+    apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     apiKey: sk-vllm-noauth
     additional:
       # Hermes compression is a ~100K+ prefill on this alias; under GPU contention
@@ -72,8 +69,8 @@ spec:
           enable_thinking: false
   info:
     mode: chat
-    # 131072 - 8192, as above.
-    maxInputTokens: 122880
+    # 246944 - 8192, as above.
+    maxInputTokens: 238752
     maxOutputTokens: 8192
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json

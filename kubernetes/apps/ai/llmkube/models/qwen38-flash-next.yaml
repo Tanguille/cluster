@@ -62,6 +62,20 @@ metadata:
   name: qwen38-flash-next
 spec:
   modelRef: qwen38-flash-next
+  # SUSPENDED 2026-08-31 after a live measurement on control-1's R9700.
+  # It loads and serves correctly on gfx1201 -- the open question in #4764 --
+  # but the throughput does not stand up:
+  #   prefill  125-144 tok/s   vs vLLM ~7170 tok/s   (~57x)
+  #   decode   12-14 tok/s     vs vLLM 31.8-33.9     (~2.7x)
+  # Cause is capacity, not tuning. UD-Q2_K_XL's experts are 42.92Gi against a
+  # 31.86Gi card; even with a zero-cost KV cache the budget is 26.16Gi, so
+  # >=19 of 48 expert layers must run on host RAM. GPU busy oscillated 3% <-> 100%
+  # against a CPU pinned near its request: the two halves alternate, and prefill
+  # pays it once per prompt token. No published quant clears the budget
+  # (UD-IQ1_S still strands 14 layers), so this is not a quant choice.
+  # Retest when a ROCm image carries llama.cpp#27466, but note that fix targets
+  # decode -- it does not address the prefill wall above.
+  suspend: true
   # b10711 = upstream rev 9723942, built 2026-08-31T05:52Z. The official ROCm
   # image builds gfx1201, so no custom build is needed.
   #

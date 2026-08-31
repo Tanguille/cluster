@@ -367,7 +367,12 @@ spec:
   # reverting the switch is a one-line change back to false, not a restore from
   # git history. Every measured tuning value here (mnbt 4096, maxModelLen
   # 246944, blocks_per_chunk 4) stays valid for that revert.
-  suspend: true
+  #
+  # Reverted to false 2026-08-31: Flash-Next measured 125-144 tok/s prefill on
+  # gfx1201 against this engine's ~7170, because 42.92Gi of experts cannot fit
+  # a 31.86Gi card and the 19-24 layers that spill to host RAM dominate. See
+  # the flash-next manifest header for the full budget.
+  suspend: false
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
