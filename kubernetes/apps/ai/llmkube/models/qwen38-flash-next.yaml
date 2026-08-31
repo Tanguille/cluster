@@ -90,19 +90,39 @@ spec:
   # minus Jellyfin's 2Gi reserve), less 3.7Gi always-resident and ~4Gi for KV,
   # leaves ~22Gi -- about 24 layers on the card, 24 (~21Gi) in host RAM.
   moeCPULayers: 24
-  # A 73.5Gi mmap load with on-demand PLE row reads has a long, disk-bound
-  # cold start, and warmup would fault in exactly the pages -lzm on
-  # exists to keep off the resident path. First request pays instead.
+  # A 73.5Gi load with on-demand PLE row reads has a long, disk-bound cold
+  # start, and warmup would fault in exactly the pages -lzm on exists to keep
+  # off the resident path. First request pays instead (measured: 14.2s for the
+  # first 28 tokens, against a 39s model load).
   noWarmup: true
   extraArgs:
     # The reason this model runs here at all: the PLE n-gram table is a single
     # 26.82Gi tensor (51.2B of the model's 176.9B params) that llama.cpp reads
     # from disk on demand rather than keeping resident. `auto` would also catch
     # it (>4Gi), but this deployment's whole viability rests on the behaviour,
-    # so it is pinned rather than inherited. `on` requires mmap, which is the
-    # loader default here (no --load-mode override).
+    # so it is pinned rather than inherited.
     - "-lzm"
     - "on"
+    # llama-server warns at startup: "tensor overrides to CPU are used with mmap
+    # enabled - consider using --load-mode none for better performance". The
+    # moeCPULayers experts were mmap'd, so their pages are evictable and decode
+    # pays to fault them back in every token. Measured before this change:
+    # 11.05 tok/s single-stream against the 31.8-33.9 vLLM baseline, and
+    # aggregate flat at 12.6 tok/s across 16 streams -- the signature of a
+    # memory-bound path, not a compute-bound one.
+    #
+    # This does NOT disable the lazy PLE above. `-lzm on` says "requires mmap",
+    # but the loader creates the mapping for lazy tensors independently of the
+    # load mode (llama-model-loader.cpp:1404 -- `if (use_mmap || lazy.any())`,
+    # commented upstream as "make sure it's usable even when --load-mode is not
+    # set to mmap"). Verified in the b10711 source before changing this.
+    #
+    # Cost: the CPU expert layers become anonymous, non-reclaimable memory
+    # instead of evictable page cache. `memory: 32Gi` is a request with no
+    # limit, so there is no cgroup kill, but control-1 had only 14Gi available
+    # when this was set -- watch node memory, not just pod RSS.
+    - "--load-mode"
+    - "none"
     - "--alias"
     - "qwen-3.8-flash-next"
     # Unsloth's thinking-mode values (unsloth.ai/docs/models/qwen3.8-next). Set
