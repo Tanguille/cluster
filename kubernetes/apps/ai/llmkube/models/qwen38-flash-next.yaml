@@ -2,7 +2,7 @@
 # Node-local NVMe, NOT the shared llmkube modelCache. That one is 8Gi of CephFS
 # sized for the ~2.1Gi of embedding models, and its own comment assumes
 # "read-once at load, so CephFS latency never touches inference" -- which is
-# exactly false here: --tensor-read-lazy reads PLE rows from this volume on
+# exactly false here: -lzm on reads PLE rows from this volume on
 # every token, so it has to be local disk. Same pattern as qwen38-27b-vllm.
 # 85Gi holds the 73.5Gi three-shard GGUF with room to re-stage on a bump.
 apiVersion: v1
@@ -23,7 +23,7 @@ metadata:
   name: qwen38-flash-next
 spec:
   # Measured from the GGUF tensor headers. RESIDENT excludes the PLE table,
-  # which stays on NVMe (see --tensor-read-lazy); "spill" is what exceeds the
+  # which stays on NVMe (see -lzm on); "spill" is what exceeds the
   # ~30Gi of usable VRAM and lands in host RAM via moeCPULayers:
   #   UD-Q2_K_XL  experts 42.92Gi + other 3.70Gi = 46.6Gi resident, ~17Gi spill
   # Parking vLLM frees 27.4Gi of host RAM (15.4Gi -> ~42.8Gi), which is what
@@ -62,20 +62,20 @@ metadata:
   name: qwen38-flash-next
 spec:
   modelRef: qwen38-flash-next
-  # b10689 = upstream rev 57291f2, the first release tag carrying qwen4exp
-  # (ggml-org/llama.cpp#27742). The official ROCm image builds gfx1201, so no
-  # custom build is needed.
+  # b10711 = upstream rev 9723942, built 2026-08-31T05:52Z. The official ROCm
+  # image builds gfx1201, so no custom build is needed.
   #
-  # BUMP BEFORE VALIDATING. b10689 is the newest container build (all backends
-  # stop there; release tags are already at b10701 and images lag 9-22 tags),
-  # but it predates llama.cpp#27837 by ~10h, and that fix matters here: the old
-  # code gated the lazy decision on `use_mmap`, which is false during the
-  # memory-fit pass (no_alloc, no mmap), so the fit pass counts the whole
-  # 26.82Gi PLE against available memory. On a 32Gi card already spilling to
-  # host RAM that plausibly refuses or silently shrinks contextSize below.
-  # The same build will carry the -lzm rename (#27969), so both changes land
-  # together -- see extraArgs.
-  image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10689
+  # This tag, not the earlier b10689, because two fixes land in it (verified by
+  # `git compare 2578138...9723942`: ahead 6, behind 0):
+  #   #27837 -- the memory-fit pass now excludes the lazy PLE. The old code
+  #     gated the lazy decision on `use_mmap`, false during the fit pass
+  #     (no_alloc, no mmap), so the whole 26.82Gi PLE counted against available
+  #     memory; on a 32Gi card already spilling to host RAM that refuses or
+  #     silently shrinks contextSize.
+  #   #27969 -- `--tensor-read-lazy` renamed to `-lzm/--lazy-mode` and given a
+  #     MODE argument. The old spelling no longer parses at all, so the image
+  #     and the flag below have to move together.
+  image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10711
   modelCache:
     claimName: qwen38-flash-next-model-cache
   bindAddress: 0.0.0.0
@@ -91,7 +91,7 @@ spec:
   # leaves ~22Gi -- about 24 layers on the card, 24 (~21Gi) in host RAM.
   moeCPULayers: 24
   # A 73.5Gi mmap load with on-demand PLE row reads has a long, disk-bound
-  # cold start, and warmup would fault in exactly the pages --tensor-read-lazy
+  # cold start, and warmup would fault in exactly the pages -lzm on
   # exists to keep off the resident path. First request pays instead.
   noWarmup: true
   extraArgs:
@@ -99,10 +99,9 @@ spec:
     # 26.82Gi tensor (51.2B of the model's 176.9B params) that llama.cpp reads
     # from disk on demand rather than keeping resident. `auto` would also catch
     # it (>4Gi), but this deployment's whole viability rests on the behaviour,
-    # so it is pinned rather than inherited.
-    # Renamed to -lzm/--lazy-mode in llama.cpp#27969, which post-dates b10689 --
-    # rename on the next image bump.
-    - "--tensor-read-lazy"
+    # so it is pinned rather than inherited. `on` requires mmap, which is the
+    # loader default here (no --load-mode override).
+    - "-lzm"
     - "on"
     - "--alias"
     - "qwen-3.8-flash-next"
