@@ -1,0 +1,157 @@
+---
+# Node-local NVMe, NOT the shared llmkube modelCache. That one is 8Gi of CephFS
+# sized for the ~2.1Gi of embedding models, and its own comment assumes
+# "read-once at load, so CephFS latency never touches inference" -- which is
+# exactly false here: -lzm on reads PLE rows from this volume on
+# every token, so it has to be local disk. Same pattern as qwen38-27b-vllm.
+# 85Gi holds the 73.5Gi three-shard GGUF with room to re-stage on a bump.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-flash-next-model-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 85Gi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-flash-next
+spec:
+  # Measured from the GGUF tensor headers. RESIDENT excludes the PLE table,
+  # which stays on NVMe (see -lzm on); "spill" is what exceeds the
+  # ~30Gi of usable VRAM and lands in host RAM via moeCPULayers:
+  #   UD-Q2_K_XL  experts 42.92Gi + other 3.70Gi = 46.6Gi resident, ~17Gi spill
+  # Parking vLLM frees 27.4Gi of host RAM (15.4Gi -> ~42.8Gi), which is what
+  # makes that spill fit. Rationale for this tier over the others is in #4764.
+  #
+  # PLE/n-gram layers must stay at 4-bit or better -- their random access
+  # pattern makes aggressive quantization disproportionately damaging. Checked,
+  # not assumed: Q2_K_XL names only the expert tiers, and
+  # per_layer_token_embd.weight is type 20 (IQ4_NL, 4.5 bpw).
+  #
+  # Revision-pinned: HF re-uploads fixed GGUFs under the same filename, so
+  # `main` is not immutable. Renovate bumps this via the git-refs manager.
+  source: hf://unsloth/Qwen3.8-Flash-Next-GGUF@c8b5954a88c2775c546b92593eda40ea041d3176
+  # First entry is the primary passed to llama-server; it resolves the rest.
+  files:
+    - UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00001-of-00003.gguf
+    - UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00002-of-00003.gguf
+    - UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00003-of-00003.gguf
+  format: gguf
+  quantization: UD-Q2_K_XL
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      layers: -1
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen38-flash-next
+spec:
+  modelRef: qwen38-flash-next
+  # b10711 = upstream rev 9723942, built 2026-08-31T05:52Z. The official ROCm
+  # image builds gfx1201, so no custom build is needed.
+  #
+  # This tag, not the earlier b10689, because two fixes land in it (verified by
+  # `git compare 2578138...9723942`: ahead 6, behind 0):
+  #   #27837 -- the memory-fit pass now excludes the lazy PLE. The old code
+  #     gated the lazy decision on `use_mmap`, false during the fit pass
+  #     (no_alloc, no mmap), so the whole 26.82Gi PLE counted against available
+  #     memory; on a 32Gi card already spilling to host RAM that refuses or
+  #     silently shrinks contextSize.
+  #   #27969 -- `--tensor-read-lazy` renamed to `-lzm/--lazy-mode` and given a
+  #     MODE argument. The old spelling no longer parses at all, so the image
+  #     and the flag below have to move together.
+  image: ghcr.io/ggml-org/llama.cpp:server-rocm-b10711
+  modelCache:
+    claimName: qwen38-flash-next-model-cache
+  bindAddress: 0.0.0.0
+  # llama.cpp splits contextSize across parallelSlots, so slots=1 gives the
+  # whole window to one stream. 131072 clears Hermes's 112K peak; it is NOT
+  # derived from a measured KV footprint, and competes with moeCPULayers for
+  # the same VRAM.
+  contextSize: 131072
+  parallelSlots: 1
+  jinja: true
+  # 42.92Gi of experts over 48 layers is ~0.9Gi/layer. Usable VRAM ~30Gi (32
+  # minus Jellyfin's 2Gi reserve), less 3.7Gi always-resident and ~4Gi for KV,
+  # leaves ~22Gi -- about 24 layers on the card, 24 (~21Gi) in host RAM.
+  moeCPULayers: 24
+  # A 73.5Gi mmap load with on-demand PLE row reads has a long, disk-bound
+  # cold start, and warmup would fault in exactly the pages -lzm on
+  # exists to keep off the resident path. First request pays instead.
+  noWarmup: true
+  extraArgs:
+    # The reason this model runs here at all: the PLE n-gram table is a single
+    # 26.82Gi tensor (51.2B of the model's 176.9B params) that llama.cpp reads
+    # from disk on demand rather than keeping resident. `auto` would also catch
+    # it (>4Gi), but this deployment's whole viability rests on the behaviour,
+    # so it is pinned rather than inherited. `on` requires mmap, which is the
+    # loader default here (no --load-mode override).
+    - "-lzm"
+    - "on"
+    - "--alias"
+    - "qwen-3.8-flash-next"
+    # Unsloth's thinking-mode values (unsloth.ai/docs/models/qwen3.8-next). Set
+    # here for the same reason qwen35-2b does: the LiteLLM alias carries no
+    # sampling params. qwen-3.8-fast overrides these per-request for its
+    # non-thinking mode; client-set params win.
+    - "--temp"
+    - "1.0"
+    - "--top-p"
+    - "0.95"
+    - "--top-k"
+    - "20"
+    - "--min-p"
+    - "0.0"
+  nodeSelector:
+    amd.com/gpu: "true"
+  # Mirrors the vLLM pod's GPU access: root plus video(44)/render(226).
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  resources:
+    # 3, not 4: control-1 has 11 cores and 7665m stays requested once vLLM is
+    # suspended, so 4 would not schedule. No CPU limit is set, so the 24 CPU
+    # expert layers can still burst past this -- but if decode is slower than
+    # llama.cpp#27861's 18.4 tok/s, CPU contention is the first thing to check.
+    cpu: "3"
+    # ~21Gi of spilled expert layers plus page cache for the on-demand PLE
+    # reads. Fits the 35.5Gi that frees up when vLLM is suspended.
+    memory: 32Gi
+  endpoint:
+    port: 8080
+  probeOverrides:
+    # Cold start reads 73.5Gi off NVMe through mmap. The sibling vLLM config
+    # budgets ~60min for its load for the same reason; without an override the
+    # operator default kills the pod mid-load and restarts the whole read.
+    startup:
+      httpGet:
+        path: /health
+        port: 8080
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    # Startup owns the load window, so this only ever sees a serving engine.
+    liveness:
+      httpGet:
+        path: /health
+        port: 8080
+      periodSeconds: 30
+      failureThreshold: 20

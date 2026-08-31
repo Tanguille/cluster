@@ -41,14 +41,14 @@ spec:
         # hit means hermes has no local model either.
         - alert: LiteLLMFallbackBackendDown
           expr: |-
-            kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"} == 0
+            kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-flash-next"} == 0
             or
-            absent(kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"})
+            absent(kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-flash-next"})
           # replicas: 1 on a single dGPU node, so every pod roll dips to 0.
           for: 10m
           annotations:
             summary: >-
-              qwen38-27b-vllm has no available replica — litellm's only fallback
+              qwen38-flash-next has no available replica — litellm's only fallback
               target is gone and hermes has no local model
           labels:
             severity: critical
