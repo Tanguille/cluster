@@ -288,7 +288,14 @@ Any one of these ends the test and triggers Step 6 immediately:
 
 # RESULT — executed 2026-08-31, REVERTED
 
-**Status: hypothesis CONFIRMED, change REJECTED on performance.**
+> **The 2026-08-31 performance conclusion below is SUPERSEDED.** Its 1.89 tok/s
+> decode figure was an artefact of vllm#53821, an AITER graph-replay bug present
+> in the build under test and fixed upstream the same day. See
+> "RETEST 2026-09-01" at the end. The section is kept because its *method* and
+> its retracted hypotheses remain instructive — the numbers are not.
+
+**Status: hypothesis CONFIRMED. Change rejected — originally on a regression
+that turned out to be a bug, and on retest for delivering parity.**
 
 ## What the patch proved
 
@@ -347,10 +354,17 @@ evidence that killed them is cheap to re-check and expensive to rediscover.**
    the parent comment exists. So #45916 optimises a decode path this deployment
    cannot reach while the offload connector is in use.
 
-The actual cause of AITER's slow decode is **not identified**. The observation
-is that it routes decode through the Triton `kernel_unified_attention_2d` and
-lands at ~1.89 tok/s where TRITON_ATTN's own path gives 31.50. Naming a fix for
-it would be another guess of the kind this section already had to retract twice.
+3. *The cause is not identifiable.* Also wrong, and this is the one that
+   mattered. The cause was **vllm#53821** — the generic ROCm metadata builder
+   zeroes `common_attn_metadata.query_start_loc` during graph capture, and AITER
+   unified attention consumes that tensor during replay, so sharing the generic
+   capture path corrupts its query boundaries. It merged 2026-08-31T13:53Z,
+   about 9.5 hours after the build under test (`44fe2a392`, 04:20Z) was cut.
+   The test measured a known bug, not the backend.
+
+   The lesson generalises past this PR: three hypotheses were offered here before
+   anyone checked the build's own commit against upstream's merge log. Checking
+   what a pinned build does *not* yet contain is cheaper than any of them.
 
 ## Upstream value
 
@@ -362,10 +376,9 @@ report must carry the gfx1201 measurement too: unblocking it here is a large
 decode regression, so it should not be enabled by default on this arch until
 AITER unified attention's own decode path is competitive on gfx12.
 
-**Do not retry this on gfx1201 without a specific, verified reason to think
-AITER's decode path has changed.** No open PR currently supplies that reason —
-#45916 does not, per the correction above. Re-measure decode before prefill:
-prefill was never the problem here.
+**Retried on 2026-09-01 once #53821 shipped — see the retest section below.**
+The decode regression does not reproduce; the backend reaches parity and is
+still not worth adopting, for a different and better reason.
 
 ## Revert proof
 
@@ -381,3 +394,71 @@ prefill was never the problem here.
 Two engine restarts. The offload tiers were already cold from the earlier PVC
 deletion, so admission stays degraded for a while yet — do not read throughput
 as steady-state until they rewarm.
+
+
+---
+
+# RETEST 2026-09-01 — regression was a bug; verdict now PARITY
+
+Prompted by reviewing upstream commits our pin did not yet carry. Ran on
+`vllm/vllm-openai-rocm:nightly@sha256:f0bdaf5...` = `0.28.1rc1.dev199+g7c5dc571c`
+(bumped in #4808), which is `ahead` of both fixes below. Presence verified in the
+image, not inferred from the build date:
+
+- **vllm#53821** — `class RocmAiterUnifiedAttentionMetadataBuilder` at
+  `rocm_aiter_unified_attn.py:35` with its own `get_builder_cls()`.
+- **vllm#50696** — `stream.wait_stream(current_platform.current_stream())` at
+  `kv_offload/cpu/gpu_worker.py:643`.
+
+## Decode: the regression does not reproduce
+
+Protocol identical on both arms — one warmup run discarded, then two measured.
+
+| conc | TRITON_ATTN (dev199) | AITER_UNIFIED (dev199) | 2026-08-31 AITER (dev130, buggy) |
+|---|---|---|---|
+| 1 | 31.49, 31.68 | 16.75, 30.21 | ~1.89 |
+| 8 | 53.90, 64.97 | 63.45, 61.78 | — |
+| 16 | **78.22, 77.03** | **77.21, 77.32** | — |
+
+conc 16 is the low-variance pair on both arms (spread <= 1.2) and is a dead heat:
+77.63 vs 77.27. Engine-reported prefill throughput likewise: 6390 vs 6388.5.
+Decode at conc 1 recovered ~16x, matching the magnitude of the original collapse.
+
+## Verdict: parity, so still not adopted — but for a sound reason now
+
+Adopting AITER means permanently carrying an out-of-tree source patch (the
+`supports_kv_connector` override, which upstream has not taken). Parity does not
+pay for that. The change in reasoning matters: 2026-08-31 rejected it as harmful,
+which was false; 2026-09-01 rejects it as unnecessary, which the data supports.
+
+## Explicitly NOT measured — do not read this as comprehensive
+
+- **Short-context prefill.** #43615's claims are +56.5% at 512 tokens and +72.4%
+  on 1K->2K. This retest covered 50K prefill and short-prompt *decode*. The
+  regime the claim was actually made for is untested here. Judged unlikely to
+  move production (42:1 prompt:completion at 47-56K tokens) — a judgement about
+  workload mix, not a measurement.
+- **Power draw per arm.** The GPU sat power-capped at 248W of 250W throughout
+  both arms; no per-arm efficiency data was captured. Equal throughput at lower
+  draw would be a real win and is unmeasured.
+
+A future retest should sweep prefill at 512 / 2K / 8K / 50K on both arms and
+sample `rocm-smi` power per arm. That, not another decode sweep, is what would
+settle whether the published claim holds here.
+
+## Measurement caveat carried forward
+
+`bench/pp1.py` reports PP derived from TTFT and read 948.9 / 709.5 tok/s while
+the engine simultaneously reported 6388.5. On this deployment TTFT is dominated
+by offload-lookup and admission time (~57-80s of a ~90s TTFT), not by the
+attention kernel. **Do not quote TTFT-derived PP as a kernel measurement** — use
+the engine's own `Avg prompt throughput`.
+
+## Unrelated but load-bearing finding from the same bump
+
+**vllm#50696** fixed a silent-correctness bug affecting this exact deployment:
+on models that zero freshly allocated KV blocks (any model with mamba layers —
+Qwen3.5 is a GDN hybrid) a CPU->GPU load in the offloading connector could be
+wiped by a pending zeroing, and the request would attend over zeros for its whole
+cache-hit prefix. No crash, no error, just degraded output. It was live in
+production until the #4808 rollout.
