@@ -74,10 +74,11 @@ spec:
               cidr:
                 - "240.0.0.0/4"
           # s02-enrich runs in filename order; this must sort after http-logs.yaml
-          static-image-endpoints.yaml: |-
-            name: hydaz/static-image-endpoints
-            description: "crowdsecurity/http-logs infers static_ressource from the file extension, so extensionless image endpoints read as crawlable content"
-            filter: "evt.Meta.target_fqdn == 'jellyfin.${SECRET_DOMAIN}' && evt.Meta.http_verb in ['GET', 'HEAD'] && evt.Meta.http_path matches '(?i)^/(homescreen/cachedimage|items/[^/]+/images/)'"
+          spa-api-requests.yaml: |-
+            name: hydaz/spa-api-requests
+            description: "One Jellyfin home screen is 46 distinct extensionless API calls in 10s; http-crawl-non_statics caps at 40 per 20s and bans the client"
+            # 2xx only: these endpoints 401 without a token, and enumeration shows up as 4xx for http-probing
+            filter: "evt.Meta.target_fqdn in ['jellyfin.${SECRET_DOMAIN}', 'jellyseerr.${SECRET_DOMAIN}'] && evt.Meta.http_verb in ['GET', 'HEAD'] && evt.Meta.http_status startsWith '2'"
             statics:
               - parsed: static_ressource
                 value: "true"
