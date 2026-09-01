@@ -57,6 +57,16 @@ not isolated) — see the PR history, not this file.
    harmful. Note vllm#45916 is **not** the unblocker either: it patches
    `chunked_prefill_paged_decode.py`, imported by `rocm_attn.py` only, a backend
    genuinely incompatible with the connector.
+4b. **TurboQuant 4-bit KV: tested 2026-09-01, works on gfx1201, rejected.**
+   552,612-token pool vs 288,508 (+92%), concurrency 1.17x -> 2.24x, prefill
+   parity (6378.7 vs ~6390) -- but decode -27% at conc-16 and -54% single-stream,
+   and it is mutually exclusive with the KV offload connector (layout LBNHC vs
+   required LBHNC). Rejected because Hermes caps `max_concurrent_sessions: 5`,
+   so the extra concurrency is unusable while the decode cost is paid in full.
+   Revisit if that cap rises or context must grow past 246,944. Booting it needs
+   three out-of-tree patches (CK segfault reroute + a borrowed gfx1201 MHA
+   config); full recipe and numbers in
+   `turboquant-kv-compression-plan-2026-09-01.md`.
 4. **Inherited, never re-challenged:** `kvCacheDtype: fp8_e4m3` (never
    compared to fp16 KV — quality cost on this hybrid GDN model unmeasured);
    `gpuMemoryUtilization: 0.875` (inert now that `--kv-cache-memory` bypasses
