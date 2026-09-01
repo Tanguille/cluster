@@ -279,6 +279,10 @@ spec:
       emptyDir:
         medium: Memory
         sizeLimit: 24Gi
+    # SOAK TEST -- see the mounts below and models/resources/zz_aiter_kvconn_impl.py.
+    - name: aiter-kvconn-patch
+      configMap:
+        name: aiter-kvconn-patch
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -286,6 +290,34 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
+    # SOAK TEST 2026-09-01, time-boxed -- remove or promote after evaluation.
+    #
+    # Selects ROCM_AITER_UNIFIED_ATTN instead of TRITON_ATTN by lifting an
+    # inherited `supports_kv_connector() -> False` that appears to be a missing
+    # override rather than a real exclusion (full argument in the .py).
+    #
+    # Bench says PARITY, not a win: decode conc-16 77.27 vs 77.63 tok/s, engine
+    # prefill 6388.5 vs 6390. It is deployed anyway to get real-traffic hours,
+    # because the published gains (vllm#43615: +56.5% at 512 tok, +72.4% on
+    # 1K-2K) live at short contexts that the synthetic sweeps did not cover,
+    # and production traffic does include them.
+    #
+    # An earlier run measured 1.89 tok/s decode and looked catastrophic. That was
+    # vllm#53821 (AITER's query_start_loc zeroed during graph capture), fixed in
+    # this image. Do NOT reintroduce that number as evidence.
+    #
+    # Verify it actually took effect -- the hook fails open to TRITON_ATTN:
+    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep aiter-kvconn-patch
+    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep "Overriding with"
+    # Revert = delete these two mounts, the volume above, and the generator.
+    - name: aiter-kvconn-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn.pth
+      subPath: zz_aiter_kvconn.pth
+      readOnly: true
+    - name: aiter-kvconn-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn_impl.py
+      subPath: zz_aiter_kvconn_impl.py
+      readOnly: true
   extraArgs:
     # First name is what vLLM reports back as `model`, so qwen-3.8 stays
     # primary. The second is an alias: the operator derives a LiteLLMModel from
