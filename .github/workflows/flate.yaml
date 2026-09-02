@@ -108,17 +108,26 @@ jobs:
     name: Flate - Pull Images
     runs-on: cluster-runner
     steps:
+      # Only the tuppr upgrade CRs, for the talosctl version below. A literal here went four
+      # releases stale: Renovate's Talos group cannot bump it across a pre-release window
+      # (config:recommended sets ignoreUnstable), so the hand-made rc cutovers all missed it.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: kubernetes/apps/system-upgrade/tuppr/upgrades
+
       # 96MiB per run, on every container PR. /tool-cache is a shared RWX cache: optional,
       # and writable by any job, so every binary is sha256-checked against the release.
       - name: Install talosctl
-        env:
-          # Must match talosupgrade.yaml. The Talos group moves this with the rest only between
-          # stable releases: config:recommended sets ignoreUnstable, so through a pre-release
-          # window Renovate proposes nothing here and the version moves by hand with the others.
-          # renovate: datasource=github-releases depName=siderolabs/talos
-          TALOS_VERSION: v1.14.0-rc.2
         run: |
           set -euo pipefail
+          # The version the cluster actually upgrades to, same source as `just tuppr-version
+          # talos`. yq -e, not yq: a plain yq prints "null" and exits 0 for a missing key, which
+          # would build a release URL ending in /null and fail further down with a worse message.
+          TALOS_VERSION="$(yq -e '.spec.talos.version' \
+            kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml)"
+          echo "talosctl ${TALOS_VERSION} (from talosupgrade.yaml)"
           base="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}"
           bin="$HOME/.local/bin"
           cache="/tool-cache/talosctl-${TALOS_VERSION}"
