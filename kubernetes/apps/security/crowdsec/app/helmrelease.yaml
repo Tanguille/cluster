@@ -68,6 +68,8 @@ spec:
           pseudo-ipv4-whitelist.yaml: |-
             name: hydaz/pseudo-ipv4-whitelist
             description: "Cloudflare Pseudo IPv4 rewrites IPv6 clients to class E; a ban on one synthetic address blocks every IPv6 client sharing it"
+            # Dormant guard: Pseudo IPv4 is off as of 2026-09-02 (XFF carries real IPv6).
+            # While it was on, the cost of this whitelist was that no IPv6 client was policed at all.
             filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log'"
             whitelist:
               reason: "synthetic address, not a real client"
@@ -192,8 +194,11 @@ spec:
         requests:
           cpu: 100m
       acquisition:
+        # Only the gateway the SecurityPolicy enforces on: envoy-internal/-tls and the
+        # envoy-gateway controller have no bouncer, so alerts from them ban at the
+        # external gateway only, which reads as an unexplainable ban
         - namespace: network
-          podName: envoy-*
+          podName: envoy-external-*
           program: envoy
           poll_without_inotify: true
       env:
@@ -212,6 +217,10 @@ spec:
       enabled: true
       deployAnnotations:
         reloader.stakater.com/auto: "true"
+      # CPU only, as for lapi/agent: chart default 500m vs 3m observed
+      resources:
+        requests:
+          cpu: 100m
       # Serves the envoy bouncer's WAF calls on crowdsec-appsec-service:7422
       acquisitions:
         - source: appsec
