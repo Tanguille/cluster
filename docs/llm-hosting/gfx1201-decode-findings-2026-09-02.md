@@ -28,10 +28,12 @@ run); verify no in-flight traffic *during* each rep, not just before; and treat
 any microbenchmark delta under ~1.5x as untrustworthy -- two runs of the same
 kernel and shape disagreed by 43% on this rig.
 
-Benchmarks use `bench/concsweep_real.py` (sweeps M=1..6, one point per real batch
-size) rather than `bench/concsweep.py`, whose hardcoded `[1, 8, 16]` collapses to
-M=1 and M=6-with-a-queue under `max_num_seqs: 5` -- two points masquerading as a
-curve.
+`bench/concsweep.py` now takes a concurrency list and defaults to one point per
+real batch size. Its previous hardcoded `[1, 8, 16]` collapsed to M=1 and
+M=6-with-a-queue under `max_num_seqs: 5` -- two points masquerading as a curve,
+and the reason the M=2 cliff went unnoticed for so long. **Keep the top of the
+sweep at or below `max_num_seqs`**; points above it re-measure the cap and their
+per-stream column is just aggregate/N.
 
 ## Attention backend: AITER and TRITON are at parity
 
