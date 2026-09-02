@@ -88,27 +88,22 @@ spec:
         alertmanager.yaml: |-
           type: http
           name: alertmanager
-          log_level: info
-          # A single client burst is one alert; batch so a noisy scenario cannot flood the webhook
-          group_wait: 30s
-          group_threshold: 10
+          # Alertmanager already groups before anything reaches discord, so no plugin-side
+          # batching; max_retry stays because a dropped ban notification is a lost signal
           max_retry: 3
-          timeout: 10s
-          # Every interpolated value goes through toJson; no hand-quoted JSON strings.
-          # Alert.Scenario is a pointer, so it is piped to toJson directly: printf "%s" would render
-          # the address. Source.IP/Cn/AsName are plain strings and are safe to printf before toJson.
+          # Every value goes through toJson: the URL and user-agent are attacker-controlled
           format: |
             [{{range $i, $a := .}}{{if $i}},{{end}}{
               "labels": {
                 "alertname": "CrowdsecDecision",
                 "severity": "warning",
-                "scenario": {{$a.Scenario | toJson}},
+                "scenario": {{$a.GetScenario | toJson}},
                 "source_ip": {{$a.Source.IP | toJson}}
               },
               "annotations": {
-                "summary": {{$a.Scenario | toJson}},
+                "summary": {{$a.GetScenario | toJson}},
                 "client": {{printf "%s (%s / %s)" $a.Source.IP $a.Source.Cn $a.Source.AsName | toJson}},
-                "request": {{if $a.Events}}{{(index $a.Events 0).Meta | toJson | toJson}}{{else}}"none"{{end}}
+                "request": {{if $a.Events}}{{$e := index $a.Events 0}}{{printf "%s %s%s %s (%s)" ($e.GetMeta "http_verb") ($e.GetMeta "target_fqdn") ($e.GetMeta "http_path") ($e.GetMeta "http_status") ($e.GetMeta "http_user_agent") | toJson}}{{else}}"none"{{end}}
               },
               "startsAt": {{$a.StartAt | toJson}}
             }{{end}}]
@@ -194,9 +189,8 @@ spec:
         requests:
           cpu: 100m
       acquisition:
-        # Only the gateway the SecurityPolicy enforces on: envoy-internal/-tls and the
-        # envoy-gateway controller have no bouncer, so alerts from them ban at the
-        # external gateway only, which reads as an unexplainable ban
+        # Only the gateway the SecurityPolicy enforces on; envoy-internal/-tls have no
+        # bouncer, so their alerts would ban at the external gateway only
         - namespace: network
           podName: envoy-external-*
           program: envoy
