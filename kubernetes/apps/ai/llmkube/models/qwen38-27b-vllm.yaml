@@ -203,10 +203,14 @@ spec:
   # is bimodal until warmed -- cold reps land ~29-32 at M=2 where warm reps land
   # ~55, a 1.9x gap with no traffic and no config change, and ONE warmup run is
   # not enough. Isolated warm A/B of the LDS gate (8 reps, same pod, gate the
-  # only variable) gives M=2 43.74 -> 55.5 (+26.5%) and M=3 unchanged, which is
-  # exactly what the arithmetic predicts: at M=3, K*M=52224 still exceeds 39321
-  # so down_proj stays on Triton. The M=3 and M=5 gains belong to THIS change
-  # (removing cudagraph padding), not to the gate.
+  # only variable) gives M=2 43.74 -> 55.5 (+26.5%). M=3 was unchanged, but that
+  # is a null control, not a confirmation: at M=3 K*M=52224 still exceeds 39321
+  # so down_proj stays on Triton and no movement was predicted.
+  #
+  # No warm number is claimed for the capture-size change itself. It is kept on
+  # mechanism only: at M=6 every W4A16 projection falls to Triton
+  # (MAX_SKINNY_BATCH_SIZE=5), so padding M=5 to 6 was real work; padding M=3 to
+  # 4 keeps the same Triton tile and grid and likely did little.
   parallelSlots: 5
   bindAddress: 0.0.0.0
   # Rolling `nightly` tag pinned by digest, same shape as

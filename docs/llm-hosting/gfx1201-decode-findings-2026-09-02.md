@@ -19,14 +19,23 @@ Consequences, all of which produced wrong conclusions before being caught:
   running warm (it followed a full sweep) while TRITON started cold after a
   restart. Withdrawn; they are at parity.
 - A "1.56x from tile tuning at M=4" claim. The gfx12x heuristic uses
-  `(16,16,128,4)` for every `M <= 32` and the grid is `cdiv(M,16)=1` for
-  M=1,2,4,6, so the M=4 and M=6 default launches execute identical work. A 50%
-  gap between identical kernels was a cold sample. Real figure ~1.06x.
+  `(16,16,128,4)` for every `M <= 32` and the grid is `cdiv(M,16)=1` for every
+  M<=16, so the M=4 and M=6 default launches execute identical work. A 50% gap
+  between identical kernels was a cold sample. Real figure ~1.06x.
+- A "the M=3 and M=5 gains come from the cudagraph capture sizes" claim, which
+  fell to its own argument. Padding M=3 to 4 leaves down_proj on Triton at the
+  identical `(16,16,128)` tile and `grid=1` at both sizes, so it cannot move much;
+  the apparent +65% was measured against the same withdrawn cold row. M=5->6
+  padding IS a real mechanism (`MAX_SKINNY_BATCH_SIZE=5` pushes every W4A16
+  projection to Triton at M=6), but its warm magnitude is **unmeasured**. The
+  capture-size change is kept on that mechanism, not on a number.
 
 **Rules for any future A/B here:** equalise warming across arms (not one warmup
-run); verify no in-flight traffic *during* each rep, not just before; and treat
-any microbenchmark delta under ~1.5x as untrustworthy -- two runs of the same
-kernel and shape disagreed by 43% on this rig.
+run); verify no in-flight traffic *during* each rep, not just before; and never
+compare a rep from one warming state against a rep from another -- cold and warm
+are two populations, and every withdrawn claim above is a cross-population
+comparison. Within one population the rig is tight (CV ~1%), so a warm-vs-warm
+delta of a few percent is real; it is the 43% cold-vs-warm gap that is noise.
 
 `bench/concsweep.py` now takes a concurrency list and defaults to one point per
 real batch size. Its previous hardcoded `[1, 8, 16]` collapsed to M=1 and
@@ -35,7 +44,7 @@ and the reason the M=2 cliff went unnoticed for so long. **Keep the top of the
 sweep at or below `max_num_seqs`**; points above it re-measure the cap and their
 per-stream column is just aggregate/N.
 
-## Attention backend: AITER and TRITON are at parity
+## Attention backend: AITER and TRITON are within ~2%
 
 Warm, traffic-verified, identical protocol:
 
@@ -44,10 +53,12 @@ Warm, traffic-verified, identical protocol:
 | AITER (4 reps) | 54.35 55.96 55.46 55.48 -> **55.31** | 65.31 63.79 62.67 64.50 -> **64.07** |
 | TRITON (5 warm reps) | 55.75 55.45 55.89 56.25 55.25 -> **55.72** | 64.06 64.18 65.67 65.67 64.83 -> **64.88** |
 
-Differences are inside the within-arm spread. AITER runs ~6% lower sclk and ~4 C
-cooler at equal output; that and maintenance cost are the only grounds to choose
-between them. All the throughput gained on 2026-09-02 came from the LDS gate and
-the cudagraph capture sizes, both backend-independent.
+Differences are inside the within-arm spread (Welch t 1.1 at M=2, 1.3 at M=3):
+**no detectable difference at n=4-5 warm**, which is not the same as proven
+equality. Scope: decode, short prompts, M=2-3. The manifest still records ~10x
+worse AITER prefill and a conc-16 wash from earlier builds; neither was re-measured
+here. AITER runs ~6% lower sclk and ~4 C cooler at equal output; that and
+maintenance cost are the only grounds to choose between them.
 
 ## MTP works, drafts well, and is unusable at batch
 
@@ -67,49 +78,78 @@ Acceptance is excellent and holds at batch: **49.83% / length 2.49** at conc 1
 2x RTX 5060 Ti box running MTP K3 on the same benchmark reports 41.27% / 2.24.
 **Our draft head is better than theirs.**
 
-The loss is entirely in verification. At conc 5 the verify step costs ~4x a normal
-decode step (ITL 48 -> 198 ms mean, P99 835 ms), swallowing the 2.32x multiplier.
+At conc 5, ITL went 48 -> 198 ms mean, P99 835 ms. Originally attributed to verify
+cost; the likelier cause is that conc 5 ran with no cudagraph at all.
 
-**MTP is a single-stream optimization on this deployment.** It is why a comparison
-box configured with 1 slot beats us on single-stream (45.53 vs 27.10 tok/s) while
-we beat its ceiling in aggregate (91.27).
+The conc-5 row is **not** evidence that MTP is single-stream-only here -- see the
+section below; that run captured one cudagraph at 4 tokens and ran conc 5 eager.
+The conc-1 row and the acceptance figures stand.
 
 ### Trap: MTP costs VRAM, so re-derive maxModelLen
 
-Enabling MTP drops the KV pool ~288.5K -> ~231.7K. Leaving `maxModelLen` at a
-value that puts the pool/cap ratio under the documented **1.17x** knee causes
-request *hangs* (HTTP 000 timeouts, 33/50 failed), not just slowness. At
-maxModelLen 198,000 the ratio is exactly 1.17x and failures go to zero. A first
-attempt at 219,000 (ratio 1.06) produced the hangs and a false "the upstream
-blockers are unresolved" conclusion.
+Enabling MTP drops the KV pool ~288.5K -> ~231.7K. A run at maxModelLen 219,000
+(pool/cap ratio 1.06) returned 33/50 client-side timeouts; re-deriving to 198,000
+(ratio exactly 1.17x) took failures to zero.
 
-## Root cause: no backend on this card supports spec-as-decode
+**That correlation is n=1 per arm and the mechanism is unknown.** Each arm
+followed a restart, so cold-start admission stall through the offload connector's
+serial lookup thread is an equally live explanation, and nothing in vLLM ties
+`max_model_len` to admission beyond the startup fit check. vllm#49002 *is* cleanly
+excluded: grammars attach only via `structured_outputs` or named/`required`
+`tool_choice`, and the benchmark sent no tools. Re-derive maxModelLen when
+enabling MTP anyway -- it is free -- but do not treat 1.17x as a proven hang
+threshold.
 
-Verify batches only get FULL cudagraphs when the attention backend declares
-`_init_reorder_batch_threshold(..., supports_spec_as_decode=True)`.
+## Why MTP collapsed at batch: our capture-size list, not upstream
+
+**The spec-as-decode explanation first recorded here was wrong and is withdrawn.**
+`supports_spec_as_decode` only widens `reorder_batch_threshold`, and only when the
+backend passed a non-None threshold (`backend.py:629`). It does not gate cudagraph
+capture. `TRITON_ATTN` is `AttentionCGSupport.ALWAYS` (`triton_attn.py:100`) and
+never calls the function, so it captures FULL graphs at any query length. The flag
+matters only to `UNIFORM_BATCH` backends like TurboQuant, which is what vllm#53410
+addresses. It was never our blocker.
+
+The actual mechanism, verified in source and in the boot log. With MTP k=3 the
+uniform decode query length is 4, and MRV1 rounds every capture size up to a
+multiple of it, dropping anything above `max_cudagraph_capture_size`
+(`compilation.py:1548`), which is itself taken from the last element of our list:
+
+    [1,2,3,4,5] -> round_up to 4 -> {4,4,4,4,8} -> filtered by <=5 -> [4]
+
+**One** graph, at 4 tokens. Conc 1 is a 4-token batch and hits it (+12.7%). Conc 5
+is a 20-token batch, gets `CUDAGraphMode.NONE` from the dispatcher, and runs 64
+layers fully eager. That fits ITL 48 -> 198 ms mean far better than "the verify
+step costs 4x". Today's non-MTP boot log shows the same code path behaving:
+`max_cudagraph_capture_size: 5`, five FULL graphs captured.
+
+**So the conc-5 result below is a config artifact and MTP is not ruled out.**
+The retest is `"cudagraph_capture_sizes": [4, 8, 12, 16, 20]` with the MTP config;
+GDN already caps `decode_cudagraph_max_bs` at `max_num_seqs*(num_spec+1)` against
+the capture size (`gdn_attn.py:117`), so it is built for exactly this. Until that
+runs, treat "MTP is single-stream only on this card" as **unproven**, and the
+former conclusion that TurboQuant + vllm#53410 is the only route to batched MTP as
+**withdrawn**.
+
+### Backend spec-as-decode table, for reference only
+
+Kept because it took a while to establish, but it explains nothing about our MTP
+result:
 
 | backend | available on gfx1201 | supports_spec_as_decode |
 |---|---|---|
-| TRITON_ATTN | yes | **no** (never sets it) |
-| ROCM_AITER_UNIFIED_ATTN | yes, via our patch | **no** |
+| TRITON_ATTN | yes | no (never calls it; `ALWAYS` cudagraph support) |
+| ROCM_AITER_UNIFIED_ATTN | yes, via our patch | no (same) |
 | ROCM_ATTN | no -- `(2, num_blocks, ...)` layout is connector-incompatible | - |
 | ROCM_AITER_FA | **no -- "compute capability not supported"** (CDNA-only) | yes |
-| TURBOQUANT | yes, via 3 patches | **False; vllm#53410 flips it** |
-
-`ROCM_AITER_FA` is otherwise a perfect fit (head_size 256, fp8_e4m3, LBHNC,
-`supports_kv_connector()` True with no patch needed) and is refused purely on
-compute capability.
-
-So **TurboQuant + vllm#53410 is the only route to batched MTP on this card** --
-which is the real reason to care about TurboQuant, not its +92% KV pool (Hermes
-caps at 5 sessions and cannot spend the capacity).
+| TURBOQUANT | yes, via 3 patches | False; vllm#53410 flips it |
 
 ## What to watch, in priority order
 
-1. **Any commit adding `supports_spec_as_decode=True` to `triton_attn.py` or
-   `rocm_aiter_unified_attn.py`.** This would make MTP viable with no TurboQuant
-   at all -- a config change instead of a five-patch stack. Best possible outcome.
+1. **A retest of MTP with `cudagraph_capture_sizes: [4, 8, 12, 16, 20]`.** Ours,
+   not upstream's, and the single highest-value open item here.
 2. **vllm#53410** -- TurboQuant verify batches as decodes with FULL cudagraphs.
+   Only relevant if the capture-size retest fails.
 3. A real `gfx1201-MHA-DEFAULT.json` in AITER. TurboQuant decode (-27% at M=6,
    -54% at M=1) was measured on a **borrowed gfx1151 config**, so some of that
    loss is likely untuned tiles rather than architecture.
@@ -118,23 +158,28 @@ caps at 5 sessions and cannot spend the capacity).
 5. **vllm#52619** -- the LDS-gate one-liner carried out-of-tree here; drop ours
    when it lands.
 
-**Do not live-patch the whole stack.** Reaching batched MTP today needs three
-out-of-tree TurboQuant patches plus a whole-file overlay of an unmerged PR plus
-MTP config, coupled to an exact vLLM build that Renovate bumps every few days,
-on a foundation measured with an untuned tile config.
+**Do not live-patch the whole stack** *if* the capture-size retest fails. The
+TurboQuant route needs three out-of-tree patches plus a whole-file overlay of an
+unmerged PR plus MTP config, coupled to an exact vLLM build that Renovate bumps
+every few days, on a foundation measured with an untuned tile config. The retest
+is a two-line config change and must be tried first.
 
 ## Corrected attributions
 
-- `fused_gdn_decode_post_conv_mtp is not built` is **not** a finding. That kernel
-  is gated by `num_spec_decodes > 0` -- it is the MTP-only path, and CUDA-only by
-  CMake. `is_rdna_gdn_triton_kernels_available()` is True here, so the AITER RDNA
-  fused Triton decode already runs. Nothing to gain.
+- `fused_gdn_decode_post_conv_mtp is not built` is **not** a finding, but not for
+  the reason first recorded. `hasattr(_C, ...)` on that symbol is the probe for the
+  *entire* CUDA fused GDN decode family, plain decode included -- not an MTP-only
+  path. It is absent because the family is CUDA-only by CMake, so it is **not
+  applicable on ROCm** rather than "nothing to gain".
+  `is_rdna_gdn_triton_kernels_available()` is True here and the AITER RDNA fused
+  Triton decode runs instead.
 - `vllm#45916` (split-KV paged decode, gfx12, head_dim 256) patches
   `chunked_prefill_paged_decode.py`, imported by `rocm_attn.py` only -- a backend
   this deployment cannot use. Its merging changes nothing here.
 - `vllm#51453` (Triton W4A16 GEMM as custom op, +20.8% MI300 decode) patches
-  `triton_w4a16.py`. This deployment uses `RDNAHybridW4A16LinearKernel`, which
-  already had the custom-op boundary.
+  `triton_w4a16.py`, which the RDNA path never calls; this deployment uses
+  `RDNAHybridW4A16LinearKernel`, already behind a custom op. Merged 2026-09-02
+  and changes nothing here either way.
 - `num_compute_units()` returns **32 on a 64-CU part** (HIP reports WGPs in WGP
   mode). Passing 64 is worth ~21% on down_proj at M=1 but only ~2% at M=2 where
   this deployment operates. Two live call sites, not ten. Low priority.
