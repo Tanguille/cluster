@@ -15,13 +15,15 @@ run_occ() {
   for arg in "$@"; do
     cmd="$cmd $(printf '%q' "$arg")"
   done
-  su -s /bin/sh www-data -c "$cmd" 2>/dev/null || true
+  su -s /bin/sh www-data -c "$cmd" 2>/dev/null
 }
 
 set_config() {
   local type="$1"
   shift
-  run_occ "config:$type:set" "$@"
+  # Best effort: a failed config set must not stop the rest. The readiness check below needs
+  # run_occ's real exit code, so the tolerance lives here rather than in run_occ.
+  run_occ "config:$type:set" "$@" || true
 }
 
 find_tool() {
