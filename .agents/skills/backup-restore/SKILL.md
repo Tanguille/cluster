@@ -50,15 +50,14 @@ kubectl kopiur snapshot now --policy <app> -n <namespace> --wait
 
 ## Restore from backup
 
-The procedure is [docs/kopiur-restore.md](../../../docs/kopiur-restore.md) — suspend both
+The procedure is [docs/kopiur-restore.md](../../../docs/kopiur-restore.md): suspend both
 Kustomization and HelmRelease, pause KEDA, scale down every deployment sharing the PVC, delete
-the PVC, resume, verify. That file is the single copy: it also covers point-in-time restore
-(`offset`/`asOf`/`snapshotRef`/`identity`), the kopiur#233 orphaned-`prime-*`-PVC trap with its
-sweep commands, and the live-uid check. Do not restate its steps here — a restore runbook that
-exists twice is a runbook that drifts.
+the PVC, resume, verify. That file is the single copy, and also covers point-in-time restore
+(`offset`/`asOf`/`snapshotRef`/`identity`), the kopiur#233 orphaned-`prime-*`-PVC trap and its
+sweep commands, and the live-uid check.
 
-One thing that lives here rather than there: when the live uid does not match the manifest's
-`runAsUser`, `KOPIUR_PUID`/`KOPIUR_PGID` (and, only for genuine root,
+Not in that file: when the live uid does not match the manifest's `runAsUser`,
+`KOPIUR_PUID`/`KOPIUR_PGID` (and, only for genuine root,
 `KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"`) go in the app's own `ks.yaml`
 `postBuild.substitute` block — see [references/restore-pvc.md](references/restore-pvc.md).
 

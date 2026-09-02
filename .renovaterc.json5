@@ -134,10 +134,8 @@
     },
     {
       // talosupgrade.yaml and the mise talosctl pin track the same Talos release — one PR
-      // instead of two. The flate workflow used to be a third literal here and drifted four
-      // releases behind across the v1.14 rc window, because config:recommended sets
-      // ignoreUnstable and this group proposes nothing during a pre-release; it now reads
-      // talosupgrade.yaml at run time, so there is no third copy to bump.
+      // instead of two. Nothing here moves during a pre-release (config:recommended sets
+      // ignoreUnstable), which is how a third copy in the flate workflow drifted four releases.
       description: "Talos Group",
       groupName: "talos",
       matchDatasources: ["docker", "github-releases"],
