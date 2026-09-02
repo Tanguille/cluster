@@ -32,10 +32,12 @@ spec:
                 expression: evt.Unmarshaled.envoy["x-envoy-origin-path"]
               - parsed: http_version
                 expression: TrimPrefix(evt.Unmarshaled.envoy["protocol"], "HTTP/")
+              # %v not %.0f: the envoy access-log schema is Envoy Gateway's implicit default,
+              # so a future release emitting these as strings would silently corrupt status
               - parsed: status
-                expression: Sprintf('%.0f', evt.Unmarshaled.envoy["response_code"])
+                expression: Sprintf('%v', evt.Unmarshaled.envoy["response_code"])
               - parsed: body_bytes_sent
-                expression: Sprintf('%.0f', evt.Unmarshaled.envoy["bytes_sent"])
+                expression: Sprintf('%v', evt.Unmarshaled.envoy["bytes_sent"])
               - parsed: http_user_agent
                 expression: evt.Unmarshaled.envoy["user-agent"]
               - parsed: target_fqdn
