@@ -32,10 +32,12 @@ spec:
                 expression: evt.Unmarshaled.envoy["x-envoy-origin-path"]
               - parsed: http_version
                 expression: TrimPrefix(evt.Unmarshaled.envoy["protocol"], "HTTP/")
+              # %v not %.0f: the envoy access-log schema is Envoy Gateway's implicit default,
+              # so a future release emitting these as strings would silently corrupt status
               - parsed: status
-                expression: Sprintf('%.0f', evt.Unmarshaled.envoy["response_code"])
+                expression: Sprintf('%v', evt.Unmarshaled.envoy["response_code"])
               - parsed: body_bytes_sent
-                expression: Sprintf('%.0f', evt.Unmarshaled.envoy["bytes_sent"])
+                expression: Sprintf('%v', evt.Unmarshaled.envoy["bytes_sent"])
               - parsed: http_user_agent
                 expression: evt.Unmarshaled.envoy["user-agent"]
               - parsed: target_fqdn
@@ -68,6 +70,8 @@ spec:
           pseudo-ipv4-whitelist.yaml: |-
             name: hydaz/pseudo-ipv4-whitelist
             description: "Cloudflare Pseudo IPv4 rewrites IPv6 clients to class E; a ban on one synthetic address blocks every IPv6 client sharing it"
+            # Dormant guard: Pseudo IPv4 is off as of 2026-09-02 (XFF carries real IPv6).
+            # While it was on, the cost of this whitelist was that no IPv6 client was policed at all.
             filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log'"
             whitelist:
               reason: "synthetic address, not a real client"
@@ -82,6 +86,33 @@ spec:
             statics:
               - parsed: static_ressource
                 value: "true"
+      notifications:
+        alertmanager.yaml: |-
+          type: http
+          name: alertmanager
+          # Alertmanager already groups before anything reaches discord, so no plugin-side
+          # batching; max_retry stays because a dropped ban notification is a lost signal
+          max_retry: 3
+          # Every value goes through toJson: the URL and user-agent are attacker-controlled
+          format: |
+            [{{range $i, $a := .}}{{if $i}},{{end}}{
+              "labels": {
+                "alertname": "CrowdsecDecision",
+                "severity": "warning",
+                "scenario": {{$a.GetScenario | toJson}},
+                "source_ip": {{$a.Source.IP | toJson}}
+              },
+              "annotations": {
+                "summary": {{$a.GetScenario | toJson}},
+                "client": {{printf "%s (%s / %s)" $a.Source.IP $a.Source.Cn $a.Source.AsName | toJson}},
+                "request": {{if $a.Events}}{{$e := index $a.Events 0}}{{printf "%s %s%s %s (%s)" ($e.GetMeta "http_verb") ($e.GetMeta "target_fqdn") ($e.GetMeta "http_path") ($e.GetMeta "http_status") ($e.GetMeta "http_user_agent") | toJson}}{{else}}"none"{{end}}
+              },
+              "startsAt": {{$a.StartAt | toJson}}
+            }{{end}}]
+          url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093/api/v2/alerts
+          method: POST
+          headers:
+            Content-Type: application/json
       config.yaml.local: |-
         api:
           server:
@@ -105,6 +136,9 @@ spec:
         decisions:
           - type: ban
             duration: 24h
+        # Only locally-generated alerts reach profiles; CAPI blocklist pulls (15k IPs every 2h) do not
+        notifications:
+          - alertmanager
         on_success: break
     tls:
       enabled: true
@@ -157,8 +191,10 @@ spec:
         requests:
           cpu: 100m
       acquisition:
+        # Only the gateway the SecurityPolicy enforces on; envoy-internal/-tls have no
+        # bouncer, so their alerts would ban at the external gateway only
         - namespace: network
-          podName: envoy-*
+          podName: envoy-external-*
           program: envoy
           poll_without_inotify: true
       env:
@@ -177,6 +213,10 @@ spec:
       enabled: true
       deployAnnotations:
         reloader.stakater.com/auto: "true"
+      # CPU only, as for lapi/agent: chart default 500m vs 3m observed
+      resources:
+        requests:
+          cpu: 100m
       # Serves the envoy bouncer's WAF calls on crowdsec-appsec-service:7422
       acquisitions:
         - source: appsec
