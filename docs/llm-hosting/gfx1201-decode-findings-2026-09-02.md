@@ -60,7 +60,7 @@ worse AITER prefill and a conc-16 wash from earlier builds; neither was re-measu
 here. AITER runs ~6% lower sclk and ~4 C cooler at equal output; that and
 maintenance cost are the only grounds to choose between them.
 
-## MTP works, drafts well, and is unusable at batch
+## MTP works and drafts well, but loses at our concurrency
 
 `--speculative-config '{"method":"mtp","num_speculative_tokens":3}'`. Weights ship
 with the checkpoint as `model-mtp.safetensors` -- no download, no separate draft
@@ -81,9 +81,8 @@ Acceptance is excellent and holds at batch: **49.83% / length 2.49** at conc 1
 At conc 5, ITL went 48 -> 198 ms mean, P99 835 ms. Originally attributed to verify
 cost; the likelier cause is that conc 5 ran with no cudagraph at all.
 
-The conc-5 row is **not** evidence that MTP is single-stream-only here -- see the
-section below; that run captured one cudagraph at 4 tokens and ran conc 5 eager.
-The conc-1 row and the acceptance figures stand.
+The conc-5 row below was measured with a broken capture-size list and is superseded
+by the retest in the next section; the conc-1 row and the acceptance figures stand.
 
 ### Trap: MTP costs VRAM, so re-derive maxModelLen
 
@@ -123,13 +122,40 @@ layers fully eager. That fits ITL 48 -> 198 ms mean far better than "the verify
 step costs 4x". Today's non-MTP boot log shows the same code path behaving:
 `max_cudagraph_capture_size: 5`, five FULL graphs captured.
 
-**So the conc-5 result below is a config artifact and MTP is not ruled out.**
-The retest is `"cudagraph_capture_sizes": [4, 8, 12, 16, 20]` with the MTP config;
-GDN already caps `decode_cudagraph_max_bs` at `max_num_seqs*(num_spec+1)` against
-the capture size (`gdn_attn.py:117`), so it is built for exactly this. Until that
-runs, treat "MTP is single-stream only on this card" as **unproven**, and the
-former conclusion that TurboQuant + vllm#53410 is the only route to batched MTP as
-**withdrawn**.
+**Retested 2026-09-02 20:19-21:05 CEST, and the mechanism was confirmed.** With
+`"cudagraph_capture_sizes": [4, 8, 12, 16, 20]` the list survives rounding intact
+(`max_cudagraph_capture_size: 20`) and the boot log captures **5 FULL graphs
+instead of 1**. That recovered most of the loss:
+
+| | conc 1 | conc 5 |
+|---|---|---|
+| MTP, capture `[1,2,3,4,5]` (one graph) | 30.55 | 50.22 |
+| MTP, capture `[4,8,12,16,20]` (five graphs) | **~38** (34.7-43.5) | **~71** (68.0-74.9, n=7) |
+| no MTP, current prod | 30.6-31.1 | **94.7-102.9** |
+
+So the capture-size list cost ~41% at conc 5 and ~24% at conc 1. It was a real
+self-inflicted bug and it is now measured, not inferred.
+
+**MTP still loses at full concurrency, so it stays off.** Warm sweep, MTP vs the
+no-MTP prod numbers at the same M:
+
+| M | no MTP | MTP k=3, 5 graphs | |
+|---|---|---|---|
+| 1 | 30.6-31.1 | 34.7-43.5 | **+23%** |
+| 2 | 54.4-56.3 | 47.8-48.1 | -13% |
+| 3 | 61.8-65.1 | 69.5-72.5 | +12% |
+| 4 | 76.1-84.4 | 90.5-90.6 | +10% |
+| 5 | 94.7-102.9 | 68.9-74.1 | **-27%** |
+
+Acceptance stayed excellent throughout (49.97% / length 2.50 at conc 5, positions
+70.4 / 47.2 / 32.4), so this is not a draft-quality problem. It is the ordinary
+spec-decode crossover: at M=5 the batch is already compute-bound, and drafting 3
+tokens per step to accept 2.5 spends flops the GPU does not have spare. The M=2
+dip and the M=3/M=4 gains are within the noise this rig has shown before and are
+not claimed as structure.
+
+**Verdict: reverted.** MTP is a real win below ~M=4 and a 27% loss at the cap we
+actually run. Revisit only if production concurrency drops or slots change.
 
 ### Backend spec-as-decode table, for reference only
 
@@ -146,8 +172,9 @@ result:
 
 ## What to watch, in priority order
 
-1. **A retest of MTP with `cudagraph_capture_sizes: [4, 8, 12, 16, 20]`.** Ours,
-   not upstream's, and the single highest-value open item here.
+1. ~~A retest of MTP with corrected capture sizes.~~ **Done 2026-09-02**: the
+   capture-size bug was real and worth ~41% at conc 5, but MTP is still -27% at
+   M=5. Reverted. Nothing further to watch upstream for this.
 2. **vllm#53410** -- TurboQuant verify batches as decodes with FULL cudagraphs.
    Only relevant if the capture-size retest fails.
 3. A real `gfx1201-MHA-DEFAULT.json` in AITER. TurboQuant decode (-27% at M=6,
