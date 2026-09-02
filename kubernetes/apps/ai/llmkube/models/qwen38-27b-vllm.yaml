@@ -195,11 +195,18 @@ spec:
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
   # W4A16 projections to the slow Triton path at M=6 (and drops the bf16 lm_head
   # to torch.linear), so slot 6 is strictly worse per stream than slot 5.
-  # Measured 2026-09-02, M=1..5 with one graph per size:
-  #   before (slots 6, capture [1,2,4,6]): 31.06 28.64 39.30 52.15 52.22 61.99
-  #   after  (slots 5, capture [1,2,3,4,5]): 31.11 56.33 64.95 76.10 102.87
-  # Peak aggregate 61.99 -> ~99 tok/s. Pairs with the LDS gate patch below;
-  # neither change alone produces those numbers.
+  # Measured 2026-09-02, M=1..5 with one graph per size. Current config, three
+  # warm runs: 30.6-31.1 / 54.4-56.3 / 61.8-65.1 / 76.1-84.4 / 94.7-102.9.
+  #
+  # The "before" row originally recorded here (31.06 28.64 39.30 52.15 52.22
+  # 61.99) was WITHDRAWN 2026-09-02: its M=2 value was a cold rep. This engine
+  # is bimodal until warmed -- cold reps land ~29-32 at M=2 where warm reps land
+  # ~55, a 1.9x gap with no traffic and no config change, and ONE warmup run is
+  # not enough. Isolated warm A/B of the LDS gate (8 reps, same pod, gate the
+  # only variable) gives M=2 43.74 -> 55.5 (+26.5%) and M=3 unchanged, which is
+  # exactly what the arithmetic predicts: at M=3, K*M=52224 still exceeds 39321
+  # so down_proj stays on Triton. The M=3 and M=5 gains belong to THIS change
+  # (removing cudagraph padding), not to the gate.
   parallelSlots: 5
   bindAddress: 0.0.0.0
   # Rolling `nightly` tag pinned by digest, same shape as
