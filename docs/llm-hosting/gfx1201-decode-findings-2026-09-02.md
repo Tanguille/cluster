@@ -211,14 +211,105 @@ is a two-line config change and must be tried first.
   mode). Passing 64 is worth ~21% on down_proj at M=1 but only ~2% at M=2 where
   this deployment operates. Two live call sites, not ten. Low priority.
 
+## Decode is bandwidth-bound, and every quantized GEMM is already at the ceiling
+
+Measured 2026-09-02 in-container. Achievable bandwidth on this card is
+**566 GB/s** (pure streaming read of a 485 MiB tensor). Per-decode-step GEMM
+budget, ms, all 64 layers, through the real dispatch:
+
+| | M=1 | M=2 | M=3 | M=5 | eff. BW at M=1 |
+|---|---|---|---|---|---|
+| gate_up | 10.87 | 10.82 | 10.69 | 11.92 | **557 GB/s** |
+| down_proj | 5.60 | 5.80 | 15.74 | 14.38 | **537 GB/s** |
+| gdn in_qkvz | 2.85 | 2.89 | 2.95 | 3.19 | ~540 |
+| gdn out_proj | 1.59 | 1.67 | 1.79 | 2.01 | ~540 |
+| qkv + o (attn) | 1.18 | 1.24 | 1.29 | 1.40 | ~540 |
+| **lm_head (bf16)** | **6.34** | ~6.3 | ~6.3 | 6.02 | **405 GB/s** |
+| total | 28.4 | 28.7 | 38.8 | 38.9 | |
+
+Measured step time is ~32.3 ms at M=1, so GEMMs are ~88% of it.
+
+**This is the headline result: every W4A16 projection already runs at 95-98% of
+the card's achievable bandwidth.** There is no kernel work left on them - not
+tile tuning, not cu_count, not a better dispatch. The model is memory-bound and
+the memory system is saturated. The only way to make those layers faster is to
+move fewer bytes.
+
+**The single exception is `lm_head`**, which is bf16 (it sits in the checkpoint's
+`ignore` list, as do the GDN `in_proj_a`/`in_proj_b`) and runs at 405 GB/s, 72%
+of ceiling. It is 2.543 GB read every step regardless of batch size, ~20% of the
+M=1 step.
+
+Two independent gains are available there, measured with a scaled proxy
+(V=49664, only 2.6 GiB free) and extrapolated linearly - per-1k-vocab cost was
+constant to within 3%, so the extrapolation is sound:
+
+| lm_head variant | M=1 | vs today | quality |
+|---|---|---|---|
+| `F.linear`, `[V,H]` (today) | 6.29 ms | - | - |
+| same weights, stored `[H,V]` | 5.18 ms | **-1.1 ms** | identical |
+| W4A16 g128 (RDNA kernel) | **1.17 ms** | **-5.1 ms** | ~1.15% greedy flips |
+
+The transposed-layout win is free arithmetic: `a @ wt` hits 489 GB/s where
+`F.linear` gets 405.
+
+### The 4-bit lm_head quality estimate, and why the first two attempts were junk
+
+RTN-quantizing the real `lm_head` to W4A16 g128 asymmetric gives **logit MAE
+0.081** (std ~0.10). Turning that into a token-level error rate needs the real
+top1-top2 logit gap distribution, and two proxies got this badly wrong first:
+
+- random N(0,1) hidden states -> 68.8% top-1 agreement
+- rows of `embed_tokens` as hidden states -> 81.2%
+
+Both are artifacts: each produced a near-uniform logit distribution (mean top-1
+probability **0.0004**), where the top two logits are tied and argmax flips on
+noise. Real distributions are nothing like that. Sampled from the live server
+with `logprobs=5` over 8 prompts (n=490 positions): **median gap 3.88, mean top-1
+probability 0.810**, and only 4.9% of positions carry >1% flip risk. Modelling
+the perturbation as N(0, 0.101) per logit gives an **expected greedy flip rate of
+1.15%**, concentrated where the median gap is 0.125 - positions the model is
+genuinely undecided on.
+
+That is an estimate from a noise model, not an eval. It justifies running
+lm-eval; it does not substitute for one.
+
+## K-split of down_proj: real at the kernel, unaffordable in practice
+
+Warm, interleaved arms (a first attempt with 10 warmup iterations gave garbage
+and was discarded): down_proj K-split onto the HIP skinny GEMM is **1.98x at M=3,
+1.72x at M=4, 1.33x at M=5**, with better accuracy than Triton (0.0047 vs 0.0095).
+
+It cannot be used. `wvSplitK_int4_g` **ignores strides**: a non-contiguous K-slice
+runs without error and returns garbage (relative error 4.77 vs 0.0047). So chunks
+must be materialised contiguously, duplicating down_proj at 44.5 MB x 64 layers =
+**2.85 GB**. Free VRAM is **2.62 GiB**, and lm_head quantization would only return
+~2.2 GB of it.
+
+The zero-memory alternative - storing the weight chunk-major so every M goes
+chunked - was measured across all M: +96%/+70%/+33% at M=3/4/5, but **-10% at M=1,
+-17% at M=2, -10% at M>=6**. Against the real traffic mix below that nets ~+4-5%
+e2e with a regression at the second-most-common batch size, for a load-time
+repack plus a dispatch rewrite carried out-of-tree. **Not worth it.**
+
+### Production batch-size distribution (vmsingle, share of busy time)
+
+| M | 7d | 30d |
+|---|---|---|
+| 1 | 38.7% | 29.1% |
+| 2 | 25.4% | 21.1% |
+| 3 | 19.8% | 25.5% |
+| 4 | 11.1% | 14.9% |
+| 5 | 4.1% | 6.6% |
+
+Two thirds of busy time is M=1-2. Optimizations that only pay above M=3 are worth
+roughly a quarter of their headline number.
+
 ## Still unmeasured
 
 - Output quality under the raised LDS gate, beyond smoke prompts.
-- `lm_head` is 2.54 GB of bf16 per token, ~17% of decode bytes, unquantized.
-  vLLM cannot quantize it at load, but re-running llm-compressor with `lm_head`
-  out of `ignore` would land it on the same RDNA kernel. Estimated 7-10% at every
-  M; needs an lm-eval gate on a 248K vocab.
-- K-split of `down_proj` for M=3-5, where it still falls to Triton
-  (K*M = 52224/69632/87040, all over 39321). Kernel-level test showed ~2x with
-  correct results and better accuracy than the Triton path; chunk on group
-  boundaries (48/48/40 groups keeps M=5 at 3 launches).
+- An actual lm-eval run behind the 1.15% greedy-flip estimate above, before any
+  4-bit lm_head ships.
+- Whether the transposed-lm_head layout can be applied at load time. It needs
+  both copies live during the transpose (~4.7 GB); the KV cache is explicitly
+  sized and allocated after weights, so the headroom may exist at that moment.
