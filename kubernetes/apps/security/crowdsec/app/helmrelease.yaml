@@ -105,7 +105,7 @@ spec:
               "annotations": {
                 "summary": {{$a.GetScenario | toJson}},
                 "description": "crowdsec issued a ban; client and request per alert below",
-                "origin": {{if $a.Source.Cn}}{{printf "%s / %s" $a.Source.Cn $a.Source.AsName | toJson}}{{else}}{{$a.Source.AsName | toJson}}{{end}},
+                "origin": {{if and $a.Source.Cn $a.Source.AsName}}{{printf "%s / %s" $a.Source.Cn $a.Source.AsName | toJson}}{{else}}{{printf "%s%s" $a.Source.Cn $a.Source.AsName | toJson}}{{end}},
                 "request": {{if $a.Events}}{{$e := index $a.Events 0}}{{printf "%s %s%s %s (%s)" ($e.GetMeta "http_verb") ($e.GetMeta "target_fqdn") ($e.GetMeta "http_path") ($e.GetMeta "http_status") ($e.GetMeta "http_user_agent") | toJson}}{{else}}"none"{{end}}
               },
               "startsAt": {{$a.StartAt | toJson}}
