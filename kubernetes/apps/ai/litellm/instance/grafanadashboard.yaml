@@ -5,10 +5,6 @@ kind: GrafanaDashboard
 metadata:
   name: litellm
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS

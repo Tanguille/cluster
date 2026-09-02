@@ -5,10 +5,6 @@ kind: GrafanaDashboard
 metadata:
   name: kepler
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   folder: hardware
   datasources:
     - datasourceName: prometheus
@@ -21,10 +17,6 @@ kind: GrafanaDashboard
 metadata:
   name: kepler-overview
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   folder: hardware
   datasources:
     - datasourceName: prometheus

@@ -6,6 +6,11 @@
 - Read [learned workspace facts](../.agents/learned-workspace.md) only when its trigger keywords match the task.
 - Use `${SECRET_DOMAIN}` for URLs; never hardcode domains.
 - Use YAML anchors only within one `---` document; Kustomize does not resolve anchors across documents.
+- A `GrafanaDashboard` omits `allowCrossNamespaceImport` and `instanceSelector`: the cluster patch
+  in `kubernetes/flux/cluster/ks.yaml` injects both. The `$schema` header flags the missing
+  `instanceSelector` in-editor anyway (the CRD marks it required) — that squiggle is expected, do
+  not silence it by adding the field back. Dashboards declared inside a `ResourceSet` are the
+  exception: flux-operator expands those, kustomize never sees them, so they keep both inline.
 - Store secrets with SOPS; never commit plaintext secrets or `age.key`.
 - Use lowercase-dash Kubernetes names. Applications live under `kubernetes/apps/<namespace>/<app>/`; follow peer layouts and include `ks.yaml`.
 - Ask before applying or reconciling live resources or decrypting or editing SOPS secrets.

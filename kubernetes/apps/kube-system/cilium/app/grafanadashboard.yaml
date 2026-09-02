@@ -5,10 +5,6 @@ kind: GrafanaDashboard
 metadata:
   name: cilium
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   folder: network
   datasources:
     - datasourceName: prometheus
@@ -23,10 +19,6 @@ kind: GrafanaDashboard
 metadata:
   name: cilium-operator
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   folder: network
   datasources:
     - datasourceName: prometheus

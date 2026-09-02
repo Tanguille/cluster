@@ -5,10 +5,6 @@ kind: GrafanaDashboard
 metadata:
   name: keda
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   folder: autoscaling
   datasources:
     - datasourceName: prometheus
@@ -21,10 +17,6 @@ kind: GrafanaDashboard
 metadata:
   name: keda-scaled-object
 spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
   folder: autoscaling
   datasources:
     - datasourceName: prometheus
