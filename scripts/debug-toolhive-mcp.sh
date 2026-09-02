@@ -5,6 +5,9 @@
 set -euo pipefail
 
 NS="${TOOLHIVE_NAMESPACE:-ai}"
+# Fetched once and filtered four different ways below, rather than one API round-trip per filter.
+pods="$(kubectl get pods -n "$NS" --no-headers 2>/dev/null || true)"
+
 # ToolHive creates deployments named mcp-<mcpserver-name>-proxy; list pods by name pattern
 echo "=== Pods (mcp-*-proxy) ==="
 kubectl get pods -n "$NS" -o wide 2>/dev/null | grep -E 'NAME|mcp-|homeassistant|grafana|searxng' || kubectl get pods -n "$NS" -o wide
@@ -15,7 +18,7 @@ kubectl get deploy,sts -n "$NS" 2>/dev/null | grep -E 'NAME|mcp-|homeassistant|g
 
 echo ""
 echo "=== Describe non-Running pods (any in namespace) ==="
-for pod in $(kubectl get pods -n "$NS" --no-headers 2>/dev/null | awk '$3 != "Running" && $3 != "Completed" {print $1}'); do
+awk '$3 != "Running" && $3 != "Completed" {print $1}' <<<"$pods" | while read -r pod; do
   echo "--- $pod ---"
   kubectl describe pod -n "$NS" "$pod" | tail -40
   echo ""
@@ -25,7 +28,7 @@ done
 echo "=== Home Assistant proxy logs (mcp container, last 80 lines) ==="
 kubectl logs -n "$NS" deployment/homeassistant -c mcp --tail=80 2>/dev/null || \
 kubectl logs -n "$NS" statefulset/homeassistant -c mcp --tail=80 2>/dev/null || \
-{ pod_ha=$(kubectl get pods -n "$NS" --no-headers 2>/dev/null | grep -E '^homeassistant-[0-9a-z]+-' | awk '{print $1; exit}'); \
+{ pod_ha=$(awk '/^homeassistant-[0-9a-z]+-/{print $1; exit}' <<<"$pods"); \
   [[ -n "$pod_ha" ]] && kubectl logs -n "$NS" "$pod_ha" -c mcp --tail=80 2>/dev/null; } || echo "(no homeassistant proxy logs found)"
 
 echo ""
@@ -36,7 +39,7 @@ kubectl logs -n "$NS" grafana-0 --all-containers --tail=80 2>/dev/null || echo "
 
 echo ""
 echo "=== Grafana proxy/runner logs (Deployment pod, attaches to grafana-0) ==="
-pod_grafana=$(kubectl get pods -n "$NS" --no-headers 2>/dev/null | grep -E '^grafana-[0-9a-z]+-[a-z0-9]+ ' | awk '{print $1; exit}')
+pod_grafana=$(awk '/^grafana-[0-9a-z]+-[a-z0-9]+ /{print $1; exit}' <<<"$pods")
 if [[ -n "$pod_grafana" ]]; then
   kubectl logs -n "$NS" "$pod_grafana" -c mcp --tail=40 2>/dev/null || \
   kubectl logs -n "$NS" "$pod_grafana" --tail=40 2>/dev/null || echo "(no logs from $pod_grafana)"
@@ -46,7 +49,7 @@ fi
 
 echo ""
 echo "=== SearXNG proxy logs (last 80 lines) ==="
-pod_sx=$(kubectl get pods -n "$NS" --no-headers 2>/dev/null | grep -E '^searxng-[0-9a-z]+-[a-z0-9]+ ' | awk '{print $1; exit}')
+pod_sx=$(awk '/^searxng-[0-9a-z]+-[a-z0-9]+ /{print $1; exit}' <<<"$pods")
 if [[ -n "$pod_sx" ]]; then
   kubectl logs -n "$NS" "$pod_sx" -c mcp --tail=80 2>/dev/null || \
   kubectl logs -n "$NS" "$pod_sx" --tail=80 2>/dev/null || echo "(no logs from $pod_sx)"

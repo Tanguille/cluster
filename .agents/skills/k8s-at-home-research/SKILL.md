@@ -11,7 +11,7 @@ description: >-
   user: "Chart values for app-template like others use" → Code search scoped to top repos
 
   Prefer this before inventing Kubernetes YAML when the app may exist in the k8s-at-home ecosystem.
-compatibility: Requires network access to GitHub (REST API, `gh`, or GitHub MCP). Optional GH_TOKEN/GITHUB_TOKEN; Python 3 for the bundled repo search script.
+compatibility: Requires network access to GitHub (`gh`, GitHub MCP, or the kubesearch MCP server).
 ---
 
 # k8s-at-home research
@@ -38,7 +38,6 @@ Research is **advisory**: never copy secrets, domains, cluster-specific IDs, or 
   Then `repo_clone`/`repo_read_file` to inspect exemplar manifests. Kubesearch queries the pre-indexed kubesearch.dev database — no `topic:k8s-at-home` tag needed.
 - **GitHub MCP second:** `github_search_repositories`, `github_get_file_contents` for repos not yet indexed by kubesearch.
 - **Fallback:** `gh search repos <app> --topic k8s-at-home --limit 10` then scoped `gh search code` with `repo:<owner>/<repo>`.
-- **Repo shortlist:** `python3 .agents/skills/k8s-at-home-research/scripts/search_k8s_at_home.py <term> --limit 10`
 - **Web search** only to find repo names; confirm in repository files.
 - **Local repo** — compare against existing `kubernetes/apps/` before proposing YAML.
 - **Upstream chart docs** for chart values — not k8s-at-home mining.
@@ -75,6 +74,5 @@ Unless the user asks for raw dumps, use:
 
 ## Scripts
 
-- [scripts/search_k8s_at_home.py](scripts/search_k8s_at_home.py) — GitHub repo search with `topic:k8s-at-home`.
 
 Format reference: [agentskills.io](https://agentskills.io/specification).

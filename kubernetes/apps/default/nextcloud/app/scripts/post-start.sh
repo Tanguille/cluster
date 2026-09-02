@@ -45,14 +45,16 @@ for pkg in libimage-exiftool-perl ffmpeg imagemagick libmagickcore-7.q16-10 libm
 done
 
 log "Waiting for Nextcloud to be ready..."
+ready=0
 for i in {1..30}; do
   if run_occ "status" >/dev/null 2>&1; then
     log "Nextcloud is ready"
+    ready=1
     break
   fi
   [ "$i" -lt 30 ] && sleep 2
 done
-[ "$i" -eq 30 ] && log "WARNING: Nextcloud not ready after 60 seconds"
+[ "$ready" -eq 0 ] && log "WARNING: Nextcloud not ready after 60 seconds"
 
 
 
@@ -68,7 +70,7 @@ else
   log "WARNING: exiftool not found"
 fi
 
-if run_occ "status" >/dev/null 2>&1; then
+if [ "$ready" -eq 1 ]; then
   set_config "app" "memories enable_transitions" --value="yes"
   set_config "app" "memories preview_max_x" --value="2048"
   set_config "app" "memories preview_max_y" --value="2048"
