@@ -112,8 +112,11 @@ jobs:
       # and writable by any job, so every binary is sha256-checked against the release.
       - name: Install talosctl
         env:
+          # Must match talosupgrade.yaml. The Talos group moves this with the rest only between
+          # stable releases: config:recommended sets ignoreUnstable, so through a pre-release
+          # window Renovate proposes nothing here and the version moves by hand with the others.
           # renovate: datasource=github-releases depName=siderolabs/talos
-          TALOS_VERSION: v1.13.9
+          TALOS_VERSION: v1.14.0-rc.2
         run: |
           set -euo pipefail
           base="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}"
