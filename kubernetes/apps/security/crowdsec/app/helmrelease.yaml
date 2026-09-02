@@ -82,6 +82,37 @@ spec:
             statics:
               - parsed: static_ressource
                 value: "true"
+      notifications:
+        alertmanager.yaml: |-
+          type: http
+          name: alertmanager
+          log_level: info
+          # A single client burst is one alert; batch so a noisy scenario cannot flood the webhook
+          group_wait: 30s
+          group_threshold: 10
+          max_retry: 3
+          timeout: 10s
+          # models.Alert fields are pointers: print them directly (text/template indirects) and never
+          # via printf, which would render the address. toJson handles escaping for attacker-controlled values.
+          format: |
+            [{{range $i, $a := .}}{{if $i}},{{end}}{
+              "labels": {
+                "alertname": "CrowdsecDecision",
+                "severity": "warning",
+                "scenario": {{$a.Scenario | toJson}},
+                "source_ip": {{$a.Source.IP | toJson}}
+              },
+              "annotations": {
+                "summary": "{{$a.Source.IP}} banned by {{$a.Scenario}}",
+                "origin": "{{$a.Source.Cn}} / {{$a.Source.AsName}}",
+                "request": {{if $a.Events}}{{(index $a.Events 0).Meta | toJson | toJson}}{{else}}"none"{{end}}
+              },
+              "startsAt": {{$a.StartAt | toJson}}
+            }{{end}}]
+          url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093/api/v2/alerts
+          method: POST
+          headers:
+            Content-Type: application/json
       config.yaml.local: |-
         api:
           server:
@@ -105,6 +136,9 @@ spec:
         decisions:
           - type: ban
             duration: 24h
+        # Only locally-generated alerts reach profiles; CAPI blocklist pulls (15k IPs every 2h) do not
+        notifications:
+          - alertmanager
         on_success: break
     tls:
       enabled: true
