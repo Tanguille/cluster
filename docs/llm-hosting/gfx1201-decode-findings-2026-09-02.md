@@ -211,68 +211,91 @@ is a two-line config change and must be tried first.
   mode). Passing 64 is worth ~21% on down_proj at M=1 but only ~2% at M=2 where
   this deployment operates. Two live call sites, not ten. Low priority.
 
-## Decode is bandwidth-bound, and every quantized GEMM is already at the ceiling
+## Decode is bandwidth-saturated. Every GEMM, lm_head included, is at the ceiling
 
-Measured 2026-09-02 in-container. Achievable bandwidth on this card is
-**566 GB/s** (pure streaming read of a 485 MiB tensor). Per-decode-step GEMM
-budget, ms, all 64 layers, through the real dispatch:
+Standalone per-op timings taken through the real dispatch, x layer count:
 
-| | M=1 | M=2 | M=3 | M=5 | eff. BW at M=1 |
-|---|---|---|---|---|---|
-| gate_up | 10.87 | 10.82 | 10.69 | 11.92 | **557 GB/s** |
-| down_proj | 5.60 | 5.80 | 15.74 | 14.38 | **537 GB/s** |
-| gdn in_qkvz | 2.85 | 2.89 | 2.95 | 3.19 | ~540 |
-| gdn out_proj | 1.59 | 1.67 | 1.79 | 2.01 | ~540 |
-| qkv + o (attn) | 1.18 | 1.24 | 1.29 | 1.40 | ~540 |
-| **lm_head (bf16)** | **6.34** | ~6.3 | ~6.3 | 6.02 | **405 GB/s** |
-| total | 28.4 | 28.7 | 38.8 | 38.9 | |
+| | M=1 | M=2 | M=3 | M=5 |
+|---|---|---|---|---|
+| gate_up | 10.87 | 10.82 | 10.69 | 11.92 |
+| down_proj | 5.60 | 5.80 | 15.74 | 14.38 |
+| gdn in_qkvz | 2.85 | 2.89 | 2.95 | 3.19 |
+| gdn out_proj | 1.59 | 1.67 | 1.79 | 2.01 |
+| qkv + o (attn) | 1.18 | 1.24 | 1.29 | 1.40 |
 
-Measured step time is ~32.3 ms at M=1, so GEMMs are ~88% of it.
+At M=1 those imply 523-557 GB/s per projection, i.e. 92-98% of a 566 GB/s
+pure-read figure. **The conclusion holds: the model is memory-bound and the
+memory system is saturated, so no kernel work remains on these layers.** But
+treat the absolute ms as an upper bound only -- see the correction below.
 
-**This is the headline result: every W4A16 projection already runs at 95-98% of
-the card's achievable bandwidth.** There is no kernel work left on them - not
-tile tuning, not cu_count, not a better dispatch. The model is memory-bound and
-the memory system is saturated. The only way to make those layers faster is to
-move fewer bytes.
+### Correction: standalone timings overstate cost, verified the hard way
 
-**The single exception is `lm_head`**, which is bf16 (it sits in the checkpoint's
-`ignore` list, as do the GDN `in_proj_a`/`in_proj_b`) and runs at 405 GB/s, 72%
-of ceiling. It is 2.543 GB read every step regardless of batch size, ~20% of the
-M=1 step.
+`lm_head` looked like the one exception. A standalone proxy measured it at
+**6.29 ms and 405 GB/s** against 489 GB/s for the same bytes in a contiguous
+`[H,V]` layout, implying ~1.1 ms/step of free win from transposing it.
 
-Two independent gains are available there, measured with a scaled proxy
-(V=49664, only 2.6 GiB free) and extrapolated linearly - per-1k-vocab cost was
-constant to within 3%, so the extrapolation is sound:
+**That was wrong, and shipping it proved so.** An import hook storing lm_head
+transposed (in `process_weights_after_loading`, before the KV cache and
+cudagraphs are allocated; free VRAM 13.87 -> 11.50 GiB, KV pool unchanged at
+288,508 tokens) measured **-0.5% e2e at every M**:
 
-| lm_head variant | M=1 | vs today | quality |
-|---|---|---|---|
-| `F.linear`, `[V,H]` (today) | 6.29 ms | - | - |
-| same weights, stored `[H,V]` | 5.18 ms | **-1.1 ms** | identical |
-| W4A16 g128 (RDNA kernel) | **1.17 ms** | **-5.1 ms** | ~1.15% greedy flips |
+| M | stock | transposed |
+|---|---|---|
+| 1 | 31.07 | 30.92 |
+| 3 | 65.31 | 64.97 |
+| 5 | 103.21 | 102.64 |
 
-The transposed-layout win is free arithmetic: `a @ wt` hits 489 GB/s where
-`F.linear` gets 405.
+Instrumenting the actual call with cuda events, same code path both ways, found
+why:
 
-### The 4-bit lm_head quality estimate, and why the first two attempts were junk
+| lm_head, in situ | mean | effective BW |
+|---|---|---|
+| stock `F.linear` | **4.00 ms** | **~636 GB/s** |
+| transposed | 4.20 ms | ~605 GB/s |
 
-RTN-quantizing the real `lm_head` to W4A16 g128 asymmetric gives **logit MAE
-0.081** (std ~0.10). Turning that into a token-level error rate needs the real
-top1-top2 logit gap distribution, and two proxies got this badly wrong first:
+**lm_head was already at ~100% of this card's memory bandwidth** (~640 GB/s
+spec). The standalone proxy overstated it by 57% and invented a layout problem
+that did not exist. The 566 GB/s "ceiling" from `w.sum()` was itself low -- a
+reduction, not a pure stream.
+
+Two rules follow, both learned by shipping the wrong thing:
+
+- **A standalone microbenchmark of one op does not predict its in-engine cost.**
+  Per-call timing carries launch and sync overhead the captured cudagraph does
+  not. Instrument the real call site before believing a budget.
+- Every absolute figure in the table above is inflated by the same effect. Their
+  *ratios* survived (each projection sits at a similar fraction of bandwidth);
+  their millisecond values did not.
+
+### What this leaves for lm_head
+
+It is bf16 because the checkpoint keeps it in `ignore` (as it does the GDN
+`in_proj_a`/`in_proj_b`), and it reads 2.543 GB every step regardless of batch
+size: **4.00 ms, ~12% of the M=1 step**. Layout is exhausted; only fewer bytes
+help. W4A16 g128 would cut the read 3.76x to ~0.68 GB, so at the same bandwidth
+~1.1 ms -- saving **~2.9 ms, ~9% at M=1**, less at higher M. Not the ~16% an
+earlier revision of this doc projected off the bad proxy.
+
+Cost: a re-quantized checkpoint, a new Model CR and cache PVC, and the quality
+question below.
+
+### The 4-bit lm_head quality estimate, and why two proxies were junk
+
+RTN-quantizing the real lm_head to W4A16 g128 asymmetric gives **logit MAE
+0.081** (std ~0.10). Converting that to a token error rate needs the real
+top1-top2 logit gap distribution, and two proxies got it badly wrong:
 
 - random N(0,1) hidden states -> 68.8% top-1 agreement
 - rows of `embed_tokens` as hidden states -> 81.2%
 
-Both are artifacts: each produced a near-uniform logit distribution (mean top-1
-probability **0.0004**), where the top two logits are tied and argmax flips on
-noise. Real distributions are nothing like that. Sampled from the live server
-with `logprobs=5` over 8 prompts (n=490 positions): **median gap 3.88, mean top-1
-probability 0.810**, and only 4.9% of positions carry >1% flip risk. Modelling
-the perturbation as N(0, 0.101) per logit gives an **expected greedy flip rate of
-1.15%**, concentrated where the median gap is 0.125 - positions the model is
-genuinely undecided on.
+Both produced near-uniform logits (mean top-1 probability **0.0004**), where the
+top two are tied and argmax flips on noise. Sampled from the live server with
+`logprobs=5` over 8 prompts (n=490): **median gap 3.88, mean top-1 probability
+0.810**. Modelling the perturbation as N(0, 0.101) per logit gives an **expected
+greedy flip rate of 1.15%**, concentrated where the median gap is 0.125.
 
-That is an estimate from a noise model, not an eval. It justifies running
-lm-eval; it does not substitute for one.
+That is a noise model, not an eval. It justifies running lm-eval; it does not
+replace one.
 
 ## K-split of down_proj: real at the kernel, unaffordable in practice
 
@@ -309,7 +332,7 @@ roughly a quarter of their headline number.
 
 - Output quality under the raised LDS gate, beyond smoke prompts.
 - An actual lm-eval run behind the 1.15% greedy-flip estimate above, before any
-  4-bit lm_head ships.
-- Whether the transposed-lm_head layout can be applied at load time. It needs
-  both copies live during the transpose (~4.7 GB); the KV cache is explicitly
-  sized and allocated after weights, so the headroom may exist at that moment.
+  4-bit lm_head ships. It is the only lever left that is not already at the
+  memory ceiling, and it is worth ~9% at M=1.
+- In-situ (event-instrumented) timings for the other projections. Only lm_head
+  was measured at its real call site; the rest are still standalone upper bounds.
