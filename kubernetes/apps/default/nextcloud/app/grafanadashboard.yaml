@@ -5,6 +5,10 @@ kind: GrafanaDashboard
 metadata:
   name: nextcloud
 spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
   folder: apps
   datasources:
     - datasourceName: prometheus

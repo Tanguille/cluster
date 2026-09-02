@@ -5,6 +5,10 @@ kind: GrafanaDashboard
 metadata:
   name: scraparr
 spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
   folder: media
   datasources:
     - datasourceName: prometheus

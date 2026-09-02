@@ -5,6 +5,10 @@ kind: GrafanaDashboard
 metadata:
   name: grafana-operator
 spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
@@ -18,6 +22,10 @@ kind: GrafanaDashboard
 metadata:
   name: grafana-overview
 spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS

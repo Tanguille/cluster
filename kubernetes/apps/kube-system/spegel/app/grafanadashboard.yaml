@@ -5,6 +5,10 @@ kind: GrafanaDashboard
 metadata:
   name: spegel
 spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
   folder: kubernetes
   datasources:
     - datasourceName: prometheus
