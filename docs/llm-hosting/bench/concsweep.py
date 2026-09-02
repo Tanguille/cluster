@@ -30,9 +30,9 @@ URL = f"http://127.0.0.1:{_port()}/v1/completions"
 # which engine answers. Hardcoding it once cost a whole run of silent 0.00 tok/s.
 MODEL = sys.argv[2] if len(sys.argv) > 2 else "qwen-3.8"
 GEN = 96
-# One point per real batch size. Keep the top of the range <= max_num_seqs, or
-# the extra points just re-measure the cap.
-CONCS = [int(x) for x in sys.argv[3].split(",")] if len(sys.argv) > 3 else [1, 2, 3, 4, 5, 6]
+# One point per real batch size, top == max_num_seqs (5). Going past it just
+# re-measures the cap, which is the mistake the old [1, 8, 16] default made.
+CONCS = [int(x) for x in sys.argv[3].split(",")] if len(sys.argv) > 3 else [1, 2, 3, 4, 5]
 
 
 def stream(salt, out, lk):
