@@ -297,6 +297,36 @@ greedy flip rate of 1.15%**, concentrated where the median gap is 0.125.
 That is a noise model, not an eval. It justifies running lm-eval; it does not
 replace one.
 
+### lm-eval: baseline captured, quantized arm NOT completed
+
+Started 2026-09-02 23:00 CEST. Method that works and is worth reusing: a
+fake-quant import hook applies the same RTN math (per-group min/max -> 4-bit
+level -> dequantize) to lm_head at load while leaving the weights bf16. Logits
+are then identical to a real W4A16 lm_head, so the quality question is answerable
+**without building a 19 GB re-quantized checkpoint**. Confirmed applied against
+the real weights (`fake-quantized lm_head (248320, 5120) W4A16 g128`).
+
+Harness: lm_eval 0.4.13 in a py3.12 venv, `local-completions` against the live
+server, model's own tokenizer copied out of the pod. arc_challenge + winogrande
+(loglikelihood tasks, directly sensitive to logit perturbation, prefill-dominated
+so fast here).
+
+Baseline (stock lm_head, full sets):
+
+| task | metric | value |
+|---|---|---|
+| arc_challenge | acc | 0.5674 +/- 0.0145 |
+| arc_challenge | acc_norm | 0.5811 +/- 0.0144 |
+| winogrande | acc | 0.7632 +/- 0.0119 |
+
+**The quantized arm was aborted at 23% of arc_challenge** when production was
+reverted, so there is no quality verdict. Re-running it needs ~25 min per arm.
+
+Note on power before re-running: at n=1172/1267 the stderr per figure is ~1.4%,
+so this pair can detect a multi-point regression but **cannot resolve a sub-1%
+difference**. If the goal is to bound a small delta, use paired per-item scoring
+rather than comparing two aggregate accuracies.
+
 ## K-split of down_proj: real at the kernel, unaffordable in practice
 
 Warm, interleaved arms (a first attempt with 10 warmup iterations gave garbage
