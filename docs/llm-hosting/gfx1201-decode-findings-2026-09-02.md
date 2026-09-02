@@ -340,12 +340,44 @@ multiple-choice scoring sums loglikelihoods over a whole continuation, so it
 accumulates perturbation across many tokens. The two do not contradict each
 other and neither confirms the other.
 
-**What this does NOT establish.** Both tasks are multiple-choice loglikelihood
-scoring. Neither tests generation: no tool-calling, no code, no long-form
-coherence -- which is most of what this deployment actually serves. A 5-7%
-change rate in scored continuations is small but not nothing, and its effect on
-agentic tool use is unmeasured. **Run a generative eval (gsm8k, or a
-tool-calling suite) before shipping a 4-bit lm_head.**
+**Generative eval, 2026-09-03.** The multiple-choice result above says nothing
+about generation, which is most of what this deployment serves, so gsm8k
+(5-shot, greedy, n=400) and a 20-prompt greedy-divergence capture were run on
+both arms.
+
+**Generation on this engine is deterministic.** Three stock captures of the same
+20 prompts at temperature 0, one of them on a different pod, were **20/20
+byte-identical** to each other. So every difference below is caused by the
+quantization, not run-to-run noise.
+
+*Behaviourally the model changes a lot:* **19 of 20** greedy continuations
+differ under the 4-bit lm_head, diverging anywhere from character 1 to ~350 of
+a few hundred. Nearly every response is different text.
+
+*But accuracy does not degrade -- it goes up*, paired on identical items:
+
+| gsm8k filter | correct->wrong | wrong->correct | net | changed | McNemar p |
+|---|---|---|---|---|---|
+| flexible-extract | 6 | 28 | **+22** | 8.5% | 0.0002 |
+| strict-match | 7 | 23 | **+16** | 7.5% | 0.0052 |
+
+Aggregates: flexible 0.6575 -> 0.7125, strict 0.6200 -> 0.6600.
+
+**Do not read that as "quantization improves reasoning."** An unexplained +5.5 pp
+from adding noise to a weight matrix is far more likely to mean the benchmark is
+measuring something other than reasoning. The plausible mechanism, untested, is
+formatting: gsm8k scores a number extracted from generated text, 95% of
+generations changed, and this is a thinking model whose stray `<think>` output
+can defeat extraction -- so a formatting shift alone could move both filters.
+The result is recorded because it is what was measured, not because the
+mechanism is understood.
+
+**What the three tasks jointly support:** no quality regression was detected
+anywhere (arc_challenge, winogrande, gsm8k). What they do *not* support is
+"behaviour is unchanged" -- it is changed almost everywhere. For an agentic
+workload that matters independently of benchmark scores: tool-call arguments,
+code, and structured output would all differ from today's model. Nothing here
+tested tool-calling directly.
 
 Cost if it does ship: a re-quantized checkpoint, a new Model CR and cache PVC,
 for ~9% at M=1.
