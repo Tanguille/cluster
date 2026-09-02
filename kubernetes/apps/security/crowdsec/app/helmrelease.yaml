@@ -92,8 +92,9 @@ spec:
           group_threshold: 10
           max_retry: 3
           timeout: 10s
-          # models.Alert fields are pointers: print them directly (text/template indirects) and never
-          # via printf, which would render the address. toJson handles escaping for attacker-controlled values.
+          # Every interpolated value goes through toJson; no hand-quoted JSON strings.
+          # Alert.Scenario is a pointer, so it is piped to toJson directly: printf "%s" would render
+          # the address. Source.IP/Cn/AsName are plain strings and are safe to printf before toJson.
           format: |
             [{{range $i, $a := .}}{{if $i}},{{end}}{
               "labels": {
@@ -103,8 +104,8 @@ spec:
                 "source_ip": {{$a.Source.IP | toJson}}
               },
               "annotations": {
-                "summary": "{{$a.Source.IP}} banned by {{$a.Scenario}}",
-                "origin": "{{$a.Source.Cn}} / {{$a.Source.AsName}}",
+                "summary": {{$a.Scenario | toJson}},
+                "client": {{printf "%s (%s / %s)" $a.Source.IP $a.Source.Cn $a.Source.AsName | toJson}},
                 "request": {{if $a.Events}}{{(index $a.Events 0).Meta | toJson | toJson}}{{else}}"none"{{end}}
               },
               "startsAt": {{$a.StartAt | toJson}}
