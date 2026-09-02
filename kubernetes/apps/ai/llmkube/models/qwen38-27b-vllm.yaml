@@ -192,9 +192,15 @@ spec:
   modelRef: qwen38-27b-vllm
   runtime: vllm
   replicas: 1
-  # TPOT probe 08-21: kernel-dispatch cliff at M=6 (MAX_SKINNY_BATCH_SIZE=5
-  # in rdna_hybrid_w4a16.py), 23.6 -> 13.3 tok/s/stream. Operator -> --max-num-seqs.
-  parallelSlots: 6
+  # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
+  # W4A16 projections to the slow Triton path at M=6 (and drops the bf16 lm_head
+  # to torch.linear), so slot 6 is strictly worse per stream than slot 5.
+  # Measured 2026-09-02, M=1..5 with one graph per size:
+  #   before (slots 6, capture [1,2,4,6]): 31.06 28.64 39.30 52.15 52.22 61.99
+  #   after  (slots 5, capture [1,2,3,4,5]): 31.11 56.33 64.95 76.10 102.87
+  # Peak aggregate 61.99 -> ~99 tok/s. Pairs with the LDS gate patch below;
+  # neither change alone produces those numbers.
+  parallelSlots: 5
   bindAddress: 0.0.0.0
   # Rolling `nightly` tag pinned by digest, same shape as
   # kubesearch-mcp:master@sha256:. The digest is what gets pulled, so this is
@@ -283,6 +289,10 @@ spec:
     - name: aiter-kvconn-patch
       configMap:
         name: aiter-kvconn-patch
+    # Raises the W4A16 skinny-GEMM LDS gate to the C++ kernel's real limit.
+    - name: lds-gate-patch
+      configMap:
+        name: lds-gate-patch
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -318,6 +328,28 @@ spec:
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn_impl.py
       subPath: zz_aiter_kvconn_impl.py
       readOnly: true
+    # rdna_hybrid_w4a16.py gates the fast HIP skinny GEMM on
+    # `K * M <= LDS_CAPACITY_ELEMENTS` (32768). The C++ kernel actually accepts
+    # `K_in * N_in <= max_lds_len * 1.2` (39321) and switches to a medium
+    # variant above the plain LDS size. down_proj (K=17408) at M=2 is 34816:
+    # legal for the kernel, refused by Python, so it fell to a ~2x slower Triton
+    # path -- which is why per-stream decode halved at 2 concurrent requests.
+    #
+    # Verified on gfx1201 before deploying: at M=2 the HIP kernel is correct
+    # (rel err 0.0014 vs an fp32 reference, BETTER than Triton's 0.0093) and
+    # ~1.8x faster; M=3 (52224) is refused by the kernel itself with a clean
+    # RuntimeError, so an over-large gate fails loudly, not silently.
+    #
+    # Same one-line change as upstream vllm PR #52619. Drop this mount and the
+    # generator entry once that lands in the nightly.
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
+      subPath: zz_lds_gate.pth
+      readOnly: true
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
+      subPath: zz_lds_gate_impl.py
+      readOnly: true
   extraArgs:
     # First name is what vLLM reports back as `model`, so qwen-3.8 stays
     # primary. The second is an alias: the operator derives a LiteLLMModel from
@@ -338,7 +370,11 @@ spec:
     # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
     # (256) would overshoot.
     - --compilation-config
-    - '{"cudagraph_capture_sizes": [1, 2, 4, 6]}'
+    # One capture per real batch size. vLLM pads any batch to the NEXT capture
+    # size (v1/cudagraph_dispatcher.py), so [1,2,4,6] silently ran M=3 as 4 and
+    # M=5 as 6 -- the M=5 point was measuring the all-Triton M=6 path. With
+    # max_num_seqs 5 there is no padding left to pay for.
+    - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5]}'
     # Keep prior-turn reasoning in context; matches production qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
