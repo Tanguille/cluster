@@ -362,15 +362,23 @@ Two things have to be true for a node. All three nodes satisfy both as of 2026-0
    one half each, so the field can carry it. See `docs/tuppr-cr-version-target-plan.md`.
 
    The annotation mattered because only `just talos apply-node` could change it, so merging a
-   bump PR rolled nothing. With the target in the CR, Flux carries it and a merge is the whole
-   procedure.
+   bump PR rolled nothing.
 
-To hold one node back while the rest move, use `spec.nodeSelector` on the CR — it is a full
-`LabelSelector`, so `kubernetes.io/hostname NotIn [control-1]` parks that node declaratively, in
-the same file as the version and under review like any other change. `getTargetVersion` still
-prefers a node annotation over the CR (`upgrade.go:855`) and Talos no longer owns that key, so
-`kubectl annotate node <node> tuppr.home-operations.com/version=<string>` is the imperative
-fallback when you want a hold that leaves no diff — see "Rolling a bump back".
+   **The switchover costs one `apply-node` per node, once.** Talos writes that annotation from
+   machine config, so it survives on a node until a config without it is applied — and
+   `getTargetVersion` keeps preferring it until then, which means the first CR bump after this
+   change still rolls nothing. Only after that cleanup does Flux carry the target and later
+   bumps become merge-only. Confirm with the `HOLD` column in "Rolling a bump back": empty on
+   every node means the CR is in charge.
+
+To hold a node back while the rest move, use `spec.nodeSelector` on the CR — `getSortedNodes`
+passes it to `LabelSelectorAsSelector` and *lists* with it (`upgrade.go:625-641`), so an excluded
+node is never enumerated as a candidate and takes no outdated taint. `kubernetes.io/hostname
+NotIn [<node>]` is the shape; the CR itself says which nodes are currently held, if any.
+
+`getTargetVersion` still prefers a node annotation over the CR (`upgrade.go:855`) and Talos no
+longer owns that key, so `kubectl annotate node <node> tuppr.home-operations.com/version=<string>`
+is the imperative fallback for a hold that leaves no diff — see "Rolling a bump back".
 
 **A third thing is true for the CR.** Once a node reports `v<talos>-k<kernel>`, tuppr derives the
 talosctl job image tag from that same string and pulls

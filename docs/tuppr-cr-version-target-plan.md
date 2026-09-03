@@ -57,8 +57,8 @@ Everything below was checked against source at tuppr 0.5.2, not assumed.
 | Outdated nodes carry a taint while parked | `upgrade.go:606-608` + `nodes.go:68-89`, `PreferNoSchedule` |
 | `flate.yaml` would break | `.github/workflows/flate.yaml:124` reads `.spec.talos.version` into a `releases/download/${TALOS_VERSION}` URL — a `-k` suffix 404s |
 | `talosctl.image.tag` must stay plain | `jobs.go:559-568` uses the tag verbatim when set |
-| The talos group would capture the new manager | `.renovaterc.json5:139-144` groups any `siderolabs/*` on `docker`/`github-releases` |
-| `versioning: loose` already applies to the kernel datasource | `.renovaterc.json5:259-264` keys off `matchDatasources: ["custom.linux-kernel"]` |
+| The talos group would capture the new manager | `.renovaterc.json5:167-177` groups any `siderolabs/*` on `docker`/`github-releases` |
+| `versioning: loose` already applies to the kernel datasource | `.renovaterc.json5:291-298` keys off `matchDatasources: ["custom.linux-kernel"]` |
 | Nothing else reads the annotation | grep: only the three node templates and the README |
 | 0.5.3 changes nothing relied on here | its only controller change is a `ghcr.io/siderolabs/installer` → Image Factory redirect, which never matches `ghcr.io/tanguille/installer/*` |
 

@@ -31,12 +31,9 @@ spec:
       # now carries the kernel suffix, which is exactly what must not reach this one.
       # renovate: datasource=github-releases depName=siderolabs/talos
       tag: v1.14.0
-  # HOLD: control-1 is excluded from this rollout. getSortedNodes passes this straight to
-  # LabelSelectorAsSelector and lists with it (upgrade.go:625-641), so an excluded node is never
-  # a candidate at all -- not skipped late, never enumerated, so it takes no outdated taint
-  # either. It is the TrueNAS VM, the only dGPU host, and the one with the hypervisor-reset
-  # history, so it is the node to move by hand after watching the other two.
-  # Delete this block to release the hold; it is the whole diff, in the same file as the version.
+  # HOLD: control-1 moves by hand -- TrueNAS VM, only dGPU host, hypervisor-reset history.
+  # Excluded nodes are never enumerated as candidates, so they also take no outdated taint
+  # (getSortedNodes lists with this selector, upgrade.go:625-641). Delete the block to release.
   nodeSelector:
     matchExpressions:
       - key: kubernetes.io/hostname
