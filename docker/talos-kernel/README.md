@@ -1,8 +1,8 @@
 # Talos kernel package
 
 Builds a Talos-compatible Linux kernel package so the cluster can run a newer kernel
-than Talos ships. Talos v1.13.9 ships **Linux 6.18.44** and v1.14.0-rc.2 ships
-**Linux 6.18.46**; this tracks kernel.org **stable** (7.1.10 at time of writing).
+than Talos ships. Talos v1.14.0 ships **Linux 6.18.48**; this tracks kernel.org
+**stable** (7.1.13 at time of writing).
 
 Neither `siderolabs/talos` nor `siderolabs/pkgs` is forked. Both are consumed at their
 release tags and steered with make variables.
@@ -11,7 +11,7 @@ release tags and steered with make variables.
 
 The in-kernel Ceph client gained AES256-KRB5 (`aes256k`) support in **Linux 7.0**
 (`b7cc142dbafe libceph: add support for CEPH_CRYPTO_AES256KRB5`, merged in
-`ceph-for-7.0-rc1`). It is absent from 6.18.44 and was **not** backported to 6.18.y — it
+`ceph-for-7.0-rc1`). It is absent from 6.18.48 and was **not** backported to 6.18.y — it
 is a feature, not a fix. Without it the `csi-rbd-node` / `csi-cephfs-node` keys, which
 drive `rbd map` and `mount -t ceph`, cannot move off the insecure `aes` key type
 deprecated by CVE-2025-30156.
@@ -45,7 +45,7 @@ The Ceph `aes256k` feature this was built for is **not yet in use** — it also 
 |--------------------|----------------------------------------------------|----------------------------------------|
 | kernel.org moniker | **longterm**                                       | stable                                 |
 | Projected EOL      | Dec 2028                                           | none published; 7.2 shipped 2026-08-16 |
-| `siderolabs/pkgs`  | `release-1.13` and `release-1.14` both pin 6.18.44 | never shipped                          |
+| `siderolabs/pkgs`  | `release-1.14` pins 6.18.48                        | never shipped                          |
 
 Measured series lifetimes: 6.19.y made its last release 9 days after 7.0 shipped, 7.0.y 13
 days after 7.1. 7.2 is already out, so 7.1.y is likely within weeks of EOL. Mainline cadence
@@ -230,9 +230,9 @@ regression, and it is **not** version-specific to our 1.20: upstream reports 1.1
 and 1.21.0-pre.0 all failing on 7.2 while the same builds run fine on 7.1.
 
 The fix is [`67c619c`][fix] (probe via `bpf_core_enum_value_exists()` instead of emitting the
-call). Measured on 2026-08-30: present on the `v1.20` branch as `b73ca6e8d` (2026-08-28), absent
-from `v1.19` and `v1.18`, and in **no release** — 1.20.1 shipped 2026-08-18, ten days before the
-backport. Re-check with:
+call). Re-measured on 2026-09-03: still present on the `v1.20` branch as `b73ca6e8d`
+(2026-08-28), absent from `v1.19` and `v1.18`, and still in **no release** — 1.20.1 remains the
+latest and shipped 2026-08-18, ten days before the backport. Re-check with:
 
 ```sh
 gh api "repos/cilium/cilium/commits?sha=v1.20&per_page=100" \
