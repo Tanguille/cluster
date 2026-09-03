@@ -454,7 +454,8 @@ spec:
     - >-
       {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":8,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   # Parked, not deleted: control-1 advertises 4 squat.ai/dri slots and all 4 are
-  # held (this pod, jellyfin x3, fileflows, drm-exporter), so Flash-Next cannot
+  # held, one each by this pod, jellyfin, fileflows and drm-exporter, so
+  # Flash-Next cannot
   # schedule until this one releases -- and the R9700's 32Gi could not hold both
   # models even if a slot were free. The whole config below is kept verbatim so
   # reverting the switch is a one-line change back to false, not a restore from
