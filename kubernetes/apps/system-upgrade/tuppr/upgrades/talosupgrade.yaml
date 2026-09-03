@@ -12,15 +12,21 @@ spec:
     # only `just talos apply-node` could change -- so merging a PR rolled nothing.
     # Both halves are Renovate-managed, by the two regex customManagers in .renovaterc.json5 and
     # NOT by an inline annotation: the annotation manager captures the whole value and reads the
-    # -k suffix as a semver prerelease, rewriting v1.14.0-k7.1.13 to v1.14.0 and eating it.
+    # -k suffix as a semver prerelease, rewriting the whole thing and eating the kernel half.
     # Still not ghcr.io/siderolabs/installer either: publication of that image stopped partway
     # through the v1.14 cycle once Image Factory became the default, so a docker datasource
     # would silently freeze at the last tag it ever saw.
+    #
+    # NEVER write a literal -k<digits> anywhere else in this file, comments included. The kernel
+    # manager matches "-k<version>" unanchored (it has to; see .renovaterc.json5) and Renovate
+    # rewrites the FIRST occurrence in the file -- a version-shaped example in a comment above
+    # this line silently absorbs the bump and leaves the field below untouched. Caught by a
+    # local dry-run on 2026-09-03, which extracted three `linux` deps from this one file.
     version: v1.14.0-k7.1.13
   talosctl:
     image:
       # The PLAIN upstream tag, never the -k<kernel> one: siderolabs publishes no
-      # talosctl:v1.14.0-k7.1.13 and the job ImagePullBackOffs until policy.timeout
+      # talosctl:v<talos>-k<kernel> and the job ImagePullBackOffs until policy.timeout
       # (measured on control-2, 2026-08-21). No longer aliased to the field above -- that field
       # now carries the kernel suffix, which is exactly what must not reach this one.
       # renovate: datasource=github-releases depName=siderolabs/talos
