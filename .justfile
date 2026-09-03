@@ -34,11 +34,19 @@ talsecret:
 
 # Renders a template with the decrypted Talos secrets as its context, so templates reference
 # talsecret.sops.yaml's own key names ({{ certs.os.crt }}).
-# --autoescape=none is required: the default JSON-escapes every substitution, which silently
-# wraps certs and versions in quotes and yields a config that looks right and is not.
-# --strict makes a typo'd variable an error rather than an empty string.
+# autoescape and strict live in .minijinja.toml (MINIJINJA_CONFIG_FILE, set in .mise.toml), so
+# they also cover a bare minijinja-cli run rather than only this recipe. --format describes this
+# call's context, not repo style, so it stays here.
 [private]
 template file *args:
+    # The settings that used to be --strict/--autoescape=none flags now come from
+    # .minijinja.toml via this env var, which mise sets. Unset -- a shell opened before it was
+    # added, or anything running outside mise -- silently restores autoescaping and renders
+    # `crt: "LS0t..."`, a config that looks right and is not. Guarded, not assumed.
+    [[ -n "${MINIJINJA_CONFIG_FILE:-}" ]] || {
+        echo "MINIJINJA_CONFIG_FILE unset (mise sets it; try a new shell or 'mise env')" >&2
+        exit 1
+    }
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
     # pinned is the CR value verbatim: the tag a node installs cannot disagree with the one tuppr
@@ -47,7 +55,7 @@ template file *args:
     # ARG is checked against the CR in scripts/talos-kernel-build.sh, where a mismatch ships.
     kernel_version="${talos_version#*-k}"
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
-    just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
+    just talsecret | minijinja-cli --format=yaml \
         -D "kubernetesVersion=${kubernetes_version}" \
         -D "kernelVersion=${kernel_version}" \
         -D "pinned=${talos_version}" \

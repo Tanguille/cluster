@@ -13,7 +13,10 @@
     "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#8.1.0",
     "github>home-operations/renovate-presets//apps/llamacpp.json5#8.1.0",
     "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0",
-    "github>home-operations/renovate-presets//apps/talosFactory.json5#8.1.0",
+    // talosFactory preset dropped: it matches factory.talos.dev/<x>/<y>:<tag> under talos/, and
+    // every node pins ghcr.io/tanguille/installer/* instead -- we build installers ourselves, so
+    // it matched nothing. Do NOT reach for its custom.talos-factory datasource for the tuppr
+    // target either: that reads what the Factory can build, and we gate on the siderolabs git tag.
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
