@@ -172,14 +172,12 @@ spec:
     - video_preprocessor_config.json
   hardware:
     accelerator: rocm
-    memoryBudget: 28Gi
     gpu:
       enabled: true
       count: 1
       vendor: amd
       runtime: rocm
       resourceName: squat.ai/dri
-      memory: 32Gi
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 # concsweep.py, warm, agg tok/s vs the SGLang qwen-3.6 baseline (conc 1/8/16):
@@ -432,6 +430,17 @@ spec:
     # GiB the reserve measures 2.48 GiB, 0.66 spare over that peak. Do not
     # raise again without re-measuring the excursion max -- 10.0 GiB would
     # leave 0.16, under the 2 GiB reserve this block is sized against.
+    # Holds 5% of the pool (~15,240 of 304,808 tokens) free when admitting
+    # waiting or preempted requests. Upstream scheduler.py:167 describes this as
+    # headroom that "helps avoid frequent KV cache eviction and the resulting
+    # repeated preemption", which is the 117-preemptions/17h failure measured on
+    # 2026-09-03 -- a scheduler fix for it rather than buying more VRAM.
+    #
+    # The trade is admission: holding blocks free means fewer concurrent
+    # requests, so watch queue time alongside preemptions. Revert if TTFT p50
+    # rises materially without preemptions falling.
+    - --watermark
+    - "0.05"
     - --kv-cache-memory
     - "10200547328"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
@@ -464,7 +473,7 @@ spec:
     # fs 6.6% / primary 43.2% at that same moment.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":8,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":8,"kv_load_failure_policy":"recompute","secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   # This engine is the live one; Flash-Next is the parked one (suspend: true
   # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
   # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next
