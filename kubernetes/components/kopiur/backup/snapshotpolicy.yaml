@@ -49,6 +49,9 @@ spec:
   retention:
     keepHourly: 24
     keepDaily: 7
+    # hourly+daily alone bottom out at 7 days: corruption noticed on day 8 is
+    # unrecoverable. Weeklies extend the floor to a month.
+    keepWeekly: 4
   volumeSnapshotClassName: ${BACKUP_SNAPSHOTCLASS:=csi-ceph-blockpool}
   credentialProjection:
     enabled: true
