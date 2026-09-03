@@ -12,10 +12,6 @@ machine:
     # schematic); the repo is named for the schematic, not its id, which moves on every edit.
     # Full rationale: docker/talos-kernel/README.md "Version tagging".
     image: ghcr.io/tanguille/installer/shared:{{ pinned }}
-  # getTargetVersion (upgrade.go:855) prefers this over spec.talos.version. Must match the tag
-  # above exactly or tuppr requests an image that was never published.
-  nodeAnnotations:
-    tuppr.home-operations.com/version: {{ pinned }}
   nodeLabels:
     amd.com/igpu: "true"
     kepler-node: "true"

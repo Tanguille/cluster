@@ -41,12 +41,16 @@ talsecret:
 template file *args:
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
-    kernel_version="$(just kernel-version)"
+    # pinned is the CR value verbatim: the tag a node installs cannot disagree with the one tuppr
+    # asks for. kernelVersion is split off it, not read from the Dockerfile ARG -- its only
+    # consumer is a comment in control-2.yaml.j2, so deriving leaves nothing to reconcile. The
+    # ARG is checked against the CR in scripts/talos-kernel-build.sh, where a mismatch ships.
+    kernel_version="${talos_version#*-k}"
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
         -D "kubernetesVersion=${kubernetes_version}" \
         -D "kernelVersion=${kernel_version}" \
-        -D "pinned=${talos_version}-k${kernel_version}" \
+        -D "pinned=${talos_version}" \
         {{ args }} "{{ file }}" -
 
 [doc('Force Flux to pull in changes from the Git repository')]

@@ -40,6 +40,33 @@
   },
   customManagers: [
     {
+      // One string, two independently-bumped versions, so one manager per half -- an inline
+      // annotation captures the whole value and reads the -k suffix as a semver prerelease.
+      // The optional prerelease group matches an rc pin; this repo ran v1.14.0-rc.2 for weeks.
+      description: "tuppr target v<talos>-k<kernel>: Talos half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: [
+        "version:\\s+(?<currentValue>v\\d+\\.\\d+\\.\\d+(?:-[a-z]+\\.\\d+)?)-k"
+      ],
+      depNameTemplate: "siderolabs/talos",
+      datasourceTemplate: "github-releases"
+    },
+    {
+      // Span is "-k<version>", not the whole version line: Renovate rewrites currentValue inside
+      // the span, and "version: v1.17.3-k7.3" also contains "7.3" inside v1.17.3 (bare series is
+      // what versioning:loose allows). Cost of unanchoring: every literal -k<digits> in the file
+      // is its own dep, so talosupgrade.yaml's comments must not carry one.
+      // depName linux matches the Dockerfile ARG, so both land in one branch -- the -k guard in
+      // scripts/talos-kernel-build.sh relies on that.
+      description: "tuppr target v<talos>-k<kernel>: kernel half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: ["-k(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)"],
+      depNameTemplate: "linux",
+      datasourceTemplate: "custom.linux-kernel"
+    },
+    {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
