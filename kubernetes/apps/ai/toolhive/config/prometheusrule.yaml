@@ -38,6 +38,18 @@ spec:
             summary: >-
               ai/{{ $labels.pod }} container {{ $labels.container }} is at
               {{ $value | humanizePercentage }} of its memory limit
+            description: >-
+              If this is vmcp (pod unified-*): expected, it leaks and this is the
+              warning shot. Restart it deliberately at a quiet moment --
+              `kubectl rollout restart deploy/unified -n ai` -- rather than
+              letting it OOM. A deliberate restart drains cleanly in the 60s
+              grace period; an OOM kill is exit 137 mid-drain. Cost either way is
+              a full optimizer re-embed, so tools are briefly missing from the
+              gateway. Do NOT raise the limit: it only moves the date.
+              If this is any other container, it is a sizing problem, not a known
+              leak -- plot the working set between restarts first. A rising slope
+              means a leak (raising the limit only delays it); a flat line near
+              the ceiling means the limit is genuinely too low.
           labels:
             severity: warning
 
@@ -52,8 +64,15 @@ spec:
           for: 0m
           annotations:
             summary: >-
-              ai/{{ $labels.pod }} container {{ $labels.container }} was OOMKilled —
-              raise its limit or find the leak
+              ai/{{ $labels.pod }} container {{ $labels.container }} was OOMKilled
+            description: >-
+              The container is already restarting; nothing to do to restore
+              service. Confirm it came back ready, then work out why this was not
+              caught by AiContainerMemoryNearLimit first -- either the growth
+              outran the 15m `for:` window, or the jump was sudden rather than a
+              leak. For vmcp specifically, an OOM sooner than roughly a week after
+              the previous one means the leak accelerated and is worth reporting
+              upstream on stacklok/toolhive#5860 with the growth series.
           labels:
             severity: warning
 
