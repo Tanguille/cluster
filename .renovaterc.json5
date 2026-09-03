@@ -40,13 +40,9 @@
   },
   customManagers: [
     {
-      // The tuppr target is one string carrying two independently-bumped versions, so it needs
-      // two managers rather than the annotation manager, which would capture the whole value and
-      // read -k7.1.13 as a semver prerelease of 1.14.0 -- "upgrading" it to v1.14.0 and eating
-      // the kernel half. Each manager owns one half; auto-replace rewrites only its own span.
-      // The prerelease group is not dead weight: this repo ran v1.14.0-rc.2 in prod for weeks,
-      // and a manager that silently matches nothing on an rc pin is the exact failure this
-      // whole split exists to avoid. It costs one clause; a no-match costs a missed bump.
+      // One string, two independently-bumped versions, so one manager per half -- an inline
+      // annotation captures the whole value and reads the -k suffix as a semver prerelease.
+      // The optional prerelease group matches an rc pin; this repo ran v1.14.0-rc.2 for weeks.
       description: "tuppr target v<talos>-k<kernel>: Talos half",
       customType: "regex",
       managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
@@ -57,15 +53,12 @@
       datasourceTemplate: "github-releases"
     },
     {
-      // Deliberately NOT anchored on the Talos prefix. Renovate rewrites currentValue inside the
-      // matched span, so the span has to contain the kernel version and nothing that looks like
-      // it: "version: v1.17.3-k7.3" with the bare-series currentValue "7.3" that
-      // `versioning: loose` exists to allow also contains "7.3" inside v1.17.3. "-k7.3" does not.
-      // The cost of unanchoring is that a literal -k<digits> ANYWHERE in the target file is
-      // extracted as another dep -- a dry-run found three, from two comments carrying example
-      // versions. talosupgrade.yaml carries a warning about that; keep it.
-      // depName linux matches the Dockerfile ARG, so both files land in one branch -- which is
-      // what the -k guard in scripts/talos-kernel-build.sh relies on.
+      // Span is "-k<version>", not the whole version line: Renovate rewrites currentValue inside
+      // the span, and "version: v1.17.3-k7.3" also contains "7.3" inside v1.17.3 (bare series is
+      // what versioning:loose allows). Cost of unanchoring: every literal -k<digits> in the file
+      // is its own dep, so talosupgrade.yaml's comments must not carry one.
+      // depName linux matches the Dockerfile ARG, so both land in one branch -- the -k guard in
+      // scripts/talos-kernel-build.sh relies on that.
       description: "tuppr target v<talos>-k<kernel>: kernel half",
       customType: "regex",
       managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],

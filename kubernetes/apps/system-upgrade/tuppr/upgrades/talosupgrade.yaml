@@ -6,34 +6,21 @@ metadata:
   name: talos
 spec:
   talos:
-    # v<talos>-k<kernel>: the string a node built from docker/talos-kernel actually reports, and
-    # the only thing tuppr compares (plain inequality). The kernel half has to be IN here or a
-    # kernel-only bump is invisible; it used to live in a per-node machine.nodeAnnotations, which
-    # only `just talos apply-node` could change -- so merging a PR rolled nothing.
-    # Both halves are Renovate-managed, by the two regex customManagers in .renovaterc.json5 and
-    # NOT by an inline annotation: the annotation manager captures the whole value and reads the
-    # -k suffix as a semver prerelease, rewriting the whole thing and eating the kernel half.
-    # Still not ghcr.io/siderolabs/installer either: publication of that image stopped partway
-    # through the v1.14 cycle once Image Factory became the default, so a docker datasource
-    # would silently freeze at the last tag it ever saw.
-    #
-    # NEVER write a literal -k<digits> anywhere else in this file, comments included. The kernel
-    # manager matches "-k<version>" unanchored (it has to; see .renovaterc.json5), so every such
-    # string in this file is extracted as its own dep and becomes something Renovate edits. A
-    # local dry-run on 2026-09-03 pulled three `linux` deps out of this one file, from two
-    # comments carrying example versions; only the field below should ever be one.
+    # The version a node built from docker/talos-kernel reports, and the only value tuppr
+    # compares. Renovate-managed by the two regex managers in .renovaterc.json5, one per half;
+    # an inline annotation reads -k7.1.13 as a prerelease and eats the kernel half.
+    # NEVER write another literal -k<digits> in this file, comments included: the kernel manager
+    # is unanchored, so each one is extracted as its own dep. A dry-run found three.
     version: v1.14.0-k7.1.13
   talosctl:
     image:
-      # The PLAIN upstream tag, never the -k<kernel> one: siderolabs publishes no
-      # talosctl:v<talos>-k<kernel> and the job ImagePullBackOffs until policy.timeout
-      # (measured on control-2, 2026-08-21). No longer aliased to the field above -- that field
-      # now carries the kernel suffix, which is exactly what must not reach this one.
+      # Plain upstream tag. A -k<kernel> one is unpublished and the job ImagePullBackOffs until
+      # policy.timeout (control-2, 2026-08-21). Not aliased to the field above any more.
       # renovate: datasource=github-releases depName=siderolabs/talos
       tag: v1.14.0
   # HOLD: control-1 moves by hand -- TrueNAS VM, only dGPU host, hypervisor-reset history.
-  # Excluded nodes are never enumerated as candidates, so they also take no outdated taint
-  # (getSortedNodes lists with this selector, upgrade.go:625-641). Delete the block to release.
+  # Excluded nodes are never enumerated, so they take no outdated taint either
+  # (getSortedNodes, upgrade.go:625-641). Delete the block to release.
   nodeSelector:
     matchExpressions:
       - key: kubernetes.io/hostname
