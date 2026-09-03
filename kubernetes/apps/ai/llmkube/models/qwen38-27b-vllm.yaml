@@ -464,16 +464,23 @@ spec:
     # burst size that overwhelms the single-threaded async lookup manager
     # (see kv_offload_lookup_async_delay_seconds stalls).
     #
-    # 4 -> 8 on 2026-09-03: fs-tier async lookup delay hit 3.94s mean /
-    # 10.0s p99 (primary tier shows none), over the same 17h window that
-    # logged the preemptions noted above. Cost is coarser partial-prefix
-    # matching, so judge it on END-TO-END cached prompt tokens (86.7% at
-    # blocks_per_chunk 4) and revert below ~82%. Per-tier hit rates mislead
-    # here: they move inversely as tiers absorb each other's load, reading
-    # fs 6.6% / primary 43.2% at that same moment.
+    # Tried 8 on 2026-09-03 and REVERTED the same evening. It did what it was
+    # designed to do -- chunk queries 13.13 -> 9.79 per request, hit rate flat
+    # at 40.5% vs 40.9% -- but each lookup got 44% slower (4.33s -> 6.24s) and
+    # the number that matters, TOTAL lookup wall time per request, went UP:
+    # 5.47s -> 6.46s, or +45% once normalised for the shorter prompts in the
+    # after-window (0.099 -> 0.143 s per 1K prompt tokens).
+    #
+    # Mechanism: the tier has ONE serial lookup thread and is page-cache-bound,
+    # not throughput-bound, so coalescing more blocks per lookup does not
+    # reduce serialisation, it just makes each serial unit bigger. Raising this
+    # cannot help for that reason -- do not retry 8 or 16 without first making
+    # the lookup manager concurrent. Judge any future attempt on total lookup
+    # seconds per request, never on the per-lookup mean, which improves by
+    # construction as the count falls.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":8,"kv_load_failure_policy":"recompute","secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"kv_load_failure_policy":"recompute","secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   # This engine is the live one; Flash-Next is the parked one (suspend: true
   # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
   # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next
