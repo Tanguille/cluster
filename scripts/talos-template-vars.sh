@@ -14,13 +14,19 @@ TALOS="${REPO_ROOT}/talos"
 # never the `certs.os` map above it.
 available="$(yq -r '.. | select(tag != "!!map" and tag != "!!seq") | path | join(".")' \
     "${TALOS}/talsecret.sops.yaml" | grep -v '^sops' | sort -u)"
-[[ -n "${available}" ]] || { echo "no keys read from talsecret.sops.yaml" >&2; exit 1; }
+[[ -n "${available}" ]] || {
+    echo "no keys read from talsecret.sops.yaml" >&2
+    exit 1
+}
 
 # Names the render context injects, read from the -D flags themselves so this cannot drift.
 # Both files inject: .justfile passes the versions, talos/mod.just the cluster-wide addresses.
 injected="$(grep -hoP -- '-D "\K[a-zA-Z_][a-zA-Z0-9_]*' \
     "${REPO_ROOT}/.justfile" "${TALOS}/mod.just" | sort -u)"
-[[ -n "${injected}" ]] || { echo "no -D flags found" >&2; exit 1; }
+[[ -n "${injected}" ]] || {
+    echo "no -D flags found" >&2
+    exit 1
+}
 
 templates=("${TALOS}"/*.yaml.j2 "${TALOS}"/nodes/*/*.yaml.j2)
 
@@ -30,7 +36,10 @@ local_names="$(grep -hoP '\{%-? *(?:set|for) +\K[a-zA-Z_][a-zA-Z0-9_]*' "${templ
 
 used="$(grep -hoP '\{\{-? *\K[a-zA-Z_][a-zA-Z0-9_.]*' "${templates[@]}" | sort -u)"
 [[ -n "${local_names}" ]] && used="$(grep -vxF "${local_names}" <<<"${used}" || true)"
-[[ -n "${used}" ]] || { echo "no {{ }} references found under talos/" >&2; exit 1; }
+[[ -n "${used}" ]] || {
+    echo "no {{ }} references found under talos/" >&2
+    exit 1
+}
 
 rc=0
 while IFS= read -r var; do

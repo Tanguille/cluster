@@ -38,7 +38,8 @@ PKGS_REV="$(sed -nE 's/^PKGS \?= (.*)$/\1/p' "${WORK}/talos/Makefile")"
 # into a build against the wrong kernel config rather than failing here.
 PKGS_SHA="${PKGS_REV##*-g}"
 [[ "${PKGS_SHA}" =~ ^[0-9a-f]{7,40}$ ]] || {
-    echo "PKGS pin '${PKGS_REV}' did not yield a sha (got '${PKGS_SHA}')" >&2; exit 1
+    echo "PKGS pin '${PKGS_REV}' did not yield a sha (got '${PKGS_SHA}')" >&2
+    exit 1
 }
 echo "    derived TOOLS=${TOOLS_REV} PKGS=${PKGS_REV}"
 
@@ -46,8 +47,8 @@ log "kernel package"
 # The default docker driver can't export a registry cache. CI sets a docker-container builder
 # up itself (docker/setup-buildx-action), but `just kernel-build` also runs this directly on a
 # workstation (README.md), which may still be on the default driver.
-docker buildx inspect --bootstrap 2>/dev/null | grep -q '^Driver:[[:space:]]*docker-container' \
-    || docker buildx create --driver docker-container --use --bootstrap >/dev/null
+docker buildx inspect --bootstrap 2>/dev/null | grep -q '^Driver:[[:space:]]*docker-container' ||
+    docker buildx create --driver docker-container --use --bootstrap >/dev/null
 # Registry cache, keyed on the Dockerfile + build-args rather than the target tag: a rerun
 # against the same kernel/talos version (e.g. retrying after a package-permission fix) hits
 # every layer instead of repeating the ~2h45m ThinLTO compile. Same package as the image
@@ -116,7 +117,7 @@ while IFS= read -r entry; do
     else
         echo "    DROPPED ${entry}" >&2
     fi
-done < "${LIST}" > "${LIST}.stage1"
+done <"${LIST}" >"${LIST}.stage1"
 
 # Pass 2: close the set over modules.dep. Talos 1.14 fails the installer build when
 # `depmod --errsyms` prints anything at all, and 7.x split stmmac_libpci.ko out of
@@ -129,9 +130,10 @@ while IFS= read -r line; do
     DEPOF["${line%%:*}"]="${line#*:}"
 done <<<"${DEPS}"
 queue=()
-while IFS= read -r e; do [[ -n "${e}" ]] && queue+=("${e}"); done < "${LIST}.stage1"
+while IFS= read -r e; do [[ -n "${e}" ]] && queue+=("${e}"); done <"${LIST}.stage1"
 while ((${#queue[@]})); do
-    e="${queue[-1]}"; unset 'queue[-1]'
+    e="${queue[-1]}"
+    unset 'queue[-1]'
     [[ -n "${WANT[${e}]:-}" ]] && continue
     WANT["${e}"]=1
     for d in ${DEPOF[${e}]:-}; do
@@ -142,7 +144,7 @@ cp "${LIST}.stage1" "${LIST}"
 for m in "${!WANT[@]}"; do
     grep -qxF "${m}" "${LIST}.stage1" && continue
     echo "    ADDED   ${m} (dependency)" >&2
-    printf '%s\n' "${m}" >> "${LIST}"
+    printf '%s\n' "${m}" >>"${LIST}"
 done
 rm -f "${LIST}.stage1"
 
@@ -213,7 +215,8 @@ for node in "$@"; do
     kargs="$(yq -r '.customization.extraKernelArgs[] | "--extra-kernel-arg=" + .' "${schematic}")"
     exts="$(yq -r '.customization.systemExtensions.officialExtensions[]' "${schematic}")"
     [[ -n "${kargs}" && -n "${exts}" ]] || {
-        echo "empty kernel args or extensions from ${schematic}" >&2; exit 1
+        echo "empty kernel args or extensions from ${schematic}" >&2
+        exit 1
     }
     mapfile -t args <<<"${kargs}"
     while read -r ext; do
@@ -243,4 +246,4 @@ done
     echo "Linux \`${KERNEL_VERSION}\` on Talos \`${TALOS_VERSION}\`"
     echo
     for ref in "${PUBLISHED[@]}"; do echo "- \`${ref}\`"; done
-} >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+} >>"${GITHUB_STEP_SUMMARY:-/dev/stdout}"

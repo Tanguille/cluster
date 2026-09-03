@@ -39,17 +39,17 @@ warn() {
 # to kustomize) — also validates YAML syntax and duplicate keys, so no separate yaml linter.
 # Falls back to kustomize build (Kustomization-only, no Helm render) if flate isn't installed.
 echo "[1/2] Flux Manifest Validation..."
-if command -v flate &> /dev/null; then
-    if flate test all -p "${REPO_ROOT}" > /dev/null 2>&1; then
+if command -v flate &>/dev/null; then
+    if flate test all -p "${REPO_ROOT}" >/dev/null 2>&1; then
         pass "flate test all passed"
     else
         fail "flate test all found issues"
     fi
-elif command -v kustomize &> /dev/null; then
+elif command -v kustomize &>/dev/null; then
     KUSTOMIZE_ERRORS=0
     while IFS= read -r -d '' ks_file; do
         app_dir=$(dirname "$ks_file")
-        if ! kustomize build "$app_dir" > /dev/null 2>&1; then
+        if ! kustomize build "$app_dir" >/dev/null 2>&1; then
             fail "kustomize build failed: $app_dir"
             KUSTOMIZE_ERRORS=$((KUSTOMIZE_ERRORS + 1))
         fi
@@ -70,9 +70,9 @@ echo "[2/2] Shell Script Validation..."
 # .worktrees/ (parallel checkouts validate themselves)
 SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/.claude/*" -not -path "${REPO_ROOT}/.worktrees/*" 2>/dev/null)
 if [ -n "$SHELL_SCRIPTS" ]; then
-    if command -v shellcheck &> /dev/null; then
+    if command -v shellcheck &>/dev/null; then
         # shellcheck disable=SC2086 # word-splitting the list is intended; quoting it passes all paths as one filename
-        if shellcheck $SHELL_SCRIPTS > /dev/null 2>&1; then
+        if shellcheck $SHELL_SCRIPTS >/dev/null 2>&1; then
             pass "shellcheck passed"
         else
             fail "shellcheck found issues"
