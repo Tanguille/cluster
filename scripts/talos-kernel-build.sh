@@ -33,6 +33,40 @@ KERNEL_VERSION="$(just kernel-version)"
 
 log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
+# One image per SCHEMATIC, not per node. The repo is named after the schematic so both are the
+# same kind of thing: `shared` for talos/schematic.yaml, the node name for a node with its own
+# override. Defined once because the pre-check below and the publish loop must agree -- if they
+# disagree the build republishes a tag it just decided already existed.
+installer_ref() {
+    local schematic
+    schematic="$(just talos schematic-file "$1")"
+    [[ -n "${schematic}" ]] || { echo "no schematic for $1" >&2; return 1; }
+    if [[ "${schematic}" == "${REPO_ROOT}/talos/schematic.yaml" ]]; then
+        echo "${PREFIX}/installer/shared:${VERSION}"
+    else
+        echo "${PREFIX}/installer/$1:${VERSION}"
+    fi
+}
+
+# Tags in installer/* are never reused: one tag is one build, and the amdgpu extension is signed
+# with a key the kernel regenerates per build. A merge that touches a trigger path would
+# otherwise re-push the same tags with different bytes -- so if every installer this run would
+# publish already exists, there is nothing to do. Exits 0, not 1: a no-op rerun is success.
+missing=0
+for node in "$@"; do
+    ref="$(installer_ref "${node}")" || exit 1
+    if crane manifest "${ref}" >/dev/null 2>&1; then
+        echo "    exists: ${ref}"
+    else
+        echo "    missing: ${ref}"
+        missing=1
+    fi
+done
+if (( missing == 0 )); then
+    log "every installer for ${VERSION} is already published, nothing to build"
+    exit 0
+fi
+
 log "talos ${TALOS_VERSION} + linux ${KERNEL_VERSION} -> ${VERSION}"
 git clone -q --depth 1 --branch "${TALOS_VERSION}" \
     https://github.com/siderolabs/talos.git "${WORK}/talos"
@@ -186,14 +220,7 @@ declare -A BUILT=()
 PUBLISHED=()
 for node in "$@"; do
     schematic="$(just talos schematic-file "${node}")"
-    # One image per SCHEMATIC, not per node — two schematics, two images, however many nodes.
-    # The repo is named after the schematic so both are the same kind of thing: `shared` for
-    # talos/schematic.yaml, and the node name for a node carrying its own override.
-    if [[ "${schematic}" == "${REPO_ROOT}/talos/schematic.yaml" ]]; then
-        dst="${PREFIX}/installer/shared:${VERSION}"
-    else
-        dst="${PREFIX}/installer/${node}:${VERSION}"
-    fi
+    dst="$(installer_ref "${node}")"
     # Nodes sharing a schematic build byte-identical installers, so the second is a registry
     # copy rather than another imager run.
     if [[ -n "${BUILT[${schematic}]:-}" ]]; then

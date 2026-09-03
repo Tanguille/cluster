@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tuppr-rules
+spec:
+  groups:
+    # The chart ships its own `tuppr` group (monitoring.prometheusRule.enabled in the
+    # HelmRelease); group and alert names here must not collide with it.
+    - name: tuppr.parked.rules
+      rules:
+        # The chart's TalosUpgradeStuck watches Upgrading|Rebooting|Draining|HealthChecking,
+        # and TupprUpgradeBlocked matches reason=~"Waiting.*|Suspended". A run parked in
+        # Pending/PrePullFailed matches neither, and pre-pull retries forever on a 5m backoff
+        # without ever reaching Failed (prepull.go:133) -- so a kernel bump whose build failed
+        # leaves the fleet on the old version, outdated nodes carrying the PreferNoSchedule
+        # taint, and nothing alerting. That is the whole cost of the merge-only upgrade path.
+        #
+        # 4h, because the normal parked window is one push-to-main installer build (~90m) plus
+        # the pre-pull itself. Pending is also the transient state between node batches, which
+        # is minutes.
+        - alert: TalosUpgradeParked
+          expr: |-
+            tuppr_talos_upgrade_phase{phase="Pending"} == 1
+          for: 4h
+          annotations:
+            summary: >-
+              TalosUpgrade {{ $labels.name }} has been Pending for 4h — the installer tag it
+              wants is probably unpublished; check the talos-kernel workflow
+          labels:
+            severity: warning
