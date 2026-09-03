@@ -364,12 +364,26 @@ Two things have to be true for a node. All three nodes satisfy both as of 2026-0
    The annotation mattered because only `just talos apply-node` could change it, so merging a
    bump PR rolled nothing.
 
-   **The switchover costs one `apply-node` per node, once.** Talos writes that annotation from
-   machine config, so it survives on a node until a config without it is applied — and
-   `getTargetVersion` keeps preferring it until then, which means the first CR bump after this
-   change still rolls nothing. Only after that cleanup does Flux carry the target and later
-   bumps become merge-only. Confirm with the `HOLD` column in "Rolling a bump back": empty on
-   every node means the CR is in charge.
+   **The switchover costs one `apply-node` per node, once, and the order matters.** Talos writes
+   that annotation from machine config, so it survives until a config without it is applied, and
+   `getTargetVersion` prefers it until then.
+
+   Do the `apply-node` runs **before** merging the version bump, not after. On a `Completed` CR
+   every node is already listed in `Status.CompletedNodes`, and `findNextNodes` skips anything in
+   that list *before* it compares versions (`upgrade.go:582-587`) — so dropping an annotation
+   while the CR is `Completed` is inert, and stays inert forever. Merging afterwards bumps the
+   generation, which clears `CompletedNodes` (`annotations.go:559-585`) and makes the freshly
+   un-annotated nodes pending on the next reconcile.
+
+   Merge first and the reverse happens, silently: `recordOutOfBandCompletedNodes`
+   (`upgrade.go:507-560`) writes every node that does not "need" an upgrade — which is all of
+   them, since each still reports its own annotation — straight into `CompletedNodes` at the new
+   target, and the CR goes `Completed` for a version nothing runs. The later `apply-node` is then
+   skipped by the list check above and nothing ever rolls. Recovering needs
+   `kubectl annotate talosupgrade talos tuppr.home-operations.com/reset=1`.
+
+   Confirm with the `HOLD` column in "Rolling a bump back": empty on every node means the CR is
+   in charge.
 
 To hold a node back while the rest move, use `spec.nodeSelector` on the CR — `getSortedNodes`
 passes it to `LabelSelectorAsSelector` and *lists* with it (`upgrade.go:625-641`), so an excluded

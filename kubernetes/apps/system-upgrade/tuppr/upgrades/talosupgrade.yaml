@@ -18,10 +18,10 @@ spec:
     # would silently freeze at the last tag it ever saw.
     #
     # NEVER write a literal -k<digits> anywhere else in this file, comments included. The kernel
-    # manager matches "-k<version>" unanchored (it has to; see .renovaterc.json5) and Renovate
-    # rewrites the FIRST occurrence in the file -- a version-shaped example in a comment above
-    # this line silently absorbs the bump and leaves the field below untouched. Caught by a
-    # local dry-run on 2026-09-03, which extracted three `linux` deps from this one file.
+    # manager matches "-k<version>" unanchored (it has to; see .renovaterc.json5), so every such
+    # string in this file is extracted as its own dep and becomes something Renovate edits. A
+    # local dry-run on 2026-09-03 pulled three `linux` deps out of this one file, from two
+    # comments carrying example versions; only the field below should ever be one.
     version: v1.14.0-k7.1.13
   talosctl:
     image:

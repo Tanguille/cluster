@@ -57,11 +57,13 @@
       datasourceTemplate: "github-releases"
     },
     {
-      // Deliberately NOT anchored on the Talos prefix. Renovate auto-replace does
-      // replaceString.replace(escape(currentValue), newValue) -- first occurrence, non-global,
-      // over the whole matched span. A span of "version: v1.17.3-k7.3" with the bare-series
-      // currentValue "7.3" that `versioning: loose` exists to allow would hit the "7.3" inside
-      // v1.17.3 first and rewrite the Talos half. "-k7.3" has exactly one occurrence.
+      // Deliberately NOT anchored on the Talos prefix. Renovate rewrites currentValue inside the
+      // matched span, so the span has to contain the kernel version and nothing that looks like
+      // it: "version: v1.17.3-k7.3" with the bare-series currentValue "7.3" that
+      // `versioning: loose` exists to allow also contains "7.3" inside v1.17.3. "-k7.3" does not.
+      // The cost of unanchoring is that a literal -k<digits> ANYWHERE in the target file is
+      // extracted as another dep -- a dry-run found three, from two comments carrying example
+      // versions. talosupgrade.yaml carries a warning about that; keep it.
       // depName linux matches the Dockerfile ARG, so both files land in one branch -- which is
       // what the -k guard in scripts/talos-kernel-build.sh relies on.
       description: "tuppr target v<talos>-k<kernel>: kernel half",

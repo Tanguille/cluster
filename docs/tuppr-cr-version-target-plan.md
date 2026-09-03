@@ -112,30 +112,40 @@ having regardless.
 
 ## Steps
 
-### Step 1: one atomic PR — managers, CR, consumers, templates — **DONE** (e37104552)
+### Step 1: one atomic PR — managers, CR, consumers, templates — **DONE** (PR #4855)
 
-Shipped on `feat/tuppr-cr-version-target`, stacked on `feat/talos-1.14.0-k7.1.13`
-so the CR can name `v1.14.0-k7.1.13` directly and the merge is a live test of
-the new path rather than a no-op.
+Shipped on `feat/tuppr-cr-version-target`, originally stacked on
+`feat/talos-1.14.0-k7.1.13` (merged as #4856) and since rebased onto main, so
+the CR names `v1.14.0-k7.1.13` directly.
 
-Two deviations from the text below, both deliberate:
+Deviations from the text below, all deliberate:
 
 - The Talos-half regex gained `(?:-[a-z]+\.\d+)?` so it also matches a
   prerelease pin (`v1.14.0-rc.2-k7.1.10`, which is what the fleet ran when this
   was written). Without it the manager silently matches nothing on an rc.
-- The `-k` guard was added to `.justfile` `template` as well as the build
-  script, so a half-applied tree fails to *render*, not just to build.
+- The `-k` guard is in the build script only. It was briefly in `.justfile`
+  `template` too, then removed: `kernelVersion` has one consumer (a comment in
+  `control-2.yaml.j2`), so `template` derives it from the CR value instead and
+  there is nothing left to reconcile.
+- The kernel regex is unanchored (`-k<version>`, not `version:\s+…-k<version>`)
+  and the CR's comments therefore must not contain a literal `-k<digits>`.
 
 Verified: all three nodes render and pass `talosctl validate -m metal`; no
-`tuppr` string survives in any rendered config; the guard fires
-(`tuppr CR names k7.1.13, Dockerfile builds 7.1.99`); `.renovaterc.json5` parses
-and registers both managers; and the first-occurrence replacement semantics were
-simulated against both regexes — the un-narrowed kernel regex turns
-`v1.17.3-k7.3` into `v1.17.4-k7.3`, the shipped one into `v1.17.3-k7.4`.
+`tuppr` string survives in any rendered config; `.renovaterc.json5` parses and
+registers both managers; server-side dry-run accepts the CR.
 
-Still outstanding for this step: a Renovate dry-run against the real config
-(needs node 24 + a GH token). The repo's own validator false-flags
-`managerFilePatterns`, so a clean validator run is not the bar.
+Renovate dry-run **done**, on node 24.19.0 (renovate's bundled RE2 will not load
+on node 26 — `Unsupported node environment`):
+
+| dep | currentValue | replaceString | update |
+|---|---|---|---|
+| `linux` | `7.1.13` | `-k7.1.13` | 7.2.3, `renovate/linux-7.x` |
+| `siderolabs/talos` | `v1.14.0` | `version: v1.14.0-k` | none (latest) |
+
+One dep per manager. The first run extracted **three** `linux` deps, because two
+comments in the CR carried literal example versions — fixed by switching them to
+placeholders. The repo's own validator false-flags `managerFilePatterns`, so a
+clean validator run is not the bar; the dry-run is.
 
 These **cannot** be separate merges. Flux applies main immediately and
 `talosupgrade.yaml` is already a build trigger path, so every intermediate
@@ -173,15 +183,17 @@ state is live and broken:
 ```
 
 The kernel regex deliberately does **not** anchor on the Talos prefix. Renovate
-auto-replace does `replaceString.replace(escape(currentValue), newValue)` —
-first occurrence, non-global — over the whole matched span. With a span of
-`version: v1.17.3-k7.3` and a bare-series `currentValue` of `7.3` (the `loose`
-case this repo explicitly plans for), the first occurrence of `7.3` is inside
-`v1.17.3`, and Renovate would corrupt the Talos half. A span of `-k7.3` has
-exactly one occurrence and cannot mismatch.
+rewrites `currentValue` within the matched span, so the span must contain the
+kernel version and nothing else shaped like it. A span of `version: v1.17.3-k7.3`
+with a bare-series `currentValue` of `7.3` (the `loose` case this repo explicitly
+plans for) also contains `7.3` inside `v1.17.3`; a span of `-k7.3` does not.
 
 The Talos half is safe as written: span `version: v1.14.0-k`, currentValue
-`v1.14.0`, suffix untouched.
+`v1.14.0`, kernel suffix outside the span.
+
+The cost of unanchoring is that any literal `-k<digits>` in the file is extracted
+as its own dep — the first dry-run found three, from example versions in
+comments. Hence the placeholder rule stated in the CR.
 
 Both regexes are RE2-safe (`(?<name>)`, `(?:)`, `\d`, `\s` only) — local
 renovate falls back to JS RegExp and will not catch a violation the hosted run
@@ -239,15 +251,34 @@ shows *two* separate updates against `talosupgrade.yaml` and rewrites neither
 half wrongly (needs node 24 + a GH token, or it reads as "dep not detected" and
 tells you nothing); `flux diff kustomization cluster-apps`.
 
-### Step 2: the last manual `apply-node`
+### Step 2: the last manual `apply-node` — **run it BEFORE merging Step 1**
 
 Talos re-enforces node annotations from machine config, so until the config
-without it is applied, the stale annotation keeps outranking the CR. Three
-`apply-node` runs, once, to never do it again.
+without it is applied, the stale annotation keeps outranking the CR. Two
+`apply-node` runs (control-1 is held), once, to never do it again.
 
-**Verify:**
+The order is load-bearing and the wrong one fails silently:
+
+- **Right:** `apply-node` while the CR is `Completed`. Every node is already in
+  `Status.CompletedNodes`, and `findNextNodes` skips that list *before*
+  comparing versions (`upgrade.go:582-587`), so removing the annotation changes
+  nothing yet. Then merge Step 1 — the generation bump clears `CompletedNodes`
+  (`annotations.go:559-585`), both nodes come up pending, tuppr pre-pulls and
+  rolls them. The merge is the trigger, which is the property this plan is for.
+- **Wrong:** merge first. `recordOutOfBandCompletedNodes` (`upgrade.go:507-560`)
+  writes every node that does not need an upgrade — all of them, each still
+  reporting its own annotation — into `CompletedNodes` at the new target, and
+  the CR reports `Completed` for a version nothing runs. The later `apply-node`
+  is then skipped by that same list check, permanently. Recovery is
+  `kubectl annotate talosupgrade talos tuppr.home-operations.com/reset=1`.
+
+This already happened once: after #4856 merged, the CR sat `Completed` with
+`completedNodes: [control-3, control-1, control-2]` at `v1.14.0` while all three
+nodes ran `v1.14.0-rc.2-k7.1.10`.
+
+**Verify before merging Step 1:**
 `kubectl get nodes -o custom-columns=NAME:.metadata.name,V:.metadata.annotations.tuppr\.home-operations\.com/version`
-shows the column empty for all three.
+shows the column empty for control-2 and control-3.
 
 ### Step 3: retire the pre-merge dispatch
 
