@@ -263,10 +263,14 @@ spec:
     # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
-    # Inert for attention: with a KV connector set, rocm.py:703 rejects
-    # ROCM_AITER_UNIFIED_ATTN and selects TRITON_ATTN. FP8 linear kernels do
-    # not apply to W4A16 either. Kept for the GDN linear-attn path.
-    # Forcing AITER attention measured +84% decode but ~10x worse prefill.
+    # Attention IS AITER while the 09-01 soak patch below is mounted: it lifts
+    # the supports_kv_connector rejection at rocm.py:703, and the boot log
+    # confirms "Overriding with ROCM_AITER_UNIFIED_ATTN". Drop that patch and a
+    # KV connector forces TRITON_ATTN again. FP8 linear kernels do not apply to
+    # W4A16. Also kept for the GDN linear-attn path.
+    # An older forced-AITER experiment measured +84% decode / ~10x worse
+    # prefill; the soak block below measures parity. Trust the soak block --
+    # the older number predates vllm#53821.
     - name: VLLM_ROCM_USE_AITER
       value: "1"
     - name: HIP_VISIBLE_DEVICES
@@ -279,7 +283,10 @@ spec:
       value: /cache/triton
     - name: TORCHINDUCTOR_CACHE_DIR
       value: /cache/inductor
-    # Pins the fs tier's block-hash seed; unset it is random per process and restarts lose it.
+    # Pins the fs tier's block-hash seed. Since vllm#51875 the sha256 default
+    # already derives a fixed seed, so the old "random per process" reason is
+    # gone -- but PYTHONHASHSEED still overrides that seed, so REMOVING this
+    # rehashes every block and invalidates the whole fs tier. Keep it.
     - name: PYTHONHASHSEED
       value: "0"
   extraVolumes:
@@ -312,6 +319,11 @@ spec:
     - name: dshm
       mountPath: /dev/shm
     # SOAK TEST 2026-09-01, time-boxed -- remove or promote after evaluation.
+    # EXIT CRITERION (added 09-03, was missing): the claimed win is short
+    # context, so compare litellm TTFT and ITL for prompts under 2K tokens
+    # over the 7d before 09-01 against the 7d after. Promote on a real
+    # improvement there, revert on parity -- the synthetic sweeps already
+    # measured parity at long context, so "no change" is a revert, not a pass.
     #
     # Selects ROCM_AITER_UNIFIED_ATTN instead of TRITON_ATTN by lifting an
     # inherited `supports_kv_connector() -> False` that appears to be a missing
@@ -453,14 +465,11 @@ spec:
     - --kv-transfer-config
     - >-
       {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":8,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
-  # Parked, not deleted: control-1 advertises 4 squat.ai/dri slots and all 4 are
-  # held, one each by this pod, jellyfin, fileflows and drm-exporter, so
-  # Flash-Next cannot
-  # schedule until this one releases -- and the R9700's 32Gi could not hold both
-  # models even if a slot were free. The whole config below is kept verbatim so
-  # reverting the switch is a one-line change back to false, not a restore from
-  # git history. Every measured tuning value here (mnbt 4096, maxModelLen
-  # 246944, blocks_per_chunk 4) stays valid for that revert.
+  # This engine is the live one; Flash-Next is the parked one (suspend: true
+  # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
+  # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next
+  # could not schedule even if wanted -- and the R9700's 32Gi could not hold
+  # both models regardless.
   #
   # Reverted to false 2026-08-31: Flash-Next measured 125-144 tok/s prefill on
   # gfx1201 against this engine's ~7170, because 42.92Gi of experts cannot fit
@@ -479,9 +488,13 @@ spec:
     cpu: "2"
     # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
     # under 4x32K concurrent load with the tier full (3.7Gi headroom).
-    # There is no memory limit, so this is scheduler bookkeeping only: it
-    # must stay above the 28.3Gi peak to keep vllm under-request and off
+    # No memory limit at chart 0.9.24, so this is scheduler bookkeeping only:
+    # it must stay above the 28.3Gi peak to keep vllm under-request and off
     # the eviction list, but every Gi above that is reserved and unusable.
+    # llmkube e4a3669af (unreleased) makes this a LIMIT as well as a request.
+    # Live working set is 27.49Gi, so 32Gi would leave ~4.5Gi before an
+    # OOMKill that costs the documented hours-long admission stall. Raise this
+    # deliberately when bumping past 0.9.24, and rewrite this comment.
     memory: 32Gi
   endpoint:
     port: 8000
