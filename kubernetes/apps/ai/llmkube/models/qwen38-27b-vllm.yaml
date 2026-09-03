@@ -464,6 +464,12 @@ spec:
     # burst size that overwhelms the single-threaded async lookup manager
     # (see kv_offload_lookup_async_delay_seconds stalls).
     #
+    # kv_load_failure_policy is a TOP-LEVEL KVTransferConfig field, NOT an
+    # extra_config key. First shipped nested on 2026-09-03 and was completely
+    # inert -- the boot log kept printing kv_load_failure_policy='fail'. A
+    # nested key is silently accepted and ignored, so verify after any edit by
+    # grepping the boot log for that literal.
+    #
     # Tried 8 on 2026-09-03 and REVERTED the same evening. It did what it was
     # designed to do -- chunk queries 13.13 -> 9.79 per request, hit rate flat
     # at 40.5% vs 40.9% -- but each lookup got 44% slower (4.33s -> 6.24s) and
@@ -480,7 +486,7 @@ spec:
     # construction as the count falls.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"kv_load_failure_policy":"recompute","secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   # This engine is the live one; Flash-Next is the parked one (suspend: true
   # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
   # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next

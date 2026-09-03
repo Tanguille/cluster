@@ -21,6 +21,42 @@ spec:
           labels:
             severity: warning
 
+        # vmcp grows ~250 MiB/day with 12 backends and reaches its 2Gi limit every
+        # ~6 days, then OOMKills (upstream stacklok/toolhive#5860, open). Measured
+        # 2026-09-03: 14d peak working set 2048Mi against a 2048Mi limit, exactly
+        # at the ceiling. Every kill costs a full optimizer re-embed and a cold
+        # cache, and Gatus probes at 15m so the gap was invisible. Alert on the
+        # approach, not the kill -- by the time it OOMs the damage is done.
+        - alert: AiContainerMemoryNearLimit
+          expr: |-
+            container_memory_working_set_bytes{namespace="ai", container!=""}
+              / on (namespace, pod, container)
+            kube_pod_container_resource_limits{namespace="ai", resource="memory"}
+              > 0.85
+          for: 15m
+          annotations:
+            summary: >-
+              ai/{{ $labels.pod }} container {{ $labels.container }} is at
+              {{ $value | humanizePercentage }} of its memory limit
+          labels:
+            severity: warning
+
+        # Catches the kill itself for anything in the namespace, including backends
+        # whose limits were never tuned. Fires on a change in the counter rather
+        # than its presence, so an old OOM does not alert forever.
+        - alert: AiContainerOOMKilled
+          expr: |-
+            increase(kube_pod_container_status_restarts_total{namespace="ai"}[10m]) > 0
+            and on (namespace, pod, container)
+            kube_pod_container_status_last_terminated_reason{namespace="ai", reason="OOMKilled"} == 1
+          for: 0m
+          annotations:
+            summary: >-
+              ai/{{ $labels.pod }} container {{ $labels.container }} was OOMKilled —
+              raise its limit or find the leak
+          labels:
+            severity: warning
+
         - alert: VirtualMCPServerAbsent
           expr: |-
             absent(toolhive_resource_info)
