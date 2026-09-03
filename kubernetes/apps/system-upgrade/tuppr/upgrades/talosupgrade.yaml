@@ -6,16 +6,25 @@ metadata:
   name: talos
 spec:
   talos:
-    # Tracks the Talos release, not ghcr.io/siderolabs/installer: publication of that image
-    # stopped partway through the v1.14 cycle (alpha.0 still had it) once Image Factory became
-    # the default, so a docker datasource would silently freeze at the last tag it ever saw.
-    # renovate: datasource=github-releases depName=siderolabs/talos
-    version: &talosVersion v1.14.0
+    # v<talos>-k<kernel>: the string a node built from docker/talos-kernel actually reports, and
+    # the only thing tuppr compares (plain inequality). The kernel half has to be IN here or a
+    # kernel-only bump is invisible; it used to live in a per-node machine.nodeAnnotations, which
+    # only `just talos apply-node` could change -- so merging a PR rolled nothing.
+    # Both halves are Renovate-managed, by the two regex customManagers in .renovaterc.json5 and
+    # NOT by an inline annotation: the annotation manager captures the whole value and reads the
+    # -k suffix as a semver prerelease, rewriting v1.14.0-k7.1.13 to v1.14.0 and eating it.
+    # Still not ghcr.io/siderolabs/installer either: publication of that image stopped partway
+    # through the v1.14 cycle once Image Factory became the default, so a docker datasource
+    # would silently freeze at the last tag it ever saw.
+    version: v1.14.0-k7.1.13
   talosctl:
     image:
-      # Unset, tuppr derives this from the node's CURRENT version; a -k<kernel> one is unpublished
-      # and the job ImagePullBackOffs. Aliased so the two cannot drift.
-      tag: *talosVersion
+      # The PLAIN upstream tag, never the -k<kernel> one: siderolabs publishes no
+      # talosctl:v1.14.0-k7.1.13 and the job ImagePullBackOffs until policy.timeout
+      # (measured on control-2, 2026-08-21). No longer aliased to the field above -- that field
+      # now carries the kernel suffix, which is exactly what must not reach this one.
+      # renovate: datasource=github-releases depName=siderolabs/talos
+      tag: v1.14.0
   policy:
     rebootMode: powercycle
   healthChecks:

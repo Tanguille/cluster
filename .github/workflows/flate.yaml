@@ -121,7 +121,9 @@ jobs:
         run: |
           set -euo pipefail
           # yq -e, not yq: a plain yq prints "null" and exits 0 for a missing key.
-          TALOS_VERSION="$(yq -e '.spec.talos.version' \
+          # .spec.talosctl.image.tag, NOT .spec.talos.version: the latter carries the -k<kernel>
+          # suffix, which siderolabs never published a release for, so the download 404s.
+          TALOS_VERSION="$(yq -e '.spec.talosctl.image.tag' \
             kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml)"
           echo "talosctl ${TALOS_VERSION} (from talosupgrade.yaml)"
           base="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}"

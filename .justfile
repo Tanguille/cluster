@@ -42,11 +42,20 @@ template file *args:
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
     kernel_version="$(just kernel-version)"
+    # pinned comes from the tuppr CR verbatim -- it is the one place the v<talos>-k<kernel>
+    # string is composed, so the tag a node is told to install cannot disagree with the tag
+    # tuppr asks for. Guarded rather than trusted: the kernel half of the CR and the Dockerfile
+    # ARG are bumped by the same Renovate branch, and a half-applied tree would otherwise render
+    # a config pinning a kernel the `kernelVersion` comment above it contradicts.
+    [[ "${talos_version#*-k}" == "${kernel_version}" ]] || {
+        echo "tuppr CR names k${talos_version#*-k}, Dockerfile builds ${kernel_version}" >&2
+        exit 1
+    }
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
         -D "kubernetesVersion=${kubernetes_version}" \
         -D "kernelVersion=${kernel_version}" \
-        -D "pinned=${talos_version}-k${kernel_version}" \
+        -D "pinned=${talos_version}" \
         {{ args }} "{{ file }}" -
 
 [doc('Force Flux to pull in changes from the Git repository')]

@@ -40,6 +40,35 @@
   },
   customManagers: [
     {
+      // The tuppr target is one string carrying two independently-bumped versions, so it needs
+      // two managers rather than the annotation manager, which would capture the whole value and
+      // read -k7.1.13 as a semver prerelease of 1.14.0 -- "upgrading" it to v1.14.0 and eating
+      // the kernel half. Each manager owns one half; auto-replace rewrites only its own span.
+      description: "tuppr target v<talos>-k<kernel>: Talos half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: [
+        "version:\\s+(?<currentValue>v\\d+\\.\\d+\\.\\d+(?:-[a-z]+\\.\\d+)?)-k"
+      ],
+      depNameTemplate: "siderolabs/talos",
+      datasourceTemplate: "github-releases"
+    },
+    {
+      // Deliberately NOT anchored on the Talos prefix. Renovate auto-replace does
+      // replaceString.replace(escape(currentValue), newValue) -- first occurrence, non-global,
+      // over the whole matched span. A span of "version: v1.17.3-k7.3" with the bare-series
+      // currentValue "7.3" that `versioning: loose` exists to allow would hit the "7.3" inside
+      // v1.17.3 first and rewrite the Talos half. "-k7.3" has exactly one occurrence.
+      // depName linux matches the Dockerfile ARG, so both files land in one branch -- which is
+      // what the -k guard in scripts/talos-kernel-build.sh relies on.
+      description: "tuppr target v<talos>-k<kernel>: kernel half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: ["-k(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)"],
+      depNameTemplate: "linux",
+      datasourceTemplate: "custom.linux-kernel"
+    },
+    {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
       managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],

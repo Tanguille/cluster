@@ -7,8 +7,12 @@
 # can drift from the release being built. See docker/talos-kernel/README.md.
 set -euo pipefail
 
-TALOS_VERSION="${1:?usage: talos-kernel-build.sh <talos-version> <node>...}"
+# The full v<talos>-k<kernel> string, straight from the tuppr CR, because that is the one
+# value tuppr compares and therefore the one the published tag must equal.
+VERSION="${1:?usage: talos-kernel-build.sh <version> <node>...}"
 shift
+# Everything upstream (talos and extensions release tags) wants the Talos half alone.
+TALOS_VERSION="${VERSION%-k*}"
 
 REGISTRY="${REGISTRY:-ghcr.io}"
 USERNAME="${USERNAME:-tanguille}"
@@ -22,9 +26,12 @@ trap 'rm -rf "${WORK}"' EXIT
 # the Dockerfile while the tag and the built kernel came from whatever number was typed.
 KERNEL_VERSION="$(just kernel-version)"
 
-# tuppr compares this to the version the node reports, so the kernel has to be IN the string
-# or a kernel-only bump is invisible to it. See README.md "Version tagging".
-VERSION="${TALOS_VERSION}-k${KERNEL_VERSION}"
+# The CR and the Dockerfile ARG are bumped by the same Renovate branch (depName linux on both),
+# so they agree or the tree is half-applied. Fail here rather than publish an installer whose
+# tag advertises one kernel and whose contents are another -- nothing downstream would catch it.
+[[ "${VERSION#*-k}" == "${KERNEL_VERSION}" ]] || {
+    echo "CR names k${VERSION#*-k}, Dockerfile builds ${KERNEL_VERSION}" >&2; exit 1
+}
 
 log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
