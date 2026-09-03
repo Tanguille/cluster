@@ -407,12 +407,32 @@ spec:
     # Vision transcode 0.85 GB, fileflows 0.69 GB -- 1.54 GB if they ever peak
     # together, which was not observed but is the number the reserve must cover.
     # Jellyfin has no transcode concurrency cap, so a third stream would exceed
-    # 2 GiB and evict KV; see the DgpuVramLow alert. Measured free at this
-    # config: 2.57 GB at peak load (was 2.81 GB at 7 GiB) -- this raise spends
-    # 0.24 GB of that reserve. Pool 223,172 -> 287,159 tokens, concurrency
-    # 1.01x -> 1.30x. Retention benefit NOT yet measured.
+    # 2 GiB and evict KV; see the DgpuVramLow alert.
+    #
+    # Raised 9.0 -> 9.5 GiB 2026-09-03 because the pool became the binding
+    # constraint: 117 preemptions in 17h (0 in the preceding quiet 8h) as mean
+    # prompt length grew 44K -> 54K. Decode degrades monotonically with pool
+    # pressure -- 20.6 tok/s below 40% usage, 6.0 tok/s above 95% -- and 27%
+    # of decode time now sits above 85%. Judge that by END-TO-END cached
+    # prompt tokens (86.7%), not the per-tier hit rates: the GPU tier's own
+    # rate fell to 65.7% over the same period purely because the offload
+    # tiers absorbed the difference.
+    #
+    # Sizing is measured from drm VRAM rather than estimated: 3d of 60s
+    # samples put the vLLM baseline at 29.07 GiB of 31.86, so the reserve
+    # everything else shares was 2.79 GiB, and the largest non-vLLM excursion
+    # in that window was 1.82 GiB (13 excursions, all evenings). This raise
+    # leaves 2.29 GiB, still clear of that 1.82 peak but with only 0.47 GiB
+    # spare, so DgpuVramLow is load-bearing from here -- do not raise again
+    # without re-measuring the excursion max.
+    #
+    # Supersedes the earlier "pool 223,172 -> 287,159, concurrency 1.01x ->
+    # 1.30x" note: the live boot log reports 288,508 tokens and 1.17x at 9.0
+    # GiB, because maxModelLen moved after that number was written. 288,508
+    # tokens / 9.0 GiB = 33,494 B per token, which is what predicts the new
+    # pool -- confirm it against the boot log, do not trust the arithmetic.
     - --kv-cache-memory
-    - "9663676416"
+    - "10200547328"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
