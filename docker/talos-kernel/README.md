@@ -254,21 +254,27 @@ only ever offers the highest stable.
 
 ### Rolling a bump back
 
-Reverting the *running* kernel is one command, but it leaves the node's **stored config** still
-naming the new installer and carrying the new `tuppr.home-operations.com/version` annotation.
-tuppr reads that annotation: a node running 7.1.10 while annotated 7.2.2 is a node tuppr may
-upgrade straight back into the break. Re-apply the config from the pre-bump tree as well:
+Revert the PR. `spec.talos.version` goes back to the older string and tuppr rolls each node to
+it — that is a live downgrade command, not a no-op, so for a Talos *minor* revert suspend the CR
+first and decide deliberately whether the Kubernetes and CNPG state tolerates going backwards.
+The older installer tag is still published; tags in `ghcr.io/tanguille/installer/*` are never
+reused.
+
+To pull a single node back out of band, without waiting for tuppr:
 
 ```sh
 talosctl -n <ip> upgrade -i ghcr.io/tanguille/installer/<schematic>:<old-version> \
     -m powercycle --timeout=15m
-git checkout <bump-commit>~1        # renders the old pinned
-just --yes talos apply-node <node> <ip>
-kubectl get nodes \
-    -o custom-columns=NAME:.metadata.name,TUPPR:'.metadata.annotations.tuppr\.home-operations\.com/version'
+# ...then pin it there, or tuppr will roll it forward again on the next reconcile:
+kubectl annotate node <node> tuppr.home-operations.com/version=<old-version>
+kubectl get nodes -o custom-columns=NAME:.metadata.name,\
+RUNNING:'.status.nodeInfo.osImage',HOLD:'.metadata.annotations.tuppr\.home-operations\.com/version'
 ```
 
-The last command is the check that matters — all nodes must report the same version.
+`getTargetVersion` still prefers a node annotation over the CR, and since the annotation is no
+longer part of machine config, Talos does not re-enforce or clear it. `kubectl annotate node
+<node> tuppr.home-operations.com/version-` releases the hold. The `HOLD` column is empty on a
+normally-managed node — a non-empty value means that node is pinned and is NOT tracking the CR.
 
 ## What is deliberately not carried
 
@@ -346,14 +352,25 @@ Two things have to be true for a node. All three nodes satisfy both as of 2026-0
    `factory.talos.dev`, tuppr's bare `<repo>:<targetVersion>` substitution silently reinstalls
    the stock kernel.
 2. **A version string tuppr will actually ask for.** It compares one value, so the node has to
-   advertise `v<talos>-k<kernel>`. `spec.talos.version` cannot carry it — that field is
-   Renovate-managed against `siderolabs/talos` and would rewrite `v1.13.9-k7.1.9` to
-   `v1.13.10`, eating the suffix. So the kernel half lives in a per-node
-   `machine.nodeAnnotations."tuppr.home-operations.com/version"`, which `getTargetVersion`
-   prefers over the CR (`upgrade.go:855`).
+   advertise `v<talos>-k<kernel>` — which it does, because the installer is built with
+   `TAG="${VERSION}"`. That string now lives in `spec.talos.version` itself.
 
-Keep the annotation per-node rather than hoisting it to a shared layer: it is what allows one
-node to move while the others stay put, which is how all three were rolled.
+   It used to live in a per-node `machine.nodeAnnotations."tuppr.home-operations.com/version"`,
+   because the CR field was Renovate-managed by an inline annotation that captures the whole
+   value and would rewrite `v1.13.9-k7.1.9` to `v1.13.10`, eating the suffix. That is a property
+   of the *manager*, not the field: two file-scoped regex managers in `.renovaterc.json5` now own
+   one half each, so the field can carry it. See `docs/tuppr-cr-version-target-plan.md`.
+
+   The annotation mattered because only `just talos apply-node` could change it, so merging a
+   bump PR rolled nothing. With the target in the CR, Flux carries it and a merge is the whole
+   procedure.
+
+To hold one node back while the rest move, use `spec.nodeSelector` on the CR — it is a full
+`LabelSelector`, so `kubernetes.io/hostname NotIn [control-1]` parks that node declaratively, in
+the same file as the version and under review like any other change. `getTargetVersion` still
+prefers a node annotation over the CR (`upgrade.go:855`) and Talos no longer owns that key, so
+`kubectl annotate node <node> tuppr.home-operations.com/version=<string>` is the imperative
+fallback when you want a hold that leaves no diff — see "Rolling a bump back".
 
 **A third thing is true for the CR.** Once a node reports `v<talos>-k<kernel>`, tuppr derives the
 talosctl job image tag from that same string and pulls
@@ -362,6 +379,7 @@ ImagePullBackOff until `policy.timeout`. Measured on control-2 on 2026-08-21. `s
 is pinned to the plain upstream version to stop it. It only bites on the *second* roll of a node,
 because the first still has an unsuffixed version at the moment the job is built.
 
-Since every node now runs a custom kernel, no node is left on stock as a fallback, and a Talos bump
-still means "re-run the build, then re-cut the nodes" — `just talos upgrade-node <node> <ip>` reads
-the pinned image straight out of the rendered config.
+Since every node now runs a custom kernel, no node is left on stock as a fallback. A Talos bump is
+merge-only: the push-to-main build publishes the installer, and tuppr rolls the fleet once the CR
+target and the published tag agree. `just talos upgrade-node <node> <ip>` remains for cutting a
+node by hand; it reads the pinned image straight out of the rendered config.

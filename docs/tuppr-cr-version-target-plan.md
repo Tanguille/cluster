@@ -77,20 +77,34 @@ Moving to the CR gives that up as the *default*. control-1 is the outlier —
 TrueNAS VM, only dGPU host, its own schematic and installer repo, hypervisor
 reset history — so this is a real loss.
 
-**The hold you get back (and it is cheap).** `getTargetVersion` still prefers a
-node annotation, and after Step 1 Talos no longer owns that key, so a manually
-set one is not reverted:
+**The hold you get back is declarative, in the same file as the version.** The
+CRD has `spec.nodeSelector` (a full `LabelSelector` — confirmed present on the
+deployed CRD, alongside `drain`, `maintenance`, `parallelism`, `silences`):
 
-```sh
-kubectl annotate node control-1 tuppr.home-operations.com/version=<current string>   # hold
-kubectl annotate node control-1 tuppr.home-operations.com/version-                   # release
+```yaml
+  nodeSelector:
+    matchExpressions:
+      - key: kubernetes.io/hostname
+        operator: NotIn
+        values: ["control-1"]
 ```
 
-Zero diff, no CR generation change. Confirm on one node before relying on it.
+Flux-applied, reviewable, revertible, no age key and no `apply-node` — the
+per-node hold the README argued for, moved to the CR layer rather than lost.
+Verify it against `findNextNodes` before relying on it.
+
+The imperative fallback, if you want a hold that leaves no diff:
+`getTargetVersion` still prefers a node annotation, and after Step 1 Talos no
+longer owns that key, so `kubectl annotate node control-1
+tuppr.home-operations.com/version=<current string>` pins it and `...version-`
+releases it.
 
 Do **not** reach for cordoning or reverting `install.image` — both are verified
 above to be ignored by tuppr, and a repo revert to `factory.talos.dev` silently
 reinstalls the stock kernel.
+
+`spec.maintenance.windows` is the declarative answer to "keep the window
+closed", which Step 3 currently leaves to `workflow_dispatch`.
 
 If per-node staging by default still matters more than merge-and-forget, stop
 here: Step 4 (the Renovate annotation gap) is already shipped and is worth

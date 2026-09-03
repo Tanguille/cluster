@@ -41,16 +41,14 @@ talsecret:
 template file *args:
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
-    kernel_version="$(just kernel-version)"
     # pinned comes from the tuppr CR verbatim -- it is the one place the v<talos>-k<kernel>
     # string is composed, so the tag a node is told to install cannot disagree with the tag
-    # tuppr asks for. Guarded rather than trusted: the kernel half of the CR and the Dockerfile
-    # ARG are bumped by the same Renovate branch, and a half-applied tree would otherwise render
-    # a config pinning a kernel the `kernelVersion` comment above it contradicts.
-    [[ "${talos_version#*-k}" == "${kernel_version}" ]] || {
-        echo "tuppr CR names k${talos_version#*-k}, Dockerfile builds ${kernel_version}" >&2
-        exit 1
-    }
+    # tuppr asks for. kernelVersion is SPLIT off it rather than read from the Dockerfile ARG and
+    # reconciled: its only consumer is a prose comment in control-2.yaml.j2, so deriving makes
+    # that comment correct by construction and leaves nothing to check. The ARG is still
+    # compared against the CR in scripts/talos-kernel-build.sh, where a mismatch would publish
+    # an installer whose tag lies about its contents -- that is the one that has to fail loudly.
+    kernel_version="${talos_version#*-k}"
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --strict --format=yaml --autoescape=none \
         -D "kubernetesVersion=${kubernetes_version}" \
