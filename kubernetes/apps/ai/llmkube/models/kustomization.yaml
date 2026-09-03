@@ -4,6 +4,23 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - qwen38-27b-vllm.yaml
+  - qwen38-flash-next.yaml
   - qwen3-embedding.yaml
   - qwen35-2b.yaml
   - vmcp-embedding.yaml
+# Out-of-tree vLLM patch mounted into qwen38-27b-vllm; rationale in the .py.
+# Hash suffix disabled because the consumer is an InferenceService (a CRD), and
+# kustomize only rewrites generated names inside built-in types -- a hashed name
+# would leave the CR pointing at a ConfigMap that does not exist. Consequence:
+# editing the .py does NOT roll the pod on its own, so restart it deliberately.
+configMapGenerator:
+  - name: aiter-kvconn-patch
+    files:
+      - zz_aiter_kvconn.pth=./resources/zz_aiter_kvconn.pth
+      - zz_aiter_kvconn_impl.py=./resources/zz_aiter_kvconn_impl.py
+  - name: lds-gate-patch
+    files:
+      - zz_lds_gate.pth=./resources/zz_lds_gate.pth
+      - zz_lds_gate_impl.py=./resources/zz_lds_gate_impl.py
+generatorOptions:
+  disableNameSuffixHash: true

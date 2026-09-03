@@ -77,7 +77,8 @@ Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full proc
 
 Never commit plaintext secrets or the age key. Use placeholders so I can add the secrets manually.
 
-Post-quantum age (age1pq1) is supported; see [sops-post-quantum.md](../docs/sops-post-quantum.md) for testing and migration.
+Post-quantum age (age1pq1) is supported. Both halves of the key must be present in `age.key`: a
+key that lost its PQ half decrypts `talos/` but fails on everything under `kubernetes/`.
 
 ## Debugging
 

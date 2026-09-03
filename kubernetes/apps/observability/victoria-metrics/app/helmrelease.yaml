@@ -215,9 +215,12 @@ spec:
 
                   🎯 **Affected targets**
 
-                  {{ range $i, $alert := .Alerts }}{{ if lt $i 5 }}• {{ with $alert.Labels.namespace }}`{{ . }}`/{{ end }}{{ if $alert.Labels.pod }}`{{ $alert.Labels.pod }}`{{ else if $alert.Labels.instance }}`{{ $alert.Labels.instance }}`{{ else if $alert.Labels.node }}`{{ $alert.Labels.node }}`{{ else if $alert.Labels.job }}`{{ $alert.Labels.job }}`{{ else if $alert.Labels.alertname }}`{{ $alert.Labels.alertname }}`{{ else }}`unknown target`{{ end }}
+                  {{ range $i, $alert := .Alerts }}{{ if lt $i 5 }}• {{ with $alert.Labels.namespace }}`{{ . }}`/{{ end }}{{ if $alert.Labels.pod }}`{{ $alert.Labels.pod }}`{{ else if $alert.Labels.instance }}`{{ $alert.Labels.instance }}`{{ else if $alert.Labels.node }}`{{ $alert.Labels.node }}`{{ else if $alert.Labels.job }}`{{ $alert.Labels.job }}`{{ else if $alert.Labels.source_ip }}`{{ $alert.Labels.source_ip }}`{{ else if $alert.Labels.alertname }}`{{ $alert.Labels.alertname }}`{{ else }}`unknown target`{{ end }}
                   ↳ {{ if eq $alert.Status "resolved" }}resolved <t:{{ $alert.EndsAt.Unix }}:R>{{ else }}firing since <t:{{ $alert.StartsAt.Unix }}:R>{{ end }}
                   {{ with $alert.GeneratorURL }}↳ [source]({{ . }}){{ end }}
+                  {{ with $alert.Labels.scenario }}↳ `{{ . }}`{{ end }}
+                  {{ with $alert.Annotations.origin }}↳ {{ . }}{{ end }}
+                  {{ with $alert.Annotations.request }}↳ `{{ printf "%.400s" . }}`{{ end }}
 
                   {{ end }}{{ end }}{{ if gt (len .Alerts) 5 }}…and more alerts in this group.
                   {{ end }}

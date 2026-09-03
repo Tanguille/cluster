@@ -192,9 +192,26 @@ spec:
   modelRef: qwen38-27b-vllm
   runtime: vllm
   replicas: 1
-  # TPOT probe 08-21: kernel-dispatch cliff at M=6 (MAX_SKINNY_BATCH_SIZE=5
-  # in rdna_hybrid_w4a16.py), 23.6 -> 13.3 tok/s/stream. Operator -> --max-num-seqs.
-  parallelSlots: 6
+  # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
+  # W4A16 projections to the slow Triton path at M=6 (and drops the bf16 lm_head
+  # to torch.linear), so slot 6 is strictly worse per stream than slot 5.
+  # Measured 2026-09-02, M=1..5 with one graph per size. Current config, three
+  # warm runs: 30.6-31.1 / 54.4-56.3 / 61.8-65.1 / 76.1-84.4 / 94.7-102.9.
+  #
+  # The "before" row originally recorded here (31.06 28.64 39.30 52.15 52.22
+  # 61.99) was WITHDRAWN 2026-09-02: its M=2 value was a cold rep. This engine
+  # is bimodal until warmed -- cold reps land ~29-32 at M=2 where warm reps land
+  # ~55, a 1.9x gap with no traffic and no config change, and ONE warmup run is
+  # not enough. Isolated warm A/B of the LDS gate (8 reps, same pod, gate the
+  # only variable) gives M=2 43.74 -> 55.5 (+26.5%). M=3 was unchanged, but that
+  # is a null control, not a confirmation: at M=3 K*M=52224 still exceeds 39321
+  # so down_proj stays on Triton and no movement was predicted.
+  #
+  # No warm number is claimed for the capture-size change itself. It is kept on
+  # mechanism only: at M=6 every W4A16 projection falls to Triton
+  # (MAX_SKINNY_BATCH_SIZE=5), so padding M=5 to 6 was real work; padding M=3 to
+  # 4 keeps the same Triton tile and grid and likely did little.
+  parallelSlots: 5
   bindAddress: 0.0.0.0
   # Rolling `nightly` tag pinned by digest, same shape as
   # kubesearch-mcp:master@sha256:. The digest is what gets pulled, so this is
@@ -202,7 +219,7 @@ spec:
   # open a digest-bump PR, which it can never do for an immutable
   # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
   # v0.27.1 is the newest release and predates gfx1201 support.
-  image: vllm/vllm-openai-rocm:nightly@sha256:d53c0dd4a4639e9e8eb10a3128821083acfbc1c083125f92300366bde3153335
+  image: vllm/vllm-openai-rocm:nightly@sha256:cef549da00e0efaeadd9338ac8f351f2b96ff71a5ab8651a99bf989458bf1684
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
@@ -246,10 +263,14 @@ spec:
     # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
-    # Inert for attention: with a KV connector set, rocm.py:703 rejects
-    # ROCM_AITER_UNIFIED_ATTN and selects TRITON_ATTN. FP8 linear kernels do
-    # not apply to W4A16 either. Kept for the GDN linear-attn path.
-    # Forcing AITER attention measured +84% decode but ~10x worse prefill.
+    # Attention IS AITER while the 09-01 soak patch below is mounted: it lifts
+    # the supports_kv_connector rejection at rocm.py:703, and the boot log
+    # confirms "Overriding with ROCM_AITER_UNIFIED_ATTN". Drop that patch and a
+    # KV connector forces TRITON_ATTN again. FP8 linear kernels do not apply to
+    # W4A16. Also kept for the GDN linear-attn path.
+    # An older forced-AITER experiment measured +84% decode / ~10x worse
+    # prefill; the soak block below measures parity. Trust the soak block --
+    # the older number predates vllm#53821.
     - name: VLLM_ROCM_USE_AITER
       value: "1"
     - name: HIP_VISIBLE_DEVICES
@@ -262,7 +283,10 @@ spec:
       value: /cache/triton
     - name: TORCHINDUCTOR_CACHE_DIR
       value: /cache/inductor
-    # Pins the fs tier's block-hash seed; unset it is random per process and restarts lose it.
+    # Pins the fs tier's block-hash seed. Since vllm#51875 the sha256 default
+    # already derives a fixed seed, so the old "random per process" reason is
+    # gone -- but PYTHONHASHSEED still overrides that seed, so REMOVING this
+    # rehashes every block and invalidates the whole fs tier. Keep it.
     - name: PYTHONHASHSEED
       value: "0"
   extraVolumes:
@@ -279,6 +303,14 @@ spec:
       emptyDir:
         medium: Memory
         sizeLimit: 24Gi
+    # SOAK TEST -- see the mounts below and models/resources/zz_aiter_kvconn_impl.py.
+    - name: aiter-kvconn-patch
+      configMap:
+        name: aiter-kvconn-patch
+    # Raises the W4A16 skinny-GEMM LDS gate to the C++ kernel's real limit.
+    - name: lds-gate-patch
+      configMap:
+        name: lds-gate-patch
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -286,6 +318,61 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
+    # SOAK TEST 2026-09-01, time-boxed -- remove or promote after evaluation.
+    # EXIT CRITERION (added 09-03, was missing): the claimed win is short
+    # context, so compare litellm TTFT and ITL for prompts under 2K tokens
+    # over the 7d before 09-01 against the 7d after. Promote on a real
+    # improvement there, revert on parity -- the synthetic sweeps already
+    # measured parity at long context, so "no change" is a revert, not a pass.
+    #
+    # Selects ROCM_AITER_UNIFIED_ATTN instead of TRITON_ATTN by lifting an
+    # inherited `supports_kv_connector() -> False` that appears to be a missing
+    # override rather than a real exclusion (full argument in the .py).
+    #
+    # Bench says PARITY, not a win: decode conc-16 77.27 vs 77.63 tok/s, engine
+    # prefill 6388.5 vs 6390. It is deployed anyway to get real-traffic hours,
+    # because the published gains (vllm#43615: +56.5% at 512 tok, +72.4% on
+    # 1K-2K) live at short contexts that the synthetic sweeps did not cover,
+    # and production traffic does include them.
+    #
+    # An earlier run measured 1.89 tok/s decode and looked catastrophic. That was
+    # vllm#53821 (AITER's query_start_loc zeroed during graph capture), fixed in
+    # this image. Do NOT reintroduce that number as evidence.
+    #
+    # Verify it actually took effect -- the hook fails open to TRITON_ATTN:
+    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep aiter-kvconn-patch
+    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep "Overriding with"
+    # Revert = delete these two mounts, the volume above, and the generator.
+    - name: aiter-kvconn-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn.pth
+      subPath: zz_aiter_kvconn.pth
+      readOnly: true
+    - name: aiter-kvconn-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn_impl.py
+      subPath: zz_aiter_kvconn_impl.py
+      readOnly: true
+    # rdna_hybrid_w4a16.py gates the fast HIP skinny GEMM on
+    # `K * M <= LDS_CAPACITY_ELEMENTS` (32768). The C++ kernel actually accepts
+    # `K_in * N_in <= max_lds_len * 1.2` (39321) and switches to a medium
+    # variant above the plain LDS size. down_proj (K=17408) at M=2 is 34816:
+    # legal for the kernel, refused by Python, so it fell to a ~2x slower Triton
+    # path -- which is why per-stream decode halved at 2 concurrent requests.
+    #
+    # Verified on gfx1201 before deploying: at M=2 the HIP kernel is correct
+    # (rel err 0.0014 vs an fp32 reference, BETTER than Triton's 0.0093) and
+    # ~1.8x faster; M=3 (52224) is refused by the kernel itself with a clean
+    # RuntimeError, so an over-large gate fails loudly, not silently.
+    #
+    # Same one-line change as upstream vllm PR #52619. Drop this mount and the
+    # generator entry once that lands in the nightly.
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
+      subPath: zz_lds_gate.pth
+      readOnly: true
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
+      subPath: zz_lds_gate_impl.py
+      readOnly: true
   extraArgs:
     # First name is what vLLM reports back as `model`, so qwen-3.8 stays
     # primary. The second is an alias: the operator derives a LiteLLMModel from
@@ -306,7 +393,11 @@ spec:
     # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
     # (256) would overshoot.
     - --compilation-config
-    - '{"cudagraph_capture_sizes": [1, 2, 4, 6]}'
+    # One capture per real batch size. vLLM pads any batch to the NEXT capture
+    # size (v1/cudagraph_dispatcher.py), so [1,2,4,6] silently ran M=3 as 4 and
+    # M=5 as 6 -- the M=5 point was measuring the all-Triton M=6 path. With
+    # max_num_seqs 5 there is no padding left to pay for.
+    - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5]}'
     # Keep prior-turn reasoning in context; matches production qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
@@ -328,12 +419,21 @@ spec:
     # Vision transcode 0.85 GB, fileflows 0.69 GB -- 1.54 GB if they ever peak
     # together, which was not observed but is the number the reserve must cover.
     # Jellyfin has no transcode concurrency cap, so a third stream would exceed
-    # 2 GiB and evict KV; see the DgpuVramLow alert. Measured free at this
-    # config: 2.57 GB at peak load (was 2.81 GB at 7 GiB) -- this raise spends
-    # 0.24 GB of that reserve. Pool 223,172 -> 287,159 tokens, concurrency
-    # 1.01x -> 1.30x. Retention benefit NOT yet measured.
+    # 2 GiB and evict KV; see the DgpuVramLow alert.
+    #
+    # 9.0 -> 9.5 GiB 2026-09-03: the pool was the binding constraint at 117
+    # preemptions/17h as mean prompt length grew 44K -> 54K. Boot log
+    # confirms 304,808 tokens / 1.23x (was 288,508 / 1.17x). KV costs
+    # 33,494 B/token -- predict a resize with it, then confirm the boot log.
+    # Decode vs pool usage, measured: 20.6 tok/s below 40%, 6.0 above 95%.
+    #
+    # VRAM measured from drm, 3d of 60s samples: vLLM baseline 29.07 GiB of
+    # 31.86, largest non-vLLM excursion 1.82 GiB (13, all evenings). At 9.5
+    # GiB the reserve measures 2.48 GiB, 0.66 spare over that peak. Do not
+    # raise again without re-measuring the excursion max -- 10.0 GiB would
+    # leave 0.16, under the 2 GiB reserve this block is sized against.
     - --kv-cache-memory
-    - "9663676416"
+    - "10200547328"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
@@ -349,17 +449,33 @@ spec:
     # DO NOT remove the fs secondary tier to save Ceph writes: its 4.5% hit
     # rate is not its job. Removing it halved single-stream decode (15.5 vs
     # 31 tok/s, exact-revert confirmed) -- it keeps eviction asynchronous.
-    # blocks_per_chunk: 4 coalesces 4 GPU blocks (800 tok each, mamba-page-
+    # blocks_per_chunk: 8 coalesces 8 GPU blocks (800 tok each, mamba-page-
     # forced) into one offload lookup key, cutting per-request fs/CPU tier
-    # lookup calls ~4x (a 48K-token prompt: ~60 calls -> ~15) to shrink the
+    # lookup calls ~8x (a 48K-token prompt: ~60 calls -> ~8) to shrink the
     # burst size that overwhelms the single-threaded async lookup manager
-    # (see kv_offload_lookup_async_delay_seconds stalls). Raise to 8 if a
-    # soak still shows bad lookup delay/preemptions; watch that
-    # external_kv_transfer's prompt-token share doesn't drop as the cost of
-    # coarser partial-prefix matching.
+    # (see kv_offload_lookup_async_delay_seconds stalls).
+    #
+    # 4 -> 8 on 2026-09-03: fs-tier async lookup delay hit 3.94s mean /
+    # 10.0s p99 (primary tier shows none), over the same 17h window that
+    # logged the preemptions noted above. Cost is coarser partial-prefix
+    # matching, so judge it on END-TO-END cached prompt tokens (86.7% at
+    # blocks_per_chunk 4) and revert below ~82%. Per-tier hit rates mislead
+    # here: they move inversely as tiers absorb each other's load, reading
+    # fs 6.6% / primary 43.2% at that same moment.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":8,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+  # This engine is the live one; Flash-Next is the parked one (suspend: true
+  # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
+  # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next
+  # could not schedule even if wanted -- and the R9700's 32Gi could not hold
+  # both models regardless.
+  #
+  # Reverted to false 2026-08-31: Flash-Next measured 125-144 tok/s prefill on
+  # gfx1201 against this engine's ~7170, because 42.92Gi of experts cannot fit
+  # a 31.86Gi card and the 19-24 layers that spill to host RAM dominate. See
+  # the flash-next manifest header for the full budget.
+  suspend: false
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
@@ -372,9 +488,13 @@ spec:
     cpu: "2"
     # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
     # under 4x32K concurrent load with the tier full (3.7Gi headroom).
-    # There is no memory limit, so this is scheduler bookkeeping only: it
-    # must stay above the 28.3Gi peak to keep vllm under-request and off
+    # No memory limit at chart 0.9.24, so this is scheduler bookkeeping only:
+    # it must stay above the 28.3Gi peak to keep vllm under-request and off
     # the eviction list, but every Gi above that is reserved and unusable.
+    # llmkube e4a3669af (unreleased) makes this a LIMIT as well as a request.
+    # Live working set is 27.49Gi, so 32Gi would leave ~4.5Gi before an
+    # OOMKill that costs the documented hours-long admission stall. Raise this
+    # deliberately when bumping past 0.9.24, and rewrite this comment.
     memory: 32Gi
   endpoint:
     port: 8000

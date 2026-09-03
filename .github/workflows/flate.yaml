@@ -41,7 +41,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Flate
-        uses: home-operations/flate/action@83b2308bc71043482a2f4e849a74b0a53cc1e014 # v0.6.1
+        uses: home-operations/flate/action@631b76b69c4e58c6f4d1cb01e23616fa61aebafa # v0.6.5
 
       # All three diffs share one job: the first render warms flate's on-disk cache,
       # so the other two are near-free. Separate jobs each render from cold.
@@ -108,14 +108,22 @@ jobs:
     name: Flate - Pull Images
     runs-on: cluster-runner
     steps:
+      # Only the tuppr upgrade CRs, for the talosctl version below.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: kubernetes/apps/system-upgrade/tuppr/upgrades
+
       # 96MiB per run, on every container PR. /tool-cache is a shared RWX cache: optional,
       # and writable by any job, so every binary is sha256-checked against the release.
       - name: Install talosctl
-        env:
-          # renovate: datasource=github-releases depName=siderolabs/talos
-          TALOS_VERSION: v1.13.9
         run: |
           set -euo pipefail
+          # yq -e, not yq: a plain yq prints "null" and exits 0 for a missing key.
+          TALOS_VERSION="$(yq -e '.spec.talos.version' \
+            kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml)"
+          echo "talosctl ${TALOS_VERSION} (from talosupgrade.yaml)"
           base="https://github.com/siderolabs/talos/releases/download/${TALOS_VERSION}"
           bin="$HOME/.local/bin"
           cache="/tool-cache/talosctl-${TALOS_VERSION}"

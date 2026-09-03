@@ -21,7 +21,7 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.8.29-d226b78bc@sha256:b36af7984b87191b595bc5301418ed6432c047668a4547ab531a7439b816fac3
+              tag: 2026.9.2-05cd77f71@sha256:8486daaebc65adacfe434be38b991cf90da92d3fd80ae9f0ab1409ba65664e28
             env:
               FORCE_OWNERSHIP: "false"
               GRANIAN_HOST: "::"
@@ -43,7 +43,6 @@ spec:
                     httpHeaders: &probeHeaders
                       - name: X-Real-IP
                         value: 127.0.0.1
-                  initialDelaySeconds: 15
               readiness: *probes
               startup:
                 enabled: true

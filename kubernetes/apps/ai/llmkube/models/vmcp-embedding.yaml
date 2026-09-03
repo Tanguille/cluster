@@ -41,8 +41,14 @@ spec:
   mode: embedding
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
-  maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:be8d64a2a05b11ddaf5799c544b0d96f8d9a09fb065e8d117cafa7f03e533896
+  #
+  # 64800 (18h), deliberately NOT qwen3-embedding's 86400: both were created
+  # together with the same lifetime, so both recycled at the identical second
+  # (2026-09-03T11:30:39Z, verified) on the same iGPU node. Two Vulkan embedders
+  # reloading at once on control-3 is the condition behind the podAffinity
+  # deadlock; offsetting the period drops realignment from daily to every 3d.
+  maxPodLifetimeSeconds: 64800
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:a07daf5557d88b5eacfa0b5f2f067bad5fb0e7ad1d68956c06e7c2c732249020
   # Vulkan floor is 2 — warmup hangs at parallel=1 (llama.cpp #24307). The iGPU
   # is compute-bound, so more slots add interleave, not throughput.
   parallelSlots: 2
