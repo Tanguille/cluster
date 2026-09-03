@@ -7,8 +7,8 @@
 # can drift from the release being built. See docker/talos-kernel/README.md.
 set -euo pipefail
 
-# The full v<talos>-k<kernel> string from the tuppr CR: the value tuppr compares, so the value
-# the published tag must equal. Upstream release tags want the Talos half alone.
+# The full v<talos>-k<kernel> from the tuppr CR: what tuppr compares, so what the tag must be.
+# Upstream release tags want the Talos half alone.
 VERSION="${1:?usage: talos-kernel-build.sh <version> <node>...}"
 shift
 TALOS_VERSION="${VERSION%-k*}"
@@ -25,18 +25,17 @@ trap 'rm -rf "${WORK}"' EXIT
 # the Dockerfile while the tag and the built kernel came from whatever number was typed.
 KERNEL_VERSION="$(just kernel-version)"
 
-# Same Renovate branch bumps both (depName linux), so a mismatch means a half-applied tree.
-# Fail here: an installer whose tag advertises a kernel it does not carry is caught nowhere else.
+# Same Renovate branch bumps both, so a mismatch means a half-applied tree. An installer whose
+# tag advertises a kernel it does not carry is caught nowhere else.
 [[ "${VERSION#*-k}" == "${KERNEL_VERSION}" ]] || {
     echo "CR names k${VERSION#*-k}, Dockerfile builds ${KERNEL_VERSION}" >&2; exit 1
 }
 
 log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
-# One image per SCHEMATIC, not per node. The repo is named after the schematic so both are the
-# same kind of thing: `shared` for talos/schematic.yaml, the node name for a node with its own
-# override. Defined once because the pre-check below and the publish loop must agree -- if they
-# disagree the build republishes a tag it just decided already existed.
+# One image per SCHEMATIC, not per node: `shared` for talos/schematic.yaml, else the node name.
+# Shared by the pre-check and the publish loop -- if they disagreed, the build would republish a
+# tag it had just decided existed.
 installer_ref() {
     local schematic
     schematic="$(just talos schematic-file "$1")"
@@ -48,10 +47,9 @@ installer_ref() {
     fi
 }
 
-# Tags in installer/* are never reused: one tag is one build, and the amdgpu extension is signed
-# with a key the kernel regenerates per build. A merge that touches a trigger path would
-# otherwise re-push the same tags with different bytes -- so if every installer this run would
-# publish already exists, there is nothing to do. Exits 0, not 1: a no-op rerun is success.
+# Tags in installer/* are never reused: one tag is one build, and amdgpu is signed with a key
+# the kernel regenerates each time. Without this, any merge touching a trigger path re-pushes
+# the same tags with different bytes. Exit 0 -- a no-op rerun is success.
 missing=0
 for node in "$@"; do
     ref="$(installer_ref "${node}")" || exit 1

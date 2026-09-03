@@ -1,10 +1,5 @@
-# Applies to every minijinja-cli invocation in this repo, not just the `template` recipe --
-# these two settings are correctness, not style, and a bare run without them renders a config
-# that looks right and is not.
-#
-# autoescape: the default escapes by target format, which quotes every substitution -- certs
-# and versions come out wrapped, and a `crt: "LS0t...: with colon"` is a valid-looking YAML
-# string that is the wrong value.
-# strict: a typo'd variable is an error rather than an empty string.
+# Correctness, not style, and applies to bare minijinja-cli runs as well as the `template`
+# recipe. Default autoescaping quotes every substitution, turning a cert into a valid-looking
+# YAML string with the wrong value; strict makes a typo'd variable an error, not "".
 autoescape = "none"
 strict = true

@@ -6,20 +6,14 @@ metadata:
   name: tuppr-rules
 spec:
   groups:
-    # The chart ships its own `tuppr` group (monitoring.prometheusRule.enabled in the
-    # HelmRelease); group and alert names here must not collide with it.
+    # Must not collide with the chart's own `tuppr` group (monitoring.prometheusRule.enabled).
     - name: tuppr.parked.rules
       rules:
-        # The chart's TalosUpgradeStuck watches Upgrading|Rebooting|Draining|HealthChecking,
-        # and TupprUpgradeBlocked matches reason=~"Waiting.*|Suspended". A run parked in
-        # Pending/PrePullFailed matches neither, and pre-pull retries forever on a 5m backoff
-        # without ever reaching Failed (prepull.go:133) -- so a kernel bump whose build failed
-        # leaves the fleet on the old version, outdated nodes carrying the PreferNoSchedule
-        # taint, and nothing alerting. That is the whole cost of the merge-only upgrade path.
-        #
-        # 4h, because the normal parked window is one push-to-main installer build (~90m) plus
-        # the pre-pull itself. Pending is also the transient state between node batches, which
-        # is minutes.
+        # Pending/PrePullFailed is covered by neither TalosUpgradeStuck (wrong phases) nor
+        # TupprUpgradeBlocked (reason=~"Waiting.*|Suspended"), and pre-pull retries forever
+        # without reaching Failed (prepull.go:133) -- a failed build would sit silently with the
+        # outdated taint on. 4h clears a ~90m installer build plus the pull; Pending is
+        # otherwise only the gap between node batches.
         - alert: TalosUpgradeParked
           expr: |-
             tuppr_talos_upgrade_phase{phase="Pending"} == 1

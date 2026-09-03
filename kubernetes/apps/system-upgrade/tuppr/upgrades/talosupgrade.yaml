@@ -6,25 +6,17 @@ metadata:
   name: talos
 spec:
   talos:
-    # The version a node built from docker/talos-kernel reports, and the only value tuppr
-    # compares. Renovate-managed by the two regex managers in .renovaterc.json5, one per half;
-    # an inline annotation reads -k7.1.13 as a prerelease and eats the kernel half.
-    # NEVER write another literal -k<digits> in this file, comments included: the kernel manager
-    # is unanchored, so each one is extracted as its own dep. A dry-run found three.
+    # Bumped by the two regex managers in .renovaterc.json5, one per half.
+    # No other literal -k<digits> in this file: the kernel manager is unanchored, so each one
+    # becomes its own dep.
     version: v1.14.0-k7.1.13
   talosctl:
     image:
-      # Plain upstream tag. A -k<kernel> one is unpublished and the job ImagePullBackOffs until
-      # policy.timeout (control-2, 2026-08-21). Not aliased to the field above any more.
+      # Plain tag: a -k<kernel> talosctl is unpublished and ImagePullBackOffs (control-2, 2026-08-21).
       # renovate: datasource=github-releases depName=siderolabs/talos
       tag: v1.14.0
-  # To hold a node back, add a nodeSelector here -- excluded nodes are never enumerated, so they
-  # take no outdated taint either (getSortedNodes, upgrade.go:625-641):
-  #   nodeSelector:
-  #     matchExpressions:
-  #       - key: kubernetes.io/hostname
-  #         operator: NotIn
-  #         values: ["control-1"]
+  # Hold a node back with a nodeSelector, e.g. kubernetes.io/hostname NotIn [control-1];
+  # excluded nodes are never enumerated, so they take no outdated taint either.
   policy:
     rebootMode: powercycle
   healthChecks:
