@@ -409,28 +409,17 @@ spec:
     # Jellyfin has no transcode concurrency cap, so a third stream would exceed
     # 2 GiB and evict KV; see the DgpuVramLow alert.
     #
-    # Raised 9.0 -> 9.5 GiB 2026-09-03 because the pool became the binding
-    # constraint: 117 preemptions in 17h (0 in the preceding quiet 8h) as mean
-    # prompt length grew 44K -> 54K. Decode degrades monotonically with pool
-    # pressure -- 20.6 tok/s below 40% usage, 6.0 tok/s above 95% -- and 27%
-    # of decode time now sits above 85%. Judge that by END-TO-END cached
-    # prompt tokens (86.7%), not the per-tier hit rates: the GPU tier's own
-    # rate fell to 65.7% over the same period purely because the offload
-    # tiers absorbed the difference.
+    # 9.0 -> 9.5 GiB 2026-09-03: the pool was the binding constraint at 117
+    # preemptions/17h as mean prompt length grew 44K -> 54K. Boot log
+    # confirms 304,808 tokens / 1.23x (was 288,508 / 1.17x). KV costs
+    # 33,494 B/token -- predict a resize with it, then confirm the boot log.
+    # Decode vs pool usage, measured: 20.6 tok/s below 40%, 6.0 above 95%.
     #
-    # Sizing is measured from drm VRAM rather than estimated: 3d of 60s
-    # samples put the vLLM baseline at 29.07 GiB of 31.86, so the reserve
-    # everything else shares was 2.79 GiB, and the largest non-vLLM excursion
-    # in that window was 1.82 GiB (13 excursions, all evenings). This raise
-    # leaves 2.29 GiB, still clear of that 1.82 peak but with only 0.47 GiB
-    # spare, so DgpuVramLow is load-bearing from here -- do not raise again
-    # without re-measuring the excursion max.
-    #
-    # Supersedes the earlier "pool 223,172 -> 287,159, concurrency 1.01x ->
-    # 1.30x" note: the live boot log reports 288,508 tokens and 1.17x at 9.0
-    # GiB, because maxModelLen moved after that number was written. 288,508
-    # tokens / 9.0 GiB = 33,494 B per token, which is what predicts the new
-    # pool -- confirm it against the boot log, do not trust the arithmetic.
+    # VRAM measured from drm, 3d of 60s samples: vLLM baseline 29.07 GiB of
+    # 31.86, largest non-vLLM excursion 1.82 GiB (13, all evenings). At 9.5
+    # GiB the reserve measures 2.48 GiB, 0.66 spare over that peak. Do not
+    # raise again without re-measuring the excursion max -- 10.0 GiB would
+    # leave 0.16, under the 2 GiB reserve this block is sized against.
     - --kv-cache-memory
     - "10200547328"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
@@ -454,14 +443,13 @@ spec:
     # burst size that overwhelms the single-threaded async lookup manager
     # (see kv_offload_lookup_async_delay_seconds stalls).
     #
-    # Raised 4 -> 8 on 2026-09-03 because both triggers the 4 setting named
-    # were met over a 17h window: async lookup delay 3.94s mean / 10.0s p99
-    # (fs tier only; primary tier shows none), and 117 preemptions against 0
-    # in the preceding quiet 8h. The cost of coarser partial-prefix matching
-    # is end-to-end cached prompt tokens, 86.7% at blocks_per_chunk 4 --
-    # judge it there, NOT on the per-tier hit rates, which move inversely as
-    # tiers absorb each other's load (fs 6.6% / primary 43.2% at the same
-    # moment). Revert if that end-to-end figure drops below ~82%.
+    # 4 -> 8 on 2026-09-03: fs-tier async lookup delay hit 3.94s mean /
+    # 10.0s p99 (primary tier shows none), over the same 17h window that
+    # logged the preemptions noted above. Cost is coarser partial-prefix
+    # matching, so judge it on END-TO-END cached prompt tokens (86.7% at
+    # blocks_per_chunk 4) and revert below ~82%. Per-tier hit rates mislead
+    # here: they move inversely as tiers absorb each other's load, reading
+    # fs 6.6% / primary 43.2% at that same moment.
     - --kv-transfer-config
     - >-
       {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":8,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
