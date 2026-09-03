@@ -98,7 +98,30 @@ having regardless.
 
 ## Steps
 
-### Step 1: one atomic PR — managers, CR, consumers, templates
+### Step 1: one atomic PR — managers, CR, consumers, templates — **DONE** (e37104552)
+
+Shipped on `feat/tuppr-cr-version-target`, stacked on `feat/talos-1.14.0-k7.1.13`
+so the CR can name `v1.14.0-k7.1.13` directly and the merge is a live test of
+the new path rather than a no-op.
+
+Two deviations from the text below, both deliberate:
+
+- The Talos-half regex gained `(?:-[a-z]+\.\d+)?` so it also matches a
+  prerelease pin (`v1.14.0-rc.2-k7.1.10`, which is what the fleet ran when this
+  was written). Without it the manager silently matches nothing on an rc.
+- The `-k` guard was added to `.justfile` `template` as well as the build
+  script, so a half-applied tree fails to *render*, not just to build.
+
+Verified: all three nodes render and pass `talosctl validate -m metal`; no
+`tuppr` string survives in any rendered config; the guard fires
+(`tuppr CR names k7.1.13, Dockerfile builds 7.1.99`); `.renovaterc.json5` parses
+and registers both managers; and the first-occurrence replacement semantics were
+simulated against both regexes — the un-narrowed kernel regex turns
+`v1.17.3-k7.3` into `v1.17.4-k7.3`, the shipped one into `v1.17.3-k7.4`.
+
+Still outstanding for this step: a Renovate dry-run against the real config
+(needs node 24 + a GH token). The repo's own validator false-flags
+`managerFilePatterns`, so a clean validator run is not the bar.
 
 These **cannot** be separate merges. Flux applies main immediately and
 `talosupgrade.yaml` is already a build trigger path, so every intermediate
