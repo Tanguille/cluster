@@ -18,14 +18,13 @@ spec:
       # policy.timeout (control-2, 2026-08-21). Not aliased to the field above any more.
       # renovate: datasource=github-releases depName=siderolabs/talos
       tag: v1.14.0
-  # HOLD: control-1 moves by hand -- TrueNAS VM, only dGPU host, hypervisor-reset history.
-  # Excluded nodes are never enumerated, so they take no outdated taint either
-  # (getSortedNodes, upgrade.go:625-641). Delete the block to release.
-  nodeSelector:
-    matchExpressions:
-      - key: kubernetes.io/hostname
-        operator: NotIn
-        values: ["control-1"]
+  # To hold a node back, add a nodeSelector here -- excluded nodes are never enumerated, so they
+  # take no outdated taint either (getSortedNodes, upgrade.go:625-641):
+  #   nodeSelector:
+  #     matchExpressions:
+  #       - key: kubernetes.io/hostname
+  #         operator: NotIn
+  #         values: ["control-1"]
   policy:
     rebootMode: powercycle
   healthChecks:
