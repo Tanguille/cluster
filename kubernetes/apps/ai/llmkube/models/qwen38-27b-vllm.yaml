@@ -312,6 +312,10 @@ spec:
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
+    # Gives the W4A16 skinny GEMM the real CU count (HIP reports WGPs).
+    - name: cu-count-patch
+      configMap:
+        name: cu-count-patch
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -386,6 +390,29 @@ spec:
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
       subPath: zz_lds_gate_impl.py
+      readOnly: true
+    # HIP reports WGPs, not CUs, in WGP mode, so num_compute_units() returns 32
+    # on this 64-CU part and wvSplitK_int4_g splits K half as many ways as the
+    # hardware allows. Measured ~21% on down_proj at M=1 but only ~2% at M=2,
+    # and 59% of active-decode samples here are M>=2 -- so this is a small win,
+    # shipped because it is cheap and correct, not because it moves production
+    # much. Judge it at M=1; do not expect it to show at M>=3.
+    #
+    # Scoped to RDNAHybridW4A16LinearKernel.apply_weights ON PURPOSE. A global
+    # override of num_compute_units would also hit the GDN linear-attention path
+    # (flash_linear_attention/ops/layernorm_guard.py), gpu_model_runner and the
+    # Triton sampler, none of which were measured at 64.
+    #
+    # Fails open: if upstream renames the module or class the hook never fires
+    # and the kernel runs at 32. Confirm from the log, do not assume:
+    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep cu-count-patch
+    - name: cu-count-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_cu_count.pth
+      subPath: zz_cu_count.pth
+      readOnly: true
+    - name: cu-count-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_cu_count_impl.py
+      subPath: zz_cu_count_impl.py
       readOnly: true
   extraArgs:
     # First name is what vLLM reports back as `model`, so qwen-3.8 stays
