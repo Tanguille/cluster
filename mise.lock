@@ -217,6 +217,28 @@ checksum = "sha256:0d6955caf5168b163824317b3b0caed699b3ca3ca9523dd4442e3227e83dd
 url = "https://github.com/google/go-containerregistry/releases/download/v0.22.0/go-containerregistry_Darwin_arm64.tar.gz"
 url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/529609793"
 
+[[tools."aqua:hadolint/hadolint"]]
+version = "2.15.1"
+backend = "aqua:hadolint/hadolint"
+
+[tools."aqua:hadolint/hadolint"."platforms.linux-arm64"]
+checksum = "sha256:f6198ef8090f404dbb771abfee086eb8c48ac177f30da7fd3510aca35b344b5d"
+url = "https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-linux-arm64"
+url_api = "https://api.github.com/repos/hadolint/hadolint/releases/assets/496546507"
+provenance = "github-attestations"
+
+[tools."aqua:hadolint/hadolint"."platforms.linux-x64"]
+checksum = "sha256:c7187db94eeeeca956519a6af171adc31453941a1e777961f6e680f697c8c507"
+url = "https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-linux-x86_64"
+url_api = "https://api.github.com/repos/hadolint/hadolint/releases/assets/496546506"
+provenance = "github-attestations"
+
+[tools."aqua:hadolint/hadolint"."platforms.macos-arm64"]
+checksum = "sha256:5c09f3213f8e40406abe048233d985eebef336d4a6a20021be47fadb6cf480a2"
+url = "https://github.com/hadolint/hadolint/releases/download/v2.15.1/hadolint-macos-arm64"
+url_api = "https://api.github.com/repos/hadolint/hadolint/releases/assets/496546505"
+provenance = "github-attestations"
+
 [[tools."aqua:helm/helm"]]
 version = "4.2.4"
 backend = "aqua:helm/helm"
@@ -328,6 +350,28 @@ url = "https://dl.k8s.io/v1.36.4/bin/linux/amd64/kubectl"
 checksum = "sha256:c9e4f713d6fee0043a3d835cca13077cda2bc0973840eb9779360df0b5bdfc69"
 url = "https://dl.k8s.io/v1.36.4/bin/darwin/arm64/kubectl"
 
+[[tools."aqua:kubescape/kubescape"]]
+version = "4.0.13"
+backend = "aqua:kubescape/kubescape"
+
+[tools."aqua:kubescape/kubescape"."platforms.linux-arm64"]
+checksum = "sha256:4485e06d859f34f29009e02412b7ee0a645696f4141044513fc160e3fd5ed77c"
+url = "https://github.com/kubescape/kubescape/releases/download/v4.0.13/kubescape_4.0.13_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/kubescape/kubescape/releases/assets/540882407"
+provenance = "github-attestations"
+
+[tools."aqua:kubescape/kubescape"."platforms.linux-x64"]
+checksum = "sha256:2dd928aeb16c138688ba5caf549297698e81feddcd06cc0f052f40c88ad094fa"
+url = "https://github.com/kubescape/kubescape/releases/download/v4.0.13/kubescape_4.0.13_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/kubescape/kubescape/releases/assets/540882404"
+provenance = "github-attestations"
+
+[tools."aqua:kubescape/kubescape"."platforms.macos-arm64"]
+checksum = "sha256:f98b2e26d889d1585b2f1c84626ef93cf626bd854ccfaa66cd8c5b3f4559eb53"
+url = "https://github.com/kubescape/kubescape/releases/download/v4.0.13/kubescape_4.0.13_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/kubescape/kubescape/releases/assets/540882400"
+provenance = "github-attestations"
+
 [[tools."aqua:mikefarah/yq"]]
 version = "4.53.6"
 backend = "aqua:mikefarah/yq"
@@ -350,25 +394,6 @@ url = "https://github.com/mikefarah/yq/releases/download/v4.53.6/yq_darwin_arm64
 url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/522028033"
 provenance = "cosign"
 
-[[tools."aqua:mvdan/sh"]]
-version = "3.13.1"
-backend = "aqua:mvdan/sh"
-
-[tools."aqua:mvdan/sh"."platforms.linux-arm64"]
-checksum = "sha256:32d92acaa5cd8abb29fc49dac123dc412442d5713967819d8af2c29f1b3857c7"
-url = "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_arm64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/390322859"
-
-[tools."aqua:mvdan/sh"."platforms.linux-x64"]
-checksum = "sha256:fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1"
-url = "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/390322866"
-
-[tools."aqua:mvdan/sh"."platforms.macos-arm64"]
-checksum = "sha256:9680526be4a66ea1ffe988ed08af58e1400fe1e4f4aef5bd88b20bb9b3da33f8"
-url = "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_darwin_arm64"
-url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/390322881"
-
 [[tools."aqua:mitsuhiko/minijinja"]]
 version = "2.24.0"
 backend = "aqua:mitsuhiko/minijinja"
@@ -387,6 +412,25 @@ url_api = "https://api.github.com/repos/mitsuhiko/minijinja/releases/assets/5118
 checksum = "sha256:a0f1525bcac485a80313cec7e835ed03335bd55bc14dc5cf070c7eb9789d9905"
 url = "https://github.com/mitsuhiko/minijinja/releases/download/2.24.0/minijinja-cli-aarch64-apple-darwin.tar.xz"
 url_api = "https://api.github.com/repos/mitsuhiko/minijinja/releases/assets/511868818"
+
+[[tools."aqua:mvdan/sh"]]
+version = "3.13.1"
+backend = "aqua:mvdan/sh"
+
+[tools."aqua:mvdan/sh"."platforms.linux-arm64"]
+checksum = "sha256:32d92acaa5cd8abb29fc49dac123dc412442d5713967819d8af2c29f1b3857c7"
+url = "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_arm64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/390322859"
+
+[tools."aqua:mvdan/sh"."platforms.linux-x64"]
+checksum = "sha256:fb096c5d1ac6beabbdbaa2874d025badb03ee07929f0c9ff67563ce8c75398b1"
+url = "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/390322866"
+
+[tools."aqua:mvdan/sh"."platforms.macos-arm64"]
+checksum = "sha256:9680526be4a66ea1ffe988ed08af58e1400fe1e4f4aef5bd88b20bb9b3da33f8"
+url = "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_darwin_arm64"
+url_api = "https://api.github.com/repos/mvdan/sh/releases/assets/390322881"
 
 [[tools."aqua:siderolabs/talos"]]
 version = "1.14.0-rc.2"
@@ -472,6 +516,10 @@ checksum = "sha256:1dd4dc7b4c50efb1f9d9122cd6535c793738d6e59751c228d49f768ec9dbb
 url = "https://github.com/evilmartians/lefthook/releases/download/v2.1.10/lefthook_2.1.10_MacOS_arm64.gz"
 url_api = "https://api.github.com/repos/evilmartians/lefthook/releases/assets/470227499"
 provenance = "github-attestations"
+
+[[tools."npm:markdownlint-cli2"]]
+version = "0.23.2"
+backend = "npm:markdownlint-cli2"
 
 [[tools.oxfmt]]
 version = "0.66.0"

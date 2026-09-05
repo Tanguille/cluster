@@ -30,6 +30,7 @@ Two Flux Kustomizations reconcile these:
   references each Secret via `managed.roles[].passwordSecret`, and CNPG requires that Secret to be
   in the Cluster's namespace — co-locating them means the Cluster never points at a Secret that has
   not been applied yet.
+
 > **Why these aren't co-located with each app.** `Database.spec.cluster` and
 > `managed.roles[].passwordSecret` are Kubernetes `LocalObjectReference`s — the schema has no
 > namespace field, so CNPG always resolves the Cluster/Secret *in the same namespace as the object

@@ -74,5 +74,4 @@ Unless the user asks for raw dumps, use:
 
 ## Scripts
 
-
 Format reference: [agentskills.io](https://agentskills.io/specification).
