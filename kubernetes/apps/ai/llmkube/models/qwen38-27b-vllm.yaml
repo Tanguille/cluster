@@ -507,7 +507,38 @@ spec:
     seccompProfile:
       type: Unconfined
   resources:
-    cpu: "2"
+    # 2 -> 6 on 2026-09-05: at "2" decode collapsed from 31.87 to 16.1 tok/s
+    # (ITL 31.4 -> 62.1ms), and under a fileflows transcode on control-1 as far
+    # as 1.53 tok/s (ITL 652ms, TTFT 37s). Decode-only -- TTFT held at 3.4s --
+    # which is why every GPU-side measurement missed it.
+    #
+    # The A/B is solid, the MECHANISM IS NOT ESTABLISHED. Measured at 4K, M=1,
+    # traffic isolated, server-side ITL histogram: cpu 2 flipped to 16.1 within
+    # 3-12 reps on every run; cpu 6 gave 10/10 reps at 31.9; cpu 8 gave 16/16 at
+    # 31.87. Ruled out, each with a check rather than an argument:
+    #   CFS throttling  -- cpu.stat nr_throttled 0, and cpu is request-only
+    #   torch threads   -- torch.get_num_threads() is 6 from the 6 PHYSICAL
+    #                      cores (lscpu: 6 cores x 2 threads), not from the
+    #                      request, so it was 6 at cpu 2 as well
+    #   hypervisor steal-- node_cpu_seconds_total{mode=steal} peaked at 0.073
+    #                      core-s/s summed over 12 vCPUs, ~0.7% of capacity
+    #   GPU             -- full clocks (mclk top DPM, 3302MHz sclk), 75C, and
+    #                      LOWER power in the slow state (151-242W vs 221-265W)
+    #   engine build    -- dev388 vs dev437 identical, toolchain byte-identical
+    # Cgroup cpu.weight raising scheduling latency under bursty neighbours is
+    # the surviving hypothesis; proving it needs PSI (cpu.pressure) captured
+    # while reproducing the slow state, which has not been done. Do not raise
+    # this further on the assumption it keeps scaling -- cpu 8 measured no
+    # better than 6. Node has 11 allocatable cores, ~5.5 requested.
+    #
+    # If the cpu.weight hypothesis holds, the real fix is isolation rather than
+    # a bigger request: Guaranteed QoS (cpu limit == request) plus a static
+    # cpuManagerPolicy would pin exclusive cores and take this pod out of the
+    # shared CFS pool that fileflows (requests 100m, bursts to its 2-core limit,
+    # pinned to the same node by amd.com/gpu) contends for. Untested, and not
+    # reachable at chart 0.9.24: the CR's resources block maps cpu to a request
+    # only, with no limit field to set.
+    cpu: "6"
     # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
     # under 4x32K concurrent load with the tier full (3.7Gi headroom).
     # No memory limit at chart 0.9.24, so this is scheduler bookkeeping only:
