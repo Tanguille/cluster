@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Shell Lint
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["**.sh", ".editorconfig", ".github/workflows/shell-lint.yaml"]
+  pull_request:
+    branches: ["main"]
+    paths: ["**.sh", ".editorconfig", ".github/workflows/shell-lint.yaml"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  main:
+    name: Shell Lint - Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+      # archive/ holds retired one-off scripts, kept for reference and not held to the gate.
+      - name: Lint
+        run: |
+          set -euo pipefail
+          mapfile -t scripts < <(git ls-files '*.sh' ':!archive/**')
+          mise exec -- shellcheck "${scripts[@]}"
+          mise exec -- shfmt --diff -- "${scripts[@]}"

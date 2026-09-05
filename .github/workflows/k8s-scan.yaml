@@ -1,0 +1,63 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: K8s Scan
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["kubernetes/**", ".github/workflows/k8s-scan.yaml"]
+  pull_request:
+    branches: ["main"]
+    paths: ["kubernetes/**", ".github/workflows/k8s-scan.yaml"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    # Advisory: kubescape scans the GitOps tree against its default bundled
+    # controls (NSA/CIS). The tree intentionally contains privileged
+    # infrastructure (GPU driver, Ceph, node operators), so findings are a
+    # report to review in the artifact, not a merge gate. zizmor remains the
+    # blocking gate for workflow/manifest structure.
+    name: K8s Scan - kubescape (advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+      - name: Scan
+        run: |
+          set -uo pipefail
+          mise exec -- kubescape scan kubernetes --config kubescape.yaml --format json > kubescape-report.json
+
+      - name: Report summary
+        run: |
+          set -euo pipefail
+          python3 -c '
+          import json
+          d = json.load(open("kubescape-report.json"))
+          rc = (d.get("summaryDetails") or {}).get("ResourceCounters") or {}
+          sev = (d.get("summaryDetails") or {}).get("resourcesSeverityCounters") or {}
+          print("kubescape (advisory):",
+                rc.get("passedResources", 0), "resources passed,",
+                rc.get("failedResources", 0), "failed",
+                "(high %d / medium %d / low %d) - see artifact" % (
+                    sev.get("highSeverity", 0), sev.get("mediumSeverity", 0), sev.get("lowSeverity", 0)))
+          '
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: kubescape-report
+          path: kubescape-report.json
+          if-no-files-found: error

@@ -98,6 +98,7 @@ Exhaustively tested every available 4-bit quantized Qwen3.6-27B model with vLLM 
 | btbtyler09 GPTQ with `--enforce-eager` | `gptq` | Same qzeros error | Shape mismatch is during weight loading, not compile phase |
 
 Additional issues:
+
 - **torchvision ABI deadlock**: `torchvision==0.26.0+rocm7.2` is compiled against upstream
   `torch 2.11.0+rocm7.2` but AMD base has `torch 2.11.0+rocm7.13.0rc2` (different ABI).
   Runtime `pip install` cannot fix this; only works when baked into Dockerfile at build time
@@ -131,7 +132,7 @@ engine for multi-user workloads at the time. llama.cpp retained only for single-
 
 ### vLLM production config
 
-```
+```text
 Image: docker.io/kyuz0/vllm-therock-gfx1201:latest
 Model: cyankiwi/Qwen3.6-27B-AWQ-INT4
 --max-model-len 234320          # 89% of native 262,144
@@ -147,6 +148,7 @@ Env: VLLM_ROCM_USE_AITER=0  FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE
 ```
 
 Why not native 262K context? Gap of 0.93 GiB: 9.48 GiB needed, 8.55 GiB available at 0.95 util.
+
 - `language_model_only=True` patch: made it WORSE (encoder cache grew from 12K to 16K tokens)
 - `--kv-offloading-size native`: doesn't extend GPU KV pool (for weight offload, not KV pool)
 - `--swap-space`: flag doesn't exist in kyuz0; `--kv-offloading-size` fills this role for weights
@@ -209,6 +211,7 @@ strategy that allows both asserts `is_cuda() or is_musa() or is_npu()` — ROCm 
 (`server_args.py:2545`). So you pick one:
 
 ### Config A — radix cache ON (`no_buffer`, overlap OFF) — **the reference author's config**
+
 in 2048 / out 256:
 
 | Concurrency | Aggregate TG | Median TTFT | Median E2E |
@@ -233,6 +236,7 @@ The fork author runs exactly this (no `--disable-radix-cache` anywhere in `launc
 `OVERLAP=""` for qwen36-27b). That is *why* all their published benchmarks are conc=1.
 
 ### Config B — `--disable-radix-cache` (overlap ON, no prefix cache)
+
 in 2048 / out 256:
 
 | Concurrency | Aggregate TG | Median TTFT | Median E2E |
@@ -311,6 +315,7 @@ on (cold≈warm because intra-run reuse warms the cache immediately), confirming
 caching run together without collapse** — the combination sglang/ROCm cannot do for this hybrid.
 
 ### The vLLM tradeoff vs sglang
+
 vLLM uniquely satisfies **all four** requirements at once (batch-to-10 + 131K context + fp8 KV
 compression + working prefix cache). Its **only** weakness is **single-stream decode (~6–8 tok/s)**
 — vLLM's fp8-KV path is unfused (Triton dequant every step), where the sglang fork's native fused
@@ -426,6 +431,7 @@ FP8 matrix configs. Requires `privileged: true` for GPU access (no `amd.com/gpu`
 **KV cache:** fp16 auto, 7.46 GiB → 105,813 tokens, max concurrency @32K = 3.23×
 
 **Key startup findings:**
+
 - `mattbucci/Qwen3.6-27B-AWQ` fails: vision tower MLP layer sizes incompatible with awq_marlin kernel
   ("input size not aligned"). `cyankiwi/Qwen3.6-27B-AWQ-INT4` uses `TritonW4A16LinearKernel` → loads.
 - CUDAGraph bug #39010 (V1 deadlock on gfx1201) is **fixed** in kyuz0 0.22.1rc1 — 7/7 batch sizes
@@ -448,6 +454,7 @@ FP8 matrix configs. Requires `privileged: true` for GPU access (no `amd.com/gpu`
 **PP:** ~1200 tok/s (420-token prompt, max_tokens=1, steady-state TTFT ~0.35s)
 
 **Analysis:**
+
 - Single-stream TG unchanged between eager and graph mode (compute-bound, not launch-overhead bound).
 - Aggregate TG scales **linearly** to C=16 (6.9 → 85.8 = 12.4×). GPU is memory-bandwidth bound in
   single-stream but transitions to compute-throughput bound as batch size grows — the ideal scaling
@@ -517,7 +524,8 @@ the old FP8-only C=32 throughput, with 15.9 tok/s per-stream vs 4.9 (3.2× bette
 total bandwidth). Use `--spec-method mtp` (preferred) — `qwen3_next_mtp` is a deprecated alias.
 
 **Recommended vLLM production flags:**
-```
+
+```text
 --kv-cache-dtype fp8
 --enable-prefix-caching
 --max-num-seqs 16

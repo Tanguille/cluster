@@ -1,0 +1,29 @@
+# hadolint policy for the talos-kernel build image.
+#
+# These are the rules this Dockerfile deliberately deviates from, each with the
+# reason. Everything else stays at the default severity (errors fail the gate,
+# warnings do not). If a rule is dropped below, update the matching comment in
+# docker/talos-kernel/Dockerfile too.
+ignored:
+  # `cd /src` is load-bearing: the kernel Makefile must run with the source tree
+  # as its working directory. A `WORKDIR` would survive into the final stage and
+  # is not wanted here, so the `cd` form is kept on purpose.
+  - DL3003
+
+  # The `source` stage is build-only (it downloads + GPG-verifies the kernel
+  # tarball). Pinning apk package versions buys nothing here because no layer
+  # from it crosses into the final image, and it would churn on every alpine bump.
+  - DL3018
+
+  # `COPY --from=llvm / /` is deliberate: the builder needs the complete LLVM
+  # toolchain the same way the Sidero tools image provides it. There is no
+  # shorter, correct list of paths to copy.
+  - DL3067
+
+  # `xz -cd linux-${V}.tar.xz | gpgv ...`: if the xz stream is corrupt/truncated
+  # gpgv receives a short or empty input and fails, so the `&&` chain still
+  # aborts — the pipe cannot silently produce a verified-but-bad tarball. The
+  # verification is against the GPG signature of the *uncompressed* tar, which is
+  # why the pipe exists. (Future: an explicit `set -o pipefail` / temp-file form
+  # would let this ignore be removed.)
+  - DL4006
