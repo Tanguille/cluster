@@ -22,9 +22,9 @@ spec:
     requests:
       storage: 10Gi
 ---
-# L3 tier for the fs secondary tier -- the vLLM analogue of SGLang's HiCache
-# file backend. Ported from qwen36-27b-vllm.yaml: proven pattern, same
-# hardware, same GPU-memory ceiling.
+# L3 tier for the fs secondary tier -- the vLLM analogue of the HiCache file
+# backend on the retired SGLang engine. Carried over from qwen36-27b-vllm.yaml
+# (deleted in 5770d6902): proven pattern, same hardware, same GPU-memory ceiling.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -180,8 +180,9 @@ spec:
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
-# concsweep.py, warm, agg tok/s vs the SGLang qwen-3.6 baseline (conc 1/8/16):
-# 14.88/53.93/100.82 vs 14.96/36.24/34.49. Bench warm only -- cold reads ~12.
+# concsweep.py, warm, agg tok/s vs the qwen-3.6 SGLang engine this replaced
+# (retired 2026-08-16, conc 1/8/16): 14.88/53.93/100.82 vs 14.96/36.24/34.49.
+# Bench warm only -- cold reads ~12.
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
@@ -198,12 +199,11 @@ spec:
   #
   # The "before" row originally recorded here (31.06 28.64 39.30 52.15 52.22
   # 61.99) was WITHDRAWN 2026-09-02: its M=2 value was a cold rep. This engine
-  # is bimodal until warmed -- cold reps land ~29-32 at M=2 where warm reps land
-  # ~55, a 1.9x gap with no traffic and no config change, and ONE warmup run is
-  # not enough. Isolated warm A/B of the LDS gate (8 reps, same pod, gate the
-  # only variable) gives M=2 43.74 -> 55.5 (+26.5%). M=3 was unchanged, but that
-  # is a null control, not a confirmation: at M=3 K*M=52224 still exceeds 39321
-  # so down_proj stays on Triton and no movement was predicted.
+  # is bimodal until warmed (cold ~29-32 at M=2 vs warm ~55, a 1.9x gap with no
+  # traffic and no config change), so ONE warmup run is not enough. Isolated
+  # warm A/B of the LDS gate (8 reps, same pod, gate the only variable): M=2
+  # 43.74 -> 55.5 (+26.5%). M=3 unchanged -- a null control, not a confirmation:
+  # at M=3 K*M=52224 still exceeds 39321, so down_proj stays on Triton.
   #
   # No warm number is claimed for the capture-size change itself. It is kept on
   # mechanism only: at M=6 every W4A16 projection falls to Triton
@@ -216,7 +216,9 @@ spec:
   # as immutable as a commit tag -- but Renovate can re-resolve the tag and
   # open a digest-bump PR, which it can never do for an immutable
   # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
-  # v0.27.1 is the newest release and predates gfx1201 support.
+  # A nightly, not a tagged release: gfx1201 support landed after v0.27.1 and
+  # this runs 0.28.1rc1.dev388. Whether the v0.28.0 tag (2026-08-26) alone now
+  # suffices has NOT been retested -- assume not until someone boots it.
   image: vllm/vllm-openai-rocm:nightly@sha256:0d07767c0b8471eaca0f1eca97899620dfb4ad33ff2f5226789afef1a877e9bc
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
@@ -249,7 +251,7 @@ spec:
     maxModelLen: 246944
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
-    # real traffic on the sibling qwen36 config).
+    # real traffic on the qwen36 config this replaced).
     enablePrefixCaching: true
     # Do NOT lower this to buy transcode headroom: 2048 was tried and cost
     # 4-16x TTFT (p50 5s -> 80s, avg 13.8s -> 58.5s) because a 20K-token
@@ -261,14 +263,14 @@ spec:
     # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
-    # Attention IS AITER while the 09-01 soak patch below is mounted: it lifts
-    # the supports_kv_connector rejection at rocm.py:703, and the boot log
-    # confirms "Overriding with ROCM_AITER_UNIFIED_ATTN". Drop that patch and a
-    # KV connector forces TRITON_ATTN again. FP8 linear kernels do not apply to
+    # Attention IS AITER while the patch below is mounted: it lifts the
+    # supports_kv_connector rejection at rocm.py:703, and the boot log confirms
+    # "Overriding with ROCM_AITER_UNIFIED_ATTN". Drop that patch and a KV
+    # connector forces TRITON_ATTN again. FP8 linear kernels do not apply to
     # W4A16. Also kept for the GDN linear-attn path.
     # An older forced-AITER experiment measured +84% decode / ~10x worse
-    # prefill; the soak block below measures parity. Trust the soak block --
-    # the older number predates vllm#53821.
+    # prefill; the block below measures parity. Trust that block -- the older
+    # number predates vllm#53821.
     - name: VLLM_ROCM_USE_AITER
       value: "1"
     - name: HIP_VISIBLE_DEVICES
@@ -301,7 +303,8 @@ spec:
       emptyDir:
         medium: Memory
         sizeLimit: 24Gi
-    # SOAK TEST -- see the mounts below and models/resources/zz_aiter_kvconn_impl.py.
+    # Pins ROCM_AITER_UNIFIED_ATTN -- see the mounts below and
+    # models/resources/zz_aiter_kvconn_impl.py.
     - name: aiter-kvconn-patch
       configMap:
         name: aiter-kvconn-patch
@@ -316,29 +319,42 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # SOAK TEST 2026-09-01, time-boxed -- remove or promote after evaluation.
-    # EXIT CRITERION (added 09-03, was missing): the claimed win is short
-    # context, so compare litellm TTFT and ITL for prompts under 2K tokens
-    # over the 7d before 09-01 against the 7d after. Promote on a real
-    # improvement there, revert on parity -- the synthetic sweeps already
-    # measured parity at long context, so "no change" is a revert, not a pass.
-    #
     # Selects ROCM_AITER_UNIFIED_ATTN instead of TRITON_ATTN by lifting an
     # inherited `supports_kv_connector() -> False` that appears to be a missing
     # override rather than a real exclusion (full argument in the .py).
     #
-    # Bench says PARITY, not a win: decode conc-16 77.27 vs 77.63 tok/s, engine
-    # prefill 6388.5 vs 6390. It is deployed anyway to get real-traffic hours,
-    # because the published gains (vllm#43615: +56.5% at 512 tok, +72.4% on
-    # 1K-2K) live at short contexts that the synthetic sweeps did not cover,
-    # and production traffic does include them.
+    # ADOPTED 2026-09-04, promoted from the 09-01 soak. Kept for DETERMINISM,
+    # not speed: against TRITON_ATTN it measures parity (09-02 warm, decode M=2
+    # 55.31 vs 55.72, M=3 64.07 vs 64.88 -- inside the within-arm spread).
+    # Without this patch a KV connector forces TRITON_ATTN; with it the backend
+    # survives a nightly reordering its preference list, which 0d07767 already
+    # does -- it now prefers TURBOQUANT and falls back to here.
+    #
+    # TURBOQUANT is not a candidate while the KV offload connector is on, and
+    # the reason is NOT the 09-01 gfx1201 CK FMHA segfault: it declares only
+    # KVCacheLayout.LBNHC (turboquant_attn.py), OffloadingConnector requires
+    # LBHNC (offloading_connector.py:188), and this backend advertises both
+    # LBHNC and LHBNC. Using it means dropping --kv-transfer-config, which
+    # measured a HALVING of single-stream decode (31 -> 15.5 tok/s). Note vLLM
+    # logs the actual rejection reasons at DEBUG only (rocm.py:680), so the
+    # INFO line naming AttentionType.DECODER is context, not the cause --
+    # TurboQuant does support DECODER. Boot with VLLM_LOGGING_LEVEL=DEBUG to
+    # read the real reason rather than inferring it from layouts as above.
+    # The soak's short-context exit criterion was never measured and is now
+    # unmeasurable -- unrelated config changes land on both sides of 09-01.
+    #
+    # AITER v0.1.19 -> v0.1.21.post1 (image 0d07767), 4 warm reps each: decode
+    # M=2 55.31 -> 57.47 (Welch t 6.19), M=3 64.07 -> 66.71 (t 4.50). Uncached
+    # prefill unchanged (M<=1, t 0.87). Combined AITER+vLLM delta -- the Triton
+    # control arm was not re-run, so none of it is attributed to AITER alone.
     #
     # An earlier run measured 1.89 tok/s decode and looked catastrophic. That was
     # vllm#53821 (AITER's query_start_loc zeroed during graph capture), fixed in
     # this image. Do NOT reintroduce that number as evidence.
     #
-    # Verify it actually took effect -- the hook fails open to TRITON_ATTN:
-    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep aiter-kvconn-patch
+    # Both hooks fail open to TRITON_ATTN, so confirm the patch FIRED, not just
+    # that it installed -- only the first line below proves it took effect:
+    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep supports_kv_connector
     #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep "Overriding with"
     # Revert = delete these two mounts, the volume above, and the generator.
     - name: aiter-kvconn-patch
@@ -396,7 +412,7 @@ spec:
     # M=5 as 6 -- the M=5 point was measuring the all-Triton M=6 path. With
     # max_num_seqs 5 there is no padding left to pay for.
     - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5]}'
-    # Keep prior-turn reasoning in context; matches production qwen36 config.
+    # Keep prior-turn reasoning in context; carried over from the qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
     # MTP speculative decoding is deliberately OMITTED: measured on this
@@ -443,9 +459,9 @@ spec:
     - "0.05"
     - --kv-cache-memory
     - "10200547328"
-    # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
-    # philosophy) + fs tier (SGLang's file backend analogue). Ported from
-    # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
+    # Hierarchical KV cache: CPU tier (sizing philosophy carried over from the
+    # retired SGLang engine's --hicache-ratio) + fs tier (its file-backend
+    # analogue). From qwen36-27b-vllm.yaml, WITHOUT its --language-model-only —
     # Hermes' auxiliary.vision block actively uses this model's vision tower,
     # so it must stay loaded even though that costs some context headroom.
     # CPU tier 22Gi: the 16Gi tier cascaded 3.5 GB/hour to the fs tier, i.e.
@@ -470,20 +486,18 @@ spec:
     # nested key is silently accepted and ignored, so verify after any edit by
     # grepping the boot log for that literal.
     #
-    # Tried 8 on 2026-09-03 and REVERTED the same evening. It did what it was
-    # designed to do -- chunk queries 13.13 -> 9.79 per request, hit rate flat
-    # at 40.5% vs 40.9% -- but each lookup got 44% slower (4.33s -> 6.24s) and
-    # the number that matters, TOTAL lookup wall time per request, went UP:
-    # 5.47s -> 6.46s, or +45% once normalised for the shorter prompts in the
-    # after-window (0.099 -> 0.143 s per 1K prompt tokens).
+    # Tried 8 on 2026-09-03, REVERTED the same evening: chunk queries fell
+    # 13.13 -> 9.79 per request and hit rate stayed flat (40.5% vs 40.9%), but
+    # each lookup got 44% slower (4.33s -> 6.24s) and total lookup wall time per
+    # request went UP, 5.47s -> 6.46s (+45% normalised for prompt length,
+    # 0.099 -> 0.143 s per 1K prompt tokens).
     #
     # Mechanism: the tier has ONE serial lookup thread and is page-cache-bound,
-    # not throughput-bound, so coalescing more blocks per lookup does not
-    # reduce serialisation, it just makes each serial unit bigger. Raising this
-    # cannot help for that reason -- do not retry 8 or 16 without first making
-    # the lookup manager concurrent. Judge any future attempt on total lookup
-    # seconds per request, never on the per-lookup mean, which improves by
-    # construction as the count falls.
+    # not throughput-bound -- coalescing more blocks per lookup makes each
+    # serial unit bigger without reducing serialisation. Do not retry 8 or 16
+    # without first making the lookup manager concurrent, and judge any attempt
+    # on total lookup seconds per request, never the per-lookup mean (which
+    # improves by construction as the count falls).
     - --kv-transfer-config
     - >-
       {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
