@@ -23,26 +23,23 @@ spec:
         # co-tenant GPU transcoding, and prompt length. Trigger still unknown.
         # A pod restart is the only known remedy, which is why this alerts.
         #
-        # ITL here is effectively the step time: vLLM advances every running
-        # request one token per step, so this grows legitimately with BOTH
-        # context and batch size. That sets the threshold:
-        #   healthy M=1 is 31.3ms at 4K and rises ~0.2ms per 1K tokens of
-        #   context (43.5ms at 64K, ~49ms at 96K = the p99 prompt)
-        #   degraded is >=59ms at any context
-        # 55ms is not a guess: over the 2026-09-05 20:00-00:30Z windows this
-        # metric read 31.2/32.2/32.3/33.9/39.5ms while healthy and
-        # 58.8/59.7/62.4/62.9/67.2/67.3/73.0ms while latched, so it separates
-        # every observed case with margin on both sides. 60ms was tried first
-        # and would have missed the 58.8 and 59.7 windows.
-        # It would false-fire on a sustained M=1 context past ~122K;
-        # maxModelLen is 246944, so that is reachable but well outside the p99
-        # of 94K. Raise the threshold rather than widen the guard if traffic
-        # that long ever becomes normal.
+        # ITL here is effectively the step time -- vLLM advances every running
+        # request one token per step -- so it grows legitimately with BOTH
+        # context and batch. Healthy M=1 is 31.3ms at 4K rising ~0.2ms per 1K
+        # tokens (43.5ms at 64K, ~49ms at 96K = the p99 prompt); latched is
+        # >=59ms at any context.
         #
-        # The running<2 guard is load-bearing, not caution: per-stream step time
-        # is 48ms at concurrency 5 on a HEALTHY engine, which would trip 60ms on
-        # its own. Production concurrency sits near 1, so this still watches the
-        # regime the workload actually runs in.
+        # 55ms is derived, not guessed: over 2026-09-05 20:00-00:30Z this metric
+        # read 31.2/32.2/32.3/33.9/39.5ms healthy and
+        # 58.8/59.7/62.4/62.9/67.2/67.3/73.0ms latched. 60ms was tried first and
+        # would have missed the 58.8 and 59.7 windows.
+        #
+        # False-fires on sustained M=1 past ~122K context (maxModelLen 246944,
+        # so reachable, but the p99 prompt is 94K) -- raise the threshold rather
+        # than widen the guard if that traffic ever becomes normal.
+        #
+        # The running<2 guard is load-bearing: healthy per-stream step time is
+        # 48ms at concurrency 5, which would trip 60ms on its own.
         - alert: VLLMDecodeStepLatched
           expr: |-
             (

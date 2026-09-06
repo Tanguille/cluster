@@ -14,7 +14,7 @@ and what we measure is decode. Concurrency is the only variable.
 
 If aggregate tok/s peaks at conc 1-2, parallelSlots: 6 is costing throughput.
 """
-import json, sys, threading, time, urllib.request
+import json, re, sys, threading, time, urllib.request
 
 URL = "http://127.0.0.1:18000/v1/completions"
 METRICS = "http://127.0.0.1:18000/metrics"
@@ -41,11 +41,20 @@ def engine_busy():
     try:
         with urllib.request.urlopen(METRICS, timeout=5) as r:
             t = r.read().decode()
-        import re
         run = re.search(r"^vllm:num_requests_running\{[^}]*\}\s+(\S+)", t, re.M)
         return float(run.group(1)) if run else -1
     except Exception:
         return -1
+
+
+def wait_drained(timeout=30):
+    """Wait for the previous level's requests to clear before the next one.
+    A fixed sleep either wastes time or starts the next level dirty; the
+    busy@start column exists because that used to happen."""
+    for _ in range(timeout):
+        if engine_busy() == 0:
+            return
+        time.sleep(1)
 
 
 def stream(prompt, t0, out, lk):
@@ -116,4 +125,4 @@ if __name__ == "__main__":
         ttfts = sorted(o["ttft"] for o in ok)
         print(f"{c:>5} {agg:>10.2f} {agg/c:>11.2f} {ttfts[len(ttfts)//2]:>9.2f} {b:>11.1f} {len(ok):>4}",
               flush=True)
-        time.sleep(5)
+        wait_drained()
