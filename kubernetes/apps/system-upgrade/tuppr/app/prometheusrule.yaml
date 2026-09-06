@@ -1,0 +1,26 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tuppr-rules
+spec:
+  groups:
+    # Must not collide with the chart's own `tuppr` group (monitoring.prometheusRule.enabled).
+    - name: tuppr.parked.rules
+      rules:
+        # Pending/PrePullFailed is covered by neither TalosUpgradeStuck (wrong phases) nor
+        # TupprUpgradeBlocked (reason=~"Waiting.*|Suspended"), and pre-pull retries forever
+        # without reaching Failed (prepull.go:133) -- a failed build would sit silently with the
+        # outdated taint on. 4h clears a ~90m installer build plus the pull; Pending is
+        # otherwise only the gap between node batches.
+        - alert: TalosUpgradeParked
+          expr: |-
+            tuppr_talos_upgrade_phase{phase="Pending"} == 1
+          for: 4h
+          annotations:
+            summary: >-
+              TalosUpgrade {{ $labels.name }} has been Pending for 4h — the installer tag it
+              wants is probably unpublished; check the talos-kernel workflow
+          labels:
+            severity: warning

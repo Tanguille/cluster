@@ -34,8 +34,9 @@ spec:
     - name: llmkube
     - name: generic-device-plugin
       namespace: kube-system
-  # No healthChecks: litellm and memini dependsOn this ks, and a model that is slow to
-  # boot or wedged must not block their reconciliation.
+  # No healthChecks: nothing dependsOn this ks any more (fc174a4d8 dropped it
+  # from litellm and memini), and a model takes minutes to go ready, so a
+  # healthCheck would only mark the ks failed during every normal rollout.
   path: ./kubernetes/apps/ai/llmkube/models
   prune: true
   sourceRef:

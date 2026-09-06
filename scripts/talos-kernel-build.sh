@@ -7,8 +7,11 @@
 # can drift from the release being built. See docker/talos-kernel/README.md.
 set -euo pipefail
 
-TALOS_VERSION="${1:?usage: talos-kernel-build.sh <talos-version> <node>...}"
+# The full v<talos>-k<kernel> from the tuppr CR: what tuppr compares, so what the tag must be.
+# Upstream release tags want the Talos half alone.
+VERSION="${1:?usage: talos-kernel-build.sh <version> <node>...}"
 shift
+TALOS_VERSION="${VERSION%-k*}"
 
 REGISTRY="${REGISTRY:-ghcr.io}"
 USERNAME="${USERNAME:-tanguille}"
@@ -22,11 +25,45 @@ trap 'rm -rf "${WORK}"' EXIT
 # the Dockerfile while the tag and the built kernel came from whatever number was typed.
 KERNEL_VERSION="$(just kernel-version)"
 
-# tuppr compares this to the version the node reports, so the kernel has to be IN the string
-# or a kernel-only bump is invisible to it. See README.md "Version tagging".
-VERSION="${TALOS_VERSION}-k${KERNEL_VERSION}"
+# Same Renovate branch bumps both, so a mismatch means a half-applied tree. An installer whose
+# tag advertises a kernel it does not carry is caught nowhere else.
+[[ "${VERSION#*-k}" == "${KERNEL_VERSION}" ]] || {
+    echo "CR names k${VERSION#*-k}, Dockerfile builds ${KERNEL_VERSION}" >&2; exit 1
+}
 
 log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
+
+# One image per SCHEMATIC, not per node: `shared` for talos/schematic.yaml, else the node name.
+# Shared by the pre-check and the publish loop -- if they disagreed, the build would republish a
+# tag it had just decided existed.
+installer_ref() {
+    local schematic
+    schematic="$(just talos schematic-file "$1")"
+    [[ -n "${schematic}" ]] || { echo "no schematic for $1" >&2; return 1; }
+    if [[ "${schematic}" == "${REPO_ROOT}/talos/schematic.yaml" ]]; then
+        echo "${PREFIX}/installer/shared:${VERSION}"
+    else
+        echo "${PREFIX}/installer/$1:${VERSION}"
+    fi
+}
+
+# Tags in installer/* are never reused: one tag is one build, and amdgpu is signed with a key
+# the kernel regenerates each time. Without this, any merge touching a trigger path re-pushes
+# the same tags with different bytes. Exit 0 -- a no-op rerun is success.
+missing=0
+for node in "$@"; do
+    ref="$(installer_ref "${node}")" || exit 1
+    if crane manifest "${ref}" >/dev/null 2>&1; then
+        echo "    exists: ${ref}"
+    else
+        echo "    missing: ${ref}"
+        missing=1
+    fi
+done
+if (( missing == 0 )); then
+    log "every installer for ${VERSION} is already published, nothing to build"
+    exit 0
+fi
 
 log "talos ${TALOS_VERSION} + linux ${KERNEL_VERSION} -> ${VERSION}"
 git clone -q --depth 1 --branch "${TALOS_VERSION}" \
@@ -183,14 +220,7 @@ declare -A BUILT=()
 PUBLISHED=()
 for node in "$@"; do
     schematic="$(just talos schematic-file "${node}")"
-    # One image per SCHEMATIC, not per node — two schematics, two images, however many nodes.
-    # The repo is named after the schematic so both are the same kind of thing: `shared` for
-    # talos/schematic.yaml, and the node name for a node carrying its own override.
-    if [[ "${schematic}" == "${REPO_ROOT}/talos/schematic.yaml" ]]; then
-        dst="${PREFIX}/installer/shared:${VERSION}"
-    else
-        dst="${PREFIX}/installer/${node}:${VERSION}"
-    fi
+    dst="$(installer_ref "${node}")"
     # Nodes sharing a schematic build byte-identical installers, so the second is a registry
     # copy rather than another imager run.
     if [[ -n "${BUILT[${schematic}]:-}" ]]; then

@@ -13,7 +13,9 @@
     "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#8.1.0",
     "github>home-operations/renovate-presets//apps/llamacpp.json5#8.1.0",
     "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0",
-    "github>home-operations/renovate-presets//apps/talosFactory.json5#8.1.0",
+    // talosFactory preset dropped: it matches factory.talos.dev tags and every node pins
+    // ghcr.io/tanguille/installer/*. Its custom.talos-factory datasource is wrong for the tuppr
+    // target too -- that reads what the Factory can build, we gate on the siderolabs git tag.
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
@@ -39,6 +41,29 @@
     }
   },
   customManagers: [
+    {
+      // One manager per half: an inline annotation takes the whole value and reads -k as a
+      // semver prerelease. Optional prerelease group so an rc pin still matches.
+      description: "tuppr target v<talos>-k<kernel>: Talos half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: [
+        "version:\\s+(?<currentValue>v\\d+\\.\\d+\\.\\d+(?:-[a-z]+\\.\\d+)?)-k"
+      ],
+      depNameTemplate: "siderolabs/talos",
+      datasourceTemplate: "github-releases"
+    },
+    {
+      // Span is "-k<version>", not the version line: Renovate rewrites currentValue inside the
+      // span, and "v1.17.3-k7.3" contains "7.3" twice. Cost: every -k<digits> in the file is its
+      // own dep. depName linux matches the Dockerfile ARG, so both land in one branch.
+      description: "tuppr target v<talos>-k<kernel>: kernel half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: ["-k(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)"],
+      depNameTemplate: "linux",
+      datasourceTemplate: "custom.linux-kernel"
+    },
     {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",

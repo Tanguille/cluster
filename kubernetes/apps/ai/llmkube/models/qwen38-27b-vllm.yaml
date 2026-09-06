@@ -172,14 +172,12 @@ spec:
     - video_preprocessor_config.json
   hardware:
     accelerator: rocm
-    memoryBudget: 28Gi
     gpu:
       enabled: true
       count: 1
       vendor: amd
       runtime: rocm
       resourceName: squat.ai/dri
-      memory: 32Gi
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 # concsweep.py, warm, agg tok/s vs the SGLang qwen-3.6 baseline (conc 1/8/16):
@@ -219,7 +217,7 @@ spec:
   # open a digest-bump PR, which it can never do for an immutable
   # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
   # v0.27.1 is the newest release and predates gfx1201 support.
-  image: vllm/vllm-openai-rocm:nightly@sha256:cef549da00e0efaeadd9338ac8f351f2b96ff71a5ab8651a99bf989458bf1684
+  image: vllm/vllm-openai-rocm:nightly@sha256:75a2c2f61165ad5510d33783a1ba000669f626a56f65a3117cbc4f68367738bd
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
@@ -263,10 +261,14 @@ spec:
     # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
-    # Inert for attention: with a KV connector set, rocm.py:703 rejects
-    # ROCM_AITER_UNIFIED_ATTN and selects TRITON_ATTN. FP8 linear kernels do
-    # not apply to W4A16 either. Kept for the GDN linear-attn path.
-    # Forcing AITER attention measured +84% decode but ~10x worse prefill.
+    # Attention IS AITER while the 09-01 soak patch below is mounted: it lifts
+    # the supports_kv_connector rejection at rocm.py:703, and the boot log
+    # confirms "Overriding with ROCM_AITER_UNIFIED_ATTN". Drop that patch and a
+    # KV connector forces TRITON_ATTN again. FP8 linear kernels do not apply to
+    # W4A16. Also kept for the GDN linear-attn path.
+    # An older forced-AITER experiment measured +84% decode / ~10x worse
+    # prefill; the soak block below measures parity. Trust the soak block --
+    # the older number predates vllm#53821.
     - name: VLLM_ROCM_USE_AITER
       value: "1"
     - name: HIP_VISIBLE_DEVICES
@@ -279,7 +281,10 @@ spec:
       value: /cache/triton
     - name: TORCHINDUCTOR_CACHE_DIR
       value: /cache/inductor
-    # Pins the fs tier's block-hash seed; unset it is random per process and restarts lose it.
+    # Pins the fs tier's block-hash seed. Since vllm#51875 the sha256 default
+    # already derives a fixed seed, so the old "random per process" reason is
+    # gone -- but PYTHONHASHSEED still overrides that seed, so REMOVING this
+    # rehashes every block and invalidates the whole fs tier. Keep it.
     - name: PYTHONHASHSEED
       value: "0"
   extraVolumes:
@@ -312,6 +317,11 @@ spec:
     - name: dshm
       mountPath: /dev/shm
     # SOAK TEST 2026-09-01, time-boxed -- remove or promote after evaluation.
+    # EXIT CRITERION (added 09-03, was missing): the claimed win is short
+    # context, so compare litellm TTFT and ITL for prompts under 2K tokens
+    # over the 7d before 09-01 against the 7d after. Promote on a real
+    # improvement there, revert on parity -- the synthetic sweeps already
+    # measured parity at long context, so "no change" is a revert, not a pass.
     #
     # Selects ROCM_AITER_UNIFIED_ATTN instead of TRITON_ATTN by lifting an
     # inherited `supports_kv_connector() -> False` that appears to be a missing
@@ -407,12 +417,32 @@ spec:
     # Vision transcode 0.85 GB, fileflows 0.69 GB -- 1.54 GB if they ever peak
     # together, which was not observed but is the number the reserve must cover.
     # Jellyfin has no transcode concurrency cap, so a third stream would exceed
-    # 2 GiB and evict KV; see the DgpuVramLow alert. Measured free at this
-    # config: 2.57 GB at peak load (was 2.81 GB at 7 GiB) -- this raise spends
-    # 0.24 GB of that reserve. Pool 223,172 -> 287,159 tokens, concurrency
-    # 1.01x -> 1.30x. Retention benefit NOT yet measured.
+    # 2 GiB and evict KV; see the DgpuVramLow alert.
+    #
+    # 9.0 -> 9.5 GiB 2026-09-03: the pool was the binding constraint at 117
+    # preemptions/17h as mean prompt length grew 44K -> 54K. Boot log
+    # confirms 304,808 tokens / 1.23x (was 288,508 / 1.17x). KV costs
+    # 33,494 B/token -- predict a resize with it, then confirm the boot log.
+    # Decode vs pool usage, measured: 20.6 tok/s below 40%, 6.0 above 95%.
+    #
+    # VRAM measured from drm, 3d of 60s samples: vLLM baseline 29.07 GiB of
+    # 31.86, largest non-vLLM excursion 1.82 GiB (13, all evenings). At 9.5
+    # GiB the reserve measures 2.48 GiB, 0.66 spare over that peak. Do not
+    # raise again without re-measuring the excursion max -- 10.0 GiB would
+    # leave 0.16, under the 2 GiB reserve this block is sized against.
+    # Holds 5% of the pool (~15,240 of 304,808 tokens) free when admitting
+    # waiting or preempted requests. Upstream scheduler.py:167 describes this as
+    # headroom that "helps avoid frequent KV cache eviction and the resulting
+    # repeated preemption", which is the 117-preemptions/17h failure measured on
+    # 2026-09-03 -- a scheduler fix for it rather than buying more VRAM.
+    #
+    # The trade is admission: holding blocks free means fewer concurrent
+    # requests, so watch queue time alongside preemptions. Revert if TTFT p50
+    # rises materially without preemptions falling.
+    - --watermark
+    - "0.05"
     - --kv-cache-memory
-    - "9663676416"
+    - "10200547328"
     # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
     # philosophy) + fs tier (SGLang's file backend analogue). Ported from
     # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
@@ -428,24 +458,40 @@ spec:
     # DO NOT remove the fs secondary tier to save Ceph writes: its 4.5% hit
     # rate is not its job. Removing it halved single-stream decode (15.5 vs
     # 31 tok/s, exact-revert confirmed) -- it keeps eviction asynchronous.
-    # blocks_per_chunk: 4 coalesces 4 GPU blocks (800 tok each, mamba-page-
+    # blocks_per_chunk: 8 coalesces 8 GPU blocks (800 tok each, mamba-page-
     # forced) into one offload lookup key, cutting per-request fs/CPU tier
-    # lookup calls ~4x (a 48K-token prompt: ~60 calls -> ~15) to shrink the
+    # lookup calls ~8x (a 48K-token prompt: ~60 calls -> ~8) to shrink the
     # burst size that overwhelms the single-threaded async lookup manager
-    # (see kv_offload_lookup_async_delay_seconds stalls). Raise to 8 if a
-    # soak still shows bad lookup delay/preemptions; watch that
-    # external_kv_transfer's prompt-token share doesn't drop as the cost of
-    # coarser partial-prefix matching.
+    # (see kv_offload_lookup_async_delay_seconds stalls).
+    #
+    # kv_load_failure_policy is a TOP-LEVEL KVTransferConfig field, NOT an
+    # extra_config key. First shipped nested on 2026-09-03 and was completely
+    # inert -- the boot log kept printing kv_load_failure_policy='fail'. A
+    # nested key is silently accepted and ignored, so verify after any edit by
+    # grepping the boot log for that literal.
+    #
+    # Tried 8 on 2026-09-03 and REVERTED the same evening. It did what it was
+    # designed to do -- chunk queries 13.13 -> 9.79 per request, hit rate flat
+    # at 40.5% vs 40.9% -- but each lookup got 44% slower (4.33s -> 6.24s) and
+    # the number that matters, TOTAL lookup wall time per request, went UP:
+    # 5.47s -> 6.46s, or +45% once normalised for the shorter prompts in the
+    # after-window (0.099 -> 0.143 s per 1K prompt tokens).
+    #
+    # Mechanism: the tier has ONE serial lookup thread and is page-cache-bound,
+    # not throughput-bound, so coalescing more blocks per lookup does not
+    # reduce serialisation, it just makes each serial unit bigger. Raising this
+    # cannot help for that reason -- do not retry 8 or 16 without first making
+    # the lookup manager concurrent. Judge any future attempt on total lookup
+    # seconds per request, never on the per-lookup mean, which improves by
+    # construction as the count falls.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
-  # Parked, not deleted: control-1 advertises 4 squat.ai/dri slots and all 4 are
-  # held (this pod, jellyfin x3, fileflows, drm-exporter), so Flash-Next cannot
-  # schedule until this one releases -- and the R9700's 32Gi could not hold both
-  # models even if a slot were free. The whole config below is kept verbatim so
-  # reverting the switch is a one-line change back to false, not a restore from
-  # git history. Every measured tuning value here (mnbt 4096, maxModelLen
-  # 246944, blocks_per_chunk 4) stays valid for that revert.
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+  # This engine is the live one; Flash-Next is the parked one (suspend: true
+  # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
+  # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next
+  # could not schedule even if wanted -- and the R9700's 32Gi could not hold
+  # both models regardless.
   #
   # Reverted to false 2026-08-31: Flash-Next measured 125-144 tok/s prefill on
   # gfx1201 against this engine's ~7170, because 42.92Gi of experts cannot fit
@@ -464,9 +510,13 @@ spec:
     cpu: "2"
     # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
     # under 4x32K concurrent load with the tier full (3.7Gi headroom).
-    # There is no memory limit, so this is scheduler bookkeeping only: it
-    # must stay above the 28.3Gi peak to keep vllm under-request and off
+    # No memory limit at chart 0.9.24, so this is scheduler bookkeeping only:
+    # it must stay above the 28.3Gi peak to keep vllm under-request and off
     # the eviction list, but every Gi above that is reserved and unusable.
+    # llmkube e4a3669af (unreleased) makes this a LIMIT as well as a request.
+    # Live working set is 27.49Gi, so 32Gi would leave ~4.5Gi before an
+    # OOMKill that costs the documented hours-long admission stall. Raise this
+    # deliberately when bumping past 0.9.24, and rewrite this comment.
     memory: 32Gi
   endpoint:
     port: 8000

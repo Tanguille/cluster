@@ -222,3 +222,222 @@ is a two-line config change and must be tried first.
   (K*M = 52224/69632/87040, all over 39321). Kernel-level test showed ~2x with
   correct results and better accuracy than the Triton path; chunk on group
   boundaries (48/48/40 groups keeps M=5 at 3 launches).
+
+---
+
+# Follow-on: production measurement, 2026-09-03
+
+Yesterday's findings came from synthetic short-prompt sweeps. Measuring the same
+engine against real traffic overturned several of them. Every number below was
+independently re-derived; the ones that were wrong on the first pass are called
+out, because the wrong versions are plausible and will otherwise be rediscovered.
+
+## The byte budget
+
+`Model loading took 17.91 GiB` is a **VRAM delta, not the per-step read**. It
+includes `embed_tokens` (2.543 GB, one row per token, not streamed) and the
+vision tower (0.921 GB, unused in text decode). Safetensors header sums:
+
+| component | GB | streamed per decode step? |
+|---|---|---|
+| decoder | 12.29 | yes |
+| `lm_head` | 2.543 | yes |
+| `embed_tokens` | 2.543 | no (one row/token) |
+| vision tower | 0.921 | no (text decode) |
+| **per-step weights** | **~15.2** | |
+
+**Achievable bandwidth is not the 640 GB/s spec figure.** In-pod microbench on
+this card: read-only 559 GB/s, copy 591, fill 621. Use ~560-620.
+
+| at 44K context, M=1 | bytes/step | share |
+|---|---|---|
+| weights | 15.2 GB | **91%** |
+| KV (33,494 B/token) | 1.47 GB | **9%** |
+
+KV is a minority of decode bytes even at 69K (2.26 GB, ~13%). KV-side byte
+reduction was never the lever, and fp8 KV was already enabled.
+
+`33,494 B/token` is the reusable constant: it predicted the 9.5 GiB pool at
+304,808 tokens to within 0.09% of the boot log. Size a pool change with it, then
+confirm against the boot log rather than trusting it.
+
+## There IS kernel headroom, but only at long context
+
+| regime | measured | vs achievable bandwidth |
+|---|---|---|
+| M=1, short prompt | 33.0 tok/s | **85-90%** — no headroom |
+| M=1, 69K context | 20.6 tok/s | **~62%** |
+
+At 69K, a bandwidth-bound engine should lose ~13% to the extra 2.26 GB of KV
+reads and land near 28.7 tok/s. The observed 20.6 is a 34% loss. The extra
+~16-18 ms/step to read 2.26 GB works out to an effective **~130 GB/s for the
+attention kernel, roughly 4x under bandwidth**.
+
+Production mean prompt is ~50K, so this is the regime that matters, and it is
+the one place kernel work still has room. The AITER soak only benched conc-16;
+the A/B that matters is TRITON_ATTN vs AITER unified at **M=1, 69K**.
+
+Corrects an earlier claim in this session that decode was uniformly at the
+bandwidth ceiling with no kernel headroom. True at short context, false at
+production context.
+
+## Production decode is 9-15 tok/s per stream, not 31
+
+`vllm:inter_token_latency_seconds` over 7d: p50 68 ms, p90 111 ms, mean 113 ms.
+TTFT p50 3.9 s, p90 12.3 s. The synthetic sweeps in this document measure a
+regime production never enters. **Never quote a sweep number as a production
+expectation.**
+
+Two data traps found while establishing this:
+
+- vLLM's own `request_prompt_tokens` mean reads ~6.8K, but that is contaminated
+  by 23.7K one-token benchmark requests on 09-02. litellm's mean over 7d is
+  **49.9K tokens/request** and is the trustworthy figure.
+- `e2e_request_latency_sum` (783K s) is less than `request_inference_time_sum`
+  (1.72M s) over the same 7d, which is impossible; counter resets from restart
+  churn. Do not derive from those sums.
+
+## Batching has stopped paying at production context
+
+| M | median prompt | per-stream | aggregate |
+|---|---|---|---|
+| 1 | 69,350 | 20.6 | **20.6** |
+| 2 | 77,494 | 11.4 | **22.8** |
+| 3 | 63,375 | 6.8 | **20.4** |
+| 4 | 57,016 | 7.9 | **31.6** |
+
+Flat from M=1 to M=3, against 30.8 -> 64.8 -> 102.6 on short prompts.
+
+## KV pressure and preemption
+
+Decode degrades monotonically with pool usage:
+
+| pool usage | tok/s | preempt/10m |
+|---|---|---|
+| 0-40% | **20.6** | 0.1 |
+| 40-60% | 11.0 | 0.3 |
+| 60-75% | 11.2 | 1.0 |
+| 75-85% | 8.9 | 1.8 |
+| 85-95% | 6.5 | 4.3 |
+| 95-101% | **6.0** | 5.9 |
+
+**Normalise preemptions per 1M prompt tokens, not per hour.** Hourly counts
+ranged 0-45 with load and are meaningless raw. The pre-change baseline is
+178 preemptions over 09-03 09:15-19:15 UTC against 50.6M prompt tokens =
+**~3.5 per 1M prompt tokens**. An earlier 6.9/h figure in this session came from
+a window that mixed loaded and quiet hours.
+
+Shipped in response: pool 9.0 -> 9.5 GiB (288,508 -> 304,808 tokens, 1.17x ->
+1.23x) and `--watermark 0.05` (real in V1: `kv_cache_manager.py` computes
+`watermark_blocks = int(0.05 * num_blocks)` and applies it in `allocate_slots`).
+**The watermark is UNVALIDATED**: pool usage has not exceeded 12.3% since it
+went live and it only engages above 95%. Short-prompt sweeps cannot test it.
+
+## Negative result: blocks_per_chunk 8
+
+Shipped and reverted the same evening. It did what it was designed to do and
+still lost:
+
+| per request | bpc=4 | bpc=8 |
+|---|---|---|
+| chunk queries | 13.13 | 9.79 (-25%, as intended) |
+| chunk hit rate | 40.9% | 40.5% (flat) |
+| mean s per lookup | 4.33 | 6.24 (+44%) |
+| **total lookup s** | **5.47** | **6.46 (+18%)** |
+
+Normalised for prompt length, 0.099 -> 0.143 s per 1K prompt tokens, +45%. The
+fs tier has **one serial lookup thread** and is page-cache-bound, so coalescing
+more blocks per lookup does not reduce serialisation, it makes each serial unit
+bigger. Still single writer/reader as of vLLM dev337.
+
+**Judge this knob on total lookup seconds per request, never the per-lookup
+mean**, which falls by construction as the count drops and hides the regression.
+
+## Config trap: nested keys are silently ignored
+
+`kv_load_failure_policy` is a **top-level `KVTransferConfig` field**. Shipped
+nested inside `kv_connector_extra_config` on 2026-09-03 and was completely
+inert; the boot log kept printing `kv_load_failure_policy='fail'`. The nested
+key is accepted without complaint. After editing `--kv-transfer-config`, grep
+the boot log for the literal setting to confirm it took.
+
+## Benchmark methodology: contamination is the default outcome
+
+Four sweeps on 2026-09-03 produced unusable numbers. Every failure was
+production traffic joining mid-sweep, and each looked like a plausible result:
+
+- conc-3 read 7.50 agg (baseline 64.76) — looked like a 9x regression.
+- A guarded rerun read conc-1 at 15.62 across two reps — exactly half baseline,
+  and exactly what M=2 sharing produces.
+- A guard that swallowed metric-fetch exceptions passed contaminated points: a
+  failed poll left the peak-concurrency check at its initial value. **Silence is
+  not evidence of isolation.**
+
+Rules that worked:
+
+1. Require `num_requests_running == 0` AND `num_requests_waiting == 0` before
+   each point, re-confirmed after a delay.
+2. Sample concurrency throughout; discard any point that exceeded the target
+   **or that could not be continuously verified**.
+3. Discard the first run after a restart. Cold conc-1 read 22.43 vs 31.07 warm —
+   a single post-restart benchmark shows a fake 27% regression.
+4. Cross-check per-stream values against the batch size they imply. Per-stream
+   ~12.9 at both conc-4 and conc-5 means one extra stream, not a regression.
+
+Even so, `vllm:num_requests_running` is not reliable at sub-second granularity;
+a momentary zero between engine steps can let a point start against live
+traffic. Treat any surprising result as contaminated until the traffic timeline
+is checked.
+
+Also: **restarts are not free to measurement.** 11 rollouts in 36h each wiped
+the 22 GiB CPU tier and the GPU cache; prefix hit rate per 6h swung
+0.89 / 0.80 / 0.39 / 0.31 / 0.89 / 0.65 / 0.39. Cache-sensitive metrics are
+uninterpretable across a restart-heavy window.
+
+## Image bumps: a digest pin is not a guarantee it will pull
+
+Merging a nightly digest bump took the engine down ~4 minutes. The new pod hit
+`ImagePullBackOff` with `could not fetch content descriptor ... not found` while
+the old pod had already terminated.
+
+The cause was **not** tag movement or GC: afterwards the tag still resolved to
+the same digest, all 36 layers were present, and both "missing" blobs returned
+HTTP 206 with real bytes. A transient registry 404 on blobs that existed.
+
+**Pre-pull before every vLLM image cutover.** A throwaway Job on the GPU node
+(no dri slot, no PVC, `command: ["/bin/sh","-c","echo prepull ok"]`) warms
+containerd. If it reports `already present on machine` and the container
+executes, the image is complete and the cutover is a cache hit that cannot fail
+the pull. This engine has no second replica, so a failed pull is a full outage
+plus the cold-cache stall on recovery.
+
+## Where the remaining headroom is, ranked
+
+1. **Reasoning tokens — 68.8% of output.** Confirmed:
+   `litellm_output_reasoning_tokens_metric_total` for qwen-3.8 over 7d is
+   2,378,922 of 3,457,317 output tokens (0.63-0.79 per day). At production ITL
+   that is ~69% of ~417K decode-seconds/week. Both the litellm alias and every
+   hermes profile pin `reasoning_effort: medium`; the chat template supports
+   `low`. **This dwarfs every kernel-level lever.** Measure: add a
+   `qwen-3.8-low` alias, move one hermes profile to it for a day, compare
+   reasoning tokens per request plus task-quality spot checks.
+2. **`preserve_thinking: true` inflates context.** The template keeps prior-turn
+   reasoning, so 69% reasoning output feeds back into 50K mean prompts. That is
+   what pins the pool at 100%. Prefill cost is largely hidden by the ~79%
+   local-cache hit rate; pool occupancy is not. Trade-off is agentic quality,
+   not performance, so this is a flag rather than a recommendation.
+3. **Long-context attention kernel** — up to ~30% at 50-70K contexts. See above.
+4. **fs/CPU tier lookup stalls are net negative on TTFT.** 7d: async lookups
+   n=1136 mean 10.6 s, tiering lookups n=3171 mean 7.5 s, together ~36K s/week
+   on the critical path. What the tiers bought: 19.4M prompt tokens via
+   `external_kv_transfer`, roughly 3-6K s of prefill saved. Removing the fs tier
+   is off the table (it halved decode when tried, it keeps eviction async); the
+   lever is lookup cost.
+5. **4-bit `lm_head`** — 2.543 of ~15.2 GB/step is **16.5% of bytes**, so up to
+   ~12% at M=1 short context (the fake-quant measurement of ~9% fits). At
+   production ITL the same ~4 ms/step saved is 4-6%. Real, third-tier, and needs
+   a re-quantized checkpoint.
+6. **omniroute** — confirmed broken (all four opencode free models return 401,
+   stale gemini model id). litellm sent 1154 requests/7d to its api_base. Even
+   if all of it fell back to the 27B it is ~3% of weekly prompt tokens: a real
+   fix for the credential, low expected value for the GPU.

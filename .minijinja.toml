@@ -1,0 +1,5 @@
+# Correctness, not style, and applies to bare minijinja-cli runs as well as the `template`
+# recipe. Default autoescaping quotes every substitution, turning a cert into a valid-looking
+# YAML string with the wrong value; strict makes a typo'd variable an error, not "".
+autoescape = "none"
+strict = true

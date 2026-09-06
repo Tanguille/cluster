@@ -10,9 +10,10 @@ spec:
     version: v1.37.0
   talosctl:
     image:
-      # Unset, tuppr derives this from the node's CURRENT version; a -k<kernel> one is unpublished
-      # and the job ImagePullBackOffs. Same trap as talosupgrade.yaml, hits this CRD too.
-      tag: v1.14.0-rc.2
+      # Unset, tuppr derives it from the node's CURRENT version; a -k<kernel> one is unpublished
+      # and ImagePullBackOffs. Annotated because a YAML anchor cannot cross files.
+      # renovate: datasource=github-releases depName=siderolabs/talos
+      tag: v1.14.0
   healthChecks:
     - apiVersion: v1
       kind: Node
