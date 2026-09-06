@@ -12,6 +12,12 @@ everything fixed and varies only cold-vs-cached.
 
 Each pair: send a unique long prompt (cold, full prefill), then send THE SAME
 prompt again (warm, prefix-cache hit). Identical endpoint, identical max_tokens.
+
+The warm arm really is warm, despite this being a GDN hybrid: a resend of a
+4775-token prompt hit 4160 tokens (5 x the 832-token block_size, rounding down)
+on vllm:prefix_cache_hits_total. Responses carry no prompt_tokens_details here
+(--enable-prompt-tokens-details is unset), so verify with that metric delta, not
+usage.cached_tokens.
 """
 import json, os, sys, time, urllib.request
 

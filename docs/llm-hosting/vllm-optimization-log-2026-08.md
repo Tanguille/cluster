@@ -204,6 +204,27 @@ The fix is `stream.wait_stream(current_platform.current_stream())` at
 inferring it from a build date. This is the concrete reason image bumps on this
 deployment get read for correctness fixes, not just features.
 
+**An identical prompt resend IS a real prefix-cache hit on this hybrid model,
+at 832-token granularity.** Worth stating because it was disputed in review, on
+the theory that a GDN hybrid can only reuse SSM state at request boundaries and
+so would report zero cached tokens. Measured against the live engine, one prompt
+sent twice with `max_tokens: 1`, reading `vllm:prefix_cache_hits_total` around
+each send:
+
+| send | prompt tokens | queries | hits |
+|---|---|---|---|
+| 1st (cold) | 4775 | +4775 | **+0** |
+| 2nd (identical) | 4775 | +4775 | **+4160** |
+
+4160 = 5 x the 832-token `block_size`, i.e. the hit covers every whole block and
+rounds down — `mamba_cache_mode=align` aligns the mamba group to the same 832,
+so alignment costs the remainder, not the hit. Consequence: `bench/cachedecode.py`'s
+warm arm is genuinely warm, and its result (**no cached-prefix decode penalty,
+1.05x over n=2**) stands as measured-but-inconclusive on sample size, not as an
+invalid test design. Note `prompt_tokens_details` is absent from responses here
+(`--enable-prompt-tokens-details` is not set), so `cached_tokens` cannot be read
+per-request — use the metric delta above instead.
+
 **Grammar-constrained tool calling costs nothing on decode.** Same 48K context,
 conc 1, only variable a 2-tool schema: 22.84 vs 22.89 tok/s = 1.00x. The known
 ~100x MTP regression is a verify-step × grammar-mask interaction, not a grammar
