@@ -194,8 +194,8 @@ upstream started perturbing the prefix.
 
 ## Compressed findings, in order
 
-**vllm#50696 was a silent-correctness bug live in this deployment until the
-#4808 rollout.** On models that zero freshly allocated KV blocks — any model with
+**vllm#50696 was a silent-correctness bug live in this deployment until
+PR #4808 rolled out.** On models that zero freshly allocated KV blocks — any model with
 mamba layers, and Qwen3.5 is a GDN hybrid — a CPU→GPU load in the offloading
 connector could be wiped by a pending zeroing, and the request then attended over
 zeros for its entire cache-hit prefix. No crash, no error, just degraded output.
