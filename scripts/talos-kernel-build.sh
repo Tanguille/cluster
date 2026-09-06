@@ -28,7 +28,8 @@ KERNEL_VERSION="$(just kernel-version)"
 # Same Renovate branch bumps both, so a mismatch means a half-applied tree. An installer whose
 # tag advertises a kernel it does not carry is caught nowhere else.
 [[ "${VERSION#*-k}" == "${KERNEL_VERSION}" ]] || {
-    echo "CR names k${VERSION#*-k}, Dockerfile builds ${KERNEL_VERSION}" >&2; exit 1
+    echo "CR names k${VERSION#*-k}, Dockerfile builds ${KERNEL_VERSION}" >&2
+    exit 1
 }
 
 log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -39,7 +40,10 @@ log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 installer_ref() {
     local schematic
     schematic="$(just talos schematic-file "$1")"
-    [[ -n "${schematic}" ]] || { echo "no schematic for $1" >&2; return 1; }
+    [[ -n "${schematic}" ]] || {
+        echo "no schematic for $1" >&2
+        return 1
+    }
     if [[ "${schematic}" == "${REPO_ROOT}/talos/schematic.yaml" ]]; then
         echo "${PREFIX}/installer/shared:${VERSION}"
     else
@@ -60,7 +64,7 @@ for node in "$@"; do
         missing=1
     fi
 done
-if (( missing == 0 )); then
+if ((missing == 0)); then
     log "every installer for ${VERSION} is already published, nothing to build"
     exit 0
 fi

@@ -37,7 +37,7 @@ jobs:
       - name: Scan
         run: |
           set -uo pipefail
-          mise exec -- kubescape scan kubernetes --config kubescape.yaml --format json > kubescape-report.json
+          mise exec -- kubescape scan kubernetes --format json > kubescape-report.json
 
       - name: Report summary
         run: |
