@@ -7,3 +7,13 @@ resources:
   - grafanadashboard.yaml
   - secret.sops.yaml
   - ocirepository.yaml
+
+configMapGenerator:
+  - name: k8s-dashboard
+    files:
+      - dashboard/k8s-dashboard.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
