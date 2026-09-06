@@ -220,12 +220,9 @@ spec:
   # this runs 0.28.1rc1.dev388. Whether the v0.28.0 tag (2026-08-26) alone now
   # suffices has NOT been retested -- assume not until someone boots it.
   #
-  # PINNED, do not bump: #4873 (-> 5117559) and #4883 (-> 75a2c2f6) both
-  # measured a real ~2x single-stream decode regression vs this digest
-  # (31.8 -> 16 tok/s @ 4K ctx, docs/llm-hosting/bench/longctx.py, both
-  # confirmed live on the same pod/config with nothing else changed). Neither
-  # PR's own review caught it because it is a runtime perf regression, not a
-  # diff issue -- benchmark any future bump before merging, see .renovaterc.json5.
+  # PINNED, do not bump: #4873 and #4883 both regressed single-stream decode
+  # ~2x (31.8 -> 16 tok/s @ 4K ctx, docs/llm-hosting/bench/longctx.py) -- benchmark
+  # any future bump before merging.
   image: vllm/vllm-openai-rocm:nightly@sha256:0d07767c0b8471eaca0f1eca97899620dfb4ad33ff2f5226789afef1a877e9bc
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
