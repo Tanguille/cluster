@@ -260,8 +260,7 @@ python3 spectest.py 8000
 aggregate tok/s, not per-stream. Every figure in this doc comes from these two scripts
 against a single-replica service with nothing else on the GPU.
 
-Later additions, all production-context (~48K) rather than short-prompt, written for
-`qwen38-improvement-plan-2026-08-23.md`:
+Later additions, all production-context (~48K) rather than short-prompt:
 
 - `ttftsweep.py` — prefill/TTFT with production-shaped prompts; aborts unless the engine is idle.
 - `longconcsweep.py` — aggregate decode vs concurrency at production context.

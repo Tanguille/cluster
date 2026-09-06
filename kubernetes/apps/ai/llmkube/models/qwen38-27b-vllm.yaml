@@ -327,37 +327,26 @@ spec:
     # inherited `supports_kv_connector() -> False` that appears to be a missing
     # override rather than a real exclusion (full argument in the .py).
     #
-    # ADOPTED 2026-09-04, promoted from the 09-01 soak. Kept for DETERMINISM,
-    # not speed: against TRITON_ATTN it measures parity (09-02 warm, decode M=2
-    # 55.31 vs 55.72, M=3 64.07 vs 64.88 -- inside the within-arm spread).
-    # Without this patch a KV connector forces TRITON_ATTN; with it the backend
-    # survives a nightly reordering its preference list, which 0d07767 already
-    # does -- it now prefers TURBOQUANT and falls back to here.
+    # ADOPTED 2026-09-04. Kept for DETERMINISM, not speed: measures parity with
+    # TRITON_ATTN (warm M=2 55.31 vs 55.72, M=3 64.07 vs 64.88, inside the
+    # within-arm spread). It pins the backend against a nightly reordering its
+    # preference list -- 0d07767 already prefers TURBOQUANT and falls back here.
     #
-    # TURBOQUANT is not a candidate while the KV offload connector is on, and
-    # the reason is NOT the 09-01 gfx1201 CK FMHA segfault: it declares only
-    # KVCacheLayout.LBNHC (turboquant_attn.py), OffloadingConnector requires
-    # LBHNC (offloading_connector.py:188), and this backend advertises both
-    # LBHNC and LHBNC. Using it means dropping --kv-transfer-config, which
-    # measured a HALVING of single-stream decode (31 -> 15.5 tok/s). Note vLLM
-    # logs the actual rejection reasons at DEBUG only (rocm.py:680), so the
-    # INFO line naming AttentionType.DECODER is context, not the cause --
-    # TurboQuant does support DECODER. Boot with VLLM_LOGGING_LEVEL=DEBUG to
-    # read the real reason rather than inferring it from layouts as above.
-    # The soak's short-context exit criterion was never measured and is now
-    # unmeasurable -- unrelated config changes land on both sides of 09-01.
+    # TURBOQUANT cannot be used while the KV offload connector is on: it declares
+    # only LBNHC, OffloadingConnector requires LBHNC. Dropping the connector to
+    # get it HALVES single-stream decode (31 -> 15.5 tok/s). The INFO line naming
+    # AttentionType.DECODER is not the reason -- real rejection reasons are DEBUG
+    # only (rocm.py:680); boot with VLLM_LOGGING_LEVEL=DEBUG to read them.
     #
-    # AITER v0.1.19 -> v0.1.21.post1 (image 0d07767), 4 warm reps each: decode
-    # M=2 55.31 -> 57.47 (Welch t 6.19), M=3 64.07 -> 66.71 (t 4.50). Uncached
-    # prefill unchanged (M<=1, t 0.87). Combined AITER+vLLM delta -- the Triton
-    # control arm was not re-run, so none of it is attributed to AITER alone.
+    # AITER v0.1.19 -> v0.1.21.post1 (image 0d07767), 4 warm reps: decode M=2
+    # 55.31 -> 57.47 (Welch t 6.19), M=3 64.07 -> 66.71 (t 4.50), prefill
+    # unchanged. Combined AITER+vLLM delta -- no Triton control arm was re-run.
     #
-    # An earlier run measured 1.89 tok/s decode and looked catastrophic. That was
-    # vllm#53821 (AITER's query_start_loc zeroed during graph capture), fixed in
-    # this image. Do NOT reintroduce that number as evidence.
+    # The old 1.89 tok/s decode figure was vllm#53821, fixed in this image. Do
+    # NOT reintroduce it as evidence.
     #
-    # Both hooks fail open to TRITON_ATTN, so confirm the patch FIRED, not just
-    # that it installed -- only the first line below proves it took effect:
+    # Both hooks fail open to TRITON_ATTN, so confirm the patch FIRED -- only
+    # the first line proves it took effect:
     #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep supports_kv_connector
     #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep "Overriding with"
     # Revert = delete these two mounts, the volume above, and the generator.

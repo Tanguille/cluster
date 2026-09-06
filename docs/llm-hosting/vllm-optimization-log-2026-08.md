@@ -1,4 +1,4 @@
-# vLLM qwen38-27b-vllm optimization log — 2026-08-18 to 2026-08-20
+# vLLM qwen38-27b-vllm optimization log — 2026-08-18 onward
 
 Live-patch tuning history for the `qwen38-27b-vllm` InferenceService (R9700,
 gfx1201). **The current production config and its per-line rationale live as
@@ -11,6 +11,31 @@ measurement mistakes).
 Superseded/later work not in this log: DFlash2 spec-decode was attempted and
 reverted 2026-08-22 (PR #4651/#4652, VRAM instability under load, root cause
 not isolated) — see the PR history, not this file.
+
+**DFlash2 was then disqualified outright on VRAM, 2026-08-23. Do not revisit.**
+A sizing boot on `0539b7e1` without `--kv-cache-memory` (the flag pins the pool
+and makes the profiler's ceiling report meaningless) had vLLM budget essentially
+the whole 32 GiB card: 22.52 GiB weights + non-torch, 2.80 peak activation,
+0.41 CUDAGraph, leaving **5.92 GiB max KV** against the 9 GiB production pool.
+Subtract the mandatory 2 GiB Jellyfin reserve and DFlash2 leaves ~3.9 GiB — a
+56% pool cut, `maxModelLen` near 107K, **below Hermes' measured 112K peak**.
+The 4.31 GiB delta over the 18.21 GiB target checkpoint is ~3.58 GiB of *static
+draft weights*; draft `kv_cache_dtype` and draft `max_model_len` only touch draft
+KV, so there is no knob. Quantizing the draft is not a route either: DFlash builds
+its fused KV buffers from the draft's raw `.weight` tensor
+(`qwen3_dflash.py:490`), which a compressed-tensors layer does not have, so **no
+quantized DFlash draft loads at all** — `AttributeError: 'QKVParallelLinear'
+object has no attribute 'weight'`, on both images tested. Reopen only if upstream
+fixes the quantized-draft path *and* the W4A16 draft's 2.39 GiB saving covers a
+3.1 GiB shortfall, which on its own it does not.
+
+**minisglang-rdna4: deferred 2026-08-23 on judgement, not failure.** Never
+booted. Even a clean boot would not displace this stack — hierarchical KV
+offload, 93.3% token-level hit rate, 246,944 ctx, a working tool parser, none of
+which minisglang has been shown to replicate — and the maintainer's validation
+(TP=2, 16 GB cards, a different checkpoint) does not transfer to TP=1 on 32 GB.
+The one reusable piece: weights were pre-staged onto a CephFS RWX volume so a
+retest costs a short GPU window instead of a window plus a 23 GB download.
 
 ## State as of 2026-08-20 (verify against the manifest before trusting)
 
@@ -56,7 +81,14 @@ not isolated) — see the PR history, not this file.
    parity does not pay for carrying an out-of-tree patch, not because it is
    harmful. Note vllm#45916 is **not** the unblocker either: it patches
    `chunked_prefill_paged_decode.py`, imported by `rocm_attn.py` only, a backend
-   genuinely incompatible with the connector.
+   genuinely incompatible with the connector. **Two things the retest did not
+   measure**, so do not read parity as comprehensive: short-context prefill, which
+   is the regime #43615's +56.5% at 512 tokens and +72.4% at 1K→2K were actually
+   claimed for (judged unlikely to move a 42:1 prompt:completion workload — a
+   judgement, not a measurement), and per-arm power draw, with the GPU sitting
+   power-capped at 248W of 250W throughout both arms. A sweep at 512 / 2K / 8K /
+   50K with `rocm-smi` sampled per arm is what would settle the published claim
+   here; another decode sweep would not.
 4b. **TurboQuant 4-bit KV: tested 2026-09-01, works on gfx1201, rejected.**
    552,612-token pool vs 288,508 (+92%), concurrency 1.17x -> 2.24x, prefill
    parity (6378.7 vs ~6390) -- but decode -27% at conc-16 and -54% single-stream,
@@ -64,9 +96,20 @@ not isolated) — see the PR history, not this file.
    required LBHNC). Rejected because Hermes caps `max_concurrent_sessions: 5`,
    so the extra concurrency is unusable while the decode cost is paid in full.
    Revisit if that cap rises or context must grow past 246,944. Booting it needs
-   three out-of-tree patches (CK segfault reroute + a borrowed gfx1201 MHA
-   config); full recipe and numbers in
-   `turboquant-kv-compression-plan-2026-09-01.md`.
+   three out-of-tree patches, each only visible after clearing the previous one:
+   the `supports_kv_connector` override from finding 3; an import hook rebinding
+   `fa_utils.flash_attn_varlen_func` to `aiter.ops.triton.attention.mha`, because
+   `fa_utils` picks CK for anything that is not gfx1250 and CK's `mha_varlen_fwd`
+   segfaults at head_dim 256 on gfx1201; and mounting AITER's **gfx1151**
+   `MHA-DEFAULT.json` under the gfx1201 name, since AITER ships tuning configs for
+   gfx1151/1250/942/950 only. Same RDNA family and 32-wide wavefronts, so only tile
+   tuning is borrowed — which means **the decode numbers above are on an untuned
+   config** and some of that loss is likely tiles, not architecture.
+   **Output quality at 4-bit was never measured**: the throughput result
+   disqualified the change before the quality gate ran. Published figures suggest
+   ~0.8 points vs fp8 on long-context mrcr, and AMD found Qwen3.5's hybrid
+   attention tolerant, but that is nobody's measurement of this deployment. Every
+   published AMD TurboQuant result is MI355X (CDNA); gfx1201 is untested upstream.
 4. **Inherited, never re-challenged:** `kvCacheDtype: fp8_e4m3` (never
    compared to fp16 KV — quality cost on this hybrid GDN model unmeasured);
    `gpuMemoryUtilization: 0.875` (inert now that `--kv-cache-memory` bypasses
@@ -85,7 +128,40 @@ not isolated) — see the PR history, not this file.
    `maxInputTokens`, and Hermes `context_length` together. Re-derive all four
    on any change to `--kv-cache-memory`, `maxModelLen`, or an image bump.
 
+## Prefix caching is already at its ceiling — measured 2026-08-23
+
+`vllm:prompt_tokens_by_source_total` exports the cache-outcome breakdown
+server-side, so no `--enable-prompt-tokens-details` restart is needed for the
+token-level answer. Over 24h, `service="qwen38-27b-vllm"`:
+
+| source | prompt tokens (24h) | share |
+|---|---|---|
+| `external_kv_transfer` | 34,669,600 | 51.7% |
+| `local_cache_hit` | 27,822,400 | 41.5% |
+| `local_compute` | **4,503,759** | **6.7%** |
+
+Only 6.7% of prompt tokens are recomputed. Cross-checks: `prompt_tokens_cached_total
+/ prompt_tokens_total` = 93.3%, block-level combined = 92.1% (GPU 40.7%, external
+86.7%). The "85%" in older docs was stale and understated this.
+
+**Consequence: Hermes-side prefix stabilization is dropped.** A perfect fix is
+bounded by that 6.7%, and 93.3% is itself evidence the prefix is already stable.
+Revisit only if `local_compute` climbs past ~15%, which would mean something
+upstream started perturbing the prefix.
+
 ## Methodology lessons (apply to any future tuning pass on this workload)
+
+- **Check what a pinned build does *not* contain before hypothesising.** The
+  2026-08-31 AITER test produced 1.89 tok/s and three theories, none of them the
+  cause: the build was cut 9.5 hours before vllm#53821 merged, and the number was
+  that bug. Diffing the build's own commit against upstream's merge log is cheaper
+  than any hypothesis it would have replaced.
+- **Suspending a child Kustomization does not hold.** `llmkube-models` is itself
+  defined in git and reconciled by the parent `flux-system` Kustomization, which
+  resets `spec.suspend` to the git value — three CR patches were silently reverted
+  mid-test before this was found. Durable live-patching needs *both* levels
+  suspended, and `flux-system` suspended means nothing in the cluster reconciles.
+  Prefer a git commit over live patching for anything lasting more than minutes.
 
 - **Gate every benchmark on an idle engine** (0 running / 0 waiting).
   Production traffic silently contaminates results — one run read a 35s
@@ -118,6 +194,21 @@ not isolated) — see the PR history, not this file.
 
 ## Compressed findings, in order
 
+**vllm#50696 was a silent-correctness bug live in this deployment until the
+#4808 rollout.** On models that zero freshly allocated KV blocks — any model with
+mamba layers, and Qwen3.5 is a GDN hybrid — a CPU→GPU load in the offloading
+connector could be wiped by a pending zeroing, and the request then attended over
+zeros for its entire cache-hit prefix. No crash, no error, just degraded output.
+The fix is `stream.wait_stream(current_platform.current_stream())` at
+`kv_offload/cpu/gpu_worker.py:643`. Verify presence in the image rather than
+inferring it from a build date. This is the concrete reason image bumps on this
+deployment get read for correctness fixes, not just features.
+
+**Grammar-constrained tool calling costs nothing on decode.** Same 48K context,
+conc 1, only variable a 2-tool schema: 22.84 vs 22.89 tok/s = 1.00x. The known
+~100x MTP regression is a verify-step × grammar-mask interaction, not a grammar
+cost on ordinary decode — do not conflate them.
+
 **ROCM_AITER_UNIFIED_ATTN is refused whenever a KV connector is set.** The
 gate is `backend.py:323` — `use_kv_connector and not cls.supports_kv_connector()`.
 `RocmAiterUnifiedAttentionBackend` inherits `supports_kv_connector() -> False`
@@ -133,8 +224,16 @@ The inherited `False` is an upstream bug. The parent justifies it by its own
 `OffloadingConnector.get_required_kvcache_layout()` returns exactly `LBHNC`.
 Confirmed live 2026-08-31 by injecting the override: the backend selected and
 ran with the connector attached, tiers created, KV pool unchanged. It was still
-rejected, on measurement — decode 31.50 → ~1.89 tok/s with no prefill gain.
-Full write-up in `aiter-unified-attn-kv-connector-plan-2026-08-31.md`.
+rejected, on measurement — decode 31.50 → ~1.89 tok/s with no prefill gain, a
+figure later traced to vllm#53821 and retracted (see open question 3).
+
+The mechanism is worth keeping even though the change was not adopted: the
+override was injected without rebuilding the image or overlaying the source file,
+via a `.pth` line naming a module that installs a meta-path finder and patches the
+class after normal import. ~25 lines, version-independent, mounted by `subPath`
+into site-packages through the CR's `extraVolumes`/`extraVolumeMounts`. A file
+copy would have coupled the test to one vLLM build, which Renovate bumps every few
+days. That is the pattern to reuse for any future one-symbol upstream test here.
 
 What AITER *does* still contribute here: `AITER_LINEAR`, `AITER_TRITON_GEMM`,
 `AITER_MHA`. **Not** `AITER_RMSNORM` — #43615 defaults
