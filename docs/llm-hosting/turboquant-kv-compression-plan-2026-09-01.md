@@ -166,6 +166,13 @@ That is the question the experiment answers.
 This is a quantization change, so output quality gates everything downstream -
 throughput numbers are meaningless if answers degrade.
 
+**Early-abort exception:** the executed run measured Step 3 throughput first
+and rejected the change on that result alone, skipping this gate. That is only
+valid as a reject: a decode regression bad enough to fail on capacity/latency
+grounds needs no quality data to reject, since quality can only add more
+reasons to reject, never fewer. It would NOT be valid as an accept - never
+adopt on throughput results alone, run this gate in full first.
+
 - Same 20 fixed prompts from Step 2, greedy (`temperature 0`, `top_p 1`, seed 0).
 - Compare against the Step 2 baseline outputs.
 - Different KV dtypes are **not** bit-identical, so exact match is the wrong
@@ -298,11 +305,13 @@ is unusable as configured: Hermes runs `max_concurrent_sessions: 5`, and the
 extra headroom only pays above that. We would pay 27-54% decode for capacity we
 have deliberately capped ourselves out of using.
 
-**This verdict is conditional, and flips if either changes:**
+**This verdict may flip if either changes:**
 - Hermes's session cap is raised well past 5, or
 - context needs to grow substantially beyond the current 246,944 ceiling.
 
-Then a ~2x pool is real value and the decode cost buys something.
+Even then, adoption needs fresh capacity, latency, and quality evaluations —
+this run's 26-54% decode regression, ~2x 50K-request latency, and (per Step 4
+below) never-measured output quality all still stand.
 
 ## NOT measured — do not read this as complete
 

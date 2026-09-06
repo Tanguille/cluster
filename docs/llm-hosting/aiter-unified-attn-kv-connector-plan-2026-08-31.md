@@ -77,7 +77,7 @@ installs a meta-path finder that patches the class *after* normal import.
 
 `zz_aiter_kvconn.pth`:
 
-```
+```python
 import zz_aiter_kvconn_impl
 ```
 
@@ -171,17 +171,20 @@ Write it **before** the first mutating command, to
 which dies with the session). Pin it to the cluster so anyone finding the object
 suspended finds the trail:
 
-```
+```shell
 kubectl annotate inferenceservice qwen38-27b-vllm -n ai \
   live-pr-test/runbook=~/.local/state/live-pr-test/ai-qwen38-27b-vllm.md
 ```
 
-Runbook contents:
+Runbook contents. Discover the owning Kustomization's name/namespace from the
+CR's `kustomize.toolkit.fluxcd.io/{name,namespace}` labels first and use those
+values here -- `llmkube-models` lives in `ai`, not `flux-system`; do not guess
+or hardcode a namespace before checking:
 
-```
+```shell
 # revert
-flux resume kustomization llmkube-models -n flux-system
-flux reconcile kustomization llmkube-models -n flux-system --with-source
+flux resume kustomization llmkube-models -n ai
+flux reconcile kustomization llmkube-models -n ai --with-source
 # kustomize-controller SSA force-applies, so field drift reverts without --force
 # (unlike helm-controller -- do not copy the HelmRelease recipe here)
 kubectl delete configmap aiter-kvconn-patch -n ai
@@ -263,7 +266,7 @@ Regardless of outcome, correct the two stale lines in
 `forward_includes_kv_cache_update = False`, which is wrong (TRITON_ATTN declares
 that too and *was* selected — the real mechanism is `supports_kv_connector()`),
 and the claim that AITER RMSNorm stays on by default is stale for gfx12, where
-#43615 defaults `VLLM_ROCM_USE_AITER_RMSNORM` to False.
+`#43615` defaults `VLLM_ROCM_USE_AITER_RMSNORM` to False.
 
 ## Abort conditions
 
@@ -303,7 +306,7 @@ The exclusion is real and removable. With `supports_kv_connector() -> True`
 force-injected onto `RocmAiterUnifiedAttentionBackend` via the import hook, the
 engine selected:
 
-```
+```text
 rocm.py:703 Found incompatible backend(s) [TURBOQUANT] with AttentionType.DECODER.
 Overriding with ROCM_AITER_UNIFIED_ATTN out of potential backends:
   ['ROCM_AITER_UNIFIED_ATTN', 'TRITON_ATTN']
@@ -401,7 +404,8 @@ as steady-state until they rewarm.
 # RETEST 2026-09-01 — regression was a bug; verdict now PARITY
 
 Prompted by reviewing upstream commits our pin did not yet carry. Ran on
-`vllm/vllm-openai-rocm:nightly@sha256:f0bdaf5...` = `0.28.1rc1.dev199+g7c5dc571c`
+`vllm/vllm-openai-rocm:nightly@sha256:f0bdaf5217a09949842b45c1ea1f12260d3205ec81f143b320dfc2eb3ec95e55` (from
+#4808) = `0.28.1rc1.dev199+g7c5dc571c`
 (bumped in #4808), which is `ahead` of both fixes below. Presence verified in the
 image, not inferred from the build date:
 
