@@ -1,0 +1,64 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: qwen38-27b-vllm-rules
+spec:
+  groups:
+    - name: qwen38-27b-vllm.rules
+      rules:
+        # The engine intermittently latches into a state where every decode step
+        # costs a constant +30.8ms and stays there until the pod is restarted.
+        # Measured 2026-09-05/06 at 4K M=1: 31.3ms healthy vs 62.1ms degraded,
+        # and the +30.8ms is identical at 32K (37.6 -> 68.3), so it is a fixed
+        # per-step cost, not a context or load effect.
+        #
+        # Nothing else moves when it happens: CUDA graph mode stays FULL (the
+        # engine's own cudagraph counter shows 320 steps/10s before and 144
+        # after, same mode), GPU sits at 100% busy on full core and memory
+        # clocks at 62-66C, VRAM/GTT differ by ~100KB, cgroup cpu.pressure is
+        # zero and nr_throttled is 0. Ruled out by direct test: engine build,
+        # KV connector, prefix-cache hits, concurrency 1-5, tool-calling,
+        # co-tenant GPU transcoding, and prompt length. Trigger still unknown.
+        # A pod restart is the only known remedy, which is why this alerts.
+        #
+        # ITL here is effectively the step time -- vLLM advances every running
+        # request one token per step -- so it grows legitimately with BOTH
+        # context and batch. Healthy M=1 is 31.3ms at 4K rising ~0.2ms per 1K
+        # tokens (43.5ms at 64K, ~49ms at 96K = the p99 prompt); latched is
+        # >=59ms at any context.
+        #
+        # 55ms is derived, not guessed: over 2026-09-05 20:00-00:30Z this metric
+        # read 31.2/32.2/32.3/33.9/39.5ms healthy and
+        # 58.8/59.7/62.4/62.9/67.2/67.3/73.0ms latched. 60ms was tried first and
+        # would have missed the 58.8 and 59.7 windows.
+        #
+        # False-fires on sustained M=1 past ~122K context (maxModelLen 246944,
+        # so reachable, but the p99 prompt is 94K) -- raise the threshold rather
+        # than widen the guard if that traffic ever becomes normal.
+        #
+        # The running<2 guard is load-bearing: healthy per-stream step time is
+        # 48ms at concurrency 5, which would trip 60ms on its own.
+        - alert: VLLMDecodeStepLatched
+          expr: |-
+            (
+              rate(vllm:inter_token_latency_seconds_sum{model_name="qwen-3.8"}[15m])
+              /
+              rate(vllm:inter_token_latency_seconds_count{model_name="qwen-3.8"}[15m])
+              > 0.055
+            )
+            and
+            (avg_over_time(vllm:num_requests_running{model_name="qwen-3.8"}[15m]) < 2)
+          # Long enough that a burst of very-long-context requests rides it out;
+          # the condition is persistent once latched, so nothing is lost by
+          # waiting. 15m rate + 30m for = ~45m worst-case notice.
+          for: 30m
+          annotations:
+            summary: >-
+              qwen38-27b-vllm decode is latched at
+              {{ $value | humanizeDuration }}/token near single-stream — roughly
+              half speed. Restart the pod to clear it; stopping co-tenants or
+              waiting does not.
+          labels:
+            severity: warning
