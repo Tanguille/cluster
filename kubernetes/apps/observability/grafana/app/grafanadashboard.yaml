@@ -45,6 +45,7 @@ spec:
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
-  configMapRef:
-    name: k8s-dashboard
-    key: k8s-dashboard.json
+  # Fetched at runtime rather than inlined in a ConfigMap: the JSON is ~157KB, which
+  # overflows flate's kustomization diff when posted as a PR comment (GitHub caps comments
+  # at 64KiB). Same pattern as grafana-overview above.
+  url: https://raw.githubusercontent.com/Tanguille/cluster/main/kubernetes/apps/observability/grafana/app/dashboard/k8s-dashboard.json
