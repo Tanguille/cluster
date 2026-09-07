@@ -5,6 +5,9 @@ kind: Kustomization
 resources:
   - prometheusrule.yaml
   - qwen38-27b-vllm.yaml
+  # Parked (spec.suspend: true) DSpark A/B test service; see the file header
+  # for the runbook and the reason it is held until control-1 has a free GPU.
+  - qwen38-27b-vllm-dspark.yaml
   - qwen38-flash-next.yaml
   - qwen3-embedding.yaml
   - qwen35-2b.yaml

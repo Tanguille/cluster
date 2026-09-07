@@ -1,0 +1,205 @@
+---
+# DSpark speculative-decoding A/B test for the 27B vLLM model.
+#
+# This is a parked, non-serving test service (suspend: true). It mirrors the
+# production qwen38-27b-vllm InferenceService exactly — same target Model CR,
+# image pin, GPU/KV settings, node selector, extraArgs — with one difference:
+# spec.vllmConfig.speculative enables DSpark draft-model speculative decoding
+# via the public HF repo RadixArk/Qwen3.8-27B-DSpark (3.71 GiB, block_size 7,
+# bf16, native DSparkDraftModel in the pinned vLLM — no trust-remote-code
+# needed for the draft; --trust-remote-code stays in extraArgs for the target).
+#
+# Verified before this PR (2026-09-07):
+# - The LLMKube vLLM backend passes vllmConfig.speculative.model verbatim to
+#   --speculative-model (internal/controller/runtime_vllm_args.go
+#   appendSpeculativeModel; the operator's own test uses a bare HF repo id).
+#   No second Model CR is required for the vLLM runtime; vLLM downloads the
+#   draft from HF at first boot (~4 min extra startup, hence the doubled
+#   startup failureThreshold below).
+# - The pinned image (vllm @ 6865e67) registers DSparkDraftModel natively and
+#   auto-infers the "dspark" spec method from the draft's config.json
+#   (architectures: DSparkDeepseekV4ForCausalLM).
+# - control-1 (the only node this service schedules to — per-pod ReadWriteOnce
+#   openebs-hostpath model cache + pinned nodeSelector) is currently 4/4 full
+#   on squat.ai/dri, so the test cannot run until a GPU frees on control-1.
+#
+# Runbook (maintenance window on control-1):
+#   1. Free one squat.ai/dri on control-1 (e.g. temporarily lower a non-critical
+#      workload's GPU count, or schedule a drain of a spare pod).
+#   2. Unpark:  kubectl patch isvc qwen38-27b-vllm-dspark -n llmkube \
+#                  --merge-patch '{"spec":{"suspend":false}}'
+#   3. Watch:    kubectl get isvc qwen38-27b-vllm-dspark -n llmkube -o jsonpath
+#                '{.status.conditions}'   (expect VLLMSpecValid=True, no
+#                SpeculativeInvalid; pod reaches Ready after draft download +
+#                target load + cudagraph capture)
+#   4. A/B: compare time-to-first-token / tokens-per-second / TTFT-p95 against
+#      the production qwen38-27b-vllm endpoint with an identical prompt set.
+#      Expected 30-60% improvement on single-stream agentic workloads per the
+#      CRD documentation; the measured delta on this workload is the point of
+#      the test.
+#   5. numSpeculativeTokens=4 is the CRD-recommended sweet-spot default
+#      (3-5). If acceptance is high, try 5 or 7 (= draft block_size) and
+#      re-measure; if the draft disagrees often, lower it.
+# Tear down when done: re-park (suspend: true) or delete this file and
+# the kustomization entry in the same commit.
+#
+# Budget note: the draft adds ~3.7 GiB of weights plus its own KV blocks on
+# top of a 0.875-utilization, 9.5 GiB-fixed-KV target on one R9700 (13 GiB).
+# That is tight; if the pod OOMs at startup, first re-run with
+# --kv-cache-memory lowered (e.g. 8 GiB) or gpuMemoryUtilization 0.8 — that
+# is a legitimate test-matrix variable, not a manifest bug.
+#
+# Deliberate differences vs the production manifest (single-variable A/B):
+#   1. metadata.name: qwen38-27b-vllm-dspark (endpoint name kept via
+#      --served-model-name below)
+#   2. spec.vllmConfig.speculative block (the variable under test)
+#   3. --served-model-name -> qwen38-27b-dspark
+#   4. startup failureThreshold 240 -> 480 (one-time 3.71 GiB draft pull)
+#   5. No kv-offload-guard CronJob: the test reuses production's
+#      qwen38-27b-vllm-kv-offload PVC (same 128Gi, same node — ReadWriteOnce
+#      hostpath, both pods on control-1), so the existing guard already covers
+#      /kvoffload.
+#   6. suspend: true (parked until control-1 frees a squat.ai/dri)
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen38-27b-vllm-dspark
+spec:
+  modelRef: qwen38-27b-vllm
+  runtime: vllm
+  replicas: 1
+  parallelSlots: 5
+  bindAddress: 0.0.0.0
+  image: vllm/vllm-openai-rocm:nightly@sha256:0d07767c0b8471eaca0f1eca97899620dfb4ad33ff2f5226789afef1a877e9bc
+  modelCache:
+    claimName: qwen38-27b-vllm-model-cache
+  vllmConfig:
+    maxModelLen: 246944
+    kvCacheDtype: fp8_e4m3
+    enablePrefixCaching: true
+    maxNumBatchedTokens: 4096
+    gpuMemoryUtilization: 0.875
+    speculative:
+      enabled: true
+      # Bare HF repo id, passed verbatim to --speculative-model by the vLLM
+      # backend (see header). Do not replace with a Model CR name.
+      model: RadixArk/Qwen3.8-27B-DSpark
+      numSpeculativeTokens: 4
+  env:
+    - name: VLLM_ROCM_USE_AITER
+      value: "1"
+    - name: HIP_VISIBLE_DEVICES
+      value: "0"
+    - name: ROCR_VISIBLE_DEVICES
+      value: "0"
+    - name: VLLM_CACHE_ROOT
+      value: /cache/vllm
+    - name: TRITON_CACHE_DIR
+      value: /cache/triton
+    - name: TORCHINDUCTOR_CACHE_DIR
+      value: /cache/inductor
+    - name: PYTHONHASHSEED
+      value: "0"
+  extraVolumes:
+    - name: compile-cache
+      persistentVolumeClaim:
+        claimName: qwen38-27b-vllm-compile-cache
+    - name: kv-offload
+      persistentVolumeClaim:
+        claimName: qwen38-27b-vllm-kv-offload
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 24Gi
+    - name: aiter-kvconn-patch
+      configMap:
+        name: aiter-kvconn-patch
+    - name: lds-gate-patch
+      configMap:
+        name: lds-gate-patch
+  extraVolumeMounts:
+    - name: compile-cache
+      mountPath: /cache
+    - name: kv-offload
+      mountPath: /kvoffload
+    - name: dshm
+      mountPath: /dev/shm
+    - name: aiter-kvconn-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn.pth
+      subPath: zz_aiter_kvconn.pth
+      readOnly: true
+    - name: aiter-kvconn-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn_impl.py
+      subPath: zz_aiter_kvconn_impl.py
+      readOnly: true
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
+      subPath: zz_lds_gate.pth
+      readOnly: true
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
+      subPath: zz_lds_gate_impl.py
+      readOnly: true
+  extraArgs:
+    - --served-model-name
+    - qwen38-27b-dspark
+    - --trust-remote-code
+    - --reasoning-parser
+    - qwen3
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - qwen3_coder
+    - --compilation-config
+    - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5]}'
+    - --default-chat-template-kwargs
+    - '{"preserve_thinking": true}'
+    - --mamba-cache-dtype
+    - bfloat16
+    - --mamba-ssm-cache-dtype
+    - bfloat16
+    - --watermark
+    - "0.05"
+    - --kv-cache-memory
+    - "10200547328"
+    - --kv-transfer-config
+    - >-
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+  # Parked by design: control-1 has no free squat.ai/dri (4/4) as of 2026-09-07.
+  # Unpark per the runbook in the header during a maintenance window.
+  suspend: true
+  nodeSelector:
+    amd.com/gpu: "true"
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  resources:
+    cpu: "2"
+    memory: 32Gi
+  endpoint:
+    port: 8000
+  probeOverrides:
+    # Doubled from production (240 -> 480 periods of 15s ≈ 120 min budget) to
+    # cover the one-time 3.71 GiB draft download from HF on first boot.
+    startup:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 480
+    liveness:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 20
+    readiness:
+      tcpSocket:
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6
