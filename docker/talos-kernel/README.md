@@ -122,7 +122,7 @@ once, no matter how many nodes join.
 | image                                   | schematic                  | nodes                |
 |-----------------------------------------|----------------------------|----------------------|
 | `ghcr.io/tanguille/installer/shared`    | `talos/schematic.yaml`     | control-2, control-3 |
-| `ghcr.io/tanguille/installer/control-1` | `control-1.schematic.yaml` | control-1            |
+| `ghcr.io/tanguille/installer/control-1` | `talos/control-1.schematic.yaml` | control-1      |
 
 Visibility is per package, so every later tag inherits it — there is nothing to do per kernel
 bump, and a fourth node on the shared schematic needs no new package at all.
@@ -336,19 +336,22 @@ Booting a node off a locally imaged installer does **not** finish the job, and t
 silent. A locally imaged node reports no `schematic` extension, and `looksLikeGenericInstaller`
 matches only `ghcr.io/siderolabs/installer`, so both of tuppr's protective guards go
 unreachable and it falls through to bare `<repo>:<targetVersion>` substitution. `<repo>` comes
-from the node's **own `.machine.install.image`**. Leave that pointing at
-`factory.talos.dev/installer/<id>` and the next Talos bump quietly reinstalls the stock
-kernel — no error, because the guard that would have raised one no longer applies.
+from the node's **own installer image** — `UnattendedInstallConfig.installer.image` on Talos 1.14+,
+`.machine.install.image` before it; tuppr reads and rewrites whichever document is present
+(`internal/talos/machineconfig.go`). Leave it pointing at `factory.talos.dev/installer/<id>` and
+the next Talos bump quietly reinstalls the stock kernel — no error, because the guard that would
+have raised one no longer applies.
 
 Verified on control-2 on 2026-08-20: booted on `v1.13.9-k7.1.9`, kernel `7.1.9-talos`, while
-its `.machine.install.image` was still `factory.talos.dev/installer/1fd419f5…:v1.13.9`. tuppr
+its installer image was still `factory.talos.dev/installer/1fd419f5…:v1.13.9`. tuppr
 reported "All nodes are up to date" only because `findNextNodes` skips every node listed in
 `Status.CompletedNodes` before it ever compares versions; that list resets when the CR
 generation changes, i.e. on the next Talos bump.
 
 Two things have to be true for a node. All three nodes satisfy both as of 2026-08-21:
 
-1. **`.machine.install.image` repointed** to `ghcr.io/tanguille/installer/<schematic>`. Left on
+1. **The installer image repointed** to `ghcr.io/tanguille/installer/<schematic>`, set by
+   `talos/all/00-install.yaml.tpl`. Left on
    `factory.talos.dev`, tuppr's bare `<repo>:<targetVersion>` substitution silently reinstalls
    the stock kernel.
 2. **A version string tuppr will actually ask for.** It compares one value, so the node has to
@@ -361,14 +364,14 @@ Two things have to be true for a node. All three nodes satisfy both as of 2026-0
    of the *manager*, not the field: two file-scoped regex managers in `.renovaterc.json5` now own
    one half each, so the field can carry it. See `docs/tuppr-cr-version-target-plan.md`.
 
-   The annotation mattered because only `just talos apply-node` could change it, so merging a
+   The annotation mattered because only `just talos apply` could change it, so merging a
    bump PR rolled nothing.
 
-   **The switchover costs one `apply-node` per node, once, and the order matters.** Talos writes
+   **The switchover costs one apply per node, once, and the order matters.** Talos writes
    that annotation from machine config, so it survives until a config without it is applied, and
    `getTargetVersion` prefers it until then.
 
-   Do the `apply-node` runs **before** merging the version bump, not after. On a `Completed` CR
+   Do the applies **before** merging the version bump, not after. On a `Completed` CR
    every node is already listed in `Status.CompletedNodes`, and `findNextNodes` skips anything in
    that list *before* it compares versions (`upgrade.go:582-587`) — so dropping an annotation
    while the CR is `Completed` is inert, and stays inert forever. Merging afterwards bumps the
@@ -378,7 +381,7 @@ Two things have to be true for a node. All three nodes satisfy both as of 2026-0
    Merge first and the reverse happens, silently: `recordOutOfBandCompletedNodes`
    (`upgrade.go:507-560`) writes every node that does not "need" an upgrade — which is all of
    them, since each still reports its own annotation — straight into `CompletedNodes` at the new
-   target, and the CR goes `Completed` for a version nothing runs. The later `apply-node` is then
+   target, and the CR goes `Completed` for a version nothing runs. The later apply is then
    skipped by the list check above and nothing ever rolls. Recovering needs
    `kubectl annotate talosupgrade talos tuppr.home-operations.com/reset=1`.
 
@@ -403,5 +406,7 @@ because the first still has an unsuffixed version at the moment the job is built
 
 Since every node now runs a custom kernel, no node is left on stock as a fallback. A Talos bump is
 merge-only: the push-to-main build publishes the installer, and tuppr rolls the fleet once the CR
-target and the published tag agree. `just talos upgrade-node <node> <ip>` remains for cutting a
-node by hand; it reads the pinned image straight out of the rendered config.
+target and the published tag agree. There is no by-hand recipe: `topf upgrade` cannot parse
+these installer refs (see `talos/README.md` gotchas), so cut a node with `talosctl -n <ip> upgrade
+-i "$(yq -e 'select(.kind == "UnattendedInstallConfig").installer.image' talos/rendered/<node>.yaml)"
+-m powercycle`.

@@ -1,0 +1,7 @@
+---
+# Chuwi ubox. Runs in-cluster Kepler (has RAPL, unlike the control-1 VM).
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  amd.com/igpu: "true"
+  kepler-node: "true"

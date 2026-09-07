@@ -8,66 +8,44 @@ set shell := ['bash', '-euo', 'pipefail', '-c']
 # argument-position command substitutions discard their producer's exit status, and some tools
 # exit 0 with empty output; see .agents/common-operations.md.
 
-# Cluster-wide addresses, defined once: the VIP is referenced from every layer and from
-# talosconfig, and the retired talconfig.yaml used a YAML anchor for the same reason.
-vip := "192.168.0.2"
-gateway := "192.168.0.1"
+# Every recipe runs against talos/topf.yaml, which is both the node inventory and the version
+# pin. topf reads talsecret.sops.yaml itself, so nothing here decrypts anything.
+export TOPFCONFIG := source_directory() / "topf.yaml"
 
-[doc('Render a node full machine config to stdout')]
-render-config node:
-    role="$(just talos node-role "{{ node }}")"
-    [[ -n "${role}" ]] || { echo "empty role for {{ node }}" >&2; exit 1; }
-    # One context for every layer, so any layer may reference any of these.
-    ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}")
-    # Rendered to variables before talosctl runs, so a failed layer aborts before a single byte
-    # reaches stdout. Inline <(just template) dropped the layer silently and still emitted a
-    # config, which apply-node pipes straight to a node.
-    cluster_layer="$(just template "{{ source_directory() }}/cluster.yaml.j2" "${ctx[@]}")"
-    role_layer="$(just template "{{ source_directory() }}/${role}.yaml.j2" "${ctx[@]}")"
-    node_layer="$(just template "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" "${ctx[@]}")"
-    talosctl machineconfig patch \
-        <(printf '%s' "${cluster_layer}") \
-        -p @<(printf '%s' "${role_layer}") \
-        -p @<(printf '%s' "${node_layer}")
+[doc('Render every node machine config to talos/rendered (gitignored)')]
+render *args:
+    topf render --output "{{ source_directory() }}/rendered" {{ args }}
+
+[doc('Show what would change on the nodes, without applying')]
+diff *args:
+    # Exits 2 when there IS a diff, which is the normal answer here, not a failure.
+    topf apply --dry-run {{ args }} || [[ $? -eq 2 ]]
+
+[confirm('Apply Talos config to the cluster. Continue? [y|N]')]
+[doc('Apply Talos config; topf shows a per-node diff and asks again')]
+apply *args:
+    topf apply {{ args }}
+
+[doc('List nodes and their live state')]
+nodes:
+    topf nodes
 
 [doc('Generate the Talos client config from the secrets bundle')]
 talosconfig:
-    out="{{ source_directory() }}/talosconfig"
-    talosctl gen config kubernetes https://{{ vip }}:6443 --force \
-        --with-secrets <(just talsecret) \
-        --output-types talosconfig --output "${out}"
-    endpoints="$(just talos node-ips controlplane)"
-    nodes="$(just talos node-ips)"
-    talosctl --talosconfig "${out}" config endpoint ${endpoints}
-    talosctl --talosconfig "${out}" config node ${nodes}
+    topf talosconfig > "{{ source_directory() }}/talosconfig"
 
-[doc('Diff a node rendered config against what the node is running')]
-diff-node node ip:
-    just talos render-config "{{ node }}" | talosctl -n "{{ ip }}" apply-config -f /dev/stdin --dry-run
-
-[confirm('Apply Talos config to the node. Continue? [y|N]')]
-[doc('Apply Talos config to a node')]
-apply-node node ip *args:
-    just talos render-config "{{ node }}" | talosctl -n "{{ ip }}" apply-config -f /dev/stdin {{ args }}
-
-[confirm('Upgrade Talos on the node. Continue? [y|N]')]
-[doc('Upgrade Talos on a single node')]
-upgrade-node node ip:
-    # Assigned: inlined, an empty image would reach `upgrade -i ""` and powercycle the node anyway.
-    image="$(just talos machine-image "{{ node }}")"
-    talosctl -n "{{ ip }}" upgrade -i "${image}" -m powercycle --timeout=15m
-
-[doc('Upgrade Kubernetes')]
+[doc('Upgrade Kubernetes to the version in the tuppr CR')]
 upgrade-k8s:
     version="$(just tuppr-version kubernetes)"
     talosctl upgrade-k8s --to "${version}"
 
-# wipe=false skips the STATE/EPHEMERAL wipe, leaving the installed system on disk.
-[confirm('This will reset the node to maintenance mode. Continue? [y|N]')]
+# --full=false is the closest thing to the old wipe=false and is still MORE destructive: it
+# wipes STATE and EPHEMERAL. topf has no mode that leaves the installed system on disk, and its
+# own default (--full) takes the whole disk.
+[confirm('This wipes STATE and EPHEMERAL on the node. Continue? [y|N]')]
 [doc('Reset a node back to maintenance mode')]
-reset-node ip wipe='true':
-    talosctl -n "{{ ip }}" reset --reboot --graceful=false --wait=false \
-        {{ if wipe == 'true' { '--system-labels-to-wipe STATE --system-labels-to-wipe EPHEMERAL' } else { '' } }}
+reset-node node:
+    topf reset --full=false --confirm=false --nodes-filter "^{{ node }}$"
 
 [doc('Download a Talos ISO from the Image Factory for a node')]
 download-image node version:
@@ -76,49 +54,45 @@ download-image node version:
         -o "{{ source_directory() }}/talos-{{ version }}-${schematic:0:8}.iso" \
         "https://factory.talos.dev/image/${schematic}/{{ version }}/metal-amd64.iso"
 
+# Renovate keeps the two files in step because the annotations match; this catches the hand
+# edit that moves only one. Cheap enough to run in CI on every talos/ PR.
+[doc('Assert topf.yaml and the tuppr CRs name the same versions')]
+check-versions:
+    # `v1.14.0-k7.1.13` -> the composite is the installer tag, its prefix the Talos release.
+    talos="$(just tuppr-version talos)"
+    rc=0
+    same() {
+        local got; got="$(yq -e "$2" "${TOPFCONFIG}")"
+        [[ "${got}" == "$3" ]] || { echo "topf.yaml $1 = ${got}, tuppr CR says $3" >&2; rc=1; }
+    }
+    same kubernetesVersion .kubernetesVersion "$(just tuppr-version kubernetes)"
+    same talosVersion .talosVersion "${talos%-k*}"
+    same data.installerTag .data.installerTag "${talos}"
+    ((rc)) || echo "ok: topf.yaml matches the tuppr CRs"
+    exit "${rc}"
+
 # The node files are the fleet inventory, so a caller cannot build against a stale hand-written
-# list. Schematics are `<node>.schematic.yaml`, so the glob picks up node files only.
+# list. Read from topf.yaml, the same file topf itself renders from.
 [private]
-nodes:
-    names="$(basename -s .yaml.j2 -a "{{ source_directory() }}"/nodes/*/*.yaml.j2 | sort | tr '\n' ' ')"
-    [[ -n "${names// /}" ]] || { echo "no node files under nodes/" >&2; exit 1; }
+nodes-list:
+    names="$(yq -er '.nodes[].host' "${TOPFCONFIG}" | sort | tr '\n' ' ')"
+    [[ -n "${names// /}" ]] || { echo "no nodes in ${TOPFCONFIG}" >&2; exit 1; }
     echo "${names}"
 
-# Directory placement is the single source of truth for a node's role; machine.type is
-# set by the role layer, so a node cannot claim one role by filename and another by content.
-[private]
-node-role node:
-    for role in controlplane workers; do
-        if [[ -f "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" ]]; then
-            echo "${role}"; exit 0
-        fi
-    done
-    echo "no node file found for {{ node }}" >&2; exit 1
-
-# One address per node file, so a grep is enough; render and parse if that stops holding.
-# Defaults to every role; talosconfig passes `controlplane` because endpoints must be
-# control-plane nodes and a worker file would otherwise be injected into the endpoint list.
-[private]
-node-ips role="*":
-    ips="$(grep -hoP '^\s+- address:\s*\K[0-9.]+' "{{ source_directory() }}"/nodes/{{ role }}/*.yaml.j2 | sort -u | tr '\n' ' ')"
-    # An empty result means the grep stopped matching (indentation or key rename), not that the
-    # cluster has no nodes. Fail rather than hand talosctl an empty endpoint list.
-    [[ -n "${ips// /}" ]] || { echo "no addresses matched under nodes/{{ role }}/" >&2; exit 1; }
-    echo "${ips}"
-
-# Per-node override wins when present, otherwise the shared fleet schematic applies.
+# Per-node override wins when present, otherwise the shared fleet schematic applies. The `@`
+# prefix is topf's "resolve this path" marker; paths are relative to topf.yaml.
 [private]
 schematic-file node:
-    for f in "{{ source_directory() }}"/nodes/*/"{{ node }}".schematic.yaml; do
-        [[ -f "$f" ]] && { echo "$f"; exit 0; }
-    done
-    echo "{{ source_directory() }}/schematic.yaml"
+    ref="$(yq -er '(.nodes[] | select(.host == "{{ node }}") | .schematicId) // .schematicId // ""' \
+        "${TOPFCONFIG}")"
+    [[ -n "${ref}" ]] || { echo "no schematicId for {{ node }}" >&2; exit 1; }
+    echo "{{ source_directory() }}/${ref#@}"
 
-# Off the render path since every node pins its own installer: `download-image` is the only caller.
-# Schematics are plain YAML, not templates: POST the file directly rather than routing it through
-# `template`, which would decrypt the secrets bundle to render a file that references no secrets.
-# Bounded so `download-image` fails rather than hanging on a stalled factory. Retries are safe:
-# the endpoint is content-addressed, so re-POSTing identical content returns the same id.
+# Still a Factory POST rather than `topf schematic-ids`: that command ignores --nodes-filter at
+# v0.6.0 and prints every node's id, and it computes ids locally without REGISTERING them, which
+# the ISO URL below needs. Bounded so `download-image` fails rather than hanging on a stalled
+# factory. Retries are safe: the endpoint is content-addressed, so re-POSTing identical content
+# returns the same id.
 [private]
 schematic-id node:
     file="$(just talos schematic-file "{{ node }}")"
@@ -128,17 +102,9 @@ schematic-id node:
         https://factory.talos.dev/schematics \
         | jq -er '.id | strings | select(length > 0)'
 
-[private]
-machine-image node:
-    # Read back from the render rather than rebuilt from schematic+version: the field moves
-    # document under UnattendedInstallConfig, and this value becomes `talosctl upgrade -i`.
-    image="$(just talos render-config "{{ node }}" | yq -er 'select(.machine.install != null) | .machine.install.image')"
-    [[ -n "${image}" ]] || { echo "no install image in rendered config for {{ node }}" >&2; exit 1; }
-    echo "${image}"
-
 [doc('Build the custom-kernel Talos installers; defaults to every node (docker/talos-kernel/README.md)')]
 kernel-build *nodes:
     names="{{ nodes }}"
-    [[ -n "${names}" ]] || names="$(just talos nodes)"
+    [[ -n "${names}" ]] || names="$(just talos nodes-list)"
     "{{ justfile_directory() }}/scripts/talos-kernel-build.sh" \
         "$(just tuppr-version talos)" ${names}

@@ -1,0 +1,7 @@
+---
+# GPU label for applications; the amdgpu kernel module is loaded automatically by the
+# siderolabs/amdgpu system extension. Was machine.nodeLabels, which KubeNodeConfig now owns.
+apiVersion: v1alpha1
+kind: KubeNodeConfig
+labels:
+  amd.com/gpu: "true"

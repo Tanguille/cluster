@@ -1,0 +1,10 @@
+---
+# Was a machine.files drop-in at /etc/cri/conf.d/20-customization.part, which needed a reboot to
+# change. As a document, applying or editing it restarts CRI on its own.
+# Keeps unpacked layers so Talos can serve them without re-unpacking after an image GC.
+apiVersion: v1alpha1
+kind: CRICustomizationConfig
+name: keep-unpacked-layers
+content: |
+  [plugins."io.containerd.cri.v1.images"]
+    discard_unpacked_layers = false

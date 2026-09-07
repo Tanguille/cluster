@@ -1,23 +1,24 @@
 ---
-# The render path has no other CI coverage: `render-config` needs the age key, so it only ever
-# runs on a workstation. This check needs no secret -- sops leaves the key structure in
-# cleartext -- so it can run here and catch the one class of regression that would otherwise
-# surface at `apply-node` time, against a live node.
+# The render path has no other CI coverage: applying needs the age key, so it only ever happens
+# on a workstation. This job needs no secret — `topf secrets` mints a throwaway bundle, and the
+# rest of the pipeline (Go templates, document kinds, strategic merges, per-node data) is
+# identical whichever bundle it reads. It is what catches the one class of regression that would
+# otherwise surface at `topf apply` time, against a live node.
 name: Talos Render
 
 on:
   pull_request:
     paths:
       - talos/**
+      - kubernetes/apps/system-upgrade/tuppr/upgrades/**
       - .justfile
-      - scripts/talos-template-vars.sh
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  template-vars:
+  render:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,5 +29,19 @@ jobs:
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
-      - name: Check template variables
-        run: scripts/talos-template-vars.sh
+      - name: Check topf.yaml agrees with the tuppr CRs
+        run: just talos check-versions
+
+      - name: Render and validate every node
+        env:
+          # Renders against a throwaway bundle instead of talsecret.sops.yaml. The repo is
+          # public, so an age key in Actions secrets is not an option.
+          TOPFCONFIG: ${{ runner.temp }}/topf.yaml
+        run: |
+          cp -r talos/{all,control-plane,node,schematic.yaml,control-1.schematic.yaml} "${RUNNER_TEMP}/"
+          sed 's|^secretsPath:.*|secretsPath: secrets.yaml|' talos/topf.yaml > "${TOPFCONFIG}"
+          topf secrets --confirm=false > "${RUNNER_TEMP}/secrets.yaml"
+          topf render --output "${RUNNER_TEMP}/rendered"
+          for cfg in "${RUNNER_TEMP}"/rendered/*.yaml; do
+              talosctl validate -m metal -c "${cfg}"
+          done

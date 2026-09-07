@@ -67,7 +67,7 @@
     {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
-      managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
+      managerFilePatterns: ["/grafanadashboard\\.yaml$/"],
       matchStrings: [
         'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
       ],
@@ -158,15 +158,37 @@
       minimumGroupSize: 2
     },
     {
-      // talosupgrade.yaml and the mise talosctl pin track the same Talos release — one PR
-      // instead of two. Nothing here moves during a pre-release (config:recommended sets
-      // ignoreUnstable), which is how a third copy in the flate workflow drifted four releases.
+      // Four copies of the Talos release — talosupgrade.yaml's two halves, kubernetesupgrade's
+      // talosctl tag, and talos/topf.yaml's talosVersion + data.installerTag — already share a
+      // branch on depName alone. The group exists for the fifth, the .mise.toml pin, which
+      // needs "github-tags": mise rewrites `aqua:siderolabs/talos` to packageName
+      // siderolabs/talos on that datasource, so the old two-datasource list missed it and it
+      // shipped its own PR (#4544 beside #4545) until it drifted a release behind the CRs.
+      // Match packageName, never the `aqua:`-prefixed depName — matchPackageNames does not
+      // fall back to depName. Both slashes are regex delimiters, so the inner one must stay
+      // escaped AND closed or config validation fails.
+      //
+      // No minimumGroupSize: it defaults to 1, and any positive value would postpone the branch
+      // until every copy moved at once, hiding bumps rather than grouping them.
       description: "Talos Group",
       groupName: "talos",
-      matchDatasources: ["docker", "github-releases"],
-      // matches all siderolabs/* packages (talos, installer, etc.); both slashes are regex
-      // delimiters, so the inner one must stay escaped AND closed or config validation fails
-      matchPackageNames: ["/siderolabs\\//"]
+      matchDatasources: ["docker", "github-releases", "github-tags"],
+      // Deliberately NOT every siderolabs/*: ghcr.io/siderolabs/kubelet is the KUBERNETES
+      // release stream and used to land on this same branch, where neither half could be
+      // merged or held on its own.
+      matchPackageNames: ["/siderolabs\\/(talos|installer)/"]
+    },
+    {
+      // ghcr.io/siderolabs/kubelet is the Kubernetes version, named by both
+      // kubernetesupgrade.yaml and talos/topf.yaml. Identical annotations already put those two
+      // on one branch; groupSingleUpdates is what makes a lone bump say so in the title
+      // instead of reading as an ungrouped PR (which is why #4730 looked unbatched — it was
+      // already on renovate/talos).
+      description: "Kubernetes Group",
+      groupName: "kubernetes",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/siderolabs/kubelet"],
+      groupSingleUpdates: true
     },
     {
       description: "Rook-Ceph Group",

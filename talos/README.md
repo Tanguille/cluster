@@ -1,170 +1,152 @@
 # Talos
 
-Declarative [Talos Linux](https://www.talos.dev) machine configuration, built from composable
-multi-document layers. Nothing here is applied automatically; configs are rendered on demand and
-pushed to nodes with `talosctl`.
+Declarative [Talos Linux](https://www.talos.dev) machine configuration, assembled by
+[topf](https://postfinance.github.io/topf/) from `topf.yaml` plus the strategic-merge patches in
+this directory. Nothing here is applied automatically; configs are rendered on demand and pushed
+to nodes with `just talos apply`.
 
-## Why not talhelper
+## Why topf
 
-talhelper cannot express Talos 1.14, so this directory renders configs with `talosctl` directly.
+talhelper cannot express Talos 1.14: both `master` and `v3.1.16` pin machinery `v1.14.0-alpha.2`,
+and rebuilt against a 1.14 release it panics under the version contract (machinery sets
+`MachineInstall` to `nil`, replaced by `UnattendedInstallConfig`, and talhelper dereferences it
+unguarded).
 
-Both talhelper `master` and `v3.1.16` pin machinery `v1.14.0-alpha.2`. Rebuilt against `rc.2` it
-panics under the 1.14 version contract: machinery sets `MachineInstall` to `nil` (replaced by
-`UnattendedInstallConfig`) and talhelper dereferences it unguarded. Staying on the 1.13 contract
-instead leaves the whole `Kube*` document family and `UnattendedInstallConfig` unreachable, because
-they are mutually exclusive with the v1alpha1 base talhelper emits.
+This directory previously rendered configs with `minijinja` + `talosctl machineconfig patch`,
+deliberately generating no v1alpha1 base so that every 1.14 document kind stayed reachable. topf
+does the same job with a real base: it reads `talsecret.sops.yaml` directly, generates the full
+1.14 multi-document config from it, and merges these patches on top. That deletes the whole
+secret-templating layer — no minijinja, no piping decrypted secrets into a renderer, no
+hand-written CA/token plumbing.
 
-`talosctl machineconfig patch` generates no competing v1alpha1 base, so every document kind is
-reachable. The layer model below follows [onedr0p/home-ops](https://github.com/onedr0p/home-ops),
-with SOPS in place of 1Password.
+The layout follows [onedr0p/cluster-template](https://github.com/onedr0p/cluster-template), which
+made the same move in `a25d0ab`, with SOPS in place of 1Password.
 
 ## Layout
 
-| Path                                    | Purpose                                                                   |
-| --------------------------------------- | ------------------------------------------------------------------------- |
-| `cluster.yaml.j2`                       | Documents applied to every node                                           |
-| `controlplane.yaml.j2`                  | Control-plane-only documents, including `machine.type`                    |
-| `workers.yaml.j2`                       | Worker-only documents (does not exist yet; created with the first worker) |
-| `nodes/<role>/<node>.yaml.j2`           | Per-node documents (hostname, address, MAC selector, install disk, labels)|
-| `nodes/<role>/<node>.schematic.yaml`    | Optional per-node schematic override                                      |
-| `schematic.yaml`                        | Shared [Image Factory](https://factory.talos.dev) schematic               |
-| `talsecret.sops.yaml`                   | SOPS-encrypted secrets bundle (native `talosctl` format)                  |
-| `mod.just`                              | Recipes (`just talos ...`)                                                |
+| Path                          | Purpose                                                          |
+| ----------------------------- | ---------------------------------------------------------------- |
+| `topf.yaml`                   | Node inventory, cluster endpoint, versions, shared template data  |
+| `all/`                        | Patches applied to every node                                     |
+| `control-plane/`              | Control-plane-only patches                                        |
+| `node/<host>/`                | Per-node patches (`node/`, singular — not `nodes/`)               |
+| `schematic.yaml`              | Shared [Image Factory](https://factory.talos.dev) schematic       |
+| `control-1.schematic.yaml`    | Per-node schematic override                                       |
+| `talsecret.sops.yaml`         | SOPS-encrypted secrets bundle (native `talosctl gen secrets`)     |
+| `mod.just`                    | Recipes (`just talos ...`)                                        |
+| `rendered/`                   | `just talos render` output — gitignored, contains certificates    |
 
-## Rendering
+Patches merge in the order `all/` → `control-plane/` → `node/<host>/`, lexicographically within
+each directory, later winning. Files ending `.yaml.tpl` are Go templates rendered per node;
+plain `.yaml` files are not. The template context is documented in
+[topf's configuration model](https://postfinance.github.io/topf/main/configuration-model/) —
+`{{ .Node.Host }}`, `{{ .Node.IP }}`, `{{ .Node.Data.x }}`, `{{ .Data.x }}`,
+`{{ .KubernetesVersion }}`.
 
-`just talos render-config <node>` builds the final machine config in three layers. Conceptually,
-where `<role>` is `controlplane` or `workers`, chosen by which directory holds the node file:
+**Schematics must stay outside the patch directories.** topf loads every `.yaml` under `all/`,
+`<role>/` and `node/<host>/` as a machine-config patch, so a schematic parked in one of them
+would be merged into the config.
 
-```text
-     cluster.yaml.j2          every node
-  +  <role>.yaml.j2           role layer, sets machine.type
-  +  nodes/<role>/<node>.yaml.j2
-  =  the node's machine config
-```
+## What topf generates, and what these patches do
 
-The executable form is in `talos/mod.just`: each layer is rendered by `just template` and the results
-are merged by `talosctl machineconfig patch`, the first as the base and the rest as `-p @` patches.
-Later patches strategically merge into earlier ones: maps deep-merge, lists replace, and documents
-with the same kind/name merge.
+topf generates the entire Talos 1.14 document set from the secrets bundle: the CAs, tokens,
+cluster identity, etcd encryption, service-account key, and every `Kube*Config`. The patches here
+only cover what differs from its defaults, and several exist purely to hold behaviour flat:
 
-Two conventions keep the layers honest:
+| Patch                       | Why it is not a default                                              |
+| --------------------------- | -------------------------------------------------------------------- |
+| `all/00-install.yaml.tpl`   | topf's installer patch points at `factory.talos.dev` with a `/dev/sda` selector |
+| `all/10-cluster.yaml.tpl`   | pod/service subnets default to `10.244.0.0/16` and `10.96.0.0/12`    |
+| `all/21-network.yaml.tpl`   | `forwardKubeDNSToHost` defaults to **true**                          |
+| `all/30-kubelet.yaml.tpl`   | deletes `KubeletConfig` to keep `machine.kubelet.extraMounts`         |
+| `all/70-security.yaml`      | `workloadIsolation` defaults to **true**; PodSecurity admission is generated |
+| `control-plane/00-cluster.yaml.tpl` | control-plane nodes are tainted `NoSchedule`, flannel and CoreDNS are on |
 
-- **Directory placement is the single source of truth for a node's role.** The role layer is chosen
-  by which `nodes/<role>/` directory contains the node file, and `machine.type` is set by the role
-  layer, not the node file. A node cannot claim one role by filename and another by content.
-- **Secrets never appear in this repo in plaintext.** `talsecret.sops.yaml` is decrypted at render
-  time and handed to minijinja as the *template context*, so templates reference its own key names
-  (`{{ certs.os.crt }}`, `{{ trustdinfo.token }}`). Nothing is written to disk.
+### The kubelet exception
 
-Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
-CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
-`vip` and `gateway` are defined once in `mod.just` and passed to every layer alongside the node's
-schematic id. Node addresses and the `192.168.0.0/24` subnet are still literals in the files that
-use them; only these two are centralised.
+`all/30-kubelet.yaml.tpl` deletes the generated `KubeletConfig` document and keeps the deprecated
+v1alpha1 `machine.kubelet` instead. This is the one place the repo diverges from upstream, and it
+is forced: `KubeletConfig` has five fields and `ExtraMounts()` is `return nil`
+(machinery v1.14.0 `config/types/k8s/kubelet.go:189-192`), so the `/var/openebs/local` rshared
+bind mount that openebs-localpv needs cannot be expressed. The two are mutually exclusive
+("kubelet config is already set in v1alpha1 config"), so `$patch: delete` is the only way to keep
+the mount. `talosctl validate -m metal` accepts the result.
 
-Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
-a document between layers reorders the output stream and reads as a change even when the content is
-byte-identical. Content shared by every node (the installer image) lives in the layer that owns it;
-documents that are identical per node but would reorder the stream stay put.
+Revisit if Talos gives `KubeletConfig` a mounts field.
+
+## Versions
+
+`topf.yaml` names `talosVersion`, `kubernetesVersion` and `data.installerTag`. The tuppr CRs in
+`kubernetes/apps/system-upgrade/tuppr/upgrades/` remain the **operational** source — tuppr is what
+performs upgrades, and `.github/workflows/flate.yaml` reads `.spec.talosctl.image.tag`. The
+annotations in `topf.yaml` are byte-identical to the CRs', so Renovate branches on the same
+`depName`+datasource and moves both files in one PR; `just talos check-versions` fails CI if a
+hand edit ever splits them.
+
+`talosVersion` is the plain release (`v1.14.0`). The `-k<kernel>` composite belongs only in
+`data.installerTag`: as a `github-releases` `currentValue` it resolves to no-result and would
+freeze the dep silently.
+
+## Installer images
+
+Every node pins a custom-kernel installer from `ghcr.io/tanguille/installer/<schematic>`, not the
+Image Factory — see `docker/talos-kernel/README.md`. `data.installer` in `topf.yaml` names the
+repo, one per **schematic** (`shared` for `schematic.yaml`, else the node name). A per-node name
+rather than the schematic id, because the id moves whenever a schematic is edited and each new id
+is a fresh private ghcr package.
+
+topf still generates its own `UnattendedInstallConfig` pointing at the Factory;
+`all/00-install.yaml.tpl` overrides it. That patch must carry the image **and** the disk selector
+in the same document: `cel.Expression.Merge` overwrites unconditionally, so an image-only
+override would silently blank the selector and produce a config Talos rejects.
 
 ## Schematics
 
-`just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
-content-addressed ID, which is templated into the installer image.
+`just talos download-image <node> <ver>` resolves a schematic id by POSTing the file to the Image
+Factory. It deliberately does not use `topf schematic-ids`, which at v0.6.0 ignores
+`--nodes-filter` and prints every node's id, and which computes ids locally without *registering*
+them — the ISO URL needs a schematic the Factory knows.
 
-Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
-`schematic.yaml` applies. Overrides are complete files, not deltas. Today only `control-1`
-overrides, because it is the TrueNAS VM and the only dGPU host.
-
-Schematics are plain YAML, deliberately not templates. Routing them through `template` would
-decrypt the secrets bundle to render a file that references no secrets, on the hot path of nearly
-every `just talos` command. If a schematic ever needs a variable, add the extension back.
-
-**The ID is content-addressed, so any change to a schematic's fields moves it** — including a
-one-character change to `extraKernelArgs`. Comments and formatting do not: the Factory canonicalises
-the YAML before hashing, verified by stripping a comment and getting the same id back. Every installer reference derived from that ID moves with it. For nodes
-pointing at the Image Factory that is invisible and self-healing, because the Factory builds the new
-ID on demand. It is *not* self-healing for any node whose installer is mirrored to another registry
-under the schematic path: that mirror must be republished under the new ID first, or the next upgrade
-fails to pull. Check which nodes use a non-Factory installer before changing a schematic.
+Local computation and the Factory POST agree today (verified for both schematics). The id is
+content-addressed, so **any** change to a schematic's fields moves it, including one character of
+`extraKernelArgs`; comments and formatting do not, because the Factory canonicalises before
+hashing. Every installer reference derived from that id moves with it, which is not self-healing
+for a node whose installer is mirrored under the schematic path.
 
 ## Gotchas
 
-- `machine.ca` and `cluster.ca` merge as a cert+key **unit**: a layer supplying only `key` blanks
-  `crt`. This is why `controlplane.yaml.j2` repeats the `crt` alongside the keys.
-- `minijinja-cli` must run with `--autoescape=none`. The default JSON-escapes every substitution,
-  which silently wraps certs and versions in quotes and produces a config that looks right and is not.
-- `talsecret.sops.yaml` is the native `talosctl` secrets bundle, not a talhelper format. `talosctl gen
-  config --with-secrets` consumes it directly. Do not rename its keys; the templates and
-  `just talos talosconfig` both depend on them.
-
-## Talos 1.14 adoption
-
-The version lives in the tuppr CR, not here.
-
-**These documents cannot be applied before the nodes are on 1.14.** Not a style rule, a hard
-gate: a 1.13.9 node rejects the config outright rather than ignoring what it does not know.
-
-```text
-error decoding document v1alpha1/CRICustomizationConfig/keep-unpacked-layers:
-  "CRICustomizationConfig" "v1alpha1": not registered
-```
-
-So `apply-node` and `diff-node` both fail against a node that has not been upgraded yet. Adopt
-only after tuppr has rolled every node, and re-run `diff-node` on all three before applying.
-
-### Adopted
-
-| Document | Replaces / adds |
-| --- | --- |
-| `CRICustomizationConfig` | the `machine.files` drop-in at `/etc/cri/conf.d/20-customization.part`. Editing it restarts CRI instead of needing a reboot |
-| `FilesystemTrimConfig` | fstrim, weekly. Absent means no automatic trimming at all |
-| `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default. Closes #4289 |
-| `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates. All 16 keys verified identical |
-
-Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does
-not scrub or trim in lockstep. That is what makes weekly safe on control-3 despite its
-thermal-shutdown history: it never runs at the same moment as its peers.
-
-Trim reaches only what the node can discard. control-2 and control-3 install to real NVMe; control-1
-is the TrueNAS VM, installs to `/dev/vda`, and has no NVMe device at all (`talosctl get disks` shows
-only virtio and rbd), so its discards pass through to whatever the hypervisor does with them.
-
-### Deliberately not adopted
-
-| Document | Why not |
-| --- | --- |
-| `OOMConfig` | a PSI-expression OOM handler. Real potential here given this cluster's OOM cascades, but it changes which cgroup dies under pressure. Needs a baseline first, not a blind default |
-| `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd) is a runtime change for every workload; wants its own change and its own rollback |
-| `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.0-rc.2) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
-| `SysfsConfig` / `CRIBaseRuntimeSpecConfig` | the other two v1alpha1 fields 1.14 deprecates; neither is used in this repo |
-| `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
-| `EtcFileConfig` | not needed *yet*, but upstream uses it for `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize). Our five NFS mounts run at kernel defaults; worth its own change |
-
-`VolumeConfig`'s `filesystem.xfs.minAllocationGroupSize` only affects volumes Talos formats, so it
-is a wipe-time decision rather than a live one.
-
-Evaluate separately rather than adopting blindly: NRI is enabled by default in 1.14,
-`net.ipv4.conf.*.send_redirects` defaults to `0`, and etcd's HTTP endpoints move `2379` → `2383`
-(we are unaffected, `listen-metrics-urls` is pinned to `2381`, but re-verify the scrape).
+- **`topf upgrade` is unusable here and no recipe wraps it.** Its version extractor
+  (`^.*/([a-zA-Z0-9]+):v?(.+)$`) rejects the hyphen in `installer/control-1`, and for
+  `installer/shared` it reads `shared` as the schematic, which never equals the node's runtime
+  id — so it reports "upgrade required" on every run, forever. With `--confirm=false` that is an
+  unconditional reinstall-and-reboot loop. tuppr owns upgrades.
+- **Never run `topf secrets` in this directory.** It writes to `secretsPath`. It only generates
+  when no bundle is found, but the blast radius is the cluster's identity.
+- `topf reset` cannot express the old `wipe=false`. `just talos reset-node` passes `--full=false`,
+  which still wipes STATE and EPHEMERAL; topf's own default takes the whole disk.
+- `just talos diff` exits 2 when there *is* a diff. The recipe absorbs that; a bare
+  `topf apply --dry-run` in a script must too.
+- Adding a node means adding it to `topf.yaml`, creating `node/<host>/`, and building its
+  installer (`just talos kernel-build <host>`). There is no cluster-layer installer fallback that
+  would work — the generated one points at the Factory and would install a stock kernel.
 
 ## Common tasks
 
-These use the repo's pinned `talosctl` and `minijinja-cli`. `.envrc` puts them on `PATH` via mise,
-so the bare commands below are the pinned ones. Without direnv, add the shims
-(`export PATH="$HOME/.local/share/mise/shims:$PATH"`) or prefix with `mise exec --`; a `talosctl`
-picked up from the system `PATH` is a different version than this pipeline is tested against.
+These use the repo's pinned `topf` and `talosctl`. `.envrc` puts them on `PATH` via mise; without
+direnv, add the shims (`export PATH="$HOME/.local/share/mise/shims:$PATH"`) or prefix with
+`mise exec --`.
 
 ```sh
-just talos render-config <node>          # render a node's full machine config to stdout
-just talos diff-node <node> <ip>         # dry-run the rendered config against the running node
-just talos apply-node <node> <ip>        # render and apply
-just talos upgrade-node <node> <ip>      # upgrade Talos using the node's schematic image
-just talos upgrade-k8s                   # upgrade Kubernetes to the version in the tuppr CR
-just talos talosconfig                   # regenerate the client config from the secrets bundle
-just talos download-image <node> <ver>   # fetch a metal ISO from the Image Factory
+just talos render                  # render every node config to talos/rendered
+just talos diff                    # what would change on the nodes
+just talos diff --nodes-filter '^control-1$'
+just talos apply                   # render and apply, with a per-node diff and prompt
+just talos nodes                   # live node state
+just talos talosconfig             # regenerate the client config
+just talos check-versions          # topf.yaml vs the tuppr CRs
+just talos upgrade-k8s             # Kubernetes, to the version in the tuppr CR
+just talos download-image <node> <ver>
 ```
 
-Verify any refactor of these templates by running `diff-node` against **every** node and confirming
-each reports `No changes.` before applying anything.
+Verify any refactor of these patches by running `just talos diff` against **every** node before
+applying anything.

@@ -8,7 +8,7 @@ Step-by-step procedures for frequent cluster tasks.
 
 ## Validation and tooling
 
-- Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talosctl`, `minijinja-cli`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
+- Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talosctl`, `topf`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
 - Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (flate — renders Helm charts, not just Kustomization YAML — and shellcheck).
 - Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
 - Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
@@ -28,12 +28,11 @@ archived crashes too, and `ceph crash info <crash-id>` for the real timestamps.
 substitution used as an argument. The producer's exit status is discarded and the consumer runs on
 partial or empty input, so the script succeeds and emits a plausible-looking artifact.
 
-Four instances of this were found in one evening, in two people's code:
+Several instances of this were found in one evening, in two people's code:
 
 | Shape | What it produced |
 | --- | --- |
-| `talosctl machineconfig patch <(render ...)` | a machine config with `machine.type` missing, ready to `apply-node` |
-| `minijinja-cli ... <(sops -d ...)` | a config rendered against an empty secret context |
+| `talosctl machineconfig patch <(render ...)` | a machine config with `machine.type` missing, ready to apply |
 | `installer/$(yq '.id' ...)` | the literal string `null` baked into an install image |
 | `mapfile -t args < <(yq ...)` | an installer published with no kernel args and no extensions |
 

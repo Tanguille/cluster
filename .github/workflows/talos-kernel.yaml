@@ -9,8 +9,9 @@ on:
       # Not a build input; editing it cost an 11m no-op run (33327983434).
       - "!docker/talos-kernel/README.md"
       - scripts/talos-kernel-build.sh
-      - talos/schematic.yaml
-      - talos/nodes/**/*.schematic.yaml
+      - talos/*.schematic.yaml
+      # The node inventory: adding a node adds an installer to build.
+      - talos/topf.yaml
       - kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml
   # Dispatch against the bump branch to build BEFORE merging it — the only way to have the
   # installer exist by the time main starts naming it:
@@ -88,7 +89,7 @@ jobs:
 
       # Everything is derived from the tree: the Talos version from the tuppr CR, the kernel from
       # the Renovate-managed Dockerfile ARG, TOOLS/PKGS from the Talos release's own Makefile,
-      # and the node list from talos/nodes/. The script writes its own job summary naming every
+      # and the node list from talos/topf.yaml. The script writes its own job summary naming every
       # ref it published. Same entrypoint as a workstation build, so the two cannot drift.
       - name: Build and publish installers
         run: just talos kernel-build

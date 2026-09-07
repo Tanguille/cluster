@@ -1,0 +1,67 @@
+---
+# No `$schema`: topf publishes none for this file. `just talos render` is the check.
+clusterName: kubernetes
+clusterEndpoint: https://192.168.0.2:6443
+
+# Both versions are also carried by the tuppr CRs, which stay the operational source (tuppr is
+# what performs the upgrades, and .github/workflows/flate.yaml reads .spec.talosctl.image.tag).
+# The annotations below are byte-identical to the CRs', so Renovate branches on the same
+# depName+datasource and updates both files in one PR. `just talos check-versions` fails the
+# build if a hand edit ever moves one without the other.
+#
+# talosVersion is the PLAIN release: it picks the config contract for offline renders and the
+# tag of the installer image topf generates (which every node overrides in all/00-install.yaml.tpl).
+# The -k<kernel> composite belongs in data.installerTag alone -- as a github-releases
+# currentValue it would resolve to no-result and freeze the dep silently.
+# renovate: datasource=github-releases depName=siderolabs/talos
+talosVersion: v1.14.0
+# renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
+kubernetesVersion: v1.37.0
+
+secretsPath: talsecret.sops.yaml
+
+# Cluster-wide values, defined once and reachable from every .yaml.tpl patch as {{ .Data.x }}.
+data:
+  vip: 192.168.0.2
+  gateway: 192.168.0.1
+  nodeCidr: 192.168.0.0/24
+  # Tag of the custom-kernel installers built by scripts/talos-kernel-build.sh. Same value as
+  # the tuppr CR's .spec.talos.version, which is what tuppr compares against.
+  # renovate: datasource=github-releases depName=siderolabs/talos versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-k
+  installerTag: v1.14.0-k7.1.13
+
+# The node inventory. `just talos nodes` and scripts/talos-kernel-build.sh read this file, so a
+# node cannot exist for one and not the other.
+#
+# data.installer names the ghcr repo under ghcr.io/tanguille/installer/, one per SCHEMATIC:
+# nodes sharing schematic.yaml share `shared`. A per-node NAME (not the schematic id) because
+# the id moves on every schematic edit and each new id is a fresh private ghcr package.
+nodes:
+  - host: control-1
+    ip: 192.168.0.11
+    role: control-plane
+    # TrueNAS hypervisor VM. Only node with the dGPU (R9700), so its own schematic and its own
+    # installer repo -- control-2/3 cannot use this image.
+    schematicId: "@control-1.schematic.yaml"
+    data:
+      installer: control-1
+      installDisk: /dev/vda
+      macAddr: "00:16:3e:97:0e:d8"
+  - host: control-2
+    ip: 192.168.0.12
+    role: control-plane
+    schematicId: "@schematic.yaml"
+    data:
+      installer: shared
+      installDisk: /dev/nvme1n1
+      macAddr: "84:47:09:6d:0d:2f"
+  - host: control-3
+    ip: 192.168.0.13
+    role: control-plane
+    schematicId: "@schematic.yaml"
+    data:
+      installer: shared
+      # By-id, not /dev/nvme*: the Micron 7450 has a thermal-shutdown history and the selector
+      # must stay unambiguous across reseats.
+      installDisk: /dev/disk/by-id/nvme-Micron_7450_MTFDKBA480TFR_241548387F46
+      macAddr: "84:47:09:6d:18:a4"

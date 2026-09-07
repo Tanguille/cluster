@@ -35,11 +35,11 @@ See [talos/README.md](../talos/README.md) for the layer model, the full recipe l
 toolchain the bare `just` commands assume.
 
 ```bash
-just talos diff-node <node> <node-ip>     # dry-run against the running node
-just talos apply-node <node> <node-ip>    # render and apply
+just talos diff      # what would change on the nodes, no apply
+just talos apply     # render and apply, with a per-node diff and prompt
 ```
 
-Run `diff-node` against **every** node and confirm `No changes.` before applying anything.
+Read the `diff` output for **every** node before applying anything.
 Upgrade `control-1` last: it is the TrueNAS VM and the only dGPU host.
 
 ---
