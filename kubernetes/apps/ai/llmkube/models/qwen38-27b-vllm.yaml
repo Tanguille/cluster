@@ -408,10 +408,28 @@ spec:
     # Keep prior-turn reasoning in context; carried over from the qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
-    # MTP speculative decoding is deliberately OMITTED: measured on this
-    # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
-    # regression) under concurrent tool traffic. Re-test that wedge before
-    # re-adding.
+    # NO --speculative-config. Every method vLLM offers was evaluated 2026-09-07
+    # and all are unusable -- full evidence in
+    # docs/llm-hosting/spec-decode-rejected.md. Summary:
+    #
+    #   n-gram  CORRUPTS OUTPUT. vllm#39273: SSM state corruption on hybrid GDN
+    #           models (this is one), truncated/repeated fragments. Was trialled
+    #           in production and reverted the same day after Hermes reported
+    #           truncated outputs. It benchmarks 1.8-2.1x faster and is WRONG --
+    #           acceptance/tokens-per-step stayed healthy the whole time, so the
+    #           engine metrics do NOT catch it.
+    #   MTP     + tool-calling grammar wedges to ~0.2 tok/s (100x) under
+    #           concurrent tool traffic; -27% at M=5 alone.
+    #   DSpark  0.59x measured, and its drafter KV (+70% B/token, bf16) forces
+    #           maxModelLen below the 112K production peak.
+    #   EAGLE3/ same drafter-KV tax, plus vllm#41640 (unmerged): a GQA drafter's
+    #   DFlash  KV group is unidentifiable on a non-MLA target, so prefix caching
+    #           is disabled and the KV offload tier goes write-only.
+    #
+    # Re-open ONLY when a named upstream issue is fixed: vllm#39273 for n-gram,
+    # and vllm#41640 + vllm#49002 for anything drafter-based. Gate any retry on
+    # an OUTPUT-QUALITY check before quoting a speed number -- that is the
+    # mistake that let the n-gram corruption reach production.
     # Separate pools, both needed -- ssm does NOT inherit from the other on
     # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
     # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.
