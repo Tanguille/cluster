@@ -399,14 +399,31 @@ Keep the pin.
 python3 docs/llm-hosting/bench/longctx.py <port> qwen-3.8 4000 4
 
 # anything with speculative decoding on -- wall-clock decode rate.
-# Doubles as the n-gram FLOOR: its prompt admits no lookups.
+# Soft floor only: this prompt draws on a 24-word vocabulary, so 3-gram
+# repeats occur by chance and n-gram does fire (232 drafts, 63% acceptance).
 python3 docs/llm-hosting/bench/walltime.py <port> qwen-3.8 4000 4
+
+# a real workload shape -- pass any prompt file, plus a generation length
+python3 docs/llm-hosting/bench/walltime.py <port> qwen-3.8 0 3 prompt.txt 1200
+
+# grammar-constrained tool calling, optionally concurrent and with a system
+# prompt: the regime that wedged MTP. PRESET is `deployment` or `vmcp`.
+python3 docs/llm-hosting/bench/toolbench.py <port> qwen-3.8 5 2 system.txt vmcp
 
 # n-gram CEILING: verbatim quote-back, and checks the output really matches
 python3 docs/llm-hosting/bench/spectest.py <port> qwen-3.8
 ```
 
-`walltime.py` is the only script added here; it does an idle preflight and
-refuses to count a dirty rep, matching the methodology the rest of this
-directory uses. It exists because `longctx.py` cannot measure a speculative
-config and `spectest.py` folds prefill into its rate and runs a single rep.
+`spectest.py` and `longctx.py` already existed; `walltime.py`, `toolbench.py`
+and `_metrics.py` are added here. All do an idle preflight and refuse to count a
+dirty rep, matching the methodology the rest of this directory uses.
+
+`walltime.py` exists because `longctx.py` derives tok/s from the ITL counter,
+which is invalid under speculative decoding, and because `spectest.py` folds
+prefill into its rate and runs a single rep. `toolbench.py` exists because
+nothing here exercised tool-calling grammar under concurrency. `_metrics.py`
+holds the single `/metrics` scrape the two new scripts share.
+
+**`spectest.py` is the only one that checks correctness, and it is the one that
+matters.** The others measure speed, and speed alone is what made a corrupting
+config look like a 2x win.
