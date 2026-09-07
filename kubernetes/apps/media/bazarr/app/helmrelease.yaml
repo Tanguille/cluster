@@ -22,8 +22,15 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/home-operations/bazarr
-              tag: 1.6.0@sha256:cd63bbd0986c93e238eb8b9442604d249f0d4080099b389f822abe2062044417
+              repository: ghcr.io/lavx/bazarr
+              tag: 2.6.1@sha256:e1829749734fd53a3270d3de4c8bcf666dedd47050a043503dbe76b6d0e5358c
+            command:
+              - python
+            args:
+              - docker/supervisor.py
+              - --no-update
+              - --config
+              - /config
             env:
               TZ: ${TIMEZONE}
               POSTGRES_ENABLED: "True"
@@ -37,7 +44,7 @@ spec:
                 custom: true
                 spec:
                   httpGet:
-                    path: /api/system/ping
+                    path: /health
                     port: &port 6767
                   timeoutSeconds: 5
                   failureThreshold: 6
