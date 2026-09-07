@@ -32,8 +32,13 @@ Verified quirks (2026-09-07):
   fallbacks (the server runs fish; it has an authed `gh` via `~/cluster`):
   `ssh -o BatchMode=yes tanguille@192.168.0.181 'gh run view <id> --repo Tanguille/cluster --log-failed'`
   and `... 'gh run rerun <id> --repo Tanguille/cluster --failed'`.
+- `github_pull_request_read`'s PR selector is `pullNumber` (not `number`);
+  `github_push_files` takes `files: [{path, content}]` + `message` (not `commit_message`).
 - Degraded ToolHive envelope: check `agent.log` FIRST (an "unknown argument" error is a
-  cron model-routing bug, not an outage), then `~/.hermes/scripts/toolhive_retry.py 'call' <tool>`.
+  cron model-routing bug, not an outage), then `~/.hermes/scripts/toolhive_retry.py
+  call <tool> <json>` (flags like `--max-retries` go BEFORE the positionals).
+- The wrapper's SDK client crashes on large payloads (known SSE/TaskGroup bug) even when
+  the server succeeds — trust the raw HTTP JSON-RPC fallback it prints.
 - Last-resort git route (only for conflict resolution that must go through git locally):
   worktree commit → `git bundle create` → `scp` to the server → fetch+push from
   `~/cluster` there (authed gh). Documented here, used rarely.
