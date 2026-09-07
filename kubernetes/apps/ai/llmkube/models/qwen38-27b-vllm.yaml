@@ -412,24 +412,34 @@ spec:
     # and all are unusable -- full evidence in
     # docs/llm-hosting/spec-decode-rejected.md. Summary:
     #
-    #   n-gram  CORRUPTS OUTPUT. vllm#39273: SSM state corruption on hybrid GDN
-    #           models (this is one), truncated/repeated fragments. Was trialled
-    #           in production and reverted the same day after Hermes reported
-    #           truncated outputs. It benchmarks 1.8-2.1x faster and is WRONG --
-    #           acceptance/tokens-per-step stayed healthy the whole time, so the
+    #   n-gram  CORRUPTS OUTPUT (measured, incl. in production). vllm#39273: SSM
+    #           state corruption on hybrid GDN models -- this is one --
+    #           truncated/repeated fragments. Trialled on live traffic and
+    #           reverted the same day after Hermes reported truncated outputs.
+    #           Benchmarked ~1.8-2.1x faster on echo-heavy work (PROVISIONAL:
+    #           never run against a same-prompt spec-off control) and WRONG.
+    #           Acceptance and tokens-per-step stayed healthy throughout, so the
     #           engine metrics do NOT catch it.
+    #   DSpark  0.59x (measured). Drafter KV +70% B/token, bf16, forces
+    #           maxModelLen below the 112K production peak.
     #   MTP     + tool-calling grammar wedges to ~0.2 tok/s (100x) under
     #           concurrent tool traffic; -27% at M=5 alone.
-    #   DSpark  0.59x measured, and its drafter KV (+70% B/token, bf16) forces
-    #           maxModelLen below the 112K production peak.
-    #   EAGLE3/ same drafter-KV tax, plus vllm#41640 (unmerged): a GQA drafter's
-    #   DFlash  KV group is unidentifiable on a non-MLA target, so prefix caching
-    #           is disabled and the KV offload tier goes write-only.
+    #   EAGLE3/ NOT benchmarked, ruled out on mechanism: same drafter-KV tax,
+    #   DFlash  plus vllm#41640 (unmerged) leaves a GQA drafter's KV group
+    #           unidentifiable on a non-MLA target, so prefix caching is
+    #           disabled and the KV offload tier goes write-only.
     #
     # Re-open ONLY when a named upstream issue is fixed: vllm#39273 for n-gram,
-    # and vllm#41640 + vllm#49002 for anything drafter-based. Gate any retry on
-    # an OUTPUT-QUALITY check before quoting a speed number -- that is the
-    # mistake that let the n-gram corruption reach production.
+    # vllm#41640 + vllm#49002 for anything drafter-based. An upstream fix
+    # re-opens EVALUATION, not shipping. Before enabling anything, ALL of:
+    #   1. spectest.py passes -- read the whole output, not the head. This is a
+    #      precondition for quoting a speed number at all, and skipping it is
+    #      what let the corruption reach production.
+    #   2. a same-prompt spec-off baseline on the same pod (never run).
+    #   3. a concurrency test at parallelSlots -- everything measured so far is
+    #      single-stream or conc<=5.
+    #   4. a tool-calling test under grammar constraint, the regime that wedged
+    #      MTP (bench/toolbench.py, vmcp preset).
     # Separate pools, both needed -- ssm does NOT inherit from the other on
     # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
     # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.

@@ -10,17 +10,22 @@ published benchmarks.
 
 ## Verdict
 
-**DO NOT ENABLE speculative decoding of any kind on this deployment.** Every
-method vLLM offers was evaluated on 2026-09-07 and every one is unusable. This
-is a closed question until the upstream bugs below move; re-open it only when
-one of the named issues is fixed, not on a new idea.
+**DO NOT ENABLE speculative decoding of any kind on this deployment.** Re-open
+only when one of the named upstream issues is fixed, not on a new idea.
 
-| method | status | why |
-| --- | --- | --- |
-| **n-gram / prompt-lookup** | **corrupts output** | vllm#39273: SSM state corruption on hybrid GDN models — truncated/repeated fragments. Fast (1.8-2.1x) and silently wrong. Confirmed in production. |
-| **MTP** | rejected | + tool-calling grammar wedges to ~0.2 tok/s (100x) under concurrent tool traffic; -27% at M=5 standalone. Production traffic *is* grammar-constrained tool calling. |
-| **DSpark** | rejected | 0.59x measured (18.84 vs 31.73). Drafter KV is additive and bf16: +70% B/token, forcing the cap to 88K, below the 112K production peak. |
-| **EAGLE3 / DFlash** | blocked | Same drafter-KV tax as DSpark, plus vllm#41640 (below). No published drafter for this base sized under the ~2.5 GiB break-even. |
+Status is not uniform across methods — two were measured on this hardware, two
+were ruled out on mechanism without a benchmark:
+
+| method | status | basis | why |
+| --- | --- | --- | --- |
+| **n-gram / prompt-lookup** | **corrupts output** | measured, incl. production | vllm#39273: SSM state corruption on hybrid GDN models — truncated/repeated fragments. Faster (see caveat below) and silently wrong. |
+| **DSpark** | rejected | measured | 0.59x (18.84 vs 31.73). Drafter KV is additive and bf16: +70% B/token, forcing the cap to 88K, below the 112K production peak. |
+| **MTP** | rejected | measured previously | + tool-calling grammar wedges to ~0.2 tok/s (100x) under concurrent tool traffic; -27% at M=5 standalone. Production traffic *is* grammar-constrained tool calling. |
+| **EAGLE3 / DFlash** | blocked | **not benchmarked** — mechanism only | Same drafter-KV tax as DSpark, plus vllm#41640 (below). No published drafter for this base sized under the ~2.5 GiB break-even, so there was nothing to benchmark. |
+
+Also untested, and worth knowing before any retry: n-gram was never run against
+a same-prompt spec-off control, and no method was tested under sustained
+concurrency beyond conc 5.
 
 Three independent blockers apply to every **drafter-based** method (MTP, DSpark,
 EAGLE3, DFlash), any one disqualifying:
@@ -61,12 +66,19 @@ and queue depth all looked healthy throughout the corrupting run — 43-67%
 acceptance and 2.7-3.7 tokens/step on live traffic. The counters measure whether
 drafts were *accepted*, never whether the result was *correct*.
 
-**Methodology lesson, the important one in this document:** every benchmark here
-measured speed and none verified output quality, so a correctness regression
-shipped to production looking like a 2x win. `spectest.py` was the only script
-that checked fidelity at all, it reported `DIVERGED`, and that signal was
-dismissed as a formatting artifact. Any future speculative-decoding trial must
-gate on a quality check before a performance number is even quoted.
+**Methodology lesson, the important one in this document:** the tooling to catch
+this existed and its result was not treated as a gate. `spectest.py` compares
+generated text against the source and reports `OK` / `TRUNCATED` / `DIVERGED`;
+it ran, it reported **`DIVERGED`**, and that was dismissed as a formatting
+artifact after eyeballing only the first 200 characters — while the known
+corruption mode is *progressive*, so the tail was where the evidence would have
+been. Every other script measured speed alone. No performance number was ever
+gated on a passing quality check, so a correctness regression reached production
+looking like a 2x win.
+
+Any future speculative-decoding trial must treat a `spectest.py` pass as a
+precondition for quoting a performance number at all, and must read the whole
+output, not the head.
 
 The performance findings below remain valid and are kept for when the upstream
 bug is fixed; they are not a reason to enable it before then.
@@ -75,8 +87,17 @@ bug is fixed; they are not a reason to enable it before then.
 
 **n-gram is a large win on echo-heavy traffic and a loss on traffic with nothing
 to quote back.** Same pod, same config, varying only the prompt: **61.64 tok/s**
-on a real "edit this manifest" prompt versus a **31.73** baseline (1.94x), and
-**21.4** on a synthetic prompt with little to look up (0.67x).
+on a real "edit this manifest" prompt, and **21.4** on a synthetic prompt with
+little to look up.
+
+> **The speedup ratios in this document are PROVISIONAL.** Every "vs baseline"
+> figure compares against 31.73 tok/s, which was measured on a *different
+> prompt* (synthetic, 4K) and before the config change. Decode rate should be
+> largely prompt-independent, and a post-revert spec-off run on the same pod
+> measured 32.80 tok/s / 30.4 ms/step, which is consistent — but the
+> same-prompt control was never run, because the corruption was found first and
+> the config reverted. Treat 1.8-2.1x as indicative, not settled. Running that
+> control is the first step of any future retry.
 
 Drafter-based methods (MTP, DSpark, EAGLE3, DFlash) remain dead here, for three
 independent reasons below, any one disqualifying. DSpark measured 18.84 tok/s
@@ -152,7 +173,7 @@ cost. Both runs: 4K prompt, 4 clean reps, idle preflight, unique salt.
 
 ### Why it loses, from the engine's own counters
 
-```
+```text
 num_drafts_total          1992
 num_draft_tokens_total   13659     (6.86/draft, i.e. the full block of 7)
 num_accepted_tokens_total 2574     → 18.8% acceptance
@@ -266,7 +287,7 @@ group, so blocker 1 does not apply either. It needs no change to
 
 Config under test:
 
-```
+```sh
 --speculative-config '{"method":"ngram","num_speculative_tokens":5,"prompt_lookup_min":3,"prompt_lookup_max":8}'
 ```
 
@@ -303,7 +324,7 @@ The decisive run is the **real manifest edit** (`walltime.py` with
 of this repo's own `qwen38-27b-vllm.yaml`, generating 1200 tokens. This is the
 shape production actually sends — output that heavily quotes its input.
 
-```
+```text
 rep  TTFT s  decode s  toks   tok/s  accept%  tok/step  ms/step
  1     8.58    19.45   1200   61.64     89.7     3.33      54.0
  2     8.67    19.02   1200   63.04     89.1     3.45      54.7
@@ -380,7 +401,7 @@ build cutoff. Suspects that touch paths this config actually runs:
   our attention backend.
 - `5690b02c0` online quantization with partially pre-quantized checkpoints
   (#51392) — touches `layers/linear.py` + `quantization/base_config.py`.
-- `6cbb3c154` [Perf][GDN] cudagraph-capture metadata without a device sync
+- `6cbb3c154` `[Perf][GDN]` cudagraph-capture metadata without a device sync
   (#55404) and `874df9373` mamba state for padded prompt tails (#55178).
 
 **Eliminated:** `a69e75b9b` "Fast Start" (#54921) — opt-in via
@@ -394,7 +415,7 @@ Keep the pin.
 
 ## Reproducing
 
-```
+```sh
 # baseline / non-spec only -- ITL-derived
 python3 docs/llm-hosting/bench/longctx.py <port> qwen-3.8 4000 4
 

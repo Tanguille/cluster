@@ -43,12 +43,14 @@ def make_prompt(salt):
 
 
 print(f"{'rep':>4} {'TTFT s':>8} {'decode s':>9} {'toks':>6} {'tok/s':>8} "
-      f"{'accept%':>8} {'tok/step':>9} {'ms/step':>8} {'clean':>6}", flush=True)
+      f"{'accept%':>8} {'tok/step':>9} {'ms/step':>8}", flush=True)
 rates, yields = [], []
 for r in range(REPS):
     # One scrape serves both the idle gate and the pre-run counter baseline.
     before = wait_idle(PORT)
-    clean = before.idle
+    if not before.idle:
+        print(f"{r + 1:>4}  SKIPPED -- engine not idle, would contaminate", flush=True)
+        continue
     body = json.dumps({
         "model": MODEL, "prompt": make_prompt(f"{time.time_ns()}-r{r}"),
         "max_tokens": GEN, "temperature": 0.7, "ignore_eos": True,
@@ -84,13 +86,15 @@ for r in range(REPS):
     steps = drafts + max(n - spec_toks, 0)
     ypst = n / steps if steps else 0
     ms = 1000 * decode_s / steps if steps else 0
-    if clean and rate:
+    if rate:
         rates.append(rate)
         yields.append(ypst)
     print(f"{r + 1:>4} {ttft or 0:>8.2f} {decode_s:>9.2f} {n:>6} {rate:>8.2f} "
-          f"{100 * acc / drafted if drafted else 0:>8.1f} {ypst:>9.2f} {ms:>8.1f} "
-          f"{'yes' if clean else 'DIRTY':>6}", flush=True)
+          f"{100 * acc / drafted if drafted else 0:>8.1f} {ypst:>9.2f} {ms:>8.1f}",
+          flush=True)
 
+if not rates:
+    raise SystemExit("no clean reps -- engine never went idle, nothing measured")
 print(f"\nn={len(rates)} clean   median wall-clock decode tok/s: "
-      f"{st.median(rates) if rates else 0:.2f}"
-      f"   median tokens/step: {st.median(yields) if yields else 0:.2f}", flush=True)
+      f"{st.median(rates):.2f}"
+      f"   median tokens/step: {st.median(yields):.2f}", flush=True)

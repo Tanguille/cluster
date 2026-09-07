@@ -158,6 +158,10 @@ aggs = []
 for r in range(REPS):
     # One scrape serves both the idle gate and the pre-run counter baseline.
     before = wait_idle(PORT)
+    if not before.idle:
+        print(f"       {r + 1:>4}  SKIPPED -- engine not idle, would contaminate",
+              flush=True)
+        continue
     w0 = time.perf_counter()
     with ThreadPoolExecutor(max_workers=CONC) as ex:
         res = list(ex.map(one, [f"{time.time_ns()}-{i}" for i in range(CONC)]))
@@ -174,5 +178,7 @@ for r in range(REPS):
           f"{agg / CONC:>11.2f} {100 * acc / drafted if drafted else 0:>8.1f}",
           flush=True)
 
-print(f"\nmedian aggregate tok/s: {st.median(aggs) if aggs else 0:.2f}"
-      f"   per stream: {(st.median(aggs) if aggs else 0) / CONC:.2f}", flush=True)
+if not aggs:
+    raise SystemExit("no clean reps -- engine never went idle, nothing measured")
+print(f"\nn={len(aggs)} clean   median aggregate tok/s: {st.median(aggs):.2f}"
+      f"   per stream: {st.median(aggs) / CONC:.2f}", flush=True)

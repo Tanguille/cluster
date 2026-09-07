@@ -59,16 +59,28 @@ def sample(port, timeout=8):
 
 
 def wait_idle(port, tries=60, delay=5):
-    """Block until the engine is quiet, then return that same Sample.
+    """Block until the engine is quiet twice running, then return that Sample.
 
     Returns the scrape that proved idleness so the caller can use it as the
     pre-run counter baseline instead of scraping again. Benchmarks must gate on
     0 running / 0 waiting -- production traffic contaminates the numbers.
+
+    TWO consecutive idle scrapes, matching longctx.py: a single one can land in
+    the gap between two production requests and read idle on a busy engine.
+
+    On timeout this returns a NON-idle Sample rather than raising; every caller
+    must check `.idle` and exclude the rep, because the alternative is silently
+    averaging a contaminated run into the result.
     """
     s = sample(port)
     for _ in range(tries):
         if s.idle:
-            return s
+            time.sleep(1)
+            confirm = sample(port)
+            if confirm.idle:
+                return confirm
+            s = confirm
+            continue
         time.sleep(delay)
         s = sample(port)
     return s
