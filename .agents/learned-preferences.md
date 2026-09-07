@@ -24,7 +24,10 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 - Only report uncertainty if a tool returns an error, an ambiguous response, or nothing at all.
 - If no tool is available for a task after checking, say so clearly: *"I don't have access to [service]"*—do not speculate or fabricate an execution path.
 - When a tool returns a successful response, report the outcome as fact.
-- If a user confirms an action worked, trust that feedback. Do not second-guess it.
+- When a user confirms an action worked, trust that feedback. Do not second-guess it.
+- **Push/PR atomicity:** treat `git push` + open/advance PR as ONE step (single approved command block). If the finish cannot be done in the current turn, write `HANDOFF.md` + `PLAN.md` per the `handoff` skill BEFORE stopping — never leave "push + PR" implicit in chat; a session boundary will orphan it.
+- **PR shepherding (standing order, 2026-09-07):** on any PR task — and on every pr-shepherd cron run — automatically iterate the PR until CI and automated review pass, per `.agents/skills/pr-review/references/pr-shepherd.md`. Classify CI failures (diff-introduced / baseline / flake) before changing code; 3-cycle budget per failure class, then escalate with evidence. Hard boundaries even in "auto" mode: no merge, no push to main, no force-push, no cluster apply/reconcile, no secret decryption — those stay human decisions.
+- **PR description grounded in diff:** before posting or editing any PR body, every factual claim (ports, image tags, commands, flags, behavior) must be traceable to a line in `git diff origin/main...HEAD`. A wrong description is worse than none — fix the body or the code, never ship the mismatch.
 
 ---
 
