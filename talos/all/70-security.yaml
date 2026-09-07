@@ -1,13 +1,10 @@
 ---
-# Both documents below exist to hold behaviour flat across the migration. topf's generated base
-# turns each of them ON, and neither is on today.
+# Both documents hold behaviour flat: topf's base turns each ON and neither is on today.
 #
-# workloadIsolation runs kubelet and pods in their own PID/mount namespace (sandboxd). A MISSING
-# document means OFF and "preserves the old behavior" (talos internal/app/machined/pkg/sandboxd/
-# enabled.go), which is what these nodes run; topf's base writes true. Left false so the cutover
-# is a tooling change only -- this cluster is full of hostPID/host-mount workloads
-# (node-exporter, the GPU device plugins, Ceph, Kepler). Adopting it is its own change, with its
-# own rollback, and on encrypted disks costs a second reboot the first time.
+# workloadIsolation runs kubelet and pods in their own PID/mount namespace (sandboxd). A missing
+# document means OFF (talos internal/app/machined/pkg/sandboxd/enabled.go), which is what these
+# nodes run; this cluster is full of hostPID/host-mount workloads (node-exporter, the GPU device
+# plugins, Ceph, Kepler). Adopting it is its own change, with its own rollback.
 apiVersion: v1alpha1
 kind: SecurityProfileConfig
 workloadIsolation: false

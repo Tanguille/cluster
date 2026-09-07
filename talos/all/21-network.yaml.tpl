@@ -7,6 +7,5 @@ kind: ResolverConfig
 nameservers:
   - address: {{ .Data.gateway }} # OPNsense Unbound
 hostDNS:
-  enabled: true
   forwardKubeDNSToHost: false
   resolveMemberNames: true

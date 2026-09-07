@@ -72,7 +72,13 @@ bind mount that openebs-localpv needs cannot be expressed. The two are mutually 
 ("kubelet config is already set in v1alpha1 config"), so `$patch: delete` is the only way to keep
 the mount. `talosctl validate -m metal` accepts the result.
 
-Revisit if Talos gives `KubeletConfig` a mounts field.
+Two ways out, neither taken here:
+
+- Talos gives `KubeletConfig` a mounts field. Nothing to do but wait.
+- Point openebs' `basePath` at a `UserVolumeConfig`-backed `/var/mnt/<name>`, which Talos'
+  own local-storage guide now recommends and which needs no kubelet mount at all. Available
+  today, but it repartitions a live boot disk and migrates the existing `/var/openebs/local`
+  data — a storage change, not a tooling one, so it wants its own PR and its own rollback.
 
 ## Versions
 

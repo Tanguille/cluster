@@ -1,16 +1,14 @@
 ---
-# fstrim. Absent on an upgraded cluster means no automatic trimming at all. Talos picks a stable
-# hash-derived slot per volume per node, so the fleet does not trim in lockstep. control-1 is the
+# fstrim. Restated rather than inherited: topf's base already emits this exact interval, and
+# pinning it means a future change to the Talos default cannot move it silently. control-1 is the
 # TrueNAS VM with no NVMe device, so its discards pass through to the hypervisor.
-# Interval is stated rather than defaulted: talosctl accepts 0s while rejecting 1s against its own
-# 10s minimum, so zero is an unset sentinel and an omitted field lands on it.
 apiVersion: v1alpha1
 kind: FilesystemTrimConfig
 interval: 168h0m0s
 ---
-# xfs_scrub, off until this document exists. Closes #4289. The scrub slot is hash-derived per
-# volume per node, so control-3 (Micron 7450, thermal-shutdown history) never scrubs at the same
-# moment as its peers. Interval stated for the same reason as the trim document above.
+# xfs_scrub, off until this document exists -- absent from topf's base, unlike the trim above.
+# Closes #4289. The slot is hash-derived per volume per node, so control-3 (Micron 7450,
+# thermal-shutdown history) never scrubs at the same moment as its peers.
 apiVersion: v1alpha1
 kind: FilesystemScrubConfig
 interval: 168h0m0s

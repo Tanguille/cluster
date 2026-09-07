@@ -1,8 +1,6 @@
 ---
-# Addresses attach to the MAC-matched link directly. Upstream wraps it in a single-link
-# active-backup bond0 so a second NIC can join later without renaming; not adopted here because
-# these nodes have one NIC in use and renaming the interface would be a live-cluster change for
-# no benefit.
+# Direct MAC-matched link, not upstream's single-link bond0: one NIC in use per node, and
+# renaming the interface would be a live-cluster change for no benefit.
 apiVersion: v1alpha1
 kind: LinkAliasConfig
 name: ethSel0

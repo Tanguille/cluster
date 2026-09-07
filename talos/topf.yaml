@@ -3,16 +3,9 @@
 clusterName: kubernetes
 clusterEndpoint: https://192.168.0.2:6443
 
-# Both versions are also carried by the tuppr CRs, which stay the operational source (tuppr is
-# what performs the upgrades, and .github/workflows/flate.yaml reads .spec.talosctl.image.tag).
-# The annotations below are byte-identical to the CRs', so Renovate branches on the same
-# depName+datasource and updates both files in one PR. `just talos check-versions` fails the
-# build if a hand edit ever moves one without the other.
-#
-# talosVersion is the PLAIN release: it picks the config contract for offline renders and the
-# tag of the installer image topf generates (which every node overrides in all/00-install.yaml.tpl).
-# The -k<kernel> composite belongs in data.installerTag alone -- as a github-releases
-# currentValue it would resolve to no-result and freeze the dep silently.
+# The tuppr CRs stay the operational source; these annotations are byte-identical to theirs, so
+# Renovate moves both files in one PR. See "Versions" in README.md, and note talosVersion is the
+# PLAIN release -- the -k<kernel> composite belongs in data.installerTag alone.
 # renovate: datasource=github-releases depName=siderolabs/talos
 talosVersion: v1.14.0
 # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet

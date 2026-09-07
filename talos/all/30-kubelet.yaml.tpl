@@ -1,18 +1,9 @@
 ---
-# The KubeletConfig document is DELETED, not configured, and the deprecated v1alpha1
-# machine.kubelet is kept in its place. This is the one place the repo diverges from upstream,
-# and it is forced:
-#
-#   KubeletConfig has exactly five fields (image, config, extraArgs, clusterDNS,
-#   defaultRuntimeSeccompProfileEnabled) and ExtraMounts() is `return nil`
-#   (machinery v1.14.0 config/types/k8s/kubelet.go:189-192) -- there is no way to express the
-#   /var/openebs/local rshared bind mount below, which openebs-localpv needs. The two are
-#   mutually exclusive ("kubelet config is already set in v1alpha1 config"), and topf's base
-#   always emits KubeletConfig at a 1.14 contract, so deleting it is the only way to keep the
-#   mount. Verified with `talosctl validate -m metal` on the rendered config.
-#
-# Revisit when Talos gives KubeletConfig a mounts field; then this whole file becomes upstream's
-# all/30-kubelet.yaml plus a KubeNodeConfig.
+# KubeletConfig is deleted and the deprecated v1alpha1 machine.kubelet kept in its place, to
+# hold the /var/openebs/local mount that openebs-localpv needs. KubeletConfig's ExtraMounts()
+# is `return nil` (machinery v1.14.0 k8s/kubelet.go:189-192) and the two are mutually
+# exclusive, so $patch: delete is the only way to keep it.
+# See "The kubelet exception" in README.md for the two ways out of this.
 apiVersion: v1alpha1
 kind: KubeletConfig
 $patch: delete

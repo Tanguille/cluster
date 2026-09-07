@@ -21,8 +21,9 @@ diff *args:
     # Exits 2 when there IS a diff, which is the normal answer here, not a failure.
     topf apply --dry-run {{ args }} || [[ $? -eq 2 ]]
 
-[confirm('Apply Talos config to the cluster. Continue? [y|N]')]
-[doc('Apply Talos config; topf shows a per-node diff and asks again')]
+# No [confirm]: topf shows the diff and prompts per node, which a blind gate here would only
+# precede. The destructive reset recipe inverts that -- see below.
+[doc('Apply Talos config; topf shows a per-node diff and prompts')]
 apply *args:
     topf apply {{ args }}
 
@@ -60,16 +61,15 @@ download-image node version:
 check-versions:
     # `v1.14.0-k7.1.13` -> the composite is the installer tag, its prefix the Talos release.
     talos="$(just tuppr-version talos)"
-    rc=0
-    same() {
-        local got; got="$(yq -e "$2" "${TOPFCONFIG}")"
-        [[ "${got}" == "$3" ]] || { echo "topf.yaml $1 = ${got}, tuppr CR says $3" >&2; rc=1; }
+    want="$(just tuppr-version kubernetes)|${talos%-k*}|${talos}"
+    # One read of topf.yaml, in the same order, rather than three.
+    got="$(yq -e '[.kubernetesVersion, .talosVersion, .data.installerTag] | join("|")' "${TOPFCONFIG}")"
+    [[ "${got}" == "${want}" ]] || {
+        echo "topf.yaml has ${got}, tuppr CRs say ${want}" >&2
+        echo "(order: kubernetesVersion|talosVersion|data.installerTag)" >&2
+        exit 1
     }
-    same kubernetesVersion .kubernetesVersion "$(just tuppr-version kubernetes)"
-    same talosVersion .talosVersion "${talos%-k*}"
-    same data.installerTag .data.installerTag "${talos}"
-    ((rc)) || echo "ok: topf.yaml matches the tuppr CRs"
-    exit "${rc}"
+    echo "ok: topf.yaml matches the tuppr CRs"
 
 # The node files are the fleet inventory, so a caller cannot build against a stale hand-written
 # list. Read from topf.yaml, the same file topf itself renders from.
@@ -79,12 +79,11 @@ nodes-list:
     [[ -n "${names// /}" ]] || { echo "no nodes in ${TOPFCONFIG}" >&2; exit 1; }
     echo "${names}"
 
-# Per-node override wins when present, otherwise the shared fleet schematic applies. The `@`
+# Every node names its own schematic, so there is no cluster-level fallback to consult. The `@`
 # prefix is topf's "resolve this path" marker; paths are relative to topf.yaml.
 [private]
 schematic-file node:
-    ref="$(yq -er '(.nodes[] | select(.host == "{{ node }}") | .schematicId) // .schematicId // ""' \
-        "${TOPFCONFIG}")"
+    ref="$(yq -er '(.nodes[] | select(.host == "{{ node }}") | .schematicId) // ""' "${TOPFCONFIG}")"
     [[ -n "${ref}" ]] || { echo "no schematicId for {{ node }}" >&2; exit 1; }
     echo "{{ source_directory() }}/${ref#@}"
 
