@@ -16,12 +16,14 @@ spec:
     operator:
       replicas: 1
     image:
-      # Pin to the aqua registry so the operator image is available without a GCR mirror.
-      registry: ghcr.io
+      # aquasec publishes the operator image on Docker Hub, not ghcr.io
+      # (ghcr.io/aquasec/trivy-operator is 403), so pin the registry explicitly.
+      registry: docker.io
       repository: aquasec/trivy-operator
     trivy:
       image:
-        registry: ghcr.io
+        # aquasec/trivy scanner image is on Docker Hub, not ghcr.io (403 there).
+        registry: docker.io
         repository: aquasec/trivy
       # Slow mode: gentler on CPU/RAM at the cost of slower scans — right size for a homelab.
       slow: true
