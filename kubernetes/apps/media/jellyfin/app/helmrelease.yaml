@@ -16,11 +16,8 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: control-1
       priorityClassName: homelab-important
-      # default 30s SIGKILLs the shutdown VACUUM+ANALYZE mid-write, corrupting the
-      # db (jellyfin/jellyfin#17831, confirmed by upstream); maintainer-recommended
-      # workaround is a long grace period, not a code fix, until the linked PR
-      # switches this to checkpointing-only before shutdown
-      terminationGracePeriodSeconds: 600
+      # jellyfin/jellyfin#17831: default 30s can SIGKILL the shutdown VACUUM+ANALYZE
+      terminationGracePeriodSeconds: 120
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -34,8 +31,6 @@ spec:
 
     controllers:
       jellyfin:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -43,6 +38,8 @@ spec:
               tag: 12.0.20260908-012347@sha256:74f4d87d9cf262c52d62be6be265c0355c6a7e21d0477ab6c654a49a4f8b1fd4
             env:
               TZ: ${TIMEZONE}
+              # uid 568 has no writable $HOME, Mesa needs an explicit shader cache dir
+              MESA_SHADER_CACHE_DIR: /cache/mesa
             probes:
               liveness: &probes
                 enabled: true
@@ -51,7 +48,6 @@ spec:
                   httpGet:
                     path: /health
                     port: &port 8096
-                  initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 5
@@ -63,10 +59,8 @@ spec:
                   httpGet:
                     path: /health
                     port: *port
-                  # covers the v12 first-boot DB migration + full library scan,
-                  # which upstream documents as 30+ min on a real library
-                  periodSeconds: 30
-                  failureThreshold: 80
+                  periodSeconds: 10
+                  failureThreshold: 30
             lifecycle:
               preStop:
                 exec:
@@ -130,6 +124,8 @@ spec:
       library:
         type: hostPath
         hostPath: "/var/mnt/merged/"
+        globalMounts:
+          - path: /library
 
       tmpfs:
         type: emptyDir
