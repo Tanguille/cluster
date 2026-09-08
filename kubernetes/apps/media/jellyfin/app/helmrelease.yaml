@@ -16,6 +16,11 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: control-1
       priorityClassName: homelab-important
+      # default 30s SIGKILLs the shutdown VACUUM+ANALYZE mid-write, corrupting the
+      # db (jellyfin/jellyfin#17831, confirmed by upstream); maintainer-recommended
+      # workaround is a long grace period, not a code fix, until the linked PR
+      # switches this to checkpointing-only before shutdown
+      terminationGracePeriodSeconds: 600
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -35,7 +40,7 @@ spec:
           app:
             image:
               repository: ghcr.io/jellyfin/jellyfin
-              tag: 10.11.11@sha256:45f648c382a0c8b552582fcea40e95cb17c5d475473a891cba0eb7523fb92112
+              tag: 12.0.20260908-012347@sha256:74f4d87d9cf262c52d62be6be265c0355c6a7e21d0477ab6c654a49a4f8b1fd4
             env:
               TZ: ${TIMEZONE}
             probes:
@@ -53,8 +58,15 @@ spec:
               readiness: *probes
               startup:
                 enabled: true
+                custom: true
                 spec:
-                  failureThreshold: 30
+                  httpGet:
+                    path: /health
+                    port: *port
+                  # covers the v12 first-boot DB migration + full library scan,
+                  # which upstream documents as 30+ min on a real library
+                  periodSeconds: 30
+                  failureThreshold: 80
             lifecycle:
               preStop:
                 exec:
