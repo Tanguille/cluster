@@ -19,7 +19,7 @@ spec:
           web:
             image:
               repository: nginx
-              tag: 1.31-alpine@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752
+              tag: 1.31-alpine@sha256:72ba65eb42c10344912a84ff42408db7d34f2feb642204570ab8fc5ffd29f1d3
             resources:
               requests:
                 cpu: 10m
@@ -34,7 +34,7 @@ spec:
           dashboard-server:
             image:
               repository: python
-              tag: 3.14-slim@sha256:a7fb1e634c4a578f9e0bd6327f11a3cde11b7a9395f48e24360c0988bcc5c2bc
+              tag: 3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6
             command:
               - python3
               - /config/server.py
@@ -104,12 +104,7 @@ spec:
         advancedMounts:
           dashboard:
             web:
-              - path: /usr/share/nginx/html/index.html
-                subPath: dashboard.html
-              - path: /usr/share/nginx/html/dashboard.css
-                subPath: dashboard.css
-              - path: /usr/share/nginx/html/dashboard.js
-                subPath: dashboard.js
+              - path: /usr/share/nginx/html
       dashboard-server-script:
         type: configMap
         name: dashboard-server-script

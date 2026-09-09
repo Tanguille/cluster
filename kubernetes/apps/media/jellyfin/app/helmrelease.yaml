@@ -9,12 +9,15 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
-  valuesFrom:
-    - kind: ConfigMap
-      name: affinity-control-1
-
+  # No affinity-control-1: the R9700 (tone mapping) and the RWO config PVC are both on control-1,
+  # and the soft preference let an eviction reschedule this onto control-3 with neither.
   values:
     defaultPodOptions:
+      nodeSelector:
+        kubernetes.io/hostname: control-1
+      priorityClassName: homelab-important
+      # jellyfin/jellyfin#17831: default 30s can SIGKILL the shutdown VACUUM+ANALYZE
+      terminationGracePeriodSeconds: 120
       securityContext:
         runAsUser: 568
         runAsGroup: 568
@@ -31,15 +34,15 @@ spec:
 
     controllers:
       jellyfin:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: ghcr.io/jellyfin/jellyfin
-              tag: 10.11.11@sha256:45f648c382a0c8b552582fcea40e95cb17c5d475473a891cba0eb7523fb92112
+              tag: 12.0.20260908-012347@sha256:74f4d87d9cf262c52d62be6be265c0355c6a7e21d0477ab6c654a49a4f8b1fd4
             env:
               TZ: ${TIMEZONE}
+              # uid 568 has no writable $HOME, Mesa needs an explicit shader cache dir
+              MESA_SHADER_CACHE_DIR: /cache/mesa
             probes:
               liveness: &probes
                 enabled: true
@@ -48,14 +51,18 @@ spec:
                   httpGet:
                     path: /health
                     port: &port 8096
-                  initialDelaySeconds: 30
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 5
               readiness: *probes
               startup:
                 enabled: true
+                custom: true
                 spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  periodSeconds: 10
                   failureThreshold: 30
             lifecycle:
               preStop:
@@ -69,6 +76,9 @@ spec:
                 cpu: 100m
                 # 549Mi RSS at idle
                 memory: 1Gi
+                # matches the tmpfs sizeLimit below; without it the transcode cache
+                # counts as 100% over request and ranks first for nodefs eviction
+                ephemeral-storage: 10Gi
               limits:
                 cpu: 8 # 90d max was 5.97 cores
                 memory: 8Gi
@@ -96,6 +106,7 @@ spec:
           gethomepage.dev/widget.type: jellyfin
           gethomepage.dev/widget.url: http://jellyfin.media.svc.cluster.local:8096
           gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_JELLYFIN_API_KEY}}`}}"
+          gethomepage.dev/widget.version: "2"
           gethomepage.dev/widget.fields: '["movies","series","episodes","songs"]'
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"

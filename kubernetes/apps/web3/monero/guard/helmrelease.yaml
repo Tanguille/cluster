@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: python
-              tag: 3.14-slim@sha256:a7fb1e634c4a578f9e0bd6327f11a3cde11b7a9395f48e24360c0988bcc5c2bc
+              tag: 3.14-slim@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6
             command: [python3, /config/controller.py]
             ports:
               - name: http
@@ -73,10 +73,14 @@ spec:
           type: RuntimeDefault
     service:
       app:
-        controller: guard
         ports:
           http:
             port: 8080
+    serviceMonitor:
+      app:
+        serviceName: guard
+        endpoints:
+          - port: http
     persistence:
       config:
         type: configMap

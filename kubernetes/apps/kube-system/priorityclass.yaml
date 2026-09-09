@@ -7,3 +7,12 @@ metadata:
   name: homelab-critical
 value: 500000
 description: "Infrastructure whose loss blinds or breaks the cluster: monitoring pipeline, databases, poolers, gateways"
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/scheduling.k8s.io/priorityclass_v1.json
+# Deliberately below llmkube-normal (10000) so these preempt unclassified refugees but never the LLM stack.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-important
+value: 5000
+description: "User-facing apps pinned to a single node, where an eviction means an outage rather than a reschedule"

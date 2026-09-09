@@ -1,0 +1,581 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-vllm-model-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 50Gi
+---
+# Persist torch, Triton, and Inductor compile caches across restarts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-vllm-compile-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+# L3 tier for the fs secondary tier -- the vLLM analogue of the HiCache file
+# backend on the retired SGLang engine. Carried over from qwen36-27b-vllm.yaml
+# (deleted in 5770d6902): proven pattern, same hardware, same GPU-memory ceiling.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-vllm-kv-offload
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    # hostpath enforces no quota, so the real bound is the free-space guard below.
+    requests:
+      storage: 128Gi
+---
+# vLLM's fs tier has no evictor at v0.27.1, and this node's root fs is shared with
+# rook-ceph's mon store, so the tier needs an external one.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qwen38-27b-vllm-kv-offload-guard
+spec:
+  # Hourly, not daily: a daily window let a busy day cross the floor and sit
+  # there for hours. Safe to run this often only because eviction is now
+  # incremental (see the script) rather than a full wipe.
+  # Periodic sweep, not a hard cap -- move to a quota-enforcing
+  # storage class if the floor is ever actually breached.
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            # The serving pod runs runAsUser 0, so the store is root-owned on disk.
+            runAsUser: 0
+          # The hostPath PV pins this pod to control-1, so it must tolerate the
+          # exact condition it exists to relieve -- 08-21: DiskPressure locked
+          # the guard out for 1h+ right when the floor was breached.
+          tolerations:
+            - key: node.kubernetes.io/disk-pressure
+              operator: Exists
+              effect: NoSchedule
+          containers:
+            - name: guard
+              image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # $$ throughout: Flux postBuild envsubst substitutes bare $VAR.
+                  set -eu
+                  # 160Gi. The 80Gi this sat at is 15% of the 499.6Gi disk, under
+                  # mon_data_avail_warn=27, so mon.c (hostPath on this disk) warned
+                  # from inside the guard's own target and could never clear.
+                  # 160Gi holds 32% avail. The earlier "160Gi is unreachable" note
+                  # assumed ~370G held outside the tier; measured 2026-08-22 it is
+                  # 128Gi, leaving 211Gi of tier at this floor against 253Gi today.
+                  floor=167772160
+                  # df, not du: the store reaches hundreds of thousands of files.
+                  avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
+                  echo "avail: $${avail}K (floor: $${floor}K)"
+                  if [ "$$avail" -ge "$$floor" ]; then
+                    echo "above floor, nothing to do"
+                    exit 0
+                  fi
+                  # True LRU by mtime, oldest first, regardless of absolute age --
+                  # blocks are write-once so mtime is real recency. The old
+                  # age-bucketed sweep (30/14/7/3/1/0d) bottomed out at "older
+                  # than 24h" and failed outright once a same-day refill (a
+                  # restart can regrow the tier past the floor in under a day)
+                  # left nothing that old to evict.
+                  n=0
+                  # stat -c, not find -printf: busybox find has no -printf, so the
+                  # eviction path exited 1 without deleting anything. Never hit before
+                  # 2026-08-22 because avail always cleared the old 80Gi floor.
+                  find /kvoffload -type f -exec stat -c '%Y %n' {} + | sort -n | cut -d' ' -f2- |
+                  while IFS= read -r f; do
+                    rm -f -- "$$f"
+                    n=$$((n + 1))
+                    if [ $$((n % 2000)) -eq 0 ]; then
+                      avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
+                      echo "evicted $${n} files, avail now $${avail}K"
+                      [ "$$avail" -ge "$$floor" ] && break
+                    fi
+                  done
+                  avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
+                  if [ "$$avail" -ge "$$floor" ]; then
+                    echo "avail now $${avail}K, above floor"
+                    exit 0
+                  fi
+                  # Still short after evicting every block: the shortfall is
+                  # elsewhere on the shared fs. Fail loudly -- a guard that
+                  # silently misses its floor reads healthy until the node fills.
+                  echo "floor unreachable: $${avail}K < $${floor}K, tier fully evicted" >&2
+                  exit 1
+              volumeMounts:
+                - name: kv-offload
+                  mountPath: /kvoffload
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: kv-offload
+              persistentVolumeClaim:
+                claimName: qwen38-27b-vllm-kv-offload
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-27b-vllm
+spec:
+  # philbert g128 over cyankiwi g32: ignore lists match on 311/313 entries, so
+  # group_size is the only material difference. 1.5 GB smaller, and the only
+  # build documenting thinking-mode calibration (llm-compressor #2680 corrupts
+  # <think> without it; thinking is on by default here).
+  # Pinned to the 2026-08-15 tokenizer fix; earlier revisions 400 on image input.
+  source: hf://philbert440/Qwen3.8-27B-W4A16-AWQ@7908d42a71077a5e4dc458f273682b12dfe384a0
+  format: safetensors
+  quantization: compressed-tensors
+  refreshPolicy: OnChange
+  # MUST match the layout of `source` above -- the init container fetches exactly
+  # these names and exits 1 on a 404. philbert ships one model.safetensors, not
+  # cyankiwi's 5 shards, and folds merges/vocab into tokenizer.json.
+  files:
+    - model.safetensors
+    - model-mtp.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - chat_template.jinja
+    - preprocessor_config.json
+    - video_preprocessor_config.json
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+# concsweep.py, warm, agg tok/s vs the qwen-3.6 SGLang engine this replaced
+# (retired 2026-08-16, conc 1/8/16): 14.88/53.93/100.82 vs 14.96/36.24/34.49.
+# Bench warm only -- cold reads ~12.
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen38-27b-vllm
+spec:
+  modelRef: qwen38-27b-vllm
+  runtime: vllm
+  replicas: 1
+  # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
+  # W4A16 projections to the slow Triton path at M=6 (and drops the bf16 lm_head
+  # to torch.linear), so slot 6 is strictly worse per stream than slot 5.
+  # Measured 2026-09-02, M=1..5 with one graph per size. Current config, three
+  # warm runs: 30.6-31.1 / 54.4-56.3 / 61.8-65.1 / 76.1-84.4 / 94.7-102.9.
+  #
+  # The "before" row originally recorded here (31.06 28.64 39.30 52.15 52.22
+  # 61.99) was WITHDRAWN 2026-09-02: its M=2 value was a cold rep. This engine
+  # is bimodal until warmed (cold ~29-32 at M=2 vs warm ~55, a 1.9x gap with no
+  # traffic and no config change), so ONE warmup run is not enough. Isolated
+  # warm A/B of the LDS gate (8 reps, same pod, gate the only variable): M=2
+  # 43.74 -> 55.5 (+26.5%). M=3 unchanged -- a null control, not a confirmation:
+  # at M=3 K*M=52224 still exceeds 39321, so down_proj stays on Triton.
+  #
+  # No warm number is claimed for the capture-size change itself. It is kept on
+  # mechanism only: at M=6 every W4A16 projection falls to Triton
+  # (MAX_SKINNY_BATCH_SIZE=5), so padding M=5 to 6 was real work; padding M=3 to
+  # 4 keeps the same Triton tile and grid and likely did little.
+  parallelSlots: 5
+  bindAddress: 0.0.0.0
+  # Rolling `nightly` tag pinned by digest, same shape as
+  # kubesearch-mcp:master@sha256:. The digest is what gets pulled, so this is
+  # as immutable as a commit tag -- but Renovate can re-resolve the tag and
+  # open a digest-bump PR, which it can never do for an immutable
+  # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
+  # A nightly, not a tagged release: gfx1201 support landed after v0.27.1 and
+  # this runs 0.28.1rc1.dev388. Whether the v0.28.0 tag (2026-08-26) alone now
+  # suffices has NOT been retested -- assume not until someone boots it.
+  #
+  # PINNED, do not bump: #4873 and #4883 both regressed single-stream decode
+  # ~2x (31.8 -> 16 tok/s @ 4K ctx, docs/llm-hosting/bench/longctx.py) -- benchmark
+  # any future bump before merging.
+  image: vllm/vllm-openai-rocm:nightly@sha256:0d07767c0b8471eaca0f1eca97899620dfb4ad33ff2f5226789afef1a877e9bc
+  modelCache:
+    claimName: qwen38-27b-vllm-model-cache
+  vllmConfig:
+    # The only per-request cap on KV blocks, so it decides how much of the pool
+    # a single session can hold. Headroom, not a working size -- Hermes peaks at
+    # 112K and p90 prompts are 20K, and normal concurrency is unaffected
+    # because KV is paged and allocated on demand.
+    #
+    # A decode-performance ceiling, NOT a pool-matching value. Single-stream
+    # decode falls off a cliff once the pool/cap ratio drops below ~1.17x;
+    # bisected 2026-08-19, two concsweeps per point, run-after-restart discarded:
+    #
+    #   cap      pool     ratio  conc-1 tok/s  verdict
+    #   241,878  288,061  1.19x  31.46         fast
+    #   246,944  288,493  1.17x  31.65         fast   <- this value
+    #   249,477  288,702  1.16x  25.12 / 1.95  UNSTABLE, do not ship
+    #   252,011  288,012  1.14x  18.93         slow
+    #   262,144  --       1.10x  15.8-17.1     slow
+    #
+    # Mechanism unexplained; only conc-1 cliffs, conc-16 stays ~185 throughout.
+    # DO NOT raise past this without re-running the bisect -- the next step up
+    # measured unstable, not merely slower. Production prompts are 47-56K.
+    #
+    # If the pool ever shrinks below this cap the engine refuses to start
+    # rather than silently truncating. Re-read "GPU KV cache size" from the
+    # boot log after ANY of: --kv-cache-memory, the mamba cache dtypes, the
+    # attention block size, or a vLLM image bump -- Renovate raises that last
+    # one as a digest-bump PR, so re-check this value when reviewing it.
+    maxModelLen: 246944
+    kvCacheDtype: fp8_e4m3
+    # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
+    # real traffic on the qwen36 config this replaced).
+    enablePrefixCaching: true
+    # Do NOT lower this to buy transcode headroom: 2048 was tried and cost
+    # 4-16x TTFT (p50 5s -> 80s, avg 13.8s -> 58.5s) because a 20K-token
+    # prompt then needs 10 prefill steps instead of 5 and decode starves
+    # behind them. This workload is prefill-bound (129:1 prompt:output).
+    maxNumBatchedTokens: 4096
+    # INERT while --kv-cache-memory is set below (vLLM skips profiling and logs
+    # that it ignores this); kept only so dropping that flag falls back to a
+    # sane value. The media-reserve math lives with that flag, not here.
+    gpuMemoryUtilization: 0.875
+  env:
+    # Attention IS AITER while the patch below is mounted: it lifts the
+    # supports_kv_connector rejection at rocm.py:703, and the boot log confirms
+    # "Overriding with ROCM_AITER_UNIFIED_ATTN". Drop that patch and a KV
+    # connector forces TRITON_ATTN again. FP8 linear kernels do not apply to
+    # W4A16. Also kept for the GDN linear-attn path.
+    # An older forced-AITER experiment measured +84% decode / ~10x worse
+    # prefill; the block below measures parity. Trust that block -- the older
+    # number predates vllm#53821.
+    - name: VLLM_ROCM_USE_AITER
+      value: "1"
+    - name: HIP_VISIBLE_DEVICES
+      value: "0"
+    - name: ROCR_VISIBLE_DEVICES
+      value: "0"
+    - name: VLLM_CACHE_ROOT
+      value: /cache/vllm
+    - name: TRITON_CACHE_DIR
+      value: /cache/triton
+    - name: TORCHINDUCTOR_CACHE_DIR
+      value: /cache/inductor
+    # Pins the fs tier's block-hash seed. Since vllm#51875 the sha256 default
+    # already derives a fixed seed, so the old "random per process" reason is
+    # gone -- but PYTHONHASHSEED still overrides that seed, so REMOVING this
+    # rehashes every block and invalidates the whole fs tier. Keep it.
+    - name: PYTHONHASHSEED
+      value: "0"
+  extraVolumes:
+    - name: compile-cache
+      persistentVolumeClaim:
+        claimName: qwen38-27b-vllm-compile-cache
+    - name: kv-offload
+      persistentVolumeClaim:
+        claimName: qwen38-27b-vllm-kv-offload
+    # The CPU offload tier mmaps cpu_bytes_to_use here; the 64M default
+    # EFAULTs on pre-fault. Keep this at cpu_bytes_to_use + 2Gi. Nothing
+    # enforces that -- the kv-offload-guard CronJob only sweeps /kvoffload.
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 24Gi
+    # Pins ROCM_AITER_UNIFIED_ATTN -- see the mounts below and
+    # models/resources/zz_aiter_kvconn_impl.py.
+    - name: aiter-kvconn-patch
+      configMap:
+        name: aiter-kvconn-patch
+    # Raises the W4A16 skinny-GEMM LDS gate to the C++ kernel's real limit.
+    - name: lds-gate-patch
+      configMap:
+        name: lds-gate-patch
+  extraVolumeMounts:
+    - name: compile-cache
+      mountPath: /cache
+    - name: kv-offload
+      mountPath: /kvoffload
+    - name: dshm
+      mountPath: /dev/shm
+    # Selects ROCM_AITER_UNIFIED_ATTN instead of TRITON_ATTN by lifting an
+    # inherited `supports_kv_connector() -> False` that appears to be a missing
+    # override rather than a real exclusion (full argument in the .py).
+    #
+    # ADOPTED 2026-09-04. Kept for DETERMINISM, not speed: measures parity with
+    # TRITON_ATTN (warm M=2 55.31 vs 55.72, M=3 64.07 vs 64.88, inside the
+    # within-arm spread). It pins the backend against a nightly reordering its
+    # preference list -- 0d07767 already prefers TURBOQUANT and falls back here.
+    #
+    # TURBOQUANT cannot be used while the KV offload connector is on: it declares
+    # only LBNHC, OffloadingConnector requires LBHNC. Dropping the connector to
+    # get it HALVES single-stream decode (31 -> 15.5 tok/s). The INFO line naming
+    # AttentionType.DECODER is not the reason -- real rejection reasons are DEBUG
+    # only (rocm.py:680); boot with VLLM_LOGGING_LEVEL=DEBUG to read them.
+    #
+    # AITER v0.1.19 -> v0.1.21.post1 (image 0d07767), 4 warm reps: decode M=2
+    # 55.31 -> 57.47 (Welch t 6.19), M=3 64.07 -> 66.71 (t 4.50), prefill
+    # unchanged. Combined AITER+vLLM delta -- no Triton control arm was re-run.
+    #
+    # The old 1.89 tok/s decode figure was vllm#53821, fixed in this image. Do
+    # NOT reintroduce it as evidence.
+    #
+    # Both hooks fail open to TRITON_ATTN, so confirm the patch FIRED -- only
+    # the first line proves it took effect:
+    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep supports_kv_connector
+    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep "Overriding with"
+    # Revert = delete these two mounts, the volume above, and the generator.
+    - name: aiter-kvconn-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn.pth
+      subPath: zz_aiter_kvconn.pth
+      readOnly: true
+    - name: aiter-kvconn-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn_impl.py
+      subPath: zz_aiter_kvconn_impl.py
+      readOnly: true
+    # rdna_hybrid_w4a16.py gates the fast HIP skinny GEMM on
+    # `K * M <= LDS_CAPACITY_ELEMENTS` (32768). The C++ kernel actually accepts
+    # `K_in * N_in <= max_lds_len * 1.2` (39321) and switches to a medium
+    # variant above the plain LDS size. down_proj (K=17408) at M=2 is 34816:
+    # legal for the kernel, refused by Python, so it fell to a ~2x slower Triton
+    # path -- which is why per-stream decode halved at 2 concurrent requests.
+    #
+    # Verified on gfx1201 before deploying: at M=2 the HIP kernel is correct
+    # (rel err 0.0014 vs an fp32 reference, BETTER than Triton's 0.0093) and
+    # ~1.8x faster; M=3 (52224) is refused by the kernel itself with a clean
+    # RuntimeError, so an over-large gate fails loudly, not silently.
+    #
+    # Same one-line change as upstream vllm PR #52619. Drop this mount and the
+    # generator entry once that lands in the nightly.
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
+      subPath: zz_lds_gate.pth
+      readOnly: true
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
+      subPath: zz_lds_gate_impl.py
+      readOnly: true
+  extraArgs:
+    # First name is what vLLM reports back as `model`, so qwen-3.8 stays
+    # primary. The second is an alias: the operator derives a LiteLLMModel from
+    # this InferenceService's own name and has no field to override it, so
+    # without the alias that generated model group sends model=qwen38-27b-vllm
+    # and vLLM 404s it (verified 2026-08-17). Keep it in sync with metadata.name.
+    - --served-model-name
+    - qwen-3.8
+    - qwen38-27b-vllm
+    - --trust-remote-code
+    - --reasoning-parser
+    - qwen3
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - qwen3_coder
+    # GDN hybrids OOM CUDA-graph capture at vLLM's default 512 ceiling
+    # (vLLM #39010 on gfx1201). Sizes match parallelSlots above -- also
+    # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
+    # (256) would overshoot.
+    - --compilation-config
+    # One capture per real batch size. vLLM pads any batch to the NEXT capture
+    # size (v1/cudagraph_dispatcher.py), so [1,2,4,6] silently ran M=3 as 4 and
+    # M=5 as 6 -- the M=5 point was measuring the all-Triton M=6 path. With
+    # max_num_seqs 5 there is no padding left to pay for.
+    - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5]}'
+    # Keep prior-turn reasoning in context; carried over from the qwen36 config.
+    - --default-chat-template-kwargs
+    - '{"preserve_thinking": true}'
+    # NO --speculative-config. Every method vLLM offers was evaluated 2026-09-07
+    # and all are unusable -- full evidence in
+    # docs/llm-hosting/spec-decode-rejected.md. Summary:
+    #
+    #   n-gram  CORRUPTS OUTPUT (measured, incl. in production). vllm#39273: SSM
+    #           state corruption on hybrid GDN models -- this is one --
+    #           truncated/repeated fragments. Trialled on live traffic and
+    #           reverted the same day after Hermes reported truncated outputs.
+    #           Benchmarked ~1.8-2.1x faster on echo-heavy work (PROVISIONAL:
+    #           never run against a same-prompt spec-off control) and WRONG.
+    #           Acceptance and tokens-per-step stayed healthy throughout, so the
+    #           engine metrics do NOT catch it.
+    #   DSpark  0.59x (measured). Drafter KV +70% B/token, bf16, forces
+    #           maxModelLen below the 112K production peak.
+    #   MTP     + tool-calling grammar wedges to ~0.2 tok/s (100x) under
+    #           concurrent tool traffic; -27% at M=5 alone.
+    #   EAGLE3/ NOT benchmarked, ruled out on mechanism: same drafter-KV tax,
+    #   DFlash  plus vllm#41640 (unmerged) leaves a GQA drafter's KV group
+    #           unidentifiable on a non-MLA target, so prefix caching is
+    #           disabled and the KV offload tier goes write-only.
+    #
+    # Re-open ONLY when a named upstream issue is fixed: vllm#39273 for n-gram,
+    # vllm#41640 + vllm#49002 for anything drafter-based. An upstream fix
+    # re-opens EVALUATION, not shipping. Before enabling anything, ALL of:
+    #   1. spectest.py passes -- read the whole output, not the head. This is a
+    #      precondition for quoting a speed number at all, and skipping it is
+    #      what let the corruption reach production.
+    #   2. a same-prompt spec-off baseline on the same pod (never run).
+    #   3. a concurrency test at parallelSlots -- everything measured so far is
+    #      single-stream or conc<=5.
+    #   4. a tool-calling test under grammar constraint, the regime that wedged
+    #      MTP (bench/toolbench.py, vmcp preset).
+    # Separate pools, both needed -- ssm does NOT inherit from the other on
+    # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
+    # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.
+    - --mamba-cache-dtype
+    - bfloat16
+    - --mamba-ssm-cache-dtype
+    - bfloat16
+    # Skips profiling, so this -- not gpuMemoryUtilization -- sizes KV. The
+    # profiler was conservative: 3.22 GiB, which forced the old 98K ceiling.
+    # Sized against a 2 GiB transcode reserve, not the old 4.6 GB guess, which
+    # was never measured. Measured separately 2026-08-17 (drm VRAM): a 4K Dolby
+    # Vision transcode 0.85 GB, fileflows 0.69 GB -- 1.54 GB if they ever peak
+    # together, which was not observed but is the number the reserve must cover.
+    # Jellyfin has no transcode concurrency cap, so a third stream would exceed
+    # 2 GiB and evict KV; see the DgpuVramLow alert.
+    #
+    # 9.0 -> 9.5 GiB 2026-09-03: the pool was the binding constraint at 117
+    # preemptions/17h as mean prompt length grew 44K -> 54K. Boot log
+    # confirms 304,808 tokens / 1.23x (was 288,508 / 1.17x). KV costs
+    # 33,494 B/token -- predict a resize with it, then confirm the boot log.
+    # Decode vs pool usage, measured: 20.6 tok/s below 40%, 6.0 above 95%.
+    #
+    # VRAM measured from drm, 3d of 60s samples: vLLM baseline 29.07 GiB of
+    # 31.86, largest non-vLLM excursion 1.82 GiB (13, all evenings). At 9.5
+    # GiB the reserve measures 2.48 GiB, 0.66 spare over that peak. Do not
+    # raise again without re-measuring the excursion max -- 10.0 GiB would
+    # leave 0.16, under the 2 GiB reserve this block is sized against.
+    # Holds 5% of the pool (~15,240 of 304,808 tokens) free when admitting
+    # waiting or preempted requests. Upstream scheduler.py:167 describes this as
+    # headroom that "helps avoid frequent KV cache eviction and the resulting
+    # repeated preemption", which is the 117-preemptions/17h failure measured on
+    # 2026-09-03 -- a scheduler fix for it rather than buying more VRAM.
+    #
+    # The trade is admission: holding blocks free means fewer concurrent
+    # requests, so watch queue time alongside preemptions. Revert if TTFT p50
+    # rises materially without preemptions falling.
+    - --watermark
+    - "0.05"
+    - --kv-cache-memory
+    - "10200547328"
+    # Hierarchical KV cache: CPU tier (sizing philosophy carried over from the
+    # retired SGLang engine's --hicache-ratio) + fs tier (its file-backend
+    # analogue). From qwen36-27b-vllm.yaml, WITHOUT its --language-model-only —
+    # Hermes' auxiliary.vision block actively uses this model's vision tower,
+    # so it must stay loaded even though that costs some context headroom.
+    # CPU tier 22Gi: the 16Gi tier cascaded 3.5 GB/hour to the fs tier, i.e.
+    # eviction pressure. Benefit NOT yet validated -- needs a restart-free
+    # window, since this tier is an emptyDir tmpfs that every restart wipes.
+    # Roll back to 17179869184 (16Gi, dshm 18Gi, memory 32Gi) if after a 24h
+    # restart-free soak vllm:external_prefix_cache_hits_total/queries_total has
+    # not beaten its 0.5333 pre-change baseline, or if control-1 shows memory
+    # pressure or OOMKills.
+    # DO NOT remove the fs secondary tier to save Ceph writes: its 4.5% hit
+    # rate is not its job. Removing it halved single-stream decode (15.5 vs
+    # 31 tok/s, exact-revert confirmed) -- it keeps eviction asynchronous.
+    # blocks_per_chunk: 8 coalesces 8 GPU blocks (800 tok each, mamba-page-
+    # forced) into one offload lookup key, cutting per-request fs/CPU tier
+    # lookup calls ~8x (a 48K-token prompt: ~60 calls -> ~8) to shrink the
+    # burst size that overwhelms the single-threaded async lookup manager
+    # (see kv_offload_lookup_async_delay_seconds stalls).
+    #
+    # kv_load_failure_policy is a TOP-LEVEL KVTransferConfig field, NOT an
+    # extra_config key. First shipped nested on 2026-09-03 and was completely
+    # inert -- the boot log kept printing kv_load_failure_policy='fail'. A
+    # nested key is silently accepted and ignored, so verify after any edit by
+    # grepping the boot log for that literal.
+    #
+    # Tried 8 on 2026-09-03, REVERTED the same evening: chunk queries fell
+    # 13.13 -> 9.79 per request and hit rate stayed flat (40.5% vs 40.9%), but
+    # each lookup got 44% slower (4.33s -> 6.24s) and total lookup wall time per
+    # request went UP, 5.47s -> 6.46s (+45% normalised for prompt length,
+    # 0.099 -> 0.143 s per 1K prompt tokens).
+    #
+    # Mechanism: the tier has ONE serial lookup thread and is page-cache-bound,
+    # not throughput-bound -- coalescing more blocks per lookup makes each
+    # serial unit bigger without reducing serialisation. Do not retry 8 or 16
+    # without first making the lookup manager concurrent, and judge any attempt
+    # on total lookup seconds per request, never the per-lookup mean (which
+    # improves by construction as the count falls).
+    - --kv-transfer-config
+    - >-
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+  # This engine is the live one; Flash-Next is the parked one (suspend: true
+  # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
+  # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next
+  # could not schedule even if wanted -- and the R9700's 32Gi could not hold
+  # both models regardless.
+  #
+  # Reverted to false 2026-08-31: Flash-Next measured 125-144 tok/s prefill on
+  # gfx1201 against this engine's ~7170, because 42.92Gi of experts cannot fit
+  # a 31.86Gi card and the 19-24 layers that spill to host RAM dominate. See
+  # the flash-next manifest header for the full budget.
+  suspend: false
+  nodeSelector:
+    amd.com/gpu: "true"
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: Unconfined
+  resources:
+    cpu: "2"
+    # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
+    # under 4x32K concurrent load with the tier full (3.7Gi headroom).
+    # No memory limit at chart 0.9.24, so this is scheduler bookkeeping only:
+    # it must stay above the 28.3Gi peak to keep vllm under-request and off
+    # the eviction list, but every Gi above that is reserved and unusable.
+    # llmkube e4a3669af (unreleased) makes this a LIMIT as well as a request.
+    # Live working set is 27.49Gi, so 32Gi would leave ~4.5Gi before an
+    # OOMKill that costs the documented hours-long admission stall. Raise this
+    # deliberately when bumping past 0.9.24, and rewrite this comment.
+    memory: 32Gi
+  endpoint:
+    port: 8000
+  probeOverrides:
+    startup:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    # Startup owns the load/compile window, so this only ever sees a serving
+    # engine. Slack on purpose: a restart costs ~2min, so only a 10-minute
+    # outage (20 x 30s) counts as death.
+    liveness:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 20
+    readiness:
+      tcpSocket:
+        port: 8000
+      periodSeconds: 30
+      timeoutSeconds: 5
+      failureThreshold: 6

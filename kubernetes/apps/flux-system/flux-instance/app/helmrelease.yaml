@@ -12,7 +12,7 @@ spec:
   values:
     instance:
       distribution:
-        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.58.0
+        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.59.0
       cluster:
         networkPolicy: false
       sync:
@@ -79,8 +79,7 @@ spec:
             target:
               kind: Deployment
               name: kustomize-controller
-          - # In-memory builds. Merged by volume name: an index would rewrite whichever
-            # volume upstream happens to put first.
+          - # In-memory builds. Merged by volume name
             patch: |
               apiVersion: apps/v1
               kind: Deployment

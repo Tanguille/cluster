@@ -22,15 +22,17 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              tag: 3.8.49
+              # On `next` for two upstream fixes: LKGP pin never clears on
+              # failure (#10034) and auto/* credential lookups misresolve
+              # "opencode" as "opencode-zen" (#10892). Both merged into
+              # release/v3.8.50; no tagged release carries them yet -- move to
+              # v3.8.50 once it ships. Digest-pinned since Renovate can't diff
+              # `next` as a version, only offer digest bumps.
+              tag: next@sha256:91c6cd8fa096efaa8781269e24f52106c010b42a9e6282d099d9012490bceb15
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
               PORT: &port 20128
-              # Only litellm's /v1/* proxy calls skip auth (unauthenticated-backend
-              # + non-empty-apiKey convention, same as the qwen-3.6 SGLang model);
-              # the dashboard at the internal route below still requires
-              # INITIAL_PASSWORD login.
               REQUIRE_API_KEY: "false"
               # envoy-internal-tls terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"

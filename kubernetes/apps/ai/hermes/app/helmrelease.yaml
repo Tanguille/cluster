@@ -29,7 +29,7 @@ spec:
           app:
             image:
               repository: nousresearch/hermes-agent
-              tag: v2026.8.3@sha256:16788311e2fa3035456bdc1bafb8ec2b1777db64ebf020af9bb7eb73c3712c9e
+              tag: v2026.9.7@sha256:63bfb6d732f49a55d453e801057273785cc61e0f6ee43db3fa2f2a79846301b7
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -91,7 +91,6 @@ spec:
 
     service:
       app:
-        controller: *app
         ports:
           http:
             port: *port

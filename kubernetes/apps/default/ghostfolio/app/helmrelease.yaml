@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ghostfolio
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+
+    controllers:
+      ghostfolio:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: docker.io/ghostfolio/ghostfolio
+              tag: 3.69.0@sha256:66d56cb912901ff25afe82c593d080704b3658a24ee9692a7fe242a11c818d19
+            env:
+              PORT: "3333"
+              REDIS_HOST: dragonfly.database.svc.cluster.local
+              REDIS_PORT: "6379"
+              DATABASE_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: DATABASE_URL
+              # pgbouncer-rw runs in transaction mode; Prisma migrations need session-level
+              # continuity (advisory locks), so they go straight at CNPG, bypassing the pooler.
+              DIRECT_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: DIRECT_URL
+              ACCESS_TOKEN_SALT:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: ACCESS_TOKEN_SALT
+              JWT_SECRET_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: ghostfolio-secret
+                    key: JWT_SECRET_KEY
+            probes:
+              # /api/v1/health 503s when Postgres or dragonfly is down: gates readiness and
+              # startup, never liveness (a pooler blip would restart a healthy pod).
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/health
+                    port: 3333
+                  timeoutSeconds: 5
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/v1/health
+                    port: 3333
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 10m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+
+    service:
+      app:
+        controller: ghostfolio
+        ports:
+          http:
+            port: 3333
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Ghostfolio
+          gethomepage.dev/description: Wealth management
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: ghostfolio.png
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: http

@@ -35,3 +35,37 @@ spec:
   matchers:
     - name: alertname
       value: KubeMemoryOvercommit
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/observability.giantswarm.io/silence_v1alpha2.json
+apiVersion: observability.giantswarm.io/v1alpha2
+kind: Silence
+metadata:
+  # Structural: at priority -1000 with a hard node pin, xmrig has nothing below it to
+  # preempt and nowhere to move, so Pending on a full node is its resting state.
+  name: xmrig-pending-on-full-node
+spec:
+  matchers:
+    - name: alertname
+      value: KubePodNotReady
+    - name: namespace
+      value: web3
+    - name: pod
+      value: xmrig-.*
+      matchType: "=~"
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/observability.giantswarm.io/silence_v1alpha2.json
+apiVersion: observability.giantswarm.io/v1alpha2
+kind: Silence
+metadata:
+  # Same cause, Deployment side: KEDA scales to 1, the pod stays Pending, so spec.replicas
+  # outruns available for as long as the node is full.
+  name: xmrig-replicas-mismatch-on-full-node
+spec:
+  matchers:
+    - name: alertname
+      value: KubeDeploymentReplicasMismatch
+    - name: namespace
+      value: web3
+    - name: deployment
+      value: xmrig-.*
+      matchType: "=~"

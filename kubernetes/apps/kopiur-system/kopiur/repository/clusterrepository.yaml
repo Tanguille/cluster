@@ -45,6 +45,16 @@ spec:
       securityContext:
         runAsUser: 568
         runAsGroup: 568
+    schedule:
+      # Quick maintenance (index/log work) hourly instead of the default 6h —
+      # closed epochs get compacted promptly. Full (content reclamation) stays
+      # the default daily, pinned to 03:00 local to avoid the midnight peak.
+      quick:
+        cron: 0 * * * *
+        jitter: 10m
+      full:
+        cron: 0 3 * * *
+        jitter: 1h
   # Movers ran BestEffort (no resources) — Talos OOM killer's first victims
   # under node memory pressure (bootstrap/mover exit 137, 07-20 outage).
   moverDefaults:
@@ -52,5 +62,11 @@ spec:
       requests:
         cpu: 50m
         memory: 128Mi
+  parameters:
+    epoch:
+      # kopia's default is 24h; 1h so closed epochs are compacted promptly
+      # and live index blob growth stays bounded. Upstream: onedr0p/home-ops#11650,
+      # joryirving/home-ops#9780.
+      minDuration: 1h
   scheduleDefaults:
     timezone: ${TIMEZONE}

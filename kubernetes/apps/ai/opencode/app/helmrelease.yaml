@@ -19,7 +19,7 @@ spec:
           app:
             image:
               repository: ghcr.io/anomalyco/opencode
-              tag: 1.18.15@sha256:59b2582fb5a10b7022d8b3347a9d9c60710d526ad6bfd02eb17a2c8582b35809
+              tag: 1.18.30@sha256:412b37a894bb937a0d5d6a1860789b9fd7d34a109334bec98a3f6ecf812bb442
             env:
               TZ: ${TIMEZONE}
               HOME: /home/opencode
@@ -65,7 +65,6 @@ spec:
 
     service:
       app:
-        controller: app
         ports:
           http:
             port: *port

@@ -38,4 +38,7 @@ spec:
         memory: 64M
       limits:
         memory: 64M
-    hostNetwork: false
+    # Without this the pod sits in its own netns and every node_network_*/node_netstat_* series
+    # describes eth0, not eno1/enp2s0 — measured: TCP OutSegs read 8.7/s across the whole fleet.
+    # CPU/memory/disk are unaffected, they come from the /proc and /sys mounts.
+    hostNetwork: true

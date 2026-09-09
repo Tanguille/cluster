@@ -19,6 +19,14 @@ spec:
         name: xmrig-<< inputs.node >>
         namespace: web3
       spec:
+        # Not covered by the fleet-wide Kustomization patch: this HelmRelease is created
+        # by flux-operator from a ResourceSet, not rendered by kustomize-controller.
+        driftDetection:
+          mode: enabled
+          ignore:
+            - paths: ["/spec/replicas"]
+              target:
+                kind: Deployment
         chartRef:
           kind: OCIRepository
           name: app-template

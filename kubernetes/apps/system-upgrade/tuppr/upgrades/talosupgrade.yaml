@@ -6,8 +6,17 @@ metadata:
   name: talos
 spec:
   talos:
-    # renovate: datasource=docker depName=ghcr.io/siderolabs/installer
-    version: v1.13.8
+    # Bumped by the two regex managers in .renovaterc.json5, one per half.
+    # No other literal -k<digits> in this file: the kernel manager is unanchored, so each one
+    # becomes its own dep.
+    version: v1.14.0-k7.1.13
+  talosctl:
+    image:
+      # Plain tag: a -k<kernel> talosctl is unpublished and ImagePullBackOffs (control-2, 2026-08-21).
+      # renovate: datasource=github-releases depName=siderolabs/talos
+      tag: v1.14.0
+  # Hold a node back with a nodeSelector, e.g. kubernetes.io/hostname NotIn [control-1];
+  # excluded nodes are never enumerated, so they take no outdated taint either.
   policy:
     rebootMode: powercycle
   healthChecks:

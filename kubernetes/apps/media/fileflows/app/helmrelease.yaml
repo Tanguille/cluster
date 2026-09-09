@@ -10,8 +10,8 @@ spec:
     kind: OCIRepository
     name: app-template
   valuesFrom:
-    - kind: ConfigMap
-      name: affinity-control-1
+    # No affinity-control-1: the amd.com/gpu requirement below already pins this
+    # to control-1, the only node carrying that label.
     - kind: ConfigMap
       name: nfs-media
 
@@ -61,7 +61,7 @@ spec:
           app:
             image:
               repository: revenz/fileflows
-              tag: 26.07@sha256:a9ce79d8ad21a37ff1579f59cfa8844aded4026fd094e5a893ff476ffe0eaf93
+              tag: 26.09@sha256:5d7460ec63be60bb33fd50336b064c138e7d005a8fd3d19d47ff259de7df8b82
             env:
               TZ: ${TIMEZONE}
               PUID: "568"
@@ -70,6 +70,12 @@ spec:
               requests:
                 cpu: 100m
                 memory: 512Mi
+                # Transcode scratch lives on the container filesystem, ~1.3GiB
+                # steady. With no request, usage-over-request ranking made this
+                # the first pod kubelet evicted when control-1 brushed its
+                # ephemeral-storage threshold (2026-08-20 19:40, exit 137).
+                # No limit on purpose: a limit evicts the pod itself mid-transcode.
+                ephemeral-storage: 2Gi
               limits:
                 cpu: 2
                 memory: 5Gi
