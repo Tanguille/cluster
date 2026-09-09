@@ -30,6 +30,10 @@ spec:
                   name: "{{ .Release.Name }}-secret"
             args:
               - tunnel
+              # QUIC's 5s idle timeout drops the edge connection on WAN blips
+              # that TCP would ride through; http2 rides through them instead
+              - --protocol
+              - http2
               - run
             probes:
               liveness: &probes
