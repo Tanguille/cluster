@@ -24,6 +24,8 @@ spec:
             image:
               repository: ghcr.io/lavx/bazarr
               tag: 2.6.1@sha256:e1829749734fd53a3270d3de4c8bcf666dedd47050a043503dbe76b6d0e5358c
+            # Skip /entrypoint.sh (usermod/groupmod/chown/gosu, all root-only) under
+            # runAsNonRoot 568; args mirror the image CMD.
             command:
               - python
             args:
