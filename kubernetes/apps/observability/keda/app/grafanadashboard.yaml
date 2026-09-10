@@ -10,9 +10,6 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   folder: autoscaling
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
   url: https://raw.githubusercontent.com/kedacore/keda/refs/heads/main/config/grafana/keda-dashboard.json
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
@@ -26,7 +23,4 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   folder: autoscaling
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
   url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-keda-so.json

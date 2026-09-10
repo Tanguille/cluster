@@ -4,13 +4,6 @@ This file lists all SQLite databases found across the cluster, organized by name
 
 ## Namespace: media
 
-### cross-seed
-
-- **Path**: `/config/cross-seed.db`
-- **Status**: ⏳ Not migrated
-- **PostgreSQL Support**: ❌ No (SQLite only)
-- **Notes**: Cross-seeding tool for Radarr/Sonarr
-
 ### jellyfin
 
 - **Path**: `/config/data/playback_reporting.db`
@@ -46,21 +39,6 @@ This file lists all SQLite databases found across the cluster, organized by name
 - **PostgreSQL Support**: ❌ No (SQLite only)
 - **Notes**: User management database for Jellyfin
 
-## Namespace: default
-
-### trilium
-
-- **Path**: `/home/node/trilium-data/document.db`
-- **Status**: ⏳ Not migrated
-- **PostgreSQL Support**: ❌ No (SQLite only)
-- **Notes**: Main document database - Trilium Notes only supports SQLite
-- **Path**: `/home/node/trilium-data/backup/backup-monthly.db`
-- **Status**: ⏳ Not migrated
-- **Notes**: Monthly backup (not active)
-- **Path**: `/home/node/trilium-data/backup/backup-weekly.db`
-- **Status**: ⏳ Not migrated
-- **Notes**: Weekly backup (not active)
-
 ---
 
 ## Summary
@@ -72,11 +50,9 @@ This file lists all SQLite databases found across the cluster, organized by name
 1. **jellyfin** - ❌ No PostgreSQL support (waiting for feature)
    - Playback reporting and introskipper plugins use SQLite only
 2. **qbittorrent** - ❌ SQLite only (no PostgreSQL support)
-3. **trilium** - ❌ SQLite only (no PostgreSQL support)
-4. **cross-seed** - ❌ SQLite only (no PostgreSQL support)
-5. **wizarr** - ❌ SQLite only (no PostgreSQL support)
+3. **wizarr** - ❌ SQLite only (no PostgreSQL support)
 
 ### Notes
 
-- Some apps (jellyfin, trilium) have backup files that are not active databases
+- Some apps (jellyfin) have backup files that are not active databases
 - Apps without PostgreSQL support will continue using SQLite

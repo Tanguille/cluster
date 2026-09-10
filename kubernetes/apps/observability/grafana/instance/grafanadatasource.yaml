@@ -21,20 +21,3 @@ spec:
       timeInterval: 15s
       seriesLimit: 40000
     editable: true
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadatasource_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDatasource
-metadata:
-  name: alertmanager
-spec:
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  datasource:
-    type: alertmanager
-    name: alertmanager
-    access: proxy
-    jsonData:
-      implementation: prometheus
-    url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
