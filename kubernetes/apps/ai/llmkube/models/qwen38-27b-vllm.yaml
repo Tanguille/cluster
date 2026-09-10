@@ -316,6 +316,15 @@ spec:
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
+    # AITER gfx1201 unified-attention config with attn_3d.num_stages 2->1: the
+    # 2-stage fp8 K+V pipeline at head_dim 256 is 64 KiB LDS, the whole RDNA4
+    # CU, so the decode split-KV kernel ran one workgroup per CU (~120 GB/s).
+    # Measured 2026-09-10, 64K prompt M=1: 23.25 -> 29.06 tok/s; 5K unchanged
+    # (32.5). --attention-backend TRITON_ATTN on this build: 1.9 tok/s, 456 s
+    # TTFT at 64K, so not an alternative.
+    - name: aiter-ua-config
+      configMap:
+        name: aiter-ua-config
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -379,6 +388,11 @@ spec:
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
       subPath: zz_lds_gate_impl.py
+      readOnly: true
+    # Overlays the whole file, so re-diff against the image copy on bumps.
+    - name: aiter-ua-config
+      mountPath: /usr/local/lib/python3.12/dist-packages/aiter/ops/triton/configs/gfx1201/triton/attention/unified_attention/DEFAULT.json
+      subPath: DEFAULT.json
       readOnly: true
   extraArgs:
     # First name is what vLLM reports back as `model`, so qwen-3.8 stays
