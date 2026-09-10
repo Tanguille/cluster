@@ -11,23 +11,6 @@ spec:
     name: trivy-operator
   values:
     fullnameOverride: *app
-    # Fully on-prem: Standalone mode (in-cluster scanner jobs), no ARMO/external
-    # backend. rbac/serviceAccount are created by the chart (both default true).
-    operator:
-      replicas: 1
-    image:
-      # aquasec publishes the operator image on Docker Hub, not ghcr.io
-      # (ghcr.io/aquasec/trivy-operator is 403), so pin the registry explicitly.
-      registry: docker.io
-      repository: aquasec/trivy-operator
-    trivy:
-      image:
-        # aquasec/trivy scanner image is on Docker Hub, not ghcr.io (403 there).
-        registry: docker.io
-        repository: aquasec/trivy
-      # Slow mode: gentler on CPU/RAM at the cost of slower scans — right size for a homelab.
-      slow: true
-      severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
     # Expose the /metrics endpoint to Prometheus via a ServiceMonitor.
     serviceMonitor:
       enabled: true
