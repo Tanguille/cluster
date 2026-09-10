@@ -14,7 +14,7 @@ import inspect_db
 
 class InspectionTests(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory(prefix="opencode-inspect-", dir="/tmp/opencode")
+        self.tmp = tempfile.TemporaryDirectory(prefix="opencode-inspect-")
         self.path = Path(self.tmp.name) / "opencode.db"
         self.db = sqlite3.connect(self.path)
         self.db.executescript("""

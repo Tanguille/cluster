@@ -24,6 +24,7 @@ spec:
       KOPIUR_PGID: "0"
       KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
 ---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 # Preparation only. Unsuspending requires a separately approved activation diff.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -37,7 +38,6 @@ spec:
   targetNamespace: ai
   prune: true
   wait: true
-  timeout: 6m
   sourceRef:
     kind: GitRepository
     name: flux-system

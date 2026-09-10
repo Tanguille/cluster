@@ -47,7 +47,7 @@ Read-only `docker buildx imagetools inspect python:3.13-alpine` on 2026-09-06:
 
 ## Offline validation
 
-From this directory, with `/tmp/opencode` present:
+From this directory:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v test_inspect_db.py
