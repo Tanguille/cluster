@@ -36,11 +36,11 @@ jobs:
         env:
           # Renders against a throwaway bundle instead of talsecret.sops.yaml. The repo is
           # public, so an age key in Actions secrets is not an option.
-          TOPFCONFIG: ${{ runner.temp }}/topf.yaml
+          TOPFCONFIG: ${{ runner.temp }}/talos/topf.yaml
         run: |
-          cp -r talos/{all,control-plane,node,schematic.yaml,control-1.schematic.yaml} "${RUNNER_TEMP}/"
-          sed 's|^secretsPath:.*|secretsPath: secrets.yaml|' talos/topf.yaml > "${TOPFCONFIG}"
-          topf secrets --confirm=false > "${RUNNER_TEMP}/secrets.yaml"
+          cp -r talos "${RUNNER_TEMP}/"
+          sed -i 's|^secretsPath:.*|secretsPath: secrets.yaml|' "${TOPFCONFIG}"
+          topf secrets --confirm=false > "${RUNNER_TEMP}/talos/secrets.yaml"
           topf render --output "${RUNNER_TEMP}/rendered"
           for cfg in "${RUNNER_TEMP}"/rendered/*.yaml; do
               talosctl validate -m metal -c "${cfg}"
