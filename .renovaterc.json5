@@ -136,6 +136,16 @@
       automergeType: "pr"
     },
     {
+      // User-cleared (2026-09-08): "these updates have always been harmless." Self-hosted
+      // search app, PDB + RollingUpdate, no secrets in the image, no vendor SaaS. Covers all
+      // update types (calver tag bumps and digest refreshes on the same tag).
+      description: "Auto-merge searxng (user-cleared, 2026-09-08)",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/searxng/searxng"],
+      automerge: true,
+      automergeType: "pr"
+    },
+    {
       description: "vllm-openai-rocm nightly digest — the rolling `nightly` tag is digest-pinned so Renovate can detect new builds at all; never auto-merge, a bump rolls the single-GPU serving pod and can move the KV pool that maxModelLen is sized against",
       matchDatasources: ["docker"],
       matchPackageNames: ["vllm/vllm-openai-rocm"],
