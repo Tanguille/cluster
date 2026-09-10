@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -47,24 +47,30 @@ jobs:
           [ -n "${tag}" ] || { echo "no VERSION ARG in Dockerfile" >&2; exit 1; }
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
+      # The tag reaches the shell through env, not template expansion: it is
+      # read out of a file, which zizmor treats as attacker-controllable.
       - name: Build and push
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+          IMAGE: ghcr.io/${{ github.repository }}/truenas-mcp
         run: |
-          version="${{ steps.version.outputs.tag }}"
           docker buildx build \
             --platform linux/amd64 \
-            --build-arg "VERSION=${version}" \
-            -t "ghcr.io/${{ github.repository }}/truenas-mcp:${version}" \
-            -t "ghcr.io/${{ github.repository }}/truenas-mcp:latest" \
+            --build-arg "VERSION=${VERSION}" \
+            -t "${IMAGE}:${VERSION}" \
+            -t "${IMAGE}:latest" \
+            --metadata-file "${RUNNER_TEMP}/build.json" \
             --push \
             docker/truenas-mcp/
 
       # Print the immutable manifest-list digest the push served, so the
       # MCPServer manifest can pin tag@sha256: (same posture as every other
-      # image in this repo). buildx --push prints it as the final line.
+      # image in this repo). buildx already reports it in --metadata-file, so
+      # there is nothing to inspect back out of the registry.
       - name: Print published digest
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+          IMAGE: ghcr.io/${{ github.repository }}/truenas-mcp
         run: |
-          digest="$(docker buildx imagetools inspect "ghcr.io/${{ github.repository }}/truenas-mcp:${{ steps.version.outputs.tag }}" | grep -m1 '^Digest:' | awk '{print $2}')"
-          [ -n "${digest}" ] || { echo "no digest read back" >&2; exit 1; }
-          echo "truenas-mcp:ghcr.io/${{ github.repository }}/truenas-mcp@${digest}"
-          echo "truenas-mcp:${digest}" >> "$GITHUB_STEPS_SUMMARY.md" || true
-          { echo "### Published"; echo "ghcr.io/${{ github.repository }}/truenas-mcp:${{ steps.version.outputs.tag }}@${digest}"; } >> "$GITHUB_STEP_SUMMARY"
+          digest="$(jq -er '."containerimage.digest"' "${RUNNER_TEMP}/build.json")"
+          { echo "### Published"; echo "${IMAGE}:${VERSION}@${digest}"; } >> "$GITHUB_STEP_SUMMARY"

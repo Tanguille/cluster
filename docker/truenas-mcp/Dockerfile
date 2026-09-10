@@ -12,9 +12,11 @@
 # renovate: datasource=github-releases depName=truenas/truenas-mcp
 ARG VERSION=v0.0.6
 
-# buildx builds for linux/amd64 by default in CI, but the asset name must
-# match the platform being built, not the host running the build.
-FROM golang:1.25 AS fetch
+# Download-only stage: nothing is compiled, so it needs curl and a coreutils
+# sha256sum (busybox's applet has no --ignore-missing), not a Go toolchain.
+# The asset name is pinned to linux-amd64, matching the --platform CI builds.
+FROM alpine:3.24 AS fetch
+RUN apk add --no-cache curl coreutils
 ARG VERSION
 # Verify against the release's own checksums.txt. The download MUST keep the
 # exact asset name recorded in checksums.txt: sha256sum -c matches on the
