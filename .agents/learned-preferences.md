@@ -25,19 +25,16 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 - If no tool is available for a task after checking, say so clearly: *"I don't have access to [service]"*—do not speculate or fabricate an execution path.
 - When a tool returns a successful response, report the outcome as fact.
 - When a user confirms an action worked, trust that feedback. Do not second-guess it.
-- **Push/PR atomicity:** push + open/advance PR is ONE step (one `github_push_files` + PR
-  create/update via ToolHive). Can't finish this turn → `HANDOFF.md` + `PLAN.md` (handoff skill)
-  BEFORE stopping — a session boundary orphans the finish.
-- **All GitHub PR work goes through ToolHive `github_*` tools** (2026-09-07 standing order —
-  "use github tools via toolhive mcp"): no local `git push` (no `gh`/`GITHUB_TOKEN`; pushremote dead).
-  Only exception: local rebase-conflict resolution → last-resort bundle→scp→push route.
-  Full procedure + verified quirks: `.agents/skills/pr-review/references/pr-shepherd.md`.
+- **All GitHub work goes through ToolHive `github_*` tools** (2026-09-07 standing order — "use
+  github tools via toolhive mcp"): no local `git push` (no `gh`/`GITHUB_TOKEN`; pushremote dead).
+  Push + PR create/update is ONE step — can't finish this turn → write `.agents/handoff/<task>.md`
+  (handoff skill) BEFORE stopping, because a session boundary orphans the finish.
+  Call shape, tool table and fallbacks: `.agents/learned-workspace.md` § ToolHive / MCP.
 - **PR shepherding (standing order, 2026-09-07):** on PR tasks and pr-shepherd cron runs, iterate
-  until CI + automated review pass — classify CI failures (diff-introduced / baseline / flake)
-  before changing code; 3-cycle budget per class, then escalate with evidence. Hard boundaries even
-  in auto mode: no merge, no push to main, no force-push, no cluster apply/reconcile, no secrets.
-- **PR description grounded in diff:** every factual claim in a PR body must trace to a diff line;
-  fix the body or the code, never ship the mismatch.
+  until CI + automated review pass, and follow rather than restate
+  `.agents/skills/pr-review/references/pr-shepherd.md` — gates, CI triage, cycle budget, and the
+  boundaries that hold even in auto mode (no merge, no push to `main`, no force-push, no cluster
+  apply/reconcile, no secret decryption).
 
 ---
 

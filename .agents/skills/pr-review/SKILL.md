@@ -65,10 +65,8 @@ For small diffs without subagents:
 
 ## Shepherd mode (advance a PR to green)
 
-For "keep iterating until CI and automated review pass": follow [references/pr-shepherd.md](references/pr-shepherd.md)
-— Gate A (rebase before push), Gate B (PR body grounded in the diff), Gate C (atomic finish +
-handoff), and CI triage (classify diff-introduced vs baseline vs flake BEFORE changing code;
-3-cycle budget per failure class; no merge/apply/force-push without the human).
+For "keep iterating until CI and automated review pass": follow
+[references/pr-shepherd.md](references/pr-shepherd.md) — gates, CI triage, budget, boundaries.
 
 ## Progressive disclosure
 

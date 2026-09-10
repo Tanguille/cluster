@@ -13,6 +13,29 @@ Stable, non-sensitive facts about this cluster and tooling.
 - MCPServer secret-backed env vars use `spec.secrets` with `targetEnvName`; `env[].valueFrom` is unsupported. Transport values are `streamable-http` (e.g. `talos-mcp`) or `stdio` (e.g. `grafana`) — never `streamablehttp`.
 - VMCP session storage uses Redis at `dragonfly.database.svc.cluster.local:6379`.
 
+### GitHub (`github_*`)
+
+All GitHub work routes here: `call_tool` with `tool_name = github_<name>` (prefix mandatory),
+backend params inside `parameters`. This box has no `gh`/`GITHUB_TOKEN`, so there is no local
+`git push`.
+
+| Job | Tool |
+|---|---|
+| Commit to a branch (FULL file contents, 1 commit/call) | `github_push_files` — `files: [{path, content}]` + `message` |
+| Delete a file | `github_delete_file` (push_files has no delete) |
+| New branch | `github_create_branch` |
+
+- Read current contents before pushing (worktree, or `get_diff`/`get_files`, or raw.githubusercontent.com).
+- `push_files` bypasses local hooks; for code changes verify in a worktree first.
+- Degraded envelope: check `agent.log` first ("unknown argument" = cron model-routing bug, not
+  outage), then `~/.hermes/scripts/toolhive_retry.py call <tool> <json>` — flags BEFORE positionals;
+  its SDK client crashes on large payloads even when the server succeeds, trust the raw HTTP
+  fallback it prints.
+- No workflow re-run/job-log tool. Only ssh-gh fallbacks (server = fish, NO heredocs; one-liners only):
+  `gh run view <id> --repo Tanguille/cluster --log-failed` · `gh run rerun <id> --repo Tanguille/cluster --failed` · `gh run list --branch main --limit 1`.
+- Last resort (conflict resolution only): worktree commit → `git bundle` → `scp` to server → push
+  from `~/cluster` (authed gh).
+
 ## Talos
 
 - Talos kernel arguments belong in `schematic.yaml`; existing nodes need a schematic rebuild and Talos upgrade to receive them.

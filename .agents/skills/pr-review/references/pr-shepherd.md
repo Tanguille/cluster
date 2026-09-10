@@ -1,13 +1,13 @@
 # PR shepherding: pre-push gates and CI triage
 
 Shepherd = carry a PR to green CI + clean automated review, iterating, without orphaning it.
-Extends `pr-review`. This file is the SINGLE SOURCE OF TRUTH — the cron prompt and
+Extends `pr-review`. This file is the SINGLE SOURCE OF TRUTH for the loop — the cron prompt and
 learned-preferences only point here.
 
-## Route: ToolHive MCP `github_*` — all GitHub work
+## Route: ToolHive MCP `github_*` — the PR tools
 
-Call shape: `mcp__toolhive__call_tool` with `tool_name = github_<name>` (prefix mandatory),
-backend params inside `parameters`. No local git push: this box has no `gh`/`GITHUB_TOKEN`.
+General GitHub routing, call shape and fallbacks: `.agents/learned-workspace.md` § ToolHive / MCP.
+The PR-specific half:
 
 | Job | Tool |
 |---|---|
@@ -15,22 +15,11 @@ backend params inside `parameters`. No local git push: this box has no `gh`/`GIT
 | Details / status / checks / comments / diff / files / commits | `github_pull_request_read` (method=…) |
 | Edit title / body / draft / state / reviewers | `github_update_pull_request` |
 | Rebase PR onto base (server-side) | `github_update_pull_request_branch` |
-| Commit to a branch (FULL file contents, 1 commit/call) | `github_push_files` |
-| Delete a file | `github_delete_file` (push_files has no delete) |
-| New branch | `github_create_branch` |
 
 Verified quirks (2026-09-07):
 
-- Selector is `pullNumber`, not `number`; `push_files` takes `files: [{path, content}]` + `message`.
+- Selector is `pullNumber`, not `number`.
 - `create_pull_request` ignores `draft: true` → follow with `update_pull_request {pullNumber, draft: true}`.
-- `push_files` bypasses local hooks; for code changes verify in a worktree first.
-- Read current contents before pushing (worktree, or `get_diff`/`get_files`, or raw.githubusercontent.com).
-- No workflow re-run/job-log tool. Only ssh-gh fallbacks (server = fish, NO heredocs; one-liners only):
-  `gh run view <id> --repo Tanguille/cluster --log-failed` · `gh run rerun <id> --repo Tanguille/cluster --failed` · `gh run list --branch main --limit 1`.
-- Degraded envelope: check `agent.log` first ("unknown argument" = cron model-routing bug, not outage),
-  then `~/.hermes/scripts/toolhive_retry.py call <tool> <json>` — flags BEFORE positionals; its SDK client
-  crashes on large payloads even when the server succeeds, trust the raw HTTP fallback it prints.
-- Last resort (conflict resolution only): worktree commit → `git bundle` → `scp` to server → push from `~/cluster` (authed gh).
 
 ## Gates
 
@@ -42,12 +31,13 @@ behavior, files) must have a diff line behind it (`get_diff`). Mismatch → fix 
 "clarify in review". Say what the PR does NOT change when a sibling area is easy to confuse.
 
 **C — Atomic finish.** Plan `github_push_files` + PR create/update as ONE step. If it can't be done
-this turn, write `HANDOFF.md` + `PLAN.md` (handoff skill) before stopping; on resume read HANDOFF.md
-first, don't re-plan from compressed context.
+this turn, write `.agents/handoff/<task>.md` (handoff skill) before stopping; on resume read that
+file first, don't re-plan from compressed context.
 
 ## CI triage — classify before touching the diff
 
-1. Read the failure: `get_check_runs` for names/conclusions; job logs via the ssh-gh route above.
+1. Read the failure: `get_check_runs` for names/conclusions; job logs via the ssh-gh fallback
+   (`.agents/learned-workspace.md` § ToolHive / MCP).
 2. Classify exactly one:
    - **diff-introduced** → fix files (read current → edit → `push_files` with full contents), re-check.
    - **baseline/environment** → prove it fails on `origin/main` too (`gh run list --branch main`), then
