@@ -3,7 +3,7 @@
 Apps in this repo get their PostgreSQL role and database **declaratively from CloudNativePG**, not
 from an init-container. This replaced the `ghcr.io/home-operations/postgres-init` pattern (an
 `init-db` container that ran `CREATE ROLE` / `CREATE DATABASE` with superuser credentials at pod
-startup). Only `immich` still uses it, deliberately deferred — see "Not onboarded" below.
+startup). No app in the repo uses it any more.
 
 Each onboarded app has:
 
