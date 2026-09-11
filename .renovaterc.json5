@@ -163,7 +163,8 @@
     {
       description: "Flux Operator Group",
       groupName: "flux-operator",
-      matchDatasources: ["docker"],
+      // github-releases: the pinned flux-operator dashboard URLs in flux-instance/app/grafanadashboard.yaml
+      matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/flux-operator/", "/flux-instance/"],
       minimumGroupSize: 2
     },
@@ -217,12 +218,6 @@
       groupName: "klipper-exporter",
       matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/prometheus-klipper-exporter/"]
-    },
-    {
-      description: "Group spegel chart and Grafana dashboard URL",
-      groupName: "spegel",
-      matchDatasources: ["docker", "github-releases"],
-      matchPackageNames: ["/spegel-org/"]
     },
     {
       description: "nginx sidecar images group",
