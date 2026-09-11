@@ -54,10 +54,6 @@ spec:
           - port: http
             interval: 30m
             scrapeTimeout: 5m
-            metricRelabelings:
-              - sourceLabels: [job]
-                targetLabel: job
-                replacement: "integrations/speedtest"
     persistence:
       cache:
         type: emptyDir

@@ -75,5 +75,3 @@ For "keep iterating until CI and automated review pass": follow
 - Shepherd loop, rebase discipline, CI triage: [references/pr-shepherd.md](references/pr-shepherd.md)
 - Expanded validation topics: [references/best-practices.md](references/best-practices.md)
 - Script: [scripts/validate-pr.sh](scripts/validate-pr.sh)
-
-Format reference: [agentskills.io](https://agentskills.io/specification).

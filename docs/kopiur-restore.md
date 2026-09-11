@@ -1,7 +1,6 @@
 # Kopiur Restore Guide
 
 This guide explains how to properly restore data from kopiur (Kopia-native) backups.
-Supersedes `docs/volsync-restore.md` (VolSync, decommissioned 2026-07-12).
 
 ## Understanding the Components
 
