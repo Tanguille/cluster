@@ -163,7 +163,8 @@
     {
       description: "Flux Operator Group",
       groupName: "flux-operator",
-      matchDatasources: ["docker"],
+      // github-releases: the pinned flux-operator dashboard URLs in flux-instance/app/grafanadashboard.yaml
+      matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/flux-operator/", "/flux-instance/"],
       minimumGroupSize: 2
     },
