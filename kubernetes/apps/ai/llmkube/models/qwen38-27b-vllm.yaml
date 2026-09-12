@@ -576,10 +576,10 @@ spec:
             sclk=$$(awk '/\*/{sub(/Mhz/,"",$$2); print $$2}' $$g/pp_dpm_sclk)
             [ "$$running" = "1.0" ] && [ "$${sclk:-0}" -ge "$$sclk_min" ] || exit 0
             [ "$$(cat $$g/mem_busy_percent)" -ge "$$busy_min" ] && echo 1 >> "$$f" || echo 0 >> "$$f"
+            tail -n "$$window" "$$f" > "$$f".new && mv "$$f".new "$$f"
             n=$$(wc -l < "$$f"); fast=$$(grep -c 1 "$$f")
             [ "$$n" -ge "$$window" ] || exit 0
             if [ $$((fast * 100)) -lt $$((n * fast_min_pct)) ]; then echo "slow band: $$fast/$$n solo samples fast" >&2; exit 1; fi
-            tail -n "$$window" "$$f" > "$$f".new && mv "$$f".new "$$f"
       # The first minute after a spawn read slow on 2 of 5 pinned-image
       # spawns; counted from container start, this leaves ~10 min past the
       # ~4 min startup probe.
