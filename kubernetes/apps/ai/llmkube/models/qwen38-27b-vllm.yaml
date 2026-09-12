@@ -217,13 +217,15 @@ spec:
   # open a digest-bump PR, which it can never do for an immutable
   # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
   # A nightly, not a tagged release: gfx1201 support landed after v0.27.1 and
-  # this runs 0.28.1rc1.dev388. Whether the v0.28.0 tag (2026-08-26) alone now
+  # this runs 0.28.1rc1.dev681. Whether the v0.28.0 tag (2026-08-26) alone now
   # suffices has NOT been retested -- assume not until someone boots it.
   #
-  # PINNED, do not bump: #4873 and #4883 both regressed single-stream decode
-  # ~2x (31.8 -> 16 tok/s @ 4K ctx, docs/llm-hosting/bench/longctx.py) -- benchmark
-  # any future bump before merging.
-  image: vllm/vllm-openai-rocm:nightly@sha256:0d07767c0b8471eaca0f1eca97899620dfb4ad33ff2f5226789afef1a877e9bc
+  # The "~2x decode regression" that pinned 0d07767 (#4873, #4883) was the
+  # gfx1201 per-process fast/slow band (ROCm/ROCm#6347), not a vLLM change:
+  # every nightly since 09-05 spawned slow, 0d07767 spawned fast. Fixed by
+  # GPU_MAX_HW_QUEUES=1 below. Benchmark any bump with
+  # docs/llm-hosting/bench/longctx.py at 4000 AND 50000 before merging.
+  image: vllm/vllm-openai-rocm:nightly@sha256:70d3eb5d953c870ea718efca6bc43f57b34a09b122a4fc5e5a5f29f9094523b1
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
@@ -267,15 +269,20 @@ spec:
     # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
-    # Attention IS AITER while the patch below is mounted: it lifts the
-    # supports_kv_connector rejection at rocm.py:703, and the boot log confirms
-    # "Overriding with ROCM_AITER_UNIFIED_ATTN". Drop that patch and a KV
-    # connector forces TRITON_ATTN again. FP8 linear kernels do not apply to
-    # W4A16. Also kept for the GDN linear-attn path.
-    # An older forced-AITER experiment measured +84% decode / ~10x worse
-    # prefill; the block below measures parity. Trust that block -- the older
-    # number predates vllm#53821.
+    # Attention is ROCM_AITER_UNIFIED_ATTN (KV connector support upstream since
+    # vllm#53695); boot log confirms "Overriding with ROCM_AITER_UNIFIED_ATTN".
+    # FP8 linear kernels do not apply to W4A16. Also kept for the GDN
+    # linear-attn path. Backend comparison and TURBOQUANT exclusion:
+    # docs/llm-hosting/gfx1201-decode-findings-2026-09-02.md.
     - name: VLLM_ROCM_USE_AITER
+      value: "1"
+    # gfx1201 lands each HIP process in a fast or slow band at exactly 2x
+    # (ITL 30.7 vs 61.5 ms, mem_busy 81% vs 40%), ROCm/ROCm#6347. Fewer HW
+    # queues raise the fast odds but do not pin them: nightly 70d3eb5 spawned
+    # slow 5/5 without this; with it spawn 1 was fast 80/81 windows over 50
+    # min, spawn 3 still flipped mid-request (2026-09-12, see
+    # docs/llm-hosting/gfx1201-fast-slow-band-2026-09-12.md).
+    - name: GPU_MAX_HW_QUEUES
       value: "1"
     - name: HIP_VISIBLE_DEVICES
       value: "0"
@@ -307,11 +314,6 @@ spec:
       emptyDir:
         medium: Memory
         sizeLimit: 24Gi
-    # Pins ROCM_AITER_UNIFIED_ATTN -- see the mounts below and
-    # models/resources/zz_aiter_kvconn_impl.py.
-    - name: aiter-kvconn-patch
-      configMap:
-        name: aiter-kvconn-patch
     # Raises the W4A16 skinny-GEMM LDS gate to the C++ kernel's real limit.
     - name: lds-gate-patch
       configMap:
@@ -332,41 +334,6 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # Selects ROCM_AITER_UNIFIED_ATTN instead of TRITON_ATTN by lifting an
-    # inherited `supports_kv_connector() -> False` that appears to be a missing
-    # override rather than a real exclusion (full argument in the .py).
-    #
-    # ADOPTED 2026-09-04. Kept for DETERMINISM, not speed: measures parity with
-    # TRITON_ATTN (warm M=2 55.31 vs 55.72, M=3 64.07 vs 64.88, inside the
-    # within-arm spread). It pins the backend against a nightly reordering its
-    # preference list -- 0d07767 already prefers TURBOQUANT and falls back here.
-    #
-    # TURBOQUANT cannot be used while the KV offload connector is on: it declares
-    # only LBNHC, OffloadingConnector requires LBHNC. Dropping the connector to
-    # get it HALVES single-stream decode (31 -> 15.5 tok/s). The INFO line naming
-    # AttentionType.DECODER is not the reason -- real rejection reasons are DEBUG
-    # only (rocm.py:680); boot with VLLM_LOGGING_LEVEL=DEBUG to read them.
-    #
-    # AITER v0.1.19 -> v0.1.21.post1 (image 0d07767), 4 warm reps: decode M=2
-    # 55.31 -> 57.47 (Welch t 6.19), M=3 64.07 -> 66.71 (t 4.50), prefill
-    # unchanged. Combined AITER+vLLM delta -- no Triton control arm was re-run.
-    #
-    # The old 1.89 tok/s decode figure was vllm#53821, fixed in this image. Do
-    # NOT reintroduce it as evidence.
-    #
-    # Both hooks fail open to TRITON_ATTN, so confirm the patch FIRED -- only
-    # the first line proves it took effect:
-    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep supports_kv_connector
-    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep "Overriding with"
-    # Revert = delete these two mounts, the volume above, and the generator.
-    - name: aiter-kvconn-patch
-      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn.pth
-      subPath: zz_aiter_kvconn.pth
-      readOnly: true
-    - name: aiter-kvconn-patch
-      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn_impl.py
-      subPath: zz_aiter_kvconn_impl.py
-      readOnly: true
     # rdna_hybrid_w4a16.py gates the fast HIP skinny GEMM on
     # `K * M <= LDS_CAPACITY_ELEMENTS` (32768). The C++ kernel actually accepts
     # `K_in * N_in <= max_lds_len * 1.2` (39321) and switches to a medium
@@ -578,15 +545,48 @@ spec:
       periodSeconds: 15
       failureThreshold: 240
     # Startup owns the load/compile window, so this only ever sees a serving
-    # engine. Slack on purpose: a restart costs ~2min, so only a 10-minute
-    # outage (20 x 30s) counts as death.
+    # engine. Two checks in one probe:
+    # 1. /health, with slack on purpose: a restart costs ~2min, so only a
+    #    10-minute outage (20 consecutive misses x 30s) counts as death. The
+    #    count lives in /tmp because failureThreshold must stay 1 for check 2.
+    # 2. The gfx1201 slow band (ROCm/ROCm#6347, see GPU_MAX_HW_QUEUES above):
+    #    with exactly one request decoding, mem_busy_percent reads ~81 fast
+    #    and ~40 slow. Each probe that lands on a solo request records one
+    #    sample in /tmp; once 8 have accumulated and under a quarter were
+    #    fast, the probe fails. The 15 min grace covers the first-minute
+    #    slowness seen on 2 of 5 spawns. Only card1 has the counter. $$
+    #    throughout: Flux postBuild envsubst substitutes bare $VAR.
     liveness:
-      httpGet:
-        path: /health
-        port: 8000
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - |
+            f=/tmp/band; touch "$$f"
+            if ! curl -sf -m 8 -o /dev/null localhost:8000/health; then
+              n=$$(( $$(cat "$$f".fail 2>/dev/null || echo 0) + 1 )); echo "$$n" > "$$f".fail
+              [ "$$n" -ge 20 ] && exit 1; exit 0
+            fi
+            rm -f "$$f".fail
+            [ "$$(( $$(date +%s) - $$(stat -c %Y /proc/1) ))" -lt 900 ] && exit 0
+            # A sample counts only if every engine step since the last probe
+            # carried one token (solo decode, no prefill chunk, no batch): a
+            # chunked 50K prefill reads ~30 on the same counter and would look
+            # slow. iteration_tokens le=1.0 bucket vs count gives exactly that.
+            m="$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:iteration_tokens_total_bucket\{[^}]*le="1.0"/{b=$$2} /^vllm:iteration_tokens_total_count\{/{c=$$2} END{printf "%d %d\n", b, c}')"
+            prev="$$(cat "$$f".iter 2>/dev/null || echo 0 0)"; echo "$$m" > "$$f".iter
+            db=$$(( $${m% *} - $${prev% *} )); dc=$$(( $${m#* } - $${prev#* } ))
+            [ "$$dc" -gt 0 ] && [ "$$db" -eq "$$dc" ] || exit 0
+            m=$$(cat /sys/class/drm/card1/device/mem_busy_percent)
+            [ "$$m" -ge 60 ] && echo 1 >> "$$f" || echo 0 >> "$$f"
+            n=$$(wc -l < "$$f"); fast=$$(grep -c 1 "$$f")
+            [ "$$n" -ge 8 ] || exit 0
+            if [ $$((fast * 4)) -lt "$$n" ]; then echo "slow band: $$fast/$$n solo samples fast" >&2; exit 1; fi
+            # Rolling window: keep the last 8.
+            tail -n 8 "$$f" > "$$f".new && mv "$$f".new "$$f"
       periodSeconds: 30
-      timeoutSeconds: 10
-      failureThreshold: 20
+      timeoutSeconds: 20
+      failureThreshold: 1
     readiness:
       tcpSocket:
         port: 8000
