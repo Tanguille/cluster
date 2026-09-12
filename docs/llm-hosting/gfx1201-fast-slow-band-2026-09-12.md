@@ -59,23 +59,21 @@ be identified without ptrace.
 ## Guard
 
 Since the variable only shifts the odds, the liveness probe on the serving
-container also classifies the band itself: every 30 s it reads its own
-`/metrics` and the GPU's sysfs (readable in-container, no hostPath), and if
-exactly one request is running and sclk is boosted (>= 3100 MHz) it records
-`mem_busy_percent` >= 60 as a fast sample. Eight samples with fewer than a
-quarter fast fail the probe and kubelet restarts the container.
+container also classifies the band itself: every 30 s (after a 15 min grace
+from container start) it reads its own `/metrics` and the GPU's sysfs
+(readable in-container, no hostPath), and if exactly one request is running
+and sclk is boosted (>= 3100 MHz) it records `mem_busy_percent` >= 60 as a
+fast sample. Eight samples with fewer than a quarter fast fail the probe and
+kubelet restarts the container.
 
 The sclk gate is what excludes prefill: a chunked 50K prefill runs at
-2480-2800 MHz with mem_busy 25-33, decode at 3180+ in both bands. Two gates
-were tried and dropped first: `prompt_tokens_total` unchanged since the last
-probe (the counter only moves when prefill ends, so the prefill itself passed
-the gate), and `iteration_tokens_total` le=1.0 delta equal to count delta
-(the histogram is flushed lazily and often has no delta inside a 30 s probe
-period, and it says nothing about the sampling instant, so a request that
-ended just before the probe was sampled against an idle GPU: four false slow
-samples in one afternoon). Tested in the live container: no samples while
-idle, through a 60 s prefill, or right after a request ends; fast samples in
-solo decode; a forced 1-of-8 window fails.
+2480-2800 MHz with mem_busy 25-33, decode at 3180+ in both bands. Counter
+gates on `/metrics` (`prompt_tokens_total`, the `iteration_tokens_total`
+histogram) were tried first and dropped: vLLM flushes them lazily, so they
+neither exclude a running prefill nor say anything about the sampling instant.
+Tested in the live container: no samples while idle, through a 60 s prefill,
+or right after a request ends; fast samples in solo decode; a forced 1-of-8
+window fails.
 
 ## Ruled out
 

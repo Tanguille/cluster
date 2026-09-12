@@ -552,40 +552,38 @@ spec:
     #    count lives in /tmp because failureThreshold must stay 1 for check 2.
     # 2. The gfx1201 slow band (ROCm/ROCm#6347, see GPU_MAX_HW_QUEUES above):
     #    with exactly one request decoding, mem_busy_percent reads ~81 fast
-    #    and ~40 slow. Each probe that lands on a solo request records one
-    #    sample in /tmp; once 8 have accumulated and under a quarter were
-    #    fast, the probe fails. The 15 min grace covers the first-minute
-    #    slowness seen on 2 of 5 spawns. Only card1 has the counter. $$
-    #    throughout: Flux postBuild envsubst substitutes bare $VAR.
+    #    and ~40 slow. A sample is taken only with one request running AND
+    #    sclk boosted (decode sits at 3180+ MHz in either band, a chunked 50K
+    #    prefill at 2480-2800 with mem_busy ~30 and would read as slow; the
+    #    engine's step counters are flushed lazily and cannot gate this).
+    #    Eight samples with under a quarter fast fail the probe. Only card1
+    #    has the counter. $$ throughout: Flux postBuild envsubst substitutes
+    #    bare $VAR.
     liveness:
       exec:
         command:
           - /bin/sh
           - -c
           - |
-            f=/tmp/band; touch "$$f"
+            f=/tmp/band; g=/sys/class/drm/card1/device
+            sclk_min=3100; busy_min=60; window=8; fast_min_pct=25
             if ! curl -sf -m 8 -o /dev/null localhost:8000/health; then
               n=$$(( $$(cat "$$f".fail 2>/dev/null || echo 0) + 1 )); echo "$$n" > "$$f".fail
               [ "$$n" -ge 20 ] && exit 1; exit 0
             fi
             rm -f "$$f".fail
-            [ "$$(( $$(date +%s) - $$(stat -c %Y /proc/1) ))" -lt 900 ] && exit 0
-            # A sample counts only with exactly one request running AND sclk
-            # boosted: decode sits at 3180+ MHz in either band, a chunked 50K
-            # prefill at 2480-2800 with mem_busy ~30, so prefill would read as
-            # slow. The engine's step counters are flushed lazily and cannot
-            # gate this; the two sysfs reads are instantaneous.
-            g=/sys/class/drm/card1/device
             running=$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:num_requests_running\{/{print $$2}')
             sclk=$$(awk '/\*/{sub(/Mhz/,"",$$2); print $$2}' $$g/pp_dpm_sclk)
-            [ "$$running" = "1.0" ] && [ "$${sclk:-0}" -ge 3100 ] || exit 0
-            m=$$(cat $$g/mem_busy_percent)
-            [ "$$m" -ge 60 ] && echo 1 >> "$$f" || echo 0 >> "$$f"
+            [ "$$running" = "1.0" ] && [ "$${sclk:-0}" -ge "$$sclk_min" ] || exit 0
+            [ "$$(cat $$g/mem_busy_percent)" -ge "$$busy_min" ] && echo 1 >> "$$f" || echo 0 >> "$$f"
             n=$$(wc -l < "$$f"); fast=$$(grep -c 1 "$$f")
-            [ "$$n" -ge 8 ] || exit 0
-            if [ $$((fast * 4)) -lt "$$n" ]; then echo "slow band: $$fast/$$n solo samples fast" >&2; exit 1; fi
-            # Rolling window: keep the last 8.
-            tail -n 8 "$$f" > "$$f".new && mv "$$f".new "$$f"
+            [ "$$n" -ge "$$window" ] || exit 0
+            if [ $$((fast * 100)) -lt $$((n * fast_min_pct)) ]; then echo "slow band: $$fast/$$n solo samples fast" >&2; exit 1; fi
+            tail -n "$$window" "$$f" > "$$f".new && mv "$$f".new "$$f"
+      # The first minute after a spawn read slow on 2 of 5 pinned-image
+      # spawns; counted from container start, this leaves ~10 min past the
+      # ~4 min startup probe.
+      initialDelaySeconds: 900
       periodSeconds: 30
       timeoutSeconds: 20
       failureThreshold: 1
