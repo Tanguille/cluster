@@ -30,6 +30,7 @@ Draw rate is what differs between builds, not the kernels:
 | `0d07767` (09-04, pinned) | 5 | 5 (two spent their first minute slow) |
 | every nightly 09-05 .. 09-11 | 5 | 0 |
 | `70d3eb5` + `GPU_MAX_HW_QUEUES=1` | 3 | 1 clean, 2 mixed (see below) |
+| `960228c` (09-12) + `GPU_MAX_HW_QUEUES=1` | 1 | 1 (5K x3 31.9, 64K 28.7, tool calling 31/66/98, 48K conc 2-5 45/51/62/69) |
 
 A 10-minute passive sample of the nightly under production traffic
 (`mem_busy_percent` whenever `vllm:num_requests_running` was 1) gave 0 of 37
@@ -59,14 +60,22 @@ be identified without ptrace.
 
 Since the variable only shifts the odds, the liveness probe on the serving
 container also classifies the band itself: every 30 s it reads its own
-`/metrics`, and if every engine step since the previous probe carried one
-token (`iteration_tokens_total` le=1.0 bucket delta equals count delta, i.e.
-solo decode with no prefill chunk) it records `mem_busy_percent` >= 60 as a
-fast sample. Eight samples with fewer than a quarter fast fail the probe and
-kubelet restarts the container. Prefill is excluded on purpose: a chunked 50K
-prefill reads 25-28 on the same counter. Tested in the live container: the
-probe took no samples through a 60 s prefill, one fast sample in the decode
-that followed, and failed on a forced 1-of-8 window.
+`/metrics` and the GPU's sysfs (readable in-container, no hostPath), and if
+exactly one request is running and sclk is boosted (>= 3100 MHz) it records
+`mem_busy_percent` >= 60 as a fast sample. Eight samples with fewer than a
+quarter fast fail the probe and kubelet restarts the container.
+
+The sclk gate is what excludes prefill: a chunked 50K prefill runs at
+2480-2800 MHz with mem_busy 25-33, decode at 3180+ in both bands. Two gates
+were tried and dropped first: `prompt_tokens_total` unchanged since the last
+probe (the counter only moves when prefill ends, so the prefill itself passed
+the gate), and `iteration_tokens_total` le=1.0 delta equal to count delta
+(the histogram is flushed lazily and often has no delta inside a 30 s probe
+period, and it says nothing about the sampling instant, so a request that
+ended just before the probe was sampled against an idle GPU: four false slow
+samples in one afternoon). Tested in the live container: no samples while
+idle, through a 60 s prefill, or right after a request ends; fast samples in
+solo decode; a forced 1-of-8 window fails.
 
 ## Ruled out
 

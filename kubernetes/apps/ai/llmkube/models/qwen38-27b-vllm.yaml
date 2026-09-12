@@ -217,7 +217,8 @@ spec:
   # open a digest-bump PR, which it can never do for an immutable
   # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
   # A nightly, not a tagged release: gfx1201 support landed after v0.27.1 and
-  # this runs 0.28.1rc1.dev681. Whether the v0.28.0 tag (2026-08-26) alone now
+  # this runs the 2026-09-12 build (eed1f3d0c; the version string is a
+  # setuptools-scm artifact). Whether the v0.28.0 tag (2026-08-26) alone now
   # suffices has NOT been retested -- assume not until someone boots it.
   #
   # The "~2x decode regression" that pinned 0d07767 (#4873, #4883) was the
@@ -225,7 +226,7 @@ spec:
   # every nightly since 09-05 spawned slow, 0d07767 spawned fast. Fixed by
   # GPU_MAX_HW_QUEUES=1 below. Benchmark any bump with
   # docs/llm-hosting/bench/longctx.py at 4000 AND 50000 before merging.
-  image: vllm/vllm-openai-rocm:nightly@sha256:70d3eb5d953c870ea718efca6bc43f57b34a09b122a4fc5e5a5f29f9094523b1
+  image: vllm/vllm-openai-rocm:nightly@sha256:960228cfcb5de9f4cd22d28998d1125be62b546c3d220a884f570343e99ffcee
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
@@ -569,15 +570,16 @@ spec:
             fi
             rm -f "$$f".fail
             [ "$$(( $$(date +%s) - $$(stat -c %Y /proc/1) ))" -lt 900 ] && exit 0
-            # A sample counts only if every engine step since the last probe
-            # carried one token (solo decode, no prefill chunk, no batch): a
-            # chunked 50K prefill reads ~30 on the same counter and would look
-            # slow. iteration_tokens le=1.0 bucket vs count gives exactly that.
-            m="$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:iteration_tokens_total_bucket\{[^}]*le="1.0"/{b=$$2} /^vllm:iteration_tokens_total_count\{/{c=$$2} END{printf "%d %d\n", b, c}')"
-            prev="$$(cat "$$f".iter 2>/dev/null || echo 0 0)"; echo "$$m" > "$$f".iter
-            db=$$(( $${m% *} - $${prev% *} )); dc=$$(( $${m#* } - $${prev#* } ))
-            [ "$$dc" -gt 0 ] && [ "$$db" -eq "$$dc" ] || exit 0
-            m=$$(cat /sys/class/drm/card1/device/mem_busy_percent)
+            # A sample counts only with exactly one request running AND sclk
+            # boosted: decode sits at 3180+ MHz in either band, a chunked 50K
+            # prefill at 2480-2800 with mem_busy ~30, so prefill would read as
+            # slow. The engine's step counters are flushed lazily and cannot
+            # gate this; the two sysfs reads are instantaneous.
+            g=/sys/class/drm/card1/device
+            running=$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:num_requests_running\{/{print $$2}')
+            sclk=$$(awk '/\*/{sub(/Mhz/,"",$$2); print $$2}' $$g/pp_dpm_sclk)
+            [ "$$running" = "1.0" ] && [ "$${sclk:-0}" -ge 3100 ] || exit 0
+            m=$$(cat $$g/mem_busy_percent)
             [ "$$m" -ge 60 ] && echo 1 >> "$$f" || echo 0 >> "$$f"
             n=$$(wc -l < "$$f"); fast=$$(grep -c 1 "$$f")
             [ "$$n" -ge 8 ] || exit 0
