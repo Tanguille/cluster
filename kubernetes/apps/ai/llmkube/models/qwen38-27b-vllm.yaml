@@ -22,9 +22,9 @@ spec:
     requests:
       storage: 10Gi
 ---
-# L3 tier for the fs secondary tier -- the vLLM analogue of SGLang's HiCache
-# file backend. Ported from qwen36-27b-vllm.yaml: proven pattern, same
-# hardware, same GPU-memory ceiling.
+# L3 tier for the fs secondary tier -- the vLLM analogue of the HiCache file
+# backend on the retired SGLang engine. Carried over from qwen36-27b-vllm.yaml
+# (deleted in 5770d6902): proven pattern, same hardware, same GPU-memory ceiling.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -180,14 +180,21 @@ spec:
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
-# concsweep.py, warm, agg tok/s vs the SGLang qwen-3.6 baseline (conc 1/8/16):
-# 14.88/53.93/100.82 vs 14.96/36.24/34.49. Bench warm only -- cold reads ~12.
+# concsweep.py, warm, agg tok/s vs the qwen-3.6 SGLang engine this replaced
+# (retired 2026-08-16, conc 1/8/16): 14.88/53.93/100.82 vs 14.96/36.24/34.49.
+# Bench warm only -- cold reads ~12.
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
 spec:
-  modelRef: qwen38-27b-vllm
+  # 4-bit lm_head re-pack of qwen38-27b-vllm (Model + requant Job in
+  # qwen38-27b-vllm-lmhead4.yaml). Generative eval passed 2026-09-13 (GSM8K 94.0
+  # vs 93.3, McNemar p=1.0; tools 12/12); expected ~9% per decode step at M=4-5.
+  # The layer is language_model.lm_head, so the re-pack targets it by regex;
+  # attempt 1 with a bare "lm_head" target crashlooped (perf-plan-2026-09-13.md).
+  # Rollback: modelRef: qwen38-27b-vllm, the bf16 checkpoint stays cached.
+  modelRef: qwen38-27b-vllm-lmhead4
   runtime: vllm
   replicas: 1
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
@@ -198,12 +205,11 @@ spec:
   #
   # The "before" row originally recorded here (31.06 28.64 39.30 52.15 52.22
   # 61.99) was WITHDRAWN 2026-09-02: its M=2 value was a cold rep. This engine
-  # is bimodal until warmed -- cold reps land ~29-32 at M=2 where warm reps land
-  # ~55, a 1.9x gap with no traffic and no config change, and ONE warmup run is
-  # not enough. Isolated warm A/B of the LDS gate (8 reps, same pod, gate the
-  # only variable) gives M=2 43.74 -> 55.5 (+26.5%). M=3 was unchanged, but that
-  # is a null control, not a confirmation: at M=3 K*M=52224 still exceeds 39321
-  # so down_proj stays on Triton and no movement was predicted.
+  # is bimodal until warmed (cold ~29-32 at M=2 vs warm ~55, a 1.9x gap with no
+  # traffic and no config change), so ONE warmup run is not enough. Isolated
+  # warm A/B of the LDS gate (8 reps, same pod, gate the only variable): M=2
+  # 43.74 -> 55.5 (+26.5%). M=3 unchanged -- a null control, not a confirmation:
+  # at M=3 K*M=52224 still exceeds 39321, so down_proj stays on Triton.
   #
   # No warm number is claimed for the capture-size change itself. It is kept on
   # mechanism only: at M=6 every W4A16 projection falls to Triton
@@ -216,8 +222,17 @@ spec:
   # as immutable as a commit tag -- but Renovate can re-resolve the tag and
   # open a digest-bump PR, which it can never do for an immutable
   # nightly-<sha> tag (no ordering scheme, so no update is ever detected).
-  # v0.27.1 is the newest release and predates gfx1201 support.
-  image: vllm/vllm-openai-rocm:nightly@sha256:75a2c2f61165ad5510d33783a1ba000669f626a56f65a3117cbc4f68367738bd
+  # A nightly, not a tagged release: gfx1201 support landed after v0.27.1 and
+  # this runs the 2026-09-12 build (eed1f3d0c; the version string is a
+  # setuptools-scm artifact). Whether the v0.28.0 tag (2026-08-26) alone now
+  # suffices has NOT been retested -- assume not until someone boots it.
+  #
+  # The "~2x decode regression" that pinned 0d07767 (#4873, #4883) was the
+  # gfx1201 per-process fast/slow band (ROCm/ROCm#6347), not a vLLM change:
+  # every nightly since 09-05 spawned slow, 0d07767 spawned fast. Fixed by
+  # GPU_MAX_HW_QUEUES=1 below. Benchmark any bump with
+  # docs/llm-hosting/bench/longctx.py at 4000 AND 50000 before merging.
+  image: vllm/vllm-openai-rocm:nightly@sha256:a78d3e91404e7875aa650a61dea580a9e26d72553bee9ae5b93dbdef7107594d
   modelCache:
     claimName: qwen38-27b-vllm-model-cache
   vllmConfig:
@@ -249,7 +264,7 @@ spec:
     maxModelLen: 246944
     kvCacheDtype: fp8_e4m3
     # Confirmed working on this hybrid Mamba/GDN model (~27% hit rate under
-    # real traffic on the sibling qwen36 config).
+    # real traffic on the qwen36 config this replaced).
     enablePrefixCaching: true
     # Do NOT lower this to buy transcode headroom: 2048 was tried and cost
     # 4-16x TTFT (p50 5s -> 80s, avg 13.8s -> 58.5s) because a 20K-token
@@ -261,15 +276,20 @@ spec:
     # sane value. The media-reserve math lives with that flag, not here.
     gpuMemoryUtilization: 0.875
   env:
-    # Attention IS AITER while the 09-01 soak patch below is mounted: it lifts
-    # the supports_kv_connector rejection at rocm.py:703, and the boot log
-    # confirms "Overriding with ROCM_AITER_UNIFIED_ATTN". Drop that patch and a
-    # KV connector forces TRITON_ATTN again. FP8 linear kernels do not apply to
-    # W4A16. Also kept for the GDN linear-attn path.
-    # An older forced-AITER experiment measured +84% decode / ~10x worse
-    # prefill; the soak block below measures parity. Trust the soak block --
-    # the older number predates vllm#53821.
+    # Attention is ROCM_AITER_UNIFIED_ATTN (KV connector support upstream since
+    # vllm#53695); boot log confirms "Overriding with ROCM_AITER_UNIFIED_ATTN".
+    # FP8 linear kernels do not apply to W4A16. Also kept for the GDN
+    # linear-attn path. Backend comparison and TURBOQUANT exclusion:
+    # docs/llm-hosting/gfx1201-decode-findings-2026-09-02.md.
     - name: VLLM_ROCM_USE_AITER
+      value: "1"
+    # gfx1201 lands each HIP process in a fast or slow band at exactly 2x
+    # (ITL 30.7 vs 61.5 ms, mem_busy 81% vs 40%), ROCm/ROCm#6347. Fewer HW
+    # queues raise the fast odds but do not pin them: nightly 70d3eb5 spawned
+    # slow 5/5 without this; with it spawn 1 was fast 80/81 windows over 50
+    # min, spawn 3 still flipped mid-request (2026-09-12, see
+    # docs/llm-hosting/gfx1201-fast-slow-band-2026-09-12.md).
+    - name: GPU_MAX_HW_QUEUES
       value: "1"
     - name: HIP_VISIBLE_DEVICES
       value: "0"
@@ -301,14 +321,19 @@ spec:
       emptyDir:
         medium: Memory
         sizeLimit: 24Gi
-    # SOAK TEST -- see the mounts below and models/resources/zz_aiter_kvconn_impl.py.
-    - name: aiter-kvconn-patch
-      configMap:
-        name: aiter-kvconn-patch
     # Raises the W4A16 skinny-GEMM LDS gate to the C++ kernel's real limit.
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
+    # AITER gfx1201 unified-attention config with attn_3d.num_stages 2->1: the
+    # 2-stage fp8 K+V pipeline at head_dim 256 is 64 KiB LDS, the whole RDNA4
+    # CU, so the decode split-KV kernel ran one workgroup per CU (~120 GB/s).
+    # Measured 2026-09-10, 64K prompt M=1: 23.25 -> 29.06 tok/s; 5K unchanged
+    # (32.5). --attention-backend TRITON_ATTN on this build: 1.9 tok/s, 456 s
+    # TTFT at 64K, so not an alternative.
+    - name: aiter-ua-config
+      configMap:
+        name: aiter-ua-config
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -316,39 +341,6 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # SOAK TEST 2026-09-01, time-boxed -- remove or promote after evaluation.
-    # EXIT CRITERION (added 09-03, was missing): the claimed win is short
-    # context, so compare litellm TTFT and ITL for prompts under 2K tokens
-    # over the 7d before 09-01 against the 7d after. Promote on a real
-    # improvement there, revert on parity -- the synthetic sweeps already
-    # measured parity at long context, so "no change" is a revert, not a pass.
-    #
-    # Selects ROCM_AITER_UNIFIED_ATTN instead of TRITON_ATTN by lifting an
-    # inherited `supports_kv_connector() -> False` that appears to be a missing
-    # override rather than a real exclusion (full argument in the .py).
-    #
-    # Bench says PARITY, not a win: decode conc-16 77.27 vs 77.63 tok/s, engine
-    # prefill 6388.5 vs 6390. It is deployed anyway to get real-traffic hours,
-    # because the published gains (vllm#43615: +56.5% at 512 tok, +72.4% on
-    # 1K-2K) live at short contexts that the synthetic sweeps did not cover,
-    # and production traffic does include them.
-    #
-    # An earlier run measured 1.89 tok/s decode and looked catastrophic. That was
-    # vllm#53821 (AITER's query_start_loc zeroed during graph capture), fixed in
-    # this image. Do NOT reintroduce that number as evidence.
-    #
-    # Verify it actually took effect -- the hook fails open to TRITON_ATTN:
-    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep aiter-kvconn-patch
-    #   kubectl logs deploy/qwen38-27b-vllm -c vllm | grep "Overriding with"
-    # Revert = delete these two mounts, the volume above, and the generator.
-    - name: aiter-kvconn-patch
-      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn.pth
-      subPath: zz_aiter_kvconn.pth
-      readOnly: true
-    - name: aiter-kvconn-patch
-      mountPath: /usr/local/lib/python3.12/dist-packages/zz_aiter_kvconn_impl.py
-      subPath: zz_aiter_kvconn_impl.py
-      readOnly: true
     # rdna_hybrid_w4a16.py gates the fast HIP skinny GEMM on
     # `K * M <= LDS_CAPACITY_ELEMENTS` (32768). The C++ kernel actually accepts
     # `K_in * N_in <= max_lds_len * 1.2` (39321) and switches to a medium
@@ -361,8 +353,10 @@ spec:
     # ~1.8x faster; M=3 (52224) is refused by the kernel itself with a clean
     # RuntimeError, so an over-large gate fails loudly, not silently.
     #
-    # Same one-line change as upstream vllm PR #52619. Drop this mount and the
-    # generator entry once that lands in the nightly.
+    # Same one-line change as upstream vllm PR #52619. The same hook also
+    # swaps the Triton tile config for M <= 32 (2 warps, 1 stage: 1.04-1.31x
+    # on every Qwen3.8 shape, bench in docs/llm-hosting/bench/downfix/). Drop
+    # this mount and the generator entry once both land in the nightly.
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth
@@ -370,6 +364,11 @@ spec:
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
       subPath: zz_lds_gate_impl.py
+      readOnly: true
+    # Overlays the whole file, so re-diff against the image copy on bumps.
+    - name: aiter-ua-config
+      mountPath: /usr/local/lib/python3.12/dist-packages/aiter/ops/triton/configs/gfx1201/triton/attention/unified_attention/DEFAULT.json
+      subPath: DEFAULT.json
       readOnly: true
   extraArgs:
     # First name is what vLLM reports back as `model`, so qwen-3.8 stays
@@ -386,6 +385,12 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
+    # Per-request per-step prefill cap, 2 mamba blocks (800 tokens each). A 50K
+    # prompt otherwise fills the whole 4096 batch for ~12 steps while the running
+    # decodes stall (<2 tok/s with 4+ running, docs/llm-hosting/perf-plan-2026-09-13.md).
+    # This nightly has no --max-num-partial-prefills; this is the only knob.
+    - --long-prefill-token-threshold
+    - "1600"
     # GDN hybrids OOM CUDA-graph capture at vLLM's default 512 ceiling
     # (vLLM #39010 on gfx1201). Sizes match parallelSlots above -- also
     # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
@@ -396,13 +401,41 @@ spec:
     # M=5 as 6 -- the M=5 point was measuring the all-Triton M=6 path. With
     # max_num_seqs 5 there is no padding left to pay for.
     - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5]}'
-    # Keep prior-turn reasoning in context; matches production qwen36 config.
+    # Keep prior-turn reasoning in context; carried over from the qwen36 config.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
-    # MTP speculative decoding is deliberately OMITTED: measured on this
-    # hardware, MTP + tool-calling grammar wedges to ~0.2 tok/s (100x
-    # regression) under concurrent tool traffic. Re-test that wedge before
-    # re-adding.
+    # NO --speculative-config. Every method vLLM offers was evaluated 2026-09-07
+    # and all are unusable -- full evidence in
+    # docs/llm-hosting/spec-decode-rejected.md. Summary:
+    #
+    #   n-gram  CORRUPTS OUTPUT (measured, incl. in production). vllm#39273: SSM
+    #           state corruption on hybrid GDN models -- this is one --
+    #           truncated/repeated fragments. Trialled on live traffic and
+    #           reverted the same day after Hermes reported truncated outputs.
+    #           Benchmarked ~1.8-2.1x faster on echo-heavy work (PROVISIONAL:
+    #           never run against a same-prompt spec-off control) and WRONG.
+    #           Acceptance and tokens-per-step stayed healthy throughout, so the
+    #           engine metrics do NOT catch it.
+    #   DSpark  0.59x (measured). Drafter KV +70% B/token, bf16, forces
+    #           maxModelLen below the 112K production peak.
+    #   MTP     + tool-calling grammar wedges to ~0.2 tok/s (100x) under
+    #           concurrent tool traffic; -27% at M=5 alone.
+    #   EAGLE3/ NOT benchmarked, ruled out on mechanism: same drafter-KV tax,
+    #   DFlash  plus vllm#41640 (unmerged) leaves a GQA drafter's KV group
+    #           unidentifiable on a non-MLA target, so prefix caching is
+    #           disabled and the KV offload tier goes write-only.
+    #
+    # Re-open ONLY when a named upstream issue is fixed: vllm#39273 for n-gram,
+    # vllm#41640 + vllm#49002 for anything drafter-based. An upstream fix
+    # re-opens EVALUATION, not shipping. Before enabling anything, ALL of:
+    #   1. spectest.py passes -- read the whole output, not the head. This is a
+    #      precondition for quoting a speed number at all, and skipping it is
+    #      what let the corruption reach production.
+    #   2. a same-prompt spec-off baseline on the same pod (never run).
+    #   3. a concurrency test at parallelSlots -- everything measured so far is
+    #      single-stream or conc<=5.
+    #   4. a tool-calling test under grammar constraint, the regime that wedged
+    #      MTP (bench/toolbench.py, vmcp preset).
     # Separate pools, both needed -- ssm does NOT inherit from the other on
     # Qwen3.5 (its config forces auto to fp32). Dropping it cost 7,160 KV
     # tokens and halved the CPU tier. bfloat16 is vLLM's floor for either.
@@ -443,9 +476,9 @@ spec:
     - "0.05"
     - --kv-cache-memory
     - "10200547328"
-    # Hierarchical KV cache: CPU tier (matches SGLang's --hicache-ratio sizing
-    # philosophy) + fs tier (SGLang's file backend analogue). Ported from
-    # qwen36-27b-vllm.yaml, WITHOUT that config's --language-model-only —
+    # Hierarchical KV cache: CPU tier (sizing philosophy carried over from the
+    # retired SGLang engine's --hicache-ratio) + fs tier (its file-backend
+    # analogue). From qwen36-27b-vllm.yaml, WITHOUT its --language-model-only —
     # Hermes' auxiliary.vision block actively uses this model's vision tower,
     # so it must stay loaded even though that costs some context headroom.
     # CPU tier 22Gi: the 16Gi tier cascaded 3.5 GB/hour to the fs tier, i.e.
@@ -470,20 +503,18 @@ spec:
     # nested key is silently accepted and ignored, so verify after any edit by
     # grepping the boot log for that literal.
     #
-    # Tried 8 on 2026-09-03 and REVERTED the same evening. It did what it was
-    # designed to do -- chunk queries 13.13 -> 9.79 per request, hit rate flat
-    # at 40.5% vs 40.9% -- but each lookup got 44% slower (4.33s -> 6.24s) and
-    # the number that matters, TOTAL lookup wall time per request, went UP:
-    # 5.47s -> 6.46s, or +45% once normalised for the shorter prompts in the
-    # after-window (0.099 -> 0.143 s per 1K prompt tokens).
+    # Tried 8 on 2026-09-03, REVERTED the same evening: chunk queries fell
+    # 13.13 -> 9.79 per request and hit rate stayed flat (40.5% vs 40.9%), but
+    # each lookup got 44% slower (4.33s -> 6.24s) and total lookup wall time per
+    # request went UP, 5.47s -> 6.46s (+45% normalised for prompt length,
+    # 0.099 -> 0.143 s per 1K prompt tokens).
     #
     # Mechanism: the tier has ONE serial lookup thread and is page-cache-bound,
-    # not throughput-bound, so coalescing more blocks per lookup does not
-    # reduce serialisation, it just makes each serial unit bigger. Raising this
-    # cannot help for that reason -- do not retry 8 or 16 without first making
-    # the lookup manager concurrent. Judge any future attempt on total lookup
-    # seconds per request, never on the per-lookup mean, which improves by
-    # construction as the count falls.
+    # not throughput-bound -- coalescing more blocks per lookup makes each
+    # serial unit bigger without reducing serialisation. Do not retry 8 or 16
+    # without first making the lookup manager concurrent, and judge any attempt
+    # on total lookup seconds per request, never the per-lookup mean (which
+    # improves by construction as the count falls).
     - --kv-transfer-config
     - >-
       {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
@@ -529,15 +560,47 @@ spec:
       periodSeconds: 15
       failureThreshold: 240
     # Startup owns the load/compile window, so this only ever sees a serving
-    # engine. Slack on purpose: a restart costs ~2min, so only a 10-minute
-    # outage (20 x 30s) counts as death.
+    # engine. Two checks in one probe:
+    # 1. /health, with slack on purpose: a restart costs ~2min, so only a
+    #    10-minute outage (20 consecutive misses x 30s) counts as death. The
+    #    count lives in /tmp because failureThreshold must stay 1 for check 2.
+    # 2. The gfx1201 slow band (ROCm/ROCm#6347, see GPU_MAX_HW_QUEUES above):
+    #    with exactly one request decoding, mem_busy_percent reads ~81 fast
+    #    and ~40 slow. A sample is taken only with one request running AND
+    #    sclk boosted (decode sits at 3180+ MHz in either band, a chunked 50K
+    #    prefill at 2480-2800 with mem_busy ~30 and would read as slow; the
+    #    engine's step counters are flushed lazily and cannot gate this).
+    #    Eight samples with under a quarter fast fail the probe. Only card1
+    #    has the counter. $$ throughout: Flux postBuild envsubst substitutes
+    #    bare $VAR.
     liveness:
-      httpGet:
-        path: /health
-        port: 8000
+      exec:
+        command:
+          - /bin/sh
+          - -c
+          - |
+            f=/tmp/band; g=/sys/class/drm/card1/device
+            sclk_min=3100; busy_min=60; window=8; fast_min_pct=25
+            if ! curl -sf -m 8 -o /dev/null localhost:8000/health; then
+              n=$$(( $$(cat "$$f".fail 2>/dev/null || echo 0) + 1 )); echo "$$n" > "$$f".fail
+              [ "$$n" -ge 20 ] && exit 1; exit 0
+            fi
+            rm -f "$$f".fail
+            running=$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:num_requests_running\{/{print $$2}')
+            sclk=$$(awk '/\*/{sub(/Mhz/,"",$$2); print $$2}' $$g/pp_dpm_sclk)
+            [ "$$running" = "1.0" ] && [ "$${sclk:-0}" -ge "$$sclk_min" ] || exit 0
+            [ "$$(cat $$g/mem_busy_percent)" -ge "$$busy_min" ] && echo 1 >> "$$f" || echo 0 >> "$$f"
+            tail -n "$$window" "$$f" > "$$f".new && mv "$$f".new "$$f"
+            n=$$(wc -l < "$$f"); fast=$$(grep -c 1 "$$f")
+            [ "$$n" -ge "$$window" ] || exit 0
+            if [ $$((fast * 100)) -lt $$((n * fast_min_pct)) ]; then echo "slow band: $$fast/$$n solo samples fast" >&2; exit 1; fi
+      # The first minute after a spawn read slow on 2 of 5 pinned-image
+      # spawns; counted from container start, this leaves ~10 min past the
+      # ~4 min startup probe.
+      initialDelaySeconds: 900
       periodSeconds: 30
-      timeoutSeconds: 10
-      failureThreshold: 20
+      timeoutSeconds: 20
+      failureThreshold: 1
     readiness:
       tcpSocket:
         port: 8000

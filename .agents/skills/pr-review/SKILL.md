@@ -67,5 +67,3 @@ For small diffs without subagents:
 - Isolation, local diff, aggregation: [references/workflow.md](references/workflow.md)
 - Expanded validation topics: [references/best-practices.md](references/best-practices.md)
 - Script: [scripts/validate-pr.sh](scripts/validate-pr.sh)
-
-Format reference: [agentskills.io](https://agentskills.io/specification).

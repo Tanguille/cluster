@@ -187,7 +187,7 @@ Small non-LFS files revalidate correctly. Seeding an etag file and re-requesting
 
 LFS-backed files do not. With the correct etag seeded, `model.safetensors` returns:
 
-```
+```text
 http=200 size=738200627 (aborted at 20s)
 url=https://us.aws.cdn.hf.co/xet-bridge-us/<id>/<sha>?...Expires=...&Signature=...
 ```
@@ -259,6 +259,14 @@ python3 spectest.py 8000
 **Discard the first run after a pod restart** (see above), and note `concsweep.py` reports
 aggregate tok/s, not per-stream. Every figure in this doc comes from these two scripts
 against a single-replica service with nothing else on the GPU.
+
+Later additions, all production-context (~48K) rather than short-prompt:
+
+- `ttftsweep.py` — prefill/TTFT with production-shaped prompts; aborts unless the engine is idle.
+- `longconcsweep.py` — aggregate decode vs concurrency at production context.
+- `ctxdecode.py` — decode rate, short vs production context.
+- `cachedecode.py` — decode after a cold prefix vs a cached one.
+- `grammartest.py` — decode with and without a tool schema attached.
 
 Workload profile driving these choices, from litellm `LiteLLM_SpendLogs` over 21 days
 (14,678 requests): prompt p50 35,346 / p90 88,583 / p99 112,050; generation p50 196 /

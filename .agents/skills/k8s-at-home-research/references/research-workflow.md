@@ -6,7 +6,7 @@ Start broad, then narrow by resource type. Use exact code-shaped queries rather 
 
 ### Kubesearch query patterns (preferred)
 
-```
+```text
 # Find who deploys your chart, ranked by popularity
 kubesearch_search_releases(query: "cert-manager", limit: 10)
 # Drill into deployments + spec.values; response includes repo file_url

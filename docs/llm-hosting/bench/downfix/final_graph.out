@@ -1,0 +1,32 @@
+[lds-gate-patch] import hook installed
+[lds-gate-patch] LDS_CAPACITY_ELEMENTS 32768 -> 39321
+# CUs=32 LDS_CAP=39321 chunks S=3 [(0, 5888), (5888, 11776), (11776, 17408)]
+M=   1 shipped dispatch              101.4 us (med    198.0)    467 GB/s  1.00x  maxerr 5.754e-02
+M=   1 splitK skinny S=2             148.8 us (med    255.3)    318 GB/s  0.68x  maxerr 1.032e-01
+M=   1 splitK skinny S=3             173.0 us (med    265.0)    274 GB/s  0.59x  maxerr 1.032e-01
+M=   1 splitK skinny S=4             203.0 us (med    342.1)    233 GB/s  0.50x  maxerr 1.032e-01
+M=   2 shipped dispatch              135.6 us (med    246.9)    349 GB/s  1.00x  maxerr 6.147e-02
+M=   2 splitK skinny S=2             181.1 us (med    289.4)    261 GB/s  0.75x  maxerr 7.941e-02
+M=   2 splitK skinny S=3             217.1 us (med    411.8)    218 GB/s  0.62x  maxerr 8.731e-02
+M=   2 splitK skinny S=4             271.1 us (med    457.9)    175 GB/s  0.50x  maxerr 9.542e-02
+M=   3 shipped dispatch              270.6 us (med    362.4)    175 GB/s  1.00x  maxerr 1.030e-01
+M=   3 splitK skinny S=2             201.4 us (med    343.7)    235 GB/s  1.34x  maxerr 9.205e-02
+M=   3 splitK skinny S=3             209.2 us (med    493.6)    226 GB/s  1.29x  maxerr 9.656e-02
+M=   3 splitK skinny S=4             286.8 us (med    412.7)    165 GB/s  0.94x  maxerr 8.891e-02
+M=   4 shipped dispatch              271.3 us (med    361.2)    175 GB/s  1.00x  maxerr 1.005e-01
+M=   4 splitK skinny S=2             229.8 us (med    366.7)    206 GB/s  1.18x  maxerr 1.079e-01
+M=   4 splitK skinny S=3             246.3 us (med    441.6)    192 GB/s  1.10x  maxerr 1.266e-01
+M=   4 splitK skinny S=4             259.5 us (med    474.6)    182 GB/s  1.05x  maxerr 1.167e-01
+M=   5 splitK skinny S=2          REFUSED K*N exceeds LDS capacity (medium limit). K=8704 N=5
+M=   5 shipped dispatch              266.4 us (med    356.8)    178 GB/s  1.00x  maxerr 9.571e-02
+M=   5 splitK skinny S=3             209.5 us (med    423.7)    226 GB/s  1.27x  maxerr 9.587e-02
+M=   5 splitK skinny S=4             333.9 us (med    564.7)    142 GB/s  0.80x  maxerr 1.051e-01
+M=  64 shipped triton full K         289.5 us (med    362.0)    164 GB/s  1.00x  maxerr 1.109e-01
+M=  64 triton chunked S=2            494.4 us (med    654.7)     96 GB/s  0.59x  maxerr 1.430e-01
+M=  64 triton chunked S=3            549.8 us (med    851.4)     86 GB/s  0.53x  maxerr 1.683e-01
+M= 512 shipped triton full K        1320.1 us (med   1465.6)     36 GB/s  1.00x  maxerr 1.204e-01
+M= 512 triton chunked S=2           1847.1 us (med   2181.0)     26 GB/s  0.71x  maxerr 1.565e-01
+M= 512 triton chunked S=3           1912.3 us (med   2189.1)     25 GB/s  0.69x  maxerr 1.667e-01
+M=4096 shipped triton full K       13820.2 us (med  14837.1)      3 GB/s  1.00x  maxerr 1.289e-01
+M=4096 triton chunked S=2          11594.4 us (med  12851.8)      4 GB/s  1.19x  maxerr 1.760e-01
+M=4096 triton chunked S=3          11649.4 us (med  12170.0)      4 GB/s  1.19x  maxerr 2.066e-01

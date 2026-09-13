@@ -3,7 +3,7 @@
 Apps in this repo get their PostgreSQL role and database **declaratively from CloudNativePG**, not
 from an init-container. This replaced the `ghcr.io/home-operations/postgres-init` pattern (an
 `init-db` container that ran `CREATE ROLE` / `CREATE DATABASE` with superuser credentials at pod
-startup). Only `immich` still uses it, deliberately deferred — see "Not onboarded" below.
+startup). No app in the repo uses it any more.
 
 Each onboarded app has:
 
@@ -30,6 +30,7 @@ Two Flux Kustomizations reconcile these:
   references each Secret via `managed.roles[].passwordSecret`, and CNPG requires that Secret to be
   in the Cluster's namespace — co-locating them means the Cluster never points at a Secret that has
   not been applied yet.
+
 > **Why these aren't co-located with each app.** `Database.spec.cluster` and
 > `managed.roles[].passwordSecret` are Kubernetes `LocalObjectReference`s — the schema has no
 > namespace field, so CNPG always resolves the Cluster/Secret *in the same namespace as the object
@@ -152,7 +153,7 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
 - **immich** — its `DB_URL` targets a database `immich` that does **not** exist (only an orphan `app`
   db, no vector extension), and immich is not running. A `Database` CR with `ensure: present` would
   create a new empty `immich`, not adopt data. Decide first — decommission, repoint to `app`, or
-  restore `immich` from backup — then onboard. Its init-db is intentionally left in place.
+  restore `immich` from backup — then onboard. Its manifests have been removed from the repo.
 
 ## Validation before applying
 
