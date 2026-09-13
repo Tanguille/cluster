@@ -26,7 +26,7 @@ spec:
 
 `PVC_ACCESSMODES`/`PVC_STORAGECLASS`/`BACKUP_SNAPSHOTCLASS` are also available (defaults:
 `ReadWriteOnce`/`ceph-block`/`csi-ceph-blockpool`) — only set them when deviating. Example
-apps: `kubernetes/apps/media/qui` (plain 568 default), `kubernetes/apps/media/jellyfin`
+apps: `kubernetes/apps/media/qui` (plain 568 default), `kubernetes/apps/default/changedetection`
 (root, `KOPIUR_MOVER_CAPS_ADD`), `kubernetes/apps/ai/hermes` (one-off uid 10000).
 
 This single component renders `SnapshotPolicy`, `SnapshotSchedule`, `PersistentVolumeClaim`
