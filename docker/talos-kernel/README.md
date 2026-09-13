@@ -359,7 +359,7 @@ Two things have to be true for a node. All three nodes satisfy both as of 2026-0
    because the CR field was Renovate-managed by an inline annotation that captures the whole
    value and would rewrite `v1.13.9-k7.1.9` to `v1.13.10`, eating the suffix. That is a property
    of the *manager*, not the field: two file-scoped regex managers in `.renovaterc.json5` now own
-   one half each, so the field can carry it. See `docs/tuppr-cr-version-target-plan.md`.
+   one half each, so the field can carry it.
 
    The annotation mattered because only `just talos apply-node` could change it, so merging a
    bump PR rolled nothing.

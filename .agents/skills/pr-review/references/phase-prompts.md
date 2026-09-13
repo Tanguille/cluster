@@ -151,7 +151,7 @@ prompt: |
   - flate test all: renders Kustomizations + HelmReleases with the real Helm/Kustomize SDKs (catches Helm template errors kustomize build can't see)
   - shellcheck: touched shell scripts
 
-  Run `bash .agents/skills/pr-review/scripts/validate-pr.sh` for both, or the individual commands in [best-practices.md](best-practices.md#validation-command-pattern).
+  Run `bash .agents/skills/pr-review/scripts/validate-pr.sh` for both.
 
   TASKS:
   1. Run shellcheck on touched scripts

@@ -34,14 +34,6 @@ Machine configs are rendered on demand and pushed by hand; nothing applies them 
 See [talos/README.md](../talos/README.md) for the layer model, the full recipe list, and the
 toolchain the bare `just` commands assume.
 
-```bash
-just talos diff-node <node> <node-ip>     # dry-run against the running node
-just talos apply-node <node> <node-ip>    # render and apply
-```
-
-Run `diff-node` against **every** node and confirm `No changes.` before applying anything.
-Upgrade `control-1` last: it is the TrueNAS VM and the only dGPU host.
-
 ---
 
 ## Pods & workloads

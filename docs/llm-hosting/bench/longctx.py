@@ -9,6 +9,14 @@ Decode speed is read from the server's own inter_token_latency metric, not from
 client stream timing: urllib's BufferedReader coalesces SSE events, which made a
 client-side measurement report 47000 tok/s at 0.0 ms ITL.
 
+INVALID UNDER SPECULATIVE DECODING. That counter records roughly one event per
+STEP, not per token, so with spec decode on it under-counts badly (184-426
+events for a fixed 511-token generation) and the derived tok/s is far too low --
+it reported 7.37 tok/s where wall-clock measured 18.84. Use walltime.py for any
+speculative config. Safe here as long as this deployment ships without
+--speculative-config, which it does (see docs/llm-hosting/spec-decode-rejected.md);
+this note exists so the next person to try one does not trust these numbers.
+
 Per rep it reports the EXACT mean ITL from the sum/count counter deltas, plus
 the share of tokens past the 50 and 75 ms bucket edges. The tail shares are what
 separate a uniformly slower kernel from occasional stalls; percentiles are

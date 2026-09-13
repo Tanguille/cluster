@@ -71,7 +71,3 @@ Unless the user asks for raw dumps, use:
 ### Recommendation
 <next step>
 ```
-
-## Scripts
-
-Format reference: [agentskills.io](https://agentskills.io/specification).

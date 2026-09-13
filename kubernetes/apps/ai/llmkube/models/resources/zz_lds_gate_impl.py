@@ -1,4 +1,4 @@
-# TEST ONLY -- raises the W4A16 skinny-GEMM LDS gate to match the C++ kernel.
+# Raises the W4A16 skinny-GEMM LDS gate to match the C++ kernel.
 #
 # rdna_hybrid_w4a16.py dispatches:
 #     if M <= MAX_SKINNY_BATCH_SIZE and K * M <= LDS_CAPACITY_ELEMENTS:

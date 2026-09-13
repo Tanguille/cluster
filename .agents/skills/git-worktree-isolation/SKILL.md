@@ -53,5 +53,3 @@ Delegate cleanup to a subagent when it should not block the main flow.
 | Validation / tests | Optional subagent |
 | Cleanup | Yes — optional subagent |
 | Multiple worktrees | Yes — parallel subagents |
-
-Format reference: [agentskills.io](https://agentskills.io/specification).

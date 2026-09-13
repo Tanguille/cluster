@@ -105,5 +105,3 @@ Use `kubesearch_get_release` to drill into deployments of the same chart and com
 - [add-app-to-cluster](../add-app-to-cluster/SKILL.md) — new deployments
 - [k8s-at-home-research](../k8s-at-home-research/SKILL.md) — finding homelab config examples
 - [prometheus-cluster-health](../prometheus-cluster-health/SKILL.md) — alerts, CPU/memory hotspots
-
-Format reference: [agentskills.io](https://agentskills.io/specification).

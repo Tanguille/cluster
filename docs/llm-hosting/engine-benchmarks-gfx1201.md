@@ -579,17 +579,8 @@ Done, kept for the result:
 
 Still outstanding:
 
-- [ ] **Clean re-validation of the deployed v0.5.16-rebase image.** The fork rebase that
-      this item waited on has happened (v0.5.16, `689339d`, deployed at `sha-cb7b76050cbf`
-      with 086/087/#31648 live), so the "blocked on the fork" condition is met. What remains
-      is a clean-GPU re-run of the concurrency sweep and the verbatim-reproduction test from
-      `bench/` compared against the recorded v0.5.15 numbers — the 2026-08-01 attempt ran
-      under production load and is only a floor (see Round 3 above).
 - [ ] vLLM fp8 KV + extended context: `--max-model-len 131072` with fp8 KV — does 32K -> 131K
       move throughput?
 - [ ] Push MTP concurrency beyond 16 with `max_num_seqs=32` — does C=32 MTP reach 200+ tok/s?
-- [ ] `mamba_track_interval` / scheduler tuning under Config B for higher concurrency.
-- [ ] Quality probe (logprob/eval) to close out the fork's flagged torch-2.12 attention drift;
-      basic coherence already passes.
 - [ ] llama.cpp gfx1201 tuning sweep — `-b`/`-ub`, hipBLASLt env, perf level, iGPU/`-sm`, Vulkan
       backend. Then cache probe and concurrency sweep.
