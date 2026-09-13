@@ -29,11 +29,6 @@ spec:
   env:
     - name: TRUENAS_MCP_TARGET
       value: truenas.${SECRET_DOMAIN}
-  secrets:
-    - name: truenas-mcp
-      key: TRUENAS_API_KEY
-      # The key is renamed to TRUENAS_MCP_API_KEY when the real key is encrypted in.
-      targetEnvName: TRUENAS_MCP_API_KEY
   podTemplateSpec:
     spec:
       containers:
