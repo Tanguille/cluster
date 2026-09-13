@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app trivy-operator
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: trivy-operator
+  values:
+    fullnameOverride: *app
+    # Expose the /metrics endpoint to Prometheus via a ServiceMonitor.
+    serviceMonitor:
+      enabled: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 512Mi
