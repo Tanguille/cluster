@@ -9,6 +9,8 @@ description: >-
   user: "Are secrets encrypted?" → phase 4 (security) subagent
   user: "Validate before CI" → phase 6 (validation) subagent
   user: "Review my local changes" → PR_ID=local-changes, staged + unstaged diff
+  user: "Shepherd this PR / iterate until CI and review are green" → shepherd loop
+    (rebase discipline, diff-grounded description, CI triage: references/pr-shepherd.md)
 
   Use proactively for K8s app/Flux/HelmRelease changes, infrastructure edits, or pre-commit diff review.
 compatibility: Requires `git`, `mise`, `flate`, and `shellcheck` for phase 6 (falls back to `kustomize`/`flux` if `flate` is unavailable); optional `gh` for PR metadata.
@@ -61,9 +63,15 @@ For small diffs without subagents:
 - [ ] SOPS secrets; `${SECRET_DOMAIN}`; envoy route parentRefs
 - [ ] `flate test all` / `shellcheck` pass on touched paths
 
+## Shepherd mode (advance a PR to green)
+
+For "keep iterating until CI and automated review pass": follow
+[references/pr-shepherd.md](references/pr-shepherd.md) — gates, CI triage, budget, boundaries.
+
 ## Progressive disclosure
 
 - Subagent prompts: [references/phase-prompts.md](references/phase-prompts.md)
 - Isolation, local diff, aggregation: [references/workflow.md](references/workflow.md)
+- Shepherd loop, rebase discipline, CI triage: [references/pr-shepherd.md](references/pr-shepherd.md)
 - Expanded validation topics: [references/best-practices.md](references/best-practices.md)
 - Script: [scripts/validate-pr.sh](scripts/validate-pr.sh)
