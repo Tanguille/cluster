@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/source.toolkit.fluxcd.io/helmrepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: k8s-gpu-dra-driver
+spec:
+  interval: 1h
+  # ghcr.io/buroa/helm/k8s-gpu-dra-driver (this HelmRelease's original chart source) is gone —
+  # the repo behind it was deleted upstream. ROCm publishes the chart through its own GitHub
+  # Pages Helm repo instead of an OCI package (.github/workflows/release.yaml, helm-gh-pages job).
+  url: https://rocm.github.io/k8s-gpu-dra-driver
