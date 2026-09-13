@@ -13,7 +13,9 @@
     "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#8.1.0",
     "github>home-operations/renovate-presets//apps/llamacpp.json5#8.1.0",
     "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0",
-    "github>home-operations/renovate-presets//apps/talosFactory.json5#8.1.0",
+    // talosFactory preset dropped: it matches factory.talos.dev tags and every node pins
+    // ghcr.io/tanguille/installer/*. Its custom.talos-factory datasource is wrong for the tuppr
+    // target too -- that reads what the Factory can build, we gate on the siderolabs git tag.
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
@@ -22,18 +24,46 @@
     // (7.1.x -> 7.2.x) with no config change. Not a git mirror: gregkh/linux carries mainline
     // and -rc tags in the same stream, so Renovate would offer -rc builds as updates.
     // Feed shape verified against the live endpoint: {"releases":[{"moniker","version",
-    // "changelog","iseol",...}], "latest_stable":{...}}, exactly one moniker=="stable" entry.
+    // "changelog","iseol",...}], "latest_stable":{...}}.
     // Re-check with: curl -s https://www.kernel.org/releases.json | jq '.releases[]|select(.moniker=="stable")'
     // If the shape ever changes the transform yields zero releases and bumps stop SILENTLY.
+    //
+    // There can be TWO stable entries while a series hands over — 7.2.2 and 7.1.12 both appeared
+    // on 2026-08-28 — so this is not a single-row feed and Renovate picks the highest. iseol is
+    // filtered because a dead series lingers in the feed with its final version: without it, a
+    // hold on the older series would sit on an unpatched kernel and look current.
     "linux-kernel": {
       defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
       format: "json",
       transformTemplates: [
-        '{"releases":[releases[moniker="stable"].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
+        '{"releases":[releases[moniker="stable" and iseol=false].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
       ]
     }
   },
   customManagers: [
+    {
+      // One manager per half: an inline annotation takes the whole value and reads -k as a
+      // semver prerelease. Optional prerelease group so an rc pin still matches.
+      description: "tuppr target v<talos>-k<kernel>: Talos half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: [
+        "version:\\s+(?<currentValue>v\\d+\\.\\d+\\.\\d+(?:-[a-z]+\\.\\d+)?)-k"
+      ],
+      depNameTemplate: "siderolabs/talos",
+      datasourceTemplate: "github-releases"
+    },
+    {
+      // Span is "-k<version>", not the version line: Renovate rewrites currentValue inside the
+      // span, and "v1.17.3-k7.3" contains "7.3" twice. Cost: every -k<digits> in the file is its
+      // own dep. depName linux matches the Dockerfile ARG, so both land in one branch.
+      description: "tuppr target v<talos>-k<kernel>: kernel half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: ["-k(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)"],
+      depNameTemplate: "linux",
+      datasourceTemplate: "custom.linux-kernel"
+    },
     {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
@@ -106,6 +136,16 @@
       automergeType: "pr"
     },
     {
+      // User-cleared (2026-09-08): "these updates have always been harmless." Self-hosted
+      // search app, PDB + RollingUpdate, no secrets in the image, no vendor SaaS. Covers all
+      // update types (calver tag bumps and digest refreshes on the same tag).
+      description: "Auto-merge searxng (user-cleared, 2026-09-08)",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/searxng/searxng"],
+      automerge: true,
+      automergeType: "pr"
+    },
+    {
       description: "vllm-openai-rocm nightly digest — the rolling `nightly` tag is digest-pinned so Renovate can detect new builds at all; never auto-merge, a bump rolls the single-GPU serving pod and can move the KV pool that maxModelLen is sized against",
       matchDatasources: ["docker"],
       matchPackageNames: ["vllm/vllm-openai-rocm"],
@@ -123,13 +163,15 @@
     {
       description: "Flux Operator Group",
       groupName: "flux-operator",
-      matchDatasources: ["docker"],
+      // github-releases: the pinned flux-operator dashboard URLs in flux-instance/app/grafanadashboard.yaml
+      matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/flux-operator/", "/flux-instance/"],
       minimumGroupSize: 2
     },
     {
-      // talosupgrade.yaml, the flate workflow and the mise talosctl pin all track the
-      // same Talos release — one PR instead of three
+      // talosupgrade.yaml and the mise talosctl pin track the same Talos release — one PR
+      // instead of two. Nothing here moves during a pre-release (config:recommended sets
+      // ignoreUnstable), which is how a third copy in the flate workflow drifted four releases.
       description: "Talos Group",
       groupName: "talos",
       matchDatasources: ["docker", "github-releases"],
@@ -178,12 +220,6 @@
       matchPackageNames: ["/prometheus-klipper-exporter/"]
     },
     {
-      description: "Group spegel chart and Grafana dashboard URL",
-      groupName: "spegel",
-      matchDatasources: ["docker", "github-releases"],
-      matchPackageNames: ["/spegel-org/"]
-    },
-    {
       description: "nginx sidecar images group",
       groupName: "nginx",
       matchDatasources: ["docker"],
@@ -207,6 +243,13 @@
       ],
       matchPackageNames: ["/feramance\\/qbitrr/"],
       extractVersion: "^v(?<version>.*)$"
+    },
+    {
+      // Last release 2025-08-04, past `abandonments:recommended`, but still used by pre-commit.
+      // matchPackageNames misses: the mise preset rewrites packageName to koalaman/shellcheck.
+      description: "shellcheck releases rarely; not abandoned",
+      matchDepNames: ["aqua:koalaman/shellcheck"],
+      abandonmentThreshold: null
     },
     // Versioning overrides
     {

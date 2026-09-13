@@ -3,7 +3,24 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - prometheusrule.yaml
   - qwen38-27b-vllm.yaml
+  - qwen38-flash-next.yaml
   - qwen3-embedding.yaml
   - qwen35-2b.yaml
   - vmcp-embedding.yaml
+# Out-of-tree vLLM patches mounted into qwen38-27b-vllm; rationale in each file.
+# Hash suffix disabled because the consumer is an InferenceService (a CRD), and
+# kustomize only rewrites generated names inside built-in types -- a hashed name
+# would leave the CR pointing at a ConfigMap that does not exist. Consequence:
+# editing a file does NOT roll the pod on its own, so restart it deliberately.
+configMapGenerator:
+  - name: lds-gate-patch
+    files:
+      - zz_lds_gate.pth=./resources/zz_lds_gate.pth
+      - zz_lds_gate_impl.py=./resources/zz_lds_gate_impl.py
+  - name: aiter-ua-config
+    files:
+      - DEFAULT.json=./resources/aiter_unified_attention_gfx1201.json
+generatorOptions:
+  disableNameSuffixHash: true

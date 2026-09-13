@@ -1,8 +1,8 @@
 # Talos kernel package
 
 Builds a Talos-compatible Linux kernel package so the cluster can run a newer kernel
-than Talos ships. Talos v1.13.9 ships **Linux 6.18.44** and v1.14.0-rc.2 ships
-**Linux 6.18.46**; this tracks kernel.org **stable** (7.1.10 at time of writing).
+than Talos ships. Talos v1.14.0 ships **Linux 6.18.48**; this tracks kernel.org
+**stable** (7.1.13 at time of writing).
 
 Neither `siderolabs/talos` nor `siderolabs/pkgs` is forked. Both are consumed at their
 release tags and steered with make variables.
@@ -11,7 +11,7 @@ release tags and steered with make variables.
 
 The in-kernel Ceph client gained AES256-KRB5 (`aes256k`) support in **Linux 7.0**
 (`b7cc142dbafe libceph: add support for CEPH_CRYPTO_AES256KRB5`, merged in
-`ceph-for-7.0-rc1`). It is absent from 6.18.44 and was **not** backported to 6.18.y — it
+`ceph-for-7.0-rc1`). It is absent from 6.18.48 and was **not** backported to 6.18.y — it
 is a feature, not a fix. Without it the `csi-rbd-node` / `csi-cephfs-node` keys, which
 drive `rbd map` and `mount -t ceph`, cannot move off the insecure `aes` key type
 deprecated by CVE-2025-30156.
@@ -45,7 +45,7 @@ The Ceph `aes256k` feature this was built for is **not yet in use** — it also 
 |--------------------|----------------------------------------------------|----------------------------------------|
 | kernel.org moniker | **longterm**                                       | stable                                 |
 | Projected EOL      | Dec 2028                                           | none published; 7.2 shipped 2026-08-16 |
-| `siderolabs/pkgs`  | `release-1.13` and `release-1.14` both pin 6.18.44 | never shipped                          |
+| `siderolabs/pkgs`  | `release-1.14` pins 6.18.48                        | never shipped                          |
 
 Measured series lifetimes: 6.19.y made its last release 9 days after 7.0 shipped, 7.0.y 13
 days after 7.1. 7.2 is already out, so 7.1.y is likely within weeks of EOL. Mainline cadence
@@ -151,6 +151,25 @@ hardcode one.
 
 ## Per-bump maintenance
 
+Build from the bump branch **before** merging it:
+
+```sh
+branch=renovate/linux-7.x
+gh workflow run talos-kernel.yaml --ref "${branch}"
+# Dispatch returns immediately and the build is ~2h45m, so watch it rather than merging on the
+# assumption it worked. --exit-status is what makes a failed build a failed command; without it
+# `gh run watch` exits 0 whatever the run concluded. Filtered by branch AND event so a push
+# build of main cannot be picked up as this one.
+gh run watch --exit-status "$(gh run list --workflow talos-kernel.yaml --branch "${branch}" \
+    --event workflow_dispatch --limit 1 --json databaseId -q '.[0].databaseId')"
+```
+
+The push trigger builds on merge, but the build takes ~2h45m and `pinned` becomes
+`v<talos>-k<new-kernel>` the moment the merge lands — so between the two, every rendered config
+names an installer tag that does not exist yet. Dispatching on the branch closes that window:
+the workflow checks out that ref, so it builds that branch's `ARG KERNEL_VERSION` against that
+branch's tuppr CR, and the merge only ratifies an image that is already published.
+
 Renovate opens a PR bumping `ARG KERNEL_VERSION`. The tarball is verified by Greg KH's
 committed PGP key, so there is no second field to update. The key's fingerprint was
 cross-checked against the one kernel.org publishes on <https://www.kernel.org/signature.html>:
@@ -162,18 +181,19 @@ kernel.org:  647F 2865 4894 E3BD 4571  99BE 38DB BDC8 6092 693E
 
 Re-check it with `gpg --show-keys --with-fingerprint` if the key is ever replaced. Then rebuild and read the log:
 
-| surface                                 | measured, 6.18.44 -> 7.1.9                 |
-|-----------------------------------------|--------------------------------------------|
-| `olddefconfig` delta                    | +206 / -149                                |
-| `hack/modules-amd64.txt` reconciliation | 3 entries (1.13) / 3 + 1 dependency (1.14) |
+| surface                                 | 6.18.44 -> 7.1.9                           | 7.1.10 -> 7.2.2         |
+|-----------------------------------------|--------------------------------------------|-------------------------|
+| `olddefconfig` delta                    | +206 / -149                                | +241 / -164             |
+| `hack/modules-amd64.txt` reconciliation | 3 entries (1.13) / 3 + 1 dependency (1.14) | 5 entries + 3 (1.14)    |
 
 The delta is not cosmetic: the 6.18.44 -> 7.1.9 one flipped `CONFIG_PREEMPT_NONE` to
 `CONFIG_PREEMPT`, changing the scheduling profile of a Ceph and etcd node without anyone
 choosing it. Read it, and pin anything load-bearing on the cmdline rather than relying on a
 compiled-in default that upstream can move.
 
-That is one measurement spanning three feature releases (6.19, 7.0, 7.1); a single-minor bump
-has not been measured yet, so treat it as an upper bound rather than a per-bump expectation.
+The two columns bracket the range: the first spans three feature releases (6.19, 7.0, 7.1), the
+second is a single minor. They are close, so the delta tracks the series handover rather than
+the number of releases crossed — a minor bump is not the cheap case.
 
 Talos **1.14 added a second gate**: `depmod --errsyms` must print nothing at all, so a listed
 module whose dependency is absent now fails the build. 7.x split `stmmac_libpci.ko` out of
@@ -187,6 +207,74 @@ fails the build on any listed module the config did not produce. The 7.1.9 recon
 was `kernel/crypto/xor.ko` -> `kernel/lib/raid/xor/xor.ko` (moved), and dropping
 `kernel/crypto/hkdf.ko` (`CONFIG_CRYPTO_HKDF` deleted upstream) and
 `kernel/drivers/watchdog/iTCO_vendor_support.ko` (removed in 7.0).
+
+### Hold: 7.2 is blocked on Cilium, do not merge the bump
+
+**A green build does not mean a bootable fleet.** 7.2.2 built, published and booted cleanly;
+the node was still lost, because the break is in userspace and the pipeline cannot see it.
+
+Cilium's feature probe passes a *pointer* to `bpf_set_retval`, which has always taken an
+integer. The kernel tolerated it until [`b1f7f67b74c2e`][k-commit] ("bpf: Add validation for
+bpf_set_retval argument") landed in **7.2-rc1**. The agent now dies at startup and never writes
+a CNI config, so the node stays `NotReady` with no network:
+
+```text
+level=fatal msg="failed to probe helper"
+  error="detect support for FnSetRetval for program type CGroupSock: load program:
+         invalid argument: 0: (85) call bpf_set_retval#187: R1 is not a scalar"
+  progType=CGroupSock helper=FnSetRetval
+```
+
+Tracked as [cilium/cilium#48016][issue]. It is a Cilium bug the kernel exposed, not a kernel
+regression, and it is **not** version-specific to our 1.20: upstream reports 1.18, 1.19, 1.20
+and 1.21.0-pre.0 all failing on 7.2 while the same builds run fine on 7.1.
+
+The fix is [`67c619c`][fix] (probe via `bpf_core_enum_value_exists()` instead of emitting the
+call). Re-measured on 2026-09-03: still present on the `v1.20` branch as `b73ca6e8d`
+(2026-08-28), absent from `v1.19` and `v1.18`, and still in **no release** — 1.20.1 remains the
+latest and shipped 2026-08-18, ten days before the backport. Re-check with:
+
+```sh
+gh api "repos/cilium/cilium/commits?sha=v1.20&per_page=100" \
+    -q '[.[] | select(.commit.message | test("HAVE_SET_RETVAL"))] | length'
+gh release list --repo cilium/cilium --limit 5
+```
+
+**Lift the hold when a Cilium release containing that commit is deployed here** — 1.20.2 or
+later. Until then `ARG KERNEL_VERSION` stays on 7.1.y and Renovate's 7.2.x PR stays open and
+unmerged; the open PR is the reminder. It is deliberately not pinned via `allowedVersions`:
+combined with the `iseol=false` filter in `.renovaterc.json5`, a `<7.2` bound empties the feed
+once 7.1 leaves `moniker=stable`, and bumps then stop **silently** — which is worse than a PR
+someone has to decline. The cost of the hold is that 7.1.y patch bumps stop too, since Renovate
+only ever offers the highest stable.
+
+[k-commit]: https://github.com/torvalds/linux/commit/b1f7f67b74c2e
+[issue]: https://github.com/cilium/cilium/issues/48016
+[fix]: https://github.com/cilium/cilium/commit/67c619cb0a43c7178bf843c9281fc77fe64fe13f
+
+### Rolling a bump back
+
+Revert the PR. `spec.talos.version` goes back to the older string and tuppr rolls each node to
+it — that is a live downgrade command, not a no-op, so for a Talos *minor* revert suspend the CR
+first and decide deliberately whether the Kubernetes and CNPG state tolerates going backwards.
+The older installer tag is still published; tags in `ghcr.io/tanguille/installer/*` are never
+reused.
+
+To pull a single node back out of band, without waiting for tuppr:
+
+```sh
+talosctl -n <ip> upgrade -i ghcr.io/tanguille/installer/<schematic>:<old-version> \
+    -m powercycle --timeout=15m
+# ...then pin it there, or tuppr will roll it forward again on the next reconcile:
+kubectl annotate node <node> tuppr.home-operations.com/version=<old-version>
+kubectl get nodes -o custom-columns=NAME:.metadata.name,\
+RUNNING:'.status.nodeInfo.osImage',HOLD:'.metadata.annotations.tuppr\.home-operations\.com/version'
+```
+
+`getTargetVersion` still prefers a node annotation over the CR, and since the annotation is no
+longer part of machine config, Talos does not re-enforce or clear it. `kubectl annotate node
+<node> tuppr.home-operations.com/version-` releases the hold. The `HOLD` column is empty on a
+normally-managed node — a non-empty value means that node is pinned and is NOT tracking the CR.
 
 ## What is deliberately not carried
 
@@ -232,6 +320,16 @@ talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<node>:<version> \
 Do one node at a time and confirm `etcd` rejoins between each — the fleet is three
 control-plane nodes and etcd tolerates exactly one down.
 
+`etcd` is not a sufficient check. Every Talos service can report `Running/OK` on a node that
+has no working network: the first node on 7.2.2 did exactly that, with `cilium` in
+`CrashLoopBackOff` and `Ready=False / cni plugin not initialized`. Wait for the node to reach
+`Ready` and confirm its agent pod is up before touching the next one:
+
+```sh
+kubectl get node <node>
+kubectl -n kube-system get pods -o wide | grep "cilium.*<node>"
+```
+
 ### The rollout is not self-closing
 
 Booting a node off a locally imaged installer does **not** finish the job, and the failure is
@@ -254,14 +352,47 @@ Two things have to be true for a node. All three nodes satisfy both as of 2026-0
    `factory.talos.dev`, tuppr's bare `<repo>:<targetVersion>` substitution silently reinstalls
    the stock kernel.
 2. **A version string tuppr will actually ask for.** It compares one value, so the node has to
-   advertise `v<talos>-k<kernel>`. `spec.talos.version` cannot carry it — that field is
-   Renovate-managed against `siderolabs/talos` and would rewrite `v1.13.9-k7.1.9` to
-   `v1.13.10`, eating the suffix. So the kernel half lives in a per-node
-   `machine.nodeAnnotations."tuppr.home-operations.com/version"`, which `getTargetVersion`
-   prefers over the CR (`upgrade.go:855`).
+   advertise `v<talos>-k<kernel>` — which it does, because the installer is built with
+   `TAG="${VERSION}"`. That string now lives in `spec.talos.version` itself.
 
-Keep the annotation per-node rather than hoisting it to a shared layer: it is what allows one
-node to move while the others stay put, which is how all three were rolled.
+   It used to live in a per-node `machine.nodeAnnotations."tuppr.home-operations.com/version"`,
+   because the CR field was Renovate-managed by an inline annotation that captures the whole
+   value and would rewrite `v1.13.9-k7.1.9` to `v1.13.10`, eating the suffix. That is a property
+   of the *manager*, not the field: two file-scoped regex managers in `.renovaterc.json5` now own
+   one half each, so the field can carry it.
+
+   The annotation mattered because only `just talos apply-node` could change it, so merging a
+   bump PR rolled nothing.
+
+   **The switchover costs one `apply-node` per node, once, and the order matters.** Talos writes
+   that annotation from machine config, so it survives until a config without it is applied, and
+   `getTargetVersion` prefers it until then.
+
+   Do the `apply-node` runs **before** merging the version bump, not after. On a `Completed` CR
+   every node is already listed in `Status.CompletedNodes`, and `findNextNodes` skips anything in
+   that list *before* it compares versions (`upgrade.go:582-587`) — so dropping an annotation
+   while the CR is `Completed` is inert, and stays inert forever. Merging afterwards bumps the
+   generation, which clears `CompletedNodes` (`annotations.go:559-585`) and makes the freshly
+   un-annotated nodes pending on the next reconcile.
+
+   Merge first and the reverse happens, silently: `recordOutOfBandCompletedNodes`
+   (`upgrade.go:507-560`) writes every node that does not "need" an upgrade — which is all of
+   them, since each still reports its own annotation — straight into `CompletedNodes` at the new
+   target, and the CR goes `Completed` for a version nothing runs. The later `apply-node` is then
+   skipped by the list check above and nothing ever rolls. Recovering needs
+   `kubectl annotate talosupgrade talos tuppr.home-operations.com/reset=1`.
+
+   Confirm with the `HOLD` column in "Rolling a bump back": empty on every node means the CR is
+   in charge.
+
+To hold a node back while the rest move, use `spec.nodeSelector` on the CR — `getSortedNodes`
+passes it to `LabelSelectorAsSelector` and *lists* with it (`upgrade.go:625-641`), so an excluded
+node is never enumerated as a candidate and takes no outdated taint. `kubernetes.io/hostname
+NotIn [<node>]` is the shape; the CR itself says which nodes are currently held, if any.
+
+`getTargetVersion` still prefers a node annotation over the CR (`upgrade.go:855`) and Talos no
+longer owns that key, so `kubectl annotate node <node> tuppr.home-operations.com/version=<string>`
+is the imperative fallback for a hold that leaves no diff — see "Rolling a bump back".
 
 **A third thing is true for the CR.** Once a node reports `v<talos>-k<kernel>`, tuppr derives the
 talosctl job image tag from that same string and pulls
@@ -270,6 +401,7 @@ ImagePullBackOff until `policy.timeout`. Measured on control-2 on 2026-08-21. `s
 is pinned to the plain upstream version to stop it. It only bites on the *second* roll of a node,
 because the first still has an unsuffixed version at the moment the job is built.
 
-Since every node now runs a custom kernel, no node is left on stock as a fallback, and a Talos bump
-still means "re-run the build, then re-cut the nodes" — `just talos upgrade-node <node> <ip>` reads
-the pinned image straight out of the rendered config.
+Since every node now runs a custom kernel, no node is left on stock as a fallback. A Talos bump is
+merge-only: the push-to-main build publishes the installer, and tuppr rolls the fleet once the CR
+target and the published tag agree. `just talos upgrade-node <node> <ip>` remains for cutting a
+node by hand; it reads the pinned image straight out of the rendered config.

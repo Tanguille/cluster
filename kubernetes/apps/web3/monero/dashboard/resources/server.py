@@ -124,15 +124,13 @@ def get_xmr_price():
     ]
     for url, parser_func, name in sources:
         try:
-            with urllib.request.urlopen(url, timeout=5) as r:
-                data = json.load(r)
+            data = _fetch_json(url)
             if name == "Bitfinex+FX":
                 # Convert USD -> EUR using Frankfurter API
                 usd_to_eur = 1.0
                 try:
-                    with urllib.request.urlopen("https://api.frankfurter.app/latest?from=USD&to=EUR", timeout=5) as r2:
-                        fx_data = json.load(r2)
-                        usd_to_eur = float(fx_data["rates"]["EUR"])
+                    fx_data = _fetch_json("https://api.frankfurter.app/latest?from=USD&to=EUR")
+                    usd_to_eur = float(fx_data["rates"]["EUR"])
                 except Exception:
                     pass
                 price = float(data[6]) * usd_to_eur

@@ -13,7 +13,7 @@ spec:
     kubernetes:
       envoyDaemonSet:
         container:
-          image: mirror.gcr.io/envoyproxy/envoy:v1.39.0
+          image: mirror.gcr.io/envoyproxy/envoy:v1.39.1
           resources:
             requests:
               cpu: 100m
@@ -62,7 +62,7 @@ kind: Gateway
 metadata:
   name: envoy-external
   annotations:
-    external-dns.alpha.kubernetes.io/target: &hostname external.${SECRET_DOMAIN}
+    external-dns.kubernetes.io/target: &hostname external.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
       client:
         dns-resolver: tcp://1.1.1.1:53
@@ -75,7 +75,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.alpha.kubernetes.io/hostname: *hostname
+      external-dns.kubernetes.io/hostname: *hostname
       lbipam.cilium.io/ips: ${ENVOY_EXTERNAL_IP}
   listeners:
     - name: https
@@ -101,12 +101,12 @@ kind: Gateway
 metadata:
   name: envoy-external-probe
   annotations:
-    external-dns.alpha.kubernetes.io/target: &probeHostname gatus-probe.${SECRET_DOMAIN}
+    external-dns.kubernetes.io/target: &probeHostname gatus-probe.${SECRET_DOMAIN}
 spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.alpha.kubernetes.io/hostname: *probeHostname
+      external-dns.kubernetes.io/hostname: *probeHostname
       lbipam.cilium.io/ips: ${ENVOY_GATUS_PROBE_IP}
   listeners:
     - name: https
@@ -130,7 +130,7 @@ kind: Gateway
 metadata:
   name: envoy-internal
   annotations:
-    external-dns.alpha.kubernetes.io/target: &hostname internal.${SECRET_DOMAIN}
+    external-dns.kubernetes.io/target: &hostname internal.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
       group: internal
       guarded: true
@@ -141,7 +141,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.alpha.kubernetes.io/hostname: *hostname
+      external-dns.kubernetes.io/hostname: *hostname
       lbipam.cilium.io/ips: ${ENVOY_INTERNAL_IP}
   listeners:
     - name: https
@@ -167,7 +167,7 @@ kind: Gateway
 metadata:
   name: envoy-internal-tls
   annotations:
-    external-dns.alpha.kubernetes.io/target: &hostname-tls internal-tls.${SECRET_DOMAIN}
+    external-dns.kubernetes.io/target: &hostname-tls internal-tls.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
       group: internal
       guarded: true
@@ -178,7 +178,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.alpha.kubernetes.io/hostname: *hostname-tls
+      external-dns.kubernetes.io/hostname: *hostname-tls
       lbipam.cilium.io/ips: ${ENVOY_INTERNAL_TLS_IP}
   listeners:
     - name: tls
@@ -268,7 +268,7 @@ kind: HTTPRoute
 metadata:
   name: https-redirect
   annotations:
-    external-dns.alpha.kubernetes.io/controller: none
+    external-dns.kubernetes.io/controller: none
 spec:
   parentRefs:
     - name: envoy-external

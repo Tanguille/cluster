@@ -8,6 +8,20 @@ spec:
   groups:
     - name: crowdsec.rules
       rules:
+        # The envoy parser reads Envoy Gateway's implicit default JSON access-log schema.
+        # A release that renames a field parses nothing while every liveness probe stays green.
+        - alert: CrowdsecEnvoyParserYieldZero
+          expr: |-
+            sum(rate(cs_node_hits_ok_total{name="crowdsecurity/cri-logs"}[15m])) > 0.05
+            and
+            (sum(rate(cs_node_hits_ok_total{name="hydaz/envoy-logs"}[15m])) or vector(0)) == 0
+          for: 15m
+          annotations:
+            summary: >-
+              Crowdsec is reading envoy container logs but parsing none of them — detection is blind
+              while the agent, lapi and bouncer all report healthy
+          labels:
+            severity: critical
         - alert: CrowdsecAppsecAbsent
           expr: |-
             absent(up{job="crowdsec-appsec-service"})

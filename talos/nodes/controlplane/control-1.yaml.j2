@@ -6,9 +6,6 @@ machine:
     # Its own schematic (control-1.schematic.yaml adds the dGPU extensions), so its own installer
     # repo -- control-2/3 share talos/schematic.yaml and cannot use this image.
     image: ghcr.io/tanguille/installer/control-1:{{ pinned }}
-  # Must match the tag above exactly; getTargetVersion prefers this over spec.talos.version.
-  nodeAnnotations:
-    tuppr.home-operations.com/version: {{ pinned }}
   nodeLabels:
     # GPU label for applications; the amdgpu kernel module is loaded
     # automatically by the siderolabs/amdgpu system extension

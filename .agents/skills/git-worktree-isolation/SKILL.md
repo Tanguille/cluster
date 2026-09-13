@@ -20,7 +20,7 @@ compatibility: Requires `git` 2.x worktree support and write access to the repos
 git fetch origin
 git worktree add -b <branch> .worktrees/<task> origin/main
 cd .worktrees/<task>
-for f in .env .mcp.json CLAUDE.local.md .vscode .claude; do cp -r "../../$f" . 2>/dev/null; done  # untracked local config
+cp -r ../../.env ../../.mcp.json ../../.vscode . 2>/dev/null  # untracked local config; add your agent-tool config dir too
 
 # detached experiment
 git worktree add --detach .worktrees/<task> <commit-ish>
@@ -53,5 +53,3 @@ Delegate cleanup to a subagent when it should not block the main flow.
 | Validation / tests | Optional subagent |
 | Cleanup | Yes — optional subagent |
 | Multiple worktrees | Yes — parallel subagents |
-
-Format reference: [agentskills.io](https://agentskills.io/specification).

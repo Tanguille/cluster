@@ -13,6 +13,9 @@ spec:
     # profiles live on the hermes data PVC, so they are edited by hand and no
     # rollback of this repo touches them.
     # Backend swapped to qwen38-27b-vllm 2026-08-16 -- numbers in that file.
+    # Swapped to qwen38-flash-next (llama-server) 2026-08-31 and reverted the
+    # same evening: it served, but at ~57x the prefill cost. Measurements and
+    # the VRAM budget that causes it are in the flash-next manifest header.
     model: openai/qwen-3.8
     apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     # Native vLLM is unauthenticated internally, but LiteLLM's OpenAI provider
@@ -45,6 +48,8 @@ spec:
   proxyRef: litellm
   params:
     model: openai/qwen-3.8
+    # Moves with qwen-3.8 above -- this alias is proxy.yaml's only fallback
+    # target, so the two must always name the same live backend.
     apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     apiKey: sk-vllm-noauth
     additional:
