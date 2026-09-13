@@ -15,7 +15,8 @@ spec:
       storage: 20Gi
 ---
 # Re-packs model.safetensors with lm_head quantised (see the script). CPU
-# only, streams the 18.7 GB file, ~3 GB RAM, one run. Idempotent on DST/DONE,
+# only, streams the 18.7 GB file, ~3 GB RAM peak, one run. Request stays low: control-1
+# sits at 98% memory requests, the 6Gi limit is the real bound. Idempotent on DST/DONE,
 # so a Flux re-apply after completion is a no-op. Job specs are immutable:
 # delete the Job before changing anything below.
 #
@@ -54,7 +55,7 @@ spec:
           resources:
             requests:
               cpu: "2"
-              memory: 4Gi
+              memory: 512Mi
             limits:
               memory: 6Gi
           volumeMounts:
@@ -90,20 +91,11 @@ metadata:
   name: qwen38-27b-vllm-lmhead4
 spec:
   source: pvc://qwen38-27b-vllm-lmhead4/Qwen3.8-27B-W4A16-AWQ-lmhead4
+  # pvc:// takes a single object (a directory for vLLM) and mounts the claim read-only at
+  # /model-source; a files list is only valid for hf://|s3:// prefixes (InvalidFileSet otherwise).
   format: safetensors
   quantization: compressed-tensors
   refreshPolicy: OnChange
-  files:
-    - model.safetensors
-    - model-mtp.safetensors
-    - model.safetensors.index.json
-    - config.json
-    - generation_config.json
-    - tokenizer.json
-    - tokenizer_config.json
-    - chat_template.jinja
-    - preprocessor_config.json
-    - video_preprocessor_config.json
   hardware:
     accelerator: rocm
     gpu:
