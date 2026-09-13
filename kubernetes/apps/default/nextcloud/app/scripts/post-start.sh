@@ -31,7 +31,7 @@ find_tool() {
     local path
     path=$(command -v "$tool" 2>/dev/null)
     [ -n "$path" ] && echo "$path" && return
-    find /usr/bin /usr/local/bin -maxdepth 2 -name "$tool" -type f -executable 2>/dev/null | head -1
+    find /usr/bin /usr/local/bin -maxdepth 2 -name "$tool" -type f -executable -print -quit 2>/dev/null
 }
 
 log "=== Post-start script started ==="
