@@ -130,5 +130,3 @@ gh pr create --title "feat(<namespace>): add <app-name>" --body "Deploy <app-nam
 
 - [k8s-at-home-research](../k8s-at-home-research/SKILL.md) — homelab manifest examples
 - [git-worktree-isolation](../git-worktree-isolation/SKILL.md) — isolated branches
-
-Format reference: [agentskills.io](https://agentskills.io/specification).

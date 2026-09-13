@@ -60,6 +60,9 @@ spec:
                     - control-1
     image:
       flavor: fpm
+      # Pinned past chart appVersion (34.0.3) to pull Debian trixie security
+      # rebuilds: clears ~28/32 CRITICALs (deb13u* fixed versions per Trivy).
+      tag: 34.0.4-fpm@sha256:2ae7986bcf7f0014c4a4d143e18cd504c1d9513a8739604c9e4eeab86bbd64bf
 
     lifecycle:
       postStartCommand:

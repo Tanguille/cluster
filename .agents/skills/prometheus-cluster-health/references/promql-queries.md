@@ -150,4 +150,4 @@ Summary: One sentence; flag mismatches only with metric evidence.
 kubectl port-forward -n observability svc/vmsingle-victoria-metrics 8428:8428
 ```
 
-Use vmui or the Prometheus-compatible /api/v1/query API at http://localhost:8428; Grafana Explore uses the same datasource as MCP `query_prometheus`.
+Use vmui or the Prometheus-compatible /api/v1/query API at <http://localhost:8428>; Grafana Explore uses the same datasource as MCP `query_prometheus`.
