@@ -188,11 +188,13 @@ kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
 spec:
-  # NOT qwen38-27b-vllm-lmhead4 yet: vLLM's compressed-tensors loader keeps
-  # lm_head as a bf16 ParallelLMHead on this model and crashes on
-  # lm_head.weight_packed (2026-09-13, image a78d3e9). The re-pack needs a
-  # loader-side change before it can be referenced here.
-  modelRef: qwen38-27b-vllm
+  # 4-bit lm_head re-pack of qwen38-27b-vllm (Model + requant Job in
+  # qwen38-27b-vllm-lmhead4.yaml). Generative eval passed 2026-09-13 (GSM8K 94.0
+  # vs 93.3, McNemar p=1.0; tools 12/12); expected ~9% per decode step at M=4-5.
+  # The layer is language_model.lm_head, so the re-pack targets it by regex;
+  # attempt 1 with a bare "lm_head" target crashlooped (perf-plan-2026-09-13.md).
+  # Rollback: modelRef: qwen38-27b-vllm, the bf16 checkpoint stays cached.
+  modelRef: qwen38-27b-vllm-lmhead4
   runtime: vllm
   replicas: 1
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
