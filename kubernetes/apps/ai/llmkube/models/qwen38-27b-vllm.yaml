@@ -188,7 +188,11 @@ kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
 spec:
-  modelRef: qwen38-27b-vllm
+  # 4-bit lm_head re-pack of qwen38-27b-vllm (Model + requant Job in
+  # qwen38-27b-vllm-lmhead4.yaml). Generative eval passed 2026-09-13 (GSM8K 94.0
+  # vs 93.3, McNemar p=1.0; tools 12/12); expected ~9% per decode step at M=4-5.
+  # Rollback: modelRef: qwen38-27b-vllm, the bf16 checkpoint stays cached.
+  modelRef: qwen38-27b-vllm-lmhead4
   runtime: vllm
   replicas: 1
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
@@ -379,6 +383,12 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
+    # Per-request per-step prefill cap, 2 mamba blocks (800 tokens each). A 50K
+    # prompt otherwise fills the whole 4096 batch for ~12 steps while the running
+    # decodes stall (<2 tok/s with 4+ running, docs/llm-hosting/perf-plan-2026-09-13.md).
+    # This nightly has no --max-num-partial-prefills; this is the only knob.
+    - --long-prefill-token-threshold
+    - "1600"
     # GDN hybrids OOM CUDA-graph capture at vLLM's default 512 ceiling
     # (vLLM #39010 on gfx1201). Sizes match parallelSlots above -- also
     # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
