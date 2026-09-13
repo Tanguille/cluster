@@ -54,6 +54,23 @@ spec:
           - port: http
             interval: 30m
             scrapeTimeout: 5m
+    # app-template renders this as a NetworkPolicy. Ingress only: allow the
+    # metrics scrape from the observability namespace and leave egress open,
+    # since the exporter must reach Ookla on 443 to run each speedtest.
+    networkpolicies:
+      speedtest-exporter:
+        controller: speedtest-exporter
+        policyTypes:
+          - Ingress
+        rules:
+          ingress:
+            - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: observability
+              ports:
+                - protocol: TCP
+                  port: 8080
     persistence:
       cache:
         type: emptyDir
