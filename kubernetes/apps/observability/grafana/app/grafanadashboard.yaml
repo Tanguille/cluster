@@ -24,3 +24,22 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/grafana/dashboards/grafana-overview.json
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: k8s-dashboard
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: kubernetes
+  datasources:
+    - datasourceName: prometheus
+      inputName: DS_PROMETHEUS
+  # Fetched at runtime rather than inlined in a ConfigMap: the JSON is ~157KB, which
+  # overflows flate's kustomization diff when posted as a PR comment (GitHub caps comments
+  # at 64KiB). Same pattern as grafana-overview above.
+  url: https://raw.githubusercontent.com/Tanguille/cluster/main/kubernetes/apps/observability/grafana/app/dashboard/k8s-dashboard.json
