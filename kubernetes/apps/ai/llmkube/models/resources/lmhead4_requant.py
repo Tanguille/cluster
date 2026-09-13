@@ -126,9 +126,11 @@ def main():
     cfg = json.load(open(os.path.join(SRC, "config.json")))
     qc = cfg["quantization_config"]
     qc["ignore"] = [i for i in qc["ignore"] if i != "lm_head"]
-    # vLLM matches targets by exact layer name or class-name substring; the
-    # class is ParallelLMHead, so "Linear" alone would leave it unquantized.
-    qc["config_groups"]["group_0"]["targets"].append("lm_head")
+    # vLLM matches targets by exact layer name, regex, or class-name substring;
+    # the class is ParallelLMHead, so "Linear" alone leaves it unquantized, and
+    # the VL wrapper names the layer language_model.lm_head, so a bare "lm_head"
+    # misses too (crashed on lm_head.weight_packed, 2026-09-13).
+    qc["config_groups"]["group_0"]["targets"].append("re:.*lm_head$")
     json.dump(cfg, open(os.path.join(DST, "config.json"), "w"), indent=2)
 
     # verify: reopen through safetensors, compare the first copied tensor's bytes to the source

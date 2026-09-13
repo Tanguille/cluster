@@ -29,7 +29,7 @@ for k in ("model.a.weight_packed", "model.b.weight_scale", "model.b.weight_shape
 assert "lm_head.weight" not in o
 assert os.path.exists(os.path.join(dst, "tokenizer.json"))
 cfg = json.load(open(os.path.join(dst, "config.json")))["quantization_config"]
-assert cfg["ignore"] == ["x"] and cfg["config_groups"]["group_0"]["targets"] == ["Linear", "lm_head"]
+assert cfg["ignore"] == ["x"] and cfg["config_groups"]["group_0"]["targets"] == ["Linear", "re:.*lm_head$"]
 idx = json.load(open(os.path.join(dst, "model.safetensors.index.json")))["weight_map"]
 assert "lm_head.weight_packed" in idx and "lm_head.weight" not in idx
 
