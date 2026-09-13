@@ -347,8 +347,10 @@ spec:
     # ~1.8x faster; M=3 (52224) is refused by the kernel itself with a clean
     # RuntimeError, so an over-large gate fails loudly, not silently.
     #
-    # Same one-line change as upstream vllm PR #52619. Drop this mount and the
-    # generator entry once that lands in the nightly.
+    # Same one-line change as upstream vllm PR #52619. The same hook also
+    # swaps the Triton tile config for M <= 32 (2 warps, 1 stage: 1.04-1.31x
+    # on every Qwen3.8 shape, bench in docs/llm-hosting/bench/downfix/). Drop
+    # this mount and the generator entry once both land in the nightly.
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth
