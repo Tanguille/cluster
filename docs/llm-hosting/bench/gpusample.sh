@@ -3,7 +3,7 @@
 # Run inside the vLLM pod (sysfs + localhost:8000/metrics).
 set -euo pipefail
 g=/sys/class/drm/card1/device
-hw=$(find "$g/hwmon" -maxdepth 1 -name 'hwmon*' | head -1)
+hw=$(find "$g/hwmon" -mindepth 1 -maxdepth 1 -name 'hwmon*' | head -1)
 for _ in $(seq 20); do
     run=$(curl -s localhost:8000/metrics | awk '/^vllm:num_requests_running/{print $2}')
     mclk=$(awk '/\*/{print $2}' "$g/pp_dpm_mclk")
