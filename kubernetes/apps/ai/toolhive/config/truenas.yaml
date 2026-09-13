@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+# cedricziel/truenas-mcp (MIT, actively maintained) — pools, datasets, apps,
+# VMs, shares, tasks, and system info exposed to the ToolHive optimizer. Verified
+# against the live TrueNAS 26 JSON-RPC WebSocket API.
+#
+# Read-only by default: writes require TRUENAS_MCP_ENABLE_WRITES, in addition to
+# the upstream denylist of unrecoverable operations.
+#
+# Why not the official iXsystems server: it has stalled since 2026-07-22, ships
+# binaries only, and has no --readonly flag.
+#
+# Stdio transport: the operator launches the server and speaks MCP over stdio.
+# TLS stays verified by default; the target is reached through its Let's Encrypt
+# name (truenas.${SECRET_DOMAIN}), with no INSECURE flag.
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: truenas
+spec:
+  image: ghcr.io/cedricziel/truenas-mcp:0.4.2@sha256:1a165c9b3831b8cf546c78231857896431c27a4465d2fcb16260c7d578bbee55
+  transport: stdio
+  args: ["--stdio"]
+  groupRef:
+    name: all
+  permissionProfile:
+    type: builtin
+    name: network
+  env:
+    - name: TRUENAS_MCP_TARGET
+      value: truenas.${SECRET_DOMAIN}
+  secrets:
+    - name: truenas-mcp
+      key: TRUENAS_API_KEY
+      # The key is renamed to TRUENAS_MCP_API_KEY when the real key is encrypted in.
+      targetEnvName: TRUENAS_MCP_API_KEY
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
