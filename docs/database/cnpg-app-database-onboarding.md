@@ -3,7 +3,7 @@
 Apps in this repo get their PostgreSQL role and database **declaratively from CloudNativePG**, not
 from an init-container. This replaced the `ghcr.io/home-operations/postgres-init` pattern (an
 `init-db` container that ran `CREATE ROLE` / `CREATE DATABASE` with superuser credentials at pod
-startup). Only `immich` still uses it, deliberately deferred — see "Not onboarded" below.
+startup). No app in the repo uses it any more.
 
 Each onboarded app has:
 
@@ -152,7 +152,7 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
 - **immich** — its `DB_URL` targets a database `immich` that does **not** exist (only an orphan `app`
   db, no vector extension), and immich is not running. A `Database` CR with `ensure: present` would
   create a new empty `immich`, not adopt data. Decide first — decommission, repoint to `app`, or
-  restore `immich` from backup — then onboard. Its init-db is intentionally left in place.
+  restore `immich` from backup — then onboard. Its manifests have been removed from the repo.
 
 ## Validation before applying
 

@@ -48,7 +48,7 @@ spec:
         name: external-service-tlsroute-<< inputs.name >>
         namespace: network
         annotations:
-          external-dns.alpha.kubernetes.io/target: internal-tls.${SECRET_DOMAIN}
+          external-dns.kubernetes.io/target: internal-tls.${SECRET_DOMAIN}
       spec:
         parentRefs:
           - name: envoy-internal-tls

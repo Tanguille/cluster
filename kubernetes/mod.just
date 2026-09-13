@@ -4,8 +4,6 @@ set default-script
 set script-interpreter := ['bash', '-euo', 'pipefail']
 set shell := ['bash', '-euo', 'pipefail', '-c']
 
-root := justfile_directory()
-
 [doc('Encrypt all Kubernetes SOPS secrets')]
 encrypt:
     find "{{ source_directory() }}" -type f -name '*.sops.*' | while read -r file; do
@@ -19,10 +17,6 @@ encrypt:
 resources *args='-A':
     kubectl get nodes,gitrepositories,kustomizations,helmrepositories,helmreleases,\
     certificates,certificaterequests,pods {{ args }}
-
-[doc('Collect status and logs for ToolHive MCP servers')]
-debug-toolhive-mcp:
-    "{{ root }}/scripts/debug-toolhive-mcp.sh"
 
 # https://docs.github.com/en/enterprise-cloud@latest/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller/deploying-runner-scale-sets-with-actions-runner-controller#upgrading-arc
 [doc('Upgrade the Actions Runner Controller')]

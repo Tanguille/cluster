@@ -1419,10 +1419,6 @@ function handleVisibilityChange() {
   }
 }
 
-function handleEarnPeriodChange() {
-  updateStats();
-}
-
 /** Reflect the selected range on the segmented control. */
 function markActiveRange() {
   DOM.rangeControl?.querySelectorAll(".range__opt").forEach((button) => {
@@ -1485,7 +1481,7 @@ async function initialize() {
   window.addEventListener("beforeunload", cleanup);
 
   if (DOM.earnPeriod) {
-    DOM.earnPeriod.addEventListener("change", handleEarnPeriodChange);
+    DOM.earnPeriod.addEventListener("change", updateStats);
   }
 
   // One delegated listener rather than six: the buttons never change

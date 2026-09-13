@@ -11,6 +11,12 @@ spec:
   replicas: 1
   podTemplateSpec:
     spec:
+      # 30s (the default) is shorter than this gateway's own drain: shutdown waits
+      # on 20s backend health checks, so SIGTERM was still in progress at +24s and
+      # every restart landed as exit 137 mid-drain. Not a fix for the ~250MiB/day
+      # leak that forces those restarts (stacklok/toolhive#5860) -- it only makes
+      # each one graceful.
+      terminationGracePeriodSeconds: 60
       # The operator sets readOnlyRootFilesystem, so the optimizer's FTS5 index has
       # nowhere to spill: queries whose sorter exceeds memory fail with "disk I/O
       # error (6410)", which the MCP layer returns as zero matches rather than an

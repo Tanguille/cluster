@@ -45,20 +45,16 @@ spec:
       # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
       security:
         cephx:
-          # allowedCiphers ["aes256k"] omitted while the retained gen-3 csi keys are still aes.
+          allowedCiphers: ["aes256k"]
+          # daemon.keyType omitted: Rook already defaults to aes256k, and any value set here makes
+          # it pass --mon-auth-emergency-allowed-ciphers to the mons.
           daemon: &cephxKey
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
-            keyType: aes256k
           csi:
             keyRotationPolicy: KeyGeneration
             keyGeneration: 4
-            # aes256k needs ceph-csi >= v3.17.1 (librados 20.2.4); v3.17.0's 20.2.1 fails
-            # provisioning with `rados: ret=-22`. Pin is in ../app/helmrelease.yaml.
             keyType: aes256k
-            # Keeps the prior-gen key as rollback. Those retained gen-3 keys are aes, so
-            # AUTH_INSECURE_CLIENT_KEY_TYPE stays until this drops back to 0.
-            keepPriorKeyCountMax: 1
           rbdMirrorPeer: *cephxKey
       cephConfig:
         global:

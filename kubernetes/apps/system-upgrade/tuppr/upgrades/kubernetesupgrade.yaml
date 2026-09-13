@@ -7,7 +7,13 @@ metadata:
 spec:
   kubernetes:
     # renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
-    version: v1.36.4
+    version: v1.37.0
+  talosctl:
+    image:
+      # Unset, tuppr derives it from the node's CURRENT version; a -k<kernel> one is unpublished
+      # and ImagePullBackOffs. Annotated because a YAML anchor cannot cross files.
+      # renovate: datasource=github-releases depName=siderolabs/talos
+      tag: v1.14.0
   healthChecks:
     - apiVersion: v1
       kind: Node

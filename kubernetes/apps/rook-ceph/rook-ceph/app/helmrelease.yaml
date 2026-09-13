@@ -12,11 +12,6 @@ spec:
   values:
     image:
       repository: ghcr.io/rook/ceph
-    csi:
-      cephcsi:
-        # librados 20.2.4, required by the aes256k csi keyType in ../cluster/helmrelease.yaml.
-        # renovate: datasource=docker depName=quay.io/cephcsi/cephcsi
-        tag: v3.17.1
     monitoring:
       enabled: true
     resources:
