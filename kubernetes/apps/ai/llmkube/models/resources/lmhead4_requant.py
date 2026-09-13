@@ -46,7 +46,8 @@ def quantize_rows(w):
 
 def main():
     if os.path.exists(os.path.join(DST, "DONE")):
-        print("already done"); return
+        print("already done")
+        return
     os.makedirs(DST, exist_ok=True)
     for name in os.listdir(SRC):
         if name not in ("model.safetensors", "model.safetensors.index.json", "config.json"):
@@ -65,12 +66,12 @@ def main():
     packed, scales, zps, errs = [], [], [], []
     for r0 in range(0, N, ROWS):
         rows = min(ROWS, N - r0)
-        buf = src.read(rows * K * 2)
-        w = torch.frombuffer(bytearray(buf), dtype=torch.bfloat16).reshape(rows, K)
+        w = torch.frombuffer(src.read(rows * K * 2), dtype=torch.bfloat16).reshape(rows, K)
         q, s, zp, err = quantize_rows(w)
         packed.append(pack_to_int32(q, 4, packed_dim=1))       # [rows, K/8]
         zps.append(pack_to_int32(zp, 4, packed_dim=0))         # [rows/8, K/G]
-        scales.append(s); errs.append(err)
+        scales.append(s)
+        errs.append(err)
     new = {
         "lm_head.weight_packed": torch.cat(packed).contiguous(),
         "lm_head.weight_scale": torch.cat(scales).contiguous(),
@@ -85,11 +86,13 @@ def main():
     order = sorted(hdr.items(), key=lambda kv: kv[1]["data_offsets"][0])
     for name, t in order:
         n = t["data_offsets"][1] - t["data_offsets"][0]
-        out_hdr[name] = {"dtype": t["dtype"], "shape": t["shape"], "data_offsets": [off, off + n]}; off += n
+        out_hdr[name] = {"dtype": t["dtype"], "shape": t["shape"], "data_offsets": [off, off + n]}
+        off += n
     for name, t in new.items():
         n = t.numel() * t.element_size()
         dt = {torch.int32: "I32", torch.int64: "I64", torch.bfloat16: "BF16"}[t.dtype]
-        out_hdr[name] = {"dtype": dt, "shape": list(t.shape), "data_offsets": [off, off + n]}; off += n
+        out_hdr[name] = {"dtype": dt, "shape": list(t.shape), "data_offsets": [off, off + n]}
+        off += n
     if meta:
         out_hdr["__metadata__"] = meta
     hb = json.dumps(out_hdr, separators=(",", ":")).encode()
@@ -97,18 +100,24 @@ def main():
 
     tmp = os.path.join(DST, "model.safetensors.part")
     with open(tmp, "wb") as dst:
-        dst.write(struct.pack("<Q", len(hb))); dst.write(hb)
+        dst.write(struct.pack("<Q", len(hb)))
+        dst.write(hb)
         for name, t in order:
             src.seek(base + t["data_offsets"][0])
             left = t["data_offsets"][1] - t["data_offsets"][0]
             while left:
-                chunk = src.read(min(left, 64 << 20)); dst.write(chunk); left -= len(chunk)
+                chunk = src.read(min(left, 64 << 20))
+                if not chunk:
+                    raise EOFError(f"source truncated inside {name}")
+                dst.write(chunk)
+                left -= len(chunk)
         for t in new.values():
             dst.write(t.contiguous().view(torch.uint8).numpy().tobytes())
     os.rename(tmp, os.path.join(DST, "model.safetensors"))
 
     idx = json.load(open(os.path.join(SRC, "model.safetensors.index.json")))
-    wm = idx["weight_map"]; f = wm.pop("lm_head.weight")
+    wm = idx["weight_map"]
+    f = wm.pop("lm_head.weight")
     for name in new:
         wm[name] = f
     idx["metadata"]["total_size"] = off

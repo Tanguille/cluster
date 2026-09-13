@@ -4,9 +4,10 @@
 Both candidates and the shipped path run in ONE HIP process, interleaved, so they share the
 gfx1201 band draw. Correctness: max abs err vs an fp32 dequant reference, next to Triton's.
 
-Run inside the vLLM pod: python3 down_proj_sweep.py [--iters 80] [--phase sweep|final]
+Run inside the vLLM pod: python3 down_proj_sweep.py [--iters 80]. Sweeps at M=4 only; the
+per-M storage-cost comparison moved to down_proj_final.py.
 """
-import argparse, itertools, statistics, sys, time
+import argparse, itertools, statistics
 
 import torch
 import vllm._custom_ops as ops
@@ -79,7 +80,6 @@ def triton_cfg(x, w_q, w_s, w_zp, BM, BN, BK, warps, stages):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--iters", type=int, default=80)
-    ap.add_argument("--phase", default="sweep")
     a = ap.parse_args()
     w_q, w_s, w_zp = make_weights()
     ref_w = dequant_ref(w_q, w_s, w_zp)
@@ -97,13 +97,8 @@ def main():
         print(f"{name:34s} M={M} {mn:8.1f} us (med {md:8.1f}) {bytes_w / mn / 1e3:6.0f} GB/s  maxerr {err:.3e}", flush=True)
         return mn
 
-    if a.phase == "sweep":
-        Ms = [4]
-        cfgs = [(16, BN, BK, w, st) for BN, BK, w, st in itertools.product((16, 32, 64, 128), (64, 128), (1, 2, 4, 8), (1, 2, 3))]
-    else:
-        Ms = [3, 4, 5]
-        cfgs = [tuple(int(v) for v in c.split("x")) for c in sys.argv[sys.argv.index("--cfgs") + 1:]] if "--cfgs" in sys.argv else []
-    for M in Ms:
+    cfgs = [(16, BN, BK, w, st) for BN, BK, w, st in itertools.product((16, 32, 64, 128), (64, 128), (1, 2, 4, 8), (1, 2, 3))]
+    for M in (4,):
         x = torch.randn((M, K), dtype=torch.bfloat16, device=dev)
         ref = x.float() @ ref_w.t()
         report("shipped (triton 16x16x128 w4)", M, lambda: hy._rdna_hybrid_w4a16_apply_impl(x, w_q, w_s, w_zp, None, cu, G), ref)

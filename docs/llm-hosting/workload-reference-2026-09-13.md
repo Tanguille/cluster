@@ -45,7 +45,7 @@ client asking litellm for models it does not route).
 Token mix (litellm, 80 min): input 9,471,259, output 135,926, of which
 **reasoning 74,670 (55% of output)**.
 
-## Request shape (vLLM histograms, `hist.py 80m`, n=244)
+## Request shape (vLLM histograms, `prod_hist.py 80m`, n=244)
 
 Prompt tokens:
 
@@ -98,7 +98,7 @@ this is ~3x the average hour). `num_requests_running` avg 3.8, max 5
 TPOT 72.8 ms mean (~14 tok/s per stream at ~4 streams). litellm's own view
 agrees: TTFT mean 66 s, total latency mean 90 s.
 
-## Where the GPU time goes (engine 10 s stat lines, `engstat.py`, 480 windows)
+## Where the GPU time goes (engine 10 s stat lines, `prod_engstat.py`, 480 windows)
 
 | | |
 |---|---|

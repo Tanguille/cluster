@@ -7,6 +7,7 @@ def q(expr):
 def inc(m): return q(f'sum(increase({m}[{W}]))')
 def mean(m): return inc(m+"_sum")/inc(m+"_count")
 n=inc("vllm:request_success_total")
+if not n>0: sys.exit(f"no successful requests in the last {W}")
 print(f"window {W}  requests {n:.0f}")
 print(f"prompt tokens/req      {inc('vllm:prompt_tokens_total')/n:9.0f}")
 print(f"cached prompt tok/req  {inc('vllm:prompt_tokens_cached_total')/n:9.0f}")

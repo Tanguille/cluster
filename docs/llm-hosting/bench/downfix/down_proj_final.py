@@ -76,8 +76,9 @@ def dequant_ref(w_q, w_s, w_zp):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--iters", type=int, default=100)
+    ap.add_argument("--iters", type=int, default=100)  # split over 4 interleaved blocks
     a = ap.parse_args()
+    assert a.iters >= 4, "--iters is split over 4 interleaved blocks"
     g = torch.Generator(device=dev).manual_seed(0)
     w_q = torch.randint(-128, 127, (N, K // 2), dtype=torch.int8, device=dev, generator=g)
     w_s = (torch.rand((N, NG), device=dev, generator=g) * 0.01).to(torch.bfloat16)

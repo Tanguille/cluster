@@ -10,7 +10,7 @@ from vllm.utils.platform_utils import num_compute_units
 
 cu = num_compute_units(); dev = torch.device("cuda"); G = 128
 g = torch.Generator(device=dev).manual_seed(0)
-orig = next(c.cell_contents for c in hy.triton_w4a16_skinny_fmt_gemm.__closure__ if callable(c.cell_contents) and not hasattr(c.cell_contents, "__path__"))
+orig = next(c.cell_contents for c in hy.triton_w4a16_skinny_fmt_gemm.__closure__ if getattr(c.cell_contents, "__name__", "") == "triton_w4a16_skinny_fmt_gemm")  # the wrapped original
 for N, K in [(5120, 17408), (34816, 5120), (5120, 6144)]:
     w_q = torch.randint(-128, 127, (N, K // 2), dtype=torch.int8, device=dev, generator=g)
     w_s = (torch.rand((N, K // G), device=dev, generator=g) * 0.01).to(torch.bfloat16)

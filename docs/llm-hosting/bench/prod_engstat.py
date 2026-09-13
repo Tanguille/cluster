@@ -6,6 +6,7 @@ for l in open(sys.argv[1]):
     if m: rows.append((m.group(1),float(m.group(2)),float(m.group(3)),int(m.group(4)),int(m.group(5)),int(m.group(6) or 0),float(m.group(7))))
 n=len(rows); print("windows(10s):",n, "span min:", n/6)
 busy=[r for r in rows if r[3]>=1]
+if not busy: sys.exit("no windows with running>=1 in this log")
 stall=[r for r in busy if r[2]<5 and r[1]<50]
 print(f"windows with running>=1: {len(busy)}  of which gen<5 tok/s AND prompt<50 tok/s (stalled): {len(stall)} = {100*len(stall)/len(busy):.0f}%")
 print(f"stalled windows with deferred>0: {sum(1 for r in stall if r[5]>0)}   waiting>0: {sum(1 for r in stall if r[4]>0)}")

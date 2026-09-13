@@ -59,6 +59,7 @@ def main():
     ap.add_argument("--iters", type=int, default=200)
     ap.add_argument("--wperm", type=int, default=int(os.environ.get("RADIANCE_MXFP4_WPERM", "0")))
     a = ap.parse_args()
+    assert a.iters >= 4, "--iters is split over 4 interleaved blocks"
     os.environ["RADIANCE_MXFP4_WPERM"] = str(a.wperm)  # read once by the .so at first launch
 
     cu = num_compute_units()

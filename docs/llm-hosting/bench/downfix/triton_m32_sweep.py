@@ -58,6 +58,10 @@ def main():
         bytes_w = w_q.numel() + w_s.numel() * 2 + w_zp.numel() * 2
         for M in MS:
             x = torch.randn((M, K), dtype=torch.bfloat16, device=dev, generator=g)
+            # same tile shape and reduction order for every candidate, so outputs must be bit-identical
+            ref = launch(x, w_q, w_s, w_zp, N, K, *CFGS[0])
+            for c in CFGS[1:]:
+                assert torch.equal(launch(x, w_q, w_s, w_zp, N, K, *c), ref), (label, M, c)
             t = {}
             for _ in range(3):  # interleave
                 for c in CFGS:

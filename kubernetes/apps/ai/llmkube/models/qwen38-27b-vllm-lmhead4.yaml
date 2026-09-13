@@ -20,8 +20,8 @@ spec:
 # delete the Job before changing anything below.
 #
 # Same image as the engine so pack_to_int32 comes from the exact
-# compressed-tensors build vLLM unpacks with. No GPU requested; the hostpath
-# claims pin it to control-1 anyway.
+# compressed-tensors build vLLM unpacks with. No GPU requested and no
+# nodeSelector: the two hostpath claims already pin the pod to control-1.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -31,8 +31,6 @@ spec:
   template:
     spec:
       restartPolicy: Never
-      nodeSelector:
-        amd.com/gpu: "true"
       securityContext:
         runAsUser: 0
         runAsGroup: 0
