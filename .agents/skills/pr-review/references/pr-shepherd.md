@@ -49,8 +49,10 @@ Budget: max **3 fix-push cycles per failure class**, then escalate with the evid
 
 ## Shepherd loop (per open owner-PR)
 
-1. DIRTY → Gate A. 2. CI red → triage above. 3. CodeRabbit blocking findings (login
-   startswith `coderabbitai`) → address, push. 4. Body contradicts diff → Gate B.
+1. DIRTY → Gate A.
+2. CI red → triage above.
+3. CodeRabbit blocking findings (login startswith `coderabbitai`) → address, push.
+4. Body contradicts diff → Gate B.
 5. Green + clean + draft → `update_pull_request {pullNumber, draft: false}`; report merge-ready.
 
 Stop: green+clean, escalated, or budget exhausted.
