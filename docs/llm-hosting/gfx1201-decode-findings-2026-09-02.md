@@ -225,7 +225,7 @@ is a two-line config change and must be tried first.
 
 ---
 
-# Follow-on: production measurement, 2026-09-03
+## Follow-on: production measurement, 2026-09-03
 
 Yesterday's findings came from synthetic short-prompt sweeps. Measuring the same
 engine against real traffic overturned several of them. Every number below was

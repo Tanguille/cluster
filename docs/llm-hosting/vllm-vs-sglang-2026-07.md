@@ -187,7 +187,7 @@ Small non-LFS files revalidate correctly. Seeding an etag file and re-requesting
 
 LFS-backed files do not. With the correct etag seeded, `model.safetensors` returns:
 
-```
+```text
 http=200 size=738200627 (aborted at 20s)
 url=https://us.aws.cdn.hf.co/xet-bridge-us/<id>/<sha>?...Expires=...&Signature=...
 ```

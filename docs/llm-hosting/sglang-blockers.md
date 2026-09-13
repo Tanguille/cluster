@@ -17,12 +17,14 @@ Tracking what needs to land upstream before SGLang can replace vLLM in productio
 Spec-V2 path.)*
 
 **Symptoms:**
+
 - `SGLang Spec-V2 asserts on ROCm` at runtime
 - `DFlash OOMs the DeltaNet draft path even at 16K context` on the fork
 
 **Root cause:** The ROCm speculative decoding path in SGLang v0.5.12 has two separate failures: the Spec-V2 scheduler crashes on ROCm (assert in non-CUDA code path), and the DraftFlash attention kernel for the DeltaNet MTP draft model OOMs at 16K on a single 32 GB card (the fork was tuned for dual-card TP=2).
 
 **Upstream references:**
+
 - SGLang GitHub: search `speculative decoding ROCm assert` — no tracking issue confirmed; may be implicitly covered by general ROCm CI gap
 - The fork excludes patch `050…CANDIDATE` which was the experimental MTP fix — it was too unstable to include
 
@@ -58,6 +60,7 @@ replace the old "quarterly / ROCm CI" trigger — subscribe to #28511 and #30263
 **Symptom:** `parameter model.layers.N.linear_attn.in_proj_ba.weight not found in params_dict` — weight loader can't map the fused `in_proj_ba` / `in_proj_qkvz` names.
 
 **Upstream references:**
+
 - sgl-project/sglang #20973 — primary report ("can't load Qwen3.5-35B-A3B-NVFP4, in_proj_ba not found")
 - sgl-project/sglang #20069 — Qwen3.5 bug tracker
 - vllm-project/vllm #40252 — cross-engine confirmation
@@ -79,6 +82,7 @@ replace the old "quarterly / ROCm CI" trigger — subscribe to #28511 and #30263
 **Root cause:** `gptq_marlin_repack` and `awq_marlin_repack` are CUDA-only kernels. The ROCm build of `sgl_kernel` does not compile them. These were migrated to JIT in v0.5.9 but remain CUDA-only.
 
 **Upstream references:**
+
 - sgl-project/sglang #12419 — "Unsupported Qwen3-next on ROCm" (Marlin + missing HIP kernels)
 - sgl-project/sglang #17398 — comprehensive AMD ROCm support gaps
 - AMD docs explicitly list `awq_marlin` and `gptq_marlin` as unsupported on AMD
@@ -96,10 +100,12 @@ replace the old "quarterly / ROCm CI" trigger — subscribe to #28511 and #30263
 **Impact:** Medium — without explicit gfx1201 support, sgl_kernel falls back to generic RDNA4 and FP8 ops silently use FP32 accumulation.
 
 **Root cause:**
+
 1. `sgl-kernel/setup_rocm.py` originally hard-exited for non-CDNA GPUs (pre-2026). Patch: add `gfx1201` to the whitelist.
 2. AITER (`module_aiter_core.so`) does not include `gfx1201` in its arch table → FP8 WMMA silently falls back to FP32.
 
 **Upstream references:**
+
 - sgl-project/sglang Discussion #12600 — "gfx1201 llvm target support" (open, no ETA)
 - sgl-project/sglang #27519 — RDNA3 gfx1101 whitelist (precedent for 1-line fix)
 - ROCm/TransformerEngine #520 — gfx1201 missing from AITER FP8 WMMA arch table
@@ -117,6 +123,7 @@ replace the old "quarterly / ROCm CI" trigger — subscribe to #28511 and #30263
 **Impact:** Operational. Previously required maintaining our own Dockerfile and build pipeline; the fork now publishes `ghcr.io/mattbucci/sglang-rdna4` itself, retiring ours (see "Current approach" above).
 
 **Upstream references:**
+
 - sgl-project/sglang Discussion #12600 — same tracking thread as Blocker 4
 
 **Status:** Community-only. The mattbucci fork is the only active maintained source; no AMD/SGLang team commitment to RDNA4 Docker images.
@@ -162,10 +169,11 @@ single session isn't reachable without dropping batch slots or bf16 mamba state 
 NVIDIA-SM100 / FlashInfer-only).
 
 **Upstream references:**
+
 - SGLang cookbook (Qwen3.6) — extra_buffer "Requires FLA kernel backend (NVIDIA GPUs only)":
-  https://docs.sglang.io/cookbook/autoregressive/Qwen/Qwen3.6
-- HiCache-for-hybrid crash on Qwen3.5/3.6 (Open): https://github.com/sgl-project/sglang/issues/24121
-- Unified Hybrid Radix Cache Refactor roadmap (Open): https://github.com/sgl-project/sglang/issues/20415
+  <https://docs.sglang.io/cookbook/autoregressive/Qwen/Qwen3.6>
+- HiCache-for-hybrid crash on Qwen3.5/3.6 (Open): <https://github.com/sgl-project/sglang/issues/24121>
+- Unified Hybrid Radix Cache Refactor roadmap (Open): <https://github.com/sgl-project/sglang/issues/20415>
 
 **HiCache re-check (2026-07-07, node RAM 40→64 GB):** #24121 is still open but every repro in the
 thread uses `--hicache-io-backend kernel`; a maintainer recommends `direct` as the workaround, and
@@ -297,6 +305,7 @@ not the kernel, that makes overlap a no-op).
 **Context:** AMD Quark 0.12.0 (2026-07) adds AMDFP4 (E5M3 per-block scales), NVFP4, native MXFP4 inference support, and the SVDQuant algorithm (INT4/MXFP4/NVFP4 weights + low-rank outlier branch). Tempting as a path off the slow AWQ-int4 dense-decode wall.
 
 **Root cause (why none of it helps this box):** Quark is a *quantization producer* — it emits checkpoints. Our dense-decode bottleneck is the RDNA4 **inference kernel** (Triton W4A16 + GatedDeltaNet), an SGLang/fork problem the checkpoint format can't touch. Re-quantizing the same weights to a different FP4 format doesn't change which kernel SGLang dispatches at decode. Producer with no consumer:
+
 - **MXFP4 / NVFP4 / AMDFP4:** no fused decode kernel in the mattbucci fork for gfx1201 (consistent with the MXFP4/fp4 "ruled out for dense" finding in `engine-benchmarks-gfx1201.md`).
 - **SVDQuant:** its runtime is **Nunchaku — CUDA W4A4 + low-rank, Nvidia-only**; no ROCm path, and SGLang has no consumer for the SVDQuant (INT4 + low-rank branch) format on any GPU. Public SVDQuant checkpoints are also almost all diffusion/image models (FLUX, Qwen-Image); no LLM checkpoint exists for Qwen3.6-27B (even Qwen3.5-27B is GPTQ-Int4/AWQ only).
 
@@ -305,8 +314,9 @@ not the kernel, that makes overlap a no-op).
 **Status:** NO-GO. AWQ-int4 stays the dense path. Same retest trigger as MXFP4 — a fork/upstream announcement of an RDNA4 **fused FP4 decode kernel** for gfx1201. *That* is the trigger, not a Quark release (Quark is necessary-but-not-sufficient: it produces the checkpoint the kernel would consume).
 
 **References:**
-- Quark 0.12 release notes: https://quark.docs.amd.com/latest/release_note.html
-- Nunchaku (SVDQuant runtime, CUDA-only): https://github.com/nunchaku-ai/nunchaku
+
+- Quark 0.12 release notes: <https://quark.docs.amd.com/latest/release_note.html>
+- Nunchaku (SVDQuant runtime, CUDA-only): <https://github.com/nunchaku-ai/nunchaku>
 
 ---
 

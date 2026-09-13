@@ -105,6 +105,7 @@ Optional: [kubectl-browse-pvc](https://github.com/clbx/kubectl-browse-pvc) to br
 ---
 
 ## PostgreSQL (CNPG)
+
 **Connect with psql:**
 
 ```bash

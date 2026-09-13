@@ -94,36 +94,7 @@ RUN cd /src \
 
 # bldr emits this from the sbom: block in pkgs kernel/kernel/pkg.yaml. Fixed timestamp,
 # not generated: a moving date would break build reproducibility.
-RUN mkdir -p /rootfs/usr/share/spdx && cat > /rootfs/usr/share/spdx/kernel.spdx.json <<EOF
-{
-  "spdxVersion": "SPDX-2.3",
-  "dataLicense": "CC0-1.0",
-  "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "kernel",
-  "documentNamespace": "https://kernel.org/linux-${KERNEL_VERSION}",
-  "creationInfo": { "created": "1970-01-01T00:00:00Z", "creators": ["Tool: bldr"] },
-  "packages": [{
-    "SPDXID": "SPDXRef-Package-kernel",
-    "name": "kernel",
-    "versionInfo": "${KERNEL_VERSION}",
-    "downloadLocation": "https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz",
-    "licenseConcluded": "GPL-2.0-only",
-    "licenseDeclared": "GPL-2.0-only",
-    "copyrightText": "NOASSERTION",
-    "filesAnalyzed": false,
-    "externalRefs": [{
-      "referenceCategory": "SECURITY",
-      "referenceType": "cpe23Type",
-      "referenceLocator": "cpe:2.3:o:linux:linux_kernel:${KERNEL_VERSION}:*:*:*:*:*:*:*"
-    }]
-  }],
-  "relationships": [{
-    "spdxElementId": "SPDXRef-DOCUMENT",
-    "relatedSpdxElement": "SPDXRef-Package-kernel",
-    "relationshipType": "DESCRIBES"
-  }]
-}
-EOF
+RUN mkdir -p /rootfs/usr/share/spdx && python3 -c 'import json,sys; kv=sys.argv[1]; doc={"spdxVersion":"SPDX-2.3","dataLicense":"CC0-1.0","SPDXID":"SPDXRef-DOCUMENT","name":"kernel","documentNamespace":"https://kernel.org/linux-"+kv,"creationInfo":{"created":"1970-01-01T00:00:00Z","creators":["Tool: bldr"]},"packages":[{"SPDXID":"SPDXRef-Package-kernel","name":"kernel","versionInfo":kv,"downloadLocation":"https://cdn.kernel.org/pub/linux/kernel/v"+kv.split(".")[0]+".x/linux-"+kv+".tar.xz","licenseConcluded":"GPL-2.0-only","licenseDeclared":"GPL-2.0-only","copyrightText":"NOASSERTION","filesAnalyzed":False,"externalRefs":[{"referenceCategory":"SECURITY","referenceType":"cpe23Type","referenceLocator":"cpe:2.3:o:linux:linux_kernel:"+kv+":*:*:*:*:*:*:*"}]}],"relationships":[{"spdxElementId":"SPDXRef-DOCUMENT","relatedSpdxElement":"SPDXRef-Package-kernel","relationshipType":"DESCRIBES"}]}; assert doc["packages"][0]["versionInfo"]; open("/rootfs/usr/share/spdx/kernel.spdx.json","w").write(json.dumps(doc,indent=2)+"\n"); print("wrote /rootfs/usr/share/spdx/kernel.spdx.json for kernel "+kv)' "$KERNEL_VERSION"
 RUN python3 -c "import json;assert json.load(open('/rootfs/usr/share/spdx/kernel.spdx.json'))['packages'][0]['versionInfo']"
 
 FROM scratch
