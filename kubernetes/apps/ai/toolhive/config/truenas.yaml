@@ -29,6 +29,12 @@ spec:
   env:
     - name: TRUENAS_MCP_TARGET
       value: truenas.${SECRET_DOMAIN}
+  # API key lives in the shared toolhive-secrets (see ../app/secret.sops.yaml),
+  # same pattern as the other ToolHive servers.
+  secrets:
+    - name: toolhive-secrets
+      key: TRUENAS_MCP_API_KEY
+      targetEnvName: TRUENAS_MCP_API_KEY
   podTemplateSpec:
     spec:
       containers:
