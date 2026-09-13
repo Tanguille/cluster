@@ -372,7 +372,27 @@ Not worth tuning: `prompt_lookup_*` and raising `num_speculative_tokens`. At
 ~89% acceptance and 3.33 of a possible 5 tokens per step, the headroom left in
 the drafting itself is small; the per-step tax is where the remaining cost is.
 
+## MTP retest 2026-09-12 on nightly 70d3eb5: still rejected
+
+`{"method":"mtp","num_speculative_tokens":3}`, capture sizes `[4,8,12,16,20]`,
+AITER unified attention, `GPU_MAX_HW_QUEUES=1`, fast band verified. The
+tool-calling wedge is gone (vllm#55223): grammar-constrained decode ran 43 /
+86 / 88 tok/s aggregate at conc 1 / 3 / 5 against 31 / 66 / 98 without MTP.
+Acceptance 66%, 2.0 accepted per draft.
+
+Greedy equivalence, temperature 0, same nightly spec-ON vs spec-OFF
+(`scratchpad/eqcapture.py`, five prompts): 4 of 5 diverge, at chars 9 / 97 /
+928 / 39; only the short tool-call JSON is identical. The divergences are
+fluent paraphrases (`departs 14:05; second departs` vs `departs at 14:05,
+second at`), the same verify-step signature as the radiance run. And the
+production shape still loses: 48K cached prefix, conc 2-5 aggregate 33 / 40 /
+44 / 39 with MTP vs 45 / 51 / 62 / 71 without, on the same image and band.
+
 ## Unrelated finding: the nightly regression persists
+
+**Superseded 2026-09-12:** this was the gfx1201 per-process fast/slow band
+(ROCm/ROCm#6347), not a vLLM commit; see `gfx1201-fast-slow-band-2026-09-12.md`.
+The version/ruled-out data below is still valid, the attribution is not.
 
 The `vllm-openai-rocm:nightly` decode regression that forced the pin to
 `0d07767` is **still present in the 2026-09-07 build** (`74d4a95`,
