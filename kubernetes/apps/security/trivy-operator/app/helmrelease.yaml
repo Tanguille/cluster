@@ -11,6 +11,11 @@ spec:
     name: trivy-operator
   values:
     fullnameOverride: *app
+    operator:
+      # Node collector can't run on Talos (read-only rootfs: mkdir /etc/systemd
+      # fails), so disable infra assessment. Keeps image vuln, config audit
+      # (workload), RBAC and secret scanning. Loses node CIS InfraAssessmentReports.
+      infraAssessmentScannerEnabled: false
     # Expose the /metrics endpoint to Prometheus via a ServiceMonitor.
     serviceMonitor:
       enabled: true
