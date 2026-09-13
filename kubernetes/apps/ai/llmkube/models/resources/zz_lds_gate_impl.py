@@ -38,10 +38,55 @@ class _PatchLoader(importlib.abc.Loader):
         self._loader.exec_module(module)
         old = getattr(module, "LDS_CAPACITY_ELEMENTS", None)
         module.LDS_CAPACITY_ELEMENTS = NEW_LIMIT
+        _install_small_m_triton_config(module)
         print(
-            "[lds-gate-patch] LDS_CAPACITY_ELEMENTS %s -> %s" % (old, NEW_LIMIT),
+            "[lds-gate-patch] LDS_CAPACITY_ELEMENTS %s -> %s; Triton M<=32 tile %s"
+            % (old, NEW_LIMIT, SMALL_M_CFG),
             file=sys.stderr, flush=True,
         )
+
+
+# Second patch, same module: the Triton tile config for the gfx12x M <= 32
+# branch. Even at 39321 the gate only covers down_proj (K=17408) up to M=2;
+# at M=3-5, where production runs (3.8 concurrent on average), it takes the
+# Triton path, and so does every layer at M=6-32 (chunked-prefill tails).
+#
+# Shipped: BLOCK 16x16x128, 4 warps, default stages. Swept in-pod 2026-09-13
+# under CUDA-graph replay across all six Qwen3.8 shapes at M=3..32
+# (docs/llm-hosting/bench/downfix/triton_m32.out): 2 warps + 1 stage wins
+# 14/30 cells and regresses none, 1.16-1.31x on down_proj, 1.26-1.30x on
+# gate_up, >= 1.04x everywhere. Split-K over the HIP skinny kernel was also
+# measured and rejected: 1.2-1.3x at M=3-5 but 0.6-0.75x at M=1-2 and
+# 0.5-0.7x on prefill tails, because the weight must be stored in K-chunks.
+#
+# _rdna_hybrid_w4a16_apply_impl resolves triton_w4a16_skinny_fmt_gemm by
+# module global at call time, so replacing it here reaches the registered
+# custom op without re-registering it.
+SMALL_M_CFG = dict(BLOCK_M=16, BLOCK_N=16, BLOCK_K=128, num_warps=2, num_stages=1)
+
+
+def _install_small_m_triton_config(hy):
+    import torch
+    from vllm.triton_utils import triton
+
+    orig = hy.triton_w4a16_skinny_fmt_gemm
+
+    def gemm(a, b_q, scales, group_size, zp_bias=8, zp=None):
+        M, K = a.shape
+        if M > 32 or not hy._on_gfx12x():
+            return orig(a, b_q, scales, group_size, zp_bias, zp)
+        N = b_q.shape[0]
+        c = torch.empty((M, N), dtype=a.dtype, device=a.device)
+        cfg = dict(SMALL_M_CFG, BLOCK_K=min(SMALL_M_CFG["BLOCK_K"], group_size))
+        grid = (triton.cdiv(M, cfg["BLOCK_M"]), triton.cdiv(N, cfg["BLOCK_N"]))
+        hy._triton_w4a16_skinny_fmt_kernel[grid](
+            a, b_q, scales, zp if zp is not None else scales, c,
+            M, N, K, K // 8, K // group_size,
+            group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None, **cfg,
+        )
+        return c
+
+    hy.triton_w4a16_skinny_fmt_gemm = gemm
 
 
 class _Finder(importlib.abc.MetaPathFinder):
