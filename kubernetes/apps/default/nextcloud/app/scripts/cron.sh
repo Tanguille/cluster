@@ -1,5 +1,5 @@
 #!/bin/bash
-set -u
+set -euo pipefail
 
 # Change to Nextcloud directory (required for occ commands)
 cd /var/www/html || {

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -u
+set -euo pipefail
 
 LOG_FILE="/var/log/post-start.log"
 mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true

@@ -4,6 +4,7 @@
 # reason. Everything else stays at the default severity (errors fail the gate,
 # warnings do not). If a rule is dropped below, update the matching comment in
 # docker/talos-kernel/Dockerfile too.
+failure-threshold: error
 ignored:
   # `cd /src` is load-bearing: the kernel Makefile must run with the source tree
   # as its working directory. A `WORKDIR` would survive into the final stage and

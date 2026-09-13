@@ -5,10 +5,26 @@ name: Docker Lint
 on:
   push:
     branches: ["main"]
-    paths: ["**/Dockerfile", "**/Dockerfile.*", ".github/workflows/docker-lint.yaml"]
+    paths:
+      [
+        "**/Dockerfile",
+        "**/Dockerfile.*",
+        ".github/workflows/docker-lint.yaml",
+        ".hadolint.yaml",
+        ".mise.toml",
+        "mise.lock"
+      ]
   pull_request:
     branches: ["main"]
-    paths: ["**/Dockerfile", "**/Dockerfile.*", ".github/workflows/docker-lint.yaml"]
+    paths:
+      [
+        "**/Dockerfile",
+        "**/Dockerfile.*",
+        ".github/workflows/docker-lint.yaml",
+        ".hadolint.yaml",
+        ".mise.toml",
+        "mise.lock"
+      ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}

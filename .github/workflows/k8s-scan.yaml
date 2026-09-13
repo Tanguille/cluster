@@ -35,16 +35,27 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
       - name: Scan
+        continue-on-error: true
         run: |
           set -uo pipefail
           mise exec -- kubescape scan kubernetes --format json > kubescape-report.json
 
       - name: Report summary
+        if: always()
+        continue-on-error: true
         run: |
           set -euo pipefail
           python3 -c '
           import json
-          d = json.load(open("kubescape-report.json"))
+          try:
+              with open("kubescape-report.json") as report:
+                  d = json.load(report)
+          except (OSError, json.JSONDecodeError):
+              print("kubescape (advisory): report unavailable - see artifact")
+              raise SystemExit(0)
+          if not isinstance(d, dict):
+              print("kubescape (advisory): report unavailable - see artifact")
+              raise SystemExit(0)
           rc = (d.get("summaryDetails") or {}).get("ResourceCounters") or {}
           sev = (d.get("summaryDetails") or {}).get("resourcesSeverityCounters") or {}
           print("kubescape (advisory):",

@@ -5,10 +5,24 @@ name: Shell Lint
 on:
   push:
     branches: ["main"]
-    paths: ["**.sh", ".editorconfig", ".github/workflows/shell-lint.yaml"]
+    paths:
+      [
+        "**.sh",
+        ".editorconfig",
+        ".github/workflows/shell-lint.yaml",
+        ".mise.toml",
+        "mise.lock"
+      ]
   pull_request:
     branches: ["main"]
-    paths: ["**.sh", ".editorconfig", ".github/workflows/shell-lint.yaml"]
+    paths:
+      [
+        "**.sh",
+        ".editorconfig",
+        ".github/workflows/shell-lint.yaml",
+        ".mise.toml",
+        "mise.lock"
+      ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
