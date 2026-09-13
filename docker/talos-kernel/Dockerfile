@@ -51,6 +51,7 @@ FROM ghcr.io/siderolabs/tools:${TOOLS_REV} AS builder
 SHELL ["/bin/bash", "-c"]
 COPY --from=llvm / /
 COPY --from=source /src /src
+COPY generate-spdx.py /tmp/generate-spdx.py
 ARG KERNEL_VERSION
 
 # olddefconfig resolves the symbol delta by taking upstream defaults for every new option.
@@ -94,36 +95,10 @@ RUN cd /src \
 
 # bldr emits this from the sbom: block in pkgs kernel/kernel/pkg.yaml. Fixed timestamp,
 # not generated: a moving date would break build reproducibility.
-RUN mkdir -p /rootfs/usr/share/spdx && cat > /rootfs/usr/share/spdx/kernel.spdx.json <<EOF
-{
-  "spdxVersion": "SPDX-2.3",
-  "dataLicense": "CC0-1.0",
-  "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "kernel",
-  "documentNamespace": "https://kernel.org/linux-${KERNEL_VERSION}",
-  "creationInfo": { "created": "1970-01-01T00:00:00Z", "creators": ["Tool: bldr"] },
-  "packages": [{
-    "SPDXID": "SPDXRef-Package-kernel",
-    "name": "kernel",
-    "versionInfo": "${KERNEL_VERSION}",
-    "downloadLocation": "https://cdn.kernel.org/pub/linux/kernel/v${KERNEL_VERSION%%.*}.x/linux-${KERNEL_VERSION}.tar.xz",
-    "licenseConcluded": "GPL-2.0-only",
-    "licenseDeclared": "GPL-2.0-only",
-    "copyrightText": "NOASSERTION",
-    "filesAnalyzed": false,
-    "externalRefs": [{
-      "referenceCategory": "SECURITY",
-      "referenceType": "cpe23Type",
-      "referenceLocator": "cpe:2.3:o:linux:linux_kernel:${KERNEL_VERSION}:*:*:*:*:*:*:*"
-    }]
-  }],
-  "relationships": [{
-    "spdxElementId": "SPDXRef-DOCUMENT",
-    "relatedSpdxElement": "SPDXRef-Package-kernel",
-    "relationshipType": "DESCRIBES"
-  }]
-}
-EOF
+# Extracted to generate-spdx.py: hadolint's parser cannot handle an instruction
+# following a heredoc in a multi-stage build, and the inline python3 -c replacement
+# was unreadable.
+RUN mkdir -p /rootfs/usr/share/spdx && python3 /tmp/generate-spdx.py "$KERNEL_VERSION"
 RUN python3 -c "import json;assert json.load(open('/rootfs/usr/share/spdx/kernel.spdx.json'))['packages'][0]['versionInfo']"
 
 FROM scratch
