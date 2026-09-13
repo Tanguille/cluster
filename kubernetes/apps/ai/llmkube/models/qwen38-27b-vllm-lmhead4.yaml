@@ -1,0 +1,116 @@
+---
+# Stage for the 4-bit lm_head re-pack of qwen38-27b-vllm's checkpoint. The
+# Job below writes it here from the live model cache; the Model CR reads it
+# back through pvc://. Separate claim so the 50Gi model cache does not have
+# to hold source, staged copy and fetched copy at once.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-27b-vllm-lmhead4
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 20Gi
+---
+# Re-packs model.safetensors with lm_head quantised (see the script). CPU
+# only, streams the 18.7 GB file, ~3 GB RAM, one run. Idempotent on DST/DONE,
+# so a Flux re-apply after completion is a no-op. Job specs are immutable:
+# delete the Job before changing anything below.
+#
+# Same image as the engine so pack_to_int32 comes from the exact
+# compressed-tensors build vLLM unpacks with. No GPU requested; the hostpath
+# claims pin it to control-1 anyway.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: qwen38-27b-vllm-lmhead4-requant
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        amd.com/gpu: "true"
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+      containers:
+        - name: requant
+          image: vllm/vllm-openai-rocm:nightly@sha256:960228cfcb5de9f4cd22d28998d1125be62b546c3d220a884f570343e99ffcee
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              # exactly one staged checkpoint is expected in the model cache
+              [ "$(ls /models/*/model.safetensors | wc -l)" = 1 ]
+              SRC=$(dirname /models/*/model.safetensors)
+              echo "source $SRC"
+              export SRC DST=/out/Qwen3.8-27B-W4A16-AWQ-lmhead4
+              # no GPU in this pod; keep torch from probing for one
+              export HIP_VISIBLE_DEVICES= ROCR_VISIBLE_DEVICES=
+              python3 /scripts/lmhead4_requant.py
+              ls -la "$DST"
+          resources:
+            requests:
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              memory: 6Gi
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+              readOnly: true
+            - name: out
+              mountPath: /out
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: qwen38-27b-vllm-model-cache
+            readOnly: true
+        - name: out
+          persistentVolumeClaim:
+            claimName: qwen38-27b-vllm-lmhead4
+        - name: script
+          configMap:
+            name: lmhead4-requant
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+# Same checkpoint as qwen38-27b-vllm with lm_head stored W4A16 g128 (was
+# bf16, 2.54 GB read every decode step). Quality gate 2026-09-13: GSM8K 94.0
+# vs 93.3 (McNemar p=1.0), tools 12/12; docs/llm-hosting/perf-plan-2026-09-13.md.
+# Reports Failed and requeues every 5 min until the Job above has written
+# DST/DONE; flip the InferenceService modelRef only once this is Ready.
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-27b-vllm-lmhead4
+spec:
+  source: pvc://qwen38-27b-vllm-lmhead4/Qwen3.8-27B-W4A16-AWQ-lmhead4
+  format: safetensors
+  quantization: compressed-tensors
+  refreshPolicy: OnChange
+  files:
+    - model.safetensors
+    - model-mtp.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - chat_template.jinja
+    - preprocessor_config.json
+    - video_preprocessor_config.json
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
