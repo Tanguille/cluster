@@ -101,24 +101,45 @@ Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full proc
 
 ## Secrets management (SOPS)
 
-### Where SOPS actually runs — the agent box has no age key
+### Where SOPS runs — local-first (2026-09-14: SSH no longer required)
 
-Decrypt / encrypt / re-encrypt **cannot run on the agent box**: the config root has no `age.key`
-(verified: `/opt/data/cluster/age.key` is absent), so every SOPS op must run **on the management
-host**. The age key lives at `tanguille@192.168.0.181:~/cluster/age.key`.
+The agent box now has **its own age key** (post-quantum ML-KEM-768 + X25519, which
+decrypts *both* recipient types below) at `~/.config/sops/age/keys.txt` (mode 600,
+inside 700 directories, Ceph-backed — same regime as the SSH key). SOPS + age are
+installed locally via aqua/mise. **All SOPS ops now run locally** — no ssh, no scp,
+no fish, no stale remote branch.
 
-The `k8s-management` ssh alias is **dead** in this environment: the user's passwd home is
-`/opt/data` while `$HOME=/opt/data/home`, so OpenSSH reads `/opt/data/.ssh/config` (key only, no
-config) and never sees the alias defined in `/opt/data/home/.ssh/config`. Until that is fixed,
-always connect explicitly:
+**Required for every sops call** — sops 3.13.3 does NOT auto-discover this key
+path (it checks `~/.ssh`, `SOPS_AGE_KEY`; it will fail with "no identity matched"):
 
 ```bash
-ssh -i /opt/data/.ssh/id_ed25519 tanguille@192.168.0.181 '<cmd>'
+export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
 ```
 
-On the remote, `sops` (and `age`, `kubectl`, …) are **mise shims**, so a bare `sops --version`
-prints nothing. Prefix with `mise exec -- sops …` (or invoke the shim under a trusted `cwd` that
-has a trusted `.mise.toml`).
+Local `sops` binary (the mise shims are unreliable in non-login shells):
+`/opt/data/home/.local/share/mise/installs/aqua-getsops-sops/3.13.3/sops`.
+
+**Full procedure → [cluster-sops skill](skills/cluster-sops/SKILL.md).** Canonical
+local flows (new value / change value / `updatekeys`) and the three traps are there.
+
+#### Fallback: the remote management host (only if the local key is revoked)
+
+If the agent-box key is ever revoked, SOPS ops fall back to the management host,
+where the original key still lives (`tanguille@192.168.0.181:~/cluster/age.key`).
+The `k8s-management` ssh alias is **dead** in this environment: the user's passwd
+home is `/opt/data` while `$HOME=/opt/data/home`, so OpenSSH reads
+`/opt/data/.ssh/config` (key only, no config) and never sees the alias in
+`/opt/data/home/.ssh/config`. Connect explicitly:
+
+```bash
+ssh -o BatchMode=yes -i /opt/data/.ssh/id_ed25519 tanguille@192.168.0.181 '<cmd>'
+```
+
+On the remote, `sops` (and `age`, `kubectl`, …) are **mise shims**, so a bare
+`sops --version` prints nothing. Prefix with `mise exec -- sops …` (or invoke the
+shim under a trusted `cwd` with a trusted `.mise.toml`). The remote shell is
+**fish** — pipe complex commands via `ssh … 'python3 -' < local.py`, never
+multi-line heredocs.
 
 ### Recipients differ per subtree (read `.sops.yaml`)
 
