@@ -95,6 +95,18 @@ spec:
         serviceMonitor:
           enabled: true
 
+      # Chart default (32, min_idle defaults to max_size) makes r2d2 eagerly
+      # open 32 idle connections at startup. pgbouncer-rw's max_db_connections
+      # (kubernetes/apps/database/cloudnative-pg/cluster/pooler.yaml) is 22
+      # per database, the excess requests just queue, r2d2's connection_timeout
+      # (30s) then fires with no per-connection error recorded, and the broker
+      # panics with the unhelpful "Failed to create pool.: Error(None)".
+      # 16 (chart's own documented floor: inflightPermits + 8) stays comfortably
+      # under the pgbouncer cap.
+      dbPoolMaxSize: 16
+      audit:
+        inflightPermits: 8
+
     # controller: intentionally left at chart defaults. The eBPF DaemonSet is
     # privileged + CAP_BPF, mounting /proc, /sys and the containerd socket —
     # hence the security namespace (psa-privileged component, same as crowdsec).
