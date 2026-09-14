@@ -62,5 +62,3 @@ Recommended flow: datasource UID → alerting rules → CPU/memory PromQL → di
 ## Progressive disclosure
 
 - PromQL expressions and interpretation bands: [references/promql-queries.md](references/promql-queries.md)
-
-Format reference: [agentskills.io](https://agentskills.io/specification).

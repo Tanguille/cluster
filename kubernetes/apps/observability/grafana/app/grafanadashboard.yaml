@@ -9,9 +9,6 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
   configMapRef:
     name: grafana-operator-dashboard
     key: grafana-operator.json
@@ -26,9 +23,6 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
   url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/grafana/dashboards/grafana-overview.json
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
