@@ -11,7 +11,13 @@ cd /var/www/html || {
 run_occ() {
     local cmd="$1"
     local warning_msg="${2:-${cmd} failed}"
-    php occ "$cmd" || echo "WARNING: $warning_msg" >&2
+    # Word splitting is intentional: "command --flag" must reach occ as separate
+    # argv words (a single quoted token makes Symfony treat it as the command
+    # name, e.g. "app:update --all" => 'Command "app:update --all" is not defined').
+    # No command or flag in this script contains spaces or shell glob characters,
+    # so unquoted expansion is safe here.
+    # shellcheck disable=SC2086
+    php occ $cmd || echo "WARNING: $warning_msg" >&2
 }
 
 # Helper function to check if an app is installed
@@ -63,12 +69,12 @@ if [ "$MINUTE" = "00" ]; then
     run_occ "files:cleanup"
 fi
 
-# Run app auto-updates weekly (Sunday at 1:30 AM UTC)
+# Run app auto-updates daily (at 1:30 AM UTC)
 # Native Nextcloud way: occ app:update --all only pulls app versions
 # compatible with the pinned server version.
 # 1:30 AM avoids the 2:00 AM heavy maintenance window (maintenance:repair, files:scan).
-if [ "$MINUTE" = "30" ] && [ "$HOUR" = "01" ] && [ "$DAY_OF_WEEK" = "7" ]; then
-    echo "Updating all Nextcloud apps (weekly auto-update)..."
+if [ "$MINUTE" = "30" ] && [ "$HOUR" = "01" ]; then
+    echo "Updating all Nextcloud apps (daily auto-update)..."
     run_occ "app:update --all" "app auto-update failed"
 fi
 
