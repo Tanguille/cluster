@@ -1,8 +1,23 @@
 ---
-# Stage for the 4-bit lm_head re-pack of qwen38-27b-vllm's checkpoint. The
-# Job below writes it here from the live model cache; the Model CR reads it
-# back through pvc://. Separate claim so the 50Gi model cache does not have
-# to hold source, staged copy and fetched copy at once.
+# Holds the already-built checkpoint the Model below reads via pvc://. The
+# staging Job that wrote it (re-packing model.safetensors from the bf16 source
+# with lm_head quantised, see lmhead4_requant.py) is removed now that the
+# result is baked and stable -- it only existed to produce this once, and kept
+# recurring immutable-Job Kustomization failures on every vllm-openai-rocm
+# digest bump (Job.spec.template is immutable; Renovate touched its image on
+# every bump).
+#
+# Rebuild recipe if this checkpoint ever needs regenerating: re-create a Job
+# with the same shape as the one removed here (`git show
+# c245623f4~1:kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm-lmhead4.yaml`
+# has it verbatim) against a fresh bf16 fetch. That fetch needs its own Model
+# CR + PVC too -- `git show
+# c245623f4~1:kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml` has the
+# deleted one, including the exact `files:` list (philbert ships one
+# model.safetensors, not cyankiwi's 5 shards -- get this wrong and the init
+# container 404s) and why philbert440/Qwen3.8-27B-W4A16-AWQ (g128, thinking-mode
+# calibrated) was chosen over cyankiwi's g32 build. Pin:
+# hf://philbert440/Qwen3.8-27B-W4A16-AWQ@7908d42a71077a5e4dc458f273682b12dfe384a0
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -13,71 +28,6 @@ spec:
   resources:
     requests:
       storage: 20Gi
----
-# Re-packs model.safetensors with lm_head quantised (see the script). CPU
-# only, streams the 18.7 GB file, ~3 GB RAM peak, one run. Request stays low: control-1
-# sits at 98% memory requests, the 6Gi limit is the real bound. Idempotent on DST/DONE,
-# so a Flux re-apply after completion is a no-op. Job specs are immutable:
-# delete the Job before changing anything below.
-#
-# Same image as the engine so pack_to_int32 comes from the exact
-# compressed-tensors build vLLM unpacks with. No GPU requested and no
-# nodeSelector: the two hostpath claims already pin the pod to control-1.
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: qwen38-27b-vllm-lmhead4-requant
-spec:
-  backoffLimit: 1
-  template:
-    spec:
-      restartPolicy: Never
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
-      containers:
-        - name: requant
-          image: vllm/vllm-openai-rocm:nightly@sha256:ce62c0aead55bcb36e4ee05f179fb4e55a31dd1bcb5d2184aaa0d353f60a4b68
-          command:
-            - sh
-            - -c
-            - |
-              set -eu
-              # exactly one staged checkpoint is expected in the model cache
-              [ "$(ls /models/*/model.safetensors | wc -l)" = 1 ]
-              SRC=$(dirname /models/*/model.safetensors)
-              echo "source $SRC"
-              export SRC DST=/out/Qwen3.8-27B-W4A16-AWQ-lmhead4
-              # no GPU in this pod; keep torch from probing for one
-              export HIP_VISIBLE_DEVICES= ROCR_VISIBLE_DEVICES=
-              python3 /scripts/lmhead4_requant.py
-              ls -la "$DST"
-          resources:
-            requests:
-              cpu: "2"
-              memory: 512Mi
-            limits:
-              memory: 6Gi
-          volumeMounts:
-            - name: model-cache
-              mountPath: /models
-              readOnly: true
-            - name: out
-              mountPath: /out
-            - name: script
-              mountPath: /scripts
-              readOnly: true
-      volumes:
-        - name: model-cache
-          persistentVolumeClaim:
-            claimName: qwen38-27b-vllm-model-cache
-            readOnly: true
-        - name: out
-          persistentVolumeClaim:
-            claimName: qwen38-27b-vllm-lmhead4
-        - name: script
-          configMap:
-            name: lmhead4-requant
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 # Same checkpoint as qwen38-27b-vllm with lm_head stored W4A16 g128 (was

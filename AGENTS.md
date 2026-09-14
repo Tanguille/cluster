@@ -19,7 +19,7 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 - [Learned preferences](.agents/learned-preferences.md): tool selection, ToolHive workflow, reversions, resources, and confidence
 - [Learned workspace](.agents/learned-workspace.md): cluster-specific Kubernetes, ToolHive, database, storage, Talos, and media facts
 - [Common operations](.agents/common-operations.md): validation, app operations, SOPS, debugging, and backup/restore
-- [Skill catalog](.agents/skills/): add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation, k8s-at-home-research, pr-review, prometheus-cluster-health — one `SKILL.md` per directory
+- [Skill catalog](.agents/skills/): add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation, handoff, k8s-at-home-research, pr-review, prometheus-cluster-health — one `SKILL.md` per directory
 - [Useful commands](docs/useful_commands.md): flux/just/talos/sops command reference and app-specific runbooks
 - [Archived migrations](docs/archived-migrations.md): completed ZFS→Ceph, Radarr→Postgres and OPNsense BGP procedures, with git recovery pointers
 - [LLM hosting](docs/llm-hosting/): sglang/vLLM tuning constraints and benchmark history for `kubernetes/apps/ai/`
