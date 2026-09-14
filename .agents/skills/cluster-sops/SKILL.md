@@ -1,106 +1,129 @@
 ---
 name: cluster-sops
 description: >-
-  Decrypt, create, edit, and re-encrypt SOPS secrets for this repo — on the remote
-  management host, where the age key lives, using a single scripted round-trip.
+  Decrypt, create, edit, and re-encrypt SOPS secrets for this repo — on the agent
+  box, where its own age key now lives (one local command, no SSH), with the remote
+  management host as fallback.
 
-  user: "add a new secret for app X" → remote sops encrypt with the right recipients
+  user: "add a new secret for app X" → local sops encrypt with the .sops.yaml recipients
   user: "change the DB password" → decrypt → edit in dict form → re-encrypt
   user: "re-encrypt after changing recipients" → sops updatekeys
 
   Use proactively whenever a *.sops.yaml value must be created or changed. Ask the
   owner first — decrypting/editing SOPS is an ask-first operation per AGENTS.md.
-compatibility: Requires `ssh` to `tanguille@192.168.0.181` (key at /opt/data/.ssh/id_ed25519), `sops` + `python3` + `mise` on that host, and the repo's `.sops.yaml` + `age.key` under `~/cluster/`.
-
+compatibility: `sops` (aqua, 3.13.3) + the agent-box age key at ~/.config/sops/age/keys.txt; the repo's `.sops.yaml` in the worktree. Fallback: `ssh -i /opt/data/.ssh/id_ed25519 tanguille@192.168.0.181` (remote key at ~/cluster/age.key).
 ---
 
-# Cluster SOPS (remote secrets workflow)
+# Cluster SOPS (local-first secrets workflow)
 
-## Where it runs — and why
+## Where it runs — and why (2026-09-14: SSH no longer required)
 
-- The **agent box has no age key** (no `age.key` under the config root) and no usable
-  local `sops` config for the right recipients. Every decrypt/encrypt/re-encrypt
-  **must run on the management host**: `tanguille@192.168.0.181`, repo at `~/cluster`,
-  key at `~/cluster/age.key`.
-- **SSH from the agent box** (verified working form):
-  `ssh -i /opt/data/.ssh/id_ed25519 tanguille@192.168.0.181 '<cmd>'`
-  - The `k8s-management` alias in `~/.ssh/config` is **dead in this environment**:
-    the passwd home is `/opt/data` but `$HOME=/opt/data/home`, so OpenSSH reads
-    `/opt/data/.ssh/config` (absent) and the alias never resolves. Don't use it until
-    the config is placed at `/opt/data/.ssh/config` (or symlinked).
-  - Use `BatchMode=yes` for scripted runs.
-- **`sops` on the remote is a mise shim** — bare `sops --version` can print nothing.
-  Run it as `mise exec -- sops …` (or from a `mise trust`-ed directory) so it resolves.
+- **The agent box has its own age key** (post-quantum, ML-KEM-768 + X25519) at
+  `~/.config/sops/age/keys.txt` (mode 600, inside 700 directories). A PQ identity
+  decrypts **both** recipient types in `.sops.yaml` (`age1pq…` and plain `age1…`).
+  Full encrypt→decrypt round-trip verified locally.
+- **Required env for every sops call** (sops 3.13.3 does NOT auto-discover this
+  path — it looks in `~/.ssh` / `SOPS_AGE_KEY` and will fail with "no identity
+  matched" otherwise):
+
+  ```bash
+  export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
+  ```
+
+- **Local sops binary** (aqua install; the mise shims are unreliable in non-login
+  shells): `/opt/data/home/.local/share/mise/installs/aqua-getsops-sops/3.13.3/sops`.
+  `age-keygen` (for key ops) is at
+  `.../aqua-filo-sottile-age/1.3.2/age/age-keygen` — note its `-y` takes the
+  identity file as a *positional* argument (no `-r` flag), and the `age` binary in
+  the same directory is the encrypt/decrypt CLI (no `-g` flag).
+
+### Fallback: the remote management host
+
+If the agent-box key is ever revoked (the whole point of a revocable key), or a
+`talos/` file predates the migration: `ssh -o BatchMode=yes -i /opt/data/.ssh/id_ed25519
+tanguille@192.168.0.181 '…'`. Gotchas on the remote (keep the same discipline):
+
+- The `k8s-management` ssh alias is a **phantom** here: passwd home is `/opt/data`
+  but `$HOME=/opt/data/home`, so OpenSSH reads `/opt/data/.ssh/config` (absent) and
+  the alias never resolves.
+- Remote `sops` is a **mise shim** — bare `sops --version` can print nothing; use
+  `mise exec -- sops …`.
+- Remote `~/cluster` may sit on a **stale feature branch** (it was on
+  `feat/truenas-mcp` during the kguardian work). `git fetch` + check the branch
+  before trusting file state there.
+- Remote shell is **fish**: pipe complex commands via `ssh … 'python3 -' < local.py`,
+  never multi-line heredocs.
 
 ## Recipients (from `.sops.yaml` — read it, don't trust memory)
 
 | path_regex | recipient |
 |---|---|
-| `talos/.*\.sops\.ya?ml` | `age12gul5m0…` (short) |
-| `(bootstrap\|kubernetes)/.*\.sops\.ya?ml` | `age1pq1f69…` (post-quantum, long) |
+| `talos/.*\.sops\.ya?ml` | `age12gul5m0…` (plain X25519) |
+| `(bootstrap\|kubernetes)/.*\.sops\.ya?ml` | `age1pq1f69…` (post-quantum) |
 
-`sops` picks the rule by path automatically — so **run it against the file's real
-path** (or pass the file inside the matching subtree). Both halves of the age key
-must be in `age.key`: a key missing the PQ half decrypts `talos/` but fails on
-`kubernetes/`.
+`sops` picks the rule by path automatically — **run it against the file's real
+path** (or pass the file inside the matching subtree).
+
+**Migration in flight (2026-09-14):** the agent-box key's public key
+(`age1pq1hzp5…`, full value in memini) is pending addition to `.sops.yaml` +
+`git ls-files | grep '\.sops\.ya?ml$' | xargs sops updatekeys --encrypt`.
+Until that ships, the agent-box key decrypts `kubernetes|bootstrap/` files (its
+PQ identity matches `age1pq1f69…`) but NOT `talos/` files (plain `age12gul5m0…`) —
+for those, use the remote fallback or run updatekeys first.
 
 ## The three traps (each already cost time — avoid them)
 
 1. **`stringData` → `data` on decrypt/encrypt.** SOPS normalizes `stringData` into
-   base64 `data` (and `encrypted_regex: ^(data|stringData)$` only encrypts those keys).
-   A text round-trip (decrypt → edit → encrypt) can **drop keys or mangle the mapping**.
-   **Fix:** rebuild with a Python dict on the remote — load decrypted YAML, set the
-   values in the right section, dump back — instead of hand-editing text.
+   base64 `data` (and `encrypted_regex: ^(data|stringData)$` only encrypts those
+   keys). A text round-trip can **drop keys or mangle the mapping**.
+   **Fix:** rebuild with a Python dict — load decrypted YAML, set the values in
+   the right section, dump back — instead of hand-editing text.
 2. **Stale `sops:` footer.** Text-editing an already-encrypted file (or a decrypt
-   that left the metadata block) makes the next `sops encrypt` fail on the existing
-   footer. **Fix:** always start from a *fully decrypted* file (metadata stripped)
-   before re-encrypting; never edit the ciphertext by hand.
-3. **Missing `--input-type`/`--output-type`.** Without `--input-type yaml
-   --output-type yaml`, sops may guess JSON and fail on YAML secrets. **Fix:** pass
-   both flags explicitly every time.
+   that left the metadata block) makes the next `sops encrypt` fail on the
+   existing footer. **Fix:** always start from a *fully decrypted* file (metadata
+   stripped) before re-encrypting; never edit the ciphertext by hand.
+3. **Missing `--input-type`/`--output-type`.** Without both flags sops may guess
+   JSON and fail on YAML secrets ("error: no matching creation rules found" or a
+   JSON-guess failure). **Fix:** pass both flags explicitly every time.
 
-## Canonical flows (remote, one scripted call each)
+## Canonical flows (local-first, one command each)
+
+All examples assume the `export SOPS_AGE_KEY_FILE=…` above and `cd` into the
+worktree that contains `.sops.yaml`.
 
 ### New secret value
 
 ```bash
-ssh -i /opt/data/.ssh/id_ed25519 tanguille@192.168.0.181 '
-set -e; cd ~/cluster
-# 1. stage the plaintext in the right subtree (path must match the .sops.yaml rule)
-#    e.g. kubernetes/apps/<ns>/<app>/<name>.sops.yaml with data: {key: value}
-# 2. encrypt in place:
-mise exec -- sops encrypt --in-place \
-  --input-type yaml --output-type yaml kubernetes/apps/<ns>/<app>/<name>.sops.yaml
-# 3. sanity: only data/stringData encrypted, sops footer present, nothing plaintext
-grep -n "ENC[A-Z0-9]\{32,\}" kubernetes/apps/<ns>/<app>/<name>.sops.yaml | head
-'
+F=kubernetes/apps/<ns>/<app>/<name>.sops.yaml   # path MUST match the .sops.yaml rule
+# stage plaintext with data: {key: base64value} or stringData: {key: plain}
+sops encrypt --in-place --input-type yaml --output-type yaml "$F"
+# sanity: only data/stringData encrypted, sops footer present, nothing plaintext
+grep -n "ENC[A-Z0-9]\{32,\}" "$F" | head
 ```
 
 ### Change an existing value (dict-based, no text surgery)
 
 ```bash
-ssh -i /opt/data/.ssh/id_ed25519 tanguille@192.168.0.181 '
-set -e; cd ~/cluster; F=kubernetes/apps/<ns>/<app>/<name>.sops.yaml
-mise exec -- sops decrypt --input-type yaml --output-type yaml "$F" > /tmp/<name>.plain.yaml
+F=kubernetes/apps/<ns>/<app>/<name>.sops.yaml
+sops decrypt --input-type yaml --output-type yaml "$F" > /tmp/<name>.plain.yaml
 python3 - <<PY
 import yaml
 p = "/tmp/<name>.plain.yaml"
 d = yaml.safe_load(open(p))
 # set the new value where it belongs (data: is base64; stringData: is plain —
-# normalize to the shape the repo uses for this file before writing)
+# normalize to the shape this repo uses for this file before writing)
 d["data"]["key"] = "newbase64value"
 yaml.safe_dump(d, open(p, "w"), sort_keys=False)
 PY
-mise exec -- sops encrypt --in-place --input-type yaml --output-type yaml "$F"
-rm -f /tmp/<name>.plain.yaml   # ask-first: never leave decrypted temp behind
-'
+sops encrypt --in-place --input-type yaml --output-type yaml "$F"
+rm -f /tmp/<name>.plain.yaml   # never leave decrypted temp behind
 ```
 
 ### Re-encrypt after a recipient change
 
 ```bash
-mise exec -- sops updatekeys --in-place \
-  --input-type yaml --output-type yaml <file>
+git ls-files | grep '\.sops\.ya?ml$' | xargs \
+  sops updatekeys --in-place --input-type yaml --output-type yaml
 ```
 
 ### Add a CNPG managed role / DB secret (CNPG subtree)
@@ -116,12 +139,10 @@ password in the `.sops.yaml`.
   `rm`-ing a decrypted temp file.
 - **Never echo decrypted values** into chat, PR descriptions, logs, or commit
   messages. Use `[REDACTED]`.
-- The remote `~/cluster` checkout may sit on a **stale feature branch** (it was on
-  `feat/truenas-mcp` during the kguardian work). SOPS only needs `.sops.yaml` +
-  `age.key`, but `git fetch` + check the branch before trusting file state there.
-- After encryption: `git diff` on the remote should show **only ciphertext changes**
-  (no plaintext, no `stringData`/`data` shape drift beyond what SOPS itself did).
-- Commit the `.sops.yaml` change in the agent-box worktree (pull the encrypted bytes
-  back with `scp`), then follow the normal commit/PR flow — the remote is for
-  SOPS only, not for `git push` (which needs a token; use bundles or ToolHive
-  `push_files` per the PR-shepherding rules in `common-operations.md`).
+- The **private age key never leaves the agent box**: it is not committed, not
+  copied to the remote, not echoed. Only its *public* key goes into `.sops.yaml`.
+- After encryption: `git diff` should show **only ciphertext changes** (no
+  plaintext, no `stringData`/`data` shape drift beyond what SOPS itself did).
+- Commit in the agent-box worktree and follow the normal commit/PR flow (PR
+  shepherding rules in `common-operations.md`). The remote is a fallback for
+  SOPS + the only push path if ToolHive is down.
