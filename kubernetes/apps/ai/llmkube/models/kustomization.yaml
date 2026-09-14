@@ -23,9 +23,5 @@ configMapGenerator:
   - name: aiter-ua-config
     files:
       - DEFAULT.json=./resources/aiter_unified_attention_gfx1201.json
-  # Script for the one-shot lm_head re-pack Job in qwen38-27b-vllm-lmhead4.yaml.
-  - name: lmhead4-requant
-    files:
-      - lmhead4_requant.py=./resources/lmhead4_requant.py
 generatorOptions:
   disableNameSuffixHash: true
