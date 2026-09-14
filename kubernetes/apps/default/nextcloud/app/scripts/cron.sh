@@ -55,10 +55,10 @@ if ! php -f /var/www/html/cron.php; then
 fi
 
 # Run maintenance operations based on time
-# Note: Container timezone may be UTC, adjust hour accordingly
-MINUTE=$(date +%M)
-HOUR=$(date +%H)
-DAY_OF_WEEK=$(date +%u)
+# Schedule against UTC explicitly (date -u): the container TZ is not pinned in the manifest
+MINUTE=$(date -u +%M)
+HOUR=$(date -u +%H)
+DAY_OF_WEEK=$(date -u +%u)
 
 # Run database maintenance and cleanup every hour (at minute 0)
 if [ "$MINUTE" = "00" ]; then
