@@ -147,10 +147,8 @@ spec:
   # targets it by regex; attempt 1 with a bare "lm_head" target crashlooped
   # (perf-plan-2026-09-13.md).
   # The bf16 source Model, its model-cache PVC, and the requant Job are removed
-  # -- reproducible from lmhead4_requant.py plus the pinned bf16 source below if
-  # this ever needs rebuilding; a rollback now means re-fetching and re-packing,
-  # not a modelRef flip.
-  # source: hf://philbert440/Qwen3.8-27B-W4A16-AWQ@7908d42a71077a5e4dc458f273682b12dfe384a0
+  # -- rebuild recipe: see qwen38-27b-vllm-lmhead4.yaml. A rollback now means
+  # re-fetching and re-packing, not a modelRef flip.
   modelRef: qwen38-27b-vllm-lmhead4
   runtime: vllm
   replicas: 1
