@@ -35,6 +35,13 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
   `.agents/skills/pr-review/references/pr-shepherd.md` — gates, CI triage, cycle budget, and the
   boundaries that hold even in auto mode (no merge, no push to `main`, no force-push, no cluster
   apply/reconcile, no secret decryption).
+- **Self-hosted agent-pr-review (`review` check run) feeds the shepherd loop** (2026-09-14):
+  `misospace/pr-reviewer-action` posts a PR review + inline findings (severity-gated verdict)
+  and a `review` check run. The board surfaces it as `ar=PASS|FAIL|SKIP|PROG` (distinct from
+  `ci=`). `ar=FAIL` is a review finding, NOT a build failure: read the review body +
+  `get_review_comments` (→ `review_threads`), address each blocking finding, push, re-run
+  agent-pr-review. Triage rules: `.agents/skills/pr-review/references/pr-shepherd.md`
+  § Agent review triage.
 
 ---
 
