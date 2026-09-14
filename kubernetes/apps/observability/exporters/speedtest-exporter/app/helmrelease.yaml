@@ -13,6 +13,10 @@ spec:
   values:
     podAnnotations:
       reloader.stakater.com/auto: "true"
+    # Chart defaults to dual-stack; this cluster is IPv4-only.
+    service:
+      ipFamilyPolicy: SingleStack
+      ipFamilies: [IPv4]
     podSecurityContext:
       runAsGroup: 1000
       runAsUser: 1000
