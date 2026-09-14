@@ -18,10 +18,12 @@ compatibility: `sops` (aqua, 3.13.3) + the agent-box age key at ~/.config/sops/a
 
 ## Where it runs — and why (2026-09-14: SSH no longer required)
 
-- **The agent box has its own age key** (post-quantum, ML-KEM-768 + X25519) at
-  `~/.config/sops/age/keys.txt` (mode 600, inside 700 directories). A PQ identity
-  decrypts **both** recipient types in `.sops.yaml` (`age1pq…` and plain `age1…`).
-  Full encrypt→decrypt round-trip verified locally.
+- **The agent box holds an age key file** at `~/.config/sops/age/keys.txt`
+  (mode 600, inside 700 directories) with **3 identities**: the agent-box's own
+  revocable PQ key **plus the two master keys** (`age12gul5m0…`, `age1pq1f69…`)
+  copied from the remote 2026-09-14. It therefore decrypts **every** file in the
+  repo locally — verified on real `kubernetes/` and `talos/` files, no SSH.
+  No existing file was re-encrypted and no recipients were changed.
 - **Required env for every sops call** (sops 3.13.3 does NOT auto-discover this
   path — it looks in `~/.ssh` / `SOPS_AGE_KEY` and will fail with "no identity
   matched" otherwise):
@@ -39,9 +41,10 @@ compatibility: `sops` (aqua, 3.13.3) + the agent-box age key at ~/.config/sops/a
 
 ### Fallback: the remote management host
 
-If the agent-box key is ever revoked (the whole point of a revocable key), or a
-`talos/` file predates the migration: `ssh -o BatchMode=yes -i /opt/data/.ssh/id_ed25519
-tanguille@192.168.0.181 '…'`. Gotchas on the remote (keep the same discipline):
+Only needed if the master keys are ever removed from `keys.txt` (to shrink the
+agent box's blast radius — a pre-copy backup is at `keys.txt.bak`). Then SOPS
+decrypt falls back to the management host, where the original key lives
+(`tanguille@192.168.0.181:~/cluster/age.key`):
 
 - The `k8s-management` ssh alias is a **phantom** here: passwd home is `/opt/data`
   but `$HOME=/opt/data/home`, so OpenSSH reads `/opt/data/.ssh/config` (absent) and
@@ -64,12 +67,27 @@ tanguille@192.168.0.181 '…'`. Gotchas on the remote (keep the same discipline)
 `sops` picks the rule by path automatically — **run it against the file's real
 path** (or pass the file inside the matching subtree).
 
-**Migration in flight (2026-09-14):** the agent-box key's public key
-(`age1pq1hzp5…`, full value in memini) is pending addition to `.sops.yaml` +
-`git ls-files | grep '\.sops\.ya?ml$' | xargs sops updatekeys --encrypt`.
-Until that ships, the agent-box key decrypts `kubernetes|bootstrap/` files (its
-PQ identity matches `age1pq1f69…`) but NOT `talos/` files (plain `age12gul5m0…`) —
-for those, use the remote fallback or run updatekeys first.
+**Key inventory (2026-09-14, current truth):** `~/.config/sops/age/keys.txt` holds
+**3 identities** — the agent-box's own revocable key (`age1pq1hzp…`) plus the two
+master keys copied from the remote (`age12gul5m0…`, `age1pq1f69…`). No existing
+file was re-encrypted or had its recipients changed ("don't touch existing
+encryption" — honored). Consequences:
+
+- **Decrypt/edit any existing file: works locally**, no SSH (verified on real
+  `kubernetes/` and `talos/` files).
+- **New files encrypt to the same recipients as before** (driven by `.sops.yaml`)
+  — the agent-box key is a *redundant* decryptor, not a recipient, unless you
+  later decide to add it to `.sops.yaml` + `updatekeys`.
+- **Trade-off accepted by the owner:** the master keys now live on 2 boxes. If
+  the agent box is compromised, *rotate the master* (the revocable-agent-key
+  model is no longer the only blast-radius control). If you'd rather not keep
+  that exposure, the master lines can be removed from `keys.txt` (a backup of
+  the pre-copy file exists at `keys.txt.bak`) — existing-file decryption would
+  then fall back to SSH.
+
+**PQ note (learned the hard way):** "post-quantum" is a key *format*
+(ML-KEM-768), not a shared secret — two different `age1pq…` keys do NOT interop.
+A brand-new PQ key cannot decrypt files encrypted to an older PQ key.
 
 ## The three traps (each already cost time — avoid them)
 
@@ -139,8 +157,11 @@ password in the `.sops.yaml`.
   `rm`-ing a decrypted temp file.
 - **Never echo decrypted values** into chat, PR descriptions, logs, or commit
   messages. Use `[REDACTED]`.
-- The **private age key never leaves the agent box**: it is not committed, not
-  copied to the remote, not echoed. Only its *public* key goes into `.sops.yaml`.
+- The **master age key now lives on the agent box too** (copied 2026-09-14 by
+  explicit owner decision; `keys.txt` = 3 identities). It is still not committed
+  and not echoed — only *public* keys ever go into `.sops.yaml`. If you later
+  want to shrink the blast radius, remove the master lines from `keys.txt`
+  (backup at `keys.txt.bak`); existing-file decryption then falls back to SSH.
 - After encryption: `git diff` should show **only ciphertext changes** (no
   plaintext, no `stringData`/`data` shape drift beyond what SOPS itself did).
 - Commit in the agent-box worktree and follow the normal commit/PR flow (PR

@@ -103,11 +103,13 @@ Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full proc
 
 ### Where SOPS runs — local-first (2026-09-14: SSH no longer required)
 
-The agent box now has **its own age key** (post-quantum ML-KEM-768 + X25519, which
-decrypts *both* recipient types below) at `~/.config/sops/age/keys.txt` (mode 600,
-inside 700 directories, Ceph-backed — same regime as the SSH key). SOPS + age are
-installed locally via aqua/mise. **All SOPS ops now run locally** — no ssh, no scp,
-no fish, no stale remote branch.
+The agent box now holds an age key file at `~/.config/sops/age/keys.txt`
+(mode 600, inside 700 directories, Ceph-backed — same regime as the SSH key)
+containing **3 identities**: the agent box's own revocable key plus the two
+master keys, copied over 2026-09-14 on the owner's explicit OK. It can therefore
+**decrypt every file in the repo locally** (verified on real `kubernetes/` and
+`talos/` files) — no ssh, no scp, no fish, no stale remote branch. No existing
+file was re-encrypted and no recipients were changed.
 
 **Required for every sops call** — sops 3.13.3 does NOT auto-discover this key
 path (it checks `~/.ssh`, `SOPS_AGE_KEY`; it will fail with "no identity matched"):
