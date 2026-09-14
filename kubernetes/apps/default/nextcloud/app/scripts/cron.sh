@@ -63,6 +63,15 @@ if [ "$MINUTE" = "00" ]; then
     run_occ "files:cleanup"
 fi
 
+# Run app auto-updates weekly (Sunday at 1:30 AM UTC)
+# Native Nextcloud way: occ app:update --all only pulls app versions
+# compatible with the pinned server version.
+# 1:30 AM avoids the 2:00 AM heavy maintenance window (maintenance:repair, files:scan).
+if [ "$MINUTE" = "30" ] && [ "$HOUR" = "01" ] && [ "$DAY_OF_WEEK" = "7" ]; then
+    echo "Updating all Nextcloud apps (weekly auto-update)..."
+    run_occ "app:update --all" "app auto-update failed"
+fi
+
 # Run very expensive operations less frequently (once per day at 2 AM UTC)
 # files:scan --all is VERY expensive and can take a long time
 # Adjust the hour if needed (0-23) - note this is UTC time
