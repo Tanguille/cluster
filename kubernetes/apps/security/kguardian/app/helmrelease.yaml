@@ -96,14 +96,16 @@ spec:
           enabled: true
 
       # Chart default (32, min_idle defaults to max_size) makes r2d2 eagerly
-      # open 32 idle connections at startup. pgbouncer-rw's max_db_connections
-      # (kubernetes/apps/database/cloudnative-pg/cluster/pooler.yaml) is 22
-      # per database, the excess requests just queue, r2d2's connection_timeout
-      # (30s) then fires with no per-connection error recorded, and the broker
-      # panics with the unhelpful "Failed to create pool.: Error(None)".
-      # 16 (chart's own documented floor: inflightPermits + 8) stays comfortably
-      # under the pgbouncer cap.
-      dbPoolMaxSize: 16
+      # open 32 idle connections at startup. pgbouncer-rw's previous
+      # default_pool_size 15 / max_db_connections 22 meant even 16 queued:
+      # default_pool_size is the per-pgbouncer-instance server-pool cap per DB;
+      # 16 > 15 forces pgbouncer's query_wait_timeout (15s) then r2d2's
+      # connection_timeout (30s) fires with Error(None) and the broker panics
+      # at src/main.rs:247. During a RollingUpdate two broker pods coexist
+      # (old + new), so the real need is 2 × pool. 10 keeps one pod under the
+      # new pooler caps (default_pool_size 20 / max_db_connections 35) and two
+      # pods burst (20) within default_pool_size with reserve (8) headroom.
+      dbPoolMaxSize: 10
       audit:
         inflightPermits: 8
 
