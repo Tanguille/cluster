@@ -28,6 +28,9 @@ spec:
         supplementalGroups:
           - 44 # video
           - 226 # render: required for VAAPI on /dev/dri/renderD*
+      resourceClaims:
+        - name: gpu
+          resourceClaimName: shared-dgpu
 
     controllers:
       jellyfin:
@@ -76,11 +79,12 @@ spec:
                 # matches the tmpfs sizeLimit below; without it the transcode cache
                 # counts as 100% over request and ranks first for nodefs eviction
                 ephemeral-storage: 10Gi
-                squat.ai/dri: 1
               limits:
                 cpu: 8 # 90d max was 5.97 cores
                 memory: 8Gi
-                squat.ai/dri: 1
+              # squat.ai/dri replaced by the shared-dgpu DRA claim above.
+              claims:
+                - name: gpu
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
