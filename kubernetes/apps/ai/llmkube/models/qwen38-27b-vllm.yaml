@@ -187,7 +187,7 @@ spec:
   # every nightly since 09-05 spawned slow, 0d07767 spawned fast. Fixed by
   # GPU_MAX_HW_QUEUES=1 below. Benchmark any bump with
   # docs/llm-hosting/bench/longctx.py at 4000 AND 50000 before merging.
-  image: vllm/vllm-openai-rocm:nightly@sha256:ce62c0aead55bcb36e4ee05f179fb4e55a31dd1bcb5d2184aaa0d353f60a4b68
+  image: vllm/vllm-openai-rocm:nightly@sha256:13479e4a91360df92b732aaa260a34cce495679243eb811ef3d11b2ebfe1ba34
   # No modelCache: pvc:// sources are pre-staged/read-only, the operator never
   # provisions or uses a cache PVC for them (llmkube modelNeedsCachePVC guard).
   vllmConfig:
