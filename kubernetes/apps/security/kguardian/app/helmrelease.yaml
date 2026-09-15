@@ -51,21 +51,20 @@ spec:
         - name: OPENAI_API_KEY
           value: ${LITELLM_API_KEY}
 
-    # Direct CNPG primary, not pgbouncer-rw: r2d2 opens 16 eager conns
-    # and pgbouncer paces new server conns (16xSSL+auth >30s → Error(None)
-    # panic at src/main.rs:247; live pg_stat_activity showed sessions stuck
-    # at SET statement_timeout). Direct answers 16 concurrent in ~0.1s.
-    # Matches oscaromeu peer (direct primary + prefer). 2x16=32 direct
-    # conns stay well under PG max_connections 150.
+    # Via pgbouncer-rw (pooler has no TLS to primary). Direct primary was
+    # tried in #5050 but is unreachable from policy-selected pods on the
+    # same node as the primary (control-3 Cilium endpoint issue: labeled
+    # pod → postgres16-rw VIP blackholes, unlabeled/control-1 fine).
+    # pgbouncer VIP works from all labeled pods on all nodes.
     database:
       enabled: false
       user: kguardian
       databaseName: kguardian
       existingSecret: kguardian-db-credentials
       external:
-        host: postgres16-rw.database.svc.cluster.local
+        host: pgbouncer-rw.database.svc.cluster.local
         port: 5432
-        sslMode: prefer
+        sslMode: disable
 
     broker:
       podAnnotations:
