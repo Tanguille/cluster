@@ -14,14 +14,21 @@ spec:
       value: "24"
   podTemplateSpec:
     spec:
+      # The operator sets readOnlyRootFilesystem, but kubesearch downloads its
+      # catalog DB to /data (repos-extended-<date>.db): without a writable
+      # mount every tool call fails with EROFS. Same pattern as /tmp.
       volumes:
         - name: tmp
+          emptyDir: {}
+        - name: data
           emptyDir: {}
       containers:
         - name: mcp
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: data
+              mountPath: /data
           ports:
             - name: mcp
               containerPort: 3000
