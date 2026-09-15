@@ -61,6 +61,11 @@ spec:
         sslMode: disable
 
     broker:
+      # Trimmed requests per peers; limit stays 1Gi for read budget.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
       # hostNetwork controller needs node CIDR; /metrics needs vmagent.
       networkPolicy:
         enabled: true
@@ -88,4 +93,13 @@ spec:
           retention:
             days: 14
 
-    # Leave controller at chart defaults (privileged eBPF DaemonSet).
+    # Lighter scheduling requests per peers (oscaromeu/mrdynamo);
+    # limits stay at defaults for eBPF headroom. Saves 150m + 384Mi
+    # across the 3-node DaemonSet on tight control-1 (91% req).
+    controller:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+
+    # (broker resources live in the broker block above).
