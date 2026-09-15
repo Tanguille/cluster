@@ -10,41 +10,19 @@ spec:
     name: kguardian
   interval: 1h
   values:
-    # In-cluster LLM gateway (LiteLLM). The chart's one-line provider path
-    # (ai.provider: openai) requires ai.secret (a named Secret with an
-    # API-KEY entry) and would point the bridge at the OpenAI API, so it is
-    # left empty. Instead the gateway is wired entirely through the
-    # llmBridge.env passthrough — the chart's documented escape hatch ("or
-    # use llmBridge.env to set the provider env var directly"): OPENAI_BASE_URL
-    # is used verbatim + /chat/completions by providers/openai.ts, OPENAI_MODEL
-    # sets the default model, and OPENAI_API_KEY selects the OpenAI provider
-    # (index.ts). The key comes from cluster-secrets via the cluster-apps
-    # postBuild.substituteFrom — same mechanism as memini's MEMINI_EMBED_API_KEY;
-    # no key duplication into the security namespace.
+    # LLM via in-cluster LiteLLM gateway; key from cluster-secrets.
     ai:
       mcp:
-        # /mcp on the llm-bridge: cluster telemetry without the LLM in the
-        # path, built for kubectl port-forward from a workstation. The chart
-        # refuses to render when enabled without a token; kguardian-mcp-token
-        # (key: token, RAW — the endpoint parses `Authorization: Bearer <t>`)
-        # is consumed by ToolHive's kguardian MCPServerEntry, whose
-        # toolhive-secrets copy carries the `Bearer ` prefix because
-        # headerForward forwards the secret value verbatim.
+        # /mcp for kubectl port-forward telemetry; token required.
         enabled: true
         auth:
           existingSecret: kguardian-mcp-token
 
-    # Disable daily anonymous version check-in (docs.kguardian.dev/telemetry:
-    # random UUID + versions + node count to version.kguardian.dev). Failures
-    # are silent, but on an egress-restricted homelab it is one less task +
-    # POST per day for zero local value.
+    # Skip daily version check-in.
     telemetry:
       enabled: false
 
-    # Live compute gauges: sample every 10s (default 5s) halves the cgroup
-    # file walks; keep 3d history / 12h minute-resolution (default 7d/24h —
-    # sized for 3000 containers ~10M rows, we have ~100 pods). Contention
-    # probe stays disabled (default, needs BTF + unmeasured overhead).
+    # 10s sampling, 3d/12h history for homelab scale.
     compute:
       enabled: true
       sampleInterval: 10
@@ -52,43 +30,26 @@ spec:
         retentionDays: 3
         minuteResolutionHours: 12
 
-    # Seccomp denial drain every 30s (default 10s): 3x fewer broker POSTs,
-    # still well inside the 5m KguardianSeccompEnforcingProfileDenials
-    # increase() window. Needs CONFIG_AUDITSYSCALL, else controller warns
-    # and degrades gracefully.
+    # 30s denial drain; still inside 5m alert window.
     seccomp:
       denials:
         intervalSeconds: 30
 
-    # The AI assistant = llm-bridge (tools + policy/seccomp generation
-    # in-process). enabled: true is the render gate (or ai.enabled) — without
-    # it the whole bridge + /mcp endpoint drop out of the template.
-    # replicaCount 1: bridge holds no state; 2 is chart default for HA but
-    # saves 256Mi req / 512Mi lim on a 3-node control-plane-only cluster
-    # (control-1 79% mem, 91% req). Scale to 2 if assistant latency matters.
-    # env is the verbatim passthrough block
-    # (templates/llm-bridge/deployment.yaml:105) that points the OpenAI
-    # provider at the in-cluster LiteLLM gateway instead of api.openai.com.
+    # Stateless bridge; 1 replica saves 256Mi req on tight nodes.
+    # OPENAI_* passthrough points at LiteLLM instead of api.openai.com.
     llmBridge:
       enabled: true
       replicaCount: 1
       env:
-        # OPENAI_BASE_URL is used verbatim + /chat/completions (openai.ts:57);
-        # /v1 is part of the base, matching the gateway's served path.
         - name: OPENAI_BASE_URL
           value: http://litellm.ai.svc.cluster.local/v1
         - name: OPENAI_MODEL
           value: qwen-3.8
-        # Substituted from cluster-secrets (components/common, applied to the
-        # security namespace) by the cluster-apps Kustomization patch; ${...}
-        # stays literal in the repo and in `flate test all` output by design.
-        # Presence of OPENAI_API_KEY is what selects the OpenAI provider.
+        # From cluster-secrets via substituteFrom; stays literal in git.
         - name: OPENAI_API_KEY
           value: ${LITELLM_API_KEY}
 
-    # Shared CNPG postgres16 via the pgbouncer-rw pooler — the house pattern
-    # (crowdsec, memini). No vector/pgvector: the broker migrations are plain
-    # btree indexes.
+    # External CNPG via pgbouncer-rw; pooler has no TLS to primary.
     database:
       enabled: false
       user: kguardian
@@ -97,17 +58,10 @@ spec:
       external:
         host: pgbouncer-rw.database.svc.cluster.local
         port: 5432
-        # pgbouncer does not do TLS to the primary (memini's DSN matches):
-        # require would break the connection, disable is the pooler contract.
         sslMode: disable
 
     broker:
-      # The broker HTTP API is unauthenticated (in-cluster-only by design);
-      # default-deny everything except the kguardian components. The
-      # controller is a hostNetwork eBPF DaemonSet, so it reaches the broker
-      # from its node IP and must be admitted by node CIDR (192.168.0.0/24,
-      # talos nodeIP.validSubnets). /metrics shares the broker port, so
-      # vmagent (observability) is allowed for the ServiceMonitor below.
+      # hostNetwork controller needs node CIDR; /metrics needs vmagent.
       networkPolicy:
         enabled: true
         allowedNodeCIDRs:
@@ -123,38 +77,15 @@ spec:
         serviceMonitor:
           enabled: true
 
-      # Chart default (32, min_idle defaults to max_size) makes r2d2 eagerly
-      # open 32 idle connections at startup. pgbouncer-rw's previous
-      # default_pool_size 15 / max_db_connections 22 meant even 16 queued:
-      # default_pool_size is the per-pgbouncer-instance server-pool cap per DB;
-      # 16 > 15 forces pgbouncer's query_wait_timeout (15s) then r2d2's
-      # connection_timeout (30s) fires with Error(None) and the broker panics
-      # at src/main.rs:247. During a RollingUpdate two broker pods coexist
-      # (old + new) so need 2×pool. 25/30 leaves headroom: rw 3×30=90 +
-      # session 2×14=28 =118 of PG max_connections 150, leaving 32 for
-      # replication/autovacuum/admin (vs prior 35/40 →148/150). Single pod
-      # 16 <25, burst 32 ≤25+8=33 per instance, so no queue. Set 16
-      # explicitly — chart enforces floor inflightPermits+8 (8+8) and would
-      # silently raise 10→16 anyway (see WARN raising 10→16).
+      # 16 = permits+8 floor; fits 25/30 pooler, covers 2x16 rollout burst.
       dbPoolMaxSize: 16
       audit:
         inflightPermits: 8
         retention:
-          # 14d (default 30d): halves audit_verdicts growth on a homelab;
-          # 0 disables pruning (unbounded). Interval 3600s / batch 5000
-          # stay at defaults (bounded lock hold + WAL chunk).
           days: 14
       seccomp:
         denials:
           retention:
-            # Same 14d trim as audit (default 30d); bounds
-            # kguardian_seccomp_denial_workloads window + GET /seccomp/denials.
             days: 14
 
-    # controller: intentionally left at chart defaults. The eBPF DaemonSet is
-    # privileged + CAP_BPF, mounting /proc, /sys and the containerd socket —
-    # hence the security namespace (psa-privileged component, same as crowdsec).
-    # It tolerates control-plane nodes and excludedNamespaces already skips
-    # kguardian + kube-system by default. Overriding `controller:` here would
-    # clobber the chart's nested defaults with null (nil pointer), so it is not
-    # declared at all.
+    # Leave controller at chart defaults (privileged eBPF DaemonSet).
