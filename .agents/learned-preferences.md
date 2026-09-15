@@ -33,8 +33,11 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 - **PR shepherding (standing order, 2026-09-07):** on PR tasks and pr-shepherd cron runs, iterate
   until CI + automated review pass, and follow rather than restate
   `.agents/skills/pr-review/references/pr-shepherd.md` — gates, CI triage, cycle budget, and the
-  boundaries that hold even in auto mode (no merge, no push to `main`, no force-push, no cluster
-  apply/reconcile, no secret decryption).
+  boundaries that hold even in auto mode (no merge, no UN-DRAFT — standing order 2026-09-14 —
+  no push to `main`, no force-push, no cluster apply/reconcile, no secret decryption).
+- **Do NOT undraft PRs** (2026-09-14 standing order, Tanguille): even when CI + automated
+  review are fully green, the shepherd reports merge-ready and leaves the draft flag for
+  Tanguille to flip. No `update_pull_request {draft: false}` calls, ever.
 - **Self-hosted agent-pr-review (`review` check run) feeds the shepherd loop** (2026-09-14):
   `misospace/pr-reviewer-action` posts a PR review + inline findings (severity-gated verdict)
   and a `review` check run. The board surfaces it as `ar=PASS|FAIL|SKIP|PROG` (distinct from

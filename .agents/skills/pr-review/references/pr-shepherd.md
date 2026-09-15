@@ -82,11 +82,14 @@ not actionable.
 3. `ar=FAIL` → agent review triage above (fix Critical + Major findings, push).
 4. CodeRabbit blocking findings (`rb=OPEN`, login startswith `coderabbitai`) → address, push.
 5. PR body contradicts its diff → Gate B.
-6. `ci=GREEN` + `ar=PASS` (or `ar=SKIP` for drafts/digest PRs) + `rb=CLEAN` + still draft
-   → `update_pull_request {pullNumber, draft: false}`; report merge-ready.
+6. `ci=GREEN` + `ar=PASS` (or `ar=SKIP`) + `rb=CLEAN` + still draft
+   → report merge-ready. **Do NOT undraft** — the draft flag is Tanguille's
+   call (standing order 2026-09-14: "Don't undraft PRs"). No
+   `update_pull_request {draft: false}`, ever.
 
 Stop: `ci=GREEN` + `ar=PASS`/`SKIP` + `rb=CLEAN`, escalated, or budget exhausted.
 
-**Boundaries (never, even "automatically"):** no merge, no push to `main`, no force-push, no
+**Boundaries (never, even "automatically"):** no merge, no UN-DRAFT (draft
+state is a human decision — 2026-09-14), no push to `main`, no force-push, no
 cluster apply/reconcile, no secret decryption, no touching non-owner PRs (renovate/dependabot/
-other users have their own automation). Merging is a human decision.
+other users have their own automation). Merging and draft state are human decisions.
