@@ -37,13 +37,16 @@ spec:
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:063e88aef1c168cf4a0a4b3a7983604561f96870a3c4953bd1fad908b4e41716
-  # Two slots are the Vulkan-safe floor; more interleaving did not improve
-  # throughput on this compute-bound iGPU. VMCP has its own embedder now.
-  parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  # 30d peak prompt is 4030 tokens, and contextSize splits across parallelSlots,
-  # so 8192 left each slot 4096 with 66 tokens of headroom. 10240 restores a
-  # ~27% margin; anything an input overruns fails the embedding outright.
-  contextSize: 10240
+  # 4 slots (was 2): vmcp-embedding consolidated onto this model 2026-09-15, so the
+  # 194-tool search and memini now share one embedder; 4 slots keep the 194-item batch
+  # from queueing behind memini (bench: 7.07s median for the 194-tool batch isolated,
+  # 120s is the toolhive timeout). Vulkan warmup hangs at parallel=1 (llama.cpp #24307).
+  parallelSlots: 4
+  # 30d peak prompt is 4030 tokens, and llama.cpp sizes each slot's context as
+  # contextSize/parallelSlots: 20480/4 = 5120 per slot, the same 5120 the old 10240/2
+  # gave — ~27% headroom over the 4030 peak (4096/slot would leave only 66). Anything
+  # an input overruns fails the embedding outright.
+  contextSize: 20480
   # No batchSize: llama.cpp forces n_batch = n_ubatch when embeddings are
   # enabled, so any value above uBatchSize is logged as a warning and discarded.
   # 512 over 2048: benchmarked identical on this iGPU (194-item batch 3.61s vs
@@ -88,8 +91,9 @@ spec:
 
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # ~3.1 GiB peak working set over 7 days; 4 GiB so the scheduler accounts for
-    # the model's UMA usage.
-    memory: 4Gi
+    # ~3.1 GiB peak working set over 7 days at 2 slots; 6 GiB for 4 slots / 20480
+    # ctx (per-slot KV unchanged, 4x total) so the scheduler accounts for the
+    # model's UMA usage.
+    memory: 6Gi
   endpoint:
     path: /v1/embeddings

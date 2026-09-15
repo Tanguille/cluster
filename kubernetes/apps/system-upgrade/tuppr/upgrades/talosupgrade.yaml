@@ -19,6 +19,10 @@ spec:
   # excluded nodes are never enumerated, so they take no outdated taint either.
   policy:
     rebootMode: powercycle
+    # hard: required avoidance of the target node. A live-only "soft" override let a control-1
+    # retry job schedule onto control-1 itself; its own powercycle then killed the pod mid-upgrade
+    # (2026-09-15). This is already the CRD default -- pinned so it can't silently drift again.
+    placement: hard
   healthChecks:
     - apiVersion: v1
       kind: Node
