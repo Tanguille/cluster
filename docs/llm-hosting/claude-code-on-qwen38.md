@@ -58,7 +58,7 @@ which costs hours of cold-KV admission stall. Not worth it for a client bug.
 
 ## What works, measured
 
-Debug-log runs (`claude-qwen -p ... --permission-mode auto --debug-file`):
+Debug-log runs (`claude-qwen -p ... --permission-mode auto --debug-file /tmp/claude-qwen-debug.log`):
 
 | feature | status | evidence |
 | --- | --- | --- |
