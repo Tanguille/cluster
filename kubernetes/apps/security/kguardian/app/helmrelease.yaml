@@ -82,18 +82,11 @@ spec:
           memory: 128Mi
         limits:
           memory: 1Gi
-      # hostNetwork controller needs node CIDR; /metrics needs vmagent.
-      networkPolicy:
-        enabled: true
-        allowedNodeCIDRs:
-          - 192.168.0.0/24
-        allowMetricsFrom:
-          - namespaceSelector:
-              matchLabels:
-                kubernetes.io/metadata.name: observability
-            podSelector:
-              matchLabels:
-                app.kubernetes.io/name: vmagent
+      # No networkPolicy (chart default false, like dsluo peer): the
+      # rendered ingress-only policy blackholes the broker's own egress to
+      # ClusterIPs on Cilium (proven live: nc to pgbouncer/postgres VIPs
+      # times out from selected pods, works the instant the policy is
+      # deleted). Broker API stays in-cluster-only via ClusterIP.
       metrics:
         serviceMonitor:
           enabled: true
