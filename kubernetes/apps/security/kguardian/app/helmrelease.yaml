@@ -42,6 +42,11 @@ spec:
       replicaCount: 1
       podAnnotations:
         reloader.stakater.com/auto: "true"
+      # Lean requests (actual use ~60Mi); limits stay at defaults.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
       env:
         - name: OPENAI_BASE_URL
           value: http://litellm.ai.svc.cluster.local/v1
@@ -96,6 +101,12 @@ spec:
       # 16 = 8+8 floor (inflightPermits+8); fits 25/30 pooler,
       # covers 2x16 rollout burst.
       dbPoolMaxSize: 16
+      # Disable per-connection SET statement_timeout: every pg session was
+      # parking at SET with pool creation timing out via pgbouncer
+      # (transaction mode); 16 concurrent direct PG dials take ~0.1s, so the
+      # stall is the SET-under-pooler interaction, not the pool size.
+      # Migrations stay exempt per chart docs.
+      statementTimeoutMs: 0
       audit:
         inflightPermits: 8
         retention:
@@ -104,6 +115,15 @@ spec:
         denials:
           retention:
             days: 14
+
+    # Frontend sips (actual ~91Mi); limit pinned to default.
+    frontend:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
 
     # Lighter scheduling requests per peers (oscaromeu/mrdynamo);
     # limits stay at defaults for eBPF headroom. Saves 150m + 384Mi
