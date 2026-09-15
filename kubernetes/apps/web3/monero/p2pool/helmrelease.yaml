@@ -59,7 +59,9 @@ spec:
                 cpu: 50m
                 memory: 550Mi
               limits:
-                cpu: 500m
+                # kguardian cpu-throttled, ~33% sustained (bursty share
+                # validation vs 500m quota despite low average use).
+                cpu: 1000m
                 memory: 2Gi
             probes:
               liveness:
