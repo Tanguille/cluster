@@ -48,7 +48,7 @@ spec:
   # reloading at once on control-3 is the condition behind the podAffinity
   # deadlock; offsetting the period drops realignment from daily to every 3d.
   maxPodLifetimeSeconds: 64800
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:fbf80850f7358a40006827d6742ab5842a82d6a252a0e3d4e2ae16b29ff51980
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:063e88aef1c168cf4a0a4b3a7983604561f96870a3c4953bd1fad908b4e41716
   # Vulkan floor is 2 — warmup hangs at parallel=1 (llama.cpp #24307). The iGPU
   # is compute-bound, so more slots add interleave, not throughput.
   parallelSlots: 2
