@@ -51,16 +51,21 @@ spec:
         - name: OPENAI_API_KEY
           value: ${LITELLM_API_KEY}
 
-    # External CNPG via pgbouncer-rw; pooler has no TLS to primary.
+    # Direct CNPG primary, not pgbouncer-rw: r2d2 opens 16 eager conns
+    # and pgbouncer paces new server conns (16xSSL+auth >30s → Error(None)
+    # panic at src/main.rs:247; live pg_stat_activity showed sessions stuck
+    # at SET statement_timeout). Direct answers 16 concurrent in ~0.1s.
+    # Matches oscaromeu peer (direct primary + prefer). 2x16=32 direct
+    # conns stay well under PG max_connections 150.
     database:
       enabled: false
       user: kguardian
       databaseName: kguardian
       existingSecret: kguardian-db-credentials
       external:
-        host: pgbouncer-rw.database.svc.cluster.local
+        host: postgres16-rw.database.svc.cluster.local
         port: 5432
-        sslMode: disable
+        sslMode: prefer
 
     broker:
       podAnnotations:
