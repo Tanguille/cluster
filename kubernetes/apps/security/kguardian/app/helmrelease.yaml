@@ -102,10 +102,13 @@ spec:
       # 16 > 15 forces pgbouncer's query_wait_timeout (15s) then r2d2's
       # connection_timeout (30s) fires with Error(None) and the broker panics
       # at src/main.rs:247. During a RollingUpdate two broker pods coexist
-      # (old + new), so the real need is 2 × pool. 10 keeps one pod under the
-      # new pooler caps (default_pool_size 20 / max_db_connections 35) and two
-      # pods burst (20) within default_pool_size with reserve (8) headroom.
-      dbPoolMaxSize: 10
+      # (old + new) so need 2×pool. 25/30 leaves headroom: rw 3×30=90 +
+      # session 2×14=28 =118 of PG max_connections 150, leaving 32 for
+      # replication/autovacuum/admin (vs prior 35/40 →148/150). Single pod
+      # 16 <25, burst 32 ≤25+8=33 per instance, so no queue. Set 16
+      # explicitly — chart enforces floor inflightPermits+8 (8+8) and would
+      # silently raise 10→16 anyway (see WARN raising 10→16).
+      dbPoolMaxSize: 16
       audit:
         inflightPermits: 8
 
