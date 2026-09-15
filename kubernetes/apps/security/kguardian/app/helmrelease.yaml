@@ -40,6 +40,8 @@ spec:
     llmBridge:
       enabled: true
       replicaCount: 1
+      podAnnotations:
+        reloader.stakater.com/auto: "true"
       env:
         - name: OPENAI_BASE_URL
           value: http://litellm.ai.svc.cluster.local/v1
@@ -61,6 +63,8 @@ spec:
         sslMode: disable
 
     broker:
+      podAnnotations:
+        reloader.stakater.com/auto: "true"
       # Trimmed requests per peers; limit stays 1Gi for read budget.
       resources:
         requests:
@@ -97,9 +101,9 @@ spec:
     # limits stay at defaults for eBPF headroom. Saves 150m + 384Mi
     # across the 3-node DaemonSet on tight control-1 (91% req).
     controller:
+      podAnnotations:
+        reloader.stakater.com/auto: "true"
       resources:
         requests:
           cpu: 50m
           memory: 128Mi
-
-    # (broker resources live in the broker block above).
