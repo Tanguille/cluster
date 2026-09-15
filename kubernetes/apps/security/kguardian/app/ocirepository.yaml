@@ -3,12 +3,14 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
-  name: kube-state-metrics
+  name: kguardian
 spec:
   interval: 1h
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
+  # Third-party chart, sourced from upstream (not the home-operations charts-mirror,
+  # which only mirrors first-party charts). The chart/vX.Y.Z tag is what Renovate tracks.
   ref:
-    tag: 8.5.0
-  url: oci://ghcr.io/prometheus-community/charts/kube-state-metrics
+    tag: 1.24.0
+  url: oci://ghcr.io/kguardian-dev/charts/kguardian

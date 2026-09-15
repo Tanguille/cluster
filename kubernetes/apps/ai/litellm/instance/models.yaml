@@ -82,9 +82,10 @@ spec:
   modelName: omniroute
   proxyRef: litellm
   params:
-    # Bare "auto" sticks to the last-known-good provider regardless of quality;
-    # auto/smart scores live on quota/health/cost/taskFit instead.
-    model: openai/auto/smart
+    # smart-free is a persisted omniroute combo (round-robin over Nemotron 3 Ultra,
+    # Gemini 3.8 Flash, Opus 4.6). auto/* never resolves opencode/* targets on the
+    # pinned image (#10892), so the free Zen models only route via a combo.
+    model: openai/smart-free
     apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
     # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
     # a non-empty api_key (same convention as qwen-3.8's sk-vllm-noauth).

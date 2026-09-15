@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# targetNamespace (security) is set on the parent Flux Kustomization; pin it here too so
+# the two Secrets (kguardian-mcp-token, kguardian-db-credentials) build into the right ns
+# whether applied by Flux or kustomize directly.
+namespace: security
+
+resources:
+  - ocirepository.yaml
+  - helmrelease.yaml
+  - secret.sops.yaml
