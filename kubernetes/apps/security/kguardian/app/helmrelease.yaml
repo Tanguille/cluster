@@ -34,16 +34,44 @@ spec:
         auth:
           existingSecret: kguardian-mcp-token
 
+    # Disable daily anonymous version check-in (docs.kguardian.dev/telemetry:
+    # random UUID + versions + node count to version.kguardian.dev). Failures
+    # are silent, but on an egress-restricted homelab it is one less task +
+    # POST per day for zero local value.
+    telemetry:
+      enabled: false
+
+    # Live compute gauges: sample every 10s (default 5s) halves the cgroup
+    # file walks; keep 3d history / 12h minute-resolution (default 7d/24h —
+    # sized for 3000 containers ~10M rows, we have ~100 pods). Contention
+    # probe stays disabled (default, needs BTF + unmeasured overhead).
+    compute:
+      enabled: true
+      sampleInterval: 10
+      history:
+        retentionDays: 3
+        minuteResolutionHours: 12
+
+    # Seccomp denial drain every 30s (default 10s): 3x fewer broker POSTs,
+    # still well inside the 5m KguardianSeccompEnforcingProfileDenials
+    # increase() window. Needs CONFIG_AUDITSYSCALL, else controller warns
+    # and degrades gracefully.
+    seccomp:
+      denials:
+        intervalSeconds: 30
+
     # The AI assistant = llm-bridge (tools + policy/seccomp generation
     # in-process). enabled: true is the render gate (or ai.enabled) — without
     # it the whole bridge + /mcp endpoint drop out of the template.
-    # replicaCount 2: HA for the assistant; the bridge holds no state, so 2 is
-    # fine on a 3-node cluster. env is the verbatim passthrough block
+    # replicaCount 1: bridge holds no state; 2 is chart default for HA but
+    # saves 256Mi req / 512Mi lim on a 3-node control-plane-only cluster
+    # (control-1 79% mem, 91% req). Scale to 2 if assistant latency matters.
+    # env is the verbatim passthrough block
     # (templates/llm-bridge/deployment.yaml:105) that points the OpenAI
     # provider at the in-cluster LiteLLM gateway instead of api.openai.com.
     llmBridge:
       enabled: true
-      replicaCount: 2
+      replicaCount: 1
       env:
         # OPENAI_BASE_URL is used verbatim + /chat/completions (openai.ts:57);
         # /v1 is part of the base, matching the gateway's served path.
@@ -111,6 +139,17 @@ spec:
       dbPoolMaxSize: 16
       audit:
         inflightPermits: 8
+        retention:
+          # 14d (default 30d): halves audit_verdicts growth on a homelab;
+          # 0 disables pruning (unbounded). Interval 3600s / batch 5000
+          # stay at defaults (bounded lock hold + WAL chunk).
+          days: 14
+      seccomp:
+        denials:
+          retention:
+            # Same 14d trim as audit (default 30d); bounds
+            # kguardian_seccomp_denial_workloads window + GET /seccomp/denials.
+            days: 14
 
     # controller: intentionally left at chart defaults. The eBPF DaemonSet is
     # privileged + CAP_BPF, mounting /proc, /sys and the containerd socket —
