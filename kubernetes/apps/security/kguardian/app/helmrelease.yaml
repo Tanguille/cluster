@@ -42,6 +42,12 @@ spec:
       replicaCount: 1
       podAnnotations:
         reloader.stakater.com/auto: "true"
+      # Lean requests while control-1 is cordoned (c2/c3 at 99% req);
+      # limits stay at defaults. Actual use ~60Mi.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
       env:
         - name: OPENAI_BASE_URL
           value: http://litellm.ai.svc.cluster.local/v1
@@ -104,6 +110,16 @@ spec:
         denials:
           retention:
             days: 14
+
+    # Frontend sips (actual ~91Mi); lean requests while capacity is
+    # degraded, limit pinned to default.
+    frontend:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
 
     # Lighter scheduling requests per peers (oscaromeu/mrdynamo);
     # limits stay at defaults for eBPF headroom. Saves 150m + 384Mi
