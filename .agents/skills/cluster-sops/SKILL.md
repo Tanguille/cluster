@@ -24,20 +24,26 @@ compatibility: `sops` (aqua, 3.13.3) + the agent-box age key at ~/.config/sops/a
   copied from the remote 2026-09-14. It therefore decrypts **every** file in the
   repo locally — verified on real `kubernetes/` and `talos/` files, no SSH.
   No existing file was re-encrypted and no recipients were changed.
-- **Required env for every sops call** (sops 3.13.3 does NOT auto-discover this
-  path — it looks in `~/.ssh` / `SOPS_AGE_KEY` and will fail with "no identity
-  matched" otherwise):
+- **The key is auto-discovered — no env var required on this box (verified: a
+  decrypt succeeds with `SOPS_AGE_KEY_FILE` unset).** sops 3.13.3 loads the age
+  key from `sops/age/keys.txt` under the user config directory —
+  `$XDG_CONFIG_HOME/sops/age/keys.txt`, or `$HOME/.config/sops/age/keys.txt`
+  when `XDG_CONFIG_HOME` is unset. The export below is only needed if the key is
+  ever moved *off* that resolved path (then it is required, or you get
+  "no identity matched"):
 
   ```bash
   export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
   ```
 
 - **Local sops binary** (aqua install; the mise shims are unreliable in non-login
-  shells): `/opt/data/home/.local/share/mise/installs/aqua-getsops-sops/3.13.3/sops`.
+  shells, and bare `sops` may fail before sops even runs — use the full path in
+  every canonical example below):
+  `/opt/data/home/.local/share/mise/installs/aqua-getsops-sops/3.13.3/sops`.
   `age-keygen` (for key ops) is at
   `.../aqua-filo-sottile-age/1.3.2/age/age-keygen` — note its `-y` takes the
-  identity file as a *positional* argument (no `-r` flag), and the `age` binary in
-  the same directory is the encrypt/decrypt CLI (no `-g` flag).
+  identity file as a *positional* argument (no `-r` flag), and the `age` binary
+  in the same directory is the encrypt/decrypt CLI (no `-g` flag).
 
 ### Fallback: the remote management host
 
@@ -64,8 +70,11 @@ decrypt falls back to the management host, where the original key lives
 | `talos/.*\.sops\.ya?ml` | `age12gul5m0…` (plain X25519) |
 | `(bootstrap\|kubernetes)/.*\.sops\.ya?ml` | `age1pq1f69…` (post-quantum) |
 
-`sops` picks the rule by path automatically — **run it against the file's real
-path** (or pass the file inside the matching subtree).
+`sops` picks the rule by **path** — run it against the file's real in-repo path
+(or with the file inside the matching subtree). A path outside the rules (e.g.
+`/tmp/...`) matches **no** creation rule and fails with "no matching creation
+rules found", even with an explicit `--age` — the `.sops.yaml` config wins over
+CLI flags (verified on 3.13.3).
 
 **Key inventory (2026-09-14, current truth):** `~/.config/sops/age/keys.txt` holds
 **3 identities** — the agent-box's own revocable key (`age1pq1hzp…`) plus the two
@@ -91,14 +100,17 @@ A brand-new PQ key cannot decrypt files encrypted to an older PQ key.
 
 ## The three traps (each already cost time — avoid them)
 
-1. **`stringData` → `data` on decrypt/encrypt.** SOPS normalizes `stringData` into
-   base64 `data` (and `encrypted_regex: ^(data|stringData)$` only encrypts those
-   keys). A text round-trip can **drop keys or mangle the mapping**.
-   **Fix:** rebuild with a Python dict — load decrypted YAML, set the values in
-   the right section, dump back — instead of hand-editing text.
+1. **`stringData` vs `data` on round-trips.** SOPS does **not** convert one field
+   into the other — `encrypted_regex: ^(data|stringData)$` only encrypts whichever
+   section already exists — and this repo's `kubernetes/` and `talos/` secrets use
+   **`stringData`** (there is no `data`), so blind `d["data"][key] = …` raises
+   `KeyError` on them. **Fix:** rebuild with a Python dict — load the decrypted
+   YAML, write the value into whichever section the file already uses, dump back —
+   instead of hand-editing text.
 2. **Stale `sops:` footer.** Text-editing an already-encrypted file (or a decrypt
-   that left the metadata block) makes the next `sops encrypt` fail on the
-   existing footer. **Fix:** always start from a *fully decrypted* file (metadata
+   that left the metadata block) makes the next `sops encrypt` **fail** on the
+   existing top-level `sops` entry ("top-level entry called 'sops'", rc 203) — it
+   is *not* a no-op. **Fix:** always start from a *fully decrypted* file (metadata
    stripped) before re-encrypting; never edit the ciphertext by hand.
 3. **Missing `--input-type`/`--output-type`.** Without both flags sops may guess
    JSON and fail on YAML secrets ("error: no matching creation rules found" or a
@@ -106,43 +118,66 @@ A brand-new PQ key cannot decrypt files encrypted to an older PQ key.
 
 ## Canonical flows (local-first, one command each)
 
-All examples assume the `export SOPS_AGE_KEY_FILE=…` above and `cd` into the
-worktree that contains `.sops.yaml`.
+All examples use the full sops path rather than bare `sops` (which can fail
+before sops runs in a non-login shell — the mise shims are unreliable outside a
+login shell). They assume `cd` into the worktree that contains `.sops.yaml`, and
+— only if the key were ever moved off its auto-discovered path — the
+`SOPS_AGE_KEY_FILE` override above.
+
+```bash
+SOPS=/opt/data/home/.local/share/mise/installs/aqua-getsops-sops/3.13.3/sops
+```
 
 ### New secret value
 
 ```bash
-F=kubernetes/apps/<ns>/<app>/<name>.sops.yaml   # path MUST match the .sops.yaml rule
-# stage plaintext with data: {key: base64value} or stringData: {key: plain}
-sops encrypt --in-place --input-type yaml --output-type yaml "$F"
-# sanity: only data/stringData encrypted, sops footer present, nothing plaintext
-grep -n "ENC[A-Z0-9]\{32,\}" "$F" | head
+F=kubernetes/apps/<ns>/<app>/<name>.sops.yaml   # path MUST match a .sops.yaml rule
+# stage the file with data: {key: base64value} or stringData: {key: plain}
+"$SOPS" encrypt --in-place --input-type yaml --output-type yaml "$F"
+# sanity: only data/stringData encrypted — SOPS ciphertext starts ENC[AES256_GCM,…
+# (underscored, not a 32-char hex run), so match ENC[ — a [A-Z0-9]{32,} grep
+# after ENC matches nothing on real files — plus the sops footer, and no plaintext
+grep -n "ENC\[" "$F" | head
 ```
 
 ### Change an existing value (dict-based, no text surgery)
 
+The re-encrypt **must** target the rule-matching in-repo path (a `/tmp` temp
+matches no creation rule — see Recipients), so the edited plaintext goes back
+over the file, then `encrypt --in-place`:
+
 ```bash
 F=kubernetes/apps/<ns>/<app>/<name>.sops.yaml
-sops decrypt --input-type yaml --output-type yaml "$F" > /tmp/<name>.plain.yaml
-python3 - <<PY
-import yaml
-p = "/tmp/<name>.plain.yaml"
+T="$(mktemp /tmp/secret.XXXXXX)"; chmod 600 "$T"   # unique mode-600 temp (no pre-create/clobber)
+trap 'rm -f "$T"' EXIT                              # cleaned up on success AND failure
+"$SOPS" decrypt --input-type yaml --output-type yaml "$F" > "$T"
+python3 - "$T" <<'PY'
+import sys, yaml
+p = sys.argv[1]
 d = yaml.safe_load(open(p))
-# set the new value where it belongs (data: is base64; stringData: is plain —
-# normalize to the shape this repo uses for this file before writing)
-d["data"]["key"] = "newbase64value"
+# write the new value into whichever section the file ALREADY uses (data: is
+# base64; stringData: is plain) — select the existing field, do not assume data:
+if "data" in d:
+    d["data"]["key"] = "newbase64value"
+else:
+    d["stringData"]["key"] = "newplainvalue"
 yaml.safe_dump(d, open(p, "w"), sort_keys=False)
 PY
-sops encrypt --in-place --input-type yaml --output-type yaml "$F"
-rm -f /tmp/<name>.plain.yaml   # never leave decrypted temp behind
+cp "$T" "$F"   # edited plaintext back over the rule-matching path
+"$SOPS" encrypt --in-place --input-type yaml --output-type yaml "$F"
+rm -f "$T"   # trap also covers the failure path
 ```
 
 ### Re-encrypt after a recipient change
 
 ```bash
-git ls-files | grep '\.sops\.ya?ml$' | xargs \
-  sops updatekeys --in-place --input-type yaml --output-type yaml
+# exclude the root .sops.yaml — it is a plaintext policy file, not a SOPS document
+git ls-files | grep '\.sops\.ya?ml$' | grep -v '^\.sops\.yaml$' | xargs \
+  "$SOPS" updatekeys --yes --input-type yaml
 ```
+
+(`updatekeys` on 3.13.3 takes `--yes` + `--input-type` and rewrites each file in
+place — it has no `--in-place`/`--output-type` flags; passing them errors.)
 
 ### Add a CNPG managed role / DB secret (CNPG subtree)
 

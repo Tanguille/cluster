@@ -111,8 +111,11 @@ master keys, copied over 2026-09-14 on the owner's explicit OK. It can therefore
 `talos/` files) — no ssh, no scp, no fish, no stale remote branch. No existing
 file was re-encrypted and no recipients were changed.
 
-**Required for every sops call** — sops 3.13.3 does NOT auto-discover this key
-path (it checks `~/.ssh`, `SOPS_AGE_KEY`; it will fail with "no identity matched"):
+**The key is auto-discovered — no env var is required on this box** (verified: a
+decrypt succeeds with `SOPS_AGE_KEY_FILE` unset; sops 3.13.3 reads
+`$XDG_CONFIG_HOME/sops/age/keys.txt`, or `$HOME/.config/sops/age/keys.txt` when
+`XDG_CONFIG_HOME` is unset). Keep the export only if the key is ever moved off
+that resolved path (then it is required, or you get "no identity matched"):
 
 ```bash
 export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
@@ -158,31 +161,49 @@ decrypt for the real owner.
 
 ### The three SOPS traps (each cost real time — avoid them)
 
-1. **`stringData` → `data` on decrypt/encrypt.** SOPS round-trips convert `stringData` keys into
-   `data`. Text-editing a decrypted file and re-encrypting can silently drop or mis-key
-   `stringData` entries. Rebuild via a **dict** in Python (load the encrypted YAML, set the
-   value, re-encrypt) rather than text-splicing.
+1. **`stringData` vs `data` on round-trips.** SOPS does **not** convert one into the other —
+   `encrypted_regex: ^(data|stringData)$` only encrypts whichever section already exists, and
+   this repo's `kubernetes/` and `talos/` secrets use **`stringData`** (there is no `data`),
+   so a blind `d["data"][key] = …` raises `KeyError` on them. Rebuild via a **dict** in
+   Python (load the *decrypted* YAML, write the value into whichever section the file already
+   uses, dump back, re-encrypt) rather than text-splicing.
 2. **Stale `sops:` footer after a textual edit.** If you text-edit an encrypted file (or a
    decrypt→edit), the old `sops:` metadata block remains and `sops --encrypt` fails on it. Always
    **decrypt first**, edit the clean file, then encrypt — never edit the ciphertext in place.
 3. **Missing `--input-type yaml` makes SOPS guess JSON and fail.** Always pass
    `--input-type yaml --output-type yaml` on YAML files; do not rely on extension sniffing.
 
-### Canonical flow (new secret value, remote)
+### Canonical flows (remote = `mise exec -- sops …`, in a trusted cwd with `.sops.yaml`)
 
-1. `sops --encrypt` is a no-op on already-encrypted content; for a **new** value, decrypt the
-   existing file to a temp, set the key in a dict, and re-encrypt with the correct recipient:
+1. **New secret value** — stage the file *at its final, rule-matching path* with
+   `data: {key: base64value}` or `stringData: {key: plain}`, then:
 
    ```bash
-   # on the management host, in a trusted cwd (a worktree with .mise.toml)
-   mise exec -- sops --input-type yaml --output-type yaml -d file.sops.yaml > /tmp/plain.yaml
-   # edit /tmp/plain.yaml (dict-based if it has stringData), then:
-   mise exec -- sops --input-type yaml --output-type yaml -e /tmp/plain.yaml > file.sops.yaml
-   rm /tmp/plain.yaml   # never leave a decrypted secret on disk
+   mise exec -- sops encrypt --in-place --input-type yaml --output-type yaml file.sops.yaml
+   # sanity: only data/stringData values are ENC[… ciphertext (match ENC[ — the
+   # ciphertext starts ENC[AES256_GCM, so a bare 32-char-hex-after-ENC grep matches nothing)
    ```
 
-2. Verify the recipient line in the resulting `sops:` block matches the subtree above.
-3. `rm` the decrypted temp **immediately** (approval-gated; ask the user).
+   `sops encrypt` is **not** a no-op on already-encrypted content — it fails
+   ("top-level entry called 'sops'", rc 203). Never re-run it over ciphertext.
+
+2. **Change an existing value** — `.sops.yaml` rules are path-based, so the
+   re-encrypt must target the rule-matching in-repo path (a `/tmp` temp matches no
+   creation rule — "no matching creation rules found", even with `--age`). Decrypt
+   to a unique mode-600 temp, edit via dict, copy back over the file, encrypt
+   in place:
+
+   ```bash
+   T="$(mktemp /tmp/plain.XXXXXX)"; chmod 600 "$T"
+   trap 'rm -f "$T"' EXIT
+   mise exec -- sops decrypt --input-type yaml --output-type yaml file.sops.yaml > "$T"
+   # edit $T via a Python dict (write into whichever of data/stringData the file uses)
+   cp "$T" file.sops.yaml
+   mise exec -- sops encrypt --in-place --input-type yaml --output-type yaml file.sops.yaml
+   rm -f "$T"   # never leave a decrypted secret on disk; trap also covers the failure path
+   ```
+
+3. Verify the recipient line in the resulting `sops:` block matches the subtree above.
 
 ### Standing rules
 
