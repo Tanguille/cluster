@@ -1,6 +1,6 @@
 # Learned User Preferences
 
-**When to use:** revert, undo, resources, memory, CPU, MCP vs shell, Flux reconcile, ToolHive, find_tool, call_tool, tool confidence, proactive tools.
+**When to use:** revert, undo, resources, memory, CPU, MCP vs shell, Flux reconcile, ToolHive, find_tool, call_tool, tool confidence, proactive tools, PR shepherd/rebase, SOPS ask-first.
 
 Maintained from session feedback. Prefer git revert, don't undo user changes, only adjust resources where already set.
 
@@ -16,6 +16,19 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 2. Examine the result to identify the correct tool name and its required parameters.
 3. Call `call_tool` to execute it.
 4. Interpret the result and respond naturally—never return raw JSON or raw tool output to the user.
+
+**Exact `call_tool` shape (two-level, the `github_` prefix matters):**
+
+```json
+{"name": "mcp__toolhive__call_tool",
+ "arguments": {"tool_name": "github_pull_request_read",
+               "parameters": {"owner": "Tanguille", "repo": "cluster",
+                              "pullNumber": 4998, "method": "get"}}}
+```
+
+- The inner tool name carries the **`github_` prefix**; the PR number is **`pullNumber`, not `number`** (both are easy to get wrong).
+- **Large payloads** (multi-MB `push_files` bodies) can make the *local* SDK throw `SSE stream ended` / `TaskGroup` — while the **server-side operation still succeeded**. On such a failure: do NOT blindly retry (double-push / orphan-commit risk); first read the PR state back (`github_pull_request_read`) to see whether it landed.
+- ~10 rapid consecutive calls can trip a transient "unreachable" for ~60s; a short pause + a single retry usually succeeds.
 
 ### Other tools and behavior
 
