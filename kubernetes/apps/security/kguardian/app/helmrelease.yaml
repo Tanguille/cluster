@@ -102,6 +102,12 @@ spec:
       # 16 = 8+8 floor (inflightPermits+8); fits 25/30 pooler,
       # covers 2x16 rollout burst.
       dbPoolMaxSize: 16
+      # Disable per-connection SET statement_timeout: every pg session was
+      # parking at SET with pool creation timing out via pgbouncer
+      # (transaction mode); 16 concurrent direct PG dials take ~0.1s, so the
+      # stall is the SET-under-pooler interaction, not the pool size.
+      # Migrations stay exempt per chart docs.
+      statementTimeoutMs: 0
       audit:
         inflightPermits: 8
         retention:
