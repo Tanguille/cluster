@@ -42,8 +42,7 @@ spec:
       replicaCount: 1
       podAnnotations:
         reloader.stakater.com/auto: "true"
-      # Lean requests while control-1 is cordoned (c2/c3 at 99% req);
-      # limits stay at defaults. Actual use ~60Mi.
+      # Lean requests (actual use ~60Mi); limits stay at defaults.
       resources:
         requests:
           cpu: 50m
@@ -117,8 +116,7 @@ spec:
           retention:
             days: 14
 
-    # Frontend sips (actual ~91Mi); lean requests while capacity is
-    # degraded, limit pinned to default.
+    # Frontend sips (actual ~91Mi); limit pinned to default.
     frontend:
       resources:
         requests:
