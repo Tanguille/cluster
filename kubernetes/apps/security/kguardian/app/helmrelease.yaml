@@ -65,11 +65,14 @@ spec:
     broker:
       podAnnotations:
         reloader.stakater.com/auto: "true"
-      # Trimmed requests per peers; limit stays 1Gi for read budget.
+      # Trimmed requests per peers; limits pinned to chart defaults
+      # (Helm merges maps, but explicit avoids any replace-vs-merge doubt).
       resources:
         requests:
           cpu: 50m
           memory: 128Mi
+        limits:
+          memory: 1Gi
       # hostNetwork controller needs node CIDR; /metrics needs vmagent.
       networkPolicy:
         enabled: true
@@ -86,7 +89,8 @@ spec:
         serviceMonitor:
           enabled: true
 
-      # 16 = permits+8 floor; fits 25/30 pooler, covers 2x16 rollout burst.
+      # 16 = 8+8 floor (inflightPermits+8); fits 25/30 pooler,
+      # covers 2x16 rollout burst.
       dbPoolMaxSize: 16
       audit:
         inflightPermits: 8
@@ -107,3 +111,5 @@ spec:
         requests:
           cpu: 50m
           memory: 128Mi
+        limits:
+          memory: 512Mi
