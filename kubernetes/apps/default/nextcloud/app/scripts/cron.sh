@@ -115,7 +115,7 @@ run_if_app_installed "recognize" "recognize:recrawl" "Running Recognize backgrou
 # CronJob runs this script under /bin/sh (dash), not the #!/bin/bash shebang.
 # Normalize to decimal for the modulo check only — $MINUTE keeps its padded
 # form for the string comparisons above.
-MINUTE_DEC=$(( ${MINUTE#0} ))
+MINUTE_DEC=$((${MINUTE#0}))
 if [ "$((MINUTE_DEC % 15))" = "0" ]; then
     if app_installed "facerecognition"; then
         echo "Running Face Recognition background job (will stop after 15 minutes)..."
