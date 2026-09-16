@@ -110,7 +110,12 @@ run_if_app_installed "recognize" "recognize:recrawl" "Running Recognize backgrou
 # Manual sorting/naming is preserved - the app won't overwrite manually configured faces
 # The job will stop after 15 minutes (timeout) and continue in the next run
 # This distributes the load and prevents the job from running indefinitely
-if [ "$((MINUTE % 15))" = "0" ]; then
+# $MINUTE is zero-padded ("08", "09"); POSIX shell arithmetic rejects
+# them as invalid octal, so normalize first: ${MINUTE#0} strips one
+# leading zero (a safe decimal form) before the modulo. $MINUTE itself
+# is left untouched for the string comparisons above.
+MINUTE_DEC=${MINUTE#0}
+if [ "$((MINUTE_DEC % 15))" = "0" ]; then
     if app_installed "facerecognition"; then
         echo "Running Face Recognition background job (will stop after 15 minutes)..."
         # The app has internal locking (LockTask) to prevent concurrent execution
