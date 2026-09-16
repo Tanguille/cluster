@@ -95,7 +95,7 @@ spec:
       # Routes to litellm -> existing iGPU embedder instead.
       embeddingProvider: openai
       embeddingService: http://litellm.ai.svc.cluster.local/v1
-      embeddingModel: vmcp-embedding
+      embeddingModel: qwen3-embedding
       embeddingServiceTimeout: *embeddingTimeout
       # find_tool returns each match's FULL json schema, re-prefilled every
       # later turn: measured 7,721 tok/turn over 339 turns. Default 8 bound

@@ -27,11 +27,6 @@
     // "changelog","iseol",...}], "latest_stable":{...}}.
     // Re-check with: curl -s https://www.kernel.org/releases.json | jq '.releases[]|select(.moniker=="stable")'
     // If the shape ever changes the transform yields zero releases and bumps stop SILENTLY.
-    //
-    // There can be TWO stable entries while a series hands over — 7.2.2 and 7.1.12 both appeared
-    // on 2026-08-28 — so this is not a single-row feed and Renovate picks the highest. iseol is
-    // filtered because a dead series lingers in the feed with its final version: without it, a
-    // hold on the older series would sit on an unpatched kernel and look current.
     "linux-kernel": {
       defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
       format: "json",
@@ -136,10 +131,7 @@
       automergeType: "pr"
     },
     {
-      // User-cleared (2026-09-08): "these updates have always been harmless." Self-hosted
-      // search app, PDB + RollingUpdate, no secrets in the image, no vendor SaaS. Covers all
-      // update types (calver tag bumps and digest refreshes on the same tag).
-      description: "Auto-merge searxng (user-cleared, 2026-09-08)",
+      description: "Auto-merge searxng",
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/searxng/searxng"],
       automerge: true,
@@ -149,6 +141,17 @@
       description: "vllm-openai-rocm nightly digest — the rolling `nightly` tag is digest-pinned so Renovate can detect new builds at all; never auto-merge, a bump rolls the single-GPU serving pod and can move the KV pool that maxModelLen is sized against",
       matchDatasources: ["docker"],
       matchPackageNames: ["vllm/vllm-openai-rocm"],
+      automerge: false
+    },
+    {
+      // opencode 2.x is not deployable yet: v2.0.0 changed the server API surface (see
+      // anomalyco/opencode packages/app/V1_API_MIGRATION.md) and every 2.0.x pod failed
+      // the /:4096 HTTP liveness/readiness probes, leaving the HelmRelease
+      // Stalled/RetriesExceeded (Flux rolled back to 1.18.30 on 2026-09-15).
+      // Hold at 1.18.x until the chart probes/values are migrated to the v2 API.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/anomalyco/opencode"],
+      allowedVersions: "1.18.x",
       automerge: false
     },
     // Grouping rules
@@ -198,8 +201,7 @@
       description: "ToolHive MCP server images group",
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
-      minimumGroupSize: 2
+      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"]
     },
     {
       description: "VectorChord CNPG images and Memini database version",

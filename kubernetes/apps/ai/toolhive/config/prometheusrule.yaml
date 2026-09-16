@@ -32,7 +32,7 @@ spec:
             container_memory_working_set_bytes{namespace="ai", container!=""}
               / on (namespace, pod, container)
             kube_pod_container_resource_limits{namespace="ai", resource="memory"}
-              > 0.85
+              > 0.9
           for: 15m
           annotations:
             summary: >-

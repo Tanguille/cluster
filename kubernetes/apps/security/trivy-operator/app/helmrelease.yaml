@@ -19,6 +19,13 @@ spec:
     # Expose the /metrics endpoint to Prometheus via a ServiceMonitor.
     serviceMonitor:
       enabled: true
+    # Scan Jobs throttle at the chart-default 500m limit (kguardian
+    # cpu-throttled, 100% sustained across scans); raise the ceiling so
+    # scans finish faster. Requests stay at defaults; Jobs are short-lived.
+    trivy:
+      resources:
+        limits:
+          cpu: 1000m
     resources:
       requests:
         cpu: 100m

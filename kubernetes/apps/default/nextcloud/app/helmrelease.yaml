@@ -466,7 +466,9 @@ spec:
             memory: 500Mi
           limits:
             cpu: "1"
-            memory: 2Gi
+            # 2Gi was hit (OOMKilled 2026-09-15, nextcloud-cron-29825165 pod
+            # ...-xmkk5): cron.php + recognize:recrawl peak above it.
+            memory: 4Gi
 
     startupProbe:
       enabled: true

@@ -19,7 +19,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/p2pool
-              tag: v4.18@sha256:53b6a88aff43c7f165066c4e918fea250fabd0afccee7e07a020dff3ce605de7
+              tag: v4.18@sha256:369f8b47c6f120174f73293c8b33c6cf87a798f8e3ae19ad45420a14da7ffcc9
             args:
               - "--host"
               - "monerod.web3.svc.cluster.local"
@@ -59,7 +59,9 @@ spec:
                 cpu: 50m
                 memory: 550Mi
               limits:
-                cpu: 500m
+                # kguardian cpu-throttled, ~33% sustained (bursty share
+                # validation vs 500m quota despite low average use).
+                cpu: 1000m
                 memory: 2Gi
             probes:
               liveness:

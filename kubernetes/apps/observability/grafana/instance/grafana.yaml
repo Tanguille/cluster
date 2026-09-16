@@ -26,6 +26,13 @@ spec:
       enabled: "true"
     news:
       news_feed_enabled: "false"
+    # Upstream deb/rpm packages copy data/plugins-bundled under $DATA_DIR and
+    # point paths.bundled_plugins there so the plugin auto-updater can replace
+    # them in place. Same idea here: the initContainer below seeds the image's
+    # bundled plugins into a writable emptyDir, keeping readOnlyRootFilesystem
+    # AND working auto-updates (Grafana >=13.2 ships prometheus as standalone).
+    paths:
+      bundled_plugins: /var/lib/grafana/plugins-bundled
     plugins:
       plugin_admin_enabled: "false"
     security:
@@ -39,9 +46,30 @@ spec:
         type: Recreate
       template:
         spec:
+          initContainers:
+            - name: seed-bundled-plugins
+              image: grafana/grafana:13.2.2
+              command: ["sh", "-c", "cp -a /usr/share/grafana/data/plugins-bundled/. /bundled-plugins/"]
+              volumeMounts:
+                - name: bundled-plugins
+                  mountPath: /bundled-plugins
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+          volumes:
+            - name: bundled-plugins
+              emptyDir: {}
           containers:
             - name: grafana
-              image: grafana/grafana:13.2.1
+              image: grafana/grafana:13.2.2
               resources:
                 requests:
                   cpu: 10m
@@ -63,6 +91,9 @@ spec:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
                 capabilities: { drop: ["ALL"] }
+              volumeMounts:
+                - name: bundled-plugins
+                  mountPath: /var/lib/grafana/plugins-bundled
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
