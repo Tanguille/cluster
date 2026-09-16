@@ -110,7 +110,13 @@ run_if_app_installed "recognize" "recognize:recrawl" "Running Recognize backgrou
 # Manual sorting/naming is preserved - the app won't overwrite manually configured faces
 # The job will stop after 15 minutes (timeout) and continue in the next run
 # This distributes the load and prevents the job from running indefinitely
-if [ "$((MINUTE % 15))" = "0" ]; then
+# $MINUTE is zero-padded ("07", "09"); POSIX shell arithmetic parses "09" as
+# invalid octal ("Illegal number: 09") and "05"-"07" as wrong values, and the
+# CronJob runs this script under /bin/sh (dash), not the #!/bin/bash shebang.
+# Normalize to decimal for the modulo check only — $MINUTE keeps its padded
+# form for the string comparisons above.
+MINUTE_DEC=$(( ${MINUTE#0} ))
+if [ "$((MINUTE_DEC % 15))" = "0" ]; then
     if app_installed "facerecognition"; then
         echo "Running Face Recognition background job (will stop after 15 minutes)..."
         # The app has internal locking (LockTask) to prevent concurrent execution
