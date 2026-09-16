@@ -63,7 +63,8 @@ spec:
     # The model-cache-prep init chowns /models as root, so CephFS (fsGroupPolicy:
     # None) works too.
     modelCache:
-      # qwen3-embedding 0.64Gi + qwen35-2b 1.18Gi + vmcp-embedding 0.29Gi ≈ 2.1Gi
+      # qwen3-embedding 0.64Gi + qwen35-2b 1.18Gi ≈ 1.8Gi (vmcp-embedding's 0.29Gi
+      # removed 2026-09-15: consolidated onto qwen3-embedding)
       # + headroom. Doubled from 4Gi to 8Gi: PVC hit 100% capacity
       # (KubePersistentVolumeFillingUp). StorageClass ceph-filesystem has
       # allowVolumeExpansion: true, so the in-place resize is supported.
