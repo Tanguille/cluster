@@ -27,8 +27,10 @@ spec:
     bpfClockProbe: true
     cgroup:
       hostRoot: /sys/fs/cgroup
-    cni:
-      exclusive: false
+      # Talos 1.14: cgroupv2 and bpffs are provided by the OS,
+      # do not let the agent try to mount them.
+      autoMount:
+        enabled: false
     dashboards:
       enabled: true
     enableIPv4BIGTCP: true
