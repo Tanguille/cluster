@@ -4,17 +4,12 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: cilium
+  namespace: kube-system
 spec:
-  chartRef:
-    kind: OCIRepository
-    name: cilium
   interval: 1h
 
   values:
     autoDirectNodeRoutes: true
-    bandwidthManager:
-      enabled: true
-      bbr: true
     bpf:
       datapathMode: netkit-l2
       # Fixed CT sizes (~2.3x the measured 688K live entries from p2pool churn)
@@ -27,72 +22,34 @@ spec:
     bpfClockProbe: true
     cgroup:
       hostRoot: /sys/fs/cgroup
-      # Talos 1.14: cgroupv2 and bpffs are provided by the OS,
-      # do not let the agent try to mount them.
+      # Talos 1.14 provides cgroupv2 and bpffs; let the agent use the OS-provided
+      # mounts instead of managing its own (Talos 1.14 Cilium guide).
       autoMount:
         enabled: false
-    dashboards:
-      enabled: true
-    enableIPv4BIGTCP: true
-    endpointRoutes:
-      enabled: true
-    envoy:
-      enabled: false
+    enableIPv4: true
+    enableIPv6: false
     hubble:
       enabled: false
-    ipam:
-      mode: kubernetes
-    ipv4NativeRoutingCIDR: ${POD_CIDR}
-    k8sServiceHost: 127.0.0.1
-    k8sServicePort: 7445
+    kubernetes:
+      service:
+        enabled: true
     kubeProxyReplacement: true
-    kubeProxyReplacementHealthzBindAddr: 0.0.0.0:10256
+    kpr:
+      externalIPs:
+        enabled: true
+    loadBalancer:
+      mode: dsr
+      algorithm: maglev
     l2announcements:
       enabled: true
-      leaseDuration: 5s
-      leaseRenewDeadline: 2s
-      leaseRetryPeriod: 1s
-    loadBalancer:
-      algorithm: maglev
-      mode: dsr
-    localRedirectPolicies:
-      enabled: true
-    operator:
-      rollOutPods: true
-      dashboards:
-        enabled: true
-      prometheus:
-        serviceMonitor:
-          enabled: true
-    pmtuDiscovery:
-      enabled: true
-    prometheus:
-      enabled: true
-      serviceMonitor:
-        enabled: true
-        trustCRDsExist: true
-    rollOutCiliumPods: true
-    routingMode: native
-    securityContext:
-      capabilities:
-        ciliumAgent:
-          - CHOWN
-          - KILL
-          - NET_ADMIN
-          - NET_RAW
-          - IPC_LOCK
-          - SYS_ADMIN
-          - SYS_RESOURCE
-          - PERFMON
-          - BPF
-          - DAC_OVERRIDE
-          - FOWNER
-          - SETGID
-          - SETUID
-        cleanCiliumState:
-          - NET_ADMIN
-          - SYS_ADMIN
-          - SYS_RESOURCE
+      nodeSelector:
+        kubernetes.io/os: linux
     socketLB:
       enabled: true
       hostNamespaceOnly: true
+    tunnel:
+      enabled: false
+    routingMode: native
+    ipv4NativeRoutingCIDR: 10.42.0.0/16
+    pmtuDiscovery: true
+    enableIPv4BIGTCP: true
