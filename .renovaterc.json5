@@ -196,10 +196,14 @@
     },
     {
       description: "ToolHive MCP server images group",
+      // No minimumGroupSize (dropped 2026-09-16): a single held update waited for a second
+      // group member that never came — the mcp-grafana 1.4.0 -> 1.4.2 bump sat unmerged in the
+      // dashboard since 09-15 with no PR, so the oldest image in the whole group drifted. A
+      // held group member is an invisible drift, not a queueing win. (1.4.2 itself does not fix
+      // the vMCP "Legacy-shaped body" warning — that waits on mcp-grafana adopting mcp-go v1.1.0.)
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
-      minimumGroupSize: 2
+      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"]
     },
     {
       description: "VectorChord CNPG images and Memini database version",
