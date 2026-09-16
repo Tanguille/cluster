@@ -9,6 +9,7 @@ spec:
     kind: OCIRepository
     name: cilium
   interval: 1h
+
   values:
     autoDirectNodeRoutes: true
     bpf:
@@ -23,34 +24,72 @@ spec:
     bpfClockProbe: true
     cgroup:
       hostRoot: /sys/fs/cgroup
-      # Talos 1.14 provides cgroupv2 and bpffs; let the agent use the OS-provided
-      # mounts instead of managing its own (Talos 1.14 Cilium guide).
+      # Talos 1.14: cgroupv2 and bpffs are provided by the OS,
+      # do not let the agent try to mount them.
       autoMount:
         enabled: false
-    enableIPv4: true
-    enableIPv6: false
+    dashboards:
+      enabled: true
+    enableIPv4BIGTCP: true
+    endpointRoutes:
+      enabled: true
+    envoy:
+      enabled: false
     hubble:
       enabled: false
-    kubernetes:
-      service:
-        enabled: true
+    ipam:
+      mode: kubernetes
+    ipv4NativeRoutingCIDR: ${POD_CIDR}
+    k8sServiceHost: 127.0.0.1
+    k8sServicePort: 7445
     kubeProxyReplacement: true
-    kpr:
-      externalIPs:
-        enabled: true
-    loadBalancer:
-      mode: dsr
-      algorithm: maglev
+    kubeProxyReplacementHealthzBindAddr: 0.0.0.0:10256
     l2announcements:
       enabled: true
-      nodeSelector:
-        kubernetes.io/os: linux
+      leaseDuration: 5s
+      leaseRenewDeadline: 2s
+      leaseRetryPeriod: 1s
+    loadBalancer:
+      algorithm: maglev
+      mode: dsr
+    localRedirectPolicies:
+      enabled: true
+    operator:
+      rollOutPods: true
+      dashboards:
+        enabled: true
+      prometheus:
+        serviceMonitor:
+          enabled: true
+    pmtuDiscovery:
+      enabled: true
+    prometheus:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+        trustCRDsExist: true
+    rollOutCiliumPods: true
+    routingMode: native
+    securityContext:
+      capabilities:
+        ciliumAgent:
+          - CHOWN
+          - KILL
+          - NET_ADMIN
+          - NET_RAW
+          - IPC_LOCK
+          - SYS_ADMIN
+          - SYS_RESOURCE
+          - PERFMON
+          - BPF
+          - DAC_OVERRIDE
+          - FOWNER
+          - SETGID
+          - SETUID
+        cleanCiliumState:
+          - NET_ADMIN
+          - SYS_ADMIN
+          - SYS_RESOURCE
     socketLB:
       enabled: true
       hostNamespaceOnly: true
-    tunnel:
-      enabled: false
-    routingMode: native
-    ipv4NativeRoutingCIDR: 10.42.0.0/16
-    pmtuDiscovery: true
-    enableIPv4BIGTCP: true
