@@ -17,3 +17,69 @@ spec:
       value: http://grafana-service.observability.svc.cluster.local:3000
   toolConfigRef:
     name: grafana
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 110Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: grafana
+spec:
+  # Grafana OSS + Prometheus/Alertmanager only; Cloud, Pyroscope, Loki and
+  # Sift-backed tools have no datasource here.
+  toolsFilter:
+    # Datasources
+    - list_datasources
+    - get_datasource_by_uid
+    - get_datasource_by_name
+    # Prometheus
+    - query_prometheus
+    - query_prometheus_histogram
+    - list_prometheus_metric_names
+    - list_prometheus_metric_metadata
+    - list_prometheus_label_names
+    - list_prometheus_label_values
+    # Alerting (Grafana-managed alerts + Alertmanager datasource)
+    - list_alert_rules
+    - get_alert_rule_by_uid
+    - create_alert_rule
+    - update_alert_rule
+    - delete_alert_rule
+    - list_alert_groups
+    - get_alert_group
+    - list_contact_points
+    # Dashboards and folders
+    - search_dashboards
+    - get_dashboard_by_uid
+    - get_dashboard_summary
+    - get_dashboard_property
+    - get_dashboard_panel_queries
+    - update_dashboard
+    - search_folders
+    - create_folder
+    - get_panel_image
+    - generate_deeplink
+    # Annotations
+    - get_annotations
+    - get_annotation_tags
+    - create_annotation
+    - update_annotation
+    - patch_annotation
+    - create_graphite_annotation
