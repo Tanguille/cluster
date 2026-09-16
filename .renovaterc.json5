@@ -143,6 +143,17 @@
       matchPackageNames: ["vllm/vllm-openai-rocm"],
       automerge: false
     },
+    {
+      // opencode 2.x is not deployable yet: v2.0.0 changed the server API surface (see
+      // anomalyco/opencode packages/app/V1_API_MIGRATION.md) and every 2.0.x pod failed
+      // the /:4096 HTTP liveness/readiness probes, leaving the HelmRelease
+      // Stalled/RetriesExceeded (Flux rolled back to 1.18.30 on 2026-09-15).
+      // Hold at 1.18.x until the chart probes/values are migrated to the v2 API.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/anomalyco/opencode"],
+      allowedVersions: "1.18.x",
+      automerge: false
+    },
     // Grouping rules
     {
       description: "Actions Runner Controller Group",
