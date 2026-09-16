@@ -27,11 +27,6 @@
     // "changelog","iseol",...}], "latest_stable":{...}}.
     // Re-check with: curl -s https://www.kernel.org/releases.json | jq '.releases[]|select(.moniker=="stable")'
     // If the shape ever changes the transform yields zero releases and bumps stop SILENTLY.
-    //
-    // There can be TWO stable entries while a series hands over — 7.2.2 and 7.1.12 both appeared
-    // on 2026-08-28 — so this is not a single-row feed and Renovate picks the highest. iseol is
-    // filtered because a dead series lingers in the feed with its final version: without it, a
-    // hold on the older series would sit on an unpatched kernel and look current.
     "linux-kernel": {
       defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
       format: "json",
@@ -136,10 +131,7 @@
       automergeType: "pr"
     },
     {
-      // User-cleared (2026-09-08): "these updates have always been harmless." Self-hosted
-      // search app, PDB + RollingUpdate, no secrets in the image, no vendor SaaS. Covers all
-      // update types (calver tag bumps and digest refreshes on the same tag).
-      description: "Auto-merge searxng (user-cleared, 2026-09-08)",
+      description: "Auto-merge searxng",
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/searxng/searxng"],
       automerge: true,
@@ -196,11 +188,6 @@
     },
     {
       description: "ToolHive MCP server images group",
-      // No minimumGroupSize (dropped 2026-09-16): a single held update waited for a second
-      // group member that never came — the mcp-grafana 1.4.0 -> 1.4.2 bump sat unmerged in the
-      // dashboard since 09-15 with no PR, so the oldest image in the whole group drifted. A
-      // held group member is an invisible drift, not a queueing win. (1.4.2 itself does not fix
-      // the vMCP "Legacy-shaped body" warning — that waits on mcp-grafana adopting mcp-go v1.1.0.)
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
       matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"]
