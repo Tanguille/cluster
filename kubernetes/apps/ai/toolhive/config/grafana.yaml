@@ -6,10 +6,6 @@ metadata:
 spec:
   image: grafana/mcp-grafana:1.4.2@sha256:f87fa67a561f7b3deb412402887117bd1e9f1f7a8695935d27c498543ab3458b
   transport: stdio
-  # sse: gateway speaks a Modern (2026-07-28 resultType) dialect mcp-grafana
-  # 1.4.x advertises but doesn't implement, wedging revision probing forever.
-  # SSE classifies Legacy with no probe and serves the same tools.
-  proxyMode: sse
   groupRef:
     name: all
   args:
