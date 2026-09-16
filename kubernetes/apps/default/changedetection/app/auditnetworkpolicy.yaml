@@ -1,9 +1,6 @@
 ---
-# Audit-only network policy (kguardian): reports what a default-deny would
-# break WITHOUT enforcing anything. Observed baseline 2026-09-16 via
-# kguardian pod_traffic: egress 443 to assorted externals + kube-dns only,
-# ingress :5000 from envoy-internal only.
-# Promote to kind: NetworkPolicy only after verdicts stay empty.
+# Audit-only: reports what default-deny would break, enforces nothing.
+# Baseline: kguardian pod_traffic 2026-09-16; promote to NetworkPolicy once verdicts are empty.
 apiVersion: kguardian.dev/v1alpha1
 kind: AuditNetworkPolicy
 metadata:
@@ -16,7 +13,6 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Gateway traffic from envoy-internal
     - from:
         - namespaceSelector:
             matchLabels:
@@ -27,7 +23,7 @@ spec:
       ports:
         - protocol: TCP
           port: 5000
-    # kubelet probes originate from node IPs
+    # kubelet probes use node IPs
     - from:
         - ipBlock:
             cidr: 192.168.0.0/24
@@ -35,7 +31,6 @@ spec:
         - protocol: TCP
           port: 5000
   egress:
-    # Cluster DNS
     - to:
         - namespaceSelector:
             matchLabels:
@@ -48,7 +43,6 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # Website polling (upstream hosts vary, observed 2026-09-16)
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

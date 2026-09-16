@@ -1,11 +1,7 @@
 ---
-# Audit-only network policy (kguardian): reports what a default-deny would
-# break WITHOUT enforcing anything. Observed baseline 2026-09-16 via
-# kguardian pod_traffic: ingress :8080 from envoy-internal, the ai-namespace
-# ToolHive searxng MCP consumer, and ephemeral CI runners; egress 443 + DNS.
-# NOTE: review-runner pods (actions-runner-system, ephemeral names) health-check
-# :8080 during CI — expect verdicts for them; carve out before enforcing.
-# Promote to kind: NetworkPolicy only after verdicts stay empty.
+# Audit-only: reports what default-deny would break, enforces nothing.
+# Baseline: kguardian pod_traffic 2026-09-16; ephemeral CI runners hit :8080,
+# so expect verdicts for them and carve out before enforcing.
 apiVersion: kguardian.dev/v1alpha1
 kind: AuditNetworkPolicy
 metadata:
@@ -18,7 +14,6 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Gateway traffic from envoy-internal
     - from:
         - namespaceSelector:
             matchLabels:
@@ -29,7 +24,7 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
-    # ToolHive searxng MCP consumer in ai (observed 2026-09-15/16)
+    # ToolHive searxng consumer (ai namespace)
     - from:
         - namespaceSelector:
             matchLabels:
@@ -40,7 +35,7 @@ spec:
       ports:
         - protocol: TCP
           port: 8080
-    # kubelet probes (/healthz) originate from node IPs
+    # kubelet probes use node IPs
     - from:
         - ipBlock:
             cidr: 192.168.0.0/24
@@ -48,7 +43,6 @@ spec:
         - protocol: TCP
           port: 8080
   egress:
-    # Cluster DNS
     - to:
         - namespaceSelector:
             matchLabels:
@@ -61,7 +55,6 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # Upstream search engines (hosts vary, observed 2026-09-16)
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
