@@ -1,6 +1,6 @@
-<div align="center">
-
 # Cluster
+
+<div align="center">
 
 **GitOps** with Flux · **Self-hosted by design** · **Agentic workflows, human-operated**
 
@@ -9,7 +9,7 @@
 [![Talos](https://kromgo.tanguille.site/badges/talos_version)](https://talos.dev)&nbsp;&nbsp;
 [![Kubernetes](https://kromgo.tanguille.site/badges/kubernetes_version)](https://kubernetes.io)&nbsp;&nbsp;
 [![Flux](https://kromgo.tanguille.site/badges/flux_version)](https://fluxcd.io)&nbsp;&nbsp;
-[![HelmReleases](https://img.shields.io/badge/HelmReleases-111-326CE5?style=for-the-badge&logo=helm&logoColor=white)](#)
+[![HelmReleases](https://img.shields.io/badge/HelmReleases-111-326CE5?style=for-the-badge&logo=helm&logoColor=white)](https://github.com/Tanguille/cluster)
 
 <br/>
 
