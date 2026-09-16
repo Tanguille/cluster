@@ -1,18 +1,17 @@
+<div align="center">
+
 # Cluster
 
-Welcome to my `fluxcd` kubernetes cluster running on `talos`. This is based on the [cluster-template](https://github.com/onedr0p/cluster-template) project where I want to express my gratitude to the community for all the amazing work they have done.
+**GitOps** with Flux · **Self-hosted by design** · **Agentic workflows, human-operated**
 
-## Stats
-
-<div align="center">
+<br/>
 
 [![Talos](https://kromgo.tanguille.site/badges/talos_version)](https://talos.dev)&nbsp;&nbsp;
 [![Kubernetes](https://kromgo.tanguille.site/badges/kubernetes_version)](https://kubernetes.io)&nbsp;&nbsp;
 [![Flux](https://kromgo.tanguille.site/badges/flux_version)](https://fluxcd.io)&nbsp;&nbsp;
+[![HelmReleases](https://img.shields.io/badge/HelmReleases-111-326CE5?style=for-the-badge&logo=helm&logoColor=white)](#)
 
-</div>
-
-<div align="center">
+<br/>
 
 [![Age](https://kromgo.tanguille.site/badges/cluster_birth_age)](https://github.com/home-operations/kromgo)&nbsp;&nbsp;
 [![Uptime](https://kromgo.tanguille.site/badges/cluster_uptime_age)](https://github.com/home-operations/kromgo)&nbsp;&nbsp;
@@ -24,36 +23,283 @@ Welcome to my `fluxcd` kubernetes cluster running on `talos`. This is based on t
 
 </div>
 
-## Architecture
+---
 
-This is a 3-node control plane Kubernetes cluster running on Talos Linux. All nodes serve as both control plane and worker nodes.
+## 📖 Overview
 
-- **CNI:** Cilium
-- **Storage:** Rook Ceph (block + filesystem) + OpenEBS Hostpath
-- **Networking:** Cloudflare Tunnel, External DNS, Envoy Gateway, k8s-gateway
+This is the live configuration for a 3-node Talos Linux cluster that runs a
+household — a local AI agent fleet (Hermes, OpenCode, ToolHive), LLM inference
+on a passed-through AMD R9700, a full *arr media stack, Nextcloud,
+self-hosted search and dashboards, and the operational tooling that keeps it
+all up. Every change lands in Git first; Flux reconciles the cluster from
+there, and Renovate keeps images and charts current via PRs.
 
-## Nodes
+The repo is GitOps-strict: applications are declared as `HelmRelease`
+resources, all secrets live in SOPS-encrypted manifests (zero plain-text in
+Git), and the operational conventions are written down where agents can
+enforce them — [AGENTS.md](AGENTS.md) and
+[`.agents/skills/`](.agents/skills) — not folklore.
 
-### Control Plane 1
+The cluster is operated by me; agents are tools in that loop. I make heavy
+use of agentic workflows — agent-authored PRs, automated review,
+skill-driven operations — but nothing reaches the cluster without a human
+deciding it should.
 
-TrueNAS VM:
+---
 
-- **CPU:** AMD Ryzen 5800X → 6 cores allocated to Talos
-- **RAM:** 128GB DDR4 → 64GB allocated to Talos
-- **GPU:** AMD Radeon AI PRO R9700 → Full passthrough to Talos
-- **Networking:** 10G NIC running at 2.5Gbps
-- **Storage:** Samsung PM983 2TB nvme
-  - Boot ZVOL: 500GB
-  - Ceph ZVOL: 500GB
+## 🗺️ Architecture
 
-### Control Plane 2 & 3
+```mermaid
+flowchart LR
+    Dev[👤 Operator] -->|git push| Repo[(📦 GitHub)]
+    Renovate[🤖 Renovate] -.->|automated PRs| Repo
+    Repo -->|reconciles| Flux[⚙️ Flux 2]
+    Flux -->|deploys| Cluster[☸️ Kubernetes on Talos<br/>3 nodes · 111 HelmReleases]
 
-Chuwi Ubox:
+    Cluster --> Ceph[(🪨 Rook Ceph<br/>block + filesystem · default durable)]
+    Cluster --> OEP[(🐂 OpenEBS Hostpath<br/>best-effort tier)]
 
-- **CPU:** AMD Ryzen 6600H (6 cores)
-- **RAM:** 32GB DDR5
-- **GPU:** AMD Radeon 660M (APU)
-- **Networking:** 2x 2.5Gbps NICs (1 used)
-- **Storage:**
-  - Boot: Micron 7450 Pro (500GB) nvme
-  - Ceph: (control-2: Samsung 980 Pro 1TB nvme, control-3: Micron 7450 Pro 1TB SSD)
+    Cluster --> KB[(💾 kopiur / Kopia<br/>per-app PV snapshots)]
+```
+
+Storage classes are picked per workload by durability requirement — Ceph for
+anything that must survive node loss, OpenEBS Hostpath for throwaway state.
+App-specific sizing and limits live next to the manifests.
+
+---
+
+## 🧰 Stack at a glance
+
+| Layer           | Tool                           | Role                                     |
+|-----------------|--------------------------------|------------------------------------------|
+| **OS**          | Talos Linux                    | Immutable control-plane + worker OS      |
+| **Kubernetes**  | v1.x (see badges)              | 3 nodes, all control-plane + worker      |
+| **GitOps**      | Flux 2                         | Declarative cluster reconciliation       |
+| **Automation**  | Renovate + GitHub Actions      | Dependency PRs, lint, scans (11 workflows) |
+| **CNI**         | Cilium (eBPF)                  | Networking, network policies, LoadBalancer |
+| **Ingress**     | Envoy Gateway + k8s-gateway    | L7 gateway / HTTPRoute                   |
+| **Tunnel**      | cloudflared                    | Public ingress without exposing home WAN |
+| **DNS**         | external-dns                   | Record sync                              |
+| **TLS**         | cert-manager                   | Certificate lifecycle                    |
+| **GPU**         | AMD R9700 (full passthrough)   | LLM inference on control-1               |
+| **Storage**     | Rook-Ceph, OpenEBS Hostpath    | Tiered by durability requirement         |
+| **Databases**   | CloudNative-PG, Dragonfly      | Postgres clusters, in-memory store       |
+| **Secrets**     | SOPS + age                     | Encrypted manifests, zero plain-text     |
+| **Backups**     | kopiur (Kopia-native)          | Per-app PV snapshots + restores          |
+| **Observability** | prometheus-operator, Grafana, Gatus, Victoria* | Metrics, dashboards, uptime |
+
+---
+
+## 🖥️ Hardware
+
+| Role        | Host        | CPU                     | RAM          | GPU                                  | Network              | Storage                                        |
+|-------------|-------------|-------------------------|--------------|--------------------------------------|----------------------|------------------------------------------------|
+| 🧠 control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 2TB NVMe (boot 500 GB · Ceph 500 GB) |
+| 🧠 control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Samsung 980 Pro 1 TB |
+| 🧠 control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Micron 7450 Pro 1 TB |
+
+All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the
+dedicated inference GPU.
+
+---
+
+## 📦 What's running
+
+<details>
+<summary>🤖 <b>AI & Agents</b> — local agent fleet + inference (namespace <code>ai/</code>)</summary>
+
+| App          | Purpose                                                    |
+|--------------|------------------------------------------------------------|
+| **Hermes**   | Autonomous agent runtime — the operator's hands            |
+| **OpenCode** | CLI coding agent for repo work                             |
+| **ToolHive** | Unified MCP server gateway (HA, GitHub, memory graph, …)   |
+| **LiteLLM**  | LLM proxy / routing layer                                  |
+| **OmniRoute**| LLM routing                                                |
+| **LLMKube**  | K8s-native LLM model management (sglang/vLLM)              |
+| **Memini**   | Long-term memory for agents                                |
+
+Tuning constraints and benchmark history for the inference stack live in
+[`docs/llm-hosting/`](docs/llm-hosting/).
+
+</details>
+
+<details>
+<summary>🎬 <b>Media</b> — *arr stack, Jellyfin, theming & library tooling (namespace <code>media/</code>)</summary>
+
+Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin · Jellystat ·
+Wizarr (theming) · Bazarr · Recyclarr · CleanRR · DedupArr · Unpackerr ·
+FlareSolverr · BRRPolice · FileFlows · Qui
+
+</details>
+
+<details>
+<summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
+
+Nextcloud · Homepage (start page) · Karakeep · Change Detection · SearXNG ·
+Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman
+
+</details>
+
+<details>
+<summary>🌐 <b>Network & edge</b> (namespace <code>network/</code>)</summary>
+
+Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (L4) · external-dns ·
+External-Service · SMTP-Relay (outbound mail)
+
+</details>
+
+<details>
+<summary>🔭 <b>Observability & autoscaling</b> (namespace <code>observability/</code>)</summary>
+
+Prometheus Operator + CRDs · Grafana · Gatus (uptime) · Siren ·
+VictoriaMetrics · VictoriaLogs · KEDA (event-driven scaling) ·
+kube-state-metrics · Kromgo (cluster stats badges) · Silence-operator ·
+custom exporters
+
+</details>
+
+<details>
+<summary>🗄️ <b>Databases</b> (namespace <code>database/</code>)</summary>
+
+CloudNative-PG (Postgres clusters with WAL archiving) · Dragonfly (Redis-compatible)
+
+</details>
+
+<details>
+<summary>🛡️ <b>Security</b> (namespace <code>security/</code>)</summary>
+
+CrowdSec (fail2ban-style intrusion detection) · KGuardian (network policy
+enforcement) · Trivy-Operator (image & CVE scanning)
+
+</details>
+
+<details>
+<summary>⛓️ <b>System & platform</b> (namespaces <code>kube-system/</code>, <code>flux-system/</code>, …)</summary>
+
+Cilium · CoreDNS · Spegel (local path) · descheduler · etcd-defrag ·
+metrics-server · reloader · snapshot-controller · node-problem-detector ·
+network-policies · AMD GPU undervolt · actions-runner-controller (self-hosted
+GitHub runners) · Flux 2 · Rook-Ceph · OpenEBS · cert-manager ·
+kopiur (backup machinery) · system-upgrade (Talos upgrades)
+
+</details>
+
+---
+
+## 🧠 AI stack
+
+Local-first: agents run *on* the cluster and reach it *through* a gated MCP
+gateway — no cloud LLM in the loop by default.
+
+```mermaid
+flowchart TB
+    subgraph Surfaces[Agent surfaces]
+        H[Hermes]
+        OC[OpenCode]
+    end
+
+    subgraph Gateway[MCP gateway]
+        TH[ToolHive]
+    end
+
+    subgraph Backends[Backends]
+        HA[Home Assistant]
+        GH[GitHub]
+        MG[Memory graph]
+        K8S[Cluster ops]
+    end
+
+    subgraph Inference[Inference — R9700 on control-1]
+        LLM[sglang / vLLM via LLMKube]
+    end
+
+    H --> TH
+    OC --> TH
+    TH --> HA
+    TH --> GH
+    TH --> MG
+    TH --> K8S
+    H -->|routing| LLM
+```
+
+- **Inference** runs on the R9700 passthrough; model staging, tuning
+  constraints, and benchmark history: [`docs/llm-hosting/`](docs/llm-hosting/).
+- **ToolHive** is the single MCP surface for all agents — one gateway,
+  Authelia-gated, instead of per-app MCP sprawl.
+- **Memini** gives agents long-term memory that persists across sessions.
+
+---
+
+## 🛡️ Operational pillars
+
+### 🔐 Secrets — zero plain-text in Git
+
+Every secret is SOPS-encrypted in-repo and decrypted at reconcile time with
+age keys that are never committed. `age.key` is a hard no-exception.
+
+### 🌪️ Strict GitOps
+
+Every change reaches the cluster through Git. Flux suspends are a deliberate
+manual signal — a paused Kustomization is not "broken", it's an in-flight
+maintenance pause, and it is not reverted on sight.
+
+### 🤖 Agent-readable conventions
+
+Operational knowledge lives where agents load it: [AGENTS.md](AGENTS.md)
+(three-tier safety model: always / ask-first / never),
+[.agents/learned-preferences.md](.agents/learned-preferences.md) and
+[.agents/learned-workspace.md](.agents/learned-workspace.md) (maintained by
+continual learning), and
+[.agents/skills/](.agents/skills) — one `SKILL.md` per workflow:
+add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation,
+k8s-at-home-research, pr-review, prometheus-cluster-health, handoff.
+
+### 💾 Backups — per-app, Kopia-native
+
+kopiur (migrated 2026-07-12) declares a `SnapshotPolicy` + `SnapshotSchedule`
+per app; restores are passive (`dataSourceRef`-triggered) and documented in
+[docs/kopiur-restore.md](docs/kopiur-restore.md).
+
+### 🔭 Observability
+
+Prometheus Operator scrapes the fleet; Grafana dashboards, Gatus uptime,
+VictoriaMetrics/Logs for long retention, KEDA for scale-to-zero workloads, and
+Kromgo feeds the live badges at the top of this file.
+
+### 🛟 CI
+
+Eleven GitHub Actions workflows: gitleaks, k8s-scan, flate,
+docker/hadolint, shell/shellcheck, markdown-lint, talos-render, talos-kernel,
+labeler/label-sync, and agent-pr-review.
+
+---
+
+## 📚 Documentation
+
+| Doc                       | What it's for                              |
+|---------------------------|--------------------------------------------|
+| [Useful commands](docs/useful_commands.md) | flux / task / talos / sops reference + app runbooks |
+| [LLM hosting](docs/llm-hosting/) | sglang/vLLM tuning constraints + benchmark history |
+| [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
+| [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
+| [Database](docs/database/) | database operations |
+| [Archived migrations](docs/archived-migrations.md) | migration history |
+| [XMRig solar mining](docs/xmrig-solar-mining.md) | solar-powered mining setup |
+
+Repo layout: `kubernetes/` (manifests) · `talos/` (machine configuration) ·
+`docs/` (runbooks) · `.agents/` (task-specific guidance) ·
+[`.justfile`](.justfile) + [`.mise.toml`](.mise.toml) (tooling).
+
+---
+
+## 🙏 Acknowledgements
+
+Based on the excellent [cluster-template](https://github.com/onedr0p/cluster-template)
+by [@onedr0p](https://github.com/onedr0p) — thank you and the community for
+the foundation this cluster was built on.
+
+<div align="center">
+
+<sub>Continuously reconciling since <b>April 2021</b>.</sub>
+
+</div>
