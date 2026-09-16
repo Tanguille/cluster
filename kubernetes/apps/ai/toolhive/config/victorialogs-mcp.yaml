@@ -1,0 +1,113 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: victorialogs-mcp
+spec:
+  # renovate: datasource=docker depName=ghcr.io/victoriametrics/mcp-victorialogs
+  image: ghcr.io/victoriametrics/mcp-victorialogs:v1.9.0@sha256:753bb4fbe402ca1a782842f44636830f9895736f11d7fe783b924f8a0daf083d
+  # Native streamable-http: the binary serves /mcp on 8081 (MCP_LISTEN_ADDR) and
+  # the operator dials http://<mcp-container>:8081/mcp directly. No stdio proxy hop.
+  transport: streamable-http
+  mcpPort: 8081
+  groupRef:
+    name: all
+  env:
+    - name: HOME
+      value: /tmp
+    # VictoriaLogs single-node in observability/ (helm server.fullnameOverride: victoria-logs),
+    # no auth configured — plain HTTP.
+    - name: VL_INSTANCE_ENTRYPOINT
+      value: http://victoria-logs.observability.svc.cluster.local:9428
+    - name: MCP_SERVER_MODE
+      value: http
+    # Binary defaults to 127.0.0.1:8081 — unreachable from the proxy sidecar; bind all
+    # interfaces on the mcpPort the operator dials.
+    - name: MCP_LISTEN_ADDR
+      value: 0.0.0.0:8081
+    # Hide the non-query tools (server flag list + docs prompt); query toolset only.
+    - name: MCP_DISABLED_TOOLS
+      value: documentation,flags
+  # Expose only the VictoriaLogs query tools (same 11 as the reference allowed_tools);
+  # MCP_DISABLED_TOOLS above already drops documentation/flags.
+  toolConfigRef:
+    name: victorialogs-mcp
+  podTemplateSpec:
+    spec:
+      # The image runs as the unprivileged user `mcp` (uid 65534, no group in the
+      # image config); the operator sets readOnlyRootFilesystem — /tmp is the only
+      # path the server touches, mounted emptyDir. No cluster access needed, so no
+      # SA token.
+      automountServiceAccountToken: false
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      containers:
+        - name: mcp
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          ports:
+            - name: mcp
+              containerPort: 8081
+          # The binary ships /health/liveness + /health/readiness (v1.9.0).
+          startupProbe:
+            httpGet:
+              path: /health/liveness
+              port: mcp
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: mcp
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+  # Proxy sidecar: the operator manages its own resources; keep the same envelope as peers.
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: victorialogs-mcp
+spec:
+  # VictoriaLogs query toolset only (logQL + stream API); same set as the reference
+  # allowed_tools in aumer-amr/labv2. documentation/flags are already disabled via
+  # MCP_DISABLED_TOOLS; the filter keeps the optimizer index small too.
+  toolsFilter:
+    - facets
+    - field_names
+    - field_values
+    - hits
+    - query
+    - stats_query
+    - stats_query_range
+    - stream_field_names
+    - stream_field_values
+    - stream_ids
+    - streams
