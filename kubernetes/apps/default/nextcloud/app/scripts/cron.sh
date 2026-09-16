@@ -74,7 +74,7 @@ fi
 # compatible with the pinned server version.
 # 1:30 AM avoids the 2:00 AM heavy maintenance window (maintenance:repair, files:scan).
 if [ "$MINUTE" = "30" ] && [ "$HOUR" = "01" ]; then
-    echo "Updating all Nextcloud apps (daily auto-update)"
+    echo "Updating all Nextcloud apps (daily auto-update)..."
     run_occ "app:update --all" "app auto-update failed"
 fi
 
