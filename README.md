@@ -2,14 +2,13 @@
 
 <div align="center">
 
-**GitOps** with Flux · **Self-hosted by design** · **Agentic workflows, human-operated**
+**GitOps** with Flux · **Self-hosted by design**
 
 <br/>
 
 [![Talos](https://kromgo.tanguille.site/badges/talos_version)](https://talos.dev)&nbsp;&nbsp;
 [![Kubernetes](https://kromgo.tanguille.site/badges/kubernetes_version)](https://kubernetes.io)&nbsp;&nbsp;
 [![Flux](https://kromgo.tanguille.site/badges/flux_version)](https://fluxcd.io)&nbsp;&nbsp;
-[![HelmReleases](https://img.shields.io/badge/HelmReleases-111-326CE5?style=for-the-badge&logo=helm&logoColor=white)](https://github.com/Tanguille/cluster)
 
 <br/>
 
@@ -27,23 +26,15 @@
 
 ## 📖 Overview
 
-This is the live configuration for a 3-node Talos Linux cluster that runs a
-household — a local AI agent fleet (Hermes, OpenCode, ToolHive), LLM inference
-on a passed-through AMD R9700, a full *arr media stack, Nextcloud,
-self-hosted search and dashboards, and the operational tooling that keeps it
-all up. Every change lands in Git first; Flux reconciles the cluster from
-there, and Renovate keeps images and charts current via PRs.
+This is my live configuration for a 3-node Talos Linux cluster. Every change lands in Git first; 
+Flux reconciles the cluster from there, and Renovate keeps images and charts current via PRs.
 
 The repo is GitOps-strict: applications are declared as `HelmRelease`
-resources, all secrets live in SOPS-encrypted manifests (zero plain-text in
-Git), and the operational conventions are written down where agents can
-enforce them — [AGENTS.md](AGENTS.md) and
-[`.agents/skills/`](.agents/skills) — not folklore.
+resources, all secrets live in SOPS-encrypted manifests.
 
-The cluster is operated by me; agents are tools in that loop. I make heavy
-use of agentic workflows — agent-authored PRs, automated review,
-skill-driven operations — but nothing reaches the cluster without a human
-deciding it should.
+The cluster is operated by me; agents are tools in that loop. I make
+use of agentic workflows: agent-authored PRs, automated review and
+skill-driven operations, nothing goes live without me deciding it should.
 
 ---
 
@@ -51,20 +42,20 @@ deciding it should.
 
 ```mermaid
 flowchart LR
-    Dev[👤 Operator] -->|git push| Repo[(📦 GitHub)]
+    Tanguille[👤 Operator] -->|git push| Repo[(📦 GitHub)]
     Renovate[🤖 Renovate] -.->|automated PRs| Repo
-    Repo -->|reconciles| Flux[⚙️ Flux 2]
+    Repo -->|reconciles| Flux[⚙️ Flux]
     Flux -->|deploys| Cluster[☸️ Kubernetes on Talos<br/>3 nodes · 111 HelmReleases]
 
     Cluster --> Ceph[(🪨 Rook Ceph<br/>block + filesystem · default durable)]
-    Cluster --> OEP[(🐂 OpenEBS Hostpath<br/>best-effort tier)]
+    Cluster --> OEP[(🐂 OpenEBS Hostpath<br/>best-effort low latency tier)]
 
     Cluster --> KB[(💾 kopiur / Kopia<br/>per-app PV snapshots)]
 ```
 
-Storage classes are picked per workload by durability requirement — Ceph for
-anything that must survive node loss, OpenEBS Hostpath for throwaway state.
-App-specific sizing and limits live next to the manifests.
+Storage classes are picked per workload by durability requirement: Ceph for
+anything that must survive node loss, OpenEBS Hostpath for throwaway state 
+or replicated data where performance is critical (e.g. postgres).
 
 ---
 
@@ -92,14 +83,13 @@ App-specific sizing and limits live next to the manifests.
 
 ## 🖥️ Hardware
 
-| Role        | Host        | CPU                     | RAM          | GPU                                  | Network              | Storage                                        |
-|-------------|-------------|-------------------------|--------------|--------------------------------------|----------------------|------------------------------------------------|
-| 🧠 control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 2TB NVMe (boot 500 GB · Ceph 500 GB) |
-| 🧠 control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Samsung 980 Pro 1 TB |
-| 🧠 control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Micron 7450 Pro 1 TB |
+| Role      | Host        | CPU                     | RAM          | GPU                                  | Network              | Storage                                        |
+|-----------|-------------|-------------------------|--------------|--------------------------------------|----------------------|------------------------------------------------|
+| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 2TB NVMe (boot 500 GB · Ceph 500 GB) |
+| control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Samsung 980 Pro 1 TB |
+| control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Micron 7450 Pro 1 TB |
 
-All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the
-dedicated inference GPU.
+All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU.
 
 ---
 
@@ -110,12 +100,12 @@ dedicated inference GPU.
 
 | App          | Purpose                                                    |
 |--------------|------------------------------------------------------------|
-| **Hermes**   | Autonomous agent runtime — the operator's hands            |
+| **Hermes**   | Autonomous agentic harness                                 |
 | **OpenCode** | CLI coding agent for repo work                             |
-| **ToolHive** | Unified MCP server gateway (HA, GitHub, memory graph, …)   |
+| **ToolHive** | Unified MCP server gateway                                 |
 | **LiteLLM**  | LLM proxy / routing layer                                  |
 | **OmniRoute**| LLM routing                                                |
-| **LLMKube**  | K8s-native LLM model management (sglang/vLLM)              |
+| **LLMKube**  | K8s-native LLM model management (sglang/vLLM/llama.cpp)    |
 | **Memini**   | Long-term memory for agents                                |
 
 Tuning constraints and benchmark history for the inference stack live in
@@ -126,16 +116,16 @@ Tuning constraints and benchmark history for the inference stack live in
 <details>
 <summary>🎬 <b>Media</b> — *arr stack, Jellyfin, theming & library tooling (namespace <code>media/</code>)</summary>
 
-Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin · Jellystat ·
-Wizarr (theming) · Bazarr · Recyclarr · CleanRR · DedupArr · Unpackerr ·
-FlareSolverr · BRRPolice · FileFlows · Qui
+Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin · 
+Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR · DedupArr · 
+Unpackerr · FlareSolverr · BRRPolice · FileFlows · Qui
 
 </details>
 
 <details>
 <summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
 
-Nextcloud · Homepage (start page) · Karakeep · Change Detection · SearXNG ·
+Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
 Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman
 
 </details>
@@ -144,7 +134,7 @@ Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman
 <summary>🌐 <b>Network & edge</b> (namespace <code>network/</code>)</summary>
 
 Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (L4) · external-dns ·
-External-Service · SMTP-Relay (outbound mail)
+External-Service · SMTP-Relay
 
 </details>
 
@@ -179,7 +169,7 @@ enforcement) · Trivy-Operator (image & CVE scanning)
 Cilium · CoreDNS · Spegel (local path) · descheduler · etcd-defrag ·
 metrics-server · reloader · snapshot-controller · node-problem-detector ·
 network-policies · AMD GPU undervolt · actions-runner-controller (self-hosted
-GitHub runners) · Flux 2 · Rook-Ceph · OpenEBS · cert-manager ·
+GitHub runners) · Flux · Rook-Ceph · OpenEBS · cert-manager ·
 kopiur (backup machinery) · system-upgrade (Talos upgrades)
 
 </details>
@@ -224,18 +214,12 @@ flowchart TB
 
 - **Inference** runs on the R9700 passthrough; model staging, tuning
   constraints, and benchmark history: [`docs/llm-hosting/`](docs/llm-hosting/).
-- **ToolHive** is the single MCP surface for all agents — one gateway,
-  Authelia-gated, instead of per-app MCP sprawl.
-- **Memini** gives agents long-term memory that persists across sessions.
+- **ToolHive** is the single MCP surface for all agents; one gateway instead of per-app MCP sprawl.
+- **Memini** gives agents long-term memory that persists across sessions and clients.
 
 ---
 
 ## 🛡️ Operational pillars
-
-### 🔐 Secrets — zero plain-text in Git
-
-Every secret is SOPS-encrypted in-repo and decrypted at reconcile time with
-age keys that are never committed. `age.key` is a hard no-exception.
 
 ### 🌪️ Strict GitOps
 
@@ -268,9 +252,9 @@ Kromgo feeds the live badges at the top of this file.
 
 ### 🛟 CI
 
-Eleven GitHub Actions workflows: gitleaks, k8s-scan, flate,
-docker/hadolint, shell/shellcheck, markdown-lint, talos-render, talos-kernel,
-labeler/label-sync, and agent-pr-review.
+GitHub Actions workflows: 
+gitleaks, k8s-scan, flate, docker/hadolint, shell/shellcheck, 
+markdown-lint, talos-render, talos-kernel, labeler/label-sync and agent-pr-review.
 
 ---
 
@@ -283,7 +267,6 @@ labeler/label-sync, and agent-pr-review.
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |
-| [Archived migrations](docs/archived-migrations.md) | migration history |
 | [XMRig solar mining](docs/xmrig-solar-mining.md) | solar-powered mining setup |
 
 Repo layout: `kubernetes/` (manifests) · `talos/` (machine configuration) ·
