@@ -1,0 +1,71 @@
+---
+# Restrict inbound traffic to the ToolHive vMCP "unified" pod
+# (svc vmcp-unified.ai.svc:4483) to the known consumers only.
+#
+# The MCP endpoint is still `anonymous` auth (config/virtualmcpservers.yaml),
+# so until a static shared token is deployed this NetworkPolicy is the only
+# thing standing between the MCP endpoint and every other pod in the cluster.
+#
+# Allowed consumers (verified live 2026-09-17, see kanban t_f4f7dcfc
+# attachment vmcp-unified-consumers_1.md):
+#   - hermes         (ns ai,            app.kubernetes.io/name=hermes)
+#   - opencode       (ns ai,            app.kubernetes.io/name=opencode)
+#   - gatus-sidecar  (ns observability, app.kubernetes.io/name=gatus-sidecar)
+#   - envoy-internal (ns network,       gateway.networking.k8s.io/gateway-name=envoy-internal)
+#
+# Notes:
+# - Kubelet liveness/readiness/startup probes (HTTP /health, /readyz on the
+#   same port) are kubelet-initiated and exempt from ingress policy by the CNI.
+# - The toolhive-operator manages VirtualMCPServer via the Kubernetes API only;
+#   no direct pod traffic is required.
+# - No egress restriction here (separate policy, separate concern).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vmcp-unified-restrict-ingress
+  namespace: ai
+  labels:
+    app.kubernetes.io/name: virtualmcpserver
+    app.kubernetes.io/instance: unified
+    app.kubernetes.io/part-of: toolhive
+    app.kubernetes.io/managed-by: flux
+spec:
+  # Labels are stamped by the ToolHive operator on the vMCP pod; verified
+  # live 2026-09-17:
+  #   app=virtualmcpserver, app.kubernetes.io/name=virtualmcpserver,
+  #   app.kubernetes.io/instance=unified, toolhive=true, toolhive-name=unified
+  # Note: there is NO `instance=unified` label — the short form is
+  # `toolhive-name`. Selecting on `instance` would match zero pods.
+  podSelector:
+    matchLabels:
+      app: virtualmcpserver
+      toolhive-name: unified
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # Hermes (same namespace: ai)
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: hermes
+        # OpenCode (same namespace: ai)
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: opencode
+        # Gatus sidecar (namespace: observability)
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: gatus-sidecar
+        # Envoy internal gateway (namespace: network)
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: network
+          podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: envoy-internal
+      ports:
+        - protocol: TCP
+          port: 4483
