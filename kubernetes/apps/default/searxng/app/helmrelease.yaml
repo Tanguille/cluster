@@ -14,7 +14,6 @@ spec:
     controllers:
       app:
         replicas: 2
-        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -84,9 +83,6 @@ spec:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: *app
     service:
       app:
         ports:
@@ -111,25 +107,19 @@ spec:
       config:
         type: configMap
         name: searxng-configmap
-        advancedMounts:
-          app:
-            app:
-              - path: /etc/searxng/settings.yml
-                subPath: settings.yml
-                readOnly: true
-              - path: /etc/searxng/limiter.toml
-                subPath: limiter.toml
-                readOnly: true
+        globalMounts:
+          - path: /etc/searxng/settings.yml
+            subPath: settings.yml
+            readOnly: true
+          - path: /etc/searxng/limiter.toml
+            subPath: limiter.toml
+            readOnly: true
       tmp:
         type: emptyDir
         medium: Memory
-        advancedMounts:
-          app:
-            app:
-              - path: /tmp
+        globalMounts:
+          - path: /tmp
       cache:
         type: emptyDir
-        advancedMounts:
-          app:
-            app:
-              - path: /var/cache/searxng
+        globalMounts:
+          - path: /var/cache/searxng

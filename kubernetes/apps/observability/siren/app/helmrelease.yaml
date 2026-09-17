@@ -13,7 +13,6 @@ spec:
     controllers:
       siren:
         replicas: 2
-        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -65,9 +64,6 @@ spec:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app.kubernetes.io/name: *app
     service:
       app:
         ports:
@@ -89,8 +85,6 @@ spec:
     persistence:
       tmpfs:
         type: emptyDir
-        advancedMounts:
-          siren:
-            app:
-              - path: /tmp
-                subPath: tmp
+        globalMounts:
+          - path: /tmp
+            subPath: tmp
