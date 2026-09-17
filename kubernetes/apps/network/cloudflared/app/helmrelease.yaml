@@ -14,6 +14,7 @@ spec:
     controllers:
       cloudflared:
         replicas: 2
+        strategy: RollingUpdate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -52,6 +53,9 @@ spec:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudflared
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
