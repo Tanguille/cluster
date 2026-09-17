@@ -262,7 +262,7 @@ markdown-lint, talos-render, talos-kernel, labeler/label-sync and agent-pr-revie
 
 | Doc                       | What it's for                              |
 |---------------------------|--------------------------------------------|
-| [Useful commands](docs/useful_commands.md) | flux / task / talos / sops reference + app runbooks |
+| [Useful commands](docs/useful_commands.md) | flux / just / talos / sops reference + app runbooks |
 | [LLM hosting](docs/llm-hosting/) | sglang/vLLM tuning constraints + benchmark history |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
