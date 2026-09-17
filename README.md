@@ -26,7 +26,7 @@
 
 ## 📖 Overview
 
-This is my live configuration for a 3-node Talos Linux cluster. Every change lands in Git first; 
+This is my live configuration for a 3-node Talos Linux cluster. Every change lands in Git first;
 Flux reconciles the cluster from there, and Renovate keeps images and charts current via PRs.
 
 The repo is GitOps-strict: applications are declared as `HelmRelease`
@@ -54,7 +54,7 @@ flowchart LR
 ```
 
 Storage classes are picked per workload by durability requirement: Ceph for
-anything that must survive node loss, OpenEBS Hostpath for throwaway state 
+anything that must survive node loss, OpenEBS Hostpath for throwaway state
 or replicated data where performance is critical (e.g. postgres).
 
 ---
@@ -116,8 +116,8 @@ Tuning constraints and benchmark history for the inference stack live in
 <details>
 <summary>🎬 <b>Media</b> — *arr stack, Jellyfin, theming & library tooling (namespace <code>media/</code>)</summary>
 
-Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin · 
-Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR · DedupArr · 
+Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin ·
+Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR · DedupArr ·
 Unpackerr · FlareSolverr · BRRPolice · FileFlows · Qui
 
 </details>
@@ -252,8 +252,8 @@ Kromgo feeds the live badges at the top of this file.
 
 ### 🛟 CI
 
-GitHub Actions workflows: 
-gitleaks, k8s-scan, flate, docker/hadolint, shell/shellcheck, 
+GitHub Actions workflows:
+gitleaks, k8s-scan, flate, docker/hadolint, shell/shellcheck,
 markdown-lint, talos-render, talos-kernel, labeler/label-sync and agent-pr-review.
 
 ---
