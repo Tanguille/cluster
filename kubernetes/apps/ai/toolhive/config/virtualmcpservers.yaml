@@ -97,8 +97,8 @@ spec:
       embeddingService: http://litellm.ai.svc.cluster.local/v1
       embeddingModel: qwen3-embedding
       embeddingServiceTimeout: *embeddingTimeout
-      # find_tool returns each match's FULL json schema, re-prefilled every
-      # later turn: measured 7,721 tok/turn over 339 turns. Default 8 bound
-      # only 2 of 11 stored calls (mean 5.91 returned); top 3 drops 48.9% of
-      # schema bytes.
-      maxToolsToReturn: 3
+      # maxToolsToReturn: 3 was tuned down from the default (8) to cut find_tool
+      # schema bytes (~48.9% of schema bytes). Reverted to the default on 2026-09-17:
+      # 3 under-recalled on semantic queries (e.g. "kubernetes pods" ranked kguardian
+      # siblings above the intended tool) and forced a local index workaround. The
+      # context cost is accepted in exchange for reliable single-call tool discovery.
