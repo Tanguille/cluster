@@ -97,7 +97,7 @@ spec:
           gethomepage.dev/icon: prowlarr.png
           gethomepage.dev/widget.type: prowlarr
           gethomepage.dev/widget.url: http://prowlarr.media.svc.cluster.local
-          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_PROWLARR_API_KEY}}`}}"
+          gethomepage.dev/widget.key: '{{`{{ "{{" }}HOMEPAGE_VAR_PROWLARR_API_KEY}}`}}'
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

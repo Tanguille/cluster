@@ -56,7 +56,7 @@ spec:
           gethomepage.dev/icon: changedetection.png
           gethomepage.dev/widget.type: changedetectionio
           gethomepage.dev/widget.url: https://changedetection.${SECRET_DOMAIN}
-          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_CHANGEDETECTION_API_KEY}}`}}"
+          gethomepage.dev/widget.key: '{{`{{ "{{" }}HOMEPAGE_VAR_CHANGEDETECTION_API_KEY}}`}}'
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
