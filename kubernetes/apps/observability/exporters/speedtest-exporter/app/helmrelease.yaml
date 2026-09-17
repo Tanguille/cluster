@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -8,56 +8,45 @@ spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
-    name: app-template
+    name: speedtest-exporter
 
   values:
-    controllers:
-      speedtest-exporter:
-        annotations:
-          reloader.stakater.com/auto: "true"
-        containers:
-          speedtest-exporter:
-            image:
-              repository: ghcr.io/heathcliff26/speedtest-exporter
-              tag: v1.6.3@sha256:3295000acab64fde75eac3bbbbdf2a5eb77a09c56caec4196c791ff70a25860a
-            env:
-              OOKLA_EULA_GDPR: "true"
-            resources:
-              requests:
-                cpu: 10m
-                memory: 64Mi
-              limits:
-                # Speedtest cycle spikes ~254Mi at ~30min intervals (Go download
-                # workers + checksumming); 1 core also saturates (998m), starving
-                # download workers and skewing measured download speed.
-                cpu: 2
-                memory: 512Mi
-            securityContext:
-              allowPrivilegeEscalation: false
-              capabilities: { drop: ["ALL"] }
-        pod:
-          securityContext:
-            runAsGroup: 1000
-            runAsUser: 1000
-            fsGroup: 1000
-            runAsNonRoot: true
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
+    # Chart defaults to dual-stack; this cluster is IPv4-only.
     service:
-      speedtest-exporter:
-        controller: speedtest-exporter
-        ports:
-          http:
-            port: 8080
-    serviceMonitor:
-      speedtest-exporter:
-        serviceName: speedtest-exporter
-        endpoints:
-          - port: http
-            interval: 30m
-            scrapeTimeout: 5m
-    persistence:
-      cache:
-        type: emptyDir
-        advancedMounts:
-          speedtest-exporter:
-            speedtest-exporter:
-              - path: /cache
+      ipFamilyPolicy: SingleStack
+      ipFamilies: [IPv4]
+    podSecurityContext:
+      runAsGroup: 1000
+      runAsUser: 1000
+      fsGroup: 1000
+      runAsNonRoot: true
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities: { drop: ["ALL"] }
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        # Speedtest cycle spikes ~254Mi at ~30min intervals (Go download
+        # workers + checksumming); 1 core also saturates (998m), starving
+        # download workers and skewing measured download speed.
+        cpu: 2
+        memory: 512Mi
+    servicemonitor:
+      enabled: true
+      interval: 30m
+      scrapeTimeout: 5m
+    # Ingress only: metrics scrape from observability; egress stays open for Ookla.
+    networkPolicy:
+      enabled: true
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: observability
+          ports:
+            - protocol: TCP
+              port: metrics

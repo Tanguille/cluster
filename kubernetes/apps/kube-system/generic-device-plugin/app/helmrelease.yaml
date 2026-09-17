@@ -17,10 +17,13 @@ spec:
       # dGPU (control-1) moved to DRA (kube-system/k8s-gpu-dra-driver) — it's a
       # single exclusive consumer at a time (mutually-exclusive sglang/media
       # via the shared-dgpu claim), no timeslicing needed there.
-      # iGPU stays on squat.ai/dri: two slots so the small llmkube embedding
-      # InferenceServices (qwen3-embedding + vmcp-embedding, Vulkan) can share
-      # one iGPU. The AMD DRA driver has no timeslicing/consumable-capacity
-      # support, so a DRA claim here would be exclusive and break that sharing.
+      # iGPU stays on squat.ai/dri: the AMD DRA driver has no
+      # timeslicing/consumable-capacity support, so a DRA claim here would be
+      # exclusive and break the iGPU's small embedding-model sharing.
+      # iGPU device plugin: two squat.ai/dri slots so the small llmkube embedding
+      # InferenceService (qwen3-embedding, Vulkan, 4 slots since 2026-09-15 after
+      # absorbing vmcp-embedding's tool search) shares one iGPU with qwen35-2b — the
+      # device is the same /dev/dri either way, count only gates scheduling.
       generic-device-plugin-igpu:
         type: daemonset
         pod:

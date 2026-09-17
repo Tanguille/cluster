@@ -1,0 +1,147 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kguardian
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kguardian
+  interval: 1h
+  # Chart 1.25.0 omits app.kubernetes.io/name from the broker Service
+  # while its ServiceMonitor selects on it (0 targets); add it back.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Service
+              name: kguardian-broker
+            patch: |-
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: not-used
+                labels:
+                  app.kubernetes.io/name: kguardian-broker
+  values:
+    # LLM via in-cluster LiteLLM gateway; key from cluster-secrets.
+    ai:
+      mcp:
+        # /mcp for kubectl port-forward telemetry; token required.
+        enabled: true
+        auth:
+          existingSecret: kguardian-mcp-token
+
+    # Skip daily version check-in.
+    telemetry:
+      enabled: false
+
+    # 10s sampling, 3d/12h history for homelab scale.
+    compute:
+      enabled: true
+      sampleInterval: 10
+      history:
+        retentionDays: 3
+        minuteResolutionHours: 12
+
+    # 30s denial drain; still inside 5m alert window.
+    seccomp:
+      denials:
+        intervalSeconds: 30
+
+    # Stateless bridge; 1 replica saves 256Mi req on tight nodes.
+    # OPENAI_* passthrough points at LiteLLM instead of api.openai.com.
+    llmBridge:
+      enabled: true
+      replicaCount: 1
+      podAnnotations:
+        reloader.stakater.com/auto: "true"
+      # Lean requests (actual use ~60Mi); limits stay at defaults.
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+      env:
+        - name: OPENAI_BASE_URL
+          value: http://litellm.ai.svc.cluster.local/v1
+        - name: OPENAI_MODEL
+          value: qwen-3.8
+        # From cluster-secrets via substituteFrom; stays literal in git.
+        - name: OPENAI_API_KEY
+          value: ${LITELLM_API_KEY}
+
+    # Via pgbouncer-rw (pooler has no TLS to primary). Direct primary was
+    # tried in #5050 but is unreachable from policy-selected pods on the
+    # same node as the primary (control-3 Cilium endpoint issue: labeled
+    # pod → postgres16-rw VIP blackholes, unlabeled/control-1 fine).
+    # pgbouncer VIP works from all labeled pods on all nodes.
+    database:
+      enabled: false
+      user: kguardian
+      databaseName: kguardian
+      existingSecret: kguardian-db-credentials
+      external:
+        host: pgbouncer-rw.database.svc.cluster.local
+        port: 5432
+        sslMode: disable
+
+    broker:
+      podAnnotations:
+        reloader.stakater.com/auto: "true"
+      # Trimmed requests per peers; limits pinned to chart defaults
+      # (Helm merges maps, but explicit avoids any replace-vs-merge doubt).
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 1Gi
+      # No networkPolicy (chart default false, like dsluo peer): the
+      # rendered ingress-only policy blackholes the broker's own egress to
+      # ClusterIPs on Cilium (proven live: nc to pgbouncer/postgres VIPs
+      # times out from selected pods, works the instant the policy is
+      # deleted). Broker API stays in-cluster-only via ClusterIP.
+      metrics:
+        serviceMonitor:
+          enabled: true
+
+      # 16 = 8+8 floor (inflightPermits+8); fits 25/30 pooler,
+      # covers 2x16 rollout burst.
+      dbPoolMaxSize: 16
+      # Disable per-connection SET statement_timeout: every pg session was
+      # parking at SET with pool creation timing out via pgbouncer
+      # (transaction mode); 16 concurrent direct PG dials take ~0.1s, so the
+      # stall is the SET-under-pooler interaction, not the pool size.
+      # Migrations stay exempt per chart docs.
+      statementTimeoutMs: 0
+      audit:
+        inflightPermits: 8
+        retention:
+          days: 14
+      seccomp:
+        denials:
+          retention:
+            days: 14
+
+    # Frontend sips (actual ~91Mi); limit pinned to default.
+    frontend:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
+
+    # Lighter scheduling requests per peers (oscaromeu/mrdynamo);
+    # limits stay at defaults for eBPF headroom. Saves 150m + 384Mi
+    # across the 3-node DaemonSet on tight control-1 (91% req).
+    controller:
+      podAnnotations:
+        reloader.stakater.com/auto: "true"
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          memory: 512Mi

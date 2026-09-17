@@ -1,15 +1,4 @@
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: qwen38-27b-vllm-model-cache
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: openebs-hostpath
-  resources:
-    requests:
-      storage: 50Gi
----
 # Persist torch, Triton, and Inductor compile caches across restarts.
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -141,44 +130,6 @@ spec:
               persistentVolumeClaim:
                 claimName: qwen38-27b-vllm-kv-offload
 ---
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
-apiVersion: inference.llmkube.dev/v1alpha1
-kind: Model
-metadata:
-  name: qwen38-27b-vllm
-spec:
-  # philbert g128 over cyankiwi g32: ignore lists match on 311/313 entries, so
-  # group_size is the only material difference. 1.5 GB smaller, and the only
-  # build documenting thinking-mode calibration (llm-compressor #2680 corrupts
-  # <think> without it; thinking is on by default here).
-  # Pinned to the 2026-08-15 tokenizer fix; earlier revisions 400 on image input.
-  source: hf://philbert440/Qwen3.8-27B-W4A16-AWQ@7908d42a71077a5e4dc458f273682b12dfe384a0
-  format: safetensors
-  quantization: compressed-tensors
-  refreshPolicy: OnChange
-  # MUST match the layout of `source` above -- the init container fetches exactly
-  # these names and exits 1 on a 404. philbert ships one model.safetensors, not
-  # cyankiwi's 5 shards, and folds merges/vocab into tokenizer.json.
-  files:
-    - model.safetensors
-    - model-mtp.safetensors
-    - model.safetensors.index.json
-    - config.json
-    - generation_config.json
-    - tokenizer.json
-    - tokenizer_config.json
-    - chat_template.jinja
-    - preprocessor_config.json
-    - video_preprocessor_config.json
-  hardware:
-    accelerator: rocm
-    gpu:
-      enabled: true
-      count: 1
-      vendor: amd
-      runtime: rocm
-      resourceName: squat.ai/dri
----
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 # concsweep.py, warm, agg tok/s vs the qwen-3.6 SGLang engine this replaced
 # (retired 2026-08-16, conc 1/8/16): 14.88/53.93/100.82 vs 14.96/36.24/34.49.
@@ -188,12 +139,16 @@ kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
 spec:
-  # 4-bit lm_head re-pack of qwen38-27b-vllm (Model + requant Job in
-  # qwen38-27b-vllm-lmhead4.yaml). Generative eval passed 2026-09-13 (GSM8K 94.0
-  # vs 93.3, McNemar p=1.0; tools 12/12); expected ~9% per decode step at M=4-5.
-  # The layer is language_model.lm_head, so the re-pack targets it by regex;
-  # attempt 1 with a bare "lm_head" target crashlooped (perf-plan-2026-09-13.md).
-  # Rollback: modelRef: qwen38-27b-vllm, the bf16 checkpoint stays cached.
+  # 4-bit lm_head re-pack, made permanent 2026-09-14 after the checkpoint ran
+  # restart-free from 2026-09-13 20:55 to 2026-09-14 17:51 (a routine image
+  # digest bump, unrelated to lm_head, is what restarted it). Generative eval
+  # passed 2026-09-13 (GSM8K 94.0 vs 93.3, McNemar p=1.0; tools 12/12); ~9% per
+  # decode step at M=4-5. The layer is language_model.lm_head, so the re-pack
+  # targets it by regex; attempt 1 with a bare "lm_head" target crashlooped
+  # (perf-plan-2026-09-13.md).
+  # The bf16 source Model, its model-cache PVC, and the requant Job are removed
+  # -- rebuild recipe: see qwen38-27b-vllm-lmhead4.yaml. A rollback now means
+  # re-fetching and re-packing, not a modelRef flip.
   modelRef: qwen38-27b-vllm-lmhead4
   runtime: vllm
   replicas: 1
@@ -232,9 +187,9 @@ spec:
   # every nightly since 09-05 spawned slow, 0d07767 spawned fast. Fixed by
   # GPU_MAX_HW_QUEUES=1 below. Benchmark any bump with
   # docs/llm-hosting/bench/longctx.py at 4000 AND 50000 before merging.
-  image: vllm/vllm-openai-rocm:nightly@sha256:a78d3e91404e7875aa650a61dea580a9e26d72553bee9ae5b93dbdef7107594d
-  modelCache:
-    claimName: qwen38-27b-vllm-model-cache
+  image: vllm/vllm-openai-rocm:nightly@sha256:1fd21abe66455b4df5a2e83629e97cdcc9d58913b16052d8118b92b239792339
+  # No modelCache: pvc:// sources are pre-staged/read-only, the operator never
+  # provisions or uses a cache PVC for them (llmkube modelNeedsCachePVC guard).
   vllmConfig:
     # The only per-request cap on KV blocks, so it decides how much of the pool
     # a single session can hold. Headroom, not a working size -- Hermes peaks at

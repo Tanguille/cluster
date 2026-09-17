@@ -21,12 +21,12 @@ spec:
       vendor: amd
       runtime: vulkan
       layers: -1
-      # iGPU stays on generic-device-plugin (squat.ai/dri), NOT DRA: main has since
-      # grown a 3-way concurrent squat.ai/dri sharing scenario on the iGPU nodes
-      # (qwen3-embedding + vmcp-embedding + qwen35-2b, count:2/node) via pod
-      # (anti-)affinity. The AMD DRA driver has no timeslicing/consumable-capacity
-      # support, so a DRA claim here would be exclusive and break that sharing.
-      # DRA migration (components/dra-dgpu) is scoped to the exclusive dGPU only.
+      # iGPU stays on generic-device-plugin (squat.ai/dri), NOT DRA: the iGPU
+      # nodes run a 2-way concurrent squat.ai/dri sharing scenario
+      # (qwen3-embedding + qwen35-2b, count:2/node) via pod (anti-)affinity.
+      # The AMD DRA driver has no timeslicing/consumable-capacity support, so
+      # a DRA claim here would be exclusive and break that sharing. DRA
+      # migration (components/dra-dgpu) is scoped to the exclusive dGPU only.
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
@@ -40,14 +40,17 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:94bd70ef60ef6d670c85999c144f59013e06525d9ee26b3563ab9b2f29d1ea41
-  # Two slots are the Vulkan-safe floor; more interleaving did not improve
-  # throughput on this compute-bound iGPU. VMCP has its own embedder now.
-  parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  # 30d peak prompt is 4030 tokens, and contextSize splits across parallelSlots,
-  # so 8192 left each slot 4096 with 66 tokens of headroom. 10240 restores a
-  # ~27% margin; anything an input overruns fails the embedding outright.
-  contextSize: 10240
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:405442e3544f05026399dcc71cf322f484915f69ed3b429b497af15516263603
+  # 4 slots (was 2): vmcp-embedding consolidated onto this model 2026-09-15, so the
+  # 194-tool search and memini now share one embedder; 4 slots keep the 194-item batch
+  # from queueing behind memini (bench: 7.07s median for the 194-tool batch isolated,
+  # 120s is the toolhive timeout). Vulkan warmup hangs at parallel=1 (llama.cpp #24307).
+  parallelSlots: 4
+  # 30d peak prompt is 4030 tokens, and llama.cpp sizes each slot's context as
+  # contextSize/parallelSlots: 20480/4 = 5120 per slot, the same 5120 the old 10240/2
+  # gave — ~27% headroom over the 4030 peak (4096/slot would leave only 66). Anything
+  # an input overruns fails the embedding outright.
+  contextSize: 20480
   # No batchSize: llama.cpp forces n_batch = n_ubatch when embeddings are
   # enabled, so any value above uBatchSize is logged as a warning and discarded.
   # 512 over 2048: benchmarked identical on this iGPU (194-item batch 3.61s vs
@@ -91,8 +94,9 @@ spec:
 
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # ~3.1 GiB peak working set over 7 days; 4 GiB so the scheduler accounts for
-    # the model's UMA usage.
-    memory: 4Gi
+    # ~3.1 GiB peak working set over 7 days at 2 slots; 6 GiB for 4 slots / 20480
+    # ctx (per-slot KV unchanged, 4x total) so the scheduler accounts for the
+    # model's UMA usage.
+    memory: 6Gi
   endpoint:
     path: /v1/embeddings
