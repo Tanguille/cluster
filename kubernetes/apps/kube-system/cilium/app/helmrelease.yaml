@@ -12,9 +12,6 @@ spec:
 
   values:
     autoDirectNodeRoutes: true
-    bandwidthManager:
-      enabled: true
-      bbr: true
     bpf:
       datapathMode: netkit-l2
       # Fixed CT sizes (~2.3x the measured 688K live entries from p2pool churn)
@@ -27,8 +24,10 @@ spec:
     bpfClockProbe: true
     cgroup:
       hostRoot: /sys/fs/cgroup
-    cni:
-      exclusive: false
+      # Talos 1.14: cgroupv2 and bpffs are provided by the OS,
+      # do not let the agent try to mount them.
+      autoMount:
+        enabled: false
     dashboards:
       enabled: true
     enableIPv4BIGTCP: true
