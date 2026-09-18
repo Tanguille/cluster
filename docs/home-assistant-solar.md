@@ -1,6 +1,6 @@
 # Home Assistant: solar self-consumption
 
-_State as of 2026-09-18. HA 2026.9.2 at 192.168.0.16, edited through the `tanguille-site` MCP (`homeassistant_ha_*` tools). No battery, no EV, no heat pump other than the bedroom split unit. Everything here lives in HA storage, not in this repo; this file is the map and the reasoning._
+_State as of 2026-09-18. HA 2026.9.2, edited through the `tanguille-site` MCP (`homeassistant_ha_*` tools). No battery, no EV, no heat pump other than the bedroom split unit. Everything here lives in HA storage, not in this repo; this file is the map and the reasoning._
 
 ## Measured baseline (5 weeks to 2026-09-18)
 
@@ -92,4 +92,4 @@ Rejected as bad ideas: DHW below 55 °C; enabling disinfection at a 60 °C setpo
 - `automation.turn_off_gas_heating_when_solar_power` is off and dead (superseded); safe to delete.
 - Capacity tariff interlock (heater pause) still triggers on a fixed 2.2 kW; a `numeric_state` trigger can't express `max(month peak, 2.5 kW)`. Fine while the month peak sits near 2.9 kW; revisit if the peak drops.
 - Fallback timing uses `power_highest_peak_time_today` + 90 min, not a per-day computed window; on very overcast days that is still solar noon, which is the least-bad hour.
-- Tuya cloud dropouts (bedroom temp sensor, tuinhuis plug), Zigbee panel range.
+- Out of scope here but relevant to the same automations: the Tuya cloud dropouts (bedroom temperature sensor, tech-cave heater plug `switch.smart_plug_tuinhuis_socket_1`, unavailable since 2026-09-15) and the two IKEA FLOALT panels with LQI ~44 that fall off the Zigbee mesh.
