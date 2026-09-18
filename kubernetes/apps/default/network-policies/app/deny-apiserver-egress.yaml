@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+# Deny-kube-apiserver-egress overlay for internet-exposed namespaces (media/web3 have
+# sibling copies; see kubernetes/apps/media/network-policies for the full rationale:
+# kopiur movers and egress.home.arpa/kube-apiserver: allow pods are excluded).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: deny-kube-apiserver-egress
+  namespace: default
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/managed-by
+        operator: NotIn
+        values: [kopiur]
+      - key: egress.home.arpa/kube-apiserver
+        operator: NotIn
+        values: [allow]
+  enableDefaultDeny:
+    egress: false
+  egressDeny:
+    - toEntities:
+        - kube-apiserver
