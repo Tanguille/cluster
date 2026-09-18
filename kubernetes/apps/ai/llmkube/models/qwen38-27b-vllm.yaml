@@ -150,6 +150,8 @@ spec:
   # reverting to it means re-adding both from git history and pre-staging
   # its files into the PVC at /models/<sha256(source)[:16]> so the init
   # container only revalidates (outage = pod Recreate + boot, ~4.5 min). The fs
+  # KV tier needs nothing: vLLM's file_mapper keys it per model
+  # (<root_dir>/<model_name>_<sha>/) and the guard's LRU sweeps the idle tree.
   modelRef: qwen38-swift-27b-vllm
   runtime: vllm
   replicas: 1
