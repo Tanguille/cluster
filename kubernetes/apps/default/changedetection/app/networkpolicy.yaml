@@ -15,6 +15,9 @@ spec:
     - fromEntities:
         - host
     - fromEndpoints:
+        # envoy-gateway stamps proxy pods with both this Gateway API label and
+        # gateway.envoyproxy.io/owning-gateway-name (the one the audit baseline
+        # used); same key as the vmcp-unified policy.
         - matchLabels:
             io.kubernetes.pod.namespace: network
             gateway.networking.k8s.io/gateway-name: envoy-internal
