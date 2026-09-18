@@ -11,11 +11,7 @@ spec:
     kind: OCIRepository
     name: nextcloud
 
-  # FROM_ADDRESS lives in the app's sops secret, NOT in cluster-secrets — ${VAR}
-  # substitution never resolved it (silently empty until flux strict mode made it
-  # a build error). Chart 9.2.0 has no fromAddressKey in existingSecret (it reads
-  # a plain value at nextcloud.mail.fromAddress), still absent at 9.2.5, so inject it here.
-  # SMTP_HOST needs no injection: existingSecret.smtpHostKey wires it directly.
+  # Chart 9.2.x has no fromAddressKey in existingSecret, so inject the secret value here.
   valuesFrom:
     - kind: Secret
       name: nextcloud-secret
@@ -81,12 +77,6 @@ spec:
           client_body_timeout 300s;
           fastcgi_buffers 64 4K;
           fastcgi_read_timeout 3600s;
-
-          # Handle forwarded headers for proper protocol detection
-          real_ip_header X-Forwarded-For;
-          set_real_ip_from 10.0.0.0/8;
-          set_real_ip_from 172.16.0.0/12;
-          set_real_ip_from 192.168.0.0/16;
       resources:
         requests:
           cpu: 50m
@@ -102,9 +92,6 @@ spec:
           value: dragonfly.database.svc.cluster.local
         - name: REDIS_HOST_PORT
           value: "6379"
-        # Ensure system binaries are in PATH for proc_open (helps with Memories app)
-        - name: PATH
-          value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
       existingSecret:
         enabled: true
@@ -119,18 +106,25 @@ spec:
 
       mail:
         enabled: true
-        # fromAddress injected via spec.valuesFrom (see top of file); the SMTP
-        # host/credentials come from existingSecret.smtp*Key above
         domain: gmail.com
         smtp:
           secure: starttls
 
-      # Security context - allow root for entrypoint, then drops to www-data
+      # Root only for post-start.sh's apt-get; the entrypoint drops to www-data itself
       securityContext:
         runAsUser: 0
         runAsGroup: 0
       podSecurityContext:
         fsGroup: 33
+
+      # One-shot post-upgrade repairs; the image runs this after `occ upgrade` and
+      # aborts startup on a non-zero exit, hence the `|| true`.
+      hooks:
+        post-upgrade: |
+          #!/bin/sh
+          for c in db:add-missing-indices db:add-missing-primary-keys db:add-missing-columns "maintenance:repair --include-expensive"; do
+            php /var/www/html/occ $c || true
+          done
 
       extraVolumes:
         - name: scripts
@@ -166,28 +160,8 @@ spec:
           pm.max_spare_servers = 4
           pm.max_requests = 800
           request_terminate_timeout = 600
-        php.ini: |
-          max_execution_time = 600
-          default_socket_timeout = 300
-          curl.cainfo = /etc/ssl/certs/ca-certificates.crt
-          extension=imagick
-          extension=exif
-          extension=intl
-          extension=gd
-          memory_limit = 512M
-          opcache.memory_consumption = 512
-          opcache.max_accelerated_files = 20000
-          opcache.revalidate_freq = 60
 
       configs:
-        logging.config.php: |-
-          <?php
-          $CONFIG = array (
-            'log_type' => 'file',
-            'logfile' => 'nextcloud.log',
-            'loglevel' => 1,
-            'logdateformat' => 'F d, Y H:i:s'
-            );
         proxy.config.php: |-
           <?php
           $CONFIG = array (
@@ -202,40 +176,20 @@ spec:
               1 => 'localhost',
               2 => '127.0.0.1',
             ),
-            'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
-          );
-        ingress.config.php: |-
-          <?php
-          $CONFIG = array (
-            'overwrite.cli.url' => 'https://nextcloud.${SECRET_DOMAIN}',
           );
         misc.config.php: |-
           <?php
           $CONFIG = array (
+            'overwrite.cli.url' => 'https://nextcloud.${SECRET_DOMAIN}',
             'default_phone_region' => 'BE',
             'maintenance_window_start' => 2,
-            'debug' => false,
             'loglevel' => 1,
+            'logdateformat' => 'F d, Y H:i:s',
             'allow_local_remote_servers' => true,
-          );
-        caching.config.php: |-
-          <?php
-          $CONFIG = array (
-            'memcache.local' => '\\OC\\Memcache\\APCu',
-            'memcache.distributed' => '\\OC\\Memcache\\Redis',
-            'memcache.locking' => '\\OC\\Memcache\\Redis',
-            'filelocking.enabled' => true,
-            'redis' => array(
-              'host' => 'dragonfly.database.svc.cluster.local',
-              'port' => 6379,
-              'timeout' => 0.0,
-              'password' => '',
-            ),
           );
         performance.config.php: |-
           <?php
           $CONFIG = array (
-            'enable_previews' => true,
             'enabledPreviewProviders' => array(
               'OC\Preview\PNG',
               'OC\Preview\JPEG',
@@ -257,7 +211,6 @@ spec:
             'preview_max_x' => 2048,
             'preview_max_y' => 2048,
             'preview_max_scale_factor' => 1,
-            'preview_concurrency_new' => 4,
             'preview_concurrency_all' => 4,
             'jpeg_quality' => 60,
           );
@@ -297,22 +250,11 @@ spec:
       parentRefs:
         - name: envoy-external
           namespace: network
+      # /push/ lives in notify-push/helmrelease.yaml: this chart pins every rule's
+      # backendRef to the nextcloud service (filters are honoured). nginx already
+      # 404s /config, /occ, etc. Its /.well-known fallback 301s to $host:80 (no
+      # X-Forwarded-Port from Envoy), so these four stay rewritten at the edge.
       rules:
-        # Route /push/ to notify_push service (must be before catch-all route)
-        - matches:
-            - path:
-                type: PathPrefix
-                value: /push/
-          backendRefs:
-            - name: notify-push
-              port: 7867
-        - backendRefs: &backendRef
-            - name: nextcloud
-              port: 8080
-          matches:
-            - path:
-                type: PathPrefix
-                value: /
         - matches:
             - path:
                 type: PathPrefix
@@ -323,7 +265,6 @@ spec:
                 path:
                   type: ReplacePrefixMatch
                   replacePrefixMatch: /index.php/.well-known/webfinger
-          backendRefs: *backendRef
         - matches:
             - path:
                 type: PathPrefix
@@ -334,7 +275,6 @@ spec:
                 path:
                   type: ReplacePrefixMatch
                   replacePrefixMatch: /index.php/.well-known/nodeinfo
-          backendRefs: *backendRef
         - matches:
             - path:
                 type: Exact
@@ -345,7 +285,6 @@ spec:
                 path:
                   type: ReplaceFullPath
                   replaceFullPath: /public.php?service=host-meta
-          backendRefs: *backendRef
         - matches:
             - path:
                 type: Exact
@@ -356,86 +295,14 @@ spec:
                 path:
                   type: ReplaceFullPath
                   replaceFullPath: /public.php?service=host-meta-json
-          backendRefs: *backendRef
         - matches:
             - path:
                 type: PathPrefix
-                value: /.well-known/caldav
-          filters:
-            - type: URLRewrite
-              urlRewrite:
-                path:
-                  type: ReplacePrefixMatch
-                  replacePrefixMatch: /remote.php/dav
-          backendRefs: *backendRef
-        - matches:
-            - path:
-                type: PathPrefix
-                value: /.well-known/carddav
-          filters:
-            - type: URLRewrite
-              urlRewrite:
-                path:
-                  type: ReplacePrefixMatch
-                  replacePrefixMatch: /remote.php/dav
-          backendRefs: *backendRef
-        # Block restricted paths
-        - matches:
-            - path:
-                type: PathPrefix
-                value: /build
-            - path:
-                type: PathPrefix
-                value: /tests
-            - path:
-                type: PathPrefix
-                value: /config
-            - path:
-                type: PathPrefix
-                value: /lib
-            - path:
-                type: PathPrefix
-                value: /3rdparty
-            - path:
-                type: PathPrefix
-                value: /templates
-            - path:
-                type: PathPrefix
-                value: /data
-            - path:
-                type: PathPrefix
-                value: /autotest
-            - path:
-                type: PathPrefix
-                value: /occ
-            - path:
-                type: PathPrefix
-                value: /issue
-            - path:
-                type: PathPrefix
-                value: /indie
-            - path:
-                type: PathPrefix
-                value: /db_
-            - path:
-                type: PathPrefix
-                value: /console
-          # Deny these paths with an explicit 403 via Envoy Gateway's HTTPRouteFilter
-          # (httproutefilter.yaml) — upstream Gateway API has no native deny action yet
-          # (https://github.com/kubernetes-sigs/gateway-api/issues/2826).
-          filters:
-            - type: ExtensionRef
-              extensionRef:
-                group: gateway.envoyproxy.io
-                kind: HTTPRouteFilter
-                name: nextcloud-deny
+                value: /
 
     persistence:
-      # Config storage using the kopiur-restored PVC (local)
       enabled: true
       existingClaim: *app
-
-      # Data directory using NFS
       nextcloudData:
         enabled: true
         existingClaim: nextcloud-pvc
@@ -456,7 +323,7 @@ spec:
                     app.kubernetes.io/component: app
                 topologyKey: kubernetes.io/hostname
         command:
-          - /bin/sh
+          - /bin/bash
           - /scripts/cron.sh
         securityContext:
           runAsUser: 33
@@ -468,8 +335,7 @@ spec:
             memory: 500Mi
           limits:
             cpu: "1"
-            # 2Gi was hit (OOMKilled 2026-09-15, nextcloud-cron-29825165 pod
-            # ...-xmkk5): cron.php + recognize:recrawl peak above it.
+            # 2Gi was hit (OOMKilled 2026-09-15, nextcloud-cron-29825165); 7d max 2.78GiB
             memory: 4Gi
 
     startupProbe:
@@ -484,4 +350,5 @@ spec:
         memory: 500Mi
       limits:
         cpu: 4
-        memory: 12Gi
+        # 30d max WSS 1.57GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
+        memory: 4Gi
