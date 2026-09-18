@@ -30,11 +30,17 @@ jobs:
         run: |
           set -euo pipefail
           rc=0
-          for chart in $(grep -rhoP 'oci://ghcr.io/home-operations/charts-mirror/\K[a-z0-9-]+' kubernetes | sort -u); do
-            if gh api "repos/home-operations/charts-mirror/contents/apps/${chart}/metadata.yaml" --silent 2>/dev/null; then
+          charts=$(grep -rhoP 'oci://ghcr.io/home-operations/charts-mirror/\K[a-z0-9-]+' kubernetes | sort -u)
+          # Empty means the grep pattern drifted from the manifests, not that nothing is mirrored.
+          test -n "${charts}" || { echo "no charts-mirror references found"; exit 1; }
+          for chart in ${charts}; do
+            if err=$(gh api "repos/home-operations/charts-mirror/contents/apps/${chart}/metadata.yaml" --silent 2>&1); then
               echo "ok      ${chart}"
-            else
+            elif grep -q "HTTP 404" <<<"${err}"; then
               echo "REMOVED ${chart}: switch to the upstream OCI chart"
+              rc=1
+            else
+              echo "ERROR   ${chart}: ${err}"
               rc=1
             fi
           done
