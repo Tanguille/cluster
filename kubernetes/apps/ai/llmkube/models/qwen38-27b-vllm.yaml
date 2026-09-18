@@ -1,15 +1,4 @@
 ---
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: qwen38-27b-vllm-model-cache
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: openebs-hostpath
-  resources:
-    requests:
-      storage: 50Gi
----
 # Persist torch, Triton, and Inductor compile caches across restarts.
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -141,44 +130,6 @@ spec:
               persistentVolumeClaim:
                 claimName: qwen38-27b-vllm-kv-offload
 ---
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
-apiVersion: inference.llmkube.dev/v1alpha1
-kind: Model
-metadata:
-  name: qwen38-27b-vllm
-spec:
-  # philbert g128 over cyankiwi g32: ignore lists match on 311/313 entries, so
-  # group_size is the only material difference. 1.5 GB smaller, and the only
-  # build documenting thinking-mode calibration (llm-compressor #2680 corrupts
-  # <think> without it; thinking is on by default here).
-  # Pinned to the 2026-08-15 tokenizer fix; earlier revisions 400 on image input.
-  source: hf://philbert440/Qwen3.8-27B-W4A16-AWQ@7908d42a71077a5e4dc458f273682b12dfe384a0
-  format: safetensors
-  quantization: compressed-tensors
-  refreshPolicy: OnChange
-  # MUST match the layout of `source` above -- the init container fetches exactly
-  # these names and exits 1 on a 404. philbert ships one model.safetensors, not
-  # cyankiwi's 5 shards, and folds merges/vocab into tokenizer.json.
-  files:
-    - model.safetensors
-    - model-mtp.safetensors
-    - model.safetensors.index.json
-    - config.json
-    - generation_config.json
-    - tokenizer.json
-    - tokenizer_config.json
-    - chat_template.jinja
-    - preprocessor_config.json
-    - video_preprocessor_config.json
-  hardware:
-    accelerator: rocm
-    gpu:
-      enabled: true
-      count: 1
-      vendor: amd
-      runtime: rocm
-      resourceName: squat.ai/dri
----
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 # concsweep.py, warm, agg tok/s vs the qwen-3.6 SGLang engine this replaced
 # (retired 2026-08-16, conc 1/8/16): 14.88/53.93/100.82 vs 14.96/36.24/34.49.
@@ -194,15 +145,11 @@ spec:
   # Model/PVC/requant script are recoverable from git history at this commit.
   #
   # Checkpoint swaps on this engine are a modelRef flip, one restart; the
-  # tuned stack below is per-engine, not per-checkpoint. Swift went live
-  # 2026-09-18 with two edits here: modelRef and modelCache.claimName.
-  # Reverse to the base 27B (qwen38-27b-vllm / qwen38-27b-vllm-model-cache,
-  # still staged) is the same two lines. Pre-stage the target's files into
-  # its PVC first (/models/<sha256(source)[:16]>) so the init container only
-  # revalidates and the outage is the pod Recreate + boot (~4.5 min). The fs
-  # KV tier needs nothing: vLLM's file_mapper keys it by
-  # <root_dir>/<model_name>_<sha>/, so each checkpoint gets its own subtree and
-  # the guard CronJob's recursive LRU sweep ages the idle one out.
+  # tuned stack below is per-engine, not per-checkpoint. The philbert base
+  # Model CR + PVC were dropped 2026-09-18 (19 GB of unused checkpoint);
+  # reverting to it means re-adding both from git history and pre-staging
+  # its files into the PVC at /models/<sha256(source)[:16]> so the init
+  # container only revalidates (outage = pod Recreate + boot, ~4.5 min). The fs
   modelRef: qwen38-swift-27b-vllm
   runtime: vllm
   replicas: 1
