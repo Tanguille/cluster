@@ -82,6 +82,11 @@ spec:
     # /push/ prefix is routed from here; longest-prefix match beats its `/` rule.
     route:
       app:
+        annotations:
+          # /push/test/cookie answers 400 without the cookie header; proves the daemon is reachable via the edge
+          gatus.home-operations.com/endpoint: |-
+            url: https://nextcloud.${SECRET_DOMAIN}/push/test/cookie
+            conditions: ["[STATUS] == 400"]
         hostnames: ["nextcloud.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-external
