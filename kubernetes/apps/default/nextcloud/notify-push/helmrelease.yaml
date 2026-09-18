@@ -26,14 +26,10 @@ spec:
                 containerPort: 7867
                 protocol: TCP
             env:
-              - name: PORT
-                value: "7867"
               - name: NEXTCLOUD_URL
                 value: "http://nextcloud.default.svc.cluster.local:8080"
               - name: REDIS_URL
                 value: "redis://dragonfly.database.svc.cluster.local:6379"
-              - name: DATABASE_PREFIX
-                value: "oc_"
               - name: POSTGRES_USER
                 valueFrom:
                   secretKeyRef:
@@ -82,3 +78,19 @@ spec:
         ports:
           http:
             port: 7867
+    # The nextcloud chart pins every HTTPRoute rule to its own service, so the
+    # /push/ prefix is routed from here; longest-prefix match beats its `/` rule.
+    route:
+      app:
+        hostnames: ["nextcloud.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+        rules:
+          - matches:
+              - path:
+                  type: PathPrefix
+                  value: /push/
+            backendRefs:
+              - identifier: app
+                port: http
