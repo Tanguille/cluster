@@ -1,0 +1,49 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: vmcp-unified-ingress-allowlist
+spec:
+  # ToolHive vMCP (`unified`) aggregates every ToolHive backend behind one
+  # :4483/mcp endpoint and is anonymous (spec.incomingAuth: anonymous), so
+  # reachability is the only access control there is. Scoped to the unified
+  # vMCP pod alone; the rest of ai stays default-allow. Egress untouched
+  # (backends, redis session storage, litellm embedder all keep working).
+  # Unlike the memini/database allowlists this pod has kubelet probes, so the
+  # host entity must stay allowed.
+  endpointSelector:
+    matchLabels:
+      app: virtualmcpserver
+      app.kubernetes.io/instance: unified
+  ingress:
+    - fromEntities:
+        # kubelet probes (/health, /readyz on :4483). Omitting this blocks the
+        # probes and takes the pod down.
+        - host
+    - fromEndpoints:
+        # Same-namespace consumers: hermes (MCP client), opencode (MCP client),
+        # toolhive-operator (reconciler/health).
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: hermes
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: opencode
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: toolhive-operator
+        # envoy-internal proxying mcp.${SECRET_DOMAIN} (covers all envoy proxy
+        # pods; only the -internal gateway front-refs this route).
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+            app.kubernetes.io/name: envoy
+        # gatus probing the service directly (not via envoy).
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: gatus-sidecar
+        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
+        # ephemeral not 53.
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
