@@ -33,17 +33,22 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
             app.kubernetes.io/name: toolhive-operator
-        # envoy-internal proxying mcp.${SECRET_DOMAIN} (covers all envoy proxy
-        # pods; only the -internal gateway front-refs this route).
+        # envoy-internal proxying mcp.${SECRET_DOMAIN}; the only gateway that
+        # front-refs the mcp-unified HTTPRoute.
         - matchLabels:
             io.kubernetes.pod.namespace: network
-            app.kubernetes.io/name: envoy
+            gateway.networking.k8s.io/gateway-name: envoy-internal
         # gatus probing the service directly (not via envoy).
         - matchLabels:
             io.kubernetes.pod.namespace: observability
             app.kubernetes.io/name: gatus-sidecar
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-        # ephemeral not 53.
+      toPorts:
+        - ports:
+            - port: "4483"
+              protocol: TCP
+    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
+    # ephemeral not 53.
+    - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: kube-system
             k8s-app: kube-dns
