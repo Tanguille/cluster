@@ -7,6 +7,6 @@ set -euo pipefail
 # Tolerated: a failing postStart hook kills the container, and Nextcloud works without ffmpeg.
 if ! dpkg-query -W ffmpeg >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
-    { apt-get update -qq && apt-get install -y --no-install-recommends ffmpeg >/dev/null; } \
-        || echo "WARNING: ffmpeg install failed" >&2
+    { apt-get update -qq && apt-get install -y --no-install-recommends ffmpeg >/dev/null; } ||
+        echo "WARNING: ffmpeg install failed" >&2
 fi
