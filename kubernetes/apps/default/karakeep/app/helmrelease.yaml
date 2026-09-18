@@ -77,9 +77,8 @@ spec:
                 enabled: true
               startup:
                 enabled: true
-            securityContext:
-              allowPrivilegeEscalation: false
-              capabilities: { drop: ["ALL"] }
+            # No allowPrivilegeEscalation/drop ALL here: the image boots via the
+            # setuid s6-overlay-suexec, which chowns /run before dropping to uid 1000.
             resources:
               requests:
                 cpu: 10m
