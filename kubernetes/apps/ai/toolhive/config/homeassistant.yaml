@@ -36,12 +36,12 @@ spec:
           startupProbe:
             tcpSocket:
               port: mcp
-            periodSeconds: 2
+            periodSeconds: 5
             failureThreshold: 30
           readinessProbe:
             tcpSocket:
               port: mcp
-            periodSeconds: 3
+            periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 3
           resources:

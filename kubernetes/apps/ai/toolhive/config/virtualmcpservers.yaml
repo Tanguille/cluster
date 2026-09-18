@@ -34,6 +34,8 @@ spec:
             # so point it at the mount explicitly instead of relying on the search order.
             - name: TMPDIR
               value: /tmp
+            # embeddingProvider: openai below just means "OpenAI-compatible API";
+            # litellm is the actual backend, so its key goes in the OpenAI-named var.
             - name: OPENAI_API_KEY
               value: ${LITELLM_API_KEY}
           resources:
