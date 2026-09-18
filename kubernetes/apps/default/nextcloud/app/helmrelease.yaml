@@ -123,7 +123,7 @@ spec:
         post-upgrade: |
           #!/bin/sh
           for c in db:add-missing-indices db:add-missing-primary-keys db:add-missing-columns "maintenance:repair --include-expensive"; do
-            php occ $c || true
+            php /var/www/html/occ $c || true
           done
 
       extraVolumes:
@@ -251,8 +251,54 @@ spec:
         - name: envoy-external
           namespace: network
       # /push/ lives in notify-push/helmrelease.yaml: this chart pins every rule's
-      # backendRef to the nextcloud service. nginx already 404s /config, /occ, etc.
-      # and redirects the other /.well-known/* paths, so no extra rules here.
+      # backendRef to the nextcloud service (filters are honoured). nginx already
+      # 404s /config, /occ, etc. Its /.well-known fallback 301s to $host:80 (no
+      # X-Forwarded-Port from Envoy), so these four stay rewritten at the edge.
+      rules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /.well-known/webfinger
+          filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  type: ReplacePrefixMatch
+                  replacePrefixMatch: /index.php/.well-known/webfinger
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /.well-known/nodeinfo
+          filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  type: ReplacePrefixMatch
+                  replacePrefixMatch: /index.php/.well-known/nodeinfo
+        - matches:
+            - path:
+                type: Exact
+                value: /.well-known/host-meta
+          filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  type: ReplaceFullPath
+                  replaceFullPath: /public.php?service=host-meta
+        - matches:
+            - path:
+                type: Exact
+                value: /.well-known/host-meta.json
+          filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  type: ReplaceFullPath
+                  replaceFullPath: /public.php?service=host-meta-json
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /
 
     persistence:
       enabled: true
@@ -304,5 +350,5 @@ spec:
         memory: 500Mi
       limits:
         cpu: 4
-        # 30d max WSS 1.57GiB; worst case by config is 4 workers x 512M + opcache
+        # 30d max WSS 1.57GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
         memory: 4Gi
