@@ -394,12 +394,12 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
-    # Per-request per-step prefill cap, 2 mamba blocks (800 tokens each). A 50K
-    # prompt otherwise fills the whole 4096 batch for ~12 steps while the running
-    # decodes stall (<2 tok/s with 4+ running, docs/llm-hosting/perf-plan-2026-09-13.md).
-    # This nightly has no --max-num-partial-prefills; this is the only knob.
-    - --long-prefill-token-threshold
-    - "1600"
+    # NO --long-prefill-token-threshold. The 1600 cap shipped 2026-09-13 to
+    # stop a 50K prefill starving co-resident decodes; it made that worse
+    # (stall share 19% -> 37%, perf-plan-2026-09-13.md) and cut single-stream
+    # prefill to 998 tok/s at 64K (longctx.py, idle, 2026-09-18) because each
+    # step carries ~0.7 s of fixed cost. Removed 2026-09-18; decode-starvation
+    # under long misses is still open (see the plan's ranked causes).
     # GDN hybrids OOM CUDA-graph capture at vLLM's default 512 ceiling
     # (vLLM #39010 on gfx1201). Sizes match parallelSlots above -- also
     # avoids the mamba cache's 71-block limit vLLM's default max-num-seqs
