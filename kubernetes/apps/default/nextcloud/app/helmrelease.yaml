@@ -82,7 +82,7 @@ spec:
           cpu: 50m
           memory: 128Mi
         limits:
-          cpu: 200m
+          cpu: 1
           memory: 256Mi
 
     nextcloud:
@@ -154,10 +154,12 @@ spec:
           group = www-data
           listen = 127.0.0.1:9000
           pm = dynamic
-          pm.max_children = 4
+          # 4 workers starved /status.php past the 5s probe under a thumbnail burst;
+          # 6 x 512M memory_limit = 3GiB worst case under the 4Gi container limit
+          pm.max_children = 6
           pm.start_servers = 4
           pm.min_spare_servers = 2
-          pm.max_spare_servers = 4
+          pm.max_spare_servers = 6
           pm.max_requests = 800
           request_terminate_timeout = 600
 
