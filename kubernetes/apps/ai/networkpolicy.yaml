@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: ai-ingress-allowlist
+  namespace: ai
+spec:
+  # endpointSelector {} => default-deny ingress for every pod in the namespace,
+  # same shape as database/networkpolicy.yaml. The per-pod allowlists (vmcp,
+  # MCP proxies/backends, inference pods) stay and union with this one. Egress
+  # stays default-allow.
+  endpointSelector: {}
+  ingress:
+    # Namespaces that consume *.ai.svc (grep '\.ai\.svc' across the repo and
+    # .github): default = karakeep -> litellm; observability = vmagent scrapes +
+    # gatus probes; security = kguardian llm-bridge -> litellm;
+    # actions-runner-system = agent-pr-review -> litellm/omniroute; network =
+    # envoy-internal fronting the HTTPRoutes; ai = intra-namespace.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+        - matchLabels:
+            io.kubernetes.pod.namespace: default
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: security
+        - matchLabels:
+            io.kubernetes.pod.namespace: actions-runner-system
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
+        # ephemeral not 53.
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+    - fromEntities:
+        # kubelet probes.
+        - host
+        # litellm-operator, llmkube and toolhive-operator serve admission
+        # webhooks the apiserver must reach.
+        - kube-apiserver

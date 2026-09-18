@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: flaresolverr-ingress-allowlist
+spec:
+  # Unauthenticated headless browser; prowlarr is its only client (kguardian
+  # pod traffic, 2026-09-18). Ingress only; egress stays open.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: flaresolverr
+  ingress:
+    # kubelet probes on :8191.
+    - fromEntities:
+        - host
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: media
+            app.kubernetes.io/name: prowlarr
+      toPorts:
+        - ports:
+            - port: "8191"
+              protocol: TCP
+    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
+    # ephemeral not 53.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
