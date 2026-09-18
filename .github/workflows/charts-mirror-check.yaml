@@ -22,7 +22,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          sparse-checkout: kubernetes
+          sparse-checkout: |
+            kubernetes
+            bootstrap
 
       - name: Check charts
         env:
@@ -30,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           rc=0
-          charts=$(grep -rhoP 'oci://ghcr.io/home-operations/charts-mirror/\K[a-z0-9-]+' kubernetes | sort -u)
+          charts=$(grep -rhoP 'oci://ghcr.io/home-operations/charts-mirror/\K[a-z0-9-]+' kubernetes bootstrap | sort -u)
           # Empty means the grep pattern drifted from the manifests, not that nothing is mirrored.
           test -n "${charts}" || { echo "no charts-mirror references found"; exit 1; }
           for chart in ${charts}; do
