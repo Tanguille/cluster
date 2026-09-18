@@ -82,7 +82,8 @@ spec:
           cpu: 50m
           memory: 128Mi
         limits:
-          # no cpu limit: 200m was 100% CFS-throttled in a Memories face-preview burst (09-18 21:41)
+          # 200m was 100% CFS-throttled in a Memories face-preview burst (09-18 21:41)
+          cpu: 2
           memory: 256Mi
 
     nextcloud:
