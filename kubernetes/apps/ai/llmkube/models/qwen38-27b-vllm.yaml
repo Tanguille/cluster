@@ -497,7 +497,7 @@ spec:
     # NVMe (1.25 GB/s) loads for older prompts.
     # Revert to 23622320128 (dshm 24Gi, memory 32Gi) if `prod_kvtier.py 24h`
     # shows external hit ratio < 0.25, fs->cpu share > 20%, or async lookup
-    # mean > 7.5 s.
+    # mean > 7.5 s, or TTFT p50 rises materially.
     # DO NOT remove the fs secondary tier to save Ceph writes: its 4.5% hit
     # rate is not its job. Removing it halved single-stream decode (15.5 vs
     # 31 tok/s, exact-revert confirmed) -- it keeps eviction asynchronous.
