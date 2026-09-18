@@ -1,167 +1,81 @@
 ---
+# Node-local staging for the Swift AWQ checkpoint (18.23 GiB: 7 shards +
+# model-nonquant + config/tokenizer), same pattern as the base 27B's
+# model-cache: the operator's init container fetches the `files:` list from
+# HuggingFace into this PVC on first reconcile, then vLLM reads local disk.
+# 20Gi = 18.23 GiB + re-staging headroom (the lmhead4 PVC used the same
+# 18.7->20Gi sizing).
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: qwen38-27b-vllm-model-cache
+  name: qwen38-swift-27b-vllm-model-cache
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: openebs-hostpath
   resources:
     requests:
-      storage: 50Gi
+      storage: 20Gi
+
 ---
-# Persist torch, Triton, and Inductor compile caches across restarts.
+# L3 tier for the fs secondary KV offload. Same 128Gi as the base 27B's
+# kv-offload and same free-space floor: the kv-offload-guard CronJob sweeps
+# /kvoffload to a 160Gi floor, and 128Gi x 2 (only one is live at a time)
+# still leaves 160Gi + 128Gi of headroom on the 499.6Gi disk (measured
+# 2026-08-22: 128Gi held outside the tier, 211Gi of tier at the floor).
+# Separate from the base's PVC on purpose: offloaded KV blocks are
+# model-specific (different hidden/mamba state per model) -- a shared store
+# would serve the wrong model's cache entries on a model swap.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: qwen38-27b-vllm-compile-cache
+  name: qwen38-swift-27b-vllm-kv-offload
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: openebs-hostpath
   resources:
-    requests:
-      storage: 10Gi
----
-# L3 tier for the fs secondary tier -- the vLLM analogue of the HiCache file
-# backend on the retired SGLang engine. Carried over from qwen36-27b-vllm.yaml
-# (deleted in 5770d6902): proven pattern, same hardware, same GPU-memory ceiling.
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: qwen38-27b-vllm-kv-offload
-spec:
-  accessModes: [ReadWriteOnce]
-  storageClassName: openebs-hostpath
-  resources:
-    # hostpath enforces no quota, so the real bound is the free-space guard below.
     requests:
       storage: 128Gi
----
-# vLLM's fs tier has no evictor at v0.27.1, and this node's root fs is shared with
-# rook-ceph's mon store, so the tier needs an external one.
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: qwen38-27b-vllm-kv-offload-guard
-spec:
-  # Hourly, not daily: a daily window let a busy day cross the floor and sit
-  # there for hours. Safe to run this often only because eviction is now
-  # incremental (see the script) rather than a full wipe.
-  # Periodic sweep, not a hard cap -- move to a quota-enforcing
-  # storage class if the floor is ever actually breached.
-  schedule: "0 * * * *"
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 3
-  jobTemplate:
-    spec:
-      backoffLimit: 2
-      template:
-        spec:
-          restartPolicy: OnFailure
-          securityContext:
-            # The serving pod runs runAsUser 0, so the store is root-owned on disk.
-            runAsUser: 0
-          # The hostPath PV pins this pod to control-1, so it must tolerate the
-          # exact condition it exists to relieve -- 08-21: DiskPressure locked
-          # the guard out for 1h+ right when the floor was breached.
-          tolerations:
-            - key: node.kubernetes.io/disk-pressure
-              operator: Exists
-              effect: NoSchedule
-          containers:
-            - name: guard
-              image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
-              securityContext:
-                allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
-                capabilities:
-                  drop: ["ALL"]
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  # $$ throughout: Flux postBuild envsubst substitutes bare $VAR.
-                  set -eu
-                  # 160Gi. The 80Gi this sat at is 15% of the 499.6Gi disk, under
-                  # mon_data_avail_warn=27, so mon.c (hostPath on this disk) warned
-                  # from inside the guard's own target and could never clear.
-                  # 160Gi holds 32% avail. The earlier "160Gi is unreachable" note
-                  # assumed ~370G held outside the tier; measured 2026-08-22 it is
-                  # 128Gi, leaving 211Gi of tier at this floor against 253Gi today.
-                  floor=167772160
-                  # df, not du: the store reaches hundreds of thousands of files.
-                  avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
-                  echo "avail: $${avail}K (floor: $${floor}K)"
-                  if [ "$$avail" -ge "$$floor" ]; then
-                    echo "above floor, nothing to do"
-                    exit 0
-                  fi
-                  # True LRU by mtime, oldest first, regardless of absolute age --
-                  # blocks are write-once so mtime is real recency. The old
-                  # age-bucketed sweep (30/14/7/3/1/0d) bottomed out at "older
-                  # than 24h" and failed outright once a same-day refill (a
-                  # restart can regrow the tier past the floor in under a day)
-                  # left nothing that old to evict.
-                  n=0
-                  # stat -c, not find -printf: busybox find has no -printf, so the
-                  # eviction path exited 1 without deleting anything. Never hit before
-                  # 2026-08-22 because avail always cleared the old 80Gi floor.
-                  find /kvoffload -type f -exec stat -c '%Y %n' {} + | sort -n | cut -d' ' -f2- |
-                  while IFS= read -r f; do
-                    rm -f -- "$$f"
-                    n=$$((n + 1))
-                    if [ $$((n % 2000)) -eq 0 ]; then
-                      avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
-                      echo "evicted $${n} files, avail now $${avail}K"
-                      [ "$$avail" -ge "$$floor" ] && break
-                    fi
-                  done
-                  avail="$$(df -kP /kvoffload | awk 'NR==2{print $$4}')"
-                  if [ "$$avail" -ge "$$floor" ]; then
-                    echo "avail now $${avail}K, above floor"
-                    exit 0
-                  fi
-                  # Still short after evicting every block: the shortfall is
-                  # elsewhere on the shared fs. Fail loudly -- a guard that
-                  # silently misses its floor reads healthy until the node fills.
-                  echo "floor unreachable: $${avail}K < $${floor}K, tier fully evicted" >&2
-                  exit 1
-              volumeMounts:
-                - name: kv-offload
-                  mountPath: /kvoffload
-              resources:
-                requests:
-                  cpu: 10m
-                  memory: 64Mi
-                limits:
-                  memory: 128Mi
-          volumes:
-            - name: kv-offload
-              persistentVolumeClaim:
-                claimName: qwen38-27b-vllm-kv-offload
+
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: Model
 metadata:
-  name: qwen38-27b-vllm
+  name: qwen38-swift-27b-vllm
 spec:
-  # philbert g128 over cyankiwi g32: ignore lists match on 311/313 entries, so
-  # group_size is the only material difference. 1.5 GB smaller, and the only
-  # build documenting thinking-mode calibration (llm-compressor #2680 corrupts
-  # <think> without it; thinking is on by default here).
-  # Pinned to the 2026-08-15 tokenizer fix; earlier revisions 400 on image input.
-  source: hf://philbert440/Qwen3.8-27B-W4A16-AWQ@7908d42a71077a5e4dc458f273682b12dfe384a0
+  # TheUnderscore's AWQ build of ukisai/Swift-Qwen3.8-27b: g128
+  # compressed-tensors W4A16, calibrated on 200k UltraChat samples,
+  # 2026-09-13 upload (the only revision). Same Qwen3_5ForConditionalGeneration
+  # architecture and geometry as the base 27B (verified 2026-09-18: 64
+  # layers, head_dim 256, 4 KV heads, 24 Q heads, 48/16 linear V/K heads,
+  # 128 linear head dims, conv kernel 4, fp32 mamba_ssm_dtype, 262K ctx).
+  #
+  # lm_head.weight is in the quantization ignore list and ships bf16
+  # (verified in shard 00007's safetensors header: BF16 [248320, 5120]), so
+  # the output layer is full-precision -- the property this PR also restores
+  # on the base 27B. No requant Job.
+  #
+  # Pin: hf revisions are mutable (HF re-uploads under the same filename),
+  # so the commit is pinned; Renovate bumps it like the base's.
+  source: hf://TheUnderscore/Swift-Qwen3.8-27b-W4A16-AWQ@6ced337b9c99adddf9871ff84abc78a7f1acafad
   format: safetensors
   quantization: compressed-tensors
   refreshPolicy: OnChange
-  # MUST match the layout of `source` above -- the init container fetches exactly
-  # these names and exits 1 on a 404. philbert ships one model.safetensors, not
-  # cyankiwi's 5 shards, and folds merges/vocab into tokenizer.json.
+  # MUST match the layout of `source` above -- the init container fetches
+  # exactly these names and exits 1 on a 404 (same rule as the base's list:
+  # only what vLLM loads). tokenizer.json is self-contained (vocab 248044 +
+  # merges 247587 embedded, v1.0 BPE), so merges.txt/vocab.json are NOT
+  # listed; the 7 AWQ shards + model-nonquant + index cover every tensor the
+  # index references (verified: 8 distinct files, 2399 tensors).
   files:
-    - model.safetensors
-    - model-mtp.safetensors
+    - model-00001-of-00007.safetensors
+    - model-00002-of-00007.safetensors
+    - model-00003-of-00007.safetensors
+    - model-00004-of-00007.safetensors
+    - model-00005-of-00007.safetensors
+    - model-00006-of-00007.safetensors
+    - model-00007-of-00007.safetensors
+    - model-nonquant.safetensors
     - model.safetensors.index.json
     - config.json
     - generation_config.json
@@ -180,25 +94,26 @@ spec:
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
-# concsweep.py, warm, agg tok/s vs the qwen-3.6 SGLang engine this replaced
-# (retired 2026-08-16, conc 1/8/16): 14.88/53.93/100.82 vs 14.96/36.24/34.49.
-# Bench warm only -- cold reads ~12.
+# Swift-Qwen3.8-27b (TheUnderscore W4A16-AWQ, 18.23 GiB), parked. No
+# throughput numbers yet: first measure on the live flip with concsweep.py
+# (the base's warm reference is 14.88/53.93/100.82 at conc 1/8/16) and
+# longctx.py at 4K + 50K, then the GSM8K/tools gates, before it takes over
+# from the base 27B.
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
 metadata:
-  name: qwen38-27b-vllm
+  name: qwen38-swift-27b-vllm
 spec:
-  # 4-bit lm_head re-pack REMOVED 2026-09-18 (Tanguille's call: full-precision
-  # output layer over the ~9%/step decode win). The 4-bit checkpoint passed the
-  # 2026-09-13 quality gate (GSM8K 94.0 vs 93.3, McNemar p=1.0; tools 12/12)
-  # -- this revert is the quality headroom, not a measured regression.
-  # qwen38-27b-vllm-lmhead4.yaml (PVC + Model CR) and
-  # resources/lmhead4_requant.py are deleted in this PR; the 4-bit
-  # checkpoint leaves the PVC with them. Rollback to the 4-bit variant:
-  # restore both from git history (the rebuild recipe is in the deleted
-  # qwen38-27b-vllm-lmhead4.yaml), re-stage the checkpoint, and flip
-  # modelRef back to qwen38-27b-vllm-lmhead4. One restart each direction.
-  modelRef: qwen38-27b-vllm
+  # Swift-Qwen3.8-27b (TheUnderscore W4A16-AWQ). Same Qwen3_5ForConditionalGeneration
+  # geometry as the base 27B (64 layers, head_dim 256, 4 KV heads, GDN hybrid,
+  # 262K ctx, vision tower -- verified key-by-key against the base's
+  # config.json 2026-09-18), so the base's tuned stack below (KV offload
+  # tiers, mamba dtypes, AITER overlay, LDS gate, liveness slow-band probe)
+  # carries over unchanged. lm_head.weight ships bf16 (it is in the
+  # compressed-tensors ignore list -- verified in shard 00007's safetensors
+  # header: BF16 [248320, 5120], 2.54 GiB), i.e. the full-precision output
+  # layer, no requant Job.
+  modelRef: qwen38-swift-27b-vllm
   runtime: vllm
   replicas: 1
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
@@ -238,7 +153,7 @@ spec:
   # docs/llm-hosting/bench/longctx.py at 4000 AND 50000 before merging.
   image: vllm/vllm-openai-rocm:nightly@sha256:5550994c1874ef331c6aed3ea27ae1efb7f4cfd17a2f18f5466c2837b9bf5467
   modelCache:
-    claimName: qwen38-27b-vllm-model-cache
+    claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
     # The only per-request cap on KV blocks, so it decides how much of the pool
     # a single session can hold. Headroom, not a working size -- Hermes peaks at
@@ -317,7 +232,7 @@ spec:
         claimName: qwen38-27b-vllm-compile-cache
     - name: kv-offload
       persistentVolumeClaim:
-        claimName: qwen38-27b-vllm-kv-offload
+        claimName: qwen38-swift-27b-vllm-kv-offload
     # The CPU offload tier mmaps cpu_bytes_to_use here; the 64M default
     # EFAULTs on pre-fault. Keep this at cpu_bytes_to_use + 2Gi. Nothing
     # enforces that -- the kv-offload-guard CronJob only sweeps /kvoffload.
@@ -375,14 +290,15 @@ spec:
       subPath: DEFAULT.json
       readOnly: true
   extraArgs:
-    # First name is what vLLM reports back as `model`, so qwen-3.8 stays
+    # First name is what vLLM reports back as `model`, so `swift` stays
     # primary. The second is an alias: the operator derives a LiteLLMModel from
     # this InferenceService's own name and has no field to override it, so
-    # without the alias that generated model group sends model=qwen38-27b-vllm
-    # and vLLM 404s it (verified 2026-08-17). Keep it in sync with metadata.name.
+    # without the alias that generated model group sends
+    # model=qwen38-swift-27b-vllm and vLLM 404s it (the base's alias 404 was
+    # verified 2026-08-17). Keep it in sync with metadata.name.
     - --served-model-name
-    - qwen-3.8
-    - qwen38-27b-vllm
+    - swift
+    - qwen38-swift-27b-vllm
     - --trust-remote-code
     - --reasoning-parser
     - qwen3
@@ -522,23 +438,32 @@ spec:
     - --kv-transfer-config
     - >-
       {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
-  # This engine is the live one; Swift (qwen38-swift-27b-vllm) and Flash-Next
-  # are the parked ones (suspend: true in their own manifests). control-1
-  # advertises 4 squat.ai/dri slots, held one each by this pod, jellyfin,
-  # fileflows and drm-exporter, so the parked engines could not schedule even
-  # if wanted -- and the R9700's 32Gi could not hold two 27B-class models
-  # regardless.
+  # PARKED 2026-09-18, by choice, not by measurement: the R9700's 31.86 GiB
+  # holds one 27B-class model at a time (the base 27B sits at a 29.07 GiB
+  # baseline; a second ~18 GiB weight set plus a second KV pool would not
+  # fit), and it is parked next to a LIVE base so it must not take the GPU.
   #
-  # Going live on Swift is two one-line flips (suspend: true here, suspend:
-  # false in the Swift manifest), one restart. The reverse is the same: the
-  # base's Model CR and 50Gi model-cache PVC stay in this file, so its
-  # checkpoint stays staged and re-stages on the flip back.
+  # To go live: suspend: true in qwen38-27b-vllm.yaml, suspend: false here,
+  # one restart. The reverse is the same two lines. The base's checkpoint
+  # stays staged in its 50Gi PVC, so switching back costs only the re-staging
+  # of this one (18.23 GiB) if this PVC is ever cleaned.
   #
-  # History: reverted to false 2026-08-31: Flash-Next measured 125-144 tok/s
-  # prefill on gfx1201 against this engine's ~7170, because 42.92Gi of experts
-  # cannot fit a 31.86Gi card and the 19-24 layers that spill to host RAM
-  # dominate. See the flash-next manifest header for the full budget.
-  suspend: false
+  # Verify on the FIRST live flip (all in this manifest's comments, none yet
+  # measured on this artifact):
+  #   1. TheUnderscore's AWQ build on ROCm/aiter. The format is proven -- the
+  #      base 27B is the same compressed-tensors W4A16 family on the same
+  #      nightly -- but this specific artifact was only shown on CUDA in its
+  #      model card (CUDA_VISIBLE_DEVICES=1,2).
+  #   2. The MTP module: model-nonquant.safetensors (849 MB) holds 15 MTP
+  #      tensors. Spec decode stays OFF (spec-decode-rejected.md -- banned on
+  #      this hardware), but the tensors still load and cost VRAM. Re-read the
+  #      boot log's "GPU KV cache size" and re-check maxModelLen /
+  #      --kv-cache-memory after first boot (this manifest's own standing
+  #      rule: re-check on any model change).
+  #   3. A/B vs the base 27B: concsweep.py warm at conc 1/8/16 (base:
+  #      14.88/53.93/100.82), longctx.py at 4K + 50K, then the GSM8K/tools
+  #      gates the 4-bit run passed (GSM8K >= 93, tools 12/12).
+  suspend: true
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
