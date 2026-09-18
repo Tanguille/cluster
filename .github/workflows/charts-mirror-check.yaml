@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Charts Mirror Check
+
+# home-operations/charts-mirror drops a chart once upstream publishes its own OCI
+# chart; Renovate then just stops offering bumps (crowdsec sat on 0.20.1 for months).
+# Fail here so the removal shows up as a failed scheduled run.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 6 * * 1 # Weekly on Monday
+
+permissions:
+  contents: read
+
+jobs:
+  main:
+    name: Charts Mirror Check - Verify mirrored charts still exist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: kubernetes
+
+      - name: Check charts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rc=0
+          for chart in $(grep -rhoP 'oci://ghcr.io/home-operations/charts-mirror/\K[a-z0-9-]+' kubernetes | sort -u); do
+            if gh api "repos/home-operations/charts-mirror/contents/apps/${chart}/metadata.yaml" --silent 2>/dev/null; then
+              echo "ok      ${chart}"
+            else
+              echo "REMOVED ${chart}: switch to the upstream OCI chart"
+              rc=1
+            fi
+          done
+          exit "${rc}"
