@@ -25,7 +25,7 @@ spec:
         - ports:
             - port: "8080"
               protocol: TCP
-    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral.
+    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: kube-system
