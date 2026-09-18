@@ -329,7 +329,7 @@ spec:
     - name: dshm
       emptyDir:
         medium: Memory
-        sizeLimit: 24Gi
+        sizeLimit: 14Gi
     # Raises the W4A16 skinny-GEMM LDS gate to the C++ kernel's real limit.
     - name: lds-gate-patch
       configMap:
@@ -490,13 +490,14 @@ spec:
     # analogue). From qwen36-27b-vllm.yaml, WITHOUT its --language-model-only —
     # Hermes' auxiliary.vision block actively uses this model's vision tower,
     # so it must stay loaded even though that costs some context headroom.
-    # CPU tier 22Gi: the 16Gi tier cascaded 3.5 GB/hour to the fs tier, i.e.
-    # eviction pressure. Benefit NOT yet validated -- needs a restart-free
-    # window, since this tier is an emptyDir tmpfs that every restart wipes.
-    # Roll back to 17179869184 (16Gi, dshm 18Gi, memory 32Gi) if after a 24h
-    # restart-free soak vllm:external_prefix_cache_hits_total/queries_total has
-    # not beaten its 0.5333 pre-change baseline, or if control-1 shows memory
-    # pressure or OOMKills.
+    # CPU tier 12Gi (~385K tokens, ~7 prompts); 22Gi -> 12Gi 2026-09-18 to free
+    # control-1 RAM. Measured at 22Gi over 4 restart-free days: cascade to fs
+    # 14.9 GB/h (write-through at any size), external hit ratio 0.297 of GPU
+    # misses, fs->cpu 5.5% of loads. Size only decides RAM (3.36 GB/s) vs
+    # NVMe (1.25 GB/s) loads for older prompts.
+    # Revert to 23622320128 (dshm 24Gi, memory 32Gi) if `prod_kvtier.py 24h`
+    # shows external hit ratio < 0.25, fs->cpu share > 20%, or async lookup
+    # mean > 7.5 s, or TTFT p50 rises materially.
     # DO NOT remove the fs secondary tier to save Ceph writes: its 4.5% hit
     # rate is not its job. Removing it halved single-stream decode (15.5 vs
     # 31 tok/s, exact-revert confirmed) -- it keeps eviction asynchronous.
@@ -526,7 +527,7 @@ spec:
     # improves by construction as the count falls).
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":12884901888,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   # This engine is the live one; Flash-Next is the parked one (suspend: true
   # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
   # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next
@@ -548,16 +549,10 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # tmpfs is charged here, so this tracks cpu_bytes_to_use: 28.3Gi peak
-    # under 4x32K concurrent load with the tier full (3.7Gi headroom).
-    # No memory limit at chart 0.9.24, so this is scheduler bookkeeping only:
-    # it must stay above the 28.3Gi peak to keep vllm under-request and off
-    # the eviction list, but every Gi above that is reserved and unusable.
-    # llmkube e4a3669af (unreleased) makes this a LIMIT as well as a request.
-    # Live working set is 27.49Gi, so 32Gi would leave ~4.5Gi before an
-    # OOMKill that costs the documented hours-long admission stall. Raise this
-    # deliberately when bumping past 0.9.24, and rewrite this comment.
-    memory: 32Gi
+    # Request AND limit (llmkube >= 0.9.29, verified on the pod 2026-09-18).
+    # tmpfs is charged here: cpu_bytes_to_use of shmem + anon (5.3Gi idle,
+    # 5.9Gi at the 4x32K load peak measured with the 22Gi tier) = ~18Gi peak.
+    memory: 24Gi
   endpoint:
     port: 8000
   probeOverrides:
