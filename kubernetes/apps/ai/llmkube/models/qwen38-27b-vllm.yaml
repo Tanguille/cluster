@@ -188,16 +188,19 @@ kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
 spec:
-  # 4-bit lm_head re-pack REMOVED 2026-09-18 (Tanguille's call: full-precision
-  # output layer over the ~9%/step decode win). The 4-bit checkpoint passed the
-  # 2026-09-13 quality gate (GSM8K 94.0 vs 93.3, McNemar p=1.0; tools 12/12)
-  # -- this revert is the quality headroom, not a measured regression.
-  # qwen38-27b-vllm-lmhead4.yaml (PVC + Model CR) and
-  # resources/lmhead4_requant.py are deleted in this PR; the 4-bit
-  # checkpoint leaves the PVC with them. Rollback to the 4-bit variant:
-  # restore both from git history (the rebuild recipe is in the deleted
-  # qwen38-27b-vllm-lmhead4.yaml), re-stage the checkpoint, and flip
-  # modelRef back to qwen38-27b-vllm-lmhead4. One restart each direction.
+  # 4-bit lm_head re-pack dropped 2026-09-18 (Tanguille's call: full-precision
+  # output layer over the ~9%/step decode win; it passed the 2026-09-13 gate,
+  # GSM8K 94.0 vs 93.3, so this is headroom, not a regression). The 4-bit
+  # Model/PVC/requant script are recoverable from git history at this commit.
+  #
+  # Checkpoint swaps on this engine are a modelRef flip, one restart; the
+  # tuned stack below is per-engine, not per-checkpoint. Swift
+  # (qwen38-swift-27b-vllm.yaml, same geometry, parked and unstaged) goes
+  # live with two edits here: modelRef and modelCache.claimName
+  # (qwen38-swift-27b-vllm-model-cache). Reverse: the same two lines. The fs
+  # KV tier needs nothing: vLLM's file_mapper keys it by
+  # <root_dir>/<model_name>_<sha>/, so each checkpoint gets its own subtree and
+  # the guard CronJob's recursive LRU sweep ages the idle one out.
   modelRef: qwen38-27b-vllm
   runtime: vllm
   replicas: 1
@@ -522,22 +525,16 @@ spec:
     - --kv-transfer-config
     - >-
       {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":23622320128,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
-  # This engine is the live one; Swift (qwen38-swift-27b-vllm) and Flash-Next
-  # are the parked ones (suspend: true in their own manifests). control-1
-  # advertises 4 squat.ai/dri slots, held one each by this pod, jellyfin,
-  # fileflows and drm-exporter, so the parked engines could not schedule even
-  # if wanted -- and the R9700's 32Gi could not hold two 27B-class models
-  # regardless.
+  # This engine is the live one; Flash-Next is the parked one (suspend: true
+  # in its own manifest). control-1 advertises 4 squat.ai/dri slots, held one
+  # each by this pod, jellyfin, fileflows and drm-exporter, so Flash-Next
+  # could not schedule even if wanted -- and the R9700's 32Gi could not hold
+  # both models regardless.
   #
-  # Going live on Swift is two one-line flips (suspend: true here, suspend:
-  # false in the Swift manifest), one restart. The reverse is the same: the
-  # base's Model CR and 50Gi model-cache PVC stay in this file, so its
-  # checkpoint stays staged and re-stages on the flip back.
-  #
-  # History: reverted to false 2026-08-31: Flash-Next measured 125-144 tok/s
-  # prefill on gfx1201 against this engine's ~7170, because 42.92Gi of experts
-  # cannot fit a 31.86Gi card and the 19-24 layers that spill to host RAM
-  # dominate. See the flash-next manifest header for the full budget.
+  # Reverted to false 2026-08-31: Flash-Next measured 125-144 tok/s prefill on
+  # gfx1201 against this engine's ~7170, because 42.92Gi of experts cannot fit
+  # a 31.86Gi card and the 19-24 layers that spill to host RAM dominate. See
+  # the flash-next manifest header for the full budget.
   suspend: false
   nodeSelector:
     amd.com/gpu: "true"
