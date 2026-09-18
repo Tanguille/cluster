@@ -10,5 +10,7 @@ components:
 
 resources:
   - ./crowdsec/ks.yaml
-  - ./kguardian/ks.yaml
+  # kguardian: disabled, broker can't establish a DB connection through
+  # diesel/pq-sys (hangs mid-SCRAM handshake; psql/libpq connects fine).
+  # Manifests kept in kguardian/ for re-enabling once root-caused.
   - ./trivy-operator/ks.yaml
