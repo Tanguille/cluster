@@ -82,7 +82,7 @@ spec:
           cpu: 50m
           memory: 128Mi
         limits:
-          cpu: 1
+          cpu: 2
           memory: 256Mi
 
     nextcloud:
@@ -154,8 +154,8 @@ spec:
           group = www-data
           listen = 127.0.0.1:9000
           pm = dynamic
-          # 4 workers starved /status.php past the 5s probe under a thumbnail burst;
-          # 6 x 512M memory_limit = 3GiB worst case under the 4Gi container limit
+          ; php-fpm ini: only ';' comments are valid here, '#' fails the parser
+          ; 4 workers starved /status.php past the 5s probe under a thumbnail burst; ~175MB RSS/worker measured
           pm.max_children = 6
           pm.start_servers = 4
           pm.min_spare_servers = 2
@@ -339,6 +339,12 @@ spec:
             cpu: "1"
             # 2Gi was hit (OOMKilled 2026-09-15, nextcloud-cron-29825165); 7d max 2.78GiB
             memory: 4Gi
+
+    # Probes only exist on the nginx sidecar and all hit /status.php through fpm, so a
+    # saturated pool restarted nginx; readiness (default 5s x3) still pulls it from rotation.
+    livenessProbe:
+      timeoutSeconds: 10
+      failureThreshold: 6
 
     startupProbe:
       enabled: true
