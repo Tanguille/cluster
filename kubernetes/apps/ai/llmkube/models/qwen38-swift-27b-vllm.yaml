@@ -1,7 +1,6 @@
 ---
-# Node-local staging for the Swift AWQ checkpoint (18.23 GiB), same pattern as
-# the base 27B's model-cache; 20Gi leaves re-staging headroom. Pending until an
-# InferenceService mounts it (WaitForFirstConsumer), so parked it costs nothing.
+# Node-local staging for the 18.23 GiB checkpoint; 20Gi leaves re-stage
+# headroom.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -29,25 +28,19 @@ spec:
   #
   # lm_head.weight is in the quantization ignore list and ships bf16
   # (verified in shard 00007's safetensors header: BF16 [248320, 5120]), so
-  # the output layer is full-precision -- the property this PR also restores
-  # on the base 27B. No requant Job.
+  # the output layer is full-precision. No requant Job.
   #
   # Pin: hf revisions are mutable (HF re-uploads under the same filename),
   # so the commit is pinned; Renovate bumps it like the base's.
   #
-  # Live on the qwen38-27b-vllm InferenceService since 2026-09-18 (its
-  # modelRef comment has the flip/revert recipe). model-nonquant.safetensors
-  # carries 15 MTP tensors that load even with spec decode off.
+  # model-nonquant.safetensors carries 15 MTP tensors that load even with
+  # spec decode off.
   source: hf://TheUnderscore/Swift-Qwen3.8-27b-W4A16-AWQ@6ced337b9c99adddf9871ff84abc78a7f1acafad
   format: safetensors
   quantization: compressed-tensors
   refreshPolicy: OnChange
-  # MUST match the layout of `source` above -- the init container fetches
-  # exactly these names and exits 1 on a 404 (same rule as the base's list:
-  # only what vLLM loads). tokenizer.json is self-contained (vocab 248044 +
-  # merges 247587 embedded, v1.0 BPE), so merges.txt/vocab.json are NOT
-  # listed; the 7 AWQ shards + model-nonquant + index cover every tensor the
-  # index references (verified: 8 distinct files, 2399 tensors).
+  # Exactly what vLLM loads; the init container exits 1 on a 404. tokenizer.json
+  # is self-contained (no merges/vocab).
   files:
     - model-00001-of-00007.safetensors
     - model-00002-of-00007.safetensors
