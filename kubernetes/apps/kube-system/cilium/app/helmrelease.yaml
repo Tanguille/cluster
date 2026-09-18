@@ -90,6 +90,8 @@ spec:
           - NET_ADMIN
           - SYS_ADMIN
           - SYS_RESOURCE
+    # No hostNamespaceOnly: it forces per-packet ClusterIP NAT in bpf_lxc, and
+    # same-node replies then hit ingress policy un-rev-NAT'd (src = ClusterIP,
+    # identity = backend pod) and get dropped by every ingress allowlist.
     socketLB:
       enabled: true
-      hostNamespaceOnly: true
