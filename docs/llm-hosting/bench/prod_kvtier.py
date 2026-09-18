@@ -11,7 +11,7 @@ Usage: prod_kvtier.py [WINDOW]   (needs the VM port-forward on 18428)
 import json, sys, urllib.parse, urllib.request
 
 W = sys.argv[1] if len(sys.argv) > 1 else "30m"
-SEL = '{model="qwen38-27b-vllm-lmhead4"}'
+SEL = '{model="qwen38-27b-vllm"}'
 
 
 def q(expr):
