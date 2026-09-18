@@ -194,14 +194,16 @@ spec:
   # Model/PVC/requant script are recoverable from git history at this commit.
   #
   # Checkpoint swaps on this engine are a modelRef flip, one restart; the
-  # tuned stack below is per-engine, not per-checkpoint. Swift
-  # (qwen38-swift-27b-vllm.yaml, same geometry, parked and unstaged) goes
-  # live with two edits here: modelRef and modelCache.claimName
-  # (qwen38-swift-27b-vllm-model-cache). Reverse: the same two lines. The fs
+  # tuned stack below is per-engine, not per-checkpoint. Swift went live
+  # 2026-09-18 with two edits here: modelRef and modelCache.claimName.
+  # Reverse to the base 27B (qwen38-27b-vllm / qwen38-27b-vllm-model-cache,
+  # still staged) is the same two lines. Pre-stage the target's files into
+  # its PVC first (/models/<sha256(source)[:16]>) so the init container only
+  # revalidates and the outage is the pod Recreate + boot (~4.5 min). The fs
   # KV tier needs nothing: vLLM's file_mapper keys it by
   # <root_dir>/<model_name>_<sha>/, so each checkpoint gets its own subtree and
   # the guard CronJob's recursive LRU sweep ages the idle one out.
-  modelRef: qwen38-27b-vllm
+  modelRef: qwen38-swift-27b-vllm
   runtime: vllm
   replicas: 1
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends ALL four
@@ -241,7 +243,7 @@ spec:
   # docs/llm-hosting/bench/longctx.py at 4000 AND 50000 before merging.
   image: vllm/vllm-openai-rocm:nightly@sha256:5550994c1874ef331c6aed3ea27ae1efb7f4cfd17a2f18f5466c2837b9bf5467
   modelCache:
-    claimName: qwen38-27b-vllm-model-cache
+    claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
     # The only per-request cap on KV blocks, so it decides how much of the pool
     # a single session can hold. Headroom, not a working size -- Hermes peaks at

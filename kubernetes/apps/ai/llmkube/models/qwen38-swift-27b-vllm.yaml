@@ -35,12 +35,9 @@ spec:
   # Pin: hf revisions are mutable (HF re-uploads under the same filename),
   # so the commit is pinned; Renovate bumps it like the base's.
   #
-  # Not referenced by any InferenceService yet: cutover is a 2-line flip on
-  # qwen38-27b-vllm.yaml (see its modelRef comment). Unmeasured on ROCm --
-  # gate the first flip on concsweep.py/longctx.py vs the base's numbers and
-  # the GSM8K/tools gates, and re-read "GPU KV cache size" from the boot log:
-  # model-nonquant.safetensors carries 15 MTP tensors that load even with
-  # spec decode off.
+  # Live on the qwen38-27b-vllm InferenceService since 2026-09-18 (its
+  # modelRef comment has the flip/revert recipe). model-nonquant.safetensors
+  # carries 15 MTP tensors that load even with spec decode off.
   source: hf://TheUnderscore/Swift-Qwen3.8-27b-W4A16-AWQ@6ced337b9c99adddf9871ff84abc78a7f1acafad
   format: safetensors
   quantization: compressed-tensors
