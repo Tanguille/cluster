@@ -85,8 +85,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
 
-    serviceAccount:
-      homepage: {}
+    # RBAC binds to the chart-default ServiceAccount (release name `homepage`).
 
     rbac:
       roles:

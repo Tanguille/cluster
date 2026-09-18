@@ -13,8 +13,6 @@ spec:
   env:
     - name: HOMEASSISTANT_URL
       value: http://${HOME_ASSISTANT_IP}:8123
-    - name: FASTMCP_HOST
-      value: "0.0.0.0"
     - name: TMPDIR
       value: /tmp
   secrets:
@@ -28,7 +26,7 @@ spec:
           emptyDir: {}
       containers:
         - name: mcp
-          command: ["fastmcp", "run", "fastmcp-http.json"]
+          command: ["ha-mcp-web"]
           volumeMounts:
             - name: tmp
               mountPath: /tmp
