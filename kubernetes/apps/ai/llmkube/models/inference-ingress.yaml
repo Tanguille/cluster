@@ -1,0 +1,36 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: inference-ingress-allowlist
+spec:
+  # llmkube InferenceService pods (vLLM :8000, llama.cpp :8080) are
+  # unauthenticated; litellm is the only sanctioned front door (keys,
+  # routing, admission). Observed ingress over 48h (kguardian): litellm,
+  # vmagent scrapes, kubelet probes. Health/guard probes run in-pod.
+  endpointSelector:
+    matchExpressions:
+      - key: inference.llmkube.dev/service
+        operator: Exists
+  ingress:
+    - fromEntities:
+        - host
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: litellm
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: vmagent
+      toPorts:
+        - ports:
+            - port: "8000"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
