@@ -30,10 +30,16 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Auto-compaction holds in-use flat (137-160MB over 20d) but cannot
-          # shrink the file; free space ramps ~8MB/day. A 3-member pass costs ~95s.
+          # Run daily, not weekly: auto-compaction holds in-use flat (~238MB) but
+          # post-Talos-1.14 write churn grew the file ~90MB/day (250MB right after
+          # the 09-13 pass back to 533MB by 09-16), so the bundled
+          # etcdDatabaseHighFragmentationRatio rule (in_use/total < 0.5 for 10m)
+          # re-fired ~3 days after each weekly pass. A daily pass keeps the ratio
+          # near 1.0; --auto-disalarm only clears etcd's NOSPACE alarm, never this
+          # alert, so the defrag itself is its only auto-resolution path. A 3-member
+          # pass with --move-leader costs ~95s.
           timeZone: ${TIMEZONE}
-          schedule: "0 3 * * 0"
+          schedule: "0 3 * * *"
           backoffLimit: 1
         containers:
           app:
