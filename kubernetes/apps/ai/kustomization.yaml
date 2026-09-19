@@ -9,7 +9,20 @@ components:
   - ../../components/ndots-1
   - ../../components/psa-privileged
   - ../../components/kopiur/privileged-movers
-
+# DRA admin-access label, mirroring kube-system and media: required for pods
+# in this namespace to allocate ResourceClaims (e.g. if a DRA claim lands here
+# later). No DRA workloads in ai/ today, so this is additive and a no-op.
+patches:
+  - target:
+      kind: Namespace
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          resource.kubernetes.io/admin-access: "true"
 resources:
   - ./hermes/ks.yaml
   - ./litellm/ks.yaml

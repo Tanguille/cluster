@@ -11,7 +11,21 @@ components:
   - ../../components/affinity-control-1
   - ../../components/psa-privileged
   - ../../components/kopiur/privileged-movers
-
+# DRA requires resource.kubernetes.io/admin-access: "true" on the namespace so
+# pods here can allocate the shared-dgpu ResourceClaim (media/jellyfin +
+# fileflows). Same "not-used" placeholder trick as kube-system: Kustomize's
+# namespace transformer renames it to "media" AFTER patches are applied.
+patches:
+  - target:
+      kind: Namespace
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          resource.kubernetes.io/admin-access: "true"
 resources:
   - ./shared-dgpu-claim.yaml
   - ./bazarr/ks.yaml
