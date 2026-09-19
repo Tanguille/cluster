@@ -343,12 +343,12 @@ class GuardController:
 
 def render_metrics(controller):
     m = controller.metrics
-    lines = ["xmrig_guard_evaluations_total {evaluations}".format(evaluations=m["evaluations"])]
+    lines = [f'xmrig_guard_evaluations_total {m["evaluations"]}']
     for metric, values in (
         ("safe", m["safe"]),
         ("query_errors_total", m["query_errors"]),
         ("source_age_seconds", m["source_age_seconds"]),
-        ("nvme_temp_celsius", m["nvme_temp_max"]),
+        ("nvme_temp_max_celsius", m["nvme_temp_max"]),
         ("cpu_non_xmrig_percent", m["cpu_non_xmrig"]),
         ("rank", m["rank"]),
     ):
@@ -363,7 +363,7 @@ class _StatusHandler(BaseHTTPRequestHandler):
         if self.path == "/healthz":
             self._send(200, "ok\n", "text/plain")
         elif self.path == "/readyz":
-            self._send(200 if self.controller.ready else 503, "ready\n", "text/plain")
+            self._send(200 if self.controller.ready else 503, "ready\n" if self.controller.ready else "not ready\n", "text/plain")
         elif self.path == "/metrics":
             body = render_metrics(self.controller)
             self._send(200, body, "text/plain; version=0.0.4")
@@ -389,10 +389,10 @@ def main():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     while True:
         # sleep to a deadline, not a flat interval: sleeping after the work made the true
-        # period drift with the evaluation duration, stretching it against a fixed freshness budget
+        # period drift by the evaluation duration, stretching it against a fixed freshness budget
         deadline = time.monotonic() + EVALUATION_INTERVAL_SECONDS
         controller.evaluate()
-        time.sleep(max(0.0, deadline - time.monotonic()))
+        time.sleep(max(0, deadline - time.monotonic()))
 
 
 if __name__ == "__main__":
