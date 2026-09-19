@@ -34,6 +34,8 @@ spec:
             # so point it at the mount explicitly instead of relying on the search order.
             - name: TMPDIR
               value: /tmp
+            # embeddingProvider: openai below just means "OpenAI-compatible API";
+            # litellm is the actual backend, so its key goes in the OpenAI-named var.
             - name: OPENAI_API_KEY
               value: ${LITELLM_API_KEY}
           resources:
@@ -97,8 +99,3 @@ spec:
       embeddingService: http://litellm.ai.svc.cluster.local/v1
       embeddingModel: qwen3-embedding
       embeddingServiceTimeout: *embeddingTimeout
-      # find_tool returns each match's FULL json schema, re-prefilled every
-      # later turn: measured 7,721 tok/turn over 339 turns. Default 8 bound
-      # only 2 of 11 stored calls (mean 5.91 returned); top 3 drops 48.9% of
-      # schema bytes.
-      maxToolsToReturn: 3

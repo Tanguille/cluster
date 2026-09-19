@@ -4,7 +4,7 @@ kind: MCPServer
 metadata:
   name: homeassistant
 spec:
-  image: ghcr.io/homeassistant-ai/ha-mcp:8.4.3@sha256:d5cea47a0115e5d161c2b319ee637b1b0a5bcfafe1597cb490299bbbc6329456
+  image: ghcr.io/homeassistant-ai/ha-mcp:8.5.0@sha256:e1538bcdadb13a5467bbb8258fba3262a05518585e18115742da638adec7057c
   transport: streamable-http
   mcpPort: 8086
   proxyPort: 8080
@@ -13,8 +13,6 @@ spec:
   env:
     - name: HOMEASSISTANT_URL
       value: http://${HOME_ASSISTANT_IP}:8123
-    - name: FASTMCP_HOST
-      value: "0.0.0.0"
     - name: TMPDIR
       value: /tmp
   secrets:
@@ -28,7 +26,7 @@ spec:
           emptyDir: {}
       containers:
         - name: mcp
-          command: ["fastmcp", "run", "fastmcp-http.json"]
+          command: ["ha-mcp-web"]
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -38,12 +36,12 @@ spec:
           startupProbe:
             tcpSocket:
               port: mcp
-            periodSeconds: 2
+            periodSeconds: 5
             failureThreshold: 30
           readinessProbe:
             tcpSocket:
               port: mcp
-            periodSeconds: 3
+            periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 3
           resources:

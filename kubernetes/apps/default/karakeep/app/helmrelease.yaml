@@ -77,6 +77,8 @@ spec:
                 enabled: true
               startup:
                 enabled: true
+            # No allowPrivilegeEscalation/drop ALL here: the image boots via the
+            # setuid s6-overlay-suexec, which chowns /run before dropping to uid 1000.
             resources:
               requests:
                 cpu: 10m
@@ -103,9 +105,8 @@ spec:
               - --remote-debugging-port=9222
               - --hide-scrollbars
             securityContext:
-              capabilities:
-                drop:
-                  - ALL
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 10m
@@ -149,6 +150,9 @@ spec:
                   secretKeyRef:
                     name: karakeep-secret
                     key: meilisearch_master_key
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 10m

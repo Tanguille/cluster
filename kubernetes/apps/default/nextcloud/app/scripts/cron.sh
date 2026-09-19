@@ -1,134 +1,26 @@
 #!/bin/bash
 set -euo pipefail
 
-# Change to Nextcloud directory (required for occ commands)
-cd /var/www/html || {
-    echo "ERROR: Cannot cd to /var/www/html" >&2
-    exit 1
-}
+cd /var/www/html
 
-# Helper function to run occ commands with error handling
-run_occ() {
-    local cmd="$1"
-    local warning_msg="${2:-${cmd} failed}"
-    # Word splitting is intentional: "command --flag" must reach occ as separate
-    # argv words (a single quoted token makes Symfony treat it as the command
-    # name, e.g. "app:update --all" => 'Command "app:update --all" is not defined').
-    # No command or flag in this script contains spaces or shell glob characters,
-    # so unquoted expansion is safe here.
-    # shellcheck disable=SC2086
-    php occ $cmd || echo "WARNING: $warning_msg" >&2
-}
-
-# Helper function to check if an app is installed
-app_installed() {
-    echo "$INSTALLED_APPS" | grep -q "$1"
-}
-
-# Helper function to run occ command if app is installed
-run_if_app_installed() {
-    local app="$1"
-    local cmd="$2"
-    local msg="${3:-Running $app operation...}"
-    if app_installed "$app"; then
-        echo "$msg"
-        run_occ "$cmd"
-    fi
-}
-
-echo "Starting Nextcloud cron job at $(date)"
-
-# Not run_occ: it swallows the exit code, so the guard could never fire
+# Plain call, not a helper that swallows the exit code: the guard must be able to fire
 if ! php occ status >/dev/null 2>&1; then
     echo "WARNING: Nextcloud not ready, skipping cron job" >&2
     exit 0
 fi
 
-# Cached once: each `occ` call is a full Nextcloud bootstrap
-INSTALLED_APPS="$(php occ app:list)"
+# App background jobs (memories, recognize, ...) all run inside cron.php
+php -f cron.php || echo "ERROR: cron.php failed" >&2
 
-# Run standard Nextcloud cron (every 5 minutes)
-# This is the main cron job that Nextcloud requires
-if ! php -f /var/www/html/cron.php; then
-    echo "ERROR: Nextcloud cron.php failed" >&2
-    # Don't exit - allow maintenance operations to run even if cron.php fails
+# Daily block. Runs take ~9min under concurrencyPolicy Forbid, so a fixed :00
+# slot gets skipped when the previous run overruns; the stamp makes any run in
+# the 02:xx UTC hour pick it up exactly once.
+STAMP="/var/www/tmp/.daily-maintenance-$(date -u +%F)"
+if [ "$(date -u +%H)" = "02" ] && [ ! -e "$STAMP" ]; then
+    rm -f /var/www/tmp/.daily-maintenance-*
+    touch "$STAMP"
+    for c in "app:update --all" files:cleanup "files:scan --all"; do
+        # shellcheck disable=SC2086  # word splitting on purpose: "cmd --flag" -> argv
+        php occ $c || echo "WARNING: $c failed" >&2
+    done
 fi
-
-# Run maintenance operations based on time
-# Schedule against UTC explicitly (date -u): the container TZ is not pinned in the manifest
-MINUTE=$(date -u +%M)
-HOUR=$(date -u +%H)
-DAY_OF_WEEK=$(date -u +%u)
-
-# Run database maintenance and cleanup every hour (at minute 0)
-if [ "$MINUTE" = "00" ]; then
-    echo "Running hourly maintenance operations..."
-    run_occ "db:add-missing-indices"
-    run_occ "db:add-missing-primary-keys"
-    run_occ "db:add-missing-columns"
-    run_occ "files:cleanup"
-fi
-
-# Run app auto-updates daily (at 1:30 AM UTC)
-# Native Nextcloud way: occ app:update --all only pulls app versions
-# compatible with the pinned server version.
-# 1:30 AM avoids the 2:00 AM heavy maintenance window (maintenance:repair, files:scan).
-if [ "$MINUTE" = "30" ] && [ "$HOUR" = "01" ]; then
-    echo "Updating all Nextcloud apps (daily auto-update)..."
-    run_occ "app:update --all" "app auto-update failed"
-fi
-
-# Run very expensive operations less frequently (once per day at 2 AM UTC)
-# files:scan --all is VERY expensive and can take a long time
-# Adjust the hour if needed (0-23) - note this is UTC time
-if [ "$MINUTE" = "00" ] && [ "$HOUR" = "02" ]; then
-    echo "Running daily expensive maintenance operations..."
-    run_occ "maintenance:repair --include-expensive"
-    run_occ "files:scan --all"
-    run_if_app_installed "memories" "memories:index" "Running Memories indexing..."
-fi
-
-# Run Memories places setup weekly (Sunday at 3 AM UTC)
-if [ "$MINUTE" = "00" ] && [ "$HOUR" = "03" ] && [ "$DAY_OF_WEEK" = "7" ]; then
-    run_if_app_installed "memories" "memories:places-setup" "Running Memories places setup..."
-fi
-
-# Run Recognize face clustering weekly (Sunday at 4 AM UTC)
-# This is expensive and should run after Memories places setup
-if [ "$MINUTE" = "00" ] && [ "$HOUR" = "04" ] && [ "$DAY_OF_WEEK" = "7" ]; then
-    run_if_app_installed "recognize" "recognize:cluster-faces" "Running Recognize face clustering..."
-fi
-
-# Run Recognize background job (every 5 minutes to process queued files)
-# This processes face recognition, object detection, landmark recognition, and audio tagging queues
-# The app has internal locking to prevent concurrent execution
-run_if_app_installed "recognize" "recognize:recrawl" "Running Recognize background job..."
-
-# Run Face Recognition background job (every 15 minutes as recommended by maintainer)
-# Default order: clustering first (Step 5), then new face detection (Steps 6-8)
-# New photos are analyzed in one run and grouped in the next run
-# Manual sorting/naming is preserved - the app won't overwrite manually configured faces
-# The job will stop after 15 minutes (timeout) and continue in the next run
-# This distributes the load and prevents the job from running indefinitely
-# $MINUTE is zero-padded ("08", "09"); POSIX shell arithmetic rejects
-# them as invalid octal, so normalize first: ${MINUTE#0} strips one
-# leading zero (a safe decimal form) before the modulo. $MINUTE itself
-# is left untouched for the string comparisons above.
-MINUTE_DEC=${MINUTE#0}
-if [ "$((MINUTE_DEC % 15))" = "0" ]; then
-    if app_installed "facerecognition"; then
-        echo "Running Face Recognition background job (will stop after 15 minutes)..."
-        # The app has internal locking (LockTask) to prevent concurrent execution
-        # If a previous job is still running, this will fail gracefully due to the lock
-        run_occ "face:background_job" "face:background_job failed (may be locked by another instance)"
-    fi
-fi
-
-# Run Face Recognition album sync (every hour at minute 15)
-# This syncs photo albums in the Photos app with recognized faces
-# Albums are editable in Photos app, but changes are reverted on next sync
-if [ "$MINUTE" = "15" ]; then
-    run_if_app_installed "facerecognition" "face:sync-albums" "Running Face Recognition album sync..."
-fi
-
-echo "Nextcloud cron job completed at $(date)"

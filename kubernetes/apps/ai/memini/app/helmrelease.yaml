@@ -78,3 +78,31 @@ spec:
 
     grafanaDashboards:
       enabled: true
+
+    networkpolicies:
+      main:
+        # /v1/handshake reports admin=true, read_only=false to any caller, so
+        # reachability is the only access control there is. Scoped to memini alone;
+        # the rest of ai stays default-allow. Egress untouched.
+        rules:
+          ingress:
+            - from:
+                # ai = hermes' memory provider and toolhive's MCP entry, both :8080.
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: ai
+                # network = envoy-internal fronting the memini UI route (:8081).
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: network
+                # observability = vmagent scraping the serviceMonitor (:9090).
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: observability
+                # Rev-NAT'd DNS replies hit ingress; no ports, dest port is ephemeral not 53.
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: kube-system
+                  podSelector:
+                    matchLabels:
+                      k8s-app: kube-dns

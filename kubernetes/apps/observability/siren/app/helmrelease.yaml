@@ -89,8 +89,5 @@ spec:
     persistence:
       tmpfs:
         type: emptyDir
-        advancedMounts:
-          siren:
-            app:
-              - path: /tmp
-                subPath: tmp
+        globalMounts:
+          - path: /tmp
