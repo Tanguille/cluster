@@ -288,6 +288,14 @@ class GuardController:
         self._last_source_stamps[node] = stamps
         return True
 
+    def _evaluate_freshness(self, node, samples, evaluation):
+        # Name the source that failed: control-1's recurring bare "stale or future source"
+        # lines (465 in 10d) said nothing about which of host/presence/xmrig tripped, so the
+        # scrape that aged out could not be read off the log.
+        policy = self.policies[node]
+        stale = sorted(key for key, item in (samples or {}).items() if not _fresh(item.timestamp, evaluation, policy.max_gap))
+        raise ValueError(f"stale or future source: {', '.join(stale) if stale else 'empty sample set'}")
+
     def evaluate(self, evaluation=None):
         evaluation = evaluation or self.wall_clock()
         now = self.clock()
@@ -311,7 +319,7 @@ class GuardController:
                     self.metrics["cpu_non_xmrig"][node] = value
                 policy = self.policies[node]
                 if not samples or not all(_fresh(item.timestamp, evaluation, policy.max_gap) for item in samples.values()):
-                    raise ValueError("stale or future source")
+                    self._evaluate_freshness(node, samples, evaluation)
                 safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
                 self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples.values()).timestamp())
                 self.metrics["safe"][node] = int(safe)
