@@ -42,6 +42,52 @@ class _PatchLoader(importlib.abc.Loader):
             "[lds-gate-patch] LDS_CAPACITY_ELEMENTS %s -> %s" % (old, NEW_LIMIT),
             file=sys.stderr, flush=True,
         )
+        _install_small_m_triton_config(module)
+
+
+# Second patch, same module: the Triton tile config for the gfx12x M <= 32
+# branch. Even at 39321 the gate only covers down_proj (K=17408) up to M=2;
+# at M=3-5, where production runs (3.8 concurrent on average), it takes the
+# Triton path, and so does every layer at M=6-32 (chunked-prefill tails).
+#
+# Shipped: BLOCK 16x16x128, 4 warps, default stages. Swept in-pod 2026-09-13
+# under CUDA-graph replay across all six Qwen3.8 shapes at M=3..32
+# (docs/llm-hosting/bench/downfix/triton_m32.out): 2 warps + 1 stage wins
+# 14/30 cells and regresses none, 1.16-1.31x on down_proj, 1.26-1.30x on
+# gate_up, >= 1.04x everywhere. Split-K over the HIP skinny kernel was also
+# measured and rejected: 1.2-1.3x at M=3-5 but 0.6-0.75x at M=1-2 and
+# 0.5-0.7x on prefill tails, because the weight must be stored in K-chunks.
+#
+# _rdna_hybrid_w4a16_apply_impl resolves triton_w4a16_skinny_fmt_gemm by
+# module global at call time, so replacing it here reaches the registered
+# custom op without re-registering it.
+def _install_small_m_triton_config(hy):
+    import torch
+    from vllm.triton_utils import triton
+
+    if not hy._on_gfx12x():
+        return
+    orig = hy.triton_w4a16_skinny_fmt_gemm
+    kernel = hy._triton_w4a16_skinny_fmt_kernel
+
+    def gemm(a, b_q, scales, group_size, zp_bias=8, zp=None):
+        M, K = a.shape
+        if M > 32:
+            return orig(a, b_q, scales, group_size, zp_bias, zp)
+        N = b_q.shape[0]
+        c = torch.empty((M, N), dtype=a.dtype, device=a.device)
+        grid = (triton.cdiv(M, 16), triton.cdiv(N, 16))
+        kernel[grid](
+            # the zp pointer is unused when HAS_ZP is False; any tensor will do
+            a, b_q, scales, zp if zp is not None else scales, c,
+            M, N, K, K // 8, K // group_size,
+            group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None,
+            BLOCK_M=16, BLOCK_N=16, BLOCK_K=min(128, group_size), num_warps=2, num_stages=1,
+        )
+        return c
+
+    hy.triton_w4a16_skinny_fmt_gemm = gemm
+    print("[lds-gate-patch] Triton M<=32 tile 16x16x128, 2 warps, 1 stage", file=sys.stderr, flush=True)
 
 
 class _Finder(importlib.abc.MetaPathFinder):

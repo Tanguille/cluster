@@ -153,10 +153,13 @@ spec:
       # Reloader reads workload metadata, not pod-template annotations
       deployAnnotations:
         reloader.stakater.com/auto: "true"
-      # CPU only: chart default 500m vs ~13m observed; memory left at chart default
+      # chart default 500m cpu vs ~13m observed; 30d peak 189Mi vs 500Mi request
       resources:
         requests:
           cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
       strategy:
         type: RollingUpdate
       env:
@@ -214,10 +217,13 @@ spec:
       enabled: true
       deployAnnotations:
         reloader.stakater.com/auto: "true"
-      # CPU only, as for lapi/agent: chart default 500m vs 3m observed
+      # chart default 500m cpu vs 3m observed; 30d peak 90Mi vs 250Mi request
       resources:
         requests:
           cpu: 100m
+          memory: 128Mi
+        limits:
+          memory: 256Mi
       # Serves the envoy bouncer's WAF calls on crowdsec-appsec-service:7422
       acquisitions:
         - source: appsec

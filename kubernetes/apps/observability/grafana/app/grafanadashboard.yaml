@@ -24,3 +24,21 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/grafana/dashboards/grafana-overview.json
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: k8s-dashboard
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: kubernetes
+  datasources:
+    - datasourceName: prometheus
+      inputName: DS__VICTORIAMETRICS-PROD-ALL
+  grafanaCom:
+    id: 15661
+    revision: 2

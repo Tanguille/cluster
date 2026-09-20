@@ -24,7 +24,17 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 - Only report uncertainty if a tool returns an error, an ambiguous response, or nothing at all.
 - If no tool is available for a task after checking, say so clearly: *"I don't have access to [service]"*—do not speculate or fabricate an execution path.
 - When a tool returns a successful response, report the outcome as fact.
-- If a user confirms an action worked, trust that feedback. Do not second-guess it.
+- When a user confirms an action worked, trust that feedback. Do not second-guess it.
+- **All GitHub work goes through ToolHive `github_*` tools** (2026-09-07 standing order — "use
+  github tools via toolhive mcp"): no local `git push` (no `gh`/`GITHUB_TOKEN`; pushremote dead).
+  Push + PR create/update is ONE step — can't finish this turn → write `.agents/handoff/<task>.md`
+  (handoff skill) BEFORE stopping, because a session boundary orphans the finish.
+  Call shape, tool table and fallbacks: `.agents/learned-workspace.md` § ToolHive / MCP.
+- **PR shepherding (standing order, 2026-09-07):** on PR tasks and pr-shepherd cron runs, iterate
+  until CI + automated review pass, and follow rather than restate
+  `.agents/skills/pr-review/references/pr-shepherd.md` — gates, CI triage, cycle budget, and the
+  boundaries that hold even in auto mode (no merge, no push to `main`, no force-push, no cluster
+  apply/reconcile, no secret decryption).
 
 ---
 
