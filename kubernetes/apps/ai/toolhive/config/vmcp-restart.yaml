@@ -48,13 +48,17 @@ kind: CronJob
 metadata:
   name: vmcp-restart
 spec:
-  schedule: "30 3 1/5 * *"
+  # Explicit day list instead of 1/5: the step form drifts at month boundaries
+  # and can restart on consecutive calendar days (26th + 31st).
+  schedule: "30 3 1,6,11,16,21,26 * *"
   timeZone: ${TIMEZONE}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
+      # Don't start a missed run after 04:30 (quiet-window cutoff).
+      startingDeadlineSeconds: 3600
       backoffLimit: 1
       activeDeadlineSeconds: 300
       template:
