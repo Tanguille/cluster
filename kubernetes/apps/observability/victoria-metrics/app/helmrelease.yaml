@@ -378,7 +378,10 @@ spec:
               - alert: OomKilled
                 annotations:
                   summary: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has been OOMKilled {{ $value }} times in the last 10 minutes.
-                expr: (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
+                # namespace=ai is excluded: AiContainerOOMKilled (toolhive config prometheusrule)
+                # covers it with the vmcp-aware runbook. Both firing meant two Discord
+                # pages for one event (critical here, warning there).
+                expr: (kube_pod_container_status_restarts_total{namespace!="ai"} - kube_pod_container_status_restarts_total{namespace!="ai"} offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{namespace!="ai",reason="OOMKilled"}[10m]) == 1
                 labels:
                   severity: critical
               - alert: OomStorm

@@ -201,7 +201,10 @@
       description: "ToolHive MCP server images group",
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"]
+      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
+      // vmcp-restart.yaml's kubectl image: excluded so a kubectl bump doesn't ride
+      // along with the MCP server images in this group.
+      excludePackageNames: ["registry.k8s.io/kubectl"]
     },
     {
       description: "VectorChord CNPG images and Memini database version",

@@ -59,6 +59,10 @@ spec:
                 cpu: 1
                 memory: 512Mi
 
+    defaultPodOptions:
+      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
+      priorityClassName: homelab-important
+
     persistence:
       data:
         enabled: false

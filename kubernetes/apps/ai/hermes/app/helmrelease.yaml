@@ -12,6 +12,9 @@ spec:
 
   values:
     defaultPodOptions:
+      # 5000 (homelab-important): under memory pressure, evicted before an llmkube model
+      # (llmkube-normal 10000, 60-min cold start) but after every unclassified pod (0).
+      priorityClassName: homelab-important
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 90
       securityContext:

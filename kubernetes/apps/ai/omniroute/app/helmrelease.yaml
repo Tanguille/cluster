@@ -55,6 +55,8 @@ spec:
                 cpu: 1000m
                 memory: 2Gi
     defaultPodOptions:
+      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
+      priorityClassName: homelab-important
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

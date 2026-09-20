@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: k8s-gateway
+spec:
+  # 2 replicas hard-spread over 3 nodes (TSC in the HelmRelease values). The chart
+  # ships no PDB template of its own, so drain protection lives here.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k8s-gateway

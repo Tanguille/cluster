@@ -40,7 +40,9 @@ spec:
               {{ $value | humanizePercentage }} of its memory limit
             description: >-
               If this is vmcp (pod unified-*): expected, it leaks and this is the
-              warning shot. Restart it deliberately at a quiet moment --
+              warning shot. The vmcp-restart CronJob restarts it every ~5 days at
+              03:30, so firing ahead of that means the leak rate grew -- restart
+              it deliberately at a quiet moment --
               `kubectl rollout restart deploy/unified -n ai` -- rather than
               letting it OOM. A deliberate restart drains cleanly in the 60s
               grace period; an OOM kill is exit 137 mid-drain. Cost either way is
