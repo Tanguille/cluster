@@ -1,0 +1,40 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Charts Mirror Check
+
+# home-operations/charts-mirror drops a chart once upstream publishes its own OCI
+# chart; Renovate can't tell "package vanished" from "no update" and just stops
+# offering bumps (crowdsec sat on 0.20.1 for months). Fail here instead.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 6 * * 1 # Weekly on Monday
+
+permissions:
+  contents: read
+
+jobs:
+  main:
+    name: Charts Mirror Check - Verify mirrored charts still exist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            kubernetes
+            bootstrap
+
+      - name: Check charts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          charts=$(grep -rhoP 'oci://ghcr.io/home-operations/charts-mirror/\K[a-z0-9-]+' kubernetes bootstrap | sort -u)
+          # Empty means the grep pattern drifted from the manifests, not that nothing is mirrored.
+          test -n "${charts}" || { echo "no charts-mirror references found"; exit 1; }
+          mirrored=$(gh api repos/home-operations/charts-mirror/git/trees/HEAD:apps --jq '.tree[].path' | sort -u)
+          removed=$(comm -23 <(echo "${charts}") <(echo "${mirrored}"))
+          test -z "${removed}" || { echo "removed from charts-mirror, switch to the upstream OCI chart:"; echo "${removed}"; exit 1; }
+          echo "${charts}"

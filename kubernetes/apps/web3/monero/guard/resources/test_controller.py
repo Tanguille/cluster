@@ -396,6 +396,56 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(guard.policies["control-1"].max_gap, controller.CPU_SAMPLE_MAX_AGE_SECONDS)
         self.assertEqual(guard.policies["control-2"].max_gap, controller.SOURCE_SAMPLE_MAX_AGE_SECONDS)
 
+    def test_stale_source_error_names_the_offending_key(self):
+        # control-1's 465 self-invalidations logged only "stale or future source": which of
+        # host/presence/xmrig tripped was not recoverable from the logs. The message must name
+        # the failing key so the responsible scrape can be read off the log line.
+        guard = controller.GuardController(Mock())
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        stale = base - timedelta(seconds=controller.CPU_SAMPLE_MAX_AGE_SECONDS + 1)
+        samples = {
+            "host": controller.Source(30, stale),
+            "presence": controller.Source(30, base),
+            "xmrig": controller.Source(5, stale),
+        }
+        with self.assertRaises(ValueError) as ctx:
+            guard._evaluate_freshness("control-1", samples, base)
+        self.assertEqual(str(ctx.exception), "stale or future source: host, xmrig")
+
+    def test_future_source_error_names_the_offending_key(self):
+        # a clock skew ahead of the wall clock trips the same gate, and so must be attributed
+        guard = controller.GuardController(Mock())
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        future = base + timedelta(seconds=1)
+        with self.assertRaises(ValueError) as ctx:
+            guard._evaluate_freshness("control-1", {"host": controller.Source(30, base), "presence": controller.Source(30, future)}, base)
+        self.assertEqual(str(ctx.exception), "stale or future source: presence")
+
+    def test_empty_source_set_names_itself(self):
+        guard = controller.GuardController(Mock())
+        with self.assertRaises(ValueError) as ctx:
+            guard._evaluate_freshness("control-1", {}, datetime(2026, 1, 1, tzinfo=UTC))
+        self.assertEqual(str(ctx.exception), "stale or future source: empty sample set")
+
+    def test_stale_source_error_reaches_the_log_via_evaluate(self):
+        # end-to-end: a stale host sample flows from query_cpu through evaluate into the log
+        # line with the key attributed, not a bare "stale or future source"
+        telemetry = Mock()
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        stale = base - timedelta(seconds=controller.CPU_SAMPLE_MAX_AGE_SECONDS + 1)
+        telemetry.query_cpu.return_value = controller.CPUObservation(
+            controller.Source(30, stale), controller.Source(5, stale), controller.Source(30, base))
+        telemetry.query_nvme.side_effect = ValueError("not exercised")
+        guard = controller.GuardController(telemetry, clock=lambda: 0, wall_clock=lambda: base)
+        with self.assertLogs(level="ERROR") as captured:
+            guard.evaluate(base)
+        self.assertEqual(guard.metrics["query_errors"]["control-1"], 1)
+        failed = [line for line in captured.output if "evaluation failed for control-1" in line]
+        self.assertEqual(len(failed), 1)
+        self.assertIn("host", failed[0])
+        self.assertIn("xmrig", failed[0])
+        self.assertNotIn("presence", failed[0])
+
     def test_failure_invalidates_values(self):
         telemetry = Mock()
         telemetry.query_nvme.side_effect = ValueError("offline")

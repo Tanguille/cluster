@@ -11,7 +11,8 @@ spec:
   source: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf
   refreshPolicy: OnChange
   # Q4_K_M (~1.18 GiB) is the speed/quality sweet spot on the RDNA2 iGPU
-  # (measured 43 tok/s decode, 513 tok/s prefill); Q8 would ~double the footprint
+  # (measured 43 tok/s decode, 513 tok/s prefill); Q8 would ~double the
+  # footprint
   # for marginal gain on easy offload tasks.
   quantization: Q4_K_M
   hardware:
@@ -33,16 +34,18 @@ spec:
   modelRef: qwen35-2b
   # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:94bd70ef60ef6d670c85999c144f59013e06525d9ee26b3563ab9b2f29d1ea41
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:4321158cf5d0393b7a26e8bef7d68f7fc6eeccca95ad215ff5dde179f316e803
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  # llama.cpp splits contextSize across parallelSlots, so 32768/2 = 16384 per slot.
+  # llama.cpp splits contextSize across parallelSlots, so 32768/2 = 16384 per
+  # slot.
   # GDN keeps KV tiny, so long ctx is cheap; 16K per slot is plenty for offload.
   contextSize: 32768
   jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
   extraArgs:
     - "--alias"
     - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
-    # Unsloth's recommended non-thinking sampling for Qwen3.5 Small (repeats otherwise);
+    # Unsloth's recommended non-thinking sampling for Qwen3.5 Small (repeats
+    # otherwise);
     # set here since litellm's auto-registered alias carries no sampling params.
     - "--temp"
     - "0.7"
@@ -51,22 +54,20 @@ spec:
     - "--presence-penalty"
     - "1.5"
     # Qwen3.5's chat template thinks by default; without this it burns the whole
-    # output budget on reasoning_content and returns empty content (verified live
-    # 2026-08-02). Sampling flags above don't touch this — it's a template setting.
+    # output budget on reasoning_content and returns empty content (verified
+    # live
+    # 2026-08-02). Sampling flags above don't touch this — it's a template
+    # setting.
     - "--reasoning"
     - "off"
 
-  # Both iGPU nodes advertise 2 squat.ai/dri slots; the embedders pair up on
-  # qwen3-embedding's node (via podAffinity there), leaving the other iGPU
-  # node's slots for this model — amd.com/igpu narrows it to those two nodes.
+  # Both iGPU nodes advertise 2 squat.ai/dri slots; amd.com/igpu narrows it to
+  # those two nodes.
   nodeSelector:
     amd.com/igpu: "true"
 
-  # Keep off the embedder pair's node. vmcp-embedding hard-requires
-  # qwen3-embedding's node, so if this model shares it (happened 2026-07-03:
-  # a reshuffle put both on control-2), it takes the second dri slot and
-  # vmcp-embedding goes Pending — hanging vmcp-unified's tools/list on the
-  # optimizer's 120s embed timeout.
+  # One iGPU model per node; both sides carry the rule because anti-affinity is
+  # only checked for the moving pod.
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -86,7 +87,7 @@ spec:
   # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
-    # ~2.4 GiB resident under load, 405Mi idle working set; requested low
-    # (no limit set by llmkube) so it schedules and bursts into free RAM.
+    # Request AND limit (llmkube >= 0.9.29); 7d max working set 271Mi, the rest
+    # is GTT headroom memcg cannot see.
     memory: 1Gi
   # endpoint omitted — operator defaults to a ClusterIP Service on :8080.

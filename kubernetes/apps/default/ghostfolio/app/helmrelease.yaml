@@ -26,7 +26,7 @@ spec:
           app:
             image:
               repository: docker.io/ghostfolio/ghostfolio
-              tag: 3.69.0@sha256:66d56cb912901ff25afe82c593d080704b3658a24ee9692a7fe242a11c818d19
+              tag: 3.71.0@sha256:e1be012165cfff65771b7e10eaf10ef7c15799664318fec72697f2b2245a6a64
             env:
               PORT: "3333"
               REDIS_HOST: dragonfly.database.svc.cluster.local
@@ -75,6 +75,9 @@ spec:
                     port: 3333
                   failureThreshold: 30
                   periodSeconds: 5
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 10m

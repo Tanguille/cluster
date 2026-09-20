@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: karakeep-sidecars-ingress-allowlist
+spec:
+  # chrome (:9222 remote debugging, no auth) and meilisearch (:7700) exist only
+  # for the karakeep app container (BROWSER_WEB_URL / MEILI_ADDR in the
+  # helmrelease). Ingress only; egress stays open.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: karakeep
+    matchExpressions:
+      - key: app.kubernetes.io/controller
+        operator: In
+        values: [chrome, meilisearch]
+  ingress:
+    # kubelet probes.
+    - fromEntities:
+        - host
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: default
+            app.kubernetes.io/name: karakeep
+            app.kubernetes.io/controller: karakeep
+      toPorts:
+        - ports:
+            - port: "9222"
+              protocol: TCP
+            - port: "7700"
+              protocol: TCP
+    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
+    # ephemeral not 53.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns

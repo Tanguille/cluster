@@ -21,7 +21,7 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.9.13-96479fff6@sha256:ef87e0f28f21f069fbf8c3742da8648edcdc2dccc9232732d35fce1eb41b7861
+              tag: 2026.9.19-e831fc2a1@sha256:547fdc19b45510ea1c0bc65ffadab3fcdde1ab1efd7fe696602284ba54d795ca
             env:
               FORCE_OWNERSHIP: "false"
               GRANIAN_HOST: "::"
@@ -111,25 +111,19 @@ spec:
       config:
         type: configMap
         name: searxng-configmap
-        advancedMounts:
-          app:
-            app:
-              - path: /etc/searxng/settings.yml
-                subPath: settings.yml
-                readOnly: true
-              - path: /etc/searxng/limiter.toml
-                subPath: limiter.toml
-                readOnly: true
+        globalMounts:
+          - path: /etc/searxng/settings.yml
+            subPath: settings.yml
+            readOnly: true
+          - path: /etc/searxng/limiter.toml
+            subPath: limiter.toml
+            readOnly: true
       tmp:
         type: emptyDir
         medium: Memory
-        advancedMounts:
-          app:
-            app:
-              - path: /tmp
+        globalMounts:
+          - path: /tmp
       cache:
         type: emptyDir
-        advancedMounts:
-          app:
-            app:
-              - path: /var/cache/searxng
+        globalMounts:
+          - path: /var/cache/searxng
