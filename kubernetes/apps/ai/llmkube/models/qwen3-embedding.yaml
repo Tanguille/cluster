@@ -9,7 +9,8 @@ spec:
   # negligible loss on similarity search (194-item batch, ~10s isolated /
   # 19-52s under 3x concurrent).
   # Revision-pinned (immutable bytes) — Renovate bumps the sha via the git-refs
-  # manager in .renovaterc.json5; refreshPolicy makes the bump actually re-fetch.
+  # manager in .renovaterc.json5; refreshPolicy makes the bump actually
+  # re-fetch.
   source: https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/370f27d7550e0def9b39c1f16d3fbaa13aa67728/Qwen3-Embedding-0.6B-Q8_0.gguf
   quantization: Q8_0
   refreshPolicy: OnChange
@@ -21,7 +22,8 @@ spec:
       vendor: amd
       runtime: vulkan
       layers: -1
-      # Slot counts live at the device plugin (kube-system/generic-device-plugin);
+      # Slot counts live at the device plugin
+      # (kube-system/generic-device-plugin);
       # nodeSelector below pins this to the iGPU.
       resourceName: squat.ai/dri
 ---
@@ -36,28 +38,34 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:405442e3544f05026399dcc71cf322f484915f69ed3b429b497af15516263603
-  # 4 slots (was 2): vmcp-embedding consolidated onto this model 2026-09-15, so the
-  # 194-tool search and memini now share one embedder; 4 slots keep the 194-item batch
-  # from queueing behind memini (bench: 7.07s median for the 194-tool batch isolated,
-  # 120s is the toolhive timeout). Vulkan warmup hangs at parallel=1 (llama.cpp #24307).
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:4321158cf5d0393b7a26e8bef7d68f7fc6eeccca95ad215ff5dde179f316e803
+  # 4 slots: the 194-tool search and memini share one embedder; keeps the
+  # 194-item batch
+  # from queueing behind memini (bench: 7.07s median for the 194-tool batch
+  # isolated,
+  # 120s is the toolhive timeout). Vulkan warmup hangs at parallel=1 (llama.cpp
+  # #24307).
   parallelSlots: 4
   # 30d peak prompt is 4030 tokens, and llama.cpp sizes each slot's context as
-  # contextSize/parallelSlots: 20480/4 = 5120 per slot, the same 5120 the old 10240/2
-  # gave — ~27% headroom over the 4030 peak (4096/slot would leave only 66). Anything
+  # contextSize/parallelSlots: 20480/4 = 5120 per slot, the same 5120 the old
+  # 10240/2
+  # gave — ~27% headroom over the 4030 peak (4096/slot would leave only 66).
+  # Anything
   # an input overruns fails the embedding outright.
   contextSize: 20480
   # No batchSize: llama.cpp forces n_batch = n_ubatch when embeddings are
   # enabled, so any value above uBatchSize is logged as a warning and discarded.
   # 512 over 2048: benchmarked identical on this iGPU (194-item batch 3.61s vs
   # 3.68s median, single 65ms vs 69ms, 4k input 402 vs 390 tok/s) while cutting
-  # GTT ~49%, since the attention scratch scales with the square of the micro-batch.
+  # GTT ~49%, since the attention scratch scales with the square of the
+  # micro-batch.
   uBatchSize: 512
   extraArgs:
     - "--alias"
     - "qwen3-embedding" # served model name memini sends in /v1/embeddings
     # Host prompt cache (default 8192 MiB) is never released: 100 distinct
-    # embedding requests took anon 0.08 -> 8.06 GiB. One-shot embeddings never hit it.
+    # embedding requests took anon 0.08 -> 8.06 GiB. One-shot embeddings never
+    # hit it.
     - "--cache-ram"
     - "0"
 
@@ -67,11 +75,8 @@ spec:
   nodeSelector:
     amd.com/igpu: "true"
 
-  # Mutual half of qwen35-2b's anti-affinity (see qwen35-2b.yaml). Anti-affinity
-  # is checked only at the moving pod's scheduling time, so the rule must exist
-  # on both sides: 2026-07-03 a reshuffle rolled this pod onto qwen35-2b's node,
-  # filling its 2 dri slots and re-stranding vmcp-embedding (which hard-follows
-  # this pod) in Pending.
+  # One iGPU model per node; both sides carry the rule because anti-affinity is
+  # only checked for the moving pod.
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -81,7 +86,7 @@ spec:
           topologyKey: kubernetes.io/hostname
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
-  # Mirrored by qwen35-2b and vmcp-embedding.
+  # Mirrored by qwen35-2b.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
@@ -91,9 +96,9 @@ spec:
 
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # ~3.1 GiB peak working set over 7 days at 2 slots; 6 GiB for 4 slots / 20480
-    # ctx (per-slot KV unchanged, 4x total) so the scheduler accounts for the
-    # model's UMA usage.
+    # Request AND limit (llmkube >= 0.9.29); working set <224Mi, the model
+    # buffer lives in amdgpu GTT which memcg does not charge, so this reserves
+    # UMA headroom for the scheduler.
     memory: 6Gi
   endpoint:
     path: /v1/embeddings

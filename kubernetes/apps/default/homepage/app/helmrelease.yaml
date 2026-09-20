@@ -20,7 +20,7 @@ spec:
           app:
             image:
               repository: ghcr.io/gethomepage/homepage
-              tag: v2.3.0
+              tag: v2.4.0
             env:
               TZ: ${TIMEZONE}
               LOG_TARGETS: stdout
@@ -85,8 +85,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
 
-    serviceAccount:
-      homepage: {}
+    # RBAC binds to the chart-default ServiceAccount (release name `homepage`).
 
     rbac:
       roles:
