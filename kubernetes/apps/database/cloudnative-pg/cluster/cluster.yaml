@@ -86,7 +86,8 @@ spec:
       # Cluster-wide cap: backends stack per database + overlap if one DB uses both rw poolers.
       # Keep above Σ(pooler instances × max_db_connections) for worst-case same-DB paths + replication/autovacuum/admin.
       max_connections: "150"
-      shared_buffers: 1GB
+      # nextcloud hot set is ~3GB (oc_filecache alone 2GB); at 1GB the daily hit ratio sat at 99.1-99.4%, ~19GiB/day misses
+      shared_buffers: 2GB
       effective_cache_size: 4GB
       # off, not the try default: no hugepages are reserved on any node, so try would log an allocation failure every start.
       huge_pages: "off"
@@ -155,10 +156,11 @@ spec:
   resources:
     requests:
       cpu: 500m
-      memory: 1Gi
+      memory: 2Gi
     limits:
       cpu: 4
-      memory: 3Gi
+      # primary working set peaked 1.85GiB at 1GB shared_buffers (30d)
+      memory: 4Gi
   monitoring:
     enablePodMonitor: true
   plugins:

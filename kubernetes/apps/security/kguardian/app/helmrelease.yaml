@@ -9,6 +9,21 @@ spec:
     kind: OCIRepository
     name: kguardian
   interval: 1h
+  # Chart 1.25.0 omits app.kubernetes.io/name from the broker Service
+  # while its ServiceMonitor selects on it (0 targets); add it back.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Service
+              name: kguardian-broker
+            patch: |-
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: not-used
+                labels:
+                  app.kubernetes.io/name: kguardian-broker
   values:
     # LLM via in-cluster LiteLLM gateway; key from cluster-secrets.
     ai:
