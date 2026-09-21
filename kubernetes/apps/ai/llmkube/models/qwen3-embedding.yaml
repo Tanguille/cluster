@@ -38,7 +38,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:6ddbd70711ffb743cd817d51fb659c17f5f06543a8e58e8c794659014ee1870f
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:0db4cbd35400e6b262dd24826006fb6c2c93eb9fdb0282dad5555483e0a8ab42
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch
   # from queueing behind memini (bench: 7.07s median for the 194-tool batch
