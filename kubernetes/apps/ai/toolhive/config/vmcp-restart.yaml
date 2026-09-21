@@ -52,13 +52,13 @@ spec:
   # and can restart on consecutive calendar days (26th + 31st).
   schedule: "30 3 1,6,11,16,21,26 * *"
   timeZone: ${TIMEZONE}
+  # Don't start a missed run after 04:30 (quiet-window cutoff).
+  startingDeadlineSeconds: 3600
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
-      # Don't start a missed run after 04:30 (quiet-window cutoff).
-      startingDeadlineSeconds: 3600
       backoffLimit: 1
       activeDeadlineSeconds: 300
       template:
