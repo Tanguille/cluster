@@ -45,7 +45,7 @@ flowchart LR
     Tanguille[👤 Operator] -->|git push| Repo[(📦 GitHub)]
     Renovate[🤖 Renovate] -.->|automated PRs| Repo
     Repo -->|reconciles| Flux[⚙️ Flux]
-    Flux -->|deploys| Cluster[☸️ Kubernetes on Talos<br/>3 nodes · 103 HelmReleases]
+    Flux -->|deploys| Cluster[☸️ Kubernetes on Talos<br/>3 nodes]
 
     Cluster --> Ceph[(🪨 Rook Ceph<br/>block + filesystem · default durable)]
     Cluster --> OEP[(🐂 OpenEBS Hostpath<br/>best-effort low latency tier)]
