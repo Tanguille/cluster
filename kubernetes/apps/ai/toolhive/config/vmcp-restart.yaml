@@ -1,12 +1,13 @@
 ---
 # Restarts the vmcp gateway (deploy/unified) on a schedule.
 #
-# vmcp leaks ~250 MiB/day (upstream stacklok/toolhive#5860, open) and OOMKills at its 2Gi
-# limit roughly every 6 days; every kill is exit 137 mid-drain plus a full optimizer
+# vmcp leaks 250-414 MiB/day (re-measured 2026-09-22 over 14d; upstream
+# stacklok/toolhive#5860, open) and OOMKills at its 2Gi limit in ~5 days at
+# the high end; every kill is exit 137 mid-drain plus a full optimizer
 # re-embed. A deliberate restart at a quiet hour drains cleanly in the 60s grace period.
-# Cadence of 5 days keeps the working set under ~1.3Gi, below the AiContainerMemoryNearLimit
-# 0.9 threshold; if that alert fires anyway the leak rate has grown, and the manual restart
-# in its runbook still applies.
+# Cadence of 4 days keeps the working set just under the AiContainerMemoryNearLimit
+# 0.9 threshold at the peak measured rate; if that alert fires anyway the leak
+# rate has grown, and the manual restart in its runbook still applies.
 #
 # Delete this file when #5860 is fixed upstream and the leak is gone.
 ---
@@ -48,9 +49,10 @@ kind: CronJob
 metadata:
   name: vmcp-restart
 spec:
-  # Explicit day list instead of 1/5: the step form drifts at month boundaries
-  # and can restart on consecutive calendar days (26th + 31st).
-  schedule: "30 3 1,6,11,16,21,26 * *"
+  # Explicit day list instead of 1-31/4: the step form drifts at month boundaries
+  # and can restart on consecutive calendar days. The 29->1 gap is 3 days --
+  # tighter, never looser, than the 4-day cadence the leak rate needs.
+  schedule: "30 3 1,5,9,13,17,21,25,29 * *"
   timeZone: ${TIMEZONE}
   # Don't start a missed run after 04:30 (quiet-window cutoff).
   startingDeadlineSeconds: 3600
