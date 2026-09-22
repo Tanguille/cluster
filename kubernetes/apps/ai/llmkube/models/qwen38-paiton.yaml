@@ -118,7 +118,8 @@ metadata:
   name: qwen38-paiton
 spec:
   # A/B candidate for qwen38-27b-vllm; one GPU, suspend prod before enabling.
-  # Base Qwen3.8 not Swift, text only, ~6 GiB KV vs prod's 9.5 GiB.
+  # Base Qwen3.8 not Swift, text only, ~6 GiB GPU KV vs prod's 9.5 GiB; same
+  # CPU + fs offload tiers as prod.
   suspend: true
   modelRef: qwen38-paiton
   runtime: vllm
@@ -153,9 +154,9 @@ spec:
     # bisect). Paiton tested one 200K sequence on 8 GiB at 0.98 utilisation.
     - --max-model-len
     - "131072"
-    # Launcher allows 1-8; prod runs 5, chat profile validated 1.
+    # Launcher allows 1-8; admission is token-aware, so match prod.
     - --max-num-seqs
-    - "3"
+    - "5"
     # Prod's knee; chat profile uses 1024, raise only if prefill OOMs.
     - --max-num-batched-tokens
     - "4096"
@@ -193,6 +194,11 @@ spec:
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
     - --enable-prompt-tokens-details
+    # Prod's tiers (see qwen38-27b-vllm.yaml). v0.29 supports hybrid models
+    # with APC on; untested with R4D + DFlash, drop it if boot fails.
+    - --kv-transfer-config
+    - >-
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":12884901888,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   env:
     - name: RADIANCE_GDN_LAZY
       value: "0"
@@ -200,18 +206,29 @@ spec:
       value: max_split_size_mb:64
     - name: GPU_MAX_HW_QUEUES
       value: "1"
+    # Seeds fs-tier block hashes.
+    - name: PYTHONHASHSEED
+      value: "0"
   extraVolumes:
     - name: cache
       persistentVolumeClaim:
         claimName: qwen38-paiton-compile-cache
+    # Prod's fs tier PVC: prod is suspended during an A/B, blocks are keyed
+    # per model, and its guard CronJob already bounds it.
+    - name: kv-offload
+      persistentVolumeClaim:
+        claimName: qwen38-27b-vllm-kv-offload
+    # = cpu_bytes_to_use + 2Gi.
     - name: dshm
       emptyDir:
         medium: Memory
-        sizeLimit: 2Gi
+        sizeLimit: 14Gi
   extraVolumeMounts:
     # Image points AITER/Triton/Inductor/vLLM caches at /cache.
     - name: cache
       mountPath: /cache
+    - name: kv-offload
+      mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
   nodeSelector:
@@ -224,7 +241,8 @@ spec:
       type: RuntimeDefault
   resources:
     cpu: "2"
-    memory: 16Gi
+    # Prod's: tmpfs is charged, 12Gi shm + anon.
+    memory: 24Gi
   endpoint:
     port: 8000
   probeOverrides:
