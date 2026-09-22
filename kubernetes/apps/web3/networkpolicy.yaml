@@ -1,0 +1,53 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: web3-ingress-allowlist
+  namespace: web3
+spec:
+  # endpointSelector {} => default-deny ingress for every pod in the
+  # namespace, same shape as ai/ and database/networkpolicy.yaml. Egress
+  # stays default-allow (monerod peer sync is outbound, xmrig stratum +
+  # pool traffic).
+  endpointSelector: {}
+  ingress:
+    # Namespaces that actually talk to web3 pods, discovered from the repo:
+    # observability = vmagent scraping guard's ServiceMonitor; network =
+    # envoy-internal fronting the dashboard HTTPRoute; web3 = intra-ns
+    # (p2pool -> monerod rpc/zmq, xmrig -> p2pool stratum, guard -> xmrig).
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: web3
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
+        # ephemeral not 53.
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+    - fromEntities:
+        # kubelet probes.
+        - host
+    # monerod and p2pool publish LoadBalancer services; their
+    # loadBalancerSourceRanges (LAN_CIDR) is the real gate — this only lets
+    # the LAN traffic that passes it reach the pods (externalTrafficPolicy
+    # Local preserves the client source IP, so it arrives as world).
+    - fromEntities:
+        - world
+      toPorts:
+        - ports:
+            # monerod: p2p, zmq, restricted rpc
+            - port: "18080"
+              protocol: TCP
+            - port: "18083"
+              protocol: TCP
+            - port: "18089"
+              protocol: TCP
+            # p2pool: stratum, p2p
+            - port: "3333"
+              protocol: TCP
+            - port: "37890"
+              protocol: TCP
