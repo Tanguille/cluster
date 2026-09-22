@@ -107,6 +107,16 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
+            # tcp: 9222 is the remote-debugging endpoint; only the socket
+            # being open says the browser is up and accepting work.
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: &port 9222
+              readiness: *probe
             resources:
               requests:
                 cpu: 10m
@@ -153,6 +163,15 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: &port 7700
+              readiness: *probe
             resources:
               requests:
                 cpu: 10m

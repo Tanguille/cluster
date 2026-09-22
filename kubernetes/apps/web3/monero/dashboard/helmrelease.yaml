@@ -31,6 +31,15 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 80
+              readiness: *probe
           dashboard-server:
             image:
               repository: python
@@ -55,6 +64,17 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+            # Any JSON endpoint proves the HTTP server is up and the config
+            # mounted; /monerod_stats also exercises the monerod RPC client.
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /monerod_stats
+                    port: &port 8080
+              readiness: *probe
             resources:
               requests:
                 cpu: 10m
