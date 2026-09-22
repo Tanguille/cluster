@@ -1,0 +1,32 @@
+version = 1
+
+# Scoped to the code this repo actually runs: the python bench/kernel tooling
+# (docs/llm-hosting/bench, docker/talos-kernel), its bash scripts, and the one
+# Dockerfile. JavaScript is dropped -- the only two .js files are ConfigMap-
+# mounted dashboard assets. **/resources/** excludes side-loaded .py payloads
+# that execute inside workloads rather than as repo code.
+exclude_patterns = [
+  "**/resources/**",
+]
+
+[[analyzers]]
+name = "python"
+enabled = true
+
+  [analyzers.meta]
+  runtime_version = "3.x.x"
+
+[[analyzers]]
+name = "shell"
+enabled = true
+
+  [analyzers.meta]
+  dialect = "bash"
+
+[[analyzers]]
+name = "docker"
+enabled = true
+
+  [analyzers.meta]
+  # Default is ["Dockerfile"]; this repo's only Dockerfile is not at the root
+  dockerfile_paths = ["docker/talos-kernel/Dockerfile"]
