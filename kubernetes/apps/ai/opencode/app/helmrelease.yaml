@@ -59,6 +59,8 @@ spec:
                 memory: 2Gi
 
     defaultPodOptions:
+      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
+      priorityClassName: homelab-important
       # No ServiceAccount, Role or ClusterRole exists for opencode; it reaches litellm and vmcp
       # over HTTP only, so the default SA token is unused reach.
       automountServiceAccountToken: false

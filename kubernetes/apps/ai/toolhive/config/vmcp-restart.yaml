@@ -1,0 +1,92 @@
+---
+# Restarts the vmcp gateway (deploy/unified) on a schedule.
+#
+# vmcp leaks ~250 MiB/day (upstream stacklok/toolhive#5860, open) and OOMKills at its 2Gi
+# limit roughly every 6 days; every kill is exit 137 mid-drain plus a full optimizer
+# re-embed. A deliberate restart at a quiet hour drains cleanly in the 60s grace period.
+# Cadence of 5 days keeps the working set under ~1.3Gi, below the AiContainerMemoryNearLimit
+# 0.9 threshold; if that alert fires anyway the leak rate has grown, and the manual restart
+# in its runbook still applies.
+#
+# Delete this file when #5860 is fixed upstream and the leak is gone.
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vmcp-restart
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/role_v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: vmcp-restart
+rules:
+  # `kubectl rollout restart` is a get + patch of the pod template; scoped to the one
+  # deployment so the token cannot touch anything else in the namespace.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    resourceNames: ["unified"]
+    verbs: ["get", "patch"]
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/rbac.authorization.k8s.io/rolebinding_v1.json
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: vmcp-restart
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: vmcp-restart
+subjects:
+  - kind: ServiceAccount
+    name: vmcp-restart
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/batch/cronjob_v1.json
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vmcp-restart
+spec:
+  # Explicit day list instead of 1/5: the step form drifts at month boundaries
+  # and can restart on consecutive calendar days (26th + 31st).
+  schedule: "30 3 1,6,11,16,21,26 * *"
+  timeZone: ${TIMEZONE}
+  # Don't start a missed run after 04:30 (quiet-window cutoff).
+  startingDeadlineSeconds: 3600
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 300
+      template:
+        spec:
+          serviceAccountName: vmcp-restart
+          restartPolicy: Never
+          automountServiceAccountToken: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: kubectl
+              # Skew-matched to the 1.37 server; Renovate bumps it.
+              image: registry.k8s.io/kubectl:v1.37.0
+              args:
+                - rollout
+                - restart
+                - deployment/unified
+                - -n
+                - ai
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: ["ALL"] }
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi

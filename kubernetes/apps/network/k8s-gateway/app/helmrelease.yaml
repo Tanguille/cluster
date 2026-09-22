@@ -12,6 +12,14 @@ spec:
   values:
     fullnameOverride: k8s-gateway
     replicaCount: 2
+    # Chart has no PDB template; app/pdb.yaml covers drain protection
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: k8s-gateway
     resources:
       requests:
         cpu: 10m
