@@ -43,6 +43,15 @@ spec:
                 drop:
                   - ALL
               readOnlyRootFilesystem: true
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: &port 8080
+              readiness: *probe
 
     service:
       app:
