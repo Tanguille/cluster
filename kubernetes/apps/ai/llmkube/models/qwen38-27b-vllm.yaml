@@ -290,8 +290,13 @@ spec:
     runAsUser: 0
     runAsGroup: 0
     supplementalGroups: [44, 226]
+    # RuntimeDefault: ROCm compute (kfd ioctls, /dev/dri, /dev/shm) and the
+    # band-detection liveness probe (curl + /sys reads) all pass the default
+    # profile. Unconfined was set at the 3.8 cutover (#4509) as a blanket
+    # precaution, not to fix a syscall failure. Watch VLLMDecodeStepLatched /
+    # TTFT after rollout; revert this one field if serving fails to boot.
     seccompProfile:
-      type: Unconfined
+      type: RuntimeDefault
   resources:
     cpu: "2"
     # Request AND limit (llmkube >= 0.9.29). tmpfs is charged: 12Gi shm + anon
