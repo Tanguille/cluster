@@ -1,0 +1,94 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: bge-reranker-v2-m3
+spec:
+  # Q8_0: 270M-param cross-encoder, ranking is a scoring pass not generation,
+  # so quantization error barely moves relative order. Revision-pinned
+  # (immutable bytes) — Renovate bumps the sha via the git-refs manager in
+  # .renovaterc.json5.
+  source: https://huggingface.co/cstr/bge-reranker-v2-m3-GGUF/resolve/4419fcb3a35cce62c0f48dd965522b0f995e8320/bge-reranker-v2-m3-q8_0.gguf
+  quantization: Q8_0
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: vulkan
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: vulkan
+      layers: -1
+      # Slot counts live at the device plugin
+      # (kube-system/generic-device-plugin);
+      # nodeSelector below pins this to the iGPU.
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: bge-reranker-v2-m3
+spec:
+  modelRef: bge-reranker-v2-m3
+  # mode: rerank — LLMKube >= 0.9.17 (running 0.9.29) auto-appends
+  # --reranking --embedding --pooling rank --cache-ram 0 to the llama.cpp
+  # server, so none of it is repeated in extraArgs (any flag set there wins
+  # and suppresses the auto-append).
+  mode: rerank
+  # Same GTT-leak mitigation as the embedder; one rerank call per recall,
+  # small pool, short-lived.
+  maxPodLifetimeSeconds: 86400
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:6ddbd70711ffb743cd817d51fb659c17f5f06543a8e58e8c794659014ee1870f
+  # memini reranks a pool of <=50 short memory snippets: one forward pass per
+  # candidate, all tiny. 2 slots so a second recall can interleave instead of
+  # queueing behind a full pool; context is 1024 (the model's trained limit),
+  # 1024/2 = 512 per slot — plenty for a single query + one snippet.
+  parallelSlots: 2
+  contextSize: 1024
+  extraArgs:
+    - "--alias"
+    - "bge-reranker-v2-m3" # served model name memini sends in the rerank body
+
+  # Pin to the iGPU node; without this the scheduler could place it on the dGPU
+  # node (which also advertises squat.ai/dri) and steal a dGPU slot from the
+  # 27B serving pod.
+  nodeSelector:
+    amd.com/igpu: "true"
+
+  # Soft anti-affinity (not required): spreads this third iGPU model across the
+  # two iGPU nodes with the existing two. Required anti-affinity would be
+  # unsatisfiable (3 models, 2 nodes) and the pod would sit unscheduled.
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: qwen3-embedding
+            topologyKey: kubernetes.io/hostname
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: qwen35-2b
+            topologyKey: kubernetes.io/hostname
+
+  # Render/video host groups for /dev/dri — the documented Vulkan-runtime
+  # path. Mirrored by qwen3-embedding / qwen35-2b.
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+
+  resources:
+    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
+    # 270M params Q8_0 is a ~300MiB model; 1Gi reserves UMA headroom for the
+    # scheduler the way the 6Gi does for the 0.6B embedder.
+    memory: 1Gi
+  endpoint:
+    path: /v1/rerank
