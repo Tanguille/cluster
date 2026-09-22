@@ -124,8 +124,10 @@ spec:
     runAsUser: 0
     runAsGroup: 0
     supplementalGroups: [44, 226]
+    # See qwen38-27b-vllm.yaml: Unconfined was a cutover precaution, not a
+    # workaround for a failing syscall.
     seccompProfile:
-      type: Unconfined
+      type: RuntimeDefault
   resources:
     # cpu 3 because 7665m is already requested (11 cores total); 4 would not
     # schedule.

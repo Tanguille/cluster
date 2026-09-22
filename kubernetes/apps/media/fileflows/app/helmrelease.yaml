@@ -63,6 +63,16 @@ spec:
               TZ: ${TIMEZONE}
               PUID: "568"
               PGID: "568"
+            # tcp, not http: the .NET app answers / with a redirect to the
+            # login flow, which is a weaker signal than the listener itself.
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: &port 5000
+              readiness: *probe
             resources:
               requests:
                 cpu: 100m
