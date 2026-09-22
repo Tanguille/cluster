@@ -103,11 +103,31 @@ SWE-bench Pro 61.7, Terminal-Bench 2.1 73.0 and QwenSWEBench 79.0 for the base.
   129 min x 20 / 9 = 4.8 h vs 64 x 20 / 5 = 4.3 h) for ~1.8x the solves.
 - Interactive default: medium. Same score as low, twice as fast per trial as
   xhigh, most near misses.
-- Never route agentic work to thinking off.
+- Low saves nothing on agentic work. On the 6 tasks with token counts at every
+  level, output per task was low 82K / medium 64K / xhigh 89K: low spends 28%
+  more than medium for the same 5/20. Output per step barely moves with effort
+  (low 668 / medium 620 / xhigh 710), so lower effort buys fewer thorough
+  steps, not cheaper ones. n=6 and skewed to long tasks; one-shot brevity
+  prompts are not covered by this benchmark.
+- Thinking off: never for multi-step tool work. It stays fine for single-shot
+  calls with no tool loop (karakeep tagging, Hermes context compression), which
+  DeepSWE does not measure.
 - Context: peak > 131K in 12/20 medium and 16/20 xhigh trials, max 228K.
   Prod's 246,944 covers every trial. The Paiton candidate (#5200) at
   `--max-model-len 131072` would truncate most agentic runs; an agentic A/B
   needs >= ~230K, otherwise judge it on chat and throughput only.
+
+## Effort routing changes
+
+| where | before | after |
+| --- | --- | --- |
+| Hermes `qwen38-effort-router` (PVC, not in git), greeting as first message | thinking off for the whole session | medium |
+| same, session with tool turns | low | medium, xhigh when the text contains code |
+| same, brevity / debug-math-long prompts | low / xhigh | unchanged |
+| PR reviewer fallback (litellm `fallbacks` + `ai_fallback_model`) | `qwen-3.8-fast` (thinking off) | `qwen-3.8` (medium) |
+
+The router picks once per session: switching effort mid-conversation changes
+the templated prefix and busts the prefix cache.
 
 ## vLLM bump 0821cdd -> 5eb0411
 
