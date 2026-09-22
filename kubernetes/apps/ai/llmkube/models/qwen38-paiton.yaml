@@ -130,8 +130,7 @@ spec:
   # The image's launcher (paiton_vllm_plugin.dflash.serve); with command set,
   # llmkube passes args verbatim instead of building a vllm serve line.
   command: [/usr/local/bin/paiton-qwen38]
-  # The image's own Cmd plus its `--profile chat` overrides (APC on, mamba
-  # align, RADIANCE_GDN_LAZY=0, alloc conf), resized for prod's traffic.
+  # Image Cmd + its launcher's `--profile chat` deltas, resized for prod.
   args:
     - serve
     # llmkube's cache dir: sha256(Model.spec.source)[:16]; recompute on a bump.
