@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-ingress-allowlist
+  namespace: default
+spec:
+  # Same shape as ai/ and database/networkpolicy.yaml — default-deny ingress
+  # for every pod in the namespace, except moonraker-obico: it is the one
+  # hostNetwork pod here, its nginx only binds 127.0.0.1:7125, and janus
+  # WebRTC streams on host UDP ports whose sources this namespace-level
+  # policy cannot express. Its per-pod risk is unchanged from today.
+  # Per-pod allowlists (changedetection, karakeep, searxng) stay and union
+  # with this one. Egress stays default-allow.
+  endpointSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: NotIn
+        values:
+          - moonraker-obico
+  ingress:
+    # Namespaces that actually talk to default pods, discovered from the
+    # repo: ai = ToolHive MCP backends (searxng, karakeep, ghostfolio);
+    # observability = nextcloud-exporter probing nextcloud:8080; network =
+    # envoy-internal/envoy-external fronting the HTTPRoutes;
+    # actions-runner-system = the pr-review runner's searxng search_url;
+    # default = intra-ns (karakeep <-> chrome/meilisearch, nextcloud <->
+    # notify-push, obico <-> ml-api).
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: default
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+        - matchLabels:
+            io.kubernetes.pod.namespace: actions-runner-system
+        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
+        # ephemeral not 53.
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+    - fromEntities:
+        # kubelet probes.
+        - host
