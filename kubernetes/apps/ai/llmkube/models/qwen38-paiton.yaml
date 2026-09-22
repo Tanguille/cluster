@@ -1,0 +1,244 @@
+---
+# Target 23.44 GB + DFlash2 draft 2.12 GB, node-local like the prod checkpoint.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-paiton-model-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 32Gi
+---
+# AITER/Triton/Inductor/vLLM caches; A/B windows restart the engine repeatedly.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-paiton-compile-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Stages the DFlash2 draft (llmkube downloads only the modelRef) and pre-pulls
+# the 9.6 GB image.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: qwen38-paiton-stage
+  annotations:
+    # Job templates are immutable; let Flux recreate it when this spec changes.
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      # openebs-hostpath binds to the first consumer's node; must be the GPU node.
+      nodeSelector:
+        amd.com/gpu: "true"
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: stage
+          image: ghcr.io/eliovp/paiton-vllm-plugin:qwen38-rocm10-vllm029-65k-20260920-r2@sha256:791c09ec96626fcd33fa873d3e92dca208bb43b513317a00d7584ec730b4dabd
+          command:
+            - python3
+            - -c
+            - |
+              from huggingface_hub import snapshot_download
+              snapshot_download("tcclaviger/Qwen3.8-27B-DFlash2-FP8",
+                  revision="ee0cb26a8279b7910cc28d82a8a3e15e4728d56f",
+                  local_dir="/models/draft")
+          env:
+            # The image defaults to offline serving.
+            - name: HF_HUB_OFFLINE
+              value: "0"
+            - name: HF_HOME
+              value: /tmp/hf
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: qwen38-paiton-model-cache
+        - name: tmp
+          emptyDir: {}
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-paiton
+spec:
+  # Paiton only accepts this exact checkpoint (hash-pinned in its catalogue;
+  # "arbitrary fine-tunes are not accepted"), so no Swift. Mixed
+  # NVFP4/FP8/BF16, requantised to MXFP4 W4A8 in VRAM at load.
+  source: hf://unsloth/Qwen3.8-27B-NVFP4@f0b7c9e722f5565102fff8481c99e4d86ae099c7
+  format: safetensors
+  quantization: compressed-tensors
+  refreshPolicy: OnChange
+  files:
+    - model.safetensors
+    - model.safetensors.index.json
+    - model_mtp.safetensors
+    - config.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - vocab.json
+    - chat_template.jinja
+    - preprocessor_config.json
+    - video_preprocessor_config.json
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: qwen38-paiton
+spec:
+  # A/B candidate for qwen38-27b-vllm; one GPU, suspend prod before enabling.
+  # Base Qwen3.8 not Swift, text only, ~6 GiB KV vs prod's 9.5 GiB.
+  suspend: true
+  modelRef: qwen38-paiton
+  runtime: vllm
+  replicas: 1
+  image: ghcr.io/eliovp/paiton-vllm-plugin:qwen38-rocm10-vllm029-65k-20260920-r2@sha256:791c09ec96626fcd33fa873d3e92dca208bb43b513317a00d7584ec730b4dabd
+  modelCache:
+    claimName: qwen38-paiton-model-cache
+  bindAddress: 0.0.0.0
+  # The image's launcher (paiton_vllm_plugin.dflash.serve); with command set,
+  # llmkube passes args verbatim instead of building a vllm serve line.
+  command: [/usr/local/bin/paiton-qwen38]
+  # The image's own Cmd plus its `--profile chat` overrides (APC on, mamba
+  # align, RADIANCE_GDN_LAZY=0, alloc conf), resized for prod's traffic.
+  args:
+    - serve
+    # llmkube's cache dir: sha256(Model.spec.source)[:16]; recompute on a bump.
+    - /models/6a5149527f38d002
+    - --tokenizer
+    - /models/6a5149527f38d002
+    # Same names as prod, so clients and bench scripts need no change.
+    - --served-model-name
+    - qwen-3.8
+    - qwen38-27b-vllm
+    - --host
+    - 0.0.0.0
+    - --port
+    - "8000"
+    - --tensor-parallel-size
+    - "1"
+    - --dtype
+    - bfloat16
+    # Set from the boot log's "GPU KV cache size": keep pool/cap >= 1.17 (prod
+    # bisect). Paiton tested one 200K sequence on 8 GiB at 0.98 utilisation.
+    - --max-model-len
+    - "131072"
+    # Launcher allows 1-8; prod runs 5, chat profile validated 1.
+    - --max-num-seqs
+    - "3"
+    # Prod's knee; chat profile uses 1024, raise only if prefill OOMs.
+    - --max-num-batched-tokens
+    - "4096"
+    - --kv-cache-dtype
+    - fp8
+    # 6 GiB. 0.92 of 31.86 GiB keeps prod's ~2.5 GiB Jellyfin reserve; the
+    # engine refuses to boot rather than exceed it.
+    - --kv-cache-memory-bytes
+    - "6442450944"
+    - --gpu-memory-utilization
+    - "0.92"
+    - --enable-prefix-caching
+    - --enable-chunked-prefill
+    - --language-model-only
+    - --safetensors-load-strategy
+    - lazy
+    - --attention-backend
+    - R4D
+    - --compilation-config
+    - '{"cudagraph_capture_sizes": [1, 2, 4, 8], "pass_config": {"fuse_norm_quant": true, "fuse_act_quant": true}}'
+    - --speculative-config
+    - '{"method": "dflash", "model": "/models/draft", "num_speculative_tokens": 7, "draft_tensor_parallel_size": 1, "attention_backend": "TRITON_ATTN", "max_model_len": 131072, "disable_padded_drafter_batch": true, "draft_sample_method": "greedy"}'
+    - --mamba-cache-mode
+    - align
+    - --mamba-cache-dtype
+    - bfloat16
+    - --mamba-ssm-cache-dtype
+    - float16
+    - --no-async-scheduling
+    - --enable-auto-tool-choice
+    - --tool-call-parser
+    - qwen3_coder
+    - --reasoning-parser
+    - qwen3
+    - --default-chat-template-kwargs
+    - '{"preserve_thinking": true}'
+    - --enable-prompt-tokens-details
+  env:
+    - name: RADIANCE_GDN_LAZY
+      value: "0"
+    - name: PYTORCH_ALLOC_CONF
+      value: max_split_size_mb:64
+    - name: GPU_MAX_HW_QUEUES
+      value: "1"
+  extraVolumes:
+    - name: cache
+      persistentVolumeClaim:
+        claimName: qwen38-paiton-compile-cache
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 2Gi
+  extraVolumeMounts:
+    # Image points AITER/Triton/Inductor/vLLM caches at /cache.
+    - name: cache
+      mountPath: /cache
+    - name: dshm
+      mountPath: /dev/shm
+  nodeSelector:
+    amd.com/gpu: "true"
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups: [44, 226]
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    cpu: "2"
+    memory: 16Gi
+  endpoint:
+    port: 8000
+  probeOverrides:
+    startup:
+      httpGet:
+        path: /health
+        port: 8000
+      initialDelaySeconds: 60
+      periodSeconds: 15
+      failureThreshold: 240
+    liveness:
+      httpGet:
+        path: /health
+        port: 8000
+      periodSeconds: 30
+      failureThreshold: 20
