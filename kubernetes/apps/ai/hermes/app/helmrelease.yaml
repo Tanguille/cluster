@@ -42,10 +42,7 @@ spec:
               - run
             env:
               TZ: ${TIMEZONE}
-              HERMES_HOME: /opt/data
-              HOME: /opt/data
               HERMES_DASHBOARD: true
-              HERMES_DASHBOARD_HOST: 0.0.0.0
               HERMES_DASHBOARD_PORT: &port 9119
               # Seconds-based scheduler inactivity watchdog; raised from 600 to align with the shortest provider timeout.
               HERMES_CRON_TIMEOUT: "900"
@@ -58,6 +55,8 @@ spec:
               AGENT_BROWSER_ARGS: "--no-sandbox,--disable-dev-shm-usage"
               # s6 containers never multiplex implicitly; explicit true folds all profiles into this gateway.
               GATEWAY_MULTIPLEX_PROFILES: "true"
+              # Profile subprocesses get their own HOME; one cache root keeps uv/HF/pnpm off the PVC.
+              XDG_CACHE_HOME: /opt/data/.cache
             envFrom:
               - secretRef:
                   name: hermes-secret
@@ -125,7 +124,6 @@ spec:
         sizeLimit: 10Gi
         globalMounts:
           - path: /opt/data/.cache
-          - path: /opt/data/home/.cache
       dshm:
         type: emptyDir
         medium: Memory
