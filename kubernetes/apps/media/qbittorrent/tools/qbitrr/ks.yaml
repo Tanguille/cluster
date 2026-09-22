@@ -8,6 +8,11 @@ metadata:
 spec:
   components:
     - ../../../../../components/nfs-scaler
+    # backup only, not ../../../../../components/kopiur: the PVC is
+    # chart-created and already bound, so the restore component's PVC
+    # (dataSourceRef -> passive Restore) would hit immutable-spec apply
+    # errors. uid is the cluster-default 568, no override needed.
+    - ../../../../../components/kopiur/backup
   path: ./kubernetes/apps/media/qbittorrent/tools/qbitrr
   targetNamespace: *namespace
   dependsOn:

@@ -7,6 +7,10 @@ metadata:
 spec:
   allowedNamespaces:
     list:
+      # web3 is deliberately excluded: its state is monerod's 150Gi pruned
+      # blockchain (re-downloadable from peers, not user data) plus p2pool
+      # shares and xmrig scratch — nothing worth repo space or snapshot I/O.
+      # Revisit only if wallet/key material ever lands there.
       - ai
       - default
       - kopiur-system

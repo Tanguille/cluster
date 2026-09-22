@@ -30,6 +30,11 @@ spec:
   dependsOn:
     - name: obico
   path: ./kubernetes/apps/default/obico/moonraker-obico
+  components:
+    # backup only, not ../../../../components/kopiur: the PVC is chart-created
+    # and already bound, so the restore component's PVC (dataSourceRef ->
+    # passive Restore) would hit immutable-spec apply errors.
+    - ../../../../components/kopiur/backup
   prune: true
   sourceRef:
     kind: GitRepository
@@ -37,3 +42,9 @@ spec:
     namespace: flux-system
   wait: false
   interval: 30m
+  postBuild:
+    substitute:
+      APP: moonraker-obico
+      # moonraker-obico runs 1000:1000, not the cluster-default 568.
+      KOPIUR_PUID: "1000"
+      KOPIUR_PGID: "1000"

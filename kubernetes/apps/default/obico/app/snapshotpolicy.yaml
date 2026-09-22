@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: obico
+spec:
+  repository:
+    kind: ClusterRepository
+    name: kopia-nas
+  sources:
+    # Hand-written instead of components/kopiur/backup: the obico chart
+    # creates two chart-named PVCs, which the single ${APP}-named source in
+    # the component template cannot express.
+    - pvc:
+        name: obico-server-data
+      sourcePathOverride: /data
+    - pvc:
+        name: obico-server-media
+      sourcePathOverride: /data
+  # obico runs 65534:65534 (chart default), not the cluster-default 568.
+  mover:
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+  verification:
+    quick:
+      schedule:
+        cron: 0 3 * * 0
+        jitter: 3h
+  compression:
+    compressor: zstd
+  retention:
+    keepHourly: 24
+    keepDaily: 7
+  volumeSnapshotClassName: csi-ceph-blockpool
+  credentialProjection:
+    enabled: true

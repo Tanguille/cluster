@@ -8,6 +8,12 @@ metadata:
 spec:
   path: ./kubernetes/apps/media/recyclarr/app
   targetNamespace: *namespace
+  components:
+    # backup only, not ../../../../components/kopiur: the PVC is chart-created
+    # and already bound, so the restore component's PVC (dataSourceRef ->
+    # passive Restore) would hit immutable-spec apply errors. uid is the
+    # cluster-default 568, no override needed.
+    - ../../../../components/kopiur/backup
   wait: false
   dependsOn:
     - name: sonarr
@@ -18,3 +24,6 @@ spec:
     name: flux-system
     namespace: flux-system
   interval: 30m
+  postBuild:
+    substitute:
+      APP: recyclarr

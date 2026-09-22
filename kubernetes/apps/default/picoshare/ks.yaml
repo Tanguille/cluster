@@ -8,6 +8,12 @@ metadata:
 spec:
   targetNamespace: *namespace
   path: ./kubernetes/apps/default/picoshare/app
+  components:
+    # backup only, not ../../../../components/kopiur: the PVC is chart-created
+    # and already bound, so the restore component's PVC (dataSourceRef ->
+    # passive Restore) would hit immutable-spec apply errors. Adopting the
+    # full pattern needs a deliberate delete + restore cutover instead.
+    - ../../../../components/kopiur/backup
   prune: true
   sourceRef:
     kind: GitRepository
@@ -15,3 +21,9 @@ spec:
     namespace: flux-system
   wait: true
   interval: 30m
+  postBuild:
+    substitute:
+      APP: picoshare
+      # picoshare runs 1000:100, not the cluster-default 568.
+      KOPIUR_PUID: "1000"
+      KOPIUR_PGID: "100"
