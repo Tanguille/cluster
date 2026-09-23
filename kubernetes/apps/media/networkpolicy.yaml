@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: media-ingress-allowlist
+  namespace: media
+spec:
+  # endpointSelector {} => default-deny ingress for every pod in the
+  # namespace, same shape as ai/networkpolicy.yaml and
+  # database/networkpolicy.yaml. Per-pod allowlists (flaresolverr) stay and
+  # union with this one. Egress stays default-allow (indexers, *arr client
+  # traffic, database, NFS).
+  endpointSelector: {}
+  ingress:
+    # Namespaces that actually talk to media pods, discovered from the repo:
+    # default = homepage widgets (gethomepage.dev/widget.url on every *arr);
+    # observability = vmagent scraping the ServiceMonitors plus the
+    # sonarr/prowlarr/qbittorrent exporters and scraparr; network =
+    # envoy-internal/envoy-external fronting the HTTPRoutes; media =
+    # intra-ns (qbitrr, recyclarr, unpackerr, seerr -> *arr).
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: media
+        - matchLabels:
+            io.kubernetes.pod.namespace: default
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
+        # ephemeral not 53.
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+    - fromEntities:
+        # kubelet probes.
+        - host

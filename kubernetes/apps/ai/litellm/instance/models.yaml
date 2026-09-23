@@ -48,8 +48,7 @@ spec:
   proxyRef: litellm
   params:
     model: openai/qwen-3.8
-    # Moves with qwen-3.8 above -- this alias is proxy.yaml's only fallback
-    # target, so the two must always name the same live backend.
+    # Moves with qwen-3.8 above: both must always name the same live backend.
     apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     apiKey: sk-vllm-noauth
     additional:
@@ -91,7 +90,7 @@ spec:
     # a non-empty api_key (same convention as qwen-3.8's sk-vllm-noauth).
     apiKey: sk-omniroute-noauth
     additional:
-      # Bounded so the qwen-3.8-fast fallback fires inside the pr-reviewer-action's
+      # Bounded so the qwen-3.8 fallback fires inside the pr-reviewer-action's
       # 600s curl timeout instead of the action giving up and retrying blind
       # (observed 2026-08-03: 60min run, fallback never triggered). Timeouts
       # aren't in the proxy's retry_policy and num_retries is 0, so one attempt

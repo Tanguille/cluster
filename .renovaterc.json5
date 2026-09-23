@@ -121,6 +121,11 @@
     }
   ],
   packageRules: [
+    {
+      description: "Paiton accepts only its hash-pinned checkpoint; bump with the image",
+      matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
+      enabled: false
+    },
     // Auto-merge rules
     {
       description: "Auto-merge trusted OCI digests",

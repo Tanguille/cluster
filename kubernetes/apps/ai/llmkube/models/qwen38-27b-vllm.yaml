@@ -135,7 +135,7 @@ spec:
   # Digest-pinned so Renovate can bump it. Bench any bump with
   # docs/llm-hosting/bench/longctx.py at 4000 AND 50000; classify the gfx1201
   # band first (docs/llm-hosting/gfx1201-fast-slow-band-2026-09-12.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:5eb04115d4cbab5b37482789213278598c7e3527daaade8f26a7d05d6e6352f9
+  image: vllm/vllm-openai-rocm:nightly@sha256:d5da8f963f0571a171f6817cc108bc2371a39528a11aeba5a00cb78177fcb4e5
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -290,8 +290,13 @@ spec:
     runAsUser: 0
     runAsGroup: 0
     supplementalGroups: [44, 226]
+    # RuntimeDefault: ROCm compute (kfd ioctls, /dev/dri, /dev/shm) and the
+    # band-detection liveness probe (curl + /sys reads) all pass the default
+    # profile. Unconfined was set at the 3.8 cutover (#4509) as a blanket
+    # precaution, not to fix a syscall failure. Watch VLLMDecodeStepLatched /
+    # TTFT after rollout; revert this one field if serving fails to boot.
     seccompProfile:
-      type: Unconfined
+      type: RuntimeDefault
   resources:
     cpu: "2"
     # Request AND limit (llmkube >= 0.9.29). tmpfs is charged: 12Gi shm + anon
