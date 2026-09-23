@@ -1,0 +1,190 @@
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: nvme-fleet
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: hardware
+  json: |
+    {
+      "uid": "nvme-fleet",
+      "title": "NVMe Fleet Health",
+      "refresh": "5m",
+      "time": { "from": "now-7d", "to": "now" },
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Endurance used %",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_percentage_used",
+              "legendFormat": "{{ model_name }} ({{ serial_number }}) — {{ $labels.instance }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 60 },
+                  { "color": "red", "value": 80 }
+                ]
+              }
+            }
+          },
+          "options": { "colorMode": "background", "graphMode": "area" }
+        },
+        {
+          "type": "stat",
+          "title": "Spare area %",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_available_spare",
+              "legendFormat": "{{ model_name }} ({{ serial_number }}) — {{ $labels.instance }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 20 },
+                  { "color": "green", "value": 50 }
+                ]
+              }
+            }
+          },
+          "options": { "colorMode": "background", "graphMode": "none" }
+        },
+        {
+          "type": "stat",
+          "title": "Media errors",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_media_errors",
+              "legendFormat": "{{ model_name }} ({{ serial_number }}) — {{ $labels.instance }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              }
+            }
+          },
+          "options": { "colorMode": "background", "graphMode": "none" }
+        },
+        {
+          "type": "timeseries",
+          "title": "Temperature (C)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_temperature{device=~\"nvme.*\"}",
+              "legendFormat": "{{ $labels.instance }} / {{ $labels.device }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "celsius",
+              "custom": {
+                "thresholdsStyle": {
+                  "mode": "line"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 60 },
+                  { "color": "red", "value": 70 }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Wear trend (7d)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "smartctl_device_percentage_used",
+              "legendFormat": "{{ $labels.instance }} / {{ $labels.device }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "unit": "percent" }
+          }
+        },
+        {
+          "type": "table",
+          "title": "Fleet inventory",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 14 },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max(smartctl_device{device=~\"nvme.*\"}) by (instance, device, model_name, serial_number)",
+              "format": "table"
+            },
+            {
+              "refId": "B",
+              "expr": "smartctl_device_power_on_seconds{device=~\"nvme.*\"}",
+              "format": "table"
+            },
+            {
+              "refId": "C",
+              "expr": "smartctl_device_bytes_written{device=~\"nvme.*\"}",
+              "format": "table"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": { "custom": { "align": "auto" } }
+          },
+          "transformations": [
+            { "id": "joinByField", "options": { "byField": "Time", "combineByLabels": true } },
+            { "id": "organize", "options": {
+              "excludeByName": { "Time": true, "Value": true, "Value #B": true, "Value #C": true },
+              "indexByName": {
+                "instance": 0,
+                "device": 1,
+                "model_name": 2,
+                "serial_number": 3,
+                "Value #B": 4,
+                "Value #C": 5
+              }
+            }}
+          ],
+          "options": {
+            "sortBy": { "fieldName": "Value #B" },
+            "reduceOptions": { "calcs": ["lastNotNull"] }
+          }
+        }
+      ]
+    }
