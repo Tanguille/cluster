@@ -6,13 +6,14 @@ metadata:
   name: bge-reranker-v2-m3
 spec:
   # Cross-encoder reranker for memini recall (Cohere-style /v1/rerank).
-  # BGE-reranker-v2-m3, 270M params: one forward pass per (query, doc) pair on
-  # the shared iGPU; 280MB of Q8_0 weights, negligible next to the 0.6B
-  # embedder it reorders.
-  # Revision-pinned (immutable bytes) — Renovate bumps the sha via the git-refs
-  # manager in .renovaterc.json5; refreshPolicy makes the bump actually
-  # re-fetch.
-  source: https://huggingface.co/cstr/bge-reranker-v2-m3-GGUF/resolve/4419fcb3a35cce62c0f48dd965522b0f995e8320/bge-reranker-v2-m3-q8_0.gguf
+  # BGE-reranker-v2-m3, 568M params: one forward pass per (query, doc) pair on
+  # the shared iGPU; 610MB of Q8_0 weights — small next to the 27B models,
+  # ~3x the 0.6B embedder it reorders; both iGPU nodes host ~560MB models
+  # today, so this is ~+15% of the shared VRAM budget.
+  # Revision-pinned to the repo HEAD commit (immutable at that ref) —
+  # Renovate bumps the sha via the git-refs manager in .renovaterc.json5;
+  # refreshPolicy makes the bump actually re-fetch.
+  source: https://huggingface.co/cstr/bge-reranker-v2-m3-GGUF/resolve/bc25062a85a434eb98169695af62ed1a93a4e52e/bge-reranker-v2-m3-q8_0.gguf
   quantization: Q8_0
   refreshPolicy: OnChange
   hardware:
@@ -63,7 +64,7 @@ spec:
   # SOFT anti-affinity, deliberately not required: two iGPU nodes already
   # host qwen3-embedding and qwen35-2b one-per-node, so a third required
   # anti-affinity would make this pod unschedulable. It prefers its own node
-  # and co-locates on the busy one only if both are taken — the 280MB model
+  # and co-locates on the busy one only if both are taken — the 610MB model
   # fits a node that already runs the 0.6B embedder.
   affinity:
     podAntiAffinity:
@@ -92,7 +93,7 @@ spec:
 
   resources:
     cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); 280MB Q8_0 weights plus the
+    # Request AND limit (llmkube >= 0.9.29); 610MB Q8_0 weights plus the
     # llama-server baseline, the model buffer living in amdgpu GTT which
     # memcg does not charge.
     memory: 2Gi

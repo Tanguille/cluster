@@ -57,7 +57,7 @@ spec:
               # networkpolicy.yaml (inference-rerank-memini-allow) permits exactly
               # this path, reranker service only. Base URL is the API root — memini
               # appends /rerank itself.
-              MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local/v1"
+              MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local:8080/v1"
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
               # Re-rank a wider pool than the recall limit, then truncate: lets a
               # composite-buried memory be rescued by its own relevance. Cost is one
@@ -81,6 +81,10 @@ spec:
               limits:
                 cpu: 1
                 memory: 512Mi
+
+    defaultPodOptions:
+      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
+      priorityClassName: homelab-important
 
     persistence:
       data:
