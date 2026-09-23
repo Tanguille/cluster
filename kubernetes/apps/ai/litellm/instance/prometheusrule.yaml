@@ -32,7 +32,7 @@ spec:
         # The only structural rule here: every other one needs a real request to
         # fail first, which at this traffic volume means hours of lag. This
         # fires on zero traffic and enforces the invariant proxy.yaml's chain
-        # depends on -- qwen-3.8-fast must point at a live deployment. absent()
+        # depends on -- qwen-3.8 must point at a live deployment. absent()
         # covers the target being retired out from under the chain, == 0 covers
         # scaled-to-0, crashloop and unschedulable.
         # Deployment name is hardcoded: nothing derives it from proxy.yaml's

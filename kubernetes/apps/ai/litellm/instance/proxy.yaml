@@ -54,7 +54,9 @@ spec:
     # already burned 900s only deepens the contention that caused it.
     retry_policy:
       InternalServerErrorRetries: 2
-    # omniroute's free providers have no SLA; qwen-3.8-fast catches that.
+    # omniroute's free providers have no SLA; qwen-3.8 catches that. Thinking on:
+    # the reviewer is a tool loop and thinking-off scored 0/20 on DeepSWE
+    # (docs/llm-hosting/deepswe-swift-2026-09-22.md).
     # Deliberately one deep. qwen35-2b is not a second tier: llama.cpp splits
     # contextSize across parallelSlots, so it serves a 16384-token window and
     # rejects review-sized payloads, turning a 503 into a 400. Widening it costs
@@ -62,7 +64,7 @@ spec:
     # runs -- karakeep uses it.) A one-deep chain is only safe while its target
     # is live, which LiteLLMFallbackBackendDown enforces.
     fallbacks:
-      - omniroute: ["qwen-3.8-fast"]
+      - omniroute: ["qwen-3.8"]
   route:
     hostnames:
       - "litellm.${SECRET_DOMAIN}"
