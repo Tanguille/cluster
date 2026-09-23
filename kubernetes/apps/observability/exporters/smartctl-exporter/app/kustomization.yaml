@@ -7,3 +7,13 @@ resources:
   - grafanadashboard-nvme-fleet.yaml
   - helmrelease.yaml
   - ocirepository.yaml
+
+configMapGenerator:
+  - name: nvme-fleet-dashboard
+    files:
+      - dashboard/nvme-fleet.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
