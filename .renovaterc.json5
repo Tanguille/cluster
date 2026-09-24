@@ -20,6 +20,9 @@
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
+  // main has no required checks, so GitHub native auto-merge would merge before CI finishes;
+  // with this off Renovate merges itself only once every check is green (needs Checks: read).
+  platformAutomerge: false,
   customDatasources: {
     // Filtering on the moniker, not a version range, is what survives a series bump
     // (7.1.x -> 7.2.x) with no config change. Not a git mirror: gregkh/linux carries mainline
@@ -147,14 +150,61 @@
       matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
       enabled: false
     },
-    // Auto-merge rules
+    // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
-      description: "Auto-merge trusted OCI digests",
-      matchDatasources: ["docker"],
-      matchUpdateTypes: ["digest"],
-      matchPackageNames: ["/home-operations/"],
+      description: "Auto-merge patch and digest bumps once they have aged 3 days",
+      matchUpdateTypes: ["patch", "digest"],
+      minimumReleaseAge: "3 days",
+      // Some registries (e.g. quay.io) publish no release timestamps; required would pend them forever.
+      minimumReleaseAgeBehaviour: "timestamp-optional",
       automerge: true,
       automergeType: "pr"
+    },
+    {
+      description: "Auto-merge GitHub Actions on minor too",
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor"],
+      minimumReleaseAge: "3 days",
+      automerge: true,
+      automergeType: "pr"
+    },
+    {
+      description: "Auto-merge Renovate's own image on minor",
+      matchPackageNames: ["ghcr.io/renovatebot/renovate"],
+      matchUpdateTypes: ["minor"],
+      minimumReleaseAge: "3 days",
+      automerge: true,
+      automergeType: "pr"
+    },
+    {
+      description: "Never auto-merge storage, network, control plane, databases or GPU serving",
+      matchPackageNames: [
+        "/talos/",
+        "/installer/",
+        "/siderolabs/",
+        "/tuppr/",
+        "/cilium/",
+        "/coredns/",
+        "/envoy/",
+        "/k8s-gateway/",
+        "/external-dns/",
+        "/cert-manager/",
+        "/spegel/",
+        "/rook/",
+        "/ceph/",
+        "/openebs/",
+        "/kopiur/",
+        "/snapshot-controller/",
+        "/cloudnative-pg/",
+        "/postgres/",
+        "/vchord/",
+        "/pgvector/",
+        "/dragonfly/",
+        "/flux/",
+        "/vllm/",
+        "/llama/"
+      ],
+      automerge: false
     },
     {
       description: "Auto-merge searxng",
@@ -319,7 +369,9 @@
       // versioning field, so it has to be set here.
       versioning: "loose",
       semanticCommitScope: "kernel",
-      addLabels: ["renovate/kernel"]
+      addLabels: ["renovate/kernel"],
+      // Kernel point releases are "patch"; keep them manual.
+      automerge: false
     },
     {
       matchManagers: ["github-actions"],

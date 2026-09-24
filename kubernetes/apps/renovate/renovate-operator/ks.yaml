@@ -6,6 +6,9 @@ metadata:
   name: renovate-operator
   namespace: &namespace renovate
 spec:
+  dependsOn:
+    - name: dragonfly-cluster
+      namespace: database
   interval: 1h
   path: ./kubernetes/apps/renovate/renovate-operator/app
   prune: true

@@ -16,6 +16,13 @@ spec:
       jobTTLSecondsAfterFinished: 86400
     rbac:
       ownNamespaceOnly: true
+    # Reuse the shared Dragonfly; operator takes dbs 0-2, Renovate's package cache lands in db 1.
+    externalKeyValueStore:
+      host: dragonfly.database.svc.cluster.local
+    # Default allowedHosts/allowedImages already cover github.com and ghcr.io/renovatebot/renovate;
+    # the chart appends the webhook host.
+    policy:
+      enabled: true
     resources:
       requests:
         cpu: 10m

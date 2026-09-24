@@ -12,7 +12,7 @@ spec:
   endpointSelector: {}
   ingress:
     # Namespaces that actually consume postgres/pgbouncer/dragonfly, discovered
-    # from cnpg databases/ CRs + dragonfly host refs. observability = vmagent
+    # from cnpg databases/ CRs + dragonfly host refs (renovate = operator cache). observability = vmagent
     # scraping the exporters; database = intra-ns (operator, poolers, replicas).
     - fromEndpoints:
         - matchLabels:
@@ -23,6 +23,8 @@ spec:
             io.kubernetes.pod.namespace: media
         - matchLabels:
             io.kubernetes.pod.namespace: observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: renovate
         - matchLabels:
             io.kubernetes.pod.namespace: security
         - matchLabels:
