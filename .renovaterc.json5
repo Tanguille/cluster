@@ -80,7 +80,7 @@
       // Only adjacent id then revision: `indentation` is the one custom group a template can use.
       description: "GrafanaDashboard grafanaCom id/revision",
       customType: "regex",
-      managerFilePatterns: ["/grafanadashboard\\.yaml$/"],
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
       matchStrings: [
         "grafanaCom:\\n(?<indentation> +)id: (?<depName>\\d+)\\n +revision: (?<currentValue>\\d+)"
       ],
