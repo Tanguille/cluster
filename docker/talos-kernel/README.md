@@ -34,29 +34,7 @@ unreachable there regardless.
 | GTT visible to the memory subsystem (`NR_GPU_ACTIVE`) | **Live in `/proc/meminfo`** (~1.4 GiB), the first-party fix for the iGPU GTT leak that is invisible to `kubectl top`. **Not yet exported** — node-exporter v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be alerted on.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | eBPF verifier state pruning (7.0/7.1)                 | Applies. Upstream's veristat numbers are measured on Cilium's own objects (`bpf_lxc.o` `tail_ipv4_ct_egress` -44%). Not re-measured here.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | HRTICK / HRTICK_DL default on                         | Applies; `CONFIG_HRTIMER_REARM_DEFERRED=y` in the built config. EEVDF slice enforcement moves off the 4 ms tick.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| r8169 LTR enabled for RTL8125 (7.0)                   | **Not applicable on this hardware.** Looked like the main regression risk (both NICs are RTL8125B in `bond0`), but ACPI `_OSC` on both Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel and the commit cannot engage. Same `_OSC` line on control-3, so this is a property of the box, not of 7.x. It also means AER reporting is unavailable, i.e. PCIe correctable/uncorrectable errors are invisible here by construction — do not write alerts against AER on these nodes.                                                                                                                                                                                         |
-
-Rook's `spec.security.cephx.allowedCiphers` is `["aes256k"]` since #4616, so **every node must
-stay on 7.0 or later**: the 6.18 in-kernel Ceph client has no aes256k and cannot authenticate.
-
-### The counterweight: 7.x is not LTS
-
-|                    | 6.18                                               | 7.2                                    |
-|--------------------|----------------------------------------------------|----------------------------------------|
-| kernel.org moniker | **longterm**                                       | stable                                 |
-| Projected EOL      | Dec 2028                                           | none published                         |
-| `siderolabs/pkgs`  | `release-1.14` tracks 6.18.y                       | never shipped                          |
-
-Measured series lifetimes: 6.19.y made its last release 9 days after 7.0 shipped, 7.0.y 13
-days after 7.1, 7.1.y 17 days after 7.2 (7.1.13, 2026-09-02). Mainline cadence
-this year was ~63 days per series, so tracking `stable` means a full series migration roughly
-every 9 weeks, on top of a Talos rebase every ~4 months, with no upstream test coverage for
-the combination.
-
-That is the trade: this closes a residual client-key exposure that Rook itself treats as a
-supported configuration (its shipped `cluster.yaml` documents `keyType: aes` as the correct
-setting for nodes below 7.0), and buys it with a permanent local kernel treadmill. Switching
-the Renovate datasource filter to `moniker="longterm"` once a 7.x LTS exists is the exit.
+| r8169 LTR enabled for RTL8125 (7.0)                   | **Not applicable on this hardware.** Looked like the main regression risk (both NICs are RTL8125B in `bond0`), but ACPI `_OSC` on both Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel and the commit cannot engage. Same `_OSC` line on control-3, so this is a property of the box, not of 7.x. It also means AER reporting is unavailable, i.e. PCIe correctable/uncorrectable errors are invisible here by construction — do not write alerts against AER on these nodes.
 
 ## Pipeline
 
