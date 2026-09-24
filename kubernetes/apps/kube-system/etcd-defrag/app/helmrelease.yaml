@@ -30,10 +30,9 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Auto-compaction holds in-use flat (137-160MB over 20d) but cannot
-          # shrink the file; free space ramps ~8MB/day. A 3-member pass costs ~95s.
+          # Daily check; --defrag-rule only defrags a member once >50MiB is free.
           timeZone: ${TIMEZONE}
-          schedule: "0 3 * * 0"
+          schedule: "0 3 * * *"
           backoffLimit: 1
         containers:
           app:
