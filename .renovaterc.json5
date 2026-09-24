@@ -75,8 +75,9 @@
       matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
       depNameTemplate: "feramance/qbitrr",
       datasourceTemplate: "docker",
-      // newValue is already v-stripped by the config.toml extractVersion rule below, so write it
-      // verbatim. (A {{replace}} here would re-extract empty and abort the branch with "update failure".)
+      extractVersionTemplate: "^v(?<version>.*)$",
+      // newValue is already v-stripped by extractVersionTemplate, so write it verbatim. (A
+      // {{replace}} here would re-extract empty and abort the branch with "update failure".)
       autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
     },
     {
@@ -209,7 +210,7 @@
       matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
       // vmcp-restart.yaml's kubectl image: excluded so a kubectl bump doesn't ride
       // along with the MCP server images in this group.
-      excludePackageNames: ["registry.k8s.io/kubectl"]
+      matchPackageNames: ["!registry.k8s.io/kubectl"]
     },
     {
       description: "VectorChord CNPG images and Memini database version",
@@ -245,14 +246,6 @@
       matchDatasources: ["docker"],
       matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
       matchPackageNames: ["/feramance\\/qbitrr/"]
-    },
-    {
-      matchManagers: ["custom.regex"],
-      matchFileNames: [
-        "kubernetes/apps/media/qbittorrent/tools/qbitrr/config/config.toml"
-      ],
-      matchPackageNames: ["/feramance\\/qbitrr/"],
-      extractVersion: "^v(?<version>.*)$"
     },
     {
       // Last release 2025-08-04, past `abandonments:recommended`, but still used by pre-commit.

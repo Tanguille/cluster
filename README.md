@@ -85,11 +85,12 @@ or replicated data where performance is critical (e.g. postgres).
 
 | Role      | Host        | CPU                     | RAM          | GPU                                  | Network              | Storage                                        |
 |-----------|-------------|-------------------------|--------------|--------------------------------------|----------------------|------------------------------------------------|
-| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 2TB NVMe (boot 500 GB · Ceph 500 GB) |
-| control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Samsung 980 Pro 1 TB |
-| control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Micron 7450 Pro 1 TB |
+| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 1.92 TB NVMe (boot 500 GB · Ceph 800 GB) |
+| control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Samsung 980 Pro 1 TB |
+| control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Micron 7450 Pro 960 GB |
 
 All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU.
+Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 
 ---
 

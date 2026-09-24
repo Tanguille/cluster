@@ -3,6 +3,17 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - grafanadashboard.yaml
   - helmrelease.yaml
   - ocirepository.yaml
   - prometheusrule.yaml
+
+configMapGenerator:
+  - name: kernel-performance-dashboard
+    files:
+      - dashboard/kernel-performance.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
