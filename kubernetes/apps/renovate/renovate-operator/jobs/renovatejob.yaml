@@ -7,7 +7,7 @@ metadata:
 spec:
   discoveryFilters:
     - Tanguille/cluster
-  # Ciphertext copy of actions-runner-system/.../runners/cluster/secrets.sops.yaml; rotate both.
+  # App creds mirror actions-runner-system/.../runners/cluster/secrets.sops.yaml; rotate both.
   githubAppReference:
     secretName: renovate-github-app
     appIdSecretKey: github_app_id
@@ -30,8 +30,8 @@ spec:
     authentication:
       enabled: true
       secretRef:
-        name: renovate-webhook
-        key: token
+        name: renovate-github-app
+        key: webhook_token
     # Creates the repo hook itself; the app needs "Repository webhooks: RW".
     sync:
       enabled: true
