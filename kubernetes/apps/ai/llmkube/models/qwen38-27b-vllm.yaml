@@ -70,7 +70,7 @@ spec:
                   avail() { df -kP /kvoffload | awk 'NR==2{print $$4}'; }
                   # 160Gi = 32% of the 499.6Gi disk; ceph
                   # mon_data_avail_warn=27, so an 80Gi (15%) floor could never
-                  # clear it. Non-tier usage measured 128Gi (2026-08-22).
+                  # clear it. Non-tier usage measured 219Gi (2026-09-24).
                   floor=167772160
                   avail_kb="$$(avail)"
                   echo "avail: $${avail_kb}K (floor: $${floor}K)"
@@ -78,24 +78,26 @@ spec:
                     echo "above floor, nothing to do"
                     exit 0
                   fi
+                  # Evict by bytes, not file count: chunk files are 104Mi, so
+                  # a 2000-file check interval wiped the whole tier each time.
+                  need_kb=$$((floor - avail_kb))
                   # LRU by mtime, oldest first; blocks are write-once.
-                  n=0
                   # busybox find has no -printf.
-                  find /kvoffload -type f -exec stat -c '%Y %n' {} + | sort -n | cut -d' ' -f2- |
-                  while IFS= read -r f; do
-                    rm -f -- "$$f"
-                    n=$$((n + 1))
-                    if [ $$((n % 2000)) -eq 0 ]; then
-                      avail_kb="$$(avail)"
-                      echo "evicted $${n} files, avail now $${avail_kb}K"
-                      [ "$$avail_kb" -ge "$$floor" ] && break
-                    fi
-                  done
-                  # Tier fully evicted and still short: the shortfall is
-                  # elsewhere on the shared fs.
+                  find /kvoffload -type f -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
+                  {
+                    n=0 freed_kb=0
+                    while IFS=' ' read -r size f; do
+                      rm -f -- "$$f"
+                      n=$$((n + 1)) freed_kb=$$((freed_kb + size / 1024))
+                      [ "$$freed_kb" -ge "$$need_kb" ] && break
+                    done
+                    echo "evicted $${n} files ($${freed_kb}K) for a $${need_kb}K shortfall"
+                  }
+                  # Still short: the shortfall is elsewhere on the shared fs,
+                  # or vLLM still holds evicted files open.
                   avail_kb="$$(avail)"
                   [ "$$avail_kb" -ge "$$floor" ] && exit 0
-                  echo "floor unreachable: $${avail_kb}K < $${floor}K, tier fully evicted" >&2
+                  echo "floor unreachable: $${avail_kb}K < $${floor}K" >&2
                   exit 1
               volumeMounts:
                 - name: kv-offload
@@ -132,10 +134,13 @@ spec:
   parallelSlots: 5
   bindAddress: 0.0.0.0
   # nightly: gfx1201 support landed after v0.27.1; v0.28.0 tag untested.
-  # Digest-pinned so Renovate can bump it. Bench any bump with
-  # docs/llm-hosting/bench/longctx.py at 4000 AND 50000; classify the gfx1201
-  # band first (docs/llm-hosting/gfx1201-fast-slow-band-2026-09-12.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:336933f3b63f1e0531e7d60bfe49fc0d4ad50b56779c2ae0cf3609e33b2adee4
+  # Digest-pinned so Renovate can bump it. After a bump, check the boot log for
+  # all three "[lds-gate-patch]" patch lines. Bench (bench/longctx.py 4000 and
+  # 50000) only if the base layers (torch/Triton/aiter) changed or the vLLM
+  # range touches ROCm, GDN, W4A16 or KV offload. The liveness probe and
+  # VLLMDecodeStepLatched cover the gfx1201 band: 0 firings or restarts
+  # 2026-09-13..23.
+  image: vllm/vllm-openai-rocm:nightly@sha256:0b7ab0b29c5b1b107ebe31fd044a6cb1f31188edd5fdaf9809522efd79adf8df
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -190,19 +195,10 @@ spec:
       emptyDir:
         medium: Memory
         sizeLimit: 14Gi
-    # Raises the W4A16 skinny-GEMM LDS gate to the C++ kernel's real limit.
+    # W4A16 LDS gate, M<=32 Triton tile, aiter attn_3d num_stages.
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
-    # attn_3d.num_stages 2->1 (2-stage fp8 K+V at head_dim 256 = 64 KiB LDS = a
-    # whole CU). 64K M=1: 23.25 -> 29.06 tok/s; TRITON_ATTN backend 1.9 tok/s,
-    # not an alternative. Whole-file overlay of a pre-2026-09-15 schema:
-    # upstream re-keyed attn_3d by D/DT (aiter #4868) and D_LEQ_256.DT_any_fp8
-    # still ships num_stages 2, so on the next image bump re-diff against the
-    # image copy or fold this one key into the .pth hook.
-    - name: aiter-ua-config
-      configMap:
-        name: aiter-ua-config
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -211,7 +207,8 @@ spec:
     - name: dshm
       mountPath: /dev/shm
     # See resources/zz_lds_gate_impl.py. Drop the mount and generator entry once
-    # vllm#52619 (open) and the M<=32 tile config (no upstream PR yet) land.
+    # vllm#52619 (open), the M<=32 tile config (no upstream PR yet) and an aiter
+    # num_stages 1 default for gfx1201 fp8 land.
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth
@@ -220,20 +217,9 @@ spec:
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
       subPath: zz_lds_gate_impl.py
       readOnly: true
-    # Overlays the whole file, so re-diff against the image copy on bumps.
-    - name: aiter-ua-config
-      mountPath: /usr/local/lib/python3.12/dist-packages/aiter/ops/triton/configs/gfx1201/triton/attention/unified_attention/DEFAULT.json
-      subPath: DEFAULT.json
-      readOnly: true
   extraArgs:
-    # 2nd name is an alias for the litellm-operator's auto-registered
-    # LiteLLMModel, which sends model=<InferenceService.spec.modelRef>
-    # (llmkube_projection.go), i.e. qwen38-swift-27b-vllm today, so this alias
-    # no longer matches; the generated group has no consumers. Fix or drop at
-    # the next restart.
     - --served-model-name
     - qwen-3.8
-    - qwen38-27b-vllm
     - --trust-remote-code
     - --reasoning-parser
     - qwen3
@@ -290,8 +276,13 @@ spec:
     runAsUser: 0
     runAsGroup: 0
     supplementalGroups: [44, 226]
+    # RuntimeDefault: ROCm compute (kfd ioctls, /dev/dri, /dev/shm) and the
+    # band-detection liveness probe (curl + /sys reads) all pass the default
+    # profile. Unconfined was set at the 3.8 cutover (#4509) as a blanket
+    # precaution, not to fix a syscall failure. Watch VLLMDecodeStepLatched /
+    # TTFT after rollout; revert this one field if serving fails to boot.
     seccompProfile:
-      type: Unconfined
+      type: RuntimeDefault
   resources:
     cpu: "2"
     # Request AND limit (llmkube >= 0.9.29). tmpfs is charged: 12Gi shm + anon

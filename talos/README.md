@@ -122,6 +122,7 @@ only after tuppr has rolled every node, and re-run `diff-node` on all three befo
 | `FilesystemTrimConfig` | fstrim, weekly. Absent means no automatic trimming at all |
 | `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default. Closes #4289 |
 | `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates. All 16 keys verified identical |
+| `UdevRulesConfig` | caps NVMe `discard_max_bytes` at 256 MiB; the drives' 2 TiB limit let weekly trim send multi-second discards |
 
 Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does
 not scrub or trim in lockstep. That is what makes weekly safe on control-3 despite its

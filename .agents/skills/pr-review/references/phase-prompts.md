@@ -87,11 +87,11 @@ prompt: |
   6. Verify persistence
   7. Check HTTPRoute parentRef
   8. Verify hostname template
+  9. Check API versions and Flux CRD fields against the cluster's CRDs
+  10. Check dependsOn has no cycles
 
   OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-3-best-practices.md.
 ```
-
-See [best-practices.md](best-practices.md) for expanded validation topics.
 
 ## Phase 4 — Security
 
@@ -113,6 +113,7 @@ prompt: |
   3. Check for hardcoded credentials
   4. Check for hardcoded domains/IPs
   5. Verify securityContext
+  6. Check RBAC and network policies against peer apps
 
   OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-4-security.md.
 ```

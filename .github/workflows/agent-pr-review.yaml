@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
 
       - name: Run reviewer
-        uses: misospace/pr-reviewer-action@acb9476d7358801d854f9c57366bbfbef401acd5 # v2.4.0
+        uses: misospace/pr-reviewer-action@a962cdfc21c378a3b8cf2d8b194c787408e60e6b # v2.5.0
         with:
           github_token: ${{ github.token }}
           ai_base_url: http://litellm.ai.svc.cluster.local/v1
@@ -45,10 +45,10 @@ jobs:
           # omniroute = larger free-tier model; litellm already retries inside it, so the
           # action-level fallback is a distinct self-hosted model, not a no-op retry.
           ai_model: omniroute
-          ai_fallback_model: qwen-3.8-fast
+          ai_fallback_model: qwen-3.8
           ai_temperature: "0.2"
           ai_response_format: json_schema
-          # qwen-3.8-fast cold prefill near ~100K ctx measured 155-220s.
+          # qwen-3.8 cold prefill near ~100K ctx measured 155-220s.
           ai_request_timeout_sec: "600"
           verdict_policy: findings_severity_gated
           inline_findings: "true"
@@ -76,7 +76,7 @@ jobs:
             Only when the PR changes a dependency version or digest, summarize them in a
             **Release notes** section in review_markdown: user-visible changes, breaking
             changes, and security fixes.
-          # qwen-3.8-fast KV pool caps at 126,848 tokens; 131072 returned HTTP 500.
+          # qwen-3.8 KV pool caps at 126,848 tokens; 131072 returned HTTP 500.
           model_context_tokens: "120000"
           allowed_source_hosts: "github.com,api.github.com,raw.githubusercontent.com,gitlab.com,registry.terraform.io,artifacthub.io,www.talos.dev,talos.dev,fluxcd.io,kubernetes.io,cilium.io"
           tool_mode: native_loop

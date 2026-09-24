@@ -8,6 +8,12 @@ spec:
   groups:
     # The chart ships its own `kopiur.rules` group (monitoring.prometheusRule.enabled
     # in the HelmRelease); group and alert names here must not collide with it.
+    # Known benign-ish mode: during Talos rolling upgrades the surviving nodes fill up
+    # at request level and hourly mover pods (50m/128Mi via moverDefaults, priority 0,
+    # no CRD field to raise it) fail scheduling with MoverPodWedged "Insufficient
+    # memory". The next hourly run succeeds once the drain finishes, so the chart's
+    # KopiurBackupConsecutiveFailures (>=3, warning) only pages when a wedge outlives
+    # the window; these freshness rules catch anything longer.
     - name: kopiur.freshness.rules
       rules:
         # Backups were down 44h in July before anyone noticed: nothing watched

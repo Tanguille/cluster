@@ -28,7 +28,7 @@ spec:
               # release/v3.8.50; no tagged release carries them yet -- move to
               # v3.8.50 once it ships. Digest-pinned since Renovate can't diff
               # `next` as a version, only offer digest bumps.
-              tag: next@sha256:80eade3c516c4b4e0b9ab07a72a96648155722fbf311cfb4bc058cc4d1e18b3a
+              tag: next@sha256:90358c971b44e9f135edac557352658ddbdb5b6d11fc5e42f732688e5dbac981
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
@@ -55,6 +55,8 @@ spec:
                 cpu: 1000m
                 memory: 2Gi
     defaultPodOptions:
+      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
+      priorityClassName: homelab-important
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000

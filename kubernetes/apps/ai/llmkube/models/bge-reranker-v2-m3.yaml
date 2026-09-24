@@ -1,0 +1,106 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: bge-reranker-v2-m3
+spec:
+  # Cross-encoder reranker for memini recall (Cohere-style /v1/rerank).
+  # BGE-reranker-v2-m3, 568M params: one forward pass per (query, doc) pair on
+  # the shared iGPU; ~636MB of Q8_0 weights — small next to the 27B models,
+  # ~3x the 0.6B embedder it reorders; both iGPU nodes host ~560MB models
+  # today, so this is ~+15% of the shared VRAM budget.
+  # gpustack's re-quant: the cstr build omits the bert.context_length GGUF
+  # key, which llama.cpp's rerank path requires — the server hard-exits at
+  # model load ("key not found") and the pod crash-loops.
+  # Revision-pinned to the repo HEAD commit (immutable at that ref) —
+  # Renovate bumps the sha via the git-refs manager in .renovaterc.json5;
+  # refreshPolicy makes the bump actually re-fetch.
+  source: https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/3093af03b1a635e67b084b1d8c03c5f5e020fd05/bge-reranker-v2-m3-Q8_0.gguf
+  quantization: Q8_0
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: vulkan
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: vulkan
+      layers: -1
+      # Slot counts live at the device plugin
+      # (kube-system/generic-device-plugin);
+      # nodeSelector below pins this to the iGPU.
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: bge-reranker-v2-m3
+spec:
+  modelRef: bge-reranker-v2-m3
+  # mode: rerank auto-appends --reranking --embedding --pooling rank
+  # (LLMKube >=0.9.17; we run 0.9.29) — no hand-wired flags.
+  mode: rerank
+  # GTT-leak mitigation as with qwen3-embedding: lifetime covers startup and
+  # model load before this Vulkan server is recycled.
+  maxPodLifetimeSeconds: 86400
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:d6b3507e876001ebb072c87b3cde47e8851b1af90efacfe23d3a802a28b7daab
+  # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
+  # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
+  parallelSlots: 1
+  # Largest (query, document) pair seen is ~2232 tokens (docs truncated to
+  # 2048 chars by MEMINI_RERANK_MAX_DOC_CHARS).
+  contextSize: 4096
+  # A rerank pair must fit one micro-batch; the 512 default 500s with
+  # "input (N tokens) is too large to process".
+  uBatchSize: 4096
+  # llama.cpp caps n_ubatch at n_batch, and the 2048 default is below a pair.
+  batchSize: 4096
+  extraArgs:
+    - "--alias"
+    - "bge-reranker-v2-m3" # served model name memini sends (MEMINI_RERANK_MODEL)
+  # Pin to the iGPU node, as with the embedder; without this the scheduler
+  # could place it on the dGPU node (which also advertises squat.ai/dri) and
+  # steal a dGPU slot from the 27B serving pod.
+  nodeSelector:
+    amd.com/igpu: "true"
+
+  # SOFT anti-affinity, deliberately not required: two iGPU nodes already
+  # host qwen3-embedding and qwen35-2b one-per-node, so a third required
+  # anti-affinity would make this pod unschedulable. It prefers its own node
+  # and co-locates on the busy one only if both are taken — the ~636MB model
+  # fits a node that already runs the 0.6B embedder.
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: qwen3-embedding
+            topologyKey: kubernetes.io/hostname
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: qwen35-2b
+            topologyKey: kubernetes.io/hostname
+
+  # Render/video host groups for /dev/dri — the documented Vulkan-runtime
+  # path. Mirrored by qwen3-embedding / qwen35-2b.
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+
+  resources:
+    cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
+    # Request AND limit (llmkube >= 0.9.29); ~636MB Q8_0 weights plus the
+    # llama-server baseline, the model buffer living in amdgpu GTT which
+    # memcg does not charge.
+    memory: 2Gi
+  endpoint:
+    path: /v1/rerank

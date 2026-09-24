@@ -77,13 +77,14 @@ spec:
           client_body_timeout 300s;
           fastcgi_buffers 64 4K;
           fastcgi_read_timeout 3600s;
+      # 256Mi OOMKilled mid-upload of the nightly HA backup (08-23, 09-04, 09-05); 30d scraped peak 101Mi.
       resources:
         requests:
           cpu: 50m
-          memory: 128Mi
+          memory: 256Mi
         limits:
           cpu: 2
-          memory: 256Mi
+          memory: 512Mi
 
     nextcloud:
       datadir: /var/www/data

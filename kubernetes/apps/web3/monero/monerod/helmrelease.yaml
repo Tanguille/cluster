@@ -66,6 +66,9 @@ spec:
                     port: 18089
                   failureThreshold: 60
     defaultPodOptions:
+      # monerod flushes chain data to the 150Gi PVC on shutdown; the 30s
+      # default risks killing it mid-write.
+      terminationGracePeriodSeconds: 120
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
