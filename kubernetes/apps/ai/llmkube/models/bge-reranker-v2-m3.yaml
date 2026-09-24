@@ -55,6 +55,11 @@ spec:
   # document) pair — the unit of a rerank forward pass — stays far under the
   # 8192-token native context. 4096/2 = 2048 per slot leaves headroom.
   contextSize: 4096
+  # Physical prompt batch. llama.cpp defaults to 512, but memini's largest
+  # rerank payloads reach 2232 tokens — anything above the batch 500s with
+  # "input (N tokens) is too large to process". 4096 covers the 4096-context
+  # ceiling; the 636MB Q8_0 model leaves ample iGPU VRAM headroom for it.
+  batchSize: 4096
   extraArgs:
     - "--alias"
     - "bge-reranker-v2-m3" # served model name memini sends (MEMINI_RERANK_MODEL)
