@@ -18,6 +18,8 @@ spec:
       infraAssessmentScannerEnabled: false
       # Chart default 24h re-creates every report each cycle; workload changes still rescan.
       scannerReportTTL: "48h"
+      # ~570KiB SbomReports, never TTL-pruned, re-created ~860x/day fragmented etcd; nothing reads them.
+      sbomGenerationEnabled: false
     # Expose the /metrics endpoint to Prometheus via a ServiceMonitor.
     serviceMonitor:
       enabled: true
