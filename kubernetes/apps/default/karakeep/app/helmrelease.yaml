@@ -115,7 +115,7 @@ spec:
                 custom: true
                 spec:
                   tcpSocket:
-                    port: &port 9222
+                    port: 9222
               readiness: *probe
             resources:
               requests:
@@ -170,7 +170,7 @@ spec:
                 spec:
                   httpGet:
                     path: /health
-                    port: &port 7700
+                    port: 7700
               readiness: *probe
             resources:
               requests:
