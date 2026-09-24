@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/renovate-operator.mogenius.com/renovatejob_v1alpha1.json
+apiVersion: renovate-operator.mogenius.com/v1alpha1
+kind: RenovateJob
+metadata:
+  name: cluster
+spec:
+  discoveryFilters:
+    - Tanguille/cluster
+  # App creds mirror actions-runner-system/.../runners/cluster/secrets.sops.yaml; rotate both.
+  githubAppReference:
+    secretName: renovate-github-app
+    appIdSecretKey: github_app_id
+    installationIdSecretKey: github_app_installation_id
+    pemSecretKey: github_app_private_key
+  image: ghcr.io/renovatebot/renovate:44.113.0
+  parallelism: 1
+  provider:
+    name: github
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  schedule: "0 * * * *"
+  webhook:
+    enabled: true
+    # GitHub signs deliveries with this token (X-Hub-Signature-256).
+    authentication:
+      enabled: true
+      secretRef:
+        name: renovate-github-app
+        key: webhook_token
+    # Creates the repo hook itself; the app needs "Repository webhooks: RW".
+    sync:
+      enabled: true
