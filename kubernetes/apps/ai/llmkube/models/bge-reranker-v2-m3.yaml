@@ -46,14 +46,17 @@ spec:
   # model load before this Vulkan server is recycled.
   maxPodLifetimeSeconds: 86400
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:d6b3507e876001ebb072c87b3cde47e8851b1af90efacfe23d3a802a28b7daab
-  # One rerank call per memini recall; 2 slots keep a concurrent pair of
-  # recalls from queueing. llama.cpp sizes each slot's context as
-  # contextSize/parallelSlots.
-  parallelSlots: 2
+  # One rerank call per memini recall, and memini serializes them
+  # (MEMINI_RERANK_MAX_CONCURRENCY=1) — a second slot would only queue.
+  # llama.cpp sizes each slot's context as contextSize/parallelSlots, so with
+  # 2 slots a pair's 2232 tokens (observed) exceed the 2048 per-slot window;
+  # 1 slot gives the full 4096 and halves the KV cache (~384MB for 50 slots
+  # of 8192 native context on the 636MB model — ample iGPU headroom).
+  parallelSlots: 1
   # memini truncates each candidate to 2048 chars (MEMINI_RERANK_MAX_DOC_CHARS
-  # default) and caps the whole payload at 6000 chars, so a single (query,
-  # document) pair — the unit of a rerank forward pass — stays far under the
-  # 8192-token native context. 4096/2 = 2048 per slot leaves headroom.
+  # default); the largest single (query, document) pair observed in production
+  # is ~2232 tokens. With parallelSlots: 1 the whole 4096 window is available
+  # per slot, so that fits with ~83% headroom under the 8192 native context.
   contextSize: 4096
   # Micro-batch ("physical batch" in llama.cpp's error text). memini truncates
   # each candidate to 2048 chars, so a single (query, document) pair — the unit
