@@ -12,7 +12,8 @@ spec:
   values:
     fullnameOverride: *app
     config:
-      deleteSuccessfulJobs: true
+      # Reaps succeeded and failed jobs alike; logs stay readable for a day.
+      jobTTLSecondsAfterFinished: 86400
     rbac:
       ownNamespaceOnly: true
     resources:
