@@ -70,7 +70,7 @@ spec:
                   avail() { df -kP /kvoffload | awk 'NR==2{print $$4}'; }
                   # 160Gi = 32% of the 499.6Gi disk; ceph
                   # mon_data_avail_warn=27, so an 80Gi (15%) floor could never
-                  # clear it. Non-tier usage measured 128Gi (2026-08-22).
+                  # clear it. Non-tier usage measured 219Gi (2026-09-24).
                   floor=167772160
                   avail_kb="$$(avail)"
                   echo "avail: $${avail_kb}K (floor: $${floor}K)"
@@ -78,24 +78,26 @@ spec:
                     echo "above floor, nothing to do"
                     exit 0
                   fi
+                  # Evict by bytes, not file count: chunk files are 104Mi, so
+                  # a 2000-file check interval wiped the whole tier each time.
+                  need_kb=$$((floor - avail_kb))
                   # LRU by mtime, oldest first; blocks are write-once.
-                  n=0
                   # busybox find has no -printf.
-                  find /kvoffload -type f -exec stat -c '%Y %n' {} + | sort -n | cut -d' ' -f2- |
-                  while IFS= read -r f; do
-                    rm -f -- "$$f"
-                    n=$$((n + 1))
-                    if [ $$((n % 2000)) -eq 0 ]; then
-                      avail_kb="$$(avail)"
-                      echo "evicted $${n} files, avail now $${avail_kb}K"
-                      [ "$$avail_kb" -ge "$$floor" ] && break
-                    fi
-                  done
-                  # Tier fully evicted and still short: the shortfall is
-                  # elsewhere on the shared fs.
+                  find /kvoffload -type f -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
+                  {
+                    n=0 freed_kb=0
+                    while IFS=' ' read -r size f; do
+                      rm -f -- "$$f"
+                      n=$$((n + 1)) freed_kb=$$((freed_kb + size / 1024))
+                      [ "$$freed_kb" -ge "$$need_kb" ] && break
+                    done
+                    echo "evicted $${n} files ($${freed_kb}K) for a $${need_kb}K shortfall"
+                  }
+                  # Still short: the shortfall is elsewhere on the shared fs,
+                  # or vLLM still holds evicted files open.
                   avail_kb="$$(avail)"
                   [ "$$avail_kb" -ge "$$floor" ] && exit 0
-                  echo "floor unreachable: $${avail_kb}K < $${floor}K, tier fully evicted" >&2
+                  echo "floor unreachable: $${avail_kb}K < $${floor}K" >&2
                   exit 1
               volumeMounts:
                 - name: kv-offload
@@ -138,7 +140,7 @@ spec:
   # range touches ROCm, GDN, W4A16 or KV offload. The liveness probe and
   # VLLMDecodeStepLatched cover the gfx1201 band: 0 firings or restarts
   # 2026-09-13..23.
-  image: vllm/vllm-openai-rocm:nightly@sha256:d5da8f963f0571a171f6817cc108bc2371a39528a11aeba5a00cb78177fcb4e5
+  image: vllm/vllm-openai-rocm:nightly@sha256:0b7ab0b29c5b1b107ebe31fd044a6cb1f31188edd5fdaf9809522efd79adf8df
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
