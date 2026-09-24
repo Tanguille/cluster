@@ -10,7 +10,8 @@
     // default branch (now v7's flat layout) instead of inheriting the #5.0.0 pin.
     "github>home-operations/renovate-presets#8.1.0",
     "github>home-operations/renovate-presets//apps/cnpg.json5#8.1.0",
-    "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#8.1.0",
+    // apps/grafanaDashboards.json5 inlined below: its grafanaCom template needs capture groups
+    // Renovate never passes to templates, so every dashboard bump failed with "update failure".
     "github>home-operations/renovate-presets//apps/llamacpp.json5#8.1.0",
     "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0",
     // talosFactory preset dropped: it matches factory.talos.dev tags and every node pins
@@ -32,6 +33,13 @@
       format: "json",
       transformTemplates: [
         '{"releases":[releases[moniker="stable" and iseol=false].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
+      ]
+    },
+    "grafana-dashboards": {
+      defaultRegistryUrlTemplate: "https://grafana.com/api/dashboards/{{packageName}}",
+      format: "json",
+      transformTemplates: [
+        '{"releases":[{"version": $string(revision)}], "sourceDirectory": name}'
       ]
     }
   },
@@ -67,6 +75,18 @@
         'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
       ],
       datasourceTemplate: "github-releases"
+    },
+    {
+      // Only adjacent id then revision: `indentation` is the one custom group a template can use.
+      description: "GrafanaDashboard grafanaCom id/revision",
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.yaml$/"],
+      matchStrings: [
+        "grafanaCom:\\n(?<indentation> +)id: (?<depName>\\d+)\\n +revision: (?<currentValue>\\d+)"
+      ],
+      datasourceTemplate: "custom.grafana-dashboards",
+      versioningTemplate: "regex:^(?<major>\\d+)$",
+      autoReplaceStringTemplate: "grafanaCom:\n{{{indentation}}}id: {{{depName}}}\n{{{indentation}}}revision: {{{newValue}}}"
     },
     {
       description: "qBitrr ConfigVersion (semver, no v prefix)",
@@ -287,7 +307,10 @@
     },
     {
       matchDatasources: ["custom.grafana-dashboards"],
-      addLabels: ["renovate/grafana-dashboard"]
+      addLabels: ["renovate/grafana-dashboard"],
+      commitMessageTopic: "dashboard {{sourceDirectory}}",
+      semanticCommitScope: "grafana-dashboards",
+      semanticCommitType: "chore"
     },
     {
       matchDatasources: ["custom.linux-kernel"],
