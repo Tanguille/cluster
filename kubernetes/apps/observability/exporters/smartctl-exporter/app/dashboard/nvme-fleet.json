@@ -195,10 +195,53 @@
       "options": { "showHeader": true },
       "transformations": [
         {
-          "id": "joinByLabels",
+          "id": "labelsToFields",
+          "options": { "mode": "columns" }
+        },
+        {
+          "id": "merge"
+        },
+        {
+          "id": "groupBy",
           "options": {
-            "value": "device",
-            "combineByLabels": true
+            "fields": {
+              "instance": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "device": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "model_name": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "serial_number": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "Value #B": {
+                "aggregations": ["lastNotNull"],
+                "operation": "aggregate"
+              },
+              "Value #C": {
+                "aggregations": ["lastNotNull"],
+                "operation": "aggregate"
+              },
+              "Value #D": {
+                "aggregations": ["lastNotNull"],
+                "operation": "aggregate"
+              },
+              "Value #E": {
+                "aggregations": ["lastNotNull"],
+                "operation": "aggregate"
+              },
+              "Value #F": {
+                "aggregations": ["lastNotNull"],
+                "operation": "aggregate"
+              }
+            }
           }
         },
         {
