@@ -1,0 +1,79 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/apps/daemonset_v1.json
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvme-discard-cap
+  labels:
+    app.kubernetes.io/name: nvme-discard-cap
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nvme-discard-cap
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nvme-discard-cap
+    spec:
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: app
+          image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+          env:
+            # Cap each BLKDISCARD request the kernel issues at 256MiB. NVMe
+            # drives advertise multi-GB single-discard limits, and one huge
+            # TRIM can stall the device's command queue for long periods while
+            # the flash is erased. Ceph OSD discards (async, 1 thread) and
+            # f2fs/ext4 discard on rbd mounts are both bounded by this cap.
+            # The 256MiB cap matches the bdev_discard_max_bytes OSD setting
+            # (the two work together: OSD caps its own requests, the kernel
+            # caps what the host driver will pass through).
+            - name: CAP_BYTES
+              value: "268435456"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              log() {
+                printf '%s %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*"
+              }
+
+              apply_cap() {
+                q="$1"
+                cur=$(tr -d '\000' < "$q")
+                if [ "$cur" -gt "$CAP_BYTES" ]; then
+                  echo "$CAP_BYTES" > "$q"
+                  log "set $(basename "$(dirname "$(dirname "$q")")") discard_max_bytes to $CAP_BYTES (was $cur)"
+                fi
+              }
+
+              while :; do
+                for q in /host-sys/class/block/nvme*/queue/discard_max_bytes; do
+                  [ -e "$q" ] || continue
+                  apply_cap "$q"
+                done
+                # Re-check: covers late-appearing or re-enumerated NVMe
+                # namespaces without restarting the daemon.
+                sleep 60
+              done
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: sys
+              mountPath: /host-sys
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys
+            type: Directory
