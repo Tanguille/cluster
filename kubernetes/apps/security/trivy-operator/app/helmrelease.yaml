@@ -26,9 +26,20 @@ spec:
       resources:
         limits:
           cpu: 1000m
+      # A single Hermes cron-job report (145 vulns, mostly LOW/MEDIUM) reached
+      # 2.8MB and broke the Job reconciler (gRPC "message larger than max",
+      # upstream aquasecurity/trivy-operator#757); the resulting failed
+      # reconcile loop pinned the operator near its memory limit until it was
+      # OOMKilled. Filter to HIGH/CRITICAL so report size stays bounded;
+      # LOW/MEDIUM image findings are no longer stored as VulnerabilityReport
+      # entries (trade-off accepted 2026-09-24).
+      severity: HIGH,CRITICAL
     resources:
       requests:
         cpu: 100m
         memory: 256Mi
       limits:
-        memory: 1Gi
+        # Raised 1Gi -> 2Gi: operator ran at ~800Mi steady state during
+        # scan storms and OOMKilled on 2026-09-24 while retrying oversized
+        # reports.
+        memory: 2Gi
