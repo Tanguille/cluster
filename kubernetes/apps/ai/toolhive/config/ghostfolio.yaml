@@ -16,10 +16,10 @@ spec:
   env:
     - name: GHOSTFOLIO_URL
       value: http://ghostfolio.default.svc.cluster.local:3333
-    # Cautious default: the agent gets read access first; flip once its
-    # recommendations are trusted enough to let it place trades/edit activities.
+    # Write access enabled on request (2026-09-24): the agent may now place
+    # trades and edit activities, not just read them.
     - name: READ_ONLY_MODE
-      value: "true"
+      value: "false"
   secrets:
     - name: toolhive-secrets
       key: GHOSTFOLIO_TOKEN
