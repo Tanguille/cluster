@@ -3,11 +3,16 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: gatus
+  name: nvme-fleet
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: uptime
-  url: https://raw.githubusercontent.com/TwiN/gatus/v5.37.0/.examples/docker-compose-grafana-prometheus/grafana/provisioning/dashboards/gatus.json
+  folder: hardware
+  datasources:
+    - datasourceName: prometheus
+      inputName: DS_PROMETHEUS
+  configMapRef:
+    name: nvme-fleet-dashboard
+    key: nvme-fleet.json

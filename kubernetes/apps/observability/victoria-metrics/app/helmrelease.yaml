@@ -403,6 +403,46 @@ spec:
                 for: 5m
                 labels:
                   severity: critical
+              - alert: NVMeWear
+                annotations:
+                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} is at {{ $value }}% of rated endurance
+                  description: smartctl_device_percentage_used crossed 80% — the drive is near end-of-life. Plan replacement before it fails.
+                expr: smartctl_device_percentage_used > 80
+                for: 10m
+                labels:
+                  severity: warning
+              - alert: NVMeWearCritical
+                annotations:
+                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} exceeded 90% of rated endurance
+                  description: smartctl_device_percentage_used crossed 90% — treat as end-of-life and replace.
+                expr: smartctl_device_percentage_used > 90
+                for: 5m
+                labels:
+                  severity: critical
+              - alert: NVMeSpareLow
+                annotations:
+                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} spare area at {{ $value }}%
+                  description: Available spare capacity dropped below its vendor threshold — the device has exhausted most of its over-provisioning.
+                expr: smartctl_device_available_spare < smartctl_device_available_spare_threshold
+                for: 10m
+                labels:
+                  severity: warning
+              - alert: NVMEMediaErrors
+                annotations:
+                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} reported {{ $value }} new media errors
+                  description: Media error counter increased over the last hour — data integrity risk on that device.
+                expr: increase(smartctl_device_media_errors[1h]) > 0
+                for: 1m
+                labels:
+                  severity: warning
+              - alert: NVMeHot
+                annotations:
+                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} running hot ({{ $value }}C)
+                  description: Sustained temperature above 70C — sustained heat accelerates wear and precedes thermal shutdowns (see control-3 7450 history).
+                expr: avg_over_time(smartctl_device_temperature{device=~"nvme.*"}[10m]) > 70
+                for: 15m
+                labels:
+                  severity: warning
               - alert: NodeCPUPressureSustained
                 annotations:
                   summary: Sustained CPU pressure on {{ $labels.nodename }}
