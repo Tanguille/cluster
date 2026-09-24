@@ -2,6 +2,7 @@
 # Chuwi ubox. Runs in-cluster Kepler. Install disk is selected by model because the
 # Micron 7450 has a thermal-shutdown history and must stay unambiguous across reseats; the
 # model tells the 480GB system disk from the 960GB OSD without publishing its serial.
+# Only a fresh install reads the selector; upgrades reuse the running system disk.
 machine:
   install:
     diskSelector:
