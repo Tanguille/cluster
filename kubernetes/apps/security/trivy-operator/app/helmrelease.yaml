@@ -16,6 +16,10 @@ spec:
       # fails), so disable infra assessment. Keeps image vuln, config audit
       # (workload), RBAC and secret scanning. Loses node CIS InfraAssessmentReports.
       infraAssessmentScannerEnabled: false
+      # 24h report TTL re-created every scan cycle for all ~125 workloads
+      # (constant API churn feeding the operator). 48h halves it; reports
+      # are re-created on workload change regardless.
+      scannerReportTTL: "48h"
     # Expose the /metrics endpoint to Prometheus via a ServiceMonitor.
     serviceMonitor:
       enabled: true
@@ -34,6 +38,17 @@ spec:
       # LOW/MEDIUM image findings are no longer stored as VulnerabilityReport
       # entries (trade-off accepted 2026-09-24).
       severity: HIGH,CRITICAL
+      # Chart default slow: true forces single-worker scans (parallel 1);
+      # the 1000m cpu bump above then idles while scans crawl. Off = normal
+      # parallelism, scans finish faster within the same cpu limit.
+      slow: false
+    # Ephemeral workloads (per-run Actions-runner pods, AI cron/jobs)
+    # are pure scan churn: fresh pod = image pull + trivy DB sync +
+    # full scan + report churn, with the result discarded when the pod
+    # disappears. Exclude those namespaces; this also stops scanning
+    # the *persistent* AI workloads (vllm, toolhive, ...) - trade-off
+    # accepted 2026-09-24: image vulns there surface via CI/elsewhere.
+    excludeNamespaces: "actions-runner-system,ai"
     resources:
       requests:
         cpu: 100m
