@@ -12,15 +12,15 @@
     {
       "id": 1,
       "type": "gauge",
-      "title": "Endurance used, min across fleet",
-      "description": "smartctl_device_percentage_used — NVMe percentage used, worst device. 80% = replacement window, 90% = replace now (NVMeWear / NVMeWearCritical).",
+      "title": "Endurance used, worst device",
+      "description": "smartctl_device_percentage_used — NVMe percentage used, most-worn device in the fleet. 80% = replacement window, 90% = replace now (NVMeWear / NVMeWearCritical).",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 7, "w": 6, "x": 0, "y": 0 },
       "targets": [
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "min(smartctl_device_percentage_used{device=~\"nvme.*\"})"
+          "expr": "max(smartctl_device_percentage_used{device=~\"nvme.*\"})"
         }
       ],
       "fieldConfig": {
