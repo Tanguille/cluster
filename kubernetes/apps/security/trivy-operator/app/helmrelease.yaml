@@ -34,7 +34,7 @@ spec:
       # Chart default true scans single-threaded, leaving the 1000m limit idle.
       slow: false
     # Per-run runner pods and AI jobs are scanned then discarded. Also skips
-    # persistent AI workloads; their images are covered by CI.
+    # persistent AI workloads, which get no image scanning elsewhere.
     excludeNamespaces: "actions-runner-system,ai"
     resources:
       requests:
