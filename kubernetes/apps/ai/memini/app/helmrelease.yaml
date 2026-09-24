@@ -51,6 +51,29 @@ spec:
               # Read path has the write path's failure on a tighter 2s default: a busy
               # embedder degrades recall to keyword_only instead of returning vector hits.
               MEMINI_RECALL_EMBED_TIMEOUT: "20s"
+              # Cross-encoder rerank of the composite top-k. Direct to the LLMKube
+              # reranker (NOT litellm, which has no rerank provider in v1.102.0);
+              # the netpol carve-out kubernetes/apps/ai/llmkube/models/
+              # networkpolicy.yaml (inference-rerank-memini-allow) permits exactly
+              # this path, reranker service only. Base URL is the API root — memini
+              # appends /rerank itself.
+              MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local:8080/v1"
+              MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
+              # Re-rank a wider pool than the recall limit, then truncate: lets a
+              # composite-buried memory be rescued by its own relevance. Cost is one
+              # forward pass per candidate — 50 is the natural ceiling (recall never
+              # retrieves more) and keeps the rerank call within its timeout.
+              MEMINI_RERANK_POOL: "50"
+              # Absolute relevance floor: drops low-relevance candidates outright,
+              # so a query with no genuine match returns empty (a verdict) instead
+              # of the best-of-a-bad-pool. 0.5 is a conservative start on
+              # llama.cpp's sigmoid-scaled [0,1] scores — validate against live
+              # traffic before moving it (memini bench.RerankGateSweep).
+              MEMINI_RERANK_MIN_SCORE: "0.5"
+              # Same congestion logic as the embedder knobs: one in-flight rerank
+              # call keeps a slow shared-iGPU reranker from stalling the recall
+              # tail; past the 10s timeout recall degrades to composite order.
+              MEMINI_RERANK_MAX_CONCURRENCY: "1"
             resources:
               requests:
                 cpu: 50m
