@@ -21,3 +21,30 @@ spec:
         memory: 64Mi
       limits:
         memory: 128Mi
+    # UI can trigger runs and has no auth; internal gateway only.
+    route:
+      enabled: true
+      hostnames: ["renovate.${SECRET_DOMAIN}"]
+      parentRefs:
+        - name: envoy-internal
+          namespace: network
+    webhook:
+      enabled: true
+      # GitHub delivers here; the chart derives WEBHOOK_BASE_URL from hostnames[0].
+      route:
+        enabled: true
+        hostnames: ["renovate-webhook.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+      dashboard:
+        enabled: true
+        grafanaDashboard:
+          allowCrossNamespaceImport: true
+          instanceSelector:
+            matchLabels:
+              grafana.internal/instance: grafana

@@ -24,3 +24,14 @@ spec:
     limits:
       memory: 2Gi
   schedule: "0 * * * *"
+  webhook:
+    enabled: true
+    # GitHub signs deliveries with this token (X-Hub-Signature-256).
+    authentication:
+      enabled: true
+      secretRef:
+        name: renovate-webhook
+        key: token
+    # Creates the repo hook itself; the app needs "Repository webhooks: RW".
+    sync:
+      enabled: true
