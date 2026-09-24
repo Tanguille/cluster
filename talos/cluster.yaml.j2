@@ -117,6 +117,14 @@ apiVersion: v1alpha1
 kind: FilesystemTrimConfig
 interval: 168h0m0s
 ---
+# The NVMe drives accept 2 TiB per discard, so the weekly trim above sends 300-600 GiB in requests
+# that take 2-4 s each on the 7450s. Cap each request at 256 MiB so other I/O can interleave.
+# Matches no device on control-1 (virtio only).
+apiVersion: v1alpha1
+kind: UdevRulesConfig
+rules:
+  - ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="nvme[0-9]*n[0-9]*", ATTR{queue/discard_max_bytes}="268435456"
+---
 # xfs_scrub, off until this document exists. Closes #4289. The scrub slot is hash-derived per
 # volume per node, so control-3 (Micron 7450, thermal-shutdown history) never scrubs at the same
 # moment as its peers. Interval stated for the same reason as the trim document above.
