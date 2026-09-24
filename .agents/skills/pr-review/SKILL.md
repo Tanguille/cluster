@@ -73,5 +73,4 @@ For "keep iterating until CI and automated review pass": follow
 - Subagent prompts: [references/phase-prompts.md](references/phase-prompts.md)
 - Isolation, local diff, aggregation: [references/workflow.md](references/workflow.md)
 - Shepherd loop, rebase discipline, CI triage: [references/pr-shepherd.md](references/pr-shepherd.md)
-- Expanded validation topics: [references/best-practices.md](references/best-practices.md)
 - Script: [scripts/validate-pr.sh](scripts/validate-pr.sh)

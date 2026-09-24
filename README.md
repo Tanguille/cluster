@@ -66,7 +66,7 @@ or replicated data where performance is critical (e.g. postgres).
 | **OS**          | Talos Linux                    | Immutable control-plane + worker OS      |
 | **Kubernetes**  | v1.x (see badges)              | 3 nodes, all control-plane + worker      |
 | **GitOps**      | Flux 2                         | Declarative cluster reconciliation       |
-| **Automation**  | Renovate + GitHub Actions      | Dependency PRs, lint, scans (11 workflows) |
+| **Automation**  | Renovate + GitHub Actions      | Dependency PRs, lint, scans              |
 | **CNI**         | Cilium (eBPF)                  | Networking, network policies, LoadBalancer |
 | **Ingress**     | Envoy Gateway + k8s-gateway    | L7 gateway / HTTPRoute                   |
 | **Tunnel**      | cloudflared                    | Public ingress without exposing home WAN |
@@ -169,7 +169,7 @@ enforcement) · Trivy-Operator (image & CVE scanning)
 
 Cilium · CoreDNS · Spegel (local path) · descheduler · etcd-defrag ·
 metrics-server · reloader · snapshot-controller · node-problem-detector ·
-network-policies · AMD GPU undervolt · actions-runner-controller (self-hosted
+generic-device-plugin · AMD GPU undervolt · actions-runner-controller (self-hosted
 GitHub runners) · Flux · Rook-Ceph · OpenEBS · cert-manager ·
 kopiur (backup machinery) · system-upgrade (Talos upgrades)
 
@@ -253,9 +253,7 @@ Kromgo feeds the live badges at the top of this file.
 
 ### 🛟 CI
 
-GitHub Actions workflows:
-gitleaks, k8s-scan, flate, docker/hadolint, shell/shellcheck,
-markdown-lint, talos-render, talos-kernel, labeler/label-sync and agent-pr-review.
+GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 
 ---
 

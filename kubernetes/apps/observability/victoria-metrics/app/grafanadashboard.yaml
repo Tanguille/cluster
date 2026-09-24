@@ -80,7 +80,6 @@ kind: ResourceSet
 metadata:
   name: victoria-metrics-dashboards-mixin
 spec:
-  # monitoring-mixins assets, commit-pinned.
   inputs:
     - name: kubernetes-hpa
       asset: hpa
@@ -98,4 +97,4 @@ spec:
           matchLabels:
             grafana.internal/instance: grafana
         folder: autoscaling
-        url: https://raw.githubusercontent.com/monitoring-mixins/website/b200a115e32a4db3045c7e1be1567a315d35cc4e/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-<< inputs.asset >>.json
+        url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-<< inputs.asset >>.json

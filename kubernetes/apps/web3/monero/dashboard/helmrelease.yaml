@@ -38,7 +38,7 @@ spec:
                 spec:
                   httpGet:
                     path: /
-                    port: &port 80
+                    port: 80
               readiness: *probe
           dashboard-server:
             image:
@@ -73,7 +73,7 @@ spec:
                 spec:
                   httpGet:
                     path: /monerod_stats
-                    port: &port 8080
+                    port: 8080
               readiness: *probe
             resources:
               requests:

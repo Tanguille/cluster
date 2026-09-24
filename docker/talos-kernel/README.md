@@ -36,19 +36,19 @@ unreachable there regardless.
 | HRTICK / HRTICK_DL default on                         | Applies; `CONFIG_HRTIMER_REARM_DEFERRED=y` in the built config. EEVDF slice enforcement moves off the 4 ms tick.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | r8169 LTR enabled for RTL8125 (7.0)                   | **Not applicable on this hardware.** Looked like the main regression risk (both NICs are RTL8125B in `bond0`), but ACPI `_OSC` on both Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel and the commit cannot engage. Same `_OSC` line on control-3, so this is a property of the box, not of 7.x. It also means AER reporting is unavailable, i.e. PCIe correctable/uncorrectable errors are invisible here by construction — do not write alerts against AER on these nodes.                                                                                                                                                                                         |
 
-The Ceph `aes256k` feature this was built for is **not yet in use** — it also needs Rook's
-`spec.security.cephx.allowedCiphers`, which cannot be set while any node is below 7.0.
+Rook's `spec.security.cephx.allowedCiphers` is `["aes256k"]` since #4616, so **every node must
+stay on 7.0 or later**: the 6.18 in-kernel Ceph client has no aes256k and cannot authenticate.
 
 ### The counterweight: 7.x is not LTS
 
-|                    | 6.18                                               | 7.1                                    |
+|                    | 6.18                                               | 7.2                                    |
 |--------------------|----------------------------------------------------|----------------------------------------|
 | kernel.org moniker | **longterm**                                       | stable                                 |
-| Projected EOL      | Dec 2028                                           | none published; 7.2 shipped 2026-08-16 |
-| `siderolabs/pkgs`  | `release-1.14` pins 6.18.48                        | never shipped                          |
+| Projected EOL      | Dec 2028                                           | none published                         |
+| `siderolabs/pkgs`  | `release-1.14` tracks 6.18.y                       | never shipped                          |
 
 Measured series lifetimes: 6.19.y made its last release 9 days after 7.0 shipped, 7.0.y 13
-days after 7.1. 7.2 is already out, so 7.1.y is likely within weeks of EOL. Mainline cadence
+days after 7.1, 7.1.y 17 days after 7.2 (7.1.13, 2026-09-02). Mainline cadence
 this year was ~63 days per series, so tracking `stable` means a full series migration roughly
 every 9 weeks, on top of a Talos rebase every ~4 months, with no upstream test coverage for
 the combination.
@@ -208,49 +208,11 @@ was `kernel/crypto/xor.ko` -> `kernel/lib/raid/xor/xor.ko` (moved), and dropping
 `kernel/crypto/hkdf.ko` (`CONFIG_CRYPTO_HKDF` deleted upstream) and
 `kernel/drivers/watchdog/iTCO_vendor_support.ko` (removed in 7.0).
 
-### Hold: 7.2 is blocked on Cilium, do not merge the bump
+### Holding a kernel minor
 
-**A green build does not mean a bootable fleet.** 7.2.2 built, published and booted cleanly;
-the node was still lost, because the break is in userspace and the pipeline cannot see it.
-
-Cilium's feature probe passes a *pointer* to `bpf_set_retval`, which has always taken an
-integer. The kernel tolerated it until [`b1f7f67b74c2e`][k-commit] ("bpf: Add validation for
-bpf_set_retval argument") landed in **7.2-rc1**. The agent now dies at startup and never writes
-a CNI config, so the node stays `NotReady` with no network:
-
-```text
-level=fatal msg="failed to probe helper"
-  error="detect support for FnSetRetval for program type CGroupSock: load program:
-         invalid argument: 0: (85) call bpf_set_retval#187: R1 is not a scalar"
-  progType=CGroupSock helper=FnSetRetval
-```
-
-Tracked as [cilium/cilium#48016][issue]. It is a Cilium bug the kernel exposed, not a kernel
-regression, and it is **not** version-specific to our 1.20: upstream reports 1.18, 1.19, 1.20
-and 1.21.0-pre.0 all failing on 7.2 while the same builds run fine on 7.1.
-
-The fix is [`67c619c`][fix] (probe via `bpf_core_enum_value_exists()` instead of emitting the
-call). Re-measured on 2026-09-03: still present on the `v1.20` branch as `b73ca6e8d`
-(2026-08-28), absent from `v1.19` and `v1.18`, and still in **no release** — 1.20.1 remains the
-latest and shipped 2026-08-18, ten days before the backport. Re-check with:
-
-```sh
-gh api "repos/cilium/cilium/commits?sha=v1.20&per_page=100" \
-    -q '[.[] | select(.commit.message | test("HAVE_SET_RETVAL"))] | length'
-gh release list --repo cilium/cilium --limit 5
-```
-
-**Lift the hold when a Cilium release containing that commit is deployed here** — 1.20.2 or
-later. Until then `ARG KERNEL_VERSION` stays on 7.1.y and Renovate's 7.2.x PR stays open and
-unmerged; the open PR is the reminder. It is deliberately not pinned via `allowedVersions`:
-combined with the `iseol=false` filter in `.renovaterc.json5`, a `<7.2` bound empties the feed
-once 7.1 leaves `moniker=stable`, and bumps then stop **silently** — which is worse than a PR
-someone has to decline. The cost of the hold is that 7.1.y patch bumps stop too, since Renovate
-only ever offers the highest stable.
-
-[k-commit]: https://github.com/torvalds/linux/commit/b1f7f67b74c2e
-[issue]: https://github.com/cilium/cilium/issues/48016
-[fix]: https://github.com/cilium/cilium/commit/67c619cb0a43c7178bf843c9281fc77fe64fe13f
+Leave Renovate's PR open rather than bounding `allowedVersions`: with the `iseol=false` filter in
+`.renovaterc.json5`, a `<X.Y` bound empties the feed once the old minor leaves `moniker=stable`,
+and bumps then stop silently.
 
 ### Rolling a bump back
 
