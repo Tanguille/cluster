@@ -14,8 +14,10 @@ spec:
       enabled: true
       createPrometheusRules: true
       prometheusRuleOverrides:
-        # Max without (pod) collapses the stale-pod duplicate series a mgr roll
-        # leaves behind; otherwise the [2d] join 422s for 2 days.
+        # Host-networked mgr pods share the instance label; after a mgr roll the [2d]
+        # lookback returns duplicate series per pool and the join 422s for 2 days
+        # (cascades into AlertingRulesError/RequestErrorsToAPI/TooManyLogs).
+        # max without (pod) collapses the stale-pod duplicate before the join.
         CephPoolGrowthWarning:
           expr: "(max without (pod) (predict_linear(ceph_pool_percent_used[2d], 3600 * 24 * 5)) * on(cluster, pool_id, instance) group_right() ceph_pool_metadata) >= 95"
     toolbox:
@@ -39,12 +41,13 @@ spec:
       repository: quay.io/ceph/ceph
       tag: v20.2.4@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
     cephClusterSpec:
-      # Ceph 20 rates cipher `aes` HEALTH_ERR (blocks Rook OSD upgrades); aes256k
-      # needs the in-kernel client from Linux 7.0.
+      # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
+      # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
       security:
         cephx:
           allowedCiphers: ["aes256k"]
-          # daemon.keyType omitted: Rook defaults to aes256k already.
+          # daemon.keyType omitted: Rook already defaults to aes256k, and any value set here makes
+          # it pass --mon-auth-emergency-allowed-ciphers to the mons.
           daemon: &cephxKey
             keyRotationPolicy: KeyGeneration
             keyGeneration: 2
@@ -58,7 +61,8 @@ spec:
           # Rook rejects non-string cephConfig values.
           bdev_enable_discard: "true"
           bdev_async_discard_threads: "1"
-          # Cap per-request TRIM at 256MiB; pairs with nvme-discard-cap DaemonSet.
+          # Cap per-request TRIM at 256MiB so a single discard cannot stall the
+          # device command queue; pairs with the nvme-discard-cap DaemonSet.
           bdev_discard_max_bytes: "268435456"
           osd_class_update_on_start: "false"
           device_failure_prediction_mode: local # requires mgr module
@@ -72,8 +76,9 @@ spec:
           mon_cluster_log_level: info
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
-      # Off: duplicates what daemons already write to stdout and victoria-logs, and
-      # the 100Mi request per ceph pod left the control-2 exporter unschedulable.
+      # Off: the sidecar duplicates to host disk what daemons already write to stdout and
+      # victoria-logs already collects. It also costs a 100Mi request on every ceph daemon
+      # pod, which is what left rook-ceph-exporter-control-2 unschedulable (2026-08-06).
       logCollector:
         enabled: false
       csi:
