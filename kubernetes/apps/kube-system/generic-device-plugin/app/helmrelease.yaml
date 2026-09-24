@@ -14,39 +14,16 @@ spec:
       priorityClassName: system-node-critical
 
     controllers:
-      generic-device-plugin:
-        type: daemonset
-        pod:
-          nodeSelector:
-            amd.com/gpu: "true"
-        containers:
-          app:
-            image: &devicePluginImage
-              repository: ghcr.io/squat/generic-device-plugin
-              tag: latest@sha256:dc192e164c69b03f156765793a1be62ca437709ae477b27ca7d8f3dcf5021576
-            args:
-              - --domain=squat.ai
-              - --device
-              - |
-                name: dri
-                groups:
-                  - count: 4
-                    paths:
-                      - path: /dev/dri
-                      - path: /dev/kfd
-            securityContext: &devicePluginSecurityContext
-              privileged: true
-            resources: &devicePluginResources
-              requests:
-                cpu: 10m
-                memory: 16Mi
-              limits:
-                memory: 64Mi
+      # dGPU (control-1) moved to DRA (kube-system/k8s-gpu-dra-driver) — it's a
+      # single exclusive consumer at a time (mutually-exclusive sglang/media
+      # via the shared-dgpu claim), no timeslicing needed there.
+      # iGPU stays on squat.ai/dri: the AMD DRA driver has no
+      # timeslicing/consumable-capacity support, so a DRA claim here would be
+      # exclusive and break the iGPU's small embedding-model sharing.
       # iGPU device plugin: two squat.ai/dri slots so the small llmkube embedding
       # InferenceService (qwen3-embedding, Vulkan, 4 slots since 2026-09-15 after
       # absorbing vmcp-embedding's tool search) shares one iGPU with qwen35-2b — the
-      # device is the same /dev/dri either way, count only gates scheduling. dGPU nodes
-      # use count: 4 above.
+      # device is the same /dev/dri either way, count only gates scheduling.
       generic-device-plugin-igpu:
         type: daemonset
         pod:
@@ -54,7 +31,9 @@ spec:
             amd.com/igpu: "true"
         containers:
           app:
-            image: *devicePluginImage
+            image:
+              repository: ghcr.io/squat/generic-device-plugin
+              tag: latest@sha256:dc192e164c69b03f156765793a1be62ca437709ae477b27ca7d8f3dcf5021576
             args:
               - --domain=squat.ai
               - --device
@@ -64,8 +43,14 @@ spec:
                   - count: 2
                     paths:
                       - path: /dev/dri
-            securityContext: *devicePluginSecurityContext
-            resources: *devicePluginResources
+            securityContext:
+              privileged: true
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
 
     persistence:
       dev:
