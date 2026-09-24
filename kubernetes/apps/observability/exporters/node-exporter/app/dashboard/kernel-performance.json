@@ -1,0 +1,298 @@
+{
+  "title": "Kernel Performance",
+  "uid": "kernel-performance",
+  "tags": ["hardware", "kernel", "node-exporter"],
+  "editable": true,
+  "refresh": "1h",
+  "schemaVersion": 39,
+  "timezone": "browser",
+  "version": 1,
+  "time": {
+    "from": "now-60d",
+    "to": "now"
+  },
+  "annotations": {
+    "list": [
+      {
+        "name": "Kernel change",
+        "enable": true,
+        "iconColor": "purple",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "count by (kubernetes_node, release) (node_uname_info{job=\"node-exporter\",kubernetes_node!=\"\"}) unless count by (kubernetes_node, release) (node_uname_info{job=\"node-exporter\",kubernetes_node!=\"\"} offset 1h)",
+        "step": "1h",
+        "titleFormat": "Kernel change",
+        "textFormat": "{{kubernetes_node}} → {{release}}",
+        "tagKeys": "kubernetes_node"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "softirq CPU",
+      "description": "Share of CPU time spent in softirq (network and block I/O completion).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "interval": "1h",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg by (kubernetes_node) (rate(node_cpu_seconds_total{job=\"node-exporter\",kubernetes_node!=\"\",mode=\"softirq\"}[$__interval]))",
+          "legendFormat": "{{kubernetes_node}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "softnet budget exhausted",
+      "description": "node_softnet_times_squeezed: NAPI polls that ran out of budget with packets still queued.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "interval": "1h",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (kubernetes_node) (rate(node_softnet_times_squeezed_total{job=\"node-exporter\",kubernetes_node!=\"\"}[$__interval]))",
+          "legendFormat": "{{kubernetes_node}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Steal CPU",
+      "description": "CPU time the hypervisor took from the VM; only control-1 is virtualised.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "interval": "1h",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg by (kubernetes_node) (rate(node_cpu_seconds_total{job=\"node-exporter\",kubernetes_node!=\"\",mode=\"steal\"}[$__interval]))",
+          "legendFormat": "{{kubernetes_node}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Ceph OSD write latency",
+      "description": "Op-weighted average client write latency per OSD.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "interval": "1h",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (ceph_daemon) (rate(ceph_osd_op_w_latency_sum[$__interval])) / sum by (ceph_daemon) (rate(ceph_osd_op_w_latency_count[$__interval])) * on (ceph_daemon) group_left (hostname) max by (ceph_daemon, hostname) (ceph_osd_metadata)",
+          "legendFormat": "{{ceph_daemon}} ({{hostname}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "etcd peer round-trip",
+      "description": "Average round-trip time between etcd members.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "interval": "1h",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (instance) (rate(etcd_network_peer_round_trip_time_seconds_sum[$__interval])) / sum by (instance) (rate(etcd_network_peer_round_trip_time_seconds_count[$__interval]))",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "etcd WAL fsync",
+      "description": "Average etcd write-ahead-log fsync duration.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "interval": "1h",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (instance) (rate(etcd_disk_wal_fsync_duration_seconds_sum[$__interval])) / sum by (instance) (rate(etcd_disk_wal_fsync_duration_seconds_count[$__interval]))",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}
