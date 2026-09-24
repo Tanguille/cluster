@@ -26,10 +26,10 @@ spec:
             # drives advertise multi-GB single-discard limits, and one huge
             # TRIM can stall the device's command queue for long periods while
             # the flash is erased. Ceph OSD discards (async, 1 thread) and
-            # f2fs/ext4 discard on rbd mounts are both bounded by this cap.
-            # The 256MiB cap matches the bdev_discard_max_bytes OSD setting
-            # (the two work together: OSD caps its own requests, the kernel
-            # caps what the host driver will pass through).
+            # filesystem discards are both bounded by this cap.
+            # Ceph v20 has no bdev_discard_max_bytes option (it landed later,
+            # as a queue-depth bound), so this kernel cap is the only
+            # per-request byte cap available on this Ceph version.
             - name: CAP_BYTES
               value: "268435456"
           command:

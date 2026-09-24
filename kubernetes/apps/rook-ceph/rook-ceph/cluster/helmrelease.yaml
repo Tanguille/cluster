@@ -61,9 +61,6 @@ spec:
           # Rook rejects non-string cephConfig values.
           bdev_enable_discard: "true"
           bdev_async_discard_threads: "1"
-          # Cap per-request TRIM at 256MiB so a single discard cannot stall the
-          # device command queue; pairs with the nvme-discard-cap DaemonSet.
-          bdev_discard_max_bytes: "268435456"
           osd_class_update_on_start: "false"
           device_failure_prediction_mode: local # requires mgr module
           # Network optimization for 2.5Gbps
