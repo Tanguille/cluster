@@ -407,7 +407,7 @@ spec:
                 annotations:
                   summary: NVMe {{ $labels.device }} on {{ $labels.instance }} is at {{ $value }}% of rated endurance
                   description: smartctl_device_percentage_used crossed 80% — the drive is near end-of-life. Plan replacement before it fails.
-                expr: smartctl_device_percentage_used > 80
+                expr: smartctl_device_percentage_used > 80 and smartctl_device_percentage_used <= 90
                 for: 10m
                 labels:
                   severity: warning
