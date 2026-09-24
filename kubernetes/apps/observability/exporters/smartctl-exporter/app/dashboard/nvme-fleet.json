@@ -195,12 +195,22 @@
       "options": { "showHeader": true },
       "transformations": [
         {
-          "id": "joinByField",
-          "options": { "byField": "Time", "combineByLabels": true }
+          "id": "joinByLabels",
+          "options": {
+            "value": "device",
+            "combineByLabels": true
+          }
         },
         {
           "id": "organize",
-          "options": { "excludeByName": { "Time": true, "Value": true } }
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value #A": true,
+              "job": true,
+              "prometheus": true
+            }
+          }
         }
       ]
     }
