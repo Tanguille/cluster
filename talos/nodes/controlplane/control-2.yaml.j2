@@ -7,6 +7,7 @@
 machine:
   install:
     # By model, not /dev/nvme1n1: enumeration order can swap, and the other NVMe is Ceph osd.0.
+    # Only a fresh install reads this; upgrades reuse the running system disk.
     diskSelector:
       model: Micron_7450_MTFDKBA480TFR
     # Our registry, not the Factory: tuppr rebuilds the upgrade target from this field, so
