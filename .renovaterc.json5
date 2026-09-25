@@ -129,7 +129,7 @@
       description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
       customType: "regex",
       managerFilePatterns: [
-        "/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/"
+        "/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$"
       ],
       matchStrings: [
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
@@ -229,14 +229,38 @@
       description: "Keep auto-merge for the packages excluded from the release-age rule",
       matchPackageNames: ["/quay.io/", "linux"],
       matchUpdateTypes: ["patch", "digest"],
-      // Only the quay.io-hosted deny-listed packages need excluding: a rule later in the
-      // list wins, so without these the re-enable would override the deny-list's
-      // automerge:false for ceph, rook and cilium (the only deny-list entries hosted on
-      // quay.io). Kept narrow on purpose — a full deny-list mirror would also pull
-      // cert-manager/kepler out of auto-merge, changing their pre-PR behaviour. (The
-      // linux-kernel depName is forced manual by the custom.linux-kernel labeling rule
-      // at the end of the list, which comes after this one.)
-      excludePackageNames: ["/ceph/", "/rook/", "/cilium/"],
+      // Full mirror of the deny-list above: a rule later in the list wins, so without these
+      // the re-enable would override the deny-list's automerge:false for every deny-listed
+      // quay.io package (ceph, cilium, rook, kepler, ...). A pattern like "/kepler/" also
+      // matches quay.io/.../charts/kepler-operator, which a narrow list would miss. (The
+      // linux-kernel depName is forced manual by the custom.linux-kernel labeling rule at
+      // the end of the list, which comes after this one.)
+      excludePackageNames: [
+        "/talos/",
+        "/installer/",
+        "/siderolabs/",
+        "/tuppr/",
+        "/cilium/",
+        "/coredns/",
+        "/envoy/",
+        "/k8s-gateway/",
+        "/external-dns/",
+        "/cert-manager/",
+        "/spegel/",
+        "/rook/",
+        "/ceph/",
+        "/openebs/",
+        "/kopiur/",
+        "/snapshot-controller/",
+        "/cloudnative-pg/",
+        "/postgres/",
+        "/vchord/",
+        "/pgvector/",
+        "/dragonfly/",
+        "/flux/",
+        "/vllm/",
+        "/llama/"
+      ],
       automerge: true,
       automergeType: "pr"
     },
