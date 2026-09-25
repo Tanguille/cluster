@@ -1,1 +1,366 @@
-PLACEHOLDER
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "abandonments:recommended",
+    // Preset pinned: v7 flattened the layout, so unpinned extends re-resolve against default
+    // branch and break.
+    "github>home-operations/renovate-presets#8.1.0",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#8.1.0",
+    // grafanaDashboards inlined below: its grafanaCom template needs capture groups Renovate
+    // never passes to templates.
+    "github>home-operations/renovate-presets//apps/llamacpp.json5#8.1.0",
+    "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0",
+    // talosFactory dropped: matches factory.talos.dev tags, which collide with the
+    // ghcr.io/tanguille/installer node pins; we gate on siderolabs git tags instead.
+    ":timezone(Europe/Brussels)"
+  ],
+  ignorePaths: ["**/*.sops.*", "**/resources/**"],
+  // main has no required checks; off so Renovate only merges once every check is green.
+  platformAutomerge: false,
+  // In-issue "trigger run" button: the operator webhook fires a run on any dashboard issue
+  // edit containing a checked box. Resets to unchecked on every dashboard rewrite.
+  dependencyDashboardFooter: [
+    "- [ ] <!-- trigger-run --> **Trigger a new run** — checking this box schedules an immediate run"
+  ],
+  customDatasources: {
+    // Moniker filter survives series bumps (7.1.x -> 7.2.x) with no config change.
+    // Re-check shape: curl -s https://www.kernel.org/releases.json | jq '.releases[]|select(.moniker=="stable")'
+    // If the shape ever changes the transform yields zero releases and bumps stop SILENTLY.
+    "linux-kernel": {
+      defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
+      format: "json",
+      transformTemplates: [
+        '{"releases":[releases[moniker="stable" and iseol=false].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
+      ]
+    },
+    "grafana-dashboards": {
+      defaultRegistryUrlTemplate: "https://grafana.com/api/dashboards/{{packageName}}",
+      format: "json",
+      transformTemplates: [
+        '{"releases":[{"version": $string(revision)}], "sourceDirectory": name}'
+      ]
+    }
+  },
+  customManagers: [
+    {
+      // Span is "-k<version>", not the version line: "v1.17.3-k7.3" contains "7.3" twice.
+      // depName linux matches the Dockerfile ARG, so both halves land in one branch.
+      description: "tuppr target v<talos>-k<kernel>: Talos half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: [
+        "version:\\s+(?<currentValue>v\\d+\\.\\d+\\.\\d+(?:-[a-z]+\\.\\d+)?)-k"
+      ],
+      depNameTemplate: "siderolabs/talos",
+      datasourceTemplate: "github-releases"
+    },
+    {
+      description: "tuppr target v<talos>-k<kernel>: kernel half",
+      customType: "regex",
+      managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
+      matchStrings: ["-k(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)"],
+      depNameTemplate: "linux",
+      datasourceTemplate: "custom.linux-kernel"
+    },
+    {
+      description: "GrafanaDashboard spec.url pinned to GitHub release tags",
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
+      matchStrings: [
+        'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
+      ],
+      datasourceTemplate: "github-releases"
+    },
+    {
+      // `indentation` is the one custom group a template can use.
+      description: "GrafanaDashboard grafanaCom id/revision",
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
+      matchStrings: [
+        "grafanaCom:\\n(?<indentation> +)id: (?<depName>\\d+)\\n +revision: (?<currentValue>\\d+)"
+      ],
+      datasourceTemplate: "custom.grafana-dashboards",
+      versioningTemplate: "regex:^(?<major>\\d+)$",
+      autoReplaceStringTemplate: "grafanaCom:\n{{{indentation}}}id: {{{depName}}}\n{{{indentation}}}revision: {{{newValue}}}"
+    },
+    {
+      description: "qBitrr ConfigVersion (semver, no v prefix)",
+      customType: "regex",
+      managerFilePatterns: ["/qbitrr/config/config\\.toml$/"],
+      matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
+      depNameTemplate: "feramance/qbitrr",
+      datasourceTemplate: "docker",
+      extractVersionTemplate: "^v(?<version>.*)$",
+      // {{replace}} here would re-extract empty and abort with "update failure".
+      autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
+    },
+    {
+      // resolve/ URL for single-file GGUFs, hf://repo@sha for multi-file repos — without the
+      // second, the primary serving model's weights digest tracks nothing.
+      description: "HuggingFace model files revision-pinned in llmkube Model sources",
+      customType: "regex",
+      managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
+      matchStrings: [
+        "source:\\s+https://huggingface\\.co/(?<depName>[^/\\s]+/[^/\\s]+)/resolve/(?<currentDigest>[a-f0-9]{40})/",
+        "source:\\s+hf://(?<depName>[^/\\s]+/[^/\\s]+)@(?<currentDigest>[a-f0-9]{40})"
+      ],
+      packageNameTemplate: "https://huggingface.co/{{depName}}",
+      currentValueTemplate: "main",
+      datasourceTemplate: "git-refs"
+    },
+    {
+      description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$"
+      ],
+      matchStrings: [
+        '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
+      ],
+      datasourceTemplate: "npm"
+    },
+    {
+      // Tracks the pgvector OCI image tag so the Database CR's vector pin can't drift.
+      description: "CNPG Database CRD vector extension version pin",
+      customType: "regex",
+      managerFilePatterns: ["/resourceset\\.yaml$/"],
+      matchStrings: [
+        "name:\\s+vector\\b(?:\\n[ \\t]*|\\n +[^-\\s][^\\n]*)*?\\n +version:\\s*[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"
+      ],
+      depNameTemplate: "ghcr.io/cloudnative-pg/pgvector",
+      datasourceTemplate: "docker",
+      extractVersionTemplate: "^(?<version>\\d+\\.\\d+\\.\\d+)-\\d+-\\w+$"
+    }
+  ],
+  packageRules: [
+    {
+      // Paiton only accepts its hash-pinned checkpoint; bump with the image.
+      matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
+      enabled: false
+    },
+    // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
+    {
+      // Excluded: no releaseTimestamp in their datasources (quay.io, custom.linux-kernel) —
+      // they can't age-gate, and timestamp-optional just warned on them every run.
+      description: "Auto-merge patch and digest bumps once they have aged 3 days",
+      matchUpdateTypes: ["patch", "digest"],
+      excludePackageNames: ["/quay.io/", "linux"],
+      minimumReleaseAge: "3 days",
+      minimumReleaseAgeBehaviour: "timestamp-optional",
+      automerge: true,
+      automergeType: "pr"
+    },
+    {
+      description: "Auto-merge GitHub Actions on minor too",
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor"],
+      minimumReleaseAge: "3 days",
+      automerge: true,
+      automergeType: "pr"
+    },
+    {
+      description: "Auto-merge Renovate's own image on minor",
+      matchPackageNames: ["ghcr.io/renovatebot/renovate"],
+      matchUpdateTypes: ["minor"],
+      minimumReleaseAge: "3 days",
+      automerge: true,
+      automergeType: "pr"
+    },
+    {
+      // Never auto-merge storage, network, control plane, databases or GPU serving.
+      matchPackageNames: [
+        "/talos/",
+        "/installer/",
+        "/siderolabs/",
+        "/tuppr/",
+        "/cilium/",
+        "/coredns/",
+        "/envoy/",
+        "/k8s-gateway/",
+        "/external-dns/",
+        "/cert-manager/",
+        "/spegel/",
+        "/rook/",
+        "/ceph/",
+        "/openebs/",
+        "/kopiur/",
+        "/snapshot-controller/",
+        "/cloudnative-pg/",
+        "/postgres/",
+        "/vchord/",
+        "/pgvector/",
+        "/dragonfly/",
+        "/flux/",
+        "/vllm/",
+        "/llama/"
+      ],
+      automerge: false
+    },
+    {
+      description: "Auto-merge searxng",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/searxng/searxng"],
+      automerge: true,
+      automergeType: "pr"
+    },
+    {
+      // Digest-pinned so new builds are detected at all; a bump rolls the single-GPU serving
+      // pod and can move the KV pool maxModelLen is sized against.
+      description: "vllm-openai-rocm nightly digest: never auto-merge",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["vllm/vllm-openai-rocm"],
+      automerge: false
+    },
+    {
+      // opencode 2.x is not deployable: v2.0.0 broke the /:4096 liveness/readiness probes
+      // (Flux rolled back to 1.18.30 on 2026-09-15). Hold until probes migrate to the v2 API.
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/anomalyco/opencode"],
+      allowedVersions: "1.18.x",
+      automerge: false
+    },
+    // Grouping rules
+    {
+      // Matches both gha-runner-scale-set and gha-runner-scale-set-controller.
+      description: "Actions Runner Controller Group",
+      groupName: "actions-runner-controller",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/gha-runner-scale-set/"],
+      minimumGroupSize: 2
+    },
+    {
+      description: "Flux Operator Group",
+      groupName: "flux-operator",
+      matchDatasources: ["docker", "github-releases"],
+      matchPackageNames: ["/flux-operator/", "/flux-instance/"],
+      minimumGroupSize: 2
+    },
+    {
+      // talosupgrade.yaml and the mise talosctl pin track the same release — one PR. Nothing
+      // moves during a pre-release (ignoreUnstable), which is how the flate copy drifted.
+      description: "Talos Group",
+      groupName: "talos",
+      matchDatasources: ["docker", "github-releases"],
+      // Inner slash escaped AND closed: both slashes are regex delimiters.
+      matchPackageNames: ["/siderolabs\\//"]
+    },
+    {
+      // Matches both rook-ceph and rook-ceph-cluster.
+      description: "Rook-Ceph Group",
+      groupName: "rook-ceph",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/rook-ceph/"],
+      minimumGroupSize: 2
+    },
+    {
+      description: "ToolHive operator and CRDs group",
+      groupName: "toolhive",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
+      minimumGroupSize: 2
+    },
+    {
+      // kubectl excluded so a bump doesn't ride along with the MCP server images.
+      description: "ToolHive MCP server images group",
+      groupName: "toolhive-mcp",
+      matchDatasources: ["docker"],
+      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
+      matchPackageNames: ["!registry.k8s.io/kubectl"]
+    },
+    {
+      description: "VectorChord CNPG images and Memini database version",
+      groupName: "vectorchord",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
+    },
+    {
+      description: "pgvector CNPG extension image and Database CRD version pins",
+      groupName: "pgvector",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/cloudnative-pg/pgvector"]
+    },
+    {
+      description: "Group klipper-exporter image and Grafana dashboard URL",
+      groupName: "klipper-exporter",
+      matchDatasources: ["docker", "github-releases"],
+      matchPackageNames: ["/prometheus-klipper-exporter/"]
+    },
+    {
+      description: "nginx sidecar images group",
+      groupName: "nginx",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["nginx"],
+      minimumGroupSize: 2
+    },
+    {
+      // No matchManagers: the image is detected by both helm-values and kubernetes;
+      // constraining managers lets one copy escape into a duplicate PR.
+      description: "qBitrr: group image tag and ConfigVersion",
+      groupName: "qbitrr",
+      matchDatasources: ["docker"],
+      matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
+      matchPackageNames: ["/feramance\\/qbitrr/"]
+    },
+    {
+      // Last release 2025-08-04; matchDepNames because the mise preset rewrites packageName.
+      description: "shellcheck releases rarely; not abandoned",
+      matchDepNames: ["aqua:koalaman/shellcheck"],
+      abandonmentThreshold: null
+    },
+    // Mixed-segment tags (p2pool v4.15/v4.15.1, hermes v2026.5.29/v2026.5.29.2): docker
+    // versioning skips patch bumps without this.
+    {
+      matchDatasources: ["docker"],
+      matchPackageNames: [
+        "ghcr.io/sethforprivacy/p2pool",
+        "nousresearch/hermes-agent"
+      ],
+      versioning: "loose"
+    },
+    // Labeling rules
+    {
+      matchUpdateTypes: ["major"],
+      addLabels: ["type/major"]
+    },
+    {
+      matchUpdateTypes: ["minor"],
+      addLabels: ["type/minor"]
+    },
+    {
+      matchUpdateTypes: ["patch"],
+      addLabels: ["type/patch"]
+    },
+    {
+      matchUpdateTypes: ["digest"],
+      addLabels: ["type/digest"]
+    },
+    {
+      matchDatasources: ["docker"],
+      addLabels: ["renovate/container"]
+    },
+    {
+      matchDatasources: ["custom.grafana-dashboards"],
+      addLabels: ["renovate/grafana-dashboard"],
+      commitMessageTopic: "dashboard {{sourceDirectory}}",
+      semanticCommitScope: "grafana-dashboards",
+      semanticCommitType: "chore"
+    },
+    {
+      // X.Y for a freshly promoted series fails semver and would silently stop; the
+      // annotation syntax can't carry versioning, so it's set here.
+      matchDatasources: ["custom.linux-kernel"],
+      versioning: "loose",
+      semanticCommitScope: "kernel",
+      addLabels: ["renovate/kernel"],
+      automerge: false // kernel point releases are "patch"; keep manual
+    },
+    {
+      matchManagers: ["github-actions"],
+      addLabels: ["renovate/github-action"]
+    },
+    {
+      matchDatasources: ["github-releases"],
+      addLabels: ["renovate/github-release"]
+    }
+  ]
+}
