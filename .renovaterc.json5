@@ -231,10 +231,9 @@
       matchUpdateTypes: ["patch", "digest"],
       // Full mirror of the deny-list above: a rule later in the list wins, so without these
       // the re-enable would override the deny-list's automerge:false for every deny-listed
-      // quay.io package (ceph, cilium, rook, kepler, ...). A pattern like "/kepler/" also
-      // matches quay.io/.../charts/kepler-operator, which a narrow list would miss. (The
-      // linux-kernel depName is forced manual by the custom.linux-kernel labeling rule at
-      // the end of the list, which comes after this one.)
+      // quay.io-hosted package (ceph, rook, cilium, cert-manager, ...). (The linux-kernel
+      // depName is forced manual by the custom.linux-kernel rule in the labeling section
+      // below — automerge: false, later in the list than this one.)
       excludePackageNames: [
         "/talos/",
         "/installer/",
