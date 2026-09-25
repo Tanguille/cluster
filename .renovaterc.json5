@@ -230,6 +230,12 @@
       allowedVersions: "1.18.x",
       automerge: false
     },
+    {
+      description: "CoreDNS 1.14.3+ prefetch poisons autopath answers, hold until coredns/coredns is fixed",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["ghcr.io/coredns/charts/coredns"],
+      enabled: false
+    },
     // Grouping rules
     {
       description: "Actions Runner Controller Group",
