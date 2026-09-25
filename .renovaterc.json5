@@ -229,6 +229,14 @@
       description: "Keep auto-merge for the packages excluded from the release-age rule",
       matchPackageNames: ["/quay.io/", "linux"],
       matchUpdateTypes: ["patch", "digest"],
+      // Only the quay.io-hosted deny-listed packages need excluding: a rule later in the
+      // list wins, so without these the re-enable would override the deny-list's
+      // automerge:false for ceph, rook and cilium (the only deny-list entries hosted on
+      // quay.io). Kept narrow on purpose — a full deny-list mirror would also pull
+      // cert-manager/kepler out of auto-merge, changing their pre-PR behaviour. (The
+      // linux-kernel depName is forced manual by the custom.linux-kernel labeling rule
+      // at the end of the list, which comes after this one.)
+      excludePackageNames: ["/ceph/", "/rook/", "/cilium/"],
       automerge: true,
       automergeType: "pr"
     },
