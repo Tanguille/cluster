@@ -25,6 +25,11 @@ spec:
               HOME: /home/opencode
               OPENCODE_CONFIG: /config/opencode.jsonc
               LITELLM_API_KEY: ${LITELLM_API_KEY}
+              OPENCODE_SERVER_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: opencode-auth
+                    key: OPENCODE_SERVER_PASSWORD
             command:
               - opencode
               - web
@@ -35,8 +40,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: &probe
-                    path: /
+                  tcpSocket: &probe
                     port: &port 4096
                   initialDelaySeconds: 30
                   periodSeconds: 30
@@ -46,7 +50,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: *probe
+                  tcpSocket: *probe
                   initialDelaySeconds: 15
                   timeoutSeconds: 5
                   failureThreshold: 6
