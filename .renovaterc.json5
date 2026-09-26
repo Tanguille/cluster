@@ -23,6 +23,13 @@
   // main has no required checks, so GitHub native auto-merge would merge before CI finishes;
   // with this off Renovate merges itself only once every check is green (needs Checks: read).
   platformAutomerge: false,
+  // In-issue "trigger a run" button (the cloud dashboard had one). The operator's webhook
+  // fires on any issue edit containing a checked box (mogenius/renovate-operator
+  // src/webhook/renovateCheckbox.go: it greps for "- [x]" in Renovate's dashboard body,
+  // no comment marker required), so an
+  // unchecked box in the footer = one click to schedule a run. The box resets to unchecked
+  // on every dashboard rewrite.
+  dependencyDashboardFooter: "- [ ] <!-- trigger-run --> **Trigger a new run** — checking this box schedules an immediate run (like the cloud dashboard's button).",
   customDatasources: {
     // Filtering on the moniker, not a version range, is what survives a series bump
     // (7.1.x -> 7.2.x) with no config change. Not a git mirror: gregkh/linux carries mainline
@@ -154,6 +161,13 @@
     {
       description: "Auto-merge patch and digest bumps once they have aged 3 days",
       matchUpdateTypes: ["patch", "digest"],
+      // Quay exposes no releaseTimestamp to the docker datasource, and the custom.linux-kernel
+      // datasource (depName "linux") has none either — leaving them in this rule is what
+      // prints the releaseTimestamp warning(s) on every run. Excluded here, they are simply
+      // not aged: same effective behaviour as before (timestamp-optional meant no gating),
+      // without the dashboard noise. (Their auto-merge is preserved by the
+      // re-enable rule placed after the storage/network deny-list below.)
+      excludePackageNames: ["/quay.io/", "linux"],
       minimumReleaseAge: "3 days",
       // Some registries (e.g. quay.io) publish no release timestamps; required would pend them forever.
       minimumReleaseAgeBehaviour: "timestamp-optional",
@@ -205,6 +219,49 @@
         "/llama/"
       ],
       automerge: false
+    },
+    // The exclude in the release-age rule above removes the excluded packages from that
+    // rule's automerge as well (a packageRule applies all its fields at once). Re-enable it
+    // for exactly them — placed AFTER the deny-list above so ceph/cilium etc. stay manual —
+    // keeping the effective behaviour unchanged: with timestamp-optional the 3-day gate was
+    // never gating them (no releaseTimestamp), so auto-merge is as before.
+    {
+      description: "Keep auto-merge for the packages excluded from the release-age rule",
+      matchPackageNames: ["/quay.io/", "linux"],
+      matchUpdateTypes: ["patch", "digest"],
+      // Full mirror of the deny-list above: a rule later in the list wins, so without these
+      // the re-enable would override the deny-list's automerge:false for every deny-listed
+      // quay.io-hosted package (ceph, rook, cilium, cert-manager, ...). (The linux-kernel
+      // depName is forced manual by the custom.linux-kernel rule in the labeling section
+      // below — automerge: false, later in the list than this one.)
+      excludePackageNames: [
+        "/talos/",
+        "/installer/",
+        "/siderolabs/",
+        "/tuppr/",
+        "/cilium/",
+        "/coredns/",
+        "/envoy/",
+        "/k8s-gateway/",
+        "/external-dns/",
+        "/cert-manager/",
+        "/spegel/",
+        "/rook/",
+        "/ceph/",
+        "/openebs/",
+        "/kopiur/",
+        "/snapshot-controller/",
+        "/cloudnative-pg/",
+        "/postgres/",
+        "/vchord/",
+        "/pgvector/",
+        "/dragonfly/",
+        "/flux/",
+        "/vllm/",
+        "/llama/"
+      ],
+      automerge: true,
+      automergeType: "pr"
     },
     {
       description: "Auto-merge searxng",
