@@ -239,13 +239,14 @@
       // clean (2026-09-17 -> 2026-09-25). Pin to patch-only: this bumps one shared group, so
       // a minor silently re-breaks every grafana tool rather than just failing to start.
       // automerge: false mirrors the opencode hold above and keeps digest rebuilds of 1.5.1
-      // manual too -- this rule's updateTypes only suppresses minor/major, it does not
-      // disable itself for digest updates.
+      // manual too -- this rule ignores minor/major updates for this container (patch
+      // updates only); it does not disable itself for digest updates.
       description: "mcp-grafana patch-only: gateway rejects the >=1.6.0 tools/list shape",
       matchDatasources: ["docker"],
       matchPackageNames: ["grafana/mcp-grafana"],
       matchFileNames: ["kubernetes/apps/ai/toolhive/config/grafana.yaml"],
-      updateTypes: ["minor:ignore", "major:ignore"],
+      ignoreMinor: true,
+      ignoreMajor: true,
       automerge: false
     },
     // Grouping rules
