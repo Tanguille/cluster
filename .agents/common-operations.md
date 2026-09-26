@@ -13,6 +13,36 @@ Step-by-step procedures for frequent cluster tasks.
 - Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
 - Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
 
+### Pre-commit: `oxfmt not found` (agent box)
+
+Lefthook (`.lefthook.toml`) runs **bare** `oxfmt` on staged `*.yaml`/`*.yml` (excluding
+`*.sops.yaml`) and `*.json*`. On the agent box `oxfmt` is a mise tool and **not on PATH**, so the
+hook fails with "oxfmt not found" even though the code is fine. Verified facts:
+
+- `mise` itself is not on PATH in non-login shells; tool binaries live under
+  `/opt/data/home/.local/share/mise/installs/` (with `shims/` alongside).
+- The repo pins `oxfmt = "0.67.0"` (`.mise.toml`) but the agent box has `0.66.0` installed —
+  the local binary lags the pin.
+
+Fixes, in order of preference:
+
+1. **Commit in a mise-active shell** so the pinned version resolves: `mise exec -- git commit …`
+   (after `mise trust` in the worktree — a fresh worktree's `.mise.toml` is untrusted, which also
+   breaks the shims: `mise ERROR Config files ... are not trusted`).
+2. **Put an installed oxfmt on PATH** before committing (this is what actually unblocked the
+   kguardian PR):
+
+   ```bash
+   # 0.66.0 is what's actually installed on the agent box (the repo's .mise.toml pins
+   # 0.67.0 — if the pinned version is installed, use that instead); verify with:
+   #   ls /opt/data/home/.local/share/mise/installs/oxfmt/
+   export PATH="/opt/data/home/.local/share/mise/installs/oxfmt/0.66.0/node_modules/.bin:$PATH"
+   git commit -m "..."
+   ```
+
+If formatting output differs between the local 0.66.0 and the pinned 0.67.0 (CI uses the pin),
+prefer option 1 so local and CI agree.
+
 ## Ceph: `crash ls-new` hides archived crashes, not old ones
 
 `ceph crash ls-new` filters on exactly one thing, whether a crash is archived (`crash/module.py`
@@ -71,14 +101,152 @@ Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full proc
 
 ## Secrets management (SOPS)
 
-1. Create unencrypted file first
-2. Encrypt with: `sops --encrypt --in-place <file>`
-3. Or create with: `sops <file>.yaml` (edits encrypted)
+### Where SOPS runs — local-first (2026-09-14: SSH no longer required)
 
-Never commit plaintext secrets or the age key. Use placeholders so I can add the secrets manually.
+The agent box now holds an age key file at `~/.config/sops/age/keys.txt`
+(mode 600, inside 700 directories, Ceph-backed — same regime as the SSH key)
+containing **3 identities**: the agent box's own revocable key plus the two
+master keys, copied over 2026-09-14 on the owner's explicit OK. It can therefore
+**decrypt every file in the repo locally** (verified on real `kubernetes/` and
+`talos/` files) — no ssh, no scp, no fish, no stale remote branch. No existing
+file was re-encrypted and no recipients were changed.
 
-Post-quantum age (age1pq1) is supported. Both halves of the key must be present in `age.key`: a
-key that lost its PQ half decrypts `talos/` but fails on everything under `kubernetes/`.
+**The key is auto-discovered — no env var is required on this box** (verified: a
+decrypt succeeds with `SOPS_AGE_KEY_FILE` unset; sops 3.13.3 reads
+`$XDG_CONFIG_HOME/sops/age/keys.txt`, or `$HOME/.config/sops/age/keys.txt` when
+`XDG_CONFIG_HOME` is unset). Keep the export only if the key is ever moved off
+that resolved path (then it is required, or you get "no identity matched"):
+
+```bash
+export SOPS_AGE_KEY_FILE="$HOME/.config/sops/age/keys.txt"
+```
+
+Local `sops` binary (the mise shims are unreliable in non-login shells):
+`/opt/data/home/.local/share/mise/installs/aqua-getsops-sops/3.13.3/sops`.
+
+**Full procedure → [cluster-sops skill](skills/cluster-sops/SKILL.md).** Canonical
+local flows (new value / change value / `updatekeys`) and the three traps are there.
+
+#### Fallback: the remote management host (only if the local key is revoked)
+
+If the agent-box key is ever revoked, SOPS ops fall back to the management host,
+where the original key still lives (`tanguille@192.168.0.181:~/cluster/age.key`).
+The `k8s-management` ssh alias is **dead** in this environment: the user's passwd
+home is `/opt/data` while `$HOME=/opt/data/home`, so OpenSSH reads
+`/opt/data/.ssh/config` (key only, no config) and never sees the alias in
+`/opt/data/home/.ssh/config`. Connect explicitly:
+
+```bash
+ssh -o BatchMode=yes -i /opt/data/.ssh/id_ed25519 tanguille@192.168.0.181 '<cmd>'
+```
+
+On the remote, `sops` (and `age`, `kubectl`, …) are **mise shims**, so a bare
+`sops --version` prints nothing. Prefix with `mise exec -- sops …` (or invoke the
+shim under a trusted `cwd` with a trusted `.mise.toml`). The remote shell is
+**fish** — pipe complex commands via `ssh … 'python3 -' < local.py`, never
+multi-line heredocs.
+
+### Recipients differ per subtree (read `.sops.yaml`)
+
+Do not assume one key. `.sops.yaml` maps path → age recipient:
+
+| Path | Key (first 10 chars) |
+|------|----------------------|
+| `talos/**/*.sops.yaml` | `age12gul5m0…` |
+| `(bootstrap\|kubernetes)/**/*.sops.yaml` | `age1pq1f69…` (post-quantum) |
+
+A CloudNativePG role secret under `kubernetes/` uses the `age1pq1…` key; a `talos/` file uses
+`age12gul5m0…`. Encrypting with the wrong recipient (or hand-adding a `sops:` block) breaks
+decrypt for the real owner.
+
+### The three SOPS traps (each cost real time — avoid them)
+
+1. **`stringData` vs `data` on round-trips.** SOPS does **not** convert one into the other —
+   `encrypted_regex: ^(data|stringData)$` only encrypts whichever section already exists, and
+   this repo's `kubernetes/` and `talos/` secrets use **`stringData`** (there is no `data`),
+   so a blind `d["data"][key] = …` raises `KeyError` on them. Rebuild via a **dict** in
+   Python (load the *decrypted* YAML, write the value into whichever section the file already
+   uses, dump back, re-encrypt) rather than text-splicing.
+2. **Stale `sops:` footer after a textual edit.** If you text-edit an encrypted file (or a
+   decrypt→edit), the old `sops:` metadata block remains and `sops --encrypt` fails on it. Always
+   **decrypt first**, edit the clean file, then encrypt — never edit the ciphertext in place.
+3. **Missing `--input-type yaml` makes SOPS guess JSON and fail.** Always pass
+   `--input-type yaml --output-type yaml` on YAML files; do not rely on extension sniffing.
+
+### Canonical flows (remote = `mise exec -- sops …`, in a trusted cwd with `.sops.yaml`)
+
+1. **New secret value** — stage the file *at its final, rule-matching path* with
+   `data: {key: base64value}` or `stringData: {key: plain}`, then:
+
+   ```bash
+   mise exec -- sops encrypt --in-place --input-type yaml --output-type yaml file.sops.yaml
+   # sanity: only data/stringData values are ENC[… ciphertext (match ENC[ — the
+   # ciphertext starts ENC[AES256_GCM, so a bare 32-char-hex-after-ENC grep matches nothing)
+   ```
+
+   `sops encrypt` is **not** a no-op on already-encrypted content — it fails
+   ("top-level entry called 'sops'", rc 203). Never re-run it over ciphertext.
+
+2. **Change an existing value** — `.sops.yaml` rules are path-based, so the
+   re-encrypt must target the rule-matching in-repo path (a `/tmp` temp matches no
+   creation rule — "no matching creation rules found", even with `--age`). Decrypt
+   to a unique mode-600 temp, edit via dict, copy back over the file, encrypt
+   in place:
+
+   ```bash
+   T="$(mktemp /tmp/plain.XXXXXX)"; chmod 600 "$T"
+   trap 'rm -f "$T"' EXIT
+   mise exec -- sops decrypt --input-type yaml --output-type yaml file.sops.yaml > "$T"
+   # edit $T via a Python dict (write into whichever of data/stringData the file uses)
+   cp "$T" file.sops.yaml
+   mise exec -- sops encrypt --in-place --input-type yaml --output-type yaml file.sops.yaml
+   rm -f "$T"   # never leave a decrypted secret on disk; trap also covers the failure path
+   ```
+
+3. Verify the recipient line in the resulting `sops:` block matches the subtree above.
+
+### Standing rules
+
+- Never commit plaintext secrets or the age key. Use placeholders so the user adds values manually.
+- **Ask before decrypting/editing SOPS** (AGENTS.md) and before `rm`-ing a decrypted temp.
+- Post-quantum age (`age1pq1…`) is supported. Both halves of a key must be in `age.key`: a key
+  that lost its PQ half decrypts `talos/` but fails on everything under `kubernetes/`.
+- The remote `~/cluster` checkout may be on a **stale feature branch** (it was 18 commits behind
+  `origin/main` during the kguardian work). `git fetch` there before trusting its state; SOPS
+  only needs the `.sops.yaml` + `age.key`, not a fresh tree, but re-encrypting against a stale
+  tree can carry in stale content — prefer editing the specific file.
+
+## PR shepherding (re-shepherd pass)
+
+Standing order: iterate an owner PR until CI + automated review are clean. One pass:
+
+1. **`git fetch origin` first** (hard rule — this worktree sits on a feature branch and
+   is always stale; never answer current-state questions from it).
+2. Read the PR via ToolHive `github_pull_request_read` (`method: get`): state (`open`/
+   `draft`), head SHA, base SHA, `mergeable`, `mergeable_state`, `merge_state_status`,
+   `commits` count, diffstat.
+3. **Base moved?** If `base.sha != origin/main` head: compare overlap —
+   `git diff --name-only <pr-head>...origin/main` vs the PR's file list. Overlap files
+   are rebase candidates; dry-run with `git merge-tree <pr-head> <pr-head> origin/main`
+   (or `git merge-tree --write-tree <pr-head> origin/main`) to confirm clean.
+4. **Rebase = Gate A, server-side only**: `github_update_pull_request_branch` with
+   `expectedHeadSha` = the current head SHA (guards against concurrent pushes). **No
+   local `git push`** — the agent box has no GitHub token by default; branch updates go
+   through ToolHive `push_files` (full-file contents, no delete) or the server-side
+   rebase.
+5. `mergeable_state: "unknown"` right after a base move usually just means GitHub is
+   recalculating — confirm with the rebase rather than looping on polls.
+6. Re-poll `get_check_runs` until the new head is `success`. Normal draft-green shape:
+   ~12 success + 2 skipped (CodeRabbit/DeepSource skip on drafts).
+7. Read comments for *new* feedback since the last pass; address or answer it.
+8. **Budget: 3 fix cycles** per issue class, then escalate to the owner with evidence
+   (log excerpts, which checks failed, and the classification: flake vs diff vs
+   baseline) — don't silently keep retrying.
+9. **Hard no-s without explicit per-instance owner approval:** merging the PR,
+   pushing to `main`, force-pushing any branch, `cluster-apply`, decrypting secrets
+   into a PR description/log/chat.
+10. Status wording: report `mergeable_state`/`merge_state_status` verbatim; do not
+    imply "clean" while either is `unknown`/`behind`.
 
 ## Debugging
 
@@ -90,4 +258,4 @@ Use [backup-restore](skills/backup-restore/SKILL.md) skill for kopiur Kopia oper
 
 ## Other skills
 
-See the [skill catalog](../AGENTS.md#load-context-on-demand) for git-worktree-isolation, k8s-at-home-research, pr-review, and prometheus-cluster-health.
+See the [skill catalog](../AGENTS.md#load-context-on-demand) for git-worktree-isolation, k8s-at-home-research, pr-review, cluster-sops, and prometheus-cluster-health.
