@@ -1,0 +1,52 @@
+---
+name: Laya Server
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "docker/laya/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
+    # older ref publishes the same tag and Flux sees no change.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/tanguille/laya-server:${GITHUB_SHA}"
+          # Same bootstrap guard as scripts/talos-kernel-build.sh: the hosted
+          # runner's default 'docker' buildx driver cannot push, so promote
+          # the docker-container driver before building.
+          docker buildx inspect --bootstrap 2>/dev/null | grep -q '^Driver:[[:space:]]*docker-container' || \
+            docker buildx create --driver docker-container --use --bootstrap >/dev/null
+          docker buildx build \
+            --platform linux/amd64 \
+            -t "${IMAGE}" \
+            -t "ghcr.io/tanguille/laya-server:latest" \
+            --push \
+            docker/laya
+          echo "published: ${IMAGE}"

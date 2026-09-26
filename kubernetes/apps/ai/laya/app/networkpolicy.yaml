@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: laya
+  namespace: ai
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/instance: laya
+  ingress:
+    - fromEndpoints:
+        # In-namespace callers (hermes, litellm, cron agents).
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+        # network = envoy-internal fronting the laya route.
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+        # actions-runner-system = agent-pr-review workflows.
+        - matchLabels:
+            io.kubernetes.pod.namespace: actions-runner-system
+    # kubelet probes.
+    - fromEntities:
+        - host
+  egress:
+    # No external egress: the model is baked into the image and the server
+    # runs offline (HF_HUB_OFFLINE). The namespace default-deny ingress and
+    # Cilium's default egress-allow for other ai pods are unaffected - this
+    # policy only adds the ingress allowlist above.
