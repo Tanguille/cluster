@@ -230,6 +230,24 @@
       allowedVersions: "1.18.x",
       automerge: false
     },
+    {
+      // toolhive's unified gateway hard-requires resultType on tools/list and rejects the
+      // body with "Legacy-shaped body (no resultType)"; mcp-grafana stopped emitting the
+      // vendor resultType/cacheScope/ttlMs fields, so every grafana tool call through the
+      // gateway fails. 1.6.0 (Renovate #5282) reintroduced the break that the earlier
+      // 1.4.x -> 1.3.0 revert (8cf2838b9) worked around; 1.5.1 is the last version that ran
+      // clean (2026-09-17 -> 2026-09-25). Pin to patch-only: this bumps one shared group, so
+      // a minor silently re-breaks every grafana tool rather than just failing to start.
+      // automerge: false mirrors the opencode hold above and keeps digest rebuilds of 1.5.1
+      // manual too -- this rule's updateTypes only suppresses minor/major, it does not
+      // disable itself for digest updates.
+      description: "mcp-grafana patch-only: gateway rejects the >=1.6.0 tools/list shape",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["grafana/mcp-grafana"],
+      matchFileNames: ["kubernetes/apps/ai/toolhive/config/grafana.yaml"],
+      updateTypes: ["minor:ignore", "major:ignore"],
+      automerge: false
+    },
     // Grouping rules
     {
       description: "Actions Runner Controller Group",
