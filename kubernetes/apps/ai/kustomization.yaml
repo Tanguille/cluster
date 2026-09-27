@@ -10,8 +10,8 @@ components:
   - ../../components/psa-privileged
   - ../../components/kopiur/privileged-movers
 # DRA admin-access label, mirroring kube-system and media: required for pods
-# in this namespace to allocate ResourceClaims (e.g. if a DRA claim lands here
-# later). No DRA workloads in ai/ today, so this is additive and a no-op.
+# in this namespace to allocate ResourceClaims (llmkube/models: the exclusive
+# dGPU claim for paiton/flash-next/swift-27b-vllm).
 patches:
   - target:
       kind: Namespace

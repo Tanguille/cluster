@@ -49,7 +49,12 @@ spec:
       vendor: amd
       runtime: rocm
       layers: -1
-      resourceName: squat.ai/dri
+      # Exclusive dGPU claim (kube-system/k8s-gpu-dra-driver); squat.ai/dri
+      # no longer exists on the dGPU node (kube-system/generic-device-plugin
+      # only serves the iGPU now).
+      resourceClaims:
+        - name: gpu
+          resourceClaimTemplateName: dgpu
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
