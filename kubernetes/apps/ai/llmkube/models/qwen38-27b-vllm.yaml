@@ -241,14 +241,14 @@ spec:
     # divergence 4/5 (2026-09-12), EAGLE3/DFlash disable prefix caching
     # (vllm#41640). Re-open only on those fixes; gate in
     # docs/llm-hosting/spec-decode-rejected.md.
+    # Both needed: ssm does not inherit on Qwen3.5 (forces fp32); dropping it
+    # cost 7,160 KV tokens.
     - --mamba-cache-dtype
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
-    # Both needed: ssm does not inherit on Qwen3.5 (forces fp32); dropping it
-    # cost 7,160 KV tokens.
-    # 5% (~15K tokens) held free at admission; 117 preemptions/17h before
-    # (2026-09-03). Revert if TTFT p50 rises without preemptions falling.
+    # 5% (~15K tokens) held free at admission: preemptions 117/17h before
+    # (2026-09-03), 5/7d after (2026-09-27).
     - --watermark
     - "0.05"
     # 9.5 GiB -> 304,808 KV tokens (33,494 B/token; confirm in the boot log).
@@ -258,9 +258,9 @@ spec:
     - --kv-cache-memory
     - "10200547328"
     # No --language-model-only: Hermes uses the vision tower.
-    # CPU tier 12Gi (~385K tokens, ~7 prompts). Revert to 23622320128 (dshm
-    # 24Gi, memory 32Gi) if prod_kvtier.py 24h shows external hit ratio < 0.25,
-    # fs->cpu share > 20%, async lookup mean > 7.5 s, or TTFT p50 rises.
+    # CPU tier 12Gi (~385K tokens, ~7 prompts). 7d (2026-09-27): external hit
+    # 0.70, fs share of loads ~10%, async lookup mean 2.2 s. Revisit 22Gi
+    # (23622320128, dshm 24Gi, memory 32Gi) only if hit < 0.25 or share > 20%.
     # Keep the fs tier: removing it halved single-stream decode (15.5 vs 31
     # tok/s); it keeps eviction async.
     # blocks_per_chunk 4: 8 tried 2026-09-03, total lookup s/request +45% (one
