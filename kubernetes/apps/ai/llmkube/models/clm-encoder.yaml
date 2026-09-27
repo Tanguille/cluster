@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: clm-encoder
+spec:
+  # Qwen3-8B is the CLM head's only supported encoder (CLM_v0.1-8B.pt:
+  # base_model Qwen/Qwen3-8B, embedding_dim 4096, last-token pooling).
+  # Q4_K_M (4.7 GiB) is the smallest published quant and the floor of this
+  # deployment; Q8_0 (8.1 GiB) is the quality option on nodes with room.
+  # Revision-pinned (immutable bytes); Renovate bumps the sha via the
+  # git-refs manager in .renovaterc.json5; refreshPolicy makes the bump
+  # actually re-fetch.
+  source: https://huggingface.co/Qwen/Qwen3-8B-GGUF/resolve/7c41481f57cb95916b40956ab2f0b139b296d974/Qwen3-8B-Q4_K_M.gguf
+  quantization: Q4_K_M
+  refreshPolicy: OnChange
+  # Plain CPU: the whole point of this triage tier is to run on node free
+  # RAM (7.5-10.6 GiB free per control node, 2026-09-27) without touching
+  # the iGPU slots that the Vulkan embedders and qwen35-2b already occupy.
+  hardware:
+    accelerator: cpu
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: clm-encoder
+spec:
+  modelRef: clm-encoder
+  mode: embedding # auto-appends --embedding --pooling last (CLM head's contract)
+  # Published upstream image (ggml-org), CPU build. Digest-pinned.
+  image: ghcr.io/ggml-org/llama.cpp:server@sha256:00bd6c289c590e576948cb3639b8195e4d3e6dd6ba1d761f0e2b871fcd4df24f
+  # One slot: the head's embedding LRU cache already absorbs repeats, and
+  # half the slots halve the per-slot context the scheduler accounts for.
+  parallelSlots: 1
+  # The head truncates inputs at 2048 tokens (CLM_EMB_MAX_TOKENS) before
+  # embedding, so a 4096 slot ceiling keeps one over-long payload from
+  # failing the whole request.
+  contextSize: 4096
+  uBatchSize: 512
+  extraArgs:
+    - "--alias"
+    - "qwen3-8b" # served model name the head sends in /v1/embeddings
+    # 4 CPU threads: this is a triage pre-filter, not an interactive model;
+    # 8B Q4 forward on 4 threads is single-digit seconds per 2K-token embed.
+    - "--threads"
+    - "4"
+    # Host prompt cache (default 8192 MiB) is never released: the qwen3-
+    # embedding InferenceService grew anon to 8.06 GiB on it. One-shot
+    # triage embeddings never hit a prompt cache.
+    - "--cache-ram"
+    - "0"
+
+  # No nodeSelector: any node with the free RAM works, and that is the whole
+  # point (it moves if the iGPU nodes get tight).
+  resources:
+    # Request AND limit (llmkube >= 0.9.29). 6 GiB: 4.7 GiB Q4_K_M weights +
+    # activations/scratch headroom for 4096 ctx.
+    cpu: "4"
+    memory: 6Gi

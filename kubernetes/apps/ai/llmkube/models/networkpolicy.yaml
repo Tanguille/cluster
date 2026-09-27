@@ -24,6 +24,11 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
             app.kubernetes.io/name: litellm
+        # clm head pod: its encoder calls land here (llmkube service, :8080).
+        # The clm app's own CiliumNetworkPolicy carries the matching egress.
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/instance: clm
         - matchLabels:
             io.kubernetes.pod.namespace: observability
             app.kubernetes.io/name: vmagent

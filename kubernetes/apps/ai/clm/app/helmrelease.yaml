@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app laya
+  name: &app clm
 spec:
   interval: 30m
   chartRef:
@@ -13,9 +13,6 @@ spec:
   values:
     defaultPodOptions:
       automountServiceAccountToken: false
-      # Model load takes ~40 s on cluster CPUs; 120 s of slack before the
-      # startup probe window opens.
-      terminationGracePeriodSeconds: 60
       securityContext:
         seccompProfile:
           type: RuntimeDefault
@@ -27,11 +24,18 @@ spec:
         containers:
           app:
             image:
-              # Built by .github/workflows/laya.yaml from docker/laya, one
-              # tag per commit. The model weights are baked into the image,
-              # so this pod has no HF Hub dependency.
-              repository: ghcr.io/tanguille/laya-server
-              tag: b73b51ba9
+              # Built by .github/workflows/clm.yaml from docker/clm, one tag
+              # per commit. Bakes the 75 MB CLM projection head so the pod
+              # runs fully offline; the 8B encoder is the llmkube
+              # clm-encoder InferenceService (published llama.cpp image).
+              repository: ghcr.io/tanguille/clm-head
+              tag: BUILD-SHA
+            env:
+              # CLM_EMB_URL: the llama.cpp pooling server llmkube generates
+              # (Service <inferenceservice-name> on the endpoint port).
+              CLM_EMB_URL: "http://clm-encoder.ai.svc.cluster.local:8080/v1/embeddings"
+              CLM_EMB_MODEL: "qwen3-8b"
+              CLM_EMB_MAX_TOKENS: "2048" # head's default; 4096 ctx per slot
             securityContext:
               allowPrivilegeEscalation: false
               runAsNonRoot: true
@@ -46,17 +50,17 @@ spec:
                 custom: true
                 spec:
                   httpGet:
-                    path: /healthz
+                    path: /health
                     port: 8080
                   initialDelaySeconds: 5
                   periodSeconds: 10
-                  failureThreshold: 18
+                  failureThreshold: 12
               liveness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
-                    path: /healthz
+                    path: /health
                     port: 8080
                   periodSeconds: 30
                   timeoutSeconds: 5
@@ -65,19 +69,19 @@ spec:
                 custom: true
                 spec:
                   httpGet:
-                    path: /healthz
+                    path: /health
                     port: 8080
                   periodSeconds: 10
                   timeoutSeconds: 5
-            # Measured in the 2026-09-20 PoC: 5.4 GiB peak RSS for the
-            # encoder + HF stack, 3.5-6 s per triage on 4-6 physical cores.
+            # Head is 20M params on CPU: a few hundred MiB. The 8B encoder
+            # is budgeted by its InferenceService (6 GiB), not here.
             resources:
               requests:
-                cpu: "2"
-                memory: 6Gi
+                cpu: "250m"
+                memory: 512Mi
               limits:
-                cpu: 4
-                memory: 8Gi
+                cpu: "1"
+                memory: 768Mi
 
     service:
       app:

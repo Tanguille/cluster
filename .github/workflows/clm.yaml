@@ -1,11 +1,11 @@
 ---
-name: Laya Server
+name: CLM Head Server
 
 on:
   push:
     branches: ["main"]
     paths:
-      - "docker/laya/**"
+      - "docker/clm/**"
   workflow_dispatch:
 
 concurrency:
@@ -17,7 +17,7 @@ jobs:
     # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
     # older ref publishes the same tag and Flux sees no change.
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -37,7 +37,7 @@ jobs:
       - name: Build and publish
         run: |
           set -euo pipefail
-          IMAGE="ghcr.io/tanguille/laya-server:${GITHUB_SHA}"
+          IMAGE="ghcr.io/tanguille/clm-head:${GITHUB_SHA}"
           # Same bootstrap guard as scripts/talos-kernel-build.sh: the hosted
           # runner's default 'docker' buildx driver cannot push, so promote
           # the docker-container driver before building.
@@ -46,7 +46,7 @@ jobs:
           docker buildx build \
             --platform linux/amd64 \
             -t "${IMAGE}" \
-            -t "ghcr.io/tanguille/laya-server:latest" \
+            -t "ghcr.io/tanguille/clm-head:latest" \
             --push \
-            docker/laya
+            docker/clm
           echo "published: ${IMAGE}"

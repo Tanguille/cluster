@@ -3,18 +3,18 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: laya
+  name: clm
   namespace: ai
 spec:
   endpointSelector:
     matchLabels:
-      app.kubernetes.io/instance: laya
+      app.kubernetes.io/instance: clm
   ingress:
     - fromEndpoints:
         # In-namespace callers (hermes, litellm, cron agents).
         - matchLabels:
             io.kubernetes.pod.namespace: ai
-        # network = envoy-internal fronting the laya route.
+        # network = envoy-internal fronting the clm route.
         - matchLabels:
             io.kubernetes.pod.namespace: network
         # actions-runner-system = agent-pr-review workflows.
@@ -24,7 +24,15 @@ spec:
     - fromEntities:
         - host
   egress:
-    # No external egress: the model is baked into the image and the server
-    # runs offline (HF_HUB_OFFLINE). The namespace default-deny ingress and
-    # Cilium's default egress-allow for other ai pods are unaffected - this
-    # policy only adds the ingress allowlist above.
+    # Only the encoder: the head is stateless and fully offline (checkpoint
+    # baked into the image, --no-download), so no external egress is needed.
+    # The llmkube netpol (inference-ingress-allowlist) carries the matching
+    # ingress patch that lets this pod reach the encoder.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            inference.llmkube.dev/service: clm-encoder
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
