@@ -20,8 +20,6 @@ spec:
   env:
     - name: GRAFANA_URL
       value: http://grafana-service.observability.svc.cluster.local:3000
-  # toolConfigRef lives on vmcp-unified: the proxy's filter middleware rewrites
-  # 2026-07-28 tools/list without resultType, and vmcp then rejects the backend.
   podTemplateSpec:
     spec:
       containers:

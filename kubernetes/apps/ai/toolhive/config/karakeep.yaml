@@ -5,7 +5,6 @@ metadata:
   name: karakeep
 spec:
   image: ghcr.io/karakeep-app/karakeep-mcp:0.33.2@sha256:7b6e5b3d0613a3c23f107f828bd0b367876148c63291d7ff55e23082d193b58a
-  transport: stdio
   groupRef:
     name: all
   env:
@@ -14,8 +13,6 @@ spec:
   secrets:
     - name: toolhive-secrets
       key: KARAKEEP_API_KEY
-  toolConfigRef:
-    name: karakeep
   podTemplateSpec:
     spec:
       containers:

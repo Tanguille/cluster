@@ -29,10 +29,6 @@ spec:
     # Hide the non-query tools (server flag list + docs prompt); query toolset only.
     - name: MCP_DISABLED_TOOLS
       value: documentation,flags
-  # Expose only the VictoriaLogs query tools (same 11 as the reference allowed_tools);
-  # MCP_DISABLED_TOOLS above already drops documentation/flags.
-  toolConfigRef:
-    name: victorialogs-mcp
   podTemplateSpec:
     spec:
       # The image runs as the unprivileged user `mcp` (uid 65534, no group in the

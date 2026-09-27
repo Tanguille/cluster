@@ -96,10 +96,24 @@ spec:
       conflictResolution: prefix
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
+      # MCPToolConfigs apply here, not on MCPServer.toolConfigRef: the proxy's filter
+      # middleware rewrites 2026-07-28 tools/list without resultType, so vmcp marks
+      # the backend unavailable.
       tools:
         - workload: grafana
           toolConfigRef:
             name: grafana
+        - workload: karakeep
+          toolConfigRef:
+            name: karakeep
+        - workload: searxng
+          toolConfigRef:
+            name: searxng
+        # Only the VictoriaLogs query tools (same 11 as the reference allowed_tools);
+        # MCP_DISABLED_TOOLS already drops documentation/flags.
+        - workload: victorialogs-mcp
+          toolConfigRef:
+            name: victorialogs-mcp
     optimizer:
       # embeddingServerRef omitted: operator rejects when embeddingProvider is "openai".
       # Routes to litellm -> existing iGPU embedder instead.
