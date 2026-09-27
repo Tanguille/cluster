@@ -5,14 +5,11 @@ metadata:
   name: searxng
 spec:
   image: ghcr.io/rcdailey/mcp-searxng:0.8.0@sha256:5f4359be5f43b3bb77daabc60884dcd8c1d05a3c0b761ad78730da8453a660a2
-  transport: stdio
   groupRef:
     name: all
   env:
     - name: SEARXNG_URL
       value: http://searxng.default.svc.cluster.local:8080
-  toolConfigRef:
-    name: searxng
   podTemplateSpec:
     spec:
       containers:
@@ -31,13 +28,3 @@ spec:
     limits:
       cpu: 200m
       memory: 100Mi
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: searxng
-spec:
-  toolsOverride:
-    searxng_web_search:
-      name: web_search
