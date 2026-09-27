@@ -21,6 +21,13 @@
   // main has no required checks, so GitHub native auto-merge would merge before CI finishes;
   // with this off Renovate merges itself only once every check is green (needs Checks: read).
   platformAutomerge: false,
+  // timestamp-optional is deliberate (GHCR/Quay/OCI charts have no timestamps); keep its warning off the dashboard.
+  logLevelRemap: [
+    {
+      matchMessage: "/Some .+ did not have a releaseTimestamp, but as we're running with minimumReleaseAgeBehaviour=timestamp-optional, proceeding/",
+      newLogLevel: "info"
+    }
+  ],
   customDatasources: {
     // Filtering on the moniker, not a version range, is what survives a series bump
     // (7.1.x -> 7.2.x) with no config change. Not a git mirror: gregkh/linux carries mainline
@@ -315,7 +322,7 @@
       abandonmentThreshold: null
     },
     {
-      // Image labels point at the rocky-kiwi build repo, so changelogs were skipped.
+      // Image labels point at the rocky-kiwi build repo; ceph has no GitHub releases, so this yields compare links only.
       matchPackageNames: ["quay.io/ceph/ceph"],
       sourceUrl: "https://github.com/ceph/ceph"
     },
