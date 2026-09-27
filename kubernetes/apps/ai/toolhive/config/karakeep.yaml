@@ -31,31 +31,3 @@ spec:
     limits:
       cpu: 200m
       memory: 100Mi
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: karakeep
-spec:
-  toolsOverride:
-    add-bookmark-to-list:
-      name: add_bookmark_to_list
-    attach-tag-to-bookmark:
-      name: attach_tag_to_bookmark
-    create-bookmark:
-      name: create_bookmark
-    create-list:
-      name: create_list
-    detach-tag-from-bookmark:
-      name: detach_tag_from_bookmark
-    get-bookmark:
-      name: get_bookmark
-    get-bookmark-content:
-      name: get_bookmark_content
-    get-lists:
-      name: get_lists
-    remove-bookmark-from-list:
-      name: remove_bookmark_from_list
-    search-bookmarks:
-      name: search_bookmarks

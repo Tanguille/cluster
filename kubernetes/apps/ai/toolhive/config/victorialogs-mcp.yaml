@@ -85,25 +85,3 @@ spec:
     limits:
       cpu: 200m
       memory: 256Mi
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: victorialogs-mcp
-spec:
-  # VictoriaLogs query toolset only (logQL + stream API); same set as the reference
-  # allowed_tools in aumer-amr/labv2. documentation/flags are already disabled via
-  # MCP_DISABLED_TOOLS; the filter keeps the optimizer index small too.
-  toolsFilter:
-    - facets
-    - field_names
-    - field_values
-    - hits
-    - query
-    - stats_query
-    - stats_query_range
-    - stream_field_names
-    - stream_field_values
-    - stream_ids
-    - streams

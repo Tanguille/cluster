@@ -28,13 +28,3 @@ spec:
     limits:
       cpu: 200m
       memory: 100Mi
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: searxng
-spec:
-  toolsOverride:
-    searxng_web_search:
-      name: web_search
