@@ -2,12 +2,7 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
     "abandonments:recommended",
-    // v6 flattened every config/managers/overrides/policies file into default.json and moved
-    // app-specific presets to apps/, opt-in only — the old config/baseConfig.json5 etc. paths
-    // this repo's default.json used to extend no longer exist past 5.0.0, which is why pinning
-    // "github>home-operations/renovate-presets#5.0.0" started failing to resolve: nested extends
-    // in their default.json carry no ref of their own, so Renovate re-resolves them against the
-    // default branch (now v7's flat layout) instead of inheriting the #5.0.0 pin.
+    // Nested extends in default.json carry no ref, so each apps/ preset must pin its own.
     "github>home-operations/renovate-presets#8.1.0",
     "github>home-operations/renovate-presets//apps/cnpg.json5#8.1.0",
     // apps/grafanaDashboards.json5 inlined below: its grafanaCom template needs capture groups
@@ -20,6 +15,9 @@
     ":timezone(Europe/Brussels)"
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
+  // The operator webhook starts a run on any ticked dashboard checkbox; Renovate resets it on rewrite.
+  dependencyDashboardFooter: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository",
+  automergeType: "pr",
   // main has no required checks, so GitHub native auto-merge would merge before CI finishes;
   // with this off Renovate merges itself only once every check is green (needs Checks: read).
   platformAutomerge: false,
@@ -157,24 +155,23 @@
       minimumReleaseAge: "3 days",
       // Some registries (e.g. quay.io) publish no release timestamps; required would pend them forever.
       minimumReleaseAgeBehaviour: "timestamp-optional",
-      automerge: true,
-      automergeType: "pr"
+      automerge: true
     },
     {
       description: "Auto-merge GitHub Actions on minor too",
       matchManagers: ["github-actions"],
       matchUpdateTypes: ["minor"],
+      // 0.x minors are breaking; the preset leaves this guard to us.
+      matchCurrentVersion: "!/^v?0\\./",
       minimumReleaseAge: "3 days",
-      automerge: true,
-      automergeType: "pr"
+      automerge: true
     },
     {
       description: "Auto-merge Renovate's own image on minor",
       matchPackageNames: ["ghcr.io/renovatebot/renovate"],
       matchUpdateTypes: ["minor"],
       minimumReleaseAge: "3 days",
-      automerge: true,
-      automergeType: "pr"
+      automerge: true
     },
     {
       description: "Never auto-merge storage, network, control plane, databases or GPU serving",
@@ -210,14 +207,7 @@
       description: "Auto-merge searxng",
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/searxng/searxng"],
-      automerge: true,
-      automergeType: "pr"
-    },
-    {
-      description: "vllm-openai-rocm nightly digest — the rolling `nightly` tag is digest-pinned so Renovate can detect new builds at all; never auto-merge, a bump rolls the single-GPU serving pod and can move the KV pool that maxModelLen is sized against",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["vllm/vllm-openai-rocm"],
-      automerge: false
+      automerge: true
     },
     {
       // opencode 2.x is not deployable yet: v2.0.0 changed the server API surface (see
@@ -324,6 +314,11 @@
       matchDepNames: ["aqua:koalaman/shellcheck"],
       abandonmentThreshold: null
     },
+    {
+      // Image labels point at the rocky-kiwi build repo, so changelogs were skipped.
+      matchPackageNames: ["quay.io/ceph/ceph"],
+      sourceUrl: "https://github.com/ceph/ceph"
+    },
     // Versioning overrides
     {
       description: "Mixed-segment tags (p2pool v4.15/v4.15.1, hermes v2026.5.29/v2026.5.29.2); docker versioning skips patch bumps",
@@ -336,20 +331,8 @@
     },
     // Labeling rules
     {
-      matchUpdateTypes: ["major"],
-      addLabels: ["type/major"]
-    },
-    {
-      matchUpdateTypes: ["minor"],
-      addLabels: ["type/minor"]
-    },
-    {
-      matchUpdateTypes: ["patch"],
-      addLabels: ["type/patch"]
-    },
-    {
-      matchUpdateTypes: ["digest"],
-      addLabels: ["type/digest"]
+      matchUpdateTypes: ["major", "minor", "patch", "digest"],
+      addLabels: ["type/{{updateType}}"]
     },
     {
       matchDatasources: ["docker"],
