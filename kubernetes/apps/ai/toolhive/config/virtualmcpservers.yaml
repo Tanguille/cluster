@@ -96,6 +96,10 @@ spec:
       conflictResolution: prefix
       conflictResolutionConfig:
         prefixFormat: "{workload}_"
+      tools:
+        - workload: grafana
+          toolConfigRef:
+            name: grafana
     optimizer:
       # embeddingServerRef omitted: operator rejects when embeddingProvider is "openai".
       # Routes to litellm -> existing iGPU embedder instead.
