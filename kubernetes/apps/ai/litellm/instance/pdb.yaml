@@ -5,7 +5,7 @@ kind: PodDisruptionBudget
 metadata:
   name: litellm
 spec:
-  # 2 replicas across control-1/control-2: a node drain must leave one proxy serving, or
+  # 2 replicas on separate nodes: a node drain must leave one proxy serving, or
   # every LLM client (hermes, opencode, vmcp, memini) loses its router mid-drain. The
   # LiteLLMProxy CRD has no disruption budget of its own, so this targets the
   # operator-managed deployment's labels.

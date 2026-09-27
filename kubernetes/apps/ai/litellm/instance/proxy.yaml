@@ -8,6 +8,15 @@ spec:
   image: ghcr.io/berriai/litellm:1.103.0@sha256:bd089afdcd35b894b14a93f9743cdc8b591f82da1a38dd43a010a7b0c9de5fd7
   applyMode: api
   replicas: 2
+  # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: litellm
+              app.kubernetes.io/name: litellm
   apiAccess:
     masterKeyRef:
       name: litellm-secret
