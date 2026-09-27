@@ -30,9 +30,8 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Daily check; --defrag-rule only defrags a member once >50MiB is free.
-          timeZone: ${TIMEZONE}
-          schedule: "0 3 * * *"
+          # Hourly check; --defrag-rule only defrags a member once >50MiB is free.
+          schedule: "0 * * * *"
           backoffLimit: 1
         containers:
           app:
