@@ -16,6 +16,18 @@ spec:
     replicaCount: 2
     k8sAppLabelOverride: kube-dns
     priorityClassName: system-cluster-critical
+    # A single node drain must not take cluster DNS with it: the PDB keeps one
+    # replica evictable at a time, the spread keeps the two replicas from
+    # co-locating on the same control-plane node.
+    podDisruptionBudget:
+      maxUnavailable: 1
+    topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            k8s-app: kube-dns
     serviceAccount:
       create: true
     service:

@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: tuppr
+spec:
+  # 2 replicas; the chart has no PDB values. tuppr drives the node-drain upgrade
+  # plans itself, so one controller pod must survive a drain or a reboot plan
+  # stops progressing mid-rolling-upgrade.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tuppr

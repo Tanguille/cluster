@@ -108,3 +108,28 @@ spec:
           for: 15m
           labels:
             severity: critical
+        # Backup observability is partial with the barman plugin: the collector's
+        # last_available/first_recoverability timestamps stay 0 (never populated for
+        # method: plugin), so "no recent success" is not directly queryable. The two
+        # signals that ARE observable: the last-failed timestamp moves when an attempt
+        # fails, and WAL archiving (archive_timeout: 300s) stalls when the R2 path
+        # breaks. 23 backups failed silently between 2025-11 and 2026-08 before anyone
+        # noticed; these two would have paged on the first failure.
+        - alert: CNPGBackupFailed
+          annotations:
+            description: The last-failed timestamp moved within the last 2h, so a backup attempt failed. Check `kubectl get backups -n database` for the newest failed Backup, and the barman-cloud plugin logs if it recurs.
+            summary: A CNPG backup attempt failed recently in {{ $labels.namespace }}
+          expr: |-
+            time() - max by (namespace) (cnpg_collector_last_failed_backup_timestamp) < 7200
+          for: 5m
+          labels:
+            severity: warning
+        - alert: CNPGWalArchiveStalled
+          annotations:
+            description: No WAL archived for over 30m while archive_timeout is 300s, i.e. ~6 missed timeouts. PITR is frozen and the 7d R2 window is shrinking while base backups age.
+            summary: WAL archiving from {{ $labels.pod }} has been stalled for {{ $value | humanizeDuration }}
+          expr: |-
+            max by (namespace, pod) (cnpg_pg_stat_archiver_seconds_since_last_archival) > 1800
+          for: 15m
+          labels:
+            severity: warning

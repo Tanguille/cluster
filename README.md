@@ -45,7 +45,7 @@ flowchart LR
     Tanguille[👤 Operator] -->|git push| Repo[(📦 GitHub)]
     Renovate[🤖 Renovate] -.->|automated PRs| Repo
     Repo -->|reconciles| Flux[⚙️ Flux]
-    Flux -->|deploys| Cluster[☸️ Kubernetes on Talos<br/>3 nodes · 111 HelmReleases]
+    Flux -->|deploys| Cluster[☸️ Kubernetes on Talos<br/>3 nodes]
 
     Cluster --> Ceph[(🪨 Rook Ceph<br/>block + filesystem · default durable)]
     Cluster --> OEP[(🐂 OpenEBS Hostpath<br/>best-effort low latency tier)]
@@ -66,7 +66,7 @@ or replicated data where performance is critical (e.g. postgres).
 | **OS**          | Talos Linux                    | Immutable control-plane + worker OS      |
 | **Kubernetes**  | v1.x (see badges)              | 3 nodes, all control-plane + worker      |
 | **GitOps**      | Flux 2                         | Declarative cluster reconciliation       |
-| **Automation**  | Renovate + GitHub Actions      | Dependency PRs, lint, scans (11 workflows) |
+| **Automation**  | Renovate + GitHub Actions      | Dependency PRs, lint, scans              |
 | **CNI**         | Cilium (eBPF)                  | Networking, network policies, LoadBalancer |
 | **Ingress**     | Envoy Gateway + k8s-gateway    | L7 gateway / HTTPRoute                   |
 | **Tunnel**      | cloudflared                    | Public ingress without exposing home WAN |
@@ -85,11 +85,12 @@ or replicated data where performance is critical (e.g. postgres).
 
 | Role      | Host        | CPU                     | RAM          | GPU                                  | Network              | Storage                                        |
 |-----------|-------------|-------------------------|--------------|--------------------------------------|----------------------|------------------------------------------------|
-| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 2TB NVMe (boot 500 GB · Ceph 500 GB) |
-| control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Samsung 980 Pro 1 TB |
-| control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Micron 7450 Pro 1 TB |
+| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 1.92 TB NVMe (boot 500 GB · Ceph 800 GB) |
+| control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Samsung 980 Pro 1 TB |
+| control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Micron 7450 Pro 960 GB |
 
 All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU.
+Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 
 ---
 
@@ -168,7 +169,7 @@ enforcement) · Trivy-Operator (image & CVE scanning)
 
 Cilium · CoreDNS · Spegel (local path) · descheduler · etcd-defrag ·
 metrics-server · reloader · snapshot-controller · node-problem-detector ·
-network-policies · AMD GPU undervolt · actions-runner-controller (self-hosted
+generic-device-plugin · AMD GPU undervolt · actions-runner-controller (self-hosted
 GitHub runners) · Flux · Rook-Ceph · OpenEBS · cert-manager ·
 kopiur (backup machinery) · system-upgrade (Talos upgrades)
 
@@ -252,9 +253,7 @@ Kromgo feeds the live badges at the top of this file.
 
 ### 🛟 CI
 
-GitHub Actions workflows:
-gitleaks, k8s-scan, flate, docker/hadolint, shell/shellcheck,
-markdown-lint, talos-render, talos-kernel, labeler/label-sync and agent-pr-review.
+GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 
 ---
 

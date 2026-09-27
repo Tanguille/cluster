@@ -6,7 +6,10 @@
 # see docker/talos-kernel/README.md "The rollout is not self-closing".
 machine:
   install:
-    disk: /dev/nvme1n1
+    # By model, not /dev/nvme1n1: enumeration order can swap, and the other NVMe is Ceph osd.0.
+    # Only a fresh install reads this; upgrades reuse the running system disk.
+    diskSelector:
+      model: Micron_7450_MTFDKBA480TFR
     # Our registry, not the Factory: tuppr rebuilds the upgrade target from this field, so
     # leaving it on factory.talos.dev reinstalls the stock kernel. Shared with control-3 (same
     # schematic); the repo is named for the schematic, not its id, which moves on every edit.

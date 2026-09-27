@@ -21,6 +21,7 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 - [Common operations](.agents/common-operations.md): validation, app operations, SOPS, debugging, and backup/restore
 - [Skill catalog](.agents/skills/): add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation, handoff, k8s-at-home-research, pr-review, prometheus-cluster-health — one `SKILL.md` per directory
 - [Useful commands](docs/useful_commands.md): flux/just/talos/sops command reference and app-specific runbooks
+- [Drives](docs/drives.md): drive inventory, PLP/write-cache policy, control-1 zvol chain, smartctl on Talos and TrueNAS
 - [Archived migrations](docs/archived-migrations.md): completed ZFS→Ceph, Radarr→Postgres and OPNsense BGP procedures, with git recovery pointers
 - [LLM hosting](docs/llm-hosting/): sglang/vLLM tuning constraints and benchmark history for `kubernetes/apps/ai/`
 

@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+# CNPG creates PDBs for Cluster instances automatically (postgres16/-primary) but
+# not for Poolers -- the installed poolers.postgresql.cnpg.io schema has no
+# disruption field. These three keep the connection plane alive through node
+# drains; selectors use the same cnpg.io/poolerName pod label the poolers' own
+# topologySpreadConstraints target.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pgbouncer-rw
+spec:
+  # 3 instances, hard-spread one per node: one may go during a drain, two must stay
+  # or all write traffic funnels through the survivors' wait queues. maxUnavailable
+  # rather than minAvailable so scaling the pooler down never bricks disruptions.
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: pgbouncer-rw
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pgbouncer-ro
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: pgbouncer-ro
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pgbouncer-session
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: pgbouncer-session

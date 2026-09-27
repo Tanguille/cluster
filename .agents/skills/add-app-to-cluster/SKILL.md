@@ -9,7 +9,7 @@ description: >-
   user: "Install prometheus exporter" → HelmRelease with custom scrape config
 
   Use proactively when the user mentions deploying, installing, adding, or setting up an application.
-compatibility: Requires `mise`, `git`, `gh` (for PR), `flate`, and `shellcheck` (falls back to `kustomize`/`flux` if `flate` is unavailable); cluster apply needs user approval per AGENTS.md.
+compatibility: Requires `mise`, `git`, `flate`, and `shellcheck` (falls back to `kustomize`/`flux` if `flate` is unavailable); cluster apply needs user approval per AGENTS.md.
 ---
 
 # Add app to cluster
@@ -94,14 +94,10 @@ Or run the full local PR check: `bash .agents/skills/pr-review/scripts/validate-
 
 ### 9. PR (ask before push)
 
-Show the user the created files and get confirmation before committing.
-
-```bash
-git add .
-git commit -m "feat(<namespace>): add <app-name>"
-git push -u origin feat/add-<app-name>
-gh pr create --title "feat(<namespace>): add <app-name>" --body "Deploy <app-name> to <namespace> namespace"
-```
+Show the user the created files and get confirmation before committing. Stage the new app
+directory and the namespace `kustomization.yaml` by path, commit as
+`feat(<namespace>): add <app-name>`, then push and open the PR per the
+[atomic finish rule](../handoff/SKILL.md#the-atomic-finish-rule).
 
 ## Anti-patterns
 

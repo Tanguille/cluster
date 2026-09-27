@@ -37,7 +37,8 @@ EAGLE3, DFlash), any one disqualifying:
    Mamba groups is treated as a draft group. That disables prefix caching and
    makes the KV offload tier write-only. This deployment cannot afford either:
    removing the fs tier alone halved single-stream decode.
-3. **vllm#49002 (open)** — the tool-calling/structured-output wedge.
+3. **vllm#49002 (closed 2026-09-09 as fixed by vllm#55223, unverified here)** —
+   the tool-calling/structured-output wedge.
 
 And the one blocker that kills the **drafter-free** method: **vllm#39273**, the
 GDN corruption bug. n-gram sidesteps all three of the above by construction —
@@ -46,8 +47,8 @@ wrong output on this model family.
 
 So the exit condition is narrow: **vllm#39273 fixed** re-opens n-gram, which is
 the only method whose performance was ever worth having here. Everything
-drafter-based additionally needs vllm#41640 *and* vllm#49002, and a drafter
-under ~2.5 GiB that does not currently exist.
+drafter-based additionally needs vllm#41640, a tool-calling retest on a build
+with vllm#55223, and a drafter under ~2.5 GiB that does not currently exist.
 
 n-gram is fast — measurably 1.8-2.1x on echo-heavy work — and it silently
 corrupts output.
@@ -263,10 +264,13 @@ every group is treated as a draft group.
 Not fundamental in principle — a fix exists and is half-reviewed — but unfixed
 in anything shipped, and stalled for months. Treat as fundamental for planning.
 
-### 3. The tool-calling / structured-output wedge is still open (vllm#49002)
+### 3. The tool-calling / structured-output wedge: fixed upstream, unverified here (vllm#49002)
 
-Opened 2026-07-18, still open at last activity 2026-08-31, root cause not found;
-the reporter ruled out the grammar-bitmask-cost theory by direct benchmark.
+Opened 2026-07-18; the reporter ruled out the grammar-bitmask-cost theory by
+direct benchmark. A maintainer closed it 2026-09-09 as fixed by vllm#55223
+(eliminate full-history reasoning scans for structured outputs, merged
+2026-09-08, in every nightly since); the reporter never confirmed, and it was
+not retested on this deployment.
 This is the same failure class already recorded here for MTP: MTP + tool-calling
 grammar wedged to ~0.2 tok/s (100x) under concurrent tool traffic. Production
 traffic on this model **is** grammar-constrained tool calling, so any
