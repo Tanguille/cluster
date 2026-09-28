@@ -49,6 +49,9 @@ spec:
   retention:
     keepHourly: 24
     keepDaily: 7
+  # An explicit list replaces kopiur's default ignore set; /lost+found is the only default that matters on ceph-block PVCs.
+  files:
+    ignoreRules: ${KOPIUR_IGNORE_RULES:=[/lost+found]}
   volumeSnapshotClassName: ${BACKUP_SNAPSHOTCLASS:=csi-ceph-blockpool}
   credentialProjection:
     enabled: true
