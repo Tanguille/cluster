@@ -9,6 +9,7 @@ spec:
   applyMode: api
   replicas: 2
   # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
+  # pod-template-hash: only same-revision pods repel, so a rollout surge pod may share a node with an old pod.
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -17,6 +18,8 @@ spec:
             matchLabels:
               app.kubernetes.io/instance: litellm
               app.kubernetes.io/name: litellm
+          matchLabelKeys:
+            - pod-template-hash
   apiAccess:
     masterKeyRef:
       name: litellm-secret
