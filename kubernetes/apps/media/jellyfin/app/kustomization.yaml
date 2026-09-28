@@ -4,3 +4,19 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - helmrelease.yaml
+# Regenerable caches excluded from kopiur; an explicit list replaces kopiur's default ignore set.
+patches:
+  - target:
+      kind: SnapshotPolicy # name is still literal ${APP} at build time
+    patch: |-
+      apiVersion: kopiur.home-operations.com/v1alpha1
+      kind: SnapshotPolicy
+      metadata:
+        name: not-used
+      spec:
+        files:
+          ignoreRules:
+            - /lost+found
+            - /data/subtitles/*
+            - /data/trickplay/*
+            - /data/attachments/*
