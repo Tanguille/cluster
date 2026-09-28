@@ -31,7 +31,6 @@ const CONFIG = {
   DEFAULT_MIN_PAYMENT: 0.01,
   RANGE_STORAGE_KEY: "p2pool.chartRangeHours",
   REFRESH_INTERVAL_MS: 10000, // match server.py's 10s log cadence — faster polls fetch identical data
-  MOVING_AVERAGE_WINDOW_SECONDS: 600,
   OBSERVER_SHARES_LIMIT: 10000,
 
   // Hashrate scaling thresholds
@@ -59,7 +58,6 @@ const state = {
   observerBase: null,
   observerWallet: null,
   oldStatsData: {},
-  refreshIntervalId: null,
   isTabVisible: true
 };
 
@@ -75,44 +73,18 @@ function cacheDOMElements() {
     "myHashrate",
     "poolHashrate",
     "netHashrate",
-    "blockReward",
-    "poolShare",
     "price",
     "earnXMR",
     "earnEUR",
     "earnPeriod",
-    "earnLegend",
-    "lastRefreshed",
-    "payoutInterval",
-    "paymentsStatus",
-    "totalEarned",
-    "totalEurEarned",
     "paymentsTable",
-    "sharesSinceLastPayout",
-    "unclesSinceLastPayout",
-    "totalSharesMined",
-    "totalUnclesMined",
-    "luckFactor",
-    "trueLuckFactor",
-    "xmrThisWindow",
-    "eurThisWindow",
-    "dayHash",
-    "pplnsStart",
-    "currentEffort",
     "pool-status",
     "pool-status-text",
     "user-hashrate-24h",
-    "shares-found",
-    "shares-failed",
-    "connections",
     "reward-share",
-    "blocks-found",
-    "last-share-time",
-    "last-block-time",
     "workers-list",
     "rangeControl",
     "minerState",
-    "minerStateText",
     "hashrateEmpty",
     "priceEmpty"
   ];
@@ -243,7 +215,6 @@ function formatRelativeTime(timestamp, opts = {}) {
  */
 function formatTime(timestamp) {
   return formatRelativeTime(timestamp, {
-    zeroLabel: "Never",
     invalidLabel: "Invalid",
     underMinute: () => "Just now"
   });
@@ -293,8 +264,7 @@ function sliceHistory(hours, historyData) {
     labels: historyData.timestamps.slice(startIndex).map((t) => t * 1000),
     myHash: historyData.myHash?.slice(startIndex) || [],
     poolHash: historyData.poolHash?.slice(startIndex) || [],
-    netHash: historyData.netHash?.slice(startIndex) || [],
-    price: historyData.price?.slice(startIndex) || []
+    netHash: historyData.netHash?.slice(startIndex) || []
   };
 }
 
@@ -305,11 +275,7 @@ function sliceHistory(hours, historyData) {
  * @param {number} windowSeconds - window size in seconds
  * @returns {number} latest smoothed value
  */
-function movingAverage(
-  timestamps,
-  values,
-  windowSeconds = CONFIG.MOVING_AVERAGE_WINDOW_SECONDS
-) {
+function movingAverage(timestamps, values, windowSeconds) {
   if (
     !Array.isArray(timestamps) ||
     !Array.isArray(values) ||
@@ -350,11 +316,7 @@ function extractXMRigHashrate(xmrigData) {
  */
 function extractPoolHashrate(poolData) {
   if (!isValidObject(poolData)) return 0;
-  return (
-    poolData.pool_statistics?.hashRate ||
-    poolData.pool_statistics?.hashrate ||
-    0
-  );
+  return poolData.pool_statistics?.hashRate || 0;
 }
 
 /**
@@ -421,19 +383,14 @@ function calculateMovingAverages(
 // ==============================
 
 async function loadObserverConfig() {
-  try {
-    const cfg = await fetchJSON("/observer_config");
-    if (!isValidObject(cfg) || !cfg.wallet || !cfg.observer) {
-      return null;
-    }
-
-    state.observerBase = cfg.observer;
-    state.observerWallet = cfg.wallet;
-    return cfg;
-  } catch {
-    console.warn("Observer config unavailable");
+  const cfg = await fetchJSON("/observer_config");
+  if (!isValidObject(cfg) || !cfg.wallet || !cfg.observer) {
     return null;
   }
+
+  state.observerBase = cfg.observer;
+  state.observerWallet = cfg.wallet;
+  return cfg;
 }
 
 async function getWindowStartTimestamp(allShares) {
@@ -482,8 +439,7 @@ function isObserverReady() {
 // ==============================
 
 function setTextContent(elementId, text) {
-  // Fallback lookup: ids missing from the cacheDOMElements list (e.g.
-  // trueLuckWindow) must not silently no-op.
+  // Ids outside the cacheDOMElements list resolve through getElementById.
   const el = DOM[elementId] || document.getElementById(elementId);
   if (el) el.textContent = text;
 }
@@ -1101,8 +1057,8 @@ function updateOldDashboardStats(poolData) {
 // MAIN STATS UPDATE (REFACTORED)
 // ==============================
 
-async function fetchDashboardData() {
-  const results = await Promise.allSettled([
+function fetchDashboardData() {
+  return Promise.all([
     fetchJSON("/xmrig_summary"),
     fetchJSON("/pool/stats"),
     fetchJSON("/network/stats"),
@@ -1111,8 +1067,6 @@ async function fetchDashboardData() {
     fetchJSON("/local/stratum"),
     fetchChartWindow()
   ]);
-
-  return results.map((r) => (r.status === "fulfilled" ? r.value : null));
 }
 
 function calculateAveragingWindow(historyData) {
@@ -1121,19 +1075,14 @@ function calculateAveragingWindow(historyData) {
     !Array.isArray(historyData.timestamps) ||
     historyData.timestamps.length === 0
   ) {
-    return { avgWindowHours: 0, hasEnoughData: false };
+    return 0;
   }
 
   const now = Date.now() / 1000;
   const earliest = historyData.timestamps[0];
   const availableHours = (now - earliest) / CONFIG.SECONDS_PER_HOUR;
 
-  const avgWindowHours = Math.max(
-    0,
-    Math.min(availableHours, CONFIG.DEFAULT_RANGE_HOURS)
-  );
-
-  return { avgWindowHours, hasEnoughData: avgWindowHours > 0 };
+  return Math.max(0, Math.min(availableHours, CONFIG.DEFAULT_RANGE_HOURS));
 }
 
 function calculateEarnings(avgMyHash, avgNetHash, blockReward, priceEUR) {
@@ -1264,24 +1213,16 @@ async function updateStats() {
       thresholdObj?.minPaymentThreshold || CONFIG.DEFAULT_MIN_PAYMENT;
 
     // Calculate averaging window
-    const { avgWindowHours, hasEnoughData } = calculateAveragingWindow(
-      state.history
-    );
+    const avgWindowHours = calculateAveragingWindow(state.history);
 
     // Calculate moving averages
-    const { avgMyHash, avgPoolHash, avgNetHash } = hasEnoughData
-      ? calculateMovingAverages(
-          avgWindowHours,
-          state.history,
-          instMyHash,
-          instPoolHash,
-          instNetHash
-        )
-      : {
-          avgMyHash: instMyHash,
-          avgPoolHash: instPoolHash,
-          avgNetHash: instNetHash
-        };
+    const { avgMyHash, avgPoolHash, avgNetHash } = calculateMovingAverages(
+      avgWindowHours,
+      state.history,
+      instMyHash,
+      instPoolHash,
+      instNetHash
+    );
 
     // Calculate pool share
     const poolShare = instPoolHash > 0 ? (instMyHash / instPoolHash) * 100 : 0;
@@ -1460,13 +1401,6 @@ function restoreRange() {
   markActiveRange();
 }
 
-function cleanup() {
-  if (state.refreshIntervalId) {
-    clearInterval(state.refreshIntervalId);
-    state.refreshIntervalId = null;
-  }
-}
-
 // ==============================
 // INITIALIZATION
 // ==============================
@@ -1478,7 +1412,6 @@ async function initialize() {
 
   // Setup event listeners
   document.addEventListener("visibilitychange", handleVisibilityChange);
-  window.addEventListener("beforeunload", cleanup);
 
   if (DOM.earnPeriod) {
     DOM.earnPeriod.addEventListener("change", updateStats);
@@ -1492,10 +1425,7 @@ async function initialize() {
   await updateStats();
 
   // Start periodic updates
-  state.refreshIntervalId = setInterval(
-    updateStats,
-    CONFIG.REFRESH_INTERVAL_MS
-  );
+  setInterval(updateStats, CONFIG.REFRESH_INTERVAL_MS);
 }
 
 // Start the application

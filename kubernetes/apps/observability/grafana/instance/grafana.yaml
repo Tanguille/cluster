@@ -16,14 +16,10 @@ spec:
       check_for_plugin_updates: "false"
       feedback_links_enabled: "false"
       reporting_enabled: "false"
-    auth:
-      disable_login_form: "false"
     auth.anonymous:
       enabled: "true"
     log:
       mode: console
-    metrics:
-      enabled: "true"
     news:
       news_feed_enabled: "false"
     # Upstream deb/rpm packages copy data/plugins-bundled under $DATA_DIR and
@@ -35,10 +31,7 @@ spec:
       bundled_plugins: /var/lib/grafana/plugins-bundled
     plugins:
       plugin_admin_enabled: "false"
-    security:
-      angular_support_enabled: "true"
     server:
-      enable_gzip: "true"
       root_url: https://grafana.${SECRET_DOMAIN}
   deployment:
     spec:
@@ -49,7 +42,12 @@ spec:
           initContainers:
             - name: seed-bundled-plugins
               image: grafana/grafana:13.2.2
-              command: ["sh", "-c", "cp -a /usr/share/grafana/data/plugins-bundled/. /bundled-plugins/"]
+              command:
+                [
+                  "sh",
+                  "-c",
+                  "cp -a /usr/share/grafana/data/plugins-bundled/. /bundled-plugins/"
+                ]
               volumeMounts:
                 - name: bundled-plugins
                   mountPath: /bundled-plugins

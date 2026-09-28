@@ -29,24 +29,12 @@ compatibility: Requires `kubectl` access to the cluster and the `kopiur` kubectl
 
 ## Check status
 
-```bash
-kubectl get snapshotpolicy -A
-kubectl describe snapshotpolicy <app> -n <namespace>
-kubectl kopiur snapshots list --policy <app> -n <namespace>
-```
-
 A healthy policy shows `Ready: True` and a recent `status.lastSuccessfulSnapshot`. The
 `SnapshotSchedule` object's `status.observedGeneration` sticking behind
 `.metadata.generation` is a known cosmetic quirk (fleet-wide, harmless) — it makes the owning
 Flux Kustomization's `wait: true` health check flap (`HealthCheckFailed ... status: 'InProgress'`,
 self-clears on retry). Don't chase it; trust the policy's own `Ready` condition and a fresh
 manual snapshot instead.
-
-## Trigger manual snapshot
-
-```bash
-kubectl kopiur snapshot now --policy <app> -n <namespace> --wait
-```
 
 ## Restore from backup
 
@@ -66,18 +54,9 @@ Not in that file: when the live uid does not match the manifest's `runAsUser`,
 Reference patterns in `kubernetes/components/kopiur/`. See
 [references/restore-pvc.md](references/restore-pvc.md) for the full substitute-variable list.
 
-## Delegation
-
-| Scenario | Action |
-|----------|--------|
-| Single status check | Inline |
-| Multiple apps | Parallel subagents per app |
-| Restore | Sequential: suspend → scale → delete PVC → resume → verify |
-| Unknown failure | debug-cluster subagent |
-
 ## Troubleshooting (inline)
 
-- Repository secret: `kubectl get secret -n kopiur-system kopia-secret` (shared across all apps
+- Repository secret: `kubectl get secret -n kopiur-system kopia-nas-password` (shared across all apps
   via credential projection — apps don't carry their own copy)
 - `ClusterRepository` health: `kubectl get clusterrepository kopia-nas`
 

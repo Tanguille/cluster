@@ -98,17 +98,3 @@ Prefer examples that are:
 5. Explicit about persistence, probes, resources, and backup/restore behavior.
 
 Treat examples as lower confidence if they use deprecated APIs, unmaintained chart repos, plaintext secrets, hardcoded domains, or custom CRDs not present in this cluster.
-
-## Adaptation notes for this cluster
-
-- Preserve this repo's GitOps layout and naming; do not mirror another repo's folder hierarchy unless it matches.
-- Convert domains to `${SECRET_DOMAIN}`.
-- Convert internal routes to Gateway API `HTTPRoute` with parentRef `envoy-internal` in namespace `network` when appropriate.
-- Convert secrets to SOPS-managed `*.sops.yaml` Secrets; never copy secret values.
-- Add Reloader annotations to controllers that consume mutable config.
-- For `ceph-block` RWO persistence, avoid RollingUpdate unless the workload supports multi-attach; use `Recreate` when in doubt.
-- Validate chart values against upstream chart docs before relying on a copied values block.
-
-## Evidence standard
-
-Every recommendation should cite at least one repository path. When proposing a manifest change, cite the exact source pattern and explain the cluster-specific adaptation.

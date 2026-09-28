@@ -26,19 +26,6 @@ It is **not free**, but for typical clusters it is **small** compared to query e
 
 If you need **zero** statement tracking, remove `pg_stat_statements` from `shared_preload_libraries` and drop the extension—then you lose top-query tooling.
 
-## CloudNativePG 1.29.0 (Mar 31, 2026) and this setup
-
-The [1.29.0 release notes](https://cloudnative-pg.io/docs/1.29/release_notes/v1.29/) do **not** introduce a feature that reduces `pg_stat_statements` overhead itself. Items that are **adjacent** to tuning / security:
-
-| Area           | 1.29.0 note                                                                                                                                                                                                                                            |
-|----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Extensions** | **PostgreSQL extensions in image catalogs** — `ImageCatalog` can carry extension-specific images; **`bin_path`** / **`env`** on `postgresql.extensions` help with extensions that ship extra binaries or env (e.g. future **hypopg**-style workflows). |
-| **Network**    | **`podSelectorRefs`** for **`pg_hba.conf`** — resolve pod IPs by label so only expected workloads (e.g. ToolHive pods in `ai`) can reach Postgres, instead of broad CIDRs.                                                                             |
-| **Pooler**     | **TLS cipher / protocol bounds** on **Pooler** — stricter compliance for client↔PgBouncer↔Postgres paths.                                                                                                                                              |
-| **Replicas**   | **Role reconciliation** runs on the primary only when appropriate — fewer spurious errors on replicas when managing roles.                                                                                                                             |
-
-Upgrading the **operator** to a chart that ships 1.29.x is separate from the Postgres **image** in `Cluster` spec; bump the chart version in Flux when you are ready to adopt 1.29.0 (see `kubernetes/apps/database/cloudnative-pg/app/ocirepository.yaml`).
-
 ## `pg_stat_statements` (top queries for tuning)
 
 The cluster enables the extension via **`shared_preload_libraries`** and GUCs in `kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml`. After Flux applies and instances roll, **create the extension in each database** where you want statement history (at least **`postgres`** for global tooling; repeat for app DBs as needed):
@@ -54,5 +41,3 @@ Then top-query tooling can use `pg_stat_statements` data.
 ## Rollout
 
 Changing **`shared_preload_libraries`** requires a **rolling restart** of Postgres pods; schedule a short maintenance window if needed. Apply **only** this config change in one commit if you also change extension images—see [CloudNative-PG](https://cloudnative-pg.io/documentation/) guidance on avoiding simultaneous risky changes.
-
-For **CNPG 1.29+ image catalogs, image-volume extensions, and declarative `Database` extensions** (vs pinned `imageName` + inline `extensions`), see **`cnpg-image-catalogs-and-extensions.md`** in this folder.

@@ -15,9 +15,6 @@ spec:
       it-tools:
         strategy: RollingUpdate
 
-        annotations:
-          reloader.stakater.com/auto: "true"
-
         pod:
           securityContext:
             runAsUser: 1000
@@ -55,7 +52,6 @@ spec:
 
     service:
       app:
-        controller: it-tools
         ports:
           http:
             port: 8080
