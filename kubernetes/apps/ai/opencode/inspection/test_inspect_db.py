@@ -104,6 +104,19 @@ class InspectionTests(unittest.TestCase):
         alternate = next(x for x in self.capture(other)[1].splitlines() if x.startswith("structural-sha256"))
         self.assertEqual(before, alternate)
 
+    def test_autoincrement_sqlite_sequence_is_inspected(self):
+        # sqlite_sequence has untyped columns; OpenCode migrations use AUTOINCREMENT.
+        self.db.executescript("""
+            CREATE TABLE inbox (seq INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT);
+            INSERT INTO inbox (body) VALUES ('SECRET_INBOX_BODY');
+        """)
+        self.db.commit()
+        code, output = self.capture()
+        self.assertEqual(code, 0)
+        self.assertIn("column sqlite_sequence seq - notnull=0 pk=0 hidden=0", output)
+        self.assertIn("count sqlite_sequence 1", output)
+        self.assertNotIn("SECRET", output)
+
     def test_unsupported_identifier_fails_without_partial_output(self):
         self.db.execute('CREATE TABLE "SECRET\nIDENTIFIER" (id TEXT)')
         self.db.commit()

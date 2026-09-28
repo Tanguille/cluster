@@ -43,7 +43,8 @@ def inspect(path):
                 'SELECT name, type, "notnull", pk, hidden FROM pragma_table_xinfo(?) ORDER BY cid',
                 (name,),
             ):
-                structural.append(f"column {name} {token(col[0])} {token(col[1])} notnull={col[2]} pk={col[3]} hidden={col[4]}")
+                # sqlite_sequence and untyped columns report an empty declared type.
+                structural.append(f"column {name} {token(col[0])} {token(col[1] or None)} notnull={col[2]} pk={col[3]} hidden={col[4]}")
             for fk in db.execute(
                 'SELECT "table", "from", "to", on_update, on_delete, match FROM pragma_foreign_key_list(?) ORDER BY id, seq',
                 (name,),
