@@ -9,8 +9,7 @@ spec:
     kind: OCIRepository
     name: kguardian
   interval: 1h
-  # Chart 1.25.0 omits app.kubernetes.io/name from the broker Service
-  # while its ServiceMonitor selects on it (0 targets); add it back.
+  # Chart omits app.kubernetes.io/name on the broker Service that its ServiceMonitor selects (0 targets); add it back.
   postRenderers:
     - kustomize:
         patches:
@@ -39,7 +38,6 @@ spec:
 
     # 10s sampling, 3d/12h history for homelab scale.
     compute:
-      enabled: true
       sampleInterval: 10
       history:
         retentionDays: 3
@@ -71,11 +69,7 @@ spec:
         - name: OPENAI_API_KEY
           value: ${LITELLM_API_KEY}
 
-    # Via pgbouncer-rw (pooler has no TLS to primary). Direct primary was
-    # tried in #5050 but is unreachable from policy-selected pods on the
-    # same node as the primary (control-3 Cilium endpoint issue: labeled
-    # pod → postgres16-rw VIP blackholes, unlabeled/control-1 fine).
-    # pgbouncer VIP works from all labeled pods on all nodes.
+    # Via pgbouncer-rw (no TLS): labeled pods on the primary's node blackhole to the postgres16-rw VIP (control-3 Cilium), the pgbouncer VIP works from all nodes.
     database:
       enabled: false
       user: kguardian
@@ -83,37 +77,24 @@ spec:
       existingSecret: kguardian-db-credentials
       external:
         host: pgbouncer-rw.database.svc.cluster.local
-        port: 5432
         sslMode: disable
 
     broker:
       podAnnotations:
         reloader.stakater.com/auto: "true"
-      # Trimmed requests per peers; limits pinned to chart defaults
-      # (Helm merges maps, but explicit avoids any replace-vs-merge doubt).
+      # Trimmed requests; limits inherit chart defaults.
       resources:
         requests:
           cpu: 50m
           memory: 128Mi
-        limits:
-          memory: 1Gi
-      # No networkPolicy (chart default false, like dsluo peer): the
-      # rendered ingress-only policy blackholes the broker's own egress to
-      # ClusterIPs on Cilium (proven live: nc to pgbouncer/postgres VIPs
-      # times out from selected pods, works the instant the policy is
-      # deleted). Broker API stays in-cluster-only via ClusterIP.
+      # No networkPolicy: the rendered ingress-only policy blackholes the broker's egress to ClusterIPs on Cilium (nc to the pgbouncer/postgres VIPs times out until it is deleted).
       metrics:
         serviceMonitor:
           enabled: true
 
-      # 16 = 8+8 floor (inflightPermits+8); fits 25/30 pooler,
-      # covers 2x16 rollout burst.
+      # 16 = inflightPermits + 8 floor; fits the 25/30 pooler and a 2x16 rollout burst.
       dbPoolMaxSize: 16
-      # Disable per-connection SET statement_timeout: every pg session was
-      # parking at SET with pool creation timing out via pgbouncer
-      # (transaction mode); 16 concurrent direct PG dials take ~0.1s, so the
-      # stall is the SET-under-pooler interaction, not the pool size.
-      # Migrations stay exempt per chart docs.
+      # Per-connection SET statement_timeout parks pool creation behind transaction-mode pgbouncer (16 direct dials take ~0.1s); migrations stay exempt.
       statementTimeoutMs: 0
       audit:
         inflightPermits: 8
@@ -124,18 +105,13 @@ spec:
           retention:
             days: 14
 
-    # Frontend sips (actual ~91Mi); limit pinned to default.
+    # Actual use ~91Mi.
     frontend:
       resources:
         requests:
-          cpu: 50m
           memory: 64Mi
-        limits:
-          memory: 256Mi
 
-    # Lighter scheduling requests per peers (oscaromeu/mrdynamo);
-    # limits stay at defaults for eBPF headroom. Saves 150m + 384Mi
-    # across the 3-node DaemonSet on tight control-1 (91% req).
+    # Trimmed requests save 150m + 384Mi across the DaemonSet on tight control-1 (91% req); limits stay at chart defaults for eBPF headroom.
     controller:
       podAnnotations:
         reloader.stakater.com/auto: "true"
@@ -143,5 +119,3 @@ spec:
         requests:
           cpu: 50m
           memory: 128Mi
-        limits:
-          memory: 512Mi
