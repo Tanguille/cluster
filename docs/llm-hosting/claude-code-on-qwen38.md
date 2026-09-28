@@ -52,9 +52,10 @@ Fix: the undocumented `CLAUDE_CODE_MODEL_CAPABILITIES` env, format
 system turn; recapture showed roles `['user']` only.
 
 The server-side alternative (patch the chat template via ConfigMap +
-`--chat-template`, same overlay pattern as `aiter-kvconn-patch` in
-`kubernetes/apps/ai/llmkube/models/`) renders fine but rolls the vLLM pod,
-which costs hours of cold-KV admission stall. Not worth it for a client bug.
+`--chat-template`, same overlay pattern as `lds-gate-patch` in
+`kubernetes/apps/ai/llmkube/models/`) renders fine but rolls the vLLM pod, and
+a restart stalls admission for hours (`vllm-optimization-log-2026-08.md`,
+"A restart's real cost"). Not worth it for a client bug.
 
 ## What works, measured
 
@@ -63,20 +64,14 @@ Debug-log runs (`claude-qwen -p ... --permission-mode auto --debug-file /tmp/cla
 | feature | status | evidence |
 | --- | --- | --- |
 | tool calls, hooks, plugins, MCP, subagents, compaction, auto-memory | work | client-side; same run as below |
-| auto mode | works, classifier goes through litellm on the main model | `classifier_request_started model=qwen-3.8 stage=xml_s1`; cold call hit the 60s wall clock → `fail closed` deny; retries 10 to 35s (prefix cached) → `behavior=allow` |
+| auto mode | works; classifier always runs on the main model (`CLAUDE_CODE_AUTO_MODE_MODEL=qwen-3.8-fast` and `ANTHROPIC_DEFAULT_SONNET_MODEL=qwen-3.8-fast` both left `model=qwen-3.8` in the log) | `classifier_request_started model=qwen-3.8 stage=xml_s1`; cold call hit the 60s wall clock → `fail closed` deny; retries 10 to 35s (prefix cached) → `behavior=allow` |
 | context window | 180K as seen by Claude Code | `autocompact: ... effectiveWindow=180000` (vLLM serves 246944) |
 | first-turn latency | 58s on a trivial prompt | 10:37:41 request → 10:38:39 tool dispatch; ~35K-token system prompt prefill + thinking on the shared R9700 |
-| prompt caching | vLLM prefix cache, `cache_control` ignored | classifier 60s timeout → 10 to 35s on retries |
+| prompt caching | vLLM prefix cache, `cache_control` ignored | see auto mode retries |
 | Anthropic usage / telemetry | none | `[Anthropic telemetry] ... No API key available` |
 
 Not available: WebSearch (Anthropic server tool), fast mode, Artifacts,
 Remote Control, cloud code review, 1M context.
-
-The classifier always runs on the main model: neither
-`CLAUDE_CODE_AUTO_MODE_MODEL=qwen-3.8-fast` nor
-`ANTHROPIC_DEFAULT_SONNET_MODEL=qwen-3.8-fast` changed `model=qwen-3.8` in the
-log, so the first classification after a cold cache can be denied on the 60s
-wall clock; the model retries and gets through.
 
 ## Gotchas
 
