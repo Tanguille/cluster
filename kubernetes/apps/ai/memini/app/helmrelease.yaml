@@ -75,7 +75,7 @@ spec:
               # timeout returns empty (the gate fails closed).
               MEMINI_RERANK_TIMEOUT: "8s"
               # HTTP payload cap per /rerank request; the 6000 default shards a deep
-              # pool into ~10 serial requests. 20000 gives ~3 worst case (30 docs x
+              # pool into ~10 serial requests. 20000 gives ~4 worst case (30 docs x
               # 2048-char MAX_DOC_CHARS ~ 61k chars), typically one.
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # Same congestion logic as the embedder knobs: one in-flight rerank
