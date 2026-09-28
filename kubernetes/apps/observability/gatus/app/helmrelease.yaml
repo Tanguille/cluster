@@ -30,13 +30,14 @@ spec:
       readinessProbe: *probes
       securityContext:
         capabilities: { add: ["NET_RAW"] }
-      resources:
-        requests:
-          cpu: 50m
-          memory: 256Mi
-        limits:
-          cpu: 100m
-          memory: 256Mi
+
+    # pod-level: the chart ignores gatus.resources and sidecar.resources; peak working set ~73MB across both
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
 
     sidecar:
       image:
@@ -54,12 +55,6 @@ spec:
           enable: true
         service:
           enable: false
-      resources:
-        requests:
-          cpu: 10m
-        limits:
-          cpu: 500m
-          memory: 64Mi
 
     config:
       existingConfigMap: gatus-configmap
@@ -81,7 +76,7 @@ spec:
         gethomepage.dev/group: Status
         gethomepage.dev/icon: gatus.png
         gethomepage.dev/widget.type: gatus
-        gethomepage.dev/widget.url: http://gatus.observability.svc.cluster.local
+        gethomepage.dev/widget.url: http://gatus.observability.svc.cluster.local:8080
       hostnames:
         - "status.${SECRET_DOMAIN}"
       parentRefs:

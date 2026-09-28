@@ -32,6 +32,8 @@ spec:
     plugins:
       plugin_admin_enabled: "false"
     server:
+      # explicit: grafana-operator defaults this to false on Grafana 13+
+      enable_gzip: "true"
       root_url: https://grafana.${SECRET_DOMAIN}
   deployment:
     spec:

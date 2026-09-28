@@ -28,7 +28,7 @@ spec:
       rules:
         - alert: CiliumCTMapPressureHigh
           expr: |
-            max(cilium_bpf_map_pressure) > 0.7
+            max by (instance, map_name) (cilium_bpf_map_pressure) > 0.7
           for: 15m
           annotations:
             summary: Cilium BPF map {{ $labels.map_name }} pressure above 70% for 15 minutes
