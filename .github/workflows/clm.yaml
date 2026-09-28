@@ -33,7 +33,12 @@ jobs:
         !startsWith(github.event.head_commit.message, 'chore: pin clm-head tag')
       }}
     # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
-    # older ref publishes the same tag and Flux sees no change.
+    # older ref publishes the same tag and Flux sees no change. Two no-op
+    # guards, complementary: the job-level if: skips pin-back commits (breaks
+    # the re-trigger loop), and the "Resolve target tag" step below skips a
+    # build when the manifest already pins the head (e.g. workflow-only
+    # changes) — that one is race-safe, so it can stand alone if the message
+    # guard is ever dropped.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -55,12 +60,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve target tag
+        # Skip the build when the PR manifest already pins exactly the head
+        # SHA this event publishes. Without this, workflow-only changes (or
+        # a late-arriving pin-back) make the build publish an orphan tag.
+        # DO_BUILD is consumed by the shell of the next step via GITHUB_ENV
+        # (step `if:` cannot read it — only job/workflow-level env can).
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |-
+          PINS="kubernetes/apps/ai/clm/app/helmrelease.yaml"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ -f "$PINS" ]; then
+            CURRENT=$(sed -n 's/^[[:space:]]*tag:[[:space:]]*//p' "$PINS" | head -1)
+            if [ "$CURRENT" = "$HEAD_SHA" ]; then
+              echo "manifest already pins head $HEAD_SHA; skipping build"
+              echo "DO_BUILD=false" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          fi
+          echo "DO_BUILD=true" >> "$GITHUB_ENV"
+
       - name: Build and publish
+        # Guard: a concurrent pin-back may have advanced the manifest tag
+        # between the pre-check and this step. Build only the tag the
+        # manifest pins now, so we never publish an orphan.
         run: |
           set -euo pipefail
+          [ "${DO_BUILD:-true}" = "true" ] || { echo "skip build (manifest already pinned)"; exit 0; }
           TAG="${{ inputs.tag }}"
           [ -n "$TAG" ] || \
             TAG="${{ github.event.pull_request.head.sha || github.sha }}"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            CURRENT=$(sed -n 's/^[[:space:]]*tag:[[:space:]]*//p' \
+              kubernetes/apps/ai/clm/app/helmrelease.yaml | head -1)
+            [ "$CURRENT" = "$TAG" ] || \
+              { echo "::error::manifest pins ${CURRENT:-<none>} but building ${TAG}; skipping to avoid an orphan tag"; exit 1; }
+          fi
           IMAGE="ghcr.io/tanguille/clm-head:${TAG}"
           # Same bootstrap guard as scripts/talos-kernel-build.sh: the hosted
           # runner's default 'docker' buildx driver cannot push, so promote
