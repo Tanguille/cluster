@@ -21,9 +21,7 @@ spec:
           labels:
             severity: critical
         - alert: NodeRebooted
-          # control-1 solo-rebooted ~16x in 90d via an uncaptured guest kernel
-          # panic, first symptom a dead jellyfin stream. No `for:` - uptime crosses
-          # this once. Node clock both sides, so NTP skew after boot cannot bias it.
+          # No `for:` because uptime crosses 600s once; both clocks are the node's own, so NTP skew cannot bias it.
           expr: |-
             node_time_seconds{kubernetes_node!=""} - node_boot_time_seconds < 600
           annotations:
@@ -33,9 +31,7 @@ spec:
           labels:
             severity: warning
         - alert: NodeGTTMemoryHigh
-          # pinned iGPU memory the OOM killer cannot reclaim; normal embedder
-          # footprint is 1-2GB, the control-2 wedge had 4.7GB. Scoped to the two
-          # iGPU nodes — only they expose DRM/GTT.
+          # Pinned iGPU memory the OOM killer cannot reclaim; normal embedder use is 1-2GB. Only the iGPU nodes expose GTT.
           expr: |-
             node_drm_memory_gtt_used_bytes{kubernetes_node=~"control-[23]"} > 4294967296
           for: 15m
@@ -46,13 +42,7 @@ spec:
           labels:
             severity: warning
         - alert: DgpuVramLow
-          # control-1's dGPU is shared between vLLM and Jellyfin/fileflows
-          # transcoding, and nothing enforces the split: squat.ai/dri counts
-          # device nodes, not bytes, so either side can take the whole card.
-          # vLLM is sized to leave 2 GiB (--kv-cache-memory in
-          # qwen38-27b-vllm.yaml) against a measured 0.85 GB DV transcode +
-          # 0.69 GB fileflows. A third concurrent transcode would breach it and
-          # evict KV instead of failing, so this is the only detector.
+          # Nothing enforces the vLLM/transcode VRAM split (squat.ai/dri counts device nodes, not bytes); vLLM leaves 2 GiB via --kv-cache-memory in qwen38-27b-vllm.yaml.
           expr: |-
             node_drm_memory_vram_size_bytes{kubernetes_node="control-1"}
               - node_drm_memory_vram_used_bytes{kubernetes_node="control-1"}
@@ -66,9 +56,7 @@ spec:
           labels:
             severity: warning
         - alert: NodeDRMCollectorFailed
-          # A silently-dead DRM collector reads as "no GTT problem" (the xmrig-guard
-          # telemetry gap ran blind 40h this way). control-1 included since
-          # DgpuVramLow depends on the same collector.
+          # A dead DRM collector reads as "no GTT problem"; control-1 is included because DgpuVramLow uses the same collector.
           expr: |-
             max by (kubernetes_node) (
               node_scrape_collector_success{collector="drm", kubernetes_node=~"control-[123]"} == 0
@@ -82,15 +70,7 @@ spec:
           labels:
             severity: warning
         - alert: DgpuVramTelemetryMissing
-          # Same reasoning as NodeGTTTelemetryMissing, for the dGPU: DgpuVramLow is a
-          # subtraction, so it returns NO SAMPLE if either metric disappears rather
-          # than firing. NodeDRMCollectorFailed does not cover that case either --
-          # node_scrape_collector_success vanishes too when the exporter is gone.
-          # absent(), not the label_replace/unless idiom NodeGTTTelemetryMissing
-          # uses: that shape exists to synthesise one series per node across
-          # two nodes, and here there is only control-1. It also missed the
-          # case where _size_bytes alone vanishes -- absent() on both covers
-          # each metric independently and keeps the node label for the summary.
+          # DgpuVramLow is a subtraction and returns no sample if either metric vanishes; absent() on each covers both and keeps the node label.
           expr: |-
             absent(node_drm_memory_vram_used_bytes{kubernetes_node="control-1"})
             or absent(node_drm_memory_vram_size_bytes{kubernetes_node="control-1"})
@@ -103,8 +83,7 @@ spec:
           labels:
             severity: warning
         - alert: NodeGTTTelemetryMissing
-          # Keep one alert identity per control node, including when the metric is
-          # absent entirely; NodeGTTMemoryHigh is blind until telemetry recovers.
+          # One alert identity per control node, even when the metric is absent entirely.
           expr: |-
             max by (kubernetes_node) (
               node_drm_memory_gtt_size_bytes{kubernetes_node=~"control-[23]"}
@@ -131,18 +110,10 @@ spec:
           labels:
             severity: warning
         - alert: TrueNASSSDPoolSpaceLow
-          # control-1's disk is a SPARSE zvol on this pool (SSD_Pool/vm/TALOS.block,
-          # refreservation none), so exhausting the pool fails guest writes and stops the
-          # VM rather than just filling a share. Every other node alert here is scoped
-          # kubernetes_node!="", which excludes this external target, so the pool backing
-          # the cluster's only VM had no space alerting at all.
-          # It has already run dry once, unnoticed: 2026-07-28 21:10-22:26 the pool sat
-          # under 20GiB for 76 minutes and bottomed at 0.00GiB, during back-to-back image
-          # bumps that wrote a second 64G HiCache generation alongside the live one.
+          # control-1's disk is a sparse zvol on this pool, so a full pool fails guest writes and stops the VM; the kubernetes_node!="" scoping of the other node alerts excludes this external target.
           expr: |-
             node_filesystem_avail_bytes{job="node-exporter", fstype="zfs", mountpoint="/mnt/SSD_Pool"} < 21474836480
-          # 15m would have fired at 21:25 in that event, ~1h before it hit zero, while
-          # still riding out the 04:00 snapshot task that frees and re-pins tens of GB.
+          # 15m rides out the 04:00 snapshot task that frees and re-pins tens of GB.
           for: 15m
           annotations:
             summary: >-

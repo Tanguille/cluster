@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app nut-exporter
+  name: nut-exporter
 spec:
   interval: 30m
   chartRef:
@@ -73,7 +73,6 @@ spec:
             port: 9199
     serviceMonitor:
       app:
-        serviceName: *app
         endpoints:
           - port: http
             path: /ups_metrics
