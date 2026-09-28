@@ -23,17 +23,15 @@ concurrency:
 
 jobs:
   build:
-    # The pull_request paths filter evaluates the whole base..head diff, so
-    # every push to a clm PR re-builds. The pin-back commit below (which only
-    # touches the helmrelease tag) would re-trigger itself forever — skip
-    # builds whose head commit is that pin-back.
+    # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
+    # older ref publishes the same tag and Flux sees no change. The pin-back
+    # commit (tag-only, fixed message) is skipped by the if: below so it
+    # never re-triggers a build (no loop, no orphan image).
     if: >-
       ${{
         github.event_name != 'pull_request' ||
         !startsWith(github.event.head_commit.message, 'chore: pin clm-head tag')
       }}
-    # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
-    # older ref publishes the same tag and Flux sees no change.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -61,6 +59,19 @@ jobs:
           TAG="${{ inputs.tag }}"
           [ -n "$TAG" ] || \
             TAG="${{ github.event.pull_request.head.sha || github.sha }}"
+          # No-op PR runs (e.g. workflow-only changes) land a head the
+          # manifest already pins; skip them instead of publishing an orphan
+          # tag. cancel-in-progress cancels any live build when a newer push
+          # lands, so a concurrent pin-back cannot change the manifest under
+          # us — no in-build re-check needed.
+          PINS="kubernetes/apps/ai/clm/app/helmrelease.yaml"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ -f "$PINS" ]; then
+            CURRENT=$(sed -n 's/^[[:space:]]*tag:[[:space:]]*//p' "$PINS" | head -1)
+            if [ "$CURRENT" = "$TAG" ]; then
+              echo "manifest already pins ${TAG}; nothing to build"
+              exit 0
+            fi
+          fi
           IMAGE="ghcr.io/tanguille/clm-head:${TAG}"
           # Same bootstrap guard as scripts/talos-kernel-build.sh: the hosted
           # runner's default 'docker' buildx driver cannot push, so promote
@@ -91,28 +102,33 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # The manifest only exists on branches carrying the clm app.
-          [ -f kubernetes/apps/ai/clm/app/helmrelease.yaml ] || \
-            { echo "no clm manifest on this branch; nothing to pin"; exit 0; }
           # Validate the ref/SHA from the event payload before use: this
           # step only runs for same-repo PRs (see the guard above), so a
           # normal git ref is the only legitimate value.
           echo "$BRANCH" | grep -Eq '^[A-Za-z0-9._/-]+$' || { echo "refusing to push to malformed branch"; exit 1; }
           echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo "refusing to use malformed sha"; exit 1; }
+          # The manifest only exists on branches carrying the clm app (the
+          # plumbing branch that only added this workflow must skip).
+          PINS="kubernetes/apps/ai/clm/app/helmrelease.yaml"
+          [ -f "$PINS" ] || { echo "no clm manifest on this branch; nothing to pin"; exit 0; }
           # The default checkout on pull_request is the merge ref; reset to
           # the exact branch tip in a clean worktree before editing it.
           git fetch -q origin "$BRANCH"
           git checkout -qf "$SHA"
           git clean -qfd
-          sed -i "s/^\( *\)tag: .*/\1tag: ${SHA}/" \
-            kubernetes/apps/ai/clm/app/helmrelease.yaml
-          if git diff --quiet -- kubernetes/apps/ai/clm/app/helmrelease.yaml; then
+          sed -i "s/^\( *\)tag: .*/\1tag: ${SHA}/" "$PINS"
+          if git diff --quiet -- "$PINS"; then
             echo "tag already pinned to ${SHA}"
           else
-            git add kubernetes/apps/ai/clm/app/helmrelease.yaml
+            git add "$PINS"
             git -c user.name="github-actions[bot]" \
                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
                commit -q -m "chore: pin clm-head tag"
-            git push -q origin "HEAD:${BRANCH}"
+            # persist-credentials: false left origin unauthenticated; push
+            # over an explicit GH_TOKEN URL instead of relying on stored creds.
+            # Injection note: GITHUB_REPOSITORY is GitHub-provided; BRANCH was
+            # validated against ^[A-Za-z0-9._/-]+$ at the top of this step.
+            git push -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              "HEAD:${BRANCH}"
             echo "pinned helmrelease to ${SHA} on ${BRANCH}"
           fi
