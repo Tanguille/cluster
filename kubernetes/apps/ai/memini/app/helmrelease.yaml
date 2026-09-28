@@ -70,10 +70,10 @@ spec:
               # llama.cpp's sigmoid-scaled [0,1] scores — validate against live
               # traffic before moving it (memini bench.RerankGateSweep).
               MEMINI_RERANK_MIN_SCORE: "0.5"
-              # With MIN_SCORE set, a timeout returns empty (the gate fails closed)
-              # instead of composite order, so this must exceed the worst-case
-              # serial rerank time.
-              MEMINI_RERANK_TIMEOUT: "30s"
+              # Hermes abandons a recall at 8s (memory_manager.py _EXTERNAL_PREFETCH_TIMEOUT_S);
+              # a longer rerank only holds the single reranker slot. With MIN_SCORE a
+              # timeout returns empty (the gate fails closed).
+              MEMINI_RERANK_TIMEOUT: "8s"
               # HTTP payload cap per /rerank request; the 6000 default shards a deep
               # pool into ~10 serial requests. 20000 gives ~3 worst case (30 docs x
               # 2048-char MAX_DOC_CHARS ~ 61k chars), typically one.
