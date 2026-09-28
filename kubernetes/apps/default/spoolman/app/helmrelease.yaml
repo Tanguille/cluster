@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app spoolman
+  name: spoolman
 spec:
   interval: 30m
   chartRef:
@@ -63,7 +63,6 @@ spec:
 
     service:
       app:
-        controller: *app
         ports:
           http:
             port: 8000

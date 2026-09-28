@@ -87,8 +87,6 @@ spec:
                 memory: 1Gi
 
       chrome:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -184,7 +182,6 @@ spec:
     service:
       app:
         forceRename: karakeep
-        primary: true
         controller: karakeep
         ports:
           http:
