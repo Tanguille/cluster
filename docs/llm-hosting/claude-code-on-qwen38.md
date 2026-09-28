@@ -11,6 +11,7 @@ with aliases `qwen-3.8` (thinking) and `qwen-3.8-fast` (no thinking) from
 
 ```fish
 # ~/.config/fish/functions/claude-qwen.fish (chmod 600, holds the litellm master key)
+# Substitute the cluster domain for ${SECRET_DOMAIN} and the key for the <...> placeholder.
 function claude-qwen
     CLAUDE_CODE_MODEL_CAPABILITIES="qwen*=-mid_conv_system,-mid_conv_tool_change" \
     ANTHROPIC_BASE_URL=https://litellm.${SECRET_DOMAIN} \
