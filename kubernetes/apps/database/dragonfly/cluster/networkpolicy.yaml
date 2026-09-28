@@ -8,8 +8,9 @@ metadata:
 spec:
   # Dragonfly instance pods. The operator's built-in NetworkPolicy was removed
   # in v1.7.0 (networkPolicyEnabled field gone from the CRD), so this replaces
-  # its admin-port protection and narrows the namespace-wide
-  # database-ingress-allowlist at the port level.
+  # its admin-port protection. These pods are excluded from the namespace-wide
+  # database-ingress-allowlist (it would allow every port), so this is their
+  # only ingress policy.
   endpointSelector:
     matchLabels:
       app: dragonfly
