@@ -23,10 +23,7 @@ spec:
 
             env:
               NODE_ENV: production
-              DEBUG: false
-              SITE_TITLE: "DumbAssets"
               BASE_URL: "https://dumbassets.${SECRET_DOMAIN}"
-              ALLOWED_ORIGINS: "*"
               CURRENCY_CODE: "EUR"
               CURRENCY_LOCALE: "nl-BE"
             envFrom:
@@ -54,7 +51,6 @@ spec:
 
     service:
       app:
-        controller: app
         ports:
           http:
             port: 3000

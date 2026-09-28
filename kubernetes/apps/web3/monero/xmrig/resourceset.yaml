@@ -82,8 +82,6 @@ spec:
               # Capped since the RandomX dataset moved out of hugetlb: tmpfs pages and the ~2336Mi
               # dataset now share one 3Gi limit, so an unbounded /tmp reaches it.
               sizeLimit: 64Mi
-              globalMounts:
-                - path: /tmp
           defaultPodOptions:
             terminationGracePeriodSeconds: 15
             priorityClassName: low-priority-mining

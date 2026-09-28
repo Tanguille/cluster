@@ -59,9 +59,9 @@ Two conventions keep the layers honest:
 
 Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
 CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
-`vip` and `gateway` are defined once in `mod.just` and passed to every layer alongside the node's
-schematic id. Node addresses and the `192.168.0.0/24` subnet are still literals in the files that
-use them; only these two are centralised.
+`vip` and `gateway` are defined once in `mod.just` and passed to every layer. Node addresses and
+the `192.168.0.0/24` subnet are still literals in the files that use them; only these two are
+centralised.
 
 Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
 a document between layers reorders the output stream and reads as a change even when the content is
@@ -71,7 +71,7 @@ documents that are identical per node but would reorder the stream stay put.
 ## Schematics
 
 `just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
-content-addressed ID, which is templated into the installer image.
+content-addressed ID, which `download-image` uses to fetch the ISO. Installers are not keyed by it.
 
 Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
 `schematic.yaml` applies. Overrides are complete files, not deltas. Today only `control-1`
@@ -83,18 +83,18 @@ every `just talos` command. If a schematic ever needs a variable, add the extens
 
 **The ID is content-addressed, so any change to a schematic's fields moves it** — including a
 one-character change to `extraKernelArgs`. Comments and formatting do not: the Factory canonicalises
-the YAML before hashing, verified by stripping a comment and getting the same id back. Every installer reference derived from that ID moves with it. For nodes
-pointing at the Image Factory that is invisible and self-healing, because the Factory builds the new
-ID on demand. It is *not* self-healing for any node whose installer is mirrored to another registry
-under the schematic path: that mirror must be republished under the new ID first, or the next upgrade
-fails to pull. Check which nodes use a non-Factory installer before changing a schematic.
+the YAML before hashing, verified by stripping a comment and getting the same id back. Installer
+repos are keyed by node or `shared`, never by ID (see `docker/talos-kernel/README.md`), so an edit
+moves no installer ref; only the Factory ISO from `download-image` follows the new ID.
 
 ## Gotchas
 
 - `machine.ca` and `cluster.ca` merge as a cert+key **unit**: a layer supplying only `key` blanks
   `crt`. This is why `controlplane.yaml.j2` repeats the `crt` alongside the keys.
-- `minijinja-cli` must run with `--autoescape=none`. The default JSON-escapes every substitution,
-  which silently wraps certs and versions in quotes and produces a config that looks right and is not.
+- `minijinja-cli` must run with autoescape off and strict on. `.minijinja.toml` sets both, found via
+  `MINIJINJA_CONFIG_FILE` (mise sets it; the `template` recipe refuses to run without it). The default
+  JSON-escapes every substitution, which silently wraps certs and versions in quotes and produces a
+  config that looks right and is not.
 - `talsecret.sops.yaml` is the native `talosctl` secrets bundle, not a talhelper format. `talosctl gen
   config --with-secrets` consumes it directly. Do not rename its keys; the templates and
   `just talos talosconfig` both depend on them.
@@ -103,16 +103,10 @@ fails to pull. Check which nodes use a non-Factory installer before changing a s
 
 The version lives in the tuppr CR, not here.
 
-**These documents cannot be applied before the nodes are on 1.14.** Not a style rule, a hard
-gate: a 1.13.9 node rejects the config outright rather than ignoring what it does not know.
-
-```text
-error decoding document v1alpha1/CRICustomizationConfig/keep-unpacked-layers:
-  "CRICustomizationConfig" "v1alpha1": not registered
-```
-
-So `apply-node` and `diff-node` both fail against a node that has not been upgraded yet. Adopt
-only after tuppr has rolled every node, and re-run `diff-node` on all three before applying.
+A node rejects the whole config if it contains a document its version does not know (a 1.13.9
+node answered `"CRICustomizationConfig" "v1alpha1": not registered`), so `apply-node` and
+`diff-node` both fail against a node that has not been upgraded yet. Adopt a new document only
+after tuppr has rolled every node, and re-run `diff-node` on all three before applying.
 
 ### Adopted
 

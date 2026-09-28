@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app nextcloud-exporter
+  name: nextcloud-exporter
 spec:
   interval: 30m
   chartRef:
@@ -22,7 +22,6 @@ spec:
               tag: 0.9.1@sha256:3e90a38976516444d05f5f6758e5d572ca559b69ad3005ec4029786e9daf9129
             env:
               NEXTCLOUD_SERVER: http://nextcloud.default.svc.cluster.local:8080
-              NEXTCLOUD_LISTEN_ADDRESS: ":9205"
             envFrom:
               - secretRef:
                   name: nextcloud-exporter-secret
@@ -54,7 +53,6 @@ spec:
             port: 9205
     serviceMonitor:
       app:
-        serviceName: *app
         endpoints:
           - port: http
             # each scrape triggers Nextcloud's DB-heavy serverinfo API; upstream examples use 5m

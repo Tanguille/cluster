@@ -21,13 +21,7 @@ spec:
           labels:
             severity: warning
 
-        # vmcp grows 250-414 MiB/day with 12 backends (re-measured 2026-09-22
-        # over 14d; the high end reaches the 2Gi limit in ~5 days) and then
-        # OOMKills (upstream stacklok/toolhive#5860, open). Measured
-        # 2026-09-03: 14d peak working set 2048Mi against a 2048Mi limit, exactly
-        # at the ceiling. Every kill costs a full optimizer re-embed and a cold
-        # cache, and Gatus probes at 15m so the gap was invisible. Alert on the
-        # approach, not the kill -- by the time it OOMs the damage is done.
+        # vmcp leaks 250-414 MiB/day (vmcp-restart.yaml); alert on the approach, since each OOM kill costs a full optimizer re-embed and Gatus probes every 15m miss it.
         - alert: AiContainerMemoryNearLimit
           expr: |-
             container_memory_working_set_bytes{namespace="ai", container!=""}

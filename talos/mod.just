@@ -9,7 +9,7 @@ set shell := ['bash', '-euo', 'pipefail', '-c']
 # exit 0 with empty output; see .agents/common-operations.md.
 
 # Cluster-wide addresses, defined once: the VIP is referenced from every layer and from
-# talosconfig, and the retired talconfig.yaml used a YAML anchor for the same reason.
+# talosconfig.
 vip := "192.168.0.2"
 gateway := "192.168.0.1"
 

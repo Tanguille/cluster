@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app scraparr
+  name: scraparr
 spec:
   interval: 30m
   chartRef:
@@ -76,7 +76,6 @@ spec:
     serviceMonitor:
       metrics:
         enabled: true
-        serviceName: *app
         endpoints:
           - port: metrics
             interval: 1m

@@ -16,9 +16,7 @@ spec:
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
-  # Declarative app roles (CNPG-native, replacing postgres-init). Password comes from a
-  # basic-auth Secret here and CNPG enforces it, so the app's DATABASE_URL must match.
-  # Nothing re-syncs the two, so password rotation is off for these roles.
+  # CNPG enforces the basic-auth Secret password, so the app's DATABASE_URL must match; nothing re-syncs them, so rotation is off.
   managed:
     roles:
       - name: litellm
@@ -150,16 +148,13 @@ spec:
       - name: vector
         image:
           reference: ghcr.io/cloudnative-pg/pgvector:0.8.6-18-trixie
-  nodeMaintenanceWindow:
-    inProgress: false
-    reusePVC: true
   resources:
     requests:
       cpu: 500m
       memory: 2Gi
     limits:
       cpu: 4
-      # primary working set peaked 1.85GiB at 1GB shared_buffers (30d)
+      # primary working set peaked 1.85GiB at 1GB shared_buffers (now 2GB, not remeasured)
       memory: 4Gi
   monitoring:
     enablePodMonitor: true

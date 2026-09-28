@@ -43,10 +43,9 @@ jobs:
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
 
-      # archive/ holds retired one-off scripts, kept for reference and not held to the gate.
       - name: Lint
         run: |
           set -euo pipefail
-          mapfile -t scripts < <(git ls-files '*.sh' ':!archive/**')
+          mapfile -t scripts < <(git ls-files '*.sh')
           mise exec -- shellcheck "${scripts[@]}"
           mise exec -- shfmt --diff -- "${scripts[@]}"
