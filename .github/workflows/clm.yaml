@@ -142,7 +142,7 @@ jobs:
           git fetch -q origin "$BRANCH"
           git checkout -qf "$SHA"
           git clean -qfd
-          sed -i "s/^\( *\)tag: .*/\1tag: ${SHA}/" "$PINS"
+          sed -i "s/^\([[:space:]]*\)tag: .*/\1tag: ${SHA}/" "$PINS"
           if git diff --quiet -- "$PINS"; then
             echo "tag already pinned to ${SHA}"
           else
