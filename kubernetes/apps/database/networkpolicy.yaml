@@ -6,10 +6,16 @@ metadata:
   name: database-ingress-allowlist
   namespace: database
 spec:
-  # endpointSelector {} => default-deny ingress for every pod in the namespace
-  # (postgres, poolers, dragonfly, cnpg + dragonfly operators). Egress stays
-  # default-allow (backups to NFS/S3, operator->apiserver keep working).
-  endpointSelector: {}
+  # Default-deny ingress for every pod in the namespace (postgres, poolers, cnpg
+  # + dragonfly operators) except the dragonfly instances: Cilium policies are
+  # additive, so this all-ports allow would void the 9999 fence in
+  # dragonfly/cluster/networkpolicy.yaml. Egress stays default-allow (backups
+  # to NFS/S3, operator->apiserver keep working).
+  endpointSelector:
+    matchExpressions:
+      - key: app
+        operator: NotIn
+        values: [dragonfly]
   ingress:
     # Namespaces that actually consume postgres/pgbouncer/dragonfly, discovered
     # from cnpg databases/ CRs + dragonfly host refs (renovate = operator cache). observability = vmagent

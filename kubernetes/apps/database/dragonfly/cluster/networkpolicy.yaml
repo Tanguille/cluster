@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: dragonfly-ingress-allowlist
+  namespace: database
+spec:
+  # Dragonfly instance pods. The operator's built-in NetworkPolicy was removed
+  # in v1.7.0 (networkPolicyEnabled field gone from the CRD), so this replaces
+  # its admin-port protection. These pods are excluded from the namespace-wide
+  # database-ingress-allowlist (it would allow every port), so this is their
+  # only ingress policy.
+  endpointSelector:
+    matchLabels:
+      app: dragonfly
+      app.kubernetes.io/name: dragonfly
+  ingress:
+    # 6379 (redis): the namespaces that consume dragonfly, per
+    # database-ingress-allowlist; database = intra-ns (replicas, poolers).
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+        - matchLabels:
+            io.kubernetes.pod.namespace: default
+        - matchLabels:
+            io.kubernetes.pod.namespace: media
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: renovate
+        - matchLabels:
+            io.kubernetes.pod.namespace: security
+        - matchLabels:
+            io.kubernetes.pod.namespace: database
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+    # 9999 (admin, --admin_nopass): operator only (probes/replication setup),
+    # the instance's own peers (role changes), and vmagent (PodMonitor admin
+    # port scrape).
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: database
+            control-plane: controller-manager
+        - matchLabels:
+            app: dragonfly
+            app.kubernetes.io/name: dragonfly
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: vmagent
+      toPorts:
+        - ports:
+            - port: "9999"
+              protocol: TCP
+    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
