@@ -51,8 +51,7 @@
   --radius: 10px;
   --radius-sm: 6px;
 
-  --chart-h: 240px;
-  --chart-h-tall: 300px;
+  --chart-h: 300px;
 
   /* ease-out-quart: fast departure, no overshoot */
   --ease: cubic-bezier(0.25, 1, 0.5, 1);
@@ -460,10 +459,6 @@ main {
   margin-top: 0.25rem;
 }
 
-.chart--tall {
-  height: var(--chart-h-tall);
-}
-
 /* An explicit `display` beats the UA rule for [hidden], so restore it */
 [hidden] {
   display: none !important;
@@ -686,7 +681,7 @@ main {
 
 @media (min-width: 64rem) {
   :root {
-    --chart-h-tall: 340px;
+    --chart-h: 340px;
   }
 
   .trends__grid {

@@ -51,7 +51,6 @@ spec:
                 cpu: 100m
                 memory: 128Mi
     defaultPodOptions:
-      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 15
       affinity:
         nodeAffinity:
@@ -86,9 +85,6 @@ spec:
         type: configMap
         name: guard
         globalMounts:
-          - path: /config
-            readOnly: true
+          - readOnly: true
       tmp:
         type: emptyDir
-        globalMounts:
-          - path: /tmp
