@@ -37,6 +37,22 @@ spec:
             matchLabels:
               grafana.internal/instance: grafana
           allowCrossNamespaceImport: true
+      # No AIX/Darwin/Windows nodes here; these bundle dashboards stay empty.
+      dashboards:
+        nodes-aix:
+          enabled: false
+        nodes-darwin:
+          enabled: false
+        k8s-resources-windows-cluster:
+          enabled: false
+        k8s-resources-windows-namespace:
+          enabled: false
+        k8s-resources-windows-pod:
+          enabled: false
+        k8s-windows-cluster-rsrc-use:
+          enabled: false
+        k8s-windows-node-rsrc-use:
+          enabled: false
 
     defaultDatasources:
       grafanaOperator:
