@@ -9,8 +9,7 @@ spec:
     - name: node-exporter.rules
       rules:
         - alert: NodeMemoryAvailableLow
-          # kubelet starved at ~444MB in the 2026-07-20 control-2 wedge; 2GiB gives
-          # runway to intervene regardless of what is eating the node
+          # kubelet starved at ~444MB in a control-2 wedge; 2GiB leaves runway to intervene
           expr: |-
             node_memory_MemAvailable_bytes{kubernetes_node!=""} < 2147483648
           for: 10m
