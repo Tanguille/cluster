@@ -52,30 +52,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Ensure public package
-        # New GHCR packages default to PRIVATE; the flate "Pull Images" job
-        # pulls anonymously from node networks, so a private package 403s
-        # there. GITHUB_TOKEN (write:packages) creates/patches the package
-        # visibility before the push so no manual UI step is needed.
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          H="Authorization: Bearer $GH_TOKEN"
-          API="https://api.github.com"
-          ID=$(curl -fsSL -H "$H" -H "Accept: application/vnd.github+json" \
-            "$API/user/packages/clm-head?package_type=container" | jq -r '.id // empty') || ID=""
-          if [ -n "$ID" ]; then
-            curl -fsSL -X PATCH -H "$H" -H "Accept: application/vnd.github+json" \
-              -d '{"visibility":"public"}' "$API/user/packages/$ID" >/dev/null
-            echo "package clm-head already exists (id $ID); visibility set public"
-          else
-            curl -fsSL -X POST -H "$H" -H "Accept: application/vnd.github+json" \
-              -d '{"name":"clm-head","package_type":"container","visibility":"public"}' \
-              "$API/user/packages" >/dev/null
-            echo "package clm-head created as public"
-          fi
-
       - name: Build and publish
         run: |
           set -euo pipefail
