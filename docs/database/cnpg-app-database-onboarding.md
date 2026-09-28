@@ -21,8 +21,7 @@ through the relevant pgbouncer pooler.
 |------|------|
 | `cloudnative-pg/cluster/cluster.yaml` → `spec.managed.roles[]` | One entry per app's login role |
 | `cloudnative-pg/cluster/roles/<app>.sops.yaml` | `kubernetes.io/basic-auth` Secret (`<role>-db`) holding the role password |
-| `cloudnative-pg/databases/<app>.yaml` | The `Database` CR |
-| `cloudnative-pg/databases/kustomization.yaml` | Lists the `Database` CRs |
+| `cloudnative-pg/databases/resourceset.yaml` | `ResourceSet` with one `inputs` entry per app; renders each `Database` CR |
 
 Two Flux Kustomizations reconcile these:
 
@@ -52,10 +51,9 @@ Apps keep their existing `dependsOn: cloudnative-pg-cluster`.
 ## Adoption vs. creation
 
 These resources were introduced to **adopt** databases/roles that already existed (created by the
-old init-container). Two settings make adoption safe, and both are kept **even though they equal the
-CRD default** — they are the load-bearing data-safety signals:
+old init-container). One setting makes adoption safe, and it is set **even though it equals the CRD
+default**, as the load-bearing data-safety signal:
 
-- **`Database.spec.ensure: present`** — ensure the database/role exists; never `absent`.
 - **`Database.spec.databaseReclaimPolicy: retain`** — if the CR is deleted or pruned, CNPG must
   **not** drop the underlying database.
 
@@ -72,22 +70,20 @@ secret by hand to match.
 > role must be declared or it is reset. Example: the `nextcloud` role has `CREATEDB`, so its managed
 > role declares `createdb: true`.
 
-## Onboarding a new app — the five touch points
+## Onboarding a new app — the four touch points
 
 1. Add `cloudnative-pg/cluster/roles/<app>.sops.yaml` — a `kubernetes.io/basic-auth` Secret named
    `<role>-db` with `username`/`password` (the app's existing DB credentials), and label
    `cnpg.io/reload: "true"`. SOPS-encrypt it.
 2. Reference it in `cloudnative-pg/cluster/kustomization.yaml` (`- roles/<app>.sops.yaml`).
-3. Add a `managed.roles[]` entry in `cluster.yaml` (`ensure: present`, `login: true`,
+3. Add a `managed.roles[]` entry in `cluster.yaml` (`login: true`,
    `passwordSecret.name: <role>-db`, plus any non-default attribute the live role has).
-4. Add `cloudnative-pg/databases/<app>.yaml` — the `Database` CR (`owner: <role>`,
-   `databaseReclaimPolicy: retain`, and `extensions:` if the DB uses any).
-5. Reference it in `cloudnative-pg/databases/kustomization.yaml`.
+4. Add an `inputs` entry in `cloudnative-pg/databases/resourceset.yaml` (`name` is both the role and
+   the database; `db:` only when the physical database name differs; `extensions:` if the DB uses
+   any).
 
-Monitoring-only roles (e.g. granted `pg_monitor` via `inRoles`) skip touch points 4-5 — there's
+Monitoring-only roles (e.g. granted `pg_monitor` via `inRoles`) skip touch point 4 — there's
 no app database to own, so no `Database` CR.
-
-Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys (see gotchas below).
 
 ### Gotchas
 
@@ -103,57 +99,10 @@ Then remove the app's `init-db` container and its `INIT_POSTGRES_*` Secret keys 
     "SELECT datname, pg_catalog.pg_get_userbyid(datdba) FROM pg_database WHERE datname = '$db';"
   ```
 
-- **Extensions.** Declare them by name and version on `Database.spec.extensions` (memini:
-  `vchord` + `vector`; crowdsec, ghostfolio, litellm: `vector`). `vchord` versions are Renovate-grouped with the
-  cluster's vchord-scratch image. `vector` is pgvector, which ships in the base CNPG postgresql
-  image, **not** vchord-scratch (that image contains only `vchord.so`) — Renovate doesn't track
-  it, so bump it manually whenever the base image bumps, reading the true version from the
-  image itself rather than assuming it moved:
-
-  ```sh
-  img=$(yq '.spec.imageName' kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml)
-  pg=$(sed -E 's/.*:([0-9]+)\..*/\1/' <<<"$img")
-  docker run --rm --entrypoint cat "$img" "/usr/share/postgresql/$pg/extension/vector.control"
-  ```
-
-  A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
-- **YAML anchor trap.** Some app-template HelmReleases define the secret `envFrom` anchor
-  (`&envFrom` / `&secret`) **on the `init-db` container** and alias it on the app container. Deleting
-  the init-db block also deletes the anchor and breaks the alias — relocate an explicit `secretRef`
-  onto the app container.
-- **Init-container removal differs per chart.** app-template apps remove the `initContainers.init-db`
-  map; gatus removes a top-level `initContainers` list; grafana removes the list inside the
-  grafana-operator CR's pod template; nextcloud removes `extraInitContainers`; crowdsec removes the
-  `lapi.extraInitContainers` list (a native chart field — not a postRenderers patch).
-- **Keep vs. remove `INIT_POSTGRES_*` keys.** Most apps have separate runtime DB keys, so drop all
-  five `INIT_POSTGRES_*`. A few reuse `INIT_POSTGRES_*` **at runtime** and must keep them, dropping
-  only `INIT_POSTGRES_SUPER_PASS`: spoolman (`SPOOLMAN_DB_*`), gatus (storage config), nextcloud
-  (`externalDatabase.existingSecret` + notify-push).
-
-## Onboarded apps
-
-| App | DB | Role | Host | Extensions | Live owner was |
-|-----|----|------|------|------------|----------------|
-| litellm | litellm | litellm | pgbouncer-rw | vector | role |
-| jellystat | jfstat | jellystat | pgbouncer-rw | – | `postgres` (ALTERed) |
-| radarr | radarr | radarr | pgbouncer-rw | – | role |
-| bazarr | bazarr | bazarr | pgbouncer-rw | – | role |
-| sonarr | sonarr | sonarr | pgbouncer-rw | – | role |
-| prowlarr | prowlarr | prowlarr | pgbouncer-rw | – | role |
-| gatus | gatus | gatus | pgbouncer-rw | – | role |
-| grafana | grafana | grafana | pgbouncer-session | – | role |
-| nextcloud | nextcloud | nextcloud | pgbouncer-rw | – | `postgres` (ALTERed); role has `CREATEDB` |
-| spoolman | spoolman | spoolman | pgbouncer-rw | – | role |
-| memini | memini | memini | pgbouncer-rw | vchord, vector | role |
-| crowdsec | crowdsec | crowdsec | pgbouncer-rw | vector | role |
-| ghostfolio | ghostfolio | ghostfolio | pgbouncer-rw | vector | role |
-
-## Not onboarded
-
-- **immich** — its `DB_URL` targets a database `immich` that does **not** exist (only an orphan `app`
-  db, no vector extension), and immich is not running. A `Database` CR with `ensure: present` would
-  create a new empty `immich`, not adopt data. Decide first — decommission, repoint to `app`, or
-  restore `immich` from backup — then onboard. Its manifests have been removed from the repo.
+- **Extensions.** Declare them by name and version in the input's `extensions:` list (memini:
+  `vchord` + `vector`; crowdsec, ghostfolio, kguardian, litellm: `vector`). Renovate tracks each
+  version with its extension image in `cluster.yaml` (`vector` is the official pgvector extension
+  image). A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
 
 ## Validation before applying
 

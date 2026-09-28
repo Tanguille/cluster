@@ -77,30 +77,7 @@ Interpretation:
 
 ## 3. Observability MCP
 
-When the **observability** MCP server is connected, use `grafana_query_prometheus` to run the same PromQL as in section 1.
-
-**Setup:** Resolve the canonical `prometheus` datasource UID (e.g. `grafana_list_datasources` with `type: "prometheus"` or `grafana_get_datasource_by_name` with `name: "prometheus"`), which is backed by VictoriaMetrics/VMSingle after PR2.
-
-**Tool:** `grafana_query_prometheus` with:
-
-- `datasourceUid`: the UID from the step above
-- `expr`: one of the PromQL expressions below
-- `startTime`: `"now"` for current snapshot
-- `queryType`: `"instant"` for a single point, or `"range"` for a trend
-- For range: also set `endTime`: `"now"`, `startTime`: `"now-24h"`, `stepSeconds`: `900` (15 min)
-
-**Queries to run (same as section 1):**
-
-| What | PromQL |
-|------|--------|
-| Cache hit ratio (by pod) | `sum by (pod) (rate(cnpg_pg_stat_database_blks_hit[5m])) / (sum by (pod) (rate(cnpg_pg_stat_database_blks_hit[5m])) + sum by (pod) (rate(cnpg_pg_stat_database_blks_read[5m])))` |
-| Transactions/s (cluster) | `sum(rate(cnpg_pg_stat_database_xact_commit[5m]))` |
-| Checkpoints timed (24h) | `sum by (pod) (increase(cnpg_pg_stat_checkpointer_checkpoints_timed[24h]))` |
-| Checkpoints requested (24h) | `sum by (pod) (increase(cnpg_pg_stat_checkpointer_checkpoints_req[24h]))` |
-| Temp files (24h) | `sum by (pod, datname) (increase(cnpg_pg_stat_database_temp_files[24h]))` |
-| Max tx duration | `cnpg_backends_max_tx_duration_seconds` |
-
-Use **instant** for a snapshot; use **range** with `now-24h` → `now` and `stepSeconds: 900` to see cache hit (or other metrics) over the last 24h. You can also use Grafana dashboards (e.g. CloudNative-PG / Postgres) for the same metrics.
+With the **observability** MCP connected, run the section 1 PromQL through `grafana_query_prometheus` on the `prometheus` datasource (`queryType: "instant"` for a snapshot; `"range"` with `startTime: "now-24h"`, `stepSeconds: 900` for a trend).
 
 ## 4. Memory cost vs benefit / longer-term comparison
 

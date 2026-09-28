@@ -106,7 +106,7 @@ Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 | **ToolHive** | Unified MCP server gateway                                 |
 | **LiteLLM**  | LLM proxy / routing layer                                  |
 | **OmniRoute**| LLM routing                                                |
-| **LLMKube**  | K8s-native LLM model management (sglang/vLLM/llama.cpp)    |
+| **LLMKube**  | K8s-native LLM model management (vLLM/llama.cpp)           |
 | **Memini**   | Long-term memory for agents                                |
 
 Tuning constraints and benchmark history for the inference stack live in
@@ -201,7 +201,7 @@ flowchart TB
     end
 
     subgraph Inference[Inference — R9700 on control-1]
-        LLM[sglang / vLLM via LLMKube]
+        LLM[vLLM via LLMKube]
     end
 
     H --> TH
@@ -235,9 +235,7 @@ Operational knowledge lives where agents load it: [AGENTS.md](AGENTS.md)
 [.agents/learned-preferences.md](.agents/learned-preferences.md) and
 [.agents/learned-workspace.md](.agents/learned-workspace.md) (maintained by
 continual learning), and
-[.agents/skills/](.agents/skills) — one `SKILL.md` per workflow:
-add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation,
-k8s-at-home-research, pr-review, prometheus-cluster-health, handoff.
+[.agents/skills/](.agents/skills) — one `SKILL.md` per workflow.
 
 ### 💾 Backups — per-app, Kopia-native
 

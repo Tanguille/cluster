@@ -30,9 +30,8 @@ Only on conflict: worktree from PR head → `git fetch origin --prune` (local ch
 behavior, files) must have a diff line behind it (`get_diff`). Mismatch → fix body or code; never
 "clarify in review". Say what the PR does NOT change when a sibling area is easy to confuse.
 
-**C — Atomic finish.** Plan `github_push_files` + PR create/update as ONE step. If it can't be done
-this turn, write `.agents/handoff/<task>.md` (handoff skill) before stopping; on resume read that
-file first, don't re-plan from compressed context.
+**C — Atomic finish.** Plan `github_push_files` + PR create/update as ONE step; if it can't be done
+this turn, follow the [handoff skill](../../handoff/SKILL.md).
 
 ## CI triage — classify before touching the diff
 
