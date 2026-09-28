@@ -25,8 +25,11 @@ jobs:
   build:
     # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
     # older ref publishes the same tag and Flux sees no change. The pin-back
-    # commit (tag-only, fixed message) is skipped by the if: below so it
-    # never re-triggers a build (no loop, no orphan image).
+    # commit (tag-only, fixed message) must not re-trigger a build (loop +
+    # orphan image). github.event.head_commit is not populated on
+    # pull_request events, so the if: is only a cheap pre-filter for push
+    # runs; the authoritative check runs in "Build and publish" against the
+    # checked-out commit (works for every event type).
     if: >-
       ${{
         github.event_name != 'pull_request' ||
@@ -59,6 +62,22 @@ jobs:
           TAG="${{ inputs.tag }}"
           [ -n "$TAG" ] || \
             TAG="${{ github.event.pull_request.head.sha || github.sha }}"
+          # inputs.tag is user-controlled (workflow_dispatch) and is spliced
+          # into docker tag names and the pin-back manifest, so pin it to a
+          # safe image-tag charset before use.
+          echo "$TAG" | grep -Eq '^[A-Za-z0-9._-]{1,128}$' || \
+            { echo "refusing to publish: tag '$TAG' is not a safe image tag"; exit 1; }
+          # Skip pin-back re-triggers from the local commit, not the event
+          # payload: github.event.head_commit is not populated on
+          # pull_request events, so the job-level if: above cannot fire there.
+          # A pin-back commit's subject is the fixed pin message; building it
+          # would just publish an orphan tag for the pin commit itself. The
+          # full-depth checkout above already fetched the head object.
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git show -q --format=%s "$TAG" 2>/dev/null | \
+              grep -qx 'chore: pin clm-head tag' && \
+              { echo "pin-back commit (fixed subject); nothing to build"; exit 0; }
+          fi
           # No-op PR runs (e.g. workflow-only changes) land a head the
           # manifest already pins; skip them instead of publishing an orphan
           # tag. cancel-in-progress cancels any live build when a newer push
@@ -111,6 +130,11 @@ jobs:
           # plumbing branch that only added this workflow must skip).
           PINS="kubernetes/apps/ai/clm/app/helmrelease.yaml"
           [ -f "$PINS" ] || { echo "no clm manifest on this branch; nothing to pin"; exit 0; }
+          # Scope the sed to one tag line: the pin step must rewrite exactly
+          # the clm-head image tag, and fail loudly (not silently) if the
+          # manifest ever carries another tag: line (e.g. a second image).
+          TAGLINES=$(grep -c '^[[:space:]]*tag:' "$PINS" || true)
+          [ "$TAGLINES" = "1" ] || { echo "expected 1 tag: line in $PINS, found ${TAGLINES}; refusing to pin"; exit 1; }
           # The default checkout on pull_request is the merge ref; reset to
           # the exact branch tip in a clean worktree before editing it.
           git fetch -q origin "$BRANCH"
