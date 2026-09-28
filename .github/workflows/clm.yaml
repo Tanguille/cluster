@@ -23,22 +23,15 @@ concurrency:
 
 jobs:
   build:
-    # The pull_request paths filter evaluates the whole base..head diff, so
-    # every push to a clm PR re-builds. The pin-back commit below (which only
-    # touches the helmrelease tag) would re-trigger itself forever — skip
-    # builds whose head commit is that pin-back.
+    # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
+    # older ref publishes the same tag and Flux sees no change. The pin-back
+    # commit (tag-only, fixed message) is skipped by the if: below so it
+    # never re-triggers a build (no loop, no orphan image).
     if: >-
       ${{
         github.event_name != 'pull_request' ||
         !startsWith(github.event.head_commit.message, 'chore: pin clm-head tag')
       }}
-    # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
-    # older ref publishes the same tag and Flux sees no change. Two no-op
-    # guards, complementary: the job-level if: skips pin-back commits (breaks
-    # the re-trigger loop), and the "Resolve target tag" step below skips a
-    # build when the manifest already pins the head (e.g. workflow-only
-    # changes) — that one is race-safe, so it can stand alone if the message
-    # guard is ever dropped.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -60,41 +53,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve target tag
-        # Skip the build when the PR manifest already pins exactly the head
-        # SHA this event publishes. Without this, workflow-only changes (or
-        # a late-arriving pin-back) make the build publish an orphan tag.
-        # DO_BUILD is consumed by the shell of the next step via GITHUB_ENV
-        # (step `if:` cannot read it — only job/workflow-level env can).
-        env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |-
-          PINS="kubernetes/apps/ai/clm/app/helmrelease.yaml"
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ -f "$PINS" ]; then
-            CURRENT=$(sed -n 's/^[[:space:]]*tag:[[:space:]]*//p' "$PINS" | head -1)
-            if [ "$CURRENT" = "$HEAD_SHA" ]; then
-              echo "manifest already pins head $HEAD_SHA; skipping build"
-              echo "DO_BUILD=false" >> "$GITHUB_ENV"
-              exit 0
-            fi
-          fi
-          echo "DO_BUILD=true" >> "$GITHUB_ENV"
-
       - name: Build and publish
-        # Guard: a concurrent pin-back may have advanced the manifest tag
-        # between the pre-check and this step. Build only the tag the
-        # manifest pins now, so we never publish an orphan.
         run: |
           set -euo pipefail
-          [ "${DO_BUILD:-true}" = "true" ] || { echo "skip build (manifest already pinned)"; exit 0; }
           TAG="${{ inputs.tag }}"
           [ -n "$TAG" ] || \
             TAG="${{ github.event.pull_request.head.sha || github.sha }}"
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            CURRENT=$(sed -n 's/^[[:space:]]*tag:[[:space:]]*//p' \
-              kubernetes/apps/ai/clm/app/helmrelease.yaml | head -1)
-            [ "$CURRENT" = "$TAG" ] || \
-              { echo "::error::manifest pins ${CURRENT:-<none>} but building ${TAG}; skipping to avoid an orphan tag"; exit 1; }
+          # No-op PR runs (e.g. workflow-only changes) land a head the
+          # manifest already pins; skip them instead of publishing an orphan
+          # tag. cancel-in-progress cancels any live build when a newer push
+          # lands, so a concurrent pin-back cannot change the manifest under
+          # us — no in-build re-check needed.
+          PINS="kubernetes/apps/ai/clm/app/helmrelease.yaml"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] && [ -f "$PINS" ]; then
+            CURRENT=$(sed -n 's/^[[:space:]]*tag:[[:space:]]*//p' "$PINS" | head -1)
+            if [ "$CURRENT" = "$TAG" ]; then
+              echo "manifest already pins ${TAG}; nothing to build"
+              exit 0
+            fi
           fi
           IMAGE="ghcr.io/tanguille/clm-head:${TAG}"
           # Same bootstrap guard as scripts/talos-kernel-build.sh: the hosted
@@ -131,17 +107,20 @@ jobs:
           # normal git ref is the only legitimate value.
           echo "$BRANCH" | grep -Eq '^[A-Za-z0-9._/-]+$' || { echo "refusing to push to malformed branch"; exit 1; }
           echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo "refusing to use malformed sha"; exit 1; }
+          # The manifest only exists on branches carrying the clm app (the
+          # plumbing branch that only added this workflow must skip).
+          PINS="kubernetes/apps/ai/clm/app/helmrelease.yaml"
+          [ -f "$PINS" ] || { echo "no clm manifest on this branch; nothing to pin"; exit 0; }
           # The default checkout on pull_request is the merge ref; reset to
           # the exact branch tip in a clean worktree before editing it.
           git fetch -q origin "$BRANCH"
           git checkout -qf "$SHA"
           git clean -qfd
-          sed -i "s/^\( *\)tag: .*/\1tag: ${SHA}/" \
-            kubernetes/apps/ai/clm/app/helmrelease.yaml
-          if git diff --quiet -- kubernetes/apps/ai/clm/app/helmrelease.yaml; then
+          sed -i "s/^\( *\)tag: .*/\1tag: ${SHA}/" "$PINS"
+          if git diff --quiet -- "$PINS"; then
             echo "tag already pinned to ${SHA}"
           else
-            git add kubernetes/apps/ai/clm/app/helmrelease.yaml
+            git add "$PINS"
             git -c user.name="github-actions[bot]" \
                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
                commit -q -m "chore: pin clm-head tag"
