@@ -22,6 +22,10 @@ spec:
       # (already applied to ai/default/media via components/kopiur/privileged-movers —
       # check it's composed into the target namespace's kustomization.yaml).
       # KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
+      # Regenerable paths to skip, anchored at the PVC root. The list REPLACES the default
+      # `[/lost+found]`, so keep it. kopia never drops stored rules; undo needs
+      # `kopia policy set <id> --remove-ignore`. Example: kubernetes/apps/media/jellyfin.
+      # KOPIUR_IGNORE_RULES: "[/lost+found, /<dir>/cache/*]"
 ```
 
 `PVC_ACCESSMODES`/`PVC_STORAGECLASS`/`BACKUP_SNAPSHOTCLASS` are also available (defaults:
