@@ -23,12 +23,21 @@ concurrency:
 
 jobs:
   build:
+    # The pull_request paths filter evaluates the whole base..head diff, so
+    # every push to a clm PR re-builds. The pin-back commit below (which only
+    # touches the helmrelease tag) would re-trigger itself forever — skip
+    # builds whose head commit is that pin-back.
+    if: >-
+      ${{
+        github.event_name != 'pull_request' ||
+        !startsWith(github.event.head_commit.message, 'chore: pin clm-head tag')
+      }}
     # One tag per commit: the HelmRelease pins the git SHA, so a re-run of an
     # older ref publishes the same tag and Flux sees no change.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,3 +95,40 @@ jobs:
             --push \
             docker/clm
           echo "published: ${IMAGE}"
+
+      - name: Pin built tag to PR manifest
+        # The HelmRelease must reference a tag this run actually published
+        # (the PR head SHA). The pin commit carries a fixed message so the
+        # job guard above breaks the re-trigger loop. Same-repo PRs only:
+        # GITHUB_TOKEN cannot push into a fork's branch.
+        if: >-
+          ${{
+            github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository
+          }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Validate the ref/SHA from the event payload before use: this
+          # step only runs for same-repo PRs (see the guard above), so a
+          # normal git ref is the only legitimate value.
+          echo "$BRANCH" | grep -Eq '^[A-Za-z0-9._/-]+$' || { echo "refusing to push to malformed branch"; exit 1; }
+          echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo "refusing to use malformed sha"; exit 1; }
+          # The default checkout on pull_request is the merge ref; reset to
+          # the exact branch tip before editing it.
+          git fetch -q origin "$BRANCH"
+          git checkout -q "$SHA"
+          sed -i "s/^\( *\)tag: .*/\1tag: ${SHA}/" \
+            kubernetes/apps/ai/clm/app/helmrelease.yaml
+          if git diff --quiet; then
+            echo "tag already pinned to ${SHA}"
+          else
+            git -c user.name="github-actions[bot]" \
+               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+               commit -qam "chore: pin clm-head tag"
+            git push -q origin "HEAD:${BRANCH}"
+            echo "pinned helmrelease to ${SHA} on ${BRANCH}"
+          fi
