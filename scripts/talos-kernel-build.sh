@@ -225,19 +225,10 @@ PUBLISHED=()
 for node in "$@"; do
     schematic="$(just talos schematic-file "${node}")"
     dst="$(installer_ref "${node}")"
-    # Nodes sharing a schematic build byte-identical installers, so the second is a registry
-    # copy rather than another imager run.
+    # A schematic path fixes the repo (installer_ref), so nodes sharing one share the published
+    # installer and need neither another imager run nor a copy.
     if [[ -n "${BUILT[${schematic}]:-}" ]]; then
-        # Same schematic means a byte-identical installer. Nodes that also resolve to the same
-        # repo (both on the shared schematic) are already done; only a divergent repo needs a
-        # copy, and copying a ref onto itself would be a confusing no-op.
-        if [[ "${BUILT[${schematic}]}" == "${dst}" ]]; then
-            log "installer for ${node}: already published as ${dst}"
-        else
-            log "installer for ${node}: copying from ${BUILT[${schematic}]}"
-            crane copy "${BUILT[${schematic}]}" "${dst}"
-            PUBLISHED+=("${dst}")
-        fi
+        log "installer for ${node}: already published as ${dst}"
         continue
     fi
     log "installer for ${node}"
