@@ -5,8 +5,8 @@ kind: HelmRelease
 metadata:
   name: k8s-gpu-dra-driver
 spec:
-  # No OCI chart is published upstream (see helmrepository.yaml) — sourced from ROCm's GitHub
-  # Pages Helm repo instead of chartRef, which only takes OCIRepository/HelmChart.
+  # No OCI chart is published upstream (see helmrepository.yaml); chartRef only takes
+  # OCIRepository/HelmChart, so this pulls from ROCm's GitHub Pages Helm repo.
   chart:
     spec:
       chart: k8s-gpu-dra-driver
@@ -17,15 +17,6 @@ spec:
   interval: 1h
   values:
     kubeletPlugin:
-      # dGPU (control-1) only — iGPU nodes stay on generic-device-plugin's
-      # squat.ai/dri (see kube-system/generic-device-plugin): the AMD DRA driver
-      # has no timeslicing/consumable-capacity support, so it can't serve the
-      # iGPU's multi-tenant embedding-model sharing the way squat.ai/dri does.
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: amd.com/gpu
-                    operator: In
-                    values: ["true"]
+      # dGPU only; the iGPU nodes stay on squat.ai/dri (kube-system/generic-device-plugin).
+      nodeSelector:
+        amd.com/gpu: "true"

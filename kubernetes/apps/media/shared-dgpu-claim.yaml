@@ -12,8 +12,6 @@ spec:
       - name: gpu
         exactly:
           deviceClassName: gpu.amd.com
-          allocationMode: ExactCount
-          count: 1
           selectors:
             - cel:
                 expression: device.attributes["gpu.amd.com"].type == "amdgpu"

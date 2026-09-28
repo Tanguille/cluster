@@ -49,9 +49,7 @@ spec:
       vendor: amd
       runtime: rocm
       layers: -1
-      # Exclusive dGPU claim (kube-system/k8s-gpu-dra-driver); squat.ai/dri
-      # no longer exists on the dGPU node (kube-system/generic-device-plugin
-      # only serves the iGPU now).
+      # Exclusive dGPU claim (kube-system/k8s-gpu-dra-driver).
       resourceClaims:
         - name: gpu
           resourceClaimTemplateName: dgpu

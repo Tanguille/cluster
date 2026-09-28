@@ -17,19 +17,9 @@ spec:
       capabilities:
         add:
           - PERFMON
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            # dGPU only: with dra.enabled the pod requests a gpu.amd.com
-            # ResourceClaim, which only the k8s-gpu-dra-driver (kubelet
-            # plugin) on amd.com/gpu=true nodes can allocate. iGPU-only nodes
-            # run the squat.ai/dri generic-device-plugin (no DRA), so an
-            # iGPU term would leave those exporter pods stuck Pending.
-            - matchExpressions:
-                - key: amd.com/gpu
-                  operator: In
-                  values: ["true"]
+    # dra.enabled needs the DRA kubelet plugin, which runs only on amd.com/gpu nodes.
+    nodeSelector:
+      amd.com/gpu: "true"
     monitoring:
       serviceMonitor:
         enabled: true

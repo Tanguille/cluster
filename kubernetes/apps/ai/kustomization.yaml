@@ -9,20 +9,7 @@ components:
   - ../../components/ndots-1
   - ../../components/psa-privileged
   - ../../components/kopiur/privileged-movers
-# DRA admin-access label, mirroring kube-system and media: required for pods
-# in this namespace to allocate ResourceClaims (llmkube/models: the exclusive
-# dGPU claim for paiton/flash-next/swift-27b-vllm).
-patches:
-  - target:
-      kind: Namespace
-      name: not-used
-    patch: |-
-      apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: not-used
-        labels:
-          resource.kubernetes.io/admin-access: "true"
+
 resources:
   - ./hermes/ks.yaml
   - ./litellm/ks.yaml

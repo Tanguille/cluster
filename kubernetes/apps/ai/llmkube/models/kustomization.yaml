@@ -2,13 +2,10 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Exclusive dGPU ResourceClaimTemplate (kube-system/k8s-gpu-dra-driver),
-# referenced by the paiton/flash-next/swift-27b-vllm Models' hardware.gpu.resourceClaims.
-components:
-  - ../../../../components/dra-dgpu
 resources:
   - prometheusrule.yaml
   - networkpolicy.yaml
+  - resourceclaimtemplate-dgpu.yaml
   - qwen38-27b-vllm.yaml
   - qwen38-swift-27b-vllm.yaml
   - qwen38-flash-next.yaml
