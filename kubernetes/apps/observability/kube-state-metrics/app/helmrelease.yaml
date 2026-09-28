@@ -10,7 +10,6 @@ spec:
     name: kube-state-metrics
   interval: 1h
   values:
-    fullnameOverride: kube-state-metrics
     metricLabelsAllowlist:
       - pods=[app.kubernetes.io/component]
     prometheus:
@@ -30,8 +29,6 @@ spec:
             - helm.toolkit.fluxcd.io
           resources:
             - gitrepositories
-            - buckets
-            - helmrepositories
             - ocirepositories
             - kustomizations
             - helmreleases
@@ -143,41 +140,6 @@ spec:
                     url: &urlPath
                       - spec
                       - url
-            - groupVersionKind:
-                group: source.toolkit.fluxcd.io
-                version: v1
-                kind: Bucket
-              metricNamePrefix: gotk
-              metrics:
-                - name: resource_info
-                  help: The current state of a Flux Bucket resource.
-                  each: *eachName
-                  labelsFromPath:
-                    exported_namespace: *namespacePath
-                    ready: *readyPath
-                    suspended: *suspendPath
-                    revision: *artifactRevision
-                    endpoint:
-                      - spec
-                      - endpoint
-                    bucket_name:
-                      - spec
-                      - bucketName
-            - groupVersionKind:
-                group: source.toolkit.fluxcd.io
-                version: v1
-                kind: HelmRepository
-              metricNamePrefix: gotk
-              metrics:
-                - name: resource_info
-                  help: The current state of a Flux HelmRepository resource.
-                  each: *eachName
-                  labelsFromPath:
-                    exported_namespace: *namespacePath
-                    ready: *readyPath
-                    suspended: *suspendPath
-                    revision: *artifactRevision
-                    url: *urlPath
             - groupVersionKind:
                 group: source.toolkit.fluxcd.io
                 version: v1

@@ -26,21 +26,10 @@ spec:
           env:
             - name: VOLTAGE_OFFSET_MV
               value: "-82"
-            # Measured sweep, uncontended, TG read from sglang's own counter:
-            #   210W -> 1027 PP / 23.09 TG   250W -> 1184 PP / 23.24 TG
-            #   290W -> 1150 PP / 27.80 TG   330W -> 1301 PP / 23.29 TG (drew 313)
-            # Decode is bandwidth-bound and flat at ~23 across the whole range, so
-            # watts only buy prefill. 250 takes +15% PP for 2.8% worse PP/W; 330
-            # takes +27% for 15% worse. 210 remains the best tok/W on both metrics.
+            # Decode is bandwidth-bound (flat ~23 TG from 210W to 330W); 250W buys +15% PP over 210W for 2.8% worse PP/W.
             - name: POWER_LIMIT_WATTS
               value: "250"
-            # Measured sweep at 209W, 60s avg per point: 82C->3274rpm/mem 80C,
-            # 78->3396/83, 75->3549/70, 72->3960/80, 70->4201/77. Fan tracks the
-            # target cleanly but mem barely moves across the band, so this buys
-            # noise, not cooling - 70 was +36% rpm over the 3088rpm stock average
-            # for ~3C. 82 keeps the controller engaged at +6%. Card has never been
-            # within 6C of its own 108C mem crit. Auto-mode scalars, NOT fan_curve
-            # (full OverDriveTable, driver 0x2E vs PMFW 0x32 mismatch on this SKU).
+            # Auto-mode scalars, NOT fan_curve (driver 0x2E vs PMFW 0x32 mismatch on this SKU); a 70C target cost +36% rpm for ~3C mem, 82C only +6%.
             - name: FAN_TARGET_TEMP_C
               value: "82"
             - name: ACOUSTIC_TARGET_RPM

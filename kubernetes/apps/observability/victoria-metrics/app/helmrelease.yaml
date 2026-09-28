@@ -282,8 +282,6 @@ spec:
             memory: 512Mi
 
     vmagent:
-      rbac:
-        namespaced: false
       spec:
         priorityClassName: homelab-critical # 512Mi, sole scrape path
         # vllm:cache_config_info carries 43 labels, past vmsingle's 40-label cap, so every

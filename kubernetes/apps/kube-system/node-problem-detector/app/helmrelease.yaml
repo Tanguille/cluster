@@ -3,14 +3,13 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app node-problem-detector
+  name: node-problem-detector
 spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
     name: node-problem-detector
   values:
-    fullnameOverride: *app
     settings:
       # Talos has no dockerd/journald — only the kmsg-based monitors apply.
       log_monitors:
