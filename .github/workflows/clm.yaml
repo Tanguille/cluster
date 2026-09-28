@@ -7,6 +7,11 @@ on:
     paths:
       - "docker/clm/**"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (default: the triggering commit SHA)"
+        required: false
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -37,7 +42,9 @@ jobs:
       - name: Build and publish
         run: |
           set -euo pipefail
-          IMAGE="ghcr.io/tanguille/clm-head:${GITHUB_SHA}"
+          TAG="${{ inputs.tag }}"
+          [ -n "$TAG" ] || TAG="${GITHUB_SHA}"
+          IMAGE="ghcr.io/tanguille/clm-head:${TAG}"
           # Same bootstrap guard as scripts/talos-kernel-build.sh: the hosted
           # runner's default 'docker' buildx driver cannot push, so promote
           # the docker-container driver before building.
