@@ -74,9 +74,11 @@ jobs:
           # would just publish an orphan tag for the pin commit itself. The
           # full-depth checkout above already fetched the head object.
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            git show -q --format=%s "$TAG" 2>/dev/null | \
-              grep -qx 'chore: pin clm-head tag' && \
-              { echo "pin-back commit (fixed subject); nothing to build"; exit 0; }
+            if git show -q --format=%s "$TAG" 2>/dev/null | \
+              grep -qx 'chore: pin clm-head tag'; then
+              echo "pin-back commit (fixed subject); nothing to build"
+              exit 0
+            fi
           fi
           # No-op PR runs (e.g. workflow-only changes) land a head the
           # manifest already pins; skip them instead of publishing an orphan
