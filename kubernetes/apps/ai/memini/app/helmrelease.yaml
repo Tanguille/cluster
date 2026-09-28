@@ -61,10 +61,8 @@ spec:
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
               # Re-rank a wider pool than the recall limit, then truncate: lets a
               # composite-buried memory be rescued by its own relevance. Cost is one
-              # forward pass per candidate; 30 keeps the deep-pool rescue while
-              # cutting the serial-pair tail latency that was eating the 10s
-              # default timeout on live cron recalls (observed 2-5s per call at
-              # pool 50 with a 6000-char batch cap → ~10 serial shards).
+              # forward pass per candidate, so 30 trades some of the 50 ceiling's rescue
+              # depth for a shorter serial rerank on the shared iGPU.
               MEMINI_RERANK_POOL: "30"
               # Absolute relevance floor: drops low-relevance candidates outright,
               # so a query with no genuine match returns empty (a verdict) instead
@@ -72,21 +70,16 @@ spec:
               # llama.cpp's sigmoid-scaled [0,1] scores — validate against live
               # traffic before moving it (memini bench.RerankGateSweep).
               MEMINI_RERANK_MIN_SCORE: "0.5"
-              # Bounded above a real recall: deep pools shard into serial
-              # requests (see MAX_BATCH_CHARS) and the observed 2-5s tail
-              # regularly exceeded the 10s default — with a MIN_SCORE gate a
-              # timeout voids the WHOLE recall (empty result), so this is a
-              # correctness knob, not just a patience knob.
+              # With MIN_SCORE set, a timeout returns empty (the gate fails closed)
+              # instead of composite order, so this must exceed the worst-case
+              # serial rerank time.
               MEMINI_RERANK_TIMEOUT: "30s"
-              # HTTP payload cap per /rerank request. The 6000 default splits a
-              # deep pool into ~10 serial shards on the slow shared iGPU; 20000
-              # cuts worst-case shards to ~3 (docs capped at 2048 chars each by
-              # MAX_DOC_CHARS, so a full 30-pool can reach ~61k chars) and
-              # typically fits one request, keeping each call under TIMEOUT.
+              # HTTP payload cap per /rerank request; the 6000 default shards a deep
+              # pool into ~10 serial requests. 20000 gives ~3 worst case (30 docs x
+              # 2048-char MAX_DOC_CHARS ~ 61k chars), typically one.
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # Same congestion logic as the embedder knobs: one in-flight rerank
-              # call keeps a slow shared-iGPU reranker from stalling the recall
-              # tail.
+              # call keeps a slow shared-iGPU reranker from stalling the recall tail.
               MEMINI_RERANK_MAX_CONCURRENCY: "1"
             resources:
               requests:
