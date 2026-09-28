@@ -21,7 +21,6 @@ def inspect(path):
     # mode=ro refuses missing files. Never use immutable on a changing WAL DB.
     db = sqlite3.connect(Path(path).absolute().as_uri() + "?mode=ro", uri=True, timeout=2)
     try:
-        db.enable_load_extension(False)
         db.execute("PRAGMA query_only=ON")
         db.execute("PRAGMA trusted_schema=OFF")
         db.execute("PRAGMA temp_store=MEMORY")
