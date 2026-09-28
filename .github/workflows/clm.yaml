@@ -110,6 +110,11 @@ jobs:
             git -c user.name="github-actions[bot]" \
                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
                commit -q -m "chore: pin clm-head tag"
-            git push -q origin "HEAD:${BRANCH}"
+            # persist-credentials: false left origin unauthenticated; push
+            # over an explicit GH_TOKEN URL instead of relying on stored creds.
+            # Injection note: GITHUB_REPOSITORY is GitHub-provided; BRANCH was
+            # validated against ^[A-Za-z0-9._/-]+$ at the top of this step.
+            git push -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              "HEAD:${BRANCH}"
             echo "pinned helmrelease to ${SHA} on ${BRANCH}"
           fi
