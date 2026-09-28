@@ -11,15 +11,9 @@ spec:
   replicas: 1
   podTemplateSpec:
     spec:
-      # 30s (the default) is shorter than this gateway's own drain: shutdown waits
-      # on 20s backend health checks, so SIGTERM was still in progress at +24s and
-      # every restart landed as exit 137 mid-drain. Not a fix for the
-      # 250-414MiB/day leak (re-measured 2026-09-22) that forces those
-      # restarts (stacklok/toolhive#5860) -- it only makes
-      # each one graceful.
+      # The 30s default is shorter than the drain (shutdown waits on 20s backend health checks): exit 137 mid-drain.
       terminationGracePeriodSeconds: 60
-      # 5000 (homelab-important): under memory pressure, evict this gateway (back in ~1min,
-      # re-embed ~30s) rather than an llmkube model (llmkube-normal 10000, 60-min cold start).
+      # Evicted before an llmkube model under memory pressure; back in ~1min (re-embed ~30s).
       priorityClassName: homelab-important
       # The operator sets readOnlyRootFilesystem, so the optimizer's FTS5 index has
       # nowhere to spill: queries whose sorter exceeds memory fail with "disk I/O
@@ -47,29 +41,14 @@ spec:
               cpu: 200m
               memory: 1Gi
             limits:
-              cpu: 500m
               memory: 2Gi
           startupProbe:
             httpGet:
               path: /health
               port: http
-              scheme: HTTP
             failureThreshold: 30
             periodSeconds: 5
-            initialDelaySeconds: 0
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: http
-              scheme: HTTP
-            failureThreshold: 3
-            periodSeconds: 10
           readinessProbe:
-            httpGet:
-              path: /readyz
-              port: http
-              scheme: HTTP
-            failureThreshold: 3
             periodSeconds: 10
   sessionStorage:
     provider: redis
@@ -92,10 +71,6 @@ spec:
       # status at once. Raised so a transient node stall doesn't read as a backend outage.
       failureHandling:
         healthCheckTimeout: 20s
-    aggregation:
-      conflictResolution: prefix
-      conflictResolutionConfig:
-        prefixFormat: "{workload}_"
     optimizer:
       # embeddingServerRef omitted: operator rejects when embeddingProvider is "openai".
       # Routes to litellm -> existing iGPU embedder instead.
