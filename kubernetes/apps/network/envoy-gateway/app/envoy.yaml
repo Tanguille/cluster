@@ -75,7 +75,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.kubernetes.io/hostname: *hostname
+      coredns.io/hostname: *hostname
       lbipam.cilium.io/ips: ${ENVOY_EXTERNAL_IP}
   listeners:
     - name: https
@@ -102,7 +102,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.kubernetes.io/hostname: *probeHostname
+      coredns.io/hostname: *probeHostname
       lbipam.cilium.io/ips: ${ENVOY_GATUS_PROBE_IP}
   listeners:
     - name: https
@@ -136,7 +136,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.kubernetes.io/hostname: *hostname
+      coredns.io/hostname: *hostname
       lbipam.cilium.io/ips: ${ENVOY_INTERNAL_IP}
   listeners:
     - name: https
@@ -169,7 +169,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.kubernetes.io/hostname: *hostname-tls
+      coredns.io/hostname: *hostname-tls
       lbipam.cilium.io/ips: ${ENVOY_INTERNAL_TLS_IP}
   listeners:
     - name: tls
