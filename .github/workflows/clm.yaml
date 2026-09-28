@@ -43,6 +43,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full depth: the pin-back step checks out the raw head SHA, which a
+          # default depth-1 checkout of the merge ref does not contain.
+          fetch-depth: 0
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -88,12 +91,12 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # Validate the ref/SHA from the event payload before use: this
-          # step only runs for same-repo PRs (see the guard above), so a
-          # normal git ref is the only legitimate value.
           # The manifest only exists on branches carrying the clm app.
           [ -f kubernetes/apps/ai/clm/app/helmrelease.yaml ] || \
             { echo "no clm manifest on this branch; nothing to pin"; exit 0; }
+          # Validate the ref/SHA from the event payload before use: this
+          # step only runs for same-repo PRs (see the guard above), so a
+          # normal git ref is the only legitimate value.
           echo "$BRANCH" | grep -Eq '^[A-Za-z0-9._/-]+$' || { echo "refusing to push to malformed branch"; exit 1; }
           echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo "refusing to use malformed sha"; exit 1; }
           # The default checkout on pull_request is the merge ref; reset to
