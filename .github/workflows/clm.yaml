@@ -94,17 +94,19 @@ jobs:
           echo "$BRANCH" | grep -Eq '^[A-Za-z0-9._/-]+$' || { echo "refusing to push to malformed branch"; exit 1; }
           echo "$SHA" | grep -Eq '^[0-9a-f]{40}$' || { echo "refusing to use malformed sha"; exit 1; }
           # The default checkout on pull_request is the merge ref; reset to
-          # the exact branch tip before editing it.
+          # the exact branch tip in a clean worktree before editing it.
           git fetch -q origin "$BRANCH"
-          git checkout -q "$SHA"
+          git checkout -qf "$SHA"
+          git clean -qfd
           sed -i "s/^\( *\)tag: .*/\1tag: ${SHA}/" \
             kubernetes/apps/ai/clm/app/helmrelease.yaml
-          if git diff --quiet; then
+          if git diff --quiet -- kubernetes/apps/ai/clm/app/helmrelease.yaml; then
             echo "tag already pinned to ${SHA}"
           else
+            git add kubernetes/apps/ai/clm/app/helmrelease.yaml
             git -c user.name="github-actions[bot]" \
                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-               commit -qam "chore: pin clm-head tag"
+               commit -q -m "chore: pin clm-head tag"
             git push -q origin "HEAD:${BRANCH}"
             echo "pinned helmrelease to ${SHA} on ${BRANCH}"
           fi
