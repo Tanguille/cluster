@@ -43,7 +43,7 @@ spec:
         spec:
           initContainers:
             - name: seed-bundled-plugins
-              image: grafana/grafana:13.2.2
+              image: grafana/grafana:13.2.3
               command:
                 [
                   "sh",
@@ -69,7 +69,7 @@ spec:
               emptyDir: {}
           containers:
             - name: grafana
-              image: grafana/grafana:13.2.2
+              image: grafana/grafana:13.2.3
               resources:
                 requests:
                   cpu: 10m
