@@ -228,9 +228,10 @@ spec:
       readOnly: true
     # Qwen Sharp v22.5.0 (froggeric v22.5 base: thinking retention, per-request
     # enable_thinking / reasoning_effort / <|think_*|> tags, tool-protocol
-    # handling, consecutive-failure warnings; plus the terse block, kept OFF
-    # by default via terse: false in the LiteLLM alias -- see the tool-calling
-    # duplicate-call reports). Model dir = /models/sha256(Model.spec.source)[:16]
+    # handling, consecutive-failure warnings; plus the terse block, OFF by
+    # default in the template (opt in with chat_template_kwargs terse: true --
+    # see the tool-calling duplicate-call reports). Model dir =
+    # /models/sha256(Model.spec.source)[:16]
     # (llmkube pkg/cachekey.Compute); 416d8f22b8efd573 is the Swift AWQ
     # source's key -- re-derive if the source pin moves. vLLM prefers a
     # chat_template.jinja file over the tokenizer key; this file replaces the
