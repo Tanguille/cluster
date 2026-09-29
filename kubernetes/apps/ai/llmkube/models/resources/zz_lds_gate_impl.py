@@ -97,7 +97,7 @@ def _install_small_m_triton_config(hy):
 
 
 # attn_3d num_stages 2 -> 1: 2-stage fp8 K+V at head_dim 256 = 64 KiB LDS = a
-# whole CU. 64K M=1: 23.25 -> 29.06 tok/s. aiter v0.1.22.post1 ships 2; upstream
+# whole CU. 64K M=1: 23.25 -> 29.06 tok/s. aiter v0.1.23 ships 2; upstream
 # main still ships 2 for D_LEQ_256.DT_any_fp8. get_unified_attention_config
 # resolves the cached loader by module global, so wrapping it reaches every
 # caller; it deep-copies the result, so returning a new dict is safe.

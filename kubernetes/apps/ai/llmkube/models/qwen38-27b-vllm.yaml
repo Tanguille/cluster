@@ -141,6 +141,7 @@ spec:
   # range touches ROCm, GDN, W4A16 or KV offload. The liveness probe and
   # VLLMDecodeStepLatched cover the gfx1201 band: 0 firings or restarts
   # 2026-09-13..23.
+  # Bump baseline: docs/llm-hosting/vllm-nightly-bench-2026-09-29.md.
   image: vllm/vllm-openai-rocm:nightly@sha256:50b4f2aec13ffcb11ed846fec049d72250a9c2421eb1ad24c95a5210d46cee4c
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
@@ -152,7 +153,7 @@ spec:
     # --kv-cache-memory, mamba dtype, or image change.
     maxModelLen: 246944
     kvCacheDtype: fp8_e4m3
-    # ~27% hit rate under real traffic.
+    # ~91% local hit rate (nightly-bench-2026-09-29.md).
     enablePrefixCaching: true
     # Do not lower: 2048 cost TTFT p50 5s -> 80s (a 20K prompt = 10 prefill
     # steps). Workload is 129:1 prompt:output.
