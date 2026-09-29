@@ -27,7 +27,7 @@ live (`kubectl -n ai patch inferenceservice qwen38-27b-vllm`) and roll the pod:
 Restore with `flux resume` (git wins) and delete the temporary ConfigMaps.
 Per arm, from `docs/llm-hosting/bench/`, with `kubectl port-forward pod/<pod> 18000:8000`:
 
-```
+```bash
 python3 longctx.py 18000 qwen-3.8 4000 3            # band check, not reported, expect ~32.5 (fast)
 for i in 1 2 3 4 5 6; do python3 concsweep.py 18000 qwen-3.8 1,2,3,4,5; done   # first 2 discarded
 python3 longctx.py 18000 qwen-3.8 4000 3            # reported 4K decode
