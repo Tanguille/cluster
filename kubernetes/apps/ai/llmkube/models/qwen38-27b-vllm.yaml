@@ -201,6 +201,9 @@ spec:
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
+    - name: qwen38-sharp-chat-template
+      configMap:
+        name: qwen38-sharp-chat-template
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -219,6 +222,12 @@ spec:
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
       subPath: zz_lds_gate_impl.py
       readOnly: true
+    # Served via --chat-template below, so this path is ours, not the model
+    # cache's: no sha256(source)[:16] to re-derive when spec.modelRef moves.
+    - name: qwen38-sharp-chat-template
+      mountPath: /chat-templates/chat_template.jinja
+      subPath: chat_template.jinja
+      readOnly: true
   extraArgs:
     - --served-model-name
     - qwen-3.8
@@ -228,6 +237,13 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
+    # Sharp v22.5.0 replaces the AWQ build's stock Qwen3.8 template. This is
+    # vLLM's 1st-priority source (vllm/renderers/hf.py
+    # resolve_chat_template), so the model dir's own copy is ignored, and the
+    # path is validated at boot: a bad mount fails the pod instead of silently
+    # serving the stock template.
+    - --chat-template
+    - /chat-templates/chat_template.jinja
     # NO --long-prefill-token-threshold: 1600 raised stall share 19% -> 37% and
     # single-stream TTFT was unchanged without it (64K 63.4 s vs 64.1).
     # Capture sizes = 1..parallelSlots: the default 512 ceiling OOMs on GDN
