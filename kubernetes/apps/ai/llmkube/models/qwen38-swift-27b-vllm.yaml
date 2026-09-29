@@ -1,9 +1,11 @@
 ---
-# Node-local staging for the 18.23 GiB checkpoint. 40Gi because the
-# controller keys the cache dir on the source string, so the Swift 1.0
-# and 1.5 checkpoints coexist in this PVC during/after the OnChange
-# restage (18.23 + 18.23 GiB + headroom); the 1.0 dir can be pruned
-# after 1.5 is confirmed serving.
+# Node-local staging for the 18.23 GiB checkpoint. 20Gi, not the 40Gi that
+# briefly covered Swift 1.0 and 1.5 coexisting during the OnChange restage:
+# 1.0 is pruned (one cache dir on the PVC, 19G, 2026-09-29), and the bump
+# wedged this Kustomization anyway -- openebs-hostpath cannot expand an
+# existing volume (no allowVolumeExpansion, and the provisioner chart does
+# not template one), so the server rejected the dry-run. Raise it only with
+# a matching storage class that expands.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -13,7 +15,7 @@ spec:
   storageClassName: openebs-hostpath
   resources:
     requests:
-      storage: 40Gi
+      storage: 20Gi
 
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
