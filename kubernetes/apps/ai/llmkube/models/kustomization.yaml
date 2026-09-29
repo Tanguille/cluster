@@ -19,5 +19,12 @@ configMapGenerator:
     files:
       - zz_lds_gate.pth=./resources/zz_lds_gate.pth
       - zz_lds_gate_impl.py=./resources/zz_lds_gate_impl.py
+  # Qwen Sharp chat template (froggeric v22.5 base + terse block), v22.5.0 from
+  # peculiar-ragdoll/Qwen-Sharp-Chat-Templates. Overlays the model dir's own
+  # chat_template.jinja (the AWQ build ships it as a file, no embedded
+  # tokenizer key, so the mount fully replaces it).
+  - name: qwen38-sharp-chat-template
+    files:
+      - chat_template.jinja=./resources/qwen38_sharp_chat_template.jinja
 generatorOptions:
   disableNameSuffixHash: true

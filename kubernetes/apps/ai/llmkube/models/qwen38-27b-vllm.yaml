@@ -200,6 +200,11 @@ spec:
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
+    # Qwen Sharp chat template; over the model dir so vLLM's chat() and the
+    # tokenizer load it in place of the AWQ build's stock Qwen3.8 template.
+    - name: qwen38-sharp-chat-template
+      configMap:
+        name: qwen38-sharp-chat-template
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -217,6 +222,19 @@ spec:
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
       subPath: zz_lds_gate_impl.py
+      readOnly: true
+    # Qwen Sharp v22.5.0 (froggeric v22.5 base: thinking retention, per-request
+    # enable_thinking / reasoning_effort / <|think_*|> tags, tool-protocol
+    # handling, consecutive-failure warnings; plus the terse block, kept OFF
+    # by default via terse: false in the LiteLLM alias -- see the tool-calling
+    # duplicate-call reports). Model dir = /models/sha256(Model.spec.source)[:16]
+    # (llmkube pkg/cachekey.Compute); 416d8f22b8efd573 is the Swift AWQ
+    # source's key -- re-derive if the source pin moves. vLLM prefers a
+    # chat_template.jinja file over the tokenizer key; this file replaces the
+    # AWQ build's stock Qwen3.8 template entirely.
+    - name: qwen38-sharp-chat-template
+      mountPath: /models/416d8f22b8efd573/chat_template.jinja
+      subPath: chat_template.jinja
       readOnly: true
   extraArgs:
     - --served-model-name
