@@ -1,11 +1,17 @@
 ---
-# Node-local staging for the 18.23 GiB checkpoint. 20Gi, not the 40Gi that
-# briefly covered Swift 1.0 and 1.5 coexisting during the OnChange restage:
-# 1.0 is pruned (one cache dir on the PVC, 19G, 2026-09-29), and the bump
-# wedged this Kustomization anyway -- openebs-hostpath cannot expand an
-# existing volume (no allowVolumeExpansion, and the provisioner chart does
-# not template one), so the server rejected the dry-run. Raise it only with
-# a matching storage class that expands.
+# Node-local staging for the 18.23 GiB checkpoint. The number below is NOT
+# enforced: openebs-hostpath is a local hostpath PV with no quota, so the
+# volume is the whole disk (499.6G, 165G free 2026-09-29) and the real
+# footprint is whatever the cache dirs sum to. Two coexisted at 19G each
+# (38G) during the Swift 1.0 -> 1.5 OnChange restage; 1.0 was pruned after
+# 1.5 was confirmed serving, back to one 18.2G dir.
+#
+# It still cannot be RAISED. The class has no allowVolumeExpansion and
+# localpv-provisioner does not template one, so the API server rejects the
+# dry-run on any size change -- which is what wedged llmkube-models (and
+# with it every other model manifest) when this read 40Gi. If a future
+# checkpoint needs more, leave this number honest and expect the real
+# limit to be free disk on control-1.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -15,6 +21,7 @@ spec:
   storageClassName: openebs-hostpath
   resources:
     requests:
+      # 18.2G measured, one dir. See the note above: unenforced, and unraisable.
       storage: 20Gi
 
 ---
