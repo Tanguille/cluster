@@ -1,6 +1,9 @@
 ---
-# Node-local staging for the 18.23 GiB checkpoint; 20Gi leaves re-stage
-# headroom.
+# Node-local staging for the 18.23 GiB checkpoint. 40Gi because the
+# controller keys the cache dir on the source string, so the Swift 1.0
+# and 1.5 checkpoints coexist in this PVC during/after the OnChange
+# restage (18.23 + 18.23 GiB + headroom); the 1.0 dir can be pruned
+# after 1.5 is confirmed serving.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -10,7 +13,7 @@ spec:
   storageClassName: openebs-hostpath
   resources:
     requests:
-      storage: 20Gi
+      storage: 40Gi
 
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
@@ -19,37 +22,40 @@ kind: Model
 metadata:
   name: qwen38-swift-27b-vllm
 spec:
-  # TheUnderscore's AWQ build of ukisai/Swift-Qwen3.8-27b: g128
-  # compressed-tensors W4A16, calibrated on 200k UltraChat samples,
-  # 2026-09-13 upload (the only revision). Same Qwen3_5ForConditionalGeneration
-  # architecture and geometry as the base 27B (verified 2026-09-18: 64
-  # layers, head_dim 256, 4 KV heads, 24 Q heads, 48/16 linear V/K heads,
-  # 128 linear head dims, conv kernel 4, fp32 mamba_ssm_dtype, 262K ctx).
+  # ukisai's Swift 1.5 AWQ build: g128 compressed-tensors W4A16,
+  # 2026-09-24 upload (repo lastModified). 1.5 replaces Swift 1.0
+  # (TheUnderscore build): -58.5% thinking tokens (1.0: -58.3%), fixed 1.0
+  # bugs, stronger agentic performance (vendor, 5-seed runs; Terminal Bench
+  # 2.1 gains come from not looping into overthinking failures).
   #
-  # lm_head.weight is in the quantization ignore list and ships bf16
-  # (verified in shard 00007's safetensors header: BF16 [248320, 5120]), so
+  # Same Qwen3_5ForConditionalGeneration architecture and geometry as the
+  # base 27B and the 1.0 build (verified 2026-09-29: 64 layers, 48 linear
+  # / 16 full attention, head_dim 256, 4 KV heads, 24 Q heads, hidden
+  # 5120; 2399 tensors, 7 safetensors).
+  #
+  # lm_head.weight is in the quantization ignore list and ships bf16, so
   # the output layer is full-precision. No requant Job.
   #
   # Pin: hf revisions are mutable (HF re-uploads under the same filename),
   # so the commit is pinned; Renovate bumps it like the base's.
   #
-  # model-nonquant.safetensors carries 15 MTP tensors that load even with
-  # spec decode off.
-  source: hf://TheUnderscore/Swift-Qwen3.8-27b-W4A16-AWQ@6ced337b9c99adddf9871ff84abc78a7f1acafad
+  # model-mtp-bf16.safetensors carries the 15 MTP tensors (same set 1.0
+  # shipped as model-nonquant.safetensors); they load even with spec
+  # decode off.
+  source: hf://ukisai/Swift-1.5-Qwen3.8-27b-W4A16-AWQ@9dba8a058771
   format: safetensors
   quantization: compressed-tensors
   refreshPolicy: OnChange
   # Exactly what vLLM loads; the init container exits 1 on a 404. tokenizer.json
   # is self-contained (no merges/vocab).
   files:
-    - model-00001-of-00007.safetensors
-    - model-00002-of-00007.safetensors
-    - model-00003-of-00007.safetensors
-    - model-00004-of-00007.safetensors
-    - model-00005-of-00007.safetensors
-    - model-00006-of-00007.safetensors
-    - model-00007-of-00007.safetensors
-    - model-nonquant.safetensors
+    - model-00001-of-00006.safetensors
+    - model-00002-of-00006.safetensors
+    - model-00003-of-00006.safetensors
+    - model-00004-of-00006.safetensors
+    - model-00005-of-00006.safetensors
+    - model-00006-of-00006.safetensors
+    - model-mtp-bf16.safetensors
     - model.safetensors.index.json
     - config.json
     - generation_config.json
