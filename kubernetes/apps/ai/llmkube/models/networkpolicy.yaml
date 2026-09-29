@@ -9,6 +9,10 @@ spec:
   # unauthenticated; litellm is the only sanctioned front door (keys,
   # routing, admission). Observed ingress over 48h (kguardian): litellm,
   # vmagent scrapes, kubelet probes. Health/guard probes run in-pod.
+  # (The one sanctioned exception, memini -> bge-reranker-v2-m3, lives in its
+  # own policy below: LiteLLM has no rerank provider (v1.102.0), and the
+  # cross-encoder /v1/rerank contract is LLMKube's own, so memini talks to the
+  # reranker directly. Scoped to that one service, not the whole fleet.)
   endpointSelector:
     matchExpressions:
       - key: inference.llmkube.dev/service
@@ -34,3 +38,26 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: kube-system
             k8s-app: kube-dns
+---
+# memini's rerank path, carved out of the litellm-only allowlist above.
+# Deliberately a SEPARATE policy: its endpointSelector pins the reranker
+# service, so memini reaches bge-reranker-v2-m3 and nothing else in the
+# llmkube fleet — the unauthenticated 27B chat and vLLM pods stay
+# litellm-only.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: inference-rerank-memini-allow
+spec:
+  endpointSelector:
+    matchLabels:
+      inference.llmkube.dev/service: bge-reranker-v2-m3
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: memini
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

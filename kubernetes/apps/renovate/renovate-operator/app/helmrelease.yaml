@@ -1,0 +1,64 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app renovate-operator
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: renovate-operator
+  interval: 1h
+  values:
+    fullnameOverride: *app
+    config:
+      # Reaps succeeded and failed jobs alike; logs stay readable for a day.
+      jobTTLSecondsAfterFinished: 86400
+    rbac:
+      ownNamespaceOnly: true
+    # Reuse the shared Dragonfly; operator takes dbs 0-2, Renovate's package cache lands in db 1.
+    externalKeyValueStore:
+      host: dragonfly.database.svc.cluster.local
+    # Default allowedHosts/allowedImages already cover github.com and ghcr.io/renovatebot/renovate;
+    # the chart appends the webhook host.
+    policy:
+      enabled: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+    # UI can trigger runs and has no auth; internal gateway only.
+    route:
+      enabled: true
+      hostnames: ["renovate.${SECRET_DOMAIN}"]
+      parentRefs:
+        - name: envoy-internal
+          namespace: network
+    webhook:
+      enabled: true
+      # GitHub delivers here; the chart derives WEBHOOK_BASE_URL from hostnames[0].
+      route:
+        enabled: true
+        # "/" 404s like an unrouted host; an empty POST reaching the operator returns 400.
+        annotations:
+          gatus.home-operations.com/endpoint: |-
+            url: https://renovate-webhook.${SECRET_DOMAIN}/webhook/v1/github
+            method: POST
+            conditions: ["[STATUS] == 400"]
+        hostnames: ["renovate-webhook.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+      dashboard:
+        enabled: true
+        grafanaDashboard:
+          allowCrossNamespaceImport: true
+          instanceSelector:
+            matchLabels:
+              grafana.internal/instance: grafana

@@ -4,12 +4,10 @@ use_default_settings: true
 server:
   limiter: true
   image_proxy: true
-  method: GET # https://github.com/searxng/searxng/pull/3619
 
 outgoing:
   request_timeout: 2.0
   max_request_timeout: 5.0
-  pool_maxsize: 30
 
 # Limiter needs valkey (Redis-compatible); use same Dragonfly with a different db.
 valkey:
@@ -20,16 +18,11 @@ search:
   formats:
     - html
     - json
-  autocomplete: duckduckgo
 
 general:
   instance_name: TangeniusSearch
 
 ui:
-  query_in_title: false
-  url_formatting: pretty
-  static_use_hash: true
-  default_theme: simple
   theme_args:
     simple_style: dark
   results_on_new_tab: true

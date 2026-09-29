@@ -48,13 +48,11 @@ spec:
   proxyRef: litellm
   params:
     model: openai/qwen-3.8
-    # Moves with qwen-3.8 above -- this alias is proxy.yaml's only fallback
-    # target, so the two must always name the same live backend.
+    # Moves with qwen-3.8 above: both must always name the same live backend.
     apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     apiKey: sk-vllm-noauth
     additional:
-      # Hermes compression is a ~100K+ prefill on this alias; under GPU contention
-      # the shared prefill rate drops below what 600s covers (2026-07-07).
+      # Hermes compression is a ~100K+ prefill on this alias; under GPU contention the shared prefill rate drops below what 600s covers.
       timeout: 900
       stream_timeout: 900
       num_retries: 0
@@ -91,26 +89,12 @@ spec:
     # a non-empty api_key (same convention as qwen-3.8's sk-vllm-noauth).
     apiKey: sk-omniroute-noauth
     additional:
-      # Bounded so the qwen-3.8-fast fallback fires inside the pr-reviewer-action's
-      # 600s curl timeout instead of the action giving up and retrying blind
-      # (observed 2026-08-03: 60min run, fallback never triggered). Timeouts
-      # aren't in the proxy's retry_policy and num_retries is 0, so one attempt
-      # then fallback. 90s cut healthy-but-slow free providers (2026-08-11:
-      # 115s/92s streams fell back needlessly); 150s clears the observed tail.
+      # Bounded so the qwen-3.8 fallback fires inside the reviewer's 600s curl timeout (timeouts are not in retry_policy, so one attempt then fallback); 90s cut healthy-but-slow 115s/92s streams, 150s clears the observed tail.
       timeout: 150
-      # Without this, litellm falls back through _get_stream_timeout to plain
-      # `timeout`, but that's an httpx per-chunk read timeout — it resets on
-      # every byte, so a stream that trickles keep-alives without ever
-      # completing (observed 2026-08-04: response_format error on a streamed
-      # call to opencode/deepseek-v4-flash-free) never gets cut off server-side
-      # and rides out to the action's own 600s curl ceiling instead.
+      # Without it stream_timeout falls back to plain timeout, an httpx per-chunk read timeout that resets on every byte, so a trickling stream is never cut off before the 600s curl ceiling.
       stream_timeout: 150
       num_retries: 0
-      # omniroute's pii-masker guardrail rewrites any bare 10-digit number as
-      # [PHONE_REDACTED] (its phone_us regex matches \d{3}\d{3}\d{4}), so byte
-      # counts and memory limits reach the model corrupted and it reports the
-      # redaction as the defect (2026-08-12: 8 of 9 review runs). Guardrails have
-      # no persisted toggle — per-request opt-out only. credential-masker stays on.
+      # pii-masker rewrites any bare 10-digit number as [PHONE_REDACTED], corrupting byte counts and memory limits (8 of 9 review runs); guardrails have only a per-request opt-out, credential-masker stays on.
       extra_headers:
         x-omniroute-disabled-guardrails: pii-masker
   info:

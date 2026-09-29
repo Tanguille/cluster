@@ -9,6 +9,23 @@ spec:
     kind: OCIRepository
     name: crowdsec
   interval: 1h
+  # Chart's CA renews with the leaves (day 60) and cert-manager >=1.18 rotates its key, so leaves
+  # signed by the old key break lapi (unknown certificate authority); keep the key, renew rarely.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Certificate
+              name: crowdsec-ca
+            patch: |-
+              apiVersion: cert-manager.io/v1
+              kind: Certificate
+              metadata:
+                name: not-used
+              spec:
+                duration: 87600h
+                privateKey:
+                  rotationPolicy: Never
   values:
     container_runtime: containerd
     config:

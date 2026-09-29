@@ -87,8 +87,6 @@ spec:
                 memory: 1Gi
 
       chrome:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -107,6 +105,16 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
+            # tcp: 9222 is the remote-debugging endpoint; only the socket
+            # being open says the browser is up and accepting work.
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 9222
+              readiness: *probe
             resources:
               requests:
                 cpu: 10m
@@ -137,7 +145,7 @@ spec:
           app:
             image:
               repository: getmeili/meilisearch
-              tag: v1.53.2@sha256:c94e58ca09662dd6e65e8f1b0fd145767be3da7d5422a863a27b8d2b68e090c9
+              tag: v1.54.1@sha256:6f6c72d43008f227a7329422aa723ab5b4929e1fad8e68743062b050c36fb7ad
             args:
               - /bin/meilisearch
               # v1.51 renamed --experimental-dumpless-upgrade to this; without it
@@ -153,6 +161,15 @@ spec:
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: 7700
+              readiness: *probe
             resources:
               requests:
                 cpu: 10m
@@ -165,7 +182,6 @@ spec:
     service:
       app:
         forceRename: karakeep
-        primary: true
         controller: karakeep
         ports:
           http:

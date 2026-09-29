@@ -75,7 +75,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.kubernetes.io/hostname: *hostname
+      coredns.io/hostname: *hostname
       lbipam.cilium.io/ips: ${ENVOY_EXTERNAL_IP}
   listeners:
     - name: https
@@ -86,14 +86,10 @@ spec:
           from: All
       tls:
         certificateRefs:
-          - kind: Secret
-            name: ${SECRET_DOMAIN/./-}-production-tls
+          - name: ${SECRET_DOMAIN/./-}-production-tls
     - name: http
       protocol: HTTP
       port: 80
-      allowedRoutes:
-        namespaces:
-          from: Same
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1
@@ -106,7 +102,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.kubernetes.io/hostname: *probeHostname
+      coredns.io/hostname: *probeHostname
       lbipam.cilium.io/ips: ${ENVOY_GATUS_PROBE_IP}
   listeners:
     - name: https
@@ -121,8 +117,7 @@ spec:
               kubernetes.io/metadata.name: observability
       tls:
         certificateRefs:
-          - kind: Secret
-            name: ${SECRET_DOMAIN/./-}-production-tls
+          - name: ${SECRET_DOMAIN/./-}-production-tls
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1
@@ -141,7 +136,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.kubernetes.io/hostname: *hostname
+      coredns.io/hostname: *hostname
       lbipam.cilium.io/ips: ${ENVOY_INTERNAL_IP}
   listeners:
     - name: https
@@ -152,14 +147,10 @@ spec:
           from: All
       tls:
         certificateRefs:
-          - kind: Secret
-            name: ${SECRET_DOMAIN/./-}-production-tls
+          - name: ${SECRET_DOMAIN/./-}-production-tls
     - name: http
       protocol: HTTP
       port: 80
-      allowedRoutes:
-        namespaces:
-          from: Same
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1
@@ -178,7 +169,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      external-dns.kubernetes.io/hostname: *hostname-tls
+      coredns.io/hostname: *hostname-tls
       lbipam.cilium.io/ips: ${ENVOY_INTERNAL_TLS_IP}
   listeners:
     - name: tls
@@ -186,9 +177,6 @@ spec:
       port: 443
       tls:
         mode: Passthrough
-      allowedRoutes:
-        namespaces:
-          from: Same
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.envoyproxy.io/backendtrafficpolicy_v1alpha1.json
 apiVersion: gateway.envoyproxy.io/v1alpha1
@@ -208,8 +196,7 @@ spec:
       triggers:
         - reset
   targetSelectors:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
+    - kind: Gateway
   tcpKeepalive: {}
   timeout:
     http:
@@ -232,8 +219,7 @@ spec:
   connection:
     bufferLimit: 1Mi
   targetSelectors:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
+    - kind: Gateway
   tcpKeepalive: {}
   tls:
     minVersion: "1.2"

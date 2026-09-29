@@ -19,7 +19,7 @@ spec:
           app:
             image:
               repository: ghcr.io/anomalyco/opencode
-              tag: 1.18.31@sha256:0d3c9551ea2522fcfd23fbc2e302fc87218d6c198bff277e8ab44d93a3bd6d3d
+              tag: 1.18.33@sha256:ee31dff80f8347b4705317de808b01fce1cfbf35cff560ddc573cda9718be0f7
             env:
               TZ: ${TIMEZONE}
               HOME: /home/opencode
@@ -59,6 +59,8 @@ spec:
                 memory: 2Gi
 
     defaultPodOptions:
+      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
+      priorityClassName: homelab-important
       # No ServiceAccount, Role or ClusterRole exists for opencode; it reaches litellm and vmcp
       # over HTTP only, so the default SA token is unused reach.
       automountServiceAccountToken: false

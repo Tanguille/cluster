@@ -1,8 +1,8 @@
 # Talos kernel package
 
 Builds a Talos-compatible Linux kernel package so the cluster can run a newer kernel
-than Talos ships. Talos v1.14.0 ships **Linux 6.18.48**; this tracks kernel.org
-**stable** (7.1.13 at time of writing).
+than Talos ships. Talos 1.14 ships **Linux 6.18.x**; this tracks kernel.org **stable**
+(the pin is `ARG KERNEL_VERSION` in the Dockerfile).
 
 Neither `siderolabs/talos` nor `siderolabs/pkgs` is forked. Both are consumed at their
 release tags and steered with make variables.
@@ -23,40 +23,23 @@ half needs this.
 
 ### What else 7.x changes here
 
-Measured on control-2 (the only 7.1.9 node) against control-3, its identical twin on 6.18.44.
-Everything gfx12/ROCm-related is **not** in this list: the R9700 lives on control-1, which is
-still on 6.18.44, and control-2's iGPU group gets `/dev/dri` without `/dev/kfd`, so amdkfd is
-unreachable there regardless.
+Kernel-series changes that bear on these nodes:
 
-| change                                                | status on control-2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Preemption `none` -> `full`                           | **Live, unintended, probably benign.** `Dynamic Preempt: full` vs `none` on control-3. 7.0 made `PREEMPT_NONE` depend on `ARCH_NO_PREEMPT`, so `olddefconfig` took the new default. Full preemption trades a few percent of throughput for better tail latency, which suits etcd and Ceph OSDs, so the direction is fine — the problem is that nobody chose it and control-2 now schedules unlike its twin, confounding any cross-node latency comparison. `CONFIG_PREEMPT_DYNAMIC=y`, so `preempt=` on the cmdline settles it without a rebuild; control-1's schematic already pins `preempt=voluntary`. Pinning it in `talos/schematic.yaml` too would make a future `olddefconfig` unable to move it — at the cost of changing the schematic id, and therefore the installer repo path. |
-| GTT visible to the memory subsystem (`NR_GPU_ACTIVE`) | **Live in `/proc/meminfo`** (~1.4 GiB), the first-party fix for the iGPU GTT leak that is invisible to `kubectl top`. **Not yet exported** — node-exporter v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be alerted on.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| eBPF verifier state pruning (7.0/7.1)                 | Applies. Upstream's veristat numbers are measured on Cilium's own objects (`bpf_lxc.o` `tail_ipv4_ct_egress` -44%). Not re-measured here.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| HRTICK / HRTICK_DL default on                         | Applies; `CONFIG_HRTIMER_REARM_DEFERRED=y` in the built config. EEVDF slice enforcement moves off the 4 ms tick.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| r8169 LTR enabled for RTL8125 (7.0)                   | **Not applicable on this hardware.** Looked like the main regression risk (both NICs are RTL8125B in `bond0`), but ACPI `_OSC` on both Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel and the commit cannot engage. Same `_OSC` line on control-3, so this is a property of the box, not of 7.x. It also means AER reporting is unavailable, i.e. PCIe correctable/uncorrectable errors are invisible here by construction — do not write alerts against AER on these nodes.                                                                                                                                                                                         |
-
-The Ceph `aes256k` feature this was built for is **not yet in use** — it also needs Rook's
-`spec.security.cephx.allowedCiphers`, which cannot be set while any node is below 7.0.
-
-### The counterweight: 7.x is not LTS
-
-|                    | 6.18                                               | 7.1                                    |
-|--------------------|----------------------------------------------------|----------------------------------------|
-| kernel.org moniker | **longterm**                                       | stable                                 |
-| Projected EOL      | Dec 2028                                           | none published; 7.2 shipped 2026-08-16 |
-| `siderolabs/pkgs`  | `release-1.14` pins 6.18.48                        | never shipped                          |
-
-Measured series lifetimes: 6.19.y made its last release 9 days after 7.0 shipped, 7.0.y 13
-days after 7.1. 7.2 is already out, so 7.1.y is likely within weeks of EOL. Mainline cadence
-this year was ~63 days per series, so tracking `stable` means a full series migration roughly
-every 9 weeks, on top of a Talos rebase every ~4 months, with no upstream test coverage for
-the combination.
-
-That is the trade: this closes a residual client-key exposure that Rook itself treats as a
-supported configuration (its shipped `cluster.yaml` documents `keyType: aes` as the correct
-setting for nodes below 7.0), and buys it with a permanent local kernel treadmill. Switching
-the Renovate datasource filter to `moniker="longterm"` once a 7.x LTS exists is the exit.
+- **Preemption `none` -> `full`.** 7.0 made `PREEMPT_NONE` depend on `ARCH_NO_PREEMPT`, so
+  `olddefconfig` takes the new default. Full preemption trades a few percent of throughput for
+  better tail latency, which suits etcd and Ceph OSDs, but nobody chose it.
+  `CONFIG_PREEMPT_DYNAMIC=y`, so `preempt=` on the cmdline settles it without a rebuild;
+  control-1's schematic pins `preempt=voluntary`, `talos/schematic.yaml` does not. Pinning it
+  there too would make a future `olddefconfig` unable to move it.
+- **GTT in the memory subsystem (`NR_GPU_ACTIVE`).** Shows in `/proc/meminfo`, the first-party
+  view of the iGPU GTT leak that is invisible to `kubectl top`. Not exported: node-exporter
+  v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be
+  alerted on.
+- **r8169 LTR (7.0) cannot engage.** Both NICs are RTL8125B in `bond0`, but ACPI `_OSC` on the
+  Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets
+  `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel. AER
+  reporting is unavailable for the same reason: PCIe errors are invisible here by construction,
+  so do not write alerts against AER on these nodes.
 
 ## Pipeline
 
@@ -103,7 +86,7 @@ is what makes a kernel-only rollout visible at all.
 The node belongs in the **repo path, not the tag**. `buildTalosUpgradeImage` rebuilds the
 target as `<repo>:<targetVersion>` after `strings.Cut(currentImage, ":")` discards the current
 tag wholesale, so a per-node tag suffix names an image tuppr can never request. Nodes sharing a
-schematic still build only once — the second is a registry copy, not another imager run.
+schematic share one repo and build only once, so the second needs no imager run and no copy.
 
 The suffix satisfies tuppr's CRD pattern `^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9\-\.]+)?$`.
 
@@ -208,49 +191,11 @@ was `kernel/crypto/xor.ko` -> `kernel/lib/raid/xor/xor.ko` (moved), and dropping
 `kernel/crypto/hkdf.ko` (`CONFIG_CRYPTO_HKDF` deleted upstream) and
 `kernel/drivers/watchdog/iTCO_vendor_support.ko` (removed in 7.0).
 
-### Hold: 7.2 is blocked on Cilium, do not merge the bump
+### Holding a kernel minor
 
-**A green build does not mean a bootable fleet.** 7.2.2 built, published and booted cleanly;
-the node was still lost, because the break is in userspace and the pipeline cannot see it.
-
-Cilium's feature probe passes a *pointer* to `bpf_set_retval`, which has always taken an
-integer. The kernel tolerated it until [`b1f7f67b74c2e`][k-commit] ("bpf: Add validation for
-bpf_set_retval argument") landed in **7.2-rc1**. The agent now dies at startup and never writes
-a CNI config, so the node stays `NotReady` with no network:
-
-```text
-level=fatal msg="failed to probe helper"
-  error="detect support for FnSetRetval for program type CGroupSock: load program:
-         invalid argument: 0: (85) call bpf_set_retval#187: R1 is not a scalar"
-  progType=CGroupSock helper=FnSetRetval
-```
-
-Tracked as [cilium/cilium#48016][issue]. It is a Cilium bug the kernel exposed, not a kernel
-regression, and it is **not** version-specific to our 1.20: upstream reports 1.18, 1.19, 1.20
-and 1.21.0-pre.0 all failing on 7.2 while the same builds run fine on 7.1.
-
-The fix is [`67c619c`][fix] (probe via `bpf_core_enum_value_exists()` instead of emitting the
-call). Re-measured on 2026-09-03: still present on the `v1.20` branch as `b73ca6e8d`
-(2026-08-28), absent from `v1.19` and `v1.18`, and still in **no release** — 1.20.1 remains the
-latest and shipped 2026-08-18, ten days before the backport. Re-check with:
-
-```sh
-gh api "repos/cilium/cilium/commits?sha=v1.20&per_page=100" \
-    -q '[.[] | select(.commit.message | test("HAVE_SET_RETVAL"))] | length'
-gh release list --repo cilium/cilium --limit 5
-```
-
-**Lift the hold when a Cilium release containing that commit is deployed here** — 1.20.2 or
-later. Until then `ARG KERNEL_VERSION` stays on 7.1.y and Renovate's 7.2.x PR stays open and
-unmerged; the open PR is the reminder. It is deliberately not pinned via `allowedVersions`:
-combined with the `iseol=false` filter in `.renovaterc.json5`, a `<7.2` bound empties the feed
-once 7.1 leaves `moniker=stable`, and bumps then stop **silently** — which is worse than a PR
-someone has to decline. The cost of the hold is that 7.1.y patch bumps stop too, since Renovate
-only ever offers the highest stable.
-
-[k-commit]: https://github.com/torvalds/linux/commit/b1f7f67b74c2e
-[issue]: https://github.com/cilium/cilium/issues/48016
-[fix]: https://github.com/cilium/cilium/commit/67c619cb0a43c7178bf843c9281fc77fe64fe13f
+Leave Renovate's PR open rather than bounding `allowedVersions`: with the `iseol=false` filter in
+`.renovaterc.json5`, a `<X.Y` bound empties the feed once the old minor leaves `moniker=stable`,
+and bumps then stop silently.
 
 ### Rolling a bump back
 
@@ -286,11 +231,11 @@ and `0007` (tun dst unclone) do touch enabled subsystems but no longer apply, wh
 backports usually means the fix is already upstream. Re-add individually if a real need
 appears; do not re-vendor the set wholesale.
 
-**The kernel config and signing key.** Fetched from `siderolabs/pkgs` at `PKGS_SHA`
-(`f541ca4`, the `PKGS` pin in talos v1.13.9 `Makefile:31`) rather than committed. They are
+**The kernel config and signing key.** Fetched from `siderolabs/pkgs` at `PKGS_SHA`, the
+sha in the `PKGS` pin of the Talos release's `Makefile`, rather than committed. They are
 upstream files this repo does not modify, and fetching them means they track the Talos
-version being built instead of needing a manual refresh every minor. Bump `PKGS_SHA` and
-`TOOLS_REV` together when moving to a new Talos release.
+version being built instead of needing a manual refresh every minor. The build script derives
+`PKGS_SHA` and `TOOLS_REV` from that Makefile, so there is nothing to bump by hand.
 
 **A distro toolchain.** The builder is `ghcr.io/siderolabs/{tools,llvm}` at `TOOLS_REV` —
 the same images pkgs builds with — so the compiler is upstream's exact clang, pinned to a
@@ -346,44 +291,22 @@ reported "All nodes are up to date" only because `findNextNodes` skips every nod
 `Status.CompletedNodes` before it ever compares versions; that list resets when the CR
 generation changes, i.e. on the next Talos bump.
 
-Two things have to be true for a node. All three nodes satisfy both as of 2026-08-21:
+Two things have to be true for a node, and all three nodes satisfy both:
 
 1. **`.machine.install.image` repointed** to `ghcr.io/tanguille/installer/<schematic>`. Left on
    `factory.talos.dev`, tuppr's bare `<repo>:<targetVersion>` substitution silently reinstalls
    the stock kernel.
 2. **A version string tuppr will actually ask for.** It compares one value, so the node has to
    advertise `v<talos>-k<kernel>` — which it does, because the installer is built with
-   `TAG="${VERSION}"`. That string now lives in `spec.talos.version` itself.
+   `TAG="${VERSION}"`. That string lives in `spec.talos.version` itself; the two file-scoped
+   regex managers in `.renovaterc.json5` own one half each, so a bump does not eat the suffix.
 
-   It used to live in a per-node `machine.nodeAnnotations."tuppr.home-operations.com/version"`,
-   because the CR field was Renovate-managed by an inline annotation that captures the whole
-   value and would rewrite `v1.13.9-k7.1.9` to `v1.13.10`, eating the suffix. That is a property
-   of the *manager*, not the field: two file-scoped regex managers in `.renovaterc.json5` now own
-   one half each, so the field can carry it.
+   The `HOLD` column in "Rolling a bump back" is empty on every node when the CR is in charge.
 
-   The annotation mattered because only `just talos apply-node` could change it, so merging a
-   bump PR rolled nothing.
-
-   **The switchover costs one `apply-node` per node, once, and the order matters.** Talos writes
-   that annotation from machine config, so it survives until a config without it is applied, and
-   `getTargetVersion` prefers it until then.
-
-   Do the `apply-node` runs **before** merging the version bump, not after. On a `Completed` CR
-   every node is already listed in `Status.CompletedNodes`, and `findNextNodes` skips anything in
-   that list *before* it compares versions (`upgrade.go:582-587`) — so dropping an annotation
-   while the CR is `Completed` is inert, and stays inert forever. Merging afterwards bumps the
-   generation, which clears `CompletedNodes` (`annotations.go:559-585`) and makes the freshly
-   un-annotated nodes pending on the next reconcile.
-
-   Merge first and the reverse happens, silently: `recordOutOfBandCompletedNodes`
-   (`upgrade.go:507-560`) writes every node that does not "need" an upgrade — which is all of
-   them, since each still reports its own annotation — straight into `CompletedNodes` at the new
-   target, and the CR goes `Completed` for a version nothing runs. The later `apply-node` is then
-   skipped by the list check above and nothing ever rolls. Recovering needs
+   If a CR ever goes `Completed` for a version nothing runs, `findNextNodes` is skipping every
+   node listed in `Status.CompletedNodes` before it compares versions (`upgrade.go:582-587`),
+   and that list only clears on a generation change or a reset. Recover with
    `kubectl annotate talosupgrade talos tuppr.home-operations.com/reset=1`.
-
-   Confirm with the `HOLD` column in "Rolling a bump back": empty on every node means the CR is
-   in charge.
 
 To hold a node back while the rest move, use `spec.nodeSelector` on the CR — `getSortedNodes`
 passes it to `LabelSelectorAsSelector` and *lists* with it (`upgrade.go:625-641`), so an excluded

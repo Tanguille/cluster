@@ -64,15 +64,8 @@ endpoints:
     alerts:
       - type: discord
 
-  # Real MCP-protocol probe: POST an initialize. The /health endpoint and the
-  # VirtualMCPServer Ready status stayed green while POST /mcp was unusable (the optimizer
-  # embedding path exceeded the response-write deadline), so only a protocol-level probe
-  # catches this failure mode.
-  #
-  # unified runs the optimizer, which re-embeds every tool per new session (~13-23s on
-  # toolhive 0.29.1; no cross-session cache yet). Probe it gently: relaxed threshold so
-  # it only alerts on regression toward the old 32s+ hang, and a longer interval so the
-  # probe itself doesn't keep TEI busy re-embedding every 5 minutes.
+  # MCP initialize probe: /health and VirtualMCPServer Ready stay green while POST /mcp is unusable (optimizer embedding path exceeds the write deadline).
+  # The optimizer re-embeds every tool per new session: the 30s threshold only catches regression toward the old 32s+ hang, and the 15m interval keeps TEI from re-embedding on every probe.
   - name: vmcp-unified
     group: ai
     url: http://vmcp-unified.ai.svc.cluster.local:4483/mcp

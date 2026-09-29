@@ -9,7 +9,7 @@ description: >-
   user: "Install prometheus exporter" → HelmRelease with custom scrape config
 
   Use proactively when the user mentions deploying, installing, adding, or setting up an application.
-compatibility: Requires `mise`, `git`, `gh` (for PR), `flate`, and `shellcheck` (falls back to `kustomize`/`flux` if `flate` is unavailable); cluster apply needs user approval per AGENTS.md.
+compatibility: Requires `mise`, `git`, `flate`, and `shellcheck` (falls back to `kustomize`/`flux` if `flate` is unavailable); cluster apply needs user approval per AGENTS.md.
 ---
 
 # Add app to cluster
@@ -20,15 +20,6 @@ Deploy applications using FluxCD GitOps patterns in this repository.
 
 - New app deployment or major app scaffold in `kubernetes/apps/`.
 - User asks to install, deploy, or add a service to the cluster.
-
-## Delegation
-
-| Task | Pattern |
-|------|---------|
-| kubesearch.dev research | Subagent (app name + namespace) |
-| Multiple unrelated apps | Parallel subagents |
-| Validation | Sequential after files exist |
-| Single-file edits (<5 lines) | Inline |
 
 ## Workflow
 
@@ -94,39 +85,11 @@ Or run the full local PR check: `bash .agents/skills/pr-review/scripts/validate-
 
 ### 9. PR (ask before push)
 
-Show the user the created files and get confirmation before committing.
-
-```bash
-git add .
-git commit -m "feat(<namespace>): add <app-name>"
-git push -u origin feat/add-<app-name>
-gh pr create --title "feat(<namespace>): add <app-name>" --body "Deploy <app-name> to <namespace> namespace"
-```
+Show the user the created files and get confirmation before committing. Stage the new app
+directory and the namespace `kustomization.yaml` by path, commit as
+`feat(<namespace>): add <app-name>`, then push and open the PR per the
+[atomic finish rule](../handoff/SKILL.md#the-atomic-finish-rule).
 
 ## Anti-patterns
 
-- Skip kubesearch.dev / homelab research when examples exist
-- Hardcode domains (use `${SECRET_DOMAIN}`)
-- New namespace without user confirmation
-- `kubectl apply` bypassing GitOps
-- Forget `reloader.stakater.com/auto` when mounting ConfigMaps/Secrets — config changes won't restart pods
-- `readOnlyRootFilesystem: true` without a writable `tmp: emptyDir` — many apps crash at boot
-- Invent chart/image versions or digests from memory — use a plain upstream tag, Renovate pins the digest
 - Non-app-template chart without its own `ocirepository.yaml` — the shared `app-template` OCIRepository covers only that chart
-
-## Quick reference
-
-| Task | Command |
-|------|---------|
-| Validate | `kustomize build` on the app/ subdirectory (catches YAML syntax/duplicate keys); or `validate-pr.sh` |
-| Reconcile | `flux reconcile kustomization <name>` (ask user) |
-| Logs | `kubectl logs -n <ns> deployment/<app>` |
-
-## Progressive disclosure
-
-- Manifest scaffolds: [references/manifest-templates.md](references/manifest-templates.md)
-
-## Related skills
-
-- [k8s-at-home-research](../k8s-at-home-research/SKILL.md) — homelab manifest examples
-- [git-worktree-isolation](../git-worktree-isolation/SKILL.md) — isolated branches

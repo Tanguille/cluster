@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app nut-exporter
+  name: nut-exporter
 spec:
   interval: 30m
   chartRef:
@@ -42,6 +42,17 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+            # Same endpoint the ServiceMonitor scrapes; a 200 here means the
+            # exporter is up AND the UPS connection answers.
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ups_metrics
+                    port: 9199
+              readiness: *probe
             resources:
               requests:
                 cpu: 10m
@@ -62,7 +73,6 @@ spec:
             port: 9199
     serviceMonitor:
       app:
-        serviceName: *app
         endpoints:
           - port: http
             path: /ups_metrics

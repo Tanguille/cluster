@@ -36,74 +36,6 @@ toolchain the bare `just` commands assume.
 
 ---
 
-## Pods & workloads
-
-```bash
-# Restart deployment (e.g. after ConfigMap change)
-kubectl rollout restart deployment/<name> -n <ns>
-kubectl rollout status deployment/<name> -n <ns>
-
-# Scale
-kubectl scale deployment/<name> -n <ns> --replicas=<n>
-
-# Debug pod with networking tools (exit with Ctrl+D or 'exit')
-kubectl run tmp-shell --rm -i --tty --image nicolaka/netshoot -n <ns> -- /bin/bash
-
-# Logs
-kubectl logs -n <ns> deployment/<name> -f
-kubectl logs -n <ns> <pod-name> -c <container> --tail=100
-
-# Inspect
-kubectl describe pod -n <ns> <pod-name>
-kubectl get pod -n <ns> <pod-name> -o yaml
-```
-
----
-
-## Networking
-
-```bash
-# Services and backends (prefer EndpointSlices; slice names are <svc>-<suffix>)
-kubectl get svc -n <ns>
-kubectl get endpointslice -n <ns> -l kubernetes.io/service-name=<service-name>
-
-# HTTPRoutes (Gateway API)
-kubectl get httproute -A
-
-# NetworkPolicies
-kubectl get networkpolicies -n <ns>
-
-# From inside a pod: test service DNS
-curl http://<service>.<ns>.svc.cluster.local
-```
-
----
-
-## Storage & exec
-
-```bash
-# PVCs
-kubectl get pvc -A
-
-# Mount usage inside a pod
-kubectl exec -n <ns> deployment/<name> -- df -h /path
-
-# Run a command in a pod (replace deployment/<name> with pod name if needed)
-kubectl exec -it -n <ns> deployment/<name> -- /bin/sh
-```
-
-Optional: [kubectl-browse-pvc](https://github.com/clbx/kubectl-browse-pvc) to browse PVCs.
-
-> Full PVC backup/restore procedure: see the [backup-restore skill](../.agents/skills/backup-restore/SKILL.md).
-
----
-
-## Troubleshooting failed HelmReleases
-
-> Full procedure: see the [debug-cluster skill](../.agents/skills/debug-cluster/SKILL.md).
-
----
-
 ## PostgreSQL (CNPG)
 
 **Connect with psql:**
@@ -121,7 +53,7 @@ The superuser (`postgres`) password is in the `cloudnative-pg-secret` secret in 
 1. Start a debug pod with database access:
 
    ```bash
-   kubectl run tmp-psql --rm -i --tty --image ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie -n database -- bash
+   kubectl run tmp-psql --rm -i --tty --image ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie -n database -- bash
    ```
 
 2. Connect as `postgres` and fix permissions if needed:

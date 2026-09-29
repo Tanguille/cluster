@@ -1,3 +1,5 @@
+# Import-hook patches for gfx1201, one section per target module (PATCHES).
+#
 # Raises the W4A16 skinny-GEMM LDS gate to match the C++ kernel.
 #
 # rdna_hybrid_w4a16.py dispatches:
@@ -23,26 +25,30 @@
 import importlib.abc
 import sys
 
-TARGET = "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16"
 NEW_LIMIT = int(32768 * 1.2)  # 39321, matches max_lds_len * 1.2 in the C++
 
 
 class _PatchLoader(importlib.abc.Loader):
-    def __init__(self, loader):
+    def __init__(self, loader, patch):
         self._loader = loader
+        self._patch = patch
 
     def create_module(self, spec):
         return self._loader.create_module(spec)
 
     def exec_module(self, module):
         self._loader.exec_module(module)
-        old = getattr(module, "LDS_CAPACITY_ELEMENTS", None)
-        module.LDS_CAPACITY_ELEMENTS = NEW_LIMIT
-        print(
-            "[lds-gate-patch] LDS_CAPACITY_ELEMENTS %s -> %s" % (old, NEW_LIMIT),
-            file=sys.stderr, flush=True,
-        )
-        _install_small_m_triton_config(module)
+        self._patch(module)
+
+
+def _patch_w4a16(module):
+    old = getattr(module, "LDS_CAPACITY_ELEMENTS", None)
+    module.LDS_CAPACITY_ELEMENTS = NEW_LIMIT
+    print(
+        "[lds-gate-patch] LDS_CAPACITY_ELEMENTS %s -> %s" % (old, NEW_LIMIT),
+        file=sys.stderr, flush=True,
+    )
+    _install_small_m_triton_config(module)
 
 
 # Second patch, same module: the Triton tile config for the gfx12x M <= 32
@@ -90,16 +96,42 @@ def _install_small_m_triton_config(hy):
     print("[lds-gate-patch] Triton M<=32 tile 16x16x128, 2 warps, 1 stage", file=sys.stderr, flush=True)
 
 
+# attn_3d num_stages 2 -> 1: 2-stage fp8 K+V at head_dim 256 = 64 KiB LDS = a
+# whole CU. 64K M=1: 23.25 -> 29.06 tok/s. aiter v0.1.22.post1 ships 2; upstream
+# main still ships 2 for D_LEQ_256.DT_any_fp8. get_unified_attention_config
+# resolves the cached loader by module global, so wrapping it reaches every
+# caller; it deep-copies the result, so returning a new dict is safe.
+def _patch_aiter_ua(module):
+    orig = module._get_unified_attention_config_cached
+
+    def cached(op, *args):
+        cfg = orig(op, *args)
+        # "triton" can only match the backend argument.
+        if op == "attn_3d" and "triton" in args:
+            cfg = {**cfg, "num_stages": 1}
+        return cfg
+
+    module._get_unified_attention_config_cached = cached
+    print("[lds-gate-patch] aiter attn_3d num_stages -> 1", file=sys.stderr, flush=True)
+
+
+PATCHES = {
+    "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16": _patch_w4a16,
+    "aiter.ops.triton.utils.unified_attention_utils": _patch_aiter_ua,
+}
+
+
 class _Finder(importlib.abc.MetaPathFinder):
     def find_spec(self, name, path=None, target=None):
-        if name != TARGET:
+        patch = PATCHES.get(name)
+        if patch is None:
             return None
         for finder in sys.meta_path:
             if finder is self:
                 continue
             spec = finder.find_spec(name, path, target)
             if spec and spec.loader:
-                spec.loader = _PatchLoader(spec.loader)
+                spec.loader = _PatchLoader(spec.loader, patch)
                 return spec
         return None
 

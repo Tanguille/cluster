@@ -11,8 +11,6 @@ spec:
   interval: 1h
   values:
     fullnameOverride: blackbox-exporter
-    podAnnotations:
-      reloader.stakater.com/auto: "true"
     securityContext:
       capabilities: { add: ["NET_RAW"] }
     config:
@@ -41,9 +39,10 @@ spec:
       enabled: true
       rules:
         - alert: LanProbeFailed
+          # LB IPs are covered by LoadBalancerIPUnreachable; `on(service)` because the probe and self-monitor series differ in job and instance
           expr: |-
-            probe_success{service="blackbox-exporter"} == 0
-            and
+            probe_success{service="blackbox-exporter",job!="probe/observability/loadbalancer-ips"} == 0
+            and on(service)
             up{service="blackbox-exporter"} == 1
           for: 15m
           labels:

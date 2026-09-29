@@ -439,7 +439,7 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 
 **StorageClass**: `ceph-block`
 **Protocol**: Ceph RBD (RADOS Block Device)
-**Replication**: 3 replicas (Ceph default)
+**Replication**: 3 replicas when measured; pools have been size 2 / min_size 1 since 2025-12-16
 **Test Node**: control-1
 
 ### Sequential Write (1MB blocks, 4 jobs)
@@ -482,7 +482,7 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 
 **StorageClass**: `ceph-filesystem`
 **Protocol**: CephFS (Ceph Filesystem)
-**Replication**: 3 replicas (Ceph default)
+**Replication**: 3 replicas when measured; pools have been size 2 / min_size 1 since 2025-12-16
 **Access Mode**: ReadWriteMany (supports multiple pods)
 **Test Node**: control-1
 
@@ -604,7 +604,7 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 - **Ultra-High Random Read IOPS**: 1,674,000 IOPS ⚠️ *Likely cached* (6.3x higher than Mayastor 3-replica, 28x higher than ZFS)
 - **Ultra-Low Random Read Latency**: 0.0019 ms (1.4x lower than Mayastor 3-replica, 110x lower than ZFS)
 - **⚠️ Cache Warning**: Read performance numbers are likely inflated due to Ceph's internal cache serving data after write tests
-- **High Availability**: Built-in 3-replica replication with automatic failover
+- **High Availability**: Built-in replication with automatic failover (measured at 3 replicas, now size 2 / min_size 1)
 - **Enterprise-Grade**: Mature, production-tested distributed storage system
 - **Scalability**: Can scale to thousands of nodes and petabytes of storage
 - **Multiple Access Methods**: Supports both block (RBD) and filesystem (CephFS) interfaces
@@ -635,7 +635,7 @@ When Mayastor is limited to 1 CPU core, its performance characteristics change s
 - **Better Random Write than RBD**: 953 IOPS vs 862 IOPS (11% higher)
 - **Lower Random Write Latency than RBD**: 14 ms vs 15 ms p50
 - **Shared Filesystem**: Traditional POSIX filesystem semantics for shared access
-- **High Availability**: Built-in 3-replica replication with automatic failover
+- **High Availability**: Built-in replication with automatic failover (measured at 3 replicas, now size 2 / min_size 1)
 - **Enterprise-Grade**: Mature, production-tested distributed filesystem
 
 **Considerations:**

@@ -12,8 +12,6 @@ spec:
   datasources:
     - datasourceName: VictoriaMetrics
       inputName: DS_PROMETHEUS
-  # Was a vendored copy: 24965's $job/$instance vars need
-  # litellm_proxy_total_requests_metric_created, unexported until v1.97.0.
-  # No revision -- track latest.
+  # No revision, tracks latest: 24965's $job/$instance vars need litellm_proxy_total_requests_metric_created (litellm >= v1.97.0).
   grafanaCom:
     id: 24965

@@ -16,7 +16,7 @@ customization:
     - amdgpu.runpm=0
     # Explicit 0, not absent: GECC persists in PSP firmware state once armed, so
     # dropping the flag leaves it on. It costs exactly 2GiB of VRAM (6.25% carve-out)
-    # and sglang runs at 99.6% allocation. MEM ECC corrects regardless of this.
+    # and vLLM serving is sized against nearly all remaining VRAM. MEM ECC corrects regardless.
     - amdgpu.ras_enable=0
     - pcie_aspm.policy=performance
     - mitigations=off

@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app opnsense-exporter
+  name: opnsense-exporter
 spec:
   interval: 30m
   chartRef:
@@ -20,8 +20,6 @@ spec:
             image:
               repository: ghcr.io/athennamind/opnsense-exporter
               tag: 0.0.17@sha256:04a28ad984a091ea1e8371cf515da8b38b1d00416f53e6b5c9d68fec39d92ce0
-            args:
-              - --web.listen-address=:8080
             env:
               OPNSENSE_EXPORTER_INSTANCE_LABEL: "gw"
               OPNSENSE_EXPORTER_OPS_INSECURE: true
@@ -58,7 +56,6 @@ spec:
             port: 8080
     serviceMonitor:
       app:
-        serviceName: *app
         endpoints:
           - port: http
             interval: 5m

@@ -22,3 +22,5 @@ spec:
       PVC_CAPACITY: 20Gi
       KOPIUR_PUID: "10000"
       KOPIUR_PGID: "10000"
+      # lazy_deps install target, npm cache, pnpm store: all re-fetched on demand
+      KOPIUR_IGNORE_RULES: "[/lost+found, /lazy-packages/*, /home/.npm/*, /home/.local/share/pnpm/store/*]"

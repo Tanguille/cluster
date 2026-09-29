@@ -15,6 +15,19 @@ spec:
     deployment:
       # xDS control plane; avoid config-push stalls when the sole replica's node is disrupted
       replicas: 2
+      pod:
+        # Hard spread: both controller replicas on one node means one node failure
+        # stalls xDS pushes to every gateway while the deployment reschedules.
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                control-plane: envoy-gateway
+    # Chart only renders a PDB when this is set (default minAvailable: 0 = none)
+    podDisruptionBudget:
+      minAvailable: 1
     config:
       envoyGateway:
         provider:

@@ -28,26 +28,3 @@ spec:
 ## Example
 
 See `kubernetes/apps/kopiur-system/kopia/ks.yaml` for a complete example.
-
-## Configuration
-
-The component creates a ScaledObject that:
-
-- Monitors `probe_success{instance=~".+:2049"}` from Prometheus
-- Scales between 0 and 1 replicas based on NFS availability
-- Uses a threshold of 1 (NFS must be available to scale up)
-
-## Customization
-
-To customize `maxReplicaCount`, you can patch the ScaledObject in your app's kustomization:
-
-```yaml
-patches:
-  - target:
-      kind: ScaledObject
-      name: ${APP}
-    patch: |-
-      - op: replace
-        path: /spec/maxReplicaCount
-        value: 3  # Your desired max replicas
-```

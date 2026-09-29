@@ -4,46 +4,11 @@ Spawn each phase with `subagent_type: general-purpose` (or `code-reviewer` only 
 
 Output paths: `.agents/pr-review/pr-${PR_ID}/phase-<N>-*.md`
 
-## Phase 1 — YAML format
+## Phase 1 — Naming
 
 ```yaml
 subagent_type: general-purpose
-description: "PR Review Phase 1: YAML Format"
-prompt: |
-  Review YAML formatting for PR.
-
-  CONVENTIONS:
-  - 2-space indentation (no tabs)
-  - LF line endings
-  - No trailing whitespace
-  - Blank line at EOF
-
-  FILES: [list from PR]
-
-  TASKS:
-  1. Check 2-space indentation on all YAML
-  2. Verify no tabs
-  3. Check trailing whitespace
-
-  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-1-yaml-format.md:
-
-  # Phase 1: YAML Format Review
-  **Completed:** [timestamp]
-  ## Files Reviewed
-  (list)
-  ## Findings
-  | Severity | File | Line | Issue | Fix |
-  |----------|------|------|-------|-----|
-  ## Summary Stats
-  - Total issues: N
-  - Critical: N | High: N | Medium: N | Low: N
-```
-
-## Phase 2 — Naming
-
-```yaml
-subagent_type: general-purpose
-description: "PR Review Phase 2: Naming Conventions"
+description: "PR Review Phase 1: Naming Conventions"
 prompt: |
   Review naming conventions for PR.
 
@@ -58,14 +23,14 @@ prompt: |
   3. Check directory structure
   4. Verify ks.yaml name matches dir
 
-  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-2-naming.md with findings table.
+  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-1-naming.md with findings table.
 ```
 
-## Phase 3 — Best practices
+## Phase 2 — Best practices
 
 ```yaml
 subagent_type: general-purpose
-description: "PR Review Phase 3: Best Practices"
+description: "PR Review Phase 2: Best Practices"
 prompt: |
   Review HelmRelease best practices for PR.
 
@@ -87,17 +52,17 @@ prompt: |
   6. Verify persistence
   7. Check HTTPRoute parentRef
   8. Verify hostname template
+  9. Check API versions and Flux CRD fields against the cluster's CRDs
+  10. Check dependsOn has no cycles
 
-  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-3-best-practices.md.
+  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-2-best-practices.md.
 ```
 
-See [best-practices.md](best-practices.md) for expanded validation topics.
-
-## Phase 4 — Security
+## Phase 3 — Security
 
 ```yaml
 subagent_type: general-purpose
-description: "PR Review Phase 4: Security"
+description: "PR Review Phase 3: Security"
 prompt: |
   Review security for GitOps Kubernetes PR.
 
@@ -113,15 +78,16 @@ prompt: |
   3. Check for hardcoded credentials
   4. Check for hardcoded domains/IPs
   5. Verify securityContext
+  6. Check RBAC and network policies against peer apps
 
-  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-4-security.md.
+  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-3-security.md.
 ```
 
-## Phase 5 — Architecture
+## Phase 4 — Architecture
 
 ```yaml
 subagent_type: general-purpose
-description: "PR Review Phase 5: Architecture"
+description: "PR Review Phase 4: Architecture"
 prompt: |
   Review architecture patterns for GitOps Kubernetes PR.
 
@@ -136,14 +102,14 @@ prompt: |
   3. Verify kustomization.yaml references
   4. Check YAML anchors for DRY
 
-  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-5-architecture.md.
+  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-4-architecture.md.
 ```
 
-## Phase 6 — Validation
+## Phase 5 — Validation
 
 ```yaml
 subagent_type: general-purpose
-description: "PR Review Phase 6: Validation"
+description: "PR Review Phase 5: Validation"
 prompt: |
   Run validation tools for GitOps Kubernetes PR.
 
@@ -157,5 +123,5 @@ prompt: |
   1. Run shellcheck on touched scripts
   2. Run flate test all (or kustomize build + flux build if flate is unavailable)
 
-  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-6-validation.md.
+  OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-5-validation.md.
 ```

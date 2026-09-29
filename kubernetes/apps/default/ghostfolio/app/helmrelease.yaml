@@ -26,33 +26,13 @@ spec:
           app:
             image:
               repository: docker.io/ghostfolio/ghostfolio
-              tag: 3.71.0@sha256:e1be012165cfff65771b7e10eaf10ef7c15799664318fec72697f2b2245a6a64
+              tag: 3.75.0@sha256:dd6c6a95d5b726e9ae2954f177eff9bfd6df52942a2ae2baad1fb8710ccfc5c8
             env:
-              PORT: "3333"
               REDIS_HOST: dragonfly.database.svc.cluster.local
-              REDIS_PORT: "6379"
-              DATABASE_URL:
-                valueFrom:
-                  secretKeyRef:
-                    name: ghostfolio-secret
-                    key: DATABASE_URL
-              # pgbouncer-rw runs in transaction mode; Prisma migrations need session-level
-              # continuity (advisory locks), so they go straight at CNPG, bypassing the pooler.
-              DIRECT_URL:
-                valueFrom:
-                  secretKeyRef:
-                    name: ghostfolio-secret
-                    key: DIRECT_URL
-              ACCESS_TOKEN_SALT:
-                valueFrom:
-                  secretKeyRef:
-                    name: ghostfolio-secret
-                    key: ACCESS_TOKEN_SALT
-              JWT_SECRET_KEY:
-                valueFrom:
-                  secretKeyRef:
-                    name: ghostfolio-secret
-                    key: JWT_SECRET_KEY
+            # DIRECT_URL bypasses pgbouncer-rw (transaction mode): Prisma migrations need session-level advisory locks.
+            envFrom:
+              - secretRef:
+                  name: ghostfolio-secret
             probes:
               # /api/v1/health 503s when Postgres or dragonfly is down: gates readiness and
               # startup, never liveness (a pooler blip would restart a healthy pod).
@@ -87,7 +67,6 @@ spec:
 
     service:
       app:
-        controller: ghostfolio
         ports:
           http:
             port: 3333
@@ -105,7 +84,3 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: http

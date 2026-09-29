@@ -15,9 +15,6 @@ spec:
       it-tools:
         strategy: RollingUpdate
 
-        annotations:
-          reloader.stakater.com/auto: "true"
-
         pod:
           securityContext:
             runAsUser: 1000
@@ -43,10 +40,18 @@ spec:
                 drop:
                   - ALL
               readOnlyRootFilesystem: true
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8080
+              readiness: *probe
 
     service:
       app:
-        controller: it-tools
         ports:
           http:
             port: 8080
