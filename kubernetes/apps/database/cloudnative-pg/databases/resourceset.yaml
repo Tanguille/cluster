@@ -26,6 +26,13 @@ spec:
     - name: kguardian
       extensions:
         - *vector
+    - name: kritik
+      extensions:
+        # Both must exist before kritik's first start; vchord is already in the cluster's
+        # shared_preload_libraries. Kept paired with vector, as for memini.
+        - name: vchord
+          version: "1.1.1"
+        - *vector
     - name: litellm
       extensions:
         - *vector
