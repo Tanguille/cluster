@@ -61,9 +61,12 @@ spec:
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
               # Re-rank a wider pool than the recall limit, then truncate: lets a
               # composite-buried memory be rescued by its own relevance. Cost is one
-              # forward pass per candidate, so 30 trades some of the 50 ceiling's rescue
-              # depth for a shorter serial rerank on the shared iGPU.
-              MEMINI_RERANK_POOL: "30"
+              # forward pass per candidate (~630 ms on the contended iGPU), so 20
+              # pairs keeps the worst-case serial pass (~13s) close to the 8s
+              # timeout and its typical shard count (20 docs x 2048 chars ~ 41k
+              # chars ~ 3 requests) far under the 30-pair worst case that was
+              # timing out ~70% of the time.
+              MEMINI_RERANK_POOL: "20"
               # Absolute relevance floor: drops low-relevance candidates outright,
               # so a query with no genuine match returns empty (a verdict) instead
               # of the best-of-a-bad-pool. 0.5 is a conservative start on
@@ -72,11 +75,14 @@ spec:
               MEMINI_RERANK_MIN_SCORE: "0.5"
               # Hermes abandons a recall at 8s (memory_manager.py _EXTERNAL_PREFETCH_TIMEOUT_S);
               # a longer rerank only holds the single reranker slot. With MIN_SCORE a
-              # timeout returns empty (the gate fails closed).
+              # timeout returns empty (the gate fails closed). Keep this at 8s: at
+              # pool=20 the 2026-09-29 fallback spike (~70% timeouts on 30-pair
+              # worst-case passes) should drop to near zero — re-check
+              # memini_rerank_results_total before touching this value.
               MEMINI_RERANK_TIMEOUT: "8s"
               # HTTP payload cap per /rerank request; the 6000 default shards a deep
-              # pool into ~10 serial requests. 20000 gives ~4 worst case (30 docs x
-              # 2048-char MAX_DOC_CHARS ~ 61k chars), typically one.
+              # pool into ~10 serial requests. 20000 gives ~3 worst case (20 docs x
+              # 2048-char MAX_DOC_CHARS ~ 41k chars), typically one.
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # Same congestion logic as the embedder knobs: one in-flight rerank
               # call keeps a slow shared-iGPU reranker from stalling the recall tail.
