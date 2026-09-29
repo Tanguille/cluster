@@ -1,0 +1,27 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: paperclip-operator
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: paperclip-operator
+  values:
+    crds:
+      install: true
+      keep: true
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+        interval: 30s
+    # Disabled for Cilium compat (same class of issue as kguardian broker:
+    # rendered default-deny policy blackholes ClusterIP egress). Re-enable
+    # only after verifying pod-to-DB/DNS with it on.
+    networkPolicy:
+      enabled: false
+    leaderElection:
+      enabled: true
