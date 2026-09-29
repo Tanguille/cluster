@@ -175,10 +175,10 @@ Always: keep essential steps, caveats, uncertainties, and specifics — never dr
 If a user request is genuinely ambiguous, ask a sharp question, don't guess.
 {%- endset %}
 {%- set _terse = _terse_lead ~ '\n' ~ (_terse_core | trim) %}
-{#- `terse` chat-template kwarg: default true, so behaviour is unchanged unless a caller opts out.
-    Pass {"terse": false} via chat_template_kwargs to serve the model with only its own system
-    prompt -- useful for A/B-ing the terseness effect, or when a downstream prompt conflicts. #}
-{%- set _terse_on = terse if terse is defined else true %}
+{#- `terse` chat-template kwarg: default false (opt-IN), so behaviour is unchanged
+    unless a caller opts in. Pass {"terse": true} via chat_template_kwargs to append
+    the terseness block -- useful for A/B-ing the terseness effect. #}
+{%- set _terse_on = terse if terse is defined else false %}
 {%- if _terse_on %}
     {%- if not _sc %}
         {%- set _sc = _terse | trim %}

@@ -28,12 +28,10 @@ spec:
       # Template default is xhigh; medium is the better quality/latency point for
       # most turns. Only affects this alias -- qwen-3.8-fast sets enable_thinking
       # false, and the template gates effort behind thinking.
-      # terse: the Sharp template defaults it ON server-side; off here because
-      # the repo's tool-calling benchmark saw duplicate tool calls with it on.
+      # terse: the Sharp template defaults it OFF (opt-in), so nothing to opt out of.
       extra_body:
         chat_template_kwargs:
           reasoning_effort: medium
-          terse: false
   info:
     mode: chat
     # maxModelLen (246944) minus maxOutputTokens; re-derive if that changes,
@@ -68,7 +66,6 @@ spec:
       extra_body:
         chat_template_kwargs:
           enable_thinking: false
-          terse: false
   info:
     mode: chat
     # 246944 - 8192, as above.

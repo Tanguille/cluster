@@ -202,6 +202,9 @@ spec:
         name: lds-gate-patch
     # Qwen Sharp chat template; over the model dir so vLLM's chat() and the
     # tokenizer load it in place of the AWQ build's stock Qwen3.8 template.
+    # The subPath below hardcodes the llmkube cache key for the pinned AWQ
+    # source (verified on the PVC on 2026-09-29); re-derive it if
+    # spec.source changes -- a mismatch silently no-ops the swap.
     - name: qwen38-sharp-chat-template
       configMap:
         name: qwen38-sharp-chat-template
