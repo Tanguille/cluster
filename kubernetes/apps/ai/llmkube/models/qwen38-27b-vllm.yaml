@@ -142,7 +142,20 @@ spec:
   # VLLMDecodeStepLatched cover the gfx1201 band: 0 firings or restarts
   # 2026-09-13..23.
   # Bump baseline: docs/llm-hosting/vllm-nightly-bench-2026-09-29.md.
-  image: vllm/vllm-openai-rocm:nightly@sha256:50b4f2aec13ffcb11ed846fec049d72250a9c2421eb1ad24c95a5210d46cee4c
+  #
+  # ROCm 10.0 base (2026-09-30). Same vLLM commit as the rocm7 digest above
+  # (36768d1bf), so this isolates the ROCm bump: ROCm SDK 7.2.3 -> 10.0.0,
+  # torch 2.13 -> 2.12.0+rocm10.0.0, Triton 669b31a -> 3.8.0+gitc0a142ff.
+  # aiter stays v0.1.23 and python stays 3.12, so all three lds-gate-patch
+  # targets (rdna_hybrid_w4a16, aiter unified_attention_utils, the
+  # python3.12 dist-packages mount paths) are unchanged. PYTORCH_ROCM_ARCH
+  # still lists gfx1201; AITER_ROCM_ARCH is gfx942;gfx950 in BOTH images, so
+  # the AITER selection story is not what changes here.
+  # UNVERIFIED until the bench in docs/llm-hosting/vllm-rocm100-bench.md runs:
+  # ROCm 10.0 is a runtime-library change only, and the tuned wins (LDS gate,
+  # M<=32 Triton tile, attn_3d num_stages) are all vLLM/aiter-side, so expect
+  # parity at M=1..5 and re-derive maxModelLen from the boot log either way.
+  image: vllm/vllm-openai-rocm:nightly-rocm100@sha256:bdf0a71d472fe1ea32ec02f1cb74146c80036176f985c3cd8035b455bde1ff54
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -166,6 +179,30 @@ spec:
     # comparison: docs/llm-hosting/gfx1201-decode-findings-2026-09-02.md
     - name: VLLM_ROCM_USE_AITER
       value: "1"
+    # ViT/encoder attention ONLY -- this does not touch the LLM decode backend.
+    # rocm.py get_vit_attn_backend() reads it in exactly one place: the
+    # on_gfx1x() branch, which returns FLASH_ATTN (Triton) instead of falling
+    # through to TORCH_SDPA. The LLM path is _get_backend_priorities(), a
+    # separate function that never consults this variable, so
+    # ROCM_AITER_UNIFIED_ATTN still wins for decode (vllm#32944).
+    #
+    # Needed because the SDPA fallback is not a safe default here, not
+    # because a ROCm 10.0-specific crash is proven: vllm#49851 (open) has the
+    # ViT TORCH_SDPA path erroring at model init on gfx1201
+    # ("CUDA error: invalid argument" out of vit_torch_sdpa_wrapper) on ROCm
+    # 7.15, and vllm#30167 (open) reports flash_sdp / mem_efficient_sdp
+    # producing wrong image embeddings on ROCm. Either way SDPA is the wrong
+    # place to be, and the Triton path is also faster: 1.8-6.5x lower ViT TTFT
+    # measured upstream on RDNA.
+    #
+    # NOT yet proven correct for THIS checkpoint: its vision tower is
+    # hidden_size 1152 / 16 heads = head_dim 72, the same non-power-of-2
+    # geometry that hit a Triton rotary "invalid argument" in vllm#37992
+    # (closed by the #43684 grid-limit fallback, which is in this build).
+    # bench/visioncheck.py is the gate for that -- see
+    # docs/llm-hosting/vllm-rocm100-bench.md before promoting this digest.
+    - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
+      value: "TRUE"
     # gfx1201 fast/slow band at exactly 2x (ROCm/ROCm#6347). One queue: fast
     # 80/81 windows vs slow 5/5 without; not a pin.
     - name: GPU_MAX_HW_QUEUES
