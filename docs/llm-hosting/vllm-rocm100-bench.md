@@ -56,6 +56,25 @@ nightly this deployment runs today. That is upstream's build matrix, not
 something this PR can change, and it is the single biggest reason to expect
 this bump to be flat rather than faster.
 
+This is not a pinning mistake, and there is no better ROCm 10 build to wait
+for. Verified against the registry on 2026-09-30:
+
+- `nightly` and `nightly-rocm100` cover the **identical 7 vLLM commits**, each
+  pair built 1–6 minutes apart in the same pipeline run (36768d1bf: rocm7
+  `05:21:01`, rocm100 `05:24:24`, 2026-09-29). The rocm100 line does not lag.
+- `base-nightly-rocm100` was last rebuilt 2026-09-28 and is still pinned to
+  `TORCH_VERSION=2.12.0+rocm10.0.0`, `TRITON_VERSION=3.8.0+gitc0a142ff`,
+  `ROCM_SDK_VERSION=10.0.0`, `AITER_BRANCH=v0.1.23`.
+- `nightly-rocm100` is the only ROCm 10 tag line. There is no
+  `v0.30.0-rocm100` or any other ROCm 10 release variant — the `v0.28`–`v0.30`
+  release tags are ROCm 7 only.
+
+So torch 2.12 on ROCm 10 is a property of the published line, not a stale
+digest. Re-check `base-nightly-rocm100` before running the bench; if it has
+been rebuilt onto 2.13 by then, re-resolve the digest and re-run this
+comparison, because a torch *upgrade* rather than a downgrade would change the
+expectation from parity to a possible win at 64K prefill.
+
 ## The vision path
 
 `FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE` is added alongside the image bump.
