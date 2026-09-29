@@ -153,7 +153,7 @@ spec:
     # --kv-cache-memory, mamba dtype, or image change.
     maxModelLen: 246944
     kvCacheDtype: fp8_e4m3
-    # ~91% local hit rate (nightly-bench-2026-09-29.md).
+    # ~91% pod-lifetime local hit rate (nightly-bench-2026-09-29.md).
     enablePrefixCaching: true
     # Do not lower: 2048 cost TTFT p50 5s -> 80s (a 20K prompt = 10 prefill
     # steps). Workload is 129:1 prompt:output.
