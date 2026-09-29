@@ -1,6 +1,9 @@
 ---
-# Node-local staging for the 18.23 GiB checkpoint; 20Gi leaves re-stage
-# headroom.
+# Node-local staging for the 18.23 GiB checkpoint. 40Gi because the
+# controller keys the cache dir on the source string, so the Swift 1.0
+# and 1.5 checkpoints coexist in this PVC during/after the OnChange
+# restage (18.23 + 18.23 GiB + headroom); the 1.0 dir can be pruned
+# after 1.5 is confirmed serving.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -10,7 +13,7 @@ spec:
   storageClassName: openebs-hostpath
   resources:
     requests:
-      storage: 20Gi
+      storage: 40Gi
 
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
