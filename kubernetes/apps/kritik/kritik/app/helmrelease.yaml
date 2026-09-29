@@ -1,0 +1,86 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kritik
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: ./charts/kritik
+      # The pin is a commit, not a chart version, so a new commit must move the artifact.
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: kritik
+  values:
+    # No release exists, so the chart's appVersion is 0.0.0 and `main` is the only published tag.
+    image:
+      tag: main
+      digest: sha256:b6b8b2fe89edcbf83d8ac80cfc07195b59d35a8b6f1512391b568d8ac4bdd554
+    runner:
+      # The -tools variant adds curl, fd and rg for an agentic review's agent.commands.
+      image: ghcr.io/home-operations/kritik:main-tools@sha256:8cfdade98ff15abf93fc13edcf63ffbfbf5ee92ee4944069efa079a923e355b6
+    deploymentAnnotations:
+      reloader.stakater.com/auto: "true"
+    # The one public URL: the dashboard at it, GitHub's webhooks under it at /hooks. TLS
+    # terminates on the gateway with the wildcard certificate.
+    web:
+      url: "https://kritik.${SECRET_DOMAIN}"
+    dashboard:
+      # Seals the provider credentials in the instance configuration. Losing it makes them
+      # unreadable and the pod fail to start.
+      keySecret:
+        name: kritik-secret
+        key: dashboard-key
+    auth:
+      # Local admin is the way into a fresh instance; drop it once GitHub or OIDC is set up.
+      admin:
+        user: admin
+        passwordSecret:
+          name: kritik-secret
+          key: admin-password
+    # Three roles on the shared postgres16. The owner runs migrations and must not be a
+    # superuser, so its DSN points at postgres16-rw rather than the transaction-mode pooler.
+    database:
+      owner:
+        existingSecret: kritik-db-owner
+        key: uri
+      app:
+        existingSecret: kritik-db-app
+        key: uri
+        role: kritik_app
+      runner:
+        existingSecret: kritik-db-runner
+        key: uri
+        role: kritik_runner
+    config:
+      # The embedder: the same qwen3-embedding through LiteLLM that memini indexes with, so
+      # no external embedding key and no egress to a third party.
+      extraEnv:
+        - name: KRITIK_EMBEDDING_BASE_URL
+          value: "http://litellm.ai.svc.cluster.local/v1"
+        - name: KRITIK_EMBEDDING_MODEL
+          value: "qwen3-embedding"
+        - name: KRITIK_EMBEDDING_DIMS
+          value: "1024"
+        - name: KRITIK_EMBEDDING_API_KEY
+          value: ${LITELLM_API_KEY}
+    httpRoute:
+      enabled: true
+      parentRefs:
+        - name: envoy-external
+          namespace: network
+    # Runner pods reach nothing but DNS, Postgres and the worker's gateway, which is the
+    # forward proxy they are handed as HTTPS_PROXY and the model endpoint an agentic runner
+    # calls with a per-run token. 80 is LiteLLM for the embedder; runner pods are unaffected
+    # while the gateway is on.
+    networkPolicy:
+      enabled: true
+      egressPorts:
+        - 80
+        - 443
+    monitoring:
+      serviceMonitor:
+        enabled: true

@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Namespace of its own: the worker's Role can create, patch and delete every Secret here, and
+# runner Jobs run here too.
+namespace: kritik
+components:
+  - ../../components/common
+resources:
+  - ./kritik/ks.yaml
