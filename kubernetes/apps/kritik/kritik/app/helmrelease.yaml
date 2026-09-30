@@ -30,20 +30,20 @@ spec:
       admin:
         user: admin
         passwordSecret:
-          name: kritik-secret
+          name: &secret kritik-secret
           key: admin-password
     # Owner runs migrations; its DSN bypasses the transaction-mode pooler.
     database:
       owner:
-        existingSecret: kritik-db-owner
-        key: uri
+        existingSecret: *secret
+        key: owner-uri
       app:
-        existingSecret: kritik-db-app
-        key: uri
+        existingSecret: *secret
+        key: app-uri
         role: kritik_app
       runner:
-        existingSecret: kritik-db-runner
-        key: uri
+        existingSecret: *secret
+        key: runner-uri
         role: kritik_runner
     config:
       file:
@@ -71,11 +71,11 @@ spec:
         secretName: cluster-secrets
         key: LITELLM_API_KEY
       - name: GITHUB_APP_PRIVATE_KEY
-        secretName: kritik-bot
-        key: private-key.pem
+        secretName: *secret
+        key: github-private-key
       - name: GITHUB_APP_WEBHOOK_SECRET
-        secretName: kritik-bot
-        key: webhook-secret
+        secretName: *secret
+        key: github-webhook-secret
     httpRoute:
       enabled: true
       parentRefs:
