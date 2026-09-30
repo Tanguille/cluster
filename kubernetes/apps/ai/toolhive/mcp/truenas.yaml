@@ -1,17 +1,8 @@
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
-# cedricziel/truenas-mcp (MIT, actively maintained) — pools, datasets, apps,
-# VMs, shares, tasks, and system info exposed to the ToolHive optimizer. Verified
-# against the live TrueNAS 26 JSON-RPC WebSocket API.
-#
-# Read-only by default: writes require TRUENAS_MCP_ENABLE_WRITES, in addition to
-# the upstream denylist of unrecoverable operations.
-#
-# Why not the official iXsystems server: it has stalled since 2026-07-22, ships
-# binaries only, and has no --readonly flag.
-#
-# Stdio transport: the operator launches the server and speaks MCP over stdio.
-# TLS stays verified by default; the target is reached through its Let's Encrypt
-# name (truenas.${SECRET_DOMAIN}), with no INSECURE flag.
+# cedricziel/truenas-mcp, verified against the live TrueNAS 26 JSON-RPC WebSocket API: pools, datasets, apps, VMs, shares, tasks and system info for the ToolHive optimizer.
+# Read-only by default: writes require TRUENAS_MCP_ENABLE_WRITES, on top of the upstream denylist of unrecoverable operations.
+# Not the official iXsystems server: it ships binaries only and has no --readonly flag.
+# TLS stays verified: the target is reached through its Let's Encrypt name (truenas.${SECRET_DOMAIN}), with no INSECURE flag.
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
@@ -23,10 +14,7 @@ spec:
   args: ["--stdio"]
   groupRef:
     name: all
-  toolConfigRef:
-    name: truenas
   permissionProfile:
-    type: builtin
     name: network
   env:
     - name: TRUENAS_MCP_TARGET
@@ -53,40 +41,3 @@ spec:
     limits:
       cpu: 200m
       memory: 128Mi
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: truenas
-spec:
-  # Source: cedricziel/truenas-mcp 0.4.2 README (2026-09-30); exhaustive, including conditional write tools.
-  # The single-word dispatcher tools (apps, backup, catalog, filesystem, inventory,
-  # jobs, sharing, storage, system, virtualization) are read-only and cannot mutate state.
-  toolsFilter:
-    - app_pull_images
-    - app_redeploy
-    - app_rollback
-    - app_start
-    - app_stop
-    - app_upgrade
-    - apps
-    - backup
-    - call_method
-    - catalog
-    - create_nfs_export
-    - create_smb_share
-    - create_snapshot
-    - describe_method
-    - filesystem
-    - inventory
-    - jobs
-    - search_methods
-    - server_info
-    - set_path_acl
-    - set_smb_share_acl
-    - sharing
-    - storage
-    - system
-    - system_info
-    - virtualization

@@ -10,7 +10,6 @@ spec:
   # MCP_TRANSPORT, so "streamable-http" silently falls through to its stdio default
   # while the proxy still expects a network listener on mcpPort — crash loop.
   transport: stdio
-  proxyPort: 8080
   groupRef:
     name: all
   env:
