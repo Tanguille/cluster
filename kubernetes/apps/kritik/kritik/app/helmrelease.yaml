@@ -46,6 +46,8 @@ spec:
         key: runner-uri
         role: kritik_runner
     config:
+      # Drop a turned-off repo's index after 1h instead of 720h; re-enabling onboards a fresh one.
+      indexGrace: 1h
       file:
         apps:
           - name: github
