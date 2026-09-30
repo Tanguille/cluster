@@ -15,12 +15,12 @@ spec:
         kind: GitRepository
         name: kritik
   values:
-    # Digests are the newest image build (9748e26); later chart-only commits don't rebuild it.
+    # Digests are the newest image build (e4bb79f); later chart-only commits don't rebuild it.
     image:
-      digest: sha256:4c3b304b8c9f317c482416f2c09a6df12a103ff739680f6d92e09f865fdb6423
+      digest: sha256:b40f1487c4d11bd854d426fedb6671c87babe1204b2787d217d6d5fb133ce71f
     runner:
       # -tools adds curl, fd, gh and rg for agent.commands.
-      image: ghcr.io/home-operations/kritik:main-tools@sha256:3456557f6d6b7e1172e23a9d36a3828da0e0a956cb9240b9eed8152a6a556097
+      image: ghcr.io/home-operations/kritik:main-tools@sha256:911eb9682d875b7974eee10bc198d94b99d62685b5fe042e52ad2e44432cc0a9
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
     web:
