@@ -68,8 +68,16 @@ kind: MCPToolConfig
 metadata:
   name: kubesearch
 spec:
+  # Source: perfectra1n/kubesearch-mcp upstream README (2026-09-30); exhaustive, including conditional repo_* tools.
   toolsFilter:
-    - kubesearch_search_releases
-    - kubesearch_search_images
+    - kubesearch_get_release
     - kubesearch_grep_values
+    - kubesearch_search_images
+    - kubesearch_search_releases
     - kubesearch_status
+    - repo_cleanup
+    - repo_clone
+    - repo_grep
+    - repo_grep_all
+    - repo_list_files
+    - repo_read_file

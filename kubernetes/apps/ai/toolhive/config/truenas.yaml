@@ -60,8 +60,35 @@ kind: MCPToolConfig
 metadata:
   name: truenas
 spec:
+  # Source: cedricziel/truenas-mcp 0.4.2 README (2026-09-30); exhaustive, including conditional write tools.
   toolsFilter:
+    - app_pull_images
+    - app_redeploy
+    - app_rollback
+    - app_start
+    - app_stop
+    - app_upgrade
+    - apps
+    - backup
     - call_method
+    - catalog
+    - create_nfs_export
+    - create_smb_share
+    - create_snapshot
+    - delete_nfs_export
+    - delete_smb_share
+    - describe_method
+    - filesystem
+    - inventory
+    - jobs
     - search_methods
     - server_info
+    - set_path_acl
+    - set_smb_share_acl
+    - sharing
+    - storage
+    - system
     - system_info
+    - update_nfs_export
+    - update_smb_share
+    - virtualization

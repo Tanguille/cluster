@@ -31,17 +31,84 @@ kind: MCPToolConfig
 metadata:
   name: github
 spec:
+  # Source: github/github-mcp-server upstream catalog (2026-09-30); exhaustive catalog, hosted endpoint exposes an approximately 46-tool subset.
   toolsFilter:
-    - search_code
-    - search_repositories
-    - list_branches
-    - list_releases
-    - create_pull_request
-    - merge_pull_request
-    - push_files
+    - actions_get
+    - actions_list
+    - actions_run_trigger
+    - add_comment_to_pending_review
+    - add_issue_comment
+    - add_reply_to_pull_request_comment
+    - assign_copilot_to_issue
+    - assign_copilot_to_issue_with_intent
     - create_branch
-    - get_commit
-    - get_tag
-    - list_tags
+    - create_gist
+    - create_or_update_file
+    - create_pull_request
     - create_repository
+    - create_repository_ruleset
+    - custom_properties_read
+    - custom_properties_write
+    - delete_file
+    - delete_repository
+    - discussion_comment_write
+    - dismiss_notification
     - fork_repository
+    - get_code_quality_finding
+    - get_code_scanning_alert
+    - get_commit
+    - get_dependabot_alert
+    - get_discussion
+    - get_discussion_comments
+    - get_file_contents
+    - get_gist
+    - get_job_logs
+    - get_label
+    - get_latest_release
+    - get_me
+    - get_notification_details
+    - get_release_by_tag
+    - get_repository_tree
+    - get_tag
+    - get_team_members
+    - get_teams
+    - issue_read
+    - issue_write
+    - label_write
+    - list_branches
+    - list_code_scanning_alerts
+    - list_commits
+    - list_dependabot_alerts
+    - list_discussion_categories
+    - list_discussions
+    - list_gists
+    - list_issue_fields
+    - list_issue_types
+    - list_issues
+    - list_label
+    - list_notifications
+    - list_pull_requests
+    - list_releases
+    - list_repository_collaborators
+    - list_tags
+    - manage_notification_subscription
+    - manage_repository_notification_subscription
+    - mark_all_notifications_read
+    - merge_pull_request
+    - projects_get
+    - projects_list
+    - projects_write
+    - pull_request_read
+    - pull_request_review_write
+    - repository_ruleset_read
+    - request_copilot_review
+    - search_code
+    - search_issues
+    - search_orgs
+    - search_pull_requests
+    - search_repositories
+    - sub_issue_write
+    - update_gist
+    - update_issue_comment
+    - update_pull_request
+    - update_pull_request_branch
