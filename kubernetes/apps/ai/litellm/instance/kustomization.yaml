@@ -12,3 +12,13 @@ resources:
   - servicemonitor.yaml
   - grafanadashboard.yaml
   - prometheusrule.yaml
+
+configMapGenerator:
+  - name: litellm-dashboard
+    files:
+      - dashboard/litellm.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
