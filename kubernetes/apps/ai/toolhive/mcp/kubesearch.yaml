@@ -2,58 +2,57 @@
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer
 metadata:
-  name: homeassistant
+  name: kubesearch
 spec:
-  image: ghcr.io/homeassistant-ai/ha-mcp:8.5.0@sha256:e1538bcdadb13a5467bbb8258fba3262a05518585e18115742da638adec7057c
+  image: ghcr.io/perfectra1n/kubesearch-mcp:master@sha256:2f0b48c90550c2bde2cb54ddb8759a53997b9d5d22f8e532297d08fa1362198c
   transport: streamable-http
-  mcpPort: 8086
+  mcpPort: 3000
   groupRef:
     name: all
-  env:
-    - name: HOMEASSISTANT_URL
-      value: http://${HOME_ASSISTANT_IP}:8123
-    - name: TMPDIR
-      value: /tmp
-  secrets:
-    - name: toolhive-secrets
-      key: HOMEASSISTANT_API_TOKEN
-      targetEnvName: HOMEASSISTANT_TOKEN
   podTemplateSpec:
     spec:
+      # The operator sets readOnlyRootFilesystem, but kubesearch downloads its
+      # catalog DB to /data (repos-extended-<date>.db): without a writable
+      # mount every tool call fails with EROFS. Same pattern as /tmp.
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: data
+          emptyDir: {}
       containers:
         - name: mcp
-          command: ["ha-mcp-web"]
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: data
+              mountPath: /data
           ports:
             - name: mcp
-              containerPort: 8086
+              containerPort: 3000
           startupProbe:
-            tcpSocket:
+            httpGet:
+              path: /healthz
               port: mcp
             periodSeconds: 5
             failureThreshold: 30
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /healthz
               port: mcp
             periodSeconds: 5
-            timeoutSeconds: 2
+            timeoutSeconds: 3
             failureThreshold: 3
           resources:
             requests:
               cpu: 10m
-              memory: 64Mi
+              memory: 256Mi
             limits:
-              cpu: 1
-              memory: 512Mi
+              cpu: 500m
+              memory: 1Gi
   resources:
     requests:
       cpu: 10m
-      memory: 64Mi
+      memory: 128Mi
     limits:
       cpu: 200m
-      memory: 128Mi
+      memory: 256Mi

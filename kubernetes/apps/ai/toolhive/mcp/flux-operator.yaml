@@ -41,3 +41,29 @@ spec:
     limits:
       cpu: 500m
       memory: 200Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: flux-operator
+spec:
+  # Source: controlplaneio-fluxcd/flux-operator v0.60.0 cmd/mcp/toolbox and docs/mcp/tools.md (2026-09-30); exhaustive.
+  toolsFilter:
+    - apply_kubernetes_manifest
+    - delete_kubernetes_resource
+    - diff_kubernetes_manifest
+    - get_flux_instance
+    - get_kubeconfig_contexts
+    - get_kubernetes_api_versions
+    - get_kubernetes_events
+    - get_kubernetes_logs
+    - get_kubernetes_metrics
+    - get_kubernetes_resources
+    - patch_kubernetes_resource
+    - read_flux_doc
+    - reconcile_flux_resource
+    - resume_flux_reconciliation
+    - search_flux_docs
+    - suspend_flux_reconciliation
+    - trace_kubernetes_resource
