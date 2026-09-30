@@ -100,3 +100,8 @@ spec:
       app:
         endpoints:
           - port: http
+            # /metrics requires the proxy token for non-loopback callers (401 otherwise).
+            authorization:
+              credentials:
+                name: headroom-secret
+                key: HEADROOM_PROXY_TOKEN
