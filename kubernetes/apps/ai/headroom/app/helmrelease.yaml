@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: headroom
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
+      priorityClassName: homelab-important
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+
+    controllers:
+      headroom:
+        containers:
+          app:
+            image:
+              # code-nonroot variant has no version tags; digest pins v0.39.1.
+              repository: ghcr.io/headroomlabs-ai/headroom
+              tag: code-nonroot@sha256:b1066626b311ef5ad1884e4af20f75b861c71500855e592ebf6351a5399aac04
+            env:
+              TZ: ${TIMEZONE}
+              # Image default is 127.0.0.1.
+              HEADROOM_HOST: 0.0.0.0
+              HEADROOM_PORT: &port 8787
+              # /v1/compress is loopback-only by default (headroom #1537); litellm calls it remotely.
+              HEADROOM_COMPRESS_ALLOW_REMOTE: "1"
+              # CCR store would need the unmounted /data volume.
+              HEADROOM_STATELESS: "1"
+              HEADROOM_TELEMETRY: "off"
+              # JSON-only: HEADROOM_LOSSLESS=1 saved 0 tokens, and the log compressor drops whole
+              # INFO runs. smart_crusher/tabular re-encode arrays as tables keeping every row
+              # (2000/2000, -65%), byte-identical across calls. No CCR markers on this path, so
+              # anything lossy (Kompress, log, code-aware) would be unrecoverable.
+              HEADROOM_COMPRESSORS: smart_crusher tabular
+              HEADROOM_DISABLE_KOMPRESS: "1"
+              HEADROOM_DISABLE_KOMPRESS_FALLBACK: "1"
+              HEADROOM_LOSSLESS_THEN_LOSSY: "0"
+              HEADROOM_CODE_AWARE_ENABLED: "0"
+              # litellm withholds assistant rows, so dedup pointers and tool-name guards can't resolve.
+              HEADROOM_DEDUPE: "0"
+              HEADROOM_COMPRESS_USER_MESSAGES: "0"
+              HEADROOM_COMPRESSION_MAX_WORKERS: "2"
+              # No Kompress model to fetch.
+              HEADROOM_OFFLINE: "1"
+            envFrom:
+              - secretRef:
+                  name: headroom-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                cpu: "2"
+                memory: 2Gi
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &readyz
+                    path: /readyz
+                    port: *port
+                  periodSeconds: 10
+                  failureThreshold: 30
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /livez
+                    port: *port
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *readyz
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    serviceMonitor:
+      app:
+        endpoints:
+          - port: http

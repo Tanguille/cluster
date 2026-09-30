@@ -1,0 +1,27 @@
+# kguardian LLM bridge MCP server (in-cluster, security ns), served by the chart's
+# llm-bridge at /mcp on :8080. The .svc short form (no .cluster.local) is deliberate:
+# ToolHive's SSRF guard rejects *.cluster.local (exact/suffix match, no allow-list escape
+# hatch), the same gap memini.yaml exploits — the in-cluster resolver still finds
+# kguardian-llm-bridge.security.svc.cluster.local via ndots. If a future release tightens
+# it to .svc there is no other way to register an in-cluster Service via MCPServerEntry.
+# Auth is a static Bearer token forwarded server-side from toolhive-secrets.KGUARDIAN_MCP_TOKEN
+# (the full "Bearer <hex>" string, matching the Authorization header the endpoint expects);
+# the same raw token also lives in security/kguardian/app/secret.sops.yaml
+# (kguardian-mcp-token:token, RAW) for the broker's own MCP_AUTH_TOKEN.
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserverentry_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServerEntry
+metadata:
+  name: kguardian
+spec:
+  remoteUrl: http://kguardian-llm-bridge.security.svc:8080/mcp
+  transport: streamable-http
+  groupRef:
+    name: all
+  headerForward:
+    addHeadersFromSecret:
+      - headerName: Authorization
+        valueSecretRef:
+          name: toolhive-secrets
+          key: KGUARDIAN_MCP_TOKEN

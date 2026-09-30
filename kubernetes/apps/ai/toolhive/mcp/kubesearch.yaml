@@ -9,9 +9,6 @@ spec:
   mcpPort: 3000
   groupRef:
     name: all
-  env:
-    - name: KUBESEARCH_REFRESH_HOURS
-      value: "24"
   podTemplateSpec:
     spec:
       # The operator sets readOnlyRootFilesystem, but kubesearch downloads its
