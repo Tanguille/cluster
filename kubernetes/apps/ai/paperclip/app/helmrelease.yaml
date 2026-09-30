@@ -10,18 +10,6 @@ spec:
     kind: OCIRepository
     name: paperclip-operator
   values:
-    crds:
-      install: true
-      keep: true
     metrics:
-      enabled: true
       serviceMonitor:
         enabled: true
-        interval: 30s
-    # Disabled for Cilium compat (same class of issue as kguardian broker:
-    # rendered default-deny policy blackholes ClusterIP egress). Re-enable
-    # only after verifying pod-to-DB/DNS with it on.
-    networkPolicy:
-      enabled: false
-    leaderElection:
-      enabled: true

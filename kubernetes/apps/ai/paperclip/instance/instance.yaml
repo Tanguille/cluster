@@ -4,21 +4,17 @@ apiVersion: paperclip.inc/v1alpha1
 kind: Instance
 metadata:
   name: my-paperclip
-  namespace: ai
 spec:
   image:
     repository: ghcr.io/paperclipai/paperclip
     tag: v2026.916.1
-    pullPolicy: IfNotPresent
-  workload: StatefulSet
+  # Kept explicit: CRD defaults apply only inside a present object, and the
+  # operator (no webhook) passes an empty mode through to the app.
   deployment:
     mode: authenticated
     exposure: private
   database:
     mode: managed
-    managed:
-      storageSize: 10Gi
-      storageClass: ceph-block
   auth:
     secretRef:
       name: paperclip-auth
@@ -28,26 +24,17 @@ spec:
       name: paperclip-api-keys
   storage:
     persistence:
-      enabled: true
-      size: 5Gi
-      storageClass: ceph-block
       accessModes:
         - ReadWriteOnce
-  networking:
-    service:
-      type: ClusterIP
-      port: 3100
   security:
     seLinuxRelabel: false
+    # The rendered default-deny policy blocks egress to in-cluster LiteLLM.
     networkPolicy:
       enabled: false
   probes:
-    type: auto
     startup:
       failureThreshold: 60
       periodSeconds: 5
-  availability:
-    replicas: 1
   podAnnotations:
     reloader.stakater.com/auto: "true"
   resources:
@@ -62,6 +49,3 @@ spec:
       enabled: true
       serviceMonitor:
         enabled: true
-        interval: 30s
-    logging:
-      level: info
