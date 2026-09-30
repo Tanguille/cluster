@@ -1,0 +1,109 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: headroom
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
+      priorityClassName: homelab-important
+
+    controllers:
+      headroom:
+        replicas: 1
+        containers:
+          app:
+            image:
+              # v0.39.1, the `code-nonroot` variant (tree-sitter AST code
+              # compression + nonroot user 1000). GHCR publishes no version
+              # tags for the variants, only the sha-<short-commit> tag, so the
+              # tag+digest pair below pins the exact release:
+              # sha-d13e196 == commit d13e1966f820220b482a33c30bde1e926743939a
+              # (release v0.39.1, 2026-09-26), multi-arch index digest
+              # sha256:e357e357...7ff (see PR description).
+              repository: ghcr.io/headroomlabs-ai/headroom
+              tag: code-nonroot@sha256:0227fc16001879d311a541b78ab6a1a3f4ec21d466e159aea33df6bba755428b
+            env:
+              TZ: ${TIMEZONE}
+              # Image bakes HEADROOM_HOST=127.0.0.1; the proxy must listen on
+              # the pod IP for litellm to reach it.
+              HEADROOM_HOST: 0.0.0.0
+              HEADROOM_PORT: "8787"
+              # The image's default binds /v1/compress to loopback only
+              # (headroom #1537). The litellm guardrail is an in-network
+              # gateway sidecar, which is exactly the documented opt-in;
+              # inbound auth (HEADROOM_PROXY_TOKEN) and the ai-namespace
+              # default-deny netpol still apply.
+              HEADROOM_COMPRESS_ALLOW_REMOTE: "1"
+              # Statelessness: the CCR (reversible-compression) store would
+              # live in the image's /data volume, which does not exist in k8s
+              # and is not mounted. Stateless is the correct pilot posture --
+              # compression is per-request and deterministic (CacheAligner
+              # prefix stability), and CCR retrieval across restarts is a
+              # non-goal until the token savings justify a PVC.
+              HEADROOM_STATELESS: "1"
+              # Local-only usage stats stay off.
+              HEADROOM_TELEMETRY: "off"
+            envFrom:
+              - secretRef:
+                  name: headroom-secret
+            securityContext:
+              runAsUser: 1000
+              runAsGroup: 1000
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                cpu: "2"
+                memory: 4Gi
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  # First boot downloads the fastembed (ONNX) embedding model
+                  # for the content router before /readyz answers.
+                  httpGet:
+                    path: /readyz
+                    port: 8787
+                  periodSeconds: 10
+                  failureThreshold: 30
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /livez
+                    port: 8787
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /readyz
+                    port: 8787
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+    service:
+      app:
+        ports:
+          http:
+            port: 8787
+    persistence:
+      # HF/ONNX model + fastembed cache. The pod is stateless (env above);
+      # this only avoids re-downloading the ~tens-of-MB embedding model on
+      # every reschedule.
+      models:
+        type: emptyDir
+        sizeLimit: 1Gi
