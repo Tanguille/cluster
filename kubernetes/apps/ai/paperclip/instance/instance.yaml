@@ -29,6 +29,12 @@ spec:
   env:
     - name: ANTHROPIC_BASE_URL
       value: http://litellm.ai.svc.cluster.local
+    # Adapter default is claude-opus-5; litellm serves no Claude models.
+    - name: ANTHROPIC_MODEL
+      value: qwen-3.8
+    # Claude CLI background calls otherwise request a haiku model.
+    - name: ANTHROPIC_DEFAULT_HAIKU_MODEL
+      value: qwen-3.8
     - name: OPENAI_BASE_URL
       value: http://litellm.ai.svc.cluster.local/v1
   storage:
