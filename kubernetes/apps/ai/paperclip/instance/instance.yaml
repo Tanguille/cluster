@@ -3,7 +3,7 @@
 apiVersion: paperclip.inc/v1alpha1
 kind: Instance
 metadata:
-  name: my-paperclip
+  name: paperclip
 spec:
   # The operator pulls by digest when set; tag is kept for Renovate.
   image:
@@ -19,11 +19,11 @@ spec:
     mode: managed
   auth:
     secretRef:
-      name: paperclip-auth
+      name: &secret paperclip-secret
       key: BETTER_AUTH_SECRET
   adapters:
     apiKeysSecretRef:
-      name: paperclip-api-keys
+      name: *secret
   # apiKeysSecretRef injects only the two *_API_KEY entries, so endpoints go here.
   # Anthropic clients append /v1/messages themselves; OpenAI clients expect /v1.
   env:
