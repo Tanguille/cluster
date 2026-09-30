@@ -55,6 +55,19 @@ spec:
   format: safetensors
   quantization: compressed-tensors
   refreshPolicy: OnChange
+  # Bound the model-downloader (card t_032d6911): the 18.23 GiB Swift 1.5
+  # restage OOM-kills control-1 while the download init container/Job runs
+  # unbounded. 8Gi request / 12Gi limit, cpu 2. The v1alpha1 CRD schema only
+  # exposes flat cpu/memory (it prunes requests/limits today), so the flat
+  # keys carry the 12Gi ceiling until LLMKube propagates the nested form.
+  resources:
+    cpu: "2"
+    memory: 12Gi
+    requests:
+      cpu: "2"
+      memory: 8Gi
+    limits:
+      memory: 12Gi
   # Exactly what vLLM loads; the init container exits 1 on a 404. tokenizer.json
   # is self-contained (no merges/vocab).
   files:
