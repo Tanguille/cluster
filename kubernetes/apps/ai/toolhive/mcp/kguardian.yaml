@@ -19,24 +19,9 @@ spec:
   transport: streamable-http
   groupRef:
     name: all
-  toolConfigRef:
-    name: kguardian
   headerForward:
     addHeadersFromSecret:
       - headerName: Authorization
         valueSecretRef:
           name: toolhive-secrets
           key: KGUARDIAN_MCP_TOKEN
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: kguardian
-spec:
-  # Source: four tools verified locally (2026-09-30). Upstream docs (docs.kguardian.dev/guides/mcp-endpoint) state 23 tools, but native names are unpublished; full enumeration requires live tools/list against the llm-bridge. Append missing names as needed.
-  toolsFilter:
-    - get_image_sbom
-    - get_image_signers
-    - get_pod_syscalls
-    - list_workload_profiles

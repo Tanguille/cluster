@@ -9,11 +9,6 @@ spec:
   mcpPort: 3000
   groupRef:
     name: all
-  toolConfigRef:
-    name: kubesearch
-  env:
-    - name: KUBESEARCH_REFRESH_HOURS
-      value: "24"
   podTemplateSpec:
     spec:
       # The operator sets readOnlyRootFilesystem, but kubesearch downloads its
@@ -61,23 +56,3 @@ spec:
     limits:
       cpu: 200m
       memory: 256Mi
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
-apiVersion: toolhive.stacklok.dev/v1beta1
-kind: MCPToolConfig
-metadata:
-  name: kubesearch
-spec:
-  # Source: perfectra1n/kubesearch-mcp upstream README (2026-09-30); exhaustive, including conditional repo_* tools.
-  toolsFilter:
-    - kubesearch_get_release
-    - kubesearch_grep_values
-    - kubesearch_search_images
-    - kubesearch_search_releases
-    - kubesearch_status
-    - repo_cleanup
-    - repo_clone
-    - repo_grep
-    - repo_grep_all
-    - repo_list_files
-    - repo_read_file
