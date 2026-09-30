@@ -32,7 +32,7 @@ spec:
         passwordSecret:
           name: &secret kritik-secret
           key: admin-password
-    # Owner runs migrations; its DSN bypasses the transaction-mode pooler.
+    # All DSNs hit postgres16-rw directly: kritik LISTENs and sets startup params, which pgbouncer rejects.
     database:
       owner:
         existingSecret: *secret
@@ -76,10 +76,12 @@ spec:
       - name: GITHUB_APP_WEBHOOK_SECRET
         secretName: *secret
         key: github-webhook-secret
+    # Internal only: public dashboard plus local admin and unsandboxed runners is too exposed.
+    # GitHub webhooks can't reach it, so events arrive via polling.
     httpRoute:
       enabled: true
       parentRefs:
-        - name: envoy-external
+        - name: envoy-internal
           namespace: network
     # Server egress; runners use the chart's separate DNS/Postgres/gateway policy.
     networkPolicy:
