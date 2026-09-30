@@ -32,7 +32,10 @@ spec:
     resources:
       requests:
         cpu: 10m
-        memory: 250Mi
+        # 250Mi request caused FailedScheduling (Insufficient memory on 0/3 nodes) when the pod was
+        # recreated on 2026-09-30; steady observed usage is ~220-350Mi, so the 1Gi limit still
+        # bounds the container while the request fits in the cluster's allocatable headroom.
+        memory: 128Mi
       limits:
         cpu: 2
         memory: 1Gi
