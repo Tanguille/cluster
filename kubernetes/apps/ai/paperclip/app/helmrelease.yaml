@@ -13,3 +13,6 @@ spec:
     metrics:
       serviceMonitor:
         enabled: true
+    # Chart 0.19.1 ships no leases Role, so leader election never acquires; one replica needs none.
+    leaderElection:
+      enabled: false
