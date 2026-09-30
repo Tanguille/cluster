@@ -29,6 +29,7 @@
 ### Task 1: Scaffold directories + OCIRepository
 
 **Files:**
+
 - Create: `kubernetes/apps/ai/paperclip/app/ocirepository.yaml`
 
 - [ ] **Step 1: Create directories**
@@ -72,6 +73,7 @@ git commit -m "feat(paperclip): add operator OCIRepository 0.19.1"
 ### Task 2: Operator HelmRelease
 
 **Files:**
+
 - Create: `kubernetes/apps/ai/paperclip/app/helmrelease.yaml`
 
 - [ ] **Step 1: Write helmrelease.yaml**
@@ -108,7 +110,7 @@ spec:
 
 - [ ] **Step 2: Verify chart default compatibility**
 
-Run: `helm show values oci://ghcr.io/paperclipinc/charts/paperclip-operator --version 0.19.1 | grep -E "^(replicaCount|leaderElection|crds|metrics|networkPolicy)" `
+Run: `helm show values oci://ghcr.io/paperclipinc/charts/paperclip-operator --version 0.19.1 | grep -E "^(replicaCount|leaderElection|crds|metrics|networkPolicy)"`
 Expected: keys present (values render; exact grep hits may vary, exit 0 on `helm show` success).
 
 - [ ] **Step 3: Commit**
@@ -123,6 +125,7 @@ git commit -m "feat(paperclip): add operator HelmRelease with CRDs and ServiceMo
 ### Task 3: Operator kustomization + build check
 
 **Files:**
+
 - Create: `kubernetes/apps/ai/paperclip/app/kustomization.yaml`
 
 - [ ] **Step 1: Write app/kustomization.yaml**
@@ -155,6 +158,7 @@ git commit -m "feat(paperclip): join operator resources with kustomization"
 ### Task 4: Instance CR
 
 **Files:**
+
 - Create: `kubernetes/apps/ai/paperclip/instance/instance.yaml`
 
 - [ ] **Step 1: Write instance.yaml**
@@ -246,6 +250,7 @@ git commit -m "feat(paperclip): add my-paperclip Instance (managed DB, private)"
 ### Task 5: SOPS secrets (ask-first gate)
 
 **Files:**
+
 - Create: `kubernetes/apps/ai/paperclip/instance/secret.sops.yaml`
 
 > Gate: creating a new SOPS secret touches `age.key`. Generate values first, show the operator the exact encrypt command, and proceed only after explicit approval. Never commit plaintext.
@@ -306,6 +311,7 @@ git commit -m "feat(paperclip): add SOPS auth and LLM key secrets"
 ### Task 6: HTTPRoute + instance kustomization
 
 **Files:**
+
 - Create: `kubernetes/apps/ai/paperclip/instance/httproute.yaml`
 - Create: `kubernetes/apps/ai/paperclip/instance/kustomization.yaml`
 
@@ -363,6 +369,7 @@ git commit -m "feat(paperclip): add internal HTTPRoute and instance kustomizatio
 ### Task 7: Flux Kustomizations + namespace registration
 
 **Files:**
+
 - Create: `kubernetes/apps/ai/paperclip/ks.yaml`
 - Modify: `kubernetes/apps/ai/kustomization.yaml` (add one line)
 
@@ -410,11 +417,14 @@ spec:
 - [ ] **Step 2: Register in ai/kustomization.yaml**
 
 Old string (`kubernetes/apps/ai/kustomization.yaml`):
+
 ```yaml
   - ./opencode/ks.yaml
   - ./toolhive/ks.yaml
 ```
+
 New string:
+
 ```yaml
   - ./opencode/ks.yaml
   - ./paperclip/ks.yaml
