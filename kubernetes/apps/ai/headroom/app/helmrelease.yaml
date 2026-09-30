@@ -24,9 +24,9 @@ spec:
         containers:
           app:
             image:
-              # code-nonroot variant has no version tags; digest pins v0.39.1.
               repository: ghcr.io/headroomlabs-ai/headroom
-              tag: code-nonroot@sha256:b1066626b311ef5ad1884e4af20f75b861c71500855e592ebf6351a5399aac04
+              # slim: code-aware parsing and ML extras are disabled below anyway.
+              tag: 0.39.1-slim-nonroot@sha256:f1a93370f9c9a16fd5f2d3c530c92b138f93f8ad0d23618d7789b5884be32f08
             env:
               TZ: ${TIMEZONE}
               # Image default is 127.0.0.1.
@@ -61,10 +61,10 @@ spec:
             resources:
               requests:
                 cpu: 500m
-                memory: 1Gi
+                memory: 512Mi
               limits:
                 cpu: "2"
-                memory: 2Gi
+                memory: 1Gi
             probes:
               startup:
                 enabled: true
