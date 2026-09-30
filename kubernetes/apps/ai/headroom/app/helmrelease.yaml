@@ -37,6 +37,19 @@ spec:
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"
               HEADROOM_TELEMETRY: "off"
+              # Lossless-only: the guardrail's /v1/compress mode never issues CCR markers, so
+              # lossy output (Kompress, code-aware) is unrecoverable and churns the vLLM prefix cache.
+              HEADROOM_LOSSLESS: "1"
+              HEADROOM_DISABLE_KOMPRESS: "1"
+              HEADROOM_DISABLE_KOMPRESS_FALLBACK: "1"
+              HEADROOM_LOSSLESS_THEN_LOSSY: "0"
+              HEADROOM_CODE_AWARE_ENABLED: "0"
+              # litellm withholds assistant rows, so dedup pointers and tool-name guards can't resolve.
+              HEADROOM_DEDUPE: "0"
+              HEADROOM_COMPRESS_USER_MESSAGES: "0"
+              HEADROOM_COMPRESSION_MAX_WORKERS: "2"
+              # No Kompress model to fetch.
+              HEADROOM_OFFLINE: "1"
             envFrom:
               - secretRef:
                   name: headroom-secret
@@ -49,13 +62,12 @@ spec:
                 memory: 1Gi
               limits:
                 cpu: "2"
-                memory: 4Gi
+                memory: 2Gi
             probes:
               startup:
                 enabled: true
                 custom: true
                 spec:
-                  # First boot downloads the fastembed model before /readyz answers.
                   httpGet: &readyz
                     path: /readyz
                     port: *port
