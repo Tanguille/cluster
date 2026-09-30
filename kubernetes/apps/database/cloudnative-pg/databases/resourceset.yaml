@@ -26,6 +26,13 @@ spec:
     - name: kguardian
       extensions:
         - *vector
+    - name: kritik
+      extensions:
+        # Both must exist before kritik's first start; vchord is already in shared_preload_libraries.
+        - &vchord
+          name: vchord
+          version: "1.1.1"
+        - *vector
     - name: litellm
       extensions:
         - *vector
@@ -33,8 +40,7 @@ spec:
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
         # Both versions are Renovate-tracked with their respective cluster.yaml extension images.
-        - name: vchord
-          version: "1.1.1"
+        - *vchord
         - *vector
     - name: nextcloud
     - name: prowlarr

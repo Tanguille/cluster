@@ -1,0 +1,94 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kritik
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: ./charts/kritik
+      # The pin is a commit, not a chart version, so a new commit must move the artifact.
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: kritik
+  values:
+    # Digests are the newest image build (9748e26); later chart-only commits don't rebuild it.
+    image:
+      digest: sha256:4c3b304b8c9f317c482416f2c09a6df12a103ff739680f6d92e09f865fdb6423
+    runner:
+      # -tools adds curl, fd, gh and rg for agent.commands.
+      image: ghcr.io/home-operations/kritik:main-tools@sha256:4e73b6a9170a5cc3b8f23efe2e9826ad19ab5c09f5cb83a0ca10caac59039228
+    deploymentAnnotations:
+      reloader.stakater.com/auto: "true"
+    web:
+      url: "https://kritik.${SECRET_DOMAIN}"
+    auth:
+      # Local admin is the way into a fresh instance; drop it once GitHub or OIDC is set up.
+      admin:
+        user: admin
+        passwordSecret:
+          name: &secret kritik-secret
+          key: admin-password
+    # All DSNs hit postgres16-rw directly: kritik LISTENs and sets startup params, which pgbouncer rejects.
+    database:
+      owner:
+        existingSecret: *secret
+        key: owner-uri
+      app:
+        existingSecret: *secret
+        key: app-uri
+        role: kritik_app
+      runner:
+        existingSecret: *secret
+        key: runner-uri
+        role: kritik_runner
+    config:
+      file:
+        apps:
+          - name: github
+            accounts: [tanguille]
+            clientId: Iv23liEpcPGN5z8KRBta
+            privateKey: { env: GITHUB_APP_PRIVATE_KEY }
+            webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
+        providers:
+          litellm:
+            type: openai
+            baseUrl: "http://litellm.ai.svc.cluster.local/v1"
+            apiKey: { env: LITELLM_API_KEY }
+        defaults:
+          # Mirrors CI agent-review: omniroute primary, qwen-3.8 fallback.
+          models:
+            review: litellm/omniroute
+            fallback: litellm/qwen-3.8
+        embedding:
+          model: litellm/qwen3-embedding
+          dims: 1024
+    secretEnv:
+      - name: LITELLM_API_KEY
+        secretName: cluster-secrets
+        key: LITELLM_API_KEY
+      - name: GITHUB_APP_PRIVATE_KEY
+        secretName: *secret
+        key: github-private-key
+      - name: GITHUB_APP_WEBHOOK_SECRET
+        secretName: *secret
+        key: github-webhook-secret
+    # Internal only: public dashboard plus local admin and unsandboxed runners is too exposed.
+    # GitHub webhooks can't reach it, so events arrive via polling.
+    httpRoute:
+      enabled: true
+      parentRefs:
+        - name: envoy-internal
+          namespace: network
+    # Server egress; runners use the chart's separate DNS/Postgres/gateway policy.
+    networkPolicy:
+      enabled: true
+      egressPorts:
+        - 80
+        - 443
+    monitoring:
+      serviceMonitor:
+        enabled: true

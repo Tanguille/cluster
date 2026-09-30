@@ -1,0 +1,16 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/source.toolkit.fluxcd.io/gitrepository_v1.json
+# No chart release; the chart is read at a pinned commit. Re-read values.yaml on bump.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: kritik
+spec:
+  interval: 1h
+  url: https://github.com/home-operations/kritik
+  ref:
+    commit: 41396c16921fac6edff5ec946ff3effaa540991d
+  # Only the chart; without this the whole Go tree is vendored.
+  ignore: |-
+    /*
+    !/charts/kritik
