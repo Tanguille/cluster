@@ -239,4 +239,3 @@ startup probe's 240 × 15s budget).
   cluster. That InferenceService is `suspend: true`, so it is not evidence the
   combination serves traffic today, and it is a different vendor image — but it
   does mean the ROCm 10 / Talos amdgpu pairing is not unexplored territory.
-
