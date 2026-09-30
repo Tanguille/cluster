@@ -65,6 +65,22 @@ spec:
           models:
             review: litellm/omniroute
             fallback: litellm/qwen-3.8
+          # gh only: its run-scoped token is read-only; no curl, so PR text can't steer raw requests.
+          agent:
+            commands: [gh]
+          # Adapted from onedr0p/home-ops' kritik entry.
+          rules:
+            - id: renovate
+              whenExpr: pr.headRef.startsWith("renovate/")
+              rule: >-
+                This is a Renovate dependency update. Find what changed between the old and new
+                versions from upstream's release notes, changelog or compare view. Use the notes
+                Renovate embedded under "Release Notes" in the body when present; otherwise fetch
+                them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release,
+                never the releases list). Report breaking changes,
+                removed or renamed config keys and new defaults that affect how this repository
+                uses the dependency, and point at the lines they touch. Say so plainly when the
+                notes show nothing that affects this repository.
         embedding:
           model: litellm/qwen3-embedding
           dims: 1024
