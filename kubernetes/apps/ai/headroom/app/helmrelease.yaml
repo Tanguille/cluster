@@ -37,9 +37,11 @@ spec:
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"
               HEADROOM_TELEMETRY: "off"
-              # Lossless-only: the guardrail's /v1/compress mode never issues CCR markers, so
-              # lossy output (Kompress, code-aware) is unrecoverable and churns the vLLM prefix cache.
-              HEADROOM_LOSSLESS: "1"
+              # JSON-only: HEADROOM_LOSSLESS=1 saved 0 tokens, and the log compressor drops whole
+              # INFO runs. smart_crusher/tabular re-encode arrays as tables keeping every row
+              # (2000/2000, -65%), byte-identical across calls. No CCR markers on this path, so
+              # anything lossy (Kompress, log, code-aware) would be unrecoverable.
+              HEADROOM_COMPRESSORS: smart_crusher tabular
               HEADROOM_DISABLE_KOMPRESS: "1"
               HEADROOM_DISABLE_KOMPRESS_FALLBACK: "1"
               HEADROOM_LOSSLESS_THEN_LOSSY: "0"
