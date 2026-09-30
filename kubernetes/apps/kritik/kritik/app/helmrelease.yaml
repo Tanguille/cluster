@@ -15,10 +15,8 @@ spec:
         kind: GitRepository
         name: kritik
   values:
-    # No release exists, so the chart's appVersion is 0.0.0 and `main` is the only published tag.
-    # Digests are pinned to the same commit as gitrepository.yaml.
+    # Digests are the `main` builds of the commit in gitrepository.yaml; the chart ignores tag when digest is set.
     image:
-      tag: main
       digest: sha256:4c63833aa76d49b5a53b474455daf8e493abe8e1eb8068b6a169930e8252d802
     runner:
       # The -tools variant adds curl, fd, gh and rg for an agentic review's agent.commands.
@@ -75,8 +73,8 @@ spec:
       parentRefs:
         - name: envoy-external
           namespace: network
-    # Runner pods reach nothing but DNS, Postgres and the gateway: the forward proxy they get
-    # as HTTPS_PROXY and the per-run model endpoint. 80 is LiteLLM for the embedder.
+    # egressPorts apply to server pods only (80 = LiteLLM embedder). Runner pods get their own
+    # chart-rendered fence: DNS, Postgres and the gateway on 8082.
     networkPolicy:
       enabled: true
       egressPorts:
