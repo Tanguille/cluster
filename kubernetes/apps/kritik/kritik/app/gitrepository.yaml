@@ -1,9 +1,6 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/source.toolkit.fluxcd.io/gitrepository_v1.json
-# Upstream publishes no chart and has no release, so the chart is read from the repository at a
-# pinned commit. Bump the SHA to move: nothing is released, so there is no tag to track, and the
-# README warns there is no upgrade path from one commit to the next. Re-read the values below
-# against that commit's charts/kritik/values.yaml when bumping.
+# No chart release; the chart is read at a pinned commit. Re-read values.yaml on bump.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
@@ -13,7 +10,7 @@ spec:
   url: https://github.com/home-operations/kritik
   ref:
     commit: 6c9ea16dbd907ae7af93e9603b283d7564b19aa9
-  # Only the chart is wanted; without this the source vendors the whole Go tree.
+  # Only the chart; without this the whole Go tree is vendored.
   ignore: |-
     /*
     !/charts/kritik

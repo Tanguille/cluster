@@ -15,16 +15,14 @@ spec:
         kind: GitRepository
         name: kritik
   values:
-    # Digests are the `main` builds of the commit in gitrepository.yaml; the chart ignores tag when digest is set.
+    # Image digests match the GitRepository commit.
     image:
       digest: sha256:4c63833aa76d49b5a53b474455daf8e493abe8e1eb8068b6a169930e8252d802
     runner:
-      # The -tools variant adds curl, fd, gh and rg for an agentic review's agent.commands.
+      # -tools adds curl, fd, gh and rg for agent.commands.
       image: ghcr.io/home-operations/kritik:main-tools@sha256:208181a1583030fda04941bb114c7756a55ce69556cd16dc85f62d1bb9a3ee85
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
-    # The one public URL: the dashboard at it, GitHub's webhooks under it at /hooks/<app>.
-    # TLS terminates on the gateway with the wildcard certificate.
     web:
       url: "https://kritik.${SECRET_DOMAIN}"
     auth:
@@ -34,8 +32,7 @@ spec:
         passwordSecret:
           name: kritik-secret
           key: admin-password
-    # Three roles on the shared postgres16. The owner runs migrations and must not be a
-    # superuser, so its DSN points at postgres16-rw rather than the transaction-mode pooler.
+    # Owner runs migrations; its DSN bypasses the transaction-mode pooler.
     database:
       owner:
         existingSecret: kritik-db-owner
@@ -49,32 +46,42 @@ spec:
         key: uri
         role: kritik_runner
     config:
-      # The embedder: the same qwen3-embedding through LiteLLM that memini indexes with, so
-      # no external embedding key and no egress to a third party. Secrets stay in secretEnv
-      # (set from existing Secrets, dropped from the environment after reading) instead of
-      # extraEnv values, so the key never lands in the HelmRelease, Deployment or Helm history.
       file:
+        apps:
+          - name: github
+            accounts: [tanguille]
+            clientId: Iv23liEpcPGN5z8KRBta
+            privateKey: { env: GITHUB_APP_PRIVATE_KEY }
+            webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
         providers:
           litellm:
             type: openai
             baseUrl: "http://litellm.ai.svc.cluster.local/v1"
             apiKey: { env: LITELLM_API_KEY }
+        defaults:
+          # Mirrors CI agent-review: omniroute primary, qwen-3.8 fallback.
+          models:
+            review: litellm/omniroute
+            fallback: litellm/qwen-3.8
         embedding:
           model: litellm/qwen3-embedding
           dims: 1024
     secretEnv:
-      # cluster-secrets is rendered into this namespace by the common component; referencing
-      # it avoids duplicating LITELLM_API_KEY into kritik-secret with manual rotation.
       - name: LITELLM_API_KEY
         secretName: cluster-secrets
         key: LITELLM_API_KEY
+      - name: GITHUB_APP_PRIVATE_KEY
+        secretName: kritik-bot
+        key: private-key.pem
+      - name: GITHUB_APP_WEBHOOK_SECRET
+        secretName: kritik-bot
+        key: webhook-secret
     httpRoute:
       enabled: true
       parentRefs:
         - name: envoy-external
           namespace: network
-    # egressPorts apply to server pods only (80 = LiteLLM embedder). Runner pods get their own
-    # chart-rendered fence: DNS, Postgres and the gateway on 8082.
+    # Server egress; runners use the chart's separate DNS/Postgres/gateway policy.
     networkPolicy:
       enabled: true
       egressPorts:
