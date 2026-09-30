@@ -15,9 +15,10 @@ spec:
         kind: GitRepository
         name: kritik
   values:
-    # Digests are the newest image build (e4bb79f); later chart-only commits don't rebuild it.
+    # repository+tag@digest so Renovate tracks it; the chart renders repository:tag when digest is unset.
     image:
-      digest: sha256:b40f1487c4d11bd854d426fedb6671c87babe1204b2787d217d6d5fb133ce71f
+      repository: ghcr.io/home-operations/kritik
+      tag: main@sha256:b40f1487c4d11bd854d426fedb6671c87babe1204b2787d217d6d5fb133ce71f
     runner:
       # -tools adds curl, fd, gh and rg for agent.commands.
       image: ghcr.io/home-operations/kritik:main-tools@sha256:911eb9682d875b7974eee10bc198d94b99d62685b5fe042e52ad2e44432cc0a9

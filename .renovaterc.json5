@@ -155,6 +155,12 @@
       matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
       enabled: false
     },
+    {
+      description: "kritik's chart commit and image builds land in one PR, so the chart never runs an older image",
+      // Matches the GitRepository (https://github.com/home-operations/kritik) and both ghcr images.
+      matchPackageNames: ["/home-operations\\/kritik/"],
+      groupName: "kritik"
+    },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
       description: "Auto-merge patch and digest bumps once they have aged 3 days",
