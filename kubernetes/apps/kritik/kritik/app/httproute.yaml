@@ -5,6 +5,12 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: kritik-webhook
+  annotations:
+    # "/" 404s like an unrouted host; an unsigned POST to a known connection returns 401.
+    gatus.home-operations.com/endpoint: |-
+      url: https://kritik-webhook.${SECRET_DOMAIN}/hooks/github
+      method: POST
+      conditions: ["[STATUS] == 401"]
 spec:
   hostnames: ["kritik-webhook.${SECRET_DOMAIN}"]
   parentRefs:
