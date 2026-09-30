@@ -86,9 +86,10 @@ spec:
     # Server egress; runners use the chart's separate DNS/Postgres/gateway policy.
     networkPolicy:
       enabled: true
+      # Cilium matches the pod port after service DNAT, so litellm needs 4000, not 80.
       egressPorts:
-        - 80
         - 443
+        - 4000
     monitoring:
       serviceMonitor:
         enabled: true
