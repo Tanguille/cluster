@@ -15,6 +15,10 @@ spec:
   deployment:
     mode: authenticated
     exposure: private
+    # The app 403s any Host it wasn't told about; the route serves this one.
+    publicURL: https://paperclip.${SECRET_DOMAIN}
+    allowedHostnames:
+      - paperclip.${SECRET_DOMAIN}
   database:
     mode: managed
   auth:
