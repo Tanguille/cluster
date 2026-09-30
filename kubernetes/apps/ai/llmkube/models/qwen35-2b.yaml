@@ -88,6 +88,8 @@ spec:
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
     # Request AND limit (llmkube >= 0.9.29); 7d max working set 271Mi, the rest
-    # is GTT headroom memcg cannot see.
-    memory: 1Gi
+    # is GTT headroom memcg cannot see. 512Mi keeps ~1.9x the observed max;
+    # the 1Gi request over-committed control-3 (101.8%) and caused seerr
+    # FailedScheduling on 2026-09-30.
+    memory: 512Mi
   # endpoint omitted — operator defaults to a ClusterIP Service on :8080.

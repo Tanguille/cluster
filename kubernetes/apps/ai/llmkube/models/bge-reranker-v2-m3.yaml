@@ -100,7 +100,9 @@ spec:
     cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
     # Request AND limit (llmkube >= 0.9.29); ~636MB Q8_0 weights plus the
     # llama-server baseline, the model buffer living in amdgpu GTT which
-    # memcg does not charge.
-    memory: 2Gi
+    # memcg does not charge. The 2Gi request (2026-08) over-committed
+    # control-3 to 101.8% and caused seerr FailedScheduling on 2026-09-30;
+    # 7d working-set max is 401Mi, so 1Gi keeps 2.5x headroom.
+    memory: 1Gi
   endpoint:
     path: /v1/rerank
