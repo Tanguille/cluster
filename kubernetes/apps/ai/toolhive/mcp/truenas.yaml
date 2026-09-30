@@ -19,12 +19,10 @@ metadata:
   name: truenas
 spec:
   image: ghcr.io/cedricziel/truenas-mcp:0.4.2@sha256:1a165c9b3831b8cf546c78231857896431c27a4465d2fcb16260c7d578bbee55
-  transport: stdio
   args: ["--stdio"]
   groupRef:
     name: all
   permissionProfile:
-    type: builtin
     name: network
   env:
     - name: TRUENAS_MCP_TARGET
