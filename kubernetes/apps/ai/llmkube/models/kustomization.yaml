@@ -6,6 +6,9 @@ resources:
   - prometheusrule.yaml
   - networkpolicy.yaml
   - qwen38-27b-vllm.yaml
+  # CANARY (card t_9ffc4f6d) — vLLM v0.30.0 pin-decision A/B vs the nightly
+  # above. Delete this file AND this line together to tear the canary down.
+  - qwen38-27b-vllm-canary.yaml
   - qwen38-swift-27b-vllm.yaml
   - qwen38-flash-next.yaml
   - qwen38-paiton.yaml
