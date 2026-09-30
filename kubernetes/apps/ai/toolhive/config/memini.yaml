@@ -18,3 +18,18 @@ spec:
   transport: streamable-http
   groupRef:
     name: all
+  toolConfigRef:
+    name: memini
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: memini
+spec:
+  toolsFilter:
+    - memory_recall
+    - memory_list
+    - memory_get
+    - memory_history
+    - memory_briefing

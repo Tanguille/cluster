@@ -7,8 +7,11 @@ spec:
   image: ghcr.io/homeassistant-ai/ha-mcp:8.6.0@sha256:7426fb169440aff789e4ee942012b03317ba0b68e1d463efa19c37088dddd8bc
   transport: streamable-http
   mcpPort: 8086
+  proxyPort: 8080
   groupRef:
     name: all
+  toolConfigRef:
+    name: homeassistant
   env:
     - name: HOMEASSISTANT_URL
       value: http://${HOME_ASSISTANT_IP}:8123
@@ -57,3 +60,25 @@ spec:
     limits:
       cpu: 200m
       memory: 128Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: homeassistant
+spec:
+  toolsFilter:
+    - ha_list_entities
+    - ha_list_services
+    - ha_get_state
+    - ha_call_service
+    - ha_config_get_category
+    - ha_config_get_label
+    - ha_get_app
+    - ha_get_entity_exposure
+    - ha_manage_app
+    - ha_manage_pipeline
+    - ha_remove_area_or_floor
+    - ha_remove_zone
+    - ha_report_issue
+    - ha_search

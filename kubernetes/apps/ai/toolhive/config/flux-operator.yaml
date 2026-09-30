@@ -5,8 +5,11 @@ metadata:
   name: flux-operator
 spec:
   image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.60.0@sha256:9940c2c46c1bff5af3827cb76f28a1ff347ea8141ed1af42e66ffbd79e8c4bdb
+  transport: stdio
   groupRef:
     name: all
+  toolConfigRef:
+    name: flux-operator
   args:
     - serve
   env:
@@ -41,3 +44,15 @@ spec:
     limits:
       cpu: 500m
       memory: 200Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: flux-operator
+spec:
+  toolsFilter:
+    - get_kubernetes_logs
+    - get_kubernetes_resources
+    - read_flux_doc
+    - search_flux_docs

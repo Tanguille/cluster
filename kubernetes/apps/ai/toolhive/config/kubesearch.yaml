@@ -9,6 +9,8 @@ spec:
   mcpPort: 3000
   groupRef:
     name: all
+  toolConfigRef:
+    name: kubesearch
   env:
     - name: KUBESEARCH_REFRESH_HOURS
       value: "24"
@@ -59,3 +61,15 @@ spec:
     limits:
       cpu: 200m
       memory: 256Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: kubesearch
+spec:
+  toolsFilter:
+    - kubesearch_search_releases
+    - kubesearch_search_images
+    - kubesearch_grep_values
+    - kubesearch_status

@@ -9,9 +9,21 @@ spec:
   transport: streamable-http
   groupRef:
     name: all
+  toolConfigRef:
+    name: context7
   headerForward:
     addHeadersFromSecret:
       - headerName: CONTEXT7_API_KEY
         valueSecretRef:
           name: toolhive-secrets
           key: CONTEXT7_API_KEY
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: context7
+spec:
+  toolsFilter:
+    - query-docs
+    - resolve-library-id

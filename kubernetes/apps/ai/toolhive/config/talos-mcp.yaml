@@ -16,9 +16,13 @@ spec:
   image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2@sha256:ad1b388e20cbe171763ba0ff85ed32856f2573c9c40f5081a83c96b3b57f0d35
   transport: streamable-http
   mcpPort: 8080
+  proxyPort: 8080
   groupRef:
     name: all
+  toolConfigRef:
+    name: talos-mcp
   permissionProfile:
+    type: builtin
     name: network
   env:
     - name: TALOSCONFIG
@@ -56,3 +60,18 @@ spec:
     limits:
       cpu: 200m
       memory: 128Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: talos-mcp
+spec:
+  toolsFilter:
+    - talos_health
+    - talos_version
+    - talos_containers
+    - talos_container_stats
+    - talos_netstat
+    - talos_time
+    - talos_etcd_members

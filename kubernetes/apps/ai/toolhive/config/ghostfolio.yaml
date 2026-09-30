@@ -10,15 +10,18 @@ spec:
   # MCP_TRANSPORT, so "streamable-http" silently falls through to its stdio default
   # while the proxy still expects a network listener on mcpPort — crash loop.
   transport: stdio
+  proxyPort: 8080
   groupRef:
     name: all
+  toolConfigRef:
+    name: ghostfolio
   env:
     - name: GHOSTFOLIO_URL
       value: http://ghostfolio.default.svc.cluster.local:3333
-    # Write access enabled on request (2026-09-24): the agent may now place
-    # trades and edit activities, not just read them.
+    # Cautious default: the agent gets read access first; flip once its
+    # recommendations are trusted enough to let it place trades/edit activities.
     - name: READ_ONLY_MODE
-      value: "false"
+      value: "true"
   secrets:
     - name: toolhive-secrets
       key: GHOSTFOLIO_TOKEN
@@ -40,3 +43,13 @@ spec:
     limits:
       cpu: 200m
       memory: 100Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: ghostfolio
+spec:
+  toolsFilter:
+    - get_account_details
+    - get_health
