@@ -16,9 +16,11 @@ spec:
   image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2@sha256:ad1b388e20cbe171763ba0ff85ed32856f2573c9c40f5081a83c96b3b57f0d35
   transport: streamable-http
   mcpPort: 8080
+  proxyPort: 8080
   groupRef:
     name: all
   permissionProfile:
+    type: builtin
     name: network
   env:
     - name: TALOSCONFIG
