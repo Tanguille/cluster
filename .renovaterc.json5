@@ -115,6 +115,17 @@
       datasourceTemplate: "git-refs"
     },
     {
+      description: "Paperclip Instance image: split repository/tag/digest fields",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/ai/paperclip/instance/instance\\.yaml$/"
+      ],
+      matchStrings: [
+        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>\\S+)\\n\\s+digest: (?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      datasourceTemplate: "docker"
+    },
+    {
       description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
       customType: "regex",
       managerFilePatterns: [
