@@ -59,6 +59,19 @@ spec:
   groupRef:
     name: all
   config:
+    # Filters live here, not on the backends: proxy toolConfigRef strips resultType on
+    # MCP 2026-07-28 backends (#5319), and MCPServerEntry has no toolConfigRef field.
+    aggregation:
+      tools:
+        - workload: flux-operator
+          toolConfigRef:
+            name: flux-operator
+        - workload: github
+          toolConfigRef:
+            name: github
+        - workload: truenas
+          toolConfigRef:
+            name: truenas
     # Cold embedding cache takes ~27-35s on the iGPU, past the 30s default
     # (2026-07-03). Anchored to embeddingServiceTimeout — same call.
     # `default` covers every backend request, not just session-build;
