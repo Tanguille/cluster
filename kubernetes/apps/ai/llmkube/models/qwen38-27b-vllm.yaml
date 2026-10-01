@@ -64,41 +64,64 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  # $$ throughout: Flux postBuild envsubst substitutes bare
-                  # $VAR.
+                  #!/bin/sh
+                  # KV-offload guard: sweeps /kvoffload back above a 160Gi free-space floor on
+                  # the shared root fs. Flux postBuild envsubst context: bare $VAR -> $$.
+                  # Up to 3 eviction passes: vLLM writes back 1-2Gi mid-sweep, so one pass can end short.
+                  # Exit 0 once the tier is drained (residual shortfall is non-tier growth, not evictable
+                  # here); exit 1 only when tier files remain and the floor is still unreachable.
                   set -eu
                   avail() { df -kP /kvoffload | awk 'NR==2{print $$4}'; }
-                  # 160Gi = 32% of the 499.6Gi disk; ceph
-                  # mon_data_avail_warn=27, so an 80Gi (15%) floor could never
-                  # clear it. Non-tier usage measured 219Gi (2026-09-24).
+                  # Apparent size of finished blocks only; .tmp are in-flight writes.
+                  tier_kb() {
+                    find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%s' {} + 2>/dev/null \
+                      | awk '{s+=$$1} END{printf "%.0f\n", s/1024}'
+                  }
+                  # 160Gi = 32% of the 499.6Gi root disk; ceph mon_data_avail_warn=27, so an
+                  # 80Gi (15%) floor could never clear it. Non-tier usage measured 219Gi
+                  # (2026-09-24). A property of the shared root disk, not of the (label-only)
+                  # 128Gi openebs-hostpath PVC.
                   floor=167772160
+                  # Margin = max(shortfall/16, 4Gi): write-back is 1-2Gi, beyond shortfall/16 at that size.
+                  min_margin_kb=4194304
+                  # A tier this empty counts as drained for the escape check (4Gi).
+                  drained_kb=4194304
                   avail_kb="$$(avail)"
-                  echo "avail: $${avail_kb}K (floor: $${floor}K)"
-                  if [ "$$avail_kb" -ge "$$floor" ]; then
-                    echo "above floor, nothing to do"
+                  echo "avail: $$avail_kb K (floor: $$floor K)"
+                  pass=0
+                  while [ "$$avail_kb" -lt "$$floor" ] && [ "$$pass" -lt 3 ]; do
+                    pass=$$((pass + 1))
+                    shortfall=$$((floor - avail_kb))
+                    margin=$$((shortfall / 16))
+                    [ "$$margin" -lt "$$min_margin_kb" ] && margin=$$min_margin_kb
+                    need_kb=$$((shortfall + margin))
+                    # Evict by bytes, not file count: chunk files are 104Mi, so a 2000-file
+                    # check interval wiped the whole tier each time.
+                    # LRU by mtime, oldest first; blocks are write-once.
+                    # busybox find has no -printf.
+                    find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
+                    {
+                      n=0 freed_kb=0
+                      while IFS=' ' read -r size f; do
+                        rm -f -- "$$f"
+                        n=$$((n + 1)) freed_kb=$$((freed_kb + size / 1024))
+                        [ "$$freed_kb" -ge "$$need_kb" ] && break
+                      done
+                      echo "pass $$pass: evicted $$n files ($$freed_kb K) for a $$need_kb K target"
+                    }
+                    avail_kb="$$(avail)"
+                    echo "pass $$pass: avail $$avail_kb K (floor: $$floor K)"
+                  done
+                  [ "$$avail_kb" -ge "$$floor" ] && exit 0
+                  # Still short: was the tier the cause? If it is drained, the remainder is
+                  # non-tier growth on the shared root fs - not evictable from here.
+                  usage_kb="$$(tier_kb)"
+                  echo "post-sweep: avail $$avail_kb K, tier $$usage_kb K"
+                  if [ "$$usage_kb" -le "$$drained_kb" ]; then
+                    echo "tier drained; residual shortfall is non-tier growth on the shared root fs (outside this guard)"
                     exit 0
                   fi
-                  # Evict by bytes, not file count: chunk files are 104Mi, so
-                  # a 2000-file check interval wiped the whole tier each time.
-                  # +10Gi: the exact shortfall ended 0.1-1.2Gi short (vLLM writes mid-sweep).
-                  need_kb=$$((floor - avail_kb + floor / 16))
-                  # LRU by mtime, oldest first; blocks are write-once.
-                  # busybox find has no -printf.
-                  find /kvoffload -type f -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
-                  {
-                    n=0 freed_kb=0
-                    while IFS=' ' read -r size f; do
-                      rm -f -- "$$f"
-                      n=$$((n + 1)) freed_kb=$$((freed_kb + size / 1024))
-                      [ "$$freed_kb" -ge "$$need_kb" ] && break
-                    done
-                    echo "evicted $${n} files ($${freed_kb}K) for a $${need_kb}K target"
-                  }
-                  # Still short: the shortfall is elsewhere on the shared fs,
-                  # or vLLM still holds evicted files open.
-                  avail_kb="$$(avail)"
-                  [ "$$avail_kb" -ge "$$floor" ] && exit 0
-                  echo "floor unreachable: $${avail_kb}K < $${floor}K" >&2
+                  echo "floor unreachable: $$avail_kb K < $$floor K with $$usage_kb K tier still present" >&2
                   exit 1
               volumeMounts:
                 - name: kv-offload
