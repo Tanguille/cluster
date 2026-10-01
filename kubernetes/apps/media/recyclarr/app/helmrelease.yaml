@@ -26,9 +26,7 @@ spec:
               repository: ghcr.io/recyclarr/recyclarr
               tag: 8.7.2@sha256:6e69e009e1cd7493ff6093e8e187b5d3788c75b4a2c0c5127b6a1beda1c19728
             env:
-              COMPlus_EnableDiagnostics: "0"
               TZ: *timeZone
-              RECYCLARR_CONFIG_DIR: "/config"
               RADARR_API_KEY: ${RADARR_API_KEY}
               SONARR_API_KEY: ${SONARR_API_KEY}
             args: ["sync"]
