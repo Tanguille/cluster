@@ -13,7 +13,6 @@ spec:
     global:
       imageRegistry: mirror.gcr.io
     deployment:
-      # xDS control plane; avoid config-push stalls when the sole replica's node is disrupted
       replicas: 2
       pod:
         # Hard spread: both controller replicas on one node means one node failure

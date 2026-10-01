@@ -24,7 +24,6 @@ spec:
                 labels:
                   app.kubernetes.io/name: kguardian-broker
   values:
-    # LLM via in-cluster LiteLLM gateway; key from cluster-secrets.
     ai:
       mcp:
         # /mcp for kubectl port-forward telemetry; token required.
@@ -32,11 +31,9 @@ spec:
         auth:
           existingSecret: kguardian-mcp-token
 
-    # Skip daily version check-in.
     telemetry:
       enabled: false
 
-    # 10s sampling, 3d/12h history for homelab scale.
     compute:
       sampleInterval: 10
       history:
@@ -105,7 +102,6 @@ spec:
           retention:
             days: 14
 
-    # Actual use ~91Mi.
     frontend:
       resources:
         requests:
