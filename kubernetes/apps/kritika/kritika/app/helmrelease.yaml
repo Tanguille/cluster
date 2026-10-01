@@ -20,7 +20,7 @@ spec:
       repository: ghcr.io/home-operations/kritika
       tag: main@sha256:d3cfcaf4173f11f5f4e2221fd1a03eed8ce853255fc43bf45036819b57b50af6
     runner:
-      # -tools adds curl, fd, gh and rg for agent.commands.
+      # -tools adds curl, fd, gh, jq, rg and yq for agent.commands.
       image: ghcr.io/home-operations/kritika:main-tools@sha256:2a0663afc0dd627db58633decc821c581956ab0ad2f3ab2d9834f724aa365984
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
@@ -60,15 +60,15 @@ spec:
         requireSuggestedFix: true
         # A review with nothing blocking or important approves the head; a later one that finds something withdraws it.
         approve: true
-        # gh only: its run-scoped token is read-only; no curl, so PR text can't steer raw requests.
+        # gh's run-scoped token is read-only, and rg, fd, jq and yq only read the checkout; no curl, so PR text can't steer raw requests.
         agent:
-          commands: [gh]
-        # Adapted from onedr0p/home-ops' kritik entry.
+          commands: [gh, rg, fd, jq, yq]
+        # Adapted from onedr0p/home-ops' kritika entry.
         rules:
           - id: renovate
             whenExpr: pr.headRef.startsWith("renovate/")
             rule: >-
-              This is a Renovate dependency update. Find what changed between the old and new versions from upstream's release notes, changelog or compare view. Use the notes Renovate embedded under "Release Notes" in the body when present; otherwise fetch them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release, never the releases list). Report breaking changes, removed or renamed config keys and new defaults that affect how this repository uses the dependency, and point at the lines they touch. Say so plainly when the notes show nothing that affects this repository.
+              This is a Renovate dependency update. Find what changed between the old and new versions from upstream's release notes, changelog or compare view. Use the notes Renovate embedded under "Release Notes" in the body when present; otherwise fetch them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release, never the releases list). Then check how this repository uses the package, with rg over its manifests, values, overrides, CRDs and the comments in those files, and report each breaking change, deprecation, removed or renamed value, or changed default that affects it, and any version it must stay in lockstep with. Start the summary with a verdict, safe to merge or not, and name the sources you read.
       embedding:
         model: litellm/qwen3-embedding
         dims: 1024
