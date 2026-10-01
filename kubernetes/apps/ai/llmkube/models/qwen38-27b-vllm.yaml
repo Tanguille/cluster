@@ -67,17 +67,9 @@ spec:
                   #!/bin/sh
                   # KV-offload guard: sweeps /kvoffload back above a 160Gi free-space floor on
                   # the shared root fs. Flux postBuild envsubst context: bare $VAR -> $$.
-                  #
-                  #  1. Re-evict loop (up to 3 passes) instead of one shot: vLLM writes back
-                  #     1-2Gi during the sweep (runs 29843040/29843160, 2026-10-01), so a
-                  #     single pass ends 1-2Gi short and exits 1 even with the tier drained.
-                  #  2. Margin = max(shortfall/16, 4Gi flat): at 1-2Gi shortfalls the
-                  #     percentage margin is sub-Gi and cannot cover observed write-back.
-                  #  3. Drained-tier escape: if the tier is empty after the passes, the
-                  #     residual shortfall is non-tier growth on the shared root fs (rook
-                  #     mon, containerd) - outside this guard's reach - so log and exit 0.
-                  #     exit 1 is reserved for a real failure (tier files left but the floor
-                  #     still unreachable).
+                  # Up to 3 eviction passes: vLLM writes back 1-2Gi mid-sweep, so one pass can end short.
+                  # Exit 0 once the tier is drained (residual shortfall is non-tier growth, not evictable
+                  # here); exit 1 only when tier files remain and the floor is still unreachable.
                   set -eu
                   avail() { df -kP /kvoffload | awk 'NR==2{print $$4}'; }
                   # Apparent size of finished blocks only; .tmp are in-flight writes.
@@ -87,21 +79,15 @@ spec:
                   }
                   # 160Gi = 32% of the 499.6Gi root disk; ceph mon_data_avail_warn=27, so an
                   # 80Gi (15%) floor could never clear it. Non-tier usage measured 219Gi
-                  # (2026-09-24). UNCHANGED: the floor is a property of the shared root disk,
-                  # not of the (label-only) 128Gi openebs-hostpath PVC.
+                  # (2026-09-24). A property of the shared root disk, not of the (label-only)
+                  # 128Gi openebs-hostpath PVC.
                   floor=167772160
-                  # 4Gi flat write-back cushion: observed mid-sweep regrowth is 1-2Gi; the
-                  # shortfall/16 margin is sub-Gi at that shortfall size.
+                  # Margin = max(shortfall/16, 4Gi): write-back is 1-2Gi, beyond shortfall/16 at that size.
                   min_margin_kb=4194304
                   # A tier this empty counts as drained for the escape check (4Gi).
                   drained_kb=4194304
-                  # Fast path: free space already at the floor.
                   avail_kb="$$(avail)"
                   echo "avail: $$avail_kb K (floor: $$floor K)"
-                  if [ "$$avail_kb" -ge "$$floor" ]; then
-                    echo "above floor, nothing to do"
-                    exit 0
-                  fi
                   pass=0
                   while [ "$$avail_kb" -lt "$$floor" ] && [ "$$pass" -lt 3 ]; do
                     pass=$$((pass + 1))
