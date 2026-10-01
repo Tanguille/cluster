@@ -68,6 +68,8 @@ spec:
             fallback: litellm/qwen-3.8
           # Every finding carries a suggested fix; repositories cannot lift it.
           requireSuggestedFix: true
+          # A review with nothing blocking or important approves the head; a later one that finds something withdraws it.
+          approve: true
           # gh only: its run-scoped token is read-only; no curl, so PR text can't steer raw requests.
           agent:
             commands: [gh]
