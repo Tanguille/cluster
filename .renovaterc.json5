@@ -20,6 +20,8 @@
   platformAutomerge: false,
   // GHCR/Quay/OCI publish no release timestamps; timestamp-required would hold their updates forever.
   minimumReleaseAgeBehaviour: "timestamp-optional",
+  // "strict" (default) parks aging updates under "Pending Status Checks"; "flexible" opens the PR and automerge waits on the stability check.
+  internalChecksFilter: "flexible",
   // Keeps the timestamp-optional warning off the dashboard.
   logLevelRemap: [
     {
