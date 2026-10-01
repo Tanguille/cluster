@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://kritika.home-operations.com/kritika.schema.json
+rules:
+  - id: ceph-csi-lockstep
+    paths: ["kubernetes/apps/rook-ceph/**"]
+    rule: >-
+      The ceph-csi-drivers chart must stay compatible with the ceph-csi-operator subchart that the rook-ceph chart pinned in kubernetes/apps/rook-ceph/rook-ceph/app/ocirepository.yaml bundles. For a change to either version, read the rook-ceph chart's Chart.yaml dependencies at that tag with gh and report any gap between the bundled operator version and the ceph-csi-drivers version, with a verdict.

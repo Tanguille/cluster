@@ -22,13 +22,7 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              # On `next` for two upstream fixes: LKGP pin never clears on
-              # failure (#10034) and auto/* credential lookups misresolve
-              # "opencode" as "opencode-zen" (#10892). Both merged into
-              # release/v3.8.50; no tagged release carries them yet -- move to
-              # v3.8.50 once it ships. Digest-pinned since Renovate can't diff
-              # `next` as a version, only offer digest bumps.
-              tag: next@sha256:8f108def5ea7135e79ae3b9a5139779e1dc13fe9bf5351189ccbc8dbad048db6
+              tag: 3.8.51-web@sha256:dcec56b564b6cd92972f180ae9f9e46710f1b748d138cd477b4c9700d4d9309a
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
@@ -78,3 +72,10 @@ spec:
         existingClaim: omniroute
         globalMounts:
           - path: /app/data
+      # Chromium for the cfp (Cloudflare playground) provider; the default 64Mi /dev/shm crashes it.
+      dshm:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 512Mi
+        globalMounts:
+          - path: /dev/shm
