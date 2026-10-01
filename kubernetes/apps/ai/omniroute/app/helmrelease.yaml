@@ -22,7 +22,7 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              tag: 3.8.51@sha256:8bd462c9f60d8eda79329cfbb6ea7ea723505fe7721beb944f3d43835409e218
+              tag: 3.8.51-web@sha256:dcec56b564b6cd92972f180ae9f9e46710f1b748d138cd477b4c9700d4d9309a
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
@@ -44,10 +44,10 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 512Mi
+                memory: 1Gi
               limits:
                 cpu: 1000m
-                memory: 2Gi
+                memory: 4Gi
     defaultPodOptions:
       # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
       priorityClassName: homelab-important
@@ -72,3 +72,10 @@ spec:
         existingClaim: omniroute
         globalMounts:
           - path: /app/data
+      # Chromium for the cfp (Cloudflare playground) provider; the default 64Mi /dev/shm crashes it.
+      dshm:
+        type: emptyDir
+        medium: Memory
+        sizeLimit: 1Gi
+        globalMounts:
+          - path: /dev/shm
