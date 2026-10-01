@@ -18,14 +18,12 @@ spec:
     # repository+tag@digest so Renovate tracks it; the chart renders repository:tag when digest is unset.
     image:
       repository: ghcr.io/home-operations/kritika
-      tag: main@sha256:3f6845b3e59fef4490683842159ddbe02e8c7e5db6195bad9a13047182d9b4ae
+      tag: main@sha256:a7c017fcd3396ad043ec47f9caf0aa88cf91151bc0f7d8c26e69a81f1e9db072
     runner:
       # -tools adds curl, fd, gh, jq, rg and yq for agent.commands.
-      image: ghcr.io/home-operations/kritika:main-tools@sha256:2b592cd96a78406ac3128bb807b557c03169c26f5e4e5088d020dbb11ac41eb0
+      image: ghcr.io/home-operations/kritika:main-tools@sha256:4882134ea148834d6def13eb7dcf3ec987adc1097b64e01aed6960871d08aec0
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
-    web:
-      url: "https://kritika.${SECRET_DOMAIN}"
     # All DSNs hit postgres16-rw directly: kritika LISTENs and sets startup params, which pgbouncer rejects.
     database:
       owner:
@@ -40,6 +38,48 @@ spec:
         key: runner-uri
         role: kritik_runner
     config:
+      webUrl: "https://kritika.${SECRET_DOMAIN}"
+      # Drop a turned-off repo's index after 1h instead of 720h; re-enabling onboards a fresh one.
+      indexGrace: 1h
+    # Internal only: public dashboard plus local admin and unsandboxed runners is too exposed.
+    # GitHub webhooks can't reach it, so events arrive via polling.
+    httpRoute:
+      enabled: true
+      parentRefs:
+        - name: envoy-internal
+          namespace: network
+    # Server egress; runners use the chart's separate DNS/Postgres/gateway policy.
+    networkPolicy:
+      enabled: true
+      # Cilium matches the pod port after service DNAT, so litellm needs 4000, not 80.
+      egressPorts:
+        - 443
+        - 4000
+    monitoring:
+      serviceMonitor:
+        enabled: true
+    env:
+      LITELLM_API_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: cluster-secrets
+            key: LITELLM_API_KEY
+      GITHUB_APP_PRIVATE_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: github-private-key
+      GITHUB_APP_WEBHOOK_SECRET:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: github-webhook-secret
+      ADMIN_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: admin-password
+    configFile:
       apps:
         github:
           accounts: [tanguille]
@@ -88,43 +128,3 @@ spec:
           user: admin
           password:
             env: ADMIN_PASSWORD
-    # Internal only: public dashboard plus local admin and unsandboxed runners is too exposed.
-    # GitHub webhooks can't reach it, so events arrive via polling.
-    httpRoute:
-      enabled: true
-      parentRefs:
-        - name: envoy-internal
-          namespace: network
-    # Server egress; runners use the chart's separate DNS/Postgres/gateway policy.
-    networkPolicy:
-      enabled: true
-      # Cilium matches the pod port after service DNAT, so litellm needs 4000, not 80.
-      egressPorts:
-        - 443
-        - 4000
-    monitoring:
-      serviceMonitor:
-        enabled: true
-    env:
-      LITELLM_API_KEY:
-        valueFrom:
-          secretKeyRef:
-            name: cluster-secrets
-            key: LITELLM_API_KEY
-      GITHUB_APP_PRIVATE_KEY:
-        valueFrom:
-          secretKeyRef:
-            name: kritika-secret
-            key: github-private-key
-      GITHUB_APP_WEBHOOK_SECRET:
-        valueFrom:
-          secretKeyRef:
-            name: kritika-secret
-            key: github-webhook-secret
-      ADMIN_PASSWORD:
-        valueFrom:
-          secretKeyRef:
-            name: kritika-secret
-            key: admin-password
-      # Drop a turned-off repo's index after 1h instead of 720h; re-enabling onboards a fresh one.
-      KRITIKA_INDEX_GRACE: 1h
