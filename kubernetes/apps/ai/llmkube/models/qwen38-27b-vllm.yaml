@@ -150,7 +150,6 @@ spec:
   # nothing to do.
   modelRef: qwen38-swift-27b-vllm
   runtime: vllm
-  replicas: 1
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends every W4A16
   # projection to Triton at M=6.
   # Warm agg tok/s M=1..5 (2026-09-18): 31 / 55 / 73 / 97 / 117. Bimodal until
