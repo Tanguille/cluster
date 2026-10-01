@@ -22,7 +22,7 @@ spec:
           app:
             image:
               repository: docker.io/diegosouzapw/omniroute
-              tag: 3.8.51-web@sha256:dcec56b564b6cd92972f180ae9f9e46710f1b748d138cd477b4c9700d4d9309a
+              tag: 3.8.51@sha256:8bd462c9f60d8eda79329cfbb6ea7ea723505fe7721beb944f3d43835409e218
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
@@ -72,10 +72,3 @@ spec:
         existingClaim: omniroute
         globalMounts:
           - path: /app/data
-      # Chromium for the cfp (Cloudflare playground) provider; the default 64Mi /dev/shm crashes it.
-      dshm:
-        type: emptyDir
-        medium: Memory
-        sizeLimit: 512Mi
-        globalMounts:
-          - path: /dev/shm
