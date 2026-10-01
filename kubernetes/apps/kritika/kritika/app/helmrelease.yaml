@@ -18,25 +18,18 @@ spec:
     # repository+tag@digest so Renovate tracks it; the chart renders repository:tag when digest is unset.
     image:
       repository: ghcr.io/home-operations/kritika
-      tag: main@sha256:8f4065aca6db1b5aa6e5ffdb39f4049eee00737d56cd089c41a34ed3007dd8b9
+      tag: main@sha256:d3cfcaf4173f11f5f4e2221fd1a03eed8ce853255fc43bf45036819b57b50af6
     runner:
       # -tools adds curl, fd, gh and rg for agent.commands.
-      image: ghcr.io/home-operations/kritika:main-tools@sha256:62b427c955a4dd5f3515a689a430c804e6938d5b3309fc79ead2c80ea86ae6ac
+      image: ghcr.io/home-operations/kritika:main-tools@sha256:2a0663afc0dd627db58633decc821c581956ab0ad2f3ab2d9834f724aa365984
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
     web:
       url: "https://kritika.${SECRET_DOMAIN}"
-    auth:
-      # Local admin is the way into a fresh instance; drop it once GitHub or OIDC is set up.
-      admin:
-        user: admin
-        passwordSecret:
-          name: &secret kritika-secret
-          key: admin-password
     # All DSNs hit postgres16-rw directly: kritika LISTENs and sets startup params, which pgbouncer rejects.
     database:
       owner:
-        existingSecret: *secret
+        existingSecret: &secret kritika-secret
         uriKey: owner-uri
       app:
         existingSecret: *secret
@@ -47,60 +40,46 @@ spec:
         uriKey: runner-uri
         role: kritik_runner
     config:
-      # Drop a turned-off repo's index after 1h instead of 720h; re-enabling onboards a fresh one.
-      indexGrace: 1h
-      file:
-        apps:
-          - name: github
-            accounts: [tanguille]
-            clientId: Iv23liEpcPGN5z8KRBta
-            privateKey: { env: GITHUB_APP_PRIVATE_KEY }
-            webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
-        providers:
-          litellm:
-            type: openai
-            baseUrl: "http://litellm.ai.svc.cluster.local/v1"
-            apiKey: { env: LITELLM_API_KEY }
-        defaults:
-          # Mirrors CI agent-review: omniroute primary, qwen-3.8 fallback.
-          models:
-            review: litellm/omniroute
-            fallback: litellm/qwen-3.8
-          # Every finding carries a suggested fix; repositories cannot lift it.
-          requireSuggestedFix: true
-          # A review with nothing blocking or important approves the head; a later one that finds something withdraws it.
-          approve: true
-          # gh only: its run-scoped token is read-only; no curl, so PR text can't steer raw requests.
-          agent:
-            commands: [gh]
-          # Adapted from onedr0p/home-ops' kritik entry.
-          rules:
-            - id: renovate
-              whenExpr: pr.headRef.startsWith("renovate/")
-              rule: >-
-                This is a Renovate dependency update. Find what changed between the old and new
-                versions from upstream's release notes, changelog or compare view. Use the notes
-                Renovate embedded under "Release Notes" in the body when present; otherwise fetch
-                them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release,
-                never the releases list). Report breaking changes,
-                removed or renamed config keys and new defaults that affect how this repository
-                uses the dependency, and point at the lines they touch. Say so plainly when the
-                notes show nothing that affects this repository.
-        embedding:
-          model: litellm/qwen3-embedding
-          dims: 1024
-          # Nearly every chunk of this mostly-YAML repo scores above the 0.5 default; weak matches sit below ~0.7.
-          similarFloor: 0.7
-    secretEnv:
-      - name: LITELLM_API_KEY
-        secretName: cluster-secrets
-        key: LITELLM_API_KEY
-      - name: GITHUB_APP_PRIVATE_KEY
-        secretName: *secret
-        key: github-private-key
-      - name: GITHUB_APP_WEBHOOK_SECRET
-        secretName: *secret
-        key: github-webhook-secret
+      apps:
+        github:
+          accounts: [tanguille]
+          clientId: Iv23liEpcPGN5z8KRBta
+          privateKey: { env: GITHUB_APP_PRIVATE_KEY }
+          webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
+      providers:
+        litellm:
+          type: openai
+          baseUrl: "http://litellm.ai.svc.cluster.local/v1"
+          apiKey: { env: LITELLM_API_KEY }
+      defaults:
+        # Mirrors CI agent-review: omniroute primary, qwen-3.8 fallback.
+        models:
+          review: litellm/omniroute
+          fallback: litellm/qwen-3.8
+        # Every finding carries a suggested fix; repositories cannot lift it.
+        requireSuggestedFix: true
+        # A review with nothing blocking or important approves the head; a later one that finds something withdraws it.
+        approve: true
+        # gh only: its run-scoped token is read-only; no curl, so PR text can't steer raw requests.
+        agent:
+          commands: [gh]
+        # Adapted from onedr0p/home-ops' kritik entry.
+        rules:
+          - id: renovate
+            whenExpr: pr.headRef.startsWith("renovate/")
+            rule: >-
+              This is a Renovate dependency update. Find what changed between the old and new versions from upstream's release notes, changelog or compare view. Use the notes Renovate embedded under "Release Notes" in the body when present; otherwise fetch them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release, never the releases list). Report breaking changes, removed or renamed config keys and new defaults that affect how this repository uses the dependency, and point at the lines they touch. Say so plainly when the notes show nothing that affects this repository.
+      embedding:
+        model: litellm/qwen3-embedding
+        dims: 1024
+        # Nearly every chunk of this mostly-YAML repo scores above the 0.5 default; weak matches sit below ~0.7.
+        similarFloor: 0.7
+      # Local admin is the way into a fresh instance; drop it once GitHub or OIDC is set up.
+      auth:
+        admin:
+          user: admin
+          password:
+            env: ADMIN_PASSWORD
     # Internal only: public dashboard plus local admin and unsandboxed runners is too exposed.
     # GitHub webhooks can't reach it, so events arrive via polling.
     httpRoute:
@@ -118,3 +97,26 @@ spec:
     monitoring:
       serviceMonitor:
         enabled: true
+    env:
+      LITELLM_API_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: cluster-secrets
+            key: LITELLM_API_KEY
+      GITHUB_APP_PRIVATE_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: github-private-key
+      GITHUB_APP_WEBHOOK_SECRET:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: github-webhook-secret
+      ADMIN_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: admin-password
+      # Drop a turned-off repo's index after 1h instead of 720h; re-enabling onboards a fresh one.
+      KRITIKA_INDEX_GRACE: 1h
