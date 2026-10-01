@@ -142,7 +142,7 @@ spec:
   # VLLMDecodeStepLatched cover the gfx1201 band: 0 firings or restarts
   # 2026-09-13..23.
   # Bump baseline: docs/llm-hosting/vllm-nightly-bench-2026-09-29.md.
-  image: vllm/vllm-openai-rocm:nightly@sha256:e3fdfb382f2b567718ab6de49a14f5d5695dad84efc6dfd9c38f661b1a763e19
+  image: vllm/vllm-openai-rocm:nightly@sha256:c7792ad535d9cea3192d6c31a5016a833a4ec4ee865fc4f64ba4243002555ebb
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -269,6 +269,10 @@ spec:
     # (2026-09-03), 5/7d after (2026-09-27).
     - --watermark
     - "0.05"
+    # Default ITL edges are 25/50 ms around our 31-35 ms decode, so p95 reads ~49 ms.
+    # Fine edges 30-45 and 60 ms (slow band); default tail and the 0.05/0.075 longctx.py reads kept.
+    - --custom-histogram-buckets
+    - '{"inter_token_latency": [0.01, 0.02, 0.025, 0.03, 0.032, 0.034, 0.036, 0.038, 0.04, 0.045, 0.05, 0.06, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 40.0, 80.0]}'
     # 9.5 GiB -> 304,808 KV tokens (33,494 B/token; confirm in the boot log).
     # Reserve 2.48 GiB vs the largest non-vLLM VRAM excursion 1.82 GiB (3d of
     # drm samples); 10 GiB would leave 0.16. Transcodes: 4K DV 0.85 GB,
