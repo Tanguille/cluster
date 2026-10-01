@@ -30,7 +30,8 @@ spec:
               - |
                 name: dri
                 groups:
-                  - count: 4
+                  # vllm, jellyfin, fileflows and drm-exporter hold 4; the 5th is for the small reranker
+                  - count: 5
                     paths:
                       - path: /dev/dri
                       - path: /dev/kfd
