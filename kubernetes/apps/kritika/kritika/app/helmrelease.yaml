@@ -5,23 +5,14 @@ kind: HelmRelease
 metadata:
   name: kritika
 spec:
+  chartRef:
+    kind: OCIRepository
+    name: kritika
   interval: 30m
-  chart:
-    spec:
-      chart: ./charts/kritika
-      # The pin is a commit, not a chart version, so a new commit must move the artifact.
-      reconcileStrategy: Revision
-      sourceRef:
-        kind: GitRepository
-        name: kritika
   values:
-    # repository+tag@digest so Renovate tracks it; the chart renders repository:tag when digest is unset.
-    image:
-      repository: ghcr.io/home-operations/kritika
-      tag: main@sha256:a7c017fcd3396ad043ec47f9caf0aa88cf91151bc0f7d8c26e69a81f1e9db072
     runner:
-      # -tools adds curl, fd, gh, jq, rg and yq for agent.commands.
-      image: ghcr.io/home-operations/kritika:main-tools@sha256:4882134ea148834d6def13eb7dcf3ec987adc1097b64e01aed6960871d08aec0
+      # The chart pins its own image; the runner needs the -tools variant (curl, fd, gh, jq, rg and yq for agent.commands), kept at the chart's version.
+      image: ghcr.io/home-operations/kritika:0.0.2-tools@sha256:db1daf0a787c7afc0dc6ed3e1e52901935111bf8640a082769343cb1912909d7
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
     # All DSNs hit postgres16-rw directly: kritika LISTENs and sets startup params, which pgbouncer rejects.
