@@ -104,6 +104,12 @@ spec:
         # gh's run-scoped token is read-only, and rg, fd, jq and yq only read the checkout; no curl, so PR text can't steer raw requests.
         agent:
           commands: [gh, rg, fd, jq, yq]
+          # Each step resends the whole history, so a review that keeps reading grows to ~200K tokens and
+          # hits the 20m timeout. maxSteps is the limit that should bind (it forces a submit); maxTokens
+          # is only a backstop, since one late step can jump past its 90% forced-submit line.
+          maxSteps: 10
+          maxToolOutputBytes: 12288
+          maxTokens: 1000000
         # Adapted from onedr0p/home-ops' kritika entry.
         rules:
           - id: renovate
