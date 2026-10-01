@@ -45,6 +45,7 @@ spec:
     # GitHub webhooks can't reach it, so events arrive via polling.
     httpRoute:
       enabled: true
+      hostnames: ["kritika.${SECRET_DOMAIN}"]
       parentRefs:
         - name: envoy-internal
           namespace: network
