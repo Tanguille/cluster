@@ -85,8 +85,8 @@ spec:
               # touching this value.
               MEMINI_RERANK_TIMEOUT: "8s"
               # HTTP payload cap per /rerank request; the 6000 default shards a deep
-              # pool into ~10 serial requests. 20000 gives ~3 worst case (20 docs x
-              # 2048-char MAX_DOC_CHARS ~ 41k chars), typically one.
+              # pool into ~10 serial requests. 20000 gives ~2 worst case (12 docs x
+              # 2048-char MAX_DOC_CHARS ~ 24k chars), typically one.
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # Same congestion logic as the embedder knobs: one in-flight rerank
               # call keeps a slow shared-iGPU reranker from stalling the recall tail.
