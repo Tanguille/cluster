@@ -157,11 +157,6 @@
       matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
       enabled: false
     },
-    {
-      description: "kritika's chart and runner image land in one PR, so the chart never runs an older tools image",
-      matchPackageNames: ["/kritika/"],
-      groupName: "kritika"
-    },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
       description: "Auto-merge patch and digest bumps once they have aged 3 days",
@@ -191,8 +186,9 @@
       automerge: true
     },
     {
-      description: "Never auto-merge kritika: pre-1.0, its chart values change between patches",
+      description: "kritika's chart and runner image move in one PR (so the chart never runs an older tools image) and never auto-merge: pre-1.0, its chart values change between patches",
       matchPackageNames: ["/kritika/"],
+      groupName: "kritika",
       automerge: false
     },
     {
