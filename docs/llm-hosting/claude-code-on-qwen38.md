@@ -4,18 +4,19 @@ Client-side only. No cluster change. Verified 2026-09-12 with Claude Code 2.1.26
 
 ## Setup
 
-litellm already exposes an Anthropic-format `/v1/messages` at
+litellm already exposes an Anthropic-format endpoint at
 `https://litellm.${SECRET_DOMAIN}` (in-cluster `litellm.ai.svc.cluster.local`),
 with aliases `qwen-3.8` (thinking) and `qwen-3.8-fast` (no thinking) from
 `kubernetes/apps/ai/litellm/instance/models.yaml`. Claude Code only needs env:
 
 ```fish
-# ~/.config/fish/functions/claude-qwen.fish (chmod 600, holds the litellm master key)
+# ~/.config/fish/functions/claude-qwen.fish (chmod 600, holds a litellm virtual key)
 # Substitute the cluster domain for ${SECRET_DOMAIN} and the key for the <...> placeholder.
+# Use a virtual key limited to qwen-3.8 and qwen-3.8-fast; the master key reaches every model group.
 function claude-qwen
     CLAUDE_CODE_MODEL_CAPABILITIES="qwen*=-mid_conv_system,-mid_conv_tool_change" \
     ANTHROPIC_BASE_URL=https://litellm.${SECRET_DOMAIN} \
-    ANTHROPIC_AUTH_TOKEN=<LITELLM_MASTER_KEY from kubernetes/apps/ai/litellm/instance/secret.sops.yaml> \
+    ANTHROPIC_AUTH_TOKEN=<scoped litellm virtual key> \
     ANTHROPIC_MODEL=qwen-3.8 \
     ANTHROPIC_DEFAULT_SONNET_MODEL=qwen-3.8 \
     ANTHROPIC_DEFAULT_OPUS_MODEL=qwen-3.8 \
@@ -50,7 +51,9 @@ Things that do NOT fix it:
 Fix: the undocumented `CLAUDE_CODE_MODEL_CAPABILITIES` env, format
 `model-glob=cap,-cap;...`, `-` negates, not provider-gated.
 `qwen*=-mid_conv_system,-mid_conv_tool_change` drops the mid-conversation
-system turn; recapture showed roles `['user']` only.
+system turn; recapture showed roles `['user']` only. Cost: that turn carries the
+SessionStart hook output and `# Environment` block, so from the second turn on the
+model no longer sees them.
 
 The server-side alternative (patch the chat template via ConfigMap +
 `--chat-template`, same overlay pattern as `lds-gate-patch` in
