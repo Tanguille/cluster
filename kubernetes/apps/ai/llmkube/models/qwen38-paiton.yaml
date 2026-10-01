@@ -109,7 +109,10 @@ spec:
       count: 1
       vendor: amd
       runtime: rocm
-      resourceName: squat.ai/dri
+      # Exclusive dGPU claim (kube-system/k8s-gpu-dra-driver).
+      resourceClaims:
+        - name: gpu
+          resourceClaimTemplateName: dgpu
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
