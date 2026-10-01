@@ -19,8 +19,8 @@ The `components/kopiur` component creates, per app:
 
 Several apps' `securityContext.runAsUser` in their `helmrelease.yaml` does **not** match the uid
 that actually owns their files — the image's own entrypoint (gosu/s6-overlay/su-exec) drops
-privilege internally after starting as root, invisible to Kubernetes. Confirmed on `fileflows`,
-`odysseus`, and `nextcloud` during this migration; `odysseus` crashlooped after being restored
+privilege internally after starting as root, invisible to Kubernetes. Confirmed on `fileflows` and
+`nextcloud` during this migration; a since-removed app crashlooped after being restored
 as root when its real uid was 1000. **Before touching an app's `mover.securityContext`,
 verify**:
 
@@ -155,7 +155,7 @@ place. Scaler apps recover on their own via KEDA.
 
 ```bash
 kubectl exec -n media deployment/jellyfin -- id
-kubectl exec -n media deployment/jellyfin -- ls -la <mount-path>   # uid should match Step 9's id output
+kubectl exec -n media deployment/jellyfin -- ls -la <mount-path>   # uid should match the `id` output above
 kubectl kopiur snapshot now --policy jellyfin -n media --wait      # fresh snapshot should succeed
 kubectl kopiur snapshots list --policy jellyfin -n media           # file count/size should be continuous with history
 ```
