@@ -87,6 +87,8 @@ spec:
         embedding:
           model: litellm/qwen3-embedding
           dims: 1024
+          # Nearly every chunk of this mostly-YAML repo scores above the 0.5 default; weak matches sit below ~0.7.
+          similarFloor: 0.7
     secretEnv:
       - name: LITELLM_API_KEY
         secretName: cluster-secrets
