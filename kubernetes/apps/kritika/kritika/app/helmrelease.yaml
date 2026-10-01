@@ -108,15 +108,15 @@ spec:
           - id: renovate
             whenExpr: pr.headRef.startsWith("renovate/")
             rule: >-
-              This is a Renovate dependency update. Find what changed between the old and new versions from upstream's release notes, changelog or compare view. Use the notes Renovate embedded under "Release Notes" in the body when present; otherwise fetch them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release, never the releases list). Then check how this repository uses the package, with rg over its manifests, values, overrides, CRDs and the comments in those files, and report each breaking change, deprecation, removed or renamed value, or changed default that affects it, and any version it must stay in lockstep with. Start the summary with a verdict, safe to merge or not, and name the sources you read.
+              This is a Renovate dependency update. Find what changed between the old and new versions from upstream's release notes, changelog or compare view. Use the notes Renovate embedded under "Release Notes" in the body when present; otherwise fetch them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release, never the releases list). Then check how this repository uses the package, with rg over its manifests, lockfiles, values, overrides, CRDs, imports and the comments in those files, and report each breaking change, deprecation, removed or renamed value or API, or changed default that affects it, and any version it must stay in lockstep with. Start the summary with a verdict, safe to merge or not, and name the sources you read.
       repositories:
         Tanguille/mesh-organiser:
           rules:
-            # Same id as the default, so this replaces it for this Rust, Tauri and pnpm repository.
-            - id: renovate
+            # Adds to the default renovate rule for this Rust, Tauri and pnpm repository.
+            - id: renovate-rust-tauri
               whenExpr: pr.headRef.startsWith("renovate/")
               rule: >-
-                This is a Renovate dependency update. Find what changed between the old and new versions from upstream's release notes, changelog or compare view. Use the notes Renovate embedded under "Release Notes" in the body when present; otherwise fetch them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release, never the releases list). Then check how this repository uses the crate or package, with rg over its Cargo manifests (root, src-tauri, db, service, web, libmeshthumbnail), package.json and the code that imports it, and report each breaking change, deprecation, removed or renamed API or feature flag, or changed default that affects it. For Tauri, check that a plugin's Rust crate and its npm package, and tauri with @tauri-apps/api, stay on matching versions. Start the summary with a verdict, safe to merge or not, and name the sources you read.
+                Look for the crate or package in the Cargo manifests (root, src-tauri, db, service, web, libmeshthumbnail), package.json and the code that imports it. For Tauri, check that a plugin's Rust crate and its npm package, and tauri with @tauri-apps/api, stay on matching versions.
       embedding:
         model: litellm/qwen3-embedding
         dims: 1024
@@ -125,6 +125,5 @@ spec:
       # Local admin is the way into a fresh instance; drop it once GitHub or OIDC is set up.
       auth:
         admin:
-          user: admin
           password:
             env: ADMIN_PASSWORD
