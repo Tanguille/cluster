@@ -39,9 +39,11 @@ jobs:
           FLATE_PATH: ./kubernetes/flux/cluster
         run: |-
           for kind in helmrelease kustomization; do
-            echo "${kind}<<EOF" >> $GITHUB_OUTPUT
-            flate diff "$kind" >> $GITHUB_OUTPUT
-            echo 'EOF' >> $GITHUB_OUTPUT
+            {
+              echo "${kind}<<EOF"
+              flate diff "$kind"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
           done
 
       - name: Run Flate (images)
@@ -50,9 +52,11 @@ jobs:
           FLATE_OUTPUT: json
           FLATE_PATH: ./kubernetes/flux/cluster
         run: |-
-          echo 'images<<EOF' >> $GITHUB_OUTPUT
-          flate diff images >> $GITHUB_OUTPUT
-          echo 'EOF' >> $GITHUB_OUTPUT
+          {
+            echo 'images<<EOF'
+            flate diff images
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - if: ${{ steps.flate.outputs.helmrelease != '' || steps.flate.outputs.kustomization != '' }}
         name: Generate Token
