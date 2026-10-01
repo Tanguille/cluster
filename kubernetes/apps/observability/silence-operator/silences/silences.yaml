@@ -3,18 +3,6 @@
 apiVersion: observability.giantswarm.io/v1alpha2
 kind: Silence
 metadata:
-  name: truenas-memory-high-utilization
-spec:
-  matchers:
-    - name: alertname
-      value: NodeMemoryHighUtilization
-    - name: instance
-      value: ${TRUENAS_IP}:9100
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/observability.giantswarm.io/silence_v1alpha2.json
-apiVersion: observability.giantswarm.io/v1alpha2
-kind: Silence
-metadata:
   name: keda-hpa-maxed-out
 spec:
   matchers:

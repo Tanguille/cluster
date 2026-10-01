@@ -81,7 +81,7 @@ spec:
             uid: vmalertmanager
             type: alertmanager
             access: proxy
-            url: &vmalertmanagerUrl http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
+            url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
             jsonData:
               implementation: prometheus
 
@@ -96,11 +96,6 @@ spec:
         # example; the camelCased `create: false` form silently matched nothing.
         RecordingRulesNoData:
           enabled: false
-      groups:
-        # vmsingle deployment; the chart's vmcluster group duplicates RequestErrorsToAPI etc.
-        # Remove this if the stack ever migrates to vmcluster.
-        vmcluster:
-          create: false
 
     grafana:
       enabled: false
@@ -190,9 +185,6 @@ spec:
             - receiver: blackhole
               matchers:
                 - alertname = InfoInhibitor
-            - receiver: discord
-              matchers:
-                - severity = critical
         inhibit_rules:
           - equal: ["alertname", "namespace"]
             source_matchers:
@@ -283,12 +275,8 @@ spec:
         extraArgs:
           "external.url": https://vmalert.${SECRET_DOMAIN}
           "rule.evalDelay": 1m
-        notifier:
-          url: *vmalertmanagerUrl
         remoteRead:
           url: *vmqueryUrl
-        remoteWrite:
-          url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428/api/v1/write
         resources:
           requests:
             cpu: 25m
