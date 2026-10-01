@@ -109,15 +109,7 @@ spec:
           - id: renovate
             whenExpr: pr.headRef.startsWith("renovate/")
             rule: >-
-              This is a Renovate dependency update. Find what changed between the old and new versions from upstream's release notes, changelog or compare view. Use the notes Renovate embedded under "Release Notes" in the body when present; otherwise fetch them with gh (gh api repos/OWNER/REPO/releases/tags/TAG, one call per release, never the releases list). Then check how this repository uses the package, with rg over its manifests, lockfiles, values, overrides, CRDs, imports and the comments in those files, and report each breaking change, deprecation, removed or renamed value or API, or changed default that affects it, and any version it must stay in lockstep with. Start the summary with a verdict, safe to merge or not, and name the sources you read.
-      repositories:
-        Tanguille/mesh-organiser:
-          rules:
-            # Adds to the default renovate rule for this Rust, Tauri and pnpm repository.
-            - id: renovate-rust-tauri
-              whenExpr: pr.headRef.startsWith("renovate/")
-              rule: >-
-                Look for the crate or package in the Cargo manifests (root, src-tauri, db, service, web, libmeshthumbnail), package.json and the code that imports it. For Tauri, check that a plugin's Rust crate and its npm package, and tauri with @tauri-apps/api, stay on matching versions.
+              This is a Renovate dependency update. Read what changed from the release notes in the PR body, or from upstream's release notes or compare view with gh (one call per release, never the releases list). Then use rg to see how this repository uses the package, including the comments in those files, and report each breaking change, deprecation, rename or changed default that affects it, and any version it must stay in lockstep with. Start with a verdict, safe to merge or not, and name the sources you read.
       embedding:
         model: litellm/qwen3-embedding
         dims: 1024
