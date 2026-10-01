@@ -101,6 +101,8 @@ spec:
           maxSteps: 10
           maxToolOutputBytes: 12288
           maxTokens: 1000000
+          # A step that writes ~10K tokens at ~25 tok/s takes ~6 minutes, so 20m cut off reviews that were still progressing.
+          timeout: 30m
         # Adapted from onedr0p/home-ops' kritika entry.
         rules:
           - id: renovate
