@@ -24,7 +24,6 @@ with SOPS in place of 1Password.
 | --------------------------------------- | ------------------------------------------------------------------------- |
 | `cluster.yaml.j2`                       | Documents applied to every node                                           |
 | `controlplane.yaml.j2`                  | Control-plane-only documents, including `machine.type`                    |
-| `workers.yaml.j2`                       | Worker-only documents (does not exist yet; created with the first worker) |
 | `nodes/<role>/<node>.yaml.j2`           | Per-node documents (hostname, address, MAC selector, install disk, labels)|
 | `nodes/<role>/<node>.schematic.yaml`    | Optional per-node schematic override                                      |
 | `schematic.yaml`                        | Shared [Image Factory](https://factory.talos.dev) schematic               |
@@ -34,7 +33,7 @@ with SOPS in place of 1Password.
 ## Rendering
 
 `just talos render-config <node>` builds the final machine config in three layers. Conceptually,
-where `<role>` is `controlplane` or `workers`, chosen by which directory holds the node file:
+where `<role>` is `controlplane` (the only role today):
 
 ```text
      cluster.yaml.j2          every node

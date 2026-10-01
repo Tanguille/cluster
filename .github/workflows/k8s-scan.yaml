@@ -22,8 +22,7 @@ jobs:
     # Advisory: kubescape scans the GitOps tree against its default bundled
     # controls (NSA/CIS). The tree intentionally contains privileged
     # infrastructure (GPU driver, Ceph, node operators), so findings are a
-    # report to review in the artifact, not a merge gate. zizmor remains the
-    # blocking gate for workflow/manifest structure.
+    # report to review in the artifact, not a merge gate.
     name: K8s Scan - kubescape (advisory)
     runs-on: ubuntu-latest
     steps:

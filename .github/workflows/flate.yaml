@@ -5,6 +5,7 @@ name: Flate
 on:
   pull_request:
     branches: ["main"]
+    paths: ["kubernetes/**"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -14,21 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  filter:
-    name: Flate - Filter
-    runs-on: ubuntu-latest
-    outputs:
-      changed-files: ${{ steps.changed-files.outputs.changed_files }}
-    steps:
-      - name: Get Changed Files
-        id: changed-files
-        uses: bjw-s-labs/action-changed-files@147be9638332cf68fd60714a610509d7a9360d60 # v0.7.0
-        with:
-          patterns: kubernetes/**/*
-
   flate:
-    if: ${{ needs.filter.outputs.changed-files != '[]' }}
-    needs: filter
     name: Flate
     runs-on: ubuntu-latest
     outputs:
@@ -175,17 +162,3 @@ jobs:
             talosctl --nodes "$NODE" image pull "${image}" || rc=1
           done <<< "$images"
           exit $rc
-
-  success:
-    if: ${{ !cancelled() }}
-    needs: [flate, pull]
-    name: Flate - Success
-    runs-on: ubuntu-latest
-    steps:
-      - name: Any jobs failed?
-        if: ${{ contains(needs.*.result, 'failure') }}
-        run: exit 1
-
-      - name: All jobs passed or skipped?
-        if: ${{ !(contains(needs.*.result, 'failure')) }}
-        run: echo "All jobs passed or skipped" && echo "${{ toJSON(needs.*.result) }}"

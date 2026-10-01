@@ -2,7 +2,6 @@ set quiet
 set default-list
 set default-script
 set script-interpreter := ['bash', '-euo', 'pipefail']
-set shell := ['bash', '-euo', 'pipefail', '-c']
 
 [group('Kube')]
 mod kube "kubernetes"
