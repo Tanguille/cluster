@@ -18,10 +18,10 @@ spec:
     # repository+tag@digest so Renovate tracks it; the chart renders repository:tag when digest is unset.
     image:
       repository: ghcr.io/home-operations/kritika
-      tag: main@sha256:a7c017fcd3396ad043ec47f9caf0aa88cf91151bc0f7d8c26e69a81f1e9db072
+      tag: main@sha256:f9c14f34efa8876f08ffe9c268bacea82102c08a1415663b4c77421512d09864
     runner:
       # -tools adds curl, fd, gh, jq, rg and yq for agent.commands.
-      image: ghcr.io/home-operations/kritika:main-tools@sha256:4882134ea148834d6def13eb7dcf3ec987adc1097b64e01aed6960871d08aec0
+      image: ghcr.io/home-operations/kritika:main-tools@sha256:4feb2037afff7efec50838914fc3cd57ceb0587e233db84d07d33e52076592e6
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
     # All DSNs hit postgres16-rw directly: kritika LISTENs and sets startup params, which pgbouncer rejects.
