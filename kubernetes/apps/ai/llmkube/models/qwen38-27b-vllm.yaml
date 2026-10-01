@@ -65,15 +65,13 @@ spec:
                 - -c
                 - |
                   #!/bin/sh
-                  # PROPOSED replacement guard body for qwen38-27b-vllm-kv-offload-guard.
-                  # Drop-in for the command block in kubernetes/apps/ai/llmkube/models/
-                  # qwen38-27b-vllm.yaml (Flux postBuild envsubst context: bare $VAR -> $$).
+                  # KV-offload guard: sweeps /kvoffload back above a 160Gi free-space floor on
+                  # the shared root fs. Flux postBuild envsubst context: bare $VAR -> $$.
                   #
-                  # Changes vs current (sweep/verify logic only; floor and PVC unchanged):
                   #  1. Re-evict loop (up to 3 passes) instead of one shot: vLLM writes back
                   #     1-2Gi during the sweep (runs 29843040/29843160, 2026-10-01), so a
                   #     single pass ends 1-2Gi short and exits 1 even with the tier drained.
-                  #  2. Margin = max(10% of shortfall, 4Gi flat): at 1-2Gi shortfalls the
+                  #  2. Margin = max(shortfall/16, 4Gi flat): at 1-2Gi shortfalls the
                   #     percentage margin is sub-Gi and cannot cover observed write-back.
                   #  3. Drained-tier escape: if the tier is empty after the passes, the
                   #     residual shortfall is non-tier growth on the shared root fs (rook
@@ -93,7 +91,7 @@ spec:
                   # not of the (label-only) 128Gi openebs-hostpath PVC.
                   floor=167772160
                   # 4Gi flat write-back cushion: observed mid-sweep regrowth is 1-2Gi; the
-                  # old floor/16 (~10%) margin was sub-Gi at that shortfall size.
+                  # shortfall/16 margin is sub-Gi at that shortfall size.
                   min_margin_kb=4194304
                   # A tier this empty counts as drained for the escape check (4Gi).
                   drained_kb=4194304
@@ -115,7 +113,7 @@ spec:
                     # check interval wiped the whole tier each time.
                     # LRU by mtime, oldest first; blocks are write-once.
                     # busybox find has no -printf.
-                    find /kvoffload -type f -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
+                    find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
                     {
                       n=0 freed_kb=0
                       while IFS=' ' read -r size f; do
