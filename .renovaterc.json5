@@ -159,8 +159,7 @@
     },
     {
       description: "kritika's chart and runner image land in one PR, so the chart never runs an older tools image",
-      // Matches the OCI chart (ghcr.io/home-operations/charts/kritika) and the runner image (ghcr.io/home-operations/kritika).
-      matchPackageNames: ["/home-operations\\/(charts\\/)?kritika/"],
+      matchPackageNames: ["/kritika/"],
       groupName: "kritika"
     },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
@@ -192,9 +191,13 @@
       automerge: true
     },
     {
-      description: "Never auto-merge storage, network, control plane, databases, GPU serving or kritika (pre-1.0, its chart values change between patches)",
+      description: "Never auto-merge kritika: pre-1.0, its chart values change between patches",
+      matchPackageNames: ["/kritika/"],
+      automerge: false
+    },
+    {
+      description: "Never auto-merge storage, network, control plane, databases or GPU serving",
       matchPackageNames: [
-        "/home-operations\\/(charts\\/)?kritika/",
         "/talos/",
         "/installer/",
         "/siderolabs/",

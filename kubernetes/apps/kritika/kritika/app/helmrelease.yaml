@@ -11,7 +11,7 @@ spec:
   interval: 30m
   values:
     runner:
-      # The chart pins its own image; the runner needs the -tools variant (curl, fd, gh, jq, rg and yq for agent.commands), kept at the chart's version.
+      # -tools adds curl, fd, gh, jq, rg and yq for agent.commands; the chart pins the main image itself.
       image: ghcr.io/home-operations/kritika:0.0.2-tools@sha256:db1daf0a787c7afc0dc6ed3e1e52901935111bf8640a082769343cb1912909d7
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
