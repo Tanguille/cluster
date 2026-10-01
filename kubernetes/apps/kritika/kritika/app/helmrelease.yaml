@@ -3,48 +3,48 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: kritik
+  name: kritika
 spec:
   interval: 30m
   chart:
     spec:
-      chart: ./charts/kritik
+      chart: ./charts/kritika
       # The pin is a commit, not a chart version, so a new commit must move the artifact.
       reconcileStrategy: Revision
       sourceRef:
         kind: GitRepository
-        name: kritik
+        name: kritika
   values:
     # repository+tag@digest so Renovate tracks it; the chart renders repository:tag when digest is unset.
     image:
-      repository: ghcr.io/home-operations/kritik
-      tag: main@sha256:816844ad119308f943d1e060fe8ff07cc870a55ff7251e08543f59eccb2ec500
+      repository: ghcr.io/home-operations/kritika
+      tag: main@sha256:8f4065aca6db1b5aa6e5ffdb39f4049eee00737d56cd089c41a34ed3007dd8b9
     runner:
       # -tools adds curl, fd, gh and rg for agent.commands.
-      image: ghcr.io/home-operations/kritik:main-tools@sha256:396fe629073501d3e164376e9545e6b334345f8047ef7c47608405d1774f352f
+      image: ghcr.io/home-operations/kritika:main-tools@sha256:62b427c955a4dd5f3515a689a430c804e6938d5b3309fc79ead2c80ea86ae6ac
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
     web:
-      url: "https://kritik.${SECRET_DOMAIN}"
+      url: "https://kritika.${SECRET_DOMAIN}"
     auth:
       # Local admin is the way into a fresh instance; drop it once GitHub or OIDC is set up.
       admin:
         user: admin
         passwordSecret:
-          name: &secret kritik-secret
+          name: &secret kritika-secret
           key: admin-password
-    # All DSNs hit postgres16-rw directly: kritik LISTENs and sets startup params, which pgbouncer rejects.
+    # All DSNs hit postgres16-rw directly: kritika LISTENs and sets startup params, which pgbouncer rejects.
     database:
       owner:
         existingSecret: *secret
-        key: owner-uri
+        uriKey: owner-uri
       app:
         existingSecret: *secret
-        key: app-uri
+        uriKey: app-uri
         role: kritik_app
       runner:
         existingSecret: *secret
-        key: runner-uri
+        uriKey: runner-uri
         role: kritik_runner
     config:
       # Drop a turned-off repo's index after 1h instead of 720h; re-enabling onboards a fresh one.

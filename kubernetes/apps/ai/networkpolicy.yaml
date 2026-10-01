@@ -17,14 +17,14 @@ spec:
     # gatus probes; security = kguardian llm-bridge -> litellm;
     # actions-runner-system = agent-pr-review -> litellm/omniroute; network =
     # envoy-internal fronting the HTTPRoutes; ai = intra-namespace.
-    # kritik = its embedder, qwen3-embedding through litellm on :80.
+    # kritika = its embedder, qwen3-embedding through litellm on :80.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
         - matchLabels:
             io.kubernetes.pod.namespace: default
         - matchLabels:
-            io.kubernetes.pod.namespace: kritik
+            io.kubernetes.pod.namespace: kritika
         - matchLabels:
             io.kubernetes.pod.namespace: observability
         - matchLabels:
