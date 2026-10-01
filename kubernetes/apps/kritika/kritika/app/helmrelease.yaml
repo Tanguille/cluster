@@ -18,10 +18,10 @@ spec:
     # repository+tag@digest so Renovate tracks it; the chart renders repository:tag when digest is unset.
     image:
       repository: ghcr.io/home-operations/kritika
-      tag: main@sha256:bf41172c36a9a567e9909f7cae2e2fb04915d0865daf9e857e50615efeed5e1c
+      tag: main@sha256:8f4065aca6db1b5aa6e5ffdb39f4049eee00737d56cd089c41a34ed3007dd8b9
     runner:
       # -tools adds curl, fd, gh and rg for agent.commands.
-      image: ghcr.io/home-operations/kritika:main-tools@sha256:80fd0a4aa5545a3001962afc1782662d790781346ac1825ec3e2b924c955fba6
+      image: ghcr.io/home-operations/kritika:main-tools@sha256:62b427c955a4dd5f3515a689a430c804e6938d5b3309fc79ead2c80ea86ae6ac
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
     web:
@@ -37,14 +37,14 @@ spec:
     database:
       owner:
         existingSecret: *secret
-        key: owner-uri
+        uriKey: owner-uri
       app:
         existingSecret: *secret
-        key: app-uri
+        uriKey: app-uri
         role: kritik_app
       runner:
         existingSecret: *secret
-        key: runner-uri
+        uriKey: runner-uri
         role: kritik_runner
     config:
       # Drop a turned-off repo's index after 1h instead of 720h; re-enabling onboards a fresh one.
