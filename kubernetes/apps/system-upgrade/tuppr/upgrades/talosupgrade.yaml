@@ -23,6 +23,12 @@ spec:
     # retry job schedule onto control-1 itself; its own powercycle then killed the pod mid-upgrade
     # (2026-09-15). This is already the CRD default -- pinned so it can't silently drift again.
     placement: hard
+  # Jellyfin's quietest hours; gates upgrade starts only, a running upgrade finishes.
+  maintenance:
+    windows:
+      - start: "0 7 * * 1-5"
+        duration: 4h
+        timezone: Europe/Brussels
   healthChecks:
     - apiVersion: v1
       kind: Node

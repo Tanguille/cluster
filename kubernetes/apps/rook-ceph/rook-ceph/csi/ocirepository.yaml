@@ -4,6 +4,7 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
   name: ceph-csi-drivers
+# Pair with the ceph-csi-operator subchart the rook-ceph chart bundles (../app/ocirepository.yaml); read its Chart.yaml dependencies before bumping.
 spec:
   interval: 1h
   layerSelector:

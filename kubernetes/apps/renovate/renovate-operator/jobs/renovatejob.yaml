@@ -7,13 +7,14 @@ metadata:
 spec:
   discoveryFilters:
     - Tanguille/cluster
+    - Tanguille/mesh-organiser
   # App creds mirror actions-runner-system/.../runners/cluster/secrets.sops.yaml; rotate both.
   githubAppReference:
     secretName: renovate-github-app
     appIdSecretKey: github_app_id
     installationIdSecretKey: github_app_installation_id
     pemSecretKey: github_app_private_key
-  image: ghcr.io/renovatebot/renovate:44.130.0
+  image: ghcr.io/renovatebot/renovate:44.131.1
   parallelism: 1
   provider:
     name: github
