@@ -81,9 +81,9 @@ spec:
   modelName: omniroute
   proxyRef: litellm
   params:
-    # smart-free is a persisted omniroute combo (round-robin over Nemotron 3 Ultra,
-    # Gemini 3.8 Flash, Opus 4.6). auto/* never resolves opencode/* targets on the
-    # pinned image (#10892), so the free Zen models only route via a combo.
+    # smart-free is a persisted omniroute combo (priority order: Gemini 3.8 and 3.7
+    # Flash, Antigravity Gemini Flash, Groq qwen3.8-27b for prompts under 6k tokens,
+    # charm-hyper glm-5.3-flash last since it is paid).
     model: openai/smart-free
     apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
     # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
