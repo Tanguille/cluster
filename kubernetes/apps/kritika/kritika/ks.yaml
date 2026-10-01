@@ -3,17 +3,17 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: kritik
-  namespace: &namespace kritik
+  name: kritika
+  namespace: &namespace kritika
 spec:
   dependsOn:
-    # kritik refuses to start without its three roles and the vchord/vector extensions.
+    # kritika refuses to start without its three roles and the vchord/vector extensions.
     - name: cloudnative-pg-cluster
       namespace: database
     - name: cloudnative-pg-databases
       namespace: database
   interval: 1h
-  path: ./kubernetes/apps/kritik/kritik/app
+  path: ./kubernetes/apps/kritika/kritika/app
   prune: true
   sourceRef:
     kind: GitRepository

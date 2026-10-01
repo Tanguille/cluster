@@ -4,13 +4,13 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
-  name: kritik
+  name: kritika
 spec:
   interval: 1h
-  url: https://github.com/home-operations/kritik
+  url: https://github.com/home-operations/kritika
   ref:
-    commit: 78cd661396f516dc67dcb2bbe533243681fffd44
+    commit: c1309d72251d652842f07373cdd4808e2093f6b9
   # Only the chart; without this the whole Go tree is vendored.
   ignore: |-
     /*
-    !/charts/kritik
+    !/charts/kritika
