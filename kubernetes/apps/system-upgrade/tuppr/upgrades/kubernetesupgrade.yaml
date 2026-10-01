@@ -14,12 +14,6 @@ spec:
       # and ImagePullBackOffs. Annotated because a YAML anchor cannot cross files.
       # renovate: datasource=github-releases depName=siderolabs/talos
       tag: v1.14.2
-  # Jellyfin's quietest hours; gates upgrade starts only, a running upgrade finishes.
-  maintenance:
-    windows:
-      - start: "0 7 * * 1-5"
-        duration: 4h
-        timezone: Europe/Brussels
   healthChecks:
     - apiVersion: v1
       kind: Node
