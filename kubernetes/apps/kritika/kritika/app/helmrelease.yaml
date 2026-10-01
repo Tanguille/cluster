@@ -18,10 +18,10 @@ spec:
     # repository+tag@digest so Renovate tracks it; the chart renders repository:tag when digest is unset.
     image:
       repository: ghcr.io/home-operations/kritika
-      tag: main@sha256:d3cfcaf4173f11f5f4e2221fd1a03eed8ce853255fc43bf45036819b57b50af6
+      tag: main@sha256:3f6845b3e59fef4490683842159ddbe02e8c7e5db6195bad9a13047182d9b4ae
     runner:
       # -tools adds curl, fd, gh, jq, rg and yq for agent.commands.
-      image: ghcr.io/home-operations/kritika:main-tools@sha256:2a0663afc0dd627db58633decc821c581956ab0ad2f3ab2d9834f724aa365984
+      image: ghcr.io/home-operations/kritika:main-tools@sha256:2b592cd96a78406ac3128bb807b557c03169c26f5e4e5088d020dbb11ac41eb0
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
     web:
@@ -30,14 +30,14 @@ spec:
     database:
       owner:
         existingSecret: &secret kritika-secret
-        uriKey: owner-uri
+        key: owner-uri
       app:
         existingSecret: *secret
-        uriKey: app-uri
+        key: app-uri
         role: kritik_app
       runner:
         existingSecret: *secret
-        uriKey: runner-uri
+        key: runner-uri
         role: kritik_runner
     config:
       apps:
