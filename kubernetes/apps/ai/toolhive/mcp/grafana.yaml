@@ -24,6 +24,9 @@ spec:
   env:
     - name: GRAFANA_URL
       value: http://grafana-service.observability.svc.cluster.local:3000
+    # 2.0 enables anonymous usage stats by default
+    - name: GRAFANA_USAGE_STATS
+      value: disabled
   podTemplateSpec:
     spec:
       containers:
