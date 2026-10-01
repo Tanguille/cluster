@@ -44,10 +44,10 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 1Gi
+                memory: 512Mi
               limits:
                 cpu: 1000m
-                memory: 4Gi
+                memory: 2Gi
     defaultPodOptions:
       # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
       priorityClassName: homelab-important
@@ -76,6 +76,6 @@ spec:
       dshm:
         type: emptyDir
         medium: Memory
-        sizeLimit: 1Gi
+        sizeLimit: 512Mi
         globalMounts:
           - path: /dev/shm
