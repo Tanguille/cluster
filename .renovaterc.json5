@@ -152,11 +152,6 @@
     }
   ],
   packageRules: [
-    {
-      description: "Paiton accepts only its hash-pinned checkpoint; bump with the image",
-      matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
-      enabled: false
-    },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
       description: "Auto-merge patch and digest bumps once they have aged 3 days",
