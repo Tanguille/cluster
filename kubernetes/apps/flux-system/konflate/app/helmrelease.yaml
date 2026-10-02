@@ -15,7 +15,7 @@ spec:
     config:
       repo: github://tanguille/cluster
       publicUrl: "https://konflate.${SECRET_DOMAIN}"
-      # Same GitHub App as kritika: its installation covers this repo, and the key comes from kritika-secret.
+      # Same GitHub App as kritika; secret.sops.yaml holds a copy of its private key.
       appClientId: Iv23liEpcPGN5z8KRBta
       statusChecks: true
       prComments: true
@@ -26,12 +26,8 @@ spec:
       kubeVersion: "{{ .Capabilities.KubeVersion.Version }}"
       # No push endpoint yet, so this is the only refresh besides head-SHA changes seen on the PR list.
       refreshInterval: 5m
-      extraEnv:
-        - name: KONFLATE_APP_PRIVATE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: kritika-secret
-              key: github-private-key
+    secret:
+      existingSecret: konflate-secret
     persistence:
       enabled: true
       storageClass: ceph-block
