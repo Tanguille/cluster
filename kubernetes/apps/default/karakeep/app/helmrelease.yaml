@@ -110,10 +110,6 @@ spec:
             probes:
               liveness: &probe
                 enabled: true
-                custom: true
-                spec:
-                  tcpSocket:
-                    port: 9222
               readiness: *probe
             resources:
               requests:

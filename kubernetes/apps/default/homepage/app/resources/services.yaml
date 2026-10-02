@@ -21,10 +21,6 @@
         description: Out-of-band management
         siteMonitor: https://ipmi.${SECRET_DOMAIN}
 
-# No CrowdSec tile: the widget logs into LAPI as a watcher (machine), and machines
-# self-register from the chart's agents — there is no declarative slot for one, so the
-# credential would live only in the LAPI database. It 400'd on login for as long as it existed.
-
 # kromgo cluster metrics — service tiles because customapi only exists as a
 # service widget (the global header cannot host it). Widgets are proxied
 # server-side, so the cluster-local URL avoids hairpinning through envoy.

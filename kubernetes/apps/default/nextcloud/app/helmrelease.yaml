@@ -11,7 +11,7 @@ spec:
     kind: OCIRepository
     name: nextcloud
 
-  # Chart 9.2.x has no fromAddressKey in existingSecret, so inject the secret value here.
+  # Chart has no fromAddressKey in existingSecret, so inject the secret value here.
   valuesFrom:
     - kind: Secret
       name: nextcloud-secret

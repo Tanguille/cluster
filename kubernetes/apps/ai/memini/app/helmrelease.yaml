@@ -30,66 +30,35 @@ spec:
               MEMINI_EMBED_MODEL: "qwen3-embedding"
               # Native width of Qwen3-Embedding-0.6B; not a truncation, raising it needs a bigger model.
               MEMINI_EMBED_DIMS: "1024"
-              # Asymmetric model: query side takes the prefix, documents must not. Query-only,
-              # so stored vectors stay valid. Measured relevant-vs-irrelevant cosine margin on the
-              # live embedder: 0.419 bare -> 0.474 prefixed.
+              # Query-only prefix (documents must not carry it): cosine margin 0.419 bare -> 0.474 prefixed.
               MEMINI_EMBED_QUERY_PREFIX: |-
                 Instruct: Given a search query, retrieve relevant memories that answer the query
                 Query:
               # Re-embed rather than silently mixing vector spaces if the model or dims ever change.
               MEMINI_REEMBED_ON_MODEL_CHANGE: "true"
-              # Bound capture/dedup embedding work to short, serial batches so
-              # it cannot create the multi-second recall tail under load.
+              # Short serial batches keep capture/dedup embedding from creating a recall tail under load.
               MEMINI_EMBED_MAX_CONCURRENCY: "1"
               MEMINI_EMBED_MAX_BATCH: "8"
               MEMINI_EMBED_MAX_BATCH_CHARS: "12000"
               MEMINI_EMBED_MAX_ITEM_CHARS: "4000"
-              # The 5s default drops writes to vectorless whenever the shared
-              # iGPU embedder is busy; the two from 2026-08-04 20:50 never got
-              # a vector back and are keyword-only.
+              # The 5s default drops writes to vectorless whenever the shared iGPU embedder is busy.
               MEMINI_WRITE_EMBED_TIMEOUT: "15s"
-              # Read path has the write path's failure on a tighter 2s default: a busy
-              # embedder degrades recall to keyword_only instead of returning vector hits.
+              # The 2s default degrades recall to keyword_only when the embedder is busy.
               MEMINI_RECALL_EMBED_TIMEOUT: "20s"
-              # Cross-encoder rerank of the composite top-k. Direct to the LLMKube
-              # reranker (NOT litellm, which has no rerank provider in v1.102.0);
-              # the netpol carve-out kubernetes/apps/ai/llmkube/models/
-              # networkpolicy.yaml (inference-rerank-memini-allow) permits exactly
-              # this path, reranker service only. Base URL is the API root — memini
-              # appends /rerank itself.
+              # Direct to the LLMKube reranker (litellm has no rerank provider); allowed by inference-rerank-memini-allow. Base URL is the API root, memini appends /rerank.
               MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local:8080/v1"
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
-              # Re-rank a wider pool than the recall limit, then truncate: lets a
-              # composite-buried memory be rescued by its own relevance. Cost is one
-              # forward pass per candidate. Measured on the iGPU (2026-10-02): ~1250
-              # tok/s, so a short-query pair of 2048 chars costs ~0.4s and 12 pairs
-              # (~5s) fit the 8s timeout where 20 (~8s) sat right on it.
+              # Wider than the recall limit so buried memories can be rescued; 12 pairs (~5s on the iGPU) fit the 8s timeout, 20 (~8s) did not.
               MEMINI_RERANK_POOL: "12"
-              # Automatic prompt recalls send the whole prompt as the rerank query
-              # (~1900 tokens, re-scored in every pair: ~2.5s/pair, ~50s per pool), which
-              # no pool size fits in 8s; ~96% of recalls timed out and the MIN_SCORE
-              # gate returned empty. Skip the cross-encoder for them (docs: also
-              # bypasses MIN_SCORE, composite min_rank_score still applies); explicit
-              # recalls with short queries keep full reranking.
+              # Prompt recalls rerank on the whole prompt (~50s per pool), so ~96% timed out and MIN_SCORE returned empty; skip them (also bypasses MIN_SCORE). Explicit short-query recalls still rerank.
               MEMINI_RERANK_PROMPT: "false"
-              # Absolute relevance floor: drops low-relevance candidates outright,
-              # so a query with no genuine match returns empty (a verdict) instead
-              # of the best-of-a-bad-pool. 0.5 is a conservative start on
-              # llama.cpp's sigmoid-scaled [0,1] scores — validate against live
-              # traffic before moving it (memini bench.RerankGateSweep).
+              # Absolute floor so a query with no genuine match returns empty; 0.5 is a conservative start on llama.cpp's [0,1] scores (validate with memini bench.RerankGateSweep).
               MEMINI_RERANK_MIN_SCORE: "0.5"
-              # Hermes abandons a recall at 8s (memory_manager.py _EXTERNAL_PREFETCH_TIMEOUT_S);
-              # a longer rerank only holds the single reranker slot. With MIN_SCORE a
-              # timeout returns empty (the gate fails closed). Keep this at 8s;
-              # re-check memini_rerank_results_total (fallback vs ok) before
-              # touching this value.
+              # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); a longer rerank only holds the reranker slot. A timeout returns empty under MIN_SCORE.
               MEMINI_RERANK_TIMEOUT: "8s"
-              # HTTP payload cap per /rerank request; the 6000 default shards a deep
-              # pool into ~10 serial requests. 20000 gives ~2 worst case (12 docs x
-              # 2048-char MAX_DOC_CHARS ~ 24k chars), typically one.
+              # Payload cap per /rerank request; the 6000 default shards a deep pool into ~10 serial requests.
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
-              # Same congestion logic as the embedder knobs: one in-flight rerank
-              # call keeps a slow shared-iGPU reranker from stalling the recall tail.
+              # One in-flight call keeps a slow shared-iGPU reranker from stalling recall.
               MEMINI_RERANK_MAX_CONCURRENCY: "1"
             resources:
               requests:

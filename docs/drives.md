@@ -39,8 +39,8 @@ flush on every one. That is why osd.0 (Samsung 980 PRO) is the slowest OSD.
 | control-2 | Micron 7450 PRO 480GB | Talos system disk (etcd) | yes | write through |
 | control-3 | Micron 7450 PRO 960GB | Ceph osd.1 | yes | write through |
 | control-3 | Micron 7450 PRO 480GB | Talos system disk (etcd) | yes | write through |
-| control-1 | virtio `vda` (`5yH5nnaI`) | Talos system disk (etcd) | via host | write back |
-| control-1 | virtio `vdb` (`ZF6YrnfZ`) | Ceph osd.3 | via host | write back |
+| control-1 | virtio `vda` | Talos system disk (etcd) | via host | write back |
+| control-1 | virtio `vdb` | Ceph osd.3 | via host | write back |
 | TrueNAS | Samsung PM983 1.92TB (`nvme0`) | `SSD_Pool` (single disk) | yes | write through, `vwc 0` |
 | TrueNAS | Intel Optane M10 32GB (`nvme1`) | `boot-pool` | no | write through, `vwc 0` |
 | TrueNAS | 2x Seagate Exos 8TB ST8000NM000A (`sda`, `sdc`) | `TanguilleServer` mirror | no | write back (keep) |

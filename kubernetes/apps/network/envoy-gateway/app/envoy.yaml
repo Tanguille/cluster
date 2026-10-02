@@ -33,8 +33,6 @@ spec:
                       livenessProbe:
                         timeoutSeconds: 5
                         failureThreshold: 6
-      envoyService:
-        externalTrafficPolicy: Local
   shutdown:
     drainTimeout: 180s
   telemetry:
@@ -222,7 +220,6 @@ spec:
     - kind: Gateway
   tcpKeepalive: {}
   tls:
-    minVersion: "1.2"
     alpnProtocols:
       - h2
       - http/1.1

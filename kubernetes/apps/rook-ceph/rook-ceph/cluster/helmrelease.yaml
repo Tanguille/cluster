@@ -32,13 +32,10 @@ spec:
           gethomepage.dev/icon: rook.png
         host:
           name: rook.${SECRET_DOMAIN}
-          path: /
-          pathType: PathPrefix
         parentRefs:
           - name: envoy-internal
             namespace: network
     cephImage:
-      repository: quay.io/ceph/ceph
       tag: v20.2.4@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
     cephClusterSpec:
       # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
@@ -63,9 +60,6 @@ spec:
           bdev_async_discard_threads: "1"
           osd_class_update_on_start: "false"
           device_failure_prediction_mode: local # requires mgr module
-          # Network optimization for 2.5Gbps
-          ms_osd_compress_min_size: "1024"
-          ms_osd_compression_algorithm: snappy
           # Auto-archive Ceph crashes after 1 day (86400 seconds)
           mgr/crash/warn_recent_interval: "86400"
         mon:
@@ -156,9 +150,6 @@ spec:
           enabled: true
           name: ceph-block
           isDefault: true
-          reclaimPolicy: Delete
-          allowVolumeExpansion: true
-          volumeBindingMode: Immediate
           mountOptions:
             - discard
           parameters:
@@ -214,9 +205,6 @@ spec:
         storageClass:
           enabled: true
           name: ceph-filesystem
-          reclaimPolicy: Delete
-          allowVolumeExpansion: true
-          volumeBindingMode: Immediate
           parameters:
             csi.storage.k8s.io/provisioner-secret-name: rook-csi-cephfs-provisioner
             csi.storage.k8s.io/provisioner-secret-namespace: "{{ .Release.Namespace }}"

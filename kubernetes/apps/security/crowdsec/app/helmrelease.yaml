@@ -84,16 +84,6 @@ spec:
               reason: "envoy bouncer response to already banned ips"
               expression:
                 - "evt.Meta.http_status == '418'"
-          pseudo-ipv4-whitelist.yaml: |-
-            name: hydaz/pseudo-ipv4-whitelist
-            description: "Cloudflare Pseudo IPv4 rewrites IPv6 clients to class E; a ban on one synthetic address blocks every IPv6 client sharing it"
-            # Dormant guard: Pseudo IPv4 is off as of 2026-09-02 (XFF carries real IPv6).
-            # While it was on, the cost of this whitelist was that no IPv6 client was policed at all.
-            filter: "evt.Meta.service == 'http' && evt.Meta.log_type == 'http_access-log'"
-            whitelist:
-              reason: "synthetic address, not a real client"
-              cidr:
-                - "240.0.0.0/4"
           # s02-enrich runs in filename order; this must sort after http-logs.yaml
           spa-api-requests.yaml: |-
             name: hydaz/spa-api-requests
@@ -187,10 +177,6 @@ spec:
           value: agent-ou,appsec-ou
         - name: ENROLL_INSTANCE_NAME
           value: cluster
-        - name: DB_TYPE
-          value: postgresql
-        - name: DB_PORT
-          value: "5432"
       envFrom:
         - secretRef:
             name: crowdsec-secret

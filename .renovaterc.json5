@@ -152,11 +152,6 @@
     }
   ],
   packageRules: [
-    {
-      description: "Paiton accepts only its hash-pinned checkpoint; bump with the image",
-      matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
-      enabled: false
-    },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
       description: "Auto-merge patch and digest bumps once they have aged 3 days",
@@ -266,10 +261,7 @@
       description: "ToolHive MCP server images group",
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
-      // vmcp-restart.yaml's kubectl image: excluded so a kubectl bump doesn't ride
-      // along with the MCP server images in this group.
-      matchPackageNames: ["!registry.k8s.io/kubectl"]
+      matchFileNames: ["kubernetes/apps/ai/toolhive/mcp/**"]
     },
     {
       description: "VectorChord CNPG images and Memini database version",
@@ -303,7 +295,7 @@
       matchPackageNames: ["/feramance\\/qbitrr/"]
     },
     {
-      // Last release 2025-08-04, past `abandonments:recommended`, but still used by pre-commit.
+      // Last release 2025-08-04, past `abandonments:recommended`, but still a pinned mise tool.
       description: "shellcheck releases rarely; not abandoned",
       matchPackageNames: ["koalaman/shellcheck"],
       abandonmentThreshold: null
