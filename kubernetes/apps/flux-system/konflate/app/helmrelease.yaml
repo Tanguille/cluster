@@ -1,0 +1,55 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: konflate
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: konflate
+  interval: 30m
+  values:
+    deploymentAnnotations:
+      reloader.stakater.com/auto: "true"
+    config:
+      repo: github://tanguille/cluster
+      publicUrl: "https://konflate.${SECRET_DOMAIN}"
+      # Same GitHub App as kritika; secret.sops.yaml holds a copy of its private key.
+      appClientId: Iv23liEpcPGN5z8KRBta
+      statusChecks: true
+      prComments: true
+      verifyImages: true
+      mcp: true
+      kubeVersion: "{{ .Capabilities.KubeVersion.Version }}"
+      # No push endpoint yet, so this is the only refresh besides head-SHA changes seen on the PR list.
+      refreshInterval: 5m
+    secret:
+      existingSecret: konflate-secret
+    persistence:
+      enabled: true
+      storageClass: ceph-block
+    networkPolicy:
+      enabled: true
+    monitoring:
+      serviceMonitor:
+        enabled: true
+    httpRoute:
+      enabled: true
+      hostnames: ["konflate.${SECRET_DOMAIN}"]
+      parentRefs:
+        - name: envoy-external
+          namespace: network
+      # The longer prefix wins over the chart's "/" rule, so /mcp never reaches the backend from outside.
+      additionalRules:
+        - matches:
+            - path:
+                type: PathPrefix
+                value: /mcp
+          filters:
+            - type: RequestRedirect
+              requestRedirect:
+                path:
+                  type: ReplaceFullPath
+                  replaceFullPath: /
+                statusCode: 302
