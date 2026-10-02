@@ -8,11 +8,11 @@ metadata:
   annotations:
     # "/" 404s like an unrouted host; an unsigned POST to a known connection returns 401.
     gatus.home-operations.com/endpoint: |-
-      url: https://kritik-webhook.${SECRET_DOMAIN}/hooks/github
+      url: https://kritika-webhook.${SECRET_DOMAIN}/hooks/github
       method: POST
       conditions: ["[STATUS] == 401"]
 spec:
-  hostnames: ["kritik-webhook.${SECRET_DOMAIN}"]
+  hostnames: ["kritika-webhook.${SECRET_DOMAIN}"]
   parentRefs:
     - name: envoy-external
       namespace: network
