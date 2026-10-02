@@ -20,9 +20,7 @@ spec:
       statusChecks: true
       prComments: true
       verifyImages: true
-      # Read-only; reached in-cluster at konflate:8080/mcp, the public route redirects it away.
       mcp: true
-      # Charts gated on the cluster version render as they do in-cluster.
       kubeVersion: "{{ .Capabilities.KubeVersion.Version }}"
       # No push endpoint yet, so this is the only refresh besides head-SHA changes seen on the PR list.
       refreshInterval: 5m

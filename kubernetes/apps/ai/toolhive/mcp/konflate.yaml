@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserverentry_v1beta1.json
-# Read-only rendered-diff tools; the endpoint has no auth and the public route redirects /mcp, so only in-cluster callers reach it.
+# No auth; only in-cluster callers reach /mcp (the public HTTPRoute redirects it).
 # .svc short form, not .cluster.local: see kguardian.yaml.
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServerEntry
