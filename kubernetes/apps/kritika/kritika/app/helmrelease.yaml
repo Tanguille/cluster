@@ -10,9 +10,6 @@ spec:
     name: kritika
   interval: 30m
   values:
-    runner:
-      # -tools adds curl, fd, gh, jq, rg and yq for agent.commands; the chart pins the main image itself.
-      image: ghcr.io/home-operations/kritika:0.0.2-tools@sha256:db1daf0a787c7afc0dc6ed3e1e52901935111bf8640a082769343cb1912909d7
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
     # All DSNs hit postgres16-rw directly: kritika LISTENs and sets startup params, which pgbouncer rejects.
