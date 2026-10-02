@@ -79,6 +79,9 @@ spec:
                 value: --sops-age-secret=sops-age
               - op: add
                 path: /spec/template/spec/containers/0/args/-
+                value: --watch-configs-label-selector=owner!=helm
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
                 value: --feature-gates=CancelHealthCheckOnNewRevision=true
             target:
               kind: Deployment
@@ -131,13 +134,9 @@ spec:
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --feature-gates=DefaultToRetryOnFailure=true,DisableChartDigestTracking=true
-            target:
-              kind: Deployment
-              name: helm-controller
-          - patch: |
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --watch-configs-label-selector=owner!=helm
             target:
               kind: Deployment
-              name: (helm-controller|kustomize-controller)
+              name: helm-controller
