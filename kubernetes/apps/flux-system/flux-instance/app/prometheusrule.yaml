@@ -38,9 +38,10 @@ spec:
           labels:
             severity: critical
 
+        # Suspended Kustomizations never reconcile, so a parked one has no Ready=True.
         - alert: KustomizationReconciliationFailure
           expr: |-
-            gotk_resource_info{customresource_kind="Kustomization", ready!="True"} == 1
+            gotk_resource_info{customresource_kind="Kustomization", ready!="True", suspended!="true"} == 1
           for: 15m
           annotations:
             summary: >-
