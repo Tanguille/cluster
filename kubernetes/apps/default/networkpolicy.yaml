@@ -24,7 +24,6 @@ spec:
     # repo: ai = ToolHive MCP backends (searxng, karakeep, ghostfolio);
     # observability = nextcloud-exporter probing nextcloud:8080; network =
     # envoy-internal/envoy-external fronting the HTTPRoutes;
-    # actions-runner-system = the pr-review runner's searxng search_url;
     # default = intra-ns (karakeep <-> chrome/meilisearch, nextcloud <->
     # notify-push, obico <-> ml-api).
     - fromEndpoints:
@@ -36,8 +35,6 @@ spec:
             io.kubernetes.pod.namespace: observability
         - matchLabels:
             io.kubernetes.pod.namespace: network
-        - matchLabels:
-            io.kubernetes.pod.namespace: actions-runner-system
         # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
         # ephemeral not 53.
         - matchLabels:
