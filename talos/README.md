@@ -116,6 +116,7 @@ after tuppr has rolled every node, and re-run `diff-node` on all three before ap
 | `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default. Closes #4289 |
 | `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates. All 16 keys verified identical |
 | `UdevRulesConfig` | caps NVMe `discard_max_bytes` at 256 MiB; the drives' 2 TiB limit let weekly trim send multi-second discards |
+| `EtcFileConfig` | `/etc/gvisor/runsc-hostnet.toml` for the `runsc-hostnet` handler (`cri/` is a forbidden prefix). Upstream's `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize) is still unadopted; our five NFS mounts run at kernel defaults |
 
 Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does
 not scrub or trim in lockstep. That is what makes weekly safe on control-3 despite its
@@ -134,7 +135,6 @@ only virtio and rbd), so its discards pass through to whatever the hypervisor do
 | `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.0-rc.2) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
 | `SysfsConfig` / `CRIBaseRuntimeSpecConfig` | the other two v1alpha1 fields 1.14 deprecates; neither is used in this repo |
 | `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
-| `EtcFileConfig` | not needed *yet*, but upstream uses it for `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize). Our five NFS mounts run at kernel defaults; worth its own change |
 
 `VolumeConfig`'s `filesystem.xfs.minAllocationGroupSize` only affects volumes Talos formats, so it
 is a wipe-time decision rather than a live one.
