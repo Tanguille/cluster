@@ -1,10 +1,10 @@
----
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/source.toolkit.fluxcd.io/ocirepository_v1.json
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
   name: ceph-csi-drivers
 # Pair with the ceph-csi-operator subchart the rook-ceph chart bundles (../app/ocirepository.yaml); read its Chart.yaml dependencies before bumping.
+# rook v1.20.8 bundles ceph-csi-operator 1.0.4, so the 1.1.0 drivers chart is an intentional minor skew (lockstep confirmation: t_a91957bc, verified compatible; kochhaus-home PR #12549 ran the identical pairing on rook v1.20.8).
 spec:
   interval: 1h
   layerSelector:
