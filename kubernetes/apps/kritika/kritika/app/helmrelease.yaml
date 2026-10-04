@@ -29,6 +29,8 @@ spec:
       webUrl: "https://kritika.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
       indexGrace: 1h
+      # Runner Jobs parse untrusted PR content and run model-directed code.
+      runnerRuntimeClass: gvisor
     # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
