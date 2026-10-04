@@ -47,6 +47,15 @@ spec:
     monitoring:
       serviceMonitor:
         enabled: true
+      prometheusRule:
+        enabled: true
+      dashboards:
+        enabled: true
+        grafanaOperator:
+          enabled: true
+          folder: ai
+          matchLabels:
+            grafana.internal/instance: grafana
     env:
       LITELLM_API_KEY:
         valueFrom:
@@ -93,9 +102,9 @@ spec:
         agent:
           commands: [gh, rg, fd, jq, yq]
           # Each step resends the whole history, so a review that keeps reading grows to ~200K tokens and
-          # hits the 20m timeout. maxSteps is the limit that should bind (it forces a submit); maxTokens
+          # hits the timeout. maxSteps is the limit that should bind (it forces a submit); maxTokens
           # is only a backstop, since one late step can jump past its 90% forced-submit line.
-          maxSteps: 10
+          maxSteps: 20
           maxToolOutputBytes: 12288
           maxTokens: 1000000
           # A step that writes ~10K tokens at ~25 tok/s takes ~6 minutes, so 20m cut off reviews that were still progressing.
