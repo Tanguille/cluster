@@ -60,7 +60,7 @@ spec:
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # One in-flight call keeps a slow shared-iGPU reranker from stalling recall.
               MEMINI_RERANK_MAX_CONCURRENCY: "1"
-              # Per-doc truncation (default 2048): the iGPU scores each (query, doc) pair serially, so at pool 12 worst-case docs take 10.0s at 2048 chars and 5.1s at 1024, the difference between a timeout and a verdict. 79% of memories fit under 1024 chars; longer ones lose their tail to scoring.
+              # Default 2048; the iGPU scores each pair serially, so a pool of 12 worst-case docs takes 10.0s at 2048 chars vs 5.1s at 1024 (timeout vs verdict). 79% of memories fit in 1024.
               MEMINI_RERANK_MAX_DOC_CHARS: "1024"
             resources:
               requests:
