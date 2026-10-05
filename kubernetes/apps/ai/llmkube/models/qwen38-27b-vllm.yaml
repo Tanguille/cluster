@@ -348,9 +348,8 @@ spec:
     # 2480-2800), mem_busy reads ~81 fast / ~40 slow; 8 samples under 25% fast
     # fails. Only card1 has the counter. Same fault as VLLMDecodeStepLatched in
     # prometheusrule.yaml; the probe is the remedy, the alert the backstop.
-    # VCN busy (gpu_metrics v1.3 as od u16 fields: 2 = 769 header, 11 = mm
-    # activity) means a Jellyfin transcode: it slows decode like the band but a
-    # restart cannot fix it. The probe clears its window and skips.
+    # vcn_busy_percent >= 5 means a Jellyfin transcode: it slows decode like
+    # the band but a restart cannot fix it. The probe clears its window and skips.
     liveness:
       exec:
         command:
@@ -364,7 +363,7 @@ spec:
               [ "$$n" -ge 20 ] && exit 1; exit 0
             fi
             rm -f "$$f".fail
-            vcn=$$(od -An -tu2 -w22 -N22 $$g/gpu_metrics 2>/dev/null | awk '{print ($$2==769 && $$11<=100) ? $$11 : 0}')
+            vcn=$$(cat $$g/vcn_busy_percent 2>/dev/null)
             [ "$${vcn:-0}" -ge "$$vcn_max" ] && { : > "$$f"; exit 0; }
             running=$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:num_requests_running\{/{print $$2}')
             sclk=$$(awk '/\*/{sub(/Mhz/,"",$$2); print $$2}' $$g/pp_dpm_sclk)

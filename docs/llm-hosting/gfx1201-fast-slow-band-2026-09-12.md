@@ -101,13 +101,13 @@ Weekly, by hourly p50 of `vllm:inter_token_latency_seconds_bucket` (a mean is
 dominated by long prefill steps): 6 busy hours had p50 over 60 ms and 5 of them
 had VCN active.
 
-The probe clears its window and skips while VCN reads >= 5. VCN is
-`average_mm_activity` of `gpu_metrics` (v1.3 on SMU 14.0.2, `max(Vcn0, Vcn1)` per
-`smu_v14_0_2_ppt.c`); the field layout is in the probe comment. A missing file or
-another revision reads as 0, the old behaviour, so a kernel or firmware bump
-needs a `gpu_metrics` re-check. An SDR VAAPI transcode still uses VCN, so VCN
-is a reliable tell. GFX contention with no VCN activity can still trip the probe;
-`VLLMDecodeStepLatched` stays the backstop.
+The probe clears its window and skips while `vcn_busy_percent` (card1 sysfs)
+reads >= 5. It is the SMU 14.0.2 VCN load sensor, `max(Vcn0, Vcn1)` per
+`smu_v14_0_2_ppt.c`, the same value `gpu_metrics` reports as
+`average_mm_activity`. A missing file reads as 0, the old behaviour. An SDR
+VAAPI transcode still uses VCN, so VCN is a reliable tell. GFX contention with no
+VCN activity can still trip the probe; `VLLMDecodeStepLatched` stays the
+backstop.
 
 Jellyfin throttling and segment deletion were enabled 10-05 (`encoding.xml`, not
 in git). The transcode ran at 1.76x, so it still contends for about 57% of
