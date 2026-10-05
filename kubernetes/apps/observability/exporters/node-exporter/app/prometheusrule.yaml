@@ -41,15 +41,16 @@ spec:
           labels:
             severity: warning
         - alert: DgpuVramLow
-          # Nothing enforces the vLLM/transcode VRAM split (squat.ai/dri counts device nodes, not bytes); vLLM leaves 2 GiB via --kv-cache-memory in qwen38-27b-vllm.yaml.
+          # Nothing enforces the vLLM/transcode VRAM split (squat.ai/dri counts device nodes, not bytes); vLLM is set by --kv-cache-memory in qwen38-27b-vllm.yaml.
+          # vLLM settles at 30.34 GiB after warm-up (fdinfo), leaving ~1.5 GiB; under 1 GiB a 4K DV transcode (0.85 GB) has no margin.
           expr: |-
             node_drm_memory_vram_size_bytes{kubernetes_node="control-1"}
               - node_drm_memory_vram_used_bytes{kubernetes_node="control-1"}
-              < 2147483648
+              < 1073741824
           for: 10m
           annotations:
             summary: >-
-              {{ $labels.kubernetes_node }} dGPU has under 2GiB VRAM free — the
+              {{ $labels.kubernetes_node }} dGPU has under 1GiB VRAM free — the
               transcode reserve is breached; check concurrent transcodes before
               raising vLLM's --kv-cache-memory
           labels:
