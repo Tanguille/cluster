@@ -33,6 +33,10 @@ spec:
     # sets maxModelLen (246944) here, so the sum has to keep fitting it.
     maxInputTokens: 182944
     maxOutputTokens: 64000
+    extra:
+      # Electricity only: 250 W x EUR 0.30/kWh / (1083 t/s prefill, 74 t/s decode at 3 concurrent).
+      input_cost_per_token: 2.0e-8
+      output_cost_per_token: 2.8e-7
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
 apiVersion: litellm.home-operations.com/v1alpha1
@@ -66,6 +70,10 @@ spec:
     # 246944 - 8192, as above.
     maxInputTokens: 238752
     maxOutputTokens: 8192
+    extra:
+      # Same electricity cost as qwen-3.8 above.
+      input_cost_per_token: 2.0e-8
+      output_cost_per_token: 2.8e-7
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
 apiVersion: litellm.home-operations.com/v1alpha1
