@@ -348,11 +348,9 @@ spec:
     # 2480-2800), mem_busy reads ~81 fast / ~40 slow; 8 samples under 25% fast
     # fails. Only card1 has the counter. Same fault as VLLMDecodeStepLatched in
     # prometheusrule.yaml; the probe is the remedy, the alert the backstop.
-    # While VCN (gpu_metrics v1.3 mm activity, u16 at byte 20, 769 = format
-    # header) reads >= 5 the probe clears its window and skips, and keeps
-    # skipping for 2 min after: a Jellyfin transcode slows decode like the band
-    # but a restart cannot fix it (two false kills 2026-10-05). Missing or
-    # unknown gpu_metrics reads as 0.
+    # VCN busy (gpu_metrics v1.3 as od u16 fields: 2 = 769 header, 11 = mm
+    # activity) means a Jellyfin transcode: it slows decode like the band but a
+    # restart cannot fix it. The probe clears its window and skips.
     liveness:
       exec:
         command:
@@ -360,15 +358,14 @@ spec:
           - -c
           - |
             f=/tmp/band; g=/sys/class/drm/card1/device
-            sclk_min=3100; busy_min=60; window=8; fast_min_pct=25; vcn_max=5; vcn_hold=2
+            sclk_min=3100; busy_min=60; window=8; fast_min_pct=25; vcn_max=5
             if ! curl -sf -m 8 -o /dev/null localhost:8000/health; then
               n=$$(( $$(cat "$$f".fail 2>/dev/null || echo 0) + 1 )); echo "$$n" > "$$f".fail
               [ "$$n" -ge 20 ] && exit 1; exit 0
             fi
             rm -f "$$f".fail
-            vcn=$$(od -An -tu2 -N22 $$g/gpu_metrics 2>/dev/null | awk '{for(i=1;i<=NF;i++)w[++n]=$$i} END{print ((w[2]==769 && w[11]<=100) ? w[11] : 0)}')
-            [ "$$vcn" -ge "$$vcn_max" ] && { touch "$$f".vcn; : > "$$f"; exit 0; }
-            [ -z "$$(find "$$f".vcn -mmin -"$$vcn_hold" 2>/dev/null)" ] || exit 0
+            vcn=$$(od -An -tu2 -w22 -N22 $$g/gpu_metrics 2>/dev/null | awk '{print ($$2==769 && $$11<=100) ? $$11 : 0}')
+            [ "$${vcn:-0}" -ge "$$vcn_max" ] && { : > "$$f"; exit 0; }
             running=$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:num_requests_running\{/{print $$2}')
             sclk=$$(awk '/\*/{sub(/Mhz/,"",$$2); print $$2}' $$g/pp_dpm_sclk)
             [ "$$running" = "1.0" ] && [ "$${sclk:-0}" -ge "$$sclk_min" ] || exit 0

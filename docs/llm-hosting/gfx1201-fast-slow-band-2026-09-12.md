@@ -75,47 +75,47 @@ Tested in the live container: no samples while idle, through a 60 s prefill,
 or right after a request ends; fast samples in solo decode; a forced 1-of-8
 window fails.
 
+While VCN (the video engine) is busy the probe clears its window and skips, see
+the next section. `sclk_min=3100` has drifted: the band was measured at 3220 MHz
+fast, fast solo decode now reads ~3040-3070 MHz (250 W cap) and the slow band
+(3450 MHz) still passes, so few fast samples get through. Open: measure solo
+decode against a 50K prefill with `bench/gpusample.sh` in the pod, then set the
+gate between them.
+
 ## Contention is not the band
 
 2026-10-05 the probe killed vLLM twice (~16:40Z, ~17:04Z) during a 16:26-17:50Z
 slowdown caused by a Jellyfin transcode on the same GPU. A restart cannot fix
-contention and costs a cold start (15 min grace, cold prefix and KV offload
-cache, dropped requests). Jellyfin was evicted at 17:50Z (10Gi disk-backed
-emptyDir) and ITL returned to 33 ms by ~18:00Z. VictoriaLogs shows in-pod
-restarts in pairs ~23 min apart (the probe's minimum kill cycle) on the evenings
-of 10-03, 10-04 and 10-05; the kill reason is only confirmed for 10-05.
+contention and costs a cold start. ITL returned to 33 ms by ~18:00Z, after
+Jellyfin was evicted at 17:50Z. VictoriaLogs shows in-pod restarts in pairs ~23
+min apart (the probe's minimum kill cycle) on the evenings of 10-03, 10-04 and
+10-05; the kill reason is only confirmed for 10-05.
 
 | 10-min avg, Z | vllm running | gpu | mem | vcn | vLLM ITL |
 | --- | --- | --- | --- | --- | --- |
 | 16:38 | 2.05 | 0.95 | 0.19 | 0.56 | 157 ms |
-| 17:08 | 0.64 | 0.85 | 0.14 | 0.67 | 101 ms |
 | 17:18-17:38 | 0.00 | 0.81 | 0.02 | 0.40 | idle, GPU still 81% busy |
-| 17:48 | 1.80 | 1.00 | 0.17 | 0.37 | 167 ms |
 | 18:08 | 0.55 | 0.56 | 0.44 | 0.00 | 33 ms |
 
-Weekly, by hourly p50 ITL (a mean is dominated by long prefill steps): 6 busy
-hours had p50 over 60 ms and 5 of them had VCN active. Mean ITL over the same
-week understated this (6 of 19 VCN-active hours vs 6 of 121 without).
+Weekly, by hourly p50 of `vllm:inter_token_latency_seconds_bucket` (a mean is
+dominated by long prefill steps): 6 busy hours had p50 over 60 ms and 5 of them
+had VCN active.
 
-The probe now clears its window and skips while VCN reads >= 5, and keeps
-skipping for 2 min after. VCN is `average_mm_activity` of `gpu_metrics` (v1.3 on
-SMU 14.0.2, `max(Vcn0, Vcn1)` per `smu_v14_0_2_ppt.c`): the u16 at byte 20,
-valid when the u16 at byte 2 is 769 (format 1, content 3). A missing file or
-another revision reads as 0, which is the old behaviour. Detection pauses during
-a transcode (an SDR VAAPI transcode still uses VCN and is skipped too);
-`VLLMDecodeStepLatched` stays the backstop. GFX contention with no VCN activity
-can still trip the probe. The reranker is not a dGPU tenant (control-2 iGPU).
+The probe clears its window and skips while VCN reads >= 5. VCN is
+`average_mm_activity` of `gpu_metrics` (v1.3 on SMU 14.0.2, `max(Vcn0, Vcn1)` per
+`smu_v14_0_2_ppt.c`); the field layout is in the probe comment. A missing file or
+another revision reads as 0, the old behaviour, so a kernel or firmware bump
+needs a `gpu_metrics` re-check. An SDR VAAPI transcode still uses VCN, so VCN
+is a reliable tell. GFX contention with no VCN activity can still trip the probe;
+`VLLMDecodeStepLatched` stays the backstop.
 
-Open: `sclk_min=3100` has drifted. The band was measured at 3220 MHz fast; fast
-solo decode now reads ~3040-3070 MHz (power cap 250 W), so few fast samples pass
-the gate while the slow band (3450 MHz) still passes. Measure solo decode vs a
-50K prefill with `readout.sh`-style reads, then set the gate between them.
+Jellyfin throttling and segment deletion were enabled 10-05 (`encoding.xml`, not
+in git). The transcode ran at 1.76x, so it still contends for about 57% of
+playback time: a mitigation only.
 
-Jellyfin: throttling and segment deletion were enabled 10-05 (encoding.xml). The
-transcode ran at 1.76x, so throttled it still contends for about 57% of playback
-time; this is a mitigation. Not contention: the 19:19-19:25Z stall that day was
-one ~158K-token uncached prefill (`prompt_tokens_by_source_total`
-`local_compute`) blocking decode at 4096-token chunks.
+The 19:19-19:25Z stall that day was not contention: one ~158K-token uncached
+prefill (`prompt_tokens_by_source_total` `local_compute`) blocked decode at
+4096-token chunks.
 
 ## Ruled out
 
