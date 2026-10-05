@@ -42,6 +42,9 @@ spec:
     prometheus:
       rules:
         enabled: true
+        defaults:
+          # The exporter runs in observability, not next to the chart.
+          filter: 'namespace="observability",job="nextcloud-exporter"'
 
     # Preferred, not required: control-1 solo-resets ~16x/90d, and a hard pin made every one of those an outage.
     affinity:
