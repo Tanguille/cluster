@@ -77,7 +77,6 @@ spec:
         readAffinity:
           enabled: true
       dashboard:
-        urlPrefix: /
         ssl: false
         prometheusEndpoint: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
       mgr:
@@ -123,20 +122,14 @@ spec:
           - name: control-1
             devices:
               - name: /dev/disk/by-id/virtio-ZF6YrnfZ
-            config:
-              osdsPerDevice: "1"
           - name: control-2
             devices:
               # Samsung 980 PRO 1TB
               - name: /dev/disk/by-id/nvme-eui.002538b221b029e7
-            config:
-              osdsPerDevice: "1"
           - name: control-3
             devices:
               # Micron 7450 960GB
               - name: /dev/disk/by-id/nvme-eui.000000000000000100a075244aa8faf6
-            config:
-              osdsPerDevice: "1"
     cephBlockPools:
       - name: ceph-blockpool
         spec:
