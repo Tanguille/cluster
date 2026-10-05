@@ -75,7 +75,6 @@ stray completed pods if the finalizer won't clear.
 
 ```bash
 kubectl delete pvc jellyfin -n media
-kubectl wait --for=jsonpath='{}' --timeout=1s pvc/jellyfin -n media 2>&1 || true
 # poll until genuinely gone, not just Terminating — Ceph RBD detach can take minutes:
 until ! kubectl get pvc jellyfin -n media >/dev/null 2>&1; do sleep 5; done
 ```
@@ -113,8 +112,8 @@ List available snapshots first:
 kubectl kopiur snapshots list --policy jellyfin -n media
 ```
 
-This is a real git change to the app's `restore.yaml` (or a live `kubectl edit` for a one-off
-test).
+No per-app `restore.yaml` exists: the Restore comes from the shared
+`kubernetes/components/kopiur/restore/restore.yaml`, so for a one-off test use a live `kubectl edit`.
 
 ### Step 6: Resume Kustomization and HelmRelease
 

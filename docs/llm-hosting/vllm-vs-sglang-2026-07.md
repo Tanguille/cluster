@@ -243,7 +243,7 @@ rather than replacing it. Filed as
 
 Scripts live in `bench/` next to this doc, so the numbers above stay auditable:
 
-- `concsweep.py` — aggregate decode at concurrency 1/8/16.
+- `concsweep.py` — aggregate decode, one point per real batch size.
 - `spectest.py` — verbatim-reproduction throughput on a 13.8K-token prompt.
 
 Both drive the OpenAI `/v1/completions` endpoint, so they run unmodified against either
