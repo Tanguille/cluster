@@ -68,7 +68,6 @@ spec:
             uid: victoriametrics
             type: prometheus
             access: proxy
-            url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
             isDefault: false
             jsonData:
               httpMethod: POST
@@ -232,7 +231,6 @@ spec:
 
                   {{ end }}{{ end }}{{ if gt (len .Alerts) 5 }}…and more alerts in this group.
                   {{ end }}
-                send_resolved: true
       monzoTemplate:
         enabled: false
       route:
@@ -271,7 +269,7 @@ spec:
         # Observed usage, not the request below; pipeline went fully Pending in the 07-23 outage.
         priorityClassName: homelab-critical # 149Mi
         datasource:
-          url: *vmqueryUrl
+          url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
         extraArgs:
           "external.url": https://vmalert.${SECRET_DOMAIN}
           "rule.evalDelay": 1m
