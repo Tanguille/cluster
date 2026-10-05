@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/podmonitor_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: vmcp
+spec:
+  selector:
+    matchLabels:
+      app: virtualmcpserver
+  podMetricsEndpoints:
+    # 9464 isn't a declared containerPort: match `http`, rewrite __address__.
+    - port: http
+      relabelings:
+        - action: replace
+          sourceLabels: [__meta_kubernetes_pod_ip]
+          replacement: $1:9464
+          targetLabel: __address__
