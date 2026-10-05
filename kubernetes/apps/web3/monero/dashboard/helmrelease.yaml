@@ -62,7 +62,7 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
-            # Any JSON endpoint proves the server is up; one proxying monerod would restart this pod during an outage.
+            # Any JSON endpoint proves the server is up; avoid ones that proxy xmrig (503 when scaled to 0) or the observer.
             probes:
               liveness: &probe
                 enabled: true

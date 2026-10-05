@@ -36,6 +36,7 @@ spec:
           - name: envoy-internal
             namespace: network
     cephImage:
+      # Spelled out so Renovate tracks the image.
       repository: quay.io/ceph/ceph
       tag: v20.2.4@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
     cephClusterSpec:
@@ -77,6 +78,7 @@ spec:
         readAffinity:
           enabled: true
       dashboard:
+        urlPrefix: /
         ssl: false
         prometheusEndpoint: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
       mgr:
@@ -122,14 +124,20 @@ spec:
           - name: control-1
             devices:
               - name: /dev/disk/by-id/virtio-ZF6YrnfZ
+            config:
+              osdsPerDevice: "1"
           - name: control-2
             devices:
               # Samsung 980 PRO 1TB
               - name: /dev/disk/by-id/nvme-eui.002538b221b029e7
+            config:
+              osdsPerDevice: "1"
           - name: control-3
             devices:
               # Micron 7450 960GB
               - name: /dev/disk/by-id/nvme-eui.000000000000000100a075244aa8faf6
+            config:
+              osdsPerDevice: "1"
     cephBlockPools:
       - name: ceph-blockpool
         spec:

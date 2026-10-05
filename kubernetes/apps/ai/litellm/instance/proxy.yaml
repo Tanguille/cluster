@@ -35,6 +35,7 @@ spec:
       path: /health/liveliness
       port: 4000
     initialDelaySeconds: 30
+    periodSeconds: 10
     failureThreshold: 10
     timeoutSeconds: 5
   readinessProbe:
@@ -42,6 +43,7 @@ spec:
       path: /health/readiness
       port: 4000
     initialDelaySeconds: 30
+    periodSeconds: 10
     failureThreshold: 10
     timeoutSeconds: 5
   litellmSettings:
