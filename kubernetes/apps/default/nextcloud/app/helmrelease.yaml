@@ -58,7 +58,7 @@ spec:
                   values:
                     - control-1
     image:
-      # repository is the chart default, spelled out so Renovate tracks the digest.
+      # Spelled out so Renovate tracks the digest.
       repository: nextcloud
       tag: 35.0.1-fpm@sha256:97e20437843ebf8735f9e4e75220eaaf6202b1af17ef45335ec1086caa40b35f
 
@@ -91,8 +91,6 @@ spec:
       extraEnv:
         - name: REDIS_HOST
           value: dragonfly.database.svc.cluster.local
-        - name: REDIS_HOST_PORT
-          value: "6379"
 
       existingSecret:
         enabled: true
