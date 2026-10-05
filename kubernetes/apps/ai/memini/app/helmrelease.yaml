@@ -60,6 +60,16 @@ spec:
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # One in-flight call keeps a slow shared-iGPU reranker from stalling recall.
               MEMINI_RERANK_MAX_CONCURRENCY: "1"
+              # Per-doc truncation for rerank scoring (was the 2048 default). The iGPU
+              # re-scores every (query, doc) pair serially, so per-pair tokens scale the
+              # pool pass linearly: live A/B on 2026-10-05 (llama.cpp cf254ee, pool 12,
+              # worst-case docs) — 2048-char docs = 10.0s, 1024-char docs = 5.1s, the
+              # difference between a timeout (empty under MIN_SCORE) and a verdict.
+              # Quality cost is bounded: across all 58 live memories, 79% are under
+              # 1024 chars and 95% under 1536, so only the 5% longest memories lose
+              # their tail to scoring — far less than dropping pool candidates, and
+              # recall ranking is driven by the embedder, so full content still wins.
+              MEMINI_RERANK_MAX_DOC_CHARS: "1024"
             resources:
               requests:
                 cpu: 50m
