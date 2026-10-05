@@ -73,12 +73,9 @@ official images by digest.
 
 ## Version tagging
 
-Tag installers `v<talos>-k<kernel>`, e.g. `v1.13.9-k7.1.9`, and publish one per schematic:
+Tag installers `v<talos>-k<kernel>[-r<n>]`, e.g. `v1.13.9-k7.1.9`, and publish one per schematic:
 `ghcr.io/tanguille/installer/shared` or `ghcr.io/tanguille/installer/<node>` for an override.
-
-Append `-r<n>` (`v1.14.2-k7.2.9-r1`) to rebuild an unchanged kernel, e.g. after a schematic edit: the
-build skips a tag that is already published, and tuppr sees only the string. Renovate bumps the
-kernel half and leaves `-r<n>` in place.
+`-r<n>` rebuilds an unchanged kernel (e.g. after a schematic edit), since the build skips a published tag.
 
 `TAG` is embedded into `pkg/machinery/gendata` (talos `Dockerfile:313-323`) and becomes what
 the node reports over the gRPC `Version()` API. tuppr reads exactly that (`client.go:161`

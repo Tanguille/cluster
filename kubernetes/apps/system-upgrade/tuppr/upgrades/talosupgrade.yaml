@@ -15,9 +15,8 @@ spec:
       # Plain tag: a -k<kernel> talosctl is unpublished and ImagePullBackOffs (control-2, 2026-08-21).
       # renovate: datasource=github-releases depName=siderolabs/talos
       tag: v1.14.2
-  # Hold a node back with a nodeSelector, e.g. kubernetes.io/hostname NotIn [control-1];
-  # excluded nodes are never enumerated, so they take no outdated taint either.
-  # control-1 (TrueNAS VM, dGPU host) rolls last: remove this once control-2 and control-3 are verified.
+  # control-1 (TrueNAS VM, dGPU host) rolls last: remove once control-2 and control-3 are verified.
+  # Excluded nodes are never enumerated, so they take no outdated taint either.
   nodeSelector:
     matchExpressions:
       - key: kubernetes.io/hostname
