@@ -9,7 +9,7 @@ spec:
     # Bumped by the two regex managers in .renovaterc.json5, one per half.
     # No other literal -k<digits> in this file: the kernel manager is unanchored, so each one
     # becomes its own dep.
-    version: v1.14.2-k7.2.9
+    version: v1.14.2-k7.2.9-r1
   talosctl:
     image:
       # Plain tag: a -k<kernel> talosctl is unpublished and ImagePullBackOffs (control-2, 2026-08-21).
@@ -17,6 +17,12 @@ spec:
       tag: v1.14.2
   # Hold a node back with a nodeSelector, e.g. kubernetes.io/hostname NotIn [control-1];
   # excluded nodes are never enumerated, so they take no outdated taint either.
+  # control-1 (TrueNAS VM, dGPU host) rolls last: remove this once control-2 and control-3 are verified.
+  nodeSelector:
+    matchExpressions:
+      - key: kubernetes.io/hostname
+        operator: NotIn
+        values: [control-1]
   policy:
     rebootMode: powercycle
   # Jellyfin's quietest hours; gates upgrade starts only, a running upgrade finishes.

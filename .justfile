@@ -47,6 +47,7 @@ template file *args:
     # one. kernelVersion is split off it rather than read from the Dockerfile ARG, which the
     # build script checks instead.
     kernel_version="${talos_version#*-k}"
+    kernel_version="${kernel_version%-r[0-9]*}"
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --format=yaml \
         -D "kubernetesVersion=${kubernetes_version}" \
