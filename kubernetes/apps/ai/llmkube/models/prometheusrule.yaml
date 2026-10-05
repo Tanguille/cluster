@@ -14,7 +14,8 @@ spec:
         # 55ms. False-fires on sustained M=1 past ~122K ctx: raise the
         # threshold, not the guard. running<2 is load-bearing: a healthy conc-5
         # step is 48ms. Backstop for the liveness slow-band probe in
-        # qwen38-27b-vllm.yaml.
+        # qwen38-27b-vllm.yaml. Also fires under Jellyfin transcode contention
+        # (VCN busy, ITL 100-200 ms), which a restart does not clear.
         - alert: VLLMDecodeStepLatched
           expr: |-
             (
@@ -31,7 +32,9 @@ spec:
             summary: >-
               qwen38-27b-vllm decode is latched at
               {{ $value | humanizeDuration }}/token near single-stream — roughly
-              half speed. Restart the pod to clear it; stopping co-tenants or
-              waiting does not.
+              half speed. If drm_engine_utilization_ratio{engine="vcn"} is above
+              0 this is Jellyfin transcode contention: pause or stop the
+              transcode, a restart does not help. Otherwise it is the latched
+              band: restart the pod to clear it.
           labels:
             severity: warning
