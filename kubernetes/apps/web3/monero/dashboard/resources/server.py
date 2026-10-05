@@ -68,7 +68,6 @@ SERIES = ("myHash", "poolHash", "netHash", "price")
 XMRIG_API_URL = os.getenv("XMRIG_API_URL", "http://xmrig.web3.svc.cluster.local:42000/2/summary")
 MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.local:18089/json_rpc")
 
-# Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
 def num(v):
@@ -100,7 +99,7 @@ PRICE_CACHE_TTL = 300
 _price_cache = {"value": 0.0, "ts": 0.0}
 
 def monerod_get_info_request():
-    """get_info RPC request, shared by the HTTP proxy and the logger thread."""
+    """get_info RPC request for the logger thread."""
     return urllib.request.Request(
         MONEROD_RPC_URL,
         data=json.dumps({"jsonrpc": "2.0", "id": "0", "method": "get_info"}).encode(),
@@ -159,23 +158,13 @@ def get_min_payment_threshold():
 
 class Handler(http.server.BaseHTTPRequestHandler):
     """
-    Handles HTTP GET requests for:
-      - /monerod_stats         : proxies Monero daemon get_info
-      - /xmrig_summary         : proxies xmrig summary
-      - /stats_log.json        : serves rolling log JSON
-      - /stats_history.json    : serves a downsampled window for the charts
-      - /min_payment_threshold : serves min payout threshold
-      - /observer_config       : observer URL + wallet for the frontend
-      - /observer/*            : proxies p2pool observer API (CORS)
     Static files are nginx's job (it aliases the p2pool API dir directly);
     anything else is a 404.
     """
 
     def do_GET(self):
         path, _, query = self.path.partition("?")
-        if path == "/monerod_stats":
-            self.proxy_monerod()
-        elif path == "/xmrig_summary":
+        if path == "/xmrig_summary":
             self.proxy_xmrig()
         elif path == "/stats_log.json":
             self.serve_log()
@@ -228,12 +217,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         crashing with ConnectionRefusedError, return a 503 JSON response.
         """
         self.proxy(urllib.request.Request(XMRIG_API_URL), "XMRig miner offline", 503)
-
-    def proxy_monerod(self):
-        """Send a get_info RPC call to monerod and return JSON.
-
-        Returns 503 JSON if monerod is unreachable instead of crashing."""
-        self.proxy(monerod_get_info_request(), "Monerod unavailable", 503)
 
     def serve_log(self):
         """Serve in-memory rolling log as JSON"""
@@ -343,7 +326,6 @@ def append_log(myHash, poolHash, netHash, price):
         for k in SERIES:
             log[k].append(values[k])
 
-        # Remove old entries
         while log["timestamps"] and log["timestamps"][0] < cutoff:
             for series in log.values():
                 series.popleft()
@@ -509,13 +491,10 @@ def log_loop():
                 netHash = fetch_or(lambda: net_future.result()["result"]["difficulty"] / 120,
                                    last_logged("netHash"))
 
-                # Fetch XMR price
                 price = get_xmr_price()
 
-                # Append to in-memory log
                 append_log(myHash, poolHash, netHash, price)
 
-                # Periodically save to disk (every 5 min)
                 if time.time() - last_save > 300:
                     save_log_disk()
                     last_save = time.time()

@@ -48,8 +48,6 @@ spec:
               - python3
               - /config/server.py
             args:
-              - --port
-              - "8080"
               - --data-dir
               - /var/lib/p2pool/api
               - --wallet
@@ -64,15 +62,14 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
-            # Any JSON endpoint proves the HTTP server is up and the config
-            # mounted; /monerod_stats also exercises the monerod RPC client.
+            # Any JSON endpoint proves the server is up; one proxying monerod would restart this pod during an outage.
             probes:
               liveness: &probe
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
-                    path: /monerod_stats
+                    path: /observer_config
                     port: 8080
               readiness: *probe
             resources:
