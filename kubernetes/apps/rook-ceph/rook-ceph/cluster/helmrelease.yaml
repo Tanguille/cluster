@@ -36,6 +36,7 @@ spec:
           - name: envoy-internal
             namespace: network
     cephImage:
+      repository: quay.io/ceph/ceph
       tag: v20.2.4@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
     cephClusterSpec:
       # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
