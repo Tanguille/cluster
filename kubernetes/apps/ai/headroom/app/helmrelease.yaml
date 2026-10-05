@@ -36,7 +36,6 @@ spec:
               HEADROOM_COMPRESS_ALLOW_REMOTE: "1"
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"
-              HEADROOM_TELEMETRY: "off"
               # JSON-only: HEADROOM_LOSSLESS=1 saved 0 tokens, and the log compressor drops whole
               # INFO runs. smart_crusher/tabular re-encode arrays as tables keeping every row
               # (2000/2000, -65%), byte-identical across calls. No CCR markers on this path, so
@@ -73,7 +72,6 @@ spec:
                   httpGet: &readyz
                     path: /readyz
                     port: *port
-                  periodSeconds: 10
                   failureThreshold: 30
               liveness:
                 enabled: true

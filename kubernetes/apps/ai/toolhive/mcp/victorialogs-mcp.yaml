@@ -42,14 +42,8 @@ spec:
       containers:
         - name: mcp
           securityContext:
-            runAsNonRoot: true
             runAsUser: 65534
             runAsGroup: 65534
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-            seccompProfile:
-              type: RuntimeDefault
           volumeMounts:
             - name: tmp
               mountPath: /tmp
@@ -69,7 +63,6 @@ spec:
               port: mcp
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 3
           resources:
             requests:
               cpu: 10m
