@@ -49,8 +49,8 @@ spec:
   # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
   # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
   parallelSlots: 1
-  # Largest (query, document) pair seen is ~2232 tokens (docs truncated to
-  # 2048 chars by MEMINI_RERANK_MAX_DOC_CHARS).
+  # Largest (query, document) pair was ~2232 tokens at the old 2048-char doc cap
+  # (MEMINI_RERANK_MAX_DOC_CHARS is now 1024), so 4096 keeps headroom.
   contextSize: 4096
   # A rerank pair must fit one micro-batch; the 512 default 500s with
   # "input (N tokens) is too large to process".
