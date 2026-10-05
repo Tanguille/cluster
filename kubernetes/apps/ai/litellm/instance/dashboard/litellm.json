@@ -1,7 +1,7 @@
 {
   "uid": "litellm",
   "title": "LiteLLM",
-  "description": "LiteLLM proxy traffic, latency and headroom compression for the local model fleet.",
+  "description": "LiteLLM proxy traffic, cost, latency and headroom compression for the local model fleet.",
   "tags": ["ai", "litellm"],
   "editable": true,
   "graphTooltip": 1,
@@ -747,13 +747,335 @@
       }
     },
     {
+      "id": 31,
+      "type": "row",
+      "title": "Cost",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "Spend",
+      "description": "Electricity cost over the dashboard range, priced per token in models.yaml. Models without a price count as 0, and a fallback is booked under the model that served it.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(increase(litellm_spend_metric_total{requested_model=~\"$model\"}[$__range]))",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 8,
+        "h": 4
+      }
+    },
+    {
+      "id": 33,
+      "type": "stat",
+      "title": "Run rate / month",
+      "description": "Average spend over the dashboard range, extrapolated to 30 days.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(increase(litellm_spend_metric_total{requested_model=~\"$model\"}[$__range])) / $__range_s * 86400 * 30",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 23,
+        "w": 8,
+        "h": 4
+      }
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "Cost / 1M tokens",
+      "description": "Blended over every selected model, including free and unpriced tokens.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum(increase(litellm_spend_metric_total{requested_model=~\"$model\"}[$__range])) / sum(increase(litellm_total_tokens_metric_total{requested_model=~\"$model\"}[$__range])) * 1e6",
+          "legendFormat": "",
+          "range": false,
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 23,
+        "w": 8,
+        "h": 4
+      }
+    },
+    {
+      "id": 35,
+      "type": "timeseries",
+      "title": "Spend by model",
+      "description": "Per hour, by the model that served the request, so a fallback is billed to the fallback.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (model) (rate(litellm_spend_metric_total{requested_model=~\"$model\"}[$__rate_interval])) * 3600",
+          "legendFormat": "{{model}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["mean", "max"],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 36,
+      "type": "timeseries",
+      "title": "Spend by client",
+      "description": "Per hour, by user agent.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (user_agent) (rate(litellm_spend_metric_total{requested_model=~\"$model\"}[$__rate_interval])) * 3600",
+          "legendFormat": "{{user_agent}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": 300000,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["mean", "max"],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
       "id": 13,
       "type": "row",
       "title": "Latency",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 35,
         "w": 24,
         "h": 1
       },
@@ -828,7 +1150,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 36,
         "w": 8,
         "h": 8
       }
@@ -902,7 +1224,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 23,
+        "y": 36,
         "w": 8,
         "h": 8
       }
@@ -965,7 +1287,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 23,
+        "y": 36,
         "w": 8,
         "h": 8
       }
@@ -1028,7 +1350,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 44,
         "w": 8,
         "h": 8
       }
@@ -1091,7 +1413,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 31,
+        "y": 44,
         "w": 8,
         "h": 8
       }
@@ -1165,7 +1487,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 31,
+        "y": 44,
         "w": 8,
         "h": 8
       }
@@ -1177,7 +1499,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 52,
         "w": 24,
         "h": 1
       },
@@ -1259,7 +1581,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 53,
         "w": 12,
         "h": 7
       }
@@ -1322,7 +1644,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 40,
+        "y": 53,
         "w": 12,
         "h": 7
       }
@@ -1334,7 +1656,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 47,
+        "y": 60,
         "w": 24,
         "h": 1
       },
@@ -1409,7 +1731,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 48,
+        "y": 61,
         "w": 8,
         "h": 8
       }
@@ -1483,7 +1805,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 48,
+        "y": 61,
         "w": 8,
         "h": 8
       }
@@ -1546,7 +1868,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 48,
+        "y": 61,
         "w": 8,
         "h": 8
       }
@@ -1558,7 +1880,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 69,
         "w": 24,
         "h": 1
       },
@@ -1622,7 +1944,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 57,
+        "y": 70,
         "w": 8,
         "h": 7
       }
@@ -1685,7 +2007,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 57,
+        "y": 70,
         "w": 8,
         "h": 7
       }
@@ -1779,7 +2101,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 57,
+        "y": 70,
         "w": 8,
         "h": 7
       }
