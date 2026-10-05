@@ -5,8 +5,8 @@ kind: CiliumNetworkPolicy
 metadata:
   name: changedetection-ingress-allowlist
 spec:
-  # Promoted from the kguardian AuditNetworkPolicy baseline (2026-09-16 to
-  # 2026-09-18, zero WouldDeny verdicts). Ingress only; egress stays open.
+  # Promoted from the kguardian AuditNetworkPolicy baseline (zero WouldDeny
+  # verdicts). Ingress only; egress stays open.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: changedetection

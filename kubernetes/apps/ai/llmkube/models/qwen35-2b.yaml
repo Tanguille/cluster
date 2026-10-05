@@ -54,10 +54,8 @@ spec:
     - "--presence-penalty"
     - "1.5"
     # Qwen3.5's chat template thinks by default; without this it burns the whole
-    # output budget on reasoning_content and returns empty content (verified
-    # live
-    # 2026-08-02). Sampling flags above don't touch this — it's a template
-    # setting.
+    # output budget on reasoning_content and returns empty content (verified live).
+    # Sampling flags above don't touch this: it's a template setting.
     - "--reasoning"
     - "off"
 

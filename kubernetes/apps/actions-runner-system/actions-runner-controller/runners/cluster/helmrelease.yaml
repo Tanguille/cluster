@@ -46,7 +46,7 @@ spec:
         # runner is uid/gid 1001; without fsGroup the CephFS mount lands root-owned
         securityContext:
           fsGroup: 1001
-        # Best-effort spread so one node blip can't kill a whole batch (3× on 2026-07-02).
+        # Best-effort spread so one node blip can't kill a whole batch.
         # ScheduleAnyway (not DoNotSchedule) so CI still runs when a node is down.
         topologySpreadConstraints:
           - maxSkew: 1

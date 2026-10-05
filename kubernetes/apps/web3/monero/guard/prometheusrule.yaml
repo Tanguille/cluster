@@ -57,7 +57,7 @@ spec:
         - alert: XmrigGuardLatchedUnsafe
           # A node that trips or hits an evaluation error only re-earns safe=1 after
           # 180s at or below 62C. Paired here with the temperature actually being in
-          # that band, so this fires for a stuck latch (the 2026-07-27 control-2
+          # that band, so this fires for a stuck latch (the control-2
           # sensor-identity blip) and stays quiet when the gate is shut because the
           # drives are genuinely too hot, which is the expected steady state.
           # No node matcher: only NVMe-gated nodes emit a temperature, so the join itself
@@ -96,7 +96,7 @@ spec:
           labels:
             severity: critical
         - alert: XmrigGuardEvaluationErrors
-          # 0.01/s ~= 36 errors/h; the 2026-07 telemetry breakage ran 47-100/h
+          # 0.01/s ~= 36 errors/h; the earlier telemetry breakage ran 47-100/h
           expr: |-
             sum(rate(xmrig_guard_query_errors_total[10m])) > 0.01
           for: 15m
