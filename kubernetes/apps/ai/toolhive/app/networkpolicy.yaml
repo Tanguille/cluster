@@ -46,6 +46,15 @@ spec:
         - ports:
             - port: "4483"
               protocol: TCP
+    # vmagent scraping /metrics on the diagnostics port (MCPTelemetryConfig).
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: vmagent
+      toPorts:
+        - ports:
+            - port: "9464"
+              protocol: TCP
     # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
     # ephemeral not 53.
     - fromEndpoints:
