@@ -104,11 +104,11 @@ spec:
           # Each step resends the whole history, so a review that keeps reading grows to ~200K tokens and
           # hits the timeout. maxSteps is the limit that should bind (it forces a submit); maxTokens
           # is only a backstop, since one late step can jump past its 90% forced-submit line.
-          maxSteps: 20
+          maxSteps: 30
           maxToolOutputBytes: 12288
           maxTokens: 1000000
-          # A step that writes ~10K tokens at ~25 tok/s takes ~6 minutes, so 20m cut off reviews that were still progressing.
-          timeout: 30m
+          # A step that writes ~10K tokens at ~25 tok/s takes ~6 minutes, and a model call past Kritika's fixed 5m step limit is cancelled and resent, so 30m cut off reviews that were still progressing.
+          timeout: 45m
         # Adapted from onedr0p/home-ops' kritika entry.
         rules:
           - id: renovate
