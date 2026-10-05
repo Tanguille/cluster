@@ -138,7 +138,6 @@ spec:
           port: 5432
       profiles.yaml: |-
         name: default_ip_remediation
-        debug: false
         filters:
           - Alert.Remediation == true && Alert.GetScope() == "Ip"
         decisions:
@@ -147,7 +146,6 @@ spec:
         # Only locally-generated alerts reach profiles; CAPI blocklist pulls (15k IPs every 2h) do not
         notifications:
           - alertmanager
-        on_success: break
     tls:
       enabled: true
       certManager:

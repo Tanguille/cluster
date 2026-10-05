@@ -71,7 +71,6 @@ spec:
       enabled: false
       user: kguardian
       databaseName: kguardian
-      existingSecret: kguardian-db-credentials
       external:
         host: pgbouncer-rw.database.svc.cluster.local
         sslMode: disable
@@ -109,8 +108,6 @@ spec:
 
     # Trimmed requests save 150m + 384Mi across the DaemonSet on tight control-1 (91% req); limits stay at chart defaults for eBPF headroom.
     controller:
-      podAnnotations:
-        reloader.stakater.com/auto: "true"
       resources:
         requests:
           cpu: 50m
