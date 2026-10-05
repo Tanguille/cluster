@@ -49,7 +49,7 @@ spec:
               HEADROOM_DEDUPE: "0"
               HEADROOM_COMPRESS_USER_MESSAGES: "0"
               HEADROOM_COMPRESSION_MAX_WORKERS: "2"
-              # No Kompress model to fetch.
+              # No Kompress model to fetch, and the only thing keeping the upload beacon off (BEACON_DEFAULT_ON is true upstream).
               HEADROOM_OFFLINE: "1"
             envFrom:
               - secretRef:
