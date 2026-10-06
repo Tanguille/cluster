@@ -143,34 +143,30 @@ kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
 spec:
-  # Swift AWQ since 2026-09-18 (GSM8K 95.3 vs philbert 93.3, tools 12/12).
   # Checkpoint swap = modelRef + modelCache.claimName, one restart; pre-stage
   # files into the PVC at /models/<sha256(source)[:16]> so the init container
-  # only revalidates. fs KV tier is keyed per model by vLLM's file_mapper;
-  # nothing to do.
+  # only revalidates. The fs KV tier is keyed per model by vLLM's file_mapper.
   modelRef: qwen38-swift-27b-vllm
   runtime: vllm
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends every W4A16
-  # projection to Triton at M=6.
-  # Warm agg tok/s M=1..5 (2026-09-18): 31 / 55 / 73 / 97 / 117. Bimodal until
-  # warmed (cold M=2 ~30 vs warm ~55): one warmup run is not enough.
+  # projection to Triton at M=6. Bimodal until warmed (cold M=2 ~30 vs warm ~55
+  # tok/s): one warmup run is not enough. Warm M=1..5 baseline: newest
+  # docs/llm-hosting/vllm-nightly-bench-*.md.
   parallelSlots: 5
   bindAddress: 0.0.0.0
-  # nightly: gfx1201 support landed after v0.27.1; v0.28.0 tag untested.
-  # Digest-pinned so Renovate can bump it. After a bump, check the boot log for
-  # all three "[lds-gate-patch]" patch lines. Bench (bench/longctx.py 4000 and
-  # 50000) only if the base layers (torch/Triton/aiter) changed or the vLLM
-  # range touches ROCm, GDN, W4A16 or KV offload. The liveness probe and
-  # VLLMDecodeStepLatched cover the gfx1201 band: 0 firings or restarts
-  # 2026-09-13..23.
-  # Bump baseline: docs/llm-hosting/vllm-nightly-bench-2026-09-29.md.
+  # nightly: gfx1201 support landed after v0.27.1. Digest-pinned so Renovate can
+  # bump it. After a bump, check the boot log for all three "[lds-gate-patch]"
+  # lines and a clean graph capture (the M<=32 patch launches the Triton kernel
+  # itself, so a kernel signature change breaks boot). Bench (bench/longctx.py
+  # 4000 and 50000) only if the base layers (torch/Triton/aiter) changed or the
+  # vLLM range touches ROCm, GDN, W4A16 or KV offload. Baseline: newest
+  # docs/llm-hosting/vllm-nightly-bench-*.md.
   image: vllm/vllm-openai-rocm:nightly@sha256:615b175d6947a33e9bba36c9ffdb837e049821b10b6f7e610b7b56600b5e96d7
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
-    # Per-request KV cap; decode cliffs below pool/cap ~1.17x (bisect
-    # 2026-08-19: 1.19x 31.5 tok/s, 1.17x 31.7, 1.16x UNSTABLE, 1.14x 18.9).
-    # Pool is 304,808 (1.23x). Do not raise without re-bisecting. Engine refuses
+    # Per-request KV cap; decode cliffs below pool/cap ~1.17x (bisect: 1.19x
+    # 31.5 tok/s, 1.17x 31.7, 1.16x UNSTABLE, 1.14x 18.9). Pool is 304,808 (1.23x). Do not raise without re-bisecting. Engine refuses
     # to boot if pool < cap: re-read "GPU KV cache size" after any
     # --kv-cache-memory, mamba dtype, or image change.
     maxModelLen: 246944
@@ -180,8 +176,8 @@ spec:
     # Do not lower: 2048 cost TTFT p50 5s -> 80s (a 20K prompt = 10 prefill
     # steps). Workload is 129:1 prompt:output.
     maxNumBatchedTokens: 4096
-    # Inert while --kv-cache-memory is set; drop it together with that flag at
-    # the next restart.
+    # Shared with Jellyfin, never above 0.875. vLLM still refuses to boot when
+    # free VRAM < this fraction of total; --kv-cache-memory sets the KV pool.
     gpuMemoryUtilization: 0.875
   env:
     # Attention = ROCM_AITER_UNIFIED_ATTN (boot log "Overriding with"). Backend
@@ -219,7 +215,6 @@ spec:
       emptyDir:
         medium: Memory
         sizeLimit: 14Gi
-    # W4A16 LDS gate, M<=32 Triton tile, aiter attn_3d num_stages.
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
@@ -233,9 +228,10 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # See resources/zz_lds_gate_impl.py. Drop the mount and generator entry once
-    # vllm#52619 (open), the M<=32 tile config (no upstream PR yet) and an aiter
-    # num_stages 1 default for gfx1201 fp8 land.
+    # W4A16 LDS gate, M<=32 Triton tile, aiter attn_3d num_stages: see
+    # resources/zz_lds_gate_impl.py. Drop the mount and generator entry once
+    # upstream carries the LDS gate fix (vllm#52619), an M<=32 tile config and an
+    # aiter num_stages 1 default for gfx1201 fp8.
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth
@@ -259,7 +255,7 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
-    # Sharp v22.5.0 replaces the AWQ build's stock Qwen3.8 template. This is
+    # The Sharp template replaces the AWQ build's stock Qwen3.8 template. This is
     # vLLM's 1st-priority source (vllm/renderers/hf.py
     # resolve_chat_template), so the model dir's own copy is ignored, and the
     # path is validated at boot: a bad mount fails the pod instead of silently
@@ -269,16 +265,15 @@ spec:
     # NO --long-prefill-token-threshold: 1600 raised stall share 19% -> 37% and
     # single-stream TTFT was unchanged without it (64K 63.4 s vs 64.1).
     # Capture sizes = 1..parallelSlots: the default 512 ceiling OOMs on GDN
-    # hybrids (vllm#39010); vLLM pads to the next capture size, so [1,2,4,6] ran
-    # M=5 as the all-Triton M=6.
+    # hybrids (vllm#39010); vLLM pads to the next capture size, so M=5 needs its
+    # own.
     - --compilation-config
     - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5]}'
     # Keep prior-turn reasoning in context.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
     # NO --speculative-config: n-gram corrupts output on GDN hybrids
-    # (vllm#39273, hit in prod), DSpark 0.59x, MTP -27..-45% and greedy
-    # divergence 4/5 (2026-09-12), EAGLE3/DFlash disable prefix caching
+    # (vllm#39273); DSpark and MTP lose; EAGLE3/DFlash disable prefix caching
     # (vllm#41640). Re-open only on those fixes; gate in
     # docs/llm-hosting/spec-decode-rejected.md.
     # Both needed: ssm does not inherit on Qwen3.5 (forces fp32); dropping it
@@ -287,8 +282,8 @@ spec:
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
-    # 5% (~15K tokens) held free at admission: preemptions 117/17h before
-    # (2026-09-03), 5/7d after (2026-09-27).
+    # 5% (~15K tokens) held free at admission: cut preemptions from 117/17h to
+    # 5/7d.
     - --watermark
     - "0.05"
     # Default ITL edges are 25/50 ms around our 31-35 ms decode, so p95 reads ~49 ms.
@@ -320,11 +315,8 @@ spec:
     runAsUser: 0
     runAsGroup: 0
     supplementalGroups: [44, 226]
-    # RuntimeDefault: ROCm compute (kfd ioctls, /dev/dri, /dev/shm) and the
-    # band-detection liveness probe (curl + /sys reads) all pass the default
-    # profile. Unconfined was set at the 3.8 cutover (#4509) as a blanket
-    # precaution, not to fix a syscall failure. Watch VLLMDecodeStepLatched /
-    # TTFT after rollout; revert this one field if serving fails to boot.
+    # RuntimeDefault passes ROCm compute (kfd ioctls, /dev/dri, /dev/shm) and the
+    # liveness probe (curl, /sys reads).
     seccompProfile:
       type: RuntimeDefault
   resources:
@@ -346,10 +338,10 @@ spec:
     # /tmp because failureThreshold must stay 1 for (2). (2) gfx1201 slow band:
     # with exactly 1 request decoding and sclk >= 3100 (prefill sits at
     # 2480-2800), mem_busy reads ~81 fast / ~40 slow; 8 samples under 25% fast
-    # fails. Only card1 has the counter. Same fault as VLLMDecodeStepLatched in
-    # prometheusrule.yaml; the probe is the remedy, the alert the backstop.
-    # vcn_busy_percent >= 5 means a VCN-busy co-tenant (Jellyfin or fileflows): it slows decode like
-    # the band but a restart cannot fix it. The probe clears its window and skips.
+    # fails. Only card1 has the counters. vcn_busy_percent >= 5 is a co-tenant
+    # (Jellyfin or fileflows): it slows decode like the band but a restart cannot
+    # fix it, so the probe clears its window and skips. Thresholds and evidence:
+    # docs/llm-hosting/gfx1201-fast-slow-band-2026-09-12.md.
     liveness:
       exec:
         command:

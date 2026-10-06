@@ -20,8 +20,8 @@
 # is ~1.8x faster. M=3 (52224) is refused by the kernel itself with a clean
 # RuntimeError, so an over-relaxed gate fails loudly rather than silently.
 #
-# Equivalent to upstream vllm PR #52619 (one-line, unreviewed), which measured
-# 1.66x kernel / +63% e2e decode on gfx1151.
+# Equivalent to upstream vllm PR #52619, which measured 1.66x kernel / +63% e2e
+# decode on gfx1151.
 import importlib.abc
 import sys
 
@@ -56,13 +56,13 @@ def _patch_w4a16(module):
 # at M=3-5, where production runs (3.8 concurrent on average), it takes the
 # Triton path, and so does every layer at M=6-32 (chunked-prefill tails).
 #
-# Shipped: BLOCK 16x16x128, 4 warps, default stages. Swept in-pod 2026-09-13
-# under CUDA-graph replay across all six Qwen3.8 shapes at M=3..32
-# (docs/llm-hosting/bench/downfix/triton_m32.out): 2 warps + 1 stage wins
-# 14/30 cells and regresses none, 1.16-1.31x on down_proj, 1.26-1.30x on
-# gate_up, >= 1.04x everywhere. Split-K over the HIP skinny kernel was also
-# measured and rejected: 1.2-1.3x at M=3-5 but 0.6-0.75x at M=1-2 and
-# 0.5-0.7x on prefill tails, because the weight must be stored in K-chunks.
+# Upstream tile: BLOCK 16x16x128, 4 warps, default stages. Here: 2 warps + 1
+# stage, swept in-pod under CUDA-graph replay across all six Qwen3.8 shapes at
+# M=3..32 (docs/llm-hosting/bench/downfix/triton_m32.out): wins 14/30 cells and
+# regresses none, 1.16-1.31x on down_proj, 1.26-1.30x on gate_up, >= 1.04x
+# everywhere. Split-K over the HIP skinny kernel was also measured and rejected:
+# 1.2-1.3x at M=3-5 but 0.6-0.75x at M=1-2 and 0.5-0.7x on prefill tails,
+# because the weight must be stored in K-chunks.
 #
 # _rdna_hybrid_w4a16_apply_impl resolves triton_w4a16_skinny_fmt_gemm by
 # module global at call time, so replacing it here reaches the registered

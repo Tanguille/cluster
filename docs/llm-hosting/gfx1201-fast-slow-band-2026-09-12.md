@@ -77,10 +77,13 @@ window fails.
 
 While VCN (the video engine) is busy the probe clears its window and skips, see
 the next section. `sclk_min=3100` has drifted: the band was measured at 3220 MHz
-fast, fast solo decode now reads ~3040-3070 MHz (250 W cap) and the slow band
-(3450 MHz) still passes, so few fast samples get through. Open: measure solo
-decode against a 50K prefill with `bench/gpusample.sh` in the pod, then set the
-gate between them.
+fast, fast solo decode now reads ~3000-3090 MHz (250 W cap, 8 of 8 solo samples
+on 2026-10-06 on `615b175`) and the slow band (3450 MHz on 09-12) still passes,
+so few fast samples get through. That slows the window filling, it does not
+cause kills: 39 min into the pod, `/tmp/band` held four `1`s and no `0`. Not urgent. It only bites if the slow band's clock also drifted below 3100,
+which is unmeasured (no slow band seen since). If a slow pod ever survives the
+probe, measure solo decode against a 50K prefill with `bench/gpusample.sh` in
+the pod and set the gate between them (prefill was 2480-2800 MHz on 09-12).
 
 ## Contention is not the band
 
