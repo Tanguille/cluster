@@ -27,7 +27,7 @@ KERNEL_VERSION="$(just kernel-version)"
 
 # Same Renovate branch bumps both, so a mismatch means a half-applied tree. An installer whose
 # tag advertises a kernel it does not carry is caught nowhere else.
-[[ "${VERSION%-r[0-9]*}" == *-k"${KERNEL_VERSION}" ]] || {
+[[ "${VERSION%-r[0-9]*}" == "${TALOS_VERSION}-k${KERNEL_VERSION}" ]] || {
     echo "CR names k${VERSION#*-k}, Dockerfile builds ${KERNEL_VERSION}" >&2
     exit 1
 }
