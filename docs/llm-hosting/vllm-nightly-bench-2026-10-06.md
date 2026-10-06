@@ -31,9 +31,9 @@ Blocks, `longctx.py` and `concsweep.py` as in [09-29](vllm-nightly-bench-2026-09
 
 Baseline: the old pod was replaced mid-run (Flux applied #5602 40 min after the
 merge), so only its band check (32.57 tok/s) and one `concsweep.py` rep
-(31.16 / 57.17 / 75.44 / 96.59 / 118.03) exist. The comparison uses the 09-29 table.
-#5567 then merged and rolled the pod again (probe change), so arm B spans two pods
-of identical config, both fast band.
+(31.16 / 57.17 / 75.44 / 96.59 / 118.03) exist. The comparison uses the 09-29
+table. Then #5567 merged and rolled the pod again (probe change), so arm B spans
+two pods of identical config, both fast band.
 
 ## Results
 
