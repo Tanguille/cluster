@@ -89,32 +89,33 @@ spec:
           type: openai
           baseUrl: "http://litellm.ai.svc.cluster.local/v1"
           apiKey: { env: LITELLM_API_KEY }
-      defaults:
+      # 0.0.27 dropped the defaults wrapper: repository settings are the root's review, agent and rules groups.
+      review:
         # Mirrors CI agent-review: omniroute primary, qwen-3.8 fallback.
-        models:
-          review: litellm/omniroute
-          fallback: litellm/qwen-3.8
+        model: litellm/omniroute
+        fallback: litellm/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
-        requireSuggestedFix: true
+        fixes: true
         # A review with nothing blocking or important approves the head; a later one that finds something withdraws it.
         approve: true
-        # gh's run-scoped token is read-only, and rg, fd, jq and yq only read the checkout; no curl, so PR text can't steer raw requests.
-        agent:
-          commands: [gh, rg, fd, jq, yq]
-          # Each step resends the whole history, so a review that keeps reading grows to ~200K tokens and
-          # hits the timeout. maxSteps is the limit that should bind (it forces a submit); maxTokens
-          # is only a backstop, since one late step can jump past its 90% forced-submit line.
-          maxSteps: 30
-          maxToolOutputBytes: 12288
-          maxTokens: 1000000
-          # A step that writes ~10K tokens at ~25 tok/s takes ~6 minutes, and a model call past Kritika's fixed 5m step limit is cancelled and resent, so 30m cut off reviews that were still progressing.
-          timeout: 45m
-        # Adapted from onedr0p/home-ops' kritika entry.
-        rules:
-          - id: renovate
-            whenExpr: pr.headRef.startsWith("renovate/")
-            rule: >-
-              This is a Renovate dependency update. Read what changed from the release notes in the PR body, or from upstream's release notes or compare view with gh (one call per release, never the releases list). Then use rg to see how this repository uses the package, including the comments in those files, and report each breaking change, deprecation, rename or changed default that affects it, and any version it must stay in lockstep with. Start with a verdict, safe to merge or not, and name the sources you read.
+      # gh's run-scoped token is read-only, and rg, fd, jq and yq only read the checkout; no curl, so PR text can't steer raw requests.
+      agent:
+        commands: [gh, rg, fd, jq, yq]
+        # Each step resends the whole history, so a review that keeps reading grows to ~200K tokens and
+        # hits the timeout. steps is the limit that should bind (it forces a submit); tokens is only a
+        # backstop, since one late step can jump past its 90% forced-submit line.
+        steps: 30
+        output: 12288
+        tokens: 1000000
+        # A step that writes ~10K tokens at ~25 tok/s takes ~6 minutes, and a model call past Kritika's fixed 5m step limit is cancelled and resent, so 30m cut off reviews that were still progressing.
+        timeout: 45m
+      # Adapted from onedr0p/home-ops' kritika entry.
+      rules:
+        - id: renovate
+          when:
+            - expr: pr.headRef.startsWith("renovate/")
+          rule: >-
+            This is a Renovate dependency update. Read what changed from the release notes in the PR body, or from upstream's release notes or compare view with gh (one call per release, never the releases list). Then use rg to see how this repository uses the package, including the comments in those files, and report each breaking change, deprecation, rename or changed default that affects it, and any version it must stay in lockstep with. Start with a verdict, safe to merge or not, and name the sources you read.
       embedding:
         model: litellm/qwen3-embedding
         dims: 1024
