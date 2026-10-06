@@ -13,7 +13,7 @@ description: >-
     (rebase discipline, diff-grounded description, CI triage: references/pr-shepherd.md)
 
   Use proactively for K8s app/Flux/HelmRelease changes, infrastructure edits, or pre-commit diff review.
-compatibility: Requires `git`, `mise`, `flate`, and `shellcheck` for phase 5 (falls back to `kustomize` if `flate` is unavailable); optional `gh` for PR metadata.
+compatibility: Requires `git`, `mise`, `flate`, and `shellcheck` for phase 5 (falls back to `kustomize`/`flux` if `flate` is unavailable); optional `gh` for PR metadata.
 ---
 
 # PR review

@@ -17,7 +17,7 @@ spec:
     onMissingSnapshot: Continue
   credentialProjection:
     enabled: true
-  # inheritSecurityContextFrom can't work: the cutover scales the app to 0 first, so there's no pod to inherit from.
+  # Workload-based inheritSecurityContextFrom can't work: the cutover scales the app to 0 first, so there's no pod to inherit from.
   # Without an explicit uid the mover defaults to 65532 and restored files land 65532:568, which breaks owner-only (0600) files such as the *arr Data Protection keys.
   # No capabilities needed, unlike backup: restore creates fresh files owned by its own uid.
   mover:

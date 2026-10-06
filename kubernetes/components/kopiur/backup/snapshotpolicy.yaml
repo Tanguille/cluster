@@ -13,8 +13,8 @@ spec:
         name: ${APP}
       # The adopted history was recorded at /data; kopiur's /pvc/<name> default would start a new identity strand.
       sourcePathOverride: /data
-  # Explicit uid, not inheritSecurityContextFrom: inheritance needs a live pod with a declared uid (many images drop privileges in an entrypoint) and never works for restore (app is scaled to 0).
-  # KOPIUR_MOVER_CAPS_ADD (DAC_READ_SEARCH) is only for root: the mover drops all caps, and root alone can't read another uid's files.
+  # Explicit uid, not workload-based inheritSecurityContextFrom: it needs a live pod with a declared uid (many images drop privileges in an entrypoint) and never works for restore (app is scaled to 0).
+  # KOPIUR_MOVER_CAPS_ADD (DAC_READ_SEARCH) is for a root mover: it drops all caps, and root without the capability can't read another uid's files.
   # The whole token is the list value: `${VAR}` braces break flow-sequence YAML parsing when nested in `[]`.
   mover:
     securityContext:

@@ -9,7 +9,7 @@ description: >-
   user: "Install prometheus exporter" → HelmRelease with custom scrape config
 
   Use proactively when the user mentions deploying, installing, adding, or setting up an application.
-compatibility: Requires `mise`, `git`, `flate`, and `shellcheck` (falls back to `kustomize` if `flate` is unavailable); cluster apply needs user approval per AGENTS.md.
+compatibility: Requires `mise`, `git`, `flate`, and `shellcheck` (falls back to `kustomize`/`flux` if `flate` is unavailable); cluster apply needs user approval per AGENTS.md.
 ---
 
 # Add app to cluster
