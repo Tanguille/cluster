@@ -164,7 +164,7 @@ spec:
   # VLLMDecodeStepLatched cover the gfx1201 band: 0 firings or restarts
   # 2026-09-13..23.
   # Bump baseline: docs/llm-hosting/vllm-nightly-bench-2026-09-29.md.
-  image: vllm/vllm-openai-rocm:nightly@sha256:637471c07d6afbbe7bb6f45d54ac0edf5b9184342cb95c7d74cde3c2c2ea5180
+  image: vllm/vllm-openai-rocm:nightly@sha256:615b175d6947a33e9bba36c9ffdb837e049821b10b6f7e610b7b56600b5e96d7
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -348,6 +348,8 @@ spec:
     # 2480-2800), mem_busy reads ~81 fast / ~40 slow; 8 samples under 25% fast
     # fails. Only card1 has the counter. Same fault as VLLMDecodeStepLatched in
     # prometheusrule.yaml; the probe is the remedy, the alert the backstop.
+    # vcn_busy_percent >= 5 means a VCN-busy co-tenant (Jellyfin or fileflows): it slows decode like
+    # the band but a restart cannot fix it. The probe clears its window and skips.
     liveness:
       exec:
         command:
@@ -355,12 +357,14 @@ spec:
           - -c
           - |
             f=/tmp/band; g=/sys/class/drm/card1/device
-            sclk_min=3100; busy_min=60; window=8; fast_min_pct=25
+            sclk_min=3100; busy_min=60; window=8; fast_min_pct=25; vcn_max=5
             if ! curl -sf -m 8 -o /dev/null localhost:8000/health; then
               n=$$(( $$(cat "$$f".fail 2>/dev/null || echo 0) + 1 )); echo "$$n" > "$$f".fail
               [ "$$n" -ge 20 ] && exit 1; exit 0
             fi
             rm -f "$$f".fail
+            vcn=$$(cat $$g/vcn_busy_percent 2>/dev/null)
+            [ "$${vcn:-0}" -ge "$$vcn_max" ] && { : > "$$f"; exit 0; }
             running=$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:num_requests_running\{/{print $$2}')
             sclk=$$(awk '/\*/{sub(/Mhz/,"",$$2); print $$2}' $$g/pp_dpm_sclk)
             [ "$$running" = "1.0" ] && [ "$${sclk:-0}" -ge "$$sclk_min" ] || exit 0

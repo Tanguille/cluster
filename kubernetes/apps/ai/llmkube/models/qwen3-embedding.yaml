@@ -38,7 +38,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:cf254eed909277abed1d33d6342ead0fd945c0247671f0bd45934c64408306c0
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:251a422e814aebadcb0be861c82469f6e6a76af8ef14f1a0e8aba02730aedaa4
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch
   # from queueing behind memini (bench: 7.07s median for the 194-tool batch
@@ -96,9 +96,11 @@ spec:
 
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); working set <224Mi, the model
-    # buffer lives in amdgpu GTT which memcg does not charge, so this reserves
-    # UMA headroom for the scheduler.
-    memory: 6Gi
+    # Request AND limit (llmkube >= 0.9.29); working set <224Mi (0.116GiB on
+    # 2026-10-06), the model buffer lives in amdgpu GTT which memcg does not
+    # charge. 512Mi is ~4x the measured working set and matches bge-reranker's
+    # right-size for same-class weights; the 6Gi reservation held control-2 at
+    # 95.8% request overcommit.
+    memory: 512Mi
   endpoint:
     path: /v1/embeddings

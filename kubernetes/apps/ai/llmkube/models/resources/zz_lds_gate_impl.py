@@ -75,6 +75,8 @@ def _install_small_m_triton_config(hy):
         return
     orig = hy.triton_w4a16_skinny_fmt_gemm
     kernel = hy._triton_w4a16_skinny_fmt_kernel
+    # Newer vllm (#56301) passes the row strides between num_groups and group_size.
+    has_strides = "stride_bn" in kernel.arg_names
 
     def gemm(a, b_q, scales, group_size, zp_bias=8, zp=None):
         M, K = a.shape
@@ -83,10 +85,11 @@ def _install_small_m_triton_config(hy):
         N = b_q.shape[0]
         c = torch.empty((M, N), dtype=a.dtype, device=a.device)
         grid = (triton.cdiv(M, 16), triton.cdiv(N, 16))
+        strides = (b_q.stride(0), a.stride(0)) if has_strides else ()
         kernel[grid](
             # the zp pointer is unused when HAS_ZP is False; any tensor will do
             a, b_q, scales, zp if zp is not None else scales, c,
-            M, N, K, K // 8, K // group_size,
+            M, N, K, K // 8, K // group_size, *strides,
             group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None,
             BLOCK_M=16, BLOCK_N=16, BLOCK_K=min(128, group_size), num_warps=2, num_stages=1,
         )

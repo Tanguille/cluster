@@ -45,7 +45,7 @@ spec:
   # GTT-leak mitigation as with qwen3-embedding: lifetime covers startup and
   # model load before this Vulkan server is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:cf254eed909277abed1d33d6342ead0fd945c0247671f0bd45934c64408306c0
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:251a422e814aebadcb0be861c82469f6e6a76af8ef14f1a0e8aba02730aedaa4
   # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
   # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
   parallelSlots: 1
