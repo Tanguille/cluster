@@ -58,6 +58,9 @@ spec:
   # llama.cpp caps n_ubatch at n_batch, and the 2048 default is below a pair.
   batchSize: 4096
   extraArgs:
+    # 12 x 1024-char pairs: 3.5s with flash attention auto (on), 3.15s off; rankings identical.
+    - "-fa"
+    - "off"
     - "--alias"
     - "bge-reranker-v2-m3" # served model name memini sends (MEMINI_RERANK_MODEL)
   # Pin to the iGPU node, as with the embedder; without this the scheduler
