@@ -103,7 +103,8 @@ spec:
         osd:
           requests:
             cpu: "500m"
-            memory: "3Gi"
+            # osd-0 working set 1.95GiB (2026-10-06); the 6Gi limit below still covers bursts.
+            memory: "2.5Gi"
           limits:
             memory: "6Gi"
         mon:
