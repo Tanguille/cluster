@@ -5,8 +5,7 @@ kind: HelmRelease
 metadata:
   name: k8s-gpu-dra-driver
 spec:
-  # No OCI chart is published upstream (see helmrepository.yaml); chartRef only takes
-  # OCIRepository/HelmChart, so this pulls from ROCm's GitHub Pages Helm repo.
+  # chartRef only takes OCIRepository/HelmChart; the HelmRepository source is why (see helmrepository.yaml).
   chart:
     spec:
       chart: k8s-gpu-dra-driver
