@@ -348,7 +348,7 @@ spec:
     # 2480-2800), mem_busy reads ~81 fast / ~40 slow; 8 samples under 25% fast
     # fails. Only card1 has the counter. Same fault as VLLMDecodeStepLatched in
     # prometheusrule.yaml; the probe is the remedy, the alert the backstop.
-    # vcn_busy_percent >= 5 means a Jellyfin transcode: it slows decode like
+    # vcn_busy_percent >= 5 means a VCN-busy co-tenant (Jellyfin or fileflows): it slows decode like
     # the band but a restart cannot fix it. The probe clears its window and skips.
     liveness:
       exec:
