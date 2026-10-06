@@ -12,7 +12,7 @@ spec:
   values:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
-    # All DSNs hit postgres16-rw directly: kritika LISTENs and sets startup params, which pgbouncer rejects.
+    # Direct to postgres16-rw: kritika sets startup params pgbouncer rejects.
     database:
       owner:
         existingSecret: &secret kritika-secret
@@ -27,20 +27,19 @@ spec:
         role: kritik_runner
     config:
       webUrl: "https://kritika.${SECRET_DOMAIN}"
-      # Drop a turned-off repo's index after 1h instead of 720h; re-enabling onboards a fresh one.
+      # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
       indexGrace: 1h
-    # Internal only: public dashboard plus local admin and unsandboxed runners is too exposed.
-    # GitHub webhooks can't reach it, so events arrive via polling.
+    # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
       hostnames: ["kritika.${SECRET_DOMAIN}"]
       parentRefs:
         - name: envoy-internal
           namespace: network
-    # Server egress; runners use the chart's separate DNS/Postgres/gateway policy.
+    # Server egress; runners use the chart's separate policy.
     networkPolicy:
       enabled: true
-      # Cilium matches the pod port after service DNAT, so litellm needs 4000, not 80.
+      # 4000 for litellm: Cilium matches the pod port after service DNAT.
       egressPorts:
         - 443
         - 4000
@@ -89,38 +88,41 @@ spec:
           type: openai
           baseUrl: "http://litellm.ai.svc.cluster.local/v1"
           apiKey: { env: LITELLM_API_KEY }
-      defaults:
-        # Mirrors CI agent-review: omniroute primary, qwen-3.8 fallback.
-        models:
-          review: litellm/omniroute
-          fallback: litellm/qwen-3.8
+      # 0.0.27 dropped the defaults wrapper: repository settings sit at the root.
+      review:
+        model: litellm/omniroute
+        fallback: litellm/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
-        requireSuggestedFix: true
-        # A review with nothing blocking or important approves the head; a later one that finds something withdraws it.
+        fixes: true
+        # A clean review approves the head; a later finding withdraws it.
         approve: true
-        # gh's run-scoped token is read-only, and rg, fd, jq and yq only read the checkout; no curl, so PR text can't steer raw requests.
-        agent:
-          commands: [gh, rg, fd, jq, yq]
-          # Each step resends the whole history, so a review that keeps reading grows to ~200K tokens and
-          # hits the timeout. maxSteps is the limit that should bind (it forces a submit); maxTokens
-          # is only a backstop, since one late step can jump past its 90% forced-submit line.
-          maxSteps: 30
-          maxToolOutputBytes: 12288
-          maxTokens: 1000000
-          # A step that writes ~10K tokens at ~25 tok/s takes ~6 minutes, and a model call past Kritika's fixed 5m step limit is cancelled and resent, so 30m cut off reviews that were still progressing.
-          timeout: 45m
-        # Adapted from onedr0p/home-ops' kritika entry.
-        rules:
-          - id: renovate
-            whenExpr: pr.headRef.startsWith("renovate/")
-            rule: >-
-              This is a Renovate dependency update. Read what changed from the release notes in the PR body, or from upstream's release notes or compare view with gh (one call per release, never the releases list). Then use rg to see how this repository uses the package, including the comments in those files, and report each breaking change, deprecation, rename or changed default that affects it, and any version it must stay in lockstep with. Start with a verdict, safe to merge or not, and name the sources you read.
+      agent:
+        # Read-only tools only; no curl, so PR text can't steer raw requests.
+        commands: [gh, rg, fd, jq, yq]
+        steps: 30
+        output: 12288
+        tokens: 1000000
+        # 30m cut off reviews still progressing.
+        timeout: 45m
+      rules:
+        - id: renovate
+          when:
+            - expr: pr.headRef.startsWith("renovate/")
+          rule: >-
+            This is a Renovate dependency update. Read what changed from the
+            release notes in the PR body, or from upstream's release notes or
+            compare view with gh (one call per release, never the releases
+            list). Then use rg to see how this repository uses the package,
+            including the comments in those files, and report each breaking
+            change, deprecation, rename or changed default that affects it,
+            and any version it must stay in lockstep with. Start with a
+            verdict, safe to merge or not, and name the sources you read.
       embedding:
         model: litellm/qwen3-embedding
         dims: 1024
-        # Nearly every chunk of this mostly-YAML repo scores above the 0.5 default; weak matches sit below ~0.7.
+        # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
         similarFloor: 0.7
-      # Local admin is the way into a fresh instance; drop it once GitHub or OIDC is set up.
+      # Local admin until GitHub or OIDC is set up.
       auth:
         admin:
           password:
