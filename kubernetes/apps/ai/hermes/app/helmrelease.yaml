@@ -91,6 +91,16 @@ spec:
                 cpu: 2
                 memory: 6Gi
 
+affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                  - control-3
     service:
       app:
         ports:

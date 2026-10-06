@@ -99,6 +99,8 @@ spec:
     # Request AND limit (llmkube >= 0.9.29); working set <224Mi, the model
     # buffer lives in amdgpu GTT which memcg does not charge, so this reserves
     # UMA headroom for the scheduler.
-    memory: 6Gi
+    memory: 4Gi
+  limits:
+    memory: 4Gi
   endpoint:
     path: /v1/embeddings

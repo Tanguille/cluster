@@ -20,6 +20,15 @@ spec:
               app.kubernetes.io/name: litellm
           matchLabelKeys:
             - pod-template-hash
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          preference:
+            matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                  - control-3
   apiAccess:
     masterKeyRef:
       name: litellm-secret
