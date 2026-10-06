@@ -75,6 +75,48 @@ Tested in the live container: no samples while idle, through a 60 s prefill,
 or right after a request ends; fast samples in solo decode; a forced 1-of-8
 window fails.
 
+While VCN (the video engine) is busy the probe clears its window and skips, see
+the next section. `sclk_min=3100` has drifted: the band was measured at 3220 MHz
+fast, fast solo decode now reads ~3040-3070 MHz (250 W cap) and the slow band
+(3450 MHz) still passes, so few fast samples get through. Open: measure solo
+decode against a 50K prefill with `bench/gpusample.sh` in the pod, then set the
+gate between them.
+
+## Contention is not the band
+
+2026-10-05 the probe killed vLLM twice (~16:40Z, ~17:04Z) during a 16:26-17:50Z
+slowdown caused by a Jellyfin transcode on the same GPU. A restart cannot fix
+contention and costs a cold start. ITL returned to 33 ms by ~18:00Z, after
+Jellyfin was evicted at 17:50Z. VictoriaLogs shows in-pod restarts in pairs ~23
+min apart (the probe's minimum kill cycle) on the evenings of 10-03, 10-04 and
+10-05; the kill reason is only confirmed for 10-05.
+
+| 10-min avg, Z | vllm running | gpu | mem | vcn | vLLM ITL |
+| --- | --- | --- | --- | --- | --- |
+| 16:38 | 2.05 | 0.95 | 0.19 | 0.56 | 157 ms |
+| 17:18-17:38 | 0.00 | 0.81 | 0.02 | 0.40 | idle, GPU still 81% busy |
+| 18:08 | 0.55 | 0.56 | 0.44 | 0.00 | 33 ms |
+
+Weekly, by hourly p50 of `vllm:inter_token_latency_seconds_bucket` (a mean is
+dominated by long prefill steps): 6 busy hours had p50 over 60 ms and 5 of them
+had VCN active.
+
+The probe clears its window and skips while `vcn_busy_percent` (card1 sysfs)
+reads >= 5. It is the SMU 14.0.2 VCN load sensor, `max(Vcn0, Vcn1)` per
+`smu_v14_0_2_ppt.c`, the same value `gpu_metrics` reports as
+`average_mm_activity`. A missing file reads as 0, the old behaviour. An SDR
+VAAPI transcode still uses VCN, so VCN is a reliable tell. GFX contention with no
+VCN activity can still trip the probe; `VLLMDecodeStepLatched` stays the
+backstop.
+
+Jellyfin throttling and segment deletion were enabled 10-05 (`encoding.xml`, not
+in git). The transcode ran at 1.76x, so it still contends for about 57% of
+playback time: a mitigation only.
+
+The 19:19-19:25Z stall that day was not contention: one ~158K-token uncached
+prefill (`prompt_tokens_by_source_total` `local_compute`) blocked decode at
+4096-token chunks.
+
 ## Ruled out
 
 | dimension | fast vs slow |

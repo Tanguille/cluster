@@ -31,7 +31,9 @@ spec:
             summary: >-
               qwen38-27b-vllm decode is latched at
               {{ $value | humanizeDuration }}/token near single-stream — roughly
-              half speed. Restart the pod to clear it; stopping co-tenants or
-              waiting does not.
+              half speed. If drm_engine_utilization_ratio{engine="vcn"} is at
+              least 0.05 a VCN-busy co-tenant (Jellyfin or fileflows) is contending:
+              pause it, a restart does not help. Otherwise it is the latched
+              band: restart the pod to clear it.
           labels:
             severity: warning
