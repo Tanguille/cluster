@@ -108,6 +108,27 @@ content: |
   [plugins."io.containerd.cri.v1.images"]
     discard_unpacked_layers = false
 ---
+# gVisor's netstack bypasses Cilium's socket LB, so ClusterIPs (kube-dns too) go untranslated; hostinet
+# uses kernel sockets in the pod netns, which socket LB and pod-identity policy both see (gvisor#6998).
+apiVersion: v1alpha1
+kind: EtcFileConfig
+name: gvisor/runsc-hostnet.toml
+mode: 0o644
+contents: |
+  [runsc_config]
+    network = "host"
+---
+# Extra runsc handler next to the extension's default one, pointing at the hostinet config.
+apiVersion: v1alpha1
+kind: CRICustomizationConfig
+name: gvisor-hostnet
+content: |
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runsc-hostnet]
+    runtime_type = "io.containerd.runsc.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runsc-hostnet.options]
+    TypeUrl = "io.containerd.runsc.v1.options"
+    ConfigPath = "/etc/gvisor/runsc-hostnet.toml"
+---
 # fstrim. Absent on an upgraded cluster means no automatic trimming at all. Talos picks a stable
 # hash-derived slot per volume per node, so the fleet does not trim in lockstep. control-1 is the
 # TrueNAS VM with no NVMe device, so its discards pass through to the hypervisor.

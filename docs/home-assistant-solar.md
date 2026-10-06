@@ -14,7 +14,7 @@ _State as of 2026-09-18. HA 2026.9.2 at 192.168.0.16, edited through the `tangui
 | Night floor | ~500 W | `sensor.p1_meter_power` hourly min 03:00–06:00 on 2026-09-17/18: 496–512 W |
 | Gas | 1.3–1.9 m³/week, nearly all DHW | `sensor.gas_meter_gas`, `sensor.boiler_dhw_energy` 13–19 kWh/week |
 | Capacity-tariff peak | 2.9 kW | `sensor.p1_meter_peak_demand_current_month` |
-| Burner cycling | ~8 starts per burner hour | `sensor.boiler_burner_starts` 152258 / `sensor.boiler_total_heat_operating_time` 1145671 min |
+| Burner cycling | ~8 starts per burner hour | `sensor.boiler_burner_starts` 152258 / `sensor.boiler_total_burner_operating_time` 1145671 min (heating + DHW) |
 
 Takeaway: consumption is flat base load. All shiftable appliance load together is ~5–8 kWh/**week**; the 500 W floor is 4.4 MWh/**year**. The base-load audit (what the cluster, NAS, switches and standby TVs draw) is the biggest open lever and is not automated.
 
@@ -35,15 +35,16 @@ Takeaway: consumption is flat base load. All shiftable appliance load together i
 | Automation | Trigger | Effect | Guards |
 |---|---|---|---|
 | Solar forecast morning briefing | 07:30 | Phone push (s24) with expected kWh + peak hour | forecast today ≥ threshold |
-| Dishwasher on solar surplus | surplus on, remote start on, `power_production_now` change, 10:00 | `select.dishwasher_active_program` → Eco 50 | armed, ready, door closed, surplus on, PV now ≥ 2 kW, ≥ 3 kWh left, 10:00–16:00, peak guard, stacking lock |
+| Dishwasher on solar surplus | surplus on, `input_boolean.dishwasher_armed` on, `power_production_now` change, 10:00 | `select.dishwasher_active_program` → Eco 50 | armed, ready, door closed, surplus on, PV now ≥ 2 kW, ≥ 3 kWh left, 10:00–16:00, peak guard, stacking lock |
 | Dishwasher solar fallback | 90 min after `power_highest_peak_time_today` | PV ≥ 1 kW → start; else wait for tomorrow if tomorrow ≥ threshold and armed < 18 h ago; else start anyway (never at night) | armed, ready, door closed, peak guard (push if blocked) |
-| Washer on solar surplus | surplus on, Smart Control on, `power_production_now` change, 10:00 | `select.washer` → run | armed, idle, surplus on, PV now ≥ 2 kW, ≥ 2 kWh left, 10:00–16:00, peak guard, stacking lock |
+| Washer on solar surplus | surplus on, `input_boolean.washer_armed` on, Smart Control off → on, `power_production_now` change, 10:00 | `select.washer` → run | armed, idle, surplus on, PV now ≥ 2 kW, ≥ 2 kWh left, 10:00–16:00, peak guard, stacking lock |
 | Washer solar fallback | 90 min after peak | same decision as the dishwasher, wait for tomorrow only if armed < 6 h ago | armed, idle, peak guard |
-| Wet appliance armed stamp | remote start / Smart Control → on | stamps `input_datetime.dishwasher_armed_at` / `washer_armed_at` | |
-| Solar Excess Climate Comfort (pre-existing) | surplus on/off | bedroom Better Thermostat 21–23 heat_cool band; away setback when surplus ends and nobody home | bedroom automation enabled, override timer idle |
-| Bedroom heat pump on solar surplus | surplus on | bedroom band 22–24 **and** bedroom TRV `climate.radiator_valve_1` parked at 5 °C; both restored when surplus ends or after 8 h | damped outdoor 3–14 °C (below 3 °C the split unit defrosts), peak guard (+1 kW), stacking lock, bedroom guards |
-| Solar end-of-day bedroom bank | forecast remaining < 2 kWh | thermal bank: cool to 20 if outdoor > 22, heat to 23 if outdoor < 14, nothing in between; band back to 21–23 when surplus ends / 4 h | surplus on, bedroom in heat_cool, `sensor.home_tanguille_distance` < 100 km |
-| AC Power Guard (pre-existing) | surplus off | IR AC off | |
+| Wet appliance armed stamp | `dishwasher_armed` / `washer_armed` on; operation/machine state → run | stamps `input_datetime.dishwasher_armed_at` / `washer_armed_at`; turns the matching armed switch off when any program runs | |
+| Bedroom climate on solar surplus (`automation.solar_excess_climate_comfort`) | surplus on/off, 09:00 | 09:00–22:00 only. Surplus on: bedroom Better Thermostat heat_cool 22–24 if damped outdoor 3–14 °C, else 21–23. Surplus off: `climate.bedroom` off, so the AC never runs on grid during the day | bedroom guards |
+| Bedroom Nighttime Temperature | 22:00 | bedroom band 18–24 heat_cool overnight; the AC only runs on hot or cold nights | bedroom guards |
+| Bedroom heat pump on solar surplus | surplus on | bedroom TRV `climate.radiator_valve_1` parked at 5 °C while the AC heats; restored when surplus ends or after 8 h | damped outdoor 3–14 °C (below 3 °C the split unit defrosts), peak guard (+1 kW), stacking lock, bedroom guards |
+| Solar end-of-day bedroom bank | forecast remaining < 2 kWh | thermal bank: band 19–20 if outdoor > 22, 23–25 if outdoor < 14, nothing in between; surplus end switches the bedroom off | surplus on, bedroom in heat_cool, `sensor.home_tanguille_distance` < 100 km |
+| Bedroom climate manual override detector | bedroom climate attribute changes | 2 h `timer.bedroom_climate_manual_override` | only changes with a `user_id` (UI/app); automations and Better Thermostat carry none |
 | Capacity tariff interlock | avg demand > 2.2 kW | WC + tech-cave resistance heaters off until avg < 1.5 kW (max 30 min), then back to heat | no surplus |
 | 🔥 Advanced Heating Control Main | AHC 5.5.7 blueprint | gas heating comfort 21 / eco 16, schedule + presence + proximity | `input_force_eco_temperature` was **removed** 2026-09-18 (see below) |
 
@@ -53,11 +54,12 @@ The tariff is flat: import costs the same at every hour, injection pays little, 
 
 Both appliances are "arm and forget": load it, arm it, the automations pick the moment.
 
-- **Dishwasher**: switch it on, close the door, press Remote Start (`binary_sensor.dishwasher_remote_start` on). **Washer**: load it, enable Smart Control (`binary_sensor.washer_remote_control` on; Samsung drops it after every cycle so an unloaded machine can never be started).
+- **Arming**: appliance signals can't mark a load (the dishwasher reports remote start permanently on, and cloud reconnects re-fire state changes), so each load is armed by hand with a switch on the Overview dashboard (Kitchen and Boiler room views). **Dishwasher**: load it, close the door, switch on `input_boolean.dishwasher_armed`. **Washer**: load it, enable Smart Control on the machine (Samsung refuses remote starts without it), switch on `input_boolean.washer_armed`.
 - **Instant choice (live)**: inside 10:00–16:00 it starts when `solar_surplus_stable` is on **and** Forecast.Solar `power_production_now` ≥ 2 kW, so the heating burst is mostly covered by PV rather than by the +100 W the surplus flag alone proves.
 - **Day choice (forecast)**: 90 min after the forecast peak hour, an armed load that hasn't started is handled by the fallback: PV still ≥ 1 kW → start now; otherwise wait for tomorrow only if tomorrow's forecast ≥ `input_number.solar_good_day_threshold` and the load is young enough (dishwasher armed < 18 h ago, washer < 6 h ago); otherwise start now, at the day's PV maximum, because there is no better hour under a flat tariff.
 - **Peak guard** (all starts, replaces the old fixed 2.2 kW gate): `p1_meter_average_demand + 2000 W ≤ max(p1_meter_peak_demand_current_month, 2500 W)`. A start may never raise this month's peak above the 2.5 kW floor or the peak already paid for. During PV the import average is ~0 so it always passes. If it blocks a fallback start, you get a push instead.
 - **Stacking lock**: `input_datetime.wet_appliance_last_start`; no dishwasher, washer or AC-on-surplus start within 30 min of another.
+- **Start confirmation**: every automated start waits up to 2 min for the appliance to report `run`. If it doesn't, the stacking-lock stamp is restored, the appliance is disarmed (no retries) and a push says it did not start.
 
 ## Boiler settings changed 2026-09-18
 

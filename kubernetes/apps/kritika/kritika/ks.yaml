@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kritika
+  namespace: &namespace kritika
+spec:
+  dependsOn:
+    # kritika refuses to start without its three roles and the vchord/vector extensions.
+    - name: cloudnative-pg-cluster
+      namespace: database
+    - name: cloudnative-pg-databases
+      namespace: database
+  interval: 1h
+  path: ./kubernetes/apps/kritika/kritika/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace

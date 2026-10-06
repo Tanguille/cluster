@@ -27,7 +27,7 @@ spec:
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+          whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
               cnpg.io/poolerName: pgbouncer-ro
@@ -36,7 +36,6 @@ spec:
     parameters:
       max_client_conn: "1000"
       default_pool_size: "18"
-      min_pool_size: "0"
       max_db_connections: "32"
       reserve_pool_size: "5"
       reserve_pool_timeout: "3"

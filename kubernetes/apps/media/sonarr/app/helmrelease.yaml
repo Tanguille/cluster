@@ -37,7 +37,6 @@ spec:
               SONARR__LOG__LEVEL: info
               SONARR__APP__THEME: dark
               SONARR__LOG__ANALYTICS_ENABLED: "false"
-              SONARR__UPDATE__BRANCH: develop
               SONARR__AUTH__APIKEY: ${SONARR_API_KEY}
               TZ: ${TIMEZONE}
             envFrom:
@@ -61,7 +60,6 @@ spec:
                     httpHeaders:
                       - name: Host
                         value: localhost
-                  periodSeconds: 10
                   timeoutSeconds: 5
                   failureThreshold: 5
               startup:
@@ -99,7 +97,6 @@ spec:
 
     service:
       app:
-        controller: *app
         ports:
           http:
             port: *port

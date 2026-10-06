@@ -37,6 +37,22 @@ spec:
             matchLabels:
               grafana.internal/instance: grafana
           allowCrossNamespaceImport: true
+      # No AIX/Darwin/Windows nodes here; these bundle dashboards stay empty.
+      dashboards:
+        nodes-aix:
+          enabled: false
+        nodes-darwin:
+          enabled: false
+        k8s-resources-windows-cluster:
+          enabled: false
+        k8s-resources-windows-namespace:
+          enabled: false
+        k8s-resources-windows-pod:
+          enabled: false
+        k8s-windows-cluster-rsrc-use:
+          enabled: false
+        k8s-windows-node-rsrc-use:
+          enabled: false
 
     defaultDatasources:
       grafanaOperator:
@@ -65,7 +81,7 @@ spec:
             uid: vmalertmanager
             type: alertmanager
             access: proxy
-            url: &vmalertmanagerUrl http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
+            url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
             jsonData:
               implementation: prometheus
 
@@ -80,11 +96,6 @@ spec:
         # example; the camelCased `create: false` form silently matched nothing.
         RecordingRulesNoData:
           enabled: false
-      groups:
-        # vmsingle deployment; the chart's vmcluster group duplicates RequestErrorsToAPI etc.
-        # Remove this if the stack ever migrates to vmcluster.
-        vmcluster:
-          create: false
 
     grafana:
       enabled: false
@@ -174,9 +185,6 @@ spec:
             - receiver: blackhole
               matchers:
                 - alertname = InfoInhibitor
-            - receiver: discord
-              matchers:
-                - severity = critical
         inhibit_rules:
           - equal: ["alertname", "namespace"]
             source_matchers:
@@ -267,12 +275,8 @@ spec:
         extraArgs:
           "external.url": https://vmalert.${SECRET_DOMAIN}
           "rule.evalDelay": 1m
-        notifier:
-          url: *vmalertmanagerUrl
         remoteRead:
           url: *vmqueryUrl
-        remoteWrite:
-          url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428/api/v1/write
         resources:
           requests:
             cpu: 25m
@@ -282,8 +286,6 @@ spec:
             memory: 512Mi
 
     vmagent:
-      rbac:
-        namespaced: false
       spec:
         priorityClassName: homelab-critical # 512Mi, sole scrape path
         # vllm:cache_config_info carries 43 labels, past vmsingle's 40-label cap, so every

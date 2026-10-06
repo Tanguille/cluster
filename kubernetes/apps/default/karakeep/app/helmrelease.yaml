@@ -87,8 +87,6 @@ spec:
                 memory: 1Gi
 
       chrome:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -112,10 +110,6 @@ spec:
             probes:
               liveness: &probe
                 enabled: true
-                custom: true
-                spec:
-                  tcpSocket:
-                    port: 9222
               readiness: *probe
             resources:
               requests:
@@ -147,7 +141,7 @@ spec:
           app:
             image:
               repository: getmeili/meilisearch
-              tag: v1.54.0@sha256:0bf32debcbfa8ba4e418679025f4935884972171513c92f0584689ff994a61df
+              tag: v1.54.3@sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9
             args:
               - /bin/meilisearch
               # v1.51 renamed --experimental-dumpless-upgrade to this; without it
@@ -184,7 +178,6 @@ spec:
     service:
       app:
         forceRename: karakeep
-        primary: true
         controller: karakeep
         ports:
           http:

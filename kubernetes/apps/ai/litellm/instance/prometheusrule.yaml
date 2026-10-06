@@ -16,10 +16,11 @@ spec:
       rules:
         # A caller got an error back. Everything else here is early warning;
         # this is the outage itself.
+        # requested_model!="" drops keyless non-inference hits, e.g. the gatus 401 probe on /v1/models (~60/h).
         - alert: LiteLLMRequestsFailing
           expr: |-
             sum by (requested_model, exception_status) (
-              increase(litellm_proxy_failed_requests_metric_total[15m])
+              increase(litellm_proxy_failed_requests_metric_total{requested_model!=""}[15m])
             ) > 2
           for: 10m
           annotations:

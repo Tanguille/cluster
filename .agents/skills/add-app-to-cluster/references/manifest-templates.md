@@ -21,7 +21,6 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  wait: false
   # dependsOn:
   #   - name: <other-app>
   # stateful apps: uncomment for kopiur-backed persistence — full var list in
@@ -63,7 +62,6 @@ spec:
   values:
     controllers:
       <app-name>:
-        replicas: 1
         strategy: RollingUpdate  # use Recreate for RWO ceph-block when needed
 
         annotations:

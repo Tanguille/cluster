@@ -2,35 +2,36 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: [
     "abandonments:recommended",
-    // v6 flattened every config/managers/overrides/policies file into default.json and moved
-    // app-specific presets to apps/, opt-in only — the old config/baseConfig.json5 etc. paths
-    // this repo's default.json used to extend no longer exist past 5.0.0, which is why pinning
-    // "github>home-operations/renovate-presets#5.0.0" started failing to resolve: nested extends
-    // in their default.json carry no ref of their own, so Renovate re-resolves them against the
-    // default branch (now v7's flat layout) instead of inheriting the #5.0.0 pin.
+    // Pin every github> preset to the same tag; an unpinned one tracks main.
     "github>home-operations/renovate-presets#8.1.0",
     "github>home-operations/renovate-presets//apps/cnpg.json5#8.1.0",
-    // apps/grafanaDashboards.json5 inlined below: its grafanaCom template needs capture groups
-    // Renovate never passes to templates, so every dashboard bump failed with "update failure".
+    // grafanaDashboards preset inlined below: its grafanaCom template needs capture groups Renovate never passes to templates.
     "github>home-operations/renovate-presets//apps/llamacpp.json5#8.1.0",
-    "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0",
-    // talosFactory preset dropped: it matches factory.talos.dev tags and every node pins
-    // ghcr.io/tanguille/installer/*. Its custom.talos-factory datasource is wrong for the tuppr
-    // target too -- that reads what the Factory can build, we gate on the siderolabs git tag.
-    ":timezone(Europe/Brussels)"
+    "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0"
+    // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
+  // The operator webhook starts a run on any ticked dashboard checkbox; Renovate resets it on rewrite.
+  dependencyDashboardFooter: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository",
+  // Overrides :automergeBranch from the base preset.
+  automergeType: "pr",
   // main has no required checks, so GitHub native auto-merge would merge before CI finishes;
   // with this off Renovate merges itself only once every check is green (needs Checks: read).
   platformAutomerge: false,
+  // GHCR/Quay/OCI publish no release timestamps; timestamp-required would hold their updates forever.
+  minimumReleaseAgeBehaviour: "timestamp-optional",
+  // "strict" (default) parks aging updates under "Pending Status Checks"; "flexible" opens the PR and automerge waits on the stability check.
+  internalChecksFilter: "flexible",
+  // Keeps the timestamp-optional warning off the dashboard.
+  logLevelRemap: [
+    {
+      matchMessage: "/Some .+ did not have a releaseTimestamp, but as we're running with minimumReleaseAgeBehaviour=timestamp-optional, proceeding/",
+      newLogLevel: "info"
+    }
+  ],
   customDatasources: {
-    // Filtering on the moniker, not a version range, is what survives a series bump
-    // (7.1.x -> 7.2.x) with no config change. Not a git mirror: gregkh/linux carries mainline
-    // and -rc tags in the same stream, so Renovate would offer -rc builds as updates.
-    // Feed shape verified against the live endpoint: {"releases":[{"moniker","version",
-    // "changelog","iseol",...}], "latest_stable":{...}}.
-    // Re-check with: curl -s https://www.kernel.org/releases.json | jq '.releases[]|select(.moniker=="stable")'
-    // If the shape ever changes the transform yields zero releases and bumps stop SILENTLY.
+    // Moniker filter survives series bumps; a git mirror would offer -rc tags.
+    // A feed shape change yields zero releases and bumps stop SILENTLY; check: curl -s https://www.kernel.org/releases.json | jq '.releases[]|select(.moniker=="stable")'
     "linux-kernel": {
       defaultRegistryUrlTemplate: "https://www.kernel.org/releases.json",
       format: "json",
@@ -61,8 +62,7 @@
     },
     {
       // Span is "-k<version>", not the version line: Renovate rewrites currentValue inside the
-      // span, and "v1.17.3-k7.3" contains "7.3" twice. Cost: every -k<digits> in the file is its
-      // own dep. depName linux matches the Dockerfile ARG, so both land in one branch.
+      // span, and "v1.17.3-k7.3" contains "7.3" twice. depName linux matches the Dockerfile ARG, so both land in one branch.
       description: "tuppr target v<talos>-k<kernel>: kernel half",
       customType: "regex",
       managerFilePatterns: ["/tuppr/upgrades/talosupgrade\\.yaml$/"],
@@ -107,9 +107,7 @@
       description: "HuggingFace model files revision-pinned in llmkube Model sources (HF model repos are git repos; digest = repo commit sha)",
       customType: "regex",
       managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
-      // Two source forms in use: the resolve/ URL for single-file GGUFs, and
-      // hf://repo@sha for multi-file repos (qwen38). Without the
-      // second, the primary serving model's weights digest tracks nothing.
+      // Two source forms: resolve/<sha> URL (single-file GGUFs) and hf://repo@sha (multi-file repos).
       matchStrings: [
         "source:\\s+https://huggingface\\.co/(?<depName>[^/\\s]+/[^/\\s]+)/resolve/(?<currentDigest>[a-f0-9]{40})/",
         "source:\\s+hf://(?<depName>[^/\\s]+/[^/\\s]+)@(?<currentDigest>[a-f0-9]{40})"
@@ -117,6 +115,17 @@
       packageNameTemplate: "https://huggingface.co/{{depName}}",
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
+    },
+    {
+      description: "Paperclip Instance image: split repository/tag/digest fields",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/ai/paperclip/instance/instance\\.yaml$/"
+      ],
+      matchStrings: [
+        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>\\S+)\\n\\s+digest: (?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      datasourceTemplate: "docker"
     },
     {
       description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
@@ -130,9 +139,7 @@
       datasourceTemplate: "npm"
     },
     {
-      // Mirrors the cnpg.json5 preset's vchord manager (that one only matches "vchord"), so the
-      // Database CR's vector version pin tracks the pgvector OCI image tag in cluster.yaml
-      // instead of drifting silently against the base postgresql image.
+      // Mirrors the cnpg preset's vchord manager, which only matches "vchord".
       description: "CNPG Database CRD vector extension version pin",
       customType: "regex",
       managerFilePatterns: ["/resourceset\\.yaml$/"],
@@ -145,36 +152,38 @@
     }
   ],
   packageRules: [
-    {
-      description: "Paiton accepts only its hash-pinned checkpoint; bump with the image",
-      matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
-      enabled: false
-    },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
       description: "Auto-merge patch and digest bumps once they have aged 3 days",
       matchUpdateTypes: ["patch", "digest"],
       minimumReleaseAge: "3 days",
-      // Some registries (e.g. quay.io) publish no release timestamps; required would pend them forever.
-      minimumReleaseAgeBehaviour: "timestamp-optional",
-      automerge: true,
-      automergeType: "pr"
+      automerge: true
     },
     {
       description: "Auto-merge GitHub Actions on minor too",
       matchManagers: ["github-actions"],
       matchUpdateTypes: ["minor"],
+      // 0.x minors are breaking; the preset leaves this guard to us.
+      matchCurrentVersion: "!/^v?0\\./",
       minimumReleaseAge: "3 days",
-      automerge: true,
-      automergeType: "pr"
+      automerge: true
     },
     {
       description: "Auto-merge Renovate's own image on minor",
       matchPackageNames: ["ghcr.io/renovatebot/renovate"],
       matchUpdateTypes: ["minor"],
       minimumReleaseAge: "3 days",
-      automerge: true,
-      automergeType: "pr"
+      automerge: true
+    },
+    {
+      description: "Auto-merge searxng",
+      matchPackageNames: ["ghcr.io/searxng/searxng"],
+      automerge: true
+    },
+    {
+      description: "Never auto-merge kritika: pre-1.0, its chart values change between patches",
+      matchPackageNames: ["/kritika/"],
+      automerge: false
     },
     {
       description: "Never auto-merge storage, network, control plane, databases or GPU serving",
@@ -207,25 +216,7 @@
       automerge: false
     },
     {
-      description: "Auto-merge searxng",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["ghcr.io/searxng/searxng"],
-      automerge: true,
-      automergeType: "pr"
-    },
-    {
-      description: "vllm-openai-rocm nightly digest — the rolling `nightly` tag is digest-pinned so Renovate can detect new builds at all; never auto-merge, a bump rolls the single-GPU serving pod and can move the KV pool that maxModelLen is sized against",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["vllm/vllm-openai-rocm"],
-      automerge: false
-    },
-    {
-      // opencode 2.x is not deployable yet: v2.0.0 changed the server API surface (see
-      // anomalyco/opencode packages/app/V1_API_MIGRATION.md) and every 2.0.x pod failed
-      // the /:4096 HTTP liveness/readiness probes, leaving the HelmRelease
-      // Stalled/RetriesExceeded (Flux rolled back to 1.18.30 on 2026-09-15).
-      // Hold at 1.18.x until the chart probes/values are migrated to the v2 API.
-      matchDatasources: ["docker"],
+      // opencode 2.x changed the server API (probes fail); hold at 1.18.x until the chart is migrated.
       matchPackageNames: ["ghcr.io/anomalyco/opencode"],
       allowedVersions: "1.18.x",
       automerge: false
@@ -242,21 +233,14 @@
     {
       description: "Flux Operator Group",
       groupName: "flux-operator",
-      // github-releases: the pinned flux-operator dashboard URLs in flux-instance/app/grafanadashboard.yaml
-      matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/flux-operator/", "/flux-instance/"],
       minimumGroupSize: 2
     },
     {
-      // talosupgrade.yaml and the mise talosctl pin track the same Talos release — one PR
-      // instead of two. Nothing here moves during a pre-release (config:recommended sets
-      // ignoreUnstable), which is how a third copy in the flate workflow drifted four releases.
+      // talosupgrade.yaml and the mise talosctl pin (github-tags) move together in one PR.
       description: "Talos Group",
       groupName: "talos",
-      matchDatasources: ["docker", "github-releases"],
-      // matches all siderolabs/* packages (talos, installer, etc.); both slashes are regex
-      // delimiters, so the inner one must stay escaped AND closed or config validation fails
-      matchPackageNames: ["/siderolabs\\//"]
+      matchPackageNames: ["/siderolabs/"]
     },
     {
       description: "Rook-Ceph Group",
@@ -277,27 +261,21 @@
       description: "ToolHive MCP server images group",
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
-      // vmcp-restart.yaml's kubectl image: excluded so a kubectl bump doesn't ride
-      // along with the MCP server images in this group.
-      matchPackageNames: ["!registry.k8s.io/kubectl"]
+      matchFileNames: ["kubernetes/apps/ai/toolhive/mcp/**"]
     },
     {
       description: "VectorChord CNPG images and Memini database version",
       groupName: "vectorchord",
-      matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
     },
     {
       description: "pgvector CNPG extension image and Database CRD version pins",
       groupName: "pgvector",
-      matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/cloudnative-pg/pgvector"]
     },
     {
       description: "Group klipper-exporter image and Grafana dashboard URL",
       groupName: "klipper-exporter",
-      matchDatasources: ["docker", "github-releases"],
       matchPackageNames: ["/prometheus-klipper-exporter/"]
     },
     {
@@ -308,9 +286,8 @@
       minimumGroupSize: 2
     },
     {
-      // No matchManagers on purpose: the HelmRelease image is detected by both helm-values and
-      // kubernetes (home-ops points both at every .yaml); constraining managers let one copy
-      // escape into a duplicate PR. datasource+file+package already scope this precisely.
+      // No matchManagers on purpose: flux and helm-values both detect the HelmRelease image,
+      // and constraining managers let one copy escape into a duplicate PR.
       description: "qBitrr: group image tag and ConfigVersion",
       groupName: "qbitrr",
       matchDatasources: ["docker"],
@@ -318,11 +295,22 @@
       matchPackageNames: ["/feramance\\/qbitrr/"]
     },
     {
-      // Last release 2025-08-04, past `abandonments:recommended`, but still used by pre-commit.
-      // matchPackageNames misses: the mise preset rewrites packageName to koalaman/shellcheck.
+      // Last release 2025-08-04, past `abandonments:recommended`, but still a pinned mise tool.
       description: "shellcheck releases rarely; not abandoned",
-      matchDepNames: ["aqua:koalaman/shellcheck"],
+      matchPackageNames: ["koalaman/shellcheck"],
       abandonmentThreshold: null
+    },
+    {
+      // Image labels point at the rocky-kiwi build repo; ceph has no GitHub releases, so this yields compare links only.
+      matchPackageNames: ["quay.io/ceph/ceph"],
+      sourceUrl: "https://github.com/ceph/ceph"
+    },
+    {
+      // The preset override gives docker.io but re-extraction gives mirror.gcr.io: "depName mismatch".
+      description: "Keep envoy-gateway's helmfile depName on mirror.gcr.io so it edits with the OCIRepository",
+      matchManagers: ["helmfile"],
+      matchPackageNames: ["docker.io/envoyproxy/gateway-helm"],
+      overrideDepName: "mirror.gcr.io/envoyproxy/gateway-helm"
     },
     // Versioning overrides
     {
@@ -336,20 +324,8 @@
     },
     // Labeling rules
     {
-      matchUpdateTypes: ["major"],
-      addLabels: ["type/major"]
-    },
-    {
-      matchUpdateTypes: ["minor"],
-      addLabels: ["type/minor"]
-    },
-    {
-      matchUpdateTypes: ["patch"],
-      addLabels: ["type/patch"]
-    },
-    {
-      matchUpdateTypes: ["digest"],
-      addLabels: ["type/digest"]
+      matchUpdateTypes: ["major", "minor", "patch", "digest"],
+      addLabels: ["type/{{updateType}}"]
     },
     {
       matchDatasources: ["docker"],
@@ -364,9 +340,7 @@
     },
     {
       matchDatasources: ["custom.linux-kernel"],
-      // stable is X.Y.Z most of the time but a bare X.Y for a freshly promoted series, which
-      // semver rejects — the update would silently stop. The annotation syntax cannot carry a
-      // versioning field, so it has to be set here.
+      // A freshly promoted series is a bare X.Y that semver rejects (update stops silently); the annotation cannot carry versioning.
       versioning: "loose",
       semanticCommitScope: "kernel",
       addLabels: ["renovate/kernel"],

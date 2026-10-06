@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: python
-              tag: 3.14-slim@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
+              tag: 3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2
             command: [python3, /config/controller.py]
             ports:
               - name: http
@@ -51,7 +51,6 @@ spec:
                 cpu: 100m
                 memory: 128Mi
     defaultPodOptions:
-      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 15
       affinity:
         nodeAffinity:
@@ -86,9 +85,6 @@ spec:
         type: configMap
         name: guard
         globalMounts:
-          - path: /config
-            readOnly: true
+          - readOnly: true
       tmp:
         type: emptyDir
-        globalMounts:
-          - path: /tmp

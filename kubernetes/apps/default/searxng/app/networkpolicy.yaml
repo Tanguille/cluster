@@ -28,11 +28,6 @@ spec:
             io.kubernetes.pod.namespace: ai
             app: searxng
             toolhive: "true"
-        # agent-pr-review search_url.
-        - matchLabels:
-            io.kubernetes.pod.namespace: actions-runner-system
-            app.kubernetes.io/name: review-runner
-            app.kubernetes.io/component: runner
       toPorts:
         - ports:
             - port: "8080"

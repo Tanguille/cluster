@@ -3,14 +3,13 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app trivy-operator
+  name: trivy-operator
 spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
     name: trivy-operator
   values:
-    fullnameOverride: *app
     operator:
       # Node collector can't run on Talos (read-only rootfs: mkdir /etc/systemd
       # fails), so disable infra assessment. Keeps image vuln, config audit
@@ -20,7 +19,6 @@ spec:
       scannerReportTTL: "48h"
       # ~570KiB SbomReports, never TTL-pruned, re-created ~860x/day fragmented etcd; nothing reads them.
       sbomGenerationEnabled: false
-    # Expose the /metrics endpoint to Prometheus via a ServiceMonitor.
     serviceMonitor:
       enabled: true
     # Scan Jobs throttle at the chart-default 500m limit (kguardian

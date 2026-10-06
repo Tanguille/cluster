@@ -12,17 +12,15 @@ The `components/kopiur` component creates, per app:
 - `Restore`: a **passive populator** — it does nothing until a PVC's `dataSourceRef` claims it,
   then restores the selected snapshot into that PVC
 
-**Important**: the PVC spec is **immutable** after creation, same constraint as before. `kind`
-in `dataSourceRef` should be `Restore` (`apiGroup: kopiur.home-operations.com`) — if you ever
-see `ReplicationDestination`/`volsync.backube`, something recreated a pre-migration resource;
-that shouldn't happen post-decommission.
+**Important**: the PVC spec is **immutable** after creation. `kind` in `dataSourceRef` must be
+`Restore` (`apiGroup: kopiur.home-operations.com`).
 
 ## Identity: verify live, don't trust the manifest
 
 Several apps' `securityContext.runAsUser` in their `helmrelease.yaml` does **not** match the uid
 that actually owns their files — the image's own entrypoint (gosu/s6-overlay/su-exec) drops
-privilege internally after starting as root, invisible to Kubernetes. Confirmed on `fileflows`,
-`odysseus`, and `nextcloud` during this migration; `odysseus` crashlooped after being restored
+privilege internally after starting as root, invisible to Kubernetes. Confirmed on `fileflows` and
+`nextcloud` during this migration; a since-removed app crashlooped after being restored
 as root when its real uid was 1000. **Before touching an app's `mover.securityContext`,
 verify**:
 
@@ -116,7 +114,7 @@ kubectl kopiur snapshots list --policy jellyfin -n media
 ```
 
 This is a real git change to the app's `restore.yaml` (or a live `kubectl edit` for a one-off
-test) — not a `kubectl patch` trigger like VolSync's `restoreAsOf`.
+test).
 
 ### Step 6: Resume Kustomization and HelmRelease
 
@@ -157,7 +155,7 @@ place. Scaler apps recover on their own via KEDA.
 
 ```bash
 kubectl exec -n media deployment/jellyfin -- id
-kubectl exec -n media deployment/jellyfin -- ls -la <mount-path>   # uid should match Step 9's id output
+kubectl exec -n media deployment/jellyfin -- ls -la <mount-path>   # uid should match the `id` output above
 kubectl kopiur snapshot now --policy jellyfin -n media --wait      # fresh snapshot should succeed
 kubectl kopiur snapshots list --policy jellyfin -n media           # file count/size should be continuous with history
 ```
@@ -213,27 +211,8 @@ Large restores (e.g. nextcloud's 50Gi, jellyfin's 28.8GiB) can take 10-30 minute
 `status.phase` transition `Restoring` → `Completed`; `status.conditions[type=Reconciling]`
 tells you if it's actively working or stuck.
 
-### Issue: PVC dataSourceRef shows `ReplicationDestination`/`volsync.backube` (should never happen post-decommission)
-
-**Cause**: this was the volsync-vs-kopiur race hit repeatedly during the original migration —
-volsync's controller (now fully removed) won a repopulation race against kopiur's `Restore`.
-Post-decommission this specific failure mode can't recur (there's no volsync controller left to
-race), but if you ever see this `Kind` on a PVC's `dataSourceRef`, something is very wrong —
-investigate before proceeding, don't just retry.
-
 ### Issue: Mover stuck, no log output, near-zero CPU
 
 **Cause**: repo-wide permission drift — kopia silently retries `PermissionDenied` forever
 instead of erroring. Check `find /repo -type d -not -perm 0775` / `-type f -not -perm 0664`
 from a mover shell before assuming a slow backend.
-
-## Key Points
-
-1. **Always suspend both Kustomization and HelmRelease** before starting a restore
-2. **Deleting the PVC alone re-triggers the existing `Restore`** — no need to delete/recreate
-   the `Restore` CR itself for a plain restore-to-latest
-3. **Never delete-and-recreate a `Restore` CR whose PVC is `Bound`** (kopiur#233) — check for
-   orphaned `prime-*` PVCs and the `Completed`/`Ready:False` signature if this ever happens
-4. **Verify identity live** (`kubectl exec ... id`) before trusting a manifest's declared
-   `securityContext` — entrypoint privilege drops are invisible to it
-5. **PVC spec is immutable** — if it's wrong, delete and let the `Restore` recreate it

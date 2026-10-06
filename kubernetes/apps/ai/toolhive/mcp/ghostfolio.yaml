@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: ghostfolio
+spec:
+  image: ghcr.io/mhajder/ghostfolio-mcp:1.7.0@sha256:e0cce33b6f0d48ec7290cfae2ca5327a68568e9b72c0b68e6b28e7f49393c41e
+  # ghostfolio-mcp's own transport selection only recognizes "http"/"sse" as literal
+  # values (src/ghostfolio_mcp/server.py); toolhive injects spec.transport verbatim as
+  # MCP_TRANSPORT, so "streamable-http" silently falls through to its stdio default
+  # while the proxy still expects a network listener on mcpPort — crash loop.
+  transport: stdio
+  groupRef:
+    name: all
+  env:
+    - name: GHOSTFOLIO_URL
+      value: http://ghostfolio.default.svc.cluster.local:3333
+    # Write access enabled on request: the agent may now place
+    # trades and edit activities, not just read them.
+    - name: READ_ONLY_MODE
+      value: "false"
+  secrets:
+    - name: toolhive-secrets
+      key: GHOSTFOLIO_TOKEN
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi

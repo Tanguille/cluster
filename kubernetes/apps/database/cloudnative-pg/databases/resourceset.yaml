@@ -12,8 +12,7 @@ spec:
     - name: bazarr
     - name: crowdsec
       extensions:
-        # vector is the official ghcr.io/cloudnative-pg/pgvector extension image (cluster.yaml);
-        # Renovate tracks that image tag directly, no more manual drift checks against the base image.
+        # vector is the official ghcr.io/cloudnative-pg/pgvector extension image (cluster.yaml); Renovate tracks that image tag.
         - &vector
           name: vector
           version: "0.8.6"
@@ -27,6 +26,13 @@ spec:
     - name: kguardian
       extensions:
         - *vector
+    - name: kritik
+      extensions:
+        # Both must exist before kritika's first start; vchord is already in shared_preload_libraries.
+        - &vchord
+          name: vchord
+          version: "1.1.1"
+        - *vector
     - name: litellm
       extensions:
         - *vector
@@ -34,8 +40,7 @@ spec:
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
         # Both versions are Renovate-tracked with their respective cluster.yaml extension images.
-        - name: vchord
-          version: "1.1.1"
+        - *vchord
         - *vector
     - name: nextcloud
     - name: prowlarr

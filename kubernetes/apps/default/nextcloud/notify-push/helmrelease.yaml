@@ -56,25 +56,18 @@ spec:
             probes:
               liveness: &probes
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: 7867
                   periodSeconds: 30
                   timeoutSeconds: 5
               readiness: *probes
               startup:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: 7867
                   failureThreshold: 30
                   periodSeconds: 5
                   timeoutSeconds: 5
     service:
       app:
-        controller: notify-push
         ports:
           http:
             port: 7867

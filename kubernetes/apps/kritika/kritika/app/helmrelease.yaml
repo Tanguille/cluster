@@ -1,0 +1,129 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kritika
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: kritika
+  interval: 30m
+  values:
+    deploymentAnnotations:
+      reloader.stakater.com/auto: "true"
+    # Direct to postgres16-rw: kritika sets startup params pgbouncer rejects.
+    database:
+      owner:
+        existingSecret: &secret kritika-secret
+        key: owner-uri
+      app:
+        existingSecret: *secret
+        key: app-uri
+        role: kritik_app
+      runner:
+        existingSecret: *secret
+        key: runner-uri
+        role: kritik_runner
+    config:
+      webUrl: "https://kritika.${SECRET_DOMAIN}"
+      # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
+      indexGrace: 1h
+    # Internal only: public dashboard with local admin is too exposed.
+    httpRoute:
+      enabled: true
+      hostnames: ["kritika.${SECRET_DOMAIN}"]
+      parentRefs:
+        - name: envoy-internal
+          namespace: network
+    # Server egress; runners use the chart's separate policy.
+    networkPolicy:
+      enabled: true
+      # 4000 for litellm: Cilium matches the pod port after service DNAT.
+      egressPorts:
+        - 443
+        - 4000
+    monitoring:
+      serviceMonitor:
+        enabled: true
+      prometheusRule:
+        enabled: true
+      dashboards:
+        enabled: true
+        grafanaOperator:
+          enabled: true
+          folder: ai
+          matchLabels:
+            grafana.internal/instance: grafana
+    env:
+      LITELLM_API_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: cluster-secrets
+            key: LITELLM_API_KEY
+      GITHUB_APP_PRIVATE_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: github-private-key
+      GITHUB_APP_WEBHOOK_SECRET:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: github-webhook-secret
+      ADMIN_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: admin-password
+    configFile:
+      apps:
+        github:
+          accounts: [tanguille]
+          clientId: Iv23liEpcPGN5z8KRBta
+          privateKey: { env: GITHUB_APP_PRIVATE_KEY }
+          webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
+      providers:
+        litellm:
+          type: openai
+          baseUrl: "http://litellm.ai.svc.cluster.local/v1"
+          apiKey: { env: LITELLM_API_KEY }
+      # 0.0.27 dropped the defaults wrapper: repository settings sit at the root.
+      review:
+        model: litellm/omniroute
+        fallback: litellm/qwen-3.8
+        # Every finding carries a suggested fix; repositories cannot lift it.
+        fixes: true
+        # A clean review approves the head; a later finding withdraws it.
+        approve: true
+      agent:
+        # Read-only tools only; no curl, so PR text can't steer raw requests.
+        commands: [gh, rg, fd, jq, yq]
+        steps: 30
+        output: 12288
+        tokens: 1000000
+        # 30m cut off reviews still progressing.
+        timeout: 45m
+      rules:
+        - id: renovate
+          when:
+            - expr: pr.headRef.startsWith("renovate/")
+          rule: >-
+            This is a Renovate dependency update. Read what changed from the
+            release notes in the PR body, or from upstream's release notes or
+            compare view with gh (one call per release, never the releases
+            list). Then use rg to see how this repository uses the package,
+            including the comments in those files, and report each breaking
+            change, deprecation, rename or changed default that affects it,
+            and any version it must stay in lockstep with. Start with a
+            verdict, safe to merge or not, and name the sources you read.
+      embedding:
+        model: litellm/qwen3-embedding
+        dims: 1024
+        # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
+        similarFloor: 0.7
+      # Local admin until GitHub or OIDC is set up.
+      auth:
+        admin:
+          password:
+            env: ADMIN_PASSWORD

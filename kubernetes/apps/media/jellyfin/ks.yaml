@@ -24,3 +24,5 @@ spec:
     substitute:
       APP: *app
       PVC_CAPACITY: 60Gi
+      # regenerable caches, skipped from backup
+      KOPIUR_IGNORE_RULES: "[/lost+found, /data/subtitles/*, /data/trickplay/*, /data/attachments/*]"

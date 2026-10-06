@@ -13,8 +13,6 @@ spec:
   values:
     controllers:
       klipper-exporter:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -38,9 +36,6 @@ spec:
               capabilities:
                 drop:
                   - ALL
-    defaultPodOptions:
-      securityContext:
-        runAsNonRoot: false
     service:
       app:
         ports:

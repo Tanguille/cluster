@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app qbitrr
+  name: qbitrr
 spec:
   interval: 30m
   chartRef:
@@ -31,7 +31,7 @@ spec:
             # steinbrueckri/envsubst: public Dockerfile (Alpine + gettext at build); no runtime apk (works without egress to Alpine mirrors).
             image:
               repository: steinbrueckri/envsubst
-              tag: v2.1.7
+              tag: v2.1.9
             securityContext:
               runAsUser: 0
               runAsGroup: 0
@@ -91,7 +91,6 @@ spec:
 
     service:
       app:
-        controller: *app
         ports:
           http:
             port: *port

@@ -13,12 +13,6 @@ trusted_proxies = [
   "fd00::/8"
 ]
 
-[botdetection.ip_limit]
-# Address-bar browser searches hit /search?q=... directly and do not reliably
-# complete SearXNG's /client<token>.css link-token flow first. Keep the limiter
-# enabled, but avoid treating normal browser search-provider requests as bots.
-link_token = false
-
 [botdetection.ip_lists]
 # Allow trusted private clients to bypass header/link-token bot checks while the
 # limiter remains active for public clients.

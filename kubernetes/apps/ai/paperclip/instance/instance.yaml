@@ -1,0 +1,70 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/paperclipinc/paperclip-operator/main/config/crd/bases/paperclip.inc_instances.yaml
+apiVersion: paperclip.inc/v1alpha1
+kind: Instance
+metadata:
+  name: paperclip
+spec:
+  # The operator pulls by digest when set; tag is kept for Renovate.
+  image:
+    repository: ghcr.io/paperclipai/paperclip
+    tag: 2026.1001.0
+    digest: sha256:08dbadebd4d40550eb336c25c3691f582322a88bae3f1cca101c5dd096bdc9d3
+  # Kept explicit: CRD defaults apply only inside a present object, and the
+  # operator (no webhook) passes an empty mode through to the app.
+  deployment:
+    mode: authenticated
+    exposure: private
+    # The app 403s any Host it wasn't told about; the route serves this one.
+    publicURL: https://paperclip.${SECRET_DOMAIN}
+    allowedHostnames:
+      - paperclip.${SECRET_DOMAIN}
+  database:
+    mode: managed
+  auth:
+    secretRef:
+      name: &secret paperclip-secret
+      key: BETTER_AUTH_SECRET
+  adapters:
+    apiKeysSecretRef:
+      name: *secret
+  # apiKeysSecretRef injects only the two *_API_KEY entries, so endpoints go here.
+  # Anthropic clients append /v1/messages themselves; OpenAI clients expect /v1.
+  env:
+    - name: ANTHROPIC_BASE_URL
+      value: http://litellm.ai.svc.cluster.local
+    # Adapter default is claude-opus-5; litellm serves no Claude models.
+    - name: ANTHROPIC_MODEL
+      value: qwen-3.8
+    # Claude CLI background calls otherwise request a haiku model.
+    - name: ANTHROPIC_DEFAULT_HAIKU_MODEL
+      value: qwen-3.8
+    - name: OPENAI_BASE_URL
+      value: http://litellm.ai.svc.cluster.local/v1
+  storage:
+    persistence:
+      accessModes:
+        - ReadWriteOnce
+  security:
+    seLinuxRelabel: false
+    # The rendered default-deny policy blocks egress to in-cluster LiteLLM.
+    networkPolicy:
+      enabled: false
+  probes:
+    startup:
+      failureThreshold: 60
+      periodSeconds: 5
+  podAnnotations:
+    reloader.stakater.com/auto: "true"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  observability:
+    metrics:
+      enabled: true
+      serviceMonitor:
+        enabled: true

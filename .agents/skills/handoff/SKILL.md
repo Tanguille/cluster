@@ -69,16 +69,3 @@ finish, rather than leaving the agent one approval-boundary away from done. Use 
 route the repo actually has (this one pushes through ToolHive, not local `git push` — see
 `.agents/learned-workspace.md` § ToolHive / MCP). If the push target is ambiguous, decide it up
 front and record it in the handoff — do not leave it for the resuming agent to rediscover.
-
-## Pitfalls
-
-- Writing the handoff AFTER the turn ends — impossible by definition; write it before stopping.
-- Leaving "TODO: finish PR" in chat text without a file — chat context is the thing that gets
-  compacted; the file is the durable object.
-- Re-planning on resume. The handoff says what remains; verify it, then execute it.
-
-## Verification
-
-- [ ] `.agents/handoff/<task>.md` exists with exact, copy-paste commands for every remaining step.
-- [ ] Verified-so-far section cites real evidence (SHAs, test output, PR numbers).
-- [ ] User was told what remains and what the first resume step is.

@@ -16,21 +16,8 @@ spec:
     # the window; these freshness rules catch anything longer.
     - name: kopiur.freshness.rules
       rules:
-        # Backups were down 44h in July before anyone noticed: nothing watched
-        # freshness. Snapshots run hourly, so 6h is 6 missed runs, not a slow one.
-        # Named Overdue, not Stale: the chart's KopiurBackupStale fires off the same
-        # metric with the same severity, so a shared name is one alert fingerprint.
-        - alert: KopiurBackupOverdue
-          expr: |-
-            time() - kopiur_policy_last_backup_success_timestamp_seconds > 6 * 60 * 60
-          for: 30m
-          annotations:
-            summary: >-
-              kopiur {{ $labels.namespace }}/{{ $labels.policy }} has no successful backup
-              for {{ $value | humanizeDuration }} — restore point is aging
-          labels:
-            severity: warning
-
+        # Snapshots run hourly; the chart's KopiurBackupStale is tuned to 6h in the
+        # HelmRelease (backupStaleAfterSeconds), so this group only adds the 24h page.
         - alert: KopiurBackupCritical
           expr: |-
             time() - kopiur_policy_last_backup_success_timestamp_seconds > 24 * 60 * 60

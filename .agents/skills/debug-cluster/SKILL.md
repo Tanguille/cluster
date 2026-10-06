@@ -17,14 +17,6 @@ compatibility: Requires cluster access via ToolHive/kubectl; `flux` and optional
 
 Structured debugging with parallel fact gathering; delegate deep 5-Whys or log mining to subagents when useful.
 
-## When to delegate
-
-| Task | Approach |
-|------|----------|
-| 5-Whys / log pattern analysis | Subagent |
-| Status, events, single describe | Inline |
-| Flux overview | MCP or `flux get` inline |
-
 ## Quick diagnosis
 
 **Parallel gather:**
@@ -84,20 +76,6 @@ Node NotReady, kubelet, kernel: `talosctl --nodes <ip> containers -k`, `logs kub
 kubectl get pods -n <ns>
 flux get helmreleases -A
 ```
-
-## Cross-referencing with kubesearch
-
-When troubleshooting an app with a common chart (cert-manager, postgres, nginx, etc.), use **kubesearch** to find how other homelab clusters configure the same component:
-
-| Symptom | Kubesearch query |
-|---------|-----------------|
-| Wrong values/config | `kubesearch_grep_values(query: "<key>: <value>")` — see how others set the same field |
-| Missing resource limits | `kubesearch_grep_values(query: "resources:")` + filter to your app |
-| Probes failing | `kubesearch_grep_values(query: "startupProbe")` + filter to your chart |
-| Persistence issues | `kubesearch_grep_values(query: "storageClass: ceph-block")` — compare PVC patterns |
-| Image not found | `kubesearch_search_images(query: "<image-name>")` — see tags used by others |
-
-Use `kubesearch_get_release` to drill into deployments of the same chart and compare complete `spec.values` blocks, then `repo_clone`/`repo_read_file` to inspect the full manifest.
 
 ## Related skills
 

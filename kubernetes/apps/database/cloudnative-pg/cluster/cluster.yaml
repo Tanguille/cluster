@@ -7,7 +7,7 @@ metadata:
   annotations:
     cnpg.io/skipEmptyWalArchiveCheck: enabled
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie@sha256:052a0494809abd379c89fe35b5ac93d56d21778553a418ddfdd1a7a23508bf10
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie@sha256:2dec999a31ecd2d13ec1a7e292370a9001c17f572d4a2cf2ee46b2761930ad40
   instances: 3
   primaryUpdateMethod: switchover
   storage:
@@ -16,9 +16,7 @@ spec:
   superuserSecret:
     name: cloudnative-pg-secret
   enableSuperuserAccess: true
-  # Declarative app roles (CNPG-native, replacing postgres-init). Password comes from a
-  # basic-auth Secret here and CNPG enforces it, so the app's DATABASE_URL must match.
-  # Nothing re-syncs the two, so password rotation is off for these roles.
+  # CNPG enforces the basic-auth Secret password, so the app's DATABASE_URL must match; nothing re-syncs them, so rotation is off.
   managed:
     roles:
       - name: litellm
@@ -80,6 +78,26 @@ spec:
         login: true
         passwordSecret:
           name: kguardian-db
+      # kritika's three roles (the database and roles keep the old kritik name). It refuses to start unless they are separated: the
+      # owner runs migrations and must not be a superuser, the app role owns no
+      # table so row-level security applies to it, and the runner role is handed
+      # to runner Jobs which may only write their own run.
+      - name: kritik
+        login: true
+        # Same as nextcloud: CNPG creates the declarative database as the owner,
+        # which needs CREATEDB, and reconciles the attribute back to its default
+        # (NOCREATEDB) when it is left unspecified on an adopted role.
+        createdb: true
+        passwordSecret:
+          name: kritik-db
+      - name: kritik_app
+        login: true
+        passwordSecret:
+          name: kritik-app-db
+      - name: kritik_runner
+        login: true
+        passwordSecret:
+          name: kritik-runner-db
   postgresql:
     parameters:
       wal_level: replica
@@ -88,49 +106,38 @@ spec:
       max_connections: "150"
       # nextcloud hot set is ~3GB (oc_filecache alone 2GB); at 1GB the daily hit ratio sat at 99.1-99.4%, ~19GiB/day misses
       shared_buffers: 2GB
-      effective_cache_size: 4GB
       # off, not the try default: no hugepages are reserved on any node, so try would log an allocation failure every start.
       huge_pages: "off"
       # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
-      io_method: "worker"
       work_mem: 16MB
       # End idle-in-xact sessions so xmin can advance (ORM leaks, forgotten BEGIN).
       idle_in_transaction_session_timeout: "600000"
       # Peak maintenance memory ≈ maintenance_work_mem × max_parallel_maintenance_workers (here ~1GB).
       maintenance_work_mem: 512MB
       max_parallel_workers: "4"
-      max_parallel_maintenance_workers: "2"
       max_parallel_workers_per_gather: "4"
-      # WAL tuning for fewer checkpoints/archives
       min_wal_size: 2GB
       max_wal_size: 8GB
       checkpoint_timeout: 15min
-      checkpoint_completion_target: "0.9"
-      # Seconds; log if checkpoints occur more often than this (raise max_wal_size if noisy).
       checkpoint_warning: "60"
       wal_compression: "zstd"
       wal_buffers: 32MB
       # Many small DBs: more aggressive autovacuum + freeze than defaults.
       autovacuum_vacuum_scale_factor: "0.02"
       autovacuum_analyze_scale_factor: "0.01"
-      autovacuum_vacuum_threshold: "50"
       autovacuum_analyze_threshold: "25"
-      # Insert-heavy tables: vacuum sooner on insert fraction (visibility / freeze).
       autovacuum_vacuum_insert_scale_factor: "0.05"
       # Higher limit / lower delay than defaults to finish autovacuum sooner on NVMe.
       autovacuum_vacuum_cost_limit: "2000"
       autovacuum_vacuum_cost_delay: "1ms"
       autovacuum_freeze_max_age: "100000000"
-      vacuum_freeze_min_age: "50000000"
       vacuum_freeze_table_age: "75000000"
       default_statistics_target: "200"
-      # NVMe-oriented planner / I/O (lower random_page_cost, higher *_io_concurrency).
       random_page_cost: "1.1"
       effective_io_concurrency: "200"
       maintenance_io_concurrency: "200"
       # Listed in shared_preload_libraries below; first enable rolls the cluster.
       pg_stat_statements.max: "7500"
-      pg_stat_statements.track: "top"
     # vchord.so required for vchord; pg_stat_statements matches parameters above.
     shared_preload_libraries:
       - "vchord.so"
@@ -150,16 +157,13 @@ spec:
       - name: vector
         image:
           reference: ghcr.io/cloudnative-pg/pgvector:0.8.6-18-trixie
-  nodeMaintenanceWindow:
-    inProgress: false
-    reusePVC: true
   resources:
     requests:
       cpu: 500m
       memory: 2Gi
     limits:
       cpu: 4
-      # primary working set peaked 1.85GiB at 1GB shared_buffers (30d)
+      # primary working set peaked 1.85GiB at 1GB shared_buffers (now 2GB, not remeasured)
       memory: 4Gi
   monitoring:
     enablePodMonitor: true

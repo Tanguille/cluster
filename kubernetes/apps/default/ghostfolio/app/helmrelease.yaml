@@ -25,34 +25,14 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/ghostfolio/ghostfolio
-              tag: 3.73.0@sha256:c3a76137767a8a93a870b0d584d4c89dd4823b86a3340a64cb00e3e366490438
+              repository: ghostfolio/ghostfolio
+              tag: 3.80.2@sha256:87a5bf6f8a1a0fa077d21716ce48c3e5fc00b108c0cd5f9af3d0c60a80c3f87b
             env:
-              PORT: "3333"
               REDIS_HOST: dragonfly.database.svc.cluster.local
-              REDIS_PORT: "6379"
-              DATABASE_URL:
-                valueFrom:
-                  secretKeyRef:
-                    name: ghostfolio-secret
-                    key: DATABASE_URL
-              # pgbouncer-rw runs in transaction mode; Prisma migrations need session-level
-              # continuity (advisory locks), so they go straight at CNPG, bypassing the pooler.
-              DIRECT_URL:
-                valueFrom:
-                  secretKeyRef:
-                    name: ghostfolio-secret
-                    key: DIRECT_URL
-              ACCESS_TOKEN_SALT:
-                valueFrom:
-                  secretKeyRef:
-                    name: ghostfolio-secret
-                    key: ACCESS_TOKEN_SALT
-              JWT_SECRET_KEY:
-                valueFrom:
-                  secretKeyRef:
-                    name: ghostfolio-secret
-                    key: JWT_SECRET_KEY
+            # DIRECT_URL bypasses pgbouncer-rw (transaction mode): Prisma migrations need session-level advisory locks.
+            envFrom:
+              - secretRef:
+                  name: ghostfolio-secret
             probes:
               # /api/v1/health 503s when Postgres or dragonfly is down: gates readiness and
               # startup, never liveness (a pooler blip would restart a healthy pod).
@@ -87,7 +67,6 @@ spec:
 
     service:
       app:
-        controller: ghostfolio
         ports:
           http:
             port: 3333
@@ -105,7 +84,3 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: http

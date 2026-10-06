@@ -21,15 +21,6 @@ Deploy applications using FluxCD GitOps patterns in this repository.
 - New app deployment or major app scaffold in `kubernetes/apps/`.
 - User asks to install, deploy, or add a service to the cluster.
 
-## Delegation
-
-| Task | Pattern |
-|------|---------|
-| kubesearch.dev research | Subagent (app name + namespace) |
-| Multiple unrelated apps | Parallel subagents |
-| Validation | Sequential after files exist |
-| Single-file edits (<5 lines) | Inline |
-
 ## Workflow
 
 ### 1. Research (subagent)
@@ -101,28 +92,4 @@ directory and the namespace `kustomization.yaml` by path, commit as
 
 ## Anti-patterns
 
-- Skip kubesearch.dev / homelab research when examples exist
-- Hardcode domains (use `${SECRET_DOMAIN}`)
-- New namespace without user confirmation
-- `kubectl apply` bypassing GitOps
-- Forget `reloader.stakater.com/auto` when mounting ConfigMaps/Secrets — config changes won't restart pods
-- `readOnlyRootFilesystem: true` without a writable `tmp: emptyDir` — many apps crash at boot
-- Invent chart/image versions or digests from memory — use a plain upstream tag, Renovate pins the digest
 - Non-app-template chart without its own `ocirepository.yaml` — the shared `app-template` OCIRepository covers only that chart
-
-## Quick reference
-
-| Task | Command |
-|------|---------|
-| Validate | `kustomize build` on the app/ subdirectory (catches YAML syntax/duplicate keys); or `validate-pr.sh` |
-| Reconcile | `flux reconcile kustomization <name>` (ask user) |
-| Logs | `kubectl logs -n <ns> deployment/<app>` |
-
-## Progressive disclosure
-
-- Manifest scaffolds: [references/manifest-templates.md](references/manifest-templates.md)
-
-## Related skills
-
-- [k8s-at-home-research](../k8s-at-home-research/SKILL.md) — homelab manifest examples
-- [git-worktree-isolation](../git-worktree-isolation/SKILL.md) — isolated branches

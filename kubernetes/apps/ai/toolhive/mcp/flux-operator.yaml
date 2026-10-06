@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: flux-operator
+spec:
+  image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.61.0@sha256:b253ef07502413bcad89d8fb8f9c01d3cfa070331698323fbd8fe0ae9cfa1cb4
+  groupRef:
+    name: all
+  args:
+    - serve
+  env:
+    - name: KUBECONFIG
+      value: /kubeconfig/kubeconfig
+  podTemplateSpec:
+    spec:
+      volumes:
+        - name: kubeconfig
+          secret:
+            secretName: toolhive-secrets
+            items:
+              - key: KUBECONFIG
+                path: kubeconfig
+      containers:
+        - name: mcp
+          volumeMounts:
+            - name: kubeconfig
+              mountPath: /kubeconfig
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 1
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 200Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: flux-operator
+spec:
+  # Source: controlplaneio-fluxcd/flux-operator v0.60.0 cmd/mcp/toolbox and docs/mcp/tools.md; exhaustive.
+  toolsFilter:
+    - apply_kubernetes_manifest
+    - delete_kubernetes_resource
+    - diff_kubernetes_manifest
+    - get_flux_instance
+    - get_kubeconfig_contexts
+    - get_kubernetes_api_versions
+    - get_kubernetes_events
+    - get_kubernetes_logs
+    - get_kubernetes_metrics
+    - get_kubernetes_resources
+    - patch_kubernetes_resource
+    - read_flux_doc
+    - reconcile_flux_resource
+    - resume_flux_reconciliation
+    - search_flux_docs
+    - suspend_flux_reconciliation
+    - trace_kubernetes_resource

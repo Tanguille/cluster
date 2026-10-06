@@ -2,14 +2,13 @@ set quiet
 set default-list
 set default-script
 set script-interpreter := ['bash', '-euo', 'pipefail']
-set shell := ['bash', '-euo', 'pipefail', '-c']
 
 # Values are assigned and checked before use throughout this file. Process substitutions and
 # argument-position command substitutions discard their producer's exit status, and some tools
 # exit 0 with empty output; see .agents/common-operations.md.
 
 # Cluster-wide addresses, defined once: the VIP is referenced from every layer and from
-# talosconfig, and the retired talconfig.yaml used a YAML anchor for the same reason.
+# talosconfig.
 vip := "192.168.0.2"
 gateway := "192.168.0.1"
 
@@ -88,11 +87,9 @@ nodes:
 # set by the role layer, so a node cannot claim one role by filename and another by content.
 [private]
 node-role node:
-    for role in controlplane workers; do
-        if [[ -f "{{ source_directory() }}/nodes/${role}/{{ node }}.yaml.j2" ]]; then
-            echo "${role}"; exit 0
-        fi
-    done
+    if [[ -f "{{ source_directory() }}/nodes/controlplane/{{ node }}.yaml.j2" ]]; then
+        echo controlplane; exit 0
+    fi
     echo "no node file found for {{ node }}" >&2; exit 1
 
 # One address per node file, so a grep is enough; render and parse if that stops holding.

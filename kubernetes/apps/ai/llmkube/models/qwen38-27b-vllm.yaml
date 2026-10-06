@@ -64,40 +64,64 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  # $$ throughout: Flux postBuild envsubst substitutes bare
-                  # $VAR.
+                  #!/bin/sh
+                  # KV-offload guard: sweeps /kvoffload back above a 160Gi free-space floor on
+                  # the shared root fs. Flux postBuild envsubst context: bare $VAR -> $$.
+                  # Up to 3 eviction passes: vLLM writes back 1-2Gi mid-sweep, so one pass can end short.
+                  # Exit 0 once the tier is drained (residual shortfall is non-tier growth, not evictable
+                  # here); exit 1 only when tier files remain and the floor is still unreachable.
                   set -eu
                   avail() { df -kP /kvoffload | awk 'NR==2{print $$4}'; }
-                  # 160Gi = 32% of the 499.6Gi disk; ceph
-                  # mon_data_avail_warn=27, so an 80Gi (15%) floor could never
-                  # clear it. Non-tier usage measured 219Gi (2026-09-24).
+                  # Apparent size of finished blocks only; .tmp are in-flight writes.
+                  tier_kb() {
+                    find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%s' {} + 2>/dev/null \
+                      | awk '{s+=$$1} END{printf "%.0f\n", s/1024}'
+                  }
+                  # 160Gi = 32% of the 499.6Gi root disk; ceph mon_data_avail_warn=27, so an
+                  # 80Gi (15%) floor could never clear it. Non-tier usage measured 219Gi
+                  # (2026-09-24). A property of the shared root disk, not of the (label-only)
+                  # 128Gi openebs-hostpath PVC.
                   floor=167772160
+                  # Margin = max(shortfall/16, 4Gi): write-back is 1-2Gi, beyond shortfall/16 at that size.
+                  min_margin_kb=4194304
+                  # A tier this empty counts as drained for the escape check (4Gi).
+                  drained_kb=4194304
                   avail_kb="$$(avail)"
-                  echo "avail: $${avail_kb}K (floor: $${floor}K)"
-                  if [ "$$avail_kb" -ge "$$floor" ]; then
-                    echo "above floor, nothing to do"
+                  echo "avail: $$avail_kb K (floor: $$floor K)"
+                  pass=0
+                  while [ "$$avail_kb" -lt "$$floor" ] && [ "$$pass" -lt 3 ]; do
+                    pass=$$((pass + 1))
+                    shortfall=$$((floor - avail_kb))
+                    margin=$$((shortfall / 16))
+                    [ "$$margin" -lt "$$min_margin_kb" ] && margin=$$min_margin_kb
+                    need_kb=$$((shortfall + margin))
+                    # Evict by bytes, not file count: chunk files are 104Mi, so a 2000-file
+                    # check interval wiped the whole tier each time.
+                    # LRU by mtime, oldest first; blocks are write-once.
+                    # busybox find has no -printf.
+                    find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
+                    {
+                      n=0 freed_kb=0
+                      while IFS=' ' read -r size f; do
+                        rm -f -- "$$f"
+                        n=$$((n + 1)) freed_kb=$$((freed_kb + size / 1024))
+                        [ "$$freed_kb" -ge "$$need_kb" ] && break
+                      done
+                      echo "pass $$pass: evicted $$n files ($$freed_kb K) for a $$need_kb K target"
+                    }
+                    avail_kb="$$(avail)"
+                    echo "pass $$pass: avail $$avail_kb K (floor: $$floor K)"
+                  done
+                  [ "$$avail_kb" -ge "$$floor" ] && exit 0
+                  # Still short: was the tier the cause? If it is drained, the remainder is
+                  # non-tier growth on the shared root fs - not evictable from here.
+                  usage_kb="$$(tier_kb)"
+                  echo "post-sweep: avail $$avail_kb K, tier $$usage_kb K"
+                  if [ "$$usage_kb" -le "$$drained_kb" ]; then
+                    echo "tier drained; residual shortfall is non-tier growth on the shared root fs (outside this guard)"
                     exit 0
                   fi
-                  # Evict by bytes, not file count: chunk files are 104Mi, so
-                  # a 2000-file check interval wiped the whole tier each time.
-                  need_kb=$$((floor - avail_kb))
-                  # LRU by mtime, oldest first; blocks are write-once.
-                  # busybox find has no -printf.
-                  find /kvoffload -type f -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
-                  {
-                    n=0 freed_kb=0
-                    while IFS=' ' read -r size f; do
-                      rm -f -- "$$f"
-                      n=$$((n + 1)) freed_kb=$$((freed_kb + size / 1024))
-                      [ "$$freed_kb" -ge "$$need_kb" ] && break
-                    done
-                    echo "evicted $${n} files ($${freed_kb}K) for a $${need_kb}K shortfall"
-                  }
-                  # Still short: the shortfall is elsewhere on the shared fs,
-                  # or vLLM still holds evicted files open.
-                  avail_kb="$$(avail)"
-                  [ "$$avail_kb" -ge "$$floor" ] && exit 0
-                  echo "floor unreachable: $${avail_kb}K < $${floor}K" >&2
+                  echo "floor unreachable: $$avail_kb K < $$floor K with $$usage_kb K tier still present" >&2
                   exit 1
               volumeMounts:
                 - name: kv-offload
@@ -126,7 +150,6 @@ spec:
   # nothing to do.
   modelRef: qwen38-swift-27b-vllm
   runtime: vllm
-  replicas: 1
   # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends every W4A16
   # projection to Triton at M=6.
   # Warm agg tok/s M=1..5 (2026-09-18): 31 / 55 / 73 / 97 / 117. Bimodal until
@@ -140,7 +163,8 @@ spec:
   # range touches ROCm, GDN, W4A16 or KV offload. The liveness probe and
   # VLLMDecodeStepLatched cover the gfx1201 band: 0 firings or restarts
   # 2026-09-13..23.
-  image: vllm/vllm-openai-rocm:nightly@sha256:8dd50549fb583976767928dea555c08317635b5c66069996850c4a93197602c6
+  # Bump baseline: docs/llm-hosting/vllm-nightly-bench-2026-09-29.md.
+  image: vllm/vllm-openai-rocm:nightly@sha256:b9a8a8fba9a9fd08ea21e96be127bf3c38f765ef9e73320a51d5f13053a5ee40
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -151,7 +175,7 @@ spec:
     # --kv-cache-memory, mamba dtype, or image change.
     maxModelLen: 246944
     kvCacheDtype: fp8_e4m3
-    # ~27% hit rate under real traffic.
+    # ~91% pod-lifetime local hit rate (nightly-bench-2026-09-29.md).
     enablePrefixCaching: true
     # Do not lower: 2048 cost TTFT p50 5s -> 80s (a 20K prompt = 10 prefill
     # steps). Workload is 129:1 prompt:output.
@@ -199,6 +223,9 @@ spec:
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
+    - name: qwen38-sharp-chat-template
+      configMap:
+        name: qwen38-sharp-chat-template
   extraVolumeMounts:
     - name: compile-cache
       mountPath: /cache
@@ -217,6 +244,12 @@ spec:
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
       subPath: zz_lds_gate_impl.py
       readOnly: true
+    # Served via --chat-template below, so this path is ours, not the model
+    # cache's: no sha256(source)[:16] to re-derive when spec.modelRef moves.
+    - name: qwen38-sharp-chat-template
+      mountPath: /chat-templates/chat_template.jinja
+      subPath: chat_template.jinja
+      readOnly: true
   extraArgs:
     - --served-model-name
     - qwen-3.8
@@ -226,6 +259,13 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
+    # Sharp v22.5.0 replaces the AWQ build's stock Qwen3.8 template. This is
+    # vLLM's 1st-priority source (vllm/renderers/hf.py
+    # resolve_chat_template), so the model dir's own copy is ignored, and the
+    # path is validated at boot: a bad mount fails the pod instead of silently
+    # serving the stock template.
+    - --chat-template
+    - /chat-templates/chat_template.jinja
     # NO --long-prefill-token-threshold: 1600 raised stall share 19% -> 37% and
     # single-stream TTFT was unchanged without it (64K 63.4 s vs 64.1).
     # Capture sizes = 1..parallelSlots: the default 512 ceiling OOMs on GDN
@@ -241,16 +281,20 @@ spec:
     # divergence 4/5 (2026-09-12), EAGLE3/DFlash disable prefix caching
     # (vllm#41640). Re-open only on those fixes; gate in
     # docs/llm-hosting/spec-decode-rejected.md.
+    # Both needed: ssm does not inherit on Qwen3.5 (forces fp32); dropping it
+    # cost 7,160 KV tokens.
     - --mamba-cache-dtype
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
-    # Both needed: ssm does not inherit on Qwen3.5 (forces fp32); dropping it
-    # cost 7,160 KV tokens.
-    # 5% (~15K tokens) held free at admission; 117 preemptions/17h before
-    # (2026-09-03). Revert if TTFT p50 rises without preemptions falling.
+    # 5% (~15K tokens) held free at admission: preemptions 117/17h before
+    # (2026-09-03), 5/7d after (2026-09-27).
     - --watermark
     - "0.05"
+    # Default ITL edges are 25/50 ms around our 31-35 ms decode, so p95 reads ~49 ms.
+    # Fine edges 30-45 and 60 ms (slow band); default tail and the 0.05/0.075 longctx.py reads kept.
+    - --custom-histogram-buckets
+    - '{"inter_token_latency": [0.01, 0.02, 0.025, 0.03, 0.032, 0.034, 0.036, 0.038, 0.04, 0.045, 0.05, 0.06, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 40.0, 80.0]}'
     # 9.5 GiB -> 304,808 KV tokens (33,494 B/token; confirm in the boot log).
     # Reserve 2.48 GiB vs the largest non-vLLM VRAM excursion 1.82 GiB (3d of
     # drm samples); 10 GiB would leave 0.16. Transcodes: 4K DV 0.85 GB,
@@ -258,9 +302,9 @@ spec:
     - --kv-cache-memory
     - "10200547328"
     # No --language-model-only: Hermes uses the vision tower.
-    # CPU tier 12Gi (~385K tokens, ~7 prompts). Revert to 23622320128 (dshm
-    # 24Gi, memory 32Gi) if prod_kvtier.py 24h shows external hit ratio < 0.25,
-    # fs->cpu share > 20%, async lookup mean > 7.5 s, or TTFT p50 rises.
+    # CPU tier 12Gi (~385K tokens, ~7 prompts). 7d (2026-09-27): external hit
+    # 0.70, fs share of loads ~10%, async lookup mean 2.2 s. Revisit 22Gi
+    # (23622320128, dshm 24Gi, memory 32Gi) only if hit < 0.25 or share > 20%.
     # Keep the fs tier: removing it halved single-stream decode (15.5 vs 31
     # tok/s); it keeps eviction async.
     # blocks_per_chunk 4: 8 tried 2026-09-03, total lookup s/request +45% (one

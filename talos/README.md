@@ -24,7 +24,6 @@ with SOPS in place of 1Password.
 | --------------------------------------- | ------------------------------------------------------------------------- |
 | `cluster.yaml.j2`                       | Documents applied to every node                                           |
 | `controlplane.yaml.j2`                  | Control-plane-only documents, including `machine.type`                    |
-| `workers.yaml.j2`                       | Worker-only documents (does not exist yet; created with the first worker) |
 | `nodes/<role>/<node>.yaml.j2`           | Per-node documents (hostname, address, MAC selector, install disk, labels)|
 | `nodes/<role>/<node>.schematic.yaml`    | Optional per-node schematic override                                      |
 | `schematic.yaml`                        | Shared [Image Factory](https://factory.talos.dev) schematic               |
@@ -34,7 +33,7 @@ with SOPS in place of 1Password.
 ## Rendering
 
 `just talos render-config <node>` builds the final machine config in three layers. Conceptually,
-where `<role>` is `controlplane` or `workers`, chosen by which directory holds the node file:
+where `<role>` is `controlplane` (the only role today):
 
 ```text
      cluster.yaml.j2          every node
@@ -59,9 +58,9 @@ Two conventions keep the layers honest:
 
 Talos and Kubernetes versions are not hardcoded. The root `template` recipe reads them from the tuppr
 CRs (`kubernetes/apps/system-upgrade/tuppr/upgrades/`), so Renovate keeps managing them in one place.
-`vip` and `gateway` are defined once in `mod.just` and passed to every layer alongside the node's
-schematic id. Node addresses and the `192.168.0.0/24` subnet are still literals in the files that
-use them; only these two are centralised.
+`vip` and `gateway` are defined once in `mod.just` and passed to every layer. Node addresses and
+the `192.168.0.0/24` subnet are still literals in the files that use them; only these two are
+centralised.
 
 Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
 a document between layers reorders the output stream and reads as a change even when the content is
@@ -71,7 +70,7 @@ documents that are identical per node but would reorder the stream stay put.
 ## Schematics
 
 `just talos schematic-id <node>` POSTs the schematic to the Image Factory and returns its
-content-addressed ID, which is templated into the installer image.
+content-addressed ID, which `download-image` uses to fetch the ISO. Installers are not keyed by it.
 
 Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, otherwise
 `schematic.yaml` applies. Overrides are complete files, not deltas. Today only `control-1`
@@ -83,18 +82,18 @@ every `just talos` command. If a schematic ever needs a variable, add the extens
 
 **The ID is content-addressed, so any change to a schematic's fields moves it** — including a
 one-character change to `extraKernelArgs`. Comments and formatting do not: the Factory canonicalises
-the YAML before hashing, verified by stripping a comment and getting the same id back. Every installer reference derived from that ID moves with it. For nodes
-pointing at the Image Factory that is invisible and self-healing, because the Factory builds the new
-ID on demand. It is *not* self-healing for any node whose installer is mirrored to another registry
-under the schematic path: that mirror must be republished under the new ID first, or the next upgrade
-fails to pull. Check which nodes use a non-Factory installer before changing a schematic.
+the YAML before hashing, verified by stripping a comment and getting the same id back. Installer
+repos are keyed by node or `shared`, never by ID (see `docker/talos-kernel/README.md`), so an edit
+moves no installer ref; only the Factory ISO from `download-image` follows the new ID.
 
 ## Gotchas
 
 - `machine.ca` and `cluster.ca` merge as a cert+key **unit**: a layer supplying only `key` blanks
   `crt`. This is why `controlplane.yaml.j2` repeats the `crt` alongside the keys.
-- `minijinja-cli` must run with `--autoescape=none`. The default JSON-escapes every substitution,
-  which silently wraps certs and versions in quotes and produces a config that looks right and is not.
+- `minijinja-cli` must run with autoescape off and strict on. `.minijinja.toml` sets both, found via
+  `MINIJINJA_CONFIG_FILE` (mise sets it; the `template` recipe refuses to run without it). The default
+  JSON-escapes every substitution, which silently wraps certs and versions in quotes and produces a
+  config that looks right and is not.
 - `talsecret.sops.yaml` is the native `talosctl` secrets bundle, not a talhelper format. `talosctl gen
   config --with-secrets` consumes it directly. Do not rename its keys; the templates and
   `just talos talosconfig` both depend on them.
@@ -103,16 +102,10 @@ fails to pull. Check which nodes use a non-Factory installer before changing a s
 
 The version lives in the tuppr CR, not here.
 
-**These documents cannot be applied before the nodes are on 1.14.** Not a style rule, a hard
-gate: a 1.13.9 node rejects the config outright rather than ignoring what it does not know.
-
-```text
-error decoding document v1alpha1/CRICustomizationConfig/keep-unpacked-layers:
-  "CRICustomizationConfig" "v1alpha1": not registered
-```
-
-So `apply-node` and `diff-node` both fail against a node that has not been upgraded yet. Adopt
-only after tuppr has rolled every node, and re-run `diff-node` on all three before applying.
+A node rejects the whole config if it contains a document its version does not know (a 1.13.9
+node answered `"CRICustomizationConfig" "v1alpha1": not registered`), so `apply-node` and
+`diff-node` both fail against a node that has not been upgraded yet. Adopt a new document only
+after tuppr has rolled every node, and re-run `diff-node` on all three before applying.
 
 ### Adopted
 
@@ -123,6 +116,7 @@ only after tuppr has rolled every node, and re-run `diff-node` on all three befo
 | `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default. Closes #4289 |
 | `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates. All 16 keys verified identical |
 | `UdevRulesConfig` | caps NVMe `discard_max_bytes` at 256 MiB; the drives' 2 TiB limit let weekly trim send multi-second discards |
+| `EtcFileConfig` | `/etc/gvisor/runsc-hostnet.toml` for the `runsc-hostnet` handler (`cri/` is a forbidden prefix). Upstream's `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize) is still unadopted; our five NFS mounts run at kernel defaults |
 
 Both filesystem documents pick a stable hash-derived slot per volume per node, so the fleet does
 not scrub or trim in lockstep. That is what makes weekly safe on control-3 despite its
@@ -141,7 +135,6 @@ only virtio and rbd), so its discards pass through to whatever the hypervisor do
 | `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.0-rc.2) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
 | `SysfsConfig` / `CRIBaseRuntimeSpecConfig` | the other two v1alpha1 fields 1.14 deprecates; neither is used in this repo |
 | `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
-| `EtcFileConfig` | not needed *yet*, but upstream uses it for `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize). Our five NFS mounts run at kernel defaults; worth its own change |
 
 `VolumeConfig`'s `filesystem.xfs.minAllocationGroupSize` only affects volumes Talos formats, so it
 is a wipe-time decision rather than a live one.

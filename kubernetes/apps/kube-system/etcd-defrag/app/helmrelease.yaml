@@ -17,7 +17,6 @@ spec:
       hostPID: true
       securityContext:
         runAsGroup: 0
-        runAsNonRoot: false
         runAsUser: 0
       nodeSelector:
         node-role.kubernetes.io/control-plane: ""
@@ -30,9 +29,8 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Daily check; --defrag-rule only defrags a member once >50MiB is free.
-          timeZone: ${TIMEZONE}
-          schedule: "0 3 * * *"
+          # Hourly check; --defrag-rule only defrags a member once >50MiB is free.
+          schedule: "0 * * * *"
           backoffLimit: 1
         containers:
           app:
@@ -41,16 +39,14 @@ spec:
               tag: v0.45.0@sha256:b2a97f7fac6efceb4c74b90e86325f0d9536af77a2f77a5201fb34a4659abf91
             args:
               - --endpoints=https://127.0.0.1:2379
+              # Defragments all three control-plane etcd members.
               - --cluster
               - --cacert=/certs/ca.crt
               - --cert=/certs/server.crt
               - --key=/certs/server.key
               - --defrag-rule=dbQuotaUsage > 0.5 || dbSizeFree > 50*1024*1024
               - --move-leader
-              # --cluster defragments all three control-plane etcd members.
               - --wait-between-defrags=30s
-              # Talos uses etcd's default --quota-backend-bytes value (2 GiB).
-              - --etcd-storage-quota-bytes=2147483648
               - --auto-disalarm
               - --disalarm-threshold=0.8
             resources:
@@ -72,10 +68,3 @@ spec:
         globalMounts:
           - path: /certs
             readOnly: true
-      tmpfs:
-        type: emptyDir
-        advancedMounts:
-          etcd-defrag:
-            app:
-              - path: /tmp
-                subPath: tmp

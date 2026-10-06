@@ -12,7 +12,7 @@ spec:
   values:
     instance:
       distribution:
-        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.60.0
+        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.61.0
       cluster:
         networkPolicy: false
       sync:
@@ -22,8 +22,7 @@ spec:
         interval: 1h
       kustomize:
         patches:
-          - # Increase the number of workers
-            patch: |
+          - patch: |
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --concurrent=10
@@ -68,19 +67,27 @@ spec:
             target:
               kind: Deployment
               name: (source|notification)-controller
-          - # kustomize-controller: higher concurrency
-            patch: |
+          - patch: |
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --concurrent=20
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --requeue-dependency=5s
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --sops-age-secret=sops-age
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --watch-configs-label-selector=owner!=helm
+              - op: add
+                path: /spec/template/spec/containers/0/args/-
+                value: --feature-gates=CancelHealthCheckOnNewRevision=true
             target:
               kind: Deployment
               name: kustomize-controller
-          - # In-memory builds. Merged by volume name
-            patch: |
+          # In-memory builds. Merged by volume name
+          - patch: |
               apiVersion: apps/v1
               kind: Deployment
               metadata:
@@ -95,8 +102,7 @@ spec:
             target:
               kind: Deployment
               name: kustomize-controller
-          - # Enable Helm repositories caching
-            patch: |
+          - patch: |
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --helm-cache-max-size=10
@@ -106,19 +112,13 @@ spec:
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --helm-cache-purge-interval=5m
-            target:
-              kind: Deployment
-              name: source-controller
-          - # Cache Secrets and ConfigMaps
-            patch: |-
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --feature-gates=CacheSecretsAndConfigMaps=true
             target:
               kind: Deployment
               name: source-controller
-          - # Flux near OOM detection for Helm
-            patch: |
+          - patch: |
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --feature-gates=OOMWatch=true
@@ -128,40 +128,15 @@ spec:
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --oom-watch-interval=500ms
-            target:
-              kind: Deployment
-              name: helm-controller
-          # DefaultToRetryOnFailure: automatically retry failed HelmReleases rather than requiring manual intervention.
-          # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
-          # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
-          - patch: |-
+              # DefaultToRetryOnFailure: automatically retry failed HelmReleases rather than requiring manual intervention.
+              # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
+              # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --feature-gates=DefaultToRetryOnFailure=true,DisableChartDigestTracking=true
-            target:
-              kind: Deployment
-              name: helm-controller
-          - # Controller-level SOPS decryption
-            patch: |
-              - op: add
-                path: /spec/template/spec/containers/0/args/-
-                value: --sops-age-secret=sops-age
-            target:
-              kind: Deployment
-              name: kustomize-controller
-          - # Watch configmaps and secrets attached to HelmReleases and Kustomizations
-            patch: |
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --watch-configs-label-selector=owner!=helm
             target:
               kind: Deployment
-              name: (helm-controller|kustomize-controller)
-          - # Cancel health checks on new Kustomizations revisions
-            patch: |
-              - op: add
-                path: /spec/template/spec/containers/0/args/-
-                value: --feature-gates=CancelHealthCheckOnNewRevision=true
-            target:
-              kind: Deployment
-              name: kustomize-controller
+              name: helm-controller

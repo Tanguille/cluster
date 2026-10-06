@@ -11,7 +11,7 @@ spec:
     kind: OCIRepository
     name: nextcloud
 
-  # Chart 9.2.x has no fromAddressKey in existingSecret, so inject the secret value here.
+  # Chart has no fromAddressKey in existingSecret, so inject the secret value here.
   valuesFrom:
     - kind: Secret
       name: nextcloud-secret
@@ -57,10 +57,7 @@ spec:
     image:
       # repository is the chart default, spelled out so Renovate tracks the digest.
       repository: nextcloud
-      flavor: fpm
-      # Pinned past chart appVersion (34.0.3) to pull Debian trixie security
-      # rebuilds (deb13u* fixed versions per Trivy).
-      tag: 35.0.1-fpm@sha256:99758608767ddd6f6679786daa10f2ba1e234e8329e2ea265da69cf36beadd2b
+      tag: 35.0.1-fpm@sha256:413619a84235de613b9fa1dc9428d366ffdf124a489981d72f38e5ebbcbae2db
 
     lifecycle:
       postStartCommand:
@@ -228,7 +225,6 @@ spec:
       enabled: true
       type: postgresql
       host: pgbouncer-rw.database.svc.cluster.local:5432
-      database: *app
       existingSecret:
         enabled: true
         secretName: nextcloud-secret

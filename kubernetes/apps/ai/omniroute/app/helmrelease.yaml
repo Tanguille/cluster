@@ -21,14 +21,8 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/diegosouzapw/omniroute
-              # On `next` for two upstream fixes: LKGP pin never clears on
-              # failure (#10034) and auto/* credential lookups misresolve
-              # "opencode" as "opencode-zen" (#10892). Both merged into
-              # release/v3.8.50; no tagged release carries them yet -- move to
-              # v3.8.50 once it ships. Digest-pinned since Renovate can't diff
-              # `next` as a version, only offer digest bumps.
-              tag: next@sha256:249228e051d8227c085b3121b62d4b15c841ddad7947a172708a4b43dbb8ad46
+              repository: diegosouzapw/omniroute
+              tag: 3.8.51@sha256:8bd462c9f60d8eda79329cfbb6ea7ea723505fe7721beb944f3d43835409e218
             env:
               TZ: ${TIMEZONE}
               DATA_DIR: /app/data
@@ -62,6 +56,8 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
     service:
       app:
         ports:

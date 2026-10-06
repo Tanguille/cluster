@@ -13,8 +13,6 @@ spec:
   values:
     controllers:
       wizarr:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -23,8 +21,6 @@ spec:
             env:
               TZ: ${TIMEZONE}
               UV_CACHE_DIR: /tmp/.uv-cache
-              PUID: 1000
-              PGID: 1000
             probes:
               liveness:
                 enabled: true

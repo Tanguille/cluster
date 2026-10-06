@@ -5,9 +5,21 @@ kind: LiteLLMProxy
 metadata:
   name: litellm
 spec:
-  image: ghcr.io/berriai/litellm:v1.102.1@sha256:87f34979b9f8cb274fac90ca8a4fdda07d8480de22755562a26adeb95ce20d02
+  image: ghcr.io/berriai/litellm:v1.104.0@sha256:625981c83410a3ea68eb0697590a57ec1d764d634514d54fa5db0591077ee839
   applyMode: api
   replicas: 2
+  # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
+  # pod-template-hash: only same-revision pods repel, so a rollout surge pod may share a node with an old pod.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: litellm
+              app.kubernetes.io/name: litellm
+          matchLabelKeys:
+            - pod-template-hash
   apiAccess:
     masterKeyRef:
       name: litellm-secret
