@@ -12,14 +12,14 @@ The `archive/` directory (1,904 lines, 5 files) was removed on 2026-08-20. Every
 
 ## Recovering them
 
-The last commit containing `archive/` is `21d8bbd03` (2026-08-02). Nothing is lost, git keeps the full history:
+The last commit containing `archive/` is `6440ce91b` (2026-08-20). Nothing is lost, git keeps the full history:
 
 ```sh
 # read one file without checking anything out
-git show 21d8bbd03:archive/migrate-pvs.sh
+git show 6440ce91b:archive/migrate-pvs.sh
 
 # restore the whole directory into the working tree
-git checkout 21d8bbd03 -- archive/
+git checkout 6440ce91b -- archive/
 
 # find the directory's full history if the sha above ever goes stale
 git log --full-history --oneline -- archive/

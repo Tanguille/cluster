@@ -10,7 +10,7 @@ Stable, non-sensitive facts about this cluster and tooling.
 
 ## ToolHive / MCP
 
-- MCPServer secret-backed env vars use `spec.secrets` with `targetEnvName`; `env[].valueFrom` is unsupported. Transport values are `streamable-http` (e.g. `talos-mcp`) or `stdio` (e.g. `grafana`) — never `streamablehttp`.
+- MCPServer secret-backed env vars use `spec.secrets` with `targetEnvName`; `env[].valueFrom` is unsupported. Transport values are `streamable-http` (e.g. `talos-mcp`) or `stdio` (e.g. `ghostfolio`) — never `streamablehttp`.
 - VMCP session storage uses Redis at `dragonfly.database.svc.cluster.local:6379`.
 
 ### GitHub (`github_*`)

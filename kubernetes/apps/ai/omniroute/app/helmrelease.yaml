@@ -25,10 +25,9 @@ spec:
               tag: 3.8.51@sha256:8bd462c9f60d8eda79329cfbb6ea7ea723505fe7721beb944f3d43835409e218
             env:
               TZ: ${TIMEZONE}
-              DATA_DIR: /app/data
               PORT: &port 20128
               REQUIRE_API_KEY: "false"
-              # envoy-internal-tls terminates TLS at the gateway.
+              # envoy-internal terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"
             envFrom:
               - secretRef:

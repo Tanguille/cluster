@@ -5,8 +5,8 @@ kind: CiliumNetworkPolicy
 metadata:
   name: searxng-ingress-allowlist
 spec:
-  # Promoted from the kguardian AuditNetworkPolicy baseline (2026-09-16 to
-  # 2026-09-18). Its ingress WouldDeny verdicts were kubelet probes (host
+  # Promoted from the kguardian AuditNetworkPolicy baseline. Its ingress
+  # WouldDeny verdicts were kubelet probes (host
   # entity, not a node ipBlock) and ephemeral review runners. Ingress only;
   # egress stays open (searxng speaks QUIC/UDP 443 to engines).
   endpointSelector:

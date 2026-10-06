@@ -32,8 +32,6 @@ spec:
             target:
               kind: Deployment
               name: (helm-controller|source-controller)
-          # Individual memory limits per controller based on 30-day usage analysis
-          # Peak usage: helm=330MB, kustomize=203MB, source=127MB, notification=96MB, operator=291MB
           # metadata.name is ignored; target.name selects
           - patch: |
               apiVersion: apps/v1

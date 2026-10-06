@@ -2,7 +2,7 @@
 # virtual-MCP health check re-running `initialize` (#5890, still open in 0.41.0) and
 # the container's http mode has no server-side token path (#4220). A remote entry has
 # neither problem — headerForward injects the PAT server-side, the same shape context7
-# has run since 2026-04. The endpoint takes a raw PAT (verified: `Bearer <pat>` and a
+# uses. The endpoint takes a raw PAT (verified: `Bearer <pat>` and a
 # bare `<pat>` both return 200, `token <pat>` returns 400), so the existing secret key
 # goes in unmodified. Despite the hostname, no Copilot entitlement is involved: a token
 # carrying no `copilot` scope lists all 46 repo/issue/PR tools.

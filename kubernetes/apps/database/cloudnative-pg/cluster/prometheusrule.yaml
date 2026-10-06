@@ -113,8 +113,8 @@ spec:
         # method: plugin), so "no recent success" is not directly queryable. The two
         # signals that ARE observable: the last-failed timestamp moves when an attempt
         # fails, and WAL archiving (archive_timeout: 300s) stalls when the R2 path
-        # breaks. 23 backups failed silently between 2025-11 and 2026-08 before anyone
-        # noticed; these two would have paged on the first failure.
+        # breaks. 23 backups failed silently before anyone noticed; these two would
+        # have paged on the first failure.
         - alert: CNPGBackupFailed
           annotations:
             description: The last-failed timestamp moved within the last 2h, so a backup attempt failed. Check `kubectl get backups -n database` for the newest failed Backup, and the barman-cloud plugin logs if it recurs.

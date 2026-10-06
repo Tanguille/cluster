@@ -18,8 +18,6 @@ spec:
         # dashboard alive through node drains (it already has hostname TSC below).
         podDisruptionBudget:
           minAvailable: 1
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:

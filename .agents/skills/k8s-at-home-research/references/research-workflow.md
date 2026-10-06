@@ -73,7 +73,6 @@ repo:<owner>/<repo> path:kustomization.yaml "<app>"
 ### Networking
 
 ```text
-"<app>" "HTTPRoute" topic:k8s-at-home
 "<app>" "Gateway" topic:k8s-at-home
 "<app>" "Ingress" topic:k8s-at-home
 "<app>" "external-dns" topic:k8s-at-home

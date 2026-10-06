@@ -1,7 +1,7 @@
 ---
 # Restarts the vmcp gateway (deploy/unified) on a schedule.
 #
-# vmcp leaks 250-414 MiB/day (re-measured 2026-09-22 over 14d; upstream
+# vmcp leaks 250-414 MiB/day (measured over 14d; upstream
 # stacklok/toolhive#5860, open) and OOMKills at its 2Gi limit in ~5 days at
 # the high end; every kill is exit 137 mid-drain plus a full optimizer
 # re-embed. A deliberate restart at a quiet hour drains cleanly in the 60s grace period.
@@ -67,7 +67,6 @@ spec:
         spec:
           serviceAccountName: vmcp-restart
           restartPolicy: Never
-          automountServiceAccountToken: true
           securityContext:
             runAsNonRoot: true
             runAsUser: 65534

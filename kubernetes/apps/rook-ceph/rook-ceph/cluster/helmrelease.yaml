@@ -29,6 +29,8 @@ spec:
           - name: envoy-internal
             namespace: network
     cephImage:
+      # Spelled out so Renovate tracks the image.
+      repository: quay.io/ceph/ceph
       tag: v20.2.4@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
     cephClusterSpec:
       # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
@@ -62,7 +64,7 @@ spec:
         wipeDevicesFromOtherClusters: true
       # Off: the sidecar duplicates to host disk what daemons already write to stdout and
       # victoria-logs already collects. It also costs a 100Mi request on every ceph daemon
-      # pod, which is what left rook-ceph-exporter-control-2 unschedulable (2026-08-06).
+      # pod, which is what left rook-ceph-exporter-control-2 unschedulable.
       logCollector:
         enabled: false
       csi:

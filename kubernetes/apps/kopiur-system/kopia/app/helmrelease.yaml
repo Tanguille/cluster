@@ -20,7 +20,6 @@ spec:
               repository: ghcr.io/home-operations/kopia
               tag: 0.23.1@sha256:27da0a33b44e1b902150a6c963514237217464bb13118a95bb056667be93cda5
             env:
-              KOPIA_WEB_ENABLED: true
               KOPIA_WEB_PORT: &port 80
               TZ: ${TIMEZONE}
             envFrom:
@@ -30,7 +29,7 @@ spec:
               - --without-password
               # homepage's widget calls /api/v1/* directly; kopia only issues
               # CSRF tokens to browser sessions, so API calls need checks off.
-              # Accepted risk (2026-06-07): combined with --without-password a
+              # Accepted risk: combined with --without-password a
               # LAN browser drive-by could hit the API; envoy-internal-only
               # exposure and login-free UI convenience were judged worth it.
               - --disable-csrf-token-checks

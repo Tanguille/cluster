@@ -32,9 +32,6 @@ spec:
     mode: chat
     # maxModelLen (246944) minus maxOutputTokens; re-derive if that changes,
     # nothing enforces it across the two CRDs.
-    # 64000 mirrors the upstream serving max-tokens bump (joryirving/home-ops
-    # 27b088f) so long agentic turns stop truncating. Serving side still only
-    # sets maxModelLen (246944) here, so the sum has to keep fitting it.
     maxInputTokens: 182944
     maxOutputTokens: 64000
 ---

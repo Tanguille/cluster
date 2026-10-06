@@ -39,8 +39,8 @@ Two Flux Kustomizations reconcile these:
 > [cloudnative-pg/cloudnative-pg#6043](https://github.com/cloudnative-pg/cloudnative-pg/issues/6043)
 > ("allow cross-namespace Database and Role configuration"), open and unimplemented as of
 > 2026-07-11. If/when that lands, revisit moving `cluster/roles/<app>.sops.yaml` and
-> `databases/<app>.yaml` into each app's own directory — until then, the shared-cluster model here
-> requires the centralized layout below.
+> its `databases/resourceset.yaml` entry into each app's own directory — until then, the shared-cluster model here
+> requires the centralized layout above.
 
 - **`cloudnative-pg-databases`** (`dependsOn: cloudnative-pg-cluster`, `wait: true`) reconciles the
   `Database` CRs. Kept as a separate Kustomization so a single DB-provisioning failure can't stall

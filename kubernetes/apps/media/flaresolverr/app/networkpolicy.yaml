@@ -6,7 +6,7 @@ metadata:
   name: flaresolverr-ingress-allowlist
 spec:
   # Unauthenticated headless browser; prowlarr is its only client (kguardian
-  # pod traffic, 2026-09-18). Ingress only; egress stays open.
+  # pod traffic). Ingress only; egress stays open.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: flaresolverr
