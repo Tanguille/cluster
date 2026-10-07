@@ -19,6 +19,8 @@ spec:
       scannerReportTTL: "48h"
       # ~570KiB SbomReports, never TTL-pruned, re-created ~860x/day fragmented etcd; nothing reads them.
       sbomGenerationEnabled: false
+      # Standalone scan Jobs each download the vuln DB (~1.6GiB/scan); one server keeps one copy.
+      builtInTrivyServer: true
     serviceMonitor:
       enabled: true
     # Scan Jobs throttle at the chart-default 500m limit (kguardian
@@ -33,6 +35,8 @@ spec:
       severity: HIGH,CRITICAL
       # Chart default true scans single-threaded, leaving the 1000m limit idle.
       slow: false
+      # Server DB is a re-downloadable cache; emptyDir avoids a Ceph PVC.
+      storageClassEnabled: false
     # Per-run runner pods and AI jobs are scanned then discarded. Also skips
     # persistent AI workloads, which get no image scanning elsewhere.
     excludeNamespaces: "actions-runner-system,ai"
