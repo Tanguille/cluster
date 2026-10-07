@@ -108,7 +108,7 @@ spec:
       shared_buffers: 2GB
       # off, not the try default: no hugepages are reserved on any node, so try would log an allocation failure every start.
       huge_pages: "off"
-      # io_method: "io_uring" # Blocked by default K8s/containerd seccomp profile (see cloudnative-pg/cloudnative-pg#9948). worker = safe default.
+      # io_method: "io_uring" # Needs a custom seccomp profile (RuntimeDefault returns EPERM, cloudnative-pg/cloudnative-pg#9948); not worth it at 99.4% hit ratio and ~7.7 GB reads per 18d.
       work_mem: 16MB
       # End idle-in-xact sessions so xmin can advance (ORM leaks, forgotten BEGIN).
       idle_in_transaction_session_timeout: "600000"
@@ -138,6 +138,11 @@ spec:
       maintenance_io_concurrency: "200"
       # Listed in shared_preload_libraries below; first enable rolls the cluster.
       pg_stat_statements.max: "7500"
+      # pg_stat_io and pg_stat_wal timings were all 0, so IO and fsync stalls could not be measured; 23.6 ns/loop timer cost.
+      track_io_timing: "on"
+      track_wal_io_timing: "on"
+      # Advisory-lock waits reached 9.6 s (kguardian) with nothing in the logs. Not log_min_duration_statement: it would ship statement text with literals into logs; pg_stat_statements already ranks slow statements.
+      log_lock_waits: "on"
     # vchord.so required for vchord; pg_stat_statements matches parameters above.
     shared_preload_libraries:
       - "vchord.so"
