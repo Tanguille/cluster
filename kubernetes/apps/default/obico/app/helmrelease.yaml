@@ -14,7 +14,8 @@ spec:
   values:
     server:
       image:
-        tag: sha-9b73caa7b373e89fd23bf2fed646e629ee602640
+        repository: ghcr.io/gabe565/obico/web
+        tag: release@sha256:6acb4a5903ebeffb0ec37e2ddbb94fe15d09e3153008c96098cfe33e932369e6
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
@@ -48,7 +49,8 @@ spec:
 
     ml-api:
       image:
-        tag: sha-9b73caa7b373e89fd23bf2fed646e629ee602640
+        repository: ghcr.io/gabe565/obico/ml-api
+        tag: release@sha256:8f7cca121dfdb91b04f619ffb550d78a062c9c98b8bf8b4da29c9707b23e7af6
       env:
         DEBUG: "False"
       resources:
