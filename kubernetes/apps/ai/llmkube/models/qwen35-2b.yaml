@@ -85,7 +85,7 @@ spec:
   # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
-    # Request AND limit (llmkube >= 0.9.29); 7d max working set 271Mi, the rest
-    # is GTT headroom memcg cannot see.
-    memory: 256Mi
+    # Request AND limit (llmkube >= 0.9.29); ~0.14Gi RSS plus ~0.8Gi of amdgpu
+    # GTT (uncharged by memcg, counted by the scheduler).
+    memory: 1Gi
   # endpoint omitted — operator defaults to a ClusterIP Service on :8080.

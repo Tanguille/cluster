@@ -8,8 +8,8 @@ breaks memini's 8s rerank timeout. Sibling of [embedder-cpu-vs-igpu.md](embedder
 Same llama.cpp build (11429, `d81235049`), same model file, same args; only the backend differs.
 
 - **Model**: `bge-reranker-v2-m3` Q8_0, mounted read-only from the live `llmkube-model-cache` PVC (RWO, same node).
-- **Args** (both): `--ctx-size 4096 --parallel 1 --batch-size 4096 --ubatch-size 4096 --reranking --embedding --pooling rank --cache-ram 0`.
-  - iGPU: the live `bge-reranker-v2-m3` InferenceService (`--n-gpu-layers 99`).
+- **Args** (both): `--ctx-size 4096 --parallel 1 --batch-size 4096 --ubatch-size 4096 --reranking --embedding --pooling rank --cache-ram 0` (the live spec is now 2048, same scores, 1.0 GiB GTT instead of 4.4).
+  - iGPU: the `bge-reranker-v2-m3` InferenceService as of 2026-10-06 (`--n-gpu-layers 99`).
   - CPU: temporary pod, same `server-vulkan` image (it ships the `libggml-cpu-*` backends), `--device none --n-gpu-layers 0`, 6 threads (llama.cpp default), no `squat.ai/dri` slot, `requests.cpu: 1`. Confirmed CPU-only: `kubectl logs` says "no usable GPU found" and the pod has no `/dev/dri`.
 - **Driver**: [bench/rerank_cpu_vs_igpu.py](bench/rerank_cpu_vs_igpu.py) via `kubectl port-forward -n ai deploy/bge-reranker-v2-m3 18081:8080` and `... pod/rerank-cpu-test 18082:8080`, 1 warmup discarded, 15 requests per backend, iGPU and CPU interleaved so drift and live memini traffic hit both. Each request scores 12 documents (memini's `MEMINI_RERANK_POOL`) cut from repo `docs/**/*.md` (main checkout at `25ee4d5b7`, untracked files included), so scores are not reproducible; latency is, since it scales with chars.
 - **Load**: control-3 was at ~48% CPU (`kubectl top nodes`) with other workloads, so CPU numbers include realistic contention.

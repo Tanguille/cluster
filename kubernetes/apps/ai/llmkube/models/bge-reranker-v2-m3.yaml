@@ -49,14 +49,11 @@ spec:
   # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
   # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
   parallelSlots: 1
-  # Largest (query, document) pair was ~2232 tokens at the old 2048-char doc cap
-  # (MEMINI_RERANK_MAX_DOC_CHARS is now 1024), so 4096 keeps headroom.
-  contextSize: 4096
-  # A rerank pair must fit one micro-batch; the 512 default 500s with
-  # "input (N tokens) is too large to process".
-  uBatchSize: 4096
-  # llama.cpp caps n_ubatch at n_batch, and the 2048 default is below a pair.
-  batchSize: 4096
+  # A pair must fit one micro-batch or llama.cpp 500s; 2048 fits a query up to
+  # ~5000 chars plus a 1024-char doc. 4096 held 4.4 GiB of GTT, 2048 holds
+  # 1.0 GiB with identical scores.
+  contextSize: 2048
+  uBatchSize: 2048
   extraArgs:
     # 12 x 1024-char pairs: 3.5s with flash attention auto (on), 3.15s off; rankings identical.
     - "-fa"
@@ -101,9 +98,8 @@ spec:
 
   resources:
     cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); ~636MB Q8_0 weights plus the
-    # llama-server baseline, the model buffer living in amdgpu GTT which
-    # memcg does not charge.
-    memory: 512Mi
+    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~1.0Gi of amdgpu
+    # GTT. memcg does not charge GTT, but the scheduler must count it.
+    memory: 1536Mi
   endpoint:
     path: /v1/rerank

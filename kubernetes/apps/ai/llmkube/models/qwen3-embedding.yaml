@@ -96,11 +96,11 @@ spec:
 
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); working set <224Mi (0.116GiB on
-    # 2026-10-06), the model buffer lives in amdgpu GTT which memcg does not
-    # charge. 512Mi is ~4x the measured working set and matches bge-reranker's
-    # right-size for same-class weights; the 6Gi reservation held control-2 at
-    # 95.8% request overcommit.
+    # Request AND limit (llmkube >= 0.9.29); working set <224Mi, the model
+    # buffer lives in amdgpu GTT which memcg does not charge (~1.9 GiB measured,
+    # not counted here: raising it restarts the embedder). 512Mi is ~4x the
+    # measured working set; the 6Gi reservation held control-2 at 95.8% request
+    # overcommit.
     memory: 512Mi
   endpoint:
     path: /v1/embeddings
