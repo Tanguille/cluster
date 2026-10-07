@@ -23,7 +23,9 @@
 # Equivalent to upstream vllm PR #52619, which measured 1.66x kernel / +63% e2e
 # decode on gfx1151.
 import importlib.abc
+import os
 import sys
+import types
 
 NEW_LIMIT = int(32768 * 1.2)  # 39321, matches max_lds_len * 1.2 in the C++
 
@@ -118,9 +120,113 @@ def _patch_aiter_ua(module):
     print("[lds-gate-patch] aiter attn_3d num_stages -> 1", file=sys.stderr, flush=True)
 
 
+# UltraQuant (vllm#57057) caches a max_model_len-sized bf16 K and V buffer on every
+# attention layer (16 x 966 MiB = 15 GiB here), grown on the first continuation chunk
+# over 128 tokens, and OOMs the 32 GB card. Layers run one at a time on one stream and
+# rewrite [:seq_len] before reading it, so one shared holder serves them all. Skips
+# instead of crashing when the symbols move; fp8 never calls this path.
+def _patch_uq(module):
+    try:
+        cls = module.UltraQuantAttentionImpl
+        orig = cls._ultraquant_continuation_prefill
+    except AttributeError as e:
+        print("[lds-gate-patch] SKIPPED ultraquant_attn: %r" % e, file=sys.stderr, flush=True)
+        return
+    shared = types.SimpleNamespace()
+    # Upstream runs chunks up to _CONTINUATION_DECODE_THRESHOLD tokens as one synthetic decode
+    # per token, re-reading the whole prefix per token. uq_prefill_fast reads it once per 2
+    # tokens: 6.8 vs 15.9 ms per layer for 128 tokens on a 48K prefix. Above the threshold
+    # dequant + flash-attn stays faster (14.9 vs 24.1 ms at 512 tokens), so it keeps them.
+    prefill, small = None, 0
+    if UQ_CFG["fast"] and hasattr(module, "_CONTINUATION_DECODE_THRESHOLD"):
+        from uq_decode_fast import uq_prefill_fast as prefill
+
+        # Zero routes every continuation chunk through the override below.
+        # ponytail: ineligible small chunks (sinks, sliding window) now take dequant + flash-attn,
+        # which ignores the window; Qwen3.8 has neither. Rebuild the synthetic decode if one does.
+        small, module._CONTINUATION_DECODE_THRESHOLD = module._CONTINUATION_DECODE_THRESHOLD, 0
+
+    def continuation(self, *, layer, **kw):
+        q = kw["query"]
+        if prefill and q.shape[0] <= small and _fast_ok(self.sinks, self.sliding_window, q.shape[-1]):
+            return prefill(q, kw["kv_cache"], kw["block_table"], kw["cached_len"], self.scale, PiT=kw["PiT"])
+        return orig(self, layer=shared, **kw)
+
+    cls._ultraquant_continuation_prefill = continuation
+    # Decode. UQ_FAST=1: the RDNA4 kernel in uq_decode_fast.py (mounted next to this file),
+    # bit-trick FP4 -> fp16 and fp16 WMMA instead of the generic dot_scaled decomposition.
+    # Otherwise, and for sinks, sliding window or other head sizes, the upstream launcher with
+    # this card's geometry. Upstream launches the 3D split-KV kernel with 16 splits, 16-token
+    # tiles, 2 warps, 3 stages: 64 programs x 2 waves = one wave per SIMD on 64 CUs, no
+    # latency hiding, 47 GB/s at 64K.
+    if hasattr(module, "ultraquant_unified_attention"):
+        launcher, fast = module.ultraquant_unified_attention, None
+        if UQ_CFG["fast"]:
+            from uq_decode_fast import uq_decode_fast as fast
+
+        def decode(query, kv_cache, block_table, seq_lens, query_start_loc, scale, PiT=None, output=None, **kw):
+            if kw.get("max_query_len") == 1:
+                if fast and _fast_ok(kw.get("sinks"), kw.get("sliding_window"), query.shape[-1]):
+                    return fast(query, kv_cache, block_table, seq_lens, query_start_loc, scale,
+                                PiT=PiT, output=output, max_seq_len=kw.get("max_seq_len"))
+                if not UQ_CFG["stock"]:
+                    kw["tile_size"], kw["num_kv_splits"] = UQ_CFG["tile"], UQ_CFG["splits"]
+            return launcher(query, kv_cache, block_table, seq_lens, query_start_loc, scale, PiT=PiT, output=output, **kw)
+
+        module.ultraquant_unified_attention = decode
+    print("[lds-gate-patch] UltraQuant shared continuation buffer + decode geometry, fast=%s" % UQ_CFG["fast"],
+          file=sys.stderr, flush=True)
+
+
+# UQ_* env vars are the sweep and rollback knobs; UQ_STOCK=1 leaves upstream geometry alone.
+UQ_CFG = {
+    "stock": os.environ.get("UQ_STOCK") == "1",
+    # Swept in a pod at 64K (3D kernel, 16 layer-calls): stock 50.1 ms/token, this 13.5 ms.
+    "splits": int(os.environ.get("UQ_SPLITS", "32")),
+    "tile": int(os.environ.get("UQ_TILE", "32")),
+    "warps": int(os.environ.get("UQ_WARPS", "8")),
+    "stages": int(os.environ.get("UQ_STAGES", "1")),
+    # UQ_FAST=1 routes pure decode and continuation chunks up to 128 tokens to uq_decode_fast.py,
+    # at that file's default geometry.
+    "fast": os.environ.get("UQ_FAST") == "1",
+}
+
+
+def _fast_ok(sinks, sliding_window, head_size):
+    # uq_decode_fast.py covers D = 256 without sinks or a sliding window; the rest stays upstream.
+    return sinks is None and not sliding_window and head_size == 256
+
+
+def _patch_uq_ops(module):
+    try:
+        kernel = module.kernel_ultraquant_unified_attention_3d
+    except AttributeError as e:
+        print("[lds-gate-patch] SKIPPED ultraquant ops: %r" % e, file=sys.stderr, flush=True)
+        return
+    if UQ_CFG["stock"]:
+        return
+
+    class _Proxy:
+        def __getitem__(self, grid):
+            launch = kernel[grid]
+
+            def run(*a, **kw):
+                kw["num_warps"], kw["num_stages"] = UQ_CFG["warps"], UQ_CFG["stages"]
+                return launch(*a, **kw)
+
+            return run
+
+        def __getattr__(self, name):
+            return getattr(kernel, name)
+
+    module.kernel_ultraquant_unified_attention_3d = _Proxy()
+
+
 PATCHES = {
+    "vllm.v1.attention.ops.ultraquant.triton_unified_attention": _patch_uq_ops,
     "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16": _patch_w4a16,
     "aiter.ops.triton.utils.unified_attention_utils": _patch_aiter_ua,
+    "vllm.v1.attention.backends.ultraquant_attn": _patch_uq,
 }
 
 
