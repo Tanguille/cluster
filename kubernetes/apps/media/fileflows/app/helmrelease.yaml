@@ -73,6 +73,16 @@ spec:
                   tcpSocket:
                     port: 5000
               readiness: *probe
+              # The image apt-installs intel-media-va-driver-non-free on every boot before the app
+              # listens (any /dev/dri triggers it); liveness alone killed it at ~30s.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 5000
+                  failureThreshold: 60
+                  periodSeconds: 5
             resources:
               requests:
                 cpu: 100m
