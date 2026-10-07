@@ -50,12 +50,10 @@ spec:
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
               # Wider than the recall limit so buried memories can be rescued; 12 pairs (~5s on the iGPU) fit the 8s timeout, 20 (~8s) did not.
               MEMINI_RERANK_POOL: "12"
-              # Prompt recalls rerank on the whole prompt (~50s per pool), so ~96% timed out and MIN_SCORE returned empty; skip them (also bypasses MIN_SCORE). Explicit short-query recalls still rerank.
+              # Prompt recalls rerank on the whole prompt (~50s per pool), so ~96% timed out; skip them. Explicit short-query recalls still rerank.
               MEMINI_RERANK_PROMPT: "false"
-              # Absolute floor so a query with no genuine match returns empty; 0.5 is a conservative start on llama.cpp's [0,1] scores (validate with memini bench.RerankGateSweep).
-              MEMINI_RERANK_MIN_SCORE: "0.5"
-              # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); a longer rerank only holds the reranker slot. A timeout returns empty under MIN_SCORE.
-              MEMINI_RERANK_TIMEOUT: "8s"
+              # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); 5s fits typical reranks (~3.3s) and leaves time for the fused-order fallback. No MIN_SCORE gate: it dropped on-topic keyword-query results (logits -3..0).
+              MEMINI_RERANK_TIMEOUT: "5s"
               # Payload cap per /rerank request; the 6000 default shards a deep pool into ~10 serial requests.
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # One in-flight call keeps a slow shared-iGPU reranker from stalling recall.
