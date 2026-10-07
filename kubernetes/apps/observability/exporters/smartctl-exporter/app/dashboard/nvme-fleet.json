@@ -94,7 +94,7 @@
         {
           "refId": "A",
           "datasource": { "type": "prometheus", "uid": "prometheus" },
-          "expr": "smartctl_device_temperature{device=~\"nvme.*\"}",
+          "expr": "smartctl_device_temperature{device=~\"nvme.*\",temperature_type=\"current\"}",
           "legendFormat": "{{instance}} {{device}}"
         }
       ],

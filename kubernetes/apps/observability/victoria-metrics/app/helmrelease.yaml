@@ -439,7 +439,7 @@ spec:
                 annotations:
                   summary: NVMe {{ $labels.device }} on {{ $labels.instance }} running hot ({{ $value }}C)
                   description: Sustained temperature above 70C — sustained heat accelerates wear and precedes thermal shutdowns (see control-3 7450 history).
-                expr: avg_over_time(smartctl_device_temperature{device=~"nvme.*"}[10m]) > 70
+                expr: avg_over_time(smartctl_device_temperature{device=~"nvme.*",temperature_type="current"}[10m]) > 70
                 for: 15m
                 labels:
                   severity: warning
