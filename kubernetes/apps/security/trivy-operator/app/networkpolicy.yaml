@@ -5,7 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: trivy-server-ingress-allowlist
 spec:
-  # Unauthenticated server whose cache clients write to: only scan Jobs may reach it.
+  # Unauthenticated server whose cache clients write to: only scan Jobs and the operator may reach it.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: trivy-server
@@ -14,6 +14,10 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: security
             app.kubernetes.io/managed-by: trivy-operator
+        # Operator health-checks the server before each scan and silently requeues if blocked.
+        - matchLabels:
+            io.kubernetes.pod.namespace: security
+            app.kubernetes.io/name: trivy-operator
     # Rev-NAT'd DNS replies hit ingress; the server resolves the DB registry.
     - fromEndpoints:
         - matchLabels:
