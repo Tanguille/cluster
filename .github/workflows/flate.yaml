@@ -89,6 +89,35 @@ jobs:
             ${{ steps.flate.outputs.kustomization }}
             ```
 
+  # Bundled pgvector shadows mounted extension images, so the pin must match the image.
+  pgvector-pin:
+    name: pgvector pin matches image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Compare pin with the image
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          cluster=kubernetes/apps/database/cloudnative-pg/cluster/cluster.yaml
+          rset=kubernetes/apps/database/cloudnative-pg/databases/resourceset.yaml
+          if git diff --quiet "origin/${BASE_REF}...HEAD" -- "$cluster" "$rset"; then
+            echo "neither file changed, skipping the image pull"
+            exit 0
+          fi
+          img=$(yq -e '.spec.imageName' "$cluster")
+          want=$(docker run --rm --entrypoint sed "$img" -n "s/^default_version = '\(.*\)'/\1/p" \
+            /usr/share/postgresql/18/extension/vector.control)
+          got=$(yq -e '.spec.inputs[].extensions[] | select(.name == "vector") | .version' "$rset" | sort -u)
+          echo "image ${img} ships vector ${want}; ResourceSet pins ${got}"
+          [ "$want" = "$got" ] || { echo "::error::vector pin '${got}' != image default_version '${want}'"; exit 1; }
+
   pull:
     if: >-
       ${{

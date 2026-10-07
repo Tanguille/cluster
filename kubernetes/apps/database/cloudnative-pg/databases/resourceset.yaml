@@ -12,32 +12,35 @@ spec:
     - name: bazarr
     - name: crowdsec
       extensions:
-        - name: vector
+        # Must equal the cluster.yaml image's vector default_version (checked in flate.yaml).
+        - &vector
+          name: vector
+          version: "0.8.6"
     - name: gatus
     - name: ghostfolio
       extensions:
-        - name: vector
+        - *vector
     - name: grafana
     - name: jellystat
       db: jfstat
     - name: kguardian
       extensions:
-        - name: vector
+        - *vector
     - name: kritik
       extensions:
         # Both must exist before kritika's first start; vchord is already in shared_preload_libraries.
         - &vchord
           name: vchord
           version: "1.1.1"
-        - name: vector
+        - *vector
     - name: litellm
       extensions:
-        - name: vector
+        - *vector
     - name: memini
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
         - *vchord
-        - name: vector
+        - *vector
     - name: nextcloud
     - name: prowlarr
     - name: radarr

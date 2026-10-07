@@ -8,6 +8,15 @@ spec:
   groups:
     - name: cloudnative-pg.rules
       rules:
+        - alert: PgvectorVersionDrift
+          annotations:
+            description: Database {{ $labels.datname }} on {{ $labels.pod }} runs a vector extension that differs from the one the image ships; bump the version pin in cloudnative-pg/databases/resourceset.yaml.
+            summary: Installed pgvector differs from the image's version.
+          expr: |-
+            cnpg_pgvector_drifted > 0
+          for: 1h
+          labels:
+            severity: warning
         - alert: LongRunningTransaction
           annotations:
             description: Pod {{ $labels.pod }} is taking more than 5 minutes (300 seconds) for a query.

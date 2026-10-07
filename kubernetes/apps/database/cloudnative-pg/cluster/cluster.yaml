@@ -170,6 +170,9 @@ spec:
       memory: 4Gi
   monitoring:
     enablePodMonitor: true
+    customQueriesConfigMap:
+      - name: cnpg-custom-queries
+        key: queries.yaml
   plugins:
     - name: &plugin barman-cloud.cloudnative-pg.io
       isWALArchiver: true
