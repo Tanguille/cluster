@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kguardian-rules
+spec:
+  groups:
+    - name: kguardian.rules
+      rules:
+        - alert: KguardianBrokerAbsent
+          expr: |-
+            absent(up{job="kguardian-broker"} == 1)
+          for: 15m
+          annotations:
+            summary: >-
+              kguardian broker is not being scraped; seccomp denial alerts are blind
+          labels:
+            severity: warning
+
+        # Chart README: schema not ready is the broker's silent failure mode.
+        - alert: KguardianBrokerDatabaseDown
+          expr: |-
+            max(broker_db_reachable{job="kguardian-broker"}) == 0
+              or max(broker_db_schema_ready{job="kguardian-broker"}) == 0
+          for: 5m
+          annotations:
+            summary: >-
+              kguardian broker cannot use its database; observations are not stored
+          labels:
+            severity: warning
+
+        - alert: KguardianSecurityContextRegression
+          expr: |-
+            max by (workload_namespace, workload_kind, workload) (kguardian_workload_drift{type="securityContextRegression"}) > 0
+          for: 30m
+          annotations:
+            summary: >-
+              {{ $labels.workload_namespace }}/{{ $labels.workload }} security context regressed since its profile was exported
+          labels:
+            severity: warning

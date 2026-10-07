@@ -7,4 +7,16 @@ resources:
   - ocirepository.yaml
   - helmrelease.yaml
   - httproute.yaml
+  - grafanadashboard.yaml
+  - prometheusrule.yaml
   - secret.sops.yaml
+configMapGenerator:
+  - name: kguardian-dashboard
+    files:
+      - dashboard/kguardian.json
+    options:
+      annotations:
+        # Dashboard JSON uses ${DS_PROMETHEUS}; flux envsubst would blank it.
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true

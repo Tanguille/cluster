@@ -87,6 +87,9 @@ spec:
       metrics:
         serviceMonitor:
           enabled: true
+        # Chart's seccomp denial alerts (observed, enforcing, abnormal rate).
+        prometheusRule:
+          enabled: true
 
       # 16 = inflightPermits + 8 floor; fits the 25/30 pooler and a 2x16 rollout burst.
       dbPoolMaxSize: 16
