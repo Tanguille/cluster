@@ -4,6 +4,6 @@ set -euo pipefail
 SP=$(cd "$(dirname "$0")" && pwd)
 out=$1
 while [ ! -e "$out.stop" ]; do
-  echo "$(date +%s) $(bash "$SP/vramfree.sh" 2>/dev/null || echo NA)" >> "$out"
-  sleep 3
+    echo "$(date +%s) $(bash "$SP/vramfree.sh" 2>/dev/null || echo NA)" >>"$out"
+    sleep 3
 done
