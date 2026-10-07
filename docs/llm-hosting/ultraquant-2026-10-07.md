@@ -7,9 +7,10 @@ Live-applied with Flux `llmkube-models` suspended; branch
 
 **Status:** UltraQuant 4-bit KV plus our decode kernel has been live since 17:26Z,
 8 slots since 17:48Z, and `maxModelLen` 262144 plus the workload retune since 19:33Z.
-**Verdict:** per-stream decode is at fp8 parity or better (32.00 tok/s at 48.6K vs
-fp8's 29.36 at 64K). Throughput at production shape is still 11-34% below fp8 after
-the retune:
+**Verdict:** per-stream decode looks at least on par with fp8: 32.00 tok/s at 48.6K vs
+fp8's 29.36 at 64K. The context lengths differ, so this is not a matched comparison;
+the matched-length A/B is the 48K table below. Throughput at production shape is still
+11-34% below fp8 after the retune:
 
 | 48K cached prompt | fp8 | UltraQuant (retuned) |
 | --- | ---: | ---: |
@@ -22,7 +23,7 @@ Computed tokens per request have a p50 of 1,254, so most requests take the
 cached-prefix continuation path. **The owner keeps UltraQuant (quality, headroom)**; the
 fix plan is [../plans/r9700-gpu-max.md](../plans/r9700-gpu-max.md).
 
-## Production-shape baseline (`bench/prodshape.py`, 2026-10-07 20:1x-20:45Z)
+## Production-shape baseline (`bench/prodshape.py`, 2026-10-07 20:07-20:42Z)
 
 Setup:
 
@@ -41,8 +42,10 @@ Setup:
 | 5 | 28.93 | 19.9 | 23.14 / 32.92 s | 50.2 ms | 0.964 | 29,506 |
 | 8 | 6.69 | 1.5 | 116.8 / 213.7 s | 67.0 ms | 0.317 | 656,147 |
 
-- **Cold prefill is flat at about 950 tok/s from 16K to 98K** (16,101 tokens in 16.9 s,
-  98,637 in 122.1 s). Prefill is bound by the GEMMs and GDN, not attention.
+- **Cold prefill is 950-970 tok/s at 16-40K and falls to about 880-910 at 64K and 808
+  at 98K.** Measured: 16,101 tokens in 16.9 s, 40,311 in 41.5 s, 64,427 in 70.9 s,
+  98,637 in 122.1 s. Up to 40K, prefill is bound by the GEMMs and GDN. Attention costs
+  about 15% more by 98K.
 - **8 sessions collapse on KV capacity.** About 414K tokens of prefixes and growth
   overflow the 430,982-token pool, so sessions evict each other and 656K tokens are
   recomputed. The offload tier served 270K (`external_kv_transfer`). fp8's
@@ -109,8 +112,9 @@ prompt). All are aggregate tok/s unless noted.
   `MAX_SKINNY_BATCH_SIZE=5` sends every W4A16 projection to Triton; 8 is +19% over 5.
 - **8 slots, 48K cached** (`longconcsweep.py 38000 1,5,6,8`): aggregate
   23.49/49.57/47.96/52.44, so it is flat from 5 to 8 streams.
-- **Production context is where UltraQuant loses:** -13% at 1 stream and -36% at 5,
-  with cached-prefix TTFT 2.4-3x.
+- **Production context is where UltraQuant loses:** -13% at 1 stream and -36% at 5
+  before the retune (23.49/49.57 vs 26.95/78.00). After the retune it is -11% and -34%
+  (24.07/51.62). Cached-prefix TTFT is 2.4-3x fp8.
   - Cause (a): continuation chunks over 128 tokens dequantize the whole cached prefix
     to bf16 and then run flash-attn, every layer, every chunk.
   - Cause (b): 1536-token blocks double the recomputed tail.

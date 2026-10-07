@@ -137,7 +137,7 @@ def _patch_uq(module):
     # per token, re-reading the whole prefix per token. uq_prefill_fast reads it once per 2
     # tokens: 6.8 vs 15.9 ms per layer for 128 tokens on a 48K prefix. Above the threshold
     # dequant + flash-attn stays faster (14.9 vs 24.1 ms at 512 tokens), so it keeps them.
-    prefill, small = None, 0
+    prefill, small, fast = None, 0, None
     if UQ_CFG["fast"] and hasattr(module, "_CONTINUATION_DECODE_THRESHOLD"):
         from uq_decode_fast import uq_prefill_fast as prefill
 
@@ -145,6 +145,9 @@ def _patch_uq(module):
         # ponytail: ineligible small chunks (sinks, sliding window) now take dequant + flash-attn,
         # which ignores the window; Qwen3.8 has neither. Rebuild the synthetic decode if one does.
         small, module._CONTINUATION_DECODE_THRESHOLD = module._CONTINUATION_DECODE_THRESHOLD, 0
+    elif UQ_CFG["fast"]:
+        print("[lds-gate-patch] SKIPPED uq fast continuation: no _CONTINUATION_DECODE_THRESHOLD",
+              file=sys.stderr, flush=True)
 
     def continuation(self, *, layer, **kw):
         q = kw["query"]
@@ -160,7 +163,7 @@ def _patch_uq(module):
     # tiles, 2 warps, 3 stages: 64 programs x 2 waves = one wave per SIMD on 64 CUs, no
     # latency hiding, 47 GB/s at 64K.
     if hasattr(module, "ultraquant_unified_attention"):
-        launcher, fast = module.ultraquant_unified_attention, None
+        launcher = module.ultraquant_unified_attention
         if UQ_CFG["fast"]:
             from uq_decode_fast import uq_decode_fast as fast
 
@@ -174,8 +177,11 @@ def _patch_uq(module):
             return launcher(query, kv_cache, block_table, seq_lens, query_start_loc, scale, PiT=PiT, output=output, **kw)
 
         module.ultraquant_unified_attention = decode
-    print("[lds-gate-patch] UltraQuant shared continuation buffer + decode geometry, fast=%s" % UQ_CFG["fast"],
-          file=sys.stderr, flush=True)
+    else:
+        print("[lds-gate-patch] SKIPPED uq decode: no ultraquant_unified_attention", file=sys.stderr, flush=True)
+    # fast= is the requested mode; prefill=/decode= show which fast kernels actually installed.
+    print("[lds-gate-patch] UltraQuant shared continuation buffer + decode geometry, fast=%s (prefill=%s, decode=%s)"
+          % (UQ_CFG["fast"], prefill is not None, fast is not None), file=sys.stderr, flush=True)
 
 
 # UQ_* env vars are the sweep and rollback knobs; UQ_STOCK=1 leaves upstream geometry alone.

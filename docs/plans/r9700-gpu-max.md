@@ -22,7 +22,7 @@ small, and carry the least out-of-tree code.
 - Bleeding-edge versions are welcome.
 - Agents do the work under the routing below.
 
-**Where time goes today** (baseline, 2026-10-07 20:1xZ, `bench/prodshape.py`,
+**Where time goes today** (baseline, 2026-10-07 20:07-20:42Z, `bench/prodshape.py`,
 independent 16K-98K sessions, 1,254-token tails):
 
 | Sessions | Agg tok/s | Decode/stream | TTFT p50 | ITL p50 |
@@ -35,8 +35,8 @@ independent 16K-98K sessions, 1,254-token tails):
 
 **TTFT dominates, and it is not mainly attention:**
 
-- Cold prefill is flat at about 950 tok/s from 16K to 98K, so prefill is bound by the
-  GEMMs and GDN.
+- Cold prefill is 950-970 tok/s at 16-40K and falls to 808 at 98K (98,637 tokens in
+  122.1 s). Up to 40K it is bound by the GEMMs and GDN; attention adds about 15% by 98K.
 - A 1-session turn computes about 1,890 tokens, about 2 s of work. TTFT is still 5.05 s.
 - The offload lookup stall did not fire during the baseline: the
   `kv_offload_lookup_async_delay_seconds` count stayed at 45. Earlier pod-lifetime
