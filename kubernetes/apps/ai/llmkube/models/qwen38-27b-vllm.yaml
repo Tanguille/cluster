@@ -148,16 +148,18 @@ spec:
   # only revalidates. The fs KV tier is keyed per model by vLLM's file_mapper.
   modelRef: qwen38-swift-27b-vllm
   runtime: vllm
-  # 5, not 6: MAX_SKINNY_BATCH_SIZE=5 in rdna_hybrid_w4a16.py sends every W4A16
-  # projection to Triton at M=6. Bimodal until warmed (cold M=2 ~30 vs warm ~55
-  # tok/s): one warmup run is not enough. Warm M=1..5 baseline: newest
-  # docs/llm-hosting/vllm-nightly-bench-*.md.
-  parallelSlots: 5
+  # 8: short-context aggregate +19% over 5 (143.4 vs 119.7 tok/s), flat 5 -> 8
+  # at 48K context. M=6 dips (110.0): MAX_SKINNY_BATCH_SIZE=5 in
+  # rdna_hybrid_w4a16.py sends every W4A16 projection to Triton there. Bimodal
+  # until warmed (cold M=2 ~30 vs warm ~55 tok/s): one warmup run is not
+  # enough. Baseline: docs/llm-hosting/ultraquant-2026-10-07.md.
+  parallelSlots: 8
   bindAddress: 0.0.0.0
   # nightly: gfx1201 support landed after v0.27.1. Digest-pinned so Renovate can
-  # bump it. After a bump, check the boot log for all three "[lds-gate-patch]"
-  # lines and a clean graph capture (the M<=32 patch launches the Triton kernel
-  # itself, so a kernel signature change breaks boot). Bench (bench/longctx.py
+  # bump it. After a bump, check the boot log for the "[lds-gate-patch]" lines
+  # (including "UltraQuant ... fast=True", none "SKIPPED") and a clean graph
+  # capture (the M<=32 patch launches the Triton kernel itself, so a kernel
+  # signature change breaks boot). Bench (bench/longctx.py
   # 4000 and 50000) only if the base layers (torch/Triton/aiter) changed or the
   # vLLM range touches ROCm, GDN, W4A16 or KV offload. Baseline: newest
   # docs/llm-hosting/vllm-nightly-bench-*.md.
@@ -165,12 +167,18 @@ spec:
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
-    # Per-request KV cap; decode cliffs below pool/cap ~1.17x (bisect: 1.19x
-    # 31.5 tok/s, 1.17x 31.7, 1.16x UNSTABLE, 1.14x 18.9). Pool is 304,808 (1.23x). Do not raise without re-bisecting. Engine refuses
-    # to boot if pool < cap: re-read "GPU KV cache size" after any
-    # --kv-cache-memory, mamba dtype, or image change.
-    maxModelLen: 246944
-    kvCacheDtype: fp8_e4m3
+    # Trained max. Per-request KV cap; decode cliffs below pool/cap ~1.17x
+    # (fp8 bisect: 1.19x 31.5 tok/s, 1.17x 31.7, 1.16x UNSTABLE, 1.14x 18.9).
+    # UltraQuant pool 430,982 tokens = 1.64x. Engine refuses to boot if pool <
+    # cap: re-read "GPU KV cache size" after any --kv-cache-memory, mamba dtype,
+    # or image change.
+    maxModelLen: 262144
+    # UltraQuant 4-bit KV (vllm#57057): 18,091 B/token vs fp8 33,465. The CRD's
+    # kvCacheDtype enum lacks it, hence kvCacheCustomDtype. Costs and rollback
+    # (fp8_e4m3, --kv-cache-memory 10200547328, maxModelLen 246944):
+    # docs/llm-hosting/ultraquant-2026-10-07.md
+    kvCacheDtype: auto
+    kvCacheCustomDtype: ultraquant_4bit
     # ~91% pod-lifetime local hit rate (nightly-bench-2026-09-29.md).
     enablePrefixCaching: true
     # Do not lower: 2048 cost TTFT p50 5s -> 80s (a 20K prompt = 10 prefill
@@ -202,6 +210,14 @@ spec:
     # tier.
     - name: PYTHONHASHSEED
       value: "0"
+    # UltraQuant continuation prefill calls flash-attn; the CK build segfaults
+    # on gfx1201 (BlockFmhaPipelineQRKSVSAsync), the Triton build works.
+    - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
+      value: "TRUE"
+    # UQ_FAST=1: decode and continuation chunks up to 128 tokens run
+    # resources/uq_decode_fast.py; 0 falls back to upstream's kernel.
+    - name: UQ_FAST
+      value: "1"
   extraVolumes:
     - name: compile-cache
       persistentVolumeClaim:
@@ -228,10 +244,11 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # W4A16 LDS gate, M<=32 Triton tile, aiter attn_3d num_stages: see
+    # W4A16 LDS gate, M<=32 Triton tile, aiter attn_3d num_stages, UltraQuant
+    # shared continuation buffer and decode kernel: see
     # resources/zz_lds_gate_impl.py. Drop the mount and generator entry once
-    # upstream carries the LDS gate fix (vllm#52619), an M<=32 tile config and an
-    # aiter num_stages 1 default for gfx1201 fp8.
+    # upstream carries the LDS gate fix (vllm#52619), an M<=32 tile config, an
+    # aiter num_stages 1 default for gfx1201 fp8 and a gfx1201 UltraQuant path.
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth
@@ -245,6 +262,11 @@ spec:
     - name: qwen38-sharp-chat-template
       mountPath: /chat-templates/chat_template.jinja
       subPath: chat_template.jinja
+      readOnly: true
+    # Imported by zz_lds_gate_impl.py when UQ_FAST=1.
+    - name: lds-gate-patch
+      mountPath: /usr/local/lib/python3.12/dist-packages/uq_decode_fast.py
+      subPath: uq_decode_fast.py
       readOnly: true
   extraArgs:
     - --served-model-name
@@ -268,7 +290,7 @@ spec:
     # hybrids (vllm#39010); vLLM pads to the next capture size, so M=5 needs its
     # own.
     - --compilation-config
-    - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5]}'
+    - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5, 6, 7, 8]}'
     # Keep prior-turn reasoning in context.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
@@ -290,18 +312,21 @@ spec:
     # Fine edges 30-45 and 60 ms (slow band); default tail and the 0.05/0.075 longctx.py reads kept.
     - --custom-histogram-buckets
     - '{"inter_token_latency": [0.01, 0.02, 0.025, 0.03, 0.032, 0.034, 0.036, 0.038, 0.04, 0.045, 0.05, 0.06, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 40.0, 80.0]}'
-    # 9.5 GiB -> 304,808 KV tokens (33,494 B/token; confirm in the boot log).
-    # Reserve 2.48 GiB vs the largest non-vLLM VRAM excursion 1.82 GiB (3d of
-    # drm samples); 10 GiB would leave 0.16. Transcodes: 4K DV 0.85 GB,
-    # fileflows 0.69 GB; Jellyfin has no concurrency cap (DgpuVramLow).
+    # 7.25 GiB -> 430,982 KV tokens (18,091 B/token; confirm in the boot log).
+    # The flag skips profiling, so headroom is manual: UltraQuant needs ~2.2 GiB
+    # more transient VRAM than fp8 (dequant scratch + shared continuation
+    # buffer); 9.5 GiB OOMed on the first request, 8 GiB booted. fp8 ran 9.5 GiB
+    # = 304,808 tokens with a 2.48 GiB reserve vs the largest non-vLLM VRAM
+    # excursion 1.82 GiB (Jellyfin has no concurrency cap, DgpuVramLow).
     - --kv-cache-memory
-    - "10200547328"
+    - "7784628224"
     # No --language-model-only: Hermes uses the vision tower.
-    # CPU tier 12Gi (~385K tokens, ~7 prompts). 7d (2026-09-27): external hit
+    # CPU tier 12Gi (~712K UltraQuant tokens). 7d (2026-09-27): external hit
     # 0.70, fs share of loads ~10%, async lookup mean 2.2 s. Revisit 22Gi
-    # (23622320128, dshm 24Gi, memory 32Gi) only if hit < 0.25 or share > 20%.
+    # (23622320128, dshm 24Gi, memory 32Gi) only if hit < 0.25 or share > 20%
+    # over a restart-free 7d. PCIe Gen3 did not speed it up (~3.3 GB/s both).
     # Keep the fs tier: removing it halved single-stream decode (15.5 vs 31
-    # tok/s); it keeps eviction async.
+    # tok/s, 2026-08-19); no mechanism for that in the 43b4aaea3 code.
     # blocks_per_chunk 4: 8 tried 2026-09-03, total lookup s/request +45% (one
     # serial lookup thread).
     # kv_load_failure_policy is a top-level field; nested it is silently
