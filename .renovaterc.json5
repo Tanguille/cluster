@@ -73,7 +73,7 @@
     {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
-      managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
       matchStrings: [
         'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
       ],
@@ -142,7 +142,7 @@
       // Mirrors the cnpg preset's vchord manager, which only matches "vchord".
       description: "CNPG Database CRD vector extension version pin",
       customType: "regex",
-      managerFilePatterns: ["/resourceset\\.yaml$/"],
+      managerFilePatterns: ["/cloudnative-pg/databases/resourceset\\.yaml$/"],
       matchStrings: [
         "name:\\s+vector\\b(?:\\n[ \\t]*|\\n +[^-\\s][^\\n]*)*?\\n +version:\\s*[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"
       ],
@@ -207,11 +207,11 @@
         "/cloudnative-pg/",
         "/postgres/",
         "/vchord/",
-        "/pgvector/",
         "/dragonfly/",
         "/flux/",
         "/vllm/",
-        "/llama/"
+        "/llama/",
+        "/obico/"
       ],
       automerge: false
     },
@@ -272,6 +272,12 @@
       description: "pgvector CNPG extension image and Database CRD version pins",
       groupName: "pgvector",
       matchPackageNames: ["ghcr.io/cloudnative-pg/pgvector"]
+    },
+    {
+      description: "obico web and ml-api images move together",
+      groupName: "obico",
+      matchPackageNames: ["/gabe565\\/obico/"],
+      minimumGroupSize: 2
     },
     {
       description: "Group klipper-exporter image and Grafana dashboard URL",
