@@ -99,10 +99,10 @@ no app database to own, so no `Database` CR.
     "SELECT datname, pg_catalog.pg_get_userbyid(datdba) FROM pg_database WHERE datname = '$db';"
   ```
 
-- **Extensions.** Declare them by name and version in the input's `extensions:` list (memini:
-  `vchord` + `vector`; crowdsec, ghostfolio, kguardian, litellm: `vector`). Renovate tracks each
-  version with its extension image in `cluster.yaml` (`vector` is the official pgvector extension
-  image). A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
+- **Extensions.** Declare them in the input's `extensions:` list (memini: `vchord` + `vector`;
+  crowdsec, ghostfolio, kguardian, litellm: `vector`). `vchord` carries a version that Renovate
+  tracks with its extension image in `cluster.yaml`; `vector` is bundled in the postgres image and
+  takes no version. A wrong pin fails visibly — CNPG marks the Database CR not-Ready.
 
 ## Validation before applying
 

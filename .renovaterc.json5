@@ -137,18 +137,6 @@
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
       datasourceTemplate: "npm"
-    },
-    {
-      // Mirrors the cnpg preset's vchord manager, which only matches "vchord".
-      description: "CNPG Database CRD vector extension version pin",
-      customType: "regex",
-      managerFilePatterns: ["/cloudnative-pg/databases/resourceset\\.yaml$/"],
-      matchStrings: [
-        "name:\\s+vector\\b(?:\\n[ \\t]*|\\n +[^-\\s][^\\n]*)*?\\n +version:\\s*[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"
-      ],
-      depNameTemplate: "ghcr.io/cloudnative-pg/pgvector",
-      datasourceTemplate: "docker",
-      extractVersionTemplate: "^(?<version>\\d+\\.\\d+\\.\\d+)-\\d+-\\w+$"
     }
   ],
   packageRules: [
@@ -267,11 +255,6 @@
       description: "VectorChord CNPG images and Memini database version",
       groupName: "vectorchord",
       matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
-    },
-    {
-      description: "pgvector CNPG extension image and Database CRD version pins",
-      groupName: "pgvector",
-      matchPackageNames: ["ghcr.io/cloudnative-pg/pgvector"]
     },
     {
       description: "obico web and ml-api images move together",
