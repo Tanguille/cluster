@@ -207,8 +207,8 @@ def dry_run(args):
     print(f"words/token assumed {1/args.tpw:.3f} (tokens/word {args.tpw}); "
           f"estimates use pp={args.est_pp:.0f} tok/s, per-stream tg={args.est_tg:.0f} tok/s")
     for c, pre in plan:
-        lp = lg = 0
-        lw = sum(p for p in pre) / args.est_pp            # serial cold warmups
+        lp = 0
+        lw = sum(pre) / args.est_pp                       # serial cold warmups
         for p in pre:
             lp += p
             for t in range(1, args.turns + 1):
@@ -228,7 +228,7 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
     seed0 = args.seed * 1_000_003 + level_idx * 1009
     sessions = [Session(seed0 + i, p, args.tail, args.tpw) for i, p in enumerate(prefixes)]
     row0 = len(poller.rows)
-    cold, errors = [], 0
+    cold, live, errors = [], [], 0
     for s in sessions:                                    # serial warmups: clean cold prefill
         if stop.is_set():
             break
@@ -237,14 +237,13 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
         rec = stream(base, args.model, prompt, 1, args.timeout)
         if rec.get("err"):
             errors += 1
-            s.dead = True
             continue
-        s.dead = False
+        live.append(s)
         cold.append({"seed": s.seed, "tokenize": exact, "prompt": rec["prompt"],
                      "ttft": r2(rec["ttft"]),
                      "prefill_tps": r2(rec["prompt"] / rec["ttft"]) if rec["ttft"] else None})
-        print(f"  cold s{s.seed}: {exact} tok (tokenize) ttft={rec['ttft']:.1f}s", flush=True)
-    live = [s for s in sessions if getattr(s, "dead", True) is False]
+        ttft = f"{rec['ttft']:.1f}s" if rec["ttft"] is not None else "n/a (no text chunk)"
+        print(f"  cold s{s.seed}: {exact} tok (tokenize) ttft={ttft}", flush=True)
     recs, lk = [], threading.Lock()
 
     def worker(s):
@@ -252,7 +251,6 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
             if stop.is_set():
                 return
             rec = stream(base, args.model, s.next_prompt(), args.gen, args.timeout)
-            rec["seed"] = s.seed
             with lk:
                 recs.append(rec)
             if rec.get("err"):

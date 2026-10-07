@@ -138,16 +138,17 @@ def _patch_uq(module):
     # tokens: 6.8 vs 15.9 ms per layer for 128 tokens on a 48K prefix. Above the threshold
     # dequant + flash-attn stays faster (14.9 vs 24.1 ms at 512 tokens), so it keeps them.
     prefill, small, fast = None, 0, None
-    if UQ_CFG["fast"] and hasattr(module, "_CONTINUATION_DECODE_THRESHOLD"):
-        from uq_decode_fast import uq_prefill_fast as prefill
+    if UQ_CFG["fast"]:
+        if hasattr(module, "_CONTINUATION_DECODE_THRESHOLD"):
+            from uq_decode_fast import uq_prefill_fast as prefill
 
-        # Zero routes every continuation chunk through the override below.
-        # ponytail: ineligible small chunks (sinks, sliding window) now take dequant + flash-attn,
-        # which ignores the window; Qwen3.8 has neither. Rebuild the synthetic decode if one does.
-        small, module._CONTINUATION_DECODE_THRESHOLD = module._CONTINUATION_DECODE_THRESHOLD, 0
-    elif UQ_CFG["fast"]:
-        print("[lds-gate-patch] SKIPPED uq fast continuation: no _CONTINUATION_DECODE_THRESHOLD",
-              file=sys.stderr, flush=True)
+            # Zero routes every continuation chunk through the override below.
+            # ponytail: ineligible small chunks (sinks, sliding window) now take dequant + flash-attn,
+            # which ignores the window; Qwen3.8 has neither. Rebuild the synthetic decode if one does.
+            small, module._CONTINUATION_DECODE_THRESHOLD = module._CONTINUATION_DECODE_THRESHOLD, 0
+        else:
+            print("[lds-gate-patch] SKIPPED uq fast continuation: no _CONTINUATION_DECODE_THRESHOLD",
+                  file=sys.stderr, flush=True)
 
     def continuation(self, *, layer, **kw):
         q = kw["query"]
