@@ -12,36 +12,32 @@ spec:
     - name: bazarr
     - name: crowdsec
       extensions:
-        # vector is the official ghcr.io/cloudnative-pg/pgvector extension image (cluster.yaml); Renovate tracks that image tag.
-        - &vector
-          name: vector
-          version: "0.8.7"
+        - name: vector
     - name: gatus
     - name: ghostfolio
       extensions:
-        - *vector
+        - name: vector
     - name: grafana
     - name: jellystat
       db: jfstat
     - name: kguardian
       extensions:
-        - *vector
+        - name: vector
     - name: kritik
       extensions:
         # Both must exist before kritika's first start; vchord is already in shared_preload_libraries.
         - &vchord
           name: vchord
           version: "1.1.1"
-        - *vector
+        - name: vector
     - name: litellm
       extensions:
-        - *vector
+        - name: vector
     - name: memini
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
-        # Both versions are Renovate-tracked with their respective cluster.yaml extension images.
         - *vchord
-        - *vector
+        - name: vector
     - name: nextcloud
     - name: prowlarr
     - name: radarr

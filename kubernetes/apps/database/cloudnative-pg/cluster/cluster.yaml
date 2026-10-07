@@ -142,6 +142,7 @@ spec:
     shared_preload_libraries:
       - "vchord.so"
       - "pg_stat_statements"
+    # pgvector is bundled in the image; a mounted copy would be shadowed ($system leads extension_control_path).
     extensions:
       - name: vchord
         image:
@@ -154,9 +155,6 @@ spec:
           - /usr/lib/postgresql/18/lib
         extension_control_path:
           - /usr/share/postgresql/18
-      - name: vector
-        image:
-          reference: ghcr.io/cloudnative-pg/pgvector:0.8.7-18-trixie
   resources:
     requests:
       cpu: 500m
