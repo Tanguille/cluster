@@ -1,0 +1,50 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: trivy-operator-rules
+spec:
+  groups:
+    - name: trivy-operator.rules
+      # Rules wait 1h and scan a 1d window; 5m evaluation is plenty.
+      interval: 5m
+      rules:
+        - alert: TrivyOperatorAbsent
+          expr: |-
+            absent(up{job="trivy-operator"} == 1)
+          for: 30m
+          annotations:
+            summary: >-
+              trivy-operator is not being scraped; vulnerability alerts are blind
+          labels:
+            severity: warning
+
+        # 44 images carry criticals at baseline: alert on increases vs the 1d-ago max (spans 48h report gaps).
+        - alert: TrivyNewCriticalVulnerabilities
+          expr: |-
+            max by (namespace, image_repository) (trivy_image_vulnerabilities{severity="Critical"})
+              > (
+                max by (namespace, image_repository) (max_over_time(trivy_image_vulnerabilities{severity="Critical"}[1d] offset 1d))
+                or max by (namespace, image_repository) (trivy_image_vulnerabilities{severity="Critical"}) * 0
+              )
+          for: 1h
+          annotations:
+            summary: >-
+              {{ $labels.namespace }}/{{ $labels.image_repository }} has {{ $value }} critical vulnerabilities, up from a day ago
+          labels:
+            severity: warning
+
+        - alert: TrivyNewExposedSecrets
+          expr: |-
+            max by (namespace, image_repository) (trivy_image_exposedsecrets)
+              > (
+                max by (namespace, image_repository) (max_over_time(trivy_image_exposedsecrets[1d] offset 1d))
+                or max by (namespace, image_repository) (trivy_image_exposedsecrets) * 0
+              )
+          for: 1h
+          annotations:
+            summary: >-
+              {{ $labels.namespace }}/{{ $labels.image_repository }} image contains {{ $value }} exposed secrets, up from a day ago
+          labels:
+            severity: warning

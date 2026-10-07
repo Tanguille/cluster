@@ -21,6 +21,10 @@ spec:
       sbomGenerationEnabled: false
       # Standalone scan Jobs each download the vuln DB (~1.6GiB/scan); one server keeps one copy.
       builtInTrivyServer: true
+      # Default 10 bursts writes on the scanning node; 2 spreads the queue out.
+      scanJobsConcurrentLimit: 2
+    # Each Job run is a new scan target (~1500/day); CronJobs still report from their job template.
+    targetWorkloads: "pod,replicaset,replicationcontroller,statefulset,daemonset,cronjob"
     serviceMonitor:
       enabled: true
     # Scan Jobs throttle at the chart-default 500m limit (kguardian
