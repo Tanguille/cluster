@@ -9,9 +9,8 @@ spec:
     matchLabels:
       app.kubernetes.io/name: satisfactory
   ingress:
-    # externalTrafficPolicy Local preserves the client source IP, so LAN
-    # traffic arrives as world; the Service's loadBalancerSourceRanges
-    # (LAN_CIDR) is the real gate.
+    # externalTrafficPolicy Local preserves the client source IP, so LAN and
+    # port-forwarded internet traffic both arrive as world.
     - fromEntities:
         - world
       toPorts:

@@ -44,8 +44,6 @@ spec:
         externalTrafficPolicy: Local
         annotations:
           lbipam.cilium.io/ips: ${SATISFACTORY_IP}
-        loadBalancerSourceRanges:
-          - ${LAN_CIDR}
         ports:
           game-tcp:
             port: 7777
