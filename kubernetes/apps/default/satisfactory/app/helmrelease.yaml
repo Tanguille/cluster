@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app satisfactory
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  interval: 1h
+  values:
+    controllers:
+      satisfactory:
+        strategy: Recreate
+        containers:
+          app:
+            image:
+              repository: ghcr.io/robtme/satisfactory-server
+              tag: v1.9.11
+            env:
+              PUID: "1000"
+              PGID: "1000"
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              # First start downloads the game via steamcmd.
+              startup:
+                enabled: true
+                spec:
+                  periodSeconds: 10
+                  failureThreshold: 120
+            resources:
+              requests:
+                cpu: 500m
+                memory: 8Gi
+              limits:
+                memory: 16Gi
+    service:
+      satisfactory:
+        type: LoadBalancer
+        externalTrafficPolicy: Local
+        annotations:
+          lbipam.cilium.io/ips: ${SATISFACTORY_IP}
+        loadBalancerSourceRanges:
+          - ${LAN_CIDR}
+        ports:
+          game-tcp:
+            port: 7777
+          game-udp:
+            port: 7777
+            protocol: UDP
+          messaging:
+            port: 8888
+    persistence:
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /config
