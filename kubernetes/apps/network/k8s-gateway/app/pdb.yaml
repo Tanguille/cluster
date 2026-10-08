@@ -6,7 +6,7 @@ metadata:
   name: k8s-gateway
 spec:
   # 2 replicas hard-spread over 3 nodes (TSC in the HelmRelease values). The chart
-  # ships no PDB template of its own, so drain protection lives here.
+  # PDB value would collide with this existing object on adoption, so it stays here.
   minAvailable: 1
   selector:
     matchLabels:

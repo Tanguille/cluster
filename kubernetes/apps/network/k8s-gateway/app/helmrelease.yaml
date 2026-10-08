@@ -25,9 +25,31 @@ spec:
       limits:
         cpu: 200m
         memory: 128Mi
-    domain: "${SECRET_DOMAIN}"
-    ttl: 1
+    # Image defaults to root.
+    securityContext:
+      runAsUser: 1000
     service:
       annotations:
         lbipam.cilium.io/ips: ${K8S_GATEWAY_IP}
-    watchedResources: ["HTTPRoute", "TLSRoute", "Service"]
+    servers:
+      - zones:
+          - zone: ${SECRET_DOMAIN}
+            use_tcp: true
+        port: 53
+        plugins:
+          - name: k8s_gateway
+            configBlock: |-
+              apex k8s-gateway.network
+              ttl 1
+              resources HTTPRoute TLSRoute Service
+          - name: log
+            configBlock: |-
+              class denial error
+          - name: errors
+          - name: health
+            configBlock: |-
+              lameduck 5s
+          - name: ready
+          - name: prometheus
+            parameters: 0.0.0.0:9153
+          - name: loadbalance

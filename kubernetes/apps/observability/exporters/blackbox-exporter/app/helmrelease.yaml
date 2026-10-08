@@ -29,7 +29,8 @@ spec:
           prober: dns
           timeout: 5s
           dns:
-            query_name: kubernetes.default.svc.cluster.local
+            # k8s-gateway only answers its own zone; query an HTTPRoute host it serves.
+            query_name: vmsingle.${SECRET_DOMAIN}
             query_type: A
             preferred_ip_protocol: ip4
     serviceMonitor:
