@@ -31,3 +31,25 @@ spec:
               Crowdsec appsec engine is down — the bouncer's WAF calls fail open (requests pass uninspected)
           labels:
             severity: warning
+        - alert: CrowdsecLapiDown
+          expr: |-
+            absent(up{job="crowdsec-service"} == 1)
+          for: 10m
+          annotations:
+            summary: >-
+              Crowdsec LAPI is not scraped as up — decisions and the community blocklist metric are unavailable
+          labels:
+            severity: warning
+        # Central API auth failures (401/403) stop the 2h blocklist pull silently; the ~23k community
+        # decisions then expire and this series drops to zero. The zero fallback only applies while LAPI
+        # is scraped up, so a scrape outage does not read as an empty blocklist (CrowdsecLapiDown covers it).
+        - alert: CrowdsecCommunityBlocklistEmpty
+          expr: |-
+            (sum(cs_active_decisions{origin="CAPI"}) or (vector(0) and on() (max(up{job="crowdsec-service"}) == 1))) < 1000
+          for: 30m
+          annotations:
+            summary: >-
+              Crowdsec community blocklist is nearly empty — Central API pulls are failing,
+              check `cscli capi status` and the lapi logs for 401/403
+          labels:
+            severity: warning
