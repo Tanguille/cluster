@@ -31,13 +31,13 @@ SHAPES = [
     (5120, 17408, "mlp down"),
     (14336, 5120, "attn qkv"),
 ]
-MS = [1, 2, 3, 4, 5]
+MS = [1, 2, 3, 4, 5, 6, 8]
 GROUP = 128
 dev = torch.device("cuda")
 
 
 def permute_w(packed, N, K):
-    # radiance_mxfp4.permute_w verbatim: fragment order for RADIANCE_MXFP4_WPERM=1
+    # reorder packed weights into the 16x16 fragment order the decode kernel's WPERM=1 path reads
     nt, ks = N // 16, K // 16
     return packed.view(nt, 16, ks, 2, 4).permute(0, 2, 3, 1, 4).contiguous().view(N, K // 2)
 
@@ -79,8 +79,8 @@ def main():
         # scales and zero points [N, K/128] bf16. Random bits are fine: bandwidth, not values.
         w_q = torch.randint(-128, 127, (N, K // 2), dtype=torch.int8, device=dev, generator=g)
         w_s = (torch.rand((N, K // GROUP), device=dev, generator=g) * 0.01).to(torch.bfloat16)
-        w_zp = torch.randint(0, 16, (N, K // GROUP), device=dev, generator=g).to(torch.bfloat16)
-        bytes_w4a16 = w_q.numel() + w_s.numel() * 2 + w_zp.numel() * 2
+        w_zp = torch.randint(-(2**31), 2**31 - 1, (N // 8, K // GROUP), dtype=torch.int32, device=dev, generator=g)  # 8 packed uint4 zero points per int32 (current vLLM op)
+        bytes_w4a16 = w_q.numel() + w_s.numel() * 2 + w_zp.numel() * 4
         # MXFP4: packed e2m1 [N,K/2] uint8, e8m0 scales [K/32, N] uint8 (transposed layout),
         # per-row reference exponent for the folded path.
         w_mx = torch.randint(0, 256, (N, K // 2), dtype=torch.uint8, device=dev, generator=g)

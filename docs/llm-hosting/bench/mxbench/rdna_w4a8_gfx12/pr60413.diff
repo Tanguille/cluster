@@ -1,0 +1,776 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0a5414b4bf41..d5a7b3fe9e2b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1499,6 +1499,7 @@ if(VLLM_GPU_LANG STREQUAL "HIP")
+     "csrc/rocm/torch_bindings.cpp"
+     "csrc/rocm/skinny_gemms.cu"
+     "csrc/rocm/skinny_gemms_int4.cu"
++    "csrc/rocm/mxfp4_w4a8_gemv.cu"
+     "csrc/rocm/attention.cu")
+   set(VLLM_ROCM_EXT_FLAGS ${VLLM_GPU_FLAGS})
+ 
+diff --git a/csrc/rocm/mxfp4_w4a8_gemv.cu b/csrc/rocm/mxfp4_w4a8_gemv.cu
+new file mode 100644
+index 000000000000..5bf8bdb4868d
+--- /dev/null
++++ b/csrc/rocm/mxfp4_w4a8_gemv.cu
+@@ -0,0 +1,251 @@
++// MXFP4 x int8 (W4A8) GEMV for RDNA3/RDNA3.5 (gfx11) small-batch decode.
++//
++// Activations are quantized to int8 per 32-element group (symmetric, one fp32
++// scale per group), E2M1 weight codes map exactly to int8 (2 * e2m1), and each
++// 32-element group is reduced with eight v_dot4_i32_iu8 instructions. One fp32
++// multiply per group applies the E8M0 weight scale and the activation scale.
++// The scheme follows ggml's MMVQ / q8_1 path (llama.cpp, MIT License).
++//
++// Layouts (Quark OCP MX checkpoints, no repack):
++//   a        [M, K]     fp16 / bf16, 1 <= M <= 8
++//   b_q      [N, K/2]   uint8, two E2M1 codes per byte, low nibble = even k
++//   b_scale  [N, K/32]  uint8 E8M0
++//   out      [M, N]     same dtype as a
++
++#include <torch/all.h>
++#include <ATen/cuda/CUDAContext.h>
++#include <c10/cuda/CUDAGuard.h>
++
++#include <cuda_runtime.h>
++#include <cuda_fp16.h>
++#include <cuda_bf16.h>
++
++#include <string>
++
++#include "../cuda_compat.h"
++
++#if defined(__GFX11__)
++  #define __HIP__MXFP4_W4A8_GFX11__
++#endif
++
++namespace {
++
++constexpr int kMaxM = 8;
++constexpr int kGroup = 32;
++constexpr int kWarpsPerBlock = 8;
++
++template <typename T>
++__device__ __forceinline__ float to_float(T v);
++template <>
++__device__ __forceinline__ float to_float(half v) {
++  return __half2float(v);
++}
++template <>
++__device__ __forceinline__ float to_float(__hip_bfloat16 v) {
++  return __bfloat162float(v);
++}
++
++template <typename T>
++__device__ __forceinline__ T from_float(float v);
++template <>
++__device__ __forceinline__ half from_float(float v) {
++  return __float2half(v);
++}
++template <>
++__device__ __forceinline__ __hip_bfloat16 from_float(float v) {
++  return __float2bfloat16(v);
++}
++
++#if defined(__HIP__MXFP4_W4A8_GFX11__) || !defined(__HIP_DEVICE_COMPILE__)
++
++// 2 * E2M1 value for each 4-bit code (sign in bit 3). Exact in int8.
++__device__ __constant__ int8_t kE2M1x2[16] = {0, 1,  2,  3,  4,  6,  8,  12,
++                                              0, -1, -2, -3, -4, -6, -8, -12};
++
++template <typename T>
++__global__ void mxfp4_w4a8_quant_act_kernel(const T* __restrict__ a,
++                                            int8_t* __restrict__ a_q,
++                                            float* __restrict__ a_s, int M,
++                                            int K) {
++  const int groups = K / kGroup;
++  const int m = blockIdx.x;
++  const int g = blockIdx.y * blockDim.x + threadIdx.x;
++  if (m >= M || g >= groups) return;
++
++  const T* row = a + (int64_t)m * K + g * kGroup;
++  float v[kGroup];
++  float amax = 0.f;
++  #pragma unroll
++  for (int i = 0; i < kGroup; ++i) {
++    v[i] = to_float(row[i]);
++    amax = fmaxf(amax, fabsf(v[i]));
++  }
++  const float scale = fmaxf(amax / 127.0f, 1e-12f);
++  a_s[(int64_t)m * groups + g] = scale;
++
++  int8_t* out = a_q + (int64_t)m * K + g * kGroup;
++  #pragma unroll
++  for (int i = 0; i < kGroup; ++i) {
++    out[i] = (int8_t)fmaxf(-127.f, fminf(127.f, rintf(v[i] / scale)));
++  }
++}
++
++// One wave (32 lanes) per output column n. Lanes stride over the K groups;
++// each lane decodes its weight group once and reuses it for all M rows.
++template <int M, typename T>
++__global__ void mxfp4_w4a8_gemv_kernel(const int* __restrict__ a_q,
++                                       const float* __restrict__ a_s,
++                                       const uint8_t* __restrict__ b_q,
++                                       const uint8_t* __restrict__ b_scale,
++                                       T* __restrict__ out, int N, int K) {
++  const int groups = K / kGroup;
++  const int lane = threadIdx.x;
++  const int n = blockIdx.x * blockDim.y + threadIdx.y;
++  if (n >= N) return;
++
++  const uint8_t* w_row = b_q + (int64_t)n * (K / 2);
++  const uint8_t* s_row = b_scale + (int64_t)n * groups;
++
++  float acc[M];
++  #pragma unroll
++  for (int m = 0; m < M; ++m) acc[m] = 0.f;
++
++  for (int g = lane; g < groups; g += 32) {
++    const uint8_t* gp = w_row + g * (kGroup / 2);
++    int w4[8];
++  #pragma unroll
++    for (int j = 0; j < 8; ++j) {
++      const uint32_t two = gp[2 * j] | (gp[2 * j + 1] << 8);
++      const int w0 = kE2M1x2[two & 0xF];
++      const int w1 = kE2M1x2[(two >> 4) & 0xF];
++      const int w2 = kE2M1x2[(two >> 8) & 0xF];
++      const int w3 = kE2M1x2[(two >> 12) & 0xF];
++      w4[j] = (w0 & 0xFF) | ((w1 & 0xFF) << 8) | ((w2 & 0xFF) << 16) |
++              ((w3 & 0xFF) << 24);
++    }
++    // 2^(e - 127) / 2: undoes the factor 2 folded into kE2M1x2.
++    const float w_scale = __int_as_float((int)s_row[g] << 23) * 0.5f;
++  #pragma unroll
++    for (int m = 0; m < M; ++m) {
++      const int* ap = a_q + (int64_t)m * (K / 4) + g * (kGroup / 4);
++      int isum = 0;
++  #pragma unroll
++      for (int j = 0; j < 8; ++j) {
++        isum = __builtin_amdgcn_sudot4(true, w4[j], true, ap[j], isum, false);
++      }
++      acc[m] += (float)isum * (w_scale * a_s[(int64_t)m * groups + g]);
++    }
++  }
++
++  #pragma unroll
++  for (int m = 0; m < M; ++m) {
++    float v = acc[m];
++  #pragma unroll
++    for (int o = 16; o > 0; o >>= 1) v += VLLM_SHFL_XOR_SYNC_WIDTH(v, o, 32);
++    if (lane == 0) out[(int64_t)m * N + n] = from_float<T>(v);
++  }
++}
++
++#else  // non-gfx11 device pass: empty kernels for symbol parity.
++
++template <typename T>
++__global__ void mxfp4_w4a8_quant_act_kernel(const T*, int8_t*, float*, int,
++                                            int) {}
++
++template <int M, typename T>
++__global__ void mxfp4_w4a8_gemv_kernel(const int*, const float*, const uint8_t*,
++                                       const uint8_t*, T*, int, int) {}
++
++#endif  // __HIP__MXFP4_W4A8_GFX11__ || !__HIP_DEVICE_COMPILE__
++
++bool mxfp4_w4a8_on_gfx11() {
++  static const bool result = [] {
++    const auto* dprops = at::cuda::getCurrentDeviceProperties();
++    const std::string arch = dprops->gcnArchName;
++    return arch.rfind("gfx11", 0) == 0;
++  }();
++  return result;
++}
++
++template <typename T>
++void launch(const at::Tensor& a, const at::Tensor& b_q,
++            const at::Tensor& b_scale, at::Tensor& out, int M, int N, int K) {
++  const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
++  const int groups = K / kGroup;
++
++  auto a_q = torch::empty({M, K}, a.options().dtype(torch::kInt8));
++  auto a_s = torch::empty({M, groups}, a.options().dtype(torch::kFloat32));
++
++  const dim3 q_block(256);
++  const dim3 q_grid(M, (groups + 255) / 256);
++  mxfp4_w4a8_quant_act_kernel<T><<<q_grid, q_block, 0, stream>>>(
++      reinterpret_cast<const T*>(a.data_ptr()), a_q.data_ptr<int8_t>(),
++      a_s.data_ptr<float>(), M, K);
++
++  const dim3 block(32, kWarpsPerBlock);
++  const dim3 grid((N + kWarpsPerBlock - 1) / kWarpsPerBlock);
++  const int* a_q32 = reinterpret_cast<const int*>(a_q.data_ptr<int8_t>());
++  const float* a_s_ptr = a_s.data_ptr<float>();
++  const uint8_t* b_q_ptr = b_q.data_ptr<uint8_t>();
++  const uint8_t* b_s_ptr = b_scale.data_ptr<uint8_t>();
++  T* out_ptr = reinterpret_cast<T*>(out.data_ptr());
++
++#define MXFP4_W4A8_LAUNCH(MM)                                  \
++  case MM:                                                     \
++    mxfp4_w4a8_gemv_kernel<MM, T><<<grid, block, 0, stream>>>( \
++        a_q32, a_s_ptr, b_q_ptr, b_s_ptr, out_ptr, N, K);      \
++    break;
++
++  switch (M) {
++    MXFP4_W4A8_LAUNCH(1)
++    MXFP4_W4A8_LAUNCH(2)
++    MXFP4_W4A8_LAUNCH(3)
++    MXFP4_W4A8_LAUNCH(4)
++    MXFP4_W4A8_LAUNCH(5)
++    MXFP4_W4A8_LAUNCH(6)
++    MXFP4_W4A8_LAUNCH(7)
++    MXFP4_W4A8_LAUNCH(8)
++  }
++#undef MXFP4_W4A8_LAUNCH
++}
++
++}  // namespace
++
++torch::Tensor mxfp4_w4a8_gemv(const at::Tensor& a, const at::Tensor& b_q,
++                              const at::Tensor& b_scale) {
++  TORCH_CHECK(a.is_cuda() && b_q.is_cuda() && b_scale.is_cuda(),
++              "mxfp4_w4a8_gemv: all inputs must be on the GPU");
++  TORCH_CHECK(mxfp4_w4a8_on_gfx11(),
++              "mxfp4_w4a8_gemv requires an RDNA3/RDNA3.5 (gfx11) GPU");
++  TORCH_CHECK(a.scalar_type() == at::kHalf || a.scalar_type() == at::kBFloat16,
++              "mxfp4_w4a8_gemv: a must be float16 or bfloat16");
++  TORCH_CHECK(
++      b_q.scalar_type() == at::kByte && b_scale.scalar_type() == at::kByte,
++      "mxfp4_w4a8_gemv: b_q and b_scale must be uint8");
++  TORCH_CHECK(a.dim() == 2 && b_q.dim() == 2 && b_scale.dim() == 2,
++              "mxfp4_w4a8_gemv: inputs must be 2D");
++  TORCH_CHECK(
++      a.is_contiguous() && b_q.is_contiguous() && b_scale.is_contiguous(),
++      "mxfp4_w4a8_gemv: inputs must be contiguous");
++
++  const int M = a.size(0);
++  const int K = a.size(1);
++  const int N = b_q.size(0);
++  TORCH_CHECK(M >= 1 && M <= kMaxM,
++              "mxfp4_w4a8_gemv supports 1 <= M <= ", kMaxM, ", got M=", M);
++  TORCH_CHECK(K % kGroup == 0, "mxfp4_w4a8_gemv: K must be a multiple of 32");
++  TORCH_CHECK(b_q.size(1) * 2 == K, "mxfp4_w4a8_gemv: b_q must be [N, K/2]");
++  TORCH_CHECK(b_scale.size(0) == N && b_scale.size(1) == K / kGroup,
++              "mxfp4_w4a8_gemv: b_scale must be [N, K/32]");
++
++  const at::cuda::OptionalCUDAGuard device_guard(device_of(a));
++  auto out = torch::empty({M, N}, a.options());
++
++  if (a.scalar_type() == at::kHalf) {
++    launch<half>(a, b_q, b_scale, out, M, N, K);
++  } else {
++    launch<__hip_bfloat16>(a, b_q, b_scale, out, M, N, K);
++  }
++  C10_CUDA_KERNEL_LAUNCH_CHECK();
++  return out;
++}
+diff --git a/csrc/rocm/ops.h b/csrc/rocm/ops.h
+index 78751841caf8..b149e2ab8358 100644
+--- a/csrc/rocm/ops.h
++++ b/csrc/rocm/ops.h
+@@ -24,6 +24,9 @@ void wvSplitKQ(const at::Tensor& in_a, const at::Tensor& in_b,
+                const at::Tensor& scale_a, const at::Tensor& scale_b,
+                const int64_t CuCount);
+ 
++torch::Tensor mxfp4_w4a8_gemv(const at::Tensor& a, const at::Tensor& b_q,
++                              const at::Tensor& b_scale);
++
+ torch::Tensor gptq_gemm_rdna3(torch::Tensor a, torch::Tensor b_q_weight,
+                               torch::Tensor b_qzeros, torch::Tensor b_scales,
+                               bool use_v2_format);
+diff --git a/csrc/rocm/torch_bindings.cpp b/csrc/rocm/torch_bindings.cpp
+index 14d1822707ea..920fd64ff38c 100644
+--- a/csrc/rocm/torch_bindings.cpp
++++ b/csrc/rocm/torch_bindings.cpp
+@@ -53,6 +53,12 @@ TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, rocm_ops) {
+   rocm_ops.impl("wvSplitKQ", torch::kCUDA, &wvSplitKQ);
+ #endif  // VLLM_SKIP_SKINNY_GEMMS
+ 
++  // MXFP4 weights x int8 activations GEMV for RDNA3/RDNA3.5 (gfx11) decode,
++  // 1 <= M <= 8. Weights [N, K/2] uint8 E2M1, scales [N, K/32] uint8 E8M0.
++  rocm_ops.def(
++      "mxfp4_w4a8_gemv(Tensor a, Tensor b_q, Tensor b_scale) -> Tensor");
++  rocm_ops.impl("mxfp4_w4a8_gemv", torch::kCUDA, &mxfp4_w4a8_gemv);
++
+ #ifdef VLLM_ROCM_GFX1100
+   // W4A16 GPTQ kernels for AMD RDNA3 (gfx1100).
+   rocm_ops.def(
+diff --git a/tests/kernels/quantization/test_mxfp4_w4a8_rdna.py b/tests/kernels/quantization/test_mxfp4_w4a8_rdna.py
+new file mode 100644
+index 000000000000..95cbca7cbe73
+--- /dev/null
++++ b/tests/kernels/quantization/test_mxfp4_w4a8_rdna.py
+@@ -0,0 +1,223 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""Tests for the RDNA3/RDNA3.5 (gfx11) MXFP4 W4A8 GEMV and its linear kernel.
++
++Run `pytest tests/kernels/quantization/test_mxfp4_w4a8_rdna.py`.
++"""
++
++from unittest.mock import patch
++
++import pytest
++import torch
++
++import vllm.envs as envs
++from vllm.model_executor.kernels.linear import (
++    MxFp4LinearLayerConfig,
++    RdnaW4A8MxFp4LinearKernel,
++    init_mxfp4_linear_kernel,
++)
++from vllm.model_executor.kernels.linear.mxfp4.rdna_w4a8 import (
++    MAX_W4A8_BATCH_SIZE,
++)
++from vllm.model_executor.layers.quantization.utils.mxfp4_utils import (
++    quant_dequant_mxfp4,
++)
++from vllm.model_executor.layers.quantization.utils.quant_utils import (
++    kMxfp4Dynamic,
++    kMxfp6E3M2Dynamic,
++)
++from vllm.platforms import current_platform
++
++_E2M1_MAG = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0]
++E2M1 = torch.tensor(_E2M1_MAG + [-v for v in _E2M1_MAG], dtype=torch.float64)
++
++
++def _on_gfx11() -> bool:
++    if not current_platform.is_rocm():
++        return False
++    from vllm.platforms.rocm import on_gfx11
++
++    return on_gfx11()
++
++
++def _has_op() -> bool:
++    return hasattr(torch.ops, "_rocm_C") and hasattr(
++        torch.ops._rocm_C, "mxfp4_w4a8_gemv"
++    )
++
++
++gfx11_only = pytest.mark.skipif(
++    not (_on_gfx11() and _has_op()),
++    reason="requires gfx11 and _rocm_C.mxfp4_w4a8_gemv",
++)
++
++
++def _random_mxfp4(N: int, K: int, device: str = "cuda"):
++    w_q = torch.randint(0, 256, (N, K // 2), dtype=torch.uint8, device=device)
++    # E8M0 scales near 2^0 keep the products well inside fp16/bf16 range.
++    w_s = torch.randint(122, 131, (N, K // 32), dtype=torch.uint8, device=device)
++    return w_q, w_s
++
++
++def _dequant_ref(w_q: torch.Tensor, w_s: torch.Tensor) -> torch.Tensor:
++    """[N, K/2] uint8 E2M1 + [N, K/32] uint8 E8M0 -> [N, K] float64."""
++    N, k_half = w_q.shape
++    codes = torch.stack([w_q & 0xF, w_q >> 4], dim=-1).reshape(N, 2 * k_half)
++    vals = E2M1.to(w_q.device)[codes.long()]
++    scale = torch.pow(2.0, w_s.double() - 127.0).repeat_interleave(32, dim=1)
++    return vals * scale
++
++
++def _w4a8_ref(x: torch.Tensor, w_q: torch.Tensor, w_s: torch.Tensor) -> torch.Tensor:
++    """Reference for the W4A8 math: int8 per-32 activation quant, exact dot."""
++    M, K = x.shape
++    xg = x.double().view(M, K // 32, 32)
++    a_s = (xg.abs().amax(dim=-1) / 127.0).clamp_min(1e-12)
++    a_q = torch.round(xg / a_s[..., None]).clamp(-127, 127)
++    x_qdq = (a_q * a_s[..., None]).view(M, K)
++    return x_qdq @ _dequant_ref(w_q, w_s).t()
++
++
++@gfx11_only
++@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
++@pytest.mark.parametrize("M", list(range(1, MAX_W4A8_BATCH_SIZE + 1)))
++@pytest.mark.parametrize("N,K", [(64, 256), (256, 512), (128, 4096), (40, 5120)])
++def test_w4a8_gemv_matches_reference(dtype, M, N, K):
++    torch.manual_seed(0)
++    w_q, w_s = _random_mxfp4(N, K)
++    x = (torch.randn(M, K, device="cuda") * 0.1).to(dtype)
++
++    out = torch.ops._rocm_C.mxfp4_w4a8_gemv(x, w_q, w_s)
++    assert out.shape == (M, N) and out.dtype == dtype
++
++    ref = _w4a8_ref(x, w_q, w_s)
++    # Bound by the output rounding of the accumulated magnitude; a quant code
++    # that rounds the other way on a tie stays well inside this.
++    accum = x.double().abs() @ _dequant_ref(w_q, w_s).abs().t()
++    tol = 2 * torch.finfo(dtype).eps * accum + 1e-3
++    err = (out.double() - ref).abs()
++    assert bool((err <= tol).all()), f"max excess {(err - tol).max().item():.3e}"
++
++
++@gfx11_only
++@pytest.mark.parametrize("M", [1, 4, 8])
++def test_w4a8_gemv_close_to_bf16_dequant(M):
++    """The int8 activation rounding stays a small relative error."""
++    torch.manual_seed(0)
++    N, K = 256, 4096
++    w_q, w_s = _random_mxfp4(N, K)
++    x = (torch.randn(M, K, device="cuda") * 0.1).to(torch.bfloat16)
++
++    out = torch.ops._rocm_C.mxfp4_w4a8_gemv(x, w_q, w_s).double()
++    ref = x.double() @ _dequant_ref(w_q, w_s).t()
++    rel = (out - ref).norm() / ref.norm()
++    assert rel < 1e-2, f"relative error {rel.item():.3e}"
++
++
++@gfx11_only
++@pytest.mark.parametrize("M", [0, MAX_W4A8_BATCH_SIZE + 1])
++def test_w4a8_gemv_rejects_out_of_range_m(M):
++    w_q, w_s = _random_mxfp4(64, 256)
++    x = torch.randn(M, 256, device="cuda", dtype=torch.bfloat16)
++    with pytest.raises(RuntimeError, match="1 <= M <= 8"):
++        torch.ops._rocm_C.mxfp4_w4a8_gemv(x, w_q, w_s)
++
++
++@gfx11_only
++def test_w4a8_gemv_opcheck():
++    w_q, w_s = _random_mxfp4(64, 256)
++    x = torch.randn(4, 256, device="cuda", dtype=torch.bfloat16)
++    torch.library.opcheck(torch.ops._rocm_C.mxfp4_w4a8_gemv, (x, w_q, w_s))
++
++
++@gfx11_only
++def test_w4a8_gemv_cuda_graph():
++    w_q, w_s = _random_mxfp4(256, 512)
++    x = torch.randn(2, 512, device="cuda", dtype=torch.bfloat16)
++    eager = torch.ops._rocm_C.mxfp4_w4a8_gemv(x, w_q, w_s)
++
++    stream = torch.cuda.Stream()
++    stream.wait_stream(torch.cuda.current_stream())
++    with torch.cuda.stream(stream):
++        torch.ops._rocm_C.mxfp4_w4a8_gemv(x, w_q, w_s)
++    torch.cuda.current_stream().wait_stream(stream)
++
++    graph = torch.cuda.CUDAGraph()
++    with torch.cuda.graph(graph):
++        captured = torch.ops._rocm_C.mxfp4_w4a8_gemv(x, w_q, w_s)
++    graph.replay()
++    torch.cuda.synchronize()
++    torch.testing.assert_close(captured, eager, rtol=0, atol=0)
++
++
++def _make_layer(N: int, K: int):
++    w_q, w_s = _random_mxfp4(N, K)
++    layer = torch.nn.Module()
++    layer.weight = torch.nn.Parameter(w_q, requires_grad=False)
++    layer.weight_scale = torch.nn.Parameter(w_s, requires_grad=False)
++    return layer
++
++
++@gfx11_only
++@pytest.mark.parametrize("activation_quant_key", [None, kMxfp4Dynamic])
++@pytest.mark.parametrize("M", [1, 8, 9, 64])
++def test_linear_kernel_dispatch(activation_quant_key, M, monkeypatch):
++    """M <= 8 takes the W4A8 GEMV, larger M the dequant + GEMM fallback."""
++    pytest.importorskip("quark")
++    monkeypatch.setattr(envs, "VLLM_ROCM_MXFP4_W4A8", True)
++    torch.manual_seed(0)
++    N, K = 256, 512
++    kernel = RdnaW4A8MxFp4LinearKernel(
++        MxFp4LinearLayerConfig(activation_quant_key=activation_quant_key)
++    )
++    layer = _make_layer(N, K)
++    kernel.process_weights_after_loading(layer)
++    x = (torch.randn(M, K, device="cuda") * 0.1).to(torch.bfloat16)
++    bias = torch.randn(N, device="cuda", dtype=torch.bfloat16)
++
++    with patch(
++        "vllm._custom_ops.mxfp4_w4a8_gemv", wraps=torch.ops._rocm_C.mxfp4_w4a8_gemv
++    ) as gemv:
++        out = kernel.apply_weights(layer, x, bias)
++    uses_w4a8 = M <= MAX_W4A8_BATCH_SIZE
++    assert gemv.called == uses_w4a8
++
++    x_ref = x
++    if activation_quant_key == kMxfp4Dynamic and not uses_w4a8:
++        # The M > 8 path keeps the checkpoint's MXFP4 activation QDQ.
++        x_ref = quant_dequant_mxfp4(x)
++    ref = x_ref.double() @ _dequant_ref(layer.weight, layer.weight_scale).t()
++    ref = ref + bias.double()
++    rel = (out.double() - ref).norm() / ref.norm()
++    assert rel < 2e-2, f"relative error {rel.item():.3e}"
++
++
++@gfx11_only
++def test_init_selects_w4a8_only_when_enabled(monkeypatch):
++    pytest.importorskip("quark")
++    monkeypatch.setattr(envs, "VLLM_ROCM_MXFP4_W4A8", True)
++    kernel = init_mxfp4_linear_kernel(activation_quant_key=kMxfp4Dynamic)
++    assert isinstance(kernel, RdnaW4A8MxFp4LinearKernel)
++
++    monkeypatch.setattr(envs, "VLLM_ROCM_MXFP4_W4A8", False)
++    kernel = init_mxfp4_linear_kernel(activation_quant_key=kMxfp4Dynamic)
++    assert not isinstance(kernel, RdnaW4A8MxFp4LinearKernel)
++
++
++@pytest.mark.cpu_test
++def test_can_implement_rejects_non_mxfp4_activation():
++    config = MxFp4LinearLayerConfig(activation_quant_key=kMxfp6E3M2Dynamic)
++    can_implement, reason = RdnaW4A8MxFp4LinearKernel.can_implement(config)
++    assert not can_implement
++    assert reason
++
++
++@pytest.mark.cpu_test
++def test_is_supported_requires_rocm_gfx11():
++    with patch(
++        "vllm.model_executor.kernels.linear.mxfp4.rdna_w4a8.current_platform.is_rocm",
++        return_value=False,
++    ):
++        is_supported, reason = RdnaW4A8MxFp4LinearKernel.is_supported()
++    assert not is_supported
++    assert reason
+diff --git a/vllm/_custom_ops.py b/vllm/_custom_ops.py
+index eef1183697f3..de254785092c 100644
+--- a/vllm/_custom_ops.py
++++ b/vllm/_custom_ops.py
+@@ -2130,6 +2130,27 @@ def _wvSplitK_int4_g_fake(
+         )
+ 
+ 
++def mxfp4_w4a8_gemv(
++    a: torch.Tensor,
++    b_q: torch.Tensor,
++    b_scale: torch.Tensor,
++) -> torch.Tensor:
++    # a: [M, K] fp16/bf16 with 1 <= M <= 8; b_q: [N, K/2] uint8 E2M1;
++    # b_scale: [N, K/32] uint8 E8M0. Returns [M, N] in a.dtype.
++    return torch.ops._rocm_C.mxfp4_w4a8_gemv(a, b_q, b_scale)
++
++
++if hasattr(torch.ops, "_rocm_C") and hasattr(torch.ops._rocm_C, "mxfp4_w4a8_gemv"):
++
++    @register_fake("_rocm_C::mxfp4_w4a8_gemv")
++    def _mxfp4_w4a8_gemv_fake(
++        a: torch.Tensor,
++        b_q: torch.Tensor,
++        b_scale: torch.Tensor,
++    ) -> torch.Tensor:
++        return torch.empty((a.size(0), b_q.size(0)), dtype=a.dtype, device=a.device)
++
++
+ def wvSplitKrc(
+     a: torch.Tensor, b: torch.Tensor, cu_count: int, bias: torch.Tensor = None
+ ) -> torch.Tensor:
+diff --git a/vllm/envs.py b/vllm/envs.py
+index 851741d5253b..ea9808f60c60 100755
+--- a/vllm/envs.py
++++ b/vllm/envs.py
+@@ -157,6 +157,7 @@
+     VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS: bool = False
+     VLLM_ROCM_USE_AITER_TRITON_GEMM: bool = True
+     VLLM_ROCM_USE_SKINNY_GEMM: bool = True
++    VLLM_ROCM_MXFP4_W4A8: bool = False
+     VLLM_ROCM_FP8_PADDING: bool = True
+     VLLM_ROCM_MOE_PADDING: bool = True
+     VLLM_ROCM_SHUFFLE_KV_CACHE_LAYOUT: bool = False
+@@ -1396,6 +1397,12 @@ def _resolve_rust_cli_path() -> str | None:
+     "VLLM_ROCM_USE_SKINNY_GEMM": lambda: (
+         os.getenv("VLLM_ROCM_USE_SKINNY_GEMM", "True").lower() in ("true", "1")
+     ),
++    # Opt in to the int8-activation (W4A8) MXFP4 GEMV for decode batches of
++    # up to 8 tokens on RDNA3/RDNA3.5 (gfx11). Activations are quantized to
++    # int8 per 32-element group, which differs from the checkpoint numerics.
++    "VLLM_ROCM_MXFP4_W4A8": lambda: (
++        os.getenv("VLLM_ROCM_MXFP4_W4A8", "False").lower() in ("true", "1")
++    ),
+     # Pad the fp8 weights to 256 bytes for ROCm
+     "VLLM_ROCM_FP8_PADDING": lambda: bool(int(os.getenv("VLLM_ROCM_FP8_PADDING", "1"))),
+     # Pad the weights for the moe kernel
+diff --git a/vllm/model_executor/kernels/linear/__init__.py b/vllm/model_executor/kernels/linear/__init__.py
+index 484143ffc14a..79bdb8c1d76e 100644
+--- a/vllm/model_executor/kernels/linear/__init__.py
++++ b/vllm/model_executor/kernels/linear/__init__.py
+@@ -88,6 +88,9 @@
+ from vllm.model_executor.kernels.linear.mxfp4.marlin import (
+     MarlinMxFp4LinearKernel,
+ )
++from vllm.model_executor.kernels.linear.mxfp4.rdna_w4a8 import (
++    RdnaW4A8MxFp4LinearKernel,
++)
+ from vllm.model_executor.kernels.linear.mxfp4.xpu import (
+     XPUMxFp4LinearKernel,
+ )
+@@ -595,6 +598,7 @@ def _resolve_backend_kernels(
+         EmulationMxfp4LinearKernel,
+     ],
+     PlatformEnum.ROCM: [
++        RdnaW4A8MxFp4LinearKernel,
+         AiterMxfp4LinearKernel,
+         EmulationMxfp4LinearKernel,
+     ],
+@@ -1310,6 +1314,7 @@ def register_linear_kernel(
+     "EmulationMxfp4LinearKernel",
+     "FlashInferMxFp4LinearKernel",
+     "MarlinMxFp4LinearKernel",
++    "RdnaW4A8MxFp4LinearKernel",
+     "FlashInferCutedslMxfp8LinearKernel",
+     "FlashInferCutlassMxfp8LinearKernel",
+     "FlashInferTrtllmMxfp8LinearKernel",
+diff --git a/vllm/model_executor/kernels/linear/mxfp4/rdna_w4a8.py b/vllm/model_executor/kernels/linear/mxfp4/rdna_w4a8.py
+new file mode 100644
+index 000000000000..cb1a4499c7df
+--- /dev/null
++++ b/vllm/model_executor/kernels/linear/mxfp4/rdna_w4a8.py
+@@ -0,0 +1,154 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""MXFP4 linear kernel for RDNA3/RDNA3.5 (gfx11) with an int8-activation decode
++path.
++
++Routes on the number of activation rows M:
++  1 <= M <= MAX_W4A8_BATCH_SIZE (decode, speculative verify):
++      HIP W4A8 GEMV (``_rocm_C.mxfp4_w4a8_gemv``). Activations are quantized
++      to int8 per 32-element group and reduced with int8 dot instructions.
++  otherwise (prefill, profiling):
++      dequantize the weight and run a high-precision GEMM, the same math as
++      ``EmulationMxfp4LinearKernel``.
++
++Both paths read the checkpoint layout directly ([N, K/2] uint8 E2M1 codes,
++[N, K/32] uint8 E8M0 scales), so there is no weight repack.
++
++Opt-in with ``VLLM_ROCM_MXFP4_W4A8=1``: the int8 activation rounding is not the
++numerics the checkpoint specifies.
++"""
++
++import torch
++import torch.nn.functional as F
++from torch.nn.parameter import Parameter
++
++import vllm.envs as envs
++from vllm.model_executor.layers.quantization.utils.mxfp4_utils import (
++    dequant_mxfp4,
++    quant_dequant_mxfp4,
++)
++from vllm.model_executor.layers.quantization.utils.quant_utils import (
++    kMxfp4Dynamic,
++)
++from vllm.platforms import current_platform
++from vllm.utils.import_utils import has_quark
++from vllm.utils.torch_utils import direct_register_custom_op
++
++from .base import MxFp4LinearKernel, MxFp4LinearLayerConfig
++
++MAX_W4A8_BATCH_SIZE = 8
++_MXFP4_GROUP_SIZE = 32
++
++
++def _rdna_mxfp4_w4a8_apply_impl(
++    x_2d: torch.Tensor,
++    weight: torch.Tensor,
++    weight_scale: torch.Tensor,
++    bias: torch.Tensor | None,
++    act_qdq: bool,
++) -> torch.Tensor:
++    import vllm._custom_ops as ops
++
++    M = x_2d.shape[0]
++    if 0 < M <= MAX_W4A8_BATCH_SIZE and x_2d.dtype in (torch.float16, torch.bfloat16):
++        out = ops.mxfp4_w4a8_gemv(x_2d, weight, weight_scale)
++        if bias is not None:
++            out.add_(bias)
++        return out
++
++    x_in = quant_dequant_mxfp4(x_2d) if act_qdq else x_2d
++    return F.linear(x_in, dequant_mxfp4(weight, weight_scale, x_2d.dtype), bias)
++
++
++def _rdna_mxfp4_w4a8_apply_fake(
++    x_2d: torch.Tensor,
++    weight: torch.Tensor,
++    weight_scale: torch.Tensor,
++    bias: torch.Tensor | None,
++    act_qdq: bool,
++) -> torch.Tensor:
++    return torch.empty(
++        (x_2d.shape[0], weight.shape[0]), dtype=x_2d.dtype, device=x_2d.device
++    )
++
++
++direct_register_custom_op(
++    op_name="rdna_mxfp4_w4a8_apply",
++    op_func=_rdna_mxfp4_w4a8_apply_impl,
++    mutates_args=[],
++    fake_impl=_rdna_mxfp4_w4a8_apply_fake,
++)
++
++
++class RdnaW4A8MxFp4LinearKernel(MxFp4LinearKernel):
++    """MXFP4 GEMM for RDNA3/RDNA3.5: W4A8 int8-dot GEMV for M <= 8, dequant +
++    high-precision GEMM above."""
++
++    def __init__(self, config: MxFp4LinearLayerConfig) -> None:
++        super().__init__(config)
++        # Larger batches keep the checkpoint's MXFP4 activation QDQ, as the
++        # emulation kernel does.
++        self.act_qdq = config.activation_quant_key == kMxfp4Dynamic
++
++    @classmethod
++    def is_supported(
++        cls, compute_capability: int | None = None
++    ) -> tuple[bool, str | None]:
++        if not current_platform.is_rocm():
++            return False, "only targets ROCm"
++        from vllm.platforms.rocm import on_gfx11
++
++        if not on_gfx11():
++            return False, "requires RDNA3/RDNA3.5 (gfx11)"
++        if not envs.VLLM_ROCM_MXFP4_W4A8:
++            return False, "disabled; set VLLM_ROCM_MXFP4_W4A8=1 to enable"
++        if not (
++            hasattr(torch.ops, "_rocm_C")
++            and hasattr(torch.ops._rocm_C, "mxfp4_w4a8_gemv")
++        ):
++            return False, "_rocm_C.mxfp4_w4a8_gemv is not built"
++        return True, None
++
++    @classmethod
++    def can_implement(cls, config: MxFp4LinearLayerConfig) -> tuple[bool, str | None]:
++        if config.activation_quant_key not in (None, kMxfp4Dynamic):
++            return False, "only supports MXFP4 dynamic or unquantized activations"
++        if not has_quark():
++            return False, "amd-quark package not available (needed for M > 8)"
++        return True, None
++
++    def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
++        weight = layer.weight.data
++        weight_scale = layer.weight_scale.data
++        if weight.dtype != torch.uint8 or weight_scale.dtype != torch.uint8:
++            raise ValueError(
++                "RdnaW4A8MxFp4LinearKernel expects uint8 packed weights and "
++                f"uint8 E8M0 scales, got {weight.dtype} and {weight_scale.dtype}"
++            )
++        N, k_half = weight.shape
++        K = 2 * k_half
++        if K % _MXFP4_GROUP_SIZE != 0 or weight_scale.shape != (
++            N,
++            K // _MXFP4_GROUP_SIZE,
++        ):
++            raise ValueError(
++                "RdnaW4A8MxFp4LinearKernel expects weight [N, K/2] and "
++                f"weight_scale [N, K/32] with K % 32 == 0, got "
++                f"{tuple(weight.shape)} and {tuple(weight_scale.shape)}"
++            )
++        layer.weight = Parameter(weight.contiguous(), requires_grad=False)
++        layer.weight_scale = Parameter(weight_scale.contiguous(), requires_grad=False)
++
++    def apply_weights(
++        self,
++        layer: torch.nn.Module,
++        x: torch.Tensor,
++        bias: torch.Tensor | None = None,
++    ) -> torch.Tensor:
++        x_2d = x.reshape(-1, x.shape[-1])
++        if not x_2d.is_contiguous():
++            x_2d = x_2d.contiguous()
++        out = torch.ops.vllm.rdna_mxfp4_w4a8_apply(
++            x_2d, layer.weight, layer.weight_scale, bias, self.act_qdq
++        )
++        return out.reshape(*x.shape[:-1], out.shape[-1])
