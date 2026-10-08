@@ -52,7 +52,7 @@ spec:
             resources:
               requests:
                 cpu: 500m
-                memory: 8Gi
+                memory: 1Gi
               limits:
                 memory: 16Gi
         # Mods disabled: uncomment this block and the scripts persistence entry below, and restore the
@@ -75,6 +75,8 @@ spec:
         # limits:
         # memory: 256Mi
     defaultPodOptions:
+      # 5000: evicted after unclassified pods (0), still before an llmkube model (llmkube-normal 10000).
+      priorityClassName: homelab-important
       # init.sh skips its root-only uid remap when started as the image's steam user (1000:1000).
       securityContext:
         runAsNonRoot: true
