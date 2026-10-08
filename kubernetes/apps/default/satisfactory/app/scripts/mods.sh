@@ -17,6 +17,6 @@ chmod +x "$HOME/ficsit"
 # ficsit-cli has no non-interactive "profile mod add", so write the profile directly.
 jq -n --arg mods "$MODS" '{profiles: {server: {name: "server", required_targets: null,
   mods: ($mods | split(" ") | map({(.): {version: ">=0.0.0", enabled: true}}) | add)}},
-  selected_profile: "server", version: 0}' > "$HOME/.local/share/ficsit/profiles.json"
+  selected_profile: "server", version: 0}' >"$HOME/.local/share/ficsit/profiles.json"
 "$HOME/ficsit" installation add /config/gamefiles server
 "$HOME/ficsit" apply

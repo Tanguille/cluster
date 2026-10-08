@@ -12,6 +12,9 @@ spec:
   values:
     controllers:
       satisfactory:
+        annotations:
+          # The scripts ConfigMap has a fixed name, so edits to mods.sh would not otherwise re-run the init container.
+          reloader.stakater.com/auto: "true"
         strategy: Recreate
         containers:
           app:
