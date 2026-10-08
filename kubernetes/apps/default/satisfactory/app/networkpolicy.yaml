@@ -1,0 +1,23 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: satisfactory-ingress-allowlist
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: satisfactory
+  ingress:
+    # externalTrafficPolicy Local preserves the client source IP, so LAN and
+    # port-forwarded internet traffic both arrive as world.
+    - fromEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "7777"
+              protocol: TCP
+            - port: "7777"
+              protocol: UDP
+            - port: "8888"
+              protocol: TCP

@@ -11,7 +11,7 @@ spec:
   # hostNetwork pod here, its nginx only binds 127.0.0.1:7125, and janus
   # WebRTC streams on host UDP ports whose sources this namespace-level
   # policy cannot express. Its per-pod risk is unchanged from today.
-  # Per-pod allowlists (changedetection, karakeep, searxng) stay and union
+  # Per-pod allowlists (changedetection, karakeep, satisfactory, searxng) stay and union
   # with this one. Egress stays default-allow.
   endpointSelector:
     matchExpressions:
