@@ -18,13 +18,13 @@ spec:
         strategy: Recreate
         containers:
           app:
-            image: &image
+            image:
               repository: ghcr.io/robtme/satisfactory-server
               tag: v1.9.11
             env:
               MAXTICKRATE: "120"
               TIMEOUT: "300"
-            securityContext: &sc
+            securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
             probes:
@@ -55,23 +55,25 @@ spec:
                 memory: 8Gi
               limits:
                 memory: 16Gi
-        initContainers:
-          mods:
-            image: *image
-            env:
-              # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
-              MODS: SmartFoundations InfiniteZoop InfiniteNudge EfficiencyCheckerMod LoadBalancers RefinedPower
-              FICSIT_VERSION: v0.7.1
-              FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
-              HOME: /tmp/ficsit
-            command: [/bin/bash, /scripts/mods.sh]
-            securityContext: *sc
-            resources:
-              requests:
-                cpu: 100m
-                memory: 128Mi
-              limits:
-                memory: 256Mi
+        # Mods disabled: uncomment this block and the scripts persistence entry below, and restore the
+        # `&image` and `&sc` anchors, to re-enable.
+        # initContainers:
+        # mods:
+        # image: *image
+        # env:
+        # # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
+        # MODS: SmartFoundations InfiniteZoop InfiniteNudge EfficiencyCheckerMod LoadBalancers RefinedPower
+        # FICSIT_VERSION: v0.7.1
+        # FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
+        # HOME: /tmp/ficsit
+        # command: [/bin/bash, /scripts/mods.sh]
+        # securityContext: *sc
+        # resources:
+        # requests:
+        # cpu: 100m
+        # memory: 128Mi
+        # limits:
+        # memory: 256Mi
     defaultPodOptions:
       # init.sh skips its root-only uid remap when started as the image's steam user (1000:1000).
       securityContext:
@@ -95,14 +97,14 @@ spec:
           messaging:
             port: 8888
     persistence:
-      scripts:
-        type: configMap
-        name: satisfactory-scripts
-        advancedMounts:
-          satisfactory:
-            mods:
-              - path: /scripts
-                readOnly: true
+      # scripts:
+      # type: configMap
+      # name: satisfactory-scripts
+      # advancedMounts:
+      # satisfactory:
+      # mods:
+      # - path: /scripts
+      # readOnly: true
       config:
         existingClaim: *app
         globalMounts:
