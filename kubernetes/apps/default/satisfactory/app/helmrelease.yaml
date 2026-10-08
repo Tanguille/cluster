@@ -28,17 +28,18 @@ spec:
                 custom: true
                 spec:
                   exec:
-                    command: ["/bin/sh", "-c", "/home/steam/healthcheck.sh"]
+                    command: ["/home/steam/healthcheck.sh"]
                   periodSeconds: 30
                   timeoutSeconds: 30
                   failureThreshold: 4
               readiness: *probe
               # First start downloads the game via steamcmd.
               startup:
-                <<: *probe
+                enabled: true
+                custom: true
                 spec:
                   exec:
-                    command: ["/bin/sh", "-c", "/home/steam/healthcheck.sh"]
+                    command: ["/home/steam/healthcheck.sh"]
                   periodSeconds: 10
                   timeoutSeconds: 30
                   failureThreshold: 120
@@ -57,24 +58,7 @@ spec:
               FICSIT_VERSION: v0.7.1
               FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
               HOME: /tmp/ficsit
-            command:
-              - /bin/bash
-              - -ec
-              - |
-                # First start: steamcmd hasn't installed the game yet, so mods land on the next restart.
-                [ -f /config/gamefiles/FactoryServer.sh ] || { echo "game not installed yet, skipping mods"; exit 0; }
-                # Fresh state each run: `installation add` fails if a retry finds the previous one.
-                rm -rf $HOME
-                mkdir -p $HOME/.local/share/ficsit
-                curl -fsSL -o $HOME/ficsit https://github.com/satisfactorymodding/ficsit-cli/releases/download/$FICSIT_VERSION/ficsit_linux_amd64
-                echo "$FICSIT_SHA256  $HOME/ficsit" | sha256sum -c -
-                chmod +x $HOME/ficsit
-                # ficsit-cli has no non-interactive "profile mod add", so write the profile directly.
-                jq -n --arg mods "$MODS" '{profiles: {server: {name: "server", required_targets: null,
-                  mods: ($mods | split(" ") | map({(.): {version: ">=0.0.0", enabled: true}}) | add)}},
-                  selected_profile: "server", version: 0}' > $HOME/.local/share/ficsit/profiles.json
-                $HOME/ficsit installation add /config/gamefiles server
-                $HOME/ficsit apply
+            command: [/bin/bash, /scripts/mods.sh]
             securityContext:
               runAsUser: 1000
               runAsGroup: 1000
@@ -99,6 +83,14 @@ spec:
           messaging:
             port: 8888
     persistence:
+      scripts:
+        type: configMap
+        name: satisfactory-scripts
+        advancedMounts:
+          satisfactory:
+            mods:
+              - path: /scripts
+                readOnly: true
       config:
         existingClaim: *app
         globalMounts:

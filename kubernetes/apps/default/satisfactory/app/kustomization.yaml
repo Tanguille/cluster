@@ -5,3 +5,13 @@ kind: Kustomization
 resources:
   - helmrelease.yaml
   - networkpolicy.yaml
+configMapGenerator:
+  - name: satisfactory-scripts
+    files:
+      - scripts/mods.sh
+    options:
+      annotations:
+        # Plain shell script: its ${vars} would be read as flux vars by strict postBuild envsubst.
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
