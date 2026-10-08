@@ -15,7 +15,7 @@ spec:
         strategy: Recreate
         containers:
           app:
-            image:
+            image: &image
               repository: ghcr.io/robtme/satisfactory-server
               tag: v1.9.11
             env:
@@ -48,6 +48,42 @@ spec:
                 memory: 8Gi
               limits:
                 memory: 16Gi
+        initContainers:
+          mods:
+            image: *image
+            env:
+              # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
+              MODS: SmartFoundations InfiniteZoop InfiniteNudge EfficiencyCheckerMod LoadBalancers RefinedPower
+              FICSIT_VERSION: v0.7.1
+              FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
+              HOME: /tmp/ficsit
+            command:
+              - /bin/bash
+              - -ec
+              - |
+                # First start: steamcmd hasn't installed the game yet, so mods land on the next restart.
+                [ -f /config/gamefiles/FactoryServer.sh ] || { echo "game not installed yet, skipping mods"; exit 0; }
+                # Fresh state each run: `installation add` fails if a retry finds the previous one.
+                rm -rf $HOME
+                mkdir -p $HOME/.local/share/ficsit
+                curl -fsSL -o $HOME/ficsit https://github.com/satisfactorymodding/ficsit-cli/releases/download/$FICSIT_VERSION/ficsit_linux_amd64
+                echo "$FICSIT_SHA256  $HOME/ficsit" | sha256sum -c -
+                chmod +x $HOME/ficsit
+                # ficsit-cli has no non-interactive "profile mod add", so write the profile directly.
+                jq -n --arg mods "$MODS" '{profiles: {server: {name: "server", required_targets: null,
+                  mods: ($mods | split(" ") | map({(.): {version: ">=0.0.0", enabled: true}}) | add)}},
+                  selected_profile: "server", version: 0}' > $HOME/.local/share/ficsit/profiles.json
+                $HOME/ficsit installation add /config/gamefiles server
+                $HOME/ficsit apply
+            securityContext:
+              runAsUser: 1000
+              runAsGroup: 1000
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
     service:
       satisfactory:
         type: LoadBalancer
