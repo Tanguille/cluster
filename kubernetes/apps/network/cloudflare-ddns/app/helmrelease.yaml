@@ -28,10 +28,6 @@ spec:
                   secretKeyRef:
                     name: external-dns-secret
                     key: api-token
-            probes:
-              liveness: { enabled: false }
-              readiness: { enabled: false }
-              startup: { enabled: false }
             resources:
               requests:
                 cpu: 10m
