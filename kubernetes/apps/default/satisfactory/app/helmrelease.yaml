@@ -22,15 +22,25 @@ spec:
               PUID: "1000"
               PGID: "1000"
             probes:
-              liveness:
+              # The image's healthcheck calls the game's own HealthCheck API, not just a port check.
+              liveness: &probe
                 enabled: true
-              readiness:
-                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: ["/bin/sh", "-c", "/home/steam/healthcheck.sh"]
+                  periodSeconds: 30
+                  timeoutSeconds: 30
+                  failureThreshold: 4
+              readiness: *probe
               # First start downloads the game via steamcmd.
               startup:
-                enabled: true
+                <<: *probe
                 spec:
+                  exec:
+                    command: ["/bin/sh", "-c", "/home/steam/healthcheck.sh"]
                   periodSeconds: 10
+                  timeoutSeconds: 30
                   failureThreshold: 120
             resources:
               requests:
