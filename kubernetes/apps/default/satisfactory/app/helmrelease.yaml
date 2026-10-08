@@ -19,8 +19,11 @@ spec:
               repository: ghcr.io/robtme/satisfactory-server
               tag: v1.9.11
             env:
-              PUID: "1000"
-              PGID: "1000"
+              MAXTICKRATE: "120"
+              TIMEOUT: "300"
+            securityContext: &sc
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
             probes:
               # The image's healthcheck calls the game's own HealthCheck API, not just a port check.
               liveness: &probe
@@ -59,15 +62,21 @@ spec:
               FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
               HOME: /tmp/ficsit
             command: [/bin/bash, /scripts/mods.sh]
-            securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
+            securityContext: *sc
             resources:
               requests:
                 cpu: 100m
                 memory: 128Mi
               limits:
                 memory: 256Mi
+    defaultPodOptions:
+      # init.sh skips its root-only uid remap when started as the image's steam user (1000:1000).
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
     service:
       satisfactory:
         type: LoadBalancer
