@@ -13,13 +13,19 @@ workload instead (VictoriaMetrics):
 
 Each concurrent stream is an independent session with its OWN random prefix.
 Per session: one cold warmup turn (reported separately, excluded from steady
-state), then --turns steady turns that append a fresh tail and generate --gen
-tokens, so the prefix is cached and only the tail is computed.
+state), then --turns steady turns. Each turn appends the PREVIOUS turn's
+generated text plus a fresh tail (real multi-turn), so the prefix is cached and
+only reply + tail are computed.
+
+--warmup runs one untimed pass per level first (kernels, allocator, caches).
+--runs N repeats each level with fresh seeds and reports the median per metric
+plus the absolute spread (max-min); the spread between runs of the same config is
+the noise floor.
 
 Needs a port-forward to the vLLM pod (default 127.0.0.1:18000). Engine must be
 otherwise idle. Use --dry-run to see the plan without sending anything.
 """
-import argparse, json, os, random, re, subprocess, sys, threading, time
+import argparse, json, os, random, re, statistics, subprocess, sys, threading, time
 import urllib.request
 
 from _metrics import sample
@@ -66,12 +72,14 @@ class Session:
         self.prompt = (f"Session {seed} agent transcript.\n"
                        + words(random.Random(seed), int(prefix_tok / tpw)))
         self.turn = 0
+        self.reply = ""
 
     def next_prompt(self):
-        """Warmup returns the bare prefix; later turns append a fresh tail."""
+        """Cold turn returns the bare prefix; later turns append the last reply and a fresh tail."""
         if self.turn:
             rng = random.Random(self.seed * 7919 + self.turn)
-            self.prompt += f"\n\nTurn {self.turn}:\n" + words(rng, int(self.tail_tok / self.tpw))
+            self.prompt += (self.reply + f"\n\nTurn {self.turn}:\n"
+                            + words(rng, int(self.tail_tok / self.tpw)))
         self.turn += 1
         return self.prompt
 
@@ -128,7 +136,7 @@ def stream(base, model, prompt, gen, timeout):
     """One streamed completion; returns a record with chunk timestamps."""
     body = {"model": model, "prompt": prompt, "max_tokens": gen, "temperature": 0.7,
             "ignore_eos": True, "stream": True, "stream_options": {"include_usage": True}}
-    rec = {"t0": time.perf_counter(), "ts": [], "usage": {}}
+    rec = {"t0": time.perf_counter(), "ts": [], "usage": {}, "text": ""}
     try:
         r = urllib.request.Request(base + "/v1/completions", data=json.dumps(body).encode(),
                                    headers={"Content-Type": "application/json"})
@@ -144,6 +152,7 @@ def stream(base, model, prompt, gen, timeout):
                     rec["usage"] = d["usage"]
                 if d.get("choices") and d["choices"][0].get("text"):
                     rec["ts"].append(time.perf_counter())
+                    rec["text"] += d["choices"][0]["text"]
     except Exception as e:
         rec["err"] = str(e)[:110]
     rec["done"] = time.perf_counter()
@@ -151,7 +160,6 @@ def stream(base, model, prompt, gen, timeout):
     # usage is authoritative: an SSE chunk is not guaranteed to carry exactly one token.
     rec["gen"] = u.get("completion_tokens") or len(rec["ts"])
     rec["prompt"] = u.get("prompt_tokens", 0)
-    rec["cached"] = (u.get("prompt_tokens_details") or {}).get("cached_tokens")
     rec["ttft"] = rec["ts"][0] - rec["t0"] if rec["ts"] else None
     return rec
 
@@ -212,7 +220,7 @@ def dry_run(args):
         for p in pre:
             lp += p
             for t in range(1, args.turns + 1):
-                lp += p + args.tail * t                   # full prompt sent each turn
+                lp += p + (args.tail + args.gen) * t      # full prompt sent each turn (tails + replies)
         lg = c * args.turns * args.gen
         # steady: per turn, c tails prefill serially then decode; sessions in lockstep
         lw += args.turns * (c * args.tail / args.est_pp + args.gen / args.est_tg)
@@ -225,6 +233,7 @@ def dry_run(args):
 
 
 def run_level(args, base, level_idx, c, prefixes, poller, stop):
+    """level_idx only seeds the sessions: pass a distinct value per pass so no prefix is reused."""
     seed0 = args.seed * 1_000_003 + level_idx * 1009
     sessions = [Session(seed0 + i, p, args.tail, args.tpw) for i, p in enumerate(prefixes)]
     row0 = len(poller.rows)
@@ -251,6 +260,7 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
             if stop.is_set():
                 return
             rec = stream(base, args.model, s.next_prompt(), args.gen, args.timeout)
+            s.reply = rec["text"]
             with lk:
                 recs.append(rec)
             if rec.get("err"):
@@ -289,9 +299,6 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
         "ttft_p50": r2(pct(ttfts, 50)), "ttft_p90": r2(pct(ttfts, 90)),
         "itl_ms_p50": r2(pct(gaps, 50) * 1000) if gaps else None,
         "itl_ms_p90": r2(pct(gaps, 90) * 1000) if gaps else None,
-        "client_cached_frac": r2(sum(r["cached"] or 0 for r in ok)
-                                 / max(1, sum(r["prompt"] for r in ok)))
-        if any(r["cached"] is not None for r in ok) else None,
         "server_hit_frac": r2(hit / (hit + comp)) if hit + comp else None,
         "d_preemptions": d["preempt"], "d_request_success": d["success"],
         "d_local_cache_hit": hit, "d_local_compute": comp,
@@ -305,6 +312,25 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
         "min_free_vram": min(vram) if vram else None,
         "window_s": r2(window),
     }
+
+
+SUMMARY = ("agg_tps", "stream_tps_p50", "ttft_p50", "ttft_p90", "itl_ms_p50", "itl_ms_p90",
+           "request_queue_time_mean_s", "request_prefill_time_mean_s",
+           "kv_offload_lookup_async_delay_mean_s", "lookup_stall_events", "min_free_vram")
+
+
+def print_summary(results):
+    """Median per metric over the runs of each level; spread = max-min = the noise floor."""
+    print("\nSUMMARY median [spread] over runs; errors/preemptions summed")
+    for c in sorted({r["conc"] for r in results}):
+        rs = [r for r in results if r["conc"] == c]
+        out = {"conc": c, "runs": len(rs), "errors": sum(r["errors"] for r in rs),
+               "d_preemptions": sum(r["d_preemptions"] for r in rs),
+               "contaminated": any(r["contaminated"] for r in rs)}
+        for k in SUMMARY:
+            v = [r[k] for r in rs if r.get(k) is not None]
+            out[k] = {"median": r2(statistics.median(v)), "spread": r2(max(v) - min(v))} if v else None
+        print(json.dumps(out), flush=True)
 
 
 def main():
@@ -321,6 +347,8 @@ def main():
                     help="default random: a reused seed finds its prefix already cached")
     ap.add_argument("--tpw", type=float, default=None, help="tokens/word; default calibrated via /tokenize")
     ap.add_argument("--timeout", type=int, default=1800)
+    ap.add_argument("--warmup", action="store_true", help="one untimed pass per level before the runs")
+    ap.add_argument("--runs", type=int, default=2, help="timed passes per level; median + spread reported")
     ap.add_argument("--allow-busy", action="store_true")
     ap.add_argument("--vram", action="store_true", help="record min free VRAM via $VRAM_CMD")
     ap.add_argument("--dry-run", action="store_true")
@@ -357,10 +385,18 @@ def main():
     stop, results = threading.Event(), []
     try:
         for li, (c, pre) in enumerate(plan_levels(args)):
-            print(f"level {c}: warming {c} session(s) serially...", flush=True)
-            res = run_level(args, base, li, c, pre, poller, stop)
-            results.append(res)
-            print(json.dumps(res), flush=True)
+            # Distinct seed per pass (level*100 + pass) so no pass finds a prefix cached.
+            if args.warmup:
+                print(f"level {c}: untimed warmup pass...", flush=True)
+                run_level(args, base, li * 100, c, pre, poller, stop)
+            for ri in range(args.runs):
+                if stop.is_set():
+                    break
+                print(f"level {c} run {ri + 1}/{args.runs}: warming {c} session(s) serially...", flush=True)
+                res = run_level(args, base, li * 100 + 1 + ri, c, pre, poller, stop)
+                res["run"] = ri + 1
+                results.append(res)
+                print(json.dumps(res), flush=True)
             if stop.is_set():
                 break
     except KeyboardInterrupt:
@@ -373,9 +409,11 @@ def main():
             ("itl_ms_p90", "itl90ms"), ("requests_ok", "ok"), ("errors", "err"),
             ("server_hit_frac", "hit%"), ("d_preemptions", "preempt"),
             ("max_waiting", "maxwait"), ("contaminated", "contam")]
-    print("\n" + " ".join(f"{h:>9}" for _, h in cols))
+    print("\nPER RUN")
+    print(" ".join(f"{h:>9}" for _, h in cols))
     for r in results:
         print(" ".join(f"{str(r.get(k)):>9}" for k, _ in cols))
+    print_summary(results)
     for r in results:
         cs = [x["prefill_tps"] for x in r["cold"] if x["prefill_tps"]]
         print(f"cold conc {r['conc']}: ttft={[x['ttft'] for x in r['cold']]} "
