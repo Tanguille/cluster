@@ -23,7 +23,7 @@ sum by (pod) (rate(cnpg_pg_stat_database_blks_hit[5m]))
 **Transactions per second** (primary, all DBs):
 
 ```promql
-sum(rate(cnpg_pg_stat_database_xact_commit{cnpg_pg_replication_in_recovery="0"}[5m]))
+sum(rate(cnpg_pg_stat_database_xact_commit[5m]) and on(pod) (cnpg_pg_replication_in_recovery == 0))
 ```
 
 **Checkpoints** (timed vs requested; fewer requested = good WAL/checkpoint tuning):
