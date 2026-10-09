@@ -226,18 +226,16 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
     for s in sessions:                                    # serial warmups: clean cold prefill
         if stop.is_set():
             break
-        prompt = s.next_prompt()
-        exact = count_tokens(base, args.model, prompt)
-        rec = stream(base, args.model, prompt, 1, args.timeout)
+        # usage.prompt_tokens is the count; a separate /tokenize call only added a failure point
+        rec = stream(base, args.model, s.next_prompt(), 1, args.timeout)
         if rec.get("err"):
             errors += 1
             continue
         live.append(s)
-        cold.append({"seed": s.seed, "tokenize": exact, "prompt": rec["prompt"],
-                     "ttft": r2(rec["ttft"]),
+        cold.append({"seed": s.seed, "prompt": rec["prompt"], "ttft": r2(rec["ttft"]),
                      "prefill_tps": r2(rec["prompt"] / rec["ttft"]) if rec["ttft"] else None})
         ttft = f"{rec['ttft']:.1f}s" if rec["ttft"] is not None else "n/a (no text chunk)"
-        print(f"  cold s{s.seed}: {exact} tok (tokenize) ttft={ttft}", flush=True)
+        print(f"  cold s{s.seed}: {rec['prompt']} tok ttft={ttft}", flush=True)
     recs, lk = [], threading.Lock()
 
     def worker(s):
