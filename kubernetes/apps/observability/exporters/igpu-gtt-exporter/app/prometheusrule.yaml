@@ -1,0 +1,46 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: igpu-gtt-exporter-rules
+spec:
+  groups:
+    - name: igpu-gtt-exporter.rules
+      rules:
+        - alert: PodGTTMemoryHigh
+          # GTT is pinned host RAM outside the pod's memory cgroup; max by drops kube_pod_info's churny labels.
+          expr: |-
+            (pod_drm_memory_gtt_bytes > 3221225472)
+            * on(pod_uid) group_left(namespace, pod)
+            label_replace(max by (namespace, pod, uid) (kube_pod_info), "pod_uid", "$1", "uid", "(.*)")
+          for: 15m
+          annotations:
+            summary: >-
+              {{ $labels.namespace }}/{{ $labels.pod }} on {{ $labels.kubernetes_node }}
+              holds over 3GiB of pinned GTT GPU memory, which its memory request does not cover
+          labels:
+            severity: warning
+        - alert: IgpuGttExporterMissing
+          # One alert identity per iGPU node, even when the target is absent entirely.
+          expr: |-
+            max by (kubernetes_node) (
+              up{job="igpu-gtt-exporter", kubernetes_node=~"control-[23]"}
+            ) == 0
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-2", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (up{job="igpu-gtt-exporter", kubernetes_node="control-2"})
+            )
+            or (
+              label_replace(vector(1), "kubernetes_node", "control-3", "", "")
+              unless on(kubernetes_node)
+              max by (kubernetes_node) (up{job="igpu-gtt-exporter", kubernetes_node="control-3"})
+            )
+          for: 10m
+          annotations:
+            summary: >-
+              Per-pod GTT exporter is down or absent on {{ $labels.kubernetes_node }};
+              PodGTTMemoryHigh is blind there until it recovers
+          labels:
+            severity: warning

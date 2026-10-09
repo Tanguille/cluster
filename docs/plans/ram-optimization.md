@@ -129,7 +129,7 @@ Hardware RAM upgrade; soft-preferring control-1; CPU embedders/reranker; a secon
 
 #### Wave 2 (parallel) — iGPU accounting and visibility
 - [ ] Chunk 2: iGPU models (after CRIT-1 resolved)
-- [ ] Chunk 3: per-pod GTT metric + alert text
+- [x] Chunk 3: per-pod GTT metric + alert text
 
 #### Wave 3 (sequential) — Movable workloads
 - [ ] Chunk 4: honest requests on movable workloads (depends on Chunk 2 being live)
@@ -211,7 +211,8 @@ Chunk 1; CRIT-1 resolved and the 2048 reranker config live for ≥ 24h (re-measu
 ---
 
 ### Chunk 3: Per-pod GTT metric
-**Status:** Not Started
+**Status:** Complete — committed, not deployed (needs push + merge)
+**Result:** `observability/exporters/igpu-gtt-exporter/` (app-template DaemonSet, hostPID, uid 0 + `SYS_PTRACE` only, stdlib `exporter.py` with `--self-check`). Exports `pod_drm_memory_gtt_bytes{pod_uid}`; alerts `PodGTTMemoryHigh` (> 3 GiB for 15m, joined to `kube_pod_info.uid`) and `IgpuGttExporterMissing` live in the app's own PrometheusRule. Step 2 skipped: `node-exporter/app/prometheusrule.yaml` is in an open PR, so `NodeGTTMemoryHigh` text is unchanged. Real-data check on control-3 (pids 17192, 237113, fdinfo + cgroup via talosctl): parser sum 1,541,173,248 B vs `mem_info_gtt_used` 1,551,114,240 B (99.4%).
 **Wave:** 2
 **Estimated Context:** ~50k tokens
 **Complexity:** Medium

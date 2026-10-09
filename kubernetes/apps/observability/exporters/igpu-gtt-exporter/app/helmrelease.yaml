@@ -1,0 +1,78 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: igpu-gtt-exporter
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  interval: 1h
+  values:
+    controllers:
+      igpu-gtt-exporter:
+        type: daemonset
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          # host /proc: other pods' fdinfo and cgroup
+          hostPID: true
+          nodeSelector:
+            amd.com/igpu: "true"
+        containers:
+          app:
+            image:
+              repository: python
+              tag: 3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2
+            command: [python3, /config/exporter.py]
+            ports:
+              - name: http
+                containerPort: 8080
+            securityContext:
+              # fdinfo of root processes with a wider cap set needs uid 0 plus SYS_PTRACE (ptrace read mode)
+              runAsUser: 0
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: [ALL]
+                add: [SYS_PTRACE]
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /metrics
+                    port: http
+              readiness: *probe
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 64Mi
+    defaultPodOptions:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+    service:
+      app:
+        ports:
+          http:
+            port: 8080
+    serviceMonitor:
+      app:
+        endpoints:
+          - port: http
+            relabelings:
+              - action: replace
+                sourceLabels: [__meta_kubernetes_pod_node_name]
+                targetLabel: kubernetes_node
+    persistence:
+      config:
+        type: configMap
+        name: igpu-gtt-exporter
+        globalMounts:
+          - readOnly: true
