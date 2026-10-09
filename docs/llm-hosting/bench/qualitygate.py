@@ -17,7 +17,7 @@ nll uses prompt_logprobs (teacher forced). vLLM materialises logits for each sch
 prefill chunk, so it can allocate GPU memory beyond what boot profiled: watch free VRAM
 the first time (bench/vramfree.sh).
 """
-import argparse, json, os, random, re, statistics, struct, sys, time, urllib.request, zlib
+import argparse, http.client, json, os, random, re, statistics, struct, sys, time, urllib.error, urllib.request, zlib
 import base64
 from concurrent.futures import ThreadPoolExecutor
 
@@ -33,10 +33,18 @@ A = None  # parsed args
 
 
 def post(path, body, timeout=3600):
-    r = urllib.request.Request(A.base + path, data=json.dumps(body).encode(),
-                               headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(r, timeout=timeout) as resp:
-        return json.loads(resp.read())
+    # A kubectl port-forward can drop mid-run; every request is greedy and idempotent, so resend.
+    for attempt in range(6):
+        r = urllib.request.Request(A.base + path, data=json.dumps(body).encode(),
+                                   headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(r, timeout=timeout) as resp:
+                return json.loads(resp.read())
+        except (ConnectionError, http.client.HTTPException, urllib.error.URLError) as e:
+            if attempt == 5:
+                raise
+            print(f"post {path}: {e!r}, retry {attempt + 1}/5", flush=True)
+            time.sleep(10)
 
 
 def tokenize(text):
@@ -295,7 +303,7 @@ def mode_needle():
     out = []
     for w in (15000, 45000, 150000):                               # 17.5K / 52.5K / 175K tokens
         p = os.popen(f"{sys.executable} {HERE}/needle.py {A.port} {w}").read()
-        print(p.strip().splitlines()[-1] if p.strip() else "needle.py no output")
+        print(p.strip() or "needle.py no output")
         ok = "needle 3/3" in p
         out.append({"check": f"needle-{w}w", "pass": ok})
     rng = random.Random(time.time_ns())
