@@ -46,8 +46,9 @@ Setup:
   at 98K.** Measured: 16,101 tokens in 16.9 s, 40,311 in 41.5 s, 64,427 in 70.9 s,
   98,637 in 122.1 s. Up to 40K, prefill is bound by the GEMMs and GDN. Attention costs
   about 15% more by 98K.
-- **8 sessions collapse on KV capacity.** About 414K tokens of prefixes and growth
-  overflow the 430,982-token pool, so sessions evict each other and 656K tokens are
+- **8 sessions collapse on KV capacity.** The 8 sessions cycle 40K/16K/64K/40K/98K
+  prefixes (378K) and add about 36K over three turns (8 x 3 x (1,254 tail + 235
+  reply)), so about 414K tokens overflow the 430,982-token pool after the 5% watermark, so sessions evict each other and 656K tokens are
   recomputed. The offload tier served 270K (`external_kv_transfer`). fp8's
   304,808-token pool would hit this wall at about 5-6 sessions.
 - **The offload lookup stall did not fire during the run.** The
@@ -105,7 +106,7 @@ prompt). All are aggregate tok/s unless noted.
 | UltraQuant, upstream kernel | 30.54 | 18.11 | 66.8 s | 31.4/57.1/74.6/96.3/115.7 | not run | not run |
 | UltraQuant, upstream tuned geometry | contaminated | 23.57 | 67.0 s | 30.0/55.1/72.7/94.4/113.1 | not run | not run |
 | UltraQuant + `UQ_FAST=1` (pre-retune) | 33.04 | 29.60 | 67.1-67.3 s | 31.7/58.2/74.0/98.4/118.6 | 23.49/49.57 | 1.29/6.37 s |
-| UltraQuant + `UQ_FAST=1`, retuned, 262K (20:0xZ) | 34.02 (0.4K) | 32.00 (48.6K, 1 rep) | 50.74 s (48.6K) | not run | 24.07/51.62 (2: 37.42) | 1.27/6.35 s (2: 2.40) |
+| UltraQuant + `UQ_FAST=1`, retuned, 262K (2026-10-07 19:49Z) | 34.02 (0.4K) | 32.00 (48.6K, 1 rep) | 50.74 s (48.6K) | not run | 24.07/51.62 (2: 37.42) | 1.27/6.35 s (2: 2.40) |
 
 - **8 slots, short context** (`concsweep.py`, 3 reps): aggregate 1..8 =
   31.9/57.7/75.7/98.6/119.7/110.0/126.3/143.4. M=6 dips because
