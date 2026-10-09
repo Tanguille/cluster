@@ -113,7 +113,7 @@ from vllm.v1.attention.ops.ultraquant.triton_dequant import ultraquant_full_dequ
 from vllm.v1.attention.ops.ultraquant.triton_store import _get_hadamard  # noqa: E402
 
 MIB = 2**20
-SLOT_BYTES_PER_TOKEN = HK * F.slot_size(D)  # 1088
+SLOT_BYTES = HK * F.slot_size(D)  # 1088 bytes per cached token
 SCALE = D**-0.5
 H = _get_hadamard(D, DEV)
 CAP = T.CAP_GIB * 2**30
@@ -123,7 +123,7 @@ CUS = torch.cuda.get_device_properties(0).multi_processor_count
 # --- cell memory model (bytes); the allocator cap is the real limit, this only picks cached_eff -----------------
 
 def seq_bytes(cached, q):
-    return -(-(cached + q) // BS) * BS * SLOT_BYTES_PER_TOKEN
+    return -(-(cached + q) // BS) * BS * SLOT_BYTES
 
 
 def arena_sets(cached, q, arena_mib):
@@ -249,7 +249,7 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
     q_t = (torch.randn(q, HQ, D, generator=g) * 0.1).to(torch.bfloat16).to(DEV)
     kc = torch.randn(q, HK, D, generator=g).to(torch.bfloat16).to(DEV)
     cell = dict(q=q, cached_req=cached_req, cached_eff=cached, shrunk=cached != cached_req, sets=nsets,
-                distinct_mib=round(nsets * nb * BS * SLOT_BYTES_PER_TOKEN / MIB), arena_relaxed=arena_mib < 256)
+                distinct_mib=round(nsets * nb * BS * SLOT_BYTES / MIB), arena_relaxed=arena_mib < 256)
     emit(kind="cell", **cell)
 
     up = upstream_runner(arena, bts, cached, q_t, kc)
@@ -281,7 +281,7 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
     geoms = [dict(block_m=m, tile_size=t, num_warps=w) for m, t, w in
              itertools.product(args.ms, args.ts, args.ws)]
     best = math.inf
-    base = nsets * nb * BS * SLOT_BYTES_PER_TOKEN + 14336 * q  # arena + q_t + kc
+    base = nsets * nb * BS * SLOT_BYTES + 14336 * q  # arena + q_t + kc
     for geom in geoms:  # screen: auto segment count
         s = auto_segments(q, geom["block_m"], geom["tile_size"], cached, base)
         ms = measure(geom, s, reps if args.full else args.probe_reps, None if args.full else 4 * best)
