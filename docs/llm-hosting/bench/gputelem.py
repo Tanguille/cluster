@@ -20,12 +20,14 @@ def dev():
     p = glob.glob("/sys/class/drm/card*/device/mem_info_vram_total")
     if not p:
         sys.exit("gputelem: no amdgpu sysfs here")
-    return os.path.dirname(p[0])
+    # An APU's carve-out also has mem_info_vram_total; the dGPU is the card with the most VRAM.
+    return os.path.dirname(max(p, key=lambda f: rd(f) or 0))
 
 
 def rd(path, scale=1.0):
     try:
-        return float(open(path).read().strip()) / scale
+        with open(path) as f:
+            return float(f.read().strip()) / scale
     except (OSError, ValueError):
         return None
 

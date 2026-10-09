@@ -42,7 +42,7 @@ Snapshot names: `base` (pre-roll stack), `c5` (both flags on `43b4aaea3`), `n81`
 | --- | --- | --- |
 | NLL mean (20 texts, 8K-32K) | 2.08628; +0.00000 vs `c5`, `c5` vs pre-roll <= 5e-5 per text | `qualitygate.py nll --name n81 --compare c5` |
 | Agree determinism | pre-roll stack, second boot: 60/60; rolled vs `c5`: 60/60 | `qualitygate.py agree --name n81 --compare c5` |
-| Agree, `--prefix-match-unit 64` vs pre-roll | 66.4% (27/60), zero cache hits in the run: the extra prefill split, accepted on the rows around it | `qualitygate.py agree --name pmu64 --compare base` |
+| Agree, `--prefix-match-unit 64` vs pre-roll | 66.4% of tokens before first divergence, 27 of 60 prompts diverged, zero cache hits in the run: the extra prefill split, accepted on the rows around it | `qualitygate.py agree --name pmu64 --compare base` |
 | GSM8K first 150 | 146/150 pre-roll and with both flags | `qualitygate.py gsm8k` |
 | Tools single / 5 concurrent | 12/12 / 12/12 | `qualitygate.py tools --name n81` |
 | Needles / cached / offload reload | 3/3 at 17.5K, 52.5K, 175K / PASS / PASS | `qualitygate.py needle --name c5n` |
