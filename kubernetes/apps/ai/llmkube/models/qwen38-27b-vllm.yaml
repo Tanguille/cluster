@@ -146,8 +146,10 @@ spec:
   # 8: +19% short-context aggregate over 5; M=6-8 leave the 5-row skinny W4A16 kernel for Triton.
   parallelSlots: 8
   bindAddress: 0.0.0.0
-  # Digest-pinned nightly. After a bump: boot log "UltraQuant ... fast=True" with no SKIPPED, then
-  # bench/qualitygate.py and bench/prodshape.py in the pod vs docs/llm-hosting/ttft-breakdown-2026-10.md.
+  # Digest-pinned nightly. After a bump the boot log shows "Triton M<=32 tile" and "UltraQuant ... fast=True
+  # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
+  # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
+  # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
   image: vllm/vllm-openai-rocm:nightly@sha256:b2bbb3396b5eceed9b6b630b4891d8af81d55cecdff902eee5971f72ce89a9f5
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
@@ -157,14 +159,14 @@ spec:
     # UltraQuant 4-bit KV (vllm#57057), 18,091 B/token; the CRD enum lacks it. See docs/llm-hosting/ultraquant-2026-10-07.md.
     kvCacheDtype: auto
     kvCacheCustomDtype: ultraquant_4bit
-    # ~89% of real prompt tokens hit the GPU prefix cache (2026-10-09).
+    # 91% of prompt tokens are prefix-cache hits (30d, ultraquant-2026-10-07.md Workload).
     enablePrefixCaching: true
-    # 2048 vs 4096 / 8192: cold prefill 1,080-1,154 vs 1,055 / 757 tok/s, min free VRAM at 8 sessions 2.53 vs 2.02 / 1.41 GiB, NLL +0.00035.
+    # 2048 beats 4096 and 8192 on cold prefill and free VRAM at 8 sessions, NLL +0.00035 (ttft-breakdown-2026-10.md).
     maxNumBatchedTokens: 2048
     # Shared with Jellyfin: never above 0.875. --kv-cache-memory sets the pool.
     gpuMemoryUtilization: 0.875
   env:
-    # Full attention runs the ULTRAQUANT backend (boot log "Overriding with"); see gfx1201-decode-findings-2026-09-02.md.
+    # Kept from the fp8 stack; full attention now runs the ULTRAQUANT backend (boot log "Overriding with").
     - name: VLLM_ROCM_USE_AITER
       value: "1"
     # Raises the odds of the fast gfx1201 band (2x decode, ROCm/ROCm#6347); not a pin.
@@ -261,7 +263,7 @@ spec:
     # 5% held free at admission: preemptions 117/17h -> 5/7d.
     - --watermark
     - "0.05"
-    # Fine ITL edges around our 31-68 ms decode; the default 25/50 ms edges blur it.
+    # Default 25/50 ms ITL edges blur our ~32 ms decode; fine edges 30-45 ms plus 60 (slow band).
     - --custom-histogram-buckets
     - '{"inter_token_latency": [0.01, 0.02, 0.025, 0.03, 0.032, 0.034, 0.036, 0.038, 0.04, 0.045, 0.05, 0.06, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 40.0, 80.0]}'
     # 7.25 GiB -> 430,982 tokens. Skips profiling, so headroom is manual: 9.5 GiB OOMed; keep >= 1.82 GiB free for Jellyfin.
@@ -272,8 +274,8 @@ spec:
     - --prefix-match-unit
     - "64"
     # No --language-model-only: Hermes uses the vision tower.
-    # CPU tier 12Gi (~712K tokens); grow to 22Gi only if the 7-day external hit rate < 0.25.
-    # Keep the fs tier: removing it halved single-stream decode (2026-08-19).
+    # CPU tier 12Gi (~712K tokens); 22Gi only if a restart-free 7d shows hit < 0.25 or fs share > 20%.
+    # Keep the fs tier: removing it halved decode (2026-08-19); no mechanism found, unproven.
     # blocks_per_chunk 1: 8 sessions 8.4 -> 30.5 tok/s alone, 43 with --prefix-match-unit 64.
     # kv_load_failure_policy is top-level; nested it is silently ignored.
     - --kv-transfer-config
@@ -303,8 +305,8 @@ spec:
       periodSeconds: 15
       failureThreshold: 240
     # (1) /health with 20x30s slack, counted in /tmp since failureThreshold is 1.
-    # (2) Slow band: with one request decoding at sclk >= 3100, fewer than 25% of 8 samples at
-    # mem_busy >= 60 restarts the pod. A busy VCN (Jellyfin) skips. See gfx1201-fast-slow-band-2026-09-12.md.
+    # (2) Restart on the slow band (thresholds below; gfx1201-fast-slow-band-2026-09-12.md). Only card1 has
+    # the counters; a busy VCN (Jellyfin) skips, since a restart cannot fix a co-tenant.
     liveness:
       exec:
         command:

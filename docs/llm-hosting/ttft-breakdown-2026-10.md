@@ -1,8 +1,8 @@
 # TTFT breakdown and quality baseline, 2026-10
 
-Stack measured: the 2026-10-09 roll,
-UltraQuant 4-bit KV ([ultraquant-2026-10-07.md](ultraquant-2026-10-07.md)) on nightly
-`81198e97` with `--prefix-match-unit 64` and `blocks_per_chunk` 1.
+Stack measured: the 2026-10-09 roll, UltraQuant 4-bit KV
+([ultraquant-2026-10-07.md](ultraquant-2026-10-07.md)) on nightly `81198e97` with
+`--prefix-match-unit 64` and `blocks_per_chunk` 1.
 
 ## Method
 
@@ -48,9 +48,9 @@ Snapshot names: `base` (pre-roll stack), `c5` (both flags on `43b4aaea3`), `n81`
 | Needles / cached / offload reload | 3/3 at 17.5K, 52.5K, 175K / PASS / PASS | `qualitygate.py needle --name c5n` |
 | Vision | 2/2 | `qualitygate.py vision --name n81` |
 
-## Decision rule (plan Chunk 2)
+## Decision rule
 
-- Lookup stall >= 30% of steady TTFT at 1-2 sessions: Chunk 5 includes the lookup fix
+- Lookup stall >= 30% of steady TTFT at 1-2 sessions: the roll includes the lookup fix
   (per-request `kv_load_tiers` first, hook gate as fallback).
 - Queueing dominates at 4-5 sessions: check `max-num-batched-tokens` and the
   chunked-prefill interleave before kernel work.

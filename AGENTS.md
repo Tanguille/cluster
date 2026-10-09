@@ -23,7 +23,7 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 - [Useful commands](docs/useful_commands.md): flux/just/talos/sops command reference and app-specific runbooks
 - [Drives](docs/drives.md): drive inventory, PLP/write-cache policy, control-1 zvol chain, smartctl on Talos and TrueNAS
 - [Archived migrations](docs/archived-migrations.md): completed ZFS→Ceph, Radarr→Postgres and OPNsense BGP procedures, with git recovery pointers
-- [LLM hosting](docs/llm-hosting/): vLLM tuning constraints and benchmark history for `kubernetes/apps/ai/`
+- [LLM hosting](docs/llm-hosting/): vLLM tuning constraints and benchmark history for `kubernetes/apps/ai/`; records pruned on 2026-10-09 are in git at `6f1c0b4c7`
 
 Read only references whose trigger keywords match the task. The learned files are authoritative and maintained by continual learning.
 

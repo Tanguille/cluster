@@ -11,7 +11,7 @@ reverse order. One process stays under UQ_VRAM_CAP_GIB (0.45), which shrinks cac
 prefix that then fits the Infinity Cache flatters the fused kernel, so hook q-cap advice is emitted only when
 every q has cached_eff >= MIN_RELIABLE_CACHED (49152).
 
-Output: JSON lines (kind = cap | cell | probe | row | best | crossover), then DONE. Merge per-q outputs with
+Output: JSON lines (kind = cap | live_default | cell | probe | row | best | crossover), then DONE. Merge per-q outputs with
 python3 bench_uq_prefill.py --summarize bench_q*.out
 """
 import argparse

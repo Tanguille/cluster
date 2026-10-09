@@ -4,7 +4,7 @@
 Each concurrent stream is an independent session with its OWN random prefix (longconcsweep.py shares one,
 which flatters caching and batching). Per session: one cold turn (reported separately), then --turns steady
 turns, each appending the previous reply plus a fresh tail, so only reply + tail are computed. Defaults follow
-the 2026-09 production mix: prefixes cycle 40/16/64/40/98K, 1,254-token tails, 235 generated tokens.
+the 30-day production mix (docs/llm-hosting/ultraquant-2026-10-07.md, Workload).
 
 --warmup runs one untimed pass per level; --runs N repeats each level with fresh seeds and reports the median
 plus the max-min spread (the noise floor). Run it inside the pod (--port 8000): port-forwards stall after

@@ -48,12 +48,14 @@ Setup:
   about 15% more by 98K.
 - **8 sessions collapse on KV capacity.** The 8 sessions cycle 40K/16K/64K/40K/98K
   prefixes (378K) and add about 36K over three turns (8 x 3 x (1,254 tail + 235
-  reply)), so about 414K tokens overflow the 430,982-token pool after the 5% watermark, so sessions evict each other and 656K tokens are
-  recomputed. The offload tier served 270K (`external_kv_transfer`). fp8's
+  reply)) = about 414K. That exceeds the pool less its 5% watermark (430,982 x 0.95 =
+  409K), so sessions evict each other and 656K tokens are recomputed. Fixed on 2026-10-09
+  by `blocks_per_chunk` 1 and `--prefix-match-unit 64`
+  ([ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md)). The offload tier served 270K (`external_kv_transfer`). fp8's
   304,808-token pool would hit this wall at about 5-6 sessions.
 - **The offload lookup stall did not fire during the run.** The
   `kv_offload_lookup_async_delay_seconds` count stayed at 45. The 5-11 s TTFT at 1-2
-  sessions is therefore prefill and queueing; the plan's Chunk 2 splits it.
+  sessions is therefore prefill and queueing; ttft-breakdown-2026-10.md splits it.
 
 ## Live config vs the fp8 baseline
 
@@ -253,7 +255,7 @@ prompt-length mix below.
   ms measured. Only fewer bytes per weight help there.
 - **MXFP4 W4A8 (radiance `radiance_mxfp4_fp8.hip`)** measured 1.12x at M=1 and 1.42x at
   M=4 on summed step GEMMs, plus about 2x prefill
-  (2026-09-13 bench).
+  (`perf-plan-2026-09-13.md`, in git history at `6f1c0b4c7`).
   - The 09-13 `gate_up` loss came from that bench's `DEC_MAX_N=32768`. Radiance HEAD
     `f6727a21` raised it to 36864, which covers N=34816.
   - Blockers now: no licence file and no explicit grant were found for radiance (GitHub
@@ -319,7 +321,8 @@ prompt-length mix below.
 
 - **Full rollback to fp8:** revert this branch's manifest values (`kvCacheDtype:
   fp8_e4m3`, drop `kvCacheCustomDtype`, `--kv-cache-memory 10200547328`,
-  `maxModelLen: 246944`), then reconcile.
+  `maxModelLen: 246944`), restore the aiter `attn_3d` num_stages patch from the hook's
+  git history (dropped with nightly `81198e97`), then reconcile.
 - **Partial rollback:** `UQ_FAST=0` returns to upstream kernels with tuned geometry.
   The KV format stays, so the KV tiers stay warm.
 - Any KV dtype change re-keys the disk tier, which then starts cold.

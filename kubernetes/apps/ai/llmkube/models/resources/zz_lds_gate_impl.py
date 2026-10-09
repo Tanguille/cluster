@@ -1,5 +1,4 @@
 # Import-hook patches for gfx1201, one per target module (PATCHES).
-# Dropped with 81198e97: the W4A16 LDS gate (upstream, vllm#52619) and the fp8-only aiter attn_3d patch.
 import importlib.abc
 import os
 import sys
@@ -20,7 +19,7 @@ class _PatchLoader(importlib.abc.Loader):
 
 
 # gfx12 W4A16 Triton path at M<=32 (down_proj from M=3, every layer at M=6-32): 2 warps + 1 stage instead of
-# 4 warps, 1.04-1.31x on all six shapes (docs/llm-hosting/bench/downfix/triton_m32.out). The custom op resolves
+# 4 warps, 1.04-1.31x on all 30 cells, 5 shapes x M 3-32 (docs/llm-hosting/bench/downfix/triton_m32.out). The custom op resolves
 # this module global at call time, so replacing it needs no re-registration.
 def _install_small_m_triton_config(hy):
     import torch
@@ -86,7 +85,7 @@ def _patch_uq(module):
 
     cls._ultraquant_continuation_prefill = continuation
     # Decode: UQ_FAST=1 runs the RDNA4 kernel in uq_decode_fast.py; otherwise (and for sinks, windows or other
-    # head sizes) upstream's launcher with this card's geometry (its 16 splits reach 47 GB/s at 64K).
+    # head sizes) upstream's launcher with this card's geometry.
     if hasattr(module, "ultraquant_unified_attention"):
         launcher = module.ultraquant_unified_attention
         if UQ_CFG["fast"]:
@@ -117,7 +116,6 @@ UQ_CFG = {
     "tile": int(os.environ.get("UQ_TILE", "32")),
     "warps": int(os.environ.get("UQ_WARPS", "8")),
     "stages": int(os.environ.get("UQ_STAGES", "1")),
-    # UQ_FAST=1: decode and continuation chunks up to the threshold run uq_decode_fast.py.
     "fast": os.environ.get("UQ_FAST") == "1",
 }
 
