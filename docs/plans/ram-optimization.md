@@ -125,7 +125,7 @@ Hardware RAM upgrade; soft-preferring control-1; CPU embedders/reranker; a secon
 ### Progress Tracker
 
 #### Wave 1 (sequential) — Measure
-- [ ] Chunk 1: sizing table, per-process GTT, apiserver/podruntime (read-only)
+- [x] Chunk 1: sizing table, per-process GTT, apiserver/podruntime (read-only)
 
 #### Wave 2 (parallel) — iGPU accounting and visibility
 - [ ] Chunk 2: iGPU models (after CRIT-1 resolved)
@@ -155,7 +155,7 @@ Chunks 2 and 3 share no file and compete for no node room (Chunk 3 is a small Da
 ---
 
 ### Chunk 1: Measure and size (read-only)
-**Status:** Not Started
+**Status:** Complete
 **Wave:** 1
 **Estimated Context:** ~60k tokens
 **Complexity:** Medium
@@ -178,9 +178,9 @@ This plan file's appendix only. No manifest edits, no cluster writes, no load te
 6. **Fit check per node** using `kube_node_status_allocatable{resource="memory"} - sum by(node)(kube_pod_container_resource_requests{resource="memory"} * on(namespace,pod) group_left() (kube_pod_status_phase{phase=~"Running|Pending"}==1))`: free room must cover Σ(pinned Δ) on that node (iGPU models, dragonfly +1.875 GiB, postgres +2 GiB, OSD/mon if changed). If it fails, list which movable pods must move first.
 
 #### Verification
-- [ ] Appendix filled, each row with query, value and file:line
-- [ ] Per-process GTT recorded for all three iGPU models
-- [ ] Fit check result per node recorded
+- [x] Appendix filled, each row with query, value and file:line
+- [x] Per-process GTT recorded for all three iGPU models (6h re-sample still open, see A2)
+- [x] Fit check result per node recorded (FAIL on control-2 and control-3, see A6)
 
 #### Continuation Prompt
 > Continue the RAM plan from `docs/plans/ram-optimization.md` in worktree `.claude/worktrees/ram-optimization` (branch `feat/ram-honest-requests`). First: `git -C .claude/worktrees/ram-optimization status && git -C .claude/worktrees/ram-optimization log --oneline -3`. Mark Chunk 1 complete. Check CRIT-1 is resolved (`kubectl -n ai get ks llmkube-models -o jsonpath='{.spec.suspend}'` is `false`), then run Chunks 2 and 3.
@@ -289,10 +289,95 @@ Chunk 1; CRIT-1 resolved and the 2048 reranker config live for ≥ 24h (re-measu
 
 ## Appendix: Sizing table
 
-_Filled by Chunk 1._
+Measured 2026-10-09 ~00:50Z via tanguille-site `grafana_query_prometheus`, uid `prometheus`, instant, 30d window (no timeouts, so no 14d fallback). Scope: pods currently on control-2/3, filtered to containers with WS p99 > 150 MiB (smaller ones cannot move the fit check). Per-pod, not per-ReplicaSet: pod names are stripped of hashes by hand; pods that ran on control-2/3 earlier but are gone now are not included.
+
+Queries (`NODE` = `* on(namespace,pod) group_left(node) max by(namespace,pod,node)(kube_pod_info{node=~"control-[23]"})`; `SEL` = `and on(namespace,pod) max by(namespace,pod)(kube_pod_info{node=~"control-[23]"})`):
+- WS p99: `sort_desc(max by(namespace,pod,container)(quantile_over_time(0.99, container_memory_working_set_bytes{container!="",container!="POD"}[30d])) > 1.5e8 SEL)`
+- WS max: same with `max_over_time(...[30d])`, restricted by `and on(namespace,pod,container) (<WS p99 expr> > 1.5e8)`
+- RSS p99: same with `container_memory_rss`, same restriction
+- Request: `max by(namespace,pod,container)(kube_pod_container_resource_requests{resource="memory"})`, same restriction
+- postgres mapped_file (shared_buffers proxy): `max by(pod)(quantile_over_time(0.99, container_memory_mapped_file{container="postgres",pod=~"postgres16-.*"}[30d]))` = 2.11 / 2.27 / 1.95 GiB (postgres16-1 / -4 / -8)
+
+Rule: a row changes only if request < basis. Basis = WS p99, or RSS p99 (+ mapped_file) when WS exceeds RSS by > 512 MiB (only postgres: WS 2.65-2.69 vs RSS 0.41-0.49, where RSS + mapped_file p99 ≈ WS, so WS stays). Proposed = basis rounded up to a power of two. All sizes in GiB unless stated; two values = control-2 / control-3 pod. Sorted by Δ.
 
 | Namespace | Workload | Container | Request | WS p99 | WS max | RSS p99 | Basis | Proposed | Δ | File:line | Pinned? |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| kube-system | kube-apiserver | kube-apiserver | 0.5 (Talos default) | 5.87 / 5.04 | 5.88 / 5.67 | 5.82 / 5.00 | WS | 8 | +7.5 | none (Talos static pod; Decision 4 deferred) | Y, every control node |
+| database | postgres16 | postgres | 2 (limit 4) | 2.65 / 2.69 | 2.74 / 2.76 | 0.41 / 0.49 | WS | 4 (= limit) | +2.0 | database/cloudnative-pg/cluster/cluster.yaml:166 | Y, local PV on c1/c2/c3 |
+| database | dragonfly | dragonfly | 0.125 (limit 2) | 1.68 / 1.65 | 1.68 / 1.66 | 1.67 / 1.65 | WS | 2 (= limit) | +1.875 | database/dragonfly/cluster/cluster.yaml:27 | Y, hostname spread DoNotSchedule |
+| ai | bge-reranker-v2-m3 (live 4096 config) | llama-server | 0.5 live / 1.5 git | 0.17 (pod 26 min old; memcg excludes GTT) | 0.17 | 0.16 | RSS + GTT at 2048 (unmeasured, manifest comment says ~1.0) | 2 | +1.5 vs live, +0.5 vs git | ai/llmkube/models/bge-reranker-v2-m3.yaml:103 | iGPU nodes only |
+| ai | vmcp (unified) | vmcp | 1 (limit 2) | 1.28 | 1.34 | 1.26 | WS | 2 (= limit, ok) | +1.0 | ai/toolhive/mcp/virtualmcpservers.yaml:42 | N (control-3 now) |
+| ai | qwen35-2b | llama-server | 0.25 live / 1 git | 0.14 | 0.14 | 0.13 | RSS 0.13 + GTT 0.80 = 0.93 | 1 (= git) | +0.75 vs live, 0 vs git | ai/llmkube/models/qwen35-2b.yaml:90 | iGPU nodes only |
+| ai | qwen3-embedding | llama-server | 0.5 | <0.15 | <0.15 | 0.12 (talosctl RESMEM) | RSS 0.12 + GTT 2.44 = 2.56 | out of scope (owner); computed value would be 4, not the 2 the plan expected | (+3.5) | ai/llmkube/models/qwen3-embedding.yaml:104 | iGPU nodes only |
+| media | flaresolverr | app | 0.146 (150Mi) | 0.56 | 1.99 | 0.48 | WS | 1 | +0.85 | media/flaresolverr/app/helmrelease.yaml:25 | N |
+| ai | opencode | app | 0.25 | 0.85 | 0.86 | 0.84 | WS | 1 | +0.75 | ai/opencode/app/helmrelease.yaml:56 | N |
+| ai | kubesearch (MCPServer, StatefulSet) | mcp | 0.25 (limit 1) | 0.75 | 0.77 | 0.72 | WS | 1 (= limit, ok) | +0.75 | ai/toolhive/mcp/kubesearch.yaml:48 | N; check for PVC before Chunk 4 |
+| observability | grafana | grafana | 0.25 (limit 2) | 0.55 | 0.86 | 0.52 | WS | 1 | +0.75 | observability/grafana/instance/grafana.yaml:76 | N |
+| ai | omniroute | app | 0.5 | 0.96 | 1.04 | 0.92 | WS | 1 | +0.5 | ai/omniroute/app/helmrelease.yaml:46 | N |
+| web3 | p2pool | app | 0.537 (550Mi) | 0.77 | 0.79 | 0.77 | WS | 1 | +0.46 | web3/monero/p2pool/helmrelease.yaml:60 | N |
+| rook-ceph | mon a (c3) / b (c2) | mon | 0.5 | 0.53 / 0.58 | 0.54 / 0.60 | 0.52 / 0.58 | WS | 1 | +0.5 each | rook-ceph/rook-ceph/cluster/helmrelease.yaml:105 | Y, mon is node-bound |
+| ai | homeassistant (MCPServer, StatefulSet) | mcp | 0.0625 | 0.50 | 0.50 | 0.49 | WS | 0.5 | +0.44 | ai/toolhive/mcp/homeassistant.yaml:49 | N; limit 512Mi (:52) equals Proposed and WS max is 0.499, so flag for owner |
+| network | envoy proxies (6 pods: external, internal, external-probe per node) | envoy | 0.25 | 0.26 to 0.30 | 0.36 | ~0.26 to 0.29 | WS | 0.5 | +0.25 each, +0.75 per node | network/envoy-gateway/app/envoy.yaml:20 | N (DaemonSet) |
+| default | ghostfolio | app | 0.25 | 0.47 | 0.47 | 0.40 | WS | 0.5 | +0.25 | default/ghostfolio/app/helmrelease.yaml:64 | N |
+| security | trivy-operator | trivy-operator | 0.25 | 0.36 | 0.37 | 0.35 | WS | 0.5 | +0.25 | security/trivy-operator/app/helmrelease.yaml:50 | N |
+| media | qbitrr | app | 0.125 | 0.37 | 0.37 | 0.37 | WS | 0.5 | +0.375 | media/qbittorrent/tools/qbitrr/helmrelease.yaml:87 | N |
+| security | kguardian controller (2 pods) | controller | 0.125 | 0.25 / 0.28 | 0.29 | 0.23 | WS | 0.5 | +0.375 | security/kguardian/app/helmrelease.yaml:117 | N (DaemonSet) |
+| media | seerr-0 (StatefulSet) | seerr-chart | 0.244 (250Mi) | 0.31 | 0.37 | 0.23 | WS | 0.5 | +0.26 | media/seerr/app/helmrelease.yaml:35 | SKIP: stateful, Δ < 1 GiB |
+| observability | siren | app | 0.098 (100Mi) | 0.15 | 0.16 | 0.15 | WS | 0.25 | +0.15 | observability/siren/app/helmrelease.yaml:57 | N (Δ below Chunk 4 noise floor) |
+| default / ai | homepage / toolhive-operator | app / manager | 0.125 / 0.125 | 0.16 / 0.15 | 0.17 / 0.16 | n.m. | WS | 0.25 / 0.25 | +0.125 each | default/homepage/app/helmrelease.yaml:65; ai/toolhive/app/helmrelease.yaml:17 (limit 256Mi = Proposed) | N (below noise floor) |
+
+SKIP, no explicit memory request in the repo (chart defaults, `.agents/learned-preferences.md:44`): konflate (WS p99 0.70, also PVC), flux-operator (0.27 vs 64Mi), helm-controller (0.18, limits-only patch at flux-system/flux-instance/app/helmrelease.yaml:48), cilium-agent (0.69 / 0.69), cilium-operator (0.21), envoy-gateway controller (0.24 / 0.25), keda-operator, rook-ceph-operator, kopiur-controller, tuppr, rook mgr (request not in repo, WS p99 0.52). Talos static pods, Decision 4 family: kube-controller-manager 0.25 request vs WS p99 0.48 / 0.46.
+
+No change, request already >= p99: osd-0 / osd-1 (2 vs 1.99 / 1.70), hermes (2 vs 1.72), vmsingle (3 vs 2.03), vlogs (1 vs 0.52), litellm x2 (1 vs 0.65), qbittorrent (1 vs 0.97; WS max 1.99, limit 3), karakeep, prowlarr, vmagent, obico x3, headroom, kube-state-metrics, wizarr, jellystat, searxng. monerod: 0.5 vs 0.52 is +4%, left alone.
+
+### A2. Per-process GTT (step 2)
+
+Command: `talosctl -n <ip> processes` for the pids, then `talosctl -n <ip> list /proc/<pid>/fd -l` (fds 3 and 4 are both `/dev/dri/renderD128`) and `talosctl -n <ip> read /proc/<pid>/fdinfo/<fd>`, fields `drm-memory-gtt`, `drm-memory-vram`. Both fds report the same `drm-client-id`, so the exporter must dedupe by client id or it double counts.
+
+| Model | Node / pid | Config | drm-memory-gtt | drm-memory-vram | Sample |
+|---|---|---|---|---|---|
+| bge-reranker-v2-m3 | control-3 / 238227 | live, stale: ctx 4096, batch/ubatch 4096, `-fa off` | 4,930,976 KiB = 4.70 GiB | 0.47 GiB | 00:52Z and 00:54Z, identical |
+| qwen35-2b | control-3 / 237113 | ctx 32768, 2 slots | 838,820 KiB = 0.80 GiB | 1.29 GiB | 00:52Z and 00:54Z, identical |
+| qwen3-embedding | control-2 / 223935 | ctx 20480, 4 slots, ubatch 512 | 2,563,120 KiB = 2.44 GiB | 1.14 GiB | 00:52Z and 00:54Z, identical |
+
+Cross-check against the node totals: `GPUActive` in `/proc/meminfo` is 2,574,876 kB on control-2 (embedder 2.44 GiB) and 5,779,504 kB on control-3 (reranker 4.70 + qwen35-2b 0.80 = 5.50 GiB). `node_drm_memory_gtt_used_bytes` now: control-2 2.64 GB, control-3 5.92 GB.
+
+Findings:
+- The reranker's GTT at 4096 is allocated at load (4.70 GiB flat since the pod started 26 min before the first sample), not a slow leak. Prometheus (`node_drm_memory_gtt_used_bytes{kubernetes_node=~"control-[23]"}`, range now-3h, 30 min step): control-3 was flat 0.87 GB with only qwen35-2b, control-2 held 7.27 to 8.29 GB with embedder + reranker until the pod deletes, then 2.64 GB. 30d max across nodes: 8.29 GB (`max by(node)(max_over_time(node_drm_memory_gtt_used_bytes[30d]))` returned one series without a node label).
+- The embedder's GTT is 2.44 GiB, not the ~1.9 GiB in the manifest comment (qwen3-embedding.yaml:99-103). Sizing it RSS + GTT gives 4Gi, not 2Gi; out of scope this round, but the fit check must keep in mind it is under-requested by ~2.4 GiB on control-2.
+- OPEN: the "after 6h" sample was not taken (single session). Chunk 2 must re-sample both iGPU nodes on the 2048 config anyway. The 2Gi reranker value in the sizing table assumes ~1.0 GiB GTT at 2048 from the manifest comment; there is no 2048 measurement in the live cluster.
+
+### A3. Reranker co-tenant (step 3)
+
+GTT per process: reranker 4.70 GiB at 4096 (~1.0 at 2048 per the manifest comment), embedder 2.44 GiB, qwen35-2b 0.80 GiB. Rule from the plan: avoid the larger-GTT model, share with the smaller. Choice: **keep the qwen3-embedding term (bge-reranker-v2-m3.yaml:77-82), drop the qwen35-2b term (:83-88)**. Result: reranker + qwen35-2b on one node (node GTT ~0.8 + ~1.0 = ~1.8 GiB at 2048, 5.5 GiB today at 4096), embedder alone on the other (2.44 GiB). This matches today's live placement (reranker + qwen35-2b on control-3). Because the embedder cannot run next to qwen35-2b (Chunk 2 step 1), it stays on control-2.
+
+### A4. Exporter survey (step 4)
+
+Checked: `helm show chart|values|readme oci://ghcr.io/home-operations/charts/drm-exporter --version 0.3.4` (context7 was not authenticated), live series `{__name__=~"drm_.*"}` and `drm_memory_used_bytes`, and the node-exporter DRM series. Result:
+- drm-exporter 0.3.4 exports only device-level `drm_*` series (`device`, `pool` labels; no pid, client or pod label). Chart values have no fdinfo option. Deployed only on control-1 (`nodeSelector: amd.com/gpu`), so it is not even present on the iGPU nodes.
+- node-exporter `node_drm_*` (sysfs) is device-level too.
+- **Choice: no existing exporter fits; Chunk 3 builds the small DaemonSet** on `amd.com/igpu: "true"` (node labels checked: control-2/3 carry `amd.com/igpu=true`, control-1 `amd.com/gpu=true`). Design shortcut: export `pod_drm_memory_gtt_bytes{pod_uid}` from the cgroup path (`pod<uid>` in `/proc/<pid>/cgroup`) and join to `kube_pod_info` on `uid` in PromQL, so the DaemonSet needs no Kubernetes API access. Dedupe by `drm-client-id`.
+- Path note: on main the drm-exporter lives at `kubernetes/apps/observability/exporters/drm-exporter/` (the plan's `kube-system/drm-exporter` path is what open PR #3449 moves it to, read only); Chunk 3 should sit under `observability/exporters/` and expect a rebase against #3449.
+
+### A5. apiserver and /podruntime (step 5)
+
+apiserver: WS p99 5.87 / 5.04 GiB on control-2/3 (6.52 on control-1, from the earlier run); query in the table section. Limit none, request 0.5 GiB (`kube_pod_container_resource_requests` above).
+
+/podruntime: no cgroup-level cAdvisor series are scraped (`container_memory_working_set_bytes{id=~"/(podruntime|system|kubepods).*"}` returns nothing), so no 30d p99. Instant reads: `talosctl -n <ip> read /sys/fs/cgroup/podruntime/memory.current` = 2,043,215,872 / 2,992,136,192 / 1,803,075,584 B (control-1/2/3 = 1.90 / 2.79 / 1.68 GiB); `/sys/fs/cgroup/system/memory.current` = 0.12 / 0.10 / 0.10 GiB. Proxy for the 30d peak of everything outside pods (podruntime + system + kernel, GTT removed): `quantile_over_time(0.99, ((MemTotal - MemAvailable) by node - sum by(node)(container_memory_working_set_bytes{container!="",container!="POD"}) - sum by(node)(node_drm_memory_gtt_used_bytes))[30d:30m])` = 5.16 / 3.80 / 5.38 GiB on control-1/2/3. That is above `kubeReserved` 2Gi + `systemReserved` 0.5Gi (talos/cluster.yaml.j2:39-47) on control-1 and control-3 by ~2.7 to 2.9 GiB; includes unaccounted page cache and kernel slab, so it is an upper bound. The "14.1 GB /podruntime peak on control-3" in Finding 8 could not be reproduced from the series available (the subquery `max_over_time` form gave 9.9 GiB on control-3 including GTT); treat it as unverified.
+
+### A6. Per-node fit check (step 6)
+
+Query: `kube_node_status_allocatable{resource="memory"} - on(node) sum by(node)(kube_pod_container_resource_requests{resource="memory"} * on(namespace,pod) group_left() (kube_pod_status_phase{phase=~"Running|Pending"}==1))`, instant 00:51Z. Free request room: control-1 21.18 GiB (22,744,309,760 B), control-2 2.57 GiB (2,762,027,008 B), control-3 2.07 GiB (2,223,063,040 B). Live requests are the stale ones (reranker 0.5, qwen35-2b 0.25); resuming `llmkube-models` (git 1.5 + 1.0) removes another 1.77 GiB from control-3, leaving 0.30 GiB.
+
+| Node | Pinned Δ (GiB) | Room | Verdict |
+|---|---|---|---|
+| control-1 | dragonfly-1 1.875 + postgres16-8 2.0 = 3.875 | 21.18 | PASS, 17.3 left for moved pods |
+| control-2 | dragonfly-0 1.875 + postgres16-1 2.0 + mon-b 0.5 = 4.375 (embedder out of scope) | 2.57 | **FAIL by 1.80** |
+| control-3 | dragonfly-2 1.875 + postgres16-4 2.0 + mon-a 0.5 + reranker 1.5 + qwen35-2b 0.75 = 6.625 | 2.07 | **FAIL by 4.55** |
+
+Movable Δ if those pods stay put (table rows, without seerr, siren, homepage, toolhive-operator): control-2 ~3.9 (flaresolverr, grafana, kubesearch, homeassistant, 3 envoy, kguardian); control-3 ~4.7 (vmcp, opencode, omniroute, p2pool, ghostfolio, trivy, qbitrr, 3 envoy, kguardian). With them: control-2 short by 5.7 GiB, control-3 short by 9.3 GiB. With the US-3 margin of 1 GiB left, the pinned-only shortfall is 2.8 (control-2) and 5.6 (control-3) GiB of requests that must leave. Cluster-wide it fits because control-1 has 17.3 GiB left after its own pinned Δ, but only if that much moves there, and Decision 1 forbids placement rules.
+
+Movable stateless requests currently on control-3, by `kube_pod_container_resource_requests` above: vmcp 1, litellm 1, obico (3 containers) 1.25, omniroute 0.5, headroom 0.5, p2pool 0.54, opencode 0.25, ghostfolio 0.25, trivy 0.25, qbitrr 0.125 = ~4.7 GiB, less than the ~5.6 GiB control-3 must shed; reaching it needs a stateful move (vmsingle 3, vlogs 1) or dropping part of the plan (reranker to 2Gi, mon bump, apiserver). On control-2: litellm 1, qbittorrent 1, hermes 2, karakeep 0.5, prowlarr 0.5, vmagent 0.5, monerod 0.5 are enough to cover the ~2.8 GiB. Consequence for the plan: Chunk 5 pre-flight (every node room >= 3.875) will fail on control-2/3 unless pods are first moved off by deletion and land on control-1 by fit, which is not guaranteed without placement rules. Owner decision needed before Chunk 4/5 (see report).
 
 ---
 
