@@ -320,6 +320,13 @@ spec:
     # excursion 1.82 GiB (Jellyfin has no concurrency cap, DgpuVramLow).
     - --kv-cache-memory
     - "7784628224"
+    # Prefix hits land on 64-token boundaries, not the 1536-token hybrid block.
+    # The extra prefill stop shifts greedy outputs (66% agreement, no cache hit
+    # involved) at equal quality: NLL delta <= 5e-5, GSM8K 146/150 both,
+    # needles 3/3 to 175K. Alone it keeps the 8-session collapse (8.1 tok/s);
+    # it needs blocks_per_chunk 1.
+    - --prefix-match-unit
+    - "64"
     # No --language-model-only: Hermes uses the vision tower.
     # CPU tier 12Gi (~712K UltraQuant tokens). 7d (2026-09-27): external hit
     # 0.70, fs share of loads ~10%, async lookup mean 2.2 s. Revisit 22Gi
@@ -327,13 +334,15 @@ spec:
     # over a restart-free 7d. PCIe Gen3 did not speed it up (~3.3 GB/s both).
     # Keep the fs tier: removing it halved single-stream decode (15.5 vs 31
     # tok/s, 2026-08-19); no mechanism for that in the 43b4aaea3 code.
-    # blocks_per_chunk 4: 8 tried 2026-09-03, total lookup s/request +45% (one
-    # serial lookup thread).
+    # blocks_per_chunk 1 (was 4): offload hits end on any block, and
+    # --prefix-match-unit partial tails need it. prodshape 8 sessions
+    # (2026-10-09): 8.4 -> 30.5 tok/s agg alone, 43 with --prefix-match-unit 64
+    # (recompute 514K -> 55K tokens); greedy outputs identical to 4.
     # kv_load_failure_policy is a top-level field; nested it is silently
     # ignored, grep the boot log for the literal.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":12884901888,"blocks_per_chunk":4,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":12884901888,"blocks_per_chunk":1,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
