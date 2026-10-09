@@ -23,12 +23,15 @@ spec:
               holds over 3GiB of pinned GTT GPU memory, which its memory request does not cover
           labels:
             severity: warning
+        # Compares the DaemonSet's desired pods with healthy targets, so a missing node is caught even when others are up.
         - alert: IgpuGttExporterMissing
-          expr: up{job="igpu-gtt-exporter"} == 0 or absent(up{job="igpu-gtt-exporter"})
+          expr: |-
+            sum(kube_daemonset_status_desired_number_scheduled{namespace="observability", daemonset="igpu-gtt-exporter"})
+            > (sum(up{job="igpu-gtt-exporter"} == 1) or vector(0))
           for: 10m
           annotations:
             summary: >-
-              Per-pod GTT exporter is down or absent{{ with $labels.kubernetes_node }} on {{ . }}{{ end }};
+              Per-pod GTT exporter is down on some iGPU nodes;
               PodGTTMemoryHigh is blind there until it recovers
           labels:
             severity: warning

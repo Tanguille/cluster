@@ -10,13 +10,15 @@ POD_UID = re.compile(r"/pod([0-9a-f-]{36})/")  # cgroupfs driver, as on Talos
 
 
 def parse_fdinfo(text):
-    """Return (client id, gtt bytes) for a DRM fdinfo, or None."""
+    """Return ((device, client id), gtt bytes) for a DRM fdinfo, or None."""
     fields = dict(line.split(":", 1) for line in text.splitlines() if ":" in line)
     client, gtt = fields.get("drm-client-id"), fields.get("drm-memory-gtt")
     if client is None or gtt is None:
         return None
     value, _, unit = gtt.strip().partition(" ")
-    return client.strip(), int(value) * UNITS[unit]
+    # client ids are unique per device only, so key on the PCI slot too
+    device = fields.get("drm-pdev", "").strip()
+    return (device, client.strip()), int(value) * UNITS[unit]
 
 
 def pod_uid(cgroup_text):
@@ -25,7 +27,7 @@ def pod_uid(cgroup_text):
 
 
 def collect(proc="/proc"):
-    """Bytes per pod uid; fds sharing one drm-client-id are one client, counted once."""
+    """Bytes per pod uid; fds sharing one device and drm-client-id are one client, counted once."""
     clients = {}
     for fd in glob.glob(f"{proc}/[0-9]*/fd/*"):
         try:
@@ -66,8 +68,8 @@ class Handler(BaseHTTPRequestHandler):
 def self_check():
     # Real control-3 sample: note the space before the tab after drm-memory-gtt.
     sample = "drm-driver:\tamdgpu\ndrm-client-id:\t24\ndrm-memory-gtt: \t666232 KiB\n"
-    assert parse_fdinfo(sample) == ("24", 666232 * 1024)
-    assert parse_fdinfo("drm-client-id:\t1\ndrm-memory-gtt:\t3 MiB\n") == ("1", 3 << 20)
+    assert parse_fdinfo(sample) == (("", "24"), 666232 * 1024)
+    assert parse_fdinfo("drm-pdev:\t0000:76:00.0\ndrm-client-id:\t1\ndrm-memory-gtt:\t3 MiB\n") == (("0000:76:00.0", "1"), 3 << 20)
     assert parse_fdinfo("pos:\t0\nflags:\t02\n") is None
     cg = "0::/kubepods/burstable/podd9e1bcd4-3c79-41e4-9714-19bc78cdf48a/7e63f4d5\n"
     assert pod_uid(cg) == "d9e1bcd4-3c79-41e4-9714-19bc78cdf48a"
