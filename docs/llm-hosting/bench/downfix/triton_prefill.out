@@ -1,0 +1,106 @@
+== down N=5120 K=17408 M=2048: upstream (128, 64, 64, 8, None) 4.22 ms (86 TFLOP/s), bf16 hipBLASLt 2.80 ms (130 TFLOP/s)
+   (256, 128, 64, 8, 1)  3.39 ms  108 TFLOP/s  1.25x 
+   (256, 64, 64, 8, None)  3.60 ms  102 TFLOP/s  1.17x 
+   (256, 64, 64, 4, 1)  3.64 ms  100 TFLOP/s  1.16x 
+   (256, 64, 64, 8, 1)  3.81 ms  96 TFLOP/s  1.11x 
+   (128, 128, 64, 4, 1)  3.88 ms  94 TFLOP/s  1.09x 
+   (128, 128, 64, 8, None)  3.92 ms  93 TFLOP/s  1.08x 
+== gate_up N=34816 K=5120 M=2048: upstream (256, 64, 64, 8, None) 7.64 ms (96 TFLOP/s), bf16 hipBLASLt 5.96 ms (122 TFLOP/s)
+   (256, 128, 64, 8, 1)  6.85 ms  107 TFLOP/s  1.11x 
+   (256, 64, 64, 4, 1)  7.25 ms  101 TFLOP/s  1.05x 
+   (256, 64, 64, 8, None)  7.34 ms  99 TFLOP/s  1.04x 
+   (256, 64, 64, 8, 1)  7.47 ms  98 TFLOP/s  1.02x 
+   (128, 64, 64, 4, 1)  7.66 ms  95 TFLOP/s  1.00x 
+   (128, 128, 64, 4, 1)  7.89 ms  93 TFLOP/s  0.97x 
+== in_proj N=16384 K=5120 M=2048: upstream (128, 128, 32, 8, None) 3.85 ms (89 TFLOP/s), bf16 hipBLASLt 2.90 ms (119 TFLOP/s)
+   (256, 128, 64, 8, 1)  3.30 ms  104 TFLOP/s  1.17x 
+   (256, 64, 64, 4, 1)  3.67 ms  94 TFLOP/s  1.05x 
+   (128, 128, 64, 4, 1)  3.83 ms  90 TFLOP/s  1.00x 
+   (256, 64, 64, 8, None)  3.90 ms  88 TFLOP/s  0.99x 
+   (256, 64, 64, 8, 1)  3.91 ms  88 TFLOP/s  0.98x 
+   (128, 64, 64, 4, 1)  3.97 ms  87 TFLOP/s  0.97x 
+== qkv N=14336 K=5120 M=2048: upstream (128, 128, 32, 8, None) 3.67 ms (82 TFLOP/s), bf16 hipBLASLt 2.38 ms (126 TFLOP/s)
+   (256, 128, 64, 8, 1)  3.02 ms  100 TFLOP/s  1.21x 
+   (256, 64, 64, 4, 1)  3.18 ms  95 TFLOP/s  1.15x 
+   (256, 64, 64, 8, None)  3.29 ms  91 TFLOP/s  1.11x 
+   (128, 128, 64, 4, 1)  3.35 ms  90 TFLOP/s  1.09x 
+   (256, 64, 64, 8, 1)  3.36 ms  90 TFLOP/s  1.09x 
+   (128, 64, 64, 4, 1)  3.38 ms  89 TFLOP/s  1.09x 
+== out_proj N=5120 K=6144 M=2048: upstream (128, 128, 32, 8, None) 1.50 ms (86 TFLOP/s), bf16 hipBLASLt 1.06 ms (121 TFLOP/s)
+   (256, 128, 64, 8, 1)  1.37 ms  94 TFLOP/s  1.10x 
+   (256, 64, 64, 4, 1)  1.42 ms  90 TFLOP/s  1.06x 
+   (128, 128, 64, 8, None)  1.48 ms  87 TFLOP/s  1.02x 
+   (256, 64, 64, 8, 1)  1.49 ms  87 TFLOP/s  1.01x 
+   (256, 128, 64, 8, None)  1.50 ms  86 TFLOP/s  1.00x 
+   (128, 256, 64, 8, 1)  1.50 ms  86 TFLOP/s  1.00x 
+BEST {'down': ((256, 128, 64, 8, 1), 1.2455448672946599), 'gate_up': ((256, 128, 64, 8, 1), 1.11450203478382), 'in_proj': ((256, 128, 64, 8, 1), 1.1656033844054297), 'qkv': ((256, 128, 64, 8, 1), 1.214954279264665), 'out_proj': ((256, 128, 64, 8, 1), 1.0965534527809695)}
+== down N=5120 K=17408 M=1280: upstream (128, 64, 64, 8, None) 2.72 ms (84 TFLOP/s), bf16 hipBLASLt 1.90 ms (120 TFLOP/s)
+   (256, 64, 64, 4, 1)  2.40 ms  95 TFLOP/s  1.14x 
+   (256, 128, 64, 8, 1)  2.47 ms  92 TFLOP/s  1.10x 
+   (256, 64, 64, 8, None)  2.49 ms  92 TFLOP/s  1.09x 
+   (128, 64, 64, 4, None)  2.49 ms  92 TFLOP/s  1.09x 
+   (128, 64, 64, 4, 1)  2.77 ms  82 TFLOP/s  0.98x 
+   (128, 128, 64, 8, 1)  2.77 ms  82 TFLOP/s  0.98x 
+== gate_up N=34816 K=5120 M=1280: upstream (256, 64, 64, 8, None) 5.16 ms (88 TFLOP/s), bf16 hipBLASLt 3.80 ms (120 TFLOP/s)
+   (256, 128, 64, 8, 1)  4.43 ms  103 TFLOP/s  1.17x 
+   (256, 64, 64, 4, 1)  4.58 ms  100 TFLOP/s  1.13x 
+   (256, 64, 64, 8, None)  4.80 ms  95 TFLOP/s  1.08x 
+   (256, 64, 64, 8, 1)  4.91 ms  93 TFLOP/s  1.05x 
+   (128, 128, 64, 4, 1)  5.00 ms  91 TFLOP/s  1.03x 
+   (128, 128, 64, 8, 1)  5.11 ms  89 TFLOP/s  1.01x 
+== in_proj N=16384 K=5120 M=1280: upstream (128, 128, 32, 8, None) 2.41 ms (89 TFLOP/s), bf16 hipBLASLt 1.78 ms (121 TFLOP/s)
+   (256, 64, 64, 4, 1)  2.09 ms  103 TFLOP/s  1.15x 
+   (256, 128, 64, 8, 1)  2.12 ms  101 TFLOP/s  1.14x 
+   (128, 64, 64, 4, None)  2.21 ms  97 TFLOP/s  1.09x 
+   (256, 64, 64, 8, None)  2.29 ms  94 TFLOP/s  1.05x 
+   (256, 64, 64, 8, 1)  2.32 ms  92 TFLOP/s  1.04x 
+   (128, 128, 64, 4, 1)  2.35 ms  91 TFLOP/s  1.02x 
+== qkv N=14336 K=5120 M=1280: upstream (128, 128, 32, 8, None) 2.19 ms (86 TFLOP/s), bf16 hipBLASLt 1.67 ms (113 TFLOP/s)
+   (256, 128, 64, 8, 1)  1.80 ms  104 TFLOP/s  1.21x 
+   (256, 64, 64, 4, 1)  1.86 ms  101 TFLOP/s  1.17x 
+   (256, 64, 64, 8, None)  1.99 ms  94 TFLOP/s  1.10x 
+   (128, 64, 64, 4, None)  2.03 ms  92 TFLOP/s  1.07x 
+   (128, 128, 64, 4, 1)  2.06 ms  91 TFLOP/s  1.06x 
+   (256, 128, 64, 8, None)  2.06 ms  91 TFLOP/s  1.06x 
+== out_proj N=5120 K=6144 M=1280: upstream (128, 128, 32, 8, None) 0.92 ms (88 TFLOP/s), bf16 hipBLASLt 0.74 ms (109 TFLOP/s)
+   (256, 64, 64, 4, 1)  0.82 ms  99 TFLOP/s  1.12x 
+   (256, 64, 64, 8, None)  0.82 ms  99 TFLOP/s  1.12x 
+   (256, 128, 64, 8, 1)  0.83 ms  97 TFLOP/s  1.10x 
+   (128, 64, 64, 4, None)  0.84 ms  96 TFLOP/s  1.09x 
+   (128, 64, 64, 4, 1)  0.86 ms  94 TFLOP/s  1.07x 
+   (128, 128, 64, 8, None)  0.86 ms  94 TFLOP/s  1.06x 
+== down N=5120 K=17408 M=768: upstream (128, 64, 64, 8, None) 1.58 ms (87 TFLOP/s), bf16 hipBLASLt 1.25 ms (109 TFLOP/s)
+   (128, 64, 64, 4, None)  1.50 ms  91 TFLOP/s  1.05x 
+   (256, 128, 64, 8, 1)  1.50 ms  91 TFLOP/s  1.05x 
+   (256, 64, 64, 4, 1)  1.50 ms  91 TFLOP/s  1.05x 
+   (256, 64, 64, 8, None)  1.54 ms  89 TFLOP/s  1.03x 
+   (256, 128, 64, 8, None)  1.55 ms  88 TFLOP/s  1.01x 
+   (128, 64, 64, 4, 1)  1.57 ms  87 TFLOP/s  1.00x 
+== gate_up N=34816 K=5120 M=768: upstream (256, 64, 64, 8, None) 3.07 ms (89 TFLOP/s), bf16 hipBLASLt 2.15 ms (128 TFLOP/s)
+   (256, 128, 64, 8, 1)  2.85 ms  96 TFLOP/s  1.08x 
+   (256, 64, 64, 4, 1)  2.95 ms  93 TFLOP/s  1.04x 
+   (256, 64, 64, 8, None)  3.05 ms  90 TFLOP/s  1.01x 
+   (256, 64, 64, 8, 1)  3.09 ms  89 TFLOP/s  1.00x 
+   (128, 128, 64, 4, 1)  3.13 ms  87 TFLOP/s  0.98x 
+   (128, 64, 64, 4, None)  3.17 ms  86 TFLOP/s  0.97x 
+== in_proj N=16384 K=5120 M=768: upstream (128, 128, 32, 8, None) 1.51 ms (86 TFLOP/s), bf16 hipBLASLt 1.03 ms (125 TFLOP/s)
+   (256, 64, 64, 4, 1)  1.44 ms  90 TFLOP/s  1.05x 
+   (256, 128, 64, 8, 1)  1.48 ms  87 TFLOP/s  1.02x 
+   (128, 64, 64, 4, 1)  1.50 ms  86 TFLOP/s  1.00x 
+   (256, 64, 128, 8, 1)  1.50 ms  86 TFLOP/s  1.00x 
+   (128, 128, 64, 4, 1)  1.50 ms  86 TFLOP/s  1.00x 
+   (256, 64, 64, 8, 1)  1.50 ms  86 TFLOP/s  1.00x 
+== qkv N=14336 K=5120 M=768: upstream (128, 128, 32, 8, None) 1.48 ms (76 TFLOP/s), bf16 hipBLASLt 0.92 ms (122 TFLOP/s)
+   (256, 64, 64, 4, 1)  1.09 ms  103 TFLOP/s  1.35x 
+   (256, 128, 64, 8, 1)  1.32 ms  86 TFLOP/s  1.12x 
+   (256, 64, 64, 8, None)  1.35 ms  83 TFLOP/s  1.09x 
+   (128, 64, 64, 4, None)  1.40 ms  81 TFLOP/s  1.06x 
+   (256, 64, 64, 8, 1)  1.40 ms  81 TFLOP/s  1.05x 
+   (128, 64, 64, 4, 1)  1.43 ms  79 TFLOP/s  1.03x 
+== out_proj N=5120 K=6144 M=768: upstream (128, 128, 32, 8, None) 0.58 ms (84 TFLOP/s), bf16 hipBLASLt 0.41 ms (119 TFLOP/s)
+   (256, 128, 64, 8, 1)  0.49 ms  99 TFLOP/s  1.18x 
+   (256, 64, 64, 4, 1)  0.50 ms  97 TFLOP/s  1.15x 
+   (256, 64, 64, 8, None)  0.50 ms  96 TFLOP/s  1.14x 
+   (128, 64, 64, 4, None)  0.51 ms  95 TFLOP/s  1.14x 
+   (128, 64, 64, 4, 1)  0.53 ms  92 TFLOP/s  1.09x 
+   (256, 64, 64, 8, 1)  0.53 ms  92 TFLOP/s  1.09x 

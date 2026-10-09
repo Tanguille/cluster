@@ -18,10 +18,13 @@ class _PatchLoader(importlib.abc.Loader):
         self._patch(module)
 
 
-# gfx12 W4A16 Triton path at M<=32 (down_proj from M=3, every layer at M=6-32): 2 warps + 1 stage instead of
-# 4 warps, 1.04-1.31x on all 30 cells, 5 shapes x M 3-32 (docs/llm-hosting/bench/downfix/triton_m32.out). The custom op resolves
-# this module global at call time, so replacing it needs no re-registration.
-def _install_small_m_triton_config(hy):
+# gfx12 W4A16 Triton tiles for Qwen3.8 on the 64-CU R9700 (upstream's were tuned on Llama-3.1-8B shapes):
+# - M<=32 (down_proj from M=3, every layer at M=6-32): 16x16x128, 2 warps, 1 stage, 1.04-1.31x on all 30 cells
+#   (docs/llm-hosting/bench/downfix/triton_m32.out).
+# - M>512 (prefill chunks): 256x128x64, 8 warps, 1 stage, 1.10-1.25x on all 5 shapes at M=2048
+#   (docs/llm-hosting/bench/downfix/triton_prefill.out). 33-512 stays upstream.
+# The custom op resolves this module global at call time, so replacing it needs no re-registration.
+def _install_triton_tiles(hy):
     import torch
     from vllm.triton_utils import triton
 
@@ -34,23 +37,24 @@ def _install_small_m_triton_config(hy):
 
     def gemm(a, b_q, scales, group_size, zp_bias=8, zp=None):
         M, K = a.shape
-        if M > 32:
+        if 32 < M <= 512:
             return orig(a, b_q, scales, group_size, zp_bias, zp)
+        bm, bn, bk, warps = (16, 16, 128, 2) if M <= 32 else (256, 128, 64, 8)
         N = b_q.shape[0]
         c = torch.empty((M, N), dtype=a.dtype, device=a.device)
-        grid = (triton.cdiv(M, 16), triton.cdiv(N, 16))
+        grid = (triton.cdiv(M, bm), triton.cdiv(N, bn))
         strides = (b_q.stride(0), a.stride(0)) if has_strides else ()
         kernel[grid](
             # the zp pointer is unused when HAS_ZP is False; any tensor will do
             a, b_q, scales, zp if zp is not None else scales, c,
             M, N, K, K // 8, K // group_size, *strides,
             group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None,
-            BLOCK_M=16, BLOCK_N=16, BLOCK_K=min(128, group_size), num_warps=2, num_stages=1,
+            BLOCK_M=bm, BLOCK_N=bn, BLOCK_K=min(bk, group_size), num_warps=warps, num_stages=1,
         )
         return c
 
     hy.triton_w4a16_skinny_fmt_gemm = gemm
-    print("[lds-gate-patch] Triton M<=32 tile 16x16x128, 2 warps, 1 stage", file=sys.stderr, flush=True)
+    print("[lds-gate-patch] Triton tiles M<=32 16x16x128 w2, M>512 256x128x64 w8, 1 stage", file=sys.stderr, flush=True)
 
 
 # UltraQuant keeps a max_model_len bf16 K/V buffer per layer (16 x 966 MiB), which OOMs the card. Layers run
@@ -152,7 +156,7 @@ def _patch_uq_ops(module):
 
 PATCHES = {
     "vllm.v1.attention.ops.ultraquant.triton_unified_attention": _patch_uq_ops,
-    "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16": _install_small_m_triton_config,
+    "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16": _install_triton_tiles,
     "vllm.v1.attention.backends.ultraquant_attn": _patch_uq,
 }
 

@@ -146,7 +146,7 @@ spec:
   # 8: +19% short-context aggregate over 5; M=6-8 leave the 5-row skinny W4A16 kernel for Triton.
   parallelSlots: 8
   bindAddress: 0.0.0.0
-  # Digest-pinned nightly. After a bump the boot log shows "Triton M<=32 tile" and "UltraQuant ... fast=True
+  # Digest-pinned nightly. After a bump the boot log shows "Triton tiles" and "UltraQuant ... fast=True
   # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
   # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
   # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
@@ -216,7 +216,7 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # Hook (resources/zz_lds_gate_impl.py): M<=32 Triton tile and UltraQuant fixes; drop once upstream has both.
+    # Hook (resources/zz_lds_gate_impl.py): Triton W4A16 tiles and UltraQuant fixes; drop once upstream has both.
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth

@@ -69,3 +69,22 @@ rolled stack (same harness, `--vram`, single runs):
 needles 3/3, tools 12/12, vision 2/2; agg 25.1 / 41.2 / 53.4 / 41.3 tok/s at 1 / 2 / 4 / 8
 sessions, min free VRAM 2.40 GiB). Smaller chunks put more of the prefix through 4-bit KV during
 prefill, which is the NLL cost; the gain is cold prefill and VRAM headroom against Jellyfin.
+
+## Prefill kernel profile and W4A16 tiles
+
+Torch profiler on an unrouted clone (GPU kernels only), one cold 24K prompt and one 32K-cached + 3.8K-new resume:
+
+| GPU time | Cold 24K | Resume |
+| --- | --- | --- |
+| W4A16 GEMM (`_triton_w4a16_skinny_fmt_kernel`) | 73% | 56% |
+| Attention (flash-attn `attn_fwd`) | 15% | 32% |
+| GDN, norms, other | 11% | 11% |
+| UltraQuant dequant and store | 0.4% | 1.3% |
+
+Upstream's gfx12 tiles for M > 512 were tuned on Llama-3.1-8B shapes. 256x128x64, 8 warps, 1 stage wins
+all five Qwen3.8 shapes at M = 768, 1280 and 2048 (1.02-1.25x; `bench/downfix/triton_prefill.out`),
+and the hook now uses it. Rolled 2026-10-09: outputs bit-identical (agreement 60/60, NLL +0.00000),
+GSM8K 145/150, needles 3/3, tools 12/12, vision 2/2; cold prefill 1,111-1,118 -> 1,210-1,215 tok/s,
+40K / 64K cold TTFT 36.1 / 65.1 -> 33.1 / 60.1 s, 1-session resume TTFT 1.96 -> 1.76 s.
+bf16 hipBLASLt runs the same shapes at 109-130 TFLOP/s against 94-108 for the tuned W4A16 kernel, so
+little headroom is left in the GEMM; attention is the next prefill cost at long context.
