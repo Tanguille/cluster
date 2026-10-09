@@ -49,10 +49,12 @@ Setup:
 - **8 sessions collapse on KV capacity.** The 8 sessions cycle 40K/16K/64K/40K/98K
   prefixes (378K) and add about 36K over three turns (8 x 3 x (1,254 tail + 235
   reply)) = about 414K. That exceeds the pool less its 5% watermark (430,982 x 0.95 =
-  409K), so sessions evict each other and 656K tokens are recomputed. Fixed on 2026-10-09
-  by `blocks_per_chunk` 1 and `--prefix-match-unit 64`
-  ([ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md)). The offload tier served 270K (`external_kv_transfer`). fp8's
-  304,808-token pool would hit this wall at about 5-6 sessions.
+  409K), so sessions evict each other and 656K tokens are recomputed. The offload tier
+  served 270K (`external_kv_transfer`). fp8's 304,808-token pool would hit this wall at
+  about 5-6 sessions. Fixed on 2026-10-09 by `blocks_per_chunk` 1 and
+  `--prefix-match-unit 64`: at 8 sessions the same harness recomputed 55K tokens instead
+  of 514K (`d_local_compute`) and loaded 894K from the tiers, 8.4 -> 43 tok/s aggregate
+  ([ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md)).
 - **The offload lookup stall did not fire during the run.** The
   `kv_offload_lookup_async_delay_seconds` count stayed at 45. The 5-11 s TTFT at 1-2
   sessions is therefore prefill and queueing; ttft-breakdown-2026-10.md splits it.

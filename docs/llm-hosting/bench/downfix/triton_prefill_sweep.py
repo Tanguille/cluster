@@ -16,6 +16,7 @@ dev = torch.device("cuda")
 SHAPES = [(5120, 17408, "down"), (34816, 5120, "gate_up"), (16384, 5120, "in_proj"),
           (14336, 5120, "qkv"), (5120, 6144, "out_proj")]
 M = int(sys.argv[1]) if len(sys.argv) > 1 else 2048
+assert M > 512, "upstream_cfg mirrors upstream's gfx12x M > 512 branch only"
 
 
 def upstream_cfg(N, K):
@@ -77,10 +78,11 @@ def main():
         res = []
         for c in CFGS:
             try:
-                out = launch(x, w_q, w_s, w_zp, N, K, *c)
-                err = ((out.float() - ref.float()).abs().max() / ref.float().abs().max()).item()
-                if err > 2e-2:
-                    res.append((float("inf"), c, f"err {err:.3g}"))
+                out = launch(x, w_q, w_s, w_zp, N, K, *c).float()
+                # element-wise (atol scaled to the output range), and a NaN or inf anywhere fails
+                atol = 2e-2 * ref.float().abs().max().item()
+                if not (torch.isfinite(out).all() and torch.allclose(out, ref.float(), rtol=2e-2, atol=atol)):
+                    res.append((float("inf"), c, "mismatch"))
                     continue
                 res.append((timeit(lambda: launch(x, w_q, w_s, w_zp, N, K, *c)), c, ""))
             except Exception as e:  # noqa: BLE001  (out of resources: LDS/registers)
