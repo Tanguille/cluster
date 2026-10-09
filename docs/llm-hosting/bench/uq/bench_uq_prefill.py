@@ -23,7 +23,7 @@ distinct_mib). At the 0.45 GiB cap the 47616 and 98304 requests collapse to ~15-
 FP4 prefix, resident in the 64 MB Infinity Cache and L2, which flatters the fused kernel because it re-reads
 the prefix once per query block); true 48K is 49 MiB and true 98K is 102 MiB, above the Infinity Cache. So
 48K, 98K and 260K are NOT measured, and summarize() emits hook q-cap advice only when every q has a
-cell with cached_eff >= MIN_TRUSTED_CACHED (49152); otherwise the crossover is marked untrusted. The crossover
+cell with cached_eff >= MIN_RELIABLE_CACHED (49152); otherwise the crossover is marked unreliable. The crossover
 gates the picker_default rows (U.GEOMETRY: the hook launches nothing else), not the swept winners.
 
 Output: JSON lines (kind = cap | cell | probe | row | best | crossover), then DONE. One process per q keeps the
@@ -38,7 +38,7 @@ import re
 import sys
 
 
-MIN_TRUSTED_CACHED = 49152  # below this the prefix fits the Infinity Cache and the ratios flatter the fused kernel
+MIN_RELIABLE_CACHED = 49152  # below this the prefix fits the Infinity Cache and the ratios flatter the fused kernel
 
 
 def emit(**row):
@@ -71,7 +71,7 @@ def summarize(all_rows, qs):
         shrunk = sorted({(r["cached_req"], r["cached_eff"]) for r in rows if r["cached_req"] != r["cached_eff"]})
         emit(kind="best", q=q, cells=cells, shrunk_req_to_eff=shrunk, **out)
     # ponytail: only the longest cached_eff per q is checked, not 98K specifically; add a 98K check if 49K alone proves too weak
-    trusted = bool(qs) and all(max((r["cached_eff"] for r in all_rows if r["q"] == q), default=0) >= MIN_TRUSTED_CACHED
+    reliable = bool(qs) and all(max((r["cached_eff"] for r in all_rows if r["q"] == q), default=0) >= MIN_RELIABLE_CACHED
                                for q in qs)
     # The crossover gates the exact configuration the hook launches (U.GEOMETRY at the picker's own
     # segment count), not the swept winners: those use per-cell segment counts that the hook never launches.
@@ -87,9 +87,9 @@ def summarize(all_rows, qs):
             first_above = q
             break
     emit(kind="crossover", gate="picker_default", largest_q_at_or_below_1x=ok_through, first_q_above_1x=first_above,
-         trusted=trusted,
-         advice=("hook q cap from largest_q_at_or_below_1x up to just below first_q_above_1x; 128 if null" if trusted else
-                 f"NOT DERIVABLE: some q has no cell with cached_eff >= {MIN_TRUSTED_CACHED} (cache-resident, shrunk by the VRAM cap); "
+         reliable=reliable,
+         advice=("hook q cap from largest_q_at_or_below_1x up to just below first_q_above_1x; 128 if null" if reliable else
+                 f"NOT DERIVABLE: some q has no cell with cached_eff >= {MIN_RELIABLE_CACHED} (cache-resident, shrunk by the VRAM cap); "
                  "keep the hook q cap at 128 and measure true 48K/98K cells (needs more VRAM or a fused-only pass)"))
 
 
@@ -113,7 +113,7 @@ from vllm.v1.attention.ops.ultraquant.triton_dequant import ultraquant_full_dequ
 from vllm.v1.attention.ops.ultraquant.triton_store import _get_hadamard  # noqa: E402
 
 MIB = 2**20
-SLOT_BYTES = HK * F.slot_size(D)  # 1088 bytes per cached token
+SLOT_BYTES_PER_TOKEN = HK * F.slot_size(D)  # 1088
 SCALE = D**-0.5
 H = _get_hadamard(D, DEV)
 CAP = T.CAP_GIB * 2**30
@@ -123,7 +123,7 @@ CUS = torch.cuda.get_device_properties(0).multi_processor_count
 # --- cell memory model (bytes); the allocator cap is the real limit, this only picks cached_eff -----------------
 
 def seq_bytes(cached, q):
-    return -(-(cached + q) // BS) * BS * SLOT_BYTES
+    return -(-(cached + q) // BS) * BS * SLOT_BYTES_PER_TOKEN
 
 
 def arena_sets(cached, q, arena_mib):
@@ -191,12 +191,12 @@ def kernel_stats(kern):
         return {}
     isa = kern.asm.get("amdgcn", "") if hasattr(kern, "asm") else ""
     st = {}
-    for stat, pat in (("spills", r"\.vgpr_spill_count:\s+(\d+)"), ("vgprs", r"\.vgpr_count:\s+(\d+)"),
+    for key, pat in (("spills", r"\.vgpr_spill_count:\s+(\d+)"), ("vgprs", r"\.vgpr_count:\s+(\d+)"),
                      ("scratch_bytes", r"\.private_segment_fixed_size:\s+(\d+)"),
                      ("lds_bytes", r"\.group_segment_fixed_size:\s+(\d+)")):
         m = re.search(pat, isa)
         if m:
-            st[stat] = int(m.group(1))
+            st[key] = int(m.group(1))
     if "spills" not in st and hasattr(kern, "n_spills"):
         st["spills"] = int(kern.n_spills)
     return st
@@ -249,7 +249,7 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
     q_t = (torch.randn(q, HQ, D, generator=g) * 0.1).to(torch.bfloat16).to(DEV)
     kc = torch.randn(q, HK, D, generator=g).to(torch.bfloat16).to(DEV)
     cell = dict(q=q, cached_req=cached_req, cached_eff=cached, shrunk=cached != cached_req, sets=nsets,
-                distinct_mib=round(nsets * nb * BS * SLOT_BYTES / MIB), arena_relaxed=arena_mib < 256)
+                distinct_mib=round(nsets * nb * BS * SLOT_BYTES_PER_TOKEN / MIB), arena_relaxed=arena_mib < 256)
     emit(kind="cell", **cell)
 
     up = upstream_runner(arena, bts, cached, q_t, kc)
@@ -262,7 +262,7 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
     results = {}  # (M, T, W) -> {S: [ms, stats]}
 
     def measure(geom, segs, n_reps, give_up_ms=None):
-        geo = (geom["block_m"], geom["tile_size"], geom["num_warps"])
+        key = (geom["block_m"], geom["tile_size"], geom["num_warps"])
         fn = fused_runner(arena, bts, cached, q_t, num_segments=segs, **geom)
         try:
             ms, done = timed(fn, nsets, n_reps, give_up_after=2 if give_up_ms else None, give_up_ms=give_up_ms)
@@ -273,15 +273,15 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
             return None
         st = kernel_stats(U.LAST_KERNEL)
         st["spill_ok"] = st.get("spills", 0) <= live_spills[segs == 1]
-        prev = results.setdefault(geo, {}).get(segs)
-        results[geo][segs] = [min(ms, prev[0]) if prev else ms, st, max(done, prev[2]) if prev else done]
+        prev = results.setdefault(key, {}).get(segs)
+        results[key][segs] = [min(ms, prev[0]) if prev else ms, st, max(done, prev[2]) if prev else done]
         emit(kind="probe", q=q, cached_eff=cached, **geom, segments=segs, reps=done, ms=round(ms, 3), **st)
         return ms
 
     geoms = [dict(block_m=m, tile_size=t, num_warps=w) for m, t, w in
              itertools.product(args.ms, args.ts, args.ws)]
     best = math.inf
-    base = nsets * nb * BS * SLOT_BYTES + 14336 * q  # arena + q_t + kc
+    base = nsets * nb * BS * SLOT_BYTES_PER_TOKEN + 14336 * q  # arena + q_t + kc
     for geom in geoms:  # screen: auto segment count
         s = auto_segments(q, geom["block_m"], geom["tile_size"], cached, base)
         ms = measure(geom, s, reps if args.full else args.probe_reps, None if args.full else 4 * best)
@@ -292,21 +292,21 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
         return []
     ranked = sorted(results, key=lambda k: min(v[0] for v in results[k].values()))
     finalists = ranked[: (len(ranked) if args.full else 6)]
-    def geom_of(geo):
-        return dict(block_m=geo[0], tile_size=geo[1], num_warps=geo[2])
+    def geom_of(key):
+        return dict(block_m=key[0], tile_size=key[1], num_warps=key[2])
 
-    for geo in finalists:  # sweep segments on the screened winners
-        max_s = min(64, -(-(cached + q) // geo[1]))
+    for key in finalists:  # sweep segments on the screened winners
+        max_s = min(64, -(-(cached + q) // key[1]))
         for s in (2**i for i in range(7)):
             if s <= max_s and fused_bytes(q, s) + base + 8 * MIB <= CAP:
-                if s not in results[geo]:
-                    measure(geom_of(geo), s, reps if args.full else args.probe_reps)
+                if s not in results[key]:
+                    measure(geom_of(key), s, reps if args.full else args.probe_reps)
     best_cfg = {}
-    for geo in finalists:  # full reps on each finalist's best segment count
-        s = min(results[geo], key=lambda x: results[geo][x][0])
-        if results[geo][s][2] < reps:
-            measure(geom_of(geo), s, reps)
-        best_cfg[geo] = s
+    for key in finalists:  # full reps on each finalist's best segment count
+        s = min(results[key], key=lambda x: results[key][x][0])
+        if results[key][s][2] < reps:
+            measure(geom_of(key), s, reps)
+        best_cfg[key] = s
     pgeom = U.GEOMETRY
     try:
         picker_ms, _ = timed(fused_runner(arena, bts, cached, q_t), nsets, reps)
@@ -317,16 +317,16 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
     except torch.cuda.OutOfMemoryError:  # the picker's default segment count can exceed the cap at large q
         picker_ms, pst = math.nan, {}
     # second pass, reverse order: upstream last-to-first with the finalists
-    for geo in reversed(finalists):
-        measure(geom_of(geo), best_cfg[geo], reps)
+    for key in reversed(finalists):
+        measure(geom_of(key), best_cfg[key], reps)
     up2, _ = timed(upstream_runner(arena, bts, cached, q_t, kc), nsets, reps)
     up_ms = min(up_ms, up2)
     rows = []
-    for geo in finalists:
-        s = best_cfg[geo]
-        ms, st, _ = results[geo][s]
-        rows.append(dict(kind="row", q=q, cached_req=cached_req, cached_eff=cached, block_m=geo[0], tile_size=geo[1],
-                         num_warps=geo[2], segments=s, ms=round(ms, 3), upstream_ms=round(up_ms, 3),
+    for key in finalists:
+        s = best_cfg[key]
+        ms, st, _ = results[key][s]
+        rows.append(dict(kind="row", q=q, cached_req=cached_req, cached_eff=cached, block_m=key[0], tile_size=key[1],
+                         num_warps=key[2], segments=s, ms=round(ms, 3), upstream_ms=round(up_ms, 3),
                          ratio=round(ms / up_ms, 3), reps=reps, **st))
     for r in rows:
         emit(**r)
