@@ -9,6 +9,10 @@ spec:
     kind: OCIRepository
     name: app-template
   interval: 1h
+  valuesFrom:
+    # control-1's Ryzen 7 5800X has the best single-thread speed for the simulation.
+    - kind: ConfigMap
+      name: affinity-control-1
   values:
     controllers:
       satisfactory:
@@ -54,7 +58,7 @@ spec:
                 cpu: 500m
                 memory: 1Gi
               limits:
-                memory: 16Gi
+                memory: 8Gi
         # Mods disabled: uncomment this block and the scripts persistence entry below, and restore the
         # `&image` and `&sc` anchors, to re-enable.
         # initContainers:

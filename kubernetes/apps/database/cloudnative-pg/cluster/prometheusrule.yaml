@@ -26,15 +26,6 @@ spec:
           for: 1m
           labels:
             severity: warning
-        - alert: BackendsWaiting
-          annotations:
-            description: Pod {{ $labels.pod }} has been waiting for longer than 5 minutes
-            summary: If a backend is waiting for longer than 5 minutes
-          expr: |-
-            cnpg_backends_waiting_total > 300
-          for: 1m
-          labels:
-            severity: warning
         - alert: PGDatabase
           annotations:
             description: Over 150,000,000 transactions from frozen xid on pod {{ $labels.pod }}
@@ -87,15 +78,6 @@ spec:
           expr: |-
             cnpg_backends_max_tx_duration_seconds > 60
           for: 1m
-          labels:
-            severity: warning
-        - alert: SlowQueryHighFrequency
-          annotations:
-            description: Pod {{ $labels.pod }} has multiple slow queries (avg duration > 5s) occurring frequently
-            summary: Multiple slow queries detected on this pod
-          expr: |-
-            rate(cnpg_backends_max_tx_duration_seconds[5m]) > 5
-          for: 5m
           labels:
             severity: warning
         - alert: CNPGInstanceRestartLoop
