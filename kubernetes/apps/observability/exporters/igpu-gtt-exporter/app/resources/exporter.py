@@ -36,8 +36,8 @@ def collect(proc="/proc"):
                 parsed = parse_fdinfo(f.read())
             with open(f"{pid_dir}/cgroup") as f:
                 uid = pod_uid(f.read())
-        except OSError:
-            continue  # process or fd went away mid-scan
+        except (OSError, ValueError, KeyError):
+            continue  # process or fd went away mid-scan, or an unparseable fdinfo
         if parsed and uid:
             clients[parsed[0]] = (uid, parsed[1])
     totals = {}
@@ -47,6 +47,8 @@ def collect(proc="/proc"):
 
 
 class Handler(BaseHTTPRequestHandler):
+    timeout = 10  # an idle client must not block the single-threaded server
+
     def do_GET(self):
         lines = ["# HELP pod_drm_memory_gtt_bytes DRM GTT memory held by the pod's processes.",
                  "# TYPE pod_drm_memory_gtt_bytes gauge"]
