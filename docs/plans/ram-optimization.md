@@ -188,7 +188,8 @@ This plan file's appendix only. No manifest edits, no cluster writes, no load te
 ---
 
 ### Chunk 2: iGPU models
-**Status:** Not Started
+**Status:** In Progress
+**Live interim (owner, 2026-10-09 ~01:00Z):** with `llmkube-models` still suspended, the live reranker InferenceService was patched to match git (`contextSize`/`uBatchSize` 2048, `batchSize` removed, memory 1536Mi). Result on control-3: GTT 5.51 GiB → 1.24 GB, MemAvailable 4.7 → 9.6 GB; after 5 × 12-doc reranks GTT 1.55 GB (reranker ≈ 0.75 GB on top of qwen35-2b's 0.80); p50 2.17 s, correct top hit. Chunk 1 showed the 4096 GTT (4.70 GiB) was allocated at load and flat, so it was oversizing, not a leak.
 **Wave:** 2
 **Estimated Context:** ~40k tokens
 **Complexity:** Medium
