@@ -1,29 +1,14 @@
 #!/usr/bin/env python3
 """Acceptance benchmark: production-shaped multi-turn agent sessions.
 
-longconcsweep.py shares ONE cached prefix across all streams, which flatters
-prefix-cache and batching behaviour. This models the 30-day production
-workload instead (VictoriaMetrics):
-  - concurrency while busy: 1 46.8%, 2 24.4%, 3-4 20.9%, 5-8 8.0%
-  - prompt p50 40.6K / p90 94.9K tokens (<=20K 22.2%, 20-50K 43.7%,
-    50-100K 29.1%, >100K 7.1%); default --prefixes cycle averages ~52K
-  - 91% of prompt tokens are prefix-cache hits; computed tokens/request p50 1,254
-  - generated tokens/request p50 235; decode is 79-87% of request time
-  - traffic is multi-turn: each turn = previous context + a new tail
+Each concurrent stream is an independent session with its OWN random prefix (longconcsweep.py shares one,
+which flatters caching and batching). Per session: one cold turn (reported separately), then --turns steady
+turns, each appending the previous reply plus a fresh tail, so only reply + tail are computed. Defaults follow
+the 2026-09 production mix: prefixes cycle 40/16/64/40/98K, 1,254-token tails, 235 generated tokens.
 
-Each concurrent stream is an independent session with its OWN random prefix.
-Per session: one cold warmup turn (reported separately, excluded from steady
-state), then --turns steady turns. Each turn appends the PREVIOUS turn's
-generated text plus a fresh tail (real multi-turn), so the prefix is cached and
-only reply + tail are computed.
-
---warmup runs one untimed pass per level first (kernels, allocator, caches).
---runs N repeats each level with fresh seeds and reports the median per metric
-plus the absolute spread (max-min); the spread between runs of the same config is
-the noise floor.
-
-Needs a port-forward to the vLLM pod (default 127.0.0.1:18000). Engine must be
-otherwise idle. Use --dry-run to see the plan without sending anything.
+--warmup runs one untimed pass per level; --runs N repeats each level with fresh seeds and reports the median
+plus the max-min spread (the noise floor). Run it inside the pod (--port 8000): port-forwards stall after
+30-60 min. The engine must be otherwise idle; --dry-run prints the plan.
 """
 import argparse, json, os, random, re, statistics, subprocess, sys, threading, time
 import urllib.request

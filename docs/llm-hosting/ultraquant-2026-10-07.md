@@ -21,7 +21,7 @@ the matched-length A/B is the 48K table below. Throughput at production shape is
 
 Computed tokens per request have a p50 of 1,254, so most requests take the
 cached-prefix continuation path. **The owner keeps UltraQuant (quality, headroom)**; the
-fix plan is [../plans/r9700-gpu-max.md](../plans/r9700-gpu-max.md).
+2026-10-09 fix is in [ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md).
 
 ## Production-shape baseline (`bench/prodshape.py`, 2026-10-07 20:07-20:42Z)
 
@@ -253,7 +253,7 @@ prompt-length mix below.
   ms measured. Only fewer bytes per weight help there.
 - **MXFP4 W4A8 (radiance `radiance_mxfp4_fp8.hip`)** measured 1.12x at M=1 and 1.42x at
   M=4 on summed step GEMMs, plus about 2x prefill
-  ([perf-plan-2026-09-13.md](perf-plan-2026-09-13.md) #4a).
+  (2026-09-13 bench).
   - The 09-13 `gate_up` loss came from that bench's `DEC_MAX_N=32768`. Radiance HEAD
     `f6727a21` raised it to 36864, which covers N=34816.
   - Blockers now: no licence file and no explicit grant were found for radiance (GitHub

@@ -30,8 +30,7 @@ kind: CronJob
 metadata:
   name: qwen38-27b-vllm-kv-offload-guard
 spec:
-  # Sweep, not a cap: hourly because a restart can regrow the tier past the
-  # floor within a day.
+  # Hourly: a restart can regrow the tier past the floor within a day.
   schedule: "0 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
@@ -43,11 +42,9 @@ spec:
         spec:
           restartPolicy: OnFailure
           securityContext:
-            # The serving pod runs runAsUser 0, so the store is root-owned on
-            # disk.
+            # The serving pod runs as root, so the store is root-owned.
             runAsUser: 0
-          # hostPath pins this to control-1; it must tolerate the DiskPressure
-          # it exists to clear.
+          # Must tolerate the DiskPressure it exists to clear (hostPath pins it to control-1).
           tolerations:
             - key: node.kubernetes.io/disk-pressure
               operator: Exists
@@ -143,60 +140,34 @@ kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
 spec:
-  # Checkpoint swap = modelRef + modelCache.claimName, one restart; pre-stage
-  # files into the PVC at /models/<sha256(source)[:16]> so the init container
-  # only revalidates. The fs KV tier is keyed per model by vLLM's file_mapper.
+  # Checkpoint swap = modelRef + modelCache.claimName (one restart); pre-stage /models/<sha256(source)[:16]>.
   modelRef: qwen38-swift-27b-vllm
   runtime: vllm
-  # 8: short-context aggregate +19% over 5 (143.4 vs 119.7 tok/s), flat 5 -> 8
-  # at 48K context. M=6 dips (110.0): MAX_SKINNY_BATCH_SIZE=5 in
-  # rdna_hybrid_w4a16.py sends every W4A16 projection to Triton there. Bimodal
-  # until warmed (cold M=2 ~30 vs warm ~55 tok/s): one warmup run is not
-  # enough. Baseline: docs/llm-hosting/ultraquant-2026-10-07.md.
+  # 8: +19% short-context aggregate over 5; M=6-8 leave the 5-row skinny W4A16 kernel for Triton.
   parallelSlots: 8
   bindAddress: 0.0.0.0
-  # nightly: gfx1201 support landed after v0.27.1. Digest-pinned so Renovate can
-  # bump it. After a bump, check the boot log for the "[lds-gate-patch]" lines
-  # (including "UltraQuant ... fast=True", none "SKIPPED") and a clean graph
-  # capture (the M<=32 patch launches the Triton kernel itself, so a kernel
-  # signature change breaks boot). Bench (bench/longctx.py
-  # 4000 and 50000) only if the base layers (torch/Triton/aiter) changed or the
-  # vLLM range touches ROCm, GDN, W4A16 or KV offload. Baseline: newest
-  # docs/llm-hosting/vllm-nightly-bench-*.md.
+  # Digest-pinned nightly. After a bump: boot log "UltraQuant ... fast=True" with no SKIPPED, then
+  # bench/qualitygate.py and bench/prodshape.py in the pod vs docs/llm-hosting/ttft-breakdown-2026-10.md.
   image: vllm/vllm-openai-rocm:nightly@sha256:b2bbb3396b5eceed9b6b630b4891d8af81d55cecdff902eee5971f72ce89a9f5
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
-    # Trained max. Per-request KV cap; decode cliffs below pool/cap ~1.17x
-    # (fp8 bisect: 1.19x 31.5 tok/s, 1.17x 31.7, 1.16x UNSTABLE, 1.14x 18.9).
-    # UltraQuant pool 430,982 tokens = 1.64x. Engine refuses to boot if pool <
-    # cap: re-read "GPU KV cache size" after any --kv-cache-memory, mamba dtype,
-    # or image change.
+    # Trained max; pool 430,982 = 1.64x. vLLM refuses to boot if pool < this: re-read "GPU KV cache size" after changes.
     maxModelLen: 262144
-    # UltraQuant 4-bit KV (vllm#57057): 18,091 B/token vs fp8 33,465. The CRD's
-    # kvCacheDtype enum lacks it, hence kvCacheCustomDtype. Costs and rollback
-    # (fp8_e4m3, --kv-cache-memory 10200547328, maxModelLen 246944):
-    # docs/llm-hosting/ultraquant-2026-10-07.md
+    # UltraQuant 4-bit KV (vllm#57057), 18,091 B/token; the CRD enum lacks it. See docs/llm-hosting/ultraquant-2026-10-07.md.
     kvCacheDtype: auto
     kvCacheCustomDtype: ultraquant_4bit
-    # ~91% pod-lifetime local hit rate (nightly-bench-2026-09-29.md).
+    # ~89% of real prompt tokens hit the GPU prefix cache (2026-10-09).
     enablePrefixCaching: true
-    # UltraQuant (2026-10-09, prodshape): cold prefill 2048 1,080-1,154 tok/s,
-    # 4096 1,055-1,061, 8192 757; min free VRAM at 8 sessions 2.53 / 2.02 /
-    # 1.41 GiB. Smaller chunks see more of the prefix as 4-bit KV: 2048 NLL
-    # +0.00035 vs 4096, GSM8K 145 vs 146, needles 3/3. Workload is 129:1
-    # prompt:output.
+    # 2048 vs 4096 / 8192: cold prefill 1,080-1,154 vs 1,055 / 757 tok/s, min free VRAM at 8 sessions 2.53 vs 2.02 / 1.41 GiB, NLL +0.00035.
     maxNumBatchedTokens: 2048
-    # Shared with Jellyfin, never above 0.875. vLLM still refuses to boot when
-    # free VRAM < this fraction of total; --kv-cache-memory sets the KV pool.
+    # Shared with Jellyfin: never above 0.875. --kv-cache-memory sets the pool.
     gpuMemoryUtilization: 0.875
   env:
-    # Attention = ROCM_AITER_UNIFIED_ATTN (boot log "Overriding with"). Backend
-    # comparison: docs/llm-hosting/gfx1201-decode-findings-2026-09-02.md
+    # Full attention runs the ULTRAQUANT backend (boot log "Overriding with"); see gfx1201-decode-findings-2026-09-02.md.
     - name: VLLM_ROCM_USE_AITER
       value: "1"
-    # gfx1201 fast/slow band at exactly 2x (ROCm/ROCm#6347). One queue: fast
-    # 80/81 windows vs slow 5/5 without; not a pin.
+    # Raises the odds of the fast gfx1201 band (2x decode, ROCm/ROCm#6347); not a pin.
     - name: GPU_MAX_HW_QUEUES
       value: "1"
     - name: HIP_VISIBLE_DEVICES
@@ -209,16 +180,13 @@ spec:
       value: /cache/triton
     - name: TORCHINDUCTOR_CACHE_DIR
       value: /cache/inductor
-    # Seeds fs-tier block hashes; removing it rehashes and invalidates the whole
-    # tier.
+    # Seeds fs-tier block hashes; changing it invalidates the tier.
     - name: PYTHONHASHSEED
       value: "0"
-    # UltraQuant continuation prefill calls flash-attn; the CK build segfaults
-    # on gfx1201 (BlockFmhaPipelineQRKSVSAsync), the Triton build works.
+    # UltraQuant continuation prefill uses flash-attn; the CK build segfaults on gfx1201.
     - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
       value: "TRUE"
-    # UQ_FAST=1: decode and continuation chunks up to 128 tokens run
-    # resources/uq_decode_fast.py; 0 falls back to upstream's kernel.
+    # Decode and <=128-token continuation chunks run resources/uq_decode_fast.py; 0 = upstream.
     - name: UQ_FAST
       value: "1"
   extraVolumes:
@@ -228,8 +196,7 @@ spec:
     - name: kv-offload
       persistentVolumeClaim:
         claimName: qwen38-27b-vllm-kv-offload
-    # = cpu_bytes_to_use + 2Gi; the 64M default EFAULTs on pre-fault. Nothing
-    # enforces it.
+    # = cpu_bytes_to_use + 2Gi; the 64M default EFAULTs on pre-fault.
     - name: dshm
       emptyDir:
         medium: Memory
@@ -247,9 +214,7 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # M<=32 Triton tile, UltraQuant shared continuation buffer and decode kernel:
-    # see resources/zz_lds_gate_impl.py. Drop the mount and generator entry once
-    # upstream carries an M<=32 tile config and a gfx1201 UltraQuant path.
+    # Hook (resources/zz_lds_gate_impl.py): M<=32 Triton tile and UltraQuant fixes; drop once upstream has both.
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth
@@ -258,8 +223,7 @@ spec:
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
       subPath: zz_lds_gate_impl.py
       readOnly: true
-    # Served via --chat-template below, so this path is ours, not the model
-    # cache's: no sha256(source)[:16] to re-derive when spec.modelRef moves.
+    # Our own path, so it survives modelRef changes.
     - name: qwen38-sharp-chat-template
       mountPath: /chat-templates/chat_template.jinja
       subPath: chat_template.jinja
@@ -278,69 +242,40 @@ spec:
     - --enable-auto-tool-choice
     - --tool-call-parser
     - qwen3_coder
-    # The Sharp template replaces the AWQ build's stock Qwen3.8 template. This is
-    # vLLM's 1st-priority source (vllm/renderers/hf.py
-    # resolve_chat_template), so the model dir's own copy is ignored, and the
-    # path is validated at boot: a bad mount fails the pod instead of silently
-    # serving the stock template.
+    # Sharp template over the AWQ build's stock one; highest-priority source, validated at boot.
     - --chat-template
     - /chat-templates/chat_template.jinja
-    # NO --long-prefill-token-threshold: 1600 raised stall share 19% -> 37% and
-    # single-stream TTFT was unchanged without it (64K 63.4 s vs 64.1).
-    # Capture sizes = 1..parallelSlots: the default 512 ceiling OOMs on GDN
-    # hybrids (vllm#39010); vLLM pads to the next capture size, so M=5 needs its
-    # own.
+    # NO --long-prefill-token-threshold: 1600 doubled the stall share for no TTFT gain.
+    # Capture sizes 1..parallelSlots: the default 512 ceiling OOMs on GDN hybrids (vllm#39010).
     - --compilation-config
     - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5, 6, 7, 8]}'
     # Keep prior-turn reasoning in context.
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
-    # NO --speculative-config: n-gram corrupts output on GDN hybrids
-    # (vllm#39273); DSpark and MTP lose; EAGLE3/DFlash disable prefix caching
-    # (vllm#41640). Re-open only on those fixes; gate in
-    # docs/llm-hosting/spec-decode-rejected.md.
-    # Both needed: ssm does not inherit on Qwen3.5 (forces fp32); dropping it
-    # cost 7,160 KV tokens.
+    # NO --speculative-config: rejected, see docs/llm-hosting/spec-decode-rejected.md.
+    # Both needed: the ssm dtype does not inherit (fp32 would cost 7,160 KV tokens).
     - --mamba-cache-dtype
     - bfloat16
     - --mamba-ssm-cache-dtype
     - bfloat16
-    # 5% (~15K tokens) held free at admission: cut preemptions from 117/17h to
-    # 5/7d.
+    # 5% held free at admission: preemptions 117/17h -> 5/7d.
     - --watermark
     - "0.05"
-    # Default ITL edges are 25/50 ms around our 31-35 ms decode, so p95 reads ~49 ms.
-    # Fine edges 30-45 and 60 ms (slow band); default tail and the 0.05/0.075 longctx.py reads kept.
+    # Fine ITL edges around our 31-68 ms decode; the default 25/50 ms edges blur it.
     - --custom-histogram-buckets
     - '{"inter_token_latency": [0.01, 0.02, 0.025, 0.03, 0.032, 0.034, 0.036, 0.038, 0.04, 0.045, 0.05, 0.06, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 40.0, 80.0]}'
-    # 7.25 GiB -> 430,982 KV tokens (18,091 B/token; confirm in the boot log).
-    # The flag skips profiling, so headroom is manual: UltraQuant needs ~2.2 GiB
-    # more transient VRAM than fp8 (dequant scratch + shared continuation
-    # buffer); 9.5 GiB OOMed on the first request, 8 GiB booted. fp8 ran 9.5 GiB
-    # = 304,808 tokens with a 2.48 GiB reserve vs the largest non-vLLM VRAM
-    # excursion 1.82 GiB (Jellyfin has no concurrency cap, DgpuVramLow).
+    # 7.25 GiB -> 430,982 tokens. Skips profiling, so headroom is manual: 9.5 GiB OOMed; keep >= 1.82 GiB free for Jellyfin.
     - --kv-cache-memory
     - "7784628224"
-    # Prefix hits land on 64-token boundaries, not the 1536-token hybrid block.
-    # The extra prefill stop shifts greedy outputs (66% agreement, no cache hit
-    # involved) at equal quality: NLL delta <= 5e-5, GSM8K 146/150 both,
-    # needles 3/3 to 175K. Alone it keeps the 8-session collapse (8.1 tok/s);
-    # it needs blocks_per_chunk 1.
+    # Prefix hits on 64-token boundaries, not the 1536-token hybrid block; needs blocks_per_chunk 1.
+    # Shifts greedy outputs (66% agreement) at equal quality: NLL <= 5e-5, GSM8K 146/150, needles 3/3 to 175K.
     - --prefix-match-unit
     - "64"
     # No --language-model-only: Hermes uses the vision tower.
-    # CPU tier 12Gi (~712K UltraQuant tokens). 7d (2026-09-27): external hit
-    # 0.70, fs share of loads ~10%, async lookup mean 2.2 s. Revisit 22Gi
-    # (23622320128, dshm 24Gi, memory 32Gi) only if hit < 0.25 or share > 20%
-    # over a restart-free 7d. PCIe Gen3 did not speed it up (~3.3 GB/s both).
-    # Keep the fs tier: removing it halved single-stream decode (15.5 vs 31
-    # tok/s, 2026-08-19); no mechanism for that in the 43b4aaea3 code.
-    # blocks_per_chunk 1 (was 4): offload hits end on any block, and
-    # --prefix-match-unit partial tails need it. prodshape 8 sessions
-    # (2026-10-09): 8.4 -> 30.5 tok/s agg alone, 43 with --prefix-match-unit 64
-    # (recompute 514K -> 55K tokens); greedy outputs identical to 4.
-    # kv_load_failure_policy is a top-level field; nested it is silently
-    # ignored, grep the boot log for the literal.
+    # CPU tier 12Gi (~712K tokens); grow to 22Gi only if the 7-day external hit rate < 0.25.
+    # Keep the fs tier: removing it halved single-stream decode (2026-08-19).
+    # blocks_per_chunk 1: 8 sessions 8.4 -> 30.5 tok/s alone, 43 with --prefix-match-unit 64.
+    # kv_load_failure_policy is top-level; nested it is silently ignored.
     - --kv-transfer-config
     - >-
       {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":12884901888,"blocks_per_chunk":1,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
@@ -350,14 +285,12 @@ spec:
     runAsUser: 0
     runAsGroup: 0
     supplementalGroups: [44, 226]
-    # RuntimeDefault passes ROCm compute (kfd ioctls, /dev/dri, /dev/shm) and the
-    # liveness probe (curl, /sys reads).
+    # RuntimeDefault passes ROCm compute and the liveness probe.
     seccompProfile:
       type: RuntimeDefault
   resources:
     cpu: "2"
-    # Request AND limit (llmkube >= 0.9.29). tmpfs is charged: 12Gi shm + anon
-    # (5.3Gi idle, 5.9Gi at the 4x32K load peak) = ~18Gi.
+    # Request and limit; tmpfs counts: 12Gi shm + ~6Gi anon.
     memory: 24Gi
   endpoint:
     port: 8000
@@ -369,14 +302,9 @@ spec:
       initialDelaySeconds: 60
       periodSeconds: 15
       failureThreshold: 240
-    # Startup owns the load window. (1) /health with 20x30s slack, counted in
-    # /tmp because failureThreshold must stay 1 for (2). (2) gfx1201 slow band:
-    # with exactly 1 request decoding and sclk >= 3100 (prefill sits at
-    # 2480-2800), mem_busy reads ~81 fast / ~40 slow; 8 samples under 25% fast
-    # fails. Only card1 has the counters. vcn_busy_percent >= 5 is a co-tenant
-    # (Jellyfin or fileflows): it slows decode like the band but a restart cannot
-    # fix it, so the probe clears its window and skips. Thresholds and evidence:
-    # docs/llm-hosting/gfx1201-fast-slow-band-2026-09-12.md.
+    # (1) /health with 20x30s slack, counted in /tmp since failureThreshold is 1.
+    # (2) Slow band: with one request decoding at sclk >= 3100, fewer than 25% of 8 samples at
+    # mem_busy >= 60 restarts the pod. A busy VCN (Jellyfin) skips. See gfx1201-fast-slow-band-2026-09-12.md.
     liveness:
       exec:
         command:
@@ -400,8 +328,7 @@ spec:
             n=$$(wc -l < "$$f"); fast=$$(grep -c 1 "$$f")
             [ "$$n" -ge "$$window" ] || exit 0
             if [ $$((fast * 100)) -lt $$((n * fast_min_pct)) ]; then echo "slow band: $$fast/$$n solo samples fast" >&2; exit 1; fi
-      # 2/5 spawns read slow in minute 1; 900s is ~10 min past the ~4 min
-      # startup.
+      # 2/5 spawns read slow in minute 1; 900s is ~10 min past startup.
       initialDelaySeconds: 900
       periodSeconds: 30
       timeoutSeconds: 20

@@ -1,6 +1,6 @@
 # TTFT breakdown and quality baseline, 2026-10
 
-Chunk 2 of [r9700-gpu-max](../plans/r9700-gpu-max.md). Stack measured: the 2026-10-09 roll,
+Stack measured: the 2026-10-09 roll,
 UltraQuant 4-bit KV ([ultraquant-2026-10-07.md](ultraquant-2026-10-07.md)) on nightly
 `81198e97` with `--prefix-match-unit 64` and `blocks_per_chunk` 1.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Quality gate for every roll (docs/plans/r9700-gpu-max.md, Acceptance table).
+"""Quality gate for every roll: NLL, greedy agreement, GSM8K, tools, needles, vision (gates printed inline).
 
 usage: qualitygate.py MODE [--name STACK] [--compare STACK] [--port 18000]
 MODE: nll agree gsm8k tools needle vision all

@@ -2,32 +2,17 @@
 
   python bench_uq_prefill.py [--quick] [--full] [--q 129,...] [--cached 16384,...] [--reps 40]
 
-upstream   a mirror of UltraQuantAttentionImpl._ultraquant_continuation_prefill (bf16 dequant of the whole
-           prefix + copy + flash-attn, ops copied from the source; the real method needs a vLLM workspace
-           manager and max_model_len buffers). Same process, same caches, same CUDA-event timing.
-fused      uq_prefill_fast at M {16 (reference), 32, 64, 128} x tile {32, 64, 128} x warps {4, 8} x segments.
-live       M16/T64/w4 at the auto segment count: the spill baseline (gate: spills <= live default's).
+upstream   mirror of UltraQuantAttentionImpl._ultraquant_continuation_prefill (dequant + copy + flash-attn).
+fused      uq_prefill_fast over M x tile x warps x segments; live = the hook's default geometry (spill baseline).
 
-Method (docs/llm-hosting/ultraquant-2026-10-07.md, Methodology): a cell is (cached, q). Its caches are
-distinct block tables over one arena of >= 256 MiB of random FP4 slots (the 64 MB Infinity Cache cannot
-hold two replays). Every number is the minimum of --reps (40) CUDA-event replays, cycling the tables.
-Without --full a geometry is first screened with 5 replays (aborted after 2 if > 4x the best so far)
-and only its best segment count and the 6 best geometries get the full 40; the second pass repeats
-upstream and the finalists in reverse order and keeps the minimum over both passes.
+Each (cached, q) cell cycles block tables over a >= 256 MiB arena (past the 64 MB Infinity Cache) and keeps the
+minimum of --reps CUDA-event replays; geometries are screened with --probe-reps first, finalists re-run in
+reverse order. One process stays under UQ_VRAM_CAP_GIB (0.45), which shrinks cached lengths (cached_eff); a
+prefix that then fits the Infinity Cache flatters the fused kernel, so hook q-cap advice is emitted only when
+every q has cached_eff >= MIN_RELIABLE_CACHED (49152).
 
-Budget: one process holds at most UQ_VRAM_CAP_GIB (0.45) of allocator memory (test_uq_decode_fast.set_vram_cap
-also shrinks it to keep node free VRAM above 1.84 GiB). Upstream needs ~8 KiB per cached token plus ~46 KiB
-per chunk token, so cached lengths are shrunk per q (cached_eff, in 1536-token steps) and, when even that
-cannot keep 256 MiB of caches, the arena is relaxed to 128 MiB; both are printed per row (shrunk,
-distinct_mib). At the 0.45 GiB cap the 47616 and 98304 requests collapse to ~15-23K tokens (16-24 MiB of
-FP4 prefix, resident in the 64 MB Infinity Cache and L2, which flatters the fused kernel because it re-reads
-the prefix once per query block); true 48K is 49 MiB and true 98K is 102 MiB, above the Infinity Cache. So
-48K, 98K and 260K are NOT measured, and summarize() emits hook q-cap advice only when every q has a
-cell with cached_eff >= MIN_RELIABLE_CACHED (49152); otherwise the crossover is marked unreliable. The crossover
-gates the picker_default rows (U.GEOMETRY: the hook launches nothing else), not the swept winners.
-
-Output: JSON lines (kind = cap | cell | probe | row | best | crossover), then DONE. One process per q keeps the
-shared GPU lock short; merge the outputs with  python3 bench_uq_prefill.py --summarize bench_q*.out
+Output: JSON lines (kind = cap | cell | probe | row | best | crossover), then DONE. Merge per-q outputs with
+python3 bench_uq_prefill.py --summarize bench_q*.out
 """
 import argparse
 import itertools
