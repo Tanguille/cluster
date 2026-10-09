@@ -26,9 +26,6 @@ spec:
               repository: python
               tag: 3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2
             command: [python3, /config/exporter.py]
-            ports:
-              - name: http
-                containerPort: 8080
             securityContext:
               # fdinfo of root processes with a wider cap set needs uid 0 plus SYS_PTRACE (ptrace read mode)
               runAsUser: 0
@@ -37,14 +34,10 @@ spec:
               capabilities:
                 drop: [ALL]
                 add: [SYS_PTRACE]
+            # TCP, not /metrics: every scrape walks all of /proc
             probes:
               liveness: &probe
                 enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /metrics
-                    port: http
               readiness: *probe
             resources:
               requests:

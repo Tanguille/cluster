@@ -3,9 +3,9 @@ import glob
 import os
 import re
 import sys
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-UNITS = {"": 1, "KiB": 1 << 10, "MiB": 1 << 20, "GiB": 1 << 30}
+UNITS = {"": 1, "KiB": 1 << 10, "MiB": 1 << 20}  # drm_fdinfo_print_size units
 POD_UID = re.compile(r"/pod([0-9a-f-]{36})/")  # cgroupfs driver, as on Talos
 
 
@@ -48,9 +48,6 @@ def collect(proc="/proc"):
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path != "/metrics":
-            self.send_error(404)
-            return
         lines = ["# HELP pod_drm_memory_gtt_bytes DRM GTT memory held by the pod's processes.",
                  "# TYPE pod_drm_memory_gtt_bytes gauge"]
         lines += [f'pod_drm_memory_gtt_bytes{{pod_uid="{uid}"}} {b}' for uid, b in sorted(collect().items())]
@@ -80,4 +77,5 @@ if __name__ == "__main__":
     if sys.argv[1:] == ["--self-check"]:
         self_check()
     else:
-        ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+        # single-threaded: overlapping scrapes queue instead of scanning /proc in parallel
+        HTTPServer(("0.0.0.0", 8080), Handler).serve_forever()

@@ -8,12 +8,14 @@ spec:
   groups:
     - name: igpu-gtt-exporter.rules
       rules:
-        - alert: PodGTTMemoryHigh
-          # GTT is pinned host RAM outside the pod's memory cgroup; max by drops kube_pod_info's churny labels.
+        # GTT is pinned host RAM outside the pod's memory cgroup; max by drops kube_pod_info's churny labels.
+        - record: pod:drm_memory_gtt_bytes
           expr: |-
-            (pod_drm_memory_gtt_bytes > 3221225472)
+            pod_drm_memory_gtt_bytes
             * on(pod_uid) group_left(namespace, pod)
             label_replace(max by (namespace, pod, uid) (kube_pod_info), "pod_uid", "$1", "uid", "(.*)")
+        - alert: PodGTTMemoryHigh
+          expr: pod:drm_memory_gtt_bytes > 3221225472
           for: 15m
           annotations:
             summary: >-
@@ -22,25 +24,11 @@ spec:
           labels:
             severity: warning
         - alert: IgpuGttExporterMissing
-          # One alert identity per iGPU node, even when the target is absent entirely.
-          expr: |-
-            max by (kubernetes_node) (
-              up{job="igpu-gtt-exporter", kubernetes_node=~"control-[23]"}
-            ) == 0
-            or (
-              label_replace(vector(1), "kubernetes_node", "control-2", "", "")
-              unless on(kubernetes_node)
-              max by (kubernetes_node) (up{job="igpu-gtt-exporter", kubernetes_node="control-2"})
-            )
-            or (
-              label_replace(vector(1), "kubernetes_node", "control-3", "", "")
-              unless on(kubernetes_node)
-              max by (kubernetes_node) (up{job="igpu-gtt-exporter", kubernetes_node="control-3"})
-            )
+          expr: up{job="igpu-gtt-exporter"} == 0 or absent(up{job="igpu-gtt-exporter"})
           for: 10m
           annotations:
             summary: >-
-              Per-pod GTT exporter is down or absent on {{ $labels.kubernetes_node }};
+              Per-pod GTT exporter is down or absent{{ with $labels.kubernetes_node }} on {{ . }}{{ end }};
               PodGTTMemoryHigh is blind there until it recovers
           labels:
             severity: warning
