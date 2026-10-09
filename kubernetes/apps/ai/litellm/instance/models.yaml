@@ -80,9 +80,9 @@ spec:
   modelName: omniroute
   proxyRef: litellm
   params:
-    # smart-free is a persisted omniroute combo (priority order: Gemini 3.8 and 3.7
-    # Flash, Antigravity Gemini Flash, Groq qwen3.8-27b for prompts under 6k tokens,
-    # charm-hyper glm-5.3-flash last since it is paid).
+    # smart-free is a persisted omniroute combo (Gemini 3.8 Flash, Antigravity Gemini Flash,
+    # Groq qwen3.8-27b, charm-hyper glm-5.3-flash last: paid, monthly quota). A model joins only
+    # if on par with qwen3.8-27b and no successor at similar price exists, or it is another quota tier.
     model: openai/smart-free
     apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
     # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs

@@ -27,6 +27,8 @@ spec:
               TZ: ${TIMEZONE}
               PORT: &port 20128
               REQUIRE_API_KEY: "false"
+              # V8 heap ceiling; chat sheds 503 at 85% of it.
+              OMNIROUTE_MEMORY_MB: "1536"
               # envoy-internal terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"
             envFrom:
@@ -46,7 +48,7 @@ spec:
                 memory: 512Mi
               limits:
                 cpu: 1000m
-                memory: 2Gi
+                memory: 3Gi
     defaultPodOptions:
       # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
       priorityClassName: homelab-important
