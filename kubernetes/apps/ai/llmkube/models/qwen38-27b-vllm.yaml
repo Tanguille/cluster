@@ -181,9 +181,12 @@ spec:
     kvCacheCustomDtype: ultraquant_4bit
     # ~91% pod-lifetime local hit rate (nightly-bench-2026-09-29.md).
     enablePrefixCaching: true
-    # Do not lower: 2048 cost TTFT p50 5s -> 80s (a 20K prompt = 10 prefill
-    # steps). Workload is 129:1 prompt:output.
-    maxNumBatchedTokens: 4096
+    # UltraQuant (2026-10-09, prodshape): cold prefill 2048 1,080-1,154 tok/s,
+    # 4096 1,055-1,061, 8192 757; min free VRAM at 8 sessions 2.53 / 2.02 /
+    # 1.41 GiB. Smaller chunks see more of the prefix as 4-bit KV: 2048 NLL
+    # +0.00035 vs 4096, GSM8K 145 vs 146, needles 3/3. Workload is 129:1
+    # prompt:output.
+    maxNumBatchedTokens: 2048
     # Shared with Jellyfin, never above 0.875. vLLM still refuses to boot when
     # free VRAM < this fraction of total; --kv-cache-memory sets the KV pool.
     gpuMemoryUtilization: 0.875

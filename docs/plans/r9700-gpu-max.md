@@ -304,7 +304,7 @@ The orchestrator is the session model (Opus 5.5). It owns:
 - [ ] Chunk 1: Land git = live + benches + docs; owner merges, Flux resume
   - 2026-10-09: committed on the branch, live = branch (ISVC and `lds-gate-patch` patched in place, `llmkube-models` suspended). Waits on push, merge, resume.
 - [x] Chunk 2: TTFT breakdown + quality baseline + bench upgrades
-  - `qualitygate.py` committed; `bench/quality/` snapshots and the TTFT doc held uncommitted.
+  - [ttft-breakdown-2026-10.md](../llm-hosting/ttft-breakdown-2026-10.md), measured on the rolled stack; it led to the `max-num-batched-tokens` 2048 roll.
 
 #### Wave 2 (parallel): bench-pod work, no restart
 
@@ -317,6 +317,7 @@ The orchestrator is the session model (Opus 5.5). It owns:
 
 - [x] Chunk 3: Nightly bump + hook cleanup + fail-closed required patches (depends on 1, 2)
   - Live 2026-10-09: `81198e97` (contains `5281e4990`), bit-identical to `43b4aaea3` on the gate at equal speed. LDS gate and aiter patches deleted, `_patch_uq` fatal; agreement 60/60 vs the old hook.
+  - Then `8cbd5d03` (vllm#60533 hybrid prefix-cache boundaries) with `max-num-batched-tokens` 2048: full gate passed, equal speed.
 
 #### Wave 4 (sequential): Roll A1
 
@@ -334,7 +335,7 @@ The orchestrator is the session model (Opus 5.5). It owns:
 #### Wave 6: warm review and options
 
 - [ ] Chunk 8: 7-day warm review, pool resize, MTP window, upstream filings (depends on 5; a Chunk 7 roll restarts the 7-day window)
-  - 7-day window opened 2026-10-09 04:10 UTC (last restart).
+  - 7-day window opened 2026-10-09 08:37 UTC (last restart).
 
 ### Wave Conflict Matrix
 
