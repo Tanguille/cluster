@@ -302,28 +302,39 @@ The orchestrator is the session model (Opus 5.5). It owns:
 #### Wave 1 (parallel): land and measure, no restart
 
 - [ ] Chunk 1: Land git = live + benches + docs; owner merges, Flux resume
-- [ ] Chunk 2: TTFT breakdown + quality baseline + bench upgrades
+  - 2026-10-09: committed on the branch, live = branch (ISVC and `lds-gate-patch` patched in place, `llmkube-models` suspended). Waits on push, merge, resume.
+- [x] Chunk 2: TTFT breakdown + quality baseline + bench upgrades
+  - `qualitygate.py` committed; `bench/quality/` snapshots and the TTFT doc held uncommitted.
 
 #### Wave 2 (parallel): bench-pod work, no restart
 
-- [ ] Chunk 4: Large-tile continuation kernel (tests in `bench/uq/`)
-- [ ] Chunk 6: MXFP4 kernel bench (#60413 gfx12 port) + licence request + lm_head profile
+- [x] Chunk 4: Large-tile continuation kernel (tests in `bench/uq/`)
+  - Negative: M16 wins the q-sweep, cap stays 128 (4cd691e86). No routing change for Chunk 5.
+- [x] Chunk 6: MXFP4 kernel bench (#60413 gfx12 port) + licence request + lm_head profile
+  - 0.979x decode GEMM, no gain (adcc52db1). Licence request is the owner's.
 
 #### Wave 3 (sequential): Roll A0
 
-- [ ] Chunk 3: Nightly bump + hook cleanup + fail-closed required patches (depends on 1, 2)
+- [x] Chunk 3: Nightly bump + hook cleanup + fail-closed required patches (depends on 1, 2)
+  - Live 2026-10-09: `81198e97` (contains `5281e4990`), bit-identical to `43b4aaea3` on the gate at equal speed. LDS gate and aiter patches deleted, `_patch_uq` fatal; agreement 60/60 vs the old hook.
 
 #### Wave 4 (sequential): Roll A1
 
-- [ ] Chunk 5: Kernel routing + `--prefix-match-unit 64` + `blocks_per_chunk` arm + lookup-stall fix chosen by Chunk 2 data (depends on 3, 4)
+- [x] Chunk 5: Kernel routing + `--prefix-match-unit 64` + `blocks_per_chunk` arm + lookup-stall fix chosen by Chunk 2 data (depends on 3, 4)
+  - Live 2026-10-09 with Chunk 3. `prodshape` agg tok/s / TTFT p50, old -> new: 1 session 17.96 / 5.05 s -> 25.2 / 1.9 s; 2: 24.1 / 11.4 s -> 41.4 / 3.3 s; 4: 26.6 / 25.9 s -> 48.8 / 7.7 s; 8: 8.4 / 96 s -> 40-43 / 17 s.
+  - Attribution at 8 sessions: `blocks_per_chunk` 1 alone 30.5 (outputs identical), `--prefix-match-unit 64` alone 8.1 (no fix without bpc 1).
+  - Agreement gate exception: `--prefix-match-unit 64` gives 66.4% (27/60) with zero cache hits in the run, so it is the extra prefill split, not cached-state reuse. Quality held: NLL delta <= 5e-5, GSM8K 146/150 both, needles 3/3 at 17.5K/52.5K/175K plus cached-prefix and offload reload, tools 12/12, vision 2/2.
+  - The disk tier scored 0 hits in every 8-session run (the working set fits the CPU tier); its lookups are the remaining wait. No lookup-stall fix rolled.
 
 #### Wave 5 (sequential): weights
 
 - [ ] Chunk 7: MXFP4 cutover, only with a licensed kernel that passed Chunk 6 (depends on 5, 6)
+  - Blocked: no licensed kernel, and Chunk 6 found no gain.
 
 #### Wave 6: warm review and options
 
 - [ ] Chunk 8: 7-day warm review, pool resize, MTP window, upstream filings (depends on 5; a Chunk 7 roll restarts the 7-day window)
+  - 7-day window opened 2026-10-09 04:10 UTC (last restart).
 
 ### Wave Conflict Matrix
 
