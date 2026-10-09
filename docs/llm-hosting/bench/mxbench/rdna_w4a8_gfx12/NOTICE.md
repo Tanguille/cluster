@@ -2,7 +2,7 @@
 
 `pr60413.diff`, `mxfp4_w4a8_gemv.cu` and `rdna_w4a8_gfx12.py` are derived from
 [vllm-project/vllm#60413](https://github.com/vllm-project/vllm/pull/60413),
-"[Perf][ROCm][Kernel] Add W4A8 int8-dot MXFP4 GEMV for RDNA3/RDNA3.5 decode".
+`[Perf][ROCm][Kernel] Add W4A8 int8-dot MXFP4 GEMV for RDNA3/RDNA3.5 decode`.
 
 | Field | Value |
 | --- | --- |
