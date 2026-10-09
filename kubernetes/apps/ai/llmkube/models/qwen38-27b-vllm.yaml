@@ -244,11 +244,9 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # W4A16 LDS gate, M<=32 Triton tile, aiter attn_3d num_stages, UltraQuant
-    # shared continuation buffer and decode kernel: see
-    # resources/zz_lds_gate_impl.py. Drop the mount and generator entry once
-    # upstream carries the LDS gate fix (vllm#52619), an M<=32 tile config, an
-    # aiter num_stages 1 default for gfx1201 fp8 and a gfx1201 UltraQuant path.
+    # M<=32 Triton tile, UltraQuant shared continuation buffer and decode kernel:
+    # see resources/zz_lds_gate_impl.py. Drop the mount and generator entry once
+    # upstream carries an M<=32 tile config and a gfx1201 UltraQuant path.
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth

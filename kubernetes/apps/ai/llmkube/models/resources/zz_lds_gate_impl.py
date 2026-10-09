@@ -1,33 +1,12 @@
 # Import-hook patches for gfx1201, one section per target module (PATCHES).
 #
-# Raises the W4A16 skinny-GEMM LDS gate to match the C++ kernel.
-#
-# rdna_hybrid_w4a16.py dispatches:
-#     if M <= MAX_SKINNY_BATCH_SIZE and K * M <= LDS_CAPACITY_ELEMENTS:
-#         ops.wvSplitK_int4_g(...)   # fast HIP skinny GEMM
-#     else:
-#         triton_w4a16_skinny_fmt_gemm(...)   # ~2x slower
-#
-# LDS_CAPACITY_ELEMENTS is 32768 (64 KiB / 2). But csrc/rocm/skinny_gemms_int4.cu
-# checks `K_in * N_in <= max_lds_len * 1.2` (= 39321) and selects a "medium"
-# kernel variant above the plain LDS size, keeping the activation prefix in LDS
-# and streaming the remainder from global.
-#
-# So the Python gate is stricter than the kernel. down_proj (K=17408) at M=2 is
-# K*M = 34816: inside the C++ medium window, outside the Python gate. Verified
-# in-container on gfx1201: the HIP kernel at M=2 returns correct results
-# (relative error 0.0014 vs an fp32 reference, BETTER than Triton's 0.0093) and
-# is ~1.8x faster. M=3 (52224) is refused by the kernel itself with a clean
-# RuntimeError, so an over-relaxed gate fails loudly rather than silently.
-#
-# Equivalent to upstream vllm PR #52619, which measured 1.66x kernel / +63% e2e
-# decode on gfx1151.
+# Removed with the 81198e97 nightly: the W4A16 LDS gate raise (upstream since vllm#52619,
+# MEDIUM_SKINNY_LIMIT_ELEMENTS) and the aiter attn_3d num_stages 1 patch (fp8 only; UltraQuant
+# replaces that backend). An fp8 rollback wants the latter back from git history.
 import importlib.abc
 import os
 import sys
 import types
-
-NEW_LIMIT = int(32768 * 1.2)  # 39321, matches max_lds_len * 1.2 in the C++
 
 
 class _PatchLoader(importlib.abc.Loader):
@@ -43,20 +22,10 @@ class _PatchLoader(importlib.abc.Loader):
         self._patch(module)
 
 
-def _patch_w4a16(module):
-    old = getattr(module, "LDS_CAPACITY_ELEMENTS", None)
-    module.LDS_CAPACITY_ELEMENTS = NEW_LIMIT
-    print(
-        "[lds-gate-patch] LDS_CAPACITY_ELEMENTS %s -> %s" % (old, NEW_LIMIT),
-        file=sys.stderr, flush=True,
-    )
-    _install_small_m_triton_config(module)
-
-
-# Second patch, same module: the Triton tile config for the gfx12x M <= 32
-# branch. Even at 39321 the gate only covers down_proj (K=17408) up to M=2;
-# at M=3-5, where production runs (3.8 concurrent on average), it takes the
-# Triton path, and so does every layer at M=6-32 (chunked-prefill tails).
+# The Triton tile config for the gfx12x M <= 32 branch. Upstream's 39321-element
+# medium gate only covers down_proj (K=17408) up to M=2; at M=3-5, where
+# production runs (3.8 concurrent on average), it takes the Triton path, and so
+# does every layer at M=6-32 (chunked-prefill tails).
 #
 # Upstream tile: BLOCK 16x16x128, 4 warps, default stages. Here: 2 warps + 1
 # stage, swept in-pod under CUDA-graph replay across all six Qwen3.8 shapes at
@@ -101,37 +70,18 @@ def _install_small_m_triton_config(hy):
     print("[lds-gate-patch] Triton M<=32 tile 16x16x128, 2 warps, 1 stage", file=sys.stderr, flush=True)
 
 
-# attn_3d num_stages 2 -> 1: 2-stage fp8 K+V at head_dim 256 = 64 KiB LDS = a
-# whole CU. 64K M=1: 23.25 -> 29.06 tok/s. aiter v0.1.23 ships 2; upstream
-# main still ships 2 for D_LEQ_256.DT_any_fp8. get_unified_attention_config
-# resolves the cached loader by module global, so wrapping it reaches every
-# caller; it deep-copies the result, so returning a new dict is safe.
-def _patch_aiter_ua(module):
-    orig = module._get_unified_attention_config_cached
-
-    def cached(op, *args):
-        cfg = orig(op, *args)
-        # "triton" can only match the backend argument.
-        if op == "attn_3d" and "triton" in args:
-            cfg = {**cfg, "num_stages": 1}
-        return cfg
-
-    module._get_unified_attention_config_cached = cached
-    print("[lds-gate-patch] aiter attn_3d num_stages -> 1", file=sys.stderr, flush=True)
-
-
 # UltraQuant (vllm#57057) caches a max_model_len-sized bf16 K and V buffer on every
 # attention layer (16 x 966 MiB = 15 GiB here), grown on the first continuation chunk
 # over 128 tokens, and OOMs the 32 GB card. Layers run one at a time on one stream and
-# rewrite [:seq_len] before reading it, so one shared holder serves them all. Skips
-# instead of crashing when the symbols move; fp8 never calls this path.
+# rewrite [:seq_len] before reading it, so one shared holder serves them all. Without it
+# the first long continuation OOMs mid-traffic, so a moved symbol fails the boot instead.
+# The fast kernels below stay optional (SKIPPED).
 def _patch_uq(module):
     try:
         cls = module.UltraQuantAttentionImpl
         orig = cls._ultraquant_continuation_prefill
     except AttributeError as e:
-        print("[lds-gate-patch] SKIPPED ultraquant_attn: %r" % e, file=sys.stderr, flush=True)
-        return
+        raise RuntimeError("[lds-gate-patch] UltraQuant shared continuation buffer cannot install: %r" % e) from e
     shared = types.SimpleNamespace()
     # Upstream runs chunks up to _CONTINUATION_DECODE_THRESHOLD tokens as one synthetic decode
     # per token, re-reading the whole prefix per token. uq_prefill_fast reads it once per 2
@@ -231,8 +181,7 @@ def _patch_uq_ops(module):
 
 PATCHES = {
     "vllm.v1.attention.ops.ultraquant.triton_unified_attention": _patch_uq_ops,
-    "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16": _patch_w4a16,
-    "aiter.ops.triton.utils.unified_attention_utils": _patch_aiter_ua,
+    "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16": _install_small_m_triton_config,
     "vllm.v1.attention.backends.ultraquant_attn": _patch_uq,
 }
 

@@ -107,6 +107,13 @@ def run_all(path):
     )
     run(load(path, {"UQ_FAST": "1"}), "on", calls)
     run(load(path, {"UQ_FAST": "0"}), "off", calls)
+    # The shared buffer is required: a moved symbol must fail the boot, not skip.
+    try:
+        load(path, {"UQ_FAST": "1"})._patch_uq(types.SimpleNamespace())
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("_patch_uq skipped a missing UltraQuantAttentionImpl")
 
 
 if __name__ == "__main__":
