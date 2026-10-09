@@ -88,3 +88,20 @@ GSM8K 145/150, needles 3/3, tools 12/12, vision 2/2; cold prefill 1,111-1,118 ->
 40K / 64K cold TTFT 36.1 / 65.1 -> 33.1 / 60.1 s, 1-session resume TTFT 1.96 -> 1.76 s.
 bf16 hipBLASLt runs the same shapes at 109-130 TFLOP/s against 94-108 for the tuned W4A16 kernel, so
 little headroom is left in the GEMM; attention is the next prefill cost at long context.
+
+## flash-attn compile stalls
+
+UltraQuant's continuation prefill calls flash-attn's Triton AMD kernel, which takes `max_seqlen_q` and
+`max_seqlen_k` as constexprs: every new prompt length JIT-compiles a variant (3.4-5 s, engine stalled;
+519 `attn_fwd` variants compiled on 2026-10-09). fp8 never hit this, its prefill attention ran another
+kernel. The hook now rounds `max_seqlen_q` up to 256 and pins `max_seqlen_k` to `max_model_len`; varlen
+reads the real lengths from `cu_seqlens`, so results are unchanged (agreement 60/60, NLL +0.00000,
+needles 3/3) and at most 8 variants ever compile.
+
+`bench/compile_stall.py` (cached ~32K prefix, resumes at never-seen lengths), idle clone:
+
+| Hook | Resume TTFT p50 | max | Stalled |
+| --- | --- | --- | --- |
+| exact lengths | 4.44 s | 5.24 s | 5 of 6 |
+| buckets, first pass | 1.80 s | 4.77 s | 2 of 8 (compiling buckets) |
+| buckets, warm | 2.06 s | 2.10 s | 0 of 6 |

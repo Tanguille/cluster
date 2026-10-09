@@ -32,13 +32,14 @@ def load(path, env):
 
 
 class Impl:
-    # run() installs _ultraquant_continuation_prefill before each pass
-    sinks, sliding_window, scale = None, None, 0.0625
+    # run() installs _ultraquant_continuation_prefill and _flash_attn_varlen before each pass
+    sinks, sliding_window, scale, _max_model_len = None, None, 0.0625, 262144
 
 
 def run(H, expect, calls):
     """expect: 'on' = UQ_FAST=1 (chunks up to 128 tokens go to uq_prefill_fast), 'off' = UQ_FAST=0."""
     Impl._ultraquant_continuation_prefill = lambda self, *, layer, **kw: ("orig", layer)
+    Impl._flash_attn_varlen = lambda self, q, k, v, cq, ck, max_q, max_k: (max_q, max_k)
     mod = types.SimpleNamespace(
         UltraQuantAttentionImpl=Impl,
         ultraquant_unified_attention=lambda *a, **kw: calls.append(("upstream", kw)) or "upstream",
@@ -46,6 +47,10 @@ def run(H, expect, calls):
     )
     H._patch_uq(mod)
     impl = Impl()
+    # flash-attn length buckets: q rounds up to 256, k pins to max_model_len (keyword calls as in vLLM)
+    for n, want in ((1, 256), (256, 256), (257, 512), (1489, 1536), (2048, 2048)):
+        got = impl._flash_attn_varlen(q=0, k=0, v=0, cu_seqlens_q=0, cu_seqlens_k=0, max_seqlen_q=n, max_seqlen_k=40000)
+        assert got == (want, 262144), (n, got)
     cont = dict(key_chunk=None, val_chunk=None, kv_cache="KV", block_table="BT", cached_len=900, PiT="P")
 
     def route(n, d=256):

@@ -88,6 +88,18 @@ def _patch_uq(module):
         return orig(self, layer=shared, **kw)
 
     cls._ultraquant_continuation_prefill = continuation
+    # flash-attn's Triton AMD kernel takes max_seqlen_q/k as constexprs, so each new length JIT-compiles a variant
+    # (3.4-5 s with the engine stalled; 519 variants on 2026-10-09). Varlen reads the real lengths from cu_seqlens,
+    # and every UltraQuant call is causal with seqlen_k >= seqlen_q (no fully masked block), so rounding q up to
+    # 256 and pinning k changes no result and caps the variants at max_num_batched_tokens / 256.
+    fa = getattr(cls, "_flash_attn_varlen", None)
+    if fa is None:
+        print("[lds-gate-patch] SKIPPED flash-attn length buckets: no _flash_attn_varlen", file=sys.stderr, flush=True)
+    else:
+        def flash_attn_varlen(self, q, k, v, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k):
+            return fa(self, q, k, v, cu_seqlens_q, cu_seqlens_k, -(-max_seqlen_q // 256) * 256, self._max_model_len)
+
+        cls._flash_attn_varlen = flash_attn_varlen
     # Decode: UQ_FAST=1 runs the RDNA4 kernel in uq_decode_fast.py; otherwise (and for sinks, windows or other
     # head sizes) upstream's launcher with this card's geometry.
     if hasattr(module, "ultraquant_unified_attention"):
