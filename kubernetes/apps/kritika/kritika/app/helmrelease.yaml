@@ -90,9 +90,8 @@ spec:
           apiKey: { env: LITELLM_API_KEY }
       # 0.0.27 dropped the defaults wrapper: repository settings sit at the root.
       review:
-        # omniroute's Gemini queue 502s; qwen-3.8 first skips its 150s timeout.
-        model: litellm/qwen-3.8
-        fallback: litellm/omniroute
+        model: litellm/omniroute
+        fallback: litellm/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
