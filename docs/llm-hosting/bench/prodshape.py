@@ -28,7 +28,7 @@ otherwise idle. Use --dry-run to see the plan without sending anything.
 import argparse, json, os, random, re, statistics, subprocess, sys, threading, time
 import urllib.request
 
-from _metrics import sample
+from _metrics import sample, wait_idle
 
 # Same vocabulary as the other bench scripts; ~1.17 tokens/word on this tokenizer.
 WORDS = ("storage replication consensus quorum latency throughput partition ledger "
@@ -67,7 +67,7 @@ def words(rng, n):
 
 class Session:
     def __init__(self, seed, prefix_tok, tail_tok, tpw):
-        self.seed, self.prefix_tok, self.tail_tok, self.tpw = seed, prefix_tok, tail_tok, tpw
+        self.seed, self.tail_tok, self.tpw = seed, tail_tok, tpw
         # Seed in the first line makes the first cache block unique per session.
         self.prompt = (f"Session {seed} agent transcript.\n"
                        + words(random.Random(seed), int(prefix_tok / tpw)))
@@ -366,14 +366,8 @@ def main():
     if args.vram and not vram_cmd:
         print("note: --vram set but VRAM_CMD is unset; min_free_vram will be null", flush=True)
 
-    busy = 0
-    for i in range(3):
-        s = sample(args.port)
-        busy += not s.idle
-        if i < 2:
-            time.sleep(5)
-    if busy == 3 and not args.allow_busy:
-        sys.exit("engine busy for 3 consecutive polls; refusing (use --allow-busy)")
+    if not args.allow_busy and not wait_idle(args.port).idle:
+        sys.exit("engine never idle for two consecutive scrapes in 5 min; refusing (use --allow-busy)")
 
     if args.tpw is None:                                  # calibrate words->tokens on this tokenizer
         n = 3000

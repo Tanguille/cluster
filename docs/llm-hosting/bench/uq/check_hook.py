@@ -2,19 +2,19 @@
 
   python check_hook.py [hook_src]
 
-hook_src defaults to $UQ_HOOK_SRC, then the repo copy (when run from a checkout), then
-./zz_lds_gate_impl.py, then the production hook mounted in the pod (which may lag the repo).
+hook_src defaults to the repo copy (when run from a checkout), then ./zz_lds_gate_impl.py,
+then the production hook mounted in the pod (which may lag the repo).
 """
 import importlib.util
 import os
 import sys
 import types
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 REL = "kubernetes/apps/ai/llmkube/models/resources/zz_lds_gate_impl.py"
 CANDIDATES = [
-    os.environ.get("UQ_HOOK_SRC", ""),
     next((str(p / REL) for p in HERE.parents if (p / REL).exists()), ""),  # the repo checkout, when run from it
     str(HERE / "zz_lds_gate_impl.py"),  # a copy of the repo file next to this script (kubectl cp into the pod)
     "/usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py",  # the hook mounted in the bench pod
@@ -23,28 +23,17 @@ CANDIDATES = [
 
 def load(path, env):
     """Import the hook file as a fresh module under env (the real hook may already be loaded by the .pth)."""
-    saved = {k: os.environ.get(k) for k in ("UQ_FAST",)}
-    for k in saved:
-        os.environ.pop(k, None)
-    os.environ.update(env)
-    try:
+    with mock.patch.dict(os.environ, env):
         spec = importlib.util.spec_from_file_location(f"zz_hook_{len(sys.modules)}", path)
         H = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(H)
-    finally:
-        for k, v in saved.items():
-            os.environ.pop(k, None)
-            if v is not None:
-                os.environ[k] = v
     sys.meta_path[:] = [f for f in sys.meta_path if not isinstance(f, H._Finder)]
     return H
 
 
 class Impl:
+    # run() installs _ultraquant_continuation_prefill before each pass
     sinks, sliding_window, scale = None, None, 0.0625
-
-    def _ultraquant_continuation_prefill(self, *, layer, **kw):
-        return ("orig", layer)
 
 
 def run(H, expect, calls):

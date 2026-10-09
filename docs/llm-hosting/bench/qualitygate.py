@@ -17,12 +17,13 @@ nll uses prompt_logprobs (teacher forced). vLLM materialises logits for each sch
 prefill chunk, so it can allocate GPU memory beyond what boot profiled: watch free VRAM
 the first time (bench/vramfree.sh).
 """
-import argparse, http.client, json, os, random, re, statistics, struct, sys, time, urllib.error, urllib.request, zlib
+import argparse, json, os, random, re, statistics, struct, sys, time, urllib.request, zlib
 import base64
 from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import prodshape  # noqa: E402
 from prodshape import counters, words, DEFAULT_TPW  # noqa: E402
 
 QDIR = os.path.join(HERE, "quality")
@@ -32,19 +33,10 @@ SALT = f"qg-{random.SystemRandom().randrange(16**8):08x}"
 A = None  # parsed args
 
 
+# No retry: a resent cold request can hit the prefix its dropped attempt cached. Long runs go inside
+# the pod (--port 8000), since a kubectl port-forward stalls after 30-60 min.
 def post(path, body, timeout=3600):
-    # A kubectl port-forward can drop mid-run; every request is greedy and idempotent, so resend.
-    for attempt in range(6):
-        r = urllib.request.Request(A.base + path, data=json.dumps(body).encode(),
-                                   headers={"Content-Type": "application/json"})
-        try:
-            with urllib.request.urlopen(r, timeout=timeout) as resp:
-                return json.loads(resp.read())
-        except (ConnectionError, http.client.HTTPException, urllib.error.URLError) as e:
-            if attempt == 5:
-                raise
-            print(f"post {path}: {e!r}, retry {attempt + 1}/5", flush=True)
-            time.sleep(10)
+    return prodshape.post(A.base, path, body, timeout)
 
 
 def tokenize(text):
@@ -162,7 +154,7 @@ def first_div(a, b):
     for i in range(n):
         if a[i] != b[i]:
             return i
-    return n if len(a) == len(b) else n
+    return n
 
 
 def agreement(cur, base, label):
@@ -295,8 +287,26 @@ def needle_prompt(rng, nwords):
 
 
 def ask(prompt, salt):
-    r = complete(prompt, 24, salt=salt)
-    return r["choices"][0]["text"], r["usage"]
+    return complete(prompt, 24, salt=salt)["choices"][0]["text"]
+
+
+def pool_tokens():
+    """GPU KV pool size in tokens, from vllm:cache_config_info's kv_cache_size_tokens label."""
+    with urllib.request.urlopen(A.base + "/metrics", timeout=10) as r:
+        return int(re.search(r'kv_cache_size_tokens="(\d+)"', r.read().decode()).group(1))
+
+
+def cache_probe(rng, label, counter, salt, between=lambda: None):
+    """Ask a needle twice with the same salt; the second answer must be right and come from `counter`."""
+    code, prompt = needle_prompt(rng, 15000)
+    ask(prompt, salt)
+    between()
+    before = counters(A.port)  # the server returns no usage.prompt_tokens_details, so diff the counter
+    txt = ask(prompt, salt)
+    d = counters(A.port)[counter] - before[counter]
+    ok = code in txt and d > 0
+    print(f"needle {label}: found={code in txt} d({counter})={d:.0f} -> {'PASS' if ok else 'FAIL'}")
+    return {"check": label, "pass": ok, f"d_{counter}": d}
 
 
 def mode_needle():
@@ -307,31 +317,18 @@ def mode_needle():
         ok = "needle 3/3" in p
         out.append({"check": f"needle-{w}w", "pass": ok})
     rng = random.Random(time.time_ns())
-    code, prompt = needle_prompt(rng, 15000)
-    salt = f"{SALT}-warm"
-    ask(prompt, salt)
-    before = counters(A.port)  # the server returns no usage.prompt_tokens_details, so diff the hit counter
-    txt, _ = ask(prompt, salt)
-    hit = counters(A.port)["local_cache_hit"] - before["local_cache_hit"]
-    ok = code in txt and hit > 0
-    print(f"needle cached-prefix: found={code in txt} d(local_cache_hit)={hit:.0f} -> {'PASS' if ok else 'FAIL'}")
-    out.append({"check": "cached-prefix", "pass": ok, "d_local_cache_hit": hit})
-    # offload reload: evict from GPU with >= 450K distinct tokens, resend, expect external_kv_transfer
-    code, prompt = needle_prompt(rng, 15000)
-    salt = f"{SALT}-reload"
-    ask(prompt, salt)
-    sent, i = 0, 0
-    while sent < 450_000:
-        i += 1
-        junk = f"Evict {SALT} {i}.\n" + long_text(rng.randrange(10**9), 46000)
-        sent += complete(junk, 1, salt=f"{SALT}-evict-{i}")["usage"]["prompt_tokens"]
-        print(f"  evicting: {sent} tokens sent", flush=True)
-    before = counters(A.port)
-    txt, u = ask(prompt, salt)
-    d = counters(A.port)["external_kv_transfer"] - before["external_kv_transfer"]
-    ok = code in txt and d > 0
-    print(f"needle offload-reload: found={code in txt} d(external_kv_transfer)={d:.0f} -> {'PASS' if ok else 'FAIL'}")
-    out.append({"check": "offload-reload", "pass": ok, "d_external_kv_transfer": d})
+    out.append(cache_probe(rng, "cached-prefix", "local_cache_hit", f"{SALT}-warm"))
+
+    def evict():
+        # 5% more distinct tokens than the GPU pool holds pushes the needle out to the offload tiers
+        sent, i, target = 0, 0, int(pool_tokens() * 1.05)
+        while sent < target:
+            i += 1
+            junk = f"Evict {SALT} {i}.\n" + long_text(rng.randrange(10**9), 46000)
+            sent += complete(junk, 1, salt=f"{SALT}-evict-{i}")["usage"]["prompt_tokens"]
+            print(f"  evicting: {sent}/{target} tokens sent", flush=True)
+
+    out.append(cache_probe(rng, "offload-reload", "external_kv_transfer", f"{SALT}-reload", evict))
     finish("needle", out)
 
 

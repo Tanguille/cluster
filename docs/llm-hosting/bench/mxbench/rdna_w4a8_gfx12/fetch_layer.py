@@ -42,8 +42,8 @@ def main():
                 print(k, v.get("dtype"), v.get("shape"))
         return
     out = {}
-    for suffix, key in (("weight", "weight"), ("weight_scale", "weight_scale")):
-        name = f"{a.prefix}.{suffix}"
+    for key in ("weight", "weight_scale"):
+        name = f"{a.prefix}.{key}"
         v = h[name]
         lo, hi = v["data_offsets"]
         assert v["dtype"] == "U8", v

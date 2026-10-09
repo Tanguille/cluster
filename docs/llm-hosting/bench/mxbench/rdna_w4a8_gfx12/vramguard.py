@@ -19,6 +19,7 @@ import sys
 
 import torch
 
+CTX_RESERVE_GIB = 0.16  # non-tensor runtime margin, see the module docstring
 BUDGET_GIB = float(os.environ.get("MXW4A8_BUDGET_GIB", "0.45"))  # raise only while production is paused
 FLOOR_GIB = 1.82
 _GIB = 1 << 30
@@ -41,25 +42,25 @@ def used() -> int:
     return _sysfs("mem_info_vram_used")
 
 
-def init(budget_gib: float = BUDGET_GIB, ctx_reserve_gib: float = 0.16) -> None:
-    """Call before the first CUDA op."""
+def init() -> None:
+    """Call before the first CUDA op. check() asserts against the same module BUDGET_GIB."""
     global _u0, _overhead, _total, _cap
     _u0 = used()
     _total = _sysfs("mem_info_vram_total")
     free = (_total - _u0) / _GIB
-    need = FLOOR_GIB + budget_gib
-    print(f"[vramguard] node free {free:.3f} GiB, need >= {need:.2f} (floor {FLOOR_GIB} + budget {budget_gib})", flush=True)
+    need = FLOOR_GIB + BUDGET_GIB
+    print(f"[vramguard] node free {free:.3f} GiB, need >= {need:.2f} (floor {FLOOR_GIB} + budget {BUDGET_GIB})", flush=True)
     if free < need and not os.environ.get("MXW4A8_IGNORE_FLOOR"):
         print("[vramguard] REFUSING to start: free VRAM is below floor + budget", flush=True)
         sys.exit(3)
     torch.zeros(1, device="cuda")
     torch.cuda.synchronize()
     u1 = used()
-    _overhead = max(u1 - _u0, 0) + int(ctx_reserve_gib * _GIB)
-    cap = _cap = max(budget_gib * _GIB - _overhead, 0)
+    _overhead = max(u1 - _u0, 0) + int(CTX_RESERVE_GIB * _GIB)
+    cap = _cap = max(BUDGET_GIB * _GIB - _overhead, 0)
     torch.cuda.set_per_process_memory_fraction(cap / _total)
-    print(f"[vramguard] context overhead {_overhead / _GIB:.3f} GiB (incl. {ctx_reserve_gib} margin), "
-          f"tensor cap {cap / _GIB:.3f} GiB of {budget_gib} GiB budget", flush=True)
+    print(f"[vramguard] context overhead {_overhead / _GIB:.3f} GiB (incl. {CTX_RESERVE_GIB} margin), "
+          f"tensor cap {cap / _GIB:.3f} GiB of {BUDGET_GIB} GiB budget", flush=True)
 
 
 def tensor_cap_bytes() -> int:

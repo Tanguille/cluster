@@ -143,10 +143,11 @@ if __name__ == "__main__":
     test_negative("negative_causal_limit_minus1", 37, 131, seed=41, cached_len_shift=-1)
     test_negative("negative_scale_x1.1", 37, 131, seed=42, scale_mul=1.1)
     test_negative("negative_query_not_rotated", 37, 131, seed=43, unrotated=True)
-    if ON_GPU:  # these bs=1536 cases run the CPU interpreter for minutes each, so GPU only
+    if ON_GPU:
+        # these bs=1536 cases run the CPU interpreter for minutes each, so GPU only
         test_prefill("prefill_bs1536_two_blocks_aligned", 2 * PROD_BS, 33, seed=63, bs=PROD_BS)
         test_intra_chunk_semantics("semantic_intra_chunk_bs1536", PROD_BS - 40, 131, seed=31, bs=PROD_BS)
-    if ON_GPU:  # buffers: q 12 KiB + rotated q 24 KiB + out 12 KiB per token, plus 24 KiB per token per extra segment
+        # buffers: q 12 KiB + rotated q 24 KiB + out 12 KiB per token, plus 24 KiB per token per extra segment
         test_prefill("prefill_q1001_cached_aligned", 4608, 1001, seed=50)
         test_prefill("prefill_q1001_s1_direct", 4608, 1001, seed=51, num_segments=1)
         test_prefill("prefill_q1536_cached_odd", 20003, 1536, seed=52)

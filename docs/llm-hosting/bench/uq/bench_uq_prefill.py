@@ -272,7 +272,7 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
                  error="oom" if isinstance(e, torch.cuda.OutOfMemoryError) else repr(e)[:160])
             return None
         st = kernel_stats(U.LAST_KERNEL)
-        st["spill_ok"] = st.get("spills", 0) <= live_spills[segs == 1] if live_spills else None
+        st["spill_ok"] = st.get("spills", 0) <= live_spills[segs == 1]
         prev = results.setdefault(key, {}).get(segs)
         results[key][segs] = [min(ms, prev[0]) if prev else ms, st, max(done, prev[2]) if prev else done]
         emit(kind="probe", q=q, cached_eff=cached, **geom, segments=segs, reps=done, ms=round(ms, 3), **st)
@@ -292,32 +292,33 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
         return []
     ranked = sorted(results, key=lambda k: min(v[0] for v in results[k].values()))
     finalists = ranked[: (len(ranked) if args.full else 6)]
+    def geom_of(key):
+        return dict(block_m=key[0], tile_size=key[1], num_warps=key[2])
+
     for key in finalists:  # sweep segments on the screened winners
-        geom = dict(block_m=key[0], tile_size=key[1], num_warps=key[2])
         max_s = min(64, -(-(cached + q) // key[1]))
         for s in (2**i for i in range(7)):
             if s <= max_s and fused_bytes(q, s) + base + 8 * MIB <= CAP:
                 if s not in results[key]:
-                    measure(geom, s, reps if args.full else args.probe_reps)
+                    measure(geom_of(key), s, reps if args.full else args.probe_reps)
     best_cfg = {}
     for key in finalists:  # full reps on each finalist's best segment count
         s = min(results[key], key=lambda x: results[key][x][0])
-        geom = dict(block_m=key[0], tile_size=key[1], num_warps=key[2])
         if results[key][s][2] < reps:
-            measure(geom, s, reps)
+            measure(geom_of(key), s, reps)
         best_cfg[key] = s
     pgeom = U.GEOMETRY
     try:
         picker_ms, _ = timed(fused_runner(arena, bts, cached, q_t), nsets, reps)
         pst = kernel_stats(U.LAST_KERNEL)
-        pseg = auto_segments(q, pgeom["block_m"], pgeom["tile_size"], cached, nsets * nb * BS * SLOT_BYTES_PER_TOKEN + 14336 * q)
+        pseg = auto_segments(q, pgeom["block_m"], pgeom["tile_size"], cached, base)
         pst["segments"] = pseg
-        pst["spill_ok"] = pst.get("spills", 0) <= live_spills[pseg == 1] if live_spills else None
+        pst["spill_ok"] = pst.get("spills", 0) <= live_spills[pseg == 1]
     except torch.cuda.OutOfMemoryError:  # the picker's default segment count can exceed the cap at large q
         picker_ms, pst = math.nan, {}
     # second pass, reverse order: upstream last-to-first with the finalists
     for key in reversed(finalists):
-        measure(dict(block_m=key[0], tile_size=key[1], num_warps=key[2]), best_cfg[key], reps)
+        measure(geom_of(key), best_cfg[key], reps)
     up2, _ = timed(upstream_runner(arena, bts, cached, q_t, kc), nsets, reps)
     up_ms = min(up_ms, up2)
     rows = []

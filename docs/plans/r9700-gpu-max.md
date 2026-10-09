@@ -94,7 +94,7 @@ plus one deliberate warm pass.
 | Top-1 agreement, 60 prompts x 128 greedy tokens (20 GSM8K, 20 code, 20 long) + 2 image prompts | Chunk 4/5: >= 98% (fixed before the run); pure refactors >= 99.5%; no divergence before token 16 |
 | GSM8K first 150, greedy | >= 143 pass; 138-142 rerun on the full 1319; < 138 fail |
 | Tool calls | 12/12, single and 5 concurrent |
-| Needles | 3/3 at 17.5K/52.5K/175K. Plus one cached-prefix hit. Plus one offload reload: load the needle, send >= 450K distinct tokens to evict it from the GPU, resend, and assert the `prompt_tokens_by_source{external_kv_transfer}` delta is > 0 |
+| Needles | 3/3 at 17.5K/52.5K/175K. Plus one cached-prefix hit. Plus one offload reload: load the needle, send 1.05x the GPU pool (`kv_cache_size_tokens` on `/metrics`) in distinct tokens to evict it, resend, and assert the `prompt_tokens_by_source{external_kv_transfer}` delta is > 0 |
 | Weight or KV encoding changes only | GPQA-198 x 3 seeds within 2 pt of the baseline. bf16 anchors: GPQA 88.6 (5 seeds), GSM8K 97.5-98.5 (200 chat items, same template) |
 
 ---

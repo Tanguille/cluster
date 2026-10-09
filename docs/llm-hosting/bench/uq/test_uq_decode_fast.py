@@ -122,8 +122,8 @@ def test_bit_tricks(shift=U.DEFAULT_SHIFT):
     y = b - F.UE8M0_BIAS
     exact_win = (y >= -9 - shift) & (y <= 15 - shift)
     want_mult = np.where(b == 0, 0.0, 2.0 ** (y + shift))
-    mult_ok = np.array_equal(mult[(b == 0) | ((y + shift >= -14) & (y + shift <= 15))],
-                             want_mult[(b == 0) | ((y + shift >= -14) & (y + shift <= 15))])
+    in_range = (b == 0) | ((y + shift >= -14) & (y + shift <= 15))
+    mult_ok = np.array_equal(mult[in_range], want_mult[in_range])
     check("ue8m0_multiplier", mult_ok and np.isfinite(mult).all(), saturates_above_y=15 - shift)
 
     # Products: decoded lo nibble (codes 0..15 repeat across bytes) times multiplier(e).
