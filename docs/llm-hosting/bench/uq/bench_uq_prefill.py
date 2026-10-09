@@ -191,12 +191,12 @@ def kernel_stats(kern):
         return {}
     isa = kern.asm.get("amdgcn", "") if hasattr(kern, "asm") else ""
     st = {}
-    for key, pat in (("spills", r"\.vgpr_spill_count:\s+(\d+)"), ("vgprs", r"\.vgpr_count:\s+(\d+)"),
+    for stat, pat in (("spills", r"\.vgpr_spill_count:\s+(\d+)"), ("vgprs", r"\.vgpr_count:\s+(\d+)"),
                      ("scratch_bytes", r"\.private_segment_fixed_size:\s+(\d+)"),
                      ("lds_bytes", r"\.group_segment_fixed_size:\s+(\d+)")):
         m = re.search(pat, isa)
         if m:
-            st[key] = int(m.group(1))
+            st[stat] = int(m.group(1))
     if "spills" not in st and hasattr(kern, "n_spills"):
         st["spills"] = int(kern.n_spills)
     return st
@@ -262,7 +262,7 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
     results = {}  # (M, T, W) -> {S: [ms, stats]}
 
     def measure(geom, segs, n_reps, give_up_ms=None):
-        key = (geom["block_m"], geom["tile_size"], geom["num_warps"])
+        geo = (geom["block_m"], geom["tile_size"], geom["num_warps"])
         fn = fused_runner(arena, bts, cached, q_t, num_segments=segs, **geom)
         try:
             ms, done = timed(fn, nsets, n_reps, give_up_after=2 if give_up_ms else None, give_up_ms=give_up_ms)
@@ -273,8 +273,8 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
             return None
         st = kernel_stats(U.LAST_KERNEL)
         st["spill_ok"] = st.get("spills", 0) <= live_spills[segs == 1]
-        prev = results.setdefault(key, {}).get(segs)
-        results[key][segs] = [min(ms, prev[0]) if prev else ms, st, max(done, prev[2]) if prev else done]
+        prev = results.setdefault(geo, {}).get(segs)
+        results[geo][segs] = [min(ms, prev[0]) if prev else ms, st, max(done, prev[2]) if prev else done]
         emit(kind="probe", q=q, cached_eff=cached, **geom, segments=segs, reps=done, ms=round(ms, 3), **st)
         return ms
 
@@ -292,21 +292,21 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
         return []
     ranked = sorted(results, key=lambda k: min(v[0] for v in results[k].values()))
     finalists = ranked[: (len(ranked) if args.full else 6)]
-    def geom_of(key):
-        return dict(block_m=key[0], tile_size=key[1], num_warps=key[2])
+    def geom_of(geo):
+        return dict(block_m=geo[0], tile_size=geo[1], num_warps=geo[2])
 
-    for key in finalists:  # sweep segments on the screened winners
-        max_s = min(64, -(-(cached + q) // key[1]))
+    for geo in finalists:  # sweep segments on the screened winners
+        max_s = min(64, -(-(cached + q) // geo[1]))
         for s in (2**i for i in range(7)):
             if s <= max_s and fused_bytes(q, s) + base + 8 * MIB <= CAP:
-                if s not in results[key]:
-                    measure(geom_of(key), s, reps if args.full else args.probe_reps)
+                if s not in results[geo]:
+                    measure(geom_of(geo), s, reps if args.full else args.probe_reps)
     best_cfg = {}
-    for key in finalists:  # full reps on each finalist's best segment count
-        s = min(results[key], key=lambda x: results[key][x][0])
-        if results[key][s][2] < reps:
-            measure(geom_of(key), s, reps)
-        best_cfg[key] = s
+    for geo in finalists:  # full reps on each finalist's best segment count
+        s = min(results[geo], key=lambda x: results[geo][x][0])
+        if results[geo][s][2] < reps:
+            measure(geom_of(geo), s, reps)
+        best_cfg[geo] = s
     pgeom = U.GEOMETRY
     try:
         picker_ms, _ = timed(fused_runner(arena, bts, cached, q_t), nsets, reps)
@@ -317,16 +317,16 @@ def run_cell(cached_req, cached, arena_mib, q, args, live_spills):
     except torch.cuda.OutOfMemoryError:  # the picker's default segment count can exceed the cap at large q
         picker_ms, pst = math.nan, {}
     # second pass, reverse order: upstream last-to-first with the finalists
-    for key in reversed(finalists):
-        measure(geom_of(key), best_cfg[key], reps)
+    for geo in reversed(finalists):
+        measure(geom_of(geo), best_cfg[geo], reps)
     up2, _ = timed(upstream_runner(arena, bts, cached, q_t, kc), nsets, reps)
     up_ms = min(up_ms, up2)
     rows = []
-    for key in finalists:
-        s = best_cfg[key]
-        ms, st, _ = results[key][s]
-        rows.append(dict(kind="row", q=q, cached_req=cached_req, cached_eff=cached, block_m=key[0], tile_size=key[1],
-                         num_warps=key[2], segments=s, ms=round(ms, 3), upstream_ms=round(up_ms, 3),
+    for geo in finalists:
+        s = best_cfg[geo]
+        ms, st, _ = results[geo][s]
+        rows.append(dict(kind="row", q=q, cached_req=cached_req, cached_eff=cached, block_m=geo[0], tile_size=geo[1],
+                         num_warps=geo[2], segments=s, ms=round(ms, 3), upstream_ms=round(up_ms, 3),
                          ratio=round(ms / up_ms, 3), reps=reps, **st))
     for r in rows:
         emit(**r)
