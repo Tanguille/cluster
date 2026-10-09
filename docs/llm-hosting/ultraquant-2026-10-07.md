@@ -52,8 +52,9 @@ Setup:
   409K), so sessions evict each other and 656K tokens are recomputed. The offload tier
   served 270K (`external_kv_transfer`). fp8's 304,808-token pool would hit this wall at
   about 5-6 sessions. Fixed on 2026-10-09 by `blocks_per_chunk` 1 and
-  `--prefix-match-unit 64`: at 8 sessions the same harness recomputed 55K tokens instead
-  of 514K (`d_local_compute`) and loaded 894K from the tiers, 8.4 -> 43 tok/s aggregate
+  `--prefix-match-unit 64`: in the 2026-10-08/09 reruns of this harness at 8 sessions,
+  `d_local_compute` fell from 514K tokens (pre-roll stack) to 55K, with 894K loaded from
+  the tiers, and aggregate rose from 8.4 to 43 tok/s
   ([ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md)).
 - **The offload lookup stall did not fire during the run.** The
   `kv_offload_lookup_async_delay_seconds` count stayed at 45. The 5-11 s TTFT at 1-2
@@ -153,12 +154,23 @@ sliding window:
 - `UQ_FAST=0` keeps the old upstream path with tuned geometry (`_patch_uq_ops`): 64K
   decode about 23.6 instead of 29.6 tok/s.
 
+**flash-attn length buckets (2026-10-09).** flash-attn's Triton AMD kernel takes
+`max_seqlen_q/k` as constexprs, so each new prompt length JIT-compiled a variant (3.4-5 s,
+engine stalled). The hook rounds q up to 256 and pins k to `max_model_len` on UltraQuant's
+varlen calls. Worth filing against ROCm/flash-attention (`do_not_specialize` on the varlen path).
+
+**W4A16 Triton tiles (2026-10-09).** vLLM's gfx12 M > 512 tiles were tuned on
+Llama-3.1-8B shapes; the hook uses 256x128x64, 8 warps, 1 stage for Qwen3.8. Worth
+filing against `rdna_hybrid_w4a16` with `bench/downfix/triton_prefill.out`. Details:
+[ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md).
+
 **Tests** (scratchpad, not in git):
 
 - `test_uq_decode_fast.py`: CPU interpreter 13/13 and GPU pass. Minimum cosine
   0.9999985 against a dequant reference. A nibble-swapped variant fails at 0.30.
 - `test_uq_prefill_fast.py`: CPU 7/7, GPU 9/9, cosine above 0.9995 per token.
-- `check_hook.py`: routing at 1, 128 and 129 tokens, sinks, and `UQ_FAST=0`.
+- `check_hook.py`: routing at 1, 128 and 129 tokens, sinks, `UQ_FAST=0`, the
+  flash-attn length buckets, and fail-closed on a missing shared buffer.
 - All passed on GPU at the retuned defaults (19:24Z).
 
 **Silent-failure risks:**

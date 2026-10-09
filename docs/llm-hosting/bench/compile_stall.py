@@ -13,9 +13,10 @@ from prodshape import post, words
 ap = argparse.ArgumentParser()
 ap.add_argument("--port", type=int, default=18000)
 ap.add_argument("--n", type=int, default=6)
+ap.add_argument("--seed", type=int, help="fix the tail lengths so A/B runs compare the same requests")
 args = ap.parse_args()
 base = f"http://127.0.0.1:{args.port}"
-rng = random.Random()
+rng = random.Random(args.seed)
 
 
 def ask(prompt):

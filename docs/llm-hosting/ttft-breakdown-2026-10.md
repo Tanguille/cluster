@@ -81,13 +81,16 @@ Torch profiler on an unrouted clone (GPU kernels only), one cold 24K prompt and 
 | GDN, norms, other | 11% | 11% |
 | UltraQuant dequant and store | 0.4% | 1.3% |
 
-Upstream's gfx12 tiles for M > 512 were tuned on Llama-3.1-8B shapes. 256x128x64, 8 warps, 1 stage wins
-all five Qwen3.8 shapes at M = 768, 1280 and 2048 (1.02-1.25x; `bench/downfix/triton_prefill.out`),
-and the hook now uses it. Rolled 2026-10-09: outputs bit-identical (agreement 60/60, NLL +0.00000),
-GSM8K 145/150, needles 3/3, tools 12/12, vision 2/2; cold prefill 1,111-1,118 -> 1,210-1,215 tok/s,
-40K / 64K cold TTFT 36.1 / 65.1 -> 33.1 / 60.1 s, 1-session resume TTFT 1.96 -> 1.76 s.
-bf16 hipBLASLt runs the same shapes at 109-130 TFLOP/s against 94-108 for the tuned W4A16 kernel, so
-little headroom is left in the GEMM; attention is the next prefill cost at long context.
+Upstream's gfx12 tiles for M > 512 were tuned on Llama-3.1-8B shapes. 256x128x64, 8 warps, 1 stage beats
+upstream in all 15 cells (5 Qwen3.8 shapes x M = 768, 1280, 2048; 1.02-1.25x) and is the fastest config in
+9, including all five at 2048 (`bench/downfix/triton_prefill.out`). At uneven M just above 512 it pads and
+loses on some shapes (0.84x at 520, 0.80x qkv at 640; 1.08-1.23x at 1000), so the hook uses it for M >= 768
+only. Rolled
+2026-10-09: agreement 60/60, NLL +0.00000, GSM8K 145/150, needles 3/3, tools 12/12, vision 2/2; cold
+prefill 1,111-1,118 -> 1,210-1,215 tok/s, 40K / 64K cold TTFT 36.1 / 65.1 -> 33.1 / 60.1 s, 1-session
+resume TTFT 1.96 -> 1.76 s. At M = 2048 bf16 hipBLASLt runs the same shapes at 119-130 TFLOP/s against
+94-108 for the tuned W4A16 kernel, so little headroom is left in the GEMM; attention is the next prefill
+cost at long context.
 
 ## flash-attn compile stalls
 

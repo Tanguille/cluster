@@ -226,7 +226,6 @@ def run_level(args, base, level_idx, c, prefixes, poller, stop):
     for s in sessions:                                    # serial warmups: clean cold prefill
         if stop.is_set():
             break
-        # usage.prompt_tokens is the count; a separate /tokenize call only added a failure point
         rec = stream(base, args.model, s.next_prompt(), 1, args.timeout)
         if rec.get("err"):
             errors += 1

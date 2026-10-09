@@ -104,3 +104,123 @@ BEST {'down': ((256, 128, 64, 8, 1), 1.2455448672946599), 'gate_up': ((256, 128,
    (128, 64, 64, 4, None)  0.51 ms  95 TFLOP/s  1.14x 
    (128, 64, 64, 4, 1)  0.53 ms  92 TFLOP/s  1.09x 
    (256, 64, 64, 8, 1)  0.53 ms  92 TFLOP/s  1.09x 
+== down N=5120 K=17408 M=520: upstream (128, 64, 64, 8, None) 1.44 ms (64 TFLOP/s), bf16 hipBLASLt 0.91 ms (102 TFLOP/s)
+   (128, 128, 64, 8, None)  1.33 ms  70 TFLOP/s  1.08x 
+   (128, 64, 64, 4, None)  1.36 ms  68 TFLOP/s  1.06x 
+   (128, 64, 64, 4, 1)  1.38 ms  67 TFLOP/s  1.04x 
+   (128, 64, 64, 8, 1)  1.41 ms  66 TFLOP/s  1.02x 
+   (64, 128, 64, 8, 1)  1.43 ms  65 TFLOP/s  1.01x 
+   (64, 64, 64, 8, 1)  1.43 ms  65 TFLOP/s  1.00x 
+   hook tile (256, 128, 64, 8, 1)  1.48 ms  0.97x
+== gate_up N=34816 K=5120 M=520: upstream (256, 64, 64, 8, None) 2.43 ms (76 TFLOP/s), bf16 hipBLASLt 1.75 ms (106 TFLOP/s)
+   (128, 64, 64, 4, 1)  2.38 ms  78 TFLOP/s  1.02x 
+   (128, 64, 64, 4, None)  2.44 ms  76 TFLOP/s  1.00x 
+   (128, 64, 64, 8, 1)  2.48 ms  75 TFLOP/s  0.98x 
+   (128, 128, 64, 8, None)  2.49 ms  75 TFLOP/s  0.98x 
+   (128, 128, 64, 4, 1)  2.50 ms  74 TFLOP/s  0.97x 
+   (128, 128, 64, 8, 1)  2.74 ms  68 TFLOP/s  0.89x 
+   hook tile (256, 128, 64, 8, 1)  2.75 ms  0.88x
+== in_proj N=16384 K=5120 M=520: upstream (128, 128, 32, 8, None) 1.17 ms (74 TFLOP/s), bf16 hipBLASLt 0.84 ms (104 TFLOP/s)
+   (128, 64, 64, 4, 1)  1.09 ms  80 TFLOP/s  1.07x 
+   (128, 64, 64, 4, None)  1.33 ms  66 TFLOP/s  0.88x 
+   (128, 64, 64, 8, 1)  1.34 ms  65 TFLOP/s  0.88x 
+   (128, 128, 64, 8, None)  1.35 ms  65 TFLOP/s  0.87x 
+   (128, 128, 64, 8, 1)  1.36 ms  64 TFLOP/s  0.86x 
+   (128, 128, 64, 4, 1)  1.37 ms  64 TFLOP/s  0.86x 
+   hook tile (256, 128, 64, 8, 1)  1.40 ms  0.84x
+== qkv N=14336 K=5120 M=520: upstream (128, 128, 32, 8, None) 1.06 ms (72 TFLOP/s), bf16 hipBLASLt 0.74 ms (103 TFLOP/s)
+   (128, 64, 64, 4, None)  0.99 ms  77 TFLOP/s  1.07x 
+   (128, 64, 64, 4, 1)  1.01 ms  76 TFLOP/s  1.05x 
+   (128, 64, 64, 8, 1)  1.02 ms  75 TFLOP/s  1.04x 
+   (128, 128, 64, 4, 1)  1.04 ms  74 TFLOP/s  1.02x 
+   (128, 256, 64, 8, 1)  1.04 ms  73 TFLOP/s  1.01x 
+   (128, 128, 64, 8, None)  1.04 ms  73 TFLOP/s  1.01x 
+   hook tile (256, 128, 64, 8, 1)  1.07 ms  0.99x
+== out_proj N=5120 K=6144 M=520: upstream (128, 128, 32, 8, None) 0.48 ms (68 TFLOP/s), bf16 hipBLASLt 0.36 ms (91 TFLOP/s)
+   (128, 64, 64, 4, None)  0.43 ms  77 TFLOP/s  1.13x 
+   (128, 64, 64, 8, None)  0.45 ms  73 TFLOP/s  1.08x 
+   (128, 64, 64, 4, 1)  0.46 ms  71 TFLOP/s  1.05x 
+   (128, 128, 64, 8, None)  0.46 ms  71 TFLOP/s  1.04x 
+   (128, 128, 64, 8, 1)  0.46 ms  70 TFLOP/s  1.03x 
+   (128, 64, 64, 8, 1)  0.47 ms  70 TFLOP/s  1.03x 
+   hook tile (256, 128, 64, 8, 1)  0.47 ms  1.03x
+== down N=5120 K=17408 M=640: upstream (128, 64, 64, 8, None) 1.50 ms (76 TFLOP/s), bf16 hipBLASLt 0.94 ms (122 TFLOP/s)
+   (128, 64, 64, 4, None)  1.41 ms  81 TFLOP/s  1.06x 
+   (128, 128, 64, 4, 1)  1.50 ms  76 TFLOP/s  1.00x 
+   (128, 64, 64, 4, 1)  1.50 ms  76 TFLOP/s  1.00x 
+   (128, 64, 64, 8, 1)  1.50 ms  76 TFLOP/s  1.00x 
+   (128, 64, 64, 8, None)  1.50 ms  76 TFLOP/s  1.00x 
+   (256, 128, 64, 8, 1)  1.50 ms  76 TFLOP/s  1.00x 
+   hook tile (256, 128, 64, 8, 1)  1.50 ms  1.00x
+== gate_up N=34816 K=5120 M=640: upstream (256, 64, 64, 8, None) 2.98 ms (77 TFLOP/s), bf16 hipBLASLt 1.79 ms (127 TFLOP/s)
+   (128, 128, 64, 8, None)  2.48 ms  92 TFLOP/s  1.20x 
+   (128, 128, 64, 4, 1)  2.49 ms  92 TFLOP/s  1.20x 
+   (128, 64, 64, 4, 1)  2.50 ms  91 TFLOP/s  1.19x 
+   (128, 64, 64, 4, None)  2.51 ms  91 TFLOP/s  1.19x 
+   (256, 128, 64, 8, 1)  2.71 ms  84 TFLOP/s  1.10x 
+   (128, 64, 64, 8, 1)  2.74 ms  83 TFLOP/s  1.09x 
+   hook tile (256, 128, 64, 8, 1)  2.71 ms  1.10x
+== in_proj N=16384 K=5120 M=640: upstream (128, 128, 32, 8, None) 1.41 ms (76 TFLOP/s), bf16 hipBLASLt 0.87 ms (123 TFLOP/s)
+   (256, 128, 64, 8, 1)  1.24 ms  86 TFLOP/s  1.13x 
+   (128, 128, 64, 8, 1)  1.30 ms  83 TFLOP/s  1.09x 
+   (128, 64, 64, 4, None)  1.36 ms  79 TFLOP/s  1.03x 
+   (128, 128, 64, 8, None)  1.38 ms  78 TFLOP/s  1.02x 
+   (128, 128, 64, 4, 1)  1.39 ms  77 TFLOP/s  1.02x 
+   (128, 64, 64, 4, 1)  1.39 ms  77 TFLOP/s  1.01x 
+   hook tile (256, 128, 64, 8, 1)  1.24 ms  1.13x
+== qkv N=14336 K=5120 M=640: upstream (128, 128, 32, 8, None) 1.06 ms (89 TFLOP/s), bf16 hipBLASLt 0.79 ms (120 TFLOP/s)
+   (128, 64, 64, 4, None)  1.02 ms  92 TFLOP/s  1.03x 
+   (128, 64, 64, 4, 1)  1.04 ms  91 TFLOP/s  1.02x 
+   (128, 128, 64, 8, None)  1.05 ms  89 TFLOP/s  1.00x 
+   (128, 64, 64, 8, 1)  1.06 ms  89 TFLOP/s  1.00x 
+   (128, 128, 64, 4, 1)  1.07 ms  88 TFLOP/s  0.99x 
+   (128, 128, 64, 8, 1)  1.08 ms  87 TFLOP/s  0.98x 
+   hook tile (256, 128, 64, 8, 1)  1.32 ms  0.80x
+== out_proj N=5120 K=6144 M=640: upstream (128, 128, 32, 8, None) 0.51 ms (79 TFLOP/s), bf16 hipBLASLt 0.38 ms (106 TFLOP/s)
+   (128, 64, 64, 4, None)  0.45 ms  90 TFLOP/s  1.14x 
+   (128, 64, 64, 4, 1)  0.45 ms  89 TFLOP/s  1.13x 
+   (128, 64, 64, 8, None)  0.48 ms  84 TFLOP/s  1.07x 
+   (128, 64, 64, 8, 1)  0.48 ms  83 TFLOP/s  1.05x 
+   (128, 128, 64, 8, None)  0.48 ms  83 TFLOP/s  1.05x 
+   (256, 64, 64, 4, 1)  0.49 ms  83 TFLOP/s  1.04x 
+   hook tile (256, 128, 64, 8, 1)  0.49 ms  1.03x
+== down N=5120 K=17408 M=1000: upstream (128, 64, 64, 8, None) 2.30 ms (77 TFLOP/s), bf16 hipBLASLt 1.48 ms (120 TFLOP/s)
+   (256, 128, 64, 8, 1)  1.87 ms  95 TFLOP/s  1.23x 
+   (256, 64, 64, 4, 1)  1.89 ms  94 TFLOP/s  1.22x 
+   (256, 64, 64, 8, None)  2.00 ms  89 TFLOP/s  1.15x 
+   (256, 64, 128, 8, 1)  2.09 ms  85 TFLOP/s  1.10x 
+   (128, 64, 64, 4, None)  2.10 ms  85 TFLOP/s  1.10x 
+   (128, 128, 64, 4, 1)  2.11 ms  84 TFLOP/s  1.09x 
+   hook tile (256, 128, 64, 8, 1)  1.87 ms  1.23x
+== gate_up N=34816 K=5120 M=1000: upstream (256, 64, 64, 8, None) 4.09 ms (87 TFLOP/s), bf16 hipBLASLt 3.17 ms (113 TFLOP/s)
+   (256, 64, 64, 8, 1)  3.74 ms  95 TFLOP/s  1.09x 
+   (256, 64, 64, 4, 1)  3.77 ms  95 TFLOP/s  1.08x 
+   (256, 128, 64, 8, 1)  3.79 ms  94 TFLOP/s  1.08x 
+   (256, 64, 64, 8, None)  4.06 ms  88 TFLOP/s  1.01x 
+   (128, 64, 64, 4, 1)  4.08 ms  87 TFLOP/s  1.00x 
+   (128, 128, 64, 4, 1)  4.19 ms  85 TFLOP/s  0.98x 
+   hook tile (256, 128, 64, 8, 1)  3.79 ms  1.08x
+== in_proj N=16384 K=5120 M=1000: upstream (128, 128, 32, 8, None) 1.98 ms (85 TFLOP/s), bf16 hipBLASLt 1.59 ms (106 TFLOP/s)
+   (256, 128, 64, 8, 1)  1.68 ms  100 TFLOP/s  1.18x 
+   (256, 64, 64, 4, 1)  1.76 ms  95 TFLOP/s  1.12x 
+   (256, 64, 64, 8, None)  1.84 ms  91 TFLOP/s  1.08x 
+   (256, 64, 64, 8, 1)  1.88 ms  89 TFLOP/s  1.05x 
+   (128, 128, 64, 4, 1)  1.92 ms  87 TFLOP/s  1.03x 
+   (256, 64, 128, 8, 1)  1.94 ms  86 TFLOP/s  1.02x 
+   hook tile (256, 128, 64, 8, 1)  1.68 ms  1.18x
+== qkv N=14336 K=5120 M=1000: upstream (128, 128, 32, 8, None) 1.73 ms (85 TFLOP/s), bf16 hipBLASLt 1.21 ms (121 TFLOP/s)
+   (256, 128, 64, 8, 1)  1.51 ms  97 TFLOP/s  1.14x 
+   (256, 64, 64, 4, 1)  1.55 ms  95 TFLOP/s  1.12x 
+   (256, 64, 64, 8, None)  1.63 ms  90 TFLOP/s  1.06x 
+   (128, 128, 64, 4, 1)  1.68 ms  87 TFLOP/s  1.03x 
+   (128, 64, 64, 4, None)  1.68 ms  87 TFLOP/s  1.03x 
+   (256, 64, 64, 8, 1)  1.69 ms  87 TFLOP/s  1.02x 
+   hook tile (256, 128, 64, 8, 1)  1.51 ms  1.14x
+== out_proj N=5120 K=6144 M=1000: upstream (128, 128, 32, 8, None) 0.74 ms (85 TFLOP/s), bf16 hipBLASLt 0.55 ms (114 TFLOP/s)
+   (256, 128, 64, 8, 1)  0.65 ms  96 TFLOP/s  1.13x 
+   (256, 64, 64, 4, 1)  0.66 ms  96 TFLOP/s  1.13x 
+   (128, 64, 64, 4, None)  0.69 ms  92 TFLOP/s  1.08x 
+   (256, 64, 64, 8, None)  0.70 ms  90 TFLOP/s  1.06x 
+   (128, 64, 64, 4, 1)  0.72 ms  87 TFLOP/s  1.02x 
+   (256, 64, 128, 8, 1)  0.72 ms  87 TFLOP/s  1.02x 
+   hook tile (256, 128, 64, 8, 1)  0.65 ms  1.13x
