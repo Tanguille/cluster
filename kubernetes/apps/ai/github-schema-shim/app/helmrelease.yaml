@@ -24,9 +24,6 @@ spec:
               - python3
               - -I
               - /config/server.py
-            env:
-              UPSTREAM_URL: https://api.githubcopilot.com/mcp/
-              PORT: "8080"
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -61,9 +58,7 @@ spec:
       script:
         type: configMap
         name: github-schema-shim-script
-        advancedMounts:
-          github-schema-shim:
-            app:
-              - path: /config/server.py
-                subPath: server.py
-                readOnly: true
+        globalMounts:
+          - path: /config/server.py
+            subPath: server.py
+            readOnly: true
