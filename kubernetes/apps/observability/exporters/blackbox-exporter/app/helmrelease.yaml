@@ -29,8 +29,8 @@ spec:
           prober: dns
           timeout: 5s
           dns:
-            # k8s-gateway only answers its own zone; query an HTTPRoute host it serves.
-            query_name: vmsingle.${SECRET_DOMAIN}
+            # k8s-gateway only answers its own zone; query its apex record.
+            query_name: k8s-gateway.network.${SECRET_DOMAIN}
             query_type: A
             preferred_ip_protocol: ip4
     serviceMonitor:

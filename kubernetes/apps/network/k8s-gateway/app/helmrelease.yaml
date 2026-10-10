@@ -35,7 +35,9 @@ spec:
       - zones:
           - zone: ${SECRET_DOMAIN}
             use_tcp: true
-        port: 53
+        # Same container port as chart 3.x, so old and new pods both answer mid-rollout.
+        port: 1053
+        servicePort: 53
         plugins:
           - name: k8s_gateway
             configBlock: |-
