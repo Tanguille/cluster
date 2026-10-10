@@ -1,8 +1,10 @@
-# GitHub's hosted MCP server instead of the self-run container: stdio dies on the
-# virtual-MCP health check re-running `initialize` (#5890, still open in 0.41.0) and
-# the container's http mode has no server-side token path (#4220). A remote entry has
-# neither problem — headerForward injects the PAT server-side, the same shape context7
-# uses. The endpoint takes a raw PAT (verified: `Bearer <pat>` and a
+# GitHub's hosted MCP server, reached through the github-schema-shim proxy: its issue_write
+# schema has a JSON Schema type array (issue_fields[].value), which vMCP's decoder rejects,
+# failing the whole backend. The shim rewrites tools/list only. Remove it once vMCP accepts
+# type arrays. Not the self-run container: stdio dies on the virtual-MCP health check
+# re-running `initialize` (#5890, still open in 0.41.0) and the container's http mode has no
+# server-side token path (#4220). headerForward injects the PAT server-side, the same shape
+# context7 uses. The endpoint takes a raw PAT (verified: `Bearer <pat>` and a
 # bare `<pat>` both return 200, `token <pat>` returns 400), so the existing secret key
 # goes in unmodified. Despite the hostname, no Copilot entitlement is involved: a token
 # carrying no `copilot` scope lists all 46 repo/issue/PR tools.
@@ -12,7 +14,7 @@ kind: MCPServerEntry
 metadata:
   name: github
 spec:
-  remoteUrl: https://api.githubcopilot.com/mcp/
+  remoteUrl: http://github-schema-shim.ai.svc:8080/mcp/
   transport: streamable-http
   groupRef:
     name: all
