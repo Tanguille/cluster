@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: igpu-gtt-exporter-rules
+spec:
+  groups:
+    - name: igpu-gtt-exporter.rules
+      rules:
+        # GTT is pinned host RAM outside the pod's memory cgroup; max by drops kube_pod_info's churny labels.
+        - record: pod:drm_memory_gtt_bytes
+          expr: |-
+            pod_drm_memory_gtt_bytes
+            * on(pod_uid) group_left(namespace, pod)
+            label_replace(max by (namespace, pod, uid) (kube_pod_info), "pod_uid", "$1", "uid", "(.*)")
+        - alert: PodGTTMemoryHigh
+          expr: pod:drm_memory_gtt_bytes > 3221225472
+          for: 15m
+          annotations:
+            summary: >-
+              {{ $labels.namespace }}/{{ $labels.pod }} on {{ $labels.kubernetes_node }}
+              holds over 3GiB of pinned GTT GPU memory, which its memory request does not cover
+          labels:
+            severity: warning
+        # Compares the DaemonSet's desired pods with healthy targets, so a missing node is caught even when others are up.
+        - alert: IgpuGttExporterMissing
+          expr: |-
+            sum(kube_daemonset_status_desired_number_scheduled{namespace="observability", daemonset="igpu-gtt-exporter"})
+            > (sum(up{job="igpu-gtt-exporter"} == 1) or vector(0))
+          for: 10m
+          annotations:
+            summary: >-
+              Per-pod GTT exporter is down on some iGPU nodes;
+              PodGTTMemoryHigh is blind there until it recovers
+          labels:
+            severity: warning

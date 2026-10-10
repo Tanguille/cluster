@@ -51,7 +51,7 @@ spec:
   parallelSlots: 1
   # A pair must fit one micro-batch or llama.cpp 500s; 2048 fits a query up to
   # ~5000 chars plus a 1024-char doc. 4096 held 4.4 GiB of GTT, 2048 holds
-  # 1.0 GiB with identical scores.
+  # ~0.75 GiB with identical scores.
   contextSize: 2048
   uBatchSize: 2048
   extraArgs:
@@ -66,11 +66,8 @@ spec:
   nodeSelector:
     amd.com/igpu: "true"
 
-  # SOFT anti-affinity, deliberately not required: two iGPU nodes already
-  # host qwen3-embedding and qwen35-2b one-per-node, so a third required
-  # anti-affinity would make this pod unschedulable. It prefers its own node
-  # and co-locates on the busy one only if both are taken — the ~636MB model
-  # fits a node that already runs the 0.6B embedder.
+  # Soft: share a node with qwen35-2b (0.8 GiB GTT), not the embedder (2.4 GiB).
+  # Two equal-weight terms made the node a coin flip and starved control-2.
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -79,12 +76,6 @@ spec:
             labelSelector:
               matchLabels:
                 app: qwen3-embedding
-            topologyKey: kubernetes.io/hostname
-        - weight: 100
-          podAffinityTerm:
-            labelSelector:
-              matchLabels:
-                app: qwen35-2b
             topologyKey: kubernetes.io/hostname
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime
@@ -98,8 +89,8 @@ spec:
 
   resources:
     cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~1.0Gi of amdgpu
+    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~0.75Gi of amdgpu
     # GTT. memcg does not charge GTT, but the scheduler must count it.
-    memory: 1536Mi
+    memory: 2Gi
   endpoint:
     path: /v1/rerank
