@@ -122,6 +122,38 @@ spec:
             change, deprecation, rename or changed default that affects it,
             and any version it must stay in lockstep with. Start with a
             verdict, safe to merge or not, and name the sources you read.
+        # Renovate bumps the nightly by digest alone: the body names no commits.
+        - id: vllm-nightly
+          when:
+            - expr: pr.headRef == "renovate/vllm-vllm-openai-rocm-nightly"
+          rule: >-
+            vLLM nightly bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ, KV
+            offload, hybrid GDN): config
+            kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml, import hook
+            kubernetes/apps/ai/llmkube/models/resources/zz_lds_gate_impl.py.
+            The body has digests only, so take the vllm-project/vllm main
+            commits from 6 h before the previous vllm-openai-rocm PR was opened
+            (gh pr list --state all --search 'vllm-openai-rocm in:title') to
+            this PR's creation, and name that window. Query one path per call
+            with gh api 'repos/vllm-project/vllm/commits?since=..&until=..&path=P',
+            never the whole list: vllm/v1/attention,
+            vllm/model_executor/kernels/linear/mixed_precision,
+            vllm/v1/kv_offload,
+            vllm/distributed/kv_transfer/kv_connector/v1/offloading,
+            vllm/model_executor/layers/mamba, vllm/v1/core, vllm/v1/worker,
+            vllm/platforms/rocm.py, vllm/config, docker/Dockerfile.rocm,
+            docker/Dockerfile.rocm_base. Read the patch of each hit with gh api
+            repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
+            GLM and Kimi changes. Check each hit against every symbol the hook
+            patches and every flag in the config: a moved symbol fails the
+            boot, a new default can undo a flag. Also flag KV pool sizing or
+            page size changes, Qwen3.5 or Qwen3-Next config imports, a ROCm
+            base or torch bump, and anything that makes a hook patch
+            redundant. Start with a verdict: nothing relevant, needs a clone
+            test, or needs a hook change. Then list each relevant commit as sha,
+            title, why it matters here, and what to measure (boot KV cache
+            size, agreement, NLL and needle checks, prodshape). Never call it
+            safe to roll untested.
       # Scope specialist skills to the paths they cover; pr-review stays unscoped.
       skills:
         scope:
@@ -132,7 +164,12 @@ spec:
           add-app-to-cluster:
             paths: ["kubernetes/apps/**"]
           prometheus-cluster-health:
-            paths: ["**/prometheusrule.yaml", "**/servicemonitor.yaml", "**/grafana*"]
+            paths:
+              [
+                "**/prometheusrule.yaml",
+                "**/servicemonitor.yaml",
+                "**/grafana*"
+              ]
           backup-restore:
             paths: ["**/backup*", "**/restore*", "**/kopia*"]
       # Benchmark output the default globs miss.
