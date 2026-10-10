@@ -12,25 +12,29 @@ spec:
   values:
     config:
       prometheus: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
+      # ?format=json returns every label of the first series, so each query aggregates
+      # down to the label its badge shows; otherwise pod, node and instance labels leak.
       badges:
         - title: Talos
           id: talos_version
-          query: label_replace(node_os_info{name="Talos"}, "version_id", "$1",
-            "version_id", "v(.+)")
+          query: max by (version_id) (label_replace(node_os_info{name="Talos"},
+            "version_id", "$1", "version_id", "v(.+)"))
           valueExpr: labels["version_id"]
           icon: si:talos
 
         - title: Kubernetes
           id: kubernetes_version
-          query: label_replace(kubernetes_build_info{service="kubernetes"},
-            "git_version", "$1", "git_version", "v(.+)")
+          query:
+            max by (git_version) (label_replace(kubernetes_build_info{service="kubernetes"},
+            "git_version", "$1", "git_version", "v(.+)"))
           valueExpr: labels["git_version"]
           icon: si:kubernetes
 
         - title: Flux
           id: flux_version
-          query: label_replace(flux_instance_info, "revision", "$1", "revision",
-            "v(.+)@sha256:.+")
+          query:
+            max by (revision) (label_replace(flux_instance_info, "revision", "$1",
+            "revision", "v(.+)@sha256:.+"))
           valueExpr: labels["revision"]
           icon: si:flux
 
@@ -72,7 +76,7 @@ spec:
 
         - title: Alerts
           id: cluster_alert_count
-          query: alertmanager_alerts{state="active"} - 1 # Ignore Watchdog
+          query: max(alertmanager_alerts{state="active"}) - 1 # Ignore Watchdog
           colorExpr: 'colorScale(result, [1.0], ["green", "red"])'
     service:
       port: 80

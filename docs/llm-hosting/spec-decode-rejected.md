@@ -243,7 +243,7 @@ volatility.`
 
 This deployment cannot afford that: removing the fs secondary tier alone was
 measured to **halve single-stream decode** (15.5 vs 31 tok/s, exact-revert
-confirmed), and prefix caching had a 91% pod-lifetime local hit rate (see `vllm-nightly-bench-2026-09-29.md`).
+confirmed), and 91% of prompt tokens were prefix-cache hits over 30 days (ultraquant-2026-10-07.md, Workload).
 
 Root cause, in `vllm/v1/core/kv_cache_utils.py` at our pinned `8a728663c`:
 `_annotate_eagle_groups` identifies the drafter's KV group only via a
