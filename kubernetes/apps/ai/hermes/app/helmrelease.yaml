@@ -15,6 +15,9 @@ spec:
       # 5000: evicted before an llmkube model (llmkube-normal 10000), after unclassified pods (0).
       priorityClassName: homelab-important
       terminationGracePeriodSeconds: 90
+      # Single replica; pin off control-2 to relieve its memory pressure.
+      nodeSelector:
+        kubernetes.io/hostname: control-3
       securityContext:
         fsGroup: 10000
         fsGroupChangePolicy: OnRootMismatch
