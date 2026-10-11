@@ -80,4 +80,7 @@ spec:
       count: 1
       vendor: amd
       runtime: rocm
-      resourceName: squat.ai/dri
+      # Exclusive dGPU claim (kube-system/k8s-gpu-dra-driver).
+      resourceClaims:
+        - name: gpu
+          resourceClaimTemplateName: dgpu

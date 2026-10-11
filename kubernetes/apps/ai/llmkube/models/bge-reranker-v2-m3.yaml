@@ -60,9 +60,8 @@ spec:
     - "off"
     - "--alias"
     - "bge-reranker-v2-m3" # served model name memini sends (MEMINI_RERANK_MODEL)
-  # Pin to the iGPU node, as with the embedder; without this the scheduler
-  # could place it on the dGPU node (which also advertises squat.ai/dri) and
-  # steal a dGPU slot from the 27B serving pod.
+  # Pin to the iGPU node, as with the embedder: only iGPU nodes advertise
+  # squat.ai/dri, the dGPU is on DRA.
   nodeSelector:
     amd.com/igpu: "true"
 

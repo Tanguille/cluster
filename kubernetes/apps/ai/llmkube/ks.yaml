@@ -34,6 +34,8 @@ spec:
     - name: llmkube
     - name: generic-device-plugin
       namespace: kube-system
+    - name: k8s-gpu-dra-driver
+      namespace: kube-system
   # No healthChecks: a model takes minutes to go Ready and would fail the ks on
   # every rollout.
   path: ./kubernetes/apps/ai/llmkube/models
