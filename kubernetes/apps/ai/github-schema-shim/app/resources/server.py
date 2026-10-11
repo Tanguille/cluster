@@ -1,6 +1,6 @@
 """Forward MCP traffic to GitHub's hosted server, refusing the 2026-07-28 discovery call.
 
-ToolHive vMCP v0.51.4 tries the 2026-07-28 protocol first. GitHub's tool output schemas have top-level
+ToolHive vMCP tries the 2026-07-28 protocol first. GitHub's tool output schemas have top-level
 JSON Schema type arrays, which that path cannot decode, failing the whole backend. A 404 on server/discover
 makes vMCP fall back to the 2025-11-25 protocol, which decodes the same tools. Everything else passes through.
 """
@@ -18,26 +18,31 @@ DROP_HEADERS = {"host", "connection", "keep-alive", "content-length", "content-e
 
 
 class Shim(BaseHTTPRequestHandler):
+    # Probes and MCP requests arrive constantly; the access log would only fill the pod's stderr.
+    def log_message(self, *args):
+        pass
+
     # The default HTTP/1.0 closes each connection after its response, which also ends the GET listen stream.
     def do_GET(self):
         if self.path == "/healthz":
-            self.send_response(200)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+            self._empty(200)
             return
         self._forward(b"")
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         if self.headers.get("Mcp-Method") == "server/discover":
-            self.send_response(404)
-            self.send_header("Content-Length", "0")
-            self.end_headers()
+            self._empty(404)
             return
         self._forward(body)
 
     def do_DELETE(self):
         self._forward(b"")
+
+    def _empty(self, status: int):
+        self.send_response(status)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def _forward(self, body: bytes):
         headers = {k: v for k, v in self.headers.items() if k.lower() not in DROP_HEADERS}
