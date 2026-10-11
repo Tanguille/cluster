@@ -7,7 +7,7 @@
 # can drift from the release being built. See docker/talos-kernel/README.md.
 set -euo pipefail
 
-# The full v<talos>-k<kernel> from the tuppr CR: what tuppr compares, so what the tag must be.
+# The full v<talos>-k<kernel>[-r<n>] from the tuppr CR: what tuppr compares, so what the tag must be.
 # Upstream release tags want the Talos half alone.
 VERSION="${1:?usage: talos-kernel-build.sh <version> <node>...}"
 shift
@@ -27,7 +27,7 @@ KERNEL_VERSION="$(just kernel-version)"
 
 # Same Renovate branch bumps both, so a mismatch means a half-applied tree. An installer whose
 # tag advertises a kernel it does not carry is caught nowhere else.
-[[ "${VERSION#*-k}" == "${KERNEL_VERSION}" ]] || {
+[[ "${VERSION%-r[0-9]*}" == "${TALOS_VERSION}-k${KERNEL_VERSION}" ]] || {
     echo "CR names k${VERSION#*-k}, Dockerfile builds ${KERNEL_VERSION}" >&2
     exit 1
 }
