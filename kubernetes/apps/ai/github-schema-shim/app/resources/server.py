@@ -1,57 +1,20 @@
-"""Forward MCP traffic to GitHub's hosted server, rewriting JSON Schema type arrays in tools/list.
+"""Forward MCP traffic to GitHub's hosted server, refusing the 2026-07-28 discovery call.
 
-ToolHive vMCP decodes each schema `type` as a single string and fails the whole backend on an array.
-GitHub's issue_write emits ["string","number","boolean"] for issue_fields[].value, so every array is
-replaced by its first non-null member. Only tools/list results are rewritten; tool call results pass through.
+ToolHive vMCP v0.51.4 tries the 2026-07-28 protocol first. GitHub's tool output schemas have top-level
+JSON Schema type arrays, which that path cannot decode, failing the whole backend. A 404 on server/discover
+makes vMCP fall back to the 2025-11-25 protocol, which decodes the same tools. Everything else passes through.
 """
 
-import json
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 UPSTREAM = "https://api.githubcopilot.com/mcp/"
 PORT = 8080
-# Not forwarded in either direction: hop-by-hop headers, headers for a body this proxy rewrites
-# (length, encoding), and Date/Server, which send_response adds itself.
+# Not forwarded in either direction: hop-by-hop headers, the length and encoding of a body that is
+# buffered and re-sent, and Date/Server, which send_response adds itself.
 DROP_HEADERS = {"host", "connection", "keep-alive", "content-length", "content-encoding",
                 "transfer-encoding", "accept-encoding", "date", "server"}
-
-
-def fix_types(node):
-    if isinstance(node, dict):
-        for key, value in node.items():
-            if key == "type" and isinstance(value, list):
-                node[key] = next((t for t in value if t != "null"), "null")
-            else:
-                fix_types(value)
-    elif isinstance(node, list):
-        for item in node:
-            fix_types(item)
-
-
-def fix_tools_list(doc):
-    if isinstance(doc, dict) and "tools" in doc.get("result", {}):
-        fix_types(doc["result"]["tools"])
-    return doc
-
-
-def rewrite_sse_line(line: str) -> str:
-    if not line.startswith("data:"):
-        return line
-    try:
-        doc = json.loads(line[5:])
-    except ValueError:
-        return line
-    return "data: " + json.dumps(fix_tools_list(doc))
-
-
-def rewrite(body: bytes, content_type: str) -> bytes:
-    if "text/event-stream" in content_type:
-        return "\n".join(rewrite_sse_line(line) for line in body.decode().split("\n")).encode()
-    if "application/json" in content_type:
-        return json.dumps(fix_tools_list(json.loads(body))).encode()
-    return body
 
 
 class Shim(BaseHTTPRequestHandler):
@@ -65,7 +28,13 @@ class Shim(BaseHTTPRequestHandler):
         self._forward(b"")
 
     def do_POST(self):
-        self._forward(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        if self.headers.get("Mcp-Method") == "server/discover":
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        self._forward(body)
 
     def do_DELETE(self):
         self._forward(b"")
@@ -87,7 +56,7 @@ class Shim(BaseHTTPRequestHandler):
             while chunk := resp.read1(8192):
                 self.wfile.write(chunk)
             return
-        payload = rewrite(resp.read(), resp.headers.get("Content-Type", ""))
+        payload = resp.read()
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)

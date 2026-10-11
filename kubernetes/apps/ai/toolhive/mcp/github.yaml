@@ -1,6 +1,7 @@
-# GitHub's hosted MCP server, through github-schema-shim (see its server.py for why).
-# Remove the shim once vMCP accepts JSON Schema type arrays. Remote rather than the
-# self-run container: stdio fails the vMCP health check (stacklok/toolhive#5890).
+# GitHub's hosted MCP server, through github-schema-shim, which makes vMCP fall back from the
+# 2026-07-28 protocol (see its server.py). Remove the shim once vMCP decodes top-level JSON
+# Schema type arrays on that protocol. Remote rather than the self-run container: stdio fails
+# the vMCP health check (stacklok/toolhive#5890).
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServerEntry
