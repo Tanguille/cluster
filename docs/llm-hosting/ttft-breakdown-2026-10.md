@@ -40,10 +40,11 @@ the reference for the next A/B (`qualitygate.py agree --compare e885`). Agree an
 clone, NLL, tools and vision from the live pod.
 
 `e885` vs `n8c` agree was 59.43% (34 of 60 prompts diverged, 7 before token 16), accepted: every divergence is
-a near-tie (chosen-token logprob <= -0.63, within 0.2 of the other stack), warm vs cold in the same run is
-100% (0 of 20), NLL is +0.00030 (`qualitygate.py nll --name e885 --compare fab`; `fab` is a local snapshot of
-the `n8c` stack, 0 of 60 agree prompts differ), and tools, vision and all needles pass. Rule: a stack bump may fail the 98% agree gate when NLL stays within
-0.01 and the run is deterministic with itself.
+a near-tie (chosen-token logprob <= -0.63, within 0.22 of the other stack), warm vs cold in the same run is
+100% (0 of 20), NLL is +0.00030 (`qualitygate.agreement()` and the `mode_nll` formula applied to the two
+committed snapshots; `qualitygate.py agree|nll --name e885 --compare n8c` gives the same on a live stack), and
+tools, vision and all needles pass. Rule: a stack bump may fail the 98% agree gate when NLL stays within 0.01
+and the run is deterministic with itself.
 
 | Check | Result | Command |
 | --- | --- | --- |
