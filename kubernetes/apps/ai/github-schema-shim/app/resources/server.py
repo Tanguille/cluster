@@ -11,10 +11,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 UPSTREAM = "https://api.githubcopilot.com/mcp/"
 PORT = 8080
-# Not forwarded in either direction: hop-by-hop headers, the length and encoding of a body that is
-# buffered and re-sent, and Date/Server, which send_response adds itself.
-DROP_HEADERS = {"host", "connection", "keep-alive", "content-length", "content-encoding",
-                "transfer-encoding", "accept-encoding", "date", "server"}
+# Not forwarded in either direction: hop-by-hop headers, the length and framing that this proxy sets
+# itself (the body is re-sent unchanged, so Content-Encoding still describes it), and Date/Server,
+# which send_response adds itself.
+DROP_HEADERS = {"host", "connection", "keep-alive", "proxy-authorization", "te", "trailer", "upgrade",
+                "content-length", "transfer-encoding", "accept-encoding", "date", "server"}
 
 
 class Shim(BaseHTTPRequestHandler):
@@ -30,7 +31,7 @@ class Shim(BaseHTTPRequestHandler):
         self._forward(b"")
 
     def do_POST(self):
-        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        body = self._read_body()
         if self.headers.get("Mcp-Method") == "server/discover":
             self._empty(404)
             return
@@ -38,6 +39,17 @@ class Shim(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         self._forward(b"")
+
+    def _read_body(self) -> bytes:
+        if self.headers.get("Transfer-Encoding", "").lower() != "chunked":
+            return self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        # Chunk framing is "<hex size>[;extensions]CRLF data CRLF", ended by a zero-size chunk.
+        parts = []
+        while size := int(self.rfile.readline().split(b";")[0], 16):
+            parts.append(self.rfile.read(size))
+            self.rfile.readline()
+        self.rfile.readline()
+        return b"".join(parts)
 
     def _empty(self, status: int):
         self.send_response(status)
