@@ -24,3 +24,17 @@ resources:
   - truenas.yaml
   - victorialogs-mcp.yaml
   - virtualmcpservers.yaml
+
+patches:
+  # Every MCPServer pod runs third-party tool code; MCPServerEntry has no pod. Opt a server out by narrowing the target.
+  - target:
+      kind: MCPServer
+    patch: |-
+      apiVersion: toolhive.stacklok.dev/v1beta1
+      kind: MCPServer
+      metadata:
+        name: not-used
+      spec:
+        podTemplateSpec:
+          spec:
+            runtimeClassName: gvisor

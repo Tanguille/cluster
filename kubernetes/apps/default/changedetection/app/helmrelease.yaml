@@ -11,6 +11,10 @@ spec:
     name: app-template
 
   values:
+    defaultPodOptions:
+      # Fetches and parses untrusted pages.
+      runtimeClassName: gvisor
+
     controllers:
       changedetection:
         containers:
