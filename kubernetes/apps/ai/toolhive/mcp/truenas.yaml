@@ -33,6 +33,7 @@ spec:
       targetEnvName: TRUENAS_MCP_API_KEY
   podTemplateSpec:
     spec:
+      runtimeClassName: gvisor
       containers:
         - name: mcp
           resources:

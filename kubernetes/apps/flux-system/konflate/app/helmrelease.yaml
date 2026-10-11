@@ -26,6 +26,10 @@ spec:
       refreshInterval: 5m
     secret:
       existingSecret: konflate-secret
+    # The 1Gi chart default OOM-killed renders at 1.04 GiB RSS; the limit also sets GOMEMLIMIT (90%).
+    resources:
+      limits:
+        memory: 2Gi
     persistence:
       enabled: true
       storageClass: ceph-block

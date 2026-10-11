@@ -64,6 +64,8 @@ spec:
       # No ServiceAccount, Role or ClusterRole exists for opencode; it reaches litellm and vmcp
       # over HTTP only, so the default SA token is unused reach.
       automountServiceAccountToken: false
+      # Runs model-directed bash and in-process npm plugins.
+      runtimeClassName: gvisor
 
     service:
       app:
