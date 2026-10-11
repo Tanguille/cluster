@@ -15,6 +15,8 @@ spec:
       # 5000: evicted before an llmkube model (llmkube-normal 10000), after unclassified pods (0).
       priorityClassName: homelab-important
       terminationGracePeriodSeconds: 90
+      # Terminal tool and headless Chromium run model-directed code.
+      runtimeClassName: gvisor
       securityContext:
         fsGroup: 10000
         fsGroupChangePolicy: OnRootMismatch
