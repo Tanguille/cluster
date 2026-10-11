@@ -68,7 +68,7 @@ generates a fresh signing key per build, and the cmdline carries `module.sig_enf
 so an extension built against a *different build* of the same version will fail to load.
 Rebuild the extension from the same kernel image, every time.
 
-`amd-ucode`, `nfsrahead` and `qemu-guest-agent` are firmware/userspace only — reuse the
+`amd-ucode`, `nfsrahead`, `qemu-guest-agent` and `gvisor` are firmware/userspace only — reuse the
 official images by digest.
 
 ## Version tagging
