@@ -47,16 +47,21 @@ class Shim(BaseHTTPRequestHandler):
     def _forward(self, body: bytes):
         headers = {k: v for k, v in self.headers.items() if k.lower() not in DROP_HEADERS}
         request = urllib.request.Request(UPSTREAM, data=body or None, headers=headers, method=self.command)
+        # The GET listen stream is idle between events, so a read timeout would end it for no reason.
         try:
-            resp = urllib.request.urlopen(request, timeout=300)
+            resp = urllib.request.urlopen(request, timeout=None if self.command == "GET" else 300)
         except urllib.error.HTTPError as err:
             resp = err
+        except (urllib.error.URLError, TimeoutError):
+            self._empty(502)
+            return
         self.send_response(resp.status)
         for name, value in resp.headers.items():
             if name.lower() not in DROP_HEADERS:
                 self.send_header(name, value)
-        if self.command == "GET" and resp.status == 200:
-            # Relay the listen stream as it arrives: buffering would hold it until upstream closes, which it never does.
+        if resp.headers.get_content_type() == "text/event-stream":
+            # Relay SSE as it arrives: buffering holds the GET listen stream, and POST responses that carry
+            # server requests, until upstream closes, which it never does.
             self.end_headers()
             while chunk := resp.read1(8192):
                 self.wfile.write(chunk)
