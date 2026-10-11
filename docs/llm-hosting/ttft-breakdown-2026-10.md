@@ -34,9 +34,16 @@ at 1 / 2 / 4 / 8 sessions.
 ## Quality baseline
 
 Snapshot names: `base` (pre-roll stack), `c5` (both flags on `43b4aaea3`), `n81` (both flags on
-`81198e97`), `c5n` (needles on both flags), `n8c` (the rolled stack: `8cbd5d03`, mnbt 2048). Only
-`bench/quality/baseline-n8c.jsonl` is committed, as the reference for the next A/B
-(`qualitygate.py agree --compare n8c`).
+`81198e97`), `c5n` (needles on both flags), `n8c` (the rolled stack: `8cbd5d03`, mnbt 2048), `e885`
+(nightly `e8851fc` on kernel 7.2.10, same config). Only `bench/quality/baseline-e885.jsonl` is committed, as
+the reference for the next A/B (`qualitygate.py agree --compare e885`). Agree and needles come from an idle
+clone, NLL, tools and vision from the live pod.
+
+`e885` vs `n8c` agree was 59.43% (34 of 60 prompts diverged, 7 before token 16), accepted: every divergence is
+a near-tie (chosen-token logprob <= -0.63, within 0.2 of the other stack), warm vs cold in the same run is
+100% (0 of 20), NLL is +0.00030 (`qualitygate.py nll --name e885 --compare fab`; `fab` is a local snapshot of
+the `n8c` stack, 0 of 60 agree prompts differ), and tools, vision and all needles pass. Rule: a stack bump may fail the 98% agree gate when NLL stays within
+0.01 and the run is deterministic with itself.
 
 | Check | Result | Command |
 | --- | --- | --- |
