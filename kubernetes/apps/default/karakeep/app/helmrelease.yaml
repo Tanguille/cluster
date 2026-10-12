@@ -86,6 +86,9 @@ spec:
                 memory: 1Gi
 
       chrome:
+        pod:
+          # Renders untrusted pages; already --no-sandbox, so gVisor is its only sandbox.
+          runtimeClassName: gvisor
         containers:
           app:
             image:
