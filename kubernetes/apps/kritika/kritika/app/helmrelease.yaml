@@ -92,8 +92,9 @@ spec:
           apiKey: { env: LITELLM_API_KEY }
       # 0.0.27 dropped the defaults wrapper: repository settings sit at the root.
       review:
-        # LiteLLM falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
-        model: litellm/omniroute
+        # Direct to own GPU: omniroute's quota-exhausted free providers held every review slot and
+        # ran reviews into the 45m agent timeout. Revert to litellm/omniroute once omniroute recovers.
+        model: litellm/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
