@@ -1,0 +1,123 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: embeddinggemma-2
+spec:
+  # EmbeddingGemma 2 (google/embeddinggemma-2): text-only model, 270M params,
+  # native output dimension 768, Matryoshka-truncatable to 512/256/128.
+  # Q8_0 GGUF from huggingface.co/ggml-org/embeddinggemma-2-GGUF (310 MB).
+  # The gemma-embedding2 architecture was added to llama.cpp in PR #30054,
+  # merged 2026-10-06 16:20 UTC; first release b11446 (2026-10-06 17:31 UTC).
+  # The currently pinned qwen3-embedding image is OLDER than b11446 and will
+  # NOT load this model (unknown architecture). Image bump required see InferenceService.
+  # Pooling: mean pooling is required for this architecture (see extraArgs below).
+  source: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/bfcd298762cc34d0357ece5ebdd31791a3a374d8/embeddinggemma-2-Q8_0.gguf
+  quantization: Q8_0
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: vulkan
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: vulkan
+      layers: -1
+      # Slot counts live at the device plugin
+      # (kube-system/generic-device-plugin);
+      # nodeSelector below pins this to the iGPU.
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: embeddinggemma-2
+spec:
+  modelRef: embeddinggemma-2
+  mode: embedding
+  # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
+  # startup and model load before this Vulkan embedder is recycled.
+  maxPodLifetimeSeconds: 86400
+  # Bumped from qwen3-embedding image (sha256:ee2ecb9c...) which is OLDER than
+  # b11446 (2026-10-06 17:31 UTC) and cannot load the gemma-embedding2 architecture.
+  # Resolved via GHCR API: GET /token?scope=repository:ggml-org/llama.cpp:pull
+  # then GET /v2/ggml-org/llama.cpp/manifests/server-vulkan-b11446 (or newest >= b11446).
+  # Pin the Docker-Content-Digest header value exactly like the existing pin.
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:INSERT_DIGEST_HERE
+  # 4 slots: the 194-tool search and memini share one embedder; keeps the
+  # 194-item batch
+  # from queueing behind memini (bench: 7.07s median for the 194-tool batch
+  # isolated,
+  # 120s is the toolhive timeout). Vulkan warmup hangs at parallel=1 (llama.cpp
+  # #24307).
+  parallelSlots: 4
+  # The new model native context is 8192 tokens. With 4 parallel slots each
+  # slot gets 8192/4 = 2048 tokens. The previous contextSize 20480 gave 5120
+  # per slot with 25% headroom over the 4030 peak prompt. The new math:
+  # 8192/4 = 2048 per slot, total 8192 across slots, which covers the 4030
+  # peak with ~100% headroom (no waste, just enough). We keep contextSize 20480
+  # to maintain the same per-slot headroom pattern (20480/4=5120 >> 2048 per slot)
+  # and preserve the GTT-leak mitigation profile that was tuned at 20480. Comment:
+  # the 8192-per-slot figure is wasteful when contextSize=20480; keeping 20480
+  # preserves the original per-slot context budget (5120) while the model only
+  # needs 2048 per slot — the extra headroom is benign and avoids re-balancing
+  # scheduler math across the cluster.
+  contextSize: 20480
+  # No batchSize: llama.cpp forces n_batch = n_ubatch when embeddings are
+  # enabled, so any value above uBatchSize is logged as a warning and discarded.
+  # 512 over 20480: the model is smaller (768 vs 1024 dims) so 512 is well
+  # within bounds; keep the GTT lesson (uBatchSize controls attention scratch
+  # scale, not a truncation limit).
+  uBatchSize: 512
+  extraArgs:
+    - "--alias"
+    - "embeddinggemma-2 # served model name memini sends in /v1/embeddings"
+    # Mean pooling is required for the gemma-embedding2 architecture in
+    # llama.cpp; without it embeddings are not produced correctly.
+    # Reference: community GGUF repos serve it with --pooling mean e.g.
+    # llama-server -m embeddinggemma-2-Q8_0.gguf --embeddings --pooling mean.
+    - "--pooling"
+    - "mean"
+    # Host prompt cache (default 8192 MiB) is never released: 100 distinct
+    # embedding requests took anon 0.08 -> 8.06 GiB. One-shot embeddings never
+    # hit it.
+    - "--cache-ram"
+    - "0"
+
+  # Pin to the iGPU node; without this the scheduler could place it on the dGPU
+  # node (which also advertises squat.ai/dri) and steal a dGPU slot from the
+  # 27B serving pod.
+  nodeSelector:
+    amd.com/igpu: "true"
+
+  # One iGPU model per node; both sides carry the rule because anti-affinity is
+  # only checked for the moving pod.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: qwen35-2b
+          topologyKey: kubernetes.io/hostname
+
+  # Render/video host groups for /dev/dri — the documented Vulkan-runtime path.
+  # Mirrored by qwen35-2b.
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+
+  resources:
+    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
+    # Request AND limit (llmkube >= 0.9.29); working set <224Mi, the model
+    # buffer lives in amdgpu GTT which memcg does not charge (~1.9 GiB measured,
+    # not counted here: raising it restarts the embedder). 512Mi is ~4x the
+    # measured working set; the 6Gi reservation held control-2 at 95.8% request
+    # overcommit.
+    memory: 512Mi
+  endpoint:
+    path: /v1/embeddings

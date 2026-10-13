@@ -17,9 +17,9 @@ adopting it, we benchmarked the cost.
 
 Same model and settings on both sides; only the accelerator differs.
 
-- **Model**: Qwen3-Embedding-0.6B, Q8_0.
-- **Server args** (identical): `--ctx-size 8192 --batch-size 4096 --ubatch-size 2048 --parallel 2 --embedding --pooling last`.
-  - iGPU: `ghcr.io/ggml-org/llama.cpp:server-vulkan`, `--n-gpu-layers 99` (the live `qwen3-embedding` InferenceService).
+- **Model**: EmbeddingGemma 2 (google/embeddinggemma-2), Q8_0, 768 dims, 270M params.
+- **Server args** (identical): `--ctx-size 8192 --batch-size 4096 --ubatch-size 2048 --parallel 2 --embedding --pooling mean`.
+  - iGPU: `ghcr.io/ggml-org/llama.cpp:server-vulkan`, `--n-gpu-layers 99` (the new `embeddinggemma-2` InferenceService, swapped from `qwen3-embedding`).
   - CPU: `ghcr.io/ggml-org/llama.cpp:server`, `--threads 4`, pod limited to `cpu: 4`.
 - **Driver**: in-cluster `curl` pod, `POST /v1/embeddings`, 3-request warmup discarded.
 - **Workloads**: `short` = one ~200-token input (repeated, 20×); `batch` = ~46 KB
