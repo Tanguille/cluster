@@ -50,10 +50,10 @@ spec:
   contextSize: 20480
   # No batchSize: llama.cpp forces n_batch = n_ubatch when embeddings are
   # enabled, so any value above uBatchSize is logged as a warning and discarded.
-  # 512 over 20480: the model is smaller (768 vs 1024 dims) so 512 is well
-  # within bounds; keep the GTT lesson (uBatchSize controls attention scratch
-  # scale, not a truncation limit).
-  uBatchSize: 512
+  # Bidirectional model: each input must fit one ubatch, so this IS the per-input
+  # token cap (512 rejected 569-token inputs, 132 x 500 in 15 min). 4096 covers
+  # the 4030-token 30d peak; attention scratch (GTT) scales with its square.
+  uBatchSize: 4096
   extraArgs:
     - "--alias"
     # served model name memini sends in /v1/embeddings
