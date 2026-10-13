@@ -4,9 +4,6 @@ kind: MCPServer
 metadata:
   name: kubesearch
 spec:
-  # Trivy flags 14 critical CVEs in this image (2026-10-13). Already at the newest
-  # build in the registry (master == latest). No newer image available upstream.
-  # Needs a Trivy silence with justification, or an upstream release with fixes.
   image: ghcr.io/perfectra1n/kubesearch-mcp:master@sha256:2f0b48c90550c2bde2cb54ddb8759a53997b9d5d22f8e532297d08fa1362198c
   transport: streamable-http
   mcpPort: 3000
