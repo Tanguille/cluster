@@ -38,7 +38,7 @@ patches:
         podTemplateSpec:
           spec:
             runtimeClassName: gvisor
-  # The proxy logs "failed to get current user" at every start without $USER.
+  # Unauthenticated proxy resolves the OS user at start; the static binary has no cgo, so it warns without $USER. Drop once proxy auth lands.
   - target:
       kind: MCPServer
     patch: |-
