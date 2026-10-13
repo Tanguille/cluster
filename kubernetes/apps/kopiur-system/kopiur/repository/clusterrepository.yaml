@@ -5,6 +5,8 @@ kind: ClusterRepository
 metadata:
   name: kopia-nas
 spec:
+  concurrency:
+    maxConcurrentJobs: 4
   allowedNamespaces:
     list:
       - ai
