@@ -42,7 +42,7 @@ spec:
   # mode: rerank auto-appends --reranking --embedding --pooling rank
   # (LLMKube >=0.9.17; we run 0.9.29) — no hand-wired flags.
   mode: rerank
-  # GTT-leak mitigation as with qwen3-embedding: lifetime covers startup and
+  # GTT-leak mitigation as with embeddinggemma-2: lifetime covers startup and
   # model load before this Vulkan server is recycled.
   maxPodLifetimeSeconds: 86400
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:ee2ecb9c3a4d6fa00b918b133fd7a2828195593688eeaef6e6516ef833f88f09
@@ -67,7 +67,7 @@ spec:
     amd.com/igpu: "true"
 
   # SOFT anti-affinity, deliberately not required: two iGPU nodes already
-  # host qwen3-embedding and qwen35-2b one-per-node, so a third required
+  # host embeddinggemma-2 and qwen35-2b one-per-node, so a third required
   # anti-affinity would make this pod unschedulable. It prefers its own node
   # and co-locates on the busy one only if both are taken — the ~636MB model
   # fits a node that already runs the 0.6B embedder.
@@ -88,7 +88,7 @@ spec:
             topologyKey: kubernetes.io/hostname
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime
-  # path. Mirrored by qwen3-embedding / qwen35-2b.
+  # path. Mirrored by embeddinggemma-2 / qwen35-2b.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0

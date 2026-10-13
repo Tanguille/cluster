@@ -5,7 +5,7 @@ GTT leak is handled by native pod-lifetime recycling rather than moving off the 
 
 ## Context
 
-Both ggml-Vulkan embedders (`qwen3-embedding`, `vmcp-embedding`) leak pinned
+Both ggml-Vulkan embedders (`embeddinggemma-2` (swapped from `qwen3-embedding`), `vmcp-embedding`) leak pinned
 iGPU GTT memory that cgroups cannot see, twice wedging control-2 into NotReady
 (2026-07-04, 2026-07-20). These are the two control-2 NotReady incidents that
 motivated the native lifetime guard. One proposed fix
