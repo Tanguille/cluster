@@ -5,6 +5,10 @@ kind: ClusterRepository
 metadata:
   name: kopia-nas
 spec:
+  # Cap concurrent mover jobs to protect the NFS-backed repo during
+  # full/quick backup waves (see kanban t_28b82751).
+  concurrency:
+    maxConcurrentJobs: 4
   allowedNamespaces:
     list:
       - ai
