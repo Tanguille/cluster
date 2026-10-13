@@ -24,6 +24,9 @@ spec:
   env:
     - name: GRAFANA_URL
       value: http://grafana-service.observability.svc.cluster.local:3000
+    # Without it every request warns "No org ID found" and falls back to the default org.
+    - name: GRAFANA_ORG_ID
+      value: "1"
     # 2.0 enables anonymous usage stats by default
     - name: GRAFANA_USAGE_STATS
       value: disabled
