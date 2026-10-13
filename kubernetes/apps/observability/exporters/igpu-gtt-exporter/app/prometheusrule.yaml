@@ -12,7 +12,7 @@ spec:
         - record: pod:drm_memory_gtt_bytes
           expr: |-
             pod_drm_memory_gtt_bytes
-            * on(pod_uid) group_left(namespace, pod)
+            * on(pod_uid) group_left(namespace, pod, kubernetes_node)
             label_replace(max by (namespace, pod, uid) (kube_pod_info), "pod_uid", "$1", "uid", "(.*)")
         - alert: PodGTTMemoryHigh
           expr: pod:drm_memory_gtt_bytes > 3221225472
