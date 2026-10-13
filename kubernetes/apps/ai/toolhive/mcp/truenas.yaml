@@ -22,8 +22,6 @@ spec:
   args: ["--stdio"]
   groupRef:
     name: all
-  permissionProfile:
-    name: network
   env:
     - name: TRUENAS_MCP_TARGET
       value: truenas.${SECRET_DOMAIN}
@@ -33,7 +31,6 @@ spec:
       targetEnvName: TRUENAS_MCP_API_KEY
   podTemplateSpec:
     spec:
-      runtimeClassName: gvisor
       containers:
         - name: mcp
           resources:

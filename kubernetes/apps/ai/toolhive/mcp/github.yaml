@@ -1,5 +1,5 @@
 # GitHub's hosted MCP server instead of the self-run container: stdio dies on the
-# virtual-MCP health check re-running `initialize` (#5890, still open in 0.41.0) and
+# virtual-MCP health check re-running `initialize` (#5890, closed upstream but stdio stays off) and
 # the container's http mode has no server-side token path (#4220). A remote entry has
 # neither problem — headerForward injects the PAT server-side, the same shape context7
 # uses. The endpoint takes a raw PAT (verified: `Bearer <pat>` and a
