@@ -239,10 +239,13 @@
       minimumGroupSize: 2
     },
     {
-      description: "ToolHive operator and CRDs group",
+      description: "ToolHive operator, CRDs and Grafana dashboard URL",
       groupName: "toolhive",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
+      // The dashboard URL is a github-releases dep named stacklok/toolhive.
+      matchPackageNames: [
+        "/stacklok\\/toolhive\\/toolhive-operator/",
+        "stacklok/toolhive"
+      ],
       minimumGroupSize: 2
     },
     {
