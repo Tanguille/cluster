@@ -16,7 +16,7 @@ spec:
     # .github): default = karakeep -> litellm; observability = vmagent scrapes +
     # gatus probes; security = kguardian llm-bridge -> litellm;
     # network = envoy-internal fronting the HTTPRoutes; ai = intra-namespace.
-    # kritika = its embedder, embeddinggemma-2 through litellm on :80.
+    # kritika = its embedder, qwen3-embedding through litellm on :80.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
