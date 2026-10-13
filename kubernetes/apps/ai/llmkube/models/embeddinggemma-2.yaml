@@ -37,7 +37,7 @@ spec:
   maxPodLifetimeSeconds: 86400
   # Old qwen3-embedding pin predates gemma-embedding2 (llama.cpp PR #30054, merged 2026-10-06; first release b11446, pruned from GHCR).
   # Pinned to b11459's digest: oldest surviving tag with the arch.
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:815720cb50a090db0c1d48b6e3b2b4ca656c3b99409cf4f31e63ff154ce586c4
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:ee2ecb9c3a4d6fa00b918b133fd7a2828195593688eeaef6e6516ef833f88f09
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch
   # from queueing behind memini (bench: 7.07s median for the 194-tool batch
