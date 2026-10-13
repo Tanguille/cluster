@@ -58,7 +58,6 @@ spec:
             increase(kube_pod_container_status_restarts_total{namespace="ai"}[10m]) > 0
             and on (namespace, pod, container)
             kube_pod_container_status_last_terminated_reason{namespace="ai", reason="OOMKilled"} == 1
-          for: 0m
           annotations:
             summary: >-
               ai/{{ $labels.pod }} container {{ $labels.container }} was OOMKilled
