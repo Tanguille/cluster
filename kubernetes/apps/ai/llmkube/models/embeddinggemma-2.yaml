@@ -42,10 +42,10 @@ spec:
   maxPodLifetimeSeconds: 86400
   # Bumped from qwen3-embedding image (sha256:ee2ecb9c...) which is OLDER than
   # b11446 (2026-10-06 17:31 UTC) and cannot load the gemma-embedding2 architecture.
-  # Resolved via GHCR API: GET /token?scope=repository:ggml-org/llama.cpp:pull
-  # then GET /v2/ggml-org/llama.cpp/manifests/server-vulkan-b11446 (or newest >= b11446).
-  # Pin the Docker-Content-Digest header value exactly like the existing pin.
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:INSERT_DIGEST_HERE
+  # Resolved server-vulkan-b11459 — oldest surviving tag at/after b11446,
+  # the first build with the gemma-embedding2 arch (PR #30054).
+  # b11446/b11447/b11448/b11449/b11450/b11455 are 404 (pruned from registry).
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:815720cb50a090db0c1d48b6e3b2b4ca656c3b99409cf4f31e63ff154ce586c4
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch
   # from queueing behind memini (bench: 7.07s median for the 194-tool batch
@@ -73,7 +73,8 @@ spec:
   uBatchSize: 512
   extraArgs:
     - "--alias"
-    - "embeddinggemma-2 # served model name memini sends in /v1/embeddings"
+    # served model name memini sends in /v1/embeddings
+    - "embeddinggemma-2"
     # Mean pooling is required for the gemma-embedding2 architecture in
     # llama.cpp; without it embeddings are not produced correctly.
     # Reference: community GGUF repos serve it with --pooling mean e.g.
