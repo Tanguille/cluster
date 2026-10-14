@@ -16,6 +16,11 @@ spec:
   relabelings:
     - targetLabel: job
       replacement: *app
+  metricRelabelings:
+    # OPNsense unbound chroot nullfs mounts repeat the zroot pool's free bytes; their "/" device trips CephNodeDiskspaceWarning.
+    - action: drop
+      sourceLabels: [fstype]
+      regex: nullfs
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/scrapeconfig_v1alpha1.json
 apiVersion: monitoring.coreos.com/v1alpha1

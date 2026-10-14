@@ -31,7 +31,10 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
   outage), then `~/.hermes/scripts/toolhive_retry.py call <tool> <json>` — flags BEFORE positionals;
   its SDK client crashes on large payloads even when the server succeeds, trust the raw HTTP
   fallback it prints.
-- No workflow re-run/job-log tool. Only ssh-gh fallbacks (server = fish, NO heredocs; one-liners only):
+- CI triage: `github_actions_list` (`list_workflow_runs`/`list_workflow_jobs`), `github_actions_get`
+  (`get_workflow_run`), `github_get_job_logs` (`run_id` + `failed_only` + `return_content`),
+  `github_actions_run_trigger` (`rerun_failed_jobs`); the `actions` toolset comes from the entry's
+  `X-MCP-Toolsets` header. If `find_tool` lacks them, ssh-gh fallbacks (server = fish, NO heredocs; one-liners only):
   `gh run view <id> --repo Tanguille/cluster --log-failed` · `gh run rerun <id> --repo Tanguille/cluster --failed` · `gh run list --branch main --limit 1`.
 - Last resort (conflict resolution only): worktree commit → `git bundle` → `scp` to server → push
   from `~/cluster` (authed gh).
