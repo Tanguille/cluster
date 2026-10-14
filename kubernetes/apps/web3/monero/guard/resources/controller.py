@@ -21,13 +21,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # carry no comparable rating, so including them gated a Composite threshold against
 # the wrong reading. Fewer series also means fewer chances for a single missing sample
 # to fail the identity check and latch a node closed.
-SENSORS = {
+SENSORS = frozendict({
     # empty tuple = no NVMe visible to this node (control-1 is a VM); it is gated on CPU
     # headroom instead, which is what every `if sensors` branch below keys off.
     "control-1": (),
     "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
     "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
-}
+})
 # Miner slot priority, best first. control-1 has no NVMe to cook and was safe 96% of the
 # last 7d against 60%/30% for the bare-metal nodes. Each ScaledObject counts how many safe
 # nodes outrank it and subtracts one miner's draw per rank, so this order decides who gets
@@ -172,7 +172,7 @@ class VictoriaMetricsClient:
         rows = self._query(expression, evaluation)
         # timestamp() over an or-expression becomes a step-aligned subquery in VictoriaMetrics
         # (fake boundary stamps broke 60% of freshness checks); single selectors return raw stamps
-        timestamps = [row for part in parts for row in self._query("timestamp(" + part + ")", evaluation)]
+        timestamps = [*self._query("timestamp(" + part + ")", evaluation) for part in parts]
         key = lambda m: (m.get("chip"), m.get("sensor"))
         if any(row.get("metric", {}).get("kubernetes_node") != node for row in rows + timestamps):
             raise ValueError("NVMe node identity changed")
