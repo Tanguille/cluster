@@ -2,8 +2,7 @@
 
 qwen38-27b-vllm on control-1 (R9700, gfx1201, 32 GB shared with Jellyfin), Swift
 1.5 W4A16 AWQ, nightly `43b4aaea3` (image `c36857e9`, `0.31.1rc1.dev23`).
-Live-applied with Flux `llmkube-models` suspended; branch
-`feat/vllm-ultraquant-shared-buffer` syncs git to the live spec.
+Live-applied with Flux `llmkube-models` suspended; synced to git in #5635.
 
 **Status:** UltraQuant 4-bit KV plus our decode kernel has been live since 17:26Z,
 8 slots since 17:48Z, and `maxModelLen` 262144 plus the workload retune since 19:33Z.
@@ -78,7 +77,7 @@ Why each one:
 - `FLASH_ATTENTION_TRITON_AMD_ENABLE`: UltraQuant continuation prefill calls flash-attn.
   The CK build segfaults on gfx1201 in `BlockFmhaPipelineQRKSVSAsync` (found with
   `PYTHONFAULTHANDLER`). The Triton build works. Anything else that reaches CK
-  flash-attn (the vision tower, for example) is a risk; a vision check was not run.
+  flash-attn (the vision tower, for example) is a risk; vision passed 2/2 on 2026-10-09 (ttft-breakdown-2026-10.md).
 - `--kv-cache-memory 7.25 GiB`: the flag skips profiling, so the headroom is manual.
   - UltraQuant needs about 2.2 GiB more transient VRAM than fp8: dequant scratch,
     one shared continuation buffer and transients. That is an estimate.
@@ -164,7 +163,7 @@ Llama-3.1-8B shapes; the hook uses 256x128x64, 8 warps, 1 stage for Qwen3.8. Wor
 filing against `rdna_hybrid_w4a16` with `bench/downfix/triton_prefill.out`. Details:
 [ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md).
 
-**Tests** (scratchpad, not in git):
+**Tests** (`bench/uq/`):
 
 - `test_uq_decode_fast.py`: CPU interpreter 13/13 and GPU pass. Minimum cosine
   0.9999985 against a dequant reference. A nibble-swapped variant fails at 0.30.
@@ -325,15 +324,13 @@ prompt-length mix below.
 2. Done: needle at 262144 passed at 10% depth. The 254,579-token prompt recalled
    `3G55F474` in 603 s (about 422 tokens/s of prefill). The 50% and 90% depths were
    stopped to spare production.
-3. Offload round-trip correctness for 1536-token UltraQuant blocks (store verified,
-   reload never checked).
-4. Free VRAM at peak under UltraQuant.
-5. GSM8K and tool calls on UltraQuant.
-6. Tail sweep (`tailprobe.py`): only tail 1 = 0.118 s was measured.
+3. Done 2026-10-09 ([ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md)): offload
+   reload PASS, min free VRAM 2.40 GiB at 8 sessions, GSM8K 146/150, tools 12/12.
+4. Tail sweep (`tailprobe.py`): only tail 1 = 0.118 s was measured.
 
 ## Rollback
 
-- **Full rollback to fp8:** revert this branch's manifest values (`kvCacheDtype:
+- **Full rollback to fp8:** revert #5635's manifest values (`kvCacheDtype:
   fp8_e4m3`, drop `kvCacheCustomDtype`, `--kv-cache-memory 10200547328`,
   `maxModelLen: 246944`), restore the aiter `attn_3d` num_stages patch from the hook's
   git history (dropped with nightly `81198e97`), then reconcile.

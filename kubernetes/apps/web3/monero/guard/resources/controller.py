@@ -249,9 +249,9 @@ class GuardController:
         self.clock, self.wall_clock = clock, wall_clock
         # Trip 65C / recover 62C on Composite, against a 70C drive rating. Over 1151 measured
         # miner starts the rise is p50 0.88 / p90 1.13 / p99 1.35 C/min. Trip-to-drain is 135s
-        # (30s evaluation + 60s dwell + 30s KEDA poll + 15s drain) = 3.0C at p99, and
-        # test_trip_to_drain_budget pins it. Real bursts under these parameters peaked at p50 67.8
-        # / p90 68.8 / max 69.8C, so the margin to the rating is 0.2C and nothing may be loosened.
+        # (30s evaluation + 60s dwell + 30s KEDA poll + 15s drain) = 3.0C at p99. Real bursts
+        # under these parameters peaked at p50 67.8 / p90 68.8 / max 69.8C, so the margin to the
+        # rating is 0.2C and nothing may be loosened.
         # max_gap is each node's slowest scrape: it dates the freshness check, the anti-replay gap
         # and the dwell reset, which must agree or a gap inside one budget resets dwell under
         # another. control-1 has no NVMe to cook and no panic limit; a busy CPU carries no

@@ -741,7 +741,7 @@ function updateSharesDisplay(
 ) {
   setTextContent("sharesSinceLastPayout", sharesSince);
   setTextContent("unclesSinceLastPayout", unclesSince);
-  // The <dt> carries the label now, so the value is the bare count
+  // The <dt> carries the label; the value is the bare count
   setTextContent("totalSharesMined", totalShares);
   setTextContent("totalUnclesMined", totalUncles);
 }
@@ -889,7 +889,7 @@ goes. Shows "–" if no payouts yet or not enough data.
 }
 
 // ==============================
-// OLD DASHBOARD STATS (REFACTORED)
+// OLD DASHBOARD STATS
 // ==============================
 
 function updatePoolStatus() {
@@ -984,7 +984,7 @@ function updateOldDashboardStats(poolData) {
 }
 
 // ==============================
-// MAIN STATS UPDATE (REFACTORED)
+// MAIN STATS UPDATE
 // ==============================
 
 function fetchDashboardData() {

@@ -48,7 +48,7 @@ spec:
               # Direct to the LLMKube reranker (litellm has no rerank provider); allowed by inference-rerank-memini-allow. Base URL is the API root, memini appends /rerank.
               MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local:8080/v1"
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
-              # Wider than the recall limit so buried memories can be rescued; 12 pairs (~5s on the iGPU) fit the 8s timeout, 20 (~8s) did not.
+              # Wider than the recall limit so buried memories can be rescued; 12 pairs take ~5s on the iGPU, 20 took ~8s.
               MEMINI_RERANK_POOL: "12"
               # Prompt recalls rerank on the whole prompt (~50s per pool), so ~96% timed out; skip them. Explicit short-query recalls still rerank.
               MEMINI_RERANK_PROMPT: "false"
@@ -58,7 +58,7 @@ spec:
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # One in-flight call keeps a slow shared-iGPU reranker from stalling recall.
               MEMINI_RERANK_MAX_CONCURRENCY: "1"
-              # Default 2048; the iGPU scores each pair serially, so a pool of 12 worst-case docs takes 10.0s at 2048 chars vs 5.1s at 1024 (timeout vs verdict). 79% of memories fit in 1024.
+              # Default 2048; the iGPU scores each pair serially, so a pool of 12 worst-case docs takes 10.0s at 2048 chars vs 5.1s at 1024. 79% of memories fit in 1024.
               MEMINI_RERANK_MAX_DOC_CHARS: "1024"
             probes:
               # Startup re-embed (MEMINI_REEMBED_ON_MODEL_CHANGE) blocks the listener; without this the 45s liveness window kills it mid-run.
@@ -80,7 +80,6 @@ spec:
                 memory: 512Mi
 
     defaultPodOptions:
-      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
       priorityClassName: homelab-important
 
     persistence:
@@ -106,8 +105,8 @@ spec:
     networkpolicies:
       main:
         # /v1/handshake reports admin=true, read_only=false to any caller, so
-        # reachability is the only access control there is. Scoped to memini alone;
-        # the rest of ai stays default-allow. Egress untouched.
+        # reachability is the only access control there is. Scoped to memini alone,
+        # on top of the ai namespace ingress allowlist. Egress untouched.
         rules:
           ingress:
             - from:

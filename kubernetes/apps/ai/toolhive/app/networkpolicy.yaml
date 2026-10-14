@@ -8,10 +8,9 @@ spec:
   # ToolHive vMCP (`unified`) aggregates every ToolHive backend behind one
   # :4483/mcp endpoint and is anonymous (spec.incomingAuth: anonymous), so
   # reachability is the only access control there is. Scoped to the unified
-  # vMCP pod alone; the rest of ai stays default-allow. Egress untouched
+  # vMCP pod alone, on top of the ai namespace ingress allowlist. Egress untouched
   # (backends, redis session storage, litellm embedder all keep working).
-  # Unlike the memini/database allowlists this pod has kubelet probes, so the
-  # host entity must stay allowed.
+  # The pod has kubelet probes, so the host entity must stay allowed.
   endpointSelector:
     matchLabels:
       app: virtualmcpserver
@@ -69,8 +68,8 @@ metadata:
   name: mcpserver-proxy-ingress-allowlist
 spec:
   # Every MCPServer gets a toolhive proxy Deployment (app: mcpserver) on :8080
-  # with no auth of its own; the unified vMCP is its only client. Observed
-  # ingress over 48h (kguardian): unified pod + kubelet probes, nothing else.
+  # with no auth of its own; only the unified vMCP, toolhive-operator and
+  # kubelet probes reach it.
   endpointSelector:
     matchLabels:
       app: mcpserver

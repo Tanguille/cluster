@@ -43,14 +43,10 @@ template file *args:
     }
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
-    # pinned is the CR value verbatim, so the installed tag cannot disagree with the requested
-    # one. kernelVersion is split off it rather than read from the Dockerfile ARG, which the
-    # build script checks instead.
-    kernel_version="${talos_version#*-k}"
+    # pinned is the CR value verbatim, so the installed tag cannot disagree with the requested one.
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --format=yaml \
         -D "kubernetesVersion=${kubernetes_version}" \
-        -D "kernelVersion=${kernel_version}" \
         -D "pinned=${talos_version}" \
         {{ args }} "{{ file }}" -
 

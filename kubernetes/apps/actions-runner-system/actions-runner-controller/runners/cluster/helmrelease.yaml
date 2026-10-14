@@ -30,7 +30,7 @@ spec:
                 valueFrom:
                   fieldRef:
                     fieldPath: status.hostIP
-            # Without requests the scheduler packed all 3 runners onto one memory-tight node and batches starved kubelet; peak usage is ~0.32Gi.
+            # Without requests the scheduler packed runners onto one memory-tight node and starved kubelet; peak usage is ~0.32Gi.
             resources:
               requests:
                 cpu: 250m

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Every variable a Talos template references must be supplied, and everything supplied must be
 # used. Both directions fail silently otherwise: minijinja --strict only fires at render time on
-# a workstation, and an orphaned -D survives indefinitely (`schematic` did, until #4615).
+# a workstation, and an orphaned -D survives indefinitely.
 #
 # Needs no age key. sops encrypts values and leaves the key structure in cleartext, so the
 # secrets bundle can be read for its shape alone.

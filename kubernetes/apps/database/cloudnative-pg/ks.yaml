@@ -66,9 +66,9 @@ metadata:
   namespace: &namespace database
 spec:
   targetNamespace: *namespace
-  # App Database CRs live here, separate from the cluster Kustomization, so a single DB
-  # provisioning failure can't stall cloudnative-pg-cluster (wait: true) and cascade to the
-  # apps that depend on it.
+  # App Database CRs live here, separate from the cluster Kustomization, so a DB provisioning
+  # failure can't stall cloudnative-pg-cluster (wait: true). Apps depend on this one, so a bad
+  # Database CR blocks their applies (not their running pods).
   path: ./kubernetes/apps/database/cloudnative-pg/databases
   sourceRef:
     kind: GitRepository

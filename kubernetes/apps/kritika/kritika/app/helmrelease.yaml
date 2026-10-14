@@ -90,7 +90,6 @@ spec:
           type: openai
           baseUrl: "http://litellm.ai.svc.cluster.local/v1"
           apiKey: { env: LITELLM_API_KEY }
-      # 0.0.27 dropped the defaults wrapper: repository settings sit at the root.
       review:
         # LiteLLM falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
         model: litellm/omniroute
@@ -124,7 +123,6 @@ spec:
             change, deprecation, rename or changed default that affects it,
             and any version it must stay in lockstep with. Start with a
             verdict, safe to merge or not, and name the sources you read.
-        # Renovate bumps the nightly by digest alone: the body names no commits.
         - id: vllm-nightly
           when:
             - expr: pr.headRef == "renovate/vllm-vllm-openai-rocm-nightly"

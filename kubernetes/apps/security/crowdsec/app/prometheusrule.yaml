@@ -40,7 +40,7 @@ spec:
               Crowdsec LAPI is not scraped as up — decisions and the community blocklist metric are unavailable
           labels:
             severity: warning
-        # Central API auth failures (401/403) stop the 2h blocklist pull silently; the ~23k community
+        # Central API auth failures (401/403) stop the 2h blocklist pull silently; the community
         # decisions then expire and this series drops to zero. The zero fallback only applies while LAPI
         # is scraped up, so a scrape outage does not read as an empty blocklist (CrowdsecLapiDown covers it).
         - alert: CrowdsecCommunityBlocklistEmpty

@@ -42,8 +42,7 @@ spec:
           labels:
             severity: critical
 
-        # A repo whose snapshot count only ever grows means retention is not pruning;
-        # a drop to zero means the repo was emptied under us.
+        # A drop to zero means the repo was emptied under us.
         - alert: KopiurRepoEmpty
           expr: |-
             kopiur_repo_snapshot_count == 0
