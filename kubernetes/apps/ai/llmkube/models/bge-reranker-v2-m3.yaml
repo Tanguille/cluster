@@ -50,7 +50,7 @@ spec:
   parallelSlots: 1
   # A pair must fit one micro-batch or llama.cpp 500s; 2048 fits a query up to
   # ~5000 chars plus a 1024-char doc. 4096 held 4.4 GiB of GTT, 2048 holds
-  # ~0.4 GiB (fdinfo 388340 KiB) with identical scores.
+  # ~0.65 GiB (fdinfo, at load) with identical scores.
   contextSize: 2048
   uBatchSize: 2048
   extraArgs:
@@ -88,7 +88,7 @@ spec:
 
   resources:
     cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~0.4Gi of amdgpu
+    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~0.65Gi of amdgpu
     # GTT. memcg does not charge GTT, but the scheduler must count it. 2Gi did
     # not fit control-3 (1.76Gi requestable), pushing it onto the embedder's node.
     memory: 1Gi
