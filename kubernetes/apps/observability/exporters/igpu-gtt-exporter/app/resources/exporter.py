@@ -5,7 +5,7 @@ import re
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-UNITS = {"": 1, "KiB": 1 << 10, "MiB": 1 << 20}  # drm_fdinfo_print_size units
+UNITS = frozendict({"": 1, "KiB": 1 << 10, "MiB": 1 << 20})  # drm_fdinfo_print_size units
 POD_UID = re.compile(r"/pod([0-9a-f-]{36})/")  # cgroupfs driver, as on Talos
 
 
