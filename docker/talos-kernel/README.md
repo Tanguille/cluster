@@ -26,11 +26,13 @@ half needs this.
 Kernel-series changes that bear on these nodes:
 
 - **Preemption `none` -> `full`.** 7.0 made `PREEMPT_NONE` depend on `ARCH_NO_PREEMPT`, so
-  `olddefconfig` takes the new default. Full preemption trades a few percent of throughput for
-  better tail latency, which suits etcd and Ceph OSDs, but nobody chose it.
-  `CONFIG_PREEMPT_DYNAMIC=y`, so `preempt=` on the cmdline settles it without a rebuild;
-  control-1's schematic pins `preempt=voluntary`, `talos/schematic.yaml` does not. Pinning it
-  there too would make a future `olddefconfig` unable to move it.
+  `olddefconfig` dropped Talos's `CONFIG_PREEMPT_NONE=y` and the build lands on `CONFIG_PREEMPT=y`.
+  On x86 (`ARCH_HAS_PREEMPT_LAZY`) only `full` and `lazy` exist at runtime: `preempt=none` and
+  `preempt=voluntary` are rejected (`sched_dynamic_mode()`), so the cmdline sets nothing. Full
+  suits these nodes: lazy defers SCHED_NORMAL wakeup preemption to the next tick (4ms at
+  HZ=250), which would queue etcd and Ceph OSD wakeups behind xmrig. Check with
+  `talosctl -n <ip> read /sys/kernel/debug/sched/preempt`; upstream's Kconfig default is lazy, so
+  re-check after a base-config change.
 - **GTT in the memory subsystem (`NR_GPU_ACTIVE`).** Shows in `/proc/meminfo`, the first-party
   view of the iGPU GTT leak that is invisible to `kubectl top`. Not exported: node-exporter
   v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be
