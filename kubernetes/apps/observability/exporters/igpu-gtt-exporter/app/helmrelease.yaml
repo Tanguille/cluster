@@ -16,7 +16,7 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         pod:
-          # host /proc: other pods' fdinfo and cgroup
+          # host /proc: DRM clients' fdinfo and cgroup
           hostPID: true
           nodeSelector:
             amd.com/igpu: "true"
@@ -67,5 +67,11 @@ spec:
       config:
         type: configMap
         name: igpu-gtt-exporter
+        globalMounts:
+          - readOnly: true
+      # dri/*/clients names the DRM client pids, so the exporter skips the ~540k gVisor fds on control-2
+      debugfs:
+        type: hostPath
+        hostPath: /sys/kernel/debug
         globalMounts:
           - readOnly: true

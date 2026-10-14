@@ -1,4 +1,4 @@
-"""Per-pod DRM GTT exporter: sums drm-memory-gtt from /proc/*/fdinfo by pod uid (needs hostPID)."""
+"""Per-pod DRM GTT exporter: sums drm-memory-gtt from DRM clients' fdinfo by pod uid (needs hostPID and debugfs)."""
 import os
 import re
 import sys
@@ -27,33 +27,46 @@ def pod_uid(cgroup_text):
     return match.group(1) if match else None
 
 
-def collect(proc="/proc"):
+def drm_client_pids(dri):
+    """Tgids holding a DRM file open, from each minor's debugfs clients table."""
+    pids = set()
+    for minor in os.listdir(dri):
+        try:
+            with open(f"{dri}/{minor}/clients") as f:
+                header, *rows = f.read().splitlines()
+        except OSError:
+            continue  # bridges and other non-minor entries have no clients table
+        cols = header.split()
+        # command is the only column that can hold spaces, so split from the right
+        pids.update(row.rsplit(None, len(cols) - 1)[cols.index("tgid")] for row in rows if row.strip())
+    return pids
+
+
+def collect(proc="/proc", dri="/sys/kernel/debug/dri"):
     """Bytes per pod uid; fds sharing one device and drm-client-id are one client, counted once."""
     clients = {}
-    # scandir streams entries: control-2 has ~535k fd entries, which glob.glob held as one list per scrape
-    with os.scandir(proc) as pids:
-        for pid in pids:
-            if not pid.name.isdigit():
-                continue
-            try:
-                fds = os.scandir(f"{pid.path}/fd")
-            except OSError:
-                continue  # process exited mid-scan
-            uid = None  # cgroup is read once per process, and only if it holds a DRM fd
-            with fds:
-                for fd in fds:
-                    try:
-                        if not os.readlink(fd.path).startswith("/dev/dri/"):
-                            continue
-                        with open(f"{pid.path}/fdinfo/{fd.name}") as f:
-                            parsed = parse_fdinfo(f.read())
-                        if uid is None:
-                            with open(f"{pid.path}/cgroup") as f:
-                                uid = pod_uid(f.read())
-                    except (OSError, ValueError, KeyError):
-                        continue  # fd or process went away mid-scan, or an unparseable fdinfo
-                    if parsed and uid:
-                        clients[parsed[0]] = (uid, parsed[1])
+    # Walking every /proc fd took 10s+ on control-2 (~540k fds, almost all gVisor sandboxes);
+    # debugfs names the DRM clients, so only their few fds are read.
+    for pid in drm_client_pids(dri):
+        try:
+            fds = os.scandir(f"{proc}/{pid}/fd")
+        except OSError:
+            continue  # process exited mid-scan
+        uid = None  # cgroup is read once per process
+        with fds:
+            for fd in fds:
+                try:
+                    if not os.readlink(fd.path).startswith("/dev/dri/"):
+                        continue
+                    with open(f"{proc}/{pid}/fdinfo/{fd.name}") as f:
+                        parsed = parse_fdinfo(f.read())
+                    if uid is None:
+                        with open(f"{proc}/{pid}/cgroup") as f:
+                            uid = pod_uid(f.read())
+                except (OSError, ValueError, KeyError):
+                    continue  # fd or process went away mid-scan, or an unparseable fdinfo
+                if parsed and uid:
+                    clients[parsed[0]] = (uid, parsed[1])
     totals = {}
     for uid, gtt in clients.values():
         totals[uid] = totals.get(uid, 0) + gtt
@@ -86,8 +99,20 @@ def self_check():
     cg = "0::/kubepods/burstable/podd9e1bcd4-3c79-41e4-9714-19bc78cdf48a/7e63f4d5\n"
     assert pod_uid(cg) == "d9e1bcd4-3c79-41e4-9714-19bc78cdf48a"
     assert pod_uid("0::/system/runtime\n") is None
-    # two fds on client 7 count once; the /dev/null fd and the non-pid entry are skipped
-    with tempfile.TemporaryDirectory() as proc:
+    # Real control-2 clients table; a command with a space must still yield its tgid.
+    with tempfile.TemporaryDirectory() as dri:
+        os.makedirs(f"{dri}/0")
+        os.makedirs(f"{dri}/bridges")
+        with open(f"{dri}/0/clients", "w") as f:
+            f.write("             command  tgid dev master a   uid      magic                                                             name                   id\n"
+                    "        llama-server 58578 128   n    n     0          0                                                          <unset>                   19\n"
+                    "          gpu worker    11 128   n    n     0          0                                                          <unset>                   21\n")
+        assert drm_client_pids(dri) == {"58578", "11"}
+    # two fds on client 7 count once, the /dev/null fd is skipped, and pid 12 is not a DRM client
+    with tempfile.TemporaryDirectory() as proc, tempfile.TemporaryDirectory() as dri:
+        os.makedirs(f"{dri}/0")
+        with open(f"{dri}/0/clients", "w") as f:
+            f.write("command tgid dev master a uid magic\nllama-server 10 128 n n 0 0\nllama-server 11 128 n n 0 0\n")
         for pid, fd, client in (("10", "3", "7"), ("10", "4", "7"), ("11", "3", "8")):
             os.makedirs(f"{proc}/{pid}/fd", exist_ok=True)
             os.makedirs(f"{proc}/{pid}/fdinfo", exist_ok=True)
@@ -97,8 +122,15 @@ def self_check():
             with open(f"{proc}/{pid}/cgroup", "w") as f:
                 f.write(cg)
         os.symlink("/dev/null", f"{proc}/10/fd/5")
-        os.makedirs(f"{proc}/self/fd")
-        assert collect(proc) == {"d9e1bcd4-3c79-41e4-9714-19bc78cdf48a": 2048}
+        # a complete DRM client in another pod, absent from debugfs, so collect must not count it
+        os.makedirs(f"{proc}/12/fd")
+        os.makedirs(f"{proc}/12/fdinfo")
+        os.symlink("/dev/dri/renderD128", f"{proc}/12/fd/3")
+        with open(f"{proc}/12/fdinfo/3", "w") as f:
+            f.write("drm-client-id:\t9\ndrm-memory-gtt:\t1 KiB\n")
+        with open(f"{proc}/12/cgroup", "w") as f:
+            f.write("0::/kubepods/besteffort/pod00000000-0000-0000-0000-000000000000/1\n")
+        assert collect(proc, dri) == {"d9e1bcd4-3c79-41e4-9714-19bc78cdf48a": 2048}
     print("ok")
 
 

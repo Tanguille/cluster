@@ -22,12 +22,15 @@ spec:
               holds over 3GiB of pinned GTT GPU memory, which its memory request does not cover
           labels:
             severity: warning
+        # A pod can pass its TCP probe while every scrape fails (10s timeouts on control-2), so check both.
         - alert: IgpuGttExporterMissing
-          expr: kube_daemonset_status_number_unavailable{namespace="observability", daemonset="igpu-gtt-exporter"} > 0
+          expr: |-
+            kube_daemonset_status_number_unavailable{namespace="observability", daemonset="igpu-gtt-exporter"} > 0
+            or up{job="igpu-gtt-exporter"} == 0
           for: 10m
           annotations:
             summary: >-
-              Per-pod GTT exporter is down on some iGPU nodes;
+              Per-pod GTT exporter is down or failing scrapes on some iGPU nodes;
               PodGTTMemoryHigh is blind there until it recovers
           labels:
             severity: warning
