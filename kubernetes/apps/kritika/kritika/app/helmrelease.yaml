@@ -31,54 +31,6 @@ spec:
       indexGrace: 1h
       # Runner Jobs parse untrusted PR content and run model-directed code.
       runnerRuntimeClass: gvisor
-    # Internal only: public dashboard with local admin is too exposed.
-    httpRoute:
-      enabled: true
-      hostnames: ["kritika.${SECRET_DOMAIN}"]
-      parentRefs:
-        - name: envoy-internal
-          namespace: network
-    # Server egress; runners use the chart's separate policy.
-    networkPolicy:
-      enabled: true
-      # 4000 for litellm: Cilium matches the pod port after service DNAT.
-      egressPorts:
-        - 443
-        - 4000
-    monitoring:
-      serviceMonitor:
-        enabled: true
-      prometheusRule:
-        enabled: true
-      dashboards:
-        enabled: true
-        grafanaOperator:
-          enabled: true
-          folder: ai
-          matchLabels:
-            grafana.internal/instance: grafana
-    env:
-      LITELLM_API_KEY:
-        valueFrom:
-          secretKeyRef:
-            name: cluster-secrets
-            key: LITELLM_API_KEY
-      GITHUB_APP_PRIVATE_KEY:
-        valueFrom:
-          secretKeyRef:
-            name: kritika-secret
-            key: github-private-key
-      GITHUB_APP_WEBHOOK_SECRET:
-        valueFrom:
-          secretKeyRef:
-            name: kritika-secret
-            key: github-webhook-secret
-      ADMIN_PASSWORD:
-        valueFrom:
-          secretKeyRef:
-            name: kritika-secret
-            key: admin-password
-    configFile:
       apps:
         github:
           accounts: [tanguille]
@@ -193,3 +145,50 @@ spec:
         admin:
           password:
             env: ADMIN_PASSWORD
+    # Internal only: public dashboard with local admin is too exposed.
+    httpRoute:
+      enabled: true
+      hostnames: ["kritika.${SECRET_DOMAIN}"]
+      parentRefs:
+        - name: envoy-internal
+          namespace: network
+    # Server egress; runners use the chart's separate policy.
+    networkPolicy:
+      enabled: true
+      # 4000 for litellm: Cilium matches the pod port after service DNAT.
+      egressPorts:
+        - 443
+        - 4000
+    monitoring:
+      serviceMonitor:
+        enabled: true
+      prometheusRule:
+        enabled: true
+      dashboards:
+        enabled: true
+        grafanaOperator:
+          enabled: true
+          folder: ai
+          matchLabels:
+            grafana.internal/instance: grafana
+    env:
+      LITELLM_API_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: cluster-secrets
+            key: LITELLM_API_KEY
+      GITHUB_APP_PRIVATE_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: github-private-key
+      GITHUB_APP_WEBHOOK_SECRET:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: github-webhook-secret
+      ADMIN_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: kritika-secret
+            key: admin-password
