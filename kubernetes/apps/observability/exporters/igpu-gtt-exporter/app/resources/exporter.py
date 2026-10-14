@@ -54,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         lines = ["# HELP pod_drm_memory_gtt_bytes DRM GTT memory held by the pod's processes.",
                  "# TYPE pod_drm_memory_gtt_bytes gauge"]
-        lines += [f'pod_drm_memory_gtt_bytes{{pod_uid="{uid}"}} {b}' for uid, b in sorted(collect().items())]
+        lines += [f'pod_drm_memory_gtt_bytes{{uid="{uid}"}} {b}' for uid, b in sorted(collect().items())]
         body = ("\n".join(lines) + "\n").encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; version=0.0.4")

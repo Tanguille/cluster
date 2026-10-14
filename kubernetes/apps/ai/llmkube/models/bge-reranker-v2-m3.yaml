@@ -66,11 +66,8 @@ spec:
   nodeSelector:
     amd.com/igpu: "true"
 
-  # SOFT anti-affinity, deliberately not required: two iGPU nodes already
-  # host qwen3-embedding and qwen35-2b one-per-node, so a third required
-  # anti-affinity would make this pod unschedulable. It prefers its own node
-  # and co-locates on the busy one only if both are taken — the ~636MB model
-  # fits a node that already runs the 0.6B embedder.
+  # SOFT, so it still schedules with one iGPU node down: pairs with qwen35-2b
+  # (0.8 GiB GTT) rather than the embedder (2.4 GiB GTT), whose request omits it.
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
