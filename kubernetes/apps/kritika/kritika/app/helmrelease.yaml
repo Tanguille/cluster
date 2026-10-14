@@ -184,6 +184,10 @@ spec:
       embedding:
         model: litellm/embeddinggemma-2
         dims: 768
+        # 16000-char default reached 4105 tokens, over the embedder's 4096 per-input cap.
+        maxItemChars: 12000
+        # 200000-char default batches of long chunks ran past the 1 min embed timeout on the iGPU.
+        maxBatchChars: 50000
         # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
         similarFloor: 0.7
       # Local admin until GitHub or OIDC is set up.
