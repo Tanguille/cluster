@@ -9,7 +9,7 @@ spec:
   dependsOn:
     # Broker's DB role + database are provisioned by CNPG before the release can
     # pass its initContainer (nc to pgbouncer-rw). Ordering mirrors crowdsec.
-    - name: cloudnative-pg-cluster
+    - name: cloudnative-pg-databases
       namespace: database
   interval: 1h
   path: ./kubernetes/apps/security/kguardian/app
