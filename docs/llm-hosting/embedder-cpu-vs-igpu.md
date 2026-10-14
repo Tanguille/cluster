@@ -50,8 +50,8 @@ CPU is 5–35× slower — not worth the regression. **PR #4082 closed.** The iG
 stays, along with the nodeSelectors / affinity rules that only make sense while
 the embedders are GPU-pinned.
 
-The leak is bounded by LLMKube's native `maxPodLifetimeSeconds: 86400` on both
-InferenceServices. This support landed in upstream PR #1182 and has been
+The leak is bounded by LLMKube's native `maxPodLifetimeSeconds: 86400` on
+`qwen3-embedding` (and `bge-reranker-v2-m3`). This support landed in upstream PR #1182 and has been
 live since chart/CRD 0.9.10. LLMKube copies the lifetime to the generated
 Deployment pod template, so each Vulkan embedder is recycled after 24 hours,
 including startup and model load time, without bespoke controller logic.

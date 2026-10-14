@@ -68,8 +68,8 @@ metadata:
   name: mcpserver-proxy-ingress-allowlist
 spec:
   # Every MCPServer gets a toolhive proxy Deployment (app: mcpserver) on :8080
-  # with no auth of its own; the unified vMCP is its only client. Observed
-  # ingress over 48h (kguardian): unified pod + kubelet probes, nothing else.
+  # with no auth of its own; only the unified vMCP, toolhive-operator and
+  # kubelet probes reach it.
   endpointSelector:
     matchLabels:
       app: mcpserver

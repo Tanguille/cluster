@@ -239,7 +239,7 @@ continual learning), and
 
 ### 💾 Backups — per-app, Kopia-native
 
-kopiur (migrated 2026-07-12) declares a `SnapshotPolicy` + `SnapshotSchedule`
+kopiur declares a `SnapshotPolicy` + `SnapshotSchedule`
 per app; restores are passive (`dataSourceRef`-triggered) and documented in
 [docs/kopiur-restore.md](docs/kopiur-restore.md).
 

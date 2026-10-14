@@ -20,7 +20,7 @@ were ruled out on mechanism without a benchmark:
 | --- | --- | --- | --- |
 | **n-gram / prompt-lookup** | **corrupts output** | measured, incl. production | vllm#39273: SSM state corruption on hybrid GDN models — truncated/repeated fragments. Faster (see caveat below) and silently wrong. |
 | **DSpark** | rejected | measured | 0.59x (18.84 vs 31.73). Drafter KV is additive and bf16: +70% B/token, forcing the cap to 88K, below the 112K production peak. |
-| **MTP** | rejected | measured previously | + tool-calling grammar wedges to ~0.2 tok/s (100x) under concurrent tool traffic; -27% at M=5 standalone. Production traffic *is* grammar-constrained tool calling. |
+| **MTP** | rejected | measured previously | -27% at M=5; 09-12 retest: wedge gone, but 48K conc 2-5 still loses (33/40/44/39 vs 45/51/62/71) and greedy output diverges. |
 | **EAGLE3 / DFlash** | blocked | **not benchmarked** — mechanism only | Same drafter-KV tax as DSpark, plus vllm#41640 (below). No published drafter for this base sized under the ~2.5 GiB break-even, so there was nothing to benchmark. |
 
 Also untested, and worth knowing before any retry: n-gram was never run against
@@ -37,7 +37,7 @@ EAGLE3, DFlash), any one disqualifying:
    Mamba groups is treated as a draft group. That disables prefix caching and
    makes the KV offload tier write-only. This deployment cannot afford either:
    removing the fs tier alone halved single-stream decode.
-3. **vllm#49002 (closed 2026-09-09 as fixed by vllm#55223, unverified here)** —
+3. **vllm#49002 (closed 2026-09-09 as fixed by vllm#55223, verified here 2026-09-12)**:
    the tool-calling/structured-output wedge.
 
 And the one blocker that kills the **drafter-free** method: **vllm#39273**, the
@@ -47,8 +47,7 @@ wrong output on this model family.
 
 So the exit condition is narrow: **vllm#39273 fixed** re-opens n-gram, which is
 the only method whose performance was ever worth having here. Everything
-drafter-based additionally needs vllm#41640, a tool-calling retest on a build
-with vllm#55223, and a drafter under ~2.5 GiB that does not currently exist.
+drafter-based additionally needs vllm#41640 and a drafter under ~2.5 GiB that does not currently exist.
 
 n-gram is fast — measurably 1.8-2.1x on echo-heavy work — and it silently
 corrupts output.
@@ -264,13 +263,12 @@ every group is treated as a draft group.
 Not fundamental in principle — a fix exists and is half-reviewed — but unfixed
 in anything shipped, and stalled for months. Treat as fundamental for planning.
 
-### 3. The tool-calling / structured-output wedge: fixed upstream, unverified here (vllm#49002)
+### 3. The tool-calling / structured-output wedge: fixed upstream, verified here 2026-09-12 (vllm#49002)
 
 Opened 2026-07-18; the reporter ruled out the grammar-bitmask-cost theory by
 direct benchmark. A maintainer closed it 2026-09-09 as fixed by vllm#55223
 (eliminate full-history reasoning scans for structured outputs, merged
-2026-09-08, in every nightly since); the reporter never confirmed, and it was
-not retested on this deployment.
+2026-09-08, in every nightly since).
 This is the same failure class already recorded here for MTP: MTP + tool-calling
 grammar wedged to ~0.2 tok/s (100x) under concurrent tool traffic. Production
 traffic on this model **is** grammar-constrained tool calling, so any
@@ -365,8 +363,8 @@ number is not comparable to a `walltime.py` figure. Neither affects the verdict.
    one reboot and is the single highest-value remaining measurement.
 2. **Concurrency is unmeasured.** Every number here is single-stream. Under
    concurrency a spec step batches `seqs x (spec+1)` tokens, which walks
-   straight into the `MAX_SKINNY_BATCH_SIZE=5` / LDS-gate territory documented
-   in the manifest. The win could shrink or invert at `parallelSlots` 5.
+   straight into the 5-row skinny-kernel limit (`MAX_SKINNY_BATCH_SIZE=5`, see
+   the manifest `parallelSlots` comment). The win could shrink or invert at `parallelSlots` 5.
 3. **The tool-calling wedge (blocker 3) is untested for n-gram.** It was
    observed with MTP. n-gram's drafts are not model-generated, so it may be
    unaffected — but production traffic here *is* grammar-constrained tool

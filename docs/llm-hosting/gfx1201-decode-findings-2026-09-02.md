@@ -55,7 +55,7 @@ Warm, traffic-verified, identical protocol:
 
 Differences are inside the within-arm spread (Welch t 1.1 at M=2, 1.3 at M=3):
 **no detectable difference at n=4-5 warm**, which is not the same as proven
-equality. Scope: decode, short prompts, M=2-3. The manifest still records ~10x
+equality. Scope: decode, short prompts, M=2-3. The manifest then recorded ~10x
 worse AITER prefill and a conc-16 wash from earlier builds; neither was re-measured
 here. AITER runs ~6% lower sclk and ~4 C cooler at equal output; that and
 maintenance cost are the only grounds to choose between them.
@@ -175,21 +175,10 @@ result:
 1. ~~A retest of MTP with corrected capture sizes.~~ **Done 2026-09-02**: the
    capture-size bug was real and worth ~41% at conc 5, but MTP is still -27% at
    M=5. Reverted. Nothing further to watch upstream for this.
-2. **vllm#53410** -- TurboQuant verify batches as decodes with FULL cudagraphs.
-   Only relevant if the capture-size retest fails.
-3. A real `gfx1201-MHA-DEFAULT.json` in AITER. TurboQuant decode (-27% at M=6,
-   -54% at M=1) was measured on a **borrowed gfx1151 config**, so some of that
-   loss is likely untuned tiles rather than architecture.
-4. The CK `mha_varlen_fwd` segfault at head_dim 256 on gfx12 -- fixing it removes
-   one of the three TurboQuant patches.
-5. **vllm#52619** -- the LDS-gate one-liner carried out-of-tree here; drop ours
-   when it lands.
-
-**Do not live-patch the whole stack** *if* the capture-size retest fails. The
-TurboQuant route needs three out-of-tree patches plus a whole-file overlay of an
-unmerged PR plus MTP config, coupled to an exact vLLM build that Renovate bumps
-every few days, on a foundation measured with an untuned tile config. The retest
-is a two-line config change and must be tried first.
+2. (Former items 2-4.) Moot: UltraQuant replaced the TurboQuant route (ultraquant-2026-10-07.md).
+3. (Former item 5.) **vllm#52619** -- the LDS-gate one-liner carried out-of-tree here; drop ours
+   when it lands. **Done**: in upstream since nightly `81198e97`, our patch was
+   dropped in 87a35df4f.
 
 ## Corrected attributions
 
@@ -213,11 +202,7 @@ is a two-line config change and must be tried first.
 
 ## Still unmeasured
 
-- Output quality under the raised LDS gate, beyond smoke prompts.
-- `lm_head` is 2.54 GB of bf16 per token, ~17% of decode bytes, unquantized.
-  vLLM cannot quantize it at load, but re-running llm-compressor with `lm_head`
-  out of `ignore` would land it on the same RDNA kernel. Estimated 7-10% at every
-  M; needs an lm-eval gate on a 248K vocab.
+- 4-bit `lm_head`: shipped (#5007), reverted (#5118), declined on quality; do not revisit.
 - K-split of `down_proj` for M=3-5, where it still falls to Triton
   (K*M = 52224/69632/87040, all over 39321). Kernel-level test showed ~2x with
   correct results and better accuracy than the Triton path; chunk on group
@@ -433,10 +418,7 @@ plus the cold-cache stall on recovery.
    `external_kv_transfer`, roughly 3-6K s of prefill saved. Removing the fs tier
    is off the table (it halved decode when tried, it keeps eviction async); the
    lever is lookup cost.
-5. **4-bit `lm_head`** — 2.543 of ~15.2 GB/step is **16.5% of bytes**, so up to
-   ~12% at M=1 short context (the fake-quant measurement of ~9% fits). At
-   production ITL the same ~4 ms/step saved is 4-6%. Real, third-tier, and needs
-   a re-quantized checkpoint.
+5. **4-bit `lm_head`**: shipped (#5007), reverted (#5118), declined on quality; do not revisit.
 6. **omniroute** — confirmed broken (all four opencode free models return 401,
    stale gemini model id). litellm sent 1154 requests/7d to its api_base. Even
    if all of it fell back to the 27B it is ~3% of weekly prompt tokens: a real

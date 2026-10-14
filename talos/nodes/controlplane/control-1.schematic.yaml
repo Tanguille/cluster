@@ -21,7 +21,7 @@ customization:
     - pcie_aspm.policy=performance
     - mitigations=off
     - security=none
-    - preempt=voluntary # Talos v1.13+: gpu preemption
+    - preempt=voluntary # scheduler preemption; 7.x olddefconfig defaults to full (docker/talos-kernel/README.md)
   systemExtensions:
     officialExtensions:
       - siderolabs/amdgpu

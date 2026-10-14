@@ -43,7 +43,7 @@ spec:
               TZ: ${TIMEZONE}
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_PORT: &port 9119
-              # Seconds-based scheduler inactivity watchdog; raised from 600 to align with the shortest provider timeout.
+              # Scheduler inactivity watchdog in seconds; matches qwen-3.8-fast's 900s request timeout.
               HERMES_CRON_TIMEOUT: "900"
               S6_CMD_RECEIVE_SIGNALS: "1"
               HERMES_RESTART_DRAIN_TIMEOUT: "45"

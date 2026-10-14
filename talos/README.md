@@ -6,13 +6,9 @@ pushed to nodes with `talosctl`.
 
 ## Why not talhelper
 
-talhelper cannot express Talos 1.14, so this directory renders configs with `talosctl` directly.
-
-Both talhelper `master` and `v3.1.16` pin machinery `v1.14.0-alpha.2`. Rebuilt against `rc.2` it
-panics under the 1.14 version contract: machinery sets `MachineInstall` to `nil` (replaced by
-`UnattendedInstallConfig`) and talhelper dereferences it unguarded. Staying on the 1.13 contract
-instead leaves the whole `Kube*` document family and `UnattendedInstallConfig` unreachable, because
-they are mutually exclusive with the v1alpha1 base talhelper emits.
+talhelper cannot express Talos 1.14, so this directory renders configs with `talosctl` directly:
+it emits a v1alpha1 base, which is mutually exclusive with the `Kube*` document family and
+`UnattendedInstallConfig`.
 
 `talosctl machineconfig patch` generates no competing v1alpha1 base, so every document kind is
 reachable. The layer model below follows [onedr0p/home-ops](https://github.com/onedr0p/home-ops),
@@ -113,8 +109,8 @@ after tuppr has rolled every node, and re-run `diff-node` on all three before ap
 | --- | --- |
 | `CRICustomizationConfig` | the `machine.files` drop-in at `/etc/cri/conf.d/20-customization.part`. Editing it restarts CRI instead of needing a reboot |
 | `FilesystemTrimConfig` | fstrim, weekly. Absent means no automatic trimming at all |
-| `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default. Closes #4289 |
-| `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates. All 16 keys verified identical |
+| `FilesystemScrubConfig` | `xfs_scrub`, weekly, off by default |
+| `SysctlConfig` | `machine.sysctls`, which 1.14 deprecates |
 | `UdevRulesConfig` | caps NVMe `discard_max_bytes` at 256 MiB; the drives' 2 TiB limit let weekly trim send multi-second discards |
 | `EtcFileConfig` | `/etc/gvisor/runsc-hostnet.toml` for the `runsc-hostnet` handler (`cri/` is a forbidden prefix). Upstream's `nfsmount.conf` (nconnect 8, 1MiB rsize/wsize) is still unadopted; our five NFS mounts run at kernel defaults |
 
@@ -132,7 +128,7 @@ only virtio and rbd), so its discards pass through to whatever the hypervisor do
 | --- | --- |
 | `OOMConfig` | a PSI-expression OOM handler. Real potential here given this cluster's OOM cascades, but it changes which cgroup dies under pressure. Needs a baseline first, not a blind default |
 | `SecurityProfileConfig` | `workloadIsolation: true` (sandboxd) is a runtime change for every workload; wants its own change and its own rollback |
-| `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.0-rc.2) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
+| `KubeletConfig` + `KubeNodeConfig` | **blocked, not deferred.** `machine.kubelet.extraMounts` has no equivalent (`ExtraMounts()` is `return nil` in v1.14.2) and we bind-mount `/var/openebs/local` through it. Mutually exclusive with `machine.kubelet`, so there is no partial migration: the key fails to decode, and removing it silently drops the mount |
 | `SysfsConfig` / `CRIBaseRuntimeSpecConfig` | the other two v1alpha1 fields 1.14 deprecates; neither is used in this repo |
 | `RAIDArrayConfig`, `LVM*Config`, `BGPInstanceConfig`, `VethConfig` | new capabilities, none currently needed |
 
@@ -141,7 +137,7 @@ is a wipe-time decision rather than a live one.
 
 Evaluate separately rather than adopting blindly: NRI is enabled by default in 1.14,
 `net.ipv4.conf.*.send_redirects` defaults to `0`, and etcd's HTTP endpoints move `2379` → `2383`
-(we are unaffected, `listen-metrics-urls` is pinned to `2381`, but re-verify the scrape).
+(we are unaffected, `listen-metrics-urls` is pinned to `2381`).
 
 ## Common tasks
 
@@ -154,7 +150,7 @@ picked up from the system `PATH` is a different version than this pipeline is te
 just talos render-config <node>          # render a node's full machine config to stdout
 just talos diff-node <node> <ip>         # dry-run the rendered config against the running node
 just talos apply-node <node> <ip>        # render and apply
-just talos upgrade-node <node> <ip>      # upgrade Talos using the node's schematic image
+just talos upgrade-node <node> <ip>      # upgrade Talos to the node's pinned installer
 just talos upgrade-k8s                   # upgrade Kubernetes to the version in the tuppr CR
 just talos talosconfig                   # regenerate the client config from the secrets bundle
 just talos download-image <node> <ver>   # fetch a metal ISO from the Image Factory

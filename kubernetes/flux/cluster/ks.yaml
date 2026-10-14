@@ -27,7 +27,6 @@ spec:
         kind: Secret
         optional: true
   patches:
-    # Add Kustomization defaults for all child Kustomizations.
     # Replaces substituteFrom/timeout/retryInterval wholesale — setting them in a child is a no-op.
     - patch: |-
         apiVersion: kustomize.toolkit.fluxcd.io/v1

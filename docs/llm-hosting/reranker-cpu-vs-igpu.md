@@ -1,7 +1,7 @@
 # Reranker: CPU vs iGPU (Vulkan)
 
 Decision record: `bge-reranker-v2-m3` stays on the iGPU. CPU is 2.5-3.2x slower and
-breaks memini's 8s rerank timeout. Sibling of [embedder-cpu-vs-igpu.md](embedder-cpu-vs-igpu.md).
+breaks memini's rerank timeout (8s then, 5s since 8429c1d8a). Sibling of [embedder-cpu-vs-igpu.md](embedder-cpu-vs-igpu.md).
 
 ## Method (2026-10-06, control-3)
 
@@ -25,8 +25,6 @@ Score parity: max abs diff 0.039 (1024) and 0.020 (300). Rankings match except n
 
 ## Decision
 
-Keep the iGPU. CPU at 1024 chars (8.4s p50) exceeds `MEMINI_RERANK_TIMEOUT: 8s`, so nearly every recall would time out. Not tested: more than 6 threads.
+Keep the iGPU. CPU at 1024 chars (8.4s p50) exceeds `MEMINI_RERANK_TIMEOUT` (8s then, 5s since 8429c1d8a), so nearly every recall would time out. Not tested: more than 6 threads.
 
-## Open question
-
-Raw scores were about -9 to -11 for unrelated docs, but `MEMINI_RERANK_MIN_SCORE: "0.5"` assumes [0,1]. Not investigated.
+Resolved: scores are raw logits; the MIN_SCORE gate was dropped in 8429c1d8a.

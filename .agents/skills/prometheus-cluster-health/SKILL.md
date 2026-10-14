@@ -10,7 +10,7 @@ description: >-
   user: "is karakeep healthy?" → filter namespace/pod + correlate alerts
 
   Prefer the Grafana MCP (via the ToolHive unified vMCP): read session tool schemas before calling.
-compatibility: Requires observability MCP or VictoriaMetrics API access (kubectl port-forward -n observability svc/vmsingle-victoria-metrics 8428). Confirm prefixed tool names (e.g. grafana_query_prometheus) in-session.
+compatibility: Requires the Grafana MCP (unified vMCP) or VictoriaMetrics API access (kubectl port-forward -n observability svc/vmsingle-victoria-metrics 8428). Confirm prefixed tool names (e.g. grafana_query_prometheus) in-session.
 ---
 
 # Prometheus cluster health snapshot
@@ -23,7 +23,7 @@ Answer “is the cluster OK?” and “who is using CPU?” with **correct units
 - **`$STEP`:** `1m` for windows up to ~2h; `5m` for longer windows.
 - **Instant snapshots:** subquery patterns `[$WINDOW:$STEP]` around inner `rate(...[5m])`.
 
-## Tool usage (observability MCP)
+## Tool usage (Grafana MCP)
 
 Stack: Grafana MCP (`grafana/mcp-grafana`), behind the ToolHive unified vMCP. Datasource uid `prometheus` (default) — VictoriaMetrics behind `vmauth-victoria-metrics.observability:8427`; second uid `victoriametrics`.
 
@@ -36,7 +36,7 @@ Stack: Grafana MCP (`grafana/mcp-grafana`), behind the ToolHive unified vMCP. Da
 | PromQL | **`query_prometheus`** (`queryType`, `startTime`, `endTime`, `stepSeconds`) |
 | Discovery | `list_prometheus_metric_names`, `list_prometheus_label_*` |
 | Dashboards | `search_dashboards`, `get_dashboard_summary`, `get_dashboard_panel_queries` |
-| Logs follow-up | none via Grafana MCP (no Loki) — VictoriaLogs LogsQL via vmauth :8427 `/select/logsql/*` or victoria-logs.observability:9428 |
+| Logs follow-up | `victorialogs-mcp_*` tools via the vMCP; raw fallback: vmauth :8427 `/select/logsql/*` or victoria-logs.observability:9428 |
 
 **`query_prometheus`:** use `instant` + subquery PromQL from [references/promql-queries.md](references/promql-queries.md); for `range`, align `stepSeconds` with `$STEP` (60 for 1m, 300 for 5m).
 

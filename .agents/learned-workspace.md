@@ -15,9 +15,9 @@ Stable, non-sensitive facts about this cluster and tooling.
 
 ### GitHub (`github_*`)
 
-All GitHub work routes here: `call_tool` with `tool_name = github_<name>` (prefix mandatory),
-backend params inside `parameters`. This box has no `gh`/`GITHUB_TOKEN`, so there is no local
-`git push`.
+On the Hermes box: all GitHub work routes here, via `call_tool` with `tool_name = github_<name>`
+(prefix mandatory) and backend params inside `parameters`. That box has no `gh`/`GITHUB_TOKEN`, so
+there is no local `git push`.
 
 | Job | Tool |
 |---|---|
@@ -38,7 +38,7 @@ backend params inside `parameters`. This box has no `gh`/`GITHUB_TOKEN`, so ther
 
 ## Talos
 
-- Talos kernel arguments belong in `schematic.yaml`; existing nodes need a schematic rebuild and Talos upgrade to receive them.
+- Talos kernel arguments belong in `schematic.yaml`; existing nodes only get them from a rebuilt installer (`just talos kernel-build`) plus an upgrade.
 - Large Talos `/var/lib/containerd` usage is often old image layers. Configure kubelet image GC thresholds to run sooner; confirm Talos apply mode before assuming a reboot is unnecessary.
 
 ## Storage
