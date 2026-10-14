@@ -24,8 +24,9 @@ metadata:
   name: &app smartctl-exporter
 spec:
   staticConfigs:
-    - targets:
-        - ${TRUENAS_IP}:9633
+    - targets: ["${TRUENAS_IP}:9633"]
+      labels:
+        nodename: truenas
   relabelings:
     - targetLabel: job
       replacement: *app
