@@ -45,13 +45,12 @@ spec:
   # model load before this Vulkan server is recycled.
   maxPodLifetimeSeconds: 86400
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:d64043576ad8fb29170563c769a997dbc1b9928f0d4a127fb9e4a9706ccb475b
-  # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
-  # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
-  parallelSlots: 1
-  # A pair must fit one micro-batch or llama.cpp 500s; 2048 fits a query up to
-  # ~5000 chars plus a 1024-char doc. 4096 held 4.4 GiB of GTT, 2048 holds
-  # 1.0 GiB with identical scores.
-  contextSize: 2048
+  # memini sends a whole pool as one request; 4 slots score its pairs in parallel.
+  parallelSlots: 4
+  # Each slot gets contextSize/parallelSlots = 1024 tokens; the largest pair under
+  # memini's 512-char query cap and 1024-char doc cap was 596 tokens.
+  contextSize: 4096
+  # A pair must fit one micro-batch or llama.cpp 500s.
   uBatchSize: 2048
   extraArgs:
     # 12 x 1024-char pairs: 3.5s with flash attention auto (on), 3.15s off; rankings identical.
