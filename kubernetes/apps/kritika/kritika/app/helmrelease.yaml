@@ -25,12 +25,9 @@ spec:
         existingSecret: *secret
         key: runner-uri
         role: kritik_runner
-    config:
-      webUrl: "https://kritika.${SECRET_DOMAIN}"
-      # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
-      indexGrace: 1h
-      # Runner Jobs parse untrusted PR content and run model-directed code.
-      runnerRuntimeClass: gvisor
+    # Runner Jobs parse untrusted PR content and run model-directed code.
+    runner:
+      runtimeClass: gvisor
     # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
@@ -78,7 +75,10 @@ spec:
           secretKeyRef:
             name: kritika-secret
             key: admin-password
-    configFile:
+    config:
+      webUrl: "https://kritika.${SECRET_DOMAIN}"
+      # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
+      indexGrace: 1h
       apps:
         github:
           accounts: [tanguille]
@@ -182,8 +182,8 @@ spec:
       ignore:
         - "**/*.out"
       embedding:
-        model: litellm/qwen3-embedding
-        dims: 1024
+        model: litellm/embeddinggemma-2
+        dims: 768
         # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
         similarFloor: 0.7
       # Local admin until GitHub or OIDC is set up.
