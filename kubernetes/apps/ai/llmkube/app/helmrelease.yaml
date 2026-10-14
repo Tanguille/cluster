@@ -9,26 +9,6 @@ spec:
   chartRef:
     kind: OCIRepository
     name: llmkube
-  postRenderers:
-    - kustomize:
-        patches:
-          # Embedders/rerankers never predict tokens, so the chart's llama.cpp
-          # arm reads any backlog as a stall; n_decode_total counts both.
-          - target:
-              kind: PrometheusRule
-              name: llmkube-alerts
-            patch: |-
-              - op: test
-                path: /spec/groups/1/rules/0/alert
-                value: InferenceAdmissionStalled
-              - op: replace
-                path: /spec/groups/1/rules/0/expr
-                value: |
-                  (avg_over_time(vllm:num_requests_waiting[10m]) > 0 and avg_over_time(vllm:num_requests_running[10m]) <= 1)
-                  or
-                  (avg_over_time(sglang:num_queue_reqs[10m]) > 0 and avg_over_time(sglang:num_running_reqs[10m]) <= 1)
-                  or
-                  (avg_over_time(llamacpp:requests_deferred[10m]) > 0 and rate(llamacpp:n_decode_total[10m]) == 0)
   values:
     namespace: ai
 
