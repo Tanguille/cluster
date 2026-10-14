@@ -47,8 +47,9 @@ spec:
               # Direct to the LLMKube reranker (litellm has no rerank provider); allowed by inference-rerank-memini-allow. Base URL is the API root, memini appends /rerank.
               MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local:8080/v1"
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
-              # Wider than the recall limit so buried memories can be rescued; 12 pairs take ~5s on the iGPU, 20 took ~8s.
-              MEMINI_RERANK_POOL: "12"
+              # Wider than the recall limit so buried memories can be rescued; 8 x 1024-char pairs take 2.2s on the iGPU
+              # (12 took 3.2s). In a 164-query A/B no rerank win came from composite rank 9 or deeper.
+              MEMINI_RERANK_POOL: "8"
               # Prompt recalls rerank on the whole prompt (~50s per pool), so ~96% timed out; skip them. Explicit short-query recalls still rerank.
               MEMINI_RERANK_PROMPT: "false"
               # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); 5s fits typical reranks (~3.3s) and leaves time for the fused-order fallback. No MIN_SCORE gate: it dropped on-topic keyword-query results (logits -3..0).
