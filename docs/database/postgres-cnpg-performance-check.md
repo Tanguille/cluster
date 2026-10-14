@@ -75,7 +75,7 @@ Interpretation:
 - **temp_files / temp_bytes** — Should stay low with work_mem 16MB; if high, consider per-session `SET work_mem` for heavy queries.
 - **commits / tup_*** — Throughput; compare before/after if you have a baseline.
 
-## 3. Observability MCP
+## 3. Grafana MCP
 
 With the Grafana MCP (via the ToolHive vMCP) connected, run the section 1 PromQL through `grafana_query_prometheus` on the `prometheus` datasource (`queryType: "instant"` for a snapshot; `"range"` with `startTime: "now-24h"`, `stepSeconds: 900` for a trend).
 

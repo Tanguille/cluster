@@ -27,8 +27,8 @@ Also untested, and worth knowing before any retry: n-gram was never run against
 a same-prompt spec-off control, and no method was tested under sustained
 concurrency beyond conc 5.
 
-Three independent blockers apply to every **drafter-based** method (MTP, DSpark,
-EAGLE3, DFlash), any one disqualifying:
+Two independent blockers apply to every **drafter-based** method (MTP, DSpark,
+EAGLE3, DFlash), either one disqualifying:
 
 1. **Drafter KV is additive and bf16** — pushes the model-length cap below the
    112K production peak.
@@ -37,11 +37,12 @@ EAGLE3, DFlash), any one disqualifying:
    Mamba groups is treated as a draft group. That disables prefix caching and
    makes the KV offload tier write-only. This deployment cannot afford either:
    removing the fs tier alone halved single-stream decode.
-3. **vllm#49002 (closed 2026-09-09 as fixed by vllm#55223, verified here 2026-09-12)**:
-   the tool-calling/structured-output wedge.
+
+A third, the tool-calling/structured-output wedge (vllm#49002), was fixed by
+vllm#55223 and verified here 2026-09-12.
 
 And the one blocker that kills the **drafter-free** method: **vllm#39273**, the
-GDN corruption bug. n-gram sidesteps all three of the above by construction —
+GDN corruption bug. n-gram sidesteps both of the above by construction —
 no draft model, no draft KV group — and is still unusable because it produces
 wrong output on this model family.
 
@@ -270,9 +271,8 @@ direct benchmark. A maintainer closed it 2026-09-09 as fixed by vllm#55223
 (eliminate full-history reasoning scans for structured outputs, merged
 2026-09-08, in every nightly since).
 This is the same failure class already recorded here for MTP: MTP + tool-calling
-grammar wedged to ~0.2 tok/s (100x) under concurrent tool traffic. Production
-traffic on this model **is** grammar-constrained tool calling, so any
-drafter-based method is exposed to it.
+grammar wedged to ~0.2 tok/s (100x) under concurrent tool traffic; the
+2026-09-12 MTP retest no longer shows it.
 
 vllm#50924 (dspark grammar bitmask width mismatch, EngineCore crash) closed
 2026-08-10, but that is a crash-on-first-request bug, not this wedge.
@@ -363,8 +363,8 @@ number is not comparable to a `walltime.py` figure. Neither affects the verdict.
    one reboot and is the single highest-value remaining measurement.
 2. **Concurrency is unmeasured.** Every number here is single-stream. Under
    concurrency a spec step batches `seqs x (spec+1)` tokens, which walks
-   straight into the 5-row skinny-kernel limit (`MAX_SKINNY_BATCH_SIZE=5`, see
-   the manifest `parallelSlots` comment). The win could shrink or invert at `parallelSlots` 5.
+   straight into the 5-row skinny W4A16 kernel limit (`MAX_SKINNY_BATCH_SIZE=5`);
+   the win could shrink or invert there.
 3. **The tool-calling wedge (blocker 3) is untested for n-gram.** It was
    observed with MTP. n-gram's drafts are not model-generated, so it may be
    unaffected — but production traffic here *is* grammar-constrained tool

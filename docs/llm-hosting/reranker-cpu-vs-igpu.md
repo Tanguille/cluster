@@ -1,7 +1,7 @@
 # Reranker: CPU vs iGPU (Vulkan)
 
 Decision record: `bge-reranker-v2-m3` stays on the iGPU. CPU is 2.5-3.2x slower and
-breaks memini's rerank timeout (8s then, 5s since 8429c1d8a). Sibling of [embedder-cpu-vs-igpu.md](embedder-cpu-vs-igpu.md).
+breaks memini's rerank timeout. Sibling of [embedder-cpu-vs-igpu.md](embedder-cpu-vs-igpu.md).
 
 ## Method (2026-10-06, control-3)
 

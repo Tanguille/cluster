@@ -35,7 +35,7 @@ Two Flux Kustomizations reconcile these:
 > Secret must too; there is no way to place them in an app's own namespace and have them work.
 > This is a known, tracked upstream limitation:
 > [cloudnative-pg/cloudnative-pg#6043](https://github.com/cloudnative-pg/cloudnative-pg/issues/6043)
-> ("allow cross-namespace Database and Role configuration"), still open. If/when that lands, revisit moving `cluster/roles/<app>.sops.yaml` and
+> ("allow cross-namespace Database and Role configuration"). If/when that lands, revisit moving `cluster/roles/<app>.sops.yaml` and
 > its `databases/resourceset.yaml` entry into each app's own directory — until then, the shared-cluster model here
 > requires the centralized layout above.
 
@@ -43,7 +43,7 @@ Two Flux Kustomizations reconcile these:
   `Database` CRs. Kept as a separate Kustomization so a single DB-provisioning failure can't stall
   the shared, `wait: true` cluster Kustomization and cascade to every app depending on it.
 
-Apps keep their existing `dependsOn: cloudnative-pg-cluster`.
+New apps depend on `cloudnative-pg-databases`, which creates their `Database` CR.
 
 ## Adoption vs. creation
 

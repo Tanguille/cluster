@@ -172,13 +172,10 @@ result:
 
 ## What to watch, in priority order
 
-1. ~~A retest of MTP with corrected capture sizes.~~ **Done 2026-09-02**: the
-   capture-size bug was real and worth ~41% at conc 5, but MTP is still -27% at
-   M=5. Reverted. Nothing further to watch upstream for this.
-2. (Former items 2-4.) Moot: UltraQuant replaced the TurboQuant route (ultraquant-2026-10-07.md).
-3. (Former item 5.) **vllm#52619** -- the LDS-gate one-liner carried out-of-tree here; drop ours
-   when it lands. **Done**: in upstream since nightly `81198e97`, our patch was
-   dropped in 87a35df4f.
+Nothing left to watch: the MTP capture-size retest is done (~41% at conc 5, still
+-27% at M=5, reverted), UltraQuant replaced the TurboQuant route
+(ultraquant-2026-10-07.md), and vllm#52619 is upstream since nightly `81198e97`
+(our patch dropped in 87a35df4f).
 
 ## Corrected attributions
 
@@ -202,7 +199,6 @@ result:
 
 ## Still unmeasured
 
-- 4-bit `lm_head`: shipped (#5007), reverted (#5118), declined on quality; do not revisit.
 - K-split of `down_proj` for M=3-5, where it still falls to Triton
   (K*M = 52224/69632/87040, all over 39321). Kernel-level test showed ~2x with
   correct results and better accuracy than the Triton path; chunk on group
