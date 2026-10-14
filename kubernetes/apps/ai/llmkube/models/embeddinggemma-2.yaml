@@ -1,0 +1,85 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: embeddinggemma-2
+spec:
+  # EmbeddingGemma 2: 270M params, 768 dims native; needs llama.cpp with gemma-embedding2.
+  source: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/bfcd298762cc34d0357ece5ebdd31791a3a374d8/embeddinggemma-2-Q8_0.gguf
+  quantization: Q8_0
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: vulkan
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: vulkan
+      layers: -1
+      # Slot counts live at the device plugin (kube-system/generic-device-plugin);
+      # nodeSelector pins this to the iGPU.
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: embeddinggemma-2
+spec:
+  modelRef: embeddinggemma-2
+  mode: embedding
+  # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
+  # startup and model load before this Vulkan embedder is recycled.
+  maxPodLifetimeSeconds: 86400
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:d64043576ad8fb29170563c769a997dbc1b9928f0d4a127fb9e4a9706ccb475b
+  # 4 slots: the 194-tool search and memini share one embedder; keeps the
+  # 194-item batch from queueing behind memini (bench: 7.43s median for 194
+  # 400-char items isolated, 120s is the toolhive timeout). Vulkan warmup hangs
+  # at parallel=1 (llama.cpp #24307).
+  parallelSlots: 4
+  # contextSize/parallelSlots = 4096 per slot, matching the per-input cap below.
+  contextSize: 16384
+  # Bidirectional model: min(batchSize, uBatchSize) is the per-input token cap, so
+  # set both (n_batch stays at its 2048 default otherwise). 4096 covers the 30d
+  # peak (4030 tokens, qwen3 tokenizer); attention scratch (GTT) scales with its square.
+  batchSize: 4096
+  uBatchSize: 4096
+  extraArgs:
+    - "--alias"
+    # served model name memini sends in /v1/embeddings
+    - "embeddinggemma-2"
+    # gemma-embedding2 requires mean pooling.
+    - "--pooling"
+    - "mean"
+    # Host prompt cache (default 8192 MiB) is never released: 100 distinct
+    # embedding requests took anon 0.08 -> 8.06 GiB. One-shot embeddings never
+    # hit it.
+    - "--cache-ram"
+    - "0"
+  # Pin to the iGPU node; without this the scheduler could place it on the dGPU
+  # node (also advertises squat.ai/dri) and steal a 27B slot.
+  nodeSelector:
+    amd.com/igpu: "true"
+  # One iGPU model per node; both sides carry the rule (checked for the moving pod only).
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: qwen35-2b
+          topologyKey: kubernetes.io/hostname
+  # Render/video groups for /dev/dri (Vulkan path); mirrored by qwen35-2b.
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+  resources:
+    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
+    # Request AND limit (llmkube >= 0.9.29); working set ~250Mi, model buffer in
+    # amdgpu GTT (uncharged). The 6Gi reservation held control-2 at 95.8% overcommit.
+    memory: 512Mi
+  endpoint:
+    path: /v1/embeddings
