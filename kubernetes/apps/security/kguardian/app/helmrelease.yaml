@@ -103,6 +103,10 @@ spec:
         denials:
           retention:
             days: 14
+      # Every finished Job instance stays a workload row until pruned (~1.3k/day); at 30d the in-use coverage recompute took ~200s.
+      imageInventory:
+        retention:
+          days: 3
 
     frontend:
       resources:
