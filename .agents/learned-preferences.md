@@ -23,8 +23,9 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 - If no tool is available for a task after checking, say so clearly: *"I don't have access to [service]"*—do not speculate or fabricate an execution path.
 - When a tool returns a successful response, report the outcome as fact.
 - When a user confirms an action worked, trust that feedback. Do not second-guess it.
-- **In the hermes container: all GitHub work goes through ToolHive `github_*` tools.** No local
-  `git push` there (no `gh`/`GITHUB_TOKEN`; pushremote dead).
+- **All agents: GitHub work goes through ToolHive `github_*` tools** when they are available, in
+  preference to local `gh`/`git push`. The hermes container has no `gh`/`GITHUB_TOKEN`, so there
+  they are the only route.
   Push + PR create/update is ONE step — can't finish this turn → write `.agents/handoff/<task>.md`
   (handoff skill) BEFORE stopping, because a session boundary orphans the finish.
   Call shape, tool table and fallbacks: `.agents/learned-workspace.md` § ToolHive / MCP.

@@ -15,9 +15,9 @@ Stable, non-sensitive facts about this cluster and tooling.
 
 ### GitHub (`github_*`)
 
-On the Hermes box: all GitHub work routes here, via `call_tool` with `tool_name = github_<name>`
-(prefix mandatory) and backend params inside `parameters`. That box has no `gh`/`GITHUB_TOKEN`, so
-there is no local `git push`.
+All agents route GitHub work here when the tools are available, via `call_tool` with
+`tool_name = github_<name>` (prefix mandatory) and backend params inside `parameters`. The Hermes
+box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 | Job | Tool |
 |---|---|
