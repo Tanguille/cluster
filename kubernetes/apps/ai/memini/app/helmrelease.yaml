@@ -28,12 +28,12 @@ spec:
               MEMINI_EMBED_BASE_URL: "http://litellm.ai.svc.cluster.local/v1"
               MEMINI_EMBED_API_KEY: ${LITELLM_API_KEY}
               MEMINI_EMBED_MODEL: "embeddinggemma-2"
-              # Native width of EmbeddingGemma 2. Fixed at store creation: changing it needs export, fresh store, import.
+              # Native width; fixed at store creation (changing it needs export/import).
               MEMINI_EMBED_DIMS: "768"
-              # EmbeddingGemma 2's trained retrieval prompts; prepended verbatim, so the trailing space matters.
+              # EmbeddingGemma 2's trained retrieval prompts; the trailing space is intentional.
               MEMINI_EMBED_QUERY_PREFIX: "task: search result | query: "
               MEMINI_EMBED_DOC_PREFIX: "title: none | text: "
-              # Re-embed rather than silently mixing vector spaces if the model or dims ever change.
+              # Re-embed rather than silently mixing vector spaces if the model ever changes.
               MEMINI_REEMBED_ON_MODEL_CHANGE: "true"
               # Short serial batches keep capture/dedup embedding from creating a recall tail under load.
               MEMINI_EMBED_MAX_CONCURRENCY: "1"

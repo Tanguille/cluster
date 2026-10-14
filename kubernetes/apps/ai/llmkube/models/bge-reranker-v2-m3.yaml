@@ -8,8 +8,7 @@ spec:
   # Cross-encoder reranker for memini recall (Cohere-style /v1/rerank).
   # BGE-reranker-v2-m3, 568M params: one forward pass per (query, doc) pair on
   # the shared iGPU; ~636MB of Q8_0 weights — small next to the 27B models,
-  # ~2x the embedder it reorders; both iGPU nodes host ~300MB-1.2GB models
-  # today, so this is ~+15% of the shared VRAM budget.
+  # ~2x the embedder it reorders; both iGPU nodes host ~300MB-1.2GB models.
   # gpustack's re-quant: the cstr build omits the bert.context_length GGUF
   # key, which llama.cpp's rerank path requires — the server hard-exits at
   # model load ("key not found") and the pod crash-loops.

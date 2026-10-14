@@ -41,8 +41,8 @@ spec:
   # contextSize/parallelSlots = 4096 per slot, matching the per-input cap below.
   contextSize: 16384
   # Bidirectional model: min(batchSize, uBatchSize) is the per-input token cap, so
-  # set both (n_batch defaults to 2048). 4096 covers the 4030-token 30d peak;
-  # attention scratch (GTT) scales with its square.
+  # set both (n_batch stays at its 2048 default otherwise). 4096 covers the 30d
+  # peak (4030 tokens, qwen3 tokenizer); attention scratch (GTT) scales with its square.
   batchSize: 4096
   uBatchSize: 4096
   extraArgs:
