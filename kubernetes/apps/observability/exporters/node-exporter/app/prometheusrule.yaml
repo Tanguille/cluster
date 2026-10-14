@@ -83,7 +83,8 @@ spec:
           labels:
             severity: warning
         - alert: NodeGTTTelemetryMissing
-          # One alert identity per control node, even when the metric is absent entirely.
+          # One alert identity per control node, even when the metric is absent entirely:
+          # absent() copies kubernetes_node from its equality matcher.
           expr: |-
             max by (kubernetes_node) (
               node_drm_memory_gtt_size_bytes{kubernetes_node=~"control-[23]"}
