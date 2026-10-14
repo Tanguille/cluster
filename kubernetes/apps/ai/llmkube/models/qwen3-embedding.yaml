@@ -22,8 +22,7 @@ spec:
       vendor: amd
       runtime: vulkan
       layers: -1
-      # Slot counts live at the device plugin
-      # (kube-system/generic-device-plugin);
+      # iGPU stays on squat.ai/dri, not DRA (slot counts: kube-system/generic-device-plugin);
       # nodeSelector below pins this to the iGPU.
       resourceName: squat.ai/dri
 ---
@@ -69,9 +68,7 @@ spec:
     - "--cache-ram"
     - "0"
 
-  # Pin to the iGPU node; without this the scheduler could place it on the dGPU
-  # node (which also advertises squat.ai/dri) and steal a dGPU slot from the
-  # 27B serving pod.
+  # Both iGPU nodes advertise squat.ai/dri; amd.com/igpu narrows it to those two nodes.
   nodeSelector:
     amd.com/igpu: "true"
 
