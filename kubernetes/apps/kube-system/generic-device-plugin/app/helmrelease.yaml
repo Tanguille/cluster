@@ -30,7 +30,7 @@ spec:
               - |
                 name: dri
                 groups:
-                  # vllm, jellyfin, fileflows and drm-exporter hold 4; the 5th is for the small reranker
+                  # vllm, jellyfin, fileflows and drm-exporter hold 4; the 5th is spare
                   - count: 5
                     paths:
                       - path: /dev/dri
@@ -43,7 +43,7 @@ spec:
                 memory: 16Mi
               limits:
                 memory: 64Mi
-      # iGPU nodes: 2 slots (embeddinggemma-2 and qwen35-2b share one iGPU); count only gates scheduling.
+      # iGPU nodes: 2 slots (one iGPU model per node plus the co-located reranker); count only gates scheduling.
       generic-device-plugin-igpu:
         type: daemonset
         pod:

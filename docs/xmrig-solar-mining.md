@@ -74,8 +74,7 @@ Each ScaledObject reads its own node's verdict and takes only the export left af
 reading one global export figure would all activate at 50W.
 
 Ranking is `xmrig_guard_rank`, derived from the `PRIORITY` tuple in the controller, so
-re-prioritising needs no manifest edit. Order follows measured availability: over 7d,
-control-1 97.8%, control-2 44.7%, control-3 31.5% (pre-step-3 numbers).
+re-prioritising needs no manifest edit. Order follows measured availability.
 
 Unlike a fixed activation threshold, the subtraction skips an unavailable node instead of
 reserving watts for it: if control-1 is CPU-saturated, control-2 takes the first slot rather
@@ -95,12 +94,7 @@ Per-node gating, first 24h after rollout (2026-07-31):
 | capture vs solar hours ≥25W | 6% | 51% |
 | peak concurrent miners | 1 | 3 |
 
-The original commissioning replay (7d, `recover 60/trip 64/600s/120s` → `62/65/300s/60s` + 68C
-panic) put delivered replica-hours at 65.4h → 84.2h, +29%. **Its magnitudes are superseded** —
-see the re-audit below, which found that window predated both the `temp1` sensor fix and
-enforcement, so every percentage from it is measured against a reading ~9C hotter than Composite.
-
-The structural caveat still holds: any replay is an upper bound, because it applies a more
+Any replay is an upper bound, because it applies a more
 permissive policy to temperatures recorded under a restrictive one, and more mining means more
 heat. It validated the harness, not the counterfactual.
 

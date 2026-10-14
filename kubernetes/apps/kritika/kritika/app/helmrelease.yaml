@@ -90,7 +90,6 @@ spec:
           type: openai
           baseUrl: "http://litellm.ai.svc.cluster.local/v1"
           apiKey: { env: LITELLM_API_KEY }
-      # 0.0.27 dropped the defaults wrapper: repository settings sit at the root.
       review:
         # LiteLLM falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
         model: litellm/omniroute
@@ -124,7 +123,6 @@ spec:
             change, deprecation, rename or changed default that affects it,
             and any version it must stay in lockstep with. Start with a
             verdict, safe to merge or not, and name the sources you read.
-        # Renovate bumps the nightly by digest alone: the body names no commits.
         - id: vllm-nightly
           when:
             - expr: pr.headRef == "renovate/vllm-vllm-openai-rocm-nightly"
@@ -148,7 +146,13 @@ spec:
             repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
             GLM and Kimi changes. Check each hit against every symbol the hook
             patches and every flag in the config: a moved symbol fails the
-            boot, a new default can undo a flag. Also flag KV pool sizing or
+            boot, a new default can undo a flag. The hook also calls upstream
+            functions and Triton kernels itself (kernel[grid](...), orig(...)):
+            for each, diff the full parameter list at the previous and new
+            commit and check the hook's call still binds. An added, removed
+            or reordered parameter is a P1 finding, even if the hook's
+            feature check passes. Any change to a file the hook patches is at
+            least a P1 needs-clone-test finding. Also flag KV pool sizing or
             page size changes, Qwen3.5 or Qwen3-Next config imports, a ROCm
             base or torch bump, and anything that makes a hook patch
             redundant. Start with a verdict: nothing relevant, needs a clone
@@ -178,8 +182,8 @@ spec:
       ignore:
         - "**/*.out"
       embedding:
-        model: litellm/embeddinggemma-2
-        dims: 768
+        model: litellm/qwen3-embedding
+        dims: 1024
         # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
         similarFloor: 0.7
       # Local admin until GitHub or OIDC is set up.

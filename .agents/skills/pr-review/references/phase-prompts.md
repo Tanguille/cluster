@@ -121,7 +121,7 @@ prompt: |
 
   TASKS:
   1. Run shellcheck on touched scripts
-  2. Run flate test all (or kustomize build + flux build if flate is unavailable)
+  2. Run flate test all (or kustomize build if flate is unavailable)
 
   OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-5-validation.md.
 ```

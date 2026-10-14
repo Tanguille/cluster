@@ -30,7 +30,7 @@ Only on conflict: worktree from PR head → `git fetch origin --prune` (local ch
 behavior, files) must have a diff line behind it (`get_diff`). Mismatch → fix body or code; never
 "clarify in review". Say what the PR does NOT change when a sibling area is easy to confuse.
 
-**C — Atomic finish.** Plan `github_push_files` + PR create/update as ONE step; if it can't be done
+**C — Atomic finish.** Plan the commits (`.agents/learned-workspace.md` GitHub table) + PR create/update as ONE step; if it can't be done
 this turn, follow the [handoff skill](../../handoff/SKILL.md).
 
 ## CI triage — classify before touching the diff
@@ -38,7 +38,7 @@ this turn, follow the [handoff skill](../../handoff/SKILL.md).
 1. Read the failure: `get_check_runs` for names/conclusions; job logs via the ssh-gh fallback
    (`.agents/learned-workspace.md` § ToolHive / MCP).
 2. Classify exactly one:
-   - **diff-introduced** → fix files (read current → edit → `push_files` with full contents), re-check.
+   - **diff-introduced** → fix files (read current → edit → commit per that table), re-check.
    - **baseline/environment** → prove it fails on `origin/main` too (`gh run list --branch main`), then
      STOP fixing the diff; comment the evidence, wait or report.
    - **flake** → re-run ONCE. Second failure on the same job is not a flake — re-classify.

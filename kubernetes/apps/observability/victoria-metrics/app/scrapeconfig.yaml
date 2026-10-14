@@ -5,10 +5,14 @@ kind: ScrapeConfig
 metadata:
   name: &app node-exporter
 spec:
+  # nodename matches the in-cluster node-exporter relabel, so node alerts name these hosts too.
   staticConfigs:
-    - targets:
-        - ${TRUENAS_IP}:9100
-        - ${OPNSENSE_IP}:9100
+    - targets: ["${TRUENAS_IP}:9100"]
+      labels:
+        nodename: truenas
+    - targets: ["${OPNSENSE_IP}:9100"]
+      labels:
+        nodename: opnsense
   relabelings:
     - targetLabel: job
       replacement: *app
@@ -20,8 +24,9 @@ metadata:
   name: &app smartctl-exporter
 spec:
   staticConfigs:
-    - targets:
-        - ${TRUENAS_IP}:9633
+    - targets: ["${TRUENAS_IP}:9633"]
+      labels:
+        nodename: truenas
   relabelings:
     - targetLabel: job
       replacement: *app

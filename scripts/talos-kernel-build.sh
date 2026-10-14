@@ -86,13 +86,13 @@ echo "    derived TOOLS=${TOOLS_REV} PKGS=${PKGS_REV}"
 
 log "kernel package"
 # The default docker driver can't export a registry cache. CI sets a docker-container builder
-# up itself (docker/setup-buildx-action), but `just kernel-build` also runs this directly on a
+# up itself (docker/setup-buildx-action), but `just talos kernel-build` also runs this directly on a
 # workstation (README.md), which may still be on the default driver.
 docker buildx inspect --bootstrap 2>/dev/null | grep -q '^Driver:[[:space:]]*docker-container' ||
     docker buildx create --driver docker-container --use --bootstrap >/dev/null
 # Registry cache, keyed on the Dockerfile + build-args rather than the target tag: a rerun
 # against the same kernel/talos version (e.g. retrying after a package-permission fix) hits
-# every layer instead of repeating the ~2h45m ThinLTO compile. Same package as the image
+# every layer instead of repeating the ~1-2h ThinLTO compile. Same package as the image
 # itself so it rides the access grant that package already has, rather than needing its own.
 # :buildcache is a BuildKit cache manifest, not a version ref anything else resolves against —
 # deliberately the one mutable tag in an otherwise fully pinned pipeline (see README.md
@@ -206,16 +206,10 @@ make -C "${WORK}/talos" installer-base imager PUSH=true PLATFORM=linux/amd64 \
     REGISTRY="${REGISTRY}" USERNAME="${USERNAME}" \
     PKG_KERNEL="${PREFIX}/kernel:${VERSION}"
 
-# One installer per node, published to a per-node repo.
-#
-# The node has to be in the REPO PATH, not the tag: tuppr rebuilds the target ref as
-# "<repo>:<targetVersion>" (upgrade.go buildTalosUpgradeImage), discarding the current tag
-# entirely, so a per-node tag suffix names an image tuppr can never ask for.
-#
-# A per-node name rather than the schematic id, even though the id is content-addressed and
-# would let nodes sharing a schematic share a repo: the id MOVES whenever a schematic is
-# edited, and each new id is a new ghcr package that starts private, so every schematic edit
-# would silently strand nodes on an unpullable ref. A node name never moves.
+# One installer per schematic (installer_ref). The schematic sits in the REPO PATH, not the tag:
+# tuppr rebuilds "<repo>:<targetVersion>" (upgrade.go buildTalosUpgradeImage) and discards the
+# current tag, so a tag suffix names an image tuppr can never ask for. Named, not by schematic
+# id: the id moves on every edit and each new id is a new ghcr package that starts private.
 DIGESTS="$(crane export "ghcr.io/siderolabs/extensions:${TALOS_VERSION}" - | tar -xO image-digests)"
 # Pre-created so it is owned by us: docker would create the bind-mount target as root, and the
 # EXIT trap then cannot unlink the imager's output, leaking it and failing the script's exit.

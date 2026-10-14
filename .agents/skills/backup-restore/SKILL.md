@@ -10,7 +10,7 @@ description: >-
 
   Use when the user mentions backups, restores, snapshots, SnapshotPolicy, SnapshotSchedule,
   Restore, ClusterRepository, PVC recovery, or disaster recovery. This cluster uses kopiur
-  (home-operations, kopia-native) — not VolSync, not restic. Migrated 2026-07-12.
+  (home-operations, kopia-native), not VolSync, not restic.
 compatibility: Requires `kubectl` access to the cluster and the `kopiur` kubectl plugin; kopiur CRDs and the shared ClusterRepository secret must exist.
 ---
 
@@ -41,8 +41,8 @@ manual snapshot instead.
 The procedure is [docs/kopiur-restore.md](../../../docs/kopiur-restore.md): suspend both
 Kustomization and HelmRelease, pause KEDA, scale down every deployment sharing the PVC, delete
 the PVC, resume, verify. That file is the single copy, and also covers point-in-time restore
-(`offset`/`asOf`/`snapshotRef`/`identity`), the kopiur#233 orphaned-`prime-*`-PVC trap and its
-sweep commands, and the live-uid check.
+(`offset`/`asOf`/`snapshotRef`/`identity`), the `Completed`/`Ready: False` sweep, and the live-uid
+check.
 
 Not in that file: when the live uid does not match the manifest's `runAsUser`,
 `KOPIUR_PUID`/`KOPIUR_PGID` (and, only for genuine root,

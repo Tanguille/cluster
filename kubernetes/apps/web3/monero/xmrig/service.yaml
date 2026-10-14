@@ -4,9 +4,8 @@ kind: Service
 metadata:
   name: xmrig
 spec:
-  # One stable name across the three per-node Deployments, so the dashboard keeps polling
-  # http://xmrig.web3.svc.cluster.local:42000 unchanged. It answers from whichever miner
-  # the Service picks, which is what it did behind the single Deployment too.
+  # One stable name across the three per-node Deployments for the dashboard's xmrig API poll;
+  # it answers from whichever miner the Service picks.
   selector:
     app.kubernetes.io/component: thermal-guarded
   ports:

@@ -2,8 +2,7 @@
 #
 # These are the rules this Dockerfile deliberately deviates from, each with the
 # reason. Everything else stays at the default severity (errors fail the gate,
-# warnings do not). If a rule is dropped below, update the matching comment in
-# docker/talos-kernel/Dockerfile too.
+# warnings do not).
 failure-threshold: error
 ignored:
   # `cd /src` is load-bearing: the kernel Makefile must run with the source tree
@@ -25,6 +24,5 @@ ignored:
   # gpgv receives a short or empty input and fails, so the `&&` chain still
   # aborts — the pipe cannot silently produce a verified-but-bad tarball. The
   # verification is against the GPG signature of the *uncompressed* tar, which is
-  # why the pipe exists. (Future: an explicit `set -o pipefail` / temp-file form
-  # would let this ignore be removed.)
+  # why the pipe exists.
   - DL4006

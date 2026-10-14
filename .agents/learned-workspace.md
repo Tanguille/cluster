@@ -15,18 +15,18 @@ Stable, non-sensitive facts about this cluster and tooling.
 
 ### GitHub (`github_*`)
 
-All GitHub work routes here: `call_tool` with `tool_name = github_<name>` (prefix mandatory),
-backend params inside `parameters`. This box has no `gh`/`GITHUB_TOKEN`, so there is no local
-`git push`.
+All agents route GitHub work here when the tools are available, via `call_tool` with
+`tool_name = github_<name>` (prefix mandatory) and backend params inside `parameters`. The Hermes
+box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 | Job | Tool |
 |---|---|
-| Commit to a branch (FULL file contents, 1 commit/call) | `github_push_files` — `files: [{path, content}]` + `message` |
-| Delete a file | `github_delete_file` (push_files has no delete) |
+| Commit one file to a branch (FULL contents, 1 commit/call) | `github_create_or_update_file` — `path`, `content`, `message`, blob `sha` when updating |
+| Delete a file | `github_delete_file` |
 | New branch | `github_create_branch` |
 
 - Read current contents before pushing (worktree, or `get_diff`/`get_files`, or raw.githubusercontent.com).
-- `push_files` bypasses local hooks; for code changes verify in a worktree first.
+- `create_or_update_file` bypasses local hooks; for code changes verify in a worktree first.
 - Degraded envelope: check `agent.log` first ("unknown argument" = cron model-routing bug, not
   outage), then `~/.hermes/scripts/toolhive_retry.py call <tool> <json>` — flags BEFORE positionals;
   its SDK client crashes on large payloads even when the server succeeds, trust the raw HTTP
@@ -38,7 +38,7 @@ backend params inside `parameters`. This box has no `gh`/`GITHUB_TOKEN`, so ther
 
 ## Talos
 
-- Talos kernel arguments belong in `schematic.yaml`; existing nodes need a schematic rebuild and Talos upgrade to receive them.
+- Talos kernel arguments belong in `schematic.yaml`; existing nodes only get them from a rebuilt installer (`just talos kernel-build`) plus an upgrade.
 - Large Talos `/var/lib/containerd` usage is often old image layers. Configure kubelet image GC thresholds to run sooner; confirm Talos apply mode before assuming a reboot is unnecessary.
 
 ## Storage
