@@ -11,7 +11,6 @@ spec:
   minReplicaCount: 0
   maxReplicaCount: 1
   scaleTargetRef:
-    apiVersion: apps/v1
     kind: ${CONTROLLER:=Deployment}
     name: ${APP}
   triggers:
@@ -25,4 +24,3 @@ spec:
           max(max_over_time(probe_success{instance=~".+:2049"}[1m]))
           or on() absent(max_over_time(probe_success{instance=~".+:2049"}[1m]))
         threshold: "1"
-        ignoreNullValues: "true"

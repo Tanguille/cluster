@@ -25,12 +25,9 @@ spec:
         existingSecret: *secret
         key: runner-uri
         role: kritik_runner
-    config:
-      webUrl: "https://kritika.${SECRET_DOMAIN}"
-      # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
-      indexGrace: 1h
-      # Runner Jobs parse untrusted PR content and run model-directed code.
-      runnerRuntimeClass: gvisor
+    # Runner Jobs parse untrusted PR content and run model-directed code.
+    runner:
+      runtimeClass: gvisor
     # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
@@ -78,7 +75,10 @@ spec:
           secretKeyRef:
             name: kritika-secret
             key: admin-password
-    configFile:
+    config:
+      webUrl: "https://kritika.${SECRET_DOMAIN}"
+      # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
+      indexGrace: 1h
       apps:
         github:
           accounts: [tanguille]
@@ -90,7 +90,6 @@ spec:
           type: openai
           baseUrl: "http://litellm.ai.svc.cluster.local/v1"
           apiKey: { env: LITELLM_API_KEY }
-      # 0.0.27 dropped the defaults wrapper: repository settings sit at the root.
       review:
         # LiteLLM falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
         model: litellm/omniroute
@@ -124,7 +123,6 @@ spec:
             change, deprecation, rename or changed default that affects it,
             and any version it must stay in lockstep with. Start with a
             verdict, safe to merge or not, and name the sources you read.
-        # Renovate bumps the nightly by digest alone: the body names no commits.
         - id: vllm-nightly
           when:
             - expr: pr.headRef == "renovate/vllm-vllm-openai-rocm-nightly"

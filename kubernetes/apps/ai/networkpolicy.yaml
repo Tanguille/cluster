@@ -6,17 +6,16 @@ metadata:
   name: ai-ingress-allowlist
   namespace: ai
 spec:
-  # endpointSelector {} => default-deny ingress for every pod in the namespace,
-  # same shape as database/networkpolicy.yaml. The per-pod allowlists (vmcp,
+  # Default-deny ingress for every pod in the namespace. The per-pod allowlists (vmcp,
   # MCP proxies/backends, inference pods) stay and union with this one. Egress
   # stays default-allow.
   endpointSelector: {}
   ingress:
-    # Namespaces that consume *.ai.svc (grep '\.ai\.svc' across the repo and
-    # .github): default = karakeep -> litellm; observability = vmagent scrapes +
+    # Namespaces that consume *.ai.svc (grep '\.ai\.svc' across the repo):
+    # default = karakeep -> litellm; observability = vmagent scrapes +
     # gatus probes; security = kguardian llm-bridge -> litellm;
     # network = envoy-internal fronting the HTTPRoutes; ai = intra-namespace.
-    # kritika = its embedder, embeddinggemma-2 through litellm on :80.
+    # kritika = review, confidence and embedding models through litellm on :80.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai

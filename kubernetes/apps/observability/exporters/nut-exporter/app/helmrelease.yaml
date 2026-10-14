@@ -19,10 +19,7 @@ spec:
         containers:
           app:
             env:
-              # Credentials from the app's sops secret; its keys (NUT_USERNAME/
-              # NUT_PASSWORD) differ from the env names the exporter reads, so map
-              # them explicitly. Do NOT use ${VAR} substitution here — the secret
-              # is not a flux substituteFrom source.
+              # Do NOT use ${VAR} substitution: the secret is not a flux substituteFrom source.
               NUT_EXPORTER_USERNAME:
                 valueFrom:
                   secretKeyRef:

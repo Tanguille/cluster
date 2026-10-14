@@ -6,6 +6,9 @@ metadata:
   name: &app radarr
   namespace: &namespace media
 spec:
+  dependsOn:
+    - name: cloudnative-pg-databases
+      namespace: database
   path: ./kubernetes/apps/media/radarr/app
   targetNamespace: *namespace
   components:

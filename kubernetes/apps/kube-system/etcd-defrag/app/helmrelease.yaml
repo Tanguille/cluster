@@ -29,7 +29,7 @@ spec:
       etcd-defrag:
         type: cronjob
         cronjob:
-          # Hourly check; --defrag-rule only defrags a member once >50MiB is free.
+          # Hourly check; --defrag-rule only defrags a member once >50MiB is free or quota usage >50%.
           schedule: "0 * * * *"
           backoffLimit: 1
         containers:

@@ -68,9 +68,8 @@ spec:
                   resources:
                     requests:
                       cpu: 1
-                      # RandomX fast mode needs ~2336Mi of regular pages once hugepages are gone.
-                      # Requested under that: the sysctl removal frees 2368Mi, leaving 2389/2373Mi on
-                      # control-2/3, and requesting the true figure parks the miner Pending forever.
+                      # RandomX fast mode needs ~2336Mi; requested under that because control-2/3 have
+                      # ~2.3Gi free and the true figure parks the miner Pending.
                       memory: 2Gi
                     limits:
                       cpu: 6
@@ -79,8 +78,7 @@ spec:
             tmp:
               type: emptyDir
               medium: Memory
-              # Capped since the RandomX dataset moved out of hugetlb: tmpfs pages and the ~2336Mi
-              # dataset now share one 3Gi limit, so an unbounded /tmp reaches it.
+              # Memory-backed tmpfs shares the 3Gi limit with the ~2336Mi RandomX dataset, so an unbounded /tmp reaches it.
               sizeLimit: 64Mi
           defaultPodOptions:
             terminationGracePeriodSeconds: 15
@@ -171,6 +169,6 @@ spec:
                   )
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)
-              # half a miner's draw, the same tolerance the single-Deployment version used
+              # half a miner's draw
               activationThreshold: "25"
               ignoreNullValues: "false"

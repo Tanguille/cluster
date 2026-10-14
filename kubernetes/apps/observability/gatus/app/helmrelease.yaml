@@ -38,9 +38,8 @@ spec:
 
     sidecar:
       gatewayNames:
-        # envoy-external is what serves public traffic; the isolated probe only
-        # covers the tunnel and its own gateway, so dropping this in #4086 left
-        # every public hostname unmonitored.
+        # envoy-external serves public traffic; the isolated probe only covers the
+        # tunnel and its own gateway.
         - envoy-external
         - envoy-internal
         - envoy-internal-tls

@@ -15,7 +15,7 @@ spec:
     # Namespaces that actually talk to web3 pods, discovered from the repo:
     # observability = vmagent scraping guard's ServiceMonitor; network =
     # envoy-internal fronting the dashboard HTTPRoute; web3 = intra-ns
-    # (p2pool -> monerod rpc/zmq, xmrig -> p2pool stratum, guard -> xmrig).
+    # (p2pool -> monerod rpc/zmq, xmrig -> p2pool stratum, dashboard -> xmrig api / monerod rpc).
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: web3

@@ -1,9 +1,7 @@
 # App database onboarding — CNPG `Database` CR + managed roles
 
 Apps in this repo get their PostgreSQL role and database **declaratively from CloudNativePG**, not
-from an init-container. This replaced the `ghcr.io/home-operations/postgres-init` pattern (an
-`init-db` container that ran `CREATE ROLE` / `CREATE DATABASE` with superuser credentials at pod
-startup). No app in the repo uses it any more.
+from an init-container.
 
 Each onboarded app has:
 
@@ -12,8 +10,8 @@ Each onboarded app has:
 - a **`Database`** CR in the `database` namespace — declares the database, its owner, and any
   extensions.
 
-The app's runtime connection string (`DATABASE_URL` / `POSTGRES_*`) is unchanged; it still connects
-through the relevant pgbouncer pooler.
+The app's runtime connection string (`DATABASE_URL` / `POSTGRES_*`) connects through the
+relevant pgbouncer pooler.
 
 ## Layout
 
@@ -37,8 +35,7 @@ Two Flux Kustomizations reconcile these:
 > Secret must too; there is no way to place them in an app's own namespace and have them work.
 > This is a known, tracked upstream limitation:
 > [cloudnative-pg/cloudnative-pg#6043](https://github.com/cloudnative-pg/cloudnative-pg/issues/6043)
-> ("allow cross-namespace Database and Role configuration"), open and unimplemented as of
-> 2026-07-11. If/when that lands, revisit moving `cluster/roles/<app>.sops.yaml` and
+> ("allow cross-namespace Database and Role configuration"). If/when that lands, revisit moving `cluster/roles/<app>.sops.yaml` and
 > its `databases/resourceset.yaml` entry into each app's own directory — until then, the shared-cluster model here
 > requires the centralized layout above.
 
@@ -46,7 +43,7 @@ Two Flux Kustomizations reconcile these:
   `Database` CRs. Kept as a separate Kustomization so a single DB-provisioning failure can't stall
   the shared, `wait: true` cluster Kustomization and cascade to every app depending on it.
 
-Apps keep their existing `dependsOn: cloudnative-pg-cluster`.
+New apps depend on `cloudnative-pg-databases`, which creates their `Database` CR.
 
 ## Adoption vs. creation
 

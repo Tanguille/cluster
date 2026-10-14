@@ -4,8 +4,6 @@
 
 Also serves as the authoritative command reference linked from `docs/useful_commands.md`.
 
-Step-by-step procedures for frequent cluster tasks.
-
 ## Validation and tooling
 
 - Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talosctl`, `minijinja-cli`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
@@ -18,8 +16,7 @@ Step-by-step procedures for frequent cluster tasks.
 `ceph crash ls-new` filters on exactly one thing, whether a crash is archived (`crash/module.py`
 `do_ls_new`); age plays no part. `mgr/crash/warn_recent_interval` (86400s here) only gates the
 `RECENT_CRASH` health warning, so it is **not** what bounds this list. The oldest entry is the floor
-of "since the last `crash archive`/`archive-all`", not when the problem started -- which is how a
-first-seen date read off it under-reported an age by eight months. Use `ceph crash ls`, which lists
+of "since the last `crash archive`/`archive-all`", not when the problem started. Use `ceph crash ls`, which lists
 archived crashes too, and `ceph crash info <crash-id>` for the real timestamps.
 
 ## Shell: statuses `set -e` does not see
@@ -28,7 +25,7 @@ archived crashes too, and `ceph crash info <crash-id>` for the real timestamps.
 substitution used as an argument. The producer's exit status is discarded and the consumer runs on
 partial or empty input, so the script succeeds and emits a plausible-looking artifact.
 
-Four instances of this were found in one evening, in two people's code:
+Real instances:
 
 | Shape | What it produced |
 | --- | --- |

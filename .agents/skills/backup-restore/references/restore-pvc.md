@@ -10,7 +10,7 @@ spec:
   postBuild:
     substitute:
       APP: <app>
-      PVC_CAPACITY: <size>   # required
+      PVC_CAPACITY: <size>   # default 5Gi
       # Only set these when the app's REAL uid isn't 568 (this cluster's default
       # convention) — verify live with `kubectl exec deployment/<app> -- id` first,
       # never trust the helmrelease's own securityContext alone (entrypoint privilege
