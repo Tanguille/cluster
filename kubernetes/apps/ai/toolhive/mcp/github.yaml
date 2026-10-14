@@ -6,6 +6,8 @@
 # bare `<pat>` both return 200, `token <pat>` returns 400), so the existing secret key
 # goes in unmodified. Despite the hostname, no Copilot entitlement is involved: a token
 # carrying no `copilot` scope lists all 46 repo/issue/PR tools.
+# The endpoint serves only the toolsets in X-MCP-Toolsets (default: context,repos,issues,
+# pull_requests,users), so toolsFilter entries from any other toolset never reach the catalog.
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServerEntry
@@ -17,6 +19,8 @@ spec:
   groupRef:
     name: all
   headerForward:
+    addPlaintextHeaders:
+      X-MCP-Toolsets: context,repos,issues,pull_requests,users,actions
     addHeadersFromSecret:
       - headerName: Authorization
         valueSecretRef:
@@ -29,7 +33,7 @@ kind: MCPToolConfig
 metadata:
   name: github
 spec:
-  # Source: github/github-mcp-server upstream catalog; exhaustive catalog, hosted endpoint exposes an approximately 46-tool subset.
+  # Source: github/github-mcp-server upstream catalog; exhaustive catalog, hosted endpoint exposes only the X-MCP-Toolsets subset.
   toolsFilter:
     - actions_get
     - actions_list
