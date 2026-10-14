@@ -38,13 +38,14 @@ spec:
   # 400-char items isolated, 120s is the toolhive timeout). Vulkan warmup hangs
   # at parallel=1 (llama.cpp #24307).
   parallelSlots: 4
-  # contextSize/parallelSlots = 4096 per slot, matching the per-input cap below.
-  contextSize: 16384
+  # contextSize/parallelSlots = 8192 per slot, matching the per-input cap below.
+  contextSize: 32768
   # Bidirectional model: min(batchSize, uBatchSize) is the per-input token cap, so
-  # set both (n_batch stays at its 2048 default otherwise). 4096 covers the 30d
-  # peak (4030 tokens, qwen3 tokenizer); attention scratch (GTT) scales with its square.
-  batchSize: 4096
-  uBatchSize: 4096
+  # set both (n_batch stays at its 2048 default otherwise). 8192 is the model's
+  # native context: 4096 rejected a 4105-token kritika chunk. Attention scratch
+  # (GTT) scales with its square.
+  batchSize: 8192
+  uBatchSize: 8192
   extraArgs:
     - "--alias"
     # served model name memini sends in /v1/embeddings
