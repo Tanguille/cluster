@@ -27,13 +27,12 @@ spec:
               MEMINI_BACKEND: "postgres"
               MEMINI_EMBED_BASE_URL: "http://litellm.ai.svc.cluster.local/v1"
               MEMINI_EMBED_API_KEY: ${LITELLM_API_KEY}
-              MEMINI_EMBED_MODEL: "qwen3-embedding"
-              # Native width of Qwen3-Embedding-0.6B; not a truncation, raising it needs a bigger model.
-              MEMINI_EMBED_DIMS: "1024"
-              # Query-only prefix (documents must not carry it): cosine margin 0.419 bare -> 0.474 prefixed.
-              MEMINI_EMBED_QUERY_PREFIX: |-
-                Instruct: Given a search query, retrieve relevant memories that answer the query
-                Query:
+              MEMINI_EMBED_MODEL: "embeddinggemma-2"
+              # Native width of EmbeddingGemma 2. Fixed at store creation: changing it needs export, fresh store, import.
+              MEMINI_EMBED_DIMS: "768"
+              # EmbeddingGemma 2's trained retrieval prompts; prepended verbatim, so the trailing space matters.
+              MEMINI_EMBED_QUERY_PREFIX: "task: search result | query: "
+              MEMINI_EMBED_DOC_PREFIX: "title: none | text: "
               # Re-embed rather than silently mixing vector spaces if the model or dims ever change.
               MEMINI_REEMBED_ON_MODEL_CHANGE: "true"
               # Short serial batches keep capture/dedup embedding from creating a recall tail under load.
