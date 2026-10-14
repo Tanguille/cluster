@@ -360,17 +360,6 @@ spec:
           storageClassName: *blockStorageClass
 
     extraRules:
-      dockerhub-rules:
-        groups:
-          - name: dockerhub
-            rules:
-              - alert: DockerhubRateLimitRisk
-                annotations:
-                  summary: There are {{ $value }} containers pulling from Dockerhub. This may lead to rate limiting.
-                expr: count(time() - container_last_seen{image=~"(docker.io).*",container!=""} < 30) > 100
-                for: 15m
-                labels:
-                  severity: critical
       oom-rules:
         groups:
           - name: oom
@@ -378,7 +367,7 @@ spec:
               - alert: OomKilled
                 annotations:
                   summary: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has been OOMKilled {{ $value }} times in the last 10 minutes.
-                # namespace=ai is excluded: AiContainerOOMKilled (toolhive config prometheusrule)
+                # namespace=ai is excluded: AiContainerOOMKilled (toolhive/app prometheusrule)
                 # covers it with the vmcp-aware runbook. Both firing meant two Discord
                 # pages for one event (critical here, warning there).
                 expr: (kube_pod_container_status_restarts_total{namespace!="ai"} - kube_pod_container_status_restarts_total{namespace!="ai"} offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{namespace!="ai",reason="OOMKilled"}[10m]) == 1

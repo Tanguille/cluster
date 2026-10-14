@@ -30,8 +30,8 @@ spec:
           reasoning_effort: medium
   info:
     mode: chat
-    # maxModelLen (246944) minus maxOutputTokens; re-derive if that changes,
-    # nothing enforces it across the two CRDs.
+    # 246944 minus maxOutputTokens: the pre-262K maxModelLen, kept as margin under
+    # today's 262144 (hermes compression pins 238752). Nothing enforces it across the two CRDs.
     maxInputTokens: 182944
     maxOutputTokens: 64000
 ---

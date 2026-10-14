@@ -5,7 +5,6 @@ kind: MCPServer
 metadata:
   name: victorialogs-mcp
 spec:
-  # renovate: datasource=docker depName=ghcr.io/victoriametrics/mcp-victorialogs
   image: ghcr.io/victoriametrics/mcp-victorialogs:v1.9.0@sha256:753bb4fbe402ca1a782842f44636830f9895736f11d7fe783b924f8a0daf083d
   # Native streamable-http: the binary serves /mcp on 8081 (MCP_LISTEN_ADDR) and
   # the operator dials http://<mcp-container>:8081/mcp directly. No stdio proxy hop.

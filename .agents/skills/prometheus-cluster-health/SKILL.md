@@ -9,7 +9,7 @@ description: >-
   user: "top CPU pods" / "how's the load" → container_cpu usage queries (cores, not sec/min)
   user: "is karakeep healthy?" → filter namespace/pod + correlate alerts
 
-  Prefer observability MCP (Grafana / ToolHive group): read session tool schemas before calling.
+  Prefer the Grafana MCP (via the ToolHive unified vMCP): read session tool schemas before calling.
 compatibility: Requires observability MCP or VictoriaMetrics API access (kubectl port-forward -n observability svc/vmsingle-victoria-metrics 8428). Confirm prefixed tool names (e.g. grafana_query_prometheus) in-session.
 ---
 
@@ -25,7 +25,7 @@ Answer “is the cluster OK?” and “who is using CPU?” with **correct units
 
 ## Tool usage (observability MCP)
 
-Stack: Grafana MCP (`grafana/mcp-grafana`), often behind ToolHive **observability** group. Datasource uid `prometheus` (default) — VictoriaMetrics behind `vmauth-victoria-metrics.observability:8427`; second uid `victoriametrics`.
+Stack: Grafana MCP (`grafana/mcp-grafana`), behind the ToolHive unified vMCP. Datasource uid `prometheus` (default) — VictoriaMetrics behind `vmauth-victoria-metrics.observability:8427`; second uid `victoriametrics`.
 
 **Before any call:** resolve real tool names in this session (may be prefixed, e.g. `grafana_query_prometheus`).
 

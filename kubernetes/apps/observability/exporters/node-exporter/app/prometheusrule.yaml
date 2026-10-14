@@ -88,20 +88,8 @@ spec:
             max by (kubernetes_node) (
               node_drm_memory_gtt_size_bytes{kubernetes_node=~"control-[23]"}
             ) <= 0
-            or (
-              label_replace(vector(1), "kubernetes_node", "control-2", "", "")
-              unless on(kubernetes_node)
-              max by (kubernetes_node) (
-                node_drm_memory_gtt_size_bytes{kubernetes_node="control-2"}
-              )
-            )
-            or (
-              label_replace(vector(1), "kubernetes_node", "control-3", "", "")
-              unless on(kubernetes_node)
-              max by (kubernetes_node) (
-                node_drm_memory_gtt_size_bytes{kubernetes_node="control-3"}
-              )
-            )
+            or absent(node_drm_memory_gtt_size_bytes{kubernetes_node="control-2"})
+            or absent(node_drm_memory_gtt_size_bytes{kubernetes_node="control-3"})
           for: 10m
           annotations:
             summary: >-

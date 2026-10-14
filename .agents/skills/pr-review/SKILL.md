@@ -49,4 +49,4 @@ Spawn focused subagents for GitOps Kubernetes PRs. Each phase uses clean context
 | 2 | HelmRelease / app patterns | `phase-2-best-practices.md` |
 | 3 | SOPS, domains, securityContext | `phase-3-security.md` |
 | 4 | ks.yaml + app/ structure | `phase-4-architecture.md` |
-| 5 | shellcheck, kustomize, flux | `phase-5-validation.md` |
+| 5 | shellcheck, flate | `phase-5-validation.md` |

@@ -21,12 +21,12 @@ backend params inside `parameters`. This box has no `gh`/`GITHUB_TOKEN`, so ther
 
 | Job | Tool |
 |---|---|
-| Commit to a branch (FULL file contents, 1 commit/call) | `github_push_files` — `files: [{path, content}]` + `message` |
-| Delete a file | `github_delete_file` (push_files has no delete) |
+| Commit one file to a branch (FULL contents, 1 commit/call) | `github_create_or_update_file` — `path`, `content`, `message`, blob `sha` when updating |
+| Delete a file | `github_delete_file` |
 | New branch | `github_create_branch` |
 
 - Read current contents before pushing (worktree, or `get_diff`/`get_files`, or raw.githubusercontent.com).
-- `push_files` bypasses local hooks; for code changes verify in a worktree first.
+- `create_or_update_file` bypasses local hooks; for code changes verify in a worktree first.
 - Degraded envelope: check `agent.log` first ("unknown argument" = cron model-routing bug, not
   outage), then `~/.hermes/scripts/toolhive_retry.py call <tool> <json>` — flags BEFORE positionals;
   its SDK client crashes on large payloads even when the server succeeds, trust the raw HTTP

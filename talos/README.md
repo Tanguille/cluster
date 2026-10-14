@@ -64,7 +64,7 @@ centralised.
 
 Documents are laid out to keep `diff-node` honest: `talosctl` diffs a config **textually**, so moving
 a document between layers reorders the output stream and reads as a change even when the content is
-byte-identical. Content shared by every node (the installer image) lives in the layer that owns it;
+byte-identical. Content shared by every node lives in the layer that owns it;
 documents that are identical per node but would reorder the stream stay put.
 
 ## Schematics

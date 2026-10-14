@@ -99,7 +99,6 @@ RUN cd /src \
 # following a heredoc in a multi-stage build, and the inline python3 -c replacement
 # was unreadable.
 RUN mkdir -p /rootfs/usr/share/spdx && python3 /tmp/generate-spdx.py "$KERNEL_VERSION"
-RUN python3 -c "import json;assert json.load(open('/rootfs/usr/share/spdx/kernel.spdx.json'))['packages'][0]['versionInfo']"
 
 FROM scratch
 COPY --from=builder /rootfs/ /

@@ -80,7 +80,6 @@ spec:
                 memory: 512Mi
 
     defaultPodOptions:
-      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
       priorityClassName: homelab-important
 
     persistence:
@@ -106,8 +105,8 @@ spec:
     networkpolicies:
       main:
         # /v1/handshake reports admin=true, read_only=false to any caller, so
-        # reachability is the only access control there is. Scoped to memini alone;
-        # the rest of ai stays default-allow. Egress untouched.
+        # reachability is the only access control there is. Scoped to memini alone,
+        # on top of the ai namespace ingress allowlist. Egress untouched.
         rules:
           ingress:
             - from:
