@@ -148,7 +148,14 @@ spec:
             repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
             GLM and Kimi changes. Check each hit against every symbol the hook
             patches and every flag in the config: a moved symbol fails the
-            boot, a new default can undo a flag. Also flag KV pool sizing or
+            boot, a new default can undo a flag. The hook also calls upstream
+            functions and Triton kernels itself (kernel[grid](...), orig(...)):
+            for each, diff the full parameter list at the previous and new
+            commit and count the positional arguments the hook passes. An
+            added, removed or reordered parameter is a P1 finding, even if
+            the hook's feature check passes. Any change to a file the hook
+            patches is at least a P1 needs-clone-test finding, never prose
+            only. Also flag KV pool sizing or
             page size changes, Qwen3.5 or Qwen3-Next config imports, a ROCm
             base or torch bump, and anything that makes a hook patch
             redundant. Start with a verdict: nothing relevant, needs a clone
