@@ -32,8 +32,12 @@ def _install_triton_tiles(hy):
         return
     orig = hy.triton_w4a16_skinny_fmt_gemm
     kernel = hy._triton_w4a16_skinny_fmt_kernel
-    # Newer vllm (#56301) passes the row strides between num_groups and group_size.
-    has_strides = "stride_bn" in kernel.arg_names
+    # Row strides sit between num_groups and group_size and grow upstream (#56301 stride_bn/stride_am, 0.32 stride_sn).
+    # Pass them in the kernel's own order; an unknown one means a new signature, so keep upstream's gemm.
+    stride_names = [n for n in kernel.arg_names if n.startswith("stride_")]
+    if not set(stride_names) <= {"stride_sn", "stride_bn", "stride_am"}:
+        print(f"[lds-gate-patch] SKIPPED Triton tiles: unknown kernel strides {stride_names}", file=sys.stderr, flush=True)
+        return
 
     def gemm(a, b_q, scales, group_size, zp_bias=8, zp=None):
         M, K = a.shape
@@ -43,7 +47,8 @@ def _install_triton_tiles(hy):
         N = b_q.shape[0]
         c = torch.empty((M, N), dtype=a.dtype, device=a.device)
         grid = (triton.cdiv(M, bm), triton.cdiv(N, bn))
-        strides = (b_q.stride(0), a.stride(0)) if has_strides else ()
+        stride_of = {"stride_sn": scales.stride(0), "stride_bn": b_q.stride(0), "stride_am": a.stride(0)}
+        strides = [stride_of[n] for n in stride_names]
         kernel[grid](
             # the zp pointer is unused when HAS_ZP is False; any tensor will do
             a, b_q, scales, zp if zp is not None else scales, c,
