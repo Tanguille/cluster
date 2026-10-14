@@ -149,7 +149,7 @@ spec:
         decisions:
           - type: ban
             duration: 24h
-        # Only locally-generated alerts reach profiles; CAPI blocklist pulls (15k IPs every 2h) do not
+        # Only locally-generated alerts reach profiles; CAPI blocklist pulls (every 2h) do not
         notifications:
           - alertmanager
         on_success: break

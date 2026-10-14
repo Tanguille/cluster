@@ -434,24 +434,24 @@ spec:
                   severity: warning
               - alert: NodeCPUPressureSustained
                 annotations:
-                  summary: Sustained CPU pressure on {{ $labels.nodename }}
-                  description: CPU PSI wait on {{ $labels.nodename }} has been above 0.5s/s for 15 minutes ({{ $value }}s/s) — precedes cold-reload storms and runner starvation.
+                  summary: Sustained CPU pressure on {{ or $labels.nodename $labels.instance }}
+                  description: CPU PSI wait on {{ or $labels.nodename $labels.instance }} has been above 0.5s/s for 15 minutes ({{ $value }}s/s) — precedes cold-reload storms and runner starvation.
                 expr: rate(node_pressure_cpu_waiting_seconds_total[5m]) > 0.5
                 for: 15m
                 labels:
                   severity: warning
               - alert: NodeMemoryPressureSustained
                 annotations:
-                  summary: Sustained memory pressure on {{ $labels.nodename }}
-                  description: Memory PSI wait on {{ $labels.nodename }} has been above 0.3s/s for 15 minutes ({{ $value }}s/s).
+                  summary: Sustained memory pressure on {{ or $labels.nodename $labels.instance }}
+                  description: Memory PSI wait on {{ or $labels.nodename $labels.instance }} has been above 0.3s/s for 15 minutes ({{ $value }}s/s).
                 expr: rate(node_pressure_memory_waiting_seconds_total[5m]) > 0.3
                 for: 15m
                 labels:
                   severity: warning
               - alert: NodeVarFillingUp
                 annotations:
-                  summary: /var on {{ $labels.nodename }} is filling up
-                  description: "/var on {{ $labels.nodename }} has less than 15% free space ({{ $value | humanizePercentage }})." # plain threshold; predict_linear false-fires on fresh series
+                  summary: /var on {{ or $labels.nodename $labels.instance }} is filling up
+                  description: "/var on {{ or $labels.nodename $labels.instance }} has less than 15% free space ({{ $value | humanizePercentage }})." # plain threshold; predict_linear false-fires on fresh series
                 expr: node_filesystem_avail_bytes{mountpoint="/var"} / node_filesystem_size_bytes{mountpoint="/var"} < 0.15
                 for: 30m
                 labels:

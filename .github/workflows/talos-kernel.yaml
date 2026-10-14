@@ -9,6 +9,9 @@ on:
       # Not a build input; editing it cost an 11m no-op run (33327983434).
       - "!docker/talos-kernel/README.md"
       - scripts/talos-kernel-build.sh
+      # kernel-version, tuppr-version and kernel-build recipes the build calls.
+      - .justfile
+      - talos/mod.just
       - talos/schematic.yaml
       - talos/nodes/**/*.schematic.yaml
       - kubernetes/apps/system-upgrade/tuppr/upgrades/talosupgrade.yaml

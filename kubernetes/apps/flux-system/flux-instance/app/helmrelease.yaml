@@ -126,7 +126,8 @@ spec:
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --oom-watch-interval=500ms
-              # DefaultToRetryOnFailure: automatically retry failed HelmReleases rather than requiring manual intervention.
+              # DefaultToRetryOnFailure: retry failed installs instead of stalling. Upgrades keep the cluster ks patch's
+              # explicit RemediateOnFailure (rollback, then 2 retries), which overrides this gate.
               # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
               # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
               - op: add
