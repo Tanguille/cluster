@@ -16,11 +16,10 @@ sys.meta_path[:] = [f for f in sys.meta_path if type(f).__module__ != "zz_lds_ga
 from vllm.model_executor.kernels.linear.mixed_precision import rdna_hybrid_w4a16 as hy
 from vllm.triton_utils import triton
 
-from triton_m32_sweep import G, SHAPES, dev, timeit
+from triton_m32_sweep import G, SHAPES, dev, strides, timeit
 
 MS = [int(a) for a in sys.argv[1:sys.argv.index("--port") if "--port" in sys.argv else None]] or [2048]  # runner appends --port N
 KERNEL = hy._triton_w4a16_skinny_fmt_kernel
-HAS_STRIDES = "stride_bn" in KERNEL.arg_names  # vllm#56301 passes the row strides
 CFGS = [c for c in itertools.product((16, 32, 64, 128, 256), (16, 32, 64, 128), (64, 128), (1, 2, 4, 8), (None, 1))
         if 64 <= c[0] * c[1] // c[3] <= 4096]  # (BM, BN, BK, warps, stages); accumulator elements per warp in [64, 4096]
 
@@ -33,9 +32,8 @@ def launch(x, w_q, w_s, w_zp, N, K, BM, BN, BK, warps, stages):
     M = x.shape[0]
     c = torch.empty((M, N), dtype=x.dtype, device=dev)
     kw = {} if stages is None else {"num_stages": stages}
-    strides = (w_q.stride(0), x.stride(0)) if HAS_STRIDES else ()
     KERNEL[(triton.cdiv(M, BM), triton.cdiv(N, BN))](
-        x, w_q, w_s, w_zp, c, M, N, K, K // 8, K // G, *strides,
+        x, w_q, w_s, w_zp, c, M, N, K, K // 8, K // G, **strides(x, w_q, w_s),
         group_size=G, ZP_BIAS=8, HAS_ZP=True, BLOCK_M=BM, BLOCK_N=BN, BLOCK_K=min(BK, G),
         num_warps=warps, **kw)
     return c
