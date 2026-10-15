@@ -36,7 +36,7 @@ jobs:
         id: flate
         env:
           FLATE_OUTPUT: github
-          FLATE_PATH: ./kubernetes/flux/cluster
+          FLATE_PATH: ./kubernetes/apps
         run: |-
           for kind in helmrelease kustomization; do
             {
@@ -50,7 +50,7 @@ jobs:
         id: images
         env:
           FLATE_OUTPUT: json
-          FLATE_PATH: ./kubernetes/flux/cluster
+          FLATE_PATH: ./kubernetes/apps
         run: |-
           {
             echo 'images<<EOF'
