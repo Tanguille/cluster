@@ -26,9 +26,7 @@ spec:
         snapshotPolicy: volumeSnapshot
         controllerPlugin:
           replicas: 2
-          # Right-sized requests (~2x observed steady-state; chart defaults requested ~3.7 CPU
-          # cluster-wide). The chart renders every container key once resources is set, so the
-          # full map is required. Anchored: cephfs aliases these same maps below.
+          # ~2x observed steady state (defaults asked ~3.7 CPU cluster-wide); container keys left out render as {}.
           resources: &csiControllerResources
             attacher:
               requests: { cpu: 50m, memory: 64Mi }

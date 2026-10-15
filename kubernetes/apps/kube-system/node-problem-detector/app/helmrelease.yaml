@@ -19,10 +19,6 @@ spec:
       enabled: true
       serviceMonitor:
         enabled: true
-        additionalRelabelings:
-          # problem_counter/problem_gauge carry no node label; map it from pod metadata.
-          - sourceLabels: [__meta_kubernetes_pod_node_name]
-            targetLabel: node
     resources:
       requests:
         cpu: 10m

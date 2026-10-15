@@ -30,7 +30,7 @@ spec:
           labels:
             severity: warning
         - alert: NodeGTTMemoryHigh
-          # Pinned iGPU memory the OOM killer cannot reclaim; normal embedder use is 1-2GB. Only the iGPU nodes expose GTT.
+          # Pinned iGPU memory the OOM killer cannot reclaim; normal embedder use is 1-2GB.
           expr: |-
             node_drm_memory_gtt_used_bytes{kubernetes_node=~"control-[23]"} > 4294967296
           for: 15m

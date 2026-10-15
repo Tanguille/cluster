@@ -32,11 +32,12 @@ EAGLE3, DFlash), either one disqualifying:
 
 1. **Drafter KV is additive and bf16** — pushes the model-length cap below the
    112K production peak.
-2. **vllm#41640 (unmerged, stale since 2026-08-24)** — vLLM cannot identify a
+2. **vllm#41640 (closed unmerged 2026-09-08)** — vLLM cannot identify a
    GQA drafter's KV group on a non-MLA target, so every group including the
    Mamba groups is treated as a draft group. That disables prefix caching and
    makes the KV offload tier write-only. This deployment cannot afford either:
-   removing the fs tier alone halved single-stream decode.
+   removing the fs tier alone halved single-stream decode. Fixed for MTP only
+   by vllm#55390 (merged 2026-09-22), unverified here.
 
 A third, the tool-calling/structured-output wedge (vllm#49002), was fixed by
 vllm#55223 and verified here 2026-09-12.
@@ -48,7 +49,7 @@ wrong output on this model family.
 
 So the exit condition is narrow: **vllm#39273 fixed** re-opens n-gram, which is
 the only method whose performance was ever worth having here. Everything
-drafter-based additionally needs vllm#41640 and a drafter under ~2.5 GiB that does not currently exist.
+drafter-based additionally needs a draft-group fix (merged for MTP only, vllm#55390) and a drafter under ~2.5 GiB that does not currently exist.
 
 n-gram is fast — measurably 1.8-2.1x on echo-heavy work — and it silently
 corrupts output.
@@ -226,7 +227,7 @@ Consequences, in order of how they bit:
 Quantizing the drafter does not help here: KV cost follows the drafter's
 *layers*, not its weights. The W4A16 DFlash2 drafter has the same 5 layers.
 
-### 2. Prefix caching and the KV offload tier get disabled (vllm#41640, open)
+### 2. Prefix caching and the KV offload tier get disabled (vllm#41640, closed unmerged)
 
 With DSpark on, the engine logs:
 
@@ -255,14 +256,17 @@ every group is treated as a draft group.
 
 - vllm#41640 generalizes the annotation (`is_eagle` on `AttentionSpec`). Two
   maintainers reviewed it favorably; it then went stale (bot-marked 2026-08-24)
-  with unresolved conflicts. **Not merged.**
+  with unresolved conflicts. **Closed unmerged 2026-09-08.**
 - vllm#55622 (2026-09-07) hit the identical problem independently for GLM-5.3's
   GQA drafters and confirmed the same fix shape; withdrawn as fork-only.
-- vllm#55519 (open) only suppresses a false-positive variant of the warning; it
-  does not fix detection.
+- vllm#55519 (closed unmerged 2026-09-24) only suppresses a false-positive
+  variant of the warning; it does not fix detection.
+- vllm#55390 (merged 2026-09-22) extends the positional fallback to any `mtp`
+  drafter; its own test keeps `eagle`, `eagle3` and `dspark` warning.
 
-Not fundamental in principle — a fix exists and is half-reviewed — but unfixed
-in anything shipped, and stalled for months. Treat as fundamental for planning.
+Not fundamental in principle — a fix was written and half-reviewed — but unfixed
+for non-MTP drafters in anything shipped, and stalled for months. Treat as
+fundamental for planning.
 
 ### 3. The tool-calling / structured-output wedge: fixed upstream, verified here 2026-09-12 (vllm#49002)
 

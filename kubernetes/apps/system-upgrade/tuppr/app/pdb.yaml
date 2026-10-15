@@ -5,9 +5,7 @@ kind: PodDisruptionBudget
 metadata:
   name: tuppr
 spec:
-  # 2 replicas; the chart has no PDB values. tuppr drives the node-drain upgrade
-  # plans itself, so one controller pod must survive a drain or a reboot plan
-  # stops progressing mid-rolling-upgrade.
+  # Chart has no PDB values; one controller must survive a drain or the rolling upgrade stalls.
   minAvailable: 1
   selector:
     matchLabels:

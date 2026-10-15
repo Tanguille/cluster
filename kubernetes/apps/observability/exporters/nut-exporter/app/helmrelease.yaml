@@ -39,8 +39,7 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
-            # Same endpoint the ServiceMonitor scrapes; a 200 here means the
-            # exporter is up AND the UPS connection answers.
+            # Probe the scraped /ups_metrics: a 200 means the UPS connection answers, not just the exporter.
             probes:
               liveness: &probe
                 enabled: true
@@ -74,4 +73,3 @@ spec:
           - port: http
             path: /ups_metrics
             interval: 1m
-            scrapeTimeout: 10s

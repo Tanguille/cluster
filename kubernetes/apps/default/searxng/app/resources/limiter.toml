@@ -16,4 +16,4 @@ trusted_proxies = [
 [botdetection.ip_lists]
 # Allow trusted private clients to bypass header/link-token bot checks while the
 # limiter remains active for public clients.
-pass_ip = ["10.42.0.0/16", "${LAN_CIDR}"]
+pass_ip = ["${POD_CIDR}", "${LAN_CIDR}"]

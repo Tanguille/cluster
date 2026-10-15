@@ -19,10 +19,7 @@ this note exists so the next person to try one does not trust these numbers.
 
 Per rep it reports the EXACT mean ITL from the sum/count counter deltas, plus
 the share of tokens past the 50 and 75 ms bucket edges. The tail shares are what
-separate a uniformly slower kernel from occasional stalls; percentiles are
-deliberately not interpolated out of the buckets, because the edges
-(.01/.025/.05/.075/.1) are coarse enough that an interpolated p50 snaps to a
-bucket midpoint and invents precision.
+separate a uniformly slower kernel from occasional stalls.
 
 Usage: longctx.py PORT MODEL [PROMPT_TOKENS] [REPS] [FIXED_SALT]
 """
@@ -125,9 +122,6 @@ for r in range(REPS):
 
     n = c1 - c0
     delta = {le: b1.get(le, 0) - b0.get(le, 0) for le in b1}
-    # Mean from the sum/count counters is exact. The histogram's coarse edges
-    # (.025/.05/.075) make an interpolated p50 snap to bucket midpoints, which
-    # invents precision -- so buckets are only used for the tail share below.
     mean = (s1 - s0) / n if n else 0
     over75 = (n - delta.get(0.075, 0)) / n if n else 0
     over50 = (n - delta.get(0.05, 0)) / n if n else 0

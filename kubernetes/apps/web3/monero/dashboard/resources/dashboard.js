@@ -225,7 +225,7 @@ function sliceHistory(hours, historyData) {
   const startIndex = idx === -1 ? 0 : idx;
 
   return {
-    labels: historyData.timestamps.slice(startIndex).map((t) => t * 1000),
+    timestamps: historyData.timestamps.slice(startIndex),
     myHash: historyData.myHash?.slice(startIndex) || [],
     poolHash: historyData.poolHash?.slice(startIndex) || [],
     netHash: historyData.netHash?.slice(startIndex) || []
@@ -264,8 +264,7 @@ function movingAverage(timestamps, values, windowSeconds) {
 }
 
 function extractXMRigHashrate(xmrigData) {
-  if (!isValidObject(xmrigData)) return 0;
-  return xmrigData.hashrate?.total?.[0] || xmrigData.hashrate?.total || 0;
+  return xmrigData.hashrate?.total?.[0] || 0;
 }
 
 function extractPoolHashrate(poolData) {
@@ -306,7 +305,7 @@ function calculateMovingAverages(
   }
 
   const windowSeconds = windowHours * CONFIG.SECONDS_PER_HOUR;
-  const timestamps = sliced.labels.map((t) => t / 1000);
+  const { timestamps } = sliced;
 
   return {
     avgMyHash:

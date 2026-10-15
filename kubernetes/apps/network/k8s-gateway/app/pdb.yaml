@@ -5,8 +5,7 @@ kind: PodDisruptionBudget
 metadata:
   name: k8s-gateway
 spec:
-  # 2 replicas hard-spread over 3 nodes (TSC in the HelmRelease values). The chart
-  # PDB value would collide with this existing object on adoption, so it stays here.
+  # Not the chart value: its PDB would collide with this existing object on adoption.
   minAvailable: 1
   selector:
     matchLabels:

@@ -37,14 +37,15 @@ spec:
           # off.
           gpu:
             enabled: false
+          # NVIDIA DCGM alerts; nothing exports DCGM_* on this AMD-only cluster.
+          gpuHealth:
+            enabled: false
 
     grafana:
       dashboards:
         enabled: true
         namespace: observability
-        # Auto mode gates runtime dashboards;
-        # amd-gpu-observability/quota/slo/model-router render blank here (no
-        # pyrra, drm_* not amdgpu_*).
+        # Auto mode gates the SGLang and vLLM dashboards; quota, slo and model-router render blank (no GPUQuota, pyrra or ModelRouter).
         operator:
           enabled: true
           folder: ai
@@ -58,8 +59,7 @@ spec:
     # RWX on CephFS: controller and iGPU services land on different nodes; read
     # once at load. qwen38-27b-vllm has its own node-local cache.
     modelCache:
-      # embeddinggemma-2 0.31Gi + qwen35-2b 1.18Gi; 8Gi after hitting 100% at 4Gi
-      # (the operator never GCs old revisions).
+      # embeddinggemma-2 0.31Gi + qwen35-2b 1.18Gi + bge-reranker-v2-m3; 8Gi after 100% at 4Gi: the operator never GCs old revisions.
       size: 8Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany

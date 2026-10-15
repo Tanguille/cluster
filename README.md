@@ -134,7 +134,7 @@ Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman
 <details>
 <summary>🌐 <b>Network & edge</b> (namespace <code>network/</code>)</summary>
 
-Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (L4) · external-dns ·
+Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (internal DNS) · external-dns ·
 External-Service · SMTP-Relay
 
 </details>
@@ -159,8 +159,8 @@ CloudNative-PG (Postgres clusters with WAL archiving) · Dragonfly (Redis-compat
 <details>
 <summary>🛡️ <b>Security</b> (namespace <code>security/</code>)</summary>
 
-CrowdSec (fail2ban-style intrusion detection) · KGuardian (network policy
-enforcement) · Trivy-Operator (image & CVE scanning)
+CrowdSec (fail2ban-style intrusion detection) · KGuardian (eBPF network &
+security monitoring) · Trivy-Operator (image & CVE scanning)
 
 </details>
 

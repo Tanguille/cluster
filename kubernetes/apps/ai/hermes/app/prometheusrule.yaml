@@ -7,12 +7,8 @@ metadata:
 spec:
   groups:
     - name: hermes.rules
-      # scripts/cron_health_export.py (on the hermes PVC, not in git) pushes
-      # cron/jobs.json state every 10m. Pushed, not scraped, so VM's 5m default
-      # staleness makes a bare instant selector return nothing between pushes:
-      # absent() would flap and the failure rules would go blind exactly half the
-      # time. last_over_time() pins every rule to the newest real sample instead of
-      # the staleness window.
+      # Pushed every 10m by cron_health_export.py (hermes PVC, not git); bare selectors go blind
+      # past VM's 5m staleness, so every rule uses last_over_time().
       rules:
         # A paused job's frozen last status never clears, so paused jobs are excluded.
         # The 1h clause bounds last_status_ok staleness for infrequent jobs (a weekly cron fired 5 days on one transient error); with for: 15m plus the 10m export interval it leaves ~35m of firing.
@@ -69,9 +65,7 @@ spec:
           labels:
             severity: warning
 
-        # No for:: absent() over a 2h-integrated window cannot flap, and any delay here
-        # reopens the gap where Stale has already resolved but Absent has not yet fired,
-        # which reports "recovered" in the middle of an outage.
+        # No for: absent() over 2h cannot flap, and a delay would read "recovered" between Stale resolving and Absent firing.
         - alert: HermesCronExporterAbsent
           expr: |-
             absent(last_over_time(hermes_cron_export_timestamp[2h]))

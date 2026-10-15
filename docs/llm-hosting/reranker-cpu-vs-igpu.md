@@ -1,17 +1,17 @@
 # Reranker: CPU vs iGPU (Vulkan)
 
 Decision record: `bge-reranker-v2-m3` stays on the iGPU. CPU is 2.5-3.2x slower and
-breaks memini's rerank timeout. Sibling of [embedder-cpu-vs-igpu.md](embedder-cpu-vs-igpu.md).
+breaks memini's rerank timeout at 12 docs per request. Sibling of [embedder-cpu-vs-igpu.md](embedder-cpu-vs-igpu.md).
 
 ## Method (2026-10-06, control-3)
 
 Same llama.cpp build (11429, `d81235049`), same model file, same args; only the backend differs.
 
 - **Model**: `bge-reranker-v2-m3` Q8_0, mounted read-only from the live `llmkube-model-cache` PVC (RWO, same node).
-- **Args** (both): `--ctx-size 4096 --parallel 1 --batch-size 4096 --ubatch-size 4096 --reranking --embedding --pooling rank --cache-ram 0` (the live spec is now 2048, same scores, 1.0 GiB GTT instead of 4.4).
+- **Args** (both): `--ctx-size 4096 --parallel 1 --batch-size 4096 --ubatch-size 4096 --reranking --embedding --pooling rank --cache-ram 0` (the live spec is now 2048, same scores, far less GTT).
   - iGPU: the `bge-reranker-v2-m3` InferenceService as of 2026-10-06 (`--n-gpu-layers 99`).
   - CPU: temporary pod, same `server-vulkan` image (it ships the `libggml-cpu-*` backends), `--device none --n-gpu-layers 0`, 6 threads (llama.cpp default), no `squat.ai/dri` slot, `requests.cpu: 1`. Confirmed CPU-only: `kubectl logs` says "no usable GPU found" and the pod has no `/dev/dri`.
-- **Driver**: `rerank_cpu_vs_igpu.py` (not committed) via `kubectl port-forward -n ai deploy/bge-reranker-v2-m3 18081:8080` and `... pod/rerank-cpu-test 18082:8080`, 1 warmup discarded, 15 requests per backend, iGPU and CPU interleaved so drift and live memini traffic hit both. Each request scores 12 documents (memini's `MEMINI_RERANK_POOL`) cut from repo `docs/**/*.md` (main checkout at `25ee4d5b7`, untracked files included), so scores are not reproducible; latency is, since it scales with chars.
+- **Driver**: `rerank_cpu_vs_igpu.py` (not committed) via `kubectl port-forward -n ai deploy/bge-reranker-v2-m3 18081:8080` and `... pod/rerank-cpu-test 18082:8080`, 1 warmup discarded, 15 requests per backend, iGPU and CPU interleaved so drift and live memini traffic hit both. Each request scores 12 documents (memini's `MEMINI_RERANK_POOL` then, 4 since 3c120e259) cut from repo `docs/**/*.md` (main checkout at `25ee4d5b7`, untracked files included), so scores are not reproducible; latency is, since it scales with chars.
 - **Load**: control-3 was at ~48% CPU (`kubectl top nodes`) with other workloads, so CPU numbers include realistic contention.
 
 ## Results (seconds per 12-doc request)
@@ -25,6 +25,6 @@ Score parity: max abs diff 0.039 (1024) and 0.020 (300). Rankings match except n
 
 ## Decision
 
-Keep the iGPU. CPU at 1024 chars (8.4s p50) exceeds `MEMINI_RERANK_TIMEOUT` (8s then, 5s since 8429c1d8a), so nearly every recall would time out. Not tested: more than 6 threads.
+Keep the iGPU. CPU at 12 x 1024 chars (8.4s p50) exceeds `MEMINI_RERANK_TIMEOUT` (8s then, 5s since 8429c1d8a), so nearly every recall would time out. Not tested: more than 6 threads, or 4 docs per request.
 
 Resolved: scores are raw logits; the MIN_SCORE gate was dropped in 8429c1d8a.

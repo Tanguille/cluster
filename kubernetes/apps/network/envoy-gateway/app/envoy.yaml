@@ -157,12 +157,6 @@ metadata:
   name: envoy-internal-tls
   annotations:
     external-dns.kubernetes.io/target: &hostname-tls internal-tls.${SECRET_DOMAIN}
-    gatus.home-operations.com/endpoint: |-
-      group: internal
-      guarded: true
-      ui:
-        hide-hostname: true
-        hide-url: true
 spec:
   gatewayClassName: envoy
   infrastructure:
@@ -219,10 +213,6 @@ spec:
   targetSelectors:
     - kind: Gateway
   tcpKeepalive: {}
-  tls:
-    alpnProtocols:
-      - h2
-      - http/1.1
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.envoyproxy.io/securitypolicy_v1alpha1.json
 apiVersion: gateway.envoyproxy.io/v1alpha1

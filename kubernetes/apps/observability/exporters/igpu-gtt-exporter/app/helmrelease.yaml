@@ -34,7 +34,7 @@ spec:
               capabilities:
                 drop: [ALL]
                 add: [SYS_PTRACE]
-            # TCP, not /metrics: every scrape walks all of /proc
+            # TCP, not /metrics: every GET reruns the DRM client scan on the single-threaded server
             probes:
               liveness: &probe
                 enabled: true
@@ -60,8 +60,7 @@ spec:
         endpoints:
           - port: http
             relabelings:
-              - action: replace
-                sourceLabels: [__meta_kubernetes_pod_node_name]
+              - sourceLabels: [__meta_kubernetes_pod_node_name]
                 targetLabel: kubernetes_node
     persistence:
       config:
