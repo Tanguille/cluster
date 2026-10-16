@@ -10,10 +10,6 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   folder: kubernetes
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
-  # Chart ConfigMap (no JSON copy to drift); its 16 DS_PROMETHEUS refs need the datasources mapping above.
   configMapRef:
     name: spegel-dashboard
     key: spegel.json
