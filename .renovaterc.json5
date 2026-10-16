@@ -140,13 +140,6 @@
     }
   ],
   packageRules: [
-    {
-      // Talos tags appear while the release is still a draft, before mise can resolve its assets.
-      matchManagers: ["mise"],
-      matchPackageNames: ["siderolabs/talos"],
-      overrideDatasource: "github-releases",
-      extractVersion: "^v(?<version>.*)$"
-    },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
       description: "Auto-merge patch and digest bumps once they have aged 3 days",
@@ -232,10 +225,11 @@
       minimumGroupSize: 2
     },
     {
-      // talosupgrade.yaml and the mise talosctl pin move together after the release is published.
+      // Wait for another Talos update instead of opening a CLI-only bump from an early tag.
       description: "Talos Group",
       groupName: "talos",
-      matchPackageNames: ["/siderolabs/"]
+      matchPackageNames: ["/siderolabs/"],
+      minimumGroupSize: 2
     },
     {
       description: "Rook-Ceph Group",
