@@ -163,7 +163,7 @@ spec:
     enablePrefixCaching: true
     # 2048 beats 4096 and 8192 on cold prefill and free VRAM at 8 sessions, NLL +0.00035 (ttft-breakdown-2026-10.md).
     maxNumBatchedTokens: 2048
-    # Shared with Jellyfin: 0.9 x 32 GiB = 28.8 GiB leaves 3.2 GiB (>= 1.82 GiB Jellyfin floor). --kv-cache-memory sets the pool.
+    # Shared with Jellyfin: card1 idles at 29.7 of 31.9 GiB with vLLM and media, leaving 2.1 GiB (>= 1.82 GiB Jellyfin floor). --kv-cache-memory sets the pool.
     gpuMemoryUtilization: 0.9
   env:
     # Kept from the fp8 stack; full attention now runs the ULTRAQUANT backend (boot log "Overriding with").

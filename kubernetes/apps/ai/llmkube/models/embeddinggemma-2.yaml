@@ -58,12 +58,10 @@ spec:
     # hit it.
     - "--cache-ram"
     - "0"
-  # Pin to the dGPU node (control-1): 296 MiB Q8 model co-located with the 27B
-  # vLLM (28.8 GiB) + ~0.7 GiB -> 3.3 GiB headroom, above the 1.82 GiB Jellyfin
-  # floor. control-1 advertises 5 squat.ai/dri slots; vLLM holds one, this takes
-  # another. ~3-4x embedding throughput vs the shared-memory iGPU (2026-10-16).
+  # Pin to an iGPU node. On the dGPU it took 1.2 GiB of VRAM and left 0.93 GiB
+  # free, under the 1.82 GiB Jellyfin floor.
   nodeSelector:
-    amd.com/gpu: "true"
+    amd.com/igpu: "true"
   # One iGPU model per node; both sides carry the rule (checked for the moving pod only).
   affinity:
     podAntiAffinity:
@@ -80,7 +78,7 @@ spec:
       - 44
       - 226
   resources:
-    cpu: "500m" # inference is on the dGPU; CPU only tokenises/schedules
+    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
     # Request AND limit (llmkube >= 0.9.29); working set ~250Mi, model buffer in
     # amdgpu GTT (uncharged). The 6Gi reservation held control-2 at 95.8% overcommit.
     memory: 512Mi
