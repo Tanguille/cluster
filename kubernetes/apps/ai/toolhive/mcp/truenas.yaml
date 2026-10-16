@@ -1,17 +1,7 @@
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
-# cedricziel/truenas-mcp (MIT, actively maintained) — pools, datasets, apps,
-# VMs, shares, tasks, and system info exposed to the ToolHive optimizer. Verified
-# against the live TrueNAS 26 JSON-RPC WebSocket API.
-#
-# Read-only by default: writes require TRUENAS_MCP_ENABLE_WRITES, in addition to
-# the upstream denylist of unrecoverable operations.
-#
-# Why not the official iXsystems server: it has stalled since 2026-07-22, ships
-# binaries only, and has no --readonly flag.
-#
-# Stdio transport: the operator launches the server and speaks MCP over stdio.
-# TLS stays verified by default; the target is reached through its Let's Encrypt
-# name (truenas.${SECRET_DOMAIN}), with no INSECURE flag.
+# cedricziel/truenas-mcp (MIT): read-only unless TRUENAS_MCP_ENABLE_WRITES, on top of upstream's denylist of unrecoverable ops.
+# Chosen over iXsystems' server: stalled upstream, binaries only, no --readonly.
+# TLS stays verified: the target is its Let's Encrypt name, no INSECURE flag.
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServer

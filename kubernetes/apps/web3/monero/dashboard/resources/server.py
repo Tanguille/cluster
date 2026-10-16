@@ -189,7 +189,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def proxy(self, request, error_prefix, error_status, timeout=5):
         """Stream an upstream JSON response through, relaying Content-Encoding.
 
-        Observer bodies reach 9MB, held whole in a 256Mi container by r.read().
+        Streamed, not read whole: observer bodies reach 9MB against a 256Mi limit.
         """
         try:
             r = urllib.request.urlopen(request, timeout=timeout)
@@ -462,7 +462,7 @@ def log_loop():
     Continuously fetch stats from xmrig, pool, monerod, and XMR price.
     Appends to the in-memory rolling log every 10 seconds; persists to disk
     every 5 minutes (the file only exists for chart continuity across pod
-    restarts — the PVC is 3x-replicated Ceph, don't rewrite 0.5MB every 10s).
+    restarts — the PVC is replicated CephFS, don't rewrite 0.5MB every 10s).
     Runs in a separate daemon thread.
     """
     last_save = 0

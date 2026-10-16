@@ -13,9 +13,7 @@ spec:
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
-  # From the chart's own ConfigMap, so the JSON can never drift from the chart
-  # version. 16 panels hardcode ${DS_PROMETHEUS}, so the datasources mapping
-  # above is load-bearing - without it they resolve to nothing.
+  # Chart ConfigMap (no JSON copy to drift); its 16 DS_PROMETHEUS refs need the datasources mapping above.
   configMapRef:
     name: spegel-dashboard
     key: spegel.json

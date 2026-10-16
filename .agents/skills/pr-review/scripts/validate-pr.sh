@@ -64,9 +64,8 @@ echo ""
 
 # Phase 2: Shellcheck (if shell scripts exist)
 echo "[2/2] Shell Script Validation..."
-# skip nested worktrees wherever they live — parallel checkouts validate themselves, and a
-# REPO_ROOT-anchored exclude would swallow the whole tree when run from inside one
-SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "*/worktrees/*" -not -path "*/.worktrees/*" 2>/dev/null)
+# skip worktrees nested below REPO_ROOT; anchored because REPO_ROOT's own path contains /worktrees/ inside one
+SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/*worktrees/*" 2>/dev/null)
 if [ -n "$SHELL_SCRIPTS" ]; then
     if command -v shellcheck &>/dev/null; then
         # shellcheck disable=SC2086 # word-splitting the list is intended; quoting it passes all paths as one filename

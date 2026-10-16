@@ -35,11 +35,10 @@ this turn, follow the [handoff skill](../../handoff/SKILL.md).
 
 ## CI triage — classify before touching the diff
 
-1. Read the failure: `get_check_runs` for names/conclusions; job logs via the ssh-gh fallback
-   (`.agents/learned-workspace.md` § ToolHive / MCP).
+1. Read the failure: `get_check_runs` for names/conclusions; job logs via `github_get_job_logs`.
 2. Classify exactly one:
    - **diff-introduced** → fix files (read current → edit → commit per that table), re-check.
-   - **baseline/environment** → prove it fails on `origin/main` too (`gh run list --branch main`), then
+   - **baseline/environment** → prove it fails on `origin/main` too (`github_actions_list`, branch main), then
      STOP fixing the diff; comment the evidence, wait or report.
    - **flake** → re-run ONCE. Second failure on the same job is not a flake — re-classify.
 3. Record the classification on the PR (one line) so the next agent doesn't re-diagnose.

@@ -1,8 +1,8 @@
 """Correctness gate for uq_decode_fast.
 
-GPU (pod image):  python test_uq_decode_fast.py           ctx 1K/4K/64K, also runs the upstream launcher
+GPU (pod image):  python test_uq_decode_fast.py           ctx 1K/4K/16K, also runs the upstream launcher
 CPU interpreter:  TRITON_INTERPRET=1 python test_uq_decode_fast.py
-                  (no vllm: loads the real upstream files from ./up through cpu_vllm_shim; small ctx)
+                  (no vllm: loads the real upstream files from ./up through cpu_vllm_shim, neither in git; small ctx)
 
 Reference: upstream ultraquant_full_dequant_kv into bf16 (exact for FP4 x 2^k), then
 fp32 softmax attention with the Hadamard-rotated query. Exits non-zero on any failure.

@@ -14,9 +14,7 @@ spec:
     autoDirectNodeRoutes: true
     bpf:
       datapathMode: netkit-l2
-      # Fixed CT sizes (~2.3x the measured 688K live entries from p2pool churn)
-      # instead of per-CPU LRU + 3% RAM ratio, which cost 3.6GB agent RSS on
-      # the 40GB node; watch cilium_drop_count_total for CT exhaustion.
+      # ~2.3x the 688K measured live CT entries; per-CPU LRU + 3% RAM sizing cost 3.6GB agent RSS.
       ctTcpMax: 1572864
       ctAnyMax: 786432
       masquerade: true
@@ -24,8 +22,7 @@ spec:
     bpfClockProbe: true
     cgroup:
       hostRoot: /sys/fs/cgroup
-      # Talos 1.14: cgroupv2 and bpffs are provided by the OS,
-      # do not let the agent try to mount them.
+      # Talos already mounts cgroupv2 at /sys/fs/cgroup.
       autoMount:
         enabled: false
     dashboards:
@@ -90,8 +87,6 @@ spec:
           - NET_ADMIN
           - SYS_ADMIN
           - SYS_RESOURCE
-    # No hostNamespaceOnly: it forces per-packet ClusterIP NAT in bpf_lxc, and
-    # same-node replies then hit ingress policy un-rev-NAT'd (src = ClusterIP,
-    # identity = backend pod) and get dropped by every ingress allowlist.
+    # No hostNamespaceOnly: its per-packet ClusterIP NAT gets same-node replies dropped by every ingress allowlist.
     socketLB:
       enabled: true

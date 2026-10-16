@@ -87,4 +87,4 @@ Use [backup-restore](skills/backup-restore/SKILL.md) skill for kopiur Kopia oper
 
 ## Other skills
 
-See the [skill catalog](../AGENTS.md#load-context-on-demand) for git-worktree-isolation, k8s-at-home-research, pr-review, and prometheus-cluster-health.
+See the [skill catalog](../AGENTS.md#load-context-on-demand) for the remaining skills.

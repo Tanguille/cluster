@@ -16,8 +16,7 @@ spec:
       app: dragonfly
       app.kubernetes.io/name: dragonfly
   ingress:
-    # 6379 (redis): the namespaces that consume dragonfly, per
-    # database-ingress-allowlist; database = intra-ns (replicas, poolers).
+    # 6379 (redis): dragonfly clients (renovate = operator cache) plus the namespaces copied from database-ingress-allowlist.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai

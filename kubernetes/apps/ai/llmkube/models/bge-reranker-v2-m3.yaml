@@ -38,8 +38,7 @@ metadata:
   name: bge-reranker-v2-m3
 spec:
   modelRef: bge-reranker-v2-m3
-  # mode: rerank auto-appends --reranking --embedding --pooling rank
-  # (LLMKube >=0.9.17; we run 0.9.29) — no hand-wired flags.
+  # mode: rerank auto-appends --reranking --embedding --pooling rank --cache-ram 0; no hand-wired flags.
   mode: rerank
   # GTT-leak mitigation as with embeddinggemma-2: lifetime covers startup and
   # model load before this Vulkan server is recycled.

@@ -6,7 +6,7 @@ metadata:
   name: tuppr-rules
 spec:
   groups:
-    # Must not collide with the chart's own `tuppr` group (monitoring.prometheusRule.enabled).
+    # Must not collide with the chart's `tuppr.*` groups (monitoring.prometheusRule.enabled).
     - name: tuppr.parked.rules
       rules:
         # Pending/PrePullFailed is covered by neither TalosUpgradeStuck (wrong phases) nor
