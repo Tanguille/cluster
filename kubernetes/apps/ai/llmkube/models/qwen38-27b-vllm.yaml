@@ -163,8 +163,8 @@ spec:
     enablePrefixCaching: true
     # 2048 beats 4096 and 8192 on cold prefill and free VRAM at 8 sessions, NLL +0.00035 (ttft-breakdown-2026-10.md).
     maxNumBatchedTokens: 2048
-    # Shared with Jellyfin: never above 0.875. --kv-cache-memory sets the pool.
-    gpuMemoryUtilization: 0.875
+    # Shared with Jellyfin: 0.9 x 32 GiB = 28.8 GiB leaves 3.2 GiB (>= 1.82 GiB Jellyfin floor). --kv-cache-memory sets the pool.
+    gpuMemoryUtilization: 0.9
   env:
     # Kept from the fp8 stack; full attention now runs the ULTRAQUANT backend (boot log "Overriding with").
     - name: VLLM_ROCM_USE_AITER
@@ -266,9 +266,9 @@ spec:
     # Default 25/50 ms ITL edges blur our ~32 ms decode; fine edges 30-45 ms plus 60 (slow band).
     - --custom-histogram-buckets
     - '{"inter_token_latency": [0.01, 0.02, 0.025, 0.03, 0.032, 0.034, 0.036, 0.038, 0.04, 0.045, 0.05, 0.06, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 40.0, 80.0]}'
-    # 7.25 GiB -> 430,982 tokens. Skips profiling, so headroom is manual: 9.5 GiB OOMed; keep >= 1.82 GiB free for Jellyfin.
+    # 7.91 GiB (8.5 GB) -> ~470,000 tokens, 1.79x 262K. Skips profiling, so headroom is manual: 9.5 GiB OOMed; keep >= 1.82 GiB free for Jellyfin.
     - --kv-cache-memory
-    - "7784628224"
+    - "8500000000"
     # Prefix hits on 64-token boundaries, not the 1536-token hybrid block; needs blocks_per_chunk 1.
     # Shifts greedy outputs (66% agreement) at equal quality: NLL <= 5e-5, GSM8K 146/150, needles 3/3 to 175K.
     - --prefix-match-unit
