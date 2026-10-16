@@ -11,8 +11,9 @@
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
-  // The operator webhook starts a run on any ticked dashboard checkbox; Renovate resets it on rewrite.
-  dependencyDashboardFooter: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository",
+  // The Main ruleset does not require up-to-date branches, and `auto` would
+  // still rebase every automerge PR each time main moves
+  rebaseWhen: "conflicted",
   // Overrides :automergeBranch from the base preset.
   automergeType: "pr",
   // main has no required checks, so GitHub native auto-merge would merge before CI finishes;
@@ -140,6 +141,15 @@
     }
   ],
   packageRules: [
+    {
+      // The flux manager also extracts HelmRelease values images, so the file
+      // name is the only signal that a docker dep is a chart
+      description: "Title OCI chart updates as charts instead of images",
+      matchDatasources: ["docker"],
+      matchFileNames: ["**/ocirepository.yaml"],
+      semanticCommitScope: "helm",
+      commitMessageTopic: "chart {{depName}}",
+    },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
       description: "Auto-merge patch and digest bumps once they have aged 3 days",
@@ -153,13 +163,6 @@
       matchUpdateTypes: ["minor"],
       // 0.x minors are breaking; the preset leaves this guard to us.
       matchCurrentVersion: "!/^v?0\\./",
-      minimumReleaseAge: "3 days",
-      automerge: true
-    },
-    {
-      description: "Auto-merge Renovate's own image on minor",
-      matchPackageNames: ["ghcr.io/renovatebot/renovate"],
-      matchUpdateTypes: ["minor"],
       minimumReleaseAge: "3 days",
       automerge: true
     },
