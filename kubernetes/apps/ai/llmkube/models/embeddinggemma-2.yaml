@@ -47,6 +47,10 @@ spec:
   batchSize: 8192
   uBatchSize: 8192
   extraArgs:
+    # Force the dGPU: default Vulkan device 0 is the iGPU on control-1
+    # (VRAM diff test 2026-10-16: pod held ~0 MiB of dGPU VRAM).
+    - "--device"
+    - "1"
     - "--alias"
     # served model name memini sends in /v1/embeddings
     - "embeddinggemma-2"
