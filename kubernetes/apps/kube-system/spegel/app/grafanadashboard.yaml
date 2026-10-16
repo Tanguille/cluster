@@ -10,8 +10,6 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   folder: kubernetes
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
-  # Upstream stopped shipping this dashboard in 0.8.0; retain the last release snapshot.
-  url: https://raw.githubusercontent.com/spegel-org/spegel/v0.7.4/charts/spegel/monitoring/grafana-dashboard.json
+  configMapRef:
+    name: spegel-dashboard
+    key: spegel.json
