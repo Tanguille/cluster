@@ -21,13 +21,13 @@ spec:
           reloader.stakater.com/auto: "true"
         containers:
           app:
-            image:
+            image: &image
               repository: ghcr.io/robtme/satisfactory-server
               tag: v1.9.11
             env:
               MAXTICKRATE: "120"
               TIMEOUT: "300"
-            securityContext:
+            securityContext: &sc
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
             probes:
@@ -54,25 +54,23 @@ spec:
                 memory: 1Gi
               limits:
                 memory: 8Gi
-        # Mods disabled: uncomment this block and the scripts persistence entry below, and restore the
-        # `&image` and `&sc` anchors, to re-enable.
-        # initContainers:
-        # mods:
-        # image: *image
-        # env:
-        # # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
-        # MODS: SmartFoundations InfiniteZoop InfiniteNudge EfficiencyCheckerMod LoadBalancers RefinedPower
-        # FICSIT_VERSION: v0.7.1
-        # FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
-        # HOME: /tmp/ficsit
-        # command: [/bin/bash, /scripts/mods.sh]
-        # securityContext: *sc
-        # resources:
-        # requests:
-        # cpu: 100m
-        # memory: 128Mi
-        # limits:
-        # memory: 256Mi
+        initContainers:
+          mods:
+            image: *image
+            env:
+              # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
+              MODS: InfiniteZoop StructuralSolutions LoadBalancers InfiniteNudge EfficiencyCheckerMod
+              FICSIT_VERSION: v0.7.1
+              FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
+              HOME: /tmp/ficsit
+            command: [/bin/bash, /scripts/mods.sh]
+            securityContext: *sc
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
     defaultPodOptions:
       # 5000: evicted after unclassified pods (0), still before an llmkube model (llmkube-normal 10000).
       priorityClassName: homelab-important
@@ -98,13 +96,13 @@ spec:
           messaging:
             port: 8888
     persistence:
-      # scripts:
-      # type: configMap
-      # name: satisfactory-scripts
-      # advancedMounts:
-      # satisfactory:
-      # mods:
-      # - path: /scripts
-      # readOnly: true
+      scripts:
+        type: configMap
+        name: satisfactory-scripts
+        advancedMounts:
+          satisfactory:
+            mods:
+              - path: /scripts
+                readOnly: true
       config:
         existingClaim: *app
