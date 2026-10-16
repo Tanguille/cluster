@@ -37,7 +37,7 @@ warn() {
 # Helm template errors a bare `kustomize build` can't see (chartRef: OCIRepository is opaque
 # to kustomize) — also validates YAML syntax and duplicate keys, so no separate yaml linter.
 # Falls back to kustomize build (Kustomization-only, no Helm render) if flate isn't installed.
-echo "[1/2] Flux Manifest Validation..."
+echo "[1/3] Flux Manifest Validation..."
 if command -v flate &>/dev/null; then
     if flate test all -p "${REPO_ROOT}" >/dev/null 2>&1; then
         pass "flate test all passed"
@@ -63,13 +63,28 @@ fi
 echo ""
 
 # Phase 2: Shellcheck (if shell scripts exist)
-echo "[2/2] Shell Script Validation..."
-# skip worktrees nested below REPO_ROOT; anchored because REPO_ROOT's own path contains /worktrees/ inside one
-SHELL_SCRIPTS=$(find "${REPO_ROOT}" -name "*.sh" -type f -not -path "${REPO_ROOT}/*worktrees/*" 2>/dev/null)
-if [ -n "$SHELL_SCRIPTS" ]; then
+echo "[2/3] Shell Script Validation..."
+# Include tracked and new non-ignored scripts, never ignored clones or nested worktrees.
+# Git paths are relative to REPO_ROOT, so its own path may safely contain /worktrees/.
+# Use a checked producer and NUL-delimited array: filenames may contain spaces/newlines.
+SHELL_LIST="$(mktemp)"
+trap 'rm -f -- "$SHELL_LIST"' EXIT
+SHELL_SCRIPTS=()
+if git -C "${REPO_ROOT}" ls-files --cached --others --exclude-standard -z -- '*.sh' \
+    ':(exclude).slim/**' ':(exclude)worktrees/**' ':(exclude).worktrees/**' \
+    ':(exclude)**/worktrees/**' ':(exclude)**/.worktrees/**' >"${SHELL_LIST}"; then
+    while IFS= read -r -d '' script; do
+        # Deleted worktree files and symlinks are not shellcheck inputs.
+        if [[ -f "${REPO_ROOT}/${script}" && ! -L "${REPO_ROOT}/${script}" ]]; then
+            SHELL_SCRIPTS+=("${REPO_ROOT}/${script}")
+        fi
+    done <"${SHELL_LIST}"
+else
+    fail "Unable to discover repository shell scripts"
+fi
+if [ "${#SHELL_SCRIPTS[@]}" -gt 0 ]; then
     if command -v shellcheck &>/dev/null; then
-        # shellcheck disable=SC2086 # word-splitting the list is intended; quoting it passes all paths as one filename
-        if shellcheck $SHELL_SCRIPTS >/dev/null 2>&1; then
+        if shellcheck "${SHELL_SCRIPTS[@]}" >/dev/null 2>&1; then
             pass "shellcheck passed"
         else
             fail "shellcheck found issues"
@@ -79,6 +94,15 @@ if [ -n "$SHELL_SCRIPTS" ]; then
     fi
 else
     pass "No shell scripts to check"
+fi
+echo ""
+
+# Phase 3: Fail closed on secret-check/parser/test failures. No decryption or private files.
+echo "[3/3] Repository Secret Guardrails..."
+if (cd "${REPO_ROOT}" && bash scripts/secret-check.sh --all && python3 -m unittest discover -s scripts/tests -v); then
+    pass "Secret guardrails and regression tests passed"
+else
+    fail "Secret guardrails or regression tests failed (run via mise exec)"
 fi
 echo ""
 
