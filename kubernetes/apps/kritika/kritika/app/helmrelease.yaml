@@ -28,6 +28,12 @@ spec:
     # Runner Jobs parse untrusted PR content and run model-directed code.
     runner:
       runtimeClass: gvisor
+      resources:
+        requests:
+          cpu: 10m
+          memory: 128Mi
+        limits:
+          memory: 1Gi
     # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
