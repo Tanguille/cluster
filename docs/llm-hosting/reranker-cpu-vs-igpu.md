@@ -25,6 +25,6 @@ Score parity: max abs diff 0.039 (1024) and 0.020 (300). Rankings match except n
 
 ## Decision
 
-Keep the iGPU. CPU at 12 x 1024 chars (8.4s p50) exceeds `MEMINI_RERANK_TIMEOUT` (8s then, 5s since 8429c1d8a), so nearly every recall would time out. Not tested: more than 6 threads, or 4 docs per request.
+Keep the iGPU. CPU at 12 x 1024 chars (8.4s p50) exceeds `MEMINI_RERANK_TIMEOUT` (8s then, 5s since 8429c1d8a), so nearly every 12-doc recall would time out. memini's pool is 4 since 3c120e259; 4 docs per request and more than 6 threads are untested.
 
 Resolved: scores are raw logits; the MIN_SCORE gate was dropped in 8429c1d8a.
