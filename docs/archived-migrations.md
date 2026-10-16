@@ -8,7 +8,7 @@ The `archive/` directory (1,904 lines, 5 files) was removed on 2026-08-20. Every
 | --- | --- | --- |
 | `migrate-pvs.sh` | pv-migrate driver, `openebs-zfs` → `ceph-block` | No ZFS storage class remains; the script also skips "volsync-backed PVCs" and volsync was decommissioned (see [kopiur-restore.md](kopiur-restore.md)) |
 | `migrate-to-postgres.sh`, `MIGRATION_GUIDE.md` | Radarr SQLite → CloudNativePG cutover | Cutover completed; Radarr runs on CNPG |
-| `opnsense-bgp-setup.md`, `check-opnsense-bgp.md` | BGP peering between OPNsense and the cluster | Never adopted; LoadBalancer IPs are static, assigned via Cilium L2 announcements (`cluster-settings.yaml`) |
+| `opnsense-bgp-setup.md`, `check-opnsense-bgp.md` | BGP peering between OPNsense and the cluster | Reverted to L2 a day after adoption (`8f6f34c63`); LoadBalancer IPs are static, assigned via Cilium L2 announcements (`cluster-settings.yaml`) |
 
 ## Recovering them
 

@@ -4,8 +4,6 @@
 The shipped config is (BLOCK_M 16, BLOCK_N 16, BLOCK_K 128, 4 warps, default stages). Any
 replacement must not regress the other shapes that hit the same branch at M=6..32.
 """
-import statistics, sys
-
 import torch
 from vllm.model_executor.kernels.linear.mixed_precision import rdna_hybrid_w4a16 as hy
 from vllm.triton_utils import triton

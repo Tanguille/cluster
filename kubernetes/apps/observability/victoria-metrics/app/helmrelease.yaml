@@ -78,9 +78,7 @@ spec:
         datasources:
           - name: VictoriaMetrics Alertmanager
             uid: vmalertmanager
-            type: alertmanager
             access: proxy
-            url: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
             jsonData:
               implementation: prometheus
 
@@ -88,11 +86,7 @@ spec:
       rules:
         etcdMemberCommunicationSlow:
           create: false
-        # Fires on recording rules that are empty by design: count:up0 (count(up == 0))
-        # yields no samples whenever every target is up, as do the orphan-pod variants
-        # of namespace_workload_pod:kube_pod_owner:relabel.
-        # Key is the exact alert name and the field is `enabled`, per the chart's own
-        # example; the camelCased `create: false` form silently matched nothing.
+        # Fires on two empty-by-design k8s.rules.pod_owner recordings (namespace_workload_pod:kube_pod_owner:relabel); key is the exact alert name.
         RecordingRulesNoData:
           enabled: false
 
@@ -303,9 +297,6 @@ spec:
 
     vmauth:
       enabled: true
-      labels:
-        operated-prometheus: "true"
-        self-monitor: "true"
       spec:
         priorityClassName: homelab-critical # 89Mi, Grafana's query path
         # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its

@@ -61,7 +61,7 @@ siderolabs/talos @ vX.Y.Z         make installer-base imager PKG_KERNEL=... TAG=
                                        |
                                        v
                                   imager installer --system-extension-image ...
-                                       ->  ghcr.io/tanguille/installer:<version>
+                                       ->  ghcr.io/tanguille/installer/<schematic>:<version>
 ```
 
 `amdgpu` **must** be rebuilt: `drm/amdgpu/pkg.yaml` extracts `amdgpu.ko` and `amdxcp.ko`
@@ -260,7 +260,7 @@ the running node reports (`upgrade.go`), which is what happens the moment a node
 points at this registry while it is still booted on a Factory image:
 
 ```sh
-talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<node>:<version> \
+talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<schematic>:<version> \
     --reboot-mode powercycle
 ```
 

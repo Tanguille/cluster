@@ -11,9 +11,7 @@ spec:
     name: trivy-operator
   values:
     operator:
-      # Node collector can't run on Talos (read-only rootfs: mkdir /etc/systemd
-      # fails), so disable infra assessment. Keeps image vuln, config audit
-      # (workload), RBAC and secret scanning. Loses node CIS InfraAssessmentReports.
+      # Node collector fails on Talos (read-only rootfs: mkdir /etc/systemd); node and control-plane CIS reports are lost.
       infraAssessmentScannerEnabled: false
       # Chart default 24h re-creates every report each cycle; workload changes still rescan.
       scannerReportTTL: "48h"
@@ -27,9 +25,7 @@ spec:
     targetWorkloads: "pod,replicaset,replicationcontroller,statefulset,daemonset,cronjob"
     serviceMonitor:
       enabled: true
-    # Scan Jobs throttle at the chart-default 500m limit (kguardian
-    # cpu-throttled, 100% sustained across scans); raise the ceiling so
-    # scans finish faster. Requests stay at defaults; Jobs are short-lived.
+    # Scan Jobs sat 100% CPU-throttled at the chart-default 500m limit (kguardian).
     trivy:
       resources:
         limits:

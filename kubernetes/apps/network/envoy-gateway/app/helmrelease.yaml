@@ -15,8 +15,7 @@ spec:
     deployment:
       replicas: 2
       pod:
-        # Hard spread: both controller replicas on one node means one node failure
-        # stalls xDS pushes to every gateway while the deployment reschedules.
+        # Hard spread: co-located replicas let one node failure stall xDS pushes to every gateway.
         topologySpreadConstraints:
           - maxSkew: 1
             topologyKey: kubernetes.io/hostname

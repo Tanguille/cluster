@@ -54,7 +54,7 @@ spec:
               MEMINI_RERANK_PROMPT: "false"
               # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); 5s fits typical reranks (~3.3s) and leaves time for the fused-order fallback. No MIN_SCORE gate: it dropped on-topic keyword-query results (logits -3..0).
               MEMINI_RERANK_TIMEOUT: "5s"
-              # Payload cap per /rerank request; the 6000 default shards a deep pool into ~10 serial requests.
+              # /rerank payload cap (query + docs): the 6000 default fits 5 worst-case docs, splitting a 10-doc recall in 2.
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
               # One in-flight call keeps a slow shared-iGPU reranker from stalling recall.
               MEMINI_RERANK_MAX_CONCURRENCY: "1"
@@ -104,9 +104,7 @@ spec:
 
     networkpolicies:
       main:
-        # /v1/handshake reports admin=true, read_only=false to any caller, so
-        # reachability is the only access control there is. Scoped to memini alone,
-        # on top of the ai namespace ingress allowlist. Egress untouched.
+        # No auth (/v1/handshake: admin=true), and policies union: ai-ingress-allowlist still admits default, kritika and security.
         rules:
           ingress:
             - from:

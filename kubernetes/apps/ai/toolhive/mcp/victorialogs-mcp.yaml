@@ -6,8 +6,7 @@ metadata:
   name: victorialogs-mcp
 spec:
   image: ghcr.io/victoriametrics/mcp-victorialogs:v1.9.0@sha256:753bb4fbe402ca1a782842f44636830f9895736f11d7fe783b924f8a0daf083d
-  # Native streamable-http: the binary serves /mcp on 8081 (MCP_LISTEN_ADDR) and
-  # the operator dials http://<mcp-container>:8081/mcp directly. No stdio proxy hop.
+  # Native streamable-http: the proxy pod reaches /mcp on :8081 (MCP_LISTEN_ADDR) directly, no stdio bridge.
   transport: streamable-http
   mcpPort: 8081
   groupRef:
@@ -21,8 +20,7 @@ spec:
       value: http://victoria-logs.observability.svc.cluster.local:9428
     - name: MCP_SERVER_MODE
       value: http
-    # Binary defaults to 127.0.0.1:8081 — unreachable from the proxy sidecar; bind all
-    # interfaces on the mcpPort the operator dials.
+    # Binary defaults to localhost:8081 (upstream config.go), unreachable from the separate proxy pod.
     - name: MCP_LISTEN_ADDR
       value: 0.0.0.0:8081
     # Hide the non-query tools (server flag list + docs prompt); query toolset only.
@@ -69,7 +67,6 @@ spec:
             limits:
               cpu: 200m
               memory: 256Mi
-  # Proxy sidecar: the operator manages its own resources; keep the same envelope as peers.
   resources:
     requests:
       cpu: 10m

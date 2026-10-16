@@ -61,20 +61,12 @@ spec:
     drop_params: true
     num_retries: 0
   routerSettings:
-    # Per-error override of num_retries: 0 — a dropped backend connection costs a
-    # whole Hermes cron run. Timeouts stay at 0: re-running a ~100K prefill that
-    # already burned 900s only deepens the contention that caused it.
+    # Retry dropped connections (each costs a Hermes cron run), never timeouts: re-running a 900s prefill deepens the contention.
     retry_policy:
       InternalServerErrorRetries: 2
-    # omniroute's free providers have no SLA; qwen-3.8 catches that. Thinking on:
-    # the reviewer is a tool loop and thinking-off scored 0/20 on DeepSWE
-    # (docs/llm-hosting/deepswe-swift-2026-09-22.md).
-    # Deliberately one deep. qwen35-2b is not a second tier: llama.cpp splits
-    # contextSize across parallelSlots, so it serves a 16384-token window and
-    # rejects review-sized payloads, turning a 503 into a 400. Widening it costs
-    # iGPU-node RAM not worth spending on a last resort. (The model itself still
-    # runs -- karakeep uses it.) A one-deep chain is only safe while its target
-    # is live, which LiteLLMFallbackBackendDown enforces.
+    # Thinking on: the reviewer is a tool loop; thinking-off scored 0/20 on DeepSWE (docs/llm-hosting/deepswe-swift-2026-09-22.md).
+    # One deep: qwen35-2b's 16384-token slot rejects review payloads (503 becomes 400) and widening it
+    # costs iGPU-node RAM; it still serves karakeep. LiteLLMFallbackBackendDown guards the target.
     fallbacks:
       - omniroute: ["qwen-3.8"]
   route:

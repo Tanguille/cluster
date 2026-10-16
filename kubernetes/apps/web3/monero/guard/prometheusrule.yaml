@@ -8,11 +8,7 @@ spec:
   groups:
     - name: guard.rules
       rules:
-        # Single source for the "xmrig-<node>" Deployment-naming convention — both
-        # alerts below join through this instead of each running their own
-        # label_replace, so a rename only needs to change one expression.
-        # xmrig_guard_rank is always present (one series per configured node,
-        # emitted regardless of query success), unlike xmrig_guard_safe.
+        # node -> "xmrig-<node>" Deployment map; EnforcementBypassed and ThermalPanic join through it.
         - record: xmrig_guard_deployment_node
           expr: label_replace(xmrig_guard_rank, "deployment", "xmrig-$1", "node", "(.*)")
         - alert: XmrigGuardEnforcementBypassed

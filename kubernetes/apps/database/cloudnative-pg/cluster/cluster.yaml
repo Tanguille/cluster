@@ -78,15 +78,11 @@ spec:
         login: true
         passwordSecret:
           name: kguardian-db
-      # kritika's three roles (the database and roles keep the old kritik name). It refuses to start unless they are separated: the
-      # owner runs migrations and must not be a superuser, the app role owns no
-      # table so row-level security applies to it, and the runner role is handed
-      # to runner Jobs which may only write their own run.
+      # kritika refuses to start unless owner (migrations, not superuser), app (owns no table, so RLS
+      # applies) and runner are separate roles; names keep the old kritik prefix.
       - name: kritik
         login: true
-        # Same as nextcloud: CNPG creates the declarative database as the owner,
-        # which needs CREATEDB, and reconciles the attribute back to its default
-        # (NOCREATEDB) when it is left unspecified on an adopted role.
+        # CREATEDB kept as an unneeded legacy grant; CNPG creates the Database CR over the superuser connection.
         createdb: true
         passwordSecret:
           name: kritik-db

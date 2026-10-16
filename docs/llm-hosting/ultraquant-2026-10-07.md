@@ -101,7 +101,7 @@ Why each one:
 ## Results
 
 fp8 baseline: 2026-10-06 ~21:43Z on the same nightly, live pod. UltraQuant runs:
-2026-10-07, `quick.sh`, `concsweep.py`, `longconcsweep.py 38000` (48,617-token cached
+2026-10-07, `bench/quick.sh`, `concsweep.py`, `longconcsweep.py 38000` (48,617-token cached
 prompt). All are aggregate tok/s unless noted.
 
 | Config | 4K decode | 64K decode | 64K cold TTFT | short ctx agg, 1/2/3/4/5 | 48K cached agg, 1/5 | 48K cached TTFT median, 1/5 |
@@ -180,7 +180,7 @@ filing against `rdna_hybrid_w4a16` with `bench/downfix/triton_prefill.out`. Deta
 - The hook prints `SKIPPED` and falls through if upstream symbols move, so check it on
   every nightly bump.
 
-**Workload retune (19:24Z).** `bench_uq_workload.py` timed 12 geometries; each figure
+**Workload retune (19:24Z).** `bench/uq/bench_uq_workload.py` timed 12 geometries; each figure
 is the minimum of 40 replays over at least 256 MiB of distinct caches, two passes with
 the order reversed. Each geometry was weighted by the 30d concurrency and
 prompt-length mix below.
@@ -326,7 +326,7 @@ prompt-length mix below.
    stopped to spare production.
 3. Done 2026-10-09 ([ttft-breakdown-2026-10.md](ttft-breakdown-2026-10.md)): offload
    reload PASS, min free VRAM 2.40 GiB at 8 sessions, GSM8K 146/150, tools 12/12.
-4. Tail sweep (`tailprobe.py`): only tail 1 = 0.118 s was measured.
+4. Tail sweep (`bench/tailprobe.py`): only tail 1 = 0.118 s was measured.
 
 ## Rollback
 

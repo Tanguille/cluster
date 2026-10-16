@@ -14,9 +14,6 @@ jobs:
     name: Labeler - Labeler
     runs-on: ubuntu-latest
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
-    permissions:
-      contents: read
-      pull-requests: write
     steps:
       - name: Generate Token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0

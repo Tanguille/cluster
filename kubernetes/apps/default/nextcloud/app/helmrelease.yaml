@@ -18,8 +18,7 @@ spec:
       valuesKey: FROM_ADDRESS
       targetPath: nextcloud.mail.fromAddress
 
-  # Chart has no automountServiceAccountToken value; nextcloud is the only
-  # internet-exposed app still auto-mounting its default SA token.
+  # Chart has no automountServiceAccountToken value, and this internet-exposed pod needs no SA token.
   postRenderers:
     - kustomize:
         patches:
@@ -60,7 +59,7 @@ spec:
     image:
       # Spelled out so Renovate tracks the digest.
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:46e2206c19c17e9154e23b4af7e17e471843467075e50300b2b08870b1705864
+      tag: 35.0.2-fpm@sha256:4448306f97d54585e56b1854ec144d89aa82a388e9eb44e655ce9ddced6b9690
 
     lifecycle:
       postStartCommand:
@@ -118,8 +117,7 @@ spec:
       podSecurityContext:
         fsGroup: 33
 
-      # One-shot post-upgrade repairs; the image runs this after `occ upgrade` and
-      # aborts startup on a non-zero exit, hence the `|| true`.
+      # Runs after `occ upgrade`; a non-zero exit aborts startup, hence `|| true`.
       hooks:
         post-upgrade: |
           #!/bin/sh
@@ -252,10 +250,8 @@ spec:
       parentRefs:
         - name: envoy-external
           namespace: network
-      # /push/ lives in notify-push/helmrelease.yaml: this chart pins every rule's
-      # backendRef to the nextcloud service (filters are honoured). nginx already
-      # 404s /config, /occ, etc. Its /.well-known fallback 301s to $host:80 (no
-      # X-Forwarded-Port from Envoy), so these four stay rewritten at the edge.
+      # /push/ is routed by notify-push (this chart pins every rule to nextcloud).
+      # The four rewritten rules stay here because nginx's /.well-known fallback 301s to $host:80 without X-Forwarded-Port from Envoy.
       rules:
         - matches:
             - path:
@@ -340,8 +336,7 @@ spec:
             # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
             memory: 4Gi
 
-    # Probes only exist on the nginx sidecar and all hit /status.php through fpm, so a
-    # saturated pool restarted nginx; readiness (default 5s x3) still pulls it from rotation.
+    # nginx's probes hit /status.php via fpm, so a saturated pool restarted nginx; readiness still gates traffic.
     livenessProbe:
       timeoutSeconds: 10
       failureThreshold: 6
