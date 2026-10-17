@@ -51,6 +51,12 @@ spec:
       egressPorts:
         - 443
         - 4000
+      # Runners connect to the primary directly (runner-uri), so the instance pods, not the poolers.
+      postgres:
+        namespace: database
+        podSelector:
+          cnpg.io/cluster: postgres16
+          cnpg.io/podRole: instance
     monitoring:
       serviceMonitor:
         enabled: true
