@@ -154,7 +154,7 @@ spec:
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
-    # Trained max; pool 430,982 = 1.64x. vLLM refuses to boot if pool < this: re-read "GPU KV cache size" after changes.
+    # Trained max. vLLM refuses to boot if the pool (--kv-cache-memory below) < this: re-read "GPU KV cache size" after changes.
     maxModelLen: 262144
     # UltraQuant 4-bit KV (vllm#57057), 18,091 B/token; the CRD enum lacks it. See docs/llm-hosting/ultraquant-2026-10-07.md.
     kvCacheDtype: auto
