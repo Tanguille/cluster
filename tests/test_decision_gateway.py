@@ -266,7 +266,7 @@ class GatewayTests(unittest.TestCase):
             central_socket.bind(("127.0.0.1", 0))
             alert_port, central_port = alert_socket.getsockname()[1], central_socket.getsockname()[1]
         environment = os.environ | {"D3_ALERT_PORT": str(alert_port), "D3_GATEWAY_PORT": str(central_port),
-                                    "D3_BIND_HOST": "127.0.0.1", "D3_NATIVE_URL": "http://127.0.0.1:0"}
+                                    "D3_NATIVE_URL": "http://127.0.0.1:0"}
         environment.pop("LITELLM_API_KEY", None)
         process = subprocess.Popen([sys.executable, str(PATH)], env=environment,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
@@ -281,18 +281,14 @@ class GatewayTests(unittest.TestCase):
                     if time.monotonic() >= deadline:
                         self.fail("Alert-only process did not become healthy without an API key")
                     time.sleep(.01)
+            # Binding another loopback address would fail if the proxy exposed all interfaces.
+            with socket.socket() as other_interface:
+                other_interface.bind(("127.0.0.2", alert_port))
             with self.assertRaises(OSError):
                 urlopen(f"http://127.0.0.1:{central_port}/healthz", timeout=.2)
         finally:
             process.terminate()
             process.communicate(timeout=2)
-
-    def test_bind_host_accepts_only_localhost_or_ip_addresses(self):
-        for host in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
-            self.assertEqual(gateway.bind_host(host), host)
-        for host in ("example.com", "127.0.0.1:8101", "http://127.0.0.1", ""):
-            with self.assertRaises(ValueError):
-                gateway.bind_host(host)
 
 
 if __name__ == "__main__":

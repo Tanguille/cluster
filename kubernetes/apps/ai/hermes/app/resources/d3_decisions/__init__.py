@@ -61,15 +61,12 @@ def decide(text, questions=None):
     if not isinstance(text, str) or not text.strip() or len(text) > 4096:
         return {}
     try:
-        timeout = float(os.environ.get("D3_DECISION_TIMEOUT", "3"))
-        if not math.isfinite(timeout) or not 0 < timeout <= 10:
-            return {}
         questions = questions or QUESTIONS
         headers = {"Content-Type": "application/json"}
         request = Request(os.environ.get("D3_DECISION_URL", "http://d3-nano.ai.svc.cluster.local:8100/v1/systemone"),
                           data=json.dumps({"state": text, "questions": questions}).encode(),
                           headers=headers, method="POST")
-        with urlopen(request, timeout=timeout) as response:
+        with urlopen(request, timeout=3) as response:
             raw = response.read(65537)
         if len(raw) > 65536:
             return {}

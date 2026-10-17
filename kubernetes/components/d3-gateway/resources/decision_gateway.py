@@ -2,12 +2,10 @@
 import copy
 import hashlib
 import hmac
-import ipaddress
 import json
 import math
 import os
 import re
-import socket
 import threading
 import time
 import uuid
@@ -19,6 +17,7 @@ from urllib.request import Request, urlopen
 
 MAX_BODY = 65536
 MAX_TEXT = 12000
+MIN_PROBABILITY = .7
 RISK = {"low": "Little consequential behavior change", "medium": "Routine reversible change",
         "high": "Breaking change to a shared dependency or access grant",
         "critical": "Irrecoverable outage, data loss, administrative access or secret exposure"}
@@ -32,12 +31,6 @@ def question(instructions, criteria):
 
 def finite(value):
     return type(value) in (int, float) and math.isfinite(value)
-
-
-def bind_host(value):
-    if value != "localhost":
-        ipaddress.ip_address(value)
-    return value
 
 
 def confidence_tool(body):
@@ -90,12 +83,12 @@ def verify(result, questions):
 
 
 class Gateway:
-    def __init__(self, api_key="", native_url="http://127.0.0.1:8100", timeout=30, min_probability=.7, alerts=False):
-        if (not alerts and not api_key) or not 0 < timeout <= 30 or not .5 < min_probability <= 1:
+    def __init__(self, api_key="", native_url="http://127.0.0.1:8100", timeout=30, alerts=False):
+        if (not alerts and not api_key) or not 0 < timeout <= 30:
             raise ValueError("Invalid gateway configuration")
         self.alerts = alerts
         self.api_key, self.native_url = api_key, native_url.rstrip("/")
-        self.timeout, self.min_probability = timeout, min_probability
+        self.timeout = timeout
         self.native_slots = threading.BoundedSemaphore(2)
         self.alertmanager_url = "http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093"
         self.executor = ThreadPoolExecutor(max_workers=1)
@@ -120,7 +113,7 @@ class Gateway:
     def selected(self, answer):
         choice = answer["choice"]
         probability = answer["probabilities"][choice]
-        if probability < self.min_probability:
+        if probability < MIN_PROBABILITY:
             raise ValueError("Uncertain decision")
         return choice, probability
 
@@ -272,14 +265,11 @@ def make_server(app, address):
                 self.reply(status, raw, content_type)
             except Exception:
                 self.reply(502, {"error": "Alertmanager unavailable"})
-    class Server(ThreadingHTTPServer):
-        address_family = socket.AF_INET6 if ":" in address[0] else socket.AF_INET
-    return Server(address, Handler)
+    return ThreadingHTTPServer(address, Handler)
 
 
 if __name__ == "__main__":
     alert_port = int(os.getenv("D3_ALERT_PORT", "0"))
-    app = Gateway(os.getenv("LITELLM_API_KEY", ""), os.getenv("D3_NATIVE_URL", "http://127.0.0.1:8100"),
-                  float(os.getenv("D3_TIMEOUT_SECONDS", "30")), float(os.getenv("D3_MIN_PROBABILITY", ".7")), alerts=bool(alert_port))
-    host = bind_host(os.getenv("D3_BIND_HOST", "0.0.0.0"))
+    app = Gateway(os.getenv("LITELLM_API_KEY", ""), os.getenv("D3_NATIVE_URL", "http://127.0.0.1:8100"), alerts=bool(alert_port))
+    host = "127.0.0.1" if app.alerts else "0.0.0.0"
     make_server(app, (host, alert_port or int(os.getenv("D3_GATEWAY_PORT", "8101")))).serve_forever()

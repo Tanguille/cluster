@@ -64,9 +64,9 @@ v0.7.36 provider's explicit tools and lifecycle methods.
 
 - Native CPU runtime: golden checks 5/5; the built nonroot, read-only container also passed readiness and a real decision.
 - Local BF16, four threads: startup peak RSS 7.35 GiB, steady RSS 4.65 GiB; a short decision took about 0.43–0.64 seconds.
-- The [30 labeled examples](bench/d3-nano/cases.json) and [results](bench/d3-nano/local-results.json) cover routes 10/10,
+- The [30 labeled examples and results](bench/d3-nano/local-results.json) cover routes 10/10,
   alert urgency 10/10, capture 4/5 and recall 4/5. The two misses had low confidence and preserve existing memory behavior.
-  These synthetic cases are illustrative; they do not calibrate production thresholds.
+  Each row selects its shared question schema by family. These synthetic cases do not calibrate production thresholds.
 - A request with Kritika's real confidence system prompt used 3,489 input tokens and took 13.1 seconds locally.
   Central timeout is 30 seconds; LiteLLM is 35 seconds. Hermes/Siren use three-second decision budgets.
 - Resource requests: native 8 GiB / 500m CPU, gateway 64 MiB / 50m CPU; native limits 10 GiB / four CPUs.
@@ -93,7 +93,7 @@ Continuation: “Verify the D3 branch/worktree, finish final local validation an
 
 Publish `ghcr.io/tanguille/d3-nano:runtime-5bd7c6941948` first; pin its resulting digest before deployment.
 Deliver D3, Hermes, Siren, LiteLLM, Kritika and Karakeep changes while retaining the old Qwen model manifest.
-The draft contains two commits: setup first, Qwen retirement second. Split the retirement commit into a later
+Setup and Qwen retirement use separate commits. Split the retirement commit into a later
 delivery before merging; do not merge both together. Keep `kubernetes/apps/ai/llmkube/` and the historical
 embedder comparison cleanup out of the first delivery. Wait for CI and approval before reconciliation.
 Hermes restarts once with Recreate; Siren rolls its two replicas; LiteLLM/Kritika/Karakeep update normally.
