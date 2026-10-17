@@ -39,7 +39,7 @@ spec:
             io.kubernetes.pod.namespace: kube-system
             k8s-app: kube-dns
 ---
-# memini's rerank path, carved out of the litellm-only allowlist above.
+# memini's and Hermes's (web-extract-rerank plugin) rerank paths, carved out of the litellm-only allowlist above.
 # Deliberately a SEPARATE policy: its endpointSelector pins the reranker
 # service, so memini reaches bge-reranker-v2-m3 and nothing else in the
 # llmkube fleet — the unauthenticated 27B chat and vLLM pods stay
@@ -57,6 +57,9 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
             app.kubernetes.io/name: memini
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: hermes
       toPorts:
         - ports:
             - port: "8080"
