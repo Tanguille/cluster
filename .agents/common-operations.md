@@ -77,6 +77,10 @@ Never commit plaintext secrets or the age key. Use placeholders so I can add the
 Post-quantum age (age1pq1) is supported. Both halves of the key must be present in `age.key`: a
 key that lost its PQ half decrypts `talos/` but fails on everything under `kubernetes/`.
 
+See the [SOPS runbook](../docs/sops.md) for namespace scope, index-based guardrails,
+human-held Vaultwarden backup, recovery, and coordinated rotation. Never remove
+namespace-local `sops-age` Secrets while child Flux Kustomizations explicitly reference them.
+
 ## Debugging
 
 Use [debug-cluster](skills/debug-cluster/SKILL.md) skill for structured 5-Whys analysis and troubleshooting.

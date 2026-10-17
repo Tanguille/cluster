@@ -1,18 +1,22 @@
 [pre-commit]
-parallel = true
+# Formatters re-stage files; run the index secret check last, without races.
+parallel = false
 skip = ["merge", "rebase"]
 
 [pre-commit.commands.format-just]
+priority = 10
 glob = ["*.just", ".justfile"]
 run = 'for f in {staged_files}; do just --justfile "$f" --fmt; done'
 stage_fixed = true
 
 [pre-commit.commands.format-mise]
+priority = 20
 glob = [".mise.toml"]
 run = "mise fmt"
 stage_fixed = true
 
 [pre-commit.commands.format-json]
+priority = 30
 glob = ["*.json", "*.json5", "*.jsonc"]
 run = "oxfmt {staged_files}"
 stage_fixed = true
@@ -21,20 +25,28 @@ stage_fixed = true
 # and oxfmt exits 2 when every input is ignored.
 # The same exit-2 applies to sops files, so they are excluded before oxfmt sees them.
 [pre-commit.commands.format-yaml]
+priority = 40
 glob = ["*.yaml", "*.yml"]
 exclude = ["*.sops.yaml"]
 run = "oxfmt {staged_files}"
 stage_fixed = true
 
 [pre-commit.commands.mise-lock]
+priority = 50
 glob = [".mise.toml"]
 run = 'mise lock && { for f in {staged_files}; do l="$(dirname "$f")/mise.lock"; [ -f "$l" ] && git add "$l"; done; true; }'
 
 # Not in cluster-template; taken from home-operations/.github lefthook.common.toml.
 [pre-commit.commands.shellcheck]
+priority = 70
 glob = ["*.sh"]
 run = "shellcheck {staged_files}"
 
 [pre-commit.commands.zizmor]
+priority = 80
 glob = [".github/workflows/*.yaml"]
 run = "zizmor --offline {staged_files}"
+
+[pre-commit.commands.secret-check]
+priority = 100
+run = "mise exec -- bash scripts/secret-check.sh --staged"
