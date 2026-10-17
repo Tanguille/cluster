@@ -109,8 +109,7 @@ spec:
         threshold: 4
         risk: high
       agent:
-        # Read-only tools only; no curl, so PR text can't steer raw requests.
-        commands: [gh, rg, fd, jq, yq]
+        # Tools come from the runner image, curl included; the gateway passes only GitHub and egress.allow hosts.
         steps: 30
         output: 12288
         tokens: 1000000
