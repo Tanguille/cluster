@@ -26,14 +26,17 @@ spec:
         key: runner-uri
         role: kritik_runner
     # Runner Jobs parse untrusted PR content and run model-directed code.
+    # 0.0.76 moved the runner pod's class and resources under podTemplate; the old keys are ignored silently and runner pods lose gVisor.
     runner:
-      runtimeClass: gvisor
-      resources:
-        requests:
-          cpu: 10m
-          memory: 128Mi
-        limits:
-          memory: 1Gi
+      podTemplate:
+        spec:
+          runtimeClassName: gvisor
+          resources:
+            requests:
+              cpu: 10m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
     # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
