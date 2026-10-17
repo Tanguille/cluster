@@ -7,3 +7,19 @@ resources:
   - helmrelease.yaml
   - prometheusrule.yaml
   - secret.sops.yaml
+
+configMapGenerator:
+  - name: hermes-d3-decisions
+    files:
+      - __init__.py=resources/d3_decisions/__init__.py
+      - plugin.yaml=resources/d3_decisions/plugin.yaml
+  - name: hermes-d3-memini
+    files:
+      - __init__.py=resources/d3_memini/__init__.py
+      - plugin.yaml=resources/d3_memini/plugin.yaml
+  - name: hermes-d3-configure
+    files:
+      - configure_d3.py=resources/configure_d3.py
+
+generatorOptions:
+  disableNameSuffixHash: true

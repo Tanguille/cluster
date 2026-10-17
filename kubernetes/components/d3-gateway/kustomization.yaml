@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+configMapGenerator:
+  - name: d3-gateway
+    files:
+      - decision_gateway.py=resources/decision_gateway.py
+
+generatorOptions:
+  disableNameSuffixHash: true
