@@ -150,11 +150,11 @@ spec:
   # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
   # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
   # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:32e98ea03736fba8f768da2a3fa4c744d56c4ce52e3568ed76322cd6f6e1b573
+  image: vllm/vllm-openai-rocm:nightly@sha256:3ccadf54fa378791e94dcdec52ff9f373902dc9579c5aa6a8516abf235201f6b
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
-    # Trained max; pool 430,982 = 1.64x. vLLM refuses to boot if pool < this: re-read "GPU KV cache size" after changes.
+    # Trained max. vLLM refuses to boot if the pool (--kv-cache-memory below) < this: re-read "GPU KV cache size" after changes.
     maxModelLen: 262144
     # UltraQuant 4-bit KV (vllm#57057), 18,091 B/token; the CRD enum lacks it. See docs/llm-hosting/ultraquant-2026-10-07.md.
     kvCacheDtype: auto

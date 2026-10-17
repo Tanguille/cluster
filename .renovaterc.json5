@@ -236,10 +236,11 @@
       minimumGroupSize: 2
     },
     {
-      // talosupgrade.yaml and the mise talosctl pin (github-tags) move together in one PR.
+      // Wait for another Talos update instead of opening a CLI-only bump from an early tag.
       description: "Talos Group",
       groupName: "talos",
-      matchPackageNames: ["/siderolabs/"]
+      matchPackageNames: ["/siderolabs/"],
+      minimumGroupSize: 2
     },
     {
       description: "Rook-Ceph Group",
