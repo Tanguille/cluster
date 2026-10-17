@@ -10,4 +10,9 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   folder: kubernetes
-  url: https://grafana.com/api/dashboards/22104/revisions/latest/download
+  datasources:
+    - datasourceName: prometheus
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 22104
+    revision: 1
