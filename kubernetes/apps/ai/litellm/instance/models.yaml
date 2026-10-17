@@ -3,6 +3,27 @@
 apiVersion: litellm.home-operations.com/v1alpha1
 kind: LiteLLMModel
 metadata:
+  name: d3-confidence
+spec:
+  modelName: d3-confidence
+  proxyRef: litellm
+  params:
+    # This adapter serves only Kritika's fixed score/risk schema, not general chat.
+    model: openai/d3-confidence
+    apiBase: http://d3-nano.ai.svc.cluster.local:8101/v1
+    apiKey: ${LITELLM_API_KEY}
+    additional:
+      timeout: 35
+      num_retries: 0
+  info:
+    mode: chat
+    maxInputTokens: 3000
+    maxOutputTokens: 512
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
   name: qwen-3.8
 spec:
   modelName: qwen-3.8

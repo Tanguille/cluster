@@ -1,0 +1,173 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app d3-nano
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    defaultPodOptions:
+      priorityClassName: homelab-important
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    controllers:
+      d3-nano:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        strategy: Recreate
+        containers:
+          runtime:
+            image: &image
+              repository: ghcr.io/tanguille/d3-nano
+              tag: runtime-5bd7c6941948
+            args:
+              - serve
+              - vllm-sr/d3-nano
+              - --revision
+              - aeb70d4dd53ed25b855c3b0a66394b8fe265db7f
+              - --device
+              - cpu
+              - --threads
+              - "$(OMP_NUM_THREADS)"
+              - --host
+              - 0.0.0.0
+              - --port
+              - "8100"
+              - --max-num-seqs
+              - "1"
+              - --max-num-batched-tokens
+              - "4096"
+              - --max-request-bytes
+              - "65536"
+              - --max-queue
+              - "4"
+              - --max-queued-tokens
+              - "16384"
+              - --media-workers
+              - "0"
+            env:
+              HF_HOME: /var/cache/vllm-srun
+              # Match native CPU threads to its declared CPU ceiling.
+              OMP_NUM_THREADS:
+                valueFrom:
+                  resourceFieldRef:
+                    containerName: runtime
+                    resource: limits.cpu
+                    divisor: "1"
+            securityContext: &security
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: ["ALL"]
+            resources:
+              requests:
+                # Bursty decisions share CPU; a 2-core request cannot fit the memory-capable node.
+                cpu: 500m
+                # Local native BF16 load peaked at 7.35Gi; steady RSS was 4.65Gi.
+                memory: 8Gi
+              limits:
+                cpu: "4"
+                memory: 10Gi
+            probes:
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &ready
+                    path: /health
+                    port: 8100
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 180
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *ready
+                  timeoutSeconds: 5
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health/live
+                    port: 8100
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+          gateway:
+            image: *image
+            command: ["python", "/app/decision_gateway.py"]
+            env:
+              LITELLM_API_KEY: ${LITELLM_API_KEY}
+              D3_NATIVE_URL: http://127.0.0.1:8100
+              D3_GATEWAY_PORT: "8101"
+              D3_TIMEOUT_SECONDS: "30"
+            securityContext: *security
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: "1"
+                memory: 256Mi
+            probes:
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /readyz
+                    port: 8101
+                  timeoutSeconds: 5
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8101
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+    service:
+      app:
+        ports:
+          http:
+            port: 8101
+          metrics:
+            port: 8100
+    serviceMonitor:
+      app:
+        endpoints:
+          - port: metrics
+    persistence:
+      model-cache:
+        storageClass: ceph-block
+        accessMode: ReadWriteOnce
+        size: 10Gi
+        advancedMounts:
+          d3-nano:
+            runtime:
+              - path: /var/cache/vllm-srun
+      gateway:
+        type: configMap
+        name: d3-gateway
+        advancedMounts:
+          d3-nano:
+            gateway:
+              - path: /app/decision_gateway.py
+                subPath: decision_gateway.py
+                readOnly: true
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp

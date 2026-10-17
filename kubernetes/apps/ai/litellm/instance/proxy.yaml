@@ -65,10 +65,10 @@ spec:
     retry_policy:
       InternalServerErrorRetries: 2
     # Thinking on: the reviewer is a tool loop; thinking-off scored 0/20 on DeepSWE (docs/llm-hosting/deepswe-swift-2026-09-22.md).
-    # One deep: qwen35-2b's 16384-token slot rejects review payloads (503 becomes 400) and widening it
-    # costs iGPU-node RAM; it still serves karakeep. LiteLLMFallbackBackendDown guards the target.
+    # Keep generated reviews on a generative model; typed D3 confidence has its own bounded fallback.
     fallbacks:
       - omniroute: ["qwen-3.8"]
+      - d3-confidence: ["qwen-3.8-fast"]
   route:
     hostnames:
       - "litellm.${SECRET_DOMAIN}"

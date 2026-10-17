@@ -48,13 +48,13 @@ spec:
               # OpenAI-compatible endpoint (via litellm); must match /v1/models ids.
               OPENAI_BASE_URL: http://litellm.ai.svc.cluster.local/v1
               OPENAI_API_KEY: ${LITELLM_API_KEY}
-              # Text tasks use the 2B iGPU model (text-only GGUF, auto-registered under its llmkube name); images/OCR stay on the 27B's vision.
-              INFERENCE_TEXT_MODEL: qwen35-2b
+              # Summaries and open-ended tags need generated text; D3 handles typed decisions separately.
+              INFERENCE_TEXT_MODEL: qwen-3.8-fast
               INFERENCE_IMAGE_MODEL: qwen-3.8-fast
               INFERENCE_NUM_WORKERS: "2"
               INFERENCE_OUTPUT_SCHEMA: "plain"
               INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
-              # Leaves headroom under the 2B's 16K-per-slot budget (see qwen35-2b.yaml).
+              # Bound background bookmark prefill on the shared 27B backend.
               INFERENCE_CONTEXT_LENGTH: "12000"
               INFERENCE_JOB_TIMEOUT_SEC: "300"
               OCR_USE_LLM: "true"

@@ -24,8 +24,30 @@ spec:
 
     controllers:
       hermes:
+        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
+
+        initContainers:
+          configure-d3:
+            image:
+              repository: nousresearch/hermes-agent
+              tag: v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
+            command:
+              ["/opt/hermes/.venv/bin/python", "-P", "/opt/d3/configure_d3.py"]
+            securityContext:
+              runAsUser: 10000
+              runAsGroup: 10000
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: "1"
+                memory: 256Mi
 
         containers:
           app:
@@ -56,6 +78,7 @@ spec:
               GATEWAY_MULTIPLEX_PROFILES: "true"
               # Profile subprocesses get their own HOME; one cache root keeps uv/HF/pnpm off the PVC.
               XDG_CACHE_HOME: /opt/data/.cache
+              D3_DECISION_URL: http://d3-nano.ai.svc.cluster.local:8100/v1/systemone
             envFrom:
               - secretRef:
                   name: hermes-secret
@@ -113,6 +136,25 @@ spec:
             namespace: network
 
     persistence:
+      d3-decisions:
+        type: configMap
+        name: hermes-d3-decisions
+        globalMounts:
+          - path: /opt/d3/plugins/d3-decisions
+            readOnly: true
+      d3-memini:
+        type: configMap
+        name: hermes-d3-memini
+        globalMounts:
+          - path: /opt/d3/plugins/d3-memini
+            readOnly: true
+      d3-configure:
+        type: configMap
+        name: hermes-d3-configure
+        globalMounts:
+          - path: /opt/d3/configure_d3.py
+            subPath: configure_d3.py
+            readOnly: true
       data:
         existingClaim: *app
         globalMounts:
