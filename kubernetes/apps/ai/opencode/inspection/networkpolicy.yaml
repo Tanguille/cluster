@@ -1,0 +1,12 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opencode-inspection
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: opencode-inspection
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []
