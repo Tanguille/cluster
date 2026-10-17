@@ -201,6 +201,9 @@ spec:
         maxBatchChars: 50000
         # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
         similarFloor: 0.7
+        # Both sides, as the model's card has it. documentPrompt rebuilds the index; recheck similarFloor after, prompts move scores.
+        queryPrompt: "task: sentence similarity | query: "
+        documentPrompt: "task: sentence similarity | query: "
       # Local admin until GitHub or OIDC is set up.
       auth:
         admin:
