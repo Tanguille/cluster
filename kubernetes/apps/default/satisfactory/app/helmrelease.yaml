@@ -59,7 +59,7 @@ spec:
             image: *image
             env:
               # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
-              MODS: InfiniteZoop SS_Mod LoadBalancers InfiniteNudge EfficiencyCheckerMod
+              MODS: InfiniteZoop SS_Mod LoadBalancers InfiniteNudge EfficiencyCheckerMod FicsitRemoteMonitoring
               FICSIT_VERSION: v0.7.1
               FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
               HOME: /tmp/ficsit
@@ -95,6 +95,9 @@ spec:
             protocol: UDP
           messaging:
             port: 8888
+          # FRM (FicsitRemoteMonitoring) web server + REST API, autostarted via mods.sh.
+          frm:
+            port: 8080
     persistence:
       scripts:
         type: configMap

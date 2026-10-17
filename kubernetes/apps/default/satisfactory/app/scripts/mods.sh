@@ -20,3 +20,19 @@ jq -n --arg mods "$MODS" '{profiles: {server: {name: "server", required_targets:
   selected_profile: "server", version: 0}' >"$HOME/.local/share/ficsit/profiles.json"
 "$HOME/ficsit" installation add /config/gamefiles server
 "$HOME/ficsit" apply
+
+# FRM's web server (port 8080) is off by default and headless servers have no
+# console to run `/frm http start`, so seed the autostart setting into the
+# FGUserSettings store the mod reads since Satisfactory 1.2. Idempotent: the
+# game rewrites this file, and the grep guard keeps repeat starts a no-op.
+if [[ " $MODS " == *" FicsitRemoteMonitoring "* ]]; then
+    FRM_INI=/config/gamefiles/FactoryGame/Saved/Config/LinuxServer/GameUserSettings.ini
+    if [[ -f $FRM_INI ]] && ! grep -q "FicsitRemoteMonitoring.Server.uWS.Autostart" "$FRM_INI"; then
+        if grep -q '^mIntValues=(' "$FRM_INI"; then
+            sed -i 's/^mIntValues=(/mIntValues=(("FicsitRemoteMonitoring.Server.uWS.Autostart", 1),(/' "$FRM_INI"
+        else
+            sed -i '/^\[\/Script\/FactoryGame\.FGGameUserSettings\]$/a mIntValues=(("FicsitRemoteMonitoring.Server.uWS.Autostart", 1))' "$FRM_INI"
+        fi
+        echo "Seeded FRM web server autostart into GameUserSettings.ini"
+    fi
+fi
