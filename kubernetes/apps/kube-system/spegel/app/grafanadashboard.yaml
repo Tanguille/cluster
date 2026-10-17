@@ -10,6 +10,9 @@ spec:
     matchLabels:
       grafana.internal/instance: grafana
   folder: kubernetes
-  configMapRef:
-    name: spegel-dashboard
-    key: spegel.json
+  datasources:
+    - datasourceName: prometheus
+      inputName: DS_PROMETHEUS
+  grafanaCom:
+    id: 22104
+    revision: 1
