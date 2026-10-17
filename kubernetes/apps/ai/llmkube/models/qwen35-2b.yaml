@@ -32,7 +32,7 @@ spec:
   modelRef: qwen35-2b
   # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:550a05f5f8d408fe6b6aef302f4237d40bdcf83b615cd9deced7f0e72369dda2
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5096299bac58e2b24f0371221c83eac786b206165bf8235dabc83d3ed514eb48
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # llama.cpp splits contextSize across parallelSlots (32768/2 = 16384 per slot); GDN keeps KV tiny, so that is cheap.
   contextSize: 32768
