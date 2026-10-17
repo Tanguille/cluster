@@ -26,7 +26,7 @@ spec:
         key: runner-uri
         role: kritik_runner
     # Runner Jobs parse untrusted PR content and run model-directed code.
-    # 0.0.76 moved the runner pod's class and resources under podTemplate; the old keys are ignored silently and runner pods lose gVisor.
+    # Keys live under podTemplate.spec; top-level runtimeClassName and resources are ignored silently and runner pods lose gVisor.
     runner:
       podTemplate:
         spec:
@@ -51,7 +51,7 @@ spec:
       egressPorts:
         - 443
         - 4000
-      # Runners connect to the primary directly (runner-uri), so the instance pods, not the poolers.
+      # Instance pods only, not poolers: runners connect to the primary directly.
       postgres:
         namespace: database
         podSelector:
@@ -201,9 +201,9 @@ spec:
         maxBatchChars: 50000
         # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
         similarFloor: 0.7
-        # Both sides, as the model's card has it. documentPrompt rebuilds the index; recheck similarFloor after, prompts move scores.
-        queryPrompt: "task: sentence similarity | query: "
-        documentPrompt: "task: sentence similarity | query: "
+        # One prompt for both sides, as the model card has it. A change rebuilds the index: recheck similarFloor.
+        queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
+        documentPrompt: *embeddingPrompt
       # Local admin until GitHub or OIDC is set up.
       auth:
         admin:
