@@ -150,7 +150,7 @@
       matchDatasources: ["docker"],
       matchFileNames: ["**/ocirepository.yaml"],
       semanticCommitScope: "helm",
-      commitMessageTopic: "chart {{depName}}",
+      commitMessageTopic: "chart {{depName}}"
     },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
@@ -165,6 +165,13 @@
       matchUpdateTypes: ["minor"],
       // 0.x minors are breaking; the preset leaves this guard to us.
       matchCurrentVersion: "!/^v?0\\./",
+      minimumReleaseAge: "3 days",
+      automerge: true
+    },
+    {
+      description: "Auto-merge Renovate's own image on minor",
+      matchPackageNames: ["ghcr.io/renovatebot/renovate"],
+      matchUpdateTypes: ["minor"],
       minimumReleaseAge: "3 days",
       automerge: true
     },

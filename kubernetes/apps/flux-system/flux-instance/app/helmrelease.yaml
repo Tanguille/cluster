@@ -22,15 +22,8 @@ spec:
         interval: 1h
       kustomize:
         patches:
-          - # Sync Kustomization defaults (replaces the former cluster-apps ks.yaml).
-            # The operator generates only a minimal flux-system Kustomization
-            # (interval 10m, prune true, no decryption/postBuild/timeout/patches);
-            # this strategic-merge patch restores the former cluster-apps settings.
-            # Generated name defaults to the FluxInstance namespace (flux-system)
-            # per the FluxInstance CRD (.spec.sync.name default) and the
-            # flux-instance chart templates/instance.yaml + operator
-            # internal/builder/templates.go syncTmpl.
-            patch: |-
+          # Configure the generated flux-system sync and its child Kustomizations in one patch.
+          - patch: |-
               apiVersion: kustomize.toolkit.fluxcd.io/v1
               kind: Kustomization
               metadata:
@@ -53,17 +46,7 @@ spec:
                       optional: true
                 timeout: 5m
                 retryInterval: 2m
-            target:
-              group: kustomize.toolkit.fluxcd.io
-              kind: Kustomization
-              name: flux-system
-          - # Child Kustomization defaults (onedr0p pattern: JSON6902 add of
-            # /spec/patches on the generated sync Kustomization). Both entries
-            # carried over verbatim from the former cluster-apps ks.yaml.
-            patch: |-
-              - op: add
-                path: /spec/patches
-                value:
+                patches:
                   # Replaces substituteFrom/timeout/retryInterval wholesale — setting them in a child is a no-op.
                   - patch: |-
                       apiVersion: kustomize.toolkit.fluxcd.io/v1
