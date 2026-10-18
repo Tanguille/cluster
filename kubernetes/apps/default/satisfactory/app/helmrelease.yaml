@@ -95,7 +95,7 @@ spec:
             protocol: UDP
           messaging:
             port: 8888
-          # FRM (FicsitRemoteMonitoring) web server + REST API, autostarted via mods.sh; in-cluster only (not in the world allow rule).
+          # FRM (FicsitRemoteMonitoring) web server + REST API, autostarted via mods.sh; reachable only through the routes below (not in the world allow rule).
           frm:
             port: 8080
     route:
@@ -107,6 +107,19 @@ spec:
             namespace: network
         rules:
           - backendRefs:
+              - identifier: satisfactory
+                port: frm
+      # Public view-only copy: FRM's write endpoints (setSwitches, ...) are POSTs, dropped here even if the token leaks.
+      external:
+        hostnames:
+          - frm.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+        rules:
+          - matches:
+              - method: GET
+            backendRefs:
               - identifier: satisfactory
                 port: frm
     persistence:
