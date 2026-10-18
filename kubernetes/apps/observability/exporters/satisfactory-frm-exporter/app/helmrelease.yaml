@@ -9,6 +9,9 @@ spec:
   chartRef:
     kind: OCIRepository
     name: app-template
+  valuesFrom:
+    - kind: ConfigMap
+      name: ndots-1
 
   values:
     controllers:
@@ -17,13 +20,18 @@ spec:
           app:
             # Companion for the FicsitRemoteMonitoring mod: polls the FRM JSON API
             # (satisfactory:8080) and re-exposes the same data in Prometheus format.
-            # Static Go binary (FROM scratch, no USER), hence pinned digest + uid 0.
+            # Static Go binary (FROM scratch); the digest pins the moving `latest` tag.
             image:
               repository: docker.io/featheredtoast/ficsit-remote-monitoring-companion
               tag: latest@sha256:6c003115f5b748687cdff1dea963d956a005fee6239265e357ea8b14c7bfb18b
             env:
               FRM_HOST: satisfactory.default.svc.cluster.local
               FRM_PORT: "8080"
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
             resources:
               requests:
                 cpu: 10m
@@ -35,10 +43,6 @@ spec:
               readOnlyRootFilesystem: true
               capabilities:
                 drop: ["ALL"]
-    defaultPodOptions:
-      securityContext:
-        # The image has no non-root user (FROM scratch), so runAsNonRoot is not possible.
-        runAsUser: 0
     service:
       app:
         ports:
