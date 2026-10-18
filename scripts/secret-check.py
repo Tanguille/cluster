@@ -14,7 +14,7 @@ import sys
 
 IDENTITY = re.compile(
     rb"AGE-(?:SECRET-KEY(?:-[A-Z0-9]+)*|PLUGIN-[A-Z0-9-]+)-1[0-9A-Z]{16,}"
-    rb"|-----BEGIN (?:[A-Z0-9]+ )?PRIVATE KEY-----",
+    rb"|-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----",
     re.IGNORECASE,
 )
 ENCRYPTED = re.compile(
@@ -57,26 +57,13 @@ def wrapped_keys(meta):
     )
 
 
-def encrypted_leaves(value):
+def plaintext_free(value, scoped):
+    # scoped: every leaf must be encrypted; set for the whole Talos document or below data/stringData.
     if isinstance(value, dict):
-        return all(encrypted_leaves(child) for child in value.values())
+        return all(plaintext_free(child, scoped or key in ("data", "stringData")) for key, child in value.items())
     if isinstance(value, list):
-        return all(encrypted_leaves(child) for child in value)
-    return encrypted(value)
-
-
-def secret_fields_encrypted(value):
-    if isinstance(value, dict):
-        for key, child in value.items():
-            if key in ("data", "stringData"):
-                if not encrypted_leaves(child):
-                    return False
-            elif not secret_fields_encrypted(child):
-                return False
-        return True
-    if isinstance(value, list):
-        return all(secret_fields_encrypted(child) for child in value)
-    return True
+        return all(plaintext_free(child, scoped) for child in value)
+    return encrypted(value) if scoped else True
 
 
 def check_sops(content, talos):
@@ -97,19 +84,20 @@ def check_sops(content, talos):
             return "incomplete SOPS encryption metadata"
         payload = {key: value for key, value in doc.items() if key != "sops"}
         if talos:
-            if not encrypted_leaves(payload):
+            if not plaintext_free(payload, True):
                 return "plaintext value in whole-document Talos SOPS file"
         else:
             # Resource metadata is public; e.g. annotations named 'data' aren't secret fields.
             payload.pop("metadata", None)
-            if not secret_fields_encrypted(payload):
+            if not plaintext_free(payload, False):
                 return "plaintext value under data/stringData"
     return None
 
 
 def check_index_entry(git, path, file_mode, oid, stage):
-    sops = path != ".sops.yaml" and path.endswith((".sops.yaml", ".sops.yml"))
-    if PurePosixPath(path).name.lower().startswith("age.key"):
+    name = PurePosixPath(path).name
+    sops = name != ".sops.yaml" and name.endswith((".sops.yaml", ".sops.yml"))
+    if name.lower().startswith("age.key"):
         return "forbidden age identity filename"
     if stage != b"0":
         return "unmerged index entry"

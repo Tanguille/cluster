@@ -57,9 +57,11 @@ class SecretCheckTests(unittest.TestCase):
         self.stage("guide.md", "AGE-SECRET-KEY, AGE-SECRET-KEY-PQ variants; age.key backups\n")
         self.check(True)
 
-    def test_root_sops_policy_is_not_an_encrypted_payload(self):
-        self.stage(".sops.yaml", "creation_rules: []\n")
-        self.check(True)
+    def test_sops_policy_files_are_not_encrypted_payloads(self):
+        for path in (".sops.yaml", "apps/foo/.sops.yaml"):
+            with self.subTest(path=path):
+                self.stage(path, "creation_rules: []\n")
+                self.check(True)
 
     def test_reject_duplicate_keys_that_could_hide_plaintext(self):
         self.stage("secret.sops.yaml", f"stringData:\n  password: plaintext\n  password: {ENC}\nsops: {json.dumps(META)}\n")
@@ -74,7 +76,8 @@ class SecretCheckTests(unittest.TestCase):
         self.check(False)
 
     def test_reject_private_identities_in_arbitrary_files(self):
-        for token in (IDENTITY, PQ_IDENTITY, PLUGIN_IDENTITY, "-----BEGIN OPENSSH " + "PRIVATE KEY-----"):
+        for token in (IDENTITY, PQ_IDENTITY, PLUGIN_IDENTITY, "-----BEGIN OPENSSH " + "PRIVATE KEY-----",
+                      "-----BEGIN PGP " + "PRIVATE KEY BLOCK-----", "-----BEGIN SSH2 ENCRYPTED " + "PRIVATE KEY-----"):
             with self.subTest(token_type=token[:20]):
                 self.stage("notes.txt", token)
                 self.check(False)
