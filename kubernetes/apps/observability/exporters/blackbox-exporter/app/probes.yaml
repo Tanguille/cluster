@@ -61,6 +61,24 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
+  name: lan-dns
+spec:
+  module: dns_a_public
+  prober:
+    url: blackbox-exporter.observability.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static:
+        - ${OPNSENSE_IP}
+  interval: 30s
+  metricRelabelings:
+    - targetLabel: service
+      replacement: blackbox-exporter
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/probe_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
   name: loadbalancer-ips
 spec:
   module: tcp_connect
