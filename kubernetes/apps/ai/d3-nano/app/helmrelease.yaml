@@ -28,8 +28,9 @@ spec:
         containers:
           runtime:
             image: &image
-              repository: ghcr.io/tanguille/d3-nano
-              tag: runtime-5bd7c6941948@sha256:c059600031632f516d9b54c54367a988d903f1cb94b3c4b77940cbf70e97e1d3
+              repository: ghcr.io/vllm-project/semantic-router/vllm-sr
+              tag: 5bd7c69419487a783cbce18dfd41f707441a1b85@sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7
+            command: ["vllm-srun"]
             args:
               - serve
               - vllm-sr/d3-nano

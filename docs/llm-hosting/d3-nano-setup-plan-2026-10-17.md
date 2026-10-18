@@ -1,7 +1,7 @@
 # D3-nano replacement and rollout
 
-Status, 2026-10-17: locally implemented and tested; draft PR publication authorized.
-The runtime image is published and digest-pinned. Live rollout remains pending approval.
+Status, 2026-10-18: locally implemented and tested; draft PR publication authorized.
+The official CPU runtime image is public and digest-pinned. Live rollout remains pending approval.
 Control-1 maintenance is expected; do not deploy during it.
 The user's request to set up all useful candidates authorizes the local implementation steps below.
 
@@ -31,8 +31,11 @@ Its main weights occupy 4.12 GiB.
 Use the publisher's native CPU worker, `vllm-srun`, from
 [semantic-router revision 5bd7c69419487a783cbce18dfd41f707441a1b85](https://github.com/vllm-project/semantic-router/tree/5bd7c69419487a783cbce18dfd41f707441a1b85/src/model-runtime).
 D3 needs its decision readout and noncausal attention; a llama.cpp chat-model substitution loses that behavior.
-No Vulkan path has been established for our iGPU. The image pins the runtime archive checksum, CPU Torch,
-upstream dependency lock and Python base digest. Model and runtime revisions are pinned separately.
+No Vulkan path has been established for our iGPU. Use the publisher's public
+[`vllm-sr` CPU image](https://github.com/vllm-project/semantic-router/pkgs/container/semantic-router%2Fvllm-sr),
+which includes `vllm-srun` and CPU Torch 2.10.0. The image tag matches the tested source revision and its
+digest is pinned independently of the model revision. Override the router entrypoint with `command: ["vllm-srun"]`
+to run only the native worker; no router process, custom image or publishing workflow is needed.
 
 Hermes calls native `/v1/systemone` on port 8100. Two compatibility adapters share one ConfigMap source:
 Kritika uses an authenticated confidence endpoint on 8101; Siren uses a localhost alert proxy on 8102.
@@ -63,11 +66,12 @@ v0.7.36 provider's explicit tools and lifecycle methods.
 
 ## Evidence and capacity
 
-- Native CPU runtime: golden checks 5/5; the built nonroot, read-only container also passed readiness and a real decision.
+- Official CPU image: native runtime 0.2.0, CPU Torch 2.10.0, golden checks 5/5; UID 65532 with a read-only root passed readiness and a real decision.
 - Local BF16, four threads: startup peak RSS 7.35 GiB, steady RSS 4.65 GiB; a short decision took about 0.43–0.64 seconds.
 - The [30 labeled examples and results](bench/d3-nano/local-results.json) cover routes 10/10,
   alert urgency 10/10, capture 4/5 and recall 4/5. The two misses had low confidence and preserve existing memory behavior.
-  Each row selects its shared question schema by family. These synthetic cases do not calibrate production thresholds.
+  Each row selects its shared question schema by family. The official-image replay matched all 30 previous predictions
+  with complete input coverage (four-CPU/10 GiB cap, slowest 1.39s). These synthetic cases do not calibrate production thresholds.
 - A request with Kritika's real confidence system prompt used 3,489 input tokens and took 13.1 seconds locally.
   Central timeout is 30 seconds; LiteLLM is 35 seconds. Hermes/Siren use three-second decision budgets.
 - Resource requests: native 8 GiB / 500m CPU, gateway 64 MiB / 50m CPU; native limits 10 GiB / four CPUs.
@@ -84,19 +88,18 @@ v0.7.36 provider's explicit tools and lifecycle methods.
 
 ### 1. Local implementation — complete
 
-Native worker, pinned build workflow, integrations, migration, replacement aliases and final removal manifests are prepared.
+Native worker, pinned upstream image, integrations, migration, replacement aliases and final removal manifests are prepared.
 Tests cover malformed results, unavailable inference, provider boundaries, memory preservation, config migration,
 Kritika's tool contract and alert proxy behavior. Run repository validation, YAML schema checks and scoped tests before delivery.
 
 Continuation: “Verify the D3 branch/worktree, finish final local validation and present the exact delivery scope.”
 
-### 2. Publish and enable consumers — image published; rollout awaiting approval
+### 2. Enable consumers — awaiting rollout approval
 
-Published `ghcr.io/tanguille/d3-nano:runtime-5bd7c6941948` at
-`sha256:c059600031632f516d9b54c54367a988d903f1cb94b3c4b77940cbf70e97e1d3`; both runtime and gateway use this digest.
-GHCR's one-time package visibility must be Public for anonymous pulls. The build workflow now runs on branch
-pushes that change its Dockerfile/workflow and publishes `sha-<commit>` tags. Publish each new runtime first,
-verify anonymous access, then pin its digest in a consumer change. Manifests alone do not trigger a rebuild.
+Use `ghcr.io/vllm-project/semantic-router/vllm-sr:5bd7c69419487a783cbce18dfd41f707441a1b85` at
+`sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7` for runtime and gateway.
+Anonymous image pull is verified; our private GHCR package and its settings are no longer dependencies.
+The upstream image includes the exact native runtime revision used in the earlier CPU evaluation.
 Deliver D3, Hermes, Siren, LiteLLM, Kritika and Karakeep changes while retaining the old Qwen model manifest.
 Setup and Qwen retirement use separate commits. Split the retirement commit into a later
 delivery before merging; do not merge both together. Keep `kubernetes/apps/ai/llmkube/` and the historical
@@ -109,7 +112,7 @@ The rendered `cluster-apps` patch supplies `cluster-secrets` substitution to D3,
 Kustomization. CPU thread arguments use [Kubernetes environment expansion](https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/).
 The gateway's startup probe checks `/healthz` independently of native model loading; readiness waits for the worker.
 
-Continuation: “Verify the D3 branch/worktree, publish the image and deliver the approved first phase, retaining Qwen2B.”
+Continuation: “Verify the D3 branch/worktree, verify the pinned upstream image and deliver the approved first phase, retaining Qwen2B.”
 
 ### 3. Retire Qwen and consolidate documentation — pending live checks
 
