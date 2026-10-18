@@ -13,10 +13,9 @@ spec:
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
-  # Power. Its two Postgres panels stay empty (no frmcache stack); the other upstream dashboards need it.
-  grafanaCom:
-    id: 22341
-    revision: 1
+  configMapRef:
+    name: satisfactory-frm-dashboards
+    key: power.json
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
 apiVersion: grafana.integreatly.org/v1beta1
@@ -32,7 +31,6 @@ spec:
   datasources:
     - datasourceName: prometheus
       inputName: DS_PROMETHEUS
-  # Global Production. Its two Postgres table panels stay empty (no frmcache stack).
-  grafanaCom:
-    id: 22342
-    revision: 1
+  configMapRef:
+    name: satisfactory-frm-dashboards
+    key: global-production.json

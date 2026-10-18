@@ -5,3 +5,16 @@ kind: Kustomization
 resources:
   - grafanadashboard.yaml
   - helmrelease.yaml
+
+# Upstream dashboards 22341 (Power) and 22342 (Global Production) with the Postgres (frmcache) panels
+# dropped and `server` scoped to FRM metrics: unscoped label_values(url) defaults to a non-FRM url.
+configMapGenerator:
+  - name: satisfactory-frm-dashboards
+    files:
+      - dashboard/power.json
+      - dashboard/global-production.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true
