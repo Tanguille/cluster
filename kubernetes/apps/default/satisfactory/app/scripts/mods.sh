@@ -20,3 +20,23 @@ jq -n --arg mods "$MODS" '{profiles: {server: {name: "server", required_targets:
   selected_profile: "server", version: 0}' >"$HOME/.local/share/ficsit/profiles.json"
 "$HOME/ficsit" installation add /config/gamefiles server
 "$HOME/ficsit" apply
+
+# FRM's web server (port 8080) is off by default and headless servers have no
+# console to run `/frm http start`, so force the autostart setting on in the
+# FGUserSettings store the mod reads since Satisfactory 1.2. Idempotent: the
+# game rewrites this file, and each sed only matches a not-yet-enabled shape.
+if [[ " $MODS " == *" FicsitRemoteMonitoring "* ]]; then
+    FRM_INI=/config/gamefiles/FactoryGame/Saved/Config/LinuxServer/GameUserSettings.ini
+    FRM_KEY='"FicsitRemoteMonitoring.Server.uWS.Autostart"'
+    if [[ -f $FRM_INI ]]; then
+        if grep -q "$FRM_KEY" "$FRM_INI"; then
+            sed -i "s/($FRM_KEY, *0)/($FRM_KEY, 1)/" "$FRM_INI"
+        elif grep -q '^mIntValues=(' "$FRM_INI"; then
+            # Prepend to an existing tuple list; the empty "()" form needs its own expression.
+            sed -i -e "s/^mIntValues=(\([^)]\)/mIntValues=(($FRM_KEY, 1),\1/" \
+                -e "s/^mIntValues=()/mIntValues=(($FRM_KEY, 1))/" "$FRM_INI"
+        else
+            sed -i "/^\[\/Script\/FactoryGame\.FGGameUserSettings\]$/a mIntValues=(($FRM_KEY, 1))" "$FRM_INI"
+        fi
+    fi
+fi
