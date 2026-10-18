@@ -12,28 +12,16 @@
   "__elements": {},
   "__requires": [
     {
-      "type": "panel",
-      "id": "alertlist",
-      "name": "Alert list",
-      "version": ""
-    },
-    {
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "11.3.0"
+      "version": "13.2.4"
     },
     {
       "type": "datasource",
       "id": "prometheus",
       "name": "Prometheus",
       "version": "1.0.0"
-    },
-    {
-      "type": "panel",
-      "id": "table",
-      "name": "Table",
-      "version": ""
     },
     {
       "type": "panel",
@@ -68,7 +56,6 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
   "links": [],
   "panels": [
     {
@@ -78,49 +65,6 @@
         "w": 24,
         "x": 0,
         "y": 0
-      },
-      "id": 24,
-      "panels": [],
-      "title": "Alerts",
-      "type": "row"
-    },
-    {
-      "description": "",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 1
-      },
-      "id": 30,
-      "options": {
-        "alertInstanceLabelFilter": "category=\"production\",url=$server,session_name=$session",
-        "alertName": "",
-        "dashboardAlerts": false,
-        "groupBy": [],
-        "groupMode": "default",
-        "maxItems": 20,
-        "sortOrder": 1,
-        "stateFilter": {
-          "error": true,
-          "firing": true,
-          "noData": false,
-          "normal": false,
-          "pending": true
-        },
-        "viewMode": "list"
-      },
-      "pluginVersion": "11.3.0",
-      "title": "Production Alerts",
-      "type": "alertlist"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 18
       },
       "id": 14,
       "panels": [],
@@ -266,7 +210,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 1
       },
       "id": 16,
       "options": {
@@ -437,7 +381,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 1
       },
       "id": 17,
       "options": {
@@ -486,9 +430,9 @@
       "type": "timeseries"
     }
   ],
-  "refresh": "5s",
+  "refresh": "30s",
   "schemaVersion": 40,
-  "tags": [],
+  "tags": ["satisfactory"],
   "templating": {
     "list": [
       {
