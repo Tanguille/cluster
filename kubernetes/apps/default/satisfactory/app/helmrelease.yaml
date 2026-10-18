@@ -101,7 +101,8 @@ spec:
     route:
       app:
         hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+          # Not satisfactory.${SECRET_DOMAIN}: cloudflare-ddns publishes that name for the game, which trips GatusEndpointExposed.
+          - satisfactory-frm.${SECRET_DOMAIN}
         parentRefs:
           - name: envoy-internal
             namespace: network
