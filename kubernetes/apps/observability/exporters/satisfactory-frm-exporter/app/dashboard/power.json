@@ -9,7 +9,6 @@
       "pluginName": "Prometheus"
     }
   ],
-  "__elements": {},
   "__requires": [
     {
       "type": "grafana",
@@ -72,37 +71,13 @@
           "type": "dashboard"
         },
         "type": "dashboard"
-      },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
-        },
-        "enable": true,
-        "expr": "ALERTS{alertname=\"FuseTriggered\", alertstate=\"firing\",url=\"$server\",session_name=\"$session\",circuit_id=\"$circuit\"}",
-        "hide": false,
-        "iconColor": "red",
-        "name": "Fuse triggered",
-        "step": "5m",
-        "target": {
-          "limit": 100,
-          "matchAny": false,
-          "tags": [],
-          "type": "dashboard"
-        },
-        "textFormat": "Circuit {{circuit_id}} tripped",
-        "titleFormat": "Fuse triggered"
       }
     ]
   },
   "description": "Satisfactory power stats",
   "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "links": [],
   "panels": [
     {
-      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -110,7 +85,6 @@
         "y": 0
       },
       "id": 8,
-      "panels": [],
       "title": "Circuit $circuit Power",
       "type": "row"
     },
@@ -186,15 +160,10 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "fuse_triggered{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         }
       ],
       "title": "Fuse",
@@ -270,15 +239,10 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "battery_percent{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         }
       ],
       "title": "Battery charge",
@@ -356,15 +320,10 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "battery_seconds_empty{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"} / 60",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "legendFormat": "__auto",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         }
       ],
       "title": "Battery minutes remaining",
@@ -456,15 +415,10 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "battery_differential{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         }
       ],
       "title": "Battery charge rate",
@@ -580,28 +534,6 @@
                 }
               }
             ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "real_power_consumed_max"
-            },
-            "properties": [
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "dash": [10, 10],
-                  "fill": "dash"
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
           }
         ]
       },
@@ -631,47 +563,30 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "power_capacity{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "power_max_consumed{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "MAX",
-          "useBackend": false
+          "refId": "MAX"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "power_consumed{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "C",
-          "useBackend": false
+          "refId": "C"
         }
       ],
       "title": "Power",
@@ -914,17 +829,12 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "power_consumed{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
           "hide": true,
-          "includeNullMetadata": true,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Total Power Consumption",
-          "range": true,
-          "refId": "TOTAL",
-          "useBackend": false
+          "range": false,
+          "refId": "TOTAL"
         },
         {
           "datasource": {
@@ -933,10 +843,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(vehicle_station_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Truck Stations",
-          "range": true,
+          "range": false,
           "refId": "VEHICLE_STATION"
         },
         {
@@ -946,10 +855,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(train_station_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Train Stations",
-          "range": true,
+          "range": false,
           "refId": "TRAIN_STATION"
         },
         {
@@ -959,10 +867,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(train_power_circuit_consumed{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Trains",
-          "range": true,
+          "range": false,
           "refId": "TRAIN"
         },
         {
@@ -972,10 +879,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(drone_port_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Drone Ports",
-          "range": true,
+          "range": false,
           "refId": "DRONE"
         },
         {
@@ -985,10 +891,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(factory_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Factory",
-          "range": true,
+          "range": false,
           "refId": "FACTORY"
         },
         {
@@ -998,10 +903,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(resource_sink_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Sinks",
-          "range": true,
+          "range": false,
           "refId": "SINK"
         },
         {
@@ -1011,10 +915,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(pump_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Pumps",
-          "range": true,
+          "range": false,
           "refId": "PUMPS"
         },
         {
@@ -1024,10 +927,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(extractor_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Extractors",
-          "range": true,
+          "range": false,
           "refId": "EXTRACTORS"
         },
         {
@@ -1037,10 +939,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(portal_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Portals",
-          "range": true,
+          "range": false,
           "refId": "PORTALS"
         },
         {
@@ -1050,10 +951,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(hypertube_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Hypertubes",
-          "range": true,
+          "range": false,
           "refId": "HYPERTUBES"
         },
         {
@@ -1063,10 +963,9 @@
           },
           "editorMode": "code",
           "expr": "sum(last_over_time(fracking_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}[$__range]) or vector(0))",
-          "hide": false,
-          "instant": false,
+          "instant": true,
           "legendFormat": "Resource Well Pressurizers",
-          "range": true,
+          "range": false,
           "refId": "RESOURCE_WELLS"
         },
         {
@@ -1075,7 +974,6 @@
             "uid": "__expr__"
           },
           "expression": "$TOTAL-$DRONE-$TRAIN-$TRAIN_STATION-$VEHICLE_STATION-$FACTORY-$SINK-$PUMPS-$EXTRACTORS-$PORTALS-$HYPERTUBES-$RESOURCE_WELLS",
-          "hide": false,
           "refId": "OTHER",
           "type": "math"
         }
@@ -1084,7 +982,6 @@
       "type": "piechart"
     },
     {
-      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1092,7 +989,6 @@
         "y": 15
       },
       "id": 33,
-      "panels": [],
       "title": "Circuit $circuit Power Breakdown",
       "type": "row"
     },
@@ -1198,31 +1094,20 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "factory_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "factory_power_max{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "B",
-          "useBackend": false
+          "refId": "B"
         }
       ],
       "title": "Factory Power",
@@ -1330,31 +1215,20 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "vehicle_station_power{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "vehicle_station_power_max{circuit_id=\"$circuit\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "B",
-          "useBackend": false
+          "refId": "B"
         }
       ],
       "title": "Vehicle Station Power",
@@ -1367,18 +1241,16 @@
   "templating": {
     "list": [
       {
-        "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(url)",
+        "definition": "label_values({job=\"satisfactory-frm-exporter\"}, url)",
         "includeAll": false,
         "name": "server",
-        "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(power_capacity, url)",
+          "query": "label_values({job=\"satisfactory-frm-exporter\"}, url)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -1386,18 +1258,16 @@
         "type": "query"
       },
       {
-        "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values({url=\"$server\"},session_name)",
+        "definition": "label_values({job=\"satisfactory-frm-exporter\",url=\"$server\"}, session_name)",
         "includeAll": false,
         "name": "session",
-        "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({url=\"$server\"},session_name)",
+          "query": "label_values({job=\"satisfactory-frm-exporter\",url=\"$server\"}, session_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -1405,23 +1275,21 @@
         "type": "query"
       },
       {
-        "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "{circuit_id=~\".+\",url=~\"$server\",session_name=~\"$session\"}",
+        "definition": "label_values({job=\"satisfactory-frm-exporter\",url=\"$server\",session_name=\"$session\"}, circuit_id)",
         "description": "power grid circuit",
         "includeAll": false,
         "name": "circuit",
-        "options": [],
         "query": {
-          "qryType": 4,
-          "query": "{circuit_id=~\".+\",url=~\"$server\",session_name=~\"$session\"}",
+          "qryType": 1,
+          "query": "label_values({job=\"satisfactory-frm-exporter\",url=\"$server\",session_name=\"$session\"}, circuit_id)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
-        "regex": ".*circuit_id=\"([^\"]*)\".*",
+        "regex": "",
         "type": "query"
       }
     ]
@@ -1430,11 +1298,7 @@
     "from": "now-30m",
     "to": "now"
   },
-  "timepicker": {},
-  "timezone": "",
   "title": "Satisfactory Power",
   "uid": "OFv4PopVz",
-  "version": 1,
-  "weekStart": "",
-  "gnetId": 22341
+  "version": 1
 }

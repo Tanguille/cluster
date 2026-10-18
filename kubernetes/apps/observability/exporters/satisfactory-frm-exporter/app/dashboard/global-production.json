@@ -9,7 +9,6 @@
       "pluginName": "Prometheus"
     }
   ],
-  "__elements": {},
   "__requires": [
     {
       "type": "grafana",
@@ -54,12 +53,8 @@
   },
   "description": "Satisfactory statistics for global production",
   "editable": true,
-  "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
-  "links": [],
   "panels": [
     {
-      "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -67,7 +62,6 @@
         "y": 0
       },
       "id": 14,
-      "panels": [],
       "title": "$item Production",
       "type": "row"
     },
@@ -232,27 +226,18 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "exemplar": false,
           "expr": "item_production_capacity_per_min{item_name=\"$item\", url=\"$server\", session_name=\"$session\"}",
-          "format": "time_series",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "instant": false,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "editorMode": "builder",
-          "expr": "items_produced_per_min{item_name=\"$item\"}",
-          "hide": false,
+          "expr": "items_produced_per_min{item_name=\"$item\", url=\"$server\", session_name=\"$session\"}",
           "legendFormat": "{{__name__}}",
           "range": true,
           "refId": "B"
@@ -262,9 +247,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "editorMode": "builder",
-          "expr": "item_consumption_capacity_per_min{item_name=\"$item\"}",
-          "hide": false,
+          "expr": "item_consumption_capacity_per_min{item_name=\"$item\", url=\"$server\", session_name=\"$session\"}",
           "legendFormat": "{{__name__}}",
           "range": true,
           "refId": "C"
@@ -274,9 +257,7 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "editorMode": "builder",
-          "expr": "items_consumed_per_min{item_name=\"$item\"}",
-          "hide": false,
+          "expr": "items_consumed_per_min{item_name=\"$item\", url=\"$server\", session_name=\"$session\"}",
           "legendFormat": "{{__name__}}",
           "range": true,
           "refId": "D"
@@ -403,24 +384,17 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
           "expr": "item_production_capacity_pc{item_name=\"$item\", url=\"$server\", session_name=\"$session\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
           "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "A",
-          "useBackend": false
+          "refId": "A"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "editorMode": "builder",
-          "expr": "item_consumption_capacity_pc{item_name=\"$item\"}",
-          "hide": false,
+          "expr": "item_consumption_capacity_pc{item_name=\"$item\", url=\"$server\", session_name=\"$session\"}",
           "legendFormat": "{{__name__}}",
           "range": true,
           "refId": "B"
@@ -436,18 +410,16 @@
   "templating": {
     "list": [
       {
-        "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(url)",
+        "definition": "label_values({job=\"satisfactory-frm-exporter\"}, url)",
         "includeAll": false,
         "name": "server",
-        "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(power_capacity, url)",
+          "query": "label_values({job=\"satisfactory-frm-exporter\"}, url)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -455,18 +427,16 @@
         "type": "query"
       },
       {
-        "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values({url=\"$server\"},session_name)",
+        "definition": "label_values({job=\"satisfactory-frm-exporter\",url=\"$server\"}, session_name)",
         "includeAll": false,
         "name": "session",
-        "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values({url=\"$server\"},session_name)",
+          "query": "label_values({job=\"satisfactory-frm-exporter\",url=\"$server\"}, session_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -474,19 +444,17 @@
         "type": "query"
       },
       {
-        "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"
         },
-        "definition": "label_values(item_production_capacity_per_min,item_name)",
+        "definition": "label_values(item_production_capacity_per_min{url=\"$server\",session_name=\"$session\"}, item_name)",
         "description": "Item",
         "includeAll": false,
         "name": "item",
-        "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(item_production_capacity_per_min,item_name)",
+          "query": "label_values(item_production_capacity_per_min{url=\"$server\",session_name=\"$session\"}, item_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -499,11 +467,7 @@
     "from": "now-3h",
     "to": "now"
   },
-  "timepicker": {},
-  "timezone": "",
   "title": "Satisfactory Global Production",
   "uid": "gTe4sot4z",
-  "version": 1,
-  "weekStart": "",
-  "gnetId": 22342
+  "version": 1
 }
