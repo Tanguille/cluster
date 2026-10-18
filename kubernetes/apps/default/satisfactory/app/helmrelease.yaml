@@ -98,6 +98,17 @@ spec:
           # FRM (FicsitRemoteMonitoring) web server + REST API, autostarted via mods.sh.
           frm:
             port: 8080
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: satisfactory
+                port: frm
     persistence:
       scripts:
         type: configMap
