@@ -1,18 +1,19 @@
 # Entry point for flate only, never deployed (Flux syncs kubernetes/apps). flate cannot read the FluxInstance
-# sync patches, so this mirrors the flux-system patch in flux-instance/app/helmrelease.yaml: keep them in sync.
+# sync patches, so this mirrors the postBuild parts of the flux-system patch in flux-instance/app/helmrelease.yaml.
+# flate ignores decryption, timeouts, deletionPolicy and HelmRelease defaults, so those are not repeated here.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: flux-system
   namespace: flux-system
 spec:
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  deletionPolicy: Orphan
-  interval: 1h
-  prune: true
+  interval: 1h # required by the schema
+  prune: true # required by the schema
+  path: ./kubernetes/apps
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
   postBuild:
     substituteFrom:
       - name: cluster-settings
@@ -21,20 +22,13 @@ spec:
       - name: cluster-secrets
         kind: Secret
         optional: true
-  timeout: 5m
-  retryInterval: 2m
   patches:
-    # Replaces substituteFrom/timeout/retryInterval wholesale — setting them in a child is a no-op.
     - patch: |-
         apiVersion: kustomize.toolkit.fluxcd.io/v1
         kind: Kustomization
         metadata:
           name: not-used
         spec:
-          decryption:
-            provider: sops
-            secretRef:
-              name: sops-age
           postBuild:
             substituteFrom:
               - name: cluster-settings
@@ -43,51 +37,6 @@ spec:
               - name: cluster-secrets
                 kind: Secret
                 optional: false
-          deletionPolicy: WaitForTermination
-          timeout: 5m
-          retryInterval: 2m
-          patches:
-            - patch: |-
-                apiVersion: helm.toolkit.fluxcd.io/v2
-                kind: HelmRelease
-                metadata:
-                  name: _
-                spec:
-                  driftDetection:
-                    mode: enabled
-                  install:
-                    crds: CreateReplace
-                  rollback:
-                    cleanupOnFail: true
-                  upgrade:
-                    cleanupOnFail: true
-                    crds: CreateReplace
-                    strategy:
-                      name: RemediateOnFailure
-                    remediation:
-                      retries: 2
-              target:
-                group: helm.toolkit.fluxcd.io
-                kind: HelmRelease
-            # Dry-run diff breaks on CephBlockPool/CephFilesystem (live spec.replicated.minSize
-            # isn't in the installed CRD schema), leaving the release in a permanent StateError.
-            - patch: |-
-                apiVersion: helm.toolkit.fluxcd.io/v2
-                kind: HelmRelease
-                metadata:
-                  name: _
-                spec:
-                  driftDetection:
-                    mode: disabled
-              target:
-                group: helm.toolkit.fluxcd.io
-                kind: HelmRelease
-                name: rook-ceph-cluster
       target:
         group: kustomize.toolkit.fluxcd.io
         kind: Kustomization
-  path: ./kubernetes/apps
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
