@@ -204,16 +204,13 @@ spec:
               kind: Deployment
               name: source-controller
           - patch: |
-              - op: add
-                path: /spec/template/spec/containers/0/args/-
-                value: --feature-gates=OOMWatch=true
               # DefaultToRetryOnFailure: retry failed installs instead of stalling. Upgrades keep the flux-system patch's
               # explicit RemediateOnFailure, which overrides this gate.
               # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
               # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
               - op: add
                 path: /spec/template/spec/containers/0/args/-
-                value: --feature-gates=DefaultToRetryOnFailure=true,DisableChartDigestTracking=true
+                value: --feature-gates=OOMWatch=true,DefaultToRetryOnFailure=true,DisableChartDigestTracking=true
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --watch-configs-label-selector=owner!=helm
