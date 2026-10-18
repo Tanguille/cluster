@@ -52,6 +52,4 @@ template file *args:
 
 [doc('Force Flux to pull in changes from the Git repository')]
 reconcile:
-    # --with-source fetches the GitRepository itself, so only the first call needs it.
-    flux reconcile kustomization cluster-apps -n flux-system --with-source
-    flux reconcile kustomization flux-system
+    flux reconcile kustomization flux-system --with-source

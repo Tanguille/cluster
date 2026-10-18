@@ -13,7 +13,8 @@
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   // The operator webhook starts a run on any ticked dashboard checkbox; Renovate resets it on rewrite.
   dependencyDashboardFooter: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository",
-  // main has no branch protection; "auto" would rebase every automerge PR each time main moves.
+  // The Main ruleset does not require up-to-date branches, and `auto` would
+  // still rebase every automerge PR each time main moves
   rebaseWhen: "conflicted",
   // Overrides :automergeBranch from the base preset.
   automergeType: "pr",
