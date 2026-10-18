@@ -199,8 +199,8 @@ spec:
         dims: 768
         # 200000-char default batches of long chunks ran past the 1 min embed timeout on the iGPU.
         maxBatchChars: 50000
-        # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
-        similarFloor: 0.7
+        # With these prompts a hunk's best match scores 0.82-0.88, an off-topic hunk's 0.78-0.81; 0.7 kept both. Retune after any prompt change.
+        similarFloor: 0.82
         # One prompt for both sides, as the model card has it. A change rebuilds the index: recheck similarFloor.
         queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
         documentPrompt: *embeddingPrompt
