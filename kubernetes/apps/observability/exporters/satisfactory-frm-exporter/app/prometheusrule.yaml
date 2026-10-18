@@ -67,3 +67,16 @@ spec:
           labels:
             severity: warning
             app: satisfactory
+        # battery_differential flickers around 0 (spikes when machines start), so test the 15m average, not the raw value.
+        - alert: SatisfactoryOnBattery
+          expr: |-
+            avg_over_time(battery_differential{job="satisfactory-frm-exporter"}[15m]) < 0
+            and on(circuit_id) battery_capacity{job="satisfactory-frm-exporter"} > 0
+          for: 5m
+          annotations:
+            summary: >-
+              Power circuit {{ $labels.circuit_id }} has been net-discharging its batteries
+              for 20 minutes ({{ $value | humanize }} MW); add generation before they run out
+          labels:
+            severity: warning
+            app: satisfactory
