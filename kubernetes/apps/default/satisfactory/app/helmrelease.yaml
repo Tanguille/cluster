@@ -101,8 +101,7 @@ spec:
     route:
       app:
         hostnames:
-          # Not satisfactory.${SECRET_DOMAIN}: cloudflare-ddns publishes that name for the game, which trips GatusEndpointExposed.
-          - satisfactory-frm.${SECRET_DOMAIN}
+          - frm.${SECRET_DOMAIN}
         parentRefs:
           - name: envoy-internal
             namespace: network
@@ -113,7 +112,8 @@ spec:
       # Public view-only copy: FRM's write endpoints (setSwitches, ...) are POSTs, dropped here even if the token leaks.
       external:
         hostnames:
-          - frm.${SECRET_DOMAIN}
+          # Same name as the game's cloudflare-ddns record.
+          - satisfactory.${SECRET_DOMAIN}
         parentRefs:
           - name: envoy-external
             namespace: network
