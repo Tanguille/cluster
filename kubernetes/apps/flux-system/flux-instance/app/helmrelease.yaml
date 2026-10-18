@@ -12,7 +12,8 @@ spec:
   values:
     instance:
       distribution:
-        artifact: "" # chart default is :latest; empty uses the manifests embedded in the operator image
+        # Pinned: the chart renders "" as null, which the FluxInstance CRD rejects; its default is :latest.
+        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.61.0
       cluster:
         networkPolicy: false
       sync:
