@@ -50,8 +50,8 @@ spec:
                   failureThreshold: 120
             resources:
               requests:
-                cpu: 500m
-                memory: 1Gi
+                cpu: 1
+                memory: 2Gi
               limits:
                 memory: 8Gi
         initContainers:
@@ -72,7 +72,7 @@ spec:
               limits:
                 memory: 256Mi
     defaultPodOptions:
-      # 5000: evicted after unclassified pods (0), still before an llmkube model (llmkube-normal 10000).
+      # Evicted after unclassified pods, before llmkube models.
       priorityClassName: homelab-important
       # init.sh skips its root-only uid remap when started as the image's steam user (1000:1000).
       securityContext:
@@ -95,18 +95,33 @@ spec:
             protocol: UDP
           messaging:
             port: 8888
-          # FRM (FicsitRemoteMonitoring) web server + REST API, autostarted via mods.sh; in-cluster only (not in the world allow rule).
+          # FRM web server + REST API: routes and exporter only, not in the CNP world rule.
           frm:
             port: 8080
     route:
       app:
         hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+          # Not satisfactory.${SECRET_DOMAIN}: cloudflare-ddns publishes that name for the game, which trips GatusEndpointExposed.
+          - satisfactory-frm.${SECRET_DOMAIN}
         parentRefs:
           - name: envoy-internal
             namespace: network
         rules:
           - backendRefs:
+              - identifier: satisfactory
+                port: frm
+      # Public view-only copy: FRM's write endpoints (setSwitches, ...) are POSTs, dropped here even if the token leaks.
+      external:
+        hostnames:
+          - frm.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+        rules:
+          - matches:
+              - method: GET
+              - method: HEAD
+            backendRefs:
               - identifier: satisfactory
                 port: frm
     persistence:
