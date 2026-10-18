@@ -1,7 +1,8 @@
 # D3-nano replacement and rollout
 
 Status, 2026-10-17: locally implemented and tested; draft PR publication authorized.
-Image publication and live rollout remain pending. Control-1 maintenance is expected; do not deploy during it.
+The runtime image is published and digest-pinned. Live rollout remains pending approval.
+Control-1 maintenance is expected; do not deploy during it.
 The user's request to set up all useful candidates authorizes the local implementation steps below.
 
 ## Workspace
@@ -89,9 +90,13 @@ Kritika's tool contract and alert proxy behavior. Run repository validation, YAM
 
 Continuation: “Verify the D3 branch/worktree, finish final local validation and present the exact delivery scope.”
 
-### 2. Publish and enable consumers — awaiting approval
+### 2. Publish and enable consumers — image published; rollout awaiting approval
 
-Publish `ghcr.io/tanguille/d3-nano:runtime-5bd7c6941948` first; pin its resulting digest before deployment.
+Published `ghcr.io/tanguille/d3-nano:runtime-5bd7c6941948` at
+`sha256:c059600031632f516d9b54c54367a988d903f1cb94b3c4b77940cbf70e97e1d3`; both runtime and gateway use this digest.
+GHCR's one-time package visibility must be Public for anonymous pulls. The build workflow now runs on branch
+pushes that change its Dockerfile/workflow and publishes `sha-<commit>` tags. Publish each new runtime first,
+verify anonymous access, then pin its digest in a consumer change. Manifests alone do not trigger a rebuild.
 Deliver D3, Hermes, Siren, LiteLLM, Kritika and Karakeep changes while retaining the old Qwen model manifest.
 Setup and Qwen retirement use separate commits. Split the retirement commit into a later
 delivery before merging; do not merge both together. Keep `kubernetes/apps/ai/llmkube/` and the historical
@@ -99,6 +104,10 @@ embedder comparison cleanup out of the first delivery. Wait for CI and approval 
 Hermes restarts once with Recreate; Siren rolls its two replicas; LiteLLM/Kritika/Karakeep update normally.
 Verify image/revision/golden readiness, network allow/deny behavior, Hermes tools and memory, an actual bookmark
 summary/tag job, confidence fallback, Siren alert/silence behavior and target-node load before retiring Qwen.
+
+The rendered `cluster-apps` patch supplies `cluster-secrets` substitution to D3, as it does for every child
+Kustomization. CPU thread arguments use [Kubernetes environment expansion](https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/).
+The gateway's startup probe checks `/healthz` independently of native model loading; readiness waits for the worker.
 
 Continuation: “Verify the D3 branch/worktree, publish the image and deliver the approved first phase, retaining Qwen2B.”
 

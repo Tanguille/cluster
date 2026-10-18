@@ -29,7 +29,7 @@ spec:
           runtime:
             image: &image
               repository: ghcr.io/tanguille/d3-nano
-              tag: runtime-5bd7c6941948
+              tag: runtime-5bd7c6941948@sha256:c059600031632f516d9b54c54367a988d903f1cb94b3c4b77940cbf70e97e1d3
             args:
               - serve
               - vllm-sr/d3-nano
@@ -127,6 +127,15 @@ spec:
                     path: /readyz
                     port: 8101
                   timeoutSeconds: 5
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /healthz
+                    port: 8101
+                  periodSeconds: 10
+                  failureThreshold: 30
               liveness:
                 enabled: true
                 custom: true

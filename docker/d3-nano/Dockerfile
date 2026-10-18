@@ -20,3 +20,4 @@ RUN mkdir -p /opt/vllm-srun "$HF_HOME" \
 USER 65532
 EXPOSE 8100
 ENTRYPOINT ["vllm-srun"]
+LABEL org.opencontainers.image.source="https://github.com/Tanguille/cluster"
