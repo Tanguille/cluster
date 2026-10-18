@@ -12,7 +12,7 @@ spec:
   values:
     instance:
       distribution:
-        artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.61.0
+        artifact: "" # chart default is :latest; empty uses the manifests embedded in the operator image
       cluster:
         networkPolicy: false
       sync:
@@ -42,8 +42,6 @@ spec:
                     - name: cluster-secrets
                       kind: Secret
                       optional: true
-                timeout: 5m
-                retryInterval: 2m
                 patches:
                   # Replaces substituteFrom/timeout/retryInterval wholesale — setting them in a child is a no-op.
                   - patch: |-
