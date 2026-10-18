@@ -178,6 +178,9 @@ spec:
             - receiver: blackhole
               matchers:
                 - alertname = InfoInhibitor
+            - receiver: discord-satisfactory
+              matchers:
+                - app = satisfactory
         inhibit_rules:
           - equal: ["alertname", "namespace"]
             source_matchers:
@@ -188,7 +191,8 @@ spec:
           - name: blackhole
           - name: discord
             discord_configs:
-              - webhook_url_secret:
+              - &discord
+                webhook_url_secret:
                   name: alertmanager-secret
                   key: DISCORD_WEBHOOK_URL
                 username: Alertmanager
@@ -225,6 +229,11 @@ spec:
 
                   {{ end }}{{ end }}{{ if gt (len .Alerts) 5 }}…and more alerts in this group.
                   {{ end }}
+          # Same embed; the content line pings the Satisfactory role (not inside the embed, where mentions do not notify).
+          - name: discord-satisfactory
+            discord_configs:
+              - <<: *discord
+                content: '{{ if eq .Status "firing" }}<@&1561355798846906469>{{ end }}'
       monzoTemplate:
         enabled: false
       route:
