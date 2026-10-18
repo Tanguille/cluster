@@ -1,0 +1,537 @@
+{
+  "Name": "Main",
+  "Type": 0,
+  "Revision": 23,
+  "Description": "",
+  "Icon": "fas fa-video",
+  "Properties": {
+    "Fields": [],
+    "Variables": {}
+  },
+  "Parts": [
+    {
+      "Uid": "f23001ba-0db4-409b-bbf4-c8311541e555",
+      "FlowElementUid": "FileFlows.VideoNodes.VideoFile",
+      "xPos": 310,
+      "yPos": 30,
+      "Inputs": 0,
+      "Outputs": 1,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "d02d835e-5cd5-4320-8b86-d6d630634ddc"
+        }
+      ],
+      "ErrorConnection": {
+        "Input": 1,
+        "Output": -1,
+        "InputNode": "c1742ed6-4966-4a53-a043-7aa79621e497"
+      },
+      "Type": 0
+    },
+    {
+      "Uid": "c1742ed6-4966-4a53-a043-7aa79621e497",
+      "FlowElementUid": "FileFlows.VideoNodes.FfmpegBuilderNodes.FfmpegBuilderStart",
+      "xPos": 600,
+      "yPos": 40,
+      "Inputs": 1,
+      "Outputs": 1,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "cb43f320-d33f-471a-9e9c-eb6068ed1c0a"
+        }
+      ],
+      "Type": 4
+    },
+    {
+      "Uid": "cb43f320-d33f-471a-9e9c-eb6068ed1c0a",
+      "Name": "Remux to MKV",
+      "FlowElementUid": "FileFlows.VideoNodes.FfmpegBuilderNodes.FfmpegBuilderRemuxToMkv",
+      "xPos": 600,
+      "yPos": 130,
+      "Inputs": 1,
+      "Outputs": 1,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "fcab5d9a-8436-44fb-bbd6-4cf4ea74d88f"
+        }
+      ],
+      "Type": 6
+    },
+    {
+      "Uid": "fcab5d9a-8436-44fb-bbd6-4cf4ea74d88f",
+      "Name": "HEVC",
+      "FlowElementUid": "FileFlows.VideoNodes.FfmpegBuilderNodes.FfmpegBuilderVideoEncodeSimple",
+      "xPos": 600,
+      "yPos": 240,
+      "Inputs": 1,
+      "Outputs": 1,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "77ef9951-88f3-42ba-8b61-75064dea470a"
+        }
+      ],
+      "Type": 6,
+      "Model": {
+        "Codec": "h265",
+        "Encoder": "VAAPI",
+        "Quality": 6,
+        "Speed": 1
+      }
+    },
+    {
+      "Uid": "77ef9951-88f3-42ba-8b61-75064dea470a",
+      "FlowElementUid": "FileFlows.VideoNodes.FfmpegBuilderNodes.FfmpegBuilderCropBlackBars",
+      "xPos": 600,
+      "yPos": 360,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "74454b27-3b46-48bd-a468-a43a57bfb730"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "74454b27-3b46-48bd-a468-a43a57bfb730"
+        }
+      ],
+      "Type": 6,
+      "Model": {
+        "CroppingThreshold": 10
+      }
+    },
+    {
+      "Uid": "74454b27-3b46-48bd-a468-a43a57bfb730",
+      "Name": "Remove Unwanted Subtitle Languages",
+      "FlowElementUid": "FileFlows.VideoNodes.FfmpegBuilderNodes.FFmpegBuilderLanguageRemover",
+      "xPos": 600,
+      "yPos": 490,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "b0fe824a-fa0f-403b-a96a-32986a95d202"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "b0fe824a-fa0f-403b-a96a-32986a95d202"
+        }
+      ],
+      "Type": 6,
+      "Model": {
+        "StreamType": "Subtitle",
+        "Languages": ["eng", "orig", "nld"],
+        "NotMatching": true
+      }
+    },
+    {
+      "Uid": "b0fe824a-fa0f-403b-a96a-32986a95d202",
+      "Name": "Copy Only Specified Languages",
+      "FlowElementUid": "FileFlows.VideoNodes.FfmpegBuilderNodes.FFmpegBuilderLanguageRemover",
+      "xPos": 600,
+      "yPos": 640,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "6dbb5168-28c6-4d40-8580-ae19be48f013"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "6dbb5168-28c6-4d40-8580-ae19be48f013"
+        }
+      ],
+      "Type": 6,
+      "Model": {
+        "StreamType": "Audio",
+        "Languages": ["eng", "orig", "nld"],
+        "NotMatching": true
+      }
+    },
+    {
+      "Uid": "e0e9014b-2651-41e1-920b-c7f244de01ac",
+      "FlowElementUid": "FileFlows.VideoNodes.FfmpegBuilderNodes.FfmpegBuilderExecutor",
+      "xPos": 970,
+      "yPos": 70,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "a5f84137-43fd-4aa9-9513-9689e41a267c"
+        }
+      ],
+      "ErrorConnection": {
+        "Input": 1,
+        "Output": -1,
+        "InputNode": "f8747db6-db11-4eae-81c4-ddd4e3911110"
+      },
+      "Type": 5,
+      "Model": {
+        "HardwareDecoding": "auto",
+        "Strictness": "experimental",
+        "RefreshMetadata": true
+      }
+    },
+    {
+      "Uid": "b09727f1-dc70-492e-a836-cabfe040d5d8",
+      "FlowElementUid": "FileFlows.BasicNodes.File.ReplaceOriginal",
+      "xPos": 1090,
+      "yPos": 680,
+      "Inputs": 1,
+      "Outputs": 1,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "a609d97c-152a-4037-888c-bdb04d2323d9"
+        }
+      ],
+      "Type": 2
+    },
+    {
+      "Uid": "ce19049e-c43a-45b8-ba6b-33fecf7903c4",
+      "Name": "IsRemux",
+      "FlowElementUid": "FileFlows.BasicNodes.File.FileNameMatches",
+      "xPos": 320,
+      "yPos": 420,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "c1742ed6-4966-4a53-a043-7aa79621e497"
+        }
+      ],
+      "Type": 3,
+      "Model": {
+        "Value": "remux"
+      }
+    },
+    {
+      "Uid": "c2d48081-f2c1-4691-b321-c5e2a6722953",
+      "FlowElementUid": "FileFlows.BasicNodes.File.HasHardLinks",
+      "xPos": 310,
+      "yPos": 200,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "0091a791-c73d-49c5-b617-7c8c77737b6c"
+        },
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "afb9c10f-527f-40bc-a87d-a84fceaf53bd"
+        }
+      ],
+      "Type": 3,
+      "Model": {
+        "FileName": null,
+        "Count": 1
+      }
+    },
+    {
+      "Uid": "d02d835e-5cd5-4320-8b86-d6d630634ddc",
+      "FlowElementUid": "FileFlows.VideoNodes.VideoAlreadyProcessed",
+      "xPos": 310,
+      "yPos": 110,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "c2d48081-f2c1-4691-b321-c5e2a6722953"
+        }
+      ],
+      "Type": 3,
+      "Model": {}
+    },
+    {
+      "Uid": "a5f84137-43fd-4aa9-9513-9689e41a267c",
+      "FlowElementUid": "FileFlows.BasicNodes.File.FileSizeCompare",
+      "xPos": 1080,
+      "yPos": 270,
+      "Inputs": 1,
+      "Outputs": 3,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "81f12194-481c-45e7-a34e-ca50e9736fa0"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "36fafa7c-37a2-49b5-99a4-5ab2676e3e85"
+        },
+        {
+          "Input": 1,
+          "Output": 3,
+          "InputNode": "36fafa7c-37a2-49b5-99a4-5ab2676e3e85"
+        }
+      ],
+      "Type": 3,
+      "Model": {}
+    },
+    {
+      "Uid": "0091a791-c73d-49c5-b617-7c8c77737b6c",
+      "FlowElementUid": "FileFlows.VideoNodes.VideoResolution",
+      "xPos": 310,
+      "yPos": 290,
+      "Inputs": 1,
+      "Outputs": 4,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "7e91d55c-b18b-4664-bdb3-80da8021ded7"
+        },
+        {
+          "Input": 1,
+          "Output": 3,
+          "InputNode": "ce19049e-c43a-45b8-ba6b-33fecf7903c4"
+        },
+        {
+          "Input": 1,
+          "Output": 4,
+          "InputNode": "ce19049e-c43a-45b8-ba6b-33fecf7903c4"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "c1742ed6-4966-4a53-a043-7aa79621e497"
+        }
+      ],
+      "Type": 3,
+      "Model": {}
+    },
+    {
+      "Uid": "81f12194-481c-45e7-a34e-ca50e9736fa0",
+      "FlowElementUid": "FileFlows.VideoNodes.VideoDurationCompare",
+      "xPos": 1080,
+      "yPos": 370,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "88e496b4-c843-4b62-abdf-3504f1a50549"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "36fafa7c-37a2-49b5-99a4-5ab2676e3e85"
+        }
+      ],
+      "Type": 3,
+      "Model": {
+        "AllowedDifference": "00:01:30"
+      }
+    },
+    {
+      "Uid": "88e496b4-c843-4b62-abdf-3504f1a50549",
+      "FlowElementUid": "Script:f5eebc75-e22d-4181-af02-5e7263e68acd",
+      "xPos": 1090,
+      "yPos": 480,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "fb555c7d-541f-4b30-8daf-44faa4466e83"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "fb555c7d-541f-4b30-8daf-44faa4466e83"
+        }
+      ],
+      "Type": 9,
+      "Model": {
+        "RemoveHDRTenPlus": false
+      }
+    },
+    {
+      "Uid": "a609d97c-152a-4037-888c-bdb04d2323d9",
+      "FlowElementUid": "FileFlows.DiscordNodes.Communication.Discord",
+      "xPos": 1090,
+      "yPos": 780,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [],
+      "Type": 8,
+      "Model": {
+        "Title": "{file.Orig.FileName}",
+        "MessageType": "Success",
+        "Message": "\n{{ difference = file.Size - file.Orig.Size }}\n{{ percent = (difference / file.Orig.Size) * 100 | math.round 2 }}\n\nInput File: {{ file.Orig.FullName }}\nOutput File: {{ file.FullName }}\nOriginal Size: {{ file.Orig.Size | file_size }}\nFinal Size: {{ file.Size | file_size }}\n\n{{- if difference > 0 }}\nFile grew in size: {{ difference | math.abs | file_size }}\n{{ else }}\nFile shrunk in size by: {{ difference | file_size }} / {{ percent }}%\n{{ end }}"
+      }
+    },
+    {
+      "Uid": "afb9c10f-527f-40bc-a87d-a84fceaf53bd",
+      "FlowElementUid": "FileFlows.BasicNodes.Functions.Reprocess",
+      "xPos": 100,
+      "yPos": 290,
+      "Inputs": 1,
+      "Outputs": 0,
+      "OutputConnections": [],
+      "Type": 2,
+      "Model": {
+        "Node": null,
+        "HoldMinutes": 10080
+      }
+    },
+    {
+      "Uid": "7e91d55c-b18b-4664-bdb3-80da8021ded7",
+      "FlowElementUid": "FileFlows.VideoNodes.VideoIsHevc",
+      "xPos": 110,
+      "yPos": 420,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "2c5373c1-f151-47ac-ba53-7126b0e7a1d3"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "c1742ed6-4966-4a53-a043-7aa79621e497"
+        }
+      ],
+      "Type": 3,
+      "Model": {}
+    },
+    {
+      "Uid": "2c5373c1-f151-47ac-ba53-7126b0e7a1d3",
+      "FlowElementUid": "FileFlows.VideoNodes.VideoBitrateGreaterThan",
+      "xPos": 80,
+      "yPos": 570,
+      "Inputs": 1,
+      "Outputs": 2,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "c1742ed6-4966-4a53-a043-7aa79621e497"
+        }
+      ],
+      "Type": 3,
+      "Model": {
+        "Bitrate": 20000
+      }
+    },
+    {
+      "Uid": "36fafa7c-37a2-49b5-99a4-5ab2676e3e85",
+      "Name": "Keep original (no size saving)",
+      "FlowElementUid": "FileFlows.BasicNodes.File.OriginalFile",
+      "xPos": 1450,
+      "yPos": 370,
+      "Inputs": 1,
+      "Outputs": 1,
+      "OutputConnections": [],
+      "Type": 2,
+      "Model": {}
+    },
+    {
+      "Uid": "fb555c7d-541f-4b30-8daf-44faa4466e83",
+      "Name": "Final size after Dolby Vision repair",
+      "FlowElementUid": "FileFlows.BasicNodes.File.FileSizeCompare",
+      "xPos": 1090,
+      "yPos": 590,
+      "Inputs": 1,
+      "Outputs": 3,
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "b09727f1-dc70-492e-a836-cabfe040d5d8"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "36fafa7c-37a2-49b5-99a4-5ab2676e3e85"
+        },
+        {
+          "Input": 1,
+          "Output": 3,
+          "InputNode": "36fafa7c-37a2-49b5-99a4-5ab2676e3e85"
+        }
+      ],
+      "Type": 3,
+      "Model": {}
+    },
+    {
+      "Uid": "6dbb5168-28c6-4d40-8580-ae19be48f013",
+      "Name": "Sample before full encode",
+      "FlowElementUid": "Script:0a6e7dd7-6e06-44cc-985f-31b8781e3c7b",
+      "xPos": 970,
+      "yPos": -100,
+      "Inputs": 1,
+      "Outputs": 3,
+      "Type": 9,
+      "Model": {},
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "e0e9014b-2651-41e1-920b-c7f244de01ac"
+        },
+        {
+          "Input": 1,
+          "Output": 2,
+          "InputNode": "36fafa7c-37a2-49b5-99a4-5ab2676e3e85"
+        },
+        {
+          "Input": 1,
+          "Output": 3,
+          "InputNode": "950c1e7f-91d6-4bf3-98fb-8924c80db548"
+        }
+      ]
+    },
+    {
+      "Uid": "950c1e7f-91d6-4bf3-98fb-8924c80db548",
+      "Name": "Sample-approved adaptive bitrate",
+      "FlowElementUid": "FileFlows.VideoNodes.FfmpegBuilderNodes.FfmpegBuilderVideoManual",
+      "xPos": 1330,
+      "yPos": -100,
+      "Inputs": 1,
+      "Outputs": 1,
+      "Type": 6,
+      "Model": {
+        "Parameters": "{AdaptiveVideoEncoding}"
+      },
+      "OutputConnections": [
+        {
+          "Input": 1,
+          "Output": 1,
+          "InputNode": "e0e9014b-2651-41e1-920b-c7f244de01ac"
+        }
+      ]
+    }
+  ]
+}
