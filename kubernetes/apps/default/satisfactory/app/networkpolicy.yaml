@@ -24,12 +24,3 @@ spec:
             # FRM web server + REST API (unauthenticated; LAN-only exposure like the game ports).
             - port: "8080"
               protocol: TCP
-    # In-cluster only: let the FRM exporter (observability ns) scrape the FRM web API.
-    # Cilium world/cluster entities are too broad here, so select the exporter pod.
-    - fromEndpoints:
-        - matchLabels:
-            app.kubernetes.io/name: satisfactory-frm-exporter
-      toPorts:
-        - ports:
-            - port: "8080"
-              protocol: TCP
