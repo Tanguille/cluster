@@ -15,9 +15,16 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 PATH = Path(__file__).parents[1] / "kubernetes/components/d3-gateway/resources/decision_gateway.py"
+sys.path.insert(0, str(PATH.parent))  # decision_gateway imports its sibling d3_client
 spec = importlib.util.spec_from_file_location("decision_gateway", PATH)
 gateway = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gateway)
+
+
+def wait_for(condition, timeout=1):
+    deadline = time.monotonic()+timeout
+    while not condition() and time.monotonic() < deadline:
+        time.sleep(.01)
 
 
 class Fake(BaseHTTPRequestHandler):
@@ -82,7 +89,7 @@ class GatewayTests(unittest.TestCase):
         threading.Thread(target=cls.native.serve_forever, daemon=True).start()
         cls.app = gateway.Gateway("secret", f"http://127.0.0.1:{cls.native.server_port}", timeout=.05)
         cls.server = gateway.make_server(cls.app, ("127.0.0.1", 0))
-        cls.alert_app = gateway.Gateway(native_url=f"http://127.0.0.1:{cls.native.server_port}", timeout=.05, alerts=True)
+        cls.alert_app = gateway.AlertGateway(f"http://127.0.0.1:{cls.native.server_port}", timeout=.05)
         cls.alert_server = gateway.make_server(cls.alert_app, ("127.0.0.1", 0))
         cls.alert_app.alertmanager_url = f"http://127.0.0.1:{cls.native.server_port}"
         for server in (cls.server, cls.alert_server):
@@ -93,7 +100,6 @@ class GatewayTests(unittest.TestCase):
         for server in (cls.server, cls.alert_server, cls.native):
             server.shutdown()
             server.server_close()
-        cls.app.executor.shutdown(wait=True)
         cls.alert_app.executor.shutdown(wait=True)
 
     def setUp(self):
@@ -211,9 +217,7 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(alerts, original)
         self.assertLess(time.monotonic()-started, .15)
-        deadline = time.monotonic()+1
-        while not self.alert_app.alert_cache and time.monotonic() < deadline:
-            time.sleep(.01)
+        wait_for(lambda: self.alert_app.alert_cache)
         _, enriched = self.request(None, "/api/v2/alerts", token=None, server=self.alert_server)
         self.assertEqual(enriched[0]["labels"], original[0]["labels"])
         self.assertEqual(enriched[0]["annotations"]["summary"], "Disk full")
@@ -225,9 +229,7 @@ class GatewayTests(unittest.TestCase):
         Fake.mode = "invalid"
         _, alerts = self.request(None, "/api/v2/alerts", token=None, server=self.alert_server)
         self.assertEqual(alerts, Fake.alerts)
-        deadline = time.monotonic()+1
-        while not self.alert_app.alert_cache and time.monotonic() < deadline:
-            time.sleep(.01)
+        wait_for(lambda: self.alert_app.alert_cache)
         _, alerts = self.request(None, "/api/v2/alerts", token=None, server=self.alert_server)
         self.assertEqual(alerts, Fake.alerts)
         body = {"matchers": [{"name": "alertname", "value": "test", "isRegex": False}],
@@ -247,18 +249,16 @@ class GatewayTests(unittest.TestCase):
             for _ in range(2):
                 status, alerts = self.request(None, "/api/v2/alerts", token=None, server=self.alert_server)
                 self.assertEqual((status, alerts), (200, Fake.alerts))
-                deadline = time.monotonic()+1
-                while self.alert_app.pending and time.monotonic() < deadline:
-                    time.sleep(.01)
+                wait_for(lambda: not self.alert_app.pending)
             self.assertEqual(Fake.calls, [])
             self.assertEqual(self.request(None, "/healthz", token=None, server=self.alert_server)[0], 200)
             self.assertEqual(self.request(self.kritika_confidence(), server=self.alert_server)[0], 404)
         finally:
             self.alert_app.native_url = native_url
 
-    def test_central_mode_requires_key_but_alert_mode_does_not(self):
+    def test_central_mode_requires_key(self):
         with self.assertRaises(ValueError):
-            gateway.Gateway()
+            gateway.Gateway("")
 
     def test_alert_process_has_only_alert_listener_and_needs_no_key(self):
         with socket.socket() as alert_socket, socket.socket() as central_socket:

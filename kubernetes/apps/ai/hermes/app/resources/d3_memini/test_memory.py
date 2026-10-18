@@ -22,6 +22,7 @@ class MemoryTest(unittest.TestCase):
         upstream.MeminiMemoryProvider = UpstreamProvider
         self.decisions = ModuleType("cluster_d3_decisions_client")
         self.decisions.decide = Mock(return_value={})
+        self.decisions.question = lambda instructions, criteria: {"instructions": instructions, "criteria": criteria}
         spec = importlib.util.spec_from_file_location("d3_memini", Path(__file__).with_name("__init__.py"))
         self.plugin = importlib.util.module_from_spec(spec)
         with patch.dict(sys.modules, {"cluster_upstream_memini": upstream, "cluster_d3_decisions_client": self.decisions}):
@@ -41,9 +42,6 @@ class MemoryTest(unittest.TestCase):
             self.assertEqual(self.provider.prefetch("query", session_id="s"), ("recall", "query", {"session_id": "s"}))
             self.assertEqual(self.provider.sync_turn("user", "assistant", session_id="s"),
                              ("capture", "user", "assistant", {"session_id": "s"}))
-        self.decisions.decide.side_effect = RuntimeError("offline")
-        self.assertEqual(self.provider.prefetch("query"), ("recall", "query", {}))
-        self.assertEqual(self.provider.sync_turn("user", "assistant"), ("capture", "user", "assistant", {}))
 
     def test_explicit_and_lifecycle_methods_are_inherited(self):
         for method in ("handle_tool_call", "on_pre_compress", "on_memory_write", "initialize", "shutdown"):

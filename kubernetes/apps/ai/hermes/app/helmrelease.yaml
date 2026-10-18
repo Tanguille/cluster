@@ -30,7 +30,7 @@ spec:
 
         initContainers:
           configure-d3:
-            image:
+            image: &image
               repository: nousresearch/hermes-agent
               tag: v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
             command:
@@ -51,9 +51,7 @@ spec:
 
         containers:
           app:
-            image:
-              repository: nousresearch/hermes-agent
-              tag: v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
+            image: *image
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -78,7 +76,6 @@ spec:
               GATEWAY_MULTIPLEX_PROFILES: "true"
               # Profile subprocesses get their own HOME; one cache root keeps uv/HF/pnpm off the PVC.
               XDG_CACHE_HOME: /opt/data/.cache
-              D3_DECISION_URL: http://d3-nano.ai.svc.cluster.local:8100/v1/systemone
             envFrom:
               - secretRef:
                   name: hermes-secret
@@ -147,6 +144,13 @@ spec:
         name: hermes-d3-memini
         globalMounts:
           - path: /opt/d3/plugins/d3-memini
+            readOnly: true
+      d3-client:
+        type: configMap
+        name: hermes-d3-gateway
+        globalMounts:
+          - path: /opt/d3/shared/d3_client.py
+            subPath: d3_client.py
             readOnly: true
       d3-configure:
         type: configMap

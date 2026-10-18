@@ -3,6 +3,19 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+components:
+  - ../../../../components/d3-gateway
+
+# The component's ConfigMap name is shared with d3-nano in this namespace.
+patches:
+  - target:
+      kind: ConfigMap
+      name: d3-gateway
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: hermes-d3-gateway
+
 resources:
   - helmrelease.yaml
   - prometheusrule.yaml

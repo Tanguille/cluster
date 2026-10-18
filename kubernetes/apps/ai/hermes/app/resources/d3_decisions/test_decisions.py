@@ -1,10 +1,15 @@
 import importlib.util
 import json
 from pathlib import Path
+import sys
 import unittest
 from unittest.mock import patch
 
 
+# In the pod d3_client.py is mounted beside the plugin; here it lives in the shared gateway component.
+client = importlib.util.spec_from_file_location("cluster_d3_client", Path(__file__).parents[6] / "components/d3-gateway/resources/d3_client.py")
+sys.modules["cluster_d3_client"] = importlib.util.module_from_spec(client)
+client.loader.exec_module(sys.modules["cluster_d3_client"])
 spec = importlib.util.spec_from_file_location("d3_decisions", Path(__file__).with_name("__init__.py"))
 plugin = importlib.util.module_from_spec(spec)
 
@@ -14,6 +19,13 @@ def answer(question, choice):
     return {"type": "choice", "choice": choice, "confidence": 0.95,
             "input_coverage": "complete", "probabilities": {
                 key: 0.96 if key == choice else 0.04 / (len(choices) - 1) for key in choices}}
+
+
+class Response:
+    def __init__(self, body): self.body = body
+    def __enter__(self): return self
+    def __exit__(self, *args): pass
+    def read(self, size): return self.body
 
 
 class DecisionsTest(unittest.TestCase):
@@ -36,13 +48,8 @@ class DecisionsTest(unittest.TestCase):
                 self.assertIsNone(plugin._choice("thinking", {**valid, **update}))
 
     def test_native_payload_and_bounded_response(self):
-        class Response:
-            def __enter__(self): return self
-            def __exit__(self, *args): pass
-            def read(self, size):
-                return json.dumps({"model": "d3-nano", "answers": {
-                    "route": answer("route", "cluster")}}).encode()
-        with patch.object(plugin, "urlopen", return_value=Response()) as opened:
+        body = json.dumps({"model": "d3-nano", "answers": {"route": answer("route", "cluster")}}).encode()
+        with patch.object(plugin._d3, "urlopen", return_value=Response(body)) as opened:
             self.assertEqual(plugin.decide("check cluster"), {"route": "cluster"})
             request = opened.call_args.args[0]
             payload = json.loads(request.data)
@@ -51,9 +58,9 @@ class DecisionsTest(unittest.TestCase):
             self.assertEqual(opened.call_args.kwargs["timeout"], 3)
 
     def test_errors_and_oversize_preserve_workflow(self):
-        with patch.object(plugin, "urlopen", side_effect=TimeoutError):
+        with patch.object(plugin._d3, "urlopen", side_effect=TimeoutError):
             self.assertEqual(plugin.decide("check cluster"), {})
-        with patch.object(plugin, "urlopen") as opened:
+        with patch.object(plugin._d3, "urlopen") as opened:
             for content in ("", "x" * 4097, [{"type": "image_url"}], None):
                 self.assertEqual(plugin.decide(content), {})
             opened.assert_not_called()
@@ -91,17 +98,12 @@ class DecisionsTest(unittest.TestCase):
         self.assertIsNone(plugin.route_request(request=request, session_id="s", turn_id="t", base_url="http://litellm.ai.svc.cluster.local/v1"))
 
     def test_bad_json_incomplete_and_oversized_responses_fallback(self):
-        class Response:
-            def __init__(self, body): self.body = body
-            def __enter__(self): return self
-            def __exit__(self, *args): pass
-            def read(self, size): return self.body
         cases = [b"{", b"[]", b"x" * 65537,
                  json.dumps({"model": "other", "answers": {}}).encode(),
                  json.dumps({"model": "d3-nano", "answers": {"thinking": {
                      **answer("thinking", "fast"), "input_coverage": "partial"}}}).encode()]
         for body in cases:
-            with self.subTest(body=body[:60]), patch.object(plugin, "urlopen", return_value=Response(body)):
+            with self.subTest(body=body[:60]), patch.object(plugin._d3, "urlopen", return_value=Response(body)):
                 self.assertEqual(plugin.decide("check cluster"), {})
 
     def test_registers_supported_interfaces(self):
@@ -129,11 +131,8 @@ class DecisionsTest(unittest.TestCase):
             decide.assert_not_called()
 
     def test_native_url_override(self):
-        class Response:
-            def __enter__(self): return self
-            def __exit__(self, *args): pass
-            def read(self, size): return b'{"model":"d3-nano","answers":{}}'
-        with patch.dict(plugin.os.environ, {"D3_DECISION_URL": "http://d3:8100/v1/systemone"}), patch.object(plugin, "urlopen", return_value=Response()) as opened:
+        response = Response(b'{"model":"d3-nano","answers":{}}')
+        with patch.dict(plugin.os.environ, {"D3_DECISION_URL": "http://d3:8100/v1/systemone"}), patch.object(plugin._d3, "urlopen", return_value=response) as opened:
             plugin.decide("test")
             request = opened.call_args.args[0]
             self.assertEqual(request.full_url, "http://d3:8100/v1/systemone")

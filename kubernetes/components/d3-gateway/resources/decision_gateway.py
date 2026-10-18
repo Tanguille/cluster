@@ -1,9 +1,7 @@
 """Kritika confidence tool adapter or Siren's advisory Alertmanager proxy."""
-import copy
 import hashlib
 import hmac
 import json
-import math
 import os
 import re
 import threading
@@ -15,6 +13,9 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+import d3_client
+from d3_client import question
+
 MAX_BODY = 65536
 MAX_TEXT = 12000
 MIN_PROBABILITY = .7
@@ -23,14 +24,6 @@ RISK = {"low": "Little consequential behavior change", "medium": "Routine revers
         "critical": "Irrecoverable outage, data loss, administrative access or secret exposure"}
 SCORES = {"0": "Must not merge", "1": "Several P0s or devastating P0", "2": "P0 finding",
           "3": "P1 finding", "4": "No P0/P1 but unanswered concrete concern", "5": "No P0/P1 or uncovered concern"}
-
-
-def question(instructions, criteria):
-    return {"type": "choice", "instructions": instructions, "criteria": criteria, "require_full_input": True}
-
-
-def finite(value):
-    return type(value) in (int, float) and math.isfinite(value)
 
 
 def confidence_tool(body):
@@ -67,33 +60,19 @@ def verify(result, questions):
     if not isinstance(answers, dict) or set(answers) != set(questions):
         raise ValueError("Missing answers")
     for name, item in questions.items():
-        answer = answers[name]
-        if not isinstance(answer, dict) or answer.get("type") != "choice" or answer.get("input_coverage") != "complete" or "error" in answer:
-            raise ValueError("Incomplete or failed decision")
-        probabilities = answer.get("probabilities")
-        if not isinstance(probabilities, dict) or set(probabilities) != set(item["criteria"]) or any(not finite(p) or not 0 <= p <= 1 for p in probabilities.values()) or not math.isclose(sum(probabilities.values()), 1, abs_tol=.001):
-            raise ValueError("Invalid probabilities")
-        choice = answer.get("choice")
-        if choice not in probabilities or probabilities[choice] != max(probabilities.values()):
-            raise ValueError("Invalid choice")
+        d3_client.check_answer(answers[name], item["criteria"], .001)
     usage = result.get("usage", {})
     if type(usage.get("input_tokens")) is not int or usage["input_tokens"] < 0 or type(usage.get("output_tokens")) is not int or usage["output_tokens"] != 0:
         raise ValueError("Invalid usage")
     return result
 
 
-class Gateway:
-    def __init__(self, api_key="", native_url="http://127.0.0.1:8100", timeout=30, alerts=False):
-        if (not alerts and not api_key) or not 0 < timeout <= 30:
+class Native:
+    def __init__(self, native_url="http://127.0.0.1:8100", timeout=30):
+        if not 0 < timeout <= 30:
             raise ValueError("Invalid gateway configuration")
-        self.alerts = alerts
-        self.api_key, self.native_url = api_key, native_url.rstrip("/")
-        self.timeout = timeout
+        self.native_url, self.timeout = native_url.rstrip("/"), timeout
         self.native_slots = threading.BoundedSemaphore(2)
-        self.alertmanager_url = "http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093"
-        self.executor = ThreadPoolExecutor(max_workers=1)
-        self.alert_slots = threading.BoundedSemaphore(16)
-        self.alert_cache, self.pending, self.lock = {}, set(), threading.Lock()
 
     def decide(self, state, questions, timeout=None):
         if not isinstance(state, str) or len(state) > MAX_TEXT:
@@ -101,12 +80,7 @@ class Gateway:
         if not self.native_slots.acquire(blocking=False):
             raise ValueError("Decision queue full")
         try:
-            request = Request(self.native_url + "/v1/systemone", data=json.dumps({"state": state, "questions": questions}).encode(), headers={"Content-Type": "application/json"})
-            with urlopen(request, timeout=timeout or self.timeout) as response:
-                raw = response.read(1048577)
-            if len(raw) > 1048576:
-                raise ValueError("Oversized native response")
-            return verify(json.loads(raw), questions)
+            return verify(d3_client.post(self.native_url + "/v1/systemone", state, questions, timeout or self.timeout, 1048576), questions)
         finally:
             self.native_slots.release()
 
@@ -116,6 +90,16 @@ class Gateway:
         if probability < MIN_PROBABILITY:
             raise ValueError("Uncertain decision")
         return choice, probability
+
+
+class Gateway(Native):
+    """Kritika confidence adapter behind litellm."""
+
+    def __init__(self, api_key, native_url="http://127.0.0.1:8100", timeout=30):
+        if not api_key:
+            raise ValueError("Invalid gateway configuration")
+        super().__init__(native_url, timeout)
+        self.api_key = api_key
 
     def confidence(self, body):
         if set(body) - {"model", "messages", "stream", "max_tokens", "max_completion_tokens",
@@ -143,9 +127,18 @@ class Gateway:
                 "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls"}],
                 "usage": {"prompt_tokens": tokens, "completion_tokens": 0, "total_tokens": tokens}}
 
+
+class AlertGateway(Native):
+    """Advisory D3 annotations on Siren's Alertmanager reads."""
+
+    def __init__(self, native_url="http://127.0.0.1:8100", timeout=30):
+        super().__init__(native_url, timeout)
+        self.alertmanager_url = "http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093"
+        self.executor = ThreadPoolExecutor(max_workers=1)
+        self.alert_cache, self.pending, self.lock = {}, set(), threading.Lock()
+
     def enrich(self, alerts):
-        output = copy.deepcopy(alerts)
-        for alert in output:
+        for alert in alerts:
             if not isinstance(alert, dict):
                 continue
             key = hashlib.sha256(json.dumps(alert, sort_keys=True).encode()).hexdigest()
@@ -156,18 +149,16 @@ class Gateway:
                     if isinstance(annotations, dict):
                         for name, value in cached[1].items():
                             annotations.setdefault(name, value)
-                elif key not in self.pending and self.alert_slots.acquire(blocking=False):
+                elif key not in self.pending and len(self.pending) < 16:
                     self.pending.add(key)
-                    self.executor.submit(self.classify_alert, key, copy.deepcopy(alert))
-        return output
+                    self.executor.submit(self.classify_alert, key, alert)
+        return alerts
 
     def classify_alert(self, key, alert):
         annotations = {}
         try:
-            categories = {"capacity": "Resource capacity", "availability": "Service unavailable", "security": "Security concern", "configuration": "Configuration or reconciliation", "other": "Other"}
-            urgency = {"immediate": "Needs attention now", "soon": "Needs attention soon", "routine": "Routine attention"}
-            tasks = {"category": question("Classify this alert for advisory display only.", categories),
-                     "urgency": question("Classify urgency for advisory display only; retain original alert severity.", urgency)}
+            tasks = {"category": question("Classify this alert for advisory display only.", d3_client.ALERT_CATEGORIES),
+                     "urgency": question("Classify urgency for advisory display only; retain original alert severity.", d3_client.ALERT_URGENCY)}
             result = self.decide(json.dumps(alert, ensure_ascii=False), tasks, timeout=min(3, self.timeout))
             annotations = {"d3_" + name: self.selected(result["answers"][name])[0] for name in tasks}
         except Exception:
@@ -178,98 +169,111 @@ class Gateway:
                     self.alert_cache.pop(next(iter(self.alert_cache)))
                 self.alert_cache[key] = (time.monotonic()+60, annotations)
                 self.pending.discard(key)
-            self.alert_slots.release()
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass  # Requests contain private review and memory data.
+
+    def reply(self, status, body, content_type="application/json"):
+        raw = body if isinstance(body, bytes) else json.dumps(body, allow_nan=False).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def body(self):
+        if self.headers.get_content_type() != "application/json" or "Transfer-Encoding" in self.headers:
+            raise ValueError("Expected unchunked JSON")
+        size = int(self.headers.get("Content-Length", "0"))
+        if not 0 < size <= MAX_BODY:
+            raise OverflowError("Request exceeds body limit")
+        self.connection.settimeout(5)
+        return self.rfile.read(size)
+
+
+class ConfidenceHandler(Handler):
+    def do_GET(self):
+        if self.path == "/healthz":
+            return self.reply(200, {"status": "ok"})
+        if self.path == "/readyz":
+            try:
+                with urlopen(self.app.native_url + "/health", timeout=2) as response:
+                    return self.reply(200 if response.status == 200 else 503, {"status": "ready"})
+            except Exception:
+                return self.reply(503, {"error": "Native worker unavailable"})
+        self.reply(404, {"error": "Unknown endpoint"})
+
+    def do_POST(self):
+        if not hmac.compare_digest(self.headers.get("Authorization", "").encode(), ("Bearer " + self.app.api_key).encode()):
+            return self.reply(401, {"error": "Unauthorized"})
+        if self.path != "/v1/chat/completions":
+            return self.reply(404, {"error": "Unknown endpoint"})
+        try:
+            body = json.loads(self.body())
+            if not isinstance(body, dict) or body.get("model") != "d3-confidence" or body.get("stream", False) is not False:
+                return self.reply(400, {"error": "Only nonstreaming d3-confidence is supported"})
+            self.reply(200, self.app.confidence(body))
+        except Exception:
+            self.reply(503, {"error": "Decision unavailable; use configured fallback"})
+
+    def do_DELETE(self):
+        self.reply(405, {"error": "Unsupported method"})
+
+
+class AlertHandler(Handler):
+    def do_GET(self):
+        if self.path == "/healthz":
+            return self.reply(200, {"status": "ok"})
+        self.proxy()
+
+    def do_POST(self):
+        self.proxy()
+
+    do_DELETE = do_POST
+
+    def proxy(self):
+        app = self.app
+        parsed = urlsplit(self.path)
+        path = parsed.path
+        if parsed.scheme or parsed.netloc or parsed.fragment:
+            return self.reply(404, {"error": "Unsupported Alertmanager route"})
+        reads = {"/api/v2/alerts", "/api/v2/alerts/groups", "/api/v2/status", "/api/v2/receivers", "/api/v2/silences"}
+        silence = re.fullmatch(r"/api/v2/silence/[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", path)
+        if not ((self.command == "GET" and (path in reads or silence)) or
+                (self.command == "POST" and path == "/api/v2/silences") or (self.command == "DELETE" and silence)):
+            return self.reply(404, {"error": "Unsupported Alertmanager route"})
+        try:
+            data = self.body() if self.command == "POST" else None
+            request = Request(app.alertmanager_url + self.path, data=data, method=self.command, headers={"Content-Type": "application/json"})
+            try:
+                response = urlopen(request, timeout=5)
+            except HTTPError as error:
+                response = error
+            with response:
+                raw, status = response.read(4194305), response.status
+                content_type = response.headers.get("Content-Type", "application/json")
+            if len(raw) > 4194304:
+                raise ValueError("Oversized Alertmanager response")
+            if self.command == "GET" and path == "/api/v2/alerts" and status == 200:
+                payload = json.loads(raw)
+                if isinstance(payload, list):
+                    raw = json.dumps(app.enrich(payload)).encode()
+            self.reply(status, raw, content_type)
+        except Exception:
+            self.reply(502, {"error": "Alertmanager unavailable"})
 
 
 def make_server(app, address):
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, *args):
-            pass  # Requests contain private review and memory data.
-
-        def reply(self, status, body, content_type="application/json"):
-            raw = body if isinstance(body, bytes) else json.dumps(body, allow_nan=False).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", content_type)
-            self.send_header("Content-Length", str(len(raw)))
-            self.end_headers()
-            self.wfile.write(raw)
-
-        def body(self):
-            if self.headers.get_content_type() != "application/json" or "Transfer-Encoding" in self.headers:
-                raise ValueError("Expected unchunked JSON")
-            size = int(self.headers.get("Content-Length", "0"))
-            if not 0 < size <= MAX_BODY:
-                raise OverflowError("Request exceeds body limit")
-            self.connection.settimeout(5)
-            return self.rfile.read(size)
-
-        def do_GET(self):
-            if self.path == "/healthz":
-                return self.reply(200, {"status": "ok"})
-            if app.alerts:
-                return self.proxy()
-            if self.path == "/readyz":
-                try:
-                    with urlopen(app.native_url + "/health", timeout=2) as response:
-                        return self.reply(200 if response.status == 200 else 503, {"status": "ready"})
-                except Exception:
-                    return self.reply(503, {"error": "Native worker unavailable"})
-            self.reply(404, {"error": "Unknown endpoint"})
-
-        def do_POST(self):
-            if app.alerts:
-                return self.proxy()
-            if not hmac.compare_digest(self.headers.get("Authorization", "").encode(), ("Bearer " + app.api_key).encode()):
-                return self.reply(401, {"error": "Unauthorized"})
-            if self.path != "/v1/chat/completions":
-                return self.reply(404, {"error": "Unknown endpoint"})
-            try:
-                body = json.loads(self.body())
-                if not isinstance(body, dict) or body.get("model") != "d3-confidence" or body.get("stream", False) is not False:
-                    return self.reply(400, {"error": "Only nonstreaming d3-confidence is supported"})
-                self.reply(200, app.confidence(body))
-            except Exception:
-                self.reply(503, {"error": "Decision unavailable; use configured fallback"})
-
-        def do_DELETE(self):
-            if app.alerts:
-                return self.proxy()
-            self.reply(405, {"error": "Unsupported method"})
-
-        def proxy(self):
-            parsed = urlsplit(self.path)
-            path = parsed.path
-            if parsed.scheme or parsed.netloc or parsed.fragment:
-                return self.reply(404, {"error": "Unsupported Alertmanager route"})
-            reads = {"/api/v2/alerts", "/api/v2/alerts/groups", "/api/v2/status", "/api/v2/receivers", "/api/v2/silences"}
-            silence = re.fullmatch(r"/api/v2/silence/[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", path)
-            if not ((self.command == "GET" and (path in reads or silence)) or
-                    (self.command == "POST" and path == "/api/v2/silences") or (self.command == "DELETE" and silence)):
-                return self.reply(404, {"error": "Unsupported Alertmanager route"})
-            try:
-                data = self.body() if self.command == "POST" else None
-                request = Request(app.alertmanager_url + self.path, data=data, method=self.command, headers={"Content-Type": "application/json"})
-                try:
-                    response = urlopen(request, timeout=5)
-                except HTTPError as error:
-                    response = error
-                with response:
-                    raw, status = response.read(4194305), response.status
-                    content_type = response.headers.get("Content-Type", "application/json")
-                if len(raw) > 4194304:
-                    raise ValueError("Oversized Alertmanager response")
-                if self.command == "GET" and path == "/api/v2/alerts" and status == 200:
-                    payload = json.loads(raw)
-                    if isinstance(payload, list):
-                        raw = json.dumps(app.enrich(payload)).encode()
-                self.reply(status, raw, content_type)
-            except Exception:
-                self.reply(502, {"error": "Alertmanager unavailable"})
-    return ThreadingHTTPServer(address, Handler)
+    handler = AlertHandler if isinstance(app, AlertGateway) else ConfidenceHandler
+    return ThreadingHTTPServer(address, type("Bound", (handler,), {"app": app}))
 
 
 if __name__ == "__main__":
+    native_url = os.getenv("D3_NATIVE_URL", "http://127.0.0.1:8100")
     alert_port = int(os.getenv("D3_ALERT_PORT", "0"))
-    app = Gateway(os.getenv("LITELLM_API_KEY", ""), os.getenv("D3_NATIVE_URL", "http://127.0.0.1:8100"), alerts=bool(alert_port))
-    host = "127.0.0.1" if app.alerts else "0.0.0.0"
-    make_server(app, (host, alert_port or int(os.getenv("D3_GATEWAY_PORT", "8101")))).serve_forever()
+    if alert_port:
+        make_server(AlertGateway(native_url), ("127.0.0.1", alert_port)).serve_forever()
+    else:
+        make_server(Gateway(os.getenv("LITELLM_API_KEY", ""), native_url), ("0.0.0.0", int(os.getenv("D3_GATEWAY_PORT", "8101")))).serve_forever()
