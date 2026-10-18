@@ -28,29 +28,19 @@ SCORES = {"0": "Must not merge", "1": "Several P0s or devastating P0", "2": "P0 
 
 def confidence_tool(body):
     tools = body.get("tools")
-    if not isinstance(tools, list) or len(tools) != 1 or not isinstance(tools[0], dict) or set(tools[0]) != {"type", "function"} or tools[0]["type"] != "function":
+    function = tools[0].get("function") if isinstance(tools, list) and len(tools) == 1 and isinstance(tools[0], dict) else None
+    if not isinstance(function, dict) or function.get("name") != "confidence":
         raise ValueError("Only one confidence function tool is supported")
-    function = tools[0]["function"]
-    if not isinstance(function, dict) or set(function) - {"name", "description", "parameters", "strict"} or function.get("name") != "confidence":
-        raise ValueError("Unsupported tool")
-    schema = function.get("parameters", {})
-    if not isinstance(schema, dict) or set(schema) - {"type", "properties", "required", "additionalProperties"} or schema.get("type") != "object" or schema.get("additionalProperties", False) is not False:
+    # Our fixed output must satisfy the caller's schema, so pin only what it depends on.
+    schema = function.get("parameters")
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    if (not isinstance(properties, dict) or set(properties) != {"score", "risk", "reason"}
+            or properties["score"].get("type") != "integer" or properties["risk"].get("enum") != list(RISK)
+            or not set(schema.get("required", [])) <= set(properties)):
         raise ValueError("Unsupported confidence schema")
-    properties, required = schema.get("properties"), schema.get("required")
-    if not isinstance(properties, dict) or set(properties) != {"score", "risk", "reason"} or not isinstance(required, list) or len(required) != 3 or set(required) != set(properties):
-        raise ValueError("Unsupported confidence fields")
-    for name, expected in (("score", "integer"), ("risk", "string"), ("reason", "string")):
-        field = properties[name]
-        allowed = {"type", "description", "enum"} if name == "risk" else {"type", "description"}
-        if not isinstance(field, dict) or field.get("type") != expected or set(field) - allowed:
-            raise ValueError("Unsupported confidence field type")
-    if properties["risk"].get("enum") != list(RISK):
-        raise ValueError("Unsupported risk levels")
     choice = body.get("tool_choice", "auto")
     if choice not in ("auto", "required") and choice != {"type": "function", "function": {"name": "confidence"}}:
         raise ValueError("Unsupported tool choice")
-    if "parallel_tool_calls" in body and type(body["parallel_tool_calls"]) is not bool:
-        raise ValueError("Invalid parallel_tool_calls")
 
 
 def verify(result, questions):
@@ -131,13 +121,15 @@ class Gateway(Native):
 class AlertGateway(Native):
     """Advisory D3 annotations on Siren's Alertmanager reads."""
 
-    def __init__(self, native_url="http://127.0.0.1:8100", timeout=30):
+    def __init__(self, native_url, alertmanager_url, timeout=30):
         super().__init__(native_url, timeout)
-        self.alertmanager_url = "http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093"
+        self.alertmanager_url = alertmanager_url.rstrip("/")
         self.executor = ThreadPoolExecutor(max_workers=1)
         self.alert_cache, self.pending, self.lock = {}, set(), threading.Lock()
 
     def enrich(self, alerts):
+        """Annotate alerts in place; return whether anything was added."""
+        changed = False
         for alert in alerts:
             if not isinstance(alert, dict):
                 continue
@@ -148,11 +140,13 @@ class AlertGateway(Native):
                     annotations = alert.setdefault("annotations", {})
                     if isinstance(annotations, dict):
                         for name, value in cached[1].items():
-                            annotations.setdefault(name, value)
+                            if name not in annotations:
+                                annotations[name] = value
+                                changed = True
                 elif key not in self.pending and len(self.pending) < 16:
                     self.pending.add(key)
                     self.executor.submit(self.classify_alert, key, alert)
-        return alerts
+        return changed
 
     def classify_alert(self, key, alert):
         annotations = {}
@@ -258,8 +252,8 @@ class AlertHandler(Handler):
                 raise ValueError("Oversized Alertmanager response")
             if self.command == "GET" and path == "/api/v2/alerts" and status == 200:
                 payload = json.loads(raw)
-                if isinstance(payload, list):
-                    raw = json.dumps(app.enrich(payload)).encode()
+                if isinstance(payload, list) and app.enrich(payload):
+                    raw = json.dumps(payload).encode()
             self.reply(status, raw, content_type)
         except Exception:
             self.reply(502, {"error": "Alertmanager unavailable"})
@@ -274,6 +268,6 @@ if __name__ == "__main__":
     native_url = os.getenv("D3_NATIVE_URL", "http://127.0.0.1:8100")
     alert_port = int(os.getenv("D3_ALERT_PORT", "0"))
     if alert_port:
-        make_server(AlertGateway(native_url), ("127.0.0.1", alert_port)).serve_forever()
+        make_server(AlertGateway(native_url, os.environ["D3_ALERTMANAGER_URL"]), ("127.0.0.1", alert_port)).serve_forever()
     else:
         make_server(Gateway(os.getenv("LITELLM_API_KEY", ""), native_url), ("0.0.0.0", int(os.getenv("D3_GATEWAY_PORT", "8101")))).serve_forever()

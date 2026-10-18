@@ -4,31 +4,30 @@ import tempfile
 import unittest
 
 
-class ConfigureTest(unittest.TestCase):
-    def load(self):
-        spec = importlib.util.spec_from_file_location("configure_d3", Path(__file__).with_name("configure_d3.py"))
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
+spec = importlib.util.spec_from_file_location("configure_d3", Path(__file__).with_name("configure_d3.py"))
+configure_d3 = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(configure_d3)
 
+
+class ConfigureTest(unittest.TestCase):
     def test_replaces_old_router_and_models_without_enabling_memory(self):
         config = {"plugins": {"enabled": ["homeassistant", "qwen38-effort-router"]}, "auxiliary": {"title_generation": {"model": "qwen35-2b"}}, "unrelated": "keep me"}
-        updated = self.load().update_config(config)
+        updated = configure_d3.update_config(config)
         self.assertEqual(updated["plugins"]["enabled"], ["homeassistant", "d3-decisions"])
         self.assertEqual(updated["auxiliary"]["title_generation"]["model"], "qwen-3.8-fast")
         self.assertNotIn("memory", updated)
         self.assertEqual(updated["unrelated"], "keep me")
-        self.assertEqual(self.load().update_config(updated), updated)
+        self.assertEqual(configure_d3.update_config(updated), updated)
 
     def test_wraps_existing_memini_only(self):
         config = {"memory": {"provider": "memini", "enabled": True}, "model": {"default": "qwen3.5-2b"}}
-        result = self.load().update_config(config)
+        result = configure_d3.update_config(config)
         self.assertEqual(result["memory"], {"provider": "d3-memini", "enabled": True})
         self.assertEqual(result["model"]["default"], "qwen-3.8-fast")
 
     def test_leaves_another_provider_and_explicit_reasoning_alone(self):
         config = {"memory": {"provider": "file"}, "model": {"default": "qwen-3.8"}, "reasoning": {"effort": "high"}}
-        result = self.load().update_config(config)
+        result = configure_d3.update_config(config)
         self.assertEqual(result["memory"], config["memory"])
         self.assertEqual(result["model"], config["model"])
         self.assertEqual(result["reasoning"], config["reasoning"])
@@ -46,14 +45,14 @@ class ConfigureTest(unittest.TestCase):
             original = "# Keep this comment\nmemory:\n  provider: memini\nauxiliary:\n  title_generation:\n    model: qwen35-2b\n"
             path.write_text(original)
             path.chmod(0o600)
-            self.load().configure(home, plugins, YAML())
+            configure_d3.configure(home, plugins, YAML())
             self.assertEqual(path.with_suffix(".yaml.before-d3").read_text(), original)
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertIn("# Keep this comment", path.read_text())
             self.assertNotIn("qwen35-2b", path.read_text())
             self.assertEqual((home / "plugins/d3-decisions").resolve(), (plugins / "d3-decisions").resolve())
             migrated = path.read_bytes()
-            self.load().configure(home, plugins, YAML())
+            configure_d3.configure(home, plugins, YAML())
             self.assertEqual(path.read_bytes(), migrated)
             self.assertEqual(path.with_suffix(".yaml.before-d3").read_text(), original)
 
@@ -69,20 +68,20 @@ class ConfigureTest(unittest.TestCase):
             (mounted / "__init__.py").write_text("")
             before = path.read_bytes()
             with self.assertRaisesRegex(ValueError, "user plugin"):
-                self.load().configure(home, mounted.parent, YAML())
+                configure_d3.configure(home, mounted.parent, YAML())
             self.assertEqual(path.read_bytes(), before)
 
     def test_enables_decision_tools_for_explicit_toolset_profiles(self):
         config = {"toolsets": ["terminal", "homeassistant"]}
-        updated = self.load().update_config(config)
+        updated = configure_d3.update_config(config)
         self.assertEqual(updated["toolsets"], ["terminal", "homeassistant", "d3_decisions"])
-        self.assertEqual(self.load().update_config(updated), updated)
+        self.assertEqual(configure_d3.update_config(updated), updated)
 
     def test_missing_config_allows_native_first_start_bootstrap(self):
         from ruamel.yaml import YAML
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
-            self.load().configure(home, home / "mounted", YAML())
+            configure_d3.configure(home, home / "mounted", YAML())
             self.assertFalse((home / "config.yaml").exists())
 
 

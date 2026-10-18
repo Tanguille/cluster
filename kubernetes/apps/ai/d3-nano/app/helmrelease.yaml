@@ -74,8 +74,8 @@ spec:
               requests:
                 # Bursty decisions share CPU; a 2-core request cannot fit the memory-capable node.
                 cpu: 500m
-                # Local native BF16 load peaked at 7.35Gi; steady RSS was 4.65Gi.
-                memory: 8Gi
+                # Steady RSS was 4.65Gi locally; the 7.35Gi BF16 load peak fits under the limit.
+                memory: 6Gi
               limits:
                 cpu: "4"
                 memory: 10Gi

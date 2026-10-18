@@ -89,9 +89,8 @@ class GatewayTests(unittest.TestCase):
         threading.Thread(target=cls.native.serve_forever, daemon=True).start()
         cls.app = gateway.Gateway("secret", f"http://127.0.0.1:{cls.native.server_port}", timeout=.05)
         cls.server = gateway.make_server(cls.app, ("127.0.0.1", 0))
-        cls.alert_app = gateway.AlertGateway(f"http://127.0.0.1:{cls.native.server_port}", timeout=.05)
+        cls.alert_app = gateway.AlertGateway(f"http://127.0.0.1:{cls.native.server_port}", f"http://127.0.0.1:{cls.native.server_port}", timeout=.05)
         cls.alert_server = gateway.make_server(cls.alert_app, ("127.0.0.1", 0))
-        cls.alert_app.alertmanager_url = f"http://127.0.0.1:{cls.native.server_port}"
         for server in (cls.server, cls.alert_server):
             threading.Thread(target=server.serve_forever, daemon=True).start()
 
@@ -266,7 +265,8 @@ class GatewayTests(unittest.TestCase):
             central_socket.bind(("127.0.0.1", 0))
             alert_port, central_port = alert_socket.getsockname()[1], central_socket.getsockname()[1]
         environment = os.environ | {"D3_ALERT_PORT": str(alert_port), "D3_GATEWAY_PORT": str(central_port),
-                                    "D3_NATIVE_URL": "http://127.0.0.1:0"}
+                                    "D3_NATIVE_URL": "http://127.0.0.1:0",
+                                    "D3_ALERTMANAGER_URL": "http://127.0.0.1:0"}
         environment.pop("LITELLM_API_KEY", None)
         process = subprocess.Popen([sys.executable, str(PATH)], env=environment,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
