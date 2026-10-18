@@ -21,13 +21,13 @@ spec:
           reloader.stakater.com/auto: "true"
         containers:
           app:
-            image:
+            image: &image
               repository: ghcr.io/robtme/satisfactory-server
               tag: v1.9.11
             env:
               MAXTICKRATE: "120"
               TIMEOUT: "300"
-            securityContext:
+            securityContext: &sc
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
             probes:
@@ -50,31 +50,29 @@ spec:
                   failureThreshold: 120
             resources:
               requests:
-                cpu: 500m
-                memory: 1Gi
+                cpu: 1
+                memory: 2Gi
               limits:
                 memory: 8Gi
-        # Mods disabled: uncomment this block and the scripts persistence entry below, and restore the
-        # `&image` and `&sc` anchors, to re-enable.
-        # initContainers:
-        # mods:
-        # image: *image
-        # env:
-        # # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
-        # MODS: SmartFoundations InfiniteZoop InfiniteNudge EfficiencyCheckerMod LoadBalancers RefinedPower
-        # FICSIT_VERSION: v0.7.1
-        # FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
-        # HOME: /tmp/ficsit
-        # command: [/bin/bash, /scripts/mods.sh]
-        # securityContext: *sc
-        # resources:
-        # requests:
-        # cpu: 100m
-        # memory: 128Mi
-        # limits:
-        # memory: 256Mi
+        initContainers:
+          mods:
+            image: *image
+            env:
+              # All players need the same mods. SML and dependencies are resolved by ficsit-cli.
+              MODS: InfiniteZoop SS_Mod LoadBalancers InfiniteNudge EfficiencyCheckerMod FicsitRemoteMonitoring
+              FICSIT_VERSION: v0.7.1
+              FICSIT_SHA256: 2af0f8815af93b097c7a97968569575b21cf451b7c345fbb62fae29096ee4a31
+              HOME: /tmp/ficsit
+            command: [/bin/bash, /scripts/mods.sh]
+            securityContext: *sc
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
     defaultPodOptions:
-      # 5000: evicted after unclassified pods (0), still before an llmkube model (llmkube-normal 10000).
+      # Evicted after unclassified pods, before llmkube models.
       priorityClassName: homelab-important
       # init.sh skips its root-only uid remap when started as the image's steam user (1000:1000).
       securityContext:
@@ -97,14 +95,43 @@ spec:
             protocol: UDP
           messaging:
             port: 8888
+          # FRM web server + REST API: routes and exporter only, not in the CNP world rule.
+          frm:
+            port: 8080
+    route:
+      app:
+        hostnames:
+          # Not satisfactory.${SECRET_DOMAIN}: cloudflare-ddns publishes that name for the game, which trips GatusEndpointExposed.
+          - satisfactory-frm.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: satisfactory
+                port: frm
+      # Public view-only copy: FRM's write endpoints (setSwitches, ...) are POSTs, dropped here even if the token leaks.
+      external:
+        hostnames:
+          - frm.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+        rules:
+          - matches:
+              - method: GET
+              - method: HEAD
+            backendRefs:
+              - identifier: satisfactory
+                port: frm
     persistence:
-      # scripts:
-      # type: configMap
-      # name: satisfactory-scripts
-      # advancedMounts:
-      # satisfactory:
-      # mods:
-      # - path: /scripts
-      # readOnly: true
+      scripts:
+        type: configMap
+        name: satisfactory-scripts
+        advancedMounts:
+          satisfactory:
+            mods:
+              - path: /scripts
+                readOnly: true
       config:
         existingClaim: *app

@@ -13,8 +13,10 @@ spec:
     namespace: ai
 
     controllerManager:
+      # The chart renders the lease RoleBinding only with leader election on, and
+      # the watch canary (on by default) needs it; without it no controller starts.
       leaderElection:
-        enabled: false
+        enabled: true
       resources:
         requests:
           memory: 128Mi

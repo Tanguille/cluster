@@ -26,14 +26,17 @@ spec:
         key: runner-uri
         role: kritik_runner
     # Runner Jobs parse untrusted PR content and run model-directed code.
+    # Keys live under podTemplate.spec; top-level runtimeClassName and resources are ignored silently and runner pods lose gVisor.
     runner:
-      runtimeClass: gvisor
-      resources:
-        requests:
-          cpu: 10m
-          memory: 128Mi
-        limits:
-          memory: 1Gi
+      podTemplate:
+        spec:
+          runtimeClassName: gvisor
+          resources:
+            requests:
+              cpu: 10m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
     # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
@@ -48,6 +51,12 @@ spec:
       egressPorts:
         - 443
         - 4000
+      # Instance pods only, not poolers: runners connect to the primary directly.
+      postgres:
+        namespace: database
+        podSelector:
+          cnpg.io/cluster: postgres16
+          cnpg.io/podRole: instance
     monitoring:
       serviceMonitor:
         enabled: true
@@ -109,8 +118,6 @@ spec:
         threshold: 4
         risk: high
       agent:
-        # Read-only tools only; no curl, so PR text can't steer raw requests.
-        commands: [gh, rg, fd, jq, yq]
         steps: 30
         output: 12288
         tokens: 1000000
@@ -192,8 +199,11 @@ spec:
         dims: 768
         # 200000-char default batches of long chunks ran past the 1 min embed timeout on the iGPU.
         maxBatchChars: 50000
-        # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
-        similarFloor: 0.7
+        # With these prompts a hunk's best match scores 0.82-0.88, an off-topic hunk's 0.78-0.81; 0.7 kept both. Retune after any prompt change.
+        similarFloor: 0.82
+        # One prompt for both sides, as the model card has it. A change rebuilds the index: recheck similarFloor.
+        queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
+        documentPrompt: *embeddingPrompt
       # Local admin until GitHub or OIDC is set up.
       auth:
         admin:

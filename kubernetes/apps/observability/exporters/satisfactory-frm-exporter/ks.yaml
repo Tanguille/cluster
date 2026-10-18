@@ -1,0 +1,20 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: satisfactory-frm-exporter
+  namespace: &namespace observability
+spec:
+  targetNamespace: *namespace
+  dependsOn:
+    - name: satisfactory
+      namespace: default
+  path: ./kubernetes/apps/observability/exporters/satisfactory-frm-exporter/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  wait: true
+  interval: 30m
