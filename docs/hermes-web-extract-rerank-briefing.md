@@ -61,6 +61,7 @@ The reranker favours short lines that repeat the query's product or version. For
 ## What live testing changed
 
 Testing ran in the Hermes pod three ways:
+
 - through Hermes's own loader and `invoke_hook`, from an isolated `HERMES_HOME`;
 - on 16 real truncated results from `state.db`;
 - against the live reranker.
@@ -75,6 +76,7 @@ Testing ran in the Hermes pod three ways:
 | (none) | Skip JSON pages | API JSON loses structure in fragments and is token-dense. |
 
 Final run, 16 real cases:
+
 - 6 rewritten, reranks 1.3-3.0 s, no timeouts;
 - 2 skipped as JSON, 1 with no keyword match;
 - 7 with no `web_search` in the task, left unchanged.
