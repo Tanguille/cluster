@@ -37,6 +37,12 @@ spec:
               memory: 128Mi
             limits:
               memory: 1Gi
+    # Cache the runner's mise-pinned tool downloads: one private emptyDir per
+    # replica, shared by every runner Job in the pod. S3 (RGW) would carry the
+    # cache across a rollout and share it between replicas; we run one replica,
+    # so filesystem keeps the win with no new storage dependency.
+    gatewayCache:
+      enabled: true
     # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
