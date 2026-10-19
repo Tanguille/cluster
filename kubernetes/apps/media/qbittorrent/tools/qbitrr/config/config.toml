@@ -70,15 +70,11 @@ FileNameExclusionRegex = [
   "music video",
   "comandotorrents.com"
 ]
-FileExtensionAllowlist = [
-  ".mp4",
-  ".mkv",
-  ".sub",
-  ".ass",
-  ".srt",
-  ".!qB",
-  ".parts"
-]
+# No FileExtensionAllowlist: an allowlist of .mkv/.mp4/.srt only made qBitrr treat
+# RAR-multipart scene releases (.rar, .r00…, .nfo, .sfv), .avi/.mpg XviD releases
+# and similar as "all files excluded" -> delete torrent + mark release failed in
+# Sonarr (blocklist). Sample/extras folders and files are still excluded by
+# FolderExclusionRegex/FileNameExclusionRegex above.
 # Max remaining ETA in seconds before removal (604800 = 7 days)
 MaximumETA = 604800
 # Don't delete torrents above this completion % (0.99 = 99%)
@@ -134,15 +130,9 @@ FileNameExclusionRegex = [
   "music video",
   "comandotorrents.com"
 ]
-FileExtensionAllowlist = [
-  ".mp4",
-  ".mkv",
-  ".sub",
-  ".ass",
-  ".srt",
-  ".!qB",
-  ".parts"
-]
+# No FileExtensionAllowlist: see the Sonarr-TV.Torrent note above. The allowlist
+# made qBitrr delete RAR-multipart and .avi/.mpg releases as "all files excluded"
+# and mark them failed in Radarr (blocklist).
 # Max remaining ETA in seconds before removal (604800 = 7 days)
 MaximumETA = 604800
 # Don't delete torrents above this completion % (0.99 = 99%)
