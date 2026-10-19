@@ -6,6 +6,7 @@ ranked by the in-cluster `bge-reranker-v2-m3` cross-encoder. Same character budg
 path and `read_file` hint). Standard library only.
 
 It leaves the result unchanged when:
+
 - the task has no `web_search` query;
 - the page is a JSON API response;
 - no passage matches the query;
