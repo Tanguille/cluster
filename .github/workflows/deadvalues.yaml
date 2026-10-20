@@ -3,16 +3,17 @@
 name: Dead Values
 
 # Helm silently ignores values keys a chart does not read: typos, keys a chart
-# dropped, or keys an AI agent invented. CI and Argo CD stay green while the
-# key does nothing. deadvalues renders every chart and reports the keys with
-# no effect; a chart bump that kills a key (BREAKING) fails the pull request.
-# renovate-operator is skipped: its values reference SOPS placeholders that
-# only resolve in-cluster, so the chart cannot render in CI.
+# dropped, or keys an AI agent invented. Flux stays green while the key does
+# nothing. deadvalues renders every changed chart and reports the keys with no
+# effect; a chart bump that kills a key (BREAKING) fails the pull request.
 on:
   pull_request:
-  push:
-    branches:
-      - main
+    branches: ["main"]
+    paths: ["kubernetes/**", ".deadvalues.yaml"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -30,8 +31,7 @@ jobs:
           fetch-depth: 0
 
       - name: Dead values
-        uses: guarnz/deadvalues@v0
+        uses: guarnz/deadvalues@eac40e4919709b2450e1f7eae5d60d401a278fb5 # v0.1.7
         with:
           path: kubernetes/apps
-          skip: renovate/renovate-operator
           fail-on-scan: dead

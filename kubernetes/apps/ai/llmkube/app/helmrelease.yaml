@@ -10,10 +10,7 @@ spec:
     kind: OCIRepository
     name: llmkube
   values:
-
     controllerManager:
-      # The chart renders the lease RoleBinding only with leader election on, and
-      # the watch canary (on by default) needs it; without it no controller starts.
       resources:
         requests:
           memory: 128Mi
