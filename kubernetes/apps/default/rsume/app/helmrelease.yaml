@@ -13,8 +13,7 @@ spec:
   values:
     controllers:
       rsume:
-        # The chart default is Recreate; with 1 replica the Kubernetes defaults
-        # (maxUnavailable 0, maxSurge 1) keep the site up during a rollout.
+        # Chart default is Recreate; rolling keeps the single replica serving during a rollout.
         strategy: RollingUpdate
         containers:
           app:
@@ -24,14 +23,6 @@ spec:
               tag: 0.1.0
             env:
               SITE_URL: https://${SECRET_DOMAIN}
-              # Not Flux-substituted: the repo and image are public, so the address
-              # stays in the Secret. Absent key = the footer omits the Email link.
-              CONTACT_EMAIL:
-                valueFrom:
-                  secretKeyRef:
-                    name: cluster-secrets
-                    key: SECRET_CONTACT_EMAIL
-                    optional: true
             probes:
               liveness: &probe
                 enabled: true
@@ -39,7 +30,7 @@ spec:
                 spec:
                   httpGet:
                     path: /
-                    port: 3000
+                    port: &port 3000
               readiness: *probe
             securityContext:
               readOnlyRootFilesystem: true
@@ -61,7 +52,7 @@ spec:
       app:
         ports:
           http:
-            port: 3000
+            port: *port
     route:
       app:
         annotations:
