@@ -6,10 +6,8 @@ import unittest
 from unittest.mock import patch
 
 
-# In the pod d3_client.py is mounted beside the plugin; here it lives in the shared gateway component.
-client = importlib.util.spec_from_file_location("cluster_d3_client", Path(__file__).parents[6] / "components/d3-gateway/resources/d3_client.py")
-sys.modules["cluster_d3_client"] = importlib.util.module_from_spec(client)
-client.loader.exec_module(sys.modules["cluster_d3_client"])
+# In the pod d3_client.py is mounted under /opt/d3/shared; here it lives in the shared gateway component.
+sys.path.insert(0, str(Path(__file__).parents[6] / "components/d3-gateway/resources"))
 spec = importlib.util.spec_from_file_location("d3_decisions", Path(__file__).with_name("__init__.py"))
 plugin = importlib.util.module_from_spec(spec)
 

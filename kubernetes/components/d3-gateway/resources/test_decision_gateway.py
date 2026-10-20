@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-PATH = Path(__file__).parents[1] / "kubernetes/components/d3-gateway/resources/decision_gateway.py"
+PATH = Path(__file__).with_name("decision_gateway.py")
 sys.path.insert(0, str(PATH.parent))  # decision_gateway imports its sibling d3_client
 spec = importlib.util.spec_from_file_location("decision_gateway", PATH)
 gateway = importlib.util.module_from_spec(spec)
@@ -222,6 +222,12 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(enriched[0]["annotations"]["summary"], "Disk full")
         self.assertIn("d3_category", enriched[0]["annotations"])
         self.assertEqual(Fake.alerts, original)
+        calls = len(Fake.calls)
+        Fake.alerts[0]["updatedAt"] = "resent"
+        self.addCleanup(Fake.alerts[0].pop, "updatedAt")
+        _, resent = self.request(None, "/api/v2/alerts", token=None, server=self.alert_server)
+        self.assertIn("d3_category", resent[0]["annotations"])
+        self.assertEqual(len(Fake.calls), calls)
         self.assertEqual(self.request(None, "/arbitrary", token=None, server=self.alert_server)[0], 404)
 
     def test_alert_failure_keeps_original_and_silence_payload_is_forwarded(self):

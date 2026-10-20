@@ -28,8 +28,6 @@ def update_config(config):
     if not isinstance(enabled, list):
         raise ValueError("plugins.enabled must be a list")
     plugins["enabled"] = [name for name in enabled if name not in {"qwen38-effort-router", "d3-decisions"}] + ["d3-decisions"]
-    if isinstance(config.get("toolsets"), list) and "d3_decisions" not in config["toolsets"]:
-        config["toolsets"].append("d3_decisions")
     if config.get("memory", {}).get("provider") == "memini":
         config["memory"]["provider"] = "d3-memini"
     return config

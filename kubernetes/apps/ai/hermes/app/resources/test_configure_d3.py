@@ -71,12 +71,6 @@ class ConfigureTest(unittest.TestCase):
                 configure_d3.configure(home, mounted.parent, YAML())
             self.assertEqual(path.read_bytes(), before)
 
-    def test_enables_decision_tools_for_explicit_toolset_profiles(self):
-        config = {"toolsets": ["terminal", "homeassistant"]}
-        updated = configure_d3.update_config(config)
-        self.assertEqual(updated["toolsets"], ["terminal", "homeassistant", "d3_decisions"])
-        self.assertEqual(configure_d3.update_config(updated), updated)
-
     def test_missing_config_allows_native_first_start_bootstrap(self):
         from ruamel.yaml import YAML
         with tempfile.TemporaryDirectory() as directory:

@@ -1,5 +1,4 @@
 """Kritika confidence tool adapter or Siren's advisory Alertmanager proxy."""
-import hashlib
 import hmac
 import json
 import os
@@ -131,9 +130,10 @@ class AlertGateway(Native):
         """Annotate alerts in place; return whether anything was added."""
         changed = False
         for alert in alerts:
-            if not isinstance(alert, dict):
+            # Fingerprint, not the alert body: updatedAt/endsAt change on every resend.
+            key = alert.get("fingerprint") if isinstance(alert, dict) else None
+            if not isinstance(key, str):
                 continue
-            key = hashlib.sha256(json.dumps(alert, sort_keys=True).encode()).hexdigest()
             with self.lock:
                 cached = self.alert_cache.get(key)
                 if cached and cached[0] > time.monotonic():
