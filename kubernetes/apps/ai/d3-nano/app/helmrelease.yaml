@@ -62,9 +62,7 @@ spec:
               OMP_NUM_THREADS:
                 valueFrom:
                   resourceFieldRef:
-                    containerName: runtime
                     resource: limits.cpu
-                    divisor: "1"
             securityContext: &security
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -173,6 +171,9 @@ spec:
             gateway:
               - path: /app/decision_gateway.py
                 subPath: decision_gateway.py
+                readOnly: true
+              - path: /app/d3_client.py
+                subPath: d3_client.py
                 readOnly: true
       tmp:
         type: emptyDir
