@@ -23,8 +23,7 @@ spec:
     monitoring:
       serviceMonitor:
         enabled: true
-        # kubernetes_node/nodename are not intrinsic to the metrics; the
-        # GpuFanStalled rule and the dashboards group by kubernetes_node.
+        # GpuFanStalled and the dashboards group by kubernetes_node, which the metrics lack.
         relabelings:
           - sourceLabels:
               - __meta_kubernetes_pod_node_name
