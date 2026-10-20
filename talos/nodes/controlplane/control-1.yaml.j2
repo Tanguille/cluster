@@ -3,7 +3,7 @@
 machine:
   install:
     disk: /dev/vda
-    # Its own schematic (control-1.schematic.yaml adds the dGPU extensions), so its own installer
+    # Its own schematic (control-1.schematic.yaml: qemu-guest-agent, dGPU kernel args), so its own installer
     # repo -- control-2/3 share talos/schematic.yaml and cannot use this image.
     image: ghcr.io/tanguille/installer/control-1:{{ pinned }}
   nodeLabels:

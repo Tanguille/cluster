@@ -16,7 +16,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/simple-monerod
-              tag: v0.18.5.1@sha256:0329465ffc599048efd57712d91d3b4b7d66380bd7205d5d0992cd9faf668e38
+              tag: v0.18.5.4@sha256:272ca78d28f6090bccd915447fa62038b40f9661c52ce585cd26bc23bb8acb3f
             args:
               - "--data-dir=/home/monero/.bitmonero"
               - "--log-file=/var/log/monero/monerod.log"
@@ -66,6 +66,9 @@ spec:
                     port: 18089
                   failureThreshold: 60
     defaultPodOptions:
+      # monerod flushes chain data to the 150Gi PVC on shutdown; the 30s
+      # default risks killing it mid-write.
+      terminationGracePeriodSeconds: 120
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch

@@ -1,7 +1,6 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/pooler_v1.json
-# Session-mode RW pooler (prepared statements, advisory locks, etc.). Service:
-# pgbouncer-session.database.svc.cluster.local:5432 — same primary as pgbouncer-rw.
+# Session-mode RW pooler (prepared statements, advisory locks) → same primary as pgbouncer-rw.
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
 metadata:
@@ -11,8 +10,7 @@ spec:
     name: postgres16
   instances: 2
   type: rw
-  # Same protections as pgbouncer-rw: out of BestEffort (Talos OOM controller
-  # kills request-less pods first) and spread across nodes.
+  # Same as pgbouncer-rw: requests (Talos OOM kills request-less pods first) and a hard spread across nodes.
   template:
     spec:
       containers:
@@ -27,13 +25,12 @@ spec:
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+          whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
               cnpg.io/poolerName: pgbouncer-session
   pgbouncer:
     poolMode: session
-    # Per-DB server cap through this deployment ≈ instances × max_db_connections below.
     parameters:
       max_client_conn: "800"
       default_pool_size: "12"

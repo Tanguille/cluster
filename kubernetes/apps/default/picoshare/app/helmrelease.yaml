@@ -22,7 +22,6 @@ spec:
               tag: v1.5.4@sha256:053fee7cbdc64894e924733d5405158a9baadbecd231bfe97ae69d16fd2c2639
             env:
               TZ: ${TIMEZONE}
-              PORT: &port 4001
               PS_BEHIND_PROXY: "true"
             envFrom:
               - secretRef:
@@ -52,7 +51,7 @@ spec:
       app:
         ports:
           http:
-            port: *port
+            port: 4001
     route:
       app:
         annotations:
@@ -67,7 +66,6 @@ spec:
             namespace: network
     persistence:
       data:
-        enabled: true
         storageClass: ceph-block
         accessMode: ReadWriteOnce
         size: 100Gi

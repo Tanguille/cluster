@@ -21,13 +21,9 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.9.19-e831fc2a1@sha256:547fdc19b45510ea1c0bc65ffadab3fcdde1ab1efd7fe696602284ba54d795ca
+              tag: 2026.10.19-62366b05c@sha256:b9383ac59bc9c7f6d68f29db201e90329d734a77bbc917f238144c74cd66f6a8
             env:
-              FORCE_OWNERSHIP: "false"
-              GRANIAN_HOST: "::"
-              GRANIAN_PORT: "8080"
               SEARXNG_BASE_URL: https://search.${SECRET_DOMAIN}
-              SEARXNG_PORT: "8080"
               SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
             envFrom:
               - secretRef:
@@ -64,11 +60,6 @@ spec:
               capabilities:
                 drop:
                   - ALL
-                add:
-                  - CHOWN
-                  - SETGID
-                  - SETUID
-                  - DAC_OVERRIDE
             resources:
               requests:
                 cpu: 50m
@@ -83,7 +74,7 @@ spec:
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+          whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: *app
@@ -121,8 +112,6 @@ spec:
       tmp:
         type: emptyDir
         medium: Memory
-        globalMounts:
-          - path: /tmp
       cache:
         type: emptyDir
         globalMounts:

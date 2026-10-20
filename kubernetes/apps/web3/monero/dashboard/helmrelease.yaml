@@ -19,7 +19,7 @@ spec:
           web:
             image:
               repository: nginx
-              tag: 1.31-alpine@sha256:62ff2089abf5a9ed33bd232895bef5e22f7bb4b200675cec49a5ebc48e3d4ac8
+              tag: 1.31-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
             resources:
               requests:
                 cpu: 10m
@@ -31,16 +31,23 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 80
+              readiness: *probe
           dashboard-server:
             image:
               repository: python
-              tag: 3.14-slim@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2
+              tag: 3.15-slim@sha256:2da676046630d7bf14c6764ae1143dc7fa0377a53f94bf5a642f0b214aca5bce
             command:
               - python3
               - /config/server.py
             args:
-              - --port
-              - "8080"
               - --data-dir
               - /var/lib/p2pool/api
               - --wallet
@@ -55,6 +62,16 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+            # Any JSON endpoint proves the server is up; avoid ones that proxy xmrig (503 when scaled to 0) or the observer.
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /observer_config
+                    port: 8080
+              readiness: *probe
             resources:
               requests:
                 cpu: 10m

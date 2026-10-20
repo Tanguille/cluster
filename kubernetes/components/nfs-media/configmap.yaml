@@ -3,6 +3,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nfs-media
+  annotations:
+    # Applied by every consumer's Kustomization (last applier owns it): a prune from any one deletes it
+    # for all, so delete it by hand when the last consumer goes.
+    kustomize.toolkit.fluxcd.io/prune: disabled
 data:
   values.yaml: |
     persistence:

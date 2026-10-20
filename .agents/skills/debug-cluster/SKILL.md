@@ -17,14 +17,6 @@ compatibility: Requires cluster access via ToolHive/kubectl; `flux` and optional
 
 Structured debugging with parallel fact gathering; delegate deep 5-Whys or log mining to subagents when useful.
 
-## When to delegate
-
-| Task | Approach |
-|------|----------|
-| 5-Whys / log pattern analysis | Subagent |
-| Status, events, single describe | Inline |
-| Flux overview | MCP or `flux get` inline |
-
 ## Quick diagnosis
 
 **Parallel gather:**
@@ -32,7 +24,7 @@ Structured debugging with parallel fact gathering; delegate deep 5-Whys or log m
 - Kubernetes resources (pods, deployments, services, events)
 - Logs (current + previous containers)
 - Flux instance when GitOps-related
-- Historical/crashed-pod logs and firing alerts: observability MCP group (Grafana + victoria-logs)
+- Historical/crashed-pod logs and firing alerts: `grafana_*` / `victorialogs-mcp_*` tools via the unified vMCP (`find_tool`/`call_tool`)
 
 ```bash
 kubectl get pods -n <ns> -o wide
@@ -60,7 +52,7 @@ When root cause is unclear, spawn a subagent with gathered facts and ask for fiv
 |-------|-----|
 | Config not picked up | Reloader annotation on workload |
 | HelmRelease stuck | Delete HR; Flux recreates from git |
-| Wrong image/tag | values.yaml in repo |
+| Wrong image/tag | HelmRelease `values` (`app/helmrelease.yaml`) |
 | PVC issues | storage class, events, kopiur `Restore`/mover path |
 
 Avoid `kubectl edit` except ephemeral tests.
@@ -72,7 +64,7 @@ flux get all -A --status-selector ready=false
 flux reconcile kustomization <name> --with-source
 ```
 
-MCP when available: `get_flux_instance`, `reconcile_flux_kustomization`. ToolHive tools are group-prefixed in-session (e.g. `flux-operator_reconcile_flux_kustomization`); resolve the real name from the session tool list before calling.
+MCP when available: `get_flux_instance`, `reconcile_flux_resource`. ToolHive tools are group-prefixed in-session (e.g. `flux-operator_reconcile_flux_resource`); resolve the real name from the session tool list before calling.
 
 ## Talos (rare)
 
@@ -84,20 +76,6 @@ Node NotReady, kubelet, kernel: `talosctl --nodes <ip> containers -k`, `logs kub
 kubectl get pods -n <ns>
 flux get helmreleases -A
 ```
-
-## Cross-referencing with kubesearch
-
-When troubleshooting an app with a common chart (cert-manager, postgres, nginx, etc.), use **kubesearch** to find how other homelab clusters configure the same component:
-
-| Symptom | Kubesearch query |
-|---------|-----------------|
-| Wrong values/config | `kubesearch_grep_values(query: "<key>: <value>")` — see how others set the same field |
-| Missing resource limits | `kubesearch_grep_values(query: "resources:")` + filter to your app |
-| Probes failing | `kubesearch_grep_values(query: "startupProbe")` + filter to your chart |
-| Persistence issues | `kubesearch_grep_values(query: "storageClass: ceph-block")` — compare PVC patterns |
-| Image not found | `kubesearch_search_images(query: "<image-name>")` — see tags used by others |
-
-Use `kubesearch_get_release` to drill into deployments of the same chart and compare complete `spec.values` blocks, then `repo_clone`/`repo_read_file` to inspect the full manifest.
 
 ## Related skills
 

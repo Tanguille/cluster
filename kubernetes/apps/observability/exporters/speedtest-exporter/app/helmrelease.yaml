@@ -11,8 +11,6 @@ spec:
     name: speedtest-exporter
 
   values:
-    podAnnotations:
-      reloader.stakater.com/auto: "true"
     # Chart defaults to dual-stack; this cluster is IPv4-only.
     service:
       ipFamilyPolicy: SingleStack
@@ -30,9 +28,7 @@ spec:
         cpu: 10m
         memory: 64Mi
       limits:
-        # Speedtest cycle spikes ~254Mi at ~30min intervals (Go download
-        # workers + checksumming); 1 core also saturates (998m), starving
-        # download workers and skewing measured download speed.
+        # Headroom from a transient episode (998m CPU, OOMKilled at 256Mi); normal runs peak ~24Mi.
         cpu: 2
         memory: 512Mi
     servicemonitor:

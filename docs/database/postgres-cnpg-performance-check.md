@@ -1,6 +1,6 @@
 # Check PostgreSQL (CloudNative-PG) performance after tuning
 
-Use this after tuning (e.g. NVMe/PLP, work_mem, autovacuum) to see if performance improved. Run from a machine with `kubectl` and cluster access, or use the **observability** MCP (Grafana/VictoriaMetrics) when connected.
+Use this after tuning (e.g. NVMe/PLP, work_mem, autovacuum) to see if performance improved. Run from a machine with `kubectl` and cluster access, or use the Grafana MCP (via the ToolHive vMCP) when connected.
 
 ## 1. VictoriaMetrics VMSingle (PromQL)
 
@@ -23,7 +23,7 @@ sum by (pod) (rate(cnpg_pg_stat_database_blks_hit[5m]))
 **Transactions per second** (primary, all DBs):
 
 ```promql
-sum(rate(cnpg_pg_stat_database_xact_commit{cnpg_pg_replication_in_recovery="0"}[5m]))
+sum(rate(cnpg_pg_stat_database_xact_commit[5m]) and on(pod) (cnpg_pg_replication_in_recovery == 0))
 ```
 
 **Checkpoints** (timed vs requested; fewer requested = good WAL/checkpoint tuning):
@@ -75,36 +75,13 @@ Interpretation:
 - **temp_files / temp_bytes** — Should stay low with work_mem 16MB; if high, consider per-session `SET work_mem` for heavy queries.
 - **commits / tup_*** — Throughput; compare before/after if you have a baseline.
 
-## 3. Observability MCP
+## 3. Grafana MCP
 
-When the **observability** MCP server is connected, use `grafana_query_prometheus` to run the same PromQL as in section 1.
-
-**Setup:** Resolve the canonical `prometheus` datasource UID (e.g. `grafana_list_datasources` with `type: "prometheus"` or `grafana_get_datasource_by_name` with `name: "prometheus"`), which is backed by VictoriaMetrics/VMSingle after PR2.
-
-**Tool:** `grafana_query_prometheus` with:
-
-- `datasourceUid`: the UID from the step above
-- `expr`: one of the PromQL expressions below
-- `startTime`: `"now"` for current snapshot
-- `queryType`: `"instant"` for a single point, or `"range"` for a trend
-- For range: also set `endTime`: `"now"`, `startTime`: `"now-24h"`, `stepSeconds`: `900` (15 min)
-
-**Queries to run (same as section 1):**
-
-| What | PromQL |
-|------|--------|
-| Cache hit ratio (by pod) | `sum by (pod) (rate(cnpg_pg_stat_database_blks_hit[5m])) / (sum by (pod) (rate(cnpg_pg_stat_database_blks_hit[5m])) + sum by (pod) (rate(cnpg_pg_stat_database_blks_read[5m])))` |
-| Transactions/s (cluster) | `sum(rate(cnpg_pg_stat_database_xact_commit[5m]))` |
-| Checkpoints timed (24h) | `sum by (pod) (increase(cnpg_pg_stat_checkpointer_checkpoints_timed[24h]))` |
-| Checkpoints requested (24h) | `sum by (pod) (increase(cnpg_pg_stat_checkpointer_checkpoints_req[24h]))` |
-| Temp files (24h) | `sum by (pod, datname) (increase(cnpg_pg_stat_database_temp_files[24h]))` |
-| Max tx duration | `cnpg_backends_max_tx_duration_seconds` |
-
-Use **instant** for a snapshot; use **range** with `now-24h` → `now` and `stepSeconds: 900` to see cache hit (or other metrics) over the last 24h. You can also use Grafana dashboards (e.g. CloudNative-PG / Postgres) for the same metrics.
+With the Grafana MCP (via the ToolHive vMCP) connected, run the section 1 PromQL through `grafana_query_prometheus` on the `prometheus` datasource (`queryType: "instant"` for a snapshot; `"range"` with `startTime: "now-24h"`, `stepSeconds: 900` for a trend).
 
 ## 4. Memory cost vs benefit / longer-term comparison
 
-Current tuning (see `cluster.yaml`): **shared_buffers 1GB**, **work_mem 16MB** (peak ~2.4GB with 150 connections), **maintenance_work_mem 512MB**, **limit 3Gi** per instance (`huge_pages: off`; none are reserved on any node). If cache hit stays in the 80–90% range and doesn’t approach >99%, extra shared_buffers is not paying off — the working set is larger than shared_buffers or not very cache-friendly, so more RAM doesn’t improve hit rate.
+Current tuning and the reason for each value live in `cluster.yaml`. If cache hit stays in the 80–90% range and doesn’t approach >99%, extra shared_buffers is not paying off — the working set is larger than shared_buffers or not very cache-friendly, so more RAM doesn’t improve hit rate.
 
 **What the optimization clearly helps** (24h observations, also from the previous config):
 
@@ -112,7 +89,7 @@ Current tuning (see `cluster.yaml`): **shared_buffers 1GB**, **work_mem 16MB** (
 - **Temp files:** Low overall; only jfstat showed moderate temp usage (~185 files in 24h). work_mem is likely reducing spill elsewhere.
 - **No long-running transactions** in observed snapshots.
 
-**To compare over a longer period** (e.g. 7d), run these with the observability MCP or Grafana (range queries, `startTime`: `now-7d`, `endTime`: `now`, `stepSeconds`: `3600`):
+**To compare over a longer period** (e.g. 7d), run these with the Grafana MCP (via the ToolHive vMCP) or Grafana (range queries, `startTime`: `now-7d`, `endTime`: `now`, `stepSeconds`: `3600`):
 
 | Goal | PromQL |
 |------|--------|
@@ -121,13 +98,13 @@ Current tuning (see `cluster.yaml`): **shared_buffers 1GB**, **work_mem 16MB** (
 | Temp files over 7d | `sum(increase(cnpg_pg_stat_database_temp_files[7d])) by (pod, datname)` |
 | Throughput trend | `sum(rate(cnpg_pg_stat_database_xact_commit[5m]))` |
 
-shared_buffers has since been reduced to 1GB on the strength of the snapshot below; **work_mem** and **WAL/checkpoint** settings were kept, as they show measurable benefit. If you have a baseline from before tuning, compare blks_read rate and temp_files; lower blks_read or temp_files after tuning would indicate the optimization did help despite the modest cache hit ratio.
+**work_mem** and **WAL/checkpoint** settings were kept, as they show measurable benefit. If you have a baseline from before tuning, compare blks_read rate and temp_files; lower blks_read or temp_files after tuning would indicate the optimization did help despite the modest cache hit ratio.
 
-**Example 7d snapshot (from observability MCP), measured under the previous shared_buffers 2GB / work_mem 12MB config:**
+**Example 7d snapshot (from observability MCP), measured under an earlier shared_buffers 2GB / work_mem 12MB config:**
 
 - **Cache hit (cluster):** 52–95% over 7d (hourly); often in the 70–90% band; latest ~80%. No sustained >99%.
 - **blks_read by pod:** The **primary** (whichever pod) consistently shows 1.5–6k blocks/s read; replicas near 0. So disk read is inherent to the primary; 2GB shared_buffers is not eliminating it.
 - **Temp files (7d):** jfstat ~236–301 per instance; crowdsec 1–3; all other DBs 0. work_mem is containing spill except for jfstat.
 - **Throughput (xact_commit):** 1–4k/s depending on load and role changes; latest ~2.3k/s.
 
-**Takeaway:** Cache hit and primary blks_read showed no clear win from 2GB shared_buffers over 7d, which is why it is now 1GB; work_mem and WAL/checkpoint tuning were kept.
+**Takeaway:** Cache hit and primary blks_read showed no clear win from 2GB shared_buffers over 7d, so it was cut to 1GB; #5140 restored 2GB once the nextcloud hot set was measured (see `cluster.yaml`).

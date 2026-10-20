@@ -1,8 +1,6 @@
 ---
-# Static tiles for services that cannot be auto-discovered from k8s annotations.
-# Everything behind envoy-internal (HTTPRoute) is picked up via per-app gethomepage.dev/* annotations.
-# Entries here are for services that either live behind TLSRoute (not discoverable) or
-# use a chart that exposes no annotation surface.
+# Static tiles for services not discoverable from k8s annotations (TLSRoute or no annotation surface).
+# envoy-internal HTTPRoutes use per-app gethomepage.dev/* annotations instead.
 
 - External:
     - TrueNAS:
@@ -15,19 +13,14 @@
         href: https://opnsense.${SECRET_DOMAIN}
         description: Router / firewall
         siteMonitor: https://opnsense.${SECRET_DOMAIN}
+    # no siteMonitor: the BMC serves a self-signed AMI cert, so the TLS check always fails
     - IPMI:
         icon: mdi-server-network-#ffffff
         href: https://ipmi.${SECRET_DOMAIN}
         description: Out-of-band management
-        siteMonitor: https://ipmi.${SECRET_DOMAIN}
 
-# No CrowdSec tile: the widget logs into LAPI as a watcher (machine), and machines
-# self-register from the chart's agents — there is no declarative slot for one, so the
-# credential would live only in the LAPI database. It 400'd on login for as long as it existed.
-
-# kromgo cluster metrics — service tiles because customapi only exists as a
-# service widget (the global header cannot host it). Widgets are proxied
-# server-side, so the cluster-local URL avoids hairpinning through envoy.
+# kromgo metrics as service tiles: customapi is service-widget only. Widgets are proxied
+# server-side, so the cluster-local URL avoids an envoy hairpin.
 - Status:
     - Uptime:
         icon: mdi-clock-outline

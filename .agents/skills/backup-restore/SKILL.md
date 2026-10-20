@@ -10,7 +10,7 @@ description: >-
 
   Use when the user mentions backups, restores, snapshots, SnapshotPolicy, SnapshotSchedule,
   Restore, ClusterRepository, PVC recovery, or disaster recovery. This cluster uses kopiur
-  (home-operations, kopia-native) — not VolSync, not restic. Migrated 2026-07-12.
+  (home-operations, kopia-native), not VolSync, not restic.
 compatibility: Requires `kubectl` access to the cluster and the `kopiur` kubectl plugin; kopiur CRDs and the shared ClusterRepository secret must exist.
 ---
 
@@ -29,12 +29,6 @@ compatibility: Requires `kubectl` access to the cluster and the `kopiur` kubectl
 
 ## Check status
 
-```bash
-kubectl get snapshotpolicy -A
-kubectl describe snapshotpolicy <app> -n <namespace>
-kubectl kopiur snapshots list --policy <app> -n <namespace>
-```
-
 A healthy policy shows `Ready: True` and a recent `status.lastSuccessfulSnapshot`. The
 `SnapshotSchedule` object's `status.observedGeneration` sticking behind
 `.metadata.generation` is a known cosmetic quirk (fleet-wide, harmless) — it makes the owning
@@ -42,19 +36,13 @@ Flux Kustomization's `wait: true` health check flap (`HealthCheckFailed ... stat
 self-clears on retry). Don't chase it; trust the policy's own `Ready` condition and a fresh
 manual snapshot instead.
 
-## Trigger manual snapshot
-
-```bash
-kubectl kopiur snapshot now --policy <app> -n <namespace> --wait
-```
-
 ## Restore from backup
 
 The procedure is [docs/kopiur-restore.md](../../../docs/kopiur-restore.md): suspend both
 Kustomization and HelmRelease, pause KEDA, scale down every deployment sharing the PVC, delete
 the PVC, resume, verify. That file is the single copy, and also covers point-in-time restore
-(`offset`/`asOf`/`snapshotRef`/`identity`), the kopiur#233 orphaned-`prime-*`-PVC trap and its
-sweep commands, and the live-uid check.
+(`offset`/`asOf`/`snapshotRef`/`identity`), the `Completed`/`Ready: False` sweep, and the live-uid
+check.
 
 Not in that file: when the live uid does not match the manifest's `runAsUser`,
 `KOPIUR_PUID`/`KOPIUR_PGID` (and, only for genuine root,
@@ -66,18 +54,9 @@ Not in that file: when the live uid does not match the manifest's `runAsUser`,
 Reference patterns in `kubernetes/components/kopiur/`. See
 [references/restore-pvc.md](references/restore-pvc.md) for the full substitute-variable list.
 
-## Delegation
-
-| Scenario | Action |
-|----------|--------|
-| Single status check | Inline |
-| Multiple apps | Parallel subagents per app |
-| Restore | Sequential: suspend → scale → delete PVC → resume → verify |
-| Unknown failure | debug-cluster subagent |
-
 ## Troubleshooting (inline)
 
-- Repository secret: `kubectl get secret -n kopiur-system kopia-secret` (shared across all apps
+- Repository secret: `kubectl get secret -n kopiur-system kopia-nas-password` (shared across all apps
   via credential projection — apps don't carry their own copy)
 - `ClusterRepository` health: `kubectl get clusterrepository kopia-nas`
 

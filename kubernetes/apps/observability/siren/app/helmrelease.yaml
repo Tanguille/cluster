@@ -14,8 +14,10 @@ spec:
       siren:
         replicas: 2
         strategy: RollingUpdate
-        annotations:
-          reloader.stakater.com/auto: "true"
+        # app-template renders this as a PDB on the siren pods: keep one alert
+        # dashboard alive through node drains (it already has hostname TSC below).
+        podDisruptionBudget:
+          minAvailable: 1
         containers:
           app:
             image:
@@ -64,7 +66,7 @@ spec:
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
+          whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
               app.kubernetes.io/name: *app

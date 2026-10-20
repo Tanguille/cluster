@@ -3,7 +3,7 @@
 *.key
 *.decrypted~*.yaml
 # `*.key` misses suffixed backups like age.key.bak-x25519-only, which decrypt the
-# tracked sops files in this PUBLIC repo. Supersedes the old `/age.key`.
+# tracked sops files in this PUBLIC repo.
 age.key*
 /cloudflare-tunnel.json
 bootstrap/github-deploy.key
@@ -18,6 +18,8 @@ work/
 .worktrees/
 .private/
 .venv/
+# vLLM benchmark harness output (docs/llm-hosting holds the durable results)
+.vllm-opt/
 .agents/handoff/
 .agents/pr-review/
 .slim/deepwork/

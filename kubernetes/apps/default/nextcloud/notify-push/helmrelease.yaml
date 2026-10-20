@@ -20,7 +20,7 @@ spec:
             # Track https://github.com/nextcloud/notify_push for an official image.
             image:
               repository: icewind1991/notify_push
-              tag: 1.4.1@sha256:1883c5635c7cf6de4a07a4561ed7242227c473fd8e16224082af7111eb4a730f
+              tag: 1.4.2@sha256:614a936770c045c5ee8d1e05f9f8a36e31cf0c3ae58073b2dd710d554486d992
             ports:
               - name: http
                 containerPort: 7867
@@ -51,30 +51,22 @@ spec:
               limits:
                 cpu: 50m
                 memory: 96Mi
-            # /push/test/cookie returns 400 until Nextcloud notify_push is fully configured; TCP
-            # checks that the daemon is listening (see github.com/nextcloud/notify_push/issues/324).
+            # No health endpoint (notify_push#324); /push/test/cookie 400s without the self-test token header, so TCP.
             probes:
               liveness: &probes
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: 7867
                   periodSeconds: 30
                   timeoutSeconds: 5
               readiness: *probes
               startup:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: 7867
                   failureThreshold: 30
                   periodSeconds: 5
                   timeoutSeconds: 5
     service:
       app:
-        controller: notify-push
         ports:
           http:
             port: 7867
@@ -83,7 +75,7 @@ spec:
     route:
       app:
         annotations:
-          # /push/test/cookie answers 400 without the cookie header; proves the daemon is reachable via the edge
+          # /push/test/cookie answers 400 without the token header; proves the daemon is reachable via the edge
           gatus.home-operations.com/endpoint: |-
             url: https://nextcloud.${SECRET_DOMAIN}/push/test/cookie
             conditions: ["[STATUS] == 400"]

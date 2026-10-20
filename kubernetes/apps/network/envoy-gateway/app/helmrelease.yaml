@@ -13,8 +13,19 @@ spec:
     global:
       imageRegistry: mirror.gcr.io
     deployment:
-      # xDS control plane; avoid config-push stalls when the sole replica's node is disrupted
       replicas: 2
+      pod:
+        # Hard spread: co-located replicas let one node failure stall xDS pushes to every gateway.
+        topologySpreadConstraints:
+          - maxSkew: 1
+            topologyKey: kubernetes.io/hostname
+            whenUnsatisfiable: DoNotSchedule
+            labelSelector:
+              matchLabels:
+                control-plane: envoy-gateway
+    # Chart only renders a PDB when this is set (default minAvailable: 0 = none)
+    podDisruptionBudget:
+      minAvailable: 1
     config:
       envoyGateway:
         provider:

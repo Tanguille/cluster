@@ -1,0 +1,35 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+# CNPG makes PDBs for Cluster instances but not Poolers (the Pooler CRD has no disruption field); these keep the connection plane up through drains.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pgbouncer-rw
+spec:
+  # 3 instances hard-spread one per node: two must stay or write traffic funnels through the survivors' wait queues; maxUnavailable so scaling down never bricks drains.
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: pgbouncer-rw
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pgbouncer-ro
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: pgbouncer-ro
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: pgbouncer-session
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      cnpg.io/poolerName: pgbouncer-session

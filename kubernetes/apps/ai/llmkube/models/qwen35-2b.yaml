@@ -10,10 +10,8 @@ spec:
   # .renovaterc.json5; refreshPolicy makes the bump actually re-fetch.
   source: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf
   refreshPolicy: OnChange
-  # Q4_K_M (~1.18 GiB) is the speed/quality sweet spot on the RDNA2 iGPU
-  # (measured 43 tok/s decode, 513 tok/s prefill); Q8 would ~double the
-  # footprint
-  # for marginal gain on easy offload tasks.
+  # Q4_K_M: 43 tok/s decode, 513 tok/s prefill on the RDNA2 iGPU; Q8 would ~double the 1.18 GiB
+  # footprint for marginal gain on easy offload tasks.
   quantization: Q4_K_M
   hardware:
     accelerator: vulkan
@@ -34,19 +32,16 @@ spec:
   modelRef: qwen35-2b
   # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:4321158cf5d0393b7a26e8bef7d68f7fc6eeccca95ad215ff5dde179f316e803
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5a23ea3de52d4004f21f929f7365b97df03db12b946117eeed214337379994a8
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
-  # llama.cpp splits contextSize across parallelSlots, so 32768/2 = 16384 per
-  # slot.
-  # GDN keeps KV tiny, so long ctx is cheap; 16K per slot is plenty for offload.
+  # llama.cpp splits contextSize across parallelSlots (32768/2 = 16384 per slot); GDN keeps KV tiny, so that is cheap.
   contextSize: 32768
   jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
   extraArgs:
     - "--alias"
     - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
-    # Unsloth's recommended non-thinking sampling for Qwen3.5 Small (repeats
-    # otherwise);
-    # set here since litellm's auto-registered alias carries no sampling params.
+    # Unsloth's non-thinking sampling for Qwen3.5 Small (repeats otherwise); litellm's auto-registered
+    # alias carries no sampling params.
     - "--temp"
     - "0.7"
     - "--top-p"
@@ -54,10 +49,8 @@ spec:
     - "--presence-penalty"
     - "1.5"
     # Qwen3.5's chat template thinks by default; without this it burns the whole
-    # output budget on reasoning_content and returns empty content (verified
-    # live
-    # 2026-08-02). Sampling flags above don't touch this — it's a template
-    # setting.
+    # output budget on reasoning_content and returns empty content (verified live).
+    # Sampling flags above don't touch this: it's a template setting.
     - "--reasoning"
     - "off"
 
@@ -73,7 +66,7 @@ spec:
       requiredDuringSchedulingIgnoredDuringExecution:
         - labelSelector:
             matchLabels:
-              app: qwen3-embedding
+              app: embeddinggemma-2
           topologyKey: kubernetes.io/hostname
 
   podSecurityContext:
@@ -87,7 +80,7 @@ spec:
   # are dead fields here.
   resources:
     cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules/samples
-    # Request AND limit (llmkube >= 0.9.29); 7d max working set 271Mi, the rest
-    # is GTT headroom memcg cannot see.
+    # Request AND limit (llmkube >= 0.9.29); ~0.14Gi RSS plus ~0.8Gi of amdgpu
+    # GTT (uncharged by memcg, counted by the scheduler).
     memory: 1Gi
   # endpoint omitted — operator defaults to a ClusterIP Service on :8080.

@@ -4,8 +4,6 @@ apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   name: dragonfly
-  labels:
-    prometheus: victoria-metrics
 spec:
   selector:
     matchLabels:
@@ -13,4 +11,3 @@ spec:
   podMetricsEndpoints:
     - port: admin
       interval: 1m
-      scrapeTimeout: 10s

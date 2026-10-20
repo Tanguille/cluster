@@ -8,23 +8,16 @@ spec:
   groups:
     # The chart ships its own `kopiur.rules` group (monitoring.prometheusRule.enabled
     # in the HelmRelease); group and alert names here must not collide with it.
+    # Known benign-ish mode: during Talos rolling upgrades the surviving nodes fill up
+    # at request level and hourly mover pods (50m/128Mi via moverDefaults, priority 0,
+    # no CRD field to raise it) fail scheduling with MoverPodWedged "Insufficient
+    # memory". The next hourly run succeeds once the drain finishes, so the chart's
+    # KopiurBackupConsecutiveFailures (>=3, warning) only pages when a wedge outlives
+    # the window; these freshness rules catch anything longer.
     - name: kopiur.freshness.rules
       rules:
-        # Backups were down 44h in July before anyone noticed: nothing watched
-        # freshness. Snapshots run hourly, so 6h is 6 missed runs, not a slow one.
-        # Named Overdue, not Stale: the chart's KopiurBackupStale fires off the same
-        # metric with the same severity, so a shared name is one alert fingerprint.
-        - alert: KopiurBackupOverdue
-          expr: |-
-            time() - kopiur_policy_last_backup_success_timestamp_seconds > 6 * 60 * 60
-          for: 30m
-          annotations:
-            summary: >-
-              kopiur {{ $labels.namespace }}/{{ $labels.policy }} has no successful backup
-              for {{ $value | humanizeDuration }} — restore point is aging
-          labels:
-            severity: warning
-
+        # Snapshots run hourly; the chart's KopiurBackupStale is tuned to 6h in the
+        # HelmRelease (backupStaleAfterSeconds), so this group only adds the 24h page.
         - alert: KopiurBackupCritical
           expr: |-
             time() - kopiur_policy_last_backup_success_timestamp_seconds > 24 * 60 * 60
@@ -49,8 +42,7 @@ spec:
           labels:
             severity: critical
 
-        # A repo whose snapshot count only ever grows means retention is not pruning;
-        # a drop to zero means the repo was emptied under us.
+        # A drop to zero means the repo was emptied under us.
         - alert: KopiurRepoEmpty
           expr: |-
             kopiur_repo_snapshot_count == 0

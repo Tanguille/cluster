@@ -10,23 +10,18 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%23f60'/%3E%3Cpath fill='%23fff' d='M12 46V18l20 20 20-20v28h-9V33l-11 11-11-11v13z'/%3E%3C/svg%3E"
     />
 
-    <!-- Responsive design for mobile and tablet -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Main stylesheet -->
     <link rel="stylesheet" href="dashboard.css" />
 
-    <!-- Chart.js library for rendering charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-    <!-- Luxon for date/time handling in charts -->
     <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
-    <!-- Adapter to integrate Luxon with Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
   </head>
 
   <body>
     <header class="masthead">
-      <div class="masthead__title">
+      <div>
         <h1>P2Pool</h1>
         <p class="masthead__sub">Solar-gated Monero mining</p>
       </div>
@@ -77,7 +72,7 @@
       </section>
 
       <!-- Trends: one range control drives both charts -->
-      <section class="trends" aria-labelledby="trendsHeading">
+      <section aria-labelledby="trendsHeading">
         <div class="section-head">
           <h2 id="trendsHeading">Trends</h2>
           <div
@@ -111,7 +106,7 @@
         <div class="trends__grid">
           <article class="panel">
             <h3 class="panel__title">Hashrate</h3>
-            <div class="chart chart--tall">
+            <div class="chart">
               <canvas id="hashrateChart"></canvas>
               <p class="chart__empty" id="hashrateEmpty" hidden>
                 No samples in this range yet. Longer ranges fill in as the
@@ -122,7 +117,7 @@
 
           <article class="panel">
             <h3 class="panel__title">XMR price</h3>
-            <div class="chart chart--tall">
+            <div class="chart">
               <canvas id="priceChart"></canvas>
               <p class="chart__empty" id="priceEmpty" hidden>
                 No samples in this range yet.
@@ -133,8 +128,7 @@
       </section>
 
       <section class="panels" aria-label="Mining detail">
-        <!-- Estimated earnings -->
-        <article class="panel" id="earningsCard">
+        <article class="panel">
           <div class="panel__head">
             <h3 class="panel__title">Estimated earnings</h3>
             <label class="select">
@@ -168,8 +162,7 @@
           </dl>
         </article>
 
-        <!-- Luck -->
-        <article class="panel panel--wide" id="combinedLuckCard">
+        <article class="panel panel--wide">
           <h3 class="panel__title">Luck</h3>
           <div class="luck">
             <section class="luck__part">
@@ -186,7 +179,7 @@
                 <span id="xmrThisWindow">0.000000</span> XMR accumulated
               </p>
               <p class="figure__note" id="eurThisWindow">–</p>
-              <p class="footnote" id="luckInfo">
+              <p class="footnote">
                 Only true if the pool mines its expected blocks for this
                 window's network share and average effort; minimum payout
                 0.00027 XMR.
@@ -218,7 +211,7 @@
                 <span id="trueLuckFactor">–</span>&#8288;⨯
               </p>
               <p class="figure__note" id="trueLuckWindow">–</p>
-              <p class="footnote" id="trueLuckInfo">
+              <p class="footnote">
                 Longer windows reduce accuracy; uses a 24h moving average of
                 hashrates.
               </p>
@@ -226,8 +219,7 @@
           </div>
         </article>
 
-        <!-- Shares -->
-        <article class="panel" id="sharesCard">
+        <article class="panel">
           <h3 class="panel__title">Shares &amp; uncles</h3>
           <div class="pair">
             <p class="figure figure--sm" id="sharesSinceLastPayout">–</p>
@@ -249,8 +241,7 @@
           </dl>
         </article>
 
-        <!-- Payments -->
-        <article class="panel panel--wide" id="paymentsCard">
+        <article class="panel panel--wide">
           <div class="panel__head">
             <h3 class="panel__title">Recent payments</h3>
             <span class="footnote" id="paymentsStatus"></span>
@@ -271,7 +262,7 @@
       </section>
 
       <section class="panels" aria-label="Pool and workers">
-        <article class="panel panel--wide" id="poolStatusCard">
+        <article class="panel panel--wide">
           <h3 class="panel__title">Pool status</h3>
           <dl class="facts facts--grid">
             <div class="fact">
@@ -316,14 +307,13 @@
           </dl>
         </article>
 
-        <article class="panel" id="workersCard">
+        <article class="panel">
           <h3 class="panel__title">Connected miners</h3>
           <div id="workers-list" class="workers"></div>
         </article>
       </section>
     </main>
 
-    <!-- Main JavaScript handling data fetching and charts -->
     <script src="dashboard.js"></script>
   </body>
 </html>

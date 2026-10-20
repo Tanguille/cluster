@@ -98,8 +98,7 @@ cluster:
         disabled: true
       service: {}
 ---
-# Was a machine.files drop-in at /etc/cri/conf.d/20-customization.part, which needed a reboot to
-# change. As a document, applying or editing it restarts CRI on its own.
+# A document, not a machine.files drop-in: editing it restarts CRI without a reboot.
 # Keeps unpacked layers so Talos can serve them without re-unpacking after an image GC.
 apiVersion: v1alpha1
 kind: CRICustomizationConfig
@@ -107,6 +106,27 @@ name: keep-unpacked-layers
 content: |
   [plugins."io.containerd.cri.v1.images"]
     discard_unpacked_layers = false
+---
+# gVisor's netstack bypasses Cilium's socket LB, so ClusterIPs (kube-dns too) go untranslated; hostinet
+# uses kernel sockets in the pod netns, which socket LB and pod-identity policy both see (gvisor#6998).
+apiVersion: v1alpha1
+kind: EtcFileConfig
+name: gvisor/runsc-hostnet.toml
+mode: 0o644
+contents: |
+  [runsc_config]
+    network = "host"
+---
+# Extra runsc handler next to the extension's default one, pointing at the hostinet config.
+apiVersion: v1alpha1
+kind: CRICustomizationConfig
+name: gvisor-hostnet
+content: |
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runsc-hostnet]
+    runtime_type = "io.containerd.runsc.v1"
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runsc-hostnet.options]
+    TypeUrl = "io.containerd.runsc.v1.options"
+    ConfigPath = "/etc/gvisor/runsc-hostnet.toml"
 ---
 # fstrim. Absent on an upgraded cluster means no automatic trimming at all. Talos picks a stable
 # hash-derived slot per volume per node, so the fleet does not trim in lockstep. control-1 is the
@@ -117,32 +137,39 @@ apiVersion: v1alpha1
 kind: FilesystemTrimConfig
 interval: 168h0m0s
 ---
-# xfs_scrub, off until this document exists. Closes #4289. The scrub slot is hash-derived per
+# The NVMe drives accept 2 TiB per discard, so the weekly trim above sends 300-600 GiB in requests
+# that take 2-4 s each on the 7450s. Cap each request at 256 MiB so other I/O can interleave.
+# Matches no device on control-1 (virtio only).
+apiVersion: v1alpha1
+kind: UdevRulesConfig
+rules:
+  - ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="nvme[0-9]*n[0-9]*", ATTR{queue/discard_max_bytes}="268435456"
+---
+# xfs_scrub, off until this document exists. The scrub slot is hash-derived per
 # volume per node, so control-3 (Micron 7450, thermal-shutdown history) never scrubs at the same
 # moment as its peers. Interval stated for the same reason as the trim document above.
 apiVersion: v1alpha1
 kind: FilesystemScrubConfig
 interval: 168h0m0s
 ---
-# Was machine.sysctls, which Talos 1.14 deprecates (the marker is in this document's own schema
-# description, not the v1alpha1 one). Same keys and values; the field is `params`, not `sysctls`.
-# The two merge with this document winning on conflicts, so keeping both would only hide drift.
+# Not machine.sysctls (deprecated in 1.14): the two merge with this one winning, so keeping both
+# hides drift.
 apiVersion: v1alpha1
 kind: SysctlConfig
 params:
   fs.inotify.max_user_watches: "1048576" # Watchdog
   fs.inotify.max_user_instances: "8192" # Watchdog
-  net.core.default_qdisc: "fq" # Fair Queuing - improves network fairness and reduces latency
-  net.core.rmem_max: "67108864" # Maximum TCP receive window (64MB) - improves throughput
-  net.core.wmem_max: "67108864" # Maximum TCP send window (64MB) - improves throughput
-  net.ipv4.tcp_congestion_control: "bbr" # BBR congestion control - better performance than cubic
-  net.ipv4.tcp_fastopen: "3" # Enables TCP Fast Open for both client and server
-  net.ipv4.tcp_mtu_probing: "1" # Enables automatic MTU probing for optimal packet size
-  net.ipv4.tcp_rmem: "4096 87380 33554432" # TCP receive buffer sizes (min, default, max)
-  net.ipv4.tcp_wmem: "4096 65536 33554432" # TCP send buffer sizes (min, default, max)
-  net.ipv4.tcp_window_scaling: "1" # Enables TCP window scaling for better throughput
+  net.core.default_qdisc: "fq"
+  net.core.rmem_max: "67108864"
+  net.core.wmem_max: "67108864"
+  net.ipv4.tcp_congestion_control: "bbr"
+  net.ipv4.tcp_fastopen: "3"
+  net.ipv4.tcp_mtu_probing: "1"
+  net.ipv4.tcp_rmem: "4096 87380 33554432"
+  net.ipv4.tcp_wmem: "4096 65536 33554432"
+  net.ipv4.tcp_window_scaling: "1"
   net.ipv4.neigh.default.gc_thresh1: "4096" # Prevent ARP cache overflows
   net.ipv4.neigh.default.gc_thresh2: "8192" # Prevent ARP cache overflows
   net.ipv4.neigh.default.gc_thresh3: "16384" # Prevent ARP cache overflows
-  net.ipv4.tcp_slow_start_after_idle: "0" # Preserve congestion window after idle
-  user.max_user_namespaces: "11255" # User Namespaces
+  net.ipv4.tcp_slow_start_after_idle: "0"
+  user.max_user_namespaces: "11255"

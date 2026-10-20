@@ -5,9 +5,8 @@ kind: Dragonfly
 metadata:
   name: &app dragonfly
 spec:
-  image: ghcr.io/dragonflydb/dragonfly:v2.0.0
+  image: ghcr.io/dragonflydb/dragonfly:v2.0.2
   replicas: 3
-  networkPolicyEnabled: false
   env:
     - name: MAX_MEMORY
       valueFrom:
@@ -21,7 +20,6 @@ spec:
     - --lock_on_hashtags
     - --proactor_threads=4
     - --default_lua_flags=allow-undeclared-keys
-    - --admin_port=9999
   resources:
     requests:
       cpu: 100m

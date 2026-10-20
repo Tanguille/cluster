@@ -26,6 +26,8 @@ spec:
   dependsOn:
     - name: grafana
     - name: prometheus-operator-crds
+    - name: cloudnative-pg-databases
+      namespace: database
   interval: 1h
   path: ./kubernetes/apps/observability/grafana/instance
   prune: true
@@ -34,4 +36,3 @@ spec:
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  wait: false

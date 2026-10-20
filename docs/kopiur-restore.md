@@ -12,19 +12,15 @@ The `components/kopiur` component creates, per app:
 - `Restore`: a **passive populator** — it does nothing until a PVC's `dataSourceRef` claims it,
   then restores the selected snapshot into that PVC
 
-**Important**: the PVC spec is **immutable** after creation, same constraint as before. `kind`
-in `dataSourceRef` should be `Restore` (`apiGroup: kopiur.home-operations.com`) — if you ever
-see `ReplicationDestination`/`volsync.backube`, something recreated a pre-migration resource;
-that shouldn't happen post-decommission.
+**Important**: the PVC spec is **immutable** after creation. `kind` in `dataSourceRef` must be
+`Restore` (`apiGroup: kopiur.home-operations.com`).
 
 ## Identity: verify live, don't trust the manifest
 
 Several apps' `securityContext.runAsUser` in their `helmrelease.yaml` does **not** match the uid
 that actually owns their files — the image's own entrypoint (gosu/s6-overlay/su-exec) drops
-privilege internally after starting as root, invisible to Kubernetes. Confirmed on `fileflows`,
-`odysseus`, and `nextcloud` during this migration; `odysseus` crashlooped after being restored
-as root when its real uid was 1000. **Before touching an app's `mover.securityContext`,
-verify**:
+privilege internally after starting as root, invisible to Kubernetes. Confirmed on `fileflows` and
+`nextcloud`. **Before touching an app's `mover.securityContext`, verify**:
 
 ```bash
 kubectl exec -n <ns> deployment/<app> -- id
@@ -77,7 +73,6 @@ stray completed pods if the finalizer won't clear.
 
 ```bash
 kubectl delete pvc jellyfin -n media
-kubectl wait --for=jsonpath='{}' --timeout=1s pvc/jellyfin -n media 2>&1 || true
 # poll until genuinely gone, not just Terminating — Ceph RBD detach can take minutes:
 until ! kubectl get pvc jellyfin -n media >/dev/null 2>&1; do sleep 5; done
 ```
@@ -115,8 +110,8 @@ List available snapshots first:
 kubectl kopiur snapshots list --policy jellyfin -n media
 ```
 
-This is a real git change to the app's `restore.yaml` (or a live `kubectl edit` for a one-off
-test) — not a `kubectl patch` trigger like VolSync's `restoreAsOf`.
+No per-app `restore.yaml` exists: the Restore comes from the shared
+`kubernetes/components/kopiur/restore/restore.yaml`, so for a one-off test use a live `kubectl edit`.
 
 ### Step 6: Resume Kustomization and HelmRelease
 
@@ -137,8 +132,8 @@ kubectl get restore jellyfin-restore -n media -o jsonpath='{.status.phase}{"\n"}
 kubectl get restore jellyfin-restore -n media -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason}{"\n"}{end}'
 ```
 
-**Critical**: `status.phase: Completed` alone is not sufficient — check `Ready: True` too. See
-the kopiur#233 warning below for why.
+**Critical**: `status.phase: Completed` alone is not sufficient; check `Ready: True` too (see
+[`Completed` but `Ready: False`](#completed-but-ready-false)).
 
 ### Step 8: Scale Up the Application
 
@@ -157,25 +152,16 @@ place. Scaler apps recover on their own via KEDA.
 
 ```bash
 kubectl exec -n media deployment/jellyfin -- id
-kubectl exec -n media deployment/jellyfin -- ls -la <mount-path>   # uid should match Step 9's id output
+kubectl exec -n media deployment/jellyfin -- ls -la <mount-path>   # uid should match the `id` output above
 kubectl kopiur snapshot now --policy jellyfin -n media --wait      # fresh snapshot should succeed
 kubectl kopiur snapshots list --policy jellyfin -n media           # file count/size should be continuous with history
 ```
 
-## ⚠️ Critical: kopiur#233 (open, unfixed as of this writing)
+## `Completed` but `Ready: False`
 
-**Never let an app's `Restore` CR get deleted-and-recreated while its target PVC is `Bound`** —
-a Flux prune/recreate cycle, a `ClusterRepository` reset, or a forced Kustomization re-apply all
-qualify. This silently restores into an orphaned `prime-<uid>` staging PVC that never gets
-garbage-collected — one reporter hit 49 orphaned PVCs / 120GiB from a single
-`ClusterRepository` rebuild.
-
-**The symptom is invisible to normal health checks**: `status.phase` still reports `Completed`,
-but `status.conditions` stay `Ready: False`. Flux's own health check and kstatus won't flag it.
-Confirmed live 2026-07-12: `karakeep`'s double race-hit during its cutover left exactly this
-signature, plus an orphaned 5Gi `prime-*` PVC that sat unnoticed for 104 minutes.
-
-**Sweep for it periodically or after any suspicious Flux/repository event**:
+kopiur#233 (a `Restore` recreated over a `Bound` PVC restored into an orphaned `prime-*` staging
+PVC that was never cleaned up) was fixed in kopiur 0.7.3. The signature is still worth a sweep
+after any suspicious Flux or repository event, because Flux's health check does not flag it:
 
 ```bash
 # Restore CRs showing the silent Completed/Ready:False signature
@@ -183,19 +169,7 @@ kubectl get restore -A -o json | jq -r '.items[] | select(.status.phase == "Comp
 
 # Orphaned staging PVCs (full-size Ceph storage, invisible otherwise)
 kubectl get pvc -A -l kopiur.home-operations.com/op=restore-populate
-
-# App PVCs stuck Terminating despite pods running (a related failure mode — deleting a PVC
-# without fully draining referencing pods first, e.g. mid-recovery from another race)
-kubectl get pvc -A | grep -i terminating
 ```
-
-If found: the `Restore` CR itself usually wasn't recreated (just its staging PVC leaked), so
-it's normally still safely re-triggerable via the standard Step 3-8 recipe above — scale down
-*properly* this time (drain every referencing pod), delete the app's PVC (and any stuck
-`Terminating` one, once nothing references it), resume, and verify `Ready: True` this time.
-Delete orphaned `prime-*` PVCs directly (check `ownerReferences` first to confirm which
-`Restore` it belongs to, and that the `Restore`'s *current* live state — `status.pvcPrime` —
-doesn't still reference it before deleting).
 
 ## Troubleshooting
 
@@ -213,27 +187,8 @@ Large restores (e.g. nextcloud's 50Gi, jellyfin's 28.8GiB) can take 10-30 minute
 `status.phase` transition `Restoring` → `Completed`; `status.conditions[type=Reconciling]`
 tells you if it's actively working or stuck.
 
-### Issue: PVC dataSourceRef shows `ReplicationDestination`/`volsync.backube` (should never happen post-decommission)
-
-**Cause**: this was the volsync-vs-kopiur race hit repeatedly during the original migration —
-volsync's controller (now fully removed) won a repopulation race against kopiur's `Restore`.
-Post-decommission this specific failure mode can't recur (there's no volsync controller left to
-race), but if you ever see this `Kind` on a PVC's `dataSourceRef`, something is very wrong —
-investigate before proceeding, don't just retry.
-
 ### Issue: Mover stuck, no log output, near-zero CPU
 
 **Cause**: repo-wide permission drift — kopia silently retries `PermissionDenied` forever
 instead of erroring. Check `find /repo -type d -not -perm 0775` / `-type f -not -perm 0664`
 from a mover shell before assuming a slow backend.
-
-## Key Points
-
-1. **Always suspend both Kustomization and HelmRelease** before starting a restore
-2. **Deleting the PVC alone re-triggers the existing `Restore`** — no need to delete/recreate
-   the `Restore` CR itself for a plain restore-to-latest
-3. **Never delete-and-recreate a `Restore` CR whose PVC is `Bound`** (kopiur#233) — check for
-   orphaned `prime-*` PVCs and the `Completed`/`Ready:False` signature if this ever happens
-4. **Verify identity live** (`kubectl exec ... id`) before trusting a manifest's declared
-   `securityContext` — entrypoint privilege drops are invisible to it
-5. **PVC spec is immutable** — if it's wrong, delete and let the `Restore` recreate it

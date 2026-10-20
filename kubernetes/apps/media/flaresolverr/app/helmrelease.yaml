@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app flaresolverr
+  name: flaresolverr
 spec:
   interval: 30m
   chartRef:
@@ -14,8 +14,6 @@ spec:
     controllers:
       flaresolverr:
         strategy: RollingUpdate
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -53,7 +51,6 @@ spec:
 
     service:
       app:
-        controller: *app
         ports:
           http:
             port: 8191

@@ -6,6 +6,9 @@ metadata:
   name: &app prowlarr
   namespace: &namespace media
 spec:
+  dependsOn:
+    - name: cloudnative-pg-databases
+      namespace: database
   path: ./kubernetes/apps/media/prowlarr/app
   targetNamespace: *namespace
 

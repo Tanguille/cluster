@@ -21,20 +21,15 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/diegosouzapw/omniroute
-              # On `next` for two upstream fixes: LKGP pin never clears on
-              # failure (#10034) and auto/* credential lookups misresolve
-              # "opencode" as "opencode-zen" (#10892). Both merged into
-              # release/v3.8.50; no tagged release carries them yet -- move to
-              # v3.8.50 once it ships. Digest-pinned since Renovate can't diff
-              # `next` as a version, only offer digest bumps.
-              tag: next@sha256:80eade3c516c4b4e0b9ab07a72a96648155722fbf311cfb4bc058cc4d1e18b3a
+              repository: diegosouzapw/omniroute
+              tag: 3.8.52@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
             env:
               TZ: ${TIMEZONE}
-              DATA_DIR: /app/data
               PORT: &port 20128
               REQUIRE_API_KEY: "false"
-              # envoy-internal-tls terminates TLS at the gateway.
+              # V8 heap ceiling; chat sheds 503 at 85% of it.
+              OMNIROUTE_MEMORY_MB: "1536"
+              # envoy-internal terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"
             envFrom:
               - secretRef:
@@ -53,13 +48,16 @@ spec:
                 memory: 512Mi
               limits:
                 cpu: 1000m
-                memory: 2Gi
+                memory: 3Gi
     defaultPodOptions:
+      priorityClassName: homelab-important
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
     service:
       app:
         ports:

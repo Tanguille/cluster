@@ -5,10 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: searxng-ingress-allowlist
 spec:
-  # Promoted from the kguardian AuditNetworkPolicy baseline (2026-09-16 to
-  # 2026-09-18). Its ingress WouldDeny verdicts were kubelet probes (host
-  # entity, not a node ipBlock) and ephemeral review runners. Ingress only;
-  # egress stays open (searxng speaks QUIC/UDP 443 to engines).
+  # Ingress only; egress stays open (searxng speaks QUIC/UDP 443 to engines).
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: searxng
@@ -17,9 +14,7 @@ spec:
     - fromEntities:
         - host
     - fromEndpoints:
-        # envoy-gateway stamps proxy pods with both this Gateway API label and
-        # gateway.envoyproxy.io/owning-gateway-name (the one the audit baseline
-        # used); same key as the vmcp-unified policy.
+        # Gateway API label envoy-gateway stamps on proxy pods; same key as the vmcp-unified policy.
         - matchLabels:
             io.kubernetes.pod.namespace: network
             gateway.networking.k8s.io/gateway-name: envoy-internal
@@ -28,11 +23,6 @@ spec:
             io.kubernetes.pod.namespace: ai
             app: searxng
             toolhive: "true"
-        # agent-pr-review search_url.
-        - matchLabels:
-            io.kubernetes.pod.namespace: actions-runner-system
-            app.kubernetes.io/name: review-runner
-            app.kubernetes.io/component: runner
       toPorts:
         - ports:
             - port: "8080"

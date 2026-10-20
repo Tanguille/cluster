@@ -1,14 +1,6 @@
 #!/usr/bin/env python3
-"""One /metrics scrape shared by the bench scripts that need spec-decode counters.
-
-The rest of this directory is deliberately standalone single-file scripts. This
-exists because walltime.py and toolbench.py otherwise carry byte-identical
-copies of the same scrape, and because the naive shape cost three full scrapes
-per rep (poll for idle, re-read idle for the clean flag, read the counters).
-The vLLM /metrics payload is hundreds of series and every read crosses a
-kubectl port-forward -- which wedged repeatedly in practice -- so one call
-returning everything is both less code and less load.
-"""
+"""One /metrics scrape (running/waiting + spec-decode counters) shared by walltime.py,
+toolbench.py and prodshape.py; one call per check because port-forwarded scrapes wedged."""
 import time
 import urllib.request
 

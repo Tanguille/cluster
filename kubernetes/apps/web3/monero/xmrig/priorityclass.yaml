@@ -4,6 +4,6 @@ apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
   name: low-priority-mining
-value: -1000 # Negative priority - below all default workloads
+value: -1000
 description: "Low priority class for mining workloads that should yield to regular workloads"
 preemptionPolicy: Never

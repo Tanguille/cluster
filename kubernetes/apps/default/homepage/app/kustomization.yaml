@@ -13,8 +13,7 @@ configMapGenerator:
       - ./resources/widgets.yaml
       - ./resources/kubernetes.yaml
       - ./resources/services.yaml
-      # homepage v1.13+ initializes these on its hot paths (services fetch, /api/hash, /api/validate) and exits
-      # when it cannot create them on the read-only configMap mount; they must exist even when unused.
+      # homepage v1.13+ exits if it cannot create these on the read-only configMap mount; keep them even when unused.
       - ./resources/docker.yaml
       - ./resources/proxmox.yaml
       - ./resources/custom.css

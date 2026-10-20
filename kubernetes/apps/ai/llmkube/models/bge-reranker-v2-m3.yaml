@@ -1,0 +1,95 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: bge-reranker-v2-m3
+spec:
+  # Cross-encoder reranker for memini recall (Cohere-style /v1/rerank).
+  # BGE-reranker-v2-m3, 568M params: one forward pass per (query, doc) pair on
+  # the shared iGPU; ~636MB of Q8_0 weights — small next to the 27B models,
+  # ~2x the embedder it reorders; both iGPU nodes host ~300MB-1.2GB models.
+  # gpustack's re-quant: the cstr build omits the bert.context_length GGUF
+  # key, which llama.cpp's rerank path requires — the server hard-exits at
+  # model load ("key not found") and the pod crash-loops.
+  # Revision-pinned to the repo HEAD commit (immutable at that ref) —
+  # Renovate bumps the sha via the git-refs manager in .renovaterc.json5;
+  # refreshPolicy makes the bump actually re-fetch.
+  source: https://huggingface.co/gpustack/bge-reranker-v2-m3-GGUF/resolve/3093af03b1a635e67b084b1d8c03c5f5e020fd05/bge-reranker-v2-m3-Q8_0.gguf
+  quantization: Q8_0
+  refreshPolicy: OnChange
+  hardware:
+    accelerator: vulkan
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: vulkan
+      layers: -1
+      # Slot counts live at the device plugin
+      # (kube-system/generic-device-plugin);
+      # nodeSelector below pins this to the iGPU.
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: bge-reranker-v2-m3
+spec:
+  modelRef: bge-reranker-v2-m3
+  # mode: rerank auto-appends --reranking --embedding --pooling rank --cache-ram 0; no hand-wired flags.
+  mode: rerank
+  # GTT-leak mitigation as with embeddinggemma-2: lifetime covers startup and
+  # model load before this Vulkan server is recycled.
+  maxPodLifetimeSeconds: 86400
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5a23ea3de52d4004f21f929f7365b97df03db12b946117eeed214337379994a8
+  # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
+  # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
+  parallelSlots: 1
+  # A pair must fit one micro-batch or llama.cpp 500s; 2048 fits a query up to
+  # ~5000 chars plus a 1024-char doc. 4096 held 4.4 GiB of GTT, 2048 holds
+  # ~0.65 GiB (fdinfo, at load) with identical scores.
+  contextSize: 2048
+  uBatchSize: 2048
+  extraArgs:
+    # 12 x 1024-char pairs: 3.5s with flash attention auto (on), 3.15s off; rankings identical.
+    - "-fa"
+    - "off"
+    - "--alias"
+    - "bge-reranker-v2-m3" # served model name memini sends (MEMINI_RERANK_MODEL)
+  # Pin to the iGPU node, as with the embedder; without this the scheduler
+  # could place it on the dGPU node (which also advertises squat.ai/dri) and
+  # steal a dGPU slot from the 27B serving pod.
+  nodeSelector:
+    amd.com/igpu: "true"
+
+  # SOFT, so it still schedules with one iGPU node down: pairs with qwen35-2b
+  # (0.8 GiB GTT) rather than the embedder, whose GTT its request omits.
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: embeddinggemma-2
+            topologyKey: kubernetes.io/hostname
+
+  # Render/video host groups for /dev/dri — the documented Vulkan-runtime
+  # path. Mirrored by embeddinggemma-2 / qwen35-2b.
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+
+  resources:
+    cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
+    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~0.65Gi of amdgpu
+    # GTT. memcg does not charge GTT, but the scheduler must count it. 2Gi did
+    # not fit control-3 (1.76Gi requestable), pushing it onto the embedder's node.
+    memory: 1Gi
+  endpoint:
+    path: /v1/rerank

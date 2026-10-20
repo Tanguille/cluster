@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+# Public for inference only; admin UI, swagger and management stay on the internal litellm host.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: litellm-external
+  annotations:
+    # "/" 404s like an unrouted host; a keyless request to a routed path returns 401.
+    gatus.home-operations.com/endpoint: |-
+      url: https://litellm-api.${SECRET_DOMAIN}/v1/models
+      conditions: ["[STATUS] == 401"]
+spec:
+  hostnames: ["litellm-api.${SECRET_DOMAIN}"]
+  parentRefs:
+    - name: envoy-external
+      namespace: network
+  rules:
+    - backendRefs:
+        - name: litellm
+          port: 80
+      matches:
+        - path:
+            type: PathPrefix
+            value: /v1/messages
+        - path:
+            type: PathPrefix
+            value: /v1/chat/completions
+        - path:
+            type: PathPrefix
+            value: /v1/models

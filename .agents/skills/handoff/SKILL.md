@@ -65,20 +65,7 @@ First action for the next agent: <the single first step, e.g. "run the first unc
 ## The atomic finish rule
 
 Treat **push + open PR as ONE step**. Plan the turn so a single approval covers the whole
-finish, rather than leaving the agent one approval-boundary away from done. Use whichever push
-route the repo actually has (this one pushes through ToolHive, not local `git push` — see
+finish, rather than leaving the agent one approval-boundary away from done. Push through
+ToolHive `github_*` tools when available, not local `git push` (see
 `.agents/learned-workspace.md` § ToolHive / MCP). If the push target is ambiguous, decide it up
 front and record it in the handoff — do not leave it for the resuming agent to rediscover.
-
-## Pitfalls
-
-- Writing the handoff AFTER the turn ends — impossible by definition; write it before stopping.
-- Leaving "TODO: finish PR" in chat text without a file — chat context is the thing that gets
-  compacted; the file is the durable object.
-- Re-planning on resume. The handoff says what remains; verify it, then execute it.
-
-## Verification
-
-- [ ] `.agents/handoff/<task>.md` exists with exact, copy-paste commands for every remaining step.
-- [ ] Verified-so-far section cites real evidence (SHAs, test output, PR numbers).
-- [ ] User was told what remains and what the first resume step is.

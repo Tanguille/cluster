@@ -23,7 +23,7 @@ spec:
           app:
             image:
               repository: ghcr.io/lavx/bazarr
-              tag: 2.6.2@sha256:9ce6db2e5453f78ebc9aae53520f6e5813e80cd96595a58279c7cef6c9111bd2
+              tag: 2.7.2@sha256:62da4872e5e37e1fc7837e5a1a5da6672a7296fedb187a45cbd25fd76a356c88
             # Skip /entrypoint.sh (usermod/groupmod/chown/gosu, all root-only) under
             # runAsNonRoot 568; args mirror the image CMD.
             command:
@@ -80,7 +80,6 @@ spec:
         seccompProfile: { type: RuntimeDefault }
     service:
       app:
-        controller: *app
         ports:
           http:
             port: *port

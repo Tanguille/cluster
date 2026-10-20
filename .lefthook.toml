@@ -8,7 +8,7 @@ run = 'for f in {staged_files}; do just --justfile "$f" --fmt; done'
 stage_fixed = true
 
 [pre-commit.commands.format-mise]
-glob = [".mise.toml", ".mise/config.toml"]
+glob = [".mise.toml"]
 run = "mise fmt"
 stage_fixed = true
 
@@ -27,7 +27,7 @@ run = "oxfmt {staged_files}"
 stage_fixed = true
 
 [pre-commit.commands.mise-lock]
-glob = [".mise.toml", ".mise/config.toml"]
+glob = [".mise.toml"]
 run = 'mise lock && { for f in {staged_files}; do l="$(dirname "$f")/mise.lock"; [ -f "$l" ] && git add "$l"; done; true; }'
 
 # Not in cluster-template; taken from home-operations/.github lefthook.common.toml.
@@ -36,5 +36,5 @@ glob = ["*.sh"]
 run = "shellcheck {staged_files}"
 
 [pre-commit.commands.zizmor]
-glob = [".github/workflows/*.yaml", ".github/actions/**/action.yaml"]
+glob = [".github/workflows/*.yaml"]
 run = "zizmor --offline {staged_files}"

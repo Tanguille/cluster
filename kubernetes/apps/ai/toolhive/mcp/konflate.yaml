@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserverentry_v1beta1.json
+# No auth; only in-cluster callers reach /mcp (the public HTTPRoute redirects it).
+# .svc short form, not .cluster.local: see kguardian.yaml.
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServerEntry
+metadata:
+  name: konflate
+spec:
+  remoteUrl: http://konflate.flux-system.svc:8080/mcp
+  transport: streamable-http
+  groupRef:
+    name: all

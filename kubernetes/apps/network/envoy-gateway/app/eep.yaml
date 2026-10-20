@@ -6,8 +6,7 @@ metadata:
   name: eep
 spec:
   targetSelectors:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
+    - kind: Gateway
   wasm:
     - name: eep
       rootID: eep
@@ -16,9 +15,7 @@ spec:
         image:
           url: oci://ghcr.io/ishioni/eep:0.2.1@sha256:ca0a10167c543203acefa196e9e9123ec8bca8529e872b9301249824f28b33a0
       config:
-        theme: connection
+        # never echo request metadata on the public gateway
         showDetails: false
-        locale: auto
-        logLevel: warn
         filterCodes: [404, "500-599"]
       failOpen: true

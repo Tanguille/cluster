@@ -6,6 +6,9 @@ metadata:
   name: &app sonarr
   namespace: &namespace media
 spec:
+  dependsOn:
+    - name: cloudnative-pg-databases
+      namespace: database
   path: ./kubernetes/apps/media/sonarr/app
   targetNamespace: *namespace
   components:

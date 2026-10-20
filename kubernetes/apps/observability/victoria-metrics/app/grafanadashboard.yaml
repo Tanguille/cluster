@@ -12,51 +12,11 @@ spec:
       grafanaCom:
         id: 1860
         revision: 45
-    - name: kubernetes-api-server
-      folder: kubernetes
-      grafanaCom:
-        id: 15761
-        revision: 21
-    - name: kubernetes-coredns
-      folder: kubernetes
-      grafanaCom:
-        id: 15762
-        revision: 22
-    - name: kubernetes-etcd
-      folder: kubernetes
-      grafanaCom:
-        id: 21473
-        revision: 3
-    - name: kubernetes-global
-      folder: kubernetes
-      grafanaCom:
-        id: 15757
-        revision: 43
-    - name: kubernetes-namespaces
-      folder: kubernetes
-      grafanaCom:
-        id: 15758
-        revision: 46
-    - name: kubernetes-nodes
-      folder: kubernetes
-      grafanaCom:
-        id: 15759
-        revision: 40
-    - name: kubernetes-pods
-      folder: kubernetes
-      grafanaCom:
-        id: 15760
-        revision: 39
-    - name: kubernetes-volumes
-      folder: kubernetes
-      grafanaCom:
-        id: 11454
-        revision: 14
     - name: zfs
       folder: nas
       grafanaCom:
         id: 24987
-        revision: 2
+        revision: 12
   resources:
     - apiVersion: grafana.integreatly.org/v1beta1
       kind: GrafanaDashboard
@@ -80,7 +40,6 @@ kind: ResourceSet
 metadata:
   name: victoria-metrics-dashboards-mixin
 spec:
-  # monitoring-mixins assets, commit-pinned.
   inputs:
     - name: kubernetes-hpa
       asset: hpa
@@ -98,4 +57,4 @@ spec:
           matchLabels:
             grafana.internal/instance: grafana
         folder: autoscaling
-        url: https://raw.githubusercontent.com/monitoring-mixins/website/b200a115e32a4db3045c7e1be1567a315d35cc4e/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-<< inputs.asset >>.json
+        url: https://raw.githubusercontent.com/monitoring-mixins/website/master/assets/kubernetes-autoscaling/dashboards/kubernetes-autoscaling-mixin-<< inputs.asset >>.json

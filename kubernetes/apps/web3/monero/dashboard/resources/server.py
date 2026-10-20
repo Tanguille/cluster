@@ -36,8 +36,6 @@ parser.add_argument("--wallet", type=str, help="Monero wallet address for p2pool
 parser.add_argument("--observer-url", type=str,
                     default="https://nano.p2pool.observer/api",
                     help="p2pool observer API base URL")
-# parse_known_args, not parse_args: every option has a default, so the test
-# module can import this file without argparse choking on the runner's argv.
 args = parser.parse_known_args()[0]
 
 PORT = args.port
@@ -64,11 +62,9 @@ CHART_MAX_POINTS = 720
 
 SERIES = ("myHash", "poolHash", "netHash", "price")
 
-# Service endpoints - use Kubernetes service names
 XMRIG_API_URL = os.getenv("XMRIG_API_URL", "http://xmrig.web3.svc.cluster.local:42000/2/summary")
 MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.local:18089/json_rpc")
 
-# Ensure data directory exists
 os.makedirs(DATA_DIR, exist_ok=True)
 
 def num(v):
@@ -90,7 +86,6 @@ rollup = new_series()
 # Open rollup bucket: sums plus a count, divided into a mean when the bucket closes.
 _bucket = {"key": None, "count": 0, **{k: 0.0 for k in SERIES}}
 
-# Thread-safe access to log and rollup
 log_lock = threading.Lock()
 
 # Price changes on minute timescales; the chart has 6 axis ticks over 24h.
@@ -100,7 +95,7 @@ PRICE_CACHE_TTL = 300
 _price_cache = {"value": 0.0, "ts": 0.0}
 
 def monerod_get_info_request():
-    """get_info RPC request, shared by the HTTP proxy and the logger thread."""
+    """get_info RPC request for the logger thread."""
     return urllib.request.Request(
         MONEROD_RPC_URL,
         data=json.dumps({"jsonrpc": "2.0", "id": "0", "method": "get_info"}).encode(),
@@ -126,7 +121,6 @@ def get_xmr_price():
         try:
             data = _fetch_json(url)
             if name == "Bitfinex+FX":
-                # Convert USD -> EUR using Frankfurter API
                 usd_to_eur = 1.0
                 try:
                     fx_data = _fetch_json("https://api.frankfurter.app/latest?from=USD&to=EUR")
@@ -159,23 +153,13 @@ def get_min_payment_threshold():
 
 class Handler(http.server.BaseHTTPRequestHandler):
     """
-    Handles HTTP GET requests for:
-      - /monerod_stats         : proxies Monero daemon get_info
-      - /xmrig_summary         : proxies xmrig summary
-      - /stats_log.json        : serves rolling log JSON
-      - /stats_history.json    : serves a downsampled window for the charts
-      - /min_payment_threshold : serves min payout threshold
-      - /observer_config       : observer URL + wallet for the frontend
-      - /observer/*            : proxies p2pool observer API (CORS)
     Static files are nginx's job (it aliases the p2pool API dir directly);
     anything else is a 404.
     """
 
     def do_GET(self):
         path, _, query = self.path.partition("?")
-        if path == "/monerod_stats":
-            self.proxy_monerod()
-        elif path == "/xmrig_summary":
+        if path == "/xmrig_summary":
             self.proxy_xmrig()
         elif path == "/stats_log.json":
             self.serve_log()
@@ -205,7 +189,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def proxy(self, request, error_prefix, error_status, timeout=5):
         """Stream an upstream JSON response through, relaying Content-Encoding.
 
-        Observer bodies reach 9MB, held whole in a 256Mi container by r.read().
+        Streamed, not read whole: observer bodies reach 9MB against a 256Mi limit.
         """
         try:
             r = urllib.request.urlopen(request, timeout=timeout)
@@ -228,12 +212,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
         crashing with ConnectionRefusedError, return a 503 JSON response.
         """
         self.proxy(urllib.request.Request(XMRIG_API_URL), "XMRig miner offline", 503)
-
-    def proxy_monerod(self):
-        """Send a get_info RPC call to monerod and return JSON.
-
-        Returns 503 JSON if monerod is unreachable instead of crashing."""
-        self.proxy(monerod_get_info_request(), "Monerod unavailable", 503)
 
     def serve_log(self):
         """Serve in-memory rolling log as JSON"""
@@ -297,7 +275,7 @@ def load_log_disk():
     with log_lock:
         load_tier(LOG_FILE, log)
         load_tier(ROLLUP_FILE, rollup, keep_missing=True)
-        # First start after the rollup was introduced: replay the 24h log through
+        # No rollup yet (first start or fresh PVC): replay the 24h log through
         # the bucketer so the long ranges are not blank for the first three months.
         if not rollup["timestamps"] and log["timestamps"]:
             columns = {k: list(log[k]) for k in SERIES}
@@ -343,7 +321,6 @@ def append_log(myHash, poolHash, netHash, price):
         for k in SERIES:
             log[k].append(values[k])
 
-        # Remove old entries
         while log["timestamps"] and log["timestamps"][0] < cutoff:
             for series in log.values():
                 series.popleft()
@@ -472,10 +449,8 @@ def last_logged(key):
 def fetch_or(source, fallback):
     """Read one series' source, substituting `fallback` if it is unavailable.
 
-    Every source used to share one try block, so any single failure discarded
-    the whole sample. That is what punched 17.7h of holes into a 24h log: xmrig
-    is unreachable by design most nights, and a monerod blip or a pool stats
-    file caught mid-rename does the same for a tick.
+    Each source fails alone so one outage cannot discard the whole sample:
+    xmrig is unreachable most nights by design.
     """
     try:
         return source()
@@ -487,7 +462,7 @@ def log_loop():
     Continuously fetch stats from xmrig, pool, monerod, and XMR price.
     Appends to the in-memory rolling log every 10 seconds; persists to disk
     every 5 minutes (the file only exists for chart continuity across pod
-    restarts — the PVC is 3x-replicated Ceph, don't rewrite 0.5MB every 10s).
+    restarts — the PVC is replicated CephFS, don't rewrite 0.5MB every 10s).
     Runs in a separate daemon thread.
     """
     last_save = 0
@@ -509,13 +484,10 @@ def log_loop():
                 netHash = fetch_or(lambda: net_future.result()["result"]["difficulty"] / 120,
                                    last_logged("netHash"))
 
-                # Fetch XMR price
                 price = get_xmr_price()
 
-                # Append to in-memory log
                 append_log(myHash, poolHash, netHash, price)
 
-                # Periodically save to disk (every 5 min)
                 if time.time() - last_save > 300:
                     save_log_disk()
                     last_save = time.time()
@@ -524,12 +496,12 @@ def log_loop():
                 if not shutdown_event.is_set():
                     print("Log error:", e)
 
-            shutdown_event.wait(10)  # sleep or wait until shutdown
+            shutdown_event.wait(10)
 
 shutdown_event = threading.Event()
 
 class Server(http.server.ThreadingHTTPServer):
-    # ThreadingHTTPServer daemonises request threads; ThreadingTCPServer did not.
+    # ThreadingHTTPServer daemonises request threads by default.
     # Non-daemon threads make server_close() wait for an in-flight observer proxy
     # instead of truncating it mid-write on SIGTERM.
     daemon_threads = False
@@ -552,8 +524,8 @@ def main():
     except KeyboardInterrupt:
         print("\nCTRL+C received, shutting down cleanly...")
     finally:
-        shutdown_event.set()   # signal logger thread to stop
-        save_log_disk()        # persist current log to disk
+        shutdown_event.set()
+        save_log_disk()
         print("Server stopped cleanly.")
         sys.exit(0)
 

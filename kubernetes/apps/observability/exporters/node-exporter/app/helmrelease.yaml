@@ -12,24 +12,17 @@ spec:
   values:
     fullnameOverride: *app
     extraArgs:
-      # amdgpu GTT is pinned memory invisible to cgroups — the embedder leak
-      # that wedged control-2 twice is only observable through this collector
+      # GTT/VRAM totals for NodeGTTMemoryHigh and DgpuVramLow; GTT is pinned RAM outside memcg, so the embedder leak wedged control-2
       - --collector.drm
     prometheus:
       monitor:
         enabled: true
         jobLabel: app.kubernetes.io/instance
         relabelings:
-          - action: replace
-            regex: (.*)
-            replacement: $1
-            sourceLabels:
+          - sourceLabels:
               - __meta_kubernetes_pod_node_name
             targetLabel: kubernetes_node
-          - action: replace
-            regex: (.*)
-            replacement: $1
-            sourceLabels:
+          - sourceLabels:
               - __meta_kubernetes_pod_node_name
             targetLabel: nodename
     resources:
@@ -38,7 +31,3 @@ spec:
         memory: 64M
       limits:
         memory: 64M
-    # Without this the pod sits in its own netns and every node_network_*/node_netstat_* series
-    # describes eth0, not eno1/enp2s0 — measured: TCP OutSegs read 8.7/s across the whole fleet.
-    # CPU/memory/disk are unaffected, they come from the /proc and /sys mounts.
-    hostNetwork: true

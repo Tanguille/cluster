@@ -25,14 +25,11 @@ metadata:
 spec:
   dependsOn:
     - name: actions-runner-controller
-    - name: openebs
-      namespace: openebs-system
   interval: 1h
-  path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners
+  path: ./kubernetes/apps/actions-runner-system/actions-runner-controller/runners/cluster
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
-  wait: false

@@ -5,15 +5,22 @@ kind: ScrapeConfig
 metadata:
   name: &app node-exporter
 spec:
+  # nodename matches the in-cluster node-exporter relabel, so node alerts name these hosts too.
   staticConfigs:
-    - targets:
-        - ${TRUENAS_IP}:9100
-        - ${OPNSENSE_IP}:9100
-  metricsPath: /metrics
+    - targets: ["${TRUENAS_IP}:9100"]
+      labels:
+        nodename: truenas
+    - targets: ["${OPNSENSE_IP}:9100"]
+      labels:
+        nodename: opnsense
   relabelings:
-    - action: replace
-      targetLabel: job
+    - targetLabel: job
       replacement: *app
+  metricRelabelings:
+    # OPNsense unbound chroot nullfs mounts repeat the zroot pool's free bytes; their "/" device trips CephNodeDiskspaceWarning.
+    - action: drop
+      sourceLabels: [fstype]
+      regex: nullfs
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/scrapeconfig_v1alpha1.json
 apiVersion: monitoring.coreos.com/v1alpha1
@@ -22,12 +29,11 @@ metadata:
   name: &app smartctl-exporter
 spec:
   staticConfigs:
-    - targets:
-        - ${TRUENAS_IP}:9633
-  metricsPath: /metrics
+    - targets: ["${TRUENAS_IP}:9633"]
+      labels:
+        nodename: truenas
   relabelings:
-    - action: replace
-      targetLabel: job
+    - targetLabel: job
       replacement: *app
 ---
 # Kepler on TrueNAS (control-1 VM host). Scrapes host port 28284 (compose maps 28284:28282).
@@ -40,17 +46,13 @@ spec:
   staticConfigs:
     - targets:
         - ${TRUENAS_IP}:28284
-  metricsPath: /metrics
   relabelings:
-    - action: replace
-      targetLabel: job
+    - targetLabel: job
       replacement: power-monitor
-    - action: replace
-      targetLabel: instance
+    - targetLabel: instance
       replacement: control-1
   metricRelabelings:
-    - action: replace
-      targetLabel: node_name
+    - targetLabel: node_name
       replacement: control-1
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/scrapeconfig_v1alpha1.json
@@ -69,8 +71,7 @@ spec:
       name: homeassistant-prometheus-token
       key: token
   relabelings:
-    - action: replace
-      targetLabel: job
+    - targetLabel: job
       replacement: *app
 ---
 # prometheus-klipper-exporter multi-target `/probe` scrape (modules per upstream README).
@@ -82,7 +83,6 @@ metadata:
 spec:
   metricsPath: /probe
   scrapeInterval: 30s
-  scrapeTimeout: 10s
   params:
     modules:
       - process_stats
@@ -98,12 +98,9 @@ spec:
       labels:
         printer: centauri_carbon
   relabelings:
-    - action: replace
-      sourceLabels: [__address__]
+    - sourceLabels: [__address__]
       targetLabel: __param_target
-    - action: replace
-      sourceLabels: [__param_target]
+    - sourceLabels: [__param_target]
       targetLabel: instance
-    - action: replace
-      targetLabel: __address__
+    - targetLabel: __address__
       replacement: klipper-exporter.observability.svc.cluster.local:9101

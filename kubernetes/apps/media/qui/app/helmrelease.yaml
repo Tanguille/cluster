@@ -17,19 +17,16 @@ spec:
   values:
     controllers:
       qui:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: ghcr.io/autobrr/qui
-              tag: v1.29.0@sha256:263c131adb007be98469959d5d3625e88476417c900519a1abad0bd609f0f103
+              tag: v1.33.0@sha256:0348a74d25118969ed31baf5af922685ec03a0ef84af4e01d7c8441bc341d5b8
             env:
               QUI__AUTH_DISABLED: true
               QUI__I_ACKNOWLEDGE_THIS_IS_A_BAD_IDEA: true
               QUI__AUTH_DISABLED_ALLOWED_CIDRS: ${LAN_CIDR},${POD_CIDR}
               QUI__HOST: 0.0.0.0
-              QUI__PORT: &port 7476
               QUI__METRICS_ENABLED: true
               QUI__METRICS_HOST: 0.0.0.0
               QUI__METRICS_PORT: &metricsPort 8080
@@ -47,7 +44,7 @@ spec:
                 spec:
                   httpGet:
                     path: /health
-                    port: *port
+                    port: &port 7476
                   timeoutSeconds: 5
                   failureThreshold: 5
               startup:

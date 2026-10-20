@@ -10,11 +10,11 @@ spec:
   postBuild:
     substitute:
       APP: <app>
-      PVC_CAPACITY: <size>   # required
+      PVC_CAPACITY: <size>   # default 5Gi
       # Only set these when the app's REAL uid isn't 568 (this cluster's default
       # convention) — verify live with `kubectl exec deployment/<app> -- id` first,
       # never trust the helmrelease's own securityContext alone (entrypoint privilege
-      # drops are invisible to it — see SKILL.md's identity gotcha section).
+      # drops are invisible to it — see docs/kopiur-restore.md "Identity").
       # KOPIUR_PUID: "1000"
       # KOPIUR_PGID: "1000"
       # Root apps additionally need the capability (backup only, not restore) and the
@@ -22,6 +22,10 @@ spec:
       # (already applied to ai/default/media via components/kopiur/privileged-movers —
       # check it's composed into the target namespace's kustomization.yaml).
       # KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
+      # Regenerable paths to skip, anchored at the PVC root. The list REPLACES the default
+      # `[/lost+found]`, so keep it. kopia never drops stored rules; undo needs
+      # `kopia policy set <id> --remove-ignore`. Example: kubernetes/apps/media/jellyfin.
+      # KOPIUR_IGNORE_RULES: "[/lost+found, /<dir>/cache/*]"
 ```
 
 `PVC_ACCESSMODES`/`PVC_STORAGECLASS`/`BACKUP_SNAPSHOTCLASS` are also available (defaults:

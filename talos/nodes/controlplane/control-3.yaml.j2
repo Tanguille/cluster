@@ -1,9 +1,12 @@
 ---
-# Chuwi ubox. Runs in-cluster Kepler. Install disk is addressed by-id because the
-# Micron 7450 has a thermal-shutdown history and must stay unambiguous across reseats.
+# Chuwi ubox. Runs in-cluster Kepler. Install disk is selected by model because the
+# Micron 7450 has a thermal-shutdown history and must stay unambiguous across reseats; the
+# model tells the 480GB system disk from the 960GB OSD without publishing its serial.
+# Only a fresh install reads the selector; upgrades reuse the running system disk.
 machine:
   install:
-    disk: /dev/disk/by-id/nvme-Micron_7450_MTFDKBA480TFR_241548387F46
+    diskSelector:
+      model: Micron_7450_MTFDKBA480TFR
     # Shared with control-2 (same schematic). Our registry, not the Factory: tuppr rebuilds the
     # upgrade target from this field, so leaving it on factory.talos.dev reinstalls the stock kernel.
     image: ghcr.io/tanguille/installer/shared:{{ pinned }}

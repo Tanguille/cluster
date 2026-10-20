@@ -13,7 +13,6 @@ spec:
   values:
     defaultPodOptions:
       hostNetwork: true # janus WebRTC streams on host UDP ports
-      dnsPolicy: ClusterFirstWithHostNet
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
@@ -31,7 +30,7 @@ spec:
           render-config:
             image:
               repository: busybox
-              tag: 1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+              tag: 1.38.0@sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e
             command:
               - /bin/sh
               - -ec
@@ -66,9 +65,6 @@ spec:
                   echo "Rendered config without auth_token; run link flow"
                 fi
             securityContext:
-              runAsNonRoot: true
-              runAsUser: 1000
-              runAsGroup: 1000
               allowPrivilegeEscalation: false
               capabilities:
                 drop:
@@ -99,7 +95,7 @@ spec:
           moonraker-proxy:
             image:
               repository: nginx
-              tag: 1.31.6-alpine@sha256:adad2ae9204d0fd7a34f40299bc838c3782be1293b10005eac4315ff5a1abf4e
+              tag: 1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
             command:
               - nginx
             args:

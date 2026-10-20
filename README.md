@@ -45,7 +45,7 @@ flowchart LR
     Tanguille[👤 Operator] -->|git push| Repo[(📦 GitHub)]
     Renovate[🤖 Renovate] -.->|automated PRs| Repo
     Repo -->|reconciles| Flux[⚙️ Flux]
-    Flux -->|deploys| Cluster[☸️ Kubernetes on Talos<br/>3 nodes · 111 HelmReleases]
+    Flux -->|deploys| Cluster[☸️ Kubernetes on Talos<br/>3 nodes]
 
     Cluster --> Ceph[(🪨 Rook Ceph<br/>block + filesystem · default durable)]
     Cluster --> OEP[(🐂 OpenEBS Hostpath<br/>best-effort low latency tier)]
@@ -66,7 +66,7 @@ or replicated data where performance is critical (e.g. postgres).
 | **OS**          | Talos Linux                    | Immutable control-plane + worker OS      |
 | **Kubernetes**  | v1.x (see badges)              | 3 nodes, all control-plane + worker      |
 | **GitOps**      | Flux 2                         | Declarative cluster reconciliation       |
-| **Automation**  | Renovate + GitHub Actions      | Dependency PRs, lint, scans (11 workflows) |
+| **Automation**  | Renovate + GitHub Actions      | Dependency PRs, lint, scans              |
 | **CNI**         | Cilium (eBPF)                  | Networking, network policies, LoadBalancer |
 | **Ingress**     | Envoy Gateway + k8s-gateway    | L7 gateway / HTTPRoute                   |
 | **Tunnel**      | cloudflared                    | Public ingress without exposing home WAN |
@@ -77,7 +77,7 @@ or replicated data where performance is critical (e.g. postgres).
 | **Databases**   | CloudNative-PG, Dragonfly      | Postgres clusters, in-memory store       |
 | **Secrets**     | SOPS + age                     | Encrypted manifests, zero plain-text     |
 | **Backups**     | kopiur (Kopia-native)          | Per-app PV snapshots + restores          |
-| **Observability** | prometheus-operator, Grafana, Gatus, Victoria* | Metrics, dashboards, uptime |
+| **Observability** | VictoriaMetrics (vmagent scrapes), Grafana, Gatus | Metrics, dashboards, uptime |
 
 ---
 
@@ -85,11 +85,12 @@ or replicated data where performance is critical (e.g. postgres).
 
 | Role      | Host        | CPU                     | RAM          | GPU                                  | Network              | Storage                                        |
 |-----------|-------------|-------------------------|--------------|--------------------------------------|----------------------|------------------------------------------------|
-| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 2TB NVMe (boot 500 GB · Ceph 500 GB) |
-| control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Samsung 980 Pro 1 TB |
-| control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 500 GB · Ceph Micron 7450 Pro 1 TB |
+| control-1 | TrueNAS VM  | Ryzen 5800X → 6 cores   | 64 GB (of 128) | AMD Radeon AI PRO R9700 — full passthrough | 10G NIC (running 2.5 Gbps) | Samsung PM983 1.92 TB NVMe (boot 500 GB · Ceph 800 GB) |
+| control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Samsung 980 Pro 1 TB |
+| control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Micron 7450 Pro 960 GB |
 
 All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU.
+Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 
 ---
 
@@ -105,7 +106,7 @@ All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the de
 | **ToolHive** | Unified MCP server gateway                                 |
 | **LiteLLM**  | LLM proxy / routing layer                                  |
 | **OmniRoute**| LLM routing                                                |
-| **LLMKube**  | K8s-native LLM model management (sglang/vLLM/llama.cpp)    |
+| **LLMKube**  | K8s-native LLM model management (vLLM/llama.cpp)           |
 | **Memini**   | Long-term memory for agents                                |
 
 Tuning constraints and benchmark history for the inference stack live in
@@ -133,7 +134,7 @@ Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman
 <details>
 <summary>🌐 <b>Network & edge</b> (namespace <code>network/</code>)</summary>
 
-Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (L4) · external-dns ·
+Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (internal DNS) · external-dns ·
 External-Service · SMTP-Relay
 
 </details>
@@ -141,7 +142,7 @@ External-Service · SMTP-Relay
 <details>
 <summary>🔭 <b>Observability & autoscaling</b> (namespace <code>observability/</code>)</summary>
 
-Prometheus Operator + CRDs · Grafana · Gatus (uptime) · Siren ·
+Prometheus Operator CRDs · Grafana · Gatus (uptime) · Siren ·
 VictoriaMetrics · VictoriaLogs · KEDA (event-driven scaling) ·
 kube-state-metrics · Kromgo (cluster stats badges) · Silence-operator ·
 custom exporters
@@ -158,8 +159,8 @@ CloudNative-PG (Postgres clusters with WAL archiving) · Dragonfly (Redis-compat
 <details>
 <summary>🛡️ <b>Security</b> (namespace <code>security/</code>)</summary>
 
-CrowdSec (fail2ban-style intrusion detection) · KGuardian (network policy
-enforcement) · Trivy-Operator (image & CVE scanning)
+CrowdSec (fail2ban-style intrusion detection) · KGuardian (eBPF network &
+security monitoring) · Trivy-Operator (image & CVE scanning)
 
 </details>
 
@@ -168,7 +169,7 @@ enforcement) · Trivy-Operator (image & CVE scanning)
 
 Cilium · CoreDNS · Spegel (local path) · descheduler · etcd-defrag ·
 metrics-server · reloader · snapshot-controller · node-problem-detector ·
-network-policies · AMD GPU undervolt · actions-runner-controller (self-hosted
+generic-device-plugin · AMD GPU undervolt · actions-runner-controller (self-hosted
 GitHub runners) · Flux · Rook-Ceph · OpenEBS · cert-manager ·
 kopiur (backup machinery) · system-upgrade (Talos upgrades)
 
@@ -200,7 +201,7 @@ flowchart TB
     end
 
     subgraph Inference[Inference — R9700 on control-1]
-        LLM[sglang / vLLM via LLMKube]
+        LLM[vLLM via LLMKube]
     end
 
     H --> TH
@@ -234,27 +235,23 @@ Operational knowledge lives where agents load it: [AGENTS.md](AGENTS.md)
 [.agents/learned-preferences.md](.agents/learned-preferences.md) and
 [.agents/learned-workspace.md](.agents/learned-workspace.md) (maintained by
 continual learning), and
-[.agents/skills/](.agents/skills) — one `SKILL.md` per workflow:
-add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation,
-k8s-at-home-research, pr-review, prometheus-cluster-health, handoff.
+[.agents/skills/](.agents/skills) — one `SKILL.md` per workflow.
 
 ### 💾 Backups — per-app, Kopia-native
 
-kopiur (migrated 2026-07-12) declares a `SnapshotPolicy` + `SnapshotSchedule`
+kopiur declares a `SnapshotPolicy` + `SnapshotSchedule`
 per app; restores are passive (`dataSourceRef`-triggered) and documented in
 [docs/kopiur-restore.md](docs/kopiur-restore.md).
 
 ### 🔭 Observability
 
-Prometheus Operator scrapes the fleet; Grafana dashboards, Gatus uptime,
+vmagent scrapes the fleet; Grafana dashboards, Gatus uptime,
 VictoriaMetrics/Logs for long retention, KEDA for scale-to-zero workloads, and
 Kromgo feeds the live badges at the top of this file.
 
 ### 🛟 CI
 
-GitHub Actions workflows:
-gitleaks, k8s-scan, flate, docker/hadolint, shell/shellcheck,
-markdown-lint, talos-render, talos-kernel, labeler/label-sync and agent-pr-review.
+GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 
 ---
 
@@ -263,7 +260,7 @@ markdown-lint, talos-render, talos-kernel, labeler/label-sync and agent-pr-revie
 | Doc                       | What it's for                              |
 |---------------------------|--------------------------------------------|
 | [Useful commands](docs/useful_commands.md) | flux / just / talos / sops reference + app runbooks |
-| [LLM hosting](docs/llm-hosting/) | sglang/vLLM tuning constraints + benchmark history |
+| [LLM hosting](docs/llm-hosting/) | vLLM tuning constraints + benchmark history |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |
