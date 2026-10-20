@@ -55,11 +55,10 @@ system turn; recapture showed roles `['user']` only. Cost: that turn carries the
 SessionStart hook output and `# Environment` block, so from the second turn on the
 model no longer sees them.
 
-The server-side alternative (patch the chat template via ConfigMap +
-`--chat-template`, same overlay pattern as `lds-gate-patch` in
-`kubernetes/apps/ai/llmkube/models/`) renders fine but rolls the vLLM pod, and
-a restart stalls admission for hours (`vllm-optimization-log-2026-08.md`,
-"A restart's real cost"). Not worth it for a client bug.
+Since #5393 vLLM serves the Qwen Sharp chat template, which renders non-first
+system messages: a `[system, user, system, user]` chat completion now answers
+normally (2026-10-20). Recheck Claude Code without the env before relying on it;
+dropping it restores the SessionStart and `# Environment` context.
 
 ## What works, measured
 
@@ -69,7 +68,7 @@ Debug-log runs (`claude-qwen -p ... --permission-mode auto --debug-file /tmp/cla
 | --- | --- | --- |
 | tool calls, hooks, plugins, MCP, subagents, compaction, auto-memory | work | client-side; same run as below |
 | auto mode | works; classifier always runs on the main model (`CLAUDE_CODE_AUTO_MODE_MODEL=qwen-3.8-fast` and `ANTHROPIC_DEFAULT_SONNET_MODEL=qwen-3.8-fast` both left `model=qwen-3.8` in the log) | `classifier_request_started model=qwen-3.8 stage=xml_s1`; cold call hit the 60s wall clock → `fail closed` deny; retries 10 to 35s (prefix cached) → `behavior=allow` |
-| context window | 180K as seen by Claude Code | `autocompact: ... effectiveWindow=180000` (vLLM serves 246944) |
+| context window | 180K as seen by Claude Code | `autocompact: ... effectiveWindow=180000` (vLLM serves 262144) |
 | first-turn latency | 58s on a trivial prompt | 10:37:41 request → 10:38:39 tool dispatch; ~35K-token system prompt prefill + thinking on the shared R9700 |
 | prompt caching | vLLM prefix cache, `cache_control` ignored | see auto mode retries |
 | Anthropic usage / telemetry | none | `[Anthropic telemetry] ... No API key available` |
