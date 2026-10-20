@@ -21,8 +21,6 @@ spec:
             app.kubernetes.io/name: *name
     args:
       - --kubelet-insecure-tls
-      - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
-      - --kubelet-use-node-status-port
       - --metric-resolution=10s
       - --kubelet-request-timeout=2s
     # 79Mi cgroup peak over 30d against the chart's 200Mi default.

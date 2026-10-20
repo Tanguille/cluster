@@ -40,10 +40,11 @@ Takeaway: consumption is flat base load. All shiftable appliance load together i
 | Washer on solar surplus | surplus on, `input_boolean.washer_armed` on, Smart Control off → on, `power_production_now` change, 10:00 | `select.washer` → run | armed, idle, surplus on, PV now ≥ 2 kW, ≥ 2 kWh left, 10:00–16:00, peak guard, stacking lock |
 | Washer solar fallback | 90 min after peak | same decision as the dishwasher, wait for tomorrow only if armed < 6 h ago | armed, idle, peak guard |
 | Wet appliance armed stamp | `dishwasher_armed` / `washer_armed` on; operation/machine state → run | stamps `input_datetime.dishwasher_armed_at` / `washer_armed_at`; turns the matching armed switch off when any program runs | |
-| Solar Excess Climate Comfort (pre-existing) | surplus on/off | bedroom Better Thermostat 21–23 heat_cool band; away setback when surplus ends and nobody home | bedroom automation enabled, override timer idle |
-| Bedroom heat pump on solar surplus | surplus on | bedroom band 22–24 **and** bedroom TRV `climate.radiator_valve_1` parked at 5 °C; both restored when surplus ends or after 8 h | damped outdoor 3–14 °C (below 3 °C the split unit defrosts), peak guard (+1 kW), stacking lock, bedroom guards |
-| Solar end-of-day bedroom bank | forecast remaining < 2 kWh | thermal bank: cool to 20 if outdoor > 22, heat to 23 if outdoor < 14, nothing in between; band back to 21–23 when surplus ends / 4 h | surplus on, bedroom in heat_cool, `sensor.home_tanguille_distance` < 100 km |
-| AC Power Guard (pre-existing) | surplus off | IR AC off | |
+| Bedroom climate on solar surplus (`automation.solar_excess_climate_comfort`) | surplus on/off, 09:00 | 09:00–22:00 only. Surplus on: bedroom Better Thermostat heat_cool 22–24 if damped outdoor 3–14 °C, else 21–23. Surplus off: `climate.bedroom` off, so the AC never runs on grid during the day | bedroom guards |
+| Bedroom Nighttime Temperature | 22:00 | bedroom band 18–24 heat_cool overnight; the AC only runs on hot or cold nights | bedroom guards |
+| Bedroom heat pump on solar surplus | surplus on | bedroom TRV `climate.radiator_valve_1` parked at 5 °C while the AC heats; restored when surplus ends or after 8 h | damped outdoor 3–14 °C (below 3 °C the split unit defrosts), peak guard (+1 kW), stacking lock, bedroom guards |
+| Solar end-of-day bedroom bank | forecast remaining < 2 kWh | thermal bank: band 19–20 if outdoor > 22, 23–25 if outdoor < 14, nothing in between; surplus end switches the bedroom off | surplus on, bedroom in heat_cool, `sensor.home_tanguille_distance` < 100 km |
+| Bedroom climate manual override detector | bedroom climate attribute changes | 2 h `timer.bedroom_climate_manual_override` | only changes with a `user_id` (UI/app); automations and Better Thermostat carry none |
 | Capacity tariff interlock | avg demand > 2.2 kW | WC + tech-cave resistance heaters off until avg < 1.5 kW (max 30 min), then back to heat | no surplus |
 | 🔥 Advanced Heating Control Main | AHC 5.5.7 blueprint | gas heating comfort 21 / eco 16, schedule + presence + proximity | `input_force_eco_temperature` was **removed** 2026-09-18 (see below) |
 

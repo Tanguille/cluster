@@ -2,7 +2,6 @@ set quiet
 set default-list
 set default-script
 set script-interpreter := ['bash', '-euo', 'pipefail']
-set shell := ['bash', '-euo', 'pipefail', '-c']
 
 [group('Kube')]
 mod kube "kubernetes"
@@ -44,19 +43,13 @@ template file *args:
     }
     talos_version="$(just tuppr-version talos)"
     kubernetes_version="$(just tuppr-version kubernetes)"
-    # pinned is the CR value verbatim, so the installed tag cannot disagree with the requested
-    # one. kernelVersion is split off it rather than read from the Dockerfile ARG, which the
-    # build script checks instead.
-    kernel_version="${talos_version#*-k}"
+    # pinned is the CR value verbatim, so the installed tag cannot disagree with the requested one.
     # Piped, not <(just talsecret): through a pipe `pipefail` sees a failed decrypt.
     just talsecret | minijinja-cli --format=yaml \
         -D "kubernetesVersion=${kubernetes_version}" \
-        -D "kernelVersion=${kernel_version}" \
         -D "pinned=${talos_version}" \
         {{ args }} "{{ file }}" -
 
 [doc('Force Flux to pull in changes from the Git repository')]
 reconcile:
-    # --with-source fetches the GitRepository itself, so only the first call needs it.
-    flux reconcile kustomization cluster-apps -n flux-system --with-source
-    flux reconcile kustomization flux-system
+    flux reconcile kustomization flux-system --with-source

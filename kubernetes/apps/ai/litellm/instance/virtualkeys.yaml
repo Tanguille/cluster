@@ -1,0 +1,14 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmvirtualkey_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMVirtualKey
+metadata:
+  name: home-assistant
+spec:
+  proxyRef: litellm
+  keyAlias: home-assistant
+  # Assist voice agent: low-latency alias only, revocable without touching the shared key.
+  models:
+    - qwen-3.8-fast
+  rpmLimit: 30
+  secretName: litellm-home-assistant-key

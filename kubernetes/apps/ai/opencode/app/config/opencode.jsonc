@@ -4,15 +4,14 @@
   // Pinned: these execute in-process in an agent pod, so an unpinned npm range is remote code
   // execution on any upstream publish. Bumped by the opencode customManager in .renovaterc.json5.
   "plugin": [
-    "cc-safety-net@2.4.11",
+    "cc-safety-net@2.6.16",
     "@tarquinen/opencode-dcp@3.2.0",
-    "oh-my-opencode-slim@2.2.25"
+    "oh-my-opencode-slim@3.0.5"
   ],
   "mcp": {
     "toolhive": {
       "type": "remote",
-      "url": "http://vmcp-unified.ai.svc.cluster.local:4483/mcp",
-      "enabled": true
+      "url": "http://vmcp-unified.ai.svc.cluster.local:4483/mcp"
     }
   },
   "provider": {

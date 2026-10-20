@@ -17,20 +17,19 @@ spec:
         operator: NotIn
         values: [dragonfly]
   ingress:
-    # Namespaces that actually consume postgres/pgbouncer/dragonfly, discovered
-    # from cnpg databases/ CRs + dragonfly host refs (renovate = operator cache). observability = vmagent
-    # scraping the exporters; database = intra-ns (operator, poolers, replicas).
+    # Postgres/pgbouncer consumers per cnpg databases/ CRs, plus vmagent (observability) and intra-ns (database).
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
         - matchLabels:
             io.kubernetes.pod.namespace: default
         - matchLabels:
+            # kritika: all three roles go straight to postgres16-rw (pgbouncer rejects its startup params).
+            io.kubernetes.pod.namespace: kritika
+        - matchLabels:
             io.kubernetes.pod.namespace: media
         - matchLabels:
             io.kubernetes.pod.namespace: observability
-        - matchLabels:
-            io.kubernetes.pod.namespace: renovate
         - matchLabels:
             io.kubernetes.pod.namespace: security
         - matchLabels:

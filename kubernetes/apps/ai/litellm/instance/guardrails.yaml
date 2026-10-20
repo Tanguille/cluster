@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmguardrail_v1alpha1.json
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMGuardrail
+metadata:
+  name: headroom-compression
+spec:
+  proxyRef: litellm
+  guardrailName: headroom-compression
+  guardrail: headroom
+  mode: pre_call # only meaningful mode; post_call is a no-op
+  apiBase: http://headroom.ai.svc.cluster.local:8787
+  apiKeyRef:
+    name: litellm-secret
+    key: HEADROOM_API_KEY
+  # Global on purpose: key/team metadata.guardrails is Enterprise-only (403 on
+  # every request under OSS). Near no-op for single-turn apps - only older tool
+  # results in agent loops get compressed.
+  defaultOn: true
+  params:
+    unreachable_fallback: fail_open # headroom down -> forward uncompressed, not 502

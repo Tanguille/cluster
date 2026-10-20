@@ -13,7 +13,7 @@ spec:
     kubernetes:
       envoyDaemonSet:
         container:
-          image: mirror.gcr.io/envoyproxy/envoy:v1.39.1
+          imageRepository: mirror.gcr.io/envoyproxy/envoy
           resources:
             requests:
               cpu: 100m
@@ -26,15 +26,13 @@ spec:
             spec:
               template:
                 spec:
-                  # externalTrafficPolicy: Local means a probe-kill blacks out that node's LB traffic; widen the margin
                   priorityClassName: system-cluster-critical
                   containers:
                     - name: envoy
+                      # externalTrafficPolicy: Local means a probe-kill blacks out that node's LB traffic; widen the margin
                       livenessProbe:
                         timeoutSeconds: 5
                         failureThreshold: 6
-      envoyService:
-        externalTrafficPolicy: Local
   shutdown:
     drainTimeout: 180s
   telemetry:
@@ -221,11 +219,6 @@ spec:
   targetSelectors:
     - kind: Gateway
   tcpKeepalive: {}
-  tls:
-    minVersion: "1.2"
-    alpnProtocols:
-      - h2
-      - http/1.1
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.envoyproxy.io/securitypolicy_v1alpha1.json
 apiVersion: gateway.envoyproxy.io/v1alpha1

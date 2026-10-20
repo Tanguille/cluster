@@ -42,7 +42,12 @@ SearchLimit = 2
 SearchRequestsEvery = 600
 DoUpgradeSearch = true
 QualityUnmetSearch = true
-CustomFormatUnmetSearch = true
+# Disabled: in qBitrr v5.12.12 CustomFormatUnmetSearch also gates automatic
+# deletion + Arr blocklisting of any torrent whose custom-format score is below
+# the existing library file ("CF unmet deletion"), including manual overrides.
+# QualityUnmetSearch/DoUpgradeSearch still search for unmet and upgrade
+# releases; only the CF-driven delete/blocklist behaviour is turned off.
+CustomFormatUnmetSearch = false
 # true | false | "smart" (series vs episode search)
 SearchBySeries = "smart"
 
@@ -70,15 +75,11 @@ FileNameExclusionRegex = [
   "music video",
   "comandotorrents.com"
 ]
-FileExtensionAllowlist = [
-  ".mp4",
-  ".mkv",
-  ".sub",
-  ".ass",
-  ".srt",
-  ".!qB",
-  ".parts"
-]
+# No FileExtensionAllowlist: an allowlist of .mkv/.mp4/.srt only made qBitrr treat
+# RAR-multipart scene releases (.rar, .r00…, .nfo, .sfv), .avi/.mpg XviD releases
+# and similar as "all files excluded" -> delete torrent + mark release failed in
+# Sonarr (blocklist). Sample/extras folders and files are still excluded by
+# FolderExclusionRegex/FileNameExclusionRegex above.
 # Max remaining ETA in seconds before removal (604800 = 7 days)
 MaximumETA = 604800
 # Don't delete torrents above this completion % (0.99 = 99%)
@@ -108,7 +109,12 @@ SearchLimit = 2
 # Seconds between checking for new Overseerr/Ombi requests (default 300)
 SearchRequestsEvery = 600
 QualityUnmetSearch = true
-CustomFormatUnmetSearch = true
+# Disabled: in qBitrr v5.12.12 CustomFormatUnmetSearch also gates automatic
+# deletion + Arr blocklisting of any torrent whose custom-format score is below
+# the existing library file ("CF unmet deletion"), including manual overrides.
+# QualityUnmetSearch still searches for unmet releases; only the CF-driven
+# delete/blocklist behaviour is turned off.
+CustomFormatUnmetSearch = false
 
 [Radarr.EntrySearch.Overseerr]
 SearchOverseerrRequests = true
@@ -134,15 +140,9 @@ FileNameExclusionRegex = [
   "music video",
   "comandotorrents.com"
 ]
-FileExtensionAllowlist = [
-  ".mp4",
-  ".mkv",
-  ".sub",
-  ".ass",
-  ".srt",
-  ".!qB",
-  ".parts"
-]
+# No FileExtensionAllowlist: see the Sonarr-TV.Torrent note above. The allowlist
+# made qBitrr delete RAR-multipart and .avi/.mpg releases as "all files excluded"
+# and mark them failed in Radarr (blocklist).
 # Max remaining ETA in seconds before removal (604800 = 7 days)
 MaximumETA = 604800
 # Don't delete torrents above this completion % (0.99 = 99%)

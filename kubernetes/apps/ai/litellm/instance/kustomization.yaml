@@ -6,8 +6,21 @@ kind: Kustomization
 resources:
   - secret.sops.yaml
   - proxy.yaml
+  - httproute-external.yaml
   - pdb.yaml
   - models.yaml
+  - virtualkeys.yaml
+  - guardrails.yaml
   - servicemonitor.yaml
   - grafanadashboard.yaml
   - prometheusrule.yaml
+
+configMapGenerator:
+  - name: litellm-dashboard
+    files:
+      - dashboard/litellm.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true

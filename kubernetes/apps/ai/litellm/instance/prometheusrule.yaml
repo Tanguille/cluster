@@ -7,19 +7,14 @@ metadata:
 spec:
   groups:
     - name: litellm.rules
-      # increase() over rate(): traffic is bursty and tiny (single digits
-      # overnight, dozens during a Renovate burst), so a per-second rate rounds
-      # to noise. It also rides out the counter resets from litellm's pod rolls.
-      # The window is the debounce, so `for` only has to survive one bad
-      # evaluation -- setting it comparable to the window adds the two together
-      # and hides the real firing delay from anyone reading the threshold.
+      # increase() over rate(): tiny bursty traffic rounds a rate to noise. The window is the debounce,
+      # so keep `for` short or the two delays add up and hide the real firing time.
       rules:
-        # A caller got an error back. Everything else here is early warning;
-        # this is the outage itself.
+        # The outage itself; requested_model!="" drops keyless hits such as the gatus 401 probe on /v1/models (~60/h).
         - alert: LiteLLMRequestsFailing
           expr: |-
             sum by (requested_model, exception_status) (
-              increase(litellm_proxy_failed_requests_metric_total[15m])
+              increase(litellm_proxy_failed_requests_metric_total{requested_model!=""}[15m])
             ) > 2
           for: 10m
           annotations:
@@ -29,16 +24,7 @@ spec:
           labels:
             severity: critical
 
-        # The only structural rule here: every other one needs a real request to
-        # fail first, which at this traffic volume means hours of lag. This
-        # fires on zero traffic and enforces the invariant proxy.yaml's chain
-        # depends on -- qwen-3.8 must point at a live deployment. absent()
-        # covers the target being retired out from under the chain, == 0 covers
-        # scaled-to-0, crashloop and unschedulable.
-        # Deployment name is hardcoded: nothing derives it from proxy.yaml's
-        # fallback target, so the two move together or this silently stops
-        # watching. Critical, not warning -- qwen-3.8 shares this backend, so a
-        # hit means hermes has no local model either.
+        # Structural rule, needs no traffic to fire; the deployment name is hardcoded, so it moves with proxy.yaml's fallback target or goes blind.
         - alert: LiteLLMFallbackBackendDown
           expr: |-
             kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"} == 0
@@ -53,9 +39,7 @@ spec:
           labels:
             severity: critical
 
-        # Catches what the structural rule cannot: a target that is up but
-        # rejects the payload. > 0 because the chain is one deep (see
-        # proxy.yaml) -- a single failed fallback is the whole safety net.
+        # Target up but rejecting the payload; > 0 because the chain is one deep.
         - alert: LiteLLMFallbackTargetUnavailable
           expr: |-
             sum by (requested_model, fallback_model) (
@@ -69,10 +53,7 @@ spec:
           labels:
             severity: warning
 
-        # omniroute briefly dropping to fallback is normal -- its free tier
-        # cycles quota every few minutes and recovers itself. Sustained use
-        # means it is not recovering and the self-hosted models are carrying
-        # traffic they were never sized for.
+        # Brief fallbacks are normal as omniroute's free-tier quota cycles; sustained ones mean it is not recovering.
         - alert: LiteLLMPrimaryDegraded
           expr: |-
             sum by (requested_model, fallback_model) (

@@ -3,16 +3,19 @@
   extends: [
     "abandonments:recommended",
     // Pin every github> preset to the same tag; an unpinned one tracks main.
-    "github>home-operations/renovate-presets#8.1.0",
-    "github>home-operations/renovate-presets//apps/cnpg.json5#8.1.0",
+    "github>home-operations/renovate-presets#9.0.0",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#9.0.0",
     // grafanaDashboards preset inlined below: its grafanaCom template needs capture groups Renovate never passes to templates.
-    "github>home-operations/renovate-presets//apps/llamacpp.json5#8.1.0",
-    "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0"
+    "github>home-operations/renovate-presets//apps/llamacpp.json5#9.0.0",
+    "github>home-operations/renovate-presets//apps/searxng.json5#9.0.0"
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
   // The operator webhook starts a run on any ticked dashboard checkbox; Renovate resets it on rewrite.
   dependencyDashboardFooter: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository",
+  // The Main ruleset does not require up-to-date branches, and `auto` would
+  // still rebase every automerge PR each time main moves
+  rebaseWhen: "conflicted",
   // Overrides :automergeBranch from the base preset.
   automergeType: "pr",
   // main has no required checks, so GitHub native auto-merge would merge before CI finishes;
@@ -20,6 +23,8 @@
   platformAutomerge: false,
   // GHCR/Quay/OCI publish no release timestamps; timestamp-required would hold their updates forever.
   minimumReleaseAgeBehaviour: "timestamp-optional",
+  // "strict" (default) parks aging updates under "Pending Status Checks"; "flexible" opens the PR and automerge waits on the stability check.
+  internalChecksFilter: "flexible",
   // Keeps the timestamp-optional warning off the dashboard.
   logLevelRemap: [
     {
@@ -71,7 +76,7 @@
     {
       description: "GrafanaDashboard spec.url pinned to GitHub release tags",
       customType: "regex",
-      managerFilePatterns: ["/grafanadashboard\\.yaml(?:\\.j2)?$/"],
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
       matchStrings: [
         'url:\\s+"?https://raw\\.githubusercontent\\.com/(?<depName>[^/\\s]+/[^/\\s]+)/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
       ],
@@ -108,11 +113,22 @@
       // Two source forms: resolve/<sha> URL (single-file GGUFs) and hf://repo@sha (multi-file repos).
       matchStrings: [
         "source:\\s+https://huggingface\\.co/(?<depName>[^/\\s]+/[^/\\s]+)/resolve/(?<currentDigest>[a-f0-9]{40})/",
-        "source:\\s+hf://(?<depName>[^/\\s]+/[^/\\s]+)@(?<currentDigest>[a-f0-9]{40})"
+        "source:\\s+hf://(?<depName>[^/\\s]+/[^/\\s]+)@(?<currentDigest>[a-f0-9]{7,40})"
       ],
       packageNameTemplate: "https://huggingface.co/{{depName}}",
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
+    },
+    {
+      description: "Paperclip Instance image: split repository/tag/digest fields",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/ai/paperclip/instance/instance\\.yaml$/"
+      ],
+      matchStrings: [
+        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>\\S+)\\n\\s+digest: (?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      datasourceTemplate: "docker"
     },
     {
       description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
@@ -124,25 +140,17 @@
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
       datasourceTemplate: "npm"
-    },
-    {
-      // Mirrors the cnpg preset's vchord manager, which only matches "vchord".
-      description: "CNPG Database CRD vector extension version pin",
-      customType: "regex",
-      managerFilePatterns: ["/resourceset\\.yaml$/"],
-      matchStrings: [
-        "name:\\s+vector\\b(?:\\n[ \\t]*|\\n +[^-\\s][^\\n]*)*?\\n +version:\\s*[\"']?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"
-      ],
-      depNameTemplate: "ghcr.io/cloudnative-pg/pgvector",
-      datasourceTemplate: "docker",
-      extractVersionTemplate: "^(?<version>\\d+\\.\\d+\\.\\d+)-\\d+-\\w+$"
     }
   ],
   packageRules: [
     {
-      description: "Paiton accepts only its hash-pinned checkpoint; bump with the image",
-      matchDepNames: ["unsloth/Qwen3.8-27B-NVFP4"],
-      enabled: false
+      // The flux manager also extracts HelmRelease values images, so the file
+      // name is the only signal that a docker dep is a chart
+      description: "Title OCI chart updates as charts instead of images",
+      matchDatasources: ["docker"],
+      matchFileNames: ["**/ocirepository.yaml"],
+      semanticCommitScope: "helm",
+      commitMessageTopic: "chart {{depName}}"
     },
     // Auto-merge rules: later rules override earlier ones, so the deny-list comes last.
     {
@@ -173,6 +181,11 @@
       automerge: true
     },
     {
+      description: "Never auto-merge kritika: pre-1.0, its chart values change between patches",
+      matchPackageNames: ["/kritika/"],
+      automerge: false
+    },
+    {
       description: "Never auto-merge storage, network, control plane, databases or GPU serving",
       matchPackageNames: [
         "/talos/",
@@ -194,11 +207,11 @@
         "/cloudnative-pg/",
         "/postgres/",
         "/vchord/",
-        "/pgvector/",
         "/dragonfly/",
         "/flux/",
         "/vllm/",
-        "/llama/"
+        "/llama/",
+        "/obico/"
       ],
       automerge: false
     },
@@ -224,10 +237,11 @@
       minimumGroupSize: 2
     },
     {
-      // talosupgrade.yaml and the mise talosctl pin (github-tags) move together in one PR.
+      // Wait for another Talos update instead of opening a CLI-only bump from an early tag.
       description: "Talos Group",
       groupName: "talos",
-      matchPackageNames: ["/siderolabs/"]
+      matchPackageNames: ["/siderolabs/"],
+      minimumGroupSize: 2
     },
     {
       description: "Rook-Ceph Group",
@@ -238,20 +252,20 @@
       minimumGroupSize: 2
     },
     {
-      description: "ToolHive operator and CRDs group",
+      description: "ToolHive operator, CRDs and Grafana dashboard URL",
       groupName: "toolhive",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/stacklok\\/toolhive\\/toolhive-operator/"],
+      // The dashboard URL is a github-releases dep named stacklok/toolhive.
+      matchPackageNames: [
+        "/stacklok\\/toolhive\\/toolhive-operator/",
+        "stacklok/toolhive"
+      ],
       minimumGroupSize: 2
     },
     {
       description: "ToolHive MCP server images group",
       groupName: "toolhive-mcp",
       matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/ai/toolhive/config/**"],
-      // vmcp-restart.yaml's kubectl image: excluded so a kubectl bump doesn't ride
-      // along with the MCP server images in this group.
-      matchPackageNames: ["!registry.k8s.io/kubectl"]
+      matchFileNames: ["kubernetes/apps/ai/toolhive/mcp/**"]
     },
     {
       description: "VectorChord CNPG images and Memini database version",
@@ -259,9 +273,10 @@
       matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
     },
     {
-      description: "pgvector CNPG extension image and Database CRD version pins",
-      groupName: "pgvector",
-      matchPackageNames: ["ghcr.io/cloudnative-pg/pgvector"]
+      description: "obico web and ml-api images move together",
+      groupName: "obico",
+      matchPackageNames: ["/gabe565\\/obico/"],
+      minimumGroupSize: 2
     },
     {
       description: "Group klipper-exporter image and Grafana dashboard URL",
@@ -285,7 +300,7 @@
       matchPackageNames: ["/feramance\\/qbitrr/"]
     },
     {
-      // Last release 2025-08-04, past `abandonments:recommended`, but still used by pre-commit.
+      // Last release 2025-08-04, past `abandonments:recommended`, but still a pinned mise tool.
       description: "shellcheck releases rarely; not abandoned",
       matchPackageNames: ["koalaman/shellcheck"],
       abandonmentThreshold: null

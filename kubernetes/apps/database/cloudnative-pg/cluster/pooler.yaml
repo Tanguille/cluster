@@ -1,10 +1,7 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/pooler_v1.json
-# Transaction-mode RW PgBouncer → primary. Per pod, max_db_connections caps server conns
-# to one Postgres database (PgBouncer docs). Through this Pooler only: up to
-# instances × max_db_connections per DB; multiple DBs on the primary add separately.
-# Same DB via rw + session poolers: add each pooler's (instances × max_db_connections).
-# Recalculate when instances or max_db_connections change. RO pooler does not use primary slots.
+# Server conns per DB = instances x max_db_connections, summed with the other poolers on that DB;
+# keep the total under cluster.yaml max_connections.
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
 metadata:
@@ -14,8 +11,7 @@ spec:
     name: postgres16
   instances: 3
   type: rw
-  # Avoid BestEffort eviction: losing pooler replicas concentrates all client
-  # traffic on the survivor and can exhaust its PgBouncer wait queue.
+  # Requests keep it out of BestEffort: losing replicas funnels every client onto the survivor's wait queue.
   template:
     spec:
       containers:
@@ -40,7 +36,6 @@ spec:
     parameters:
       max_client_conn: "1000"
       default_pool_size: "25"
-      min_pool_size: "0"
       max_db_connections: "30"
       reserve_pool_size: "8"
       reserve_pool_timeout: "3"

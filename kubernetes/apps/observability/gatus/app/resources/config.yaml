@@ -23,13 +23,11 @@ alerting:
 connectivity:
   checker:
     target: 1.1.1.1:53
-    interval: 1m
 
 endpoints:
   - name: Gatus external probe
     group: external
     url: https://gatus-probe.${SECRET_DOMAIN}/health
-    interval: 1m
     client:
       dns-resolver: tcp://1.1.1.1:53
     conditions:
@@ -40,7 +38,6 @@ endpoints:
   - name: Cloudflare
     group: connectivity
     url: icmp://1.1.1.1
-    interval: 1m
     conditions:
       - "[CONNECTED] == true"
     alerts:
@@ -49,7 +46,6 @@ endpoints:
   - name: Google
     group: connectivity
     url: icmp://8.8.8.8
-    interval: 1m
     conditions:
       - "[CONNECTED] == true"
     alerts:
@@ -58,7 +54,6 @@ endpoints:
   - name: Quad9
     group: connectivity
     url: icmp://9.9.9.9
-    interval: 1m
     conditions:
       - "[CONNECTED] == true"
     alerts:

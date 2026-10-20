@@ -5,8 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: changedetection-ingress-allowlist
 spec:
-  # Promoted from the kguardian AuditNetworkPolicy baseline (2026-09-16 to
-  # 2026-09-18, zero WouldDeny verdicts). Ingress only; egress stays open.
+  # Ingress only; egress stays open.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: changedetection
@@ -15,9 +14,7 @@ spec:
     - fromEntities:
         - host
     - fromEndpoints:
-        # envoy-gateway stamps proxy pods with both this Gateway API label and
-        # gateway.envoyproxy.io/owning-gateway-name (the one the audit baseline
-        # used); same key as the vmcp-unified policy.
+        # Gateway API label envoy-gateway stamps on proxy pods; same key as the vmcp-unified policy.
         - matchLabels:
             io.kubernetes.pod.namespace: network
             gateway.networking.k8s.io/gateway-name: envoy-internal

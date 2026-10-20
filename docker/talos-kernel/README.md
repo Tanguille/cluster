@@ -26,11 +26,13 @@ half needs this.
 Kernel-series changes that bear on these nodes:
 
 - **Preemption `none` -> `full`.** 7.0 made `PREEMPT_NONE` depend on `ARCH_NO_PREEMPT`, so
-  `olddefconfig` takes the new default. Full preemption trades a few percent of throughput for
-  better tail latency, which suits etcd and Ceph OSDs, but nobody chose it.
-  `CONFIG_PREEMPT_DYNAMIC=y`, so `preempt=` on the cmdline settles it without a rebuild;
-  control-1's schematic pins `preempt=voluntary`, `talos/schematic.yaml` does not. Pinning it
-  there too would make a future `olddefconfig` unable to move it.
+  `olddefconfig` dropped Talos's `CONFIG_PREEMPT_NONE=y` and the build lands on `CONFIG_PREEMPT=y`.
+  On x86 (`ARCH_HAS_PREEMPT_LAZY`) only `full` and `lazy` exist at runtime: `preempt=none` and
+  `preempt=voluntary` are rejected (`sched_dynamic_mode()`), so the cmdline sets nothing. Full
+  suits these nodes: lazy defers SCHED_NORMAL wakeup preemption to the next tick (4ms at
+  HZ=250), which would queue etcd and Ceph OSD wakeups behind xmrig. Check with
+  `talosctl -n <ip> read /sys/kernel/debug/sched/preempt`; upstream's Kconfig default is lazy, so
+  re-check after a base-config change.
 - **GTT in the memory subsystem (`NR_GPU_ACTIVE`).** Shows in `/proc/meminfo`, the first-party
   view of the iGPU GTT leak that is invisible to `kubectl top`. Not exported: node-exporter
   v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be
@@ -59,7 +61,7 @@ siderolabs/talos @ vX.Y.Z         make installer-base imager PKG_KERNEL=... TAG=
                                        |
                                        v
                                   imager installer --system-extension-image ...
-                                       ->  ghcr.io/tanguille/installer:<version>
+                                       ->  ghcr.io/tanguille/installer/<schematic>:<version>
 ```
 
 `amdgpu` **must** be rebuilt: `drm/amdgpu/pkg.yaml` extracts `amdgpu.ko` and `amdxcp.ko`
@@ -68,7 +70,7 @@ generates a fresh signing key per build, and the cmdline carries `module.sig_enf
 so an extension built against a *different build* of the same version will fail to load.
 Rebuild the extension from the same kernel image, every time.
 
-`amd-ucode`, `nfsrahead` and `qemu-guest-agent` are firmware/userspace only — reuse the
+`amd-ucode`, `nfsrahead`, `qemu-guest-agent` and `gvisor` are firmware/userspace only — reuse the
 official images by digest.
 
 ## Version tagging
@@ -76,9 +78,9 @@ official images by digest.
 Tag installers `v<talos>-k<kernel>`, e.g. `v1.13.9-k7.1.9`, and publish one per schematic:
 `ghcr.io/tanguille/installer/shared` or `ghcr.io/tanguille/installer/<node>` for an override.
 
-`TAG` is embedded into `pkg/machinery/gendata` (talos `Dockerfile:313-323`) and becomes what
-the node reports over the gRPC `Version()` API. tuppr reads exactly that (`client.go:161`
-returns `version.GetTag()`) and compares it to its target with plain string inequality
+`TAG` is embedded into `pkg/machinery/gendata` (the talos Dockerfile's `echo -n ${TAG}` step)
+and becomes what the node reports over the gRPC `Version()` API. tuppr reads exactly that
+(`client.go` returns `version.GetTag()`) and compares it to its target with plain string inequality
 (`upgrade.go` `nodeNeedsUpgrade`). It never looks at the image ref, so a kernel bump that left
 the Talos version unchanged would be **invisible** to tuppr. Encoding the kernel in the suffix
 is what makes a kernel-only rollout visible at all.
@@ -139,7 +141,7 @@ Build from the bump branch **before** merging it:
 ```sh
 branch=renovate/linux-7.x
 gh workflow run talos-kernel.yaml --ref "${branch}"
-# Dispatch returns immediately and the build is ~2h45m, so watch it rather than merging on the
+# Dispatch returns immediately and the build is ~1-2h, so watch it rather than merging on the
 # assumption it worked. --exit-status is what makes a failed build a failed command; without it
 # `gh run watch` exits 0 whatever the run concluded. Filtered by branch AND event so a push
 # build of main cannot be picked up as this one.
@@ -147,7 +149,7 @@ gh run watch --exit-status "$(gh run list --workflow talos-kernel.yaml --branch 
     --event workflow_dispatch --limit 1 --json databaseId -q '.[0].databaseId')"
 ```
 
-The push trigger builds on merge, but the build takes ~2h45m and `pinned` becomes
+The push trigger builds on merge, but the build takes ~1-2h and `pinned` becomes
 `v<talos>-k<new-kernel>` the moment the merge lands — so between the two, every rendered config
 names an installer tag that does not exist yet. Dispatching on the branch closes that window:
 the workflow checks out that ref, so it builds that branch's `ARG KERNEL_VERSION` against that
@@ -184,7 +186,7 @@ module whose dependency is absent now fails the build. 7.x split `stmmac_libpci.
 closed over `modules.dep` rather than patched per split. Note 1.13 ships the same dangling
 dependency; it simply has no gate to catch it.
 
-The module list is a hard gate: talos `Dockerfile:687` runs
+The module list is a hard gate: the talos Dockerfile runs
 `xargs -a modules-amd64.txt -I {} install -D usr/lib/modules/$KERNELRELEASE/{}`, which
 fails the build on any listed module the config did not produce. The 7.1.9 reconciliation
 was `kernel/crypto/xor.ko` -> `kernel/lib/raid/xor/xor.ko` (moved), and dropping
@@ -244,10 +246,10 @@ which matters because `CONFIG_LTO_CLANG_THIN=y` makes the compiler load-bearing.
 
 ## Build
 
-`just talos kernel-build <node>...` runs the whole pipeline. Both versions are derived, not
-typed: the kernel from `ARG KERNEL_VERSION` in the Dockerfile (so a Renovate bump is what
-changes the build) and Talos from the tuppr CR.
-Requires ~25 GB free disk and takes roughly 15 min on 24 cores; the kernel compile
+`just talos kernel-build [node...]` (defaults to every node) runs the whole pipeline. Both
+versions are derived, not typed: the kernel from `ARG KERNEL_VERSION` in the Dockerfile (so a
+Renovate bump is what changes the build) and Talos from the tuppr CR.
+Requires ~35-40 GB free disk and takes roughly 15 min on 24 cores; the kernel compile
 dominates and is fully unattended.
 
 ## Rollout
@@ -258,7 +260,7 @@ the running node reports (`upgrade.go`), which is what happens the moment a node
 points at this registry while it is still booted on a Factory image:
 
 ```sh
-talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<node>:<version> \
+talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<schematic>:<version> \
     --reboot-mode powercycle
 ```
 
@@ -304,16 +306,16 @@ Two things have to be true for a node, and all three nodes satisfy both:
    The `HOLD` column in "Rolling a bump back" is empty on every node when the CR is in charge.
 
    If a CR ever goes `Completed` for a version nothing runs, `findNextNodes` is skipping every
-   node listed in `Status.CompletedNodes` before it compares versions (`upgrade.go:582-587`),
+   node listed in `Status.CompletedNodes` before it compares versions (`upgrade.go`),
    and that list only clears on a generation change or a reset. Recover with
    `kubectl annotate talosupgrade talos tuppr.home-operations.com/reset=1`.
 
 To hold a node back while the rest move, use `spec.nodeSelector` on the CR — `getSortedNodes`
-passes it to `LabelSelectorAsSelector` and *lists* with it (`upgrade.go:625-641`), so an excluded
+passes it to `LabelSelectorAsSelector` and *lists* with it (`upgrade.go`), so an excluded
 node is never enumerated as a candidate and takes no outdated taint. `kubernetes.io/hostname
 NotIn [<node>]` is the shape; the CR itself says which nodes are currently held, if any.
 
-`getTargetVersion` still prefers a node annotation over the CR (`upgrade.go:855`) and Talos no
+`getTargetVersion` still prefers a node annotation over the CR (`upgrade.go`) and Talos no
 longer owns that key, so `kubectl annotate node <node> tuppr.home-operations.com/version=<string>`
 is the imperative fallback for a hold that leaves no diff — see "Rolling a bump back".
 

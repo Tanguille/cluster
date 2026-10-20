@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cnpg-custom-queries
+data:
+  queries.yaml: |
+    pgvector:
+      # drifted = 1 when a database's vector extension differs from the image's version.
+      query: >-
+        SELECT pg_catalog.current_database() AS datname, count(*) AS drifted FROM pg_available_extensions
+        WHERE name = 'vector' AND installed_version IS NOT NULL AND installed_version <> default_version
+      target_databases: ["*"]
+      metrics:
+        - datname:
+            usage: LABEL
+            description: Database name
+        - drifted:
+            usage: GAUGE
+            description: 1 if the installed vector extension differs from the image's default version

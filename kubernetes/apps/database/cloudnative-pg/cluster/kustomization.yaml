@@ -4,6 +4,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - cluster.yaml
+  - custom-queries.yaml
   - objectstore.yaml
   - pooler.yaml
   - pooler-ro.yaml
@@ -26,3 +27,6 @@ resources:
   - roles/crowdsec.sops.yaml
   - roles/ghostfolio.sops.yaml
   - roles/kguardian.sops.yaml
+  - roles/kritik.sops.yaml
+  - roles/kritik-app.sops.yaml
+  - roles/kritik-runner.sops.yaml

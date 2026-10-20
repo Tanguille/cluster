@@ -12,18 +12,8 @@ spec:
   values:
     githubConfigUrl: https://github.com/tanguille/cluster
     githubConfigSecret: cluster-runner-secret
-    # Talos os:admin is mounted here, so only flate's image-pull job runs on this scale set.
-    # Idle at 0: flate fires only on kubernetes/** changes and tolerates a cold start.
-    minRunners: 0
-    maxRunners: 2
-    containerMode:
-      type: kubernetes
-      kubernetesModeWorkVolumeClaim:
-        accessModes: ["ReadWriteOnce"]
-        storageClassName: openebs-hostpath
-        resources:
-          requests:
-            storage: 25Gi
+    minRunners: 1
+    maxRunners: 10
     controllerServiceAccount:
       name: actions-runner-controller
       namespace: actions-runner-system
@@ -31,19 +21,14 @@ spec:
       spec:
         containers:
           - name: runner
-            image: ghcr.io/home-operations/actions-runner:2.337.0@sha256:8b8e8326b5a08e658a0a41cfd2867afab69ca4194a152f986aa6fcd5430d09e7
+            image: ghcr.io/home-operations/actions-runner:2.338.0@sha256:c867ecdf82d4e8537ea8a41acc6addae09f069daec137e5614b87e4678a953e8
             command: ["/home/runner/run.sh"]
             env:
-              - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
-                value: "false"
               - name: NODE
                 valueFrom:
                   fieldRef:
                     fieldPath: status.hostIP
-            # Runners had no requests, so the scheduler packed all 3 onto one memory-tight node;
-            # each batch of concurrent reviews then starved kubelet (MemAvailable 1.2Gi → 0.22Gi,
-            # 2026-07-02 batch-kills). Peak observed usage is ~0.32Gi; limits stop any runaway from
-            # taking the node down again.
+            # Without requests the scheduler packed runners onto one memory-tight node and starved kubelet; peak usage is ~0.32Gi.
             resources:
               requests:
                 cpu: 250m
@@ -56,11 +41,10 @@ spec:
                 readOnly: true
               - mountPath: /tool-cache
                 name: tool-cache
-        serviceAccountName: *app
         # runner is uid/gid 1001; without fsGroup the CephFS mount lands root-owned
         securityContext:
           fsGroup: 1001
-        # Best-effort spread so one node blip can't kill a whole review batch (3× on 2026-07-02).
+        # Best-effort spread so one node blip can't kill a whole batch.
         # ScheduleAnyway (not DoNotSchedule) so CI still runs when a node is down.
         topologySpreadConstraints:
           - maxSkew: 1

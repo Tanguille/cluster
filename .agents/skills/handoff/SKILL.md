@@ -65,7 +65,7 @@ First action for the next agent: <the single first step, e.g. "run the first unc
 ## The atomic finish rule
 
 Treat **push + open PR as ONE step**. Plan the turn so a single approval covers the whole
-finish, rather than leaving the agent one approval-boundary away from done. Use whichever push
-route the repo actually has (this one pushes through ToolHive, not local `git push` — see
+finish, rather than leaving the agent one approval-boundary away from done. Push through
+ToolHive `github_*` tools when available, not local `git push` (see
 `.agents/learned-workspace.md` § ToolHive / MCP). If the push target is ambiguous, decide it up
 front and record it in the handoff — do not leave it for the resuming agent to rediscover.

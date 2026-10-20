@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: grafana
+spec:
+  image: grafana/mcp-grafana:2.1.1@sha256:71a3f4e6f412d253611314233df709ec2571fb50e39742d23fa2940f670646dc
+  transport: streamable-http
+  mcpPort: 8000
+  groupRef:
+    name: all
+  args:
+    - "-t"
+    - "streamable-http"
+    - "-address"
+    - "0.0.0.0:8000"
+    # proxy sends the backend Service as Host; mcpserver-backend-ingress-allowlist limits peers to the proxy
+    - "-allowed-hosts"
+    - "*"
+    # Grafana OSS + Prometheus/Alertmanager only; Cloud, Pyroscope, Loki and
+    # Sift-backed tools have no datasource here.
+    - "-enabled-tools"
+    - "search,datasource,prometheus,alerting,dashboard,folder,annotations,rendering,navigation"
+  env:
+    - name: GRAFANA_URL
+      value: http://grafana-service.observability.svc.cluster.local:3000
+    # 2.0 enables anonymous usage stats by default
+    - name: GRAFANA_USAGE_STATS
+      value: disabled
+  podTemplateSpec:
+    spec:
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi

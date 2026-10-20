@@ -38,8 +38,6 @@ spec:
 
     controllers:
       fileflows:
-        annotations:
-          reloader.stakater.com/auto: "true"
         initContainers:
           init-dirs:
             image:
@@ -58,7 +56,7 @@ spec:
           app:
             image:
               repository: revenz/fileflows
-              tag: 26.09@sha256:1257d17cca6b2d4ca2ad2cb7ffcbffcd22f66741151a9f5e40b46f2b73efa316
+              tag: 26.10@sha256:b35d2ed5e725ec74b4ead73eaae062bd9fa57837d2bce7fda85192b91af5d562
             env:
               TZ: ${TIMEZONE}
               PUID: "568"
@@ -73,6 +71,16 @@ spec:
                   tcpSocket:
                     port: 5000
               readiness: *probe
+              # The image apt-installs intel-media-va-driver-non-free on every boot before the app
+              # listens (any /dev/dri triggers it); liveness alone killed it at ~30s.
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 5000
+                  failureThreshold: 60
+                  periodSeconds: 5
             resources:
               requests:
                 cpu: 100m
@@ -91,7 +99,6 @@ spec:
 
     service:
       fileflows:
-        controller: *app
         ports:
           http:
             port: 5000
@@ -105,6 +112,7 @@ spec:
           gethomepage.dev/group: Processing
           gethomepage.dev/icon: fileflows.png
           gethomepage.dev/widget.type: fileflows
+          gethomepage.dev/widget.version: "2"
           gethomepage.dev/widget.url: http://fileflows.media.svc.cluster.local:5000
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"

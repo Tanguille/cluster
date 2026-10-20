@@ -8,14 +8,6 @@ spec:
   modelName: qwen-3.8
   proxyRef: litellm
   params:
-    # Renamed from qwen-3.6 together with the consumers that hardcode it:
-    # karakeep, agent-pr-review.yaml, proxy.yaml fallbacks. NOT hermes -- its
-    # profiles live on the hermes data PVC, so they are edited by hand and no
-    # rollback of this repo touches them.
-    # Backend swapped to qwen38-27b-vllm 2026-08-16 -- numbers in that file.
-    # Swapped to qwen38-flash-next (llama-server) 2026-08-31 and reverted the
-    # same evening: it served, but at ~57x the prefill cost. Measurements and
-    # the VRAM budget that causes it are in the flash-next manifest header.
     model: openai/qwen-3.8
     apiBase: http://qwen38-27b-vllm.ai.svc.cluster.local:8000/v1
     # Native vLLM is unauthenticated internally, but LiteLLM's OpenAI provider
@@ -25,18 +17,23 @@ spec:
       timeout: 1800
       stream_timeout: 1800
       num_retries: 0
-      # Template default is xhigh; medium is the better quality/latency point for
-      # most turns. Only affects this alias -- qwen-3.8-fast sets enable_thinking
-      # false, and the template gates effort behind thinking.
+      # Electricity only: 250 W x EUR 0.30/kWh / (1083 t/s prefill, 74 t/s decode at 3 concurrent).
+      # Here, not in info.extra: POST /model/update never persists model_info changes.
+      input_cost_per_token: 2.0e-8
+      output_cost_per_token: 2.8e-7
+      # Sharp template default is medium; medium is also the better
+      # quality/latency point for most turns. Only affects this alias --
+      # qwen-3.8-fast sets enable_thinking false, and the template gates effort
+      # behind thinking.
       extra_body:
         chat_template_kwargs:
           reasoning_effort: medium
   info:
     mode: chat
-    # maxModelLen (246944) minus maxOutputTokens; re-derive if that changes,
-    # nothing enforces it across the two CRDs.
-    maxInputTokens: 238752
-    maxOutputTokens: 8192
+    # 246944 - maxOutputTokens, margin under maxModelLen 262144; nothing enforces it
+    # across the two CRDs.
+    maxInputTokens: 182944
+    maxOutputTokens: 64000
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/litellm.home-operations.com/litellmmodel_v1alpha1.json
 apiVersion: litellm.home-operations.com/v1alpha1
@@ -56,8 +53,11 @@ spec:
       timeout: 900
       stream_timeout: 900
       num_retries: 0
-      # Non-thinking instruct-mode sampling — matches Qwen3.8's model card
-      # exactly (temperature/top_p/presence_penalty), same as Qwen3.6's.
+      # Same electricity cost as qwen-3.8 above.
+      input_cost_per_token: 2.0e-8
+      output_cost_per_token: 2.8e-7
+      # Non-thinking instruct-mode sampling, matching Qwen3.8's model card
+      # exactly (temperature/top_p/presence_penalty).
       # Defaults only: client-set params win (v1.91.0 router merge).
       temperature: 0.7
       top_p: 0.8
@@ -80,18 +80,18 @@ spec:
   modelName: omniroute
   proxyRef: litellm
   params:
-    # smart-free is a persisted omniroute combo (round-robin over Nemotron 3 Ultra,
-    # Gemini 3.8 Flash, Opus 4.6). auto/* never resolves opencode/* targets on the
-    # pinned image (#10892), so the free Zen models only route via a combo.
+    # smart-free is a persisted omniroute combo (Gemini 3.8 Flash, Antigravity Gemini Flash,
+    # Groq qwen3.8-27b, charm-hyper glm-5.3-flash last: paid, monthly quota). A model joins only
+    # if on par with qwen3.8-27b and no successor at similar price exists, or it is another quota tier.
     model: openai/smart-free
     apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
     # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
     # a non-empty api_key (same convention as qwen-3.8's sk-vllm-noauth).
     apiKey: sk-omniroute-noauth
     additional:
-      # Bounded so the qwen-3.8 fallback fires inside the reviewer's 600s curl timeout (timeouts are not in retry_policy, so one attempt then fallback); 90s cut healthy-but-slow 115s/92s streams, 150s clears the observed tail.
+      # Bounded so the qwen-3.8 fallback fires instead of a stalled free provider holding the call (timeouts are not in retry_policy, so one attempt then fallback); 90s cut healthy-but-slow 115s/92s streams, 150s clears the observed tail.
       timeout: 150
-      # Without it stream_timeout falls back to plain timeout, an httpx per-chunk read timeout that resets on every byte, so a trickling stream is never cut off before the 600s curl ceiling.
+      # Without it stream_timeout falls back to plain timeout, an httpx per-chunk read timeout that resets on every byte, so a trickling stream is never cut off.
       stream_timeout: 150
       num_retries: 0
       # pii-masker rewrites any bare 10-digit number as [PHONE_REDACTED], corrupting byte counts and memory limits (8 of 9 review runs); guardrails have only a per-request opt-out, credential-masker stays on.

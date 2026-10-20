@@ -25,8 +25,8 @@ spec:
         containers:
           app:
             image:
-              repository: docker.io/ghostfolio/ghostfolio
-              tag: 3.75.0@sha256:dd6c6a95d5b726e9ae2954f177eff9bfd6df52942a2ae2baad1fb8710ccfc5c8
+              repository: ghostfolio/ghostfolio
+              tag: 3.89.0@sha256:2856376ab315b239e4d3dc00ab369b9902487db1bb45731420b8a8680a258297
             env:
               REDIS_HOST: dragonfly.database.svc.cluster.local
             # DIRECT_URL bypasses pgbouncer-rw (transaction mode): Prisma migrations need session-level advisory locks.

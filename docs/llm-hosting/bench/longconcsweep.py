@@ -1,18 +1,9 @@
 #!/usr/bin/env python3
 """Aggregate decode throughput vs concurrency AT PRODUCTION CONTEXT LENGTH.
 
-The gap this fills: concsweep.py measured 14.88/53.93/100.82 agg tok/s at
-conc 1/8/16 using SHORT prompts, i.e. batching clearly helped. But the W4A16
-RDNA kernel has a documented LDS gate at M=2 (down_proj K=17408 falls off the
-fast path) and a dispatch cliff at M=6. Nobody has measured whether batching
-still wins once each sequence carries a ~50K context, which is what production
-actually runs at ~3.5 concurrency.
-
 Method: one warmup populates the prefix cache with a fixed long prompt, then
 every stream in every round reuses THAT SAME prompt, so prefill is a cache hit
 and what we measure is decode. Concurrency is the only variable.
-
-If aggregate tok/s peaks at conc 1-2, parallelSlots: 6 is costing throughput.
 """
 import json, re, sys, threading, time, urllib.request
 

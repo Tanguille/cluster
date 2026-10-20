@@ -1,6 +1,6 @@
 # Check PostgreSQL (CloudNative-PG) performance after tuning
 
-Use this after tuning (e.g. NVMe/PLP, work_mem, autovacuum) to see if performance improved. Run from a machine with `kubectl` and cluster access, or use the **observability** MCP (Grafana/VictoriaMetrics) when connected.
+Use this after tuning (e.g. NVMe/PLP, work_mem, autovacuum) to see if performance improved. Run from a machine with `kubectl` and cluster access, or use the Grafana MCP (via the ToolHive vMCP) when connected.
 
 ## 1. VictoriaMetrics VMSingle (PromQL)
 
@@ -23,7 +23,7 @@ sum by (pod) (rate(cnpg_pg_stat_database_blks_hit[5m]))
 **Transactions per second** (primary, all DBs):
 
 ```promql
-sum(rate(cnpg_pg_stat_database_xact_commit{cnpg_pg_replication_in_recovery="0"}[5m]))
+sum(rate(cnpg_pg_stat_database_xact_commit[5m]) and on(pod) (cnpg_pg_replication_in_recovery == 0))
 ```
 
 **Checkpoints** (timed vs requested; fewer requested = good WAL/checkpoint tuning):
@@ -75,9 +75,9 @@ Interpretation:
 - **temp_files / temp_bytes** — Should stay low with work_mem 16MB; if high, consider per-session `SET work_mem` for heavy queries.
 - **commits / tup_*** — Throughput; compare before/after if you have a baseline.
 
-## 3. Observability MCP
+## 3. Grafana MCP
 
-With the **observability** MCP connected, run the section 1 PromQL through `grafana_query_prometheus` on the `prometheus` datasource (`queryType: "instant"` for a snapshot; `"range"` with `startTime: "now-24h"`, `stepSeconds: 900` for a trend).
+With the Grafana MCP (via the ToolHive vMCP) connected, run the section 1 PromQL through `grafana_query_prometheus` on the `prometheus` datasource (`queryType: "instant"` for a snapshot; `"range"` with `startTime: "now-24h"`, `stepSeconds: 900` for a trend).
 
 ## 4. Memory cost vs benefit / longer-term comparison
 
@@ -89,7 +89,7 @@ Current tuning and the reason for each value live in `cluster.yaml`. If cache hi
 - **Temp files:** Low overall; only jfstat showed moderate temp usage (~185 files in 24h). work_mem is likely reducing spill elsewhere.
 - **No long-running transactions** in observed snapshots.
 
-**To compare over a longer period** (e.g. 7d), run these with the observability MCP or Grafana (range queries, `startTime`: `now-7d`, `endTime`: `now`, `stepSeconds`: `3600`):
+**To compare over a longer period** (e.g. 7d), run these with the Grafana MCP (via the ToolHive vMCP) or Grafana (range queries, `startTime`: `now-7d`, `endTime`: `now`, `stepSeconds`: `3600`):
 
 | Goal | PromQL |
 |------|--------|

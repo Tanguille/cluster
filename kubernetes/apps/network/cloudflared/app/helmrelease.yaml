@@ -15,13 +15,15 @@ spec:
       cloudflared:
         replicas: 2
         strategy: RollingUpdate
+        podDisruptionBudget:
+          minAvailable: 1
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: mirror.gcr.io/cloudflare/cloudflared
-              tag: 2026.9.3@sha256:072c067d25ccbe61d46e18f0d0723255f2bb5304f7317caa95b27031520ff92c
+              tag: 2026.10.2@sha256:0e56c13c7058fcef9c4f0e7d83372f82330548dbf8f8b366f3d8b506526d93b2
             envFrom:
               - secretRef:
                   name: "{{ .Release.Name }}-secret"

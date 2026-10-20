@@ -77,7 +77,7 @@ or replicated data where performance is critical (e.g. postgres).
 | **Databases**   | CloudNative-PG, Dragonfly      | Postgres clusters, in-memory store       |
 | **Secrets**     | SOPS + age                     | Encrypted manifests, zero plain-text     |
 | **Backups**     | kopiur (Kopia-native)          | Per-app PV snapshots + restores          |
-| **Observability** | prometheus-operator, Grafana, Gatus, Victoria* | Metrics, dashboards, uptime |
+| **Observability** | VictoriaMetrics (vmagent scrapes), Grafana, Gatus | Metrics, dashboards, uptime |
 
 ---
 
@@ -134,7 +134,7 @@ Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman
 <details>
 <summary>🌐 <b>Network & edge</b> (namespace <code>network/</code>)</summary>
 
-Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (L4) · external-dns ·
+Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (internal DNS) · external-dns ·
 External-Service · SMTP-Relay
 
 </details>
@@ -142,7 +142,7 @@ External-Service · SMTP-Relay
 <details>
 <summary>🔭 <b>Observability & autoscaling</b> (namespace <code>observability/</code>)</summary>
 
-Prometheus Operator + CRDs · Grafana · Gatus (uptime) · Siren ·
+Prometheus Operator CRDs · Grafana · Gatus (uptime) · Siren ·
 VictoriaMetrics · VictoriaLogs · KEDA (event-driven scaling) ·
 kube-state-metrics · Kromgo (cluster stats badges) · Silence-operator ·
 custom exporters
@@ -159,8 +159,8 @@ CloudNative-PG (Postgres clusters with WAL archiving) · Dragonfly (Redis-compat
 <details>
 <summary>🛡️ <b>Security</b> (namespace <code>security/</code>)</summary>
 
-CrowdSec (fail2ban-style intrusion detection) · KGuardian (network policy
-enforcement) · Trivy-Operator (image & CVE scanning)
+CrowdSec (fail2ban-style intrusion detection) · KGuardian (eBPF network &
+security monitoring) · Trivy-Operator (image & CVE scanning)
 
 </details>
 
@@ -239,13 +239,13 @@ continual learning), and
 
 ### 💾 Backups — per-app, Kopia-native
 
-kopiur (migrated 2026-07-12) declares a `SnapshotPolicy` + `SnapshotSchedule`
+kopiur declares a `SnapshotPolicy` + `SnapshotSchedule`
 per app; restores are passive (`dataSourceRef`-triggered) and documented in
 [docs/kopiur-restore.md](docs/kopiur-restore.md).
 
 ### 🔭 Observability
 
-Prometheus Operator scrapes the fleet; Grafana dashboards, Gatus uptime,
+vmagent scrapes the fleet; Grafana dashboards, Gatus uptime,
 VictoriaMetrics/Logs for long retention, KEDA for scale-to-zero workloads, and
 Kromgo feeds the live badges at the top of this file.
 
@@ -260,7 +260,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 | Doc                       | What it's for                              |
 |---------------------------|--------------------------------------------|
 | [Useful commands](docs/useful_commands.md) | flux / just / talos / sops reference + app runbooks |
-| [LLM hosting](docs/llm-hosting/) | sglang/vLLM tuning constraints + benchmark history |
+| [LLM hosting](docs/llm-hosting/) | vLLM tuning constraints + benchmark history |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |

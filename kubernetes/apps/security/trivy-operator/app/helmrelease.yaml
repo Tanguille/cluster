@@ -11,20 +11,21 @@ spec:
     name: trivy-operator
   values:
     operator:
-      # Node collector can't run on Talos (read-only rootfs: mkdir /etc/systemd
-      # fails), so disable infra assessment. Keeps image vuln, config audit
-      # (workload), RBAC and secret scanning. Loses node CIS InfraAssessmentReports.
+      # Node collector fails on Talos (read-only rootfs: mkdir /etc/systemd); node and control-plane CIS reports are lost.
       infraAssessmentScannerEnabled: false
       # Chart default 24h re-creates every report each cycle; workload changes still rescan.
       scannerReportTTL: "48h"
       # ~570KiB SbomReports, never TTL-pruned, re-created ~860x/day fragmented etcd; nothing reads them.
       sbomGenerationEnabled: false
-    # Expose the /metrics endpoint to Prometheus via a ServiceMonitor.
+      # Standalone scan Jobs each download the vuln DB (~1.6GiB/scan); one server keeps one copy.
+      builtInTrivyServer: true
+      # Default 10 bursts writes on the scanning node; 2 spreads the queue out.
+      scanJobsConcurrentLimit: 2
+    # Each Job run is a new scan target (~1500/day); CronJobs still report from their job template.
+    targetWorkloads: "pod,replicaset,replicationcontroller,statefulset,daemonset,cronjob"
     serviceMonitor:
       enabled: true
-    # Scan Jobs throttle at the chart-default 500m limit (kguardian
-    # cpu-throttled, 100% sustained across scans); raise the ceiling so
-    # scans finish faster. Requests stay at defaults; Jobs are short-lived.
+    # Scan Jobs sat 100% CPU-throttled at the chart-default 500m limit (kguardian).
     trivy:
       resources:
         limits:
@@ -34,6 +35,8 @@ spec:
       severity: HIGH,CRITICAL
       # Chart default true scans single-threaded, leaving the 1000m limit idle.
       slow: false
+      # Server DB is a re-downloadable cache; emptyDir avoids a Ceph PVC.
+      storageClassEnabled: false
     # Per-run runner pods and AI jobs are scanned then discarded. Also skips
     # persistent AI workloads, which get no image scanning elsewhere.
     excludeNamespaces: "actions-runner-system,ai"

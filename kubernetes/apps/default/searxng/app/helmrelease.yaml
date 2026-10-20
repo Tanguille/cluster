@@ -21,13 +21,9 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.9.29-f5035873a@sha256:eb2a404db174d33a04cd9f2e519bcae2ca722a58923510652cc1314be94e8e63
+              tag: 2026.10.19-62366b05c@sha256:b9383ac59bc9c7f6d68f29db201e90329d734a77bbc917f238144c74cd66f6a8
             env:
-              FORCE_OWNERSHIP: "false"
-              GRANIAN_HOST: "::"
-              GRANIAN_PORT: "8080"
               SEARXNG_BASE_URL: https://search.${SECRET_DOMAIN}
-              SEARXNG_PORT: "8080"
               SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
             envFrom:
               - secretRef:
@@ -64,11 +60,6 @@ spec:
               capabilities:
                 drop:
                   - ALL
-                add:
-                  - CHOWN
-                  - SETGID
-                  - SETUID
-                  - DAC_OVERRIDE
             resources:
               requests:
                 cpu: 50m
@@ -121,8 +112,6 @@ spec:
       tmp:
         type: emptyDir
         medium: Memory
-        globalMounts:
-          - path: /tmp
       cache:
         type: emptyDir
         globalMounts:

@@ -68,7 +68,6 @@ spec:
             uid: victoriametrics
             type: prometheus
             access: proxy
-            url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
             isDefault: false
             jsonData:
               httpMethod: POST
@@ -79,9 +78,7 @@ spec:
         datasources:
           - name: VictoriaMetrics Alertmanager
             uid: vmalertmanager
-            type: alertmanager
             access: proxy
-            url: &vmalertmanagerUrl http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
             jsonData:
               implementation: prometheus
 
@@ -89,18 +86,9 @@ spec:
       rules:
         etcdMemberCommunicationSlow:
           create: false
-        # Fires on recording rules that are empty by design: count:up0 (count(up == 0))
-        # yields no samples whenever every target is up, as do the orphan-pod variants
-        # of namespace_workload_pod:kube_pod_owner:relabel.
-        # Key is the exact alert name and the field is `enabled`, per the chart's own
-        # example; the camelCased `create: false` form silently matched nothing.
+        # Fires on two empty-by-design k8s.rules.pod_owner recordings (namespace_workload_pod:kube_pod_owner:relabel); key is the exact alert name.
         RecordingRulesNoData:
           enabled: false
-      groups:
-        # vmsingle deployment; the chart's vmcluster group duplicates RequestErrorsToAPI etc.
-        # Remove this if the stack ever migrates to vmcluster.
-        vmcluster:
-          create: false
 
     grafana:
       enabled: false
@@ -190,9 +178,9 @@ spec:
             - receiver: blackhole
               matchers:
                 - alertname = InfoInhibitor
-            - receiver: discord
+            - receiver: discord-satisfactory
               matchers:
-                - severity = critical
+                - app = satisfactory
         inhibit_rules:
           - equal: ["alertname", "namespace"]
             source_matchers:
@@ -203,7 +191,8 @@ spec:
           - name: blackhole
           - name: discord
             discord_configs:
-              - webhook_url_secret:
+              - &discord
+                webhook_url_secret:
                   name: alertmanager-secret
                   key: DISCORD_WEBHOOK_URL
                 username: Alertmanager
@@ -240,7 +229,11 @@ spec:
 
                   {{ end }}{{ end }}{{ if gt (len .Alerts) 5 }}…and more alerts in this group.
                   {{ end }}
-                send_resolved: true
+          # Same embed; the content line pings the Satisfactory role (not inside the embed, where mentions do not notify).
+          - name: discord-satisfactory
+            discord_configs:
+              - <<: *discord
+                content: '{{ if eq .Status "firing" }}<@&1561355798846906469>{{ end }}'
       monzoTemplate:
         enabled: false
       route:
@@ -279,16 +272,12 @@ spec:
         # Observed usage, not the request below; pipeline went fully Pending in the 07-23 outage.
         priorityClassName: homelab-critical # 149Mi
         datasource:
-          url: *vmqueryUrl
+          url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
         extraArgs:
           "external.url": https://vmalert.${SECRET_DOMAIN}
           "rule.evalDelay": 1m
-        notifier:
-          url: *vmalertmanagerUrl
         remoteRead:
           url: *vmqueryUrl
-        remoteWrite:
-          url: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428/api/v1/write
         resources:
           requests:
             cpu: 25m
@@ -317,13 +306,10 @@ spec:
 
     vmauth:
       enabled: true
-      labels:
-        operated-prometheus: "true"
-        self-monitor: "true"
       spec:
         priorityClassName: homelab-critical # 89Mi, Grafana's query path
         # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its
-        # 25Mi default, which its 39Mi peak already exceeds; raising that is a separate change.
+        # 25Mi default, which its 39Mi peak already exceeds.
         resources:
           requests:
             cpu: 50m
@@ -374,17 +360,6 @@ spec:
           storageClassName: *blockStorageClass
 
     extraRules:
-      dockerhub-rules:
-        groups:
-          - name: dockerhub
-            rules:
-              - alert: DockerhubRateLimitRisk
-                annotations:
-                  summary: There are {{ $value }} containers pulling from Dockerhub. This may lead to rate limiting.
-                expr: count(time() - container_last_seen{image=~"(docker.io).*",container!=""} < 30) > 100
-                for: 15m
-                labels:
-                  severity: critical
       oom-rules:
         groups:
           - name: oom
@@ -392,7 +367,7 @@ spec:
               - alert: OomKilled
                 annotations:
                   summary: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has been OOMKilled {{ $value }} times in the last 10 minutes.
-                # namespace=ai is excluded: AiContainerOOMKilled (toolhive config prometheusrule)
+                # namespace=ai is excluded: AiContainerOOMKilled (toolhive/app prometheusrule)
                 # covers it with the vmcp-aware runbook. Both firing meant two Discord
                 # pages for one event (critical here, warning there).
                 expr: (kube_pod_container_status_restarts_total{namespace!="ai"} - kube_pod_container_status_restarts_total{namespace!="ai"} offset 10m >= 1) and ignoring (reason) min_over_time(kube_pod_container_status_last_terminated_reason{namespace!="ai",reason="OOMKilled"}[10m]) == 1
@@ -411,15 +386,15 @@ spec:
             rules:
               - alert: NVMeCriticalWarning
                 annotations:
-                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} reports a critical warning
-                  description: smartctl_device_critical_warning is nonzero on {{ $labels.device }} ({{ $labels.instance }}) — confirmed precursor to an XFS forced-shutdown crash.
+                  summary: NVMe {{ $labels.device }} on {{ $labels.nodename }} reports a critical warning
+                  description: smartctl_device_critical_warning is nonzero on {{ $labels.device }} ({{ $labels.nodename }}) — confirmed precursor to an XFS forced-shutdown crash.
                 expr: smartctl_device_critical_warning > 0
                 for: 5m
                 labels:
                   severity: critical
               - alert: NVMeWear
                 annotations:
-                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} is at {{ $value }}% of rated endurance
+                  summary: NVMe {{ $labels.device }} on {{ $labels.nodename }} is at {{ $value }}% of rated endurance
                   description: smartctl_device_percentage_used crossed 80% — the drive is near end-of-life. Plan replacement before it fails.
                 expr: smartctl_device_percentage_used > 80 and smartctl_device_percentage_used <= 90
                 for: 10m
@@ -427,7 +402,7 @@ spec:
                   severity: warning
               - alert: NVMeWearCritical
                 annotations:
-                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} exceeded 90% of rated endurance
+                  summary: NVMe {{ $labels.device }} on {{ $labels.nodename }} exceeded 90% of rated endurance
                   description: smartctl_device_percentage_used crossed 90% — treat as end-of-life and replace.
                 expr: smartctl_device_percentage_used > 90
                 for: 5m
@@ -435,7 +410,7 @@ spec:
                   severity: critical
               - alert: NVMeSpareLow
                 annotations:
-                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} spare area at {{ $value }}%
+                  summary: NVMe {{ $labels.device }} on {{ $labels.nodename }} spare area at {{ $value }}%
                   description: Available spare capacity dropped below its vendor threshold — the device has exhausted most of its over-provisioning.
                 expr: smartctl_device_available_spare < smartctl_device_available_spare_threshold
                 for: 10m
@@ -443,7 +418,7 @@ spec:
                   severity: warning
               - alert: NVMEMediaErrors
                 annotations:
-                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} reported {{ $value }} new media errors
+                  summary: NVMe {{ $labels.device }} on {{ $labels.nodename }} reported {{ $value }} new media errors
                   description: Media error counter increased over the last hour — data integrity risk on that device.
                 expr: increase(smartctl_device_media_errors[1h]) > 0
                 for: 1m
@@ -451,9 +426,9 @@ spec:
                   severity: warning
               - alert: NVMeHot
                 annotations:
-                  summary: NVMe {{ $labels.device }} on {{ $labels.instance }} running hot ({{ $value }}C)
+                  summary: NVMe {{ $labels.device }} on {{ $labels.nodename }} running hot ({{ $value }}C)
                   description: Sustained temperature above 70C — sustained heat accelerates wear and precedes thermal shutdowns (see control-3 7450 history).
-                expr: avg_over_time(smartctl_device_temperature{device=~"nvme.*"}[10m]) > 70
+                expr: avg_over_time(smartctl_device_temperature{device=~"nvme.*",temperature_type="current"}[10m]) > 70
                 for: 15m
                 labels:
                   severity: warning

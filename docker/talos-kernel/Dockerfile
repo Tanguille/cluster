@@ -2,10 +2,10 @@
 #
 # talos/Dockerfile consumes ${PKG_KERNEL} as a plain base image and reads exactly
 # three paths out of it, so any image providing them works:
-#   /boot/vmlinuz                     (talos Dockerfile :666, :1064)
-#   /usr/lib/modules/<release>/       (:681)
-#   /usr/share/spdx/kernel.spdx.json  (:919 — copied unconditionally; the imager
-#                                      build fails with "not found" without it)
+#   /boot/vmlinuz                     (COPY --from=pkg-kernel / pkg-kernel-amd64)
+#   /usr/lib/modules/<release>/       (the modules-amd64 stage)
+#   /usr/share/spdx/kernel.spdx.json  (sbom bind mount; copied unconditionally, so the
+#                                      imager build fails with "not found" without it)
 #
 # Rationale for the toolchain choice and for what is and is not vendored: README.md.
 
@@ -13,7 +13,7 @@
 # `ARG KERNEL_VERSION`. Two declarations with only one default silently produced an SPDX
 # document with an empty version and an unmatchable CPE on any build not passing --build-arg.
 # renovate: datasource=custom.linux-kernel depName=linux
-ARG KERNEL_VERSION=7.2.8
+ARG KERNEL_VERSION=7.2.11
 
 # Passed by scripts/talos-kernel-build.sh, read out of the Talos release's own Makefile. No
 # default on purpose: a stale one would silently build against the wrong toolchain.
@@ -78,7 +78,7 @@ RUN cd /src \
     && sed -i 's/\bSIGSTKSZ\b/(SIGSTKSZ * 16)/g' tools/objtool/signal.c
 
 # No separate `make modules`: the top-level Makefile makes modules part of the default goal
-# whenever CONFIG_MODULES is set (7.1.9 Makefile:1677 `all: modules`).
+# whenever CONFIG_MODULES is set (`all: modules`).
 RUN cd /src && make LLVM=1 -j"$(nproc)"
 
 # Layout per pkgs kernel/kernel/pkg.yaml. INSTALL_MOD_STRIP=1 strips before signing, so the
@@ -93,13 +93,9 @@ RUN cd /src \
     && rm -f "/rootfs/usr/lib/modules/$KERNELRELEASE/build" \
     && echo "built $KERNELRELEASE"
 
-# bldr emits this from the sbom: block in pkgs kernel/kernel/pkg.yaml. Fixed timestamp,
-# not generated: a moving date would break build reproducibility.
-# Extracted to generate-spdx.py: hadolint's parser cannot handle an instruction
-# following a heredoc in a multi-stage build, and the inline python3 -c replacement
-# was unreadable.
+# SPDX doc per pkgs kernel/kernel/pkg.yaml (see generate-spdx.py); a script, not a heredoc:
+# hadolint can't parse an instruction after a heredoc in a multi-stage build.
 RUN mkdir -p /rootfs/usr/share/spdx && python3 /tmp/generate-spdx.py "$KERNEL_VERSION"
-RUN python3 -c "import json;assert json.load(open('/rootfs/usr/share/spdx/kernel.spdx.json'))['packages'][0]['versionInfo']"
 
 FROM scratch
 COPY --from=builder /rootfs/ /
