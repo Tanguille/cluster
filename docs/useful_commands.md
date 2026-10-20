@@ -31,7 +31,7 @@ flux get helmreleases -A
 ## Talos
 
 Machine configs are rendered on demand and pushed by hand; nothing applies them automatically.
-See [talos/README.md](../talos/README.md) for the layer model, the full recipe list, and the
+See [talos/README.md](../talos/README.md) for the layer model, the common recipes, and the
 toolchain the bare `just` commands assume.
 
 ---

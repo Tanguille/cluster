@@ -22,7 +22,7 @@ It is **not free**, but for typical clusters it is **small** compared to query e
 
 - **CPU:** A little work on each statement to normalize text and hash into the shared hash table.
 - **Memory:** Bounded by **`pg_stat_statements.max`** (each entry holds a normalized query text and counters). If you are memory-constrained, lower `max` before disabling the extension.
-- **`track`:** **`top`** (what we use in `cluster.yaml`) records only **top-level** statements; **`all`** also counts nested statements (e.g. inside functions) and costs more. Postgres docs recommend **`top`** for many production workloads.
+- **`track`:** **`top`** (the Postgres default; `cluster.yaml` sets only `max`) records only **top-level** statements; **`all`** also counts nested statements (e.g. inside functions) and costs more. Postgres docs recommend **`top`** for many production workloads.
 
 If you need **zero** statement tracking, remove `pg_stat_statements` from `shared_preload_libraries` and drop the extension—then you lose top-query tooling.
 

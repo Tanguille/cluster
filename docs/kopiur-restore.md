@@ -20,9 +20,7 @@ The `components/kopiur` component creates, per app:
 Several apps' `securityContext.runAsUser` in their `helmrelease.yaml` does **not** match the uid
 that actually owns their files — the image's own entrypoint (gosu/s6-overlay/su-exec) drops
 privilege internally after starting as root, invisible to Kubernetes. Confirmed on `fileflows` and
-`nextcloud` during this migration; a since-removed app crashlooped after being restored
-as root when its real uid was 1000. **Before touching an app's `mover.securityContext`,
-verify**:
+`nextcloud`. **Before touching an app's `mover.securityContext`, verify**:
 
 ```bash
 kubectl exec -n <ns> deployment/<app> -- id
@@ -75,7 +73,6 @@ stray completed pods if the finalizer won't clear.
 
 ```bash
 kubectl delete pvc jellyfin -n media
-kubectl wait --for=jsonpath='{}' --timeout=1s pvc/jellyfin -n media 2>&1 || true
 # poll until genuinely gone, not just Terminating — Ceph RBD detach can take minutes:
 until ! kubectl get pvc jellyfin -n media >/dev/null 2>&1; do sleep 5; done
 ```
@@ -113,8 +110,8 @@ List available snapshots first:
 kubectl kopiur snapshots list --policy jellyfin -n media
 ```
 
-This is a real git change to the app's `restore.yaml` (or a live `kubectl edit` for a one-off
-test).
+No per-app `restore.yaml` exists: the Restore comes from the shared
+`kubernetes/components/kopiur/restore/restore.yaml`, so for a one-off test use a live `kubectl edit`.
 
 ### Step 6: Resume Kustomization and HelmRelease
 
@@ -135,8 +132,8 @@ kubectl get restore jellyfin-restore -n media -o jsonpath='{.status.phase}{"\n"}
 kubectl get restore jellyfin-restore -n media -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason}{"\n"}{end}'
 ```
 
-**Critical**: `status.phase: Completed` alone is not sufficient — check `Ready: True` too. See
-the kopiur#233 warning below for why.
+**Critical**: `status.phase: Completed` alone is not sufficient; check `Ready: True` too (see
+[`Completed` but `Ready: False`](#completed-but-ready-false)).
 
 ### Step 8: Scale Up the Application
 
@@ -160,20 +157,11 @@ kubectl kopiur snapshot now --policy jellyfin -n media --wait      # fresh snaps
 kubectl kopiur snapshots list --policy jellyfin -n media           # file count/size should be continuous with history
 ```
 
-## ⚠️ Critical: kopiur#233 (open, unfixed as of this writing)
+## `Completed` but `Ready: False`
 
-**Never let an app's `Restore` CR get deleted-and-recreated while its target PVC is `Bound`** —
-a Flux prune/recreate cycle, a `ClusterRepository` reset, or a forced Kustomization re-apply all
-qualify. This silently restores into an orphaned `prime-<uid>` staging PVC that never gets
-garbage-collected — one reporter hit 49 orphaned PVCs / 120GiB from a single
-`ClusterRepository` rebuild.
-
-**The symptom is invisible to normal health checks**: `status.phase` still reports `Completed`,
-but `status.conditions` stay `Ready: False`. Flux's own health check and kstatus won't flag it.
-Confirmed live 2026-07-12: `karakeep`'s double race-hit during its cutover left exactly this
-signature, plus an orphaned 5Gi `prime-*` PVC that sat unnoticed for 104 minutes.
-
-**Sweep for it periodically or after any suspicious Flux/repository event**:
+kopiur#233 (a `Restore` recreated over a `Bound` PVC restored into an orphaned `prime-*` staging
+PVC that was never cleaned up) was fixed in kopiur 0.7.3. The signature is still worth a sweep
+after any suspicious Flux or repository event, because Flux's health check does not flag it:
 
 ```bash
 # Restore CRs showing the silent Completed/Ready:False signature
@@ -181,19 +169,7 @@ kubectl get restore -A -o json | jq -r '.items[] | select(.status.phase == "Comp
 
 # Orphaned staging PVCs (full-size Ceph storage, invisible otherwise)
 kubectl get pvc -A -l kopiur.home-operations.com/op=restore-populate
-
-# App PVCs stuck Terminating despite pods running (a related failure mode — deleting a PVC
-# without fully draining referencing pods first, e.g. mid-recovery from another race)
-kubectl get pvc -A | grep -i terminating
 ```
-
-If found: the `Restore` CR itself usually wasn't recreated (just its staging PVC leaked), so
-it's normally still safely re-triggerable via the standard Step 3-8 recipe above — scale down
-*properly* this time (drain every referencing pod), delete the app's PVC (and any stuck
-`Terminating` one, once nothing references it), resume, and verify `Ready: True` this time.
-Delete orphaned `prime-*` PVCs directly (check `ownerReferences` first to confirm which
-`Restore` it belongs to, and that the `Restore`'s *current* live state — `status.pvcPrime` —
-doesn't still reference it before deleting).
 
 ## Troubleshooting
 

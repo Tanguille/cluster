@@ -12,7 +12,6 @@ spec:
     # 9464 isn't a declared containerPort: match `http`, rewrite __address__.
     - port: http
       relabelings:
-        - action: replace
-          sourceLabels: [__meta_kubernetes_pod_ip]
+        - sourceLabels: [__meta_kubernetes_pod_ip]
           replacement: $1:9464
           targetLabel: __address__

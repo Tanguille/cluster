@@ -6,19 +6,10 @@ metadata:
   name: media-ingress-allowlist
   namespace: media
 spec:
-  # endpointSelector {} => default-deny ingress for every pod in the
-  # namespace, same shape as ai/networkpolicy.yaml and
-  # database/networkpolicy.yaml. Per-pod allowlists (flaresolverr) stay and
-  # union with this one. Egress stays default-allow (indexers, *arr client
-  # traffic, database, NFS).
+  # Default-deny ingress for every media pod; per-pod allowlists (flaresolverr) union with it, egress stays open.
   endpointSelector: {}
   ingress:
-    # Namespaces that actually talk to media pods, discovered from the repo:
-    # default = homepage widgets (gethomepage.dev/widget.url on every *arr);
-    # observability = vmagent scraping the ServiceMonitors plus the
-    # sonarr/prowlarr/qbittorrent exporters and scraparr; network =
-    # envoy-internal/envoy-external fronting the HTTPRoutes; media =
-    # intra-ns (qbitrr, recyclarr, unpackerr, seerr -> *arr).
+    # Callers: homepage widgets (default), vmagent + *arr exporters (observability), envoy gateways (network), *arr tooling (media).
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: media

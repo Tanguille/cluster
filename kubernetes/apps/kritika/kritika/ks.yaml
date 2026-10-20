@@ -8,9 +8,13 @@ metadata:
 spec:
   dependsOn:
     # kritika refuses to start without its three roles and the vchord/vector extensions.
-    - name: cloudnative-pg-cluster
-      namespace: database
     - name: cloudnative-pg-databases
+      namespace: database
+  healthChecks:
+    # Gate on the CNPG cluster being Ready, not merely present.
+    - apiVersion: postgresql.cnpg.io/v1
+      kind: Cluster
+      name: postgres16
       namespace: database
   interval: 1h
   path: ./kubernetes/apps/kritika/kritika/app

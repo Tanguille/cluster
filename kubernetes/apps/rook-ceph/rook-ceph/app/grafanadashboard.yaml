@@ -3,44 +3,6 @@
 apiVersion: fluxcd.controlplane.io/v1
 kind: ResourceSet
 metadata:
-  name: rook-ceph-dashboards
-spec:
-  # ResourceSet.spec.wait defaults to false.
-  wait: true
-  # Renovate's grafana-dashboards manager needs this filename and a nested grafanaCom: id/revision.
-  inputs:
-    - name: ceph-cluster
-      grafanaCom:
-        id: 2842
-        revision: 18
-    - name: ceph-osd
-      grafanaCom:
-        id: 5336
-        revision: 9
-    - name: ceph-pools
-      grafanaCom:
-        id: 5342
-        revision: 9
-  resources:
-    - apiVersion: grafana.integreatly.org/v1beta1
-      kind: GrafanaDashboard
-      metadata:
-        name: << inputs.name >>
-        namespace: rook-ceph
-      spec:
-        allowCrossNamespaceImport: true
-        instanceSelector:
-          matchLabels:
-            grafana.internal/instance: grafana
-        datasources:
-          - datasourceName: prometheus
-            inputName: DS_PROMETHEUS
-        grafanaCom: << inputs.grafanaCom | toYaml | nindent 10 >>
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/fluxcd.controlplane.io/resourceset_v1.json
-apiVersion: fluxcd.controlplane.io/v1
-kind: ResourceSet
-metadata:
   name: rook-ceph-dashboards-mixin
 spec:
   wait: true

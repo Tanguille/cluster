@@ -1,15 +1,7 @@
 ---
-# Restarts the vmcp gateway (deploy/unified) on a schedule.
-#
-# vmcp leaks 250-414 MiB/day (re-measured 2026-09-22 over 14d; upstream
-# stacklok/toolhive#5860, open) and OOMKills at its 2Gi limit in ~5 days at
-# the high end; every kill is exit 137 mid-drain plus a full optimizer
-# re-embed. A deliberate restart at a quiet hour drains cleanly in the 60s grace period.
-# Cadence of 4 days keeps the working set just under the AiContainerMemoryNearLimit
-# 0.9 threshold at the peak measured rate; if that alert fires anyway the leak
-# rate has grown, and the manual restart in its runbook still applies.
-#
-# Delete this file when #5860 is fixed upstream and the leak is gone.
+# vmcp leaks 250-414 MiB/day (14d, stacklok/toolhive#5860); at the peak, restarting every 4 days
+# stays under AiContainerMemoryNearLimit, short of the ~5-day OOM.
+# Delete this file once #5860 is fixed.
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
 apiVersion: v1
@@ -67,7 +59,6 @@ spec:
         spec:
           serviceAccountName: vmcp-restart
           restartPolicy: Never
-          automountServiceAccountToken: true
           securityContext:
             runAsNonRoot: true
             runAsUser: 65534

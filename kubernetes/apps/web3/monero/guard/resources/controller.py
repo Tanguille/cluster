@@ -21,18 +21,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # carry no comparable rating, so including them gated a Composite threshold against
 # the wrong reading. Fewer series also means fewer chances for a single missing sample
 # to fail the identity check and latch a node closed.
-SENSORS = {
+SENSORS = frozendict({
     # empty tuple = no NVMe visible to this node (control-1 is a VM); it is gated on CPU
     # headroom instead, which is what every `if sensors` branch below keys off.
     "control-1": (),
     "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
     "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
-}
-# Miner slot priority, best first. control-1 has no NVMe to cook and was safe 96% of the
-# last 7d against 60%/30% for the bare-metal nodes. Each ScaledObject counts how many safe
-# nodes outrank it and subtracts one miner's draw per rank, so this order decides who gets
-# scarce watts. It lives here rather than in the manifests because it is a property of the
-# node telemetry, and a future headroom-derived ranking replaces this tuple alone.
+})
+# Miner slot priority, best first: control-1 has no NVMe to cook. Each ScaledObject subtracts one
+# miner's draw per safe node that outranks it, so this order decides who gets scarce watts.
 PRIORITY = ("control-1", "control-2", "control-3")
 ENDPOINT = "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427"
 EVALUATION_INTERVAL_SECONDS = 30
@@ -86,7 +83,7 @@ class DwellPolicy:
             if gap > self.max_gap:
                 self._pending = self._since = None
         self._last_source = source_seconds
-        # third, dwell-free state: 2C from the rating, confirming the reading over a 60s dwell
+        # third, dwell-free state: 3C from the rating, confirming the reading over a 60s dwell
         # would spend most of the margin. Clearing _pending forces a full recovery dwell after.
         if self.panic_limit is not None and value >= self.panic_limit:
             self.safe = False
@@ -172,7 +169,7 @@ class VictoriaMetricsClient:
         rows = self._query(expression, evaluation)
         # timestamp() over an or-expression becomes a step-aligned subquery in VictoriaMetrics
         # (fake boundary stamps broke 60% of freshness checks); single selectors return raw stamps
-        timestamps = [row for part in parts for row in self._query("timestamp(" + part + ")", evaluation)]
+        timestamps = [*self._query("timestamp(" + part + ")", evaluation) for part in parts]
         key = lambda m: (m.get("chip"), m.get("sensor"))
         if any(row.get("metric", {}).get("kubernetes_node") != node for row in rows + timestamps):
             raise ValueError("NVMe node identity changed")
@@ -249,9 +246,9 @@ class GuardController:
         self.clock, self.wall_clock = clock, wall_clock
         # Trip 65C / recover 62C on Composite, against a 70C drive rating. Over 1151 measured
         # miner starts the rise is p50 0.88 / p90 1.13 / p99 1.35 C/min. Trip-to-drain is 135s
-        # (30s evaluation + 60s dwell + 30s KEDA poll + 15s drain) = 3.0C at p99, and
-        # test_trip_to_drain_budget pins it. Real bursts under these parameters peaked at p50 67.8
-        # / p90 68.8 / max 69.8C, so the margin to the rating is 0.2C and nothing may be loosened.
+        # (30s evaluation + 60s dwell + 30s KEDA poll + 15s drain) = 3.0C at p99. Real bursts
+        # under these parameters peaked at p50 67.8 / p90 68.8 / max 69.8C, so the margin to the
+        # rating is 0.2C and nothing may be loosened.
         # max_gap is each node's slowest scrape: it dates the freshness check, the anti-replay gap
         # and the dwell reset, which must agree or a gap inside one budget resets dwell under
         # another. control-1 has no NVMe to cook and no panic limit; a busy CPU carries no
@@ -293,9 +290,8 @@ class GuardController:
         # lines (465 in 10d) said nothing about which of host/presence/xmrig tripped, so the
         # scrape that aged out could not be read off the log.
         policy = self.policies[node]
-        stale = sorted(key for key, item in (samples or {}).items() if not _fresh(item.timestamp, evaluation, policy.max_gap))
-        stale_text = ", ".join(map(str, stale))
-        raise ValueError(f"stale or future source: {stale_text if stale else 'empty sample set'}")
+        stale = sorted(key for key, item in samples.items() if not _fresh(item.timestamp, evaluation, policy.max_gap))
+        raise ValueError(f"stale or future source: {', '.join(map(str, stale))}")
 
     def evaluate(self, evaluation=None):
         evaluation = evaluation or self.wall_clock()
@@ -319,7 +315,7 @@ class GuardController:
                     stamp = min(item.timestamp for item in samples.values())
                     self.metrics["cpu_non_xmrig"][node] = value
                 policy = self.policies[node]
-                if not samples or not all(_fresh(item.timestamp, evaluation, policy.max_gap) for item in samples.values()):
+                if not all(_fresh(item.timestamp, evaluation, policy.max_gap) for item in samples.values()):
                     self._evaluate_freshness(node, samples, evaluation)
                 safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
                 self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples.values()).timestamp())

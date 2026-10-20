@@ -1,0 +1,34 @@
+# Entry point for flate only, never deployed (Flux syncs kubernetes/apps). flate cannot read the FluxInstance
+# sync patches, so this mirrors the child postBuild of the flux-system patch in flux-instance/app/helmrelease.yaml.
+# flate ignores decryption, timeouts, deletionPolicy and HelmRelease defaults, so those are not repeated here.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: flux-system
+  namespace: flux-system
+spec:
+  interval: 1h # required by the schema
+  prune: true # required by the schema
+  path: ./kubernetes/apps
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  patches:
+    - patch: |-
+        apiVersion: kustomize.toolkit.fluxcd.io/v1
+        kind: Kustomization
+        metadata:
+          name: not-used
+        spec:
+          postBuild:
+            substituteFrom:
+              - name: cluster-settings
+                kind: ConfigMap
+                optional: false
+              - name: cluster-secrets
+                kind: Secret
+                optional: false
+      target:
+        group: kustomize.toolkit.fluxcd.io
+        kind: Kustomization

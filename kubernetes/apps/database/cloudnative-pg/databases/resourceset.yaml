@@ -12,10 +12,10 @@ spec:
     - name: bazarr
     - name: crowdsec
       extensions:
-        # vector is the official ghcr.io/cloudnative-pg/pgvector extension image (cluster.yaml); Renovate tracks that image tag.
+        # Must equal the cluster.yaml image's vector default_version (checked in flate.yaml).
         - &vector
           name: vector
-          version: "0.8.6"
+          version: "0.8.7"
     - name: gatus
     - name: ghostfolio
       extensions:
@@ -39,7 +39,6 @@ spec:
     - name: memini
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
-        # Both versions are Renovate-tracked with their respective cluster.yaml extension images.
         - *vchord
         - *vector
     - name: nextcloud

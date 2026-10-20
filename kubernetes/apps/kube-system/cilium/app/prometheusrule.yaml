@@ -34,7 +34,7 @@ spec:
             summary: Cilium BPF map {{ $labels.map_name }} pressure above 70% for 15 minutes
             description: >-
               Connection-tracking or related BPF map pressure has stayed above 70% for 15 minutes.
-              PR #3662 fixed CT map sizing; sustained high pressure means it needs revisiting.
+              CT map sizes are fixed (bpf.ctTcpMax/ctAnyMax in the cilium HelmRelease); sustained pressure means raising them.
           labels:
             severity: warning
             component: cilium

@@ -41,3 +41,18 @@ spec:
           enabled: true
           matchLabels:
             grafana.internal/instance: grafana
+    ui:
+      enabled: true
+      auth:
+        anonymous:
+          enabled: true
+          user: kopiur-lan
+      networkPolicy:
+        enabled: true
+        proxySelector:
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: network
+          podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: envoy-internal

@@ -5,7 +5,7 @@ name: Flate
 on:
   pull_request:
     branches: ["main"]
-    paths: ["kubernetes/**"]
+    paths: ["kubernetes/**", "flate/**"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -19,7 +19,7 @@ jobs:
     name: Flate
     runs-on: ubuntu-latest
     outputs:
-      images: ${{ steps.images.outputs.images }}
+      images: ${{ steps.flate.outputs.images }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,7 +36,7 @@ jobs:
         id: flate
         env:
           FLATE_OUTPUT: github
-          FLATE_PATH: ./kubernetes/flux/cluster
+          FLATE_PATH: ./flate
         run: |-
           for kind in helmrelease kustomization; do
             {
@@ -45,22 +45,15 @@ jobs:
               echo 'EOF'
             } >> "$GITHUB_OUTPUT"
           done
-
-      - name: Run Flate (images)
-        id: images
-        env:
-          FLATE_OUTPUT: json
-          FLATE_PATH: ./kubernetes/flux/cluster
-        run: |-
           {
             echo 'images<<EOF'
-            flate diff images
+            FLATE_OUTPUT=json flate diff images
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
       - if: ${{ steps.flate.outputs.helmrelease != '' || steps.flate.outputs.kustomization != '' }}
         name: Generate Token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
           client-id: ${{ secrets.BOT_APP_ID }}

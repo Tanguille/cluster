@@ -98,40 +98,19 @@ function cacheDOMElements() {
 // UTILITY FUNCTIONS
 // ==============================
 
-/**
- * Validates that a value is a non-null object
- * @param {*} value - value to check
- * @returns {boolean}
- */
 function isValidObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-/**
- * Validates that a value is a positive number
- * @param {*} value - value to check
- * @returns {boolean}
- */
 function isPositiveNumber(value) {
   return typeof value === "number" && !Number.isNaN(value) && value > 0;
 }
 
-/**
- * Safely parses an integer with fallback
- * @param {*} value - value to parse
- * @param {number} fallback - fallback value if parsing fails
- * @returns {number}
- */
 function safeParseInt(value, fallback = 0) {
   const parsed = parseInt(value, 10);
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
-/**
- * Converts a hashrate value to a human-readable string with units
- * @param {number} hashrate - hashrate in H/s
- * @returns {string} formatted hashrate
- */
 function scaleHashrate(hashrate) {
   if (!isPositiveNumber(hashrate)) return "0 H/s";
 
@@ -147,20 +126,10 @@ function scaleHashrate(hashrate) {
   return `${Math.round(hashrate)} H/s`;
 }
 
-/**
- * Pads a number to 2 digits with leading zero
- * @param {number} n - number to pad
- * @returns {string}
- */
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
 
-/**
- * Formats a date as DD/MM/YYYY HH:MM:SS
- * @param {Date} date - date to format
- * @returns {string}
- */
 function formatDate24(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return "Invalid date";
@@ -169,11 +138,6 @@ function formatDate24(date) {
   return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 }
 
-/**
- * Formats time as HH:MM:SS
- * @param {Date} date - date to format
- * @returns {string}
- */
 function formatDate24Hours(date) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return "Invalid time";
@@ -261,7 +225,7 @@ function sliceHistory(hours, historyData) {
   const startIndex = idx === -1 ? 0 : idx;
 
   return {
-    labels: historyData.timestamps.slice(startIndex).map((t) => t * 1000),
+    timestamps: historyData.timestamps.slice(startIndex),
     myHash: historyData.myHash?.slice(startIndex) || [],
     poolHash: historyData.poolHash?.slice(startIndex) || [],
     netHash: historyData.netHash?.slice(startIndex) || []
@@ -299,31 +263,15 @@ function movingAverage(timestamps, values, windowSeconds) {
   return count > 0 ? sum / count : values[values.length - 1] || 0;
 }
 
-/**
- * Extract hashrate from XMRig data
- * @param {Object} xmrigData - XMRig summary data
- * @returns {number} hashrate in H/s
- */
 function extractXMRigHashrate(xmrigData) {
-  if (!isValidObject(xmrigData)) return 0;
-  return xmrigData.hashrate?.total?.[0] || xmrigData.hashrate?.total || 0;
+  return xmrigData.hashrate?.total?.[0] || 0;
 }
 
-/**
- * Extract pool hashrate from pool data
- * @param {Object} poolData - pool statistics data
- * @returns {number} hashrate in H/s
- */
 function extractPoolHashrate(poolData) {
   if (!isValidObject(poolData)) return 0;
   return poolData.pool_statistics?.hashRate || 0;
 }
 
-/**
- * Calculate network hashrate from difficulty
- * @param {Object} networkData - network statistics data
- * @returns {number} hashrate in H/s
- */
 function calculateNetworkHashrate(networkData) {
   if (
     !isValidObject(networkData) ||
@@ -334,15 +282,6 @@ function calculateNetworkHashrate(networkData) {
   return networkData.difficulty / CONFIG.BLOCK_TIME_SECONDS;
 }
 
-/**
- * Calculate moving averages from history data
- * @param {number} windowHours - hours of history to use
- * @param {Object} historyData - history data object
- * @param {number} instMyHash - instantaneous my hashrate
- * @param {number} instPoolHash - instantaneous pool hashrate
- * @param {number} instNetHash - instantaneous network hashrate
- * @returns {Object} averaged hashrates
- */
 function calculateMovingAverages(
   windowHours,
   historyData,
@@ -366,7 +305,7 @@ function calculateMovingAverages(
   }
 
   const windowSeconds = windowHours * CONFIG.SECONDS_PER_HOUR;
-  const timestamps = sliced.labels.map((t) => t / 1000);
+  const { timestamps } = sliced;
 
   return {
     avgMyHash:
@@ -426,10 +365,6 @@ async function getWindowStartTimestamp(allShares) {
   }
 }
 
-/**
- * Check if observer API is configured and ready to use.
- * @returns {boolean}
- */
 function isObserverReady() {
   return !!state.observerWallet && !!state.observerBase;
 }
@@ -444,11 +379,6 @@ function setTextContent(elementId, text) {
   if (el) el.textContent = text;
 }
 
-/**
- * Sets the title on an existing tooltip element.
- * @param {string} tooltipId - id of the tooltip element
- * @param {string} content - tooltip text
- */
 function setTooltipContent(tooltipId, content) {
   const tooltip = document.getElementById(tooltipId);
   if (tooltip && content) {
@@ -733,7 +663,6 @@ function updateRecentPayments(payouts, priceEUR) {
         : ""
     );
 
-    // Update table
     if (tbody) {
       tbody.innerHTML = sortedPayouts
         .slice(0, CONFIG.PPLNS_WINDOW_MAX_SHARES)
@@ -811,7 +740,7 @@ function updateSharesDisplay(
 ) {
   setTextContent("sharesSinceLastPayout", sharesSince);
   setTextContent("unclesSinceLastPayout", unclesSince);
-  // The <dt> carries the label now, so the value is the bare count
+  // The <dt> carries the label; the value is the bare count
   setTextContent("totalSharesMined", totalShares);
   setTextContent("totalUnclesMined", totalUncles);
 }
@@ -959,7 +888,7 @@ goes. Shows "–" if no payouts yet or not enough data.
 }
 
 // ==============================
-// OLD DASHBOARD STATS (REFACTORED)
+// OLD DASHBOARD STATS
 // ==============================
 
 function updatePoolStatus() {
@@ -1054,7 +983,7 @@ function updateOldDashboardStats(poolData) {
 }
 
 // ==============================
-// MAIN STATS UPDATE (REFACTORED)
+// MAIN STATS UPDATE
 // ==============================
 
 function fetchDashboardData() {
@@ -1167,7 +1096,6 @@ function updateStatsDisplay(
   setTextContent("lastRefreshed", `Updated ${formatDate24(new Date())}`);
   setTextContent("payoutInterval", payoutInfo.intervalText);
 
-  // Update payout tooltip
   const tooltipIcon = document.querySelector(".bottom-stats .info");
   if (tooltipIcon && payoutInfo.intervalHours !== null) {
     tooltipIcon.title = `Average payout interval: ~${payoutInfo.intervalHours.toFixed(1)} hours\nYour actual payouts can be shorter or longer, depending on mining luck.`;
@@ -1199,7 +1127,6 @@ async function updateStats() {
 
     applyChartWindow(chartWindow);
 
-    // Extract instantaneous values
     const xmrigOnline = isValidObject(xmrigData);
     updateMinerState(xmrigOnline);
     const instMyHash = xmrigOnline ? extractXMRigHashrate(xmrigData) : 0;
@@ -1212,10 +1139,8 @@ async function updateStats() {
     const minPaymentThreshold =
       thresholdObj?.minPaymentThreshold || CONFIG.DEFAULT_MIN_PAYMENT;
 
-    // Calculate averaging window
     const avgWindowHours = calculateAveragingWindow(state.history);
 
-    // Calculate moving averages
     const { avgMyHash, avgPoolHash, avgNetHash } = calculateMovingAverages(
       avgWindowHours,
       state.history,
@@ -1224,14 +1149,11 @@ async function updateStats() {
       instNetHash
     );
 
-    // Calculate pool share
     const poolShare = instPoolHash > 0 ? (instMyHash / instPoolHash) * 100 : 0;
 
-    // Get current price
     const priceEUR =
       state.history?.price?.[state.history.price.length - 1] || 0;
 
-    // Calculate earnings
     const earnings = calculateEarnings(
       avgMyHash,
       avgNetHash,
@@ -1239,7 +1161,6 @@ async function updateStats() {
       priceEUR
     );
 
-    // Calculate payout interval
     const payoutInfo = calculatePayoutInterval(
       avgMyHash,
       avgPoolHash,
@@ -1247,7 +1168,6 @@ async function updateStats() {
       minPaymentThreshold
     );
 
-    // Update all displays
     updateStatsDisplay(
       instMyHash,
       instPoolHash,
@@ -1279,16 +1199,13 @@ async function updateStats() {
       ? allShares.filter((s) => s.miner_address === state.observerWallet)
       : [];
 
-    // Update payments
     const [newestPayoutTime, totalXMR] = await updateRecentPayments(
       payouts,
       priceEUR
     );
 
-    // Update shares
     await updateSharesCard(minerShares, payouts);
 
-    // Calculate PPLNS window data
     const pplnsWeight =
       poolData?.pool_statistics?.pplnsWeight ||
       poolData?.pool_statistics?.pplns_weight ||
@@ -1297,7 +1214,6 @@ async function updateStats() {
     const windowEnd = Date.now() / 1000;
     const windowDuration = windowEnd - windowStart;
 
-    // Calculate PPLNS moving averages
     const pplnsWindowHours = windowDuration / CONFIG.SECONDS_PER_HOUR;
     const { avgMyHash: avgMyHashPPLNS } = calculateMovingAverages(
       Math.min(pplnsWindowHours, avgWindowHours || pplnsWindowHours),
@@ -1307,7 +1223,6 @@ async function updateStats() {
       instNetHash
     );
 
-    // Update luck cards
     updateWindowLuck({
       shares: minerShares,
       pplnsWeight,
@@ -1322,7 +1237,6 @@ async function updateStats() {
     // Update true luck — the window is the span the payouts themselves cover
     updateTrueLuck(payouts, newestPayoutTime, earnings.xmrPerDayAvg, totalXMR);
 
-    // Update old dashboard stats
     updateOldDashboardStats(poolData);
   } catch (error) {
     console.error("Error in updateStats:", error);
@@ -1410,7 +1324,6 @@ async function initialize() {
 
   await loadObserverConfig();
 
-  // Setup event listeners
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
   if (DOM.earnPeriod) {
@@ -1424,9 +1337,7 @@ async function initialize() {
   // updateStats() refetches /stats_log.json and calls initializeCharts() itself
   await updateStats();
 
-  // Start periodic updates
   setInterval(updateStats, CONFIG.REFRESH_INTERVAL_MS);
 }
 
-// Start the application
 initialize();

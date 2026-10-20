@@ -12,7 +12,6 @@ spec:
 
   values:
     defaultPodOptions:
-      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
       priorityClassName: homelab-important
       securityContext:
         runAsNonRoot: true
@@ -26,7 +25,7 @@ spec:
             image:
               repository: ghcr.io/headroomlabs-ai/headroom
               # slim: code-aware parsing and ML extras are disabled below anyway.
-              tag: 0.40.0-slim-nonroot@sha256:57a807c514fba745de519a1765308b285ffa6191592b84525d2969d0db32fba2
+              tag: 0.41.0-slim-nonroot@sha256:686a86ad0f7dba60816b5d3d6f6438a02323d256d70491c6448526212c6c08b3
             env:
               TZ: ${TIMEZONE}
               # Image default is 127.0.0.1.
@@ -36,7 +35,6 @@ spec:
               HEADROOM_COMPRESS_ALLOW_REMOTE: "1"
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"
-              HEADROOM_TELEMETRY: "off"
               # JSON-only: HEADROOM_LOSSLESS=1 saved 0 tokens, and the log compressor drops whole
               # INFO runs. smart_crusher/tabular re-encode arrays as tables keeping every row
               # (2000/2000, -65%), byte-identical across calls. No CCR markers on this path, so
@@ -50,7 +48,7 @@ spec:
               HEADROOM_DEDUPE: "0"
               HEADROOM_COMPRESS_USER_MESSAGES: "0"
               HEADROOM_COMPRESSION_MAX_WORKERS: "2"
-              # No Kompress model to fetch.
+              # No Kompress model to fetch, and the only thing keeping the upload beacon off (BEACON_DEFAULT_ON is true upstream).
               HEADROOM_OFFLINE: "1"
             envFrom:
               - secretRef:
@@ -73,7 +71,6 @@ spec:
                   httpGet: &readyz
                     path: /readyz
                     port: *port
-                  periodSeconds: 10
                   failureThreshold: 30
               liveness:
                 enabled: true

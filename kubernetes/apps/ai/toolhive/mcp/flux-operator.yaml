@@ -5,10 +5,14 @@ metadata:
   name: flux-operator
 spec:
   image: ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.61.0@sha256:b253ef07502413bcad89d8fb8f9c01d3cfa070331698323fbd8fe0ae9cfa1cb4
+  transport: streamable-http
+  mcpPort: 8080
   groupRef:
     name: all
   args:
     - serve
+    - --transport=http
+    - --port=8080
   env:
     - name: KUBECONFIG
       value: /kubeconfig/kubeconfig
@@ -27,6 +31,15 @@ spec:
             - name: kubeconfig
               mountPath: /kubeconfig
               readOnly: true
+          ports:
+            - name: mcp
+              containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: mcp
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
           resources:
             requests:
               cpu: 10m
@@ -48,7 +61,7 @@ kind: MCPToolConfig
 metadata:
   name: flux-operator
 spec:
-  # Source: controlplaneio-fluxcd/flux-operator v0.60.0 cmd/mcp/toolbox and docs/mcp/tools.md; exhaustive.
+  # Source: controlplaneio-fluxcd/flux-operator cmd/mcp/toolbox and docs/mcp/tools.md; curated, omits install_flux_instance and set_kubeconfig_context.
   toolsFilter:
     - apply_kubernetes_manifest
     - delete_kubernetes_resource

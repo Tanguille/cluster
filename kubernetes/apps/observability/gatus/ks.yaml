@@ -6,6 +6,9 @@ metadata:
   name: gatus
   namespace: &namespace observability
 spec:
+  dependsOn:
+    - name: cloudnative-pg-databases
+      namespace: database
   interval: 1h
   path: ./kubernetes/apps/observability/gatus/app
   prune: true

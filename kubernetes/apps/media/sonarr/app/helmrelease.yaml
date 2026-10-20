@@ -25,18 +25,18 @@ spec:
           app:
             image:
               repository: ghcr.io/home-operations/sonarr
-              tag: 4.0.20.3012@sha256:1f19eb5e0f421418c1a956bbe01310a0141423afe28bd9a4b1dcb8629ff2bce2
+              tag: 5.0.0.2701@sha256:1620725621cfda0360bd680dacf3246c4696c27c4b768b4346e07e8917e94499
             env:
               SONARR__AUTH__METHOD: External
               SONARR__AUTH__REQUIRED: DisabledForLocalAddresses
               SONARR__APP__INSTANCENAME: Sonarr
               SONARR__SERVER__PORT: &port 80
               SONARR__SERVER__ALLOWEDHOSTS: "{{ .Release.Name }}.${SECRET_DOMAIN},sonarr.media.svc.cluster.local"
-              SONARR__SERVER__TRUSTEDNETWORKS: 10.42.0.0/16
+              SONARR__SERVER__TRUSTEDNETWORKS: ${POD_CIDR}
               SONARR__LOG__DBENABLED: "False"
               SONARR__LOG__LEVEL: info
               SONARR__APP__THEME: dark
-              SONARR__LOG__ANALYTICS_ENABLED: "false"
+              SONARR__LOG__ANALYTICSENABLED: "false"
               SONARR__AUTH__APIKEY: ${SONARR_API_KEY}
               TZ: ${TIMEZONE}
             envFrom:

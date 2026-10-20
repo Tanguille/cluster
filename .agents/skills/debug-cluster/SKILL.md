@@ -24,7 +24,7 @@ Structured debugging with parallel fact gathering; delegate deep 5-Whys or log m
 - Kubernetes resources (pods, deployments, services, events)
 - Logs (current + previous containers)
 - Flux instance when GitOps-related
-- Historical/crashed-pod logs and firing alerts: observability MCP group (Grafana + victoria-logs)
+- Historical/crashed-pod logs and firing alerts: `grafana_*` / `victorialogs-mcp_*` tools via the unified vMCP (`find_tool`/`call_tool`)
 
 ```bash
 kubectl get pods -n <ns> -o wide
@@ -52,7 +52,7 @@ When root cause is unclear, spawn a subagent with gathered facts and ask for fiv
 |-------|-----|
 | Config not picked up | Reloader annotation on workload |
 | HelmRelease stuck | Delete HR; Flux recreates from git |
-| Wrong image/tag | values.yaml in repo |
+| Wrong image/tag | HelmRelease `values` (`app/helmrelease.yaml`) |
 | PVC issues | storage class, events, kopiur `Restore`/mover path |
 
 Avoid `kubectl edit` except ephemeral tests.
@@ -64,7 +64,7 @@ flux get all -A --status-selector ready=false
 flux reconcile kustomization <name> --with-source
 ```
 
-MCP when available: `get_flux_instance`, `reconcile_flux_kustomization`. ToolHive tools are group-prefixed in-session (e.g. `flux-operator_reconcile_flux_kustomization`); resolve the real name from the session tool list before calling.
+MCP when available: `get_flux_instance`, `reconcile_flux_resource`. ToolHive tools are group-prefixed in-session (e.g. `flux-operator_reconcile_flux_resource`); resolve the real name from the session tool list before calling.
 
 ## Talos (rare)
 

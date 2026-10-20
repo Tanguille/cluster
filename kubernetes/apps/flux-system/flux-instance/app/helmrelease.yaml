@@ -12,16 +12,102 @@ spec:
   values:
     instance:
       distribution:
+        # Pinned: the chart renders "" as null, which the FluxInstance CRD rejects; its default is :latest.
         artifact: oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:v0.61.0
       cluster:
         networkPolicy: false
       sync:
         url: https://github.com/tanguille/cluster.git
         ref: refs/heads/main
-        path: kubernetes/flux/cluster
+        path: kubernetes/apps
         interval: 1h
       kustomize:
         patches:
+          # Configure the generated flux-system sync and its child Kustomizations in one patch.
+          - patch: |-
+              apiVersion: kustomize.toolkit.fluxcd.io/v1
+              kind: Kustomization
+              metadata:
+                name: flux-system
+              spec:
+                # decryption.secretRef is omitted: kustomize-controller's --sops-age-secret is the fallback.
+                decryption:
+                  provider: sops
+                deletionPolicy: Orphan
+                interval: 1h
+                postBuild:
+                  substituteFrom:
+                    - name: cluster-settings
+                      kind: ConfigMap
+                      optional: true
+                    - name: cluster-secrets
+                      kind: Secret
+                      optional: true
+                patches:
+                  # Replaces substituteFrom/timeout/retryInterval wholesale — setting them in a child is a no-op.
+                  - patch: |-
+                      apiVersion: kustomize.toolkit.fluxcd.io/v1
+                      kind: Kustomization
+                      metadata:
+                        name: not-used
+                      spec:
+                        decryption:
+                          provider: sops
+                        postBuild:
+                          substituteFrom:
+                            - name: cluster-settings
+                              kind: ConfigMap
+                              optional: false
+                            - name: cluster-secrets
+                              kind: Secret
+                              optional: false
+                        deletionPolicy: WaitForTermination
+                        timeout: 5m
+                        retryInterval: 2m
+                        patches:
+                          - patch: |-
+                              apiVersion: helm.toolkit.fluxcd.io/v2
+                              kind: HelmRelease
+                              metadata:
+                                name: _
+                              spec:
+                                driftDetection:
+                                  mode: enabled
+                                install:
+                                  crds: CreateReplace
+                                rollback:
+                                  cleanupOnFail: true
+                                upgrade:
+                                  cleanupOnFail: true
+                                  crds: CreateReplace
+                                  strategy:
+                                    name: RemediateOnFailure
+                                  remediation:
+                                    retries: 2
+                            target:
+                              group: helm.toolkit.fluxcd.io
+                              kind: HelmRelease
+                          # Dry-run diff breaks on CephBlockPool/CephFilesystem (live spec.replicated.minSize
+                          # isn't in the installed CRD schema), leaving the release in a permanent StateError.
+                          - patch: |-
+                              apiVersion: helm.toolkit.fluxcd.io/v2
+                              kind: HelmRelease
+                              metadata:
+                                name: _
+                              spec:
+                                driftDetection:
+                                  mode: disabled
+                            target:
+                              group: helm.toolkit.fluxcd.io
+                              kind: HelmRelease
+                              name: rook-ceph-cluster
+                    target:
+                      group: kustomize.toolkit.fluxcd.io
+                      kind: Kustomization
+            target:
+              group: kustomize.toolkit.fluxcd.io
+              kind: Kustomization
+              name: flux-system
           - patch: |
               - op: add
                 path: /spec/template/spec/containers/0/args/-
@@ -32,8 +118,6 @@ spec:
             target:
               kind: Deployment
               name: (helm-controller|source-controller)
-          # Individual memory limits per controller based on 30-day usage analysis
-          # Peak usage: helm=330MB, kustomize=203MB, source=127MB, notification=96MB, operator=291MB
           # metadata.name is ignored; target.name selects
           - patch: |
               apiVersion: apps/v1
@@ -119,21 +203,13 @@ spec:
               kind: Deployment
               name: source-controller
           - patch: |
-              - op: add
-                path: /spec/template/spec/containers/0/args/-
-                value: --feature-gates=OOMWatch=true
-              - op: add
-                path: /spec/template/spec/containers/0/args/-
-                value: --oom-watch-memory-threshold=95
-              - op: add
-                path: /spec/template/spec/containers/0/args/-
-                value: --oom-watch-interval=500ms
-              # DefaultToRetryOnFailure: automatically retry failed HelmReleases rather than requiring manual intervention.
+              # DefaultToRetryOnFailure: retry failed installs instead of stalling. Upgrades keep the flux-system patch's
+              # explicit RemediateOnFailure, which overrides this gate.
               # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
               # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
               - op: add
                 path: /spec/template/spec/containers/0/args/-
-                value: --feature-gates=DefaultToRetryOnFailure=true,DisableChartDigestTracking=true
+                value: --feature-gates=OOMWatch=true,DefaultToRetryOnFailure=true,DisableChartDigestTracking=true
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --watch-configs-label-selector=owner!=helm

@@ -25,10 +25,24 @@ spec:
         existingSecret: *secret
         key: runner-uri
         role: kritik_runner
-    config:
-      webUrl: "https://kritika.${SECRET_DOMAIN}"
-      # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
-      indexGrace: 1h
+    # Runner Jobs parse untrusted PR content and run model-directed code.
+    # Keys live under podTemplate.spec; top-level runtimeClassName and resources are ignored silently and runner pods lose gVisor.
+    runner:
+      podTemplate:
+        spec:
+          runtimeClassName: gvisor
+          resources:
+            requests:
+              cpu: 10m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+    # Cache the runner's mise-pinned tool downloads: one private emptyDir per
+    # replica, shared by every runner Job in the pod. S3 (RGW) would carry the
+    # cache across a rollout and share it between replicas; we run one replica,
+    # so filesystem keeps the win with no new storage dependency.
+    gatewayCache:
+      enabled: true
     # Internal only: public dashboard with local admin is too exposed.
     httpRoute:
       enabled: true
@@ -43,6 +57,12 @@ spec:
       egressPorts:
         - 443
         - 4000
+      # Instance pods only, not poolers: runners connect to the primary directly.
+      postgres:
+        namespace: database
+        podSelector:
+          cnpg.io/cluster: postgres16
+          cnpg.io/podRole: instance
     monitoring:
       serviceMonitor:
         enabled: true
@@ -76,7 +96,10 @@ spec:
           secretKeyRef:
             name: kritika-secret
             key: admin-password
-    configFile:
+    config:
+      webUrl: "https://kritika.${SECRET_DOMAIN}"
+      # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
+      indexGrace: 1h
       apps:
         github:
           accounts: [tanguille]
@@ -88,17 +111,19 @@ spec:
           type: openai
           baseUrl: "http://litellm.ai.svc.cluster.local/v1"
           apiKey: { env: LITELLM_API_KEY }
-      # 0.0.27 dropped the defaults wrapper: repository settings sit at the root.
       review:
+        # LiteLLM falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
         model: litellm/omniroute
-        fallback: litellm/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
         approve: true
+      # Scores each PR 0-5; under 4 fails the check, critical risk needs a human.
+      confidence:
+        model: litellm/qwen-3.8-fast
+        threshold: 4
+        risk: high
       agent:
-        # Read-only tools only; no curl, so PR text can't steer raw requests.
-        commands: [gh, rg, fd, jq, yq]
         steps: 30
         output: 12288
         tokens: 1000000
@@ -117,11 +142,74 @@ spec:
             change, deprecation, rename or changed default that affects it,
             and any version it must stay in lockstep with. Start with a
             verdict, safe to merge or not, and name the sources you read.
+        - id: vllm-nightly
+          when:
+            - expr: pr.headRef == "renovate/vllm-vllm-openai-rocm-nightly"
+          rule: >-
+            vLLM nightly bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ, KV
+            offload, hybrid GDN): config
+            kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml, import hook
+            kubernetes/apps/ai/llmkube/models/resources/zz_lds_gate_impl.py.
+            The body has digests only, so take the vllm-project/vllm main
+            commits from 6 h before the previous vllm-openai-rocm PR was opened
+            (gh pr list --state all --search 'vllm-openai-rocm in:title') to
+            this PR's creation, and name that window. Query one path per call
+            with gh api 'repos/vllm-project/vllm/commits?since=..&until=..&path=P',
+            never the whole list: vllm/v1/attention,
+            vllm/model_executor/kernels/linear/mixed_precision,
+            vllm/v1/kv_offload,
+            vllm/distributed/kv_transfer/kv_connector/v1/offloading,
+            vllm/model_executor/layers/mamba, vllm/v1/core, vllm/v1/worker,
+            vllm/platforms/rocm.py, vllm/config, docker/Dockerfile.rocm,
+            docker/Dockerfile.rocm_base. Read the patch of each hit with gh api
+            repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
+            GLM and Kimi changes. Check each hit against every symbol the hook
+            patches and every flag in the config: a moved symbol fails the
+            boot, a new default can undo a flag. The hook also calls upstream
+            functions and Triton kernels itself (kernel[grid](...), orig(...)):
+            for each, diff the full parameter list at the previous and new
+            commit and check the hook's call still binds. An added, removed
+            or reordered parameter is a P1 finding, even if the hook's
+            feature check passes. Any change to a file the hook patches is at
+            least a P1 needs-clone-test finding. Also flag KV pool sizing or
+            page size changes, Qwen3.5 or Qwen3-Next config imports, a ROCm
+            base or torch bump, and anything that makes a hook patch
+            redundant. Start with a verdict: nothing relevant, needs a clone
+            test, or needs a hook change. Then list each relevant commit as sha,
+            title, why it matters here, and what to measure (boot KV cache
+            size, agreement, NLL and needle checks, prodshape). Never call it
+            safe to roll untested.
+      # Scope specialist skills to the paths they cover; pr-review stays unscoped.
+      skills:
+        scope:
+          k8s-at-home-research:
+            paths: ["kubernetes/**", "talos/**"]
+          debug-cluster:
+            paths: ["kubernetes/**", "talos/**"]
+          add-app-to-cluster:
+            paths: ["kubernetes/apps/**"]
+          prometheus-cluster-health:
+            paths:
+              [
+                "**/prometheusrule.yaml",
+                "**/servicemonitor.yaml",
+                "**/grafana*"
+              ]
+          backup-restore:
+            paths: ["**/backup*", "**/restore*", "**/kopia*"]
+      # Benchmark output the default globs miss.
+      ignore:
+        - "**/*.out"
       embedding:
-        model: litellm/qwen3-embedding
-        dims: 1024
-        # 0.7 (default 0.5): most chunks in this mostly-YAML repo score above it.
-        similarFloor: 0.7
+        model: litellm/embeddinggemma-2
+        dims: 768
+        # 200000-char default batches of long chunks ran past the 1 min embed timeout on the iGPU.
+        maxBatchChars: 50000
+        # With these prompts a hunk's best match scores 0.82-0.88, an off-topic hunk's 0.78-0.81; 0.7 kept both. Retune after any prompt change.
+        similarFloor: 0.82
+        # One prompt for both sides, as the model card has it. A change rebuilds the index: recheck similarFloor.
+        queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
+        documentPrompt: *embeddingPrompt
       # Local admin until GitHub or OIDC is set up.
       auth:
         admin:

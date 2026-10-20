@@ -71,7 +71,6 @@ spec:
       enabled: false
       user: kguardian
       databaseName: kguardian
-      existingSecret: kguardian-db-credentials
       external:
         host: pgbouncer-rw.database.svc.cluster.local
         sslMode: disable
@@ -88,6 +87,9 @@ spec:
       metrics:
         serviceMonitor:
           enabled: true
+        # Chart's seccomp denial alerts (observed, enforcing, abnormal rate).
+        prometheusRule:
+          enabled: true
 
       # 16 = inflightPermits + 8 floor; fits the 25/30 pooler and a 2x16 rollout burst.
       dbPoolMaxSize: 16
@@ -101,6 +103,10 @@ spec:
         denials:
           retention:
             days: 14
+      # Every finished Job instance stays a workload row until pruned (~1.3k/day); at 30d the in-use coverage recompute took ~200s.
+      imageInventory:
+        retention:
+          days: 3
 
     frontend:
       resources:
@@ -109,8 +115,6 @@ spec:
 
     # Trimmed requests save 150m + 384Mi across the DaemonSet on tight control-1 (91% req); limits stay at chart defaults for eBPF headroom.
     controller:
-      podAnnotations:
-        reloader.stakater.com/auto: "true"
       resources:
         requests:
           cpu: 50m

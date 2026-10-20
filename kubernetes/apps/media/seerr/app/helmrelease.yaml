@@ -72,13 +72,12 @@ spec:
       main:
         enabled: true
         annotations:
-          gatus.home-operations.com/endpoint: |-
-            conditions: ["[STATUS] == 200"]
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: Jellyseerr
           gethomepage.dev/description: Media requests
           gethomepage.dev/group: Requests
           gethomepage.dev/icon: jellyseerr.png
+          gethomepage.dev/pod-selector: app.kubernetes.io/instance=seerr
           gethomepage.dev/widget.type: jellyseerr
           gethomepage.dev/widget.url: http://seerr.media.svc.cluster.local:5055
           gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_JELLYSEERR_API_KEY}}"

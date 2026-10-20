@@ -14,7 +14,7 @@ encrypt:
 # One call, not one per kind: 3x faster, at the cost of silently omitting empty kinds.
 [doc('Gather common resources in the cluster, useful when asking for support')]
 resources *args='-A':
-    kubectl get nodes,gitrepositories,kustomizations,helmrepositories,helmreleases,\
+    kubectl get nodes,gitrepositories,kustomizations,ocirepositories,helmreleases,\
     certificates,certificaterequests,pods {{ args }}
 
 # https://docs.github.com/en/enterprise-cloud@latest/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller/deploying-runner-scale-sets-with-actions-runner-controller#upgrading-arc
