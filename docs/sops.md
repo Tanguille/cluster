@@ -51,9 +51,9 @@ Run from the repository with Python 3 and mise available (the regression suite
 also uses the repository-pinned Lefthook to exercise formatter/re-staging order):
 
 ```bash
-mise exec -- bash scripts/secret-check.sh --staged
-mise exec -- bash scripts/secret-check.sh --all
-mise exec -- python3 -m unittest discover -s scripts/tests -v
+mise exec -- python3 scripts/secret-check.py --staged
+mise exec -- python3 scripts/secret-check.py --all
+mise exec -- python3 -m unittest discover -s scripts -v
 mise exec -- bash .agents/skills/pr-review/scripts/validate-pr.sh
 ```
 
@@ -62,7 +62,7 @@ Git **index blobs**, not worktree files, so an unstaged encrypted replacement ca
 hide staged plaintext. `--all` checks every tracked index blob, including unchanged
 files; in CI that index is the checked-out commit. Neither mode opens untracked or
 ignored files, follows worktree symlinks, reads `age.key`, or decrypts anything.
-Root `.sops.yaml` is policy, not an encrypted payload. Run `git add` only on reviewed
+`.sops.yaml` files are policy, not encrypted payloads. Run `git add` only on reviewed
 intended files before relying on index checks for new changes.
 
 Checks reject `age.key*` filenames before reading their contents, classical/PQ/plugin
@@ -137,9 +137,6 @@ known-good encrypted tree while retaining the overlap bundle in all consumers.
 After retirement, reverting to old-recipient-only ciphertext may lock consumers out;
 restore overlap access securely first, or re-encrypt the intended rollback with
 current recipients. In a compromise, re-enabling a stolen key is not a safe rollback.
-
-A known local decrypted artifact is **not inspected or removed by these checks**.
-Any future cleanup of that artifact is explicitly deferred to a user-approved action.
 
 References: [Flux SOPS](https://fluxcd.io/flux/guides/mozilla-sops/),
 [Flux decryption](https://fluxcd.io/flux/components/kustomize/kustomizations/#decryption),

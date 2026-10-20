@@ -32,10 +32,10 @@ jobs:
           install_args: aqua:mikefarah/yq aqua:evilmartians/lefthook
 
       - name: Secret guardrail regression tests
-        run: mise exec aqua:mikefarah/yq -- python3 -m unittest discover -s scripts/tests -v
+        run: mise exec -- python3 -m unittest discover -s scripts -v
 
       - name: Check all tracked index blobs (no decryption)
-        run: mise exec aqua:mikefarah/yq -- bash scripts/secret-check.sh --all
+        run: mise exec -- python3 scripts/secret-check.py --all
 
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0

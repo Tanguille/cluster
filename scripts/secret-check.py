@@ -94,26 +94,51 @@ def check_sops(content, talos):
     return None
 
 
-def check_index_entry(git, path, file_mode, oid, stage):
+def is_sops(path):
+    # .sops.yaml is the (possibly nested) creation-rule config, not an encrypted payload.
     name = PurePosixPath(path).name
-    sops = name != ".sops.yaml" and name.endswith((".sops.yaml", ".sops.yml"))
-    if name.lower().startswith("age.key"):
-        return "forbidden age identity filename"
-    if stage != b"0":
-        return "unmerged index entry"
-    if sops and file_mode not in (b"100644", b"100755"):
-        return "SOPS file must be a regular Git blob"
-    if file_mode == b"160000":
-        # Submodules are commits, not blobs; never walk into them.
-        return None
+    return name != ".sops.yaml" and name.endswith((".sops.yaml", ".sops.yml"))
 
-    size = int(run(git + ["cat-file", "-s", oid.decode()]))
-    if size > MAX_BLOB:
+
+def check_index_entry(path, file_mode, stage):
+    """Checks that need no blob content; returns (reason, needs_blob)."""
+    if PurePosixPath(path).name.lower().startswith("age.key"):
+        return "forbidden age identity filename", False
+    if stage != b"0":
+        return "unmerged index entry", False
+    if is_sops(path) and file_mode not in (b"100644", b"100755"):
+        return "SOPS file must be a regular Git blob", False
+    # Submodules are commits, not blobs; never walk into them.
+    return None, file_mode != b"160000"
+
+
+def read_blobs(git, oids):
+    """Map oid to content (None above MAX_BLOB) with two cat-file processes for the whole index."""
+    oids = list(dict.fromkeys(oids))
+    if not oids:
+        return {}
+    request = b"".join(oid + b"\n" for oid in oids)
+    sizes = dict(line.split() for line in run(git + ["cat-file", "--batch-check=%(objectname) %(objectsize)"], input=request).splitlines())
+    blobs = {oid: None for oid in oids}
+    small = [oid for oid in oids if int(sizes[oid]) <= MAX_BLOB]
+    if small:
+        out = run(git + ["cat-file", "--batch=%(objectname) %(objectsize)"], input=b"".join(oid + b"\n" for oid in small))
+        pos = 0
+        for _ in small:
+            newline = out.index(b"\n", pos)
+            oid, size = out[pos:newline].split()
+            start = newline + 1
+            blobs[oid] = out[start:start + int(size)]
+            pos = start + int(size) + 1
+    return blobs
+
+
+def check_content(path, content):
+    if content is None:
         return "blob exceeds 10 MiB scan limit; review required (not skipped)"
-    content = run(git + ["cat-file", "blob", oid.decode()])
     if IDENTITY.search(content):
         return "private identity/key material detected"
-    if sops:
+    if is_sops(path):
         return check_sops(content, path.startswith("talos/"))
     return None
 
@@ -131,8 +156,8 @@ def main():
     if args.staged:
         changed = set(run(git + ["diff", "--cached", "--name-only", "--diff-filter=ACMRTU", "-z"]).split(b"\0"))
     entries = run(git + ["ls-files", "--stage", "-z"])
-    failures = 0
-    checked = 0
+    reasons = {}
+    pending = []
     for entry in entries.split(b"\0"):
         if not entry:
             continue
@@ -141,13 +166,19 @@ def main():
         path = name.decode("utf-8", errors="surrogateescape")
         if changed is not None and name not in changed:
             continue
-        checked += 1
-        reason = check_index_entry(git, path, file_mode, oid, stage)
+        reasons[path], needs_blob = check_index_entry(path, file_mode, stage)
+        if not reasons[path] and needs_blob:
+            pending.append((path, oid))
+    blobs = read_blobs(git, [oid for _, oid in pending])
+    for path, oid in pending:
+        reasons[path] = check_content(path, blobs[oid])
+    failures = 0
+    for path, reason in reasons.items():
         if reason:
             # repr escapes embedded newlines/control characters in filenames.
             print(f"secret-check: {ascii(path)}: {reason}", file=sys.stderr)
             failures += 1
-    print(f"secret-check: checked {checked} index files; {failures} failure(s)")
+    print(f"secret-check: checked {len(reasons)} index files; {failures} failure(s)")
     return 1 if failures else 0
 
 

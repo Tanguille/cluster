@@ -6,12 +6,13 @@ from pathlib import Path
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
 
 
-CHECKER = Path(__file__).resolve().parents[1] / "secret-check.sh"
+CHECKER = Path(__file__).resolve().parent / "secret-check.py"
 ENC = "ENC[AES256_GCM,data:ZmFrZQ==,iv:ZmFrZQ==,tag:ZmFrZQ==,type:str]"
 META = {"mac": ENC, "version": "3.13.3", "age": [{"recipient": "age1public", "enc": "wrapped"}]}
 # Assemble fake tokens so the test source itself contains no identity material.
@@ -43,7 +44,7 @@ class SecretCheckTests(unittest.TestCase):
 
     def check(self, accepted, mode="--staged"):
         result = subprocess.run(
-            ["bash", str(CHECKER), mode], cwd=self.root, capture_output=True, text=True
+            [sys.executable, str(CHECKER), mode], cwd=self.root, capture_output=True, text=True
         )
         output = result.stdout + result.stderr
         self.assertEqual(result.returncode, 0 if accepted else 1, output)
@@ -148,6 +149,13 @@ sops: {json.dumps(META)}
         self.check(True)
         self.check(False, "--all")
 
+    def test_oversized_blob_fails_closed_and_batch_reads_the_rest(self):
+        self.stage("big.bin", "A" * (10 * 1024 * 1024 + 1))
+        self.stage("z.txt", PQ_IDENTITY)
+        output = self.check(False, "--all")
+        self.assertIn("'big.bin': blob exceeds 10 MiB", output)
+        self.assertIn("'z.txt': private identity/key material detected", output)
+
     def test_symlink_cannot_bypass_sops_validation(self):
         os.symlink("/nonexistent-private-file", self.root / "secret.sops.yaml")
         self.git("add", "secret.sops.yaml")
@@ -174,29 +182,31 @@ sops: {json.dumps(META)}
         self.check(True)
 
     def test_hook_rejects_identity_restaged_by_each_mutator(self):
-        config = tomllib.loads((CHECKER.parents[1] / ".lefthook.toml").read_text())
-        hook = config["pre-commit"]
-        commands = hook["commands"]
-        # Reuse actual priorities and serial/parallel policy, replacing only commands/globs.
-        mutators = {name for name, command in commands.items() if command.get("stage_fixed")}
+        jobs = tomllib.loads((CHECKER.parents[1] / ".lefthook.toml").read_text())["pre-commit"]["jobs"]
+        # Reuse the actual job order and grouping, replacing only commands and globs.
+        mutators = {job["name"] for job in jobs if job.get("stage_fixed")}
         mutators.add("mise-lock")  # This command calls git add itself.
         self.assertEqual(mutators, {"format-just", "format-mise", "format-json", "format-yaml", "mise-lock"})
-        self.assertFalse(hook["parallel"])
+        self.assertEqual(jobs[-1]["group"]["jobs"][-1]["name"], "secret-check")
         (self.root / "restage.py").write_text(
             "from pathlib import Path\nimport subprocess\n"
             f"Path('candidate.txt').write_text({PQ_IDENTITY!r})\n"
             "subprocess.run(['git', 'add', '--', 'candidate.txt'], check=True)\n"
         )
-        checker_command = f"bash {shlex.quote(str(CHECKER))} --staged"
+        checker_command = f"{shlex.quote(sys.executable)} {shlex.quote(str(CHECKER))} --staged"
+
+        def fixture(job, mutator):
+            if "group" in job:
+                return {"name": job["name"], "group": {**job["group"], "jobs": [fixture(j, mutator) for j in job["group"]["jobs"]]}}
+            if job["name"] == "secret-check":
+                return {"name": job["name"], "run": checker_command}
+            return {"name": job["name"], "run": "python3 restage.py" if job["name"] == mutator else "true"}
+
         for name in sorted(mutators):
             with self.subTest(mutator=name):
                 self.stage("candidate.txt", "safe staged content")
-                fixture = "[pre-commit]\nparallel = false\n"
-                for job, command in ((name, "python3 restage.py"), ("secret-check", checker_command)):
-                    fixture += f"\n[pre-commit.commands.{job}]\n"
-                    fixture += f"priority = {commands[job].get('priority', 0)}\n"
-                    fixture += f"run = {json.dumps(command)}\n"
-                (self.root / ".lefthook.toml").write_text(fixture)
+                config = {"pre-commit": {"jobs": [fixture(job, name) for job in jobs]}}
+                (self.root / "lefthook.json").write_text(json.dumps(config))
                 result = subprocess.run(
                     ["lefthook", "run", "pre-commit", "--no-auto-install", "--no-tty"],
                     cwd=self.root, input=b"", capture_output=True, timeout=30,
@@ -221,11 +231,11 @@ sops: {json.dumps(META)}
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("#!/bin/bash\nset -euo pipefail\n")
         # Stub other phases and record shellcheck arguments; this test targets discovery only.
-        (self.root / "scripts/tests").mkdir(parents=True)
-        (self.root / "scripts/tests/test_fixture.py").write_text(
+        (self.root / "scripts").mkdir(parents=True)
+        (self.root / "scripts/test_fixture.py").write_text(
             "import unittest\nclass Fixture(unittest.TestCase):\n    def test_fixture(self):\n        pass\n"
         )
-        (self.root / "scripts/secret-check.sh").write_text("#!/bin/bash\nset -euo pipefail\nexit 0\n")
+        (self.root / "scripts/secret-check.py").write_text("")
         bin_dir = self.root / "bin"
         bin_dir.mkdir()
         stubs = {
@@ -242,7 +252,7 @@ sops: {json.dumps(META)}
         )
         self.assertEqual(result.returncode, 0, (result.stdout + result.stderr).decode())
         checked = set(json.loads((self.root / "checked.json").read_text()))
-        wanted = {"tracked.sh", "scripts/secret-check.sh", str(validator.relative_to(self.root)), *expected}
+        wanted = {"tracked.sh", str(validator.relative_to(self.root)), *expected}
         self.assertEqual(checked, {str(self.root / path) for path in wanted})
 
 
