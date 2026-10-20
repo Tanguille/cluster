@@ -1,0 +1,29 @@
+# Configuration for the deadvalues CI check (.github/workflows/deadvalues.yaml).
+apiVersions:
+  # The cluster serves these; without the entry, charts that gate on
+  # .Capabilities.APIVersions.Has(...) report their keys as CONDITIONAL in CI.
+  - monitoring.coreos.com/v1/ServiceMonitor
+
+# Keys intentionally equal to the chart default.
+ignore:
+  # Spelled out so Renovate tracks the digest-pinned Ceph image.
+  - app: rook-ceph-cluster
+    keys:
+      - cephImage.repository
+  # Spelled out so Renovate tracks the digest-pinned images.
+  - app: obico
+    keys:
+      - server.image.repository
+      - ml-api.image.repository
+  # readinessProbe is a YAML alias (&probes) of livenessProbe; the shared
+  # periodSeconds is load-bearing for the liveness probe, so it cannot be
+  # removed even though the readiness copy equals the chart default.
+  - app: gatus
+    keys:
+      - gatus.readinessProbe.periodSeconds
+  # Offline render guard: cilium's pre-install validate fails without this
+  # outside a cluster serving monitoring.coreos.com/v1 (Flate renders
+  # offline). In-cluster the guard never fires, so the key looks dead.
+  - app: cilium
+    keys:
+      - prometheus.serviceMonitor.trustCRDsExist

@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Dead Values
+
+# Helm silently ignores values keys a chart does not read: typos, keys a chart
+# dropped, or keys an AI agent invented. CI and Argo CD stay green while the
+# key does nothing. deadvalues renders every chart and reports the keys with
+# no effect; a chart bump that kills a key (BREAKING) fails the pull request.
+# renovate-operator is skipped: its values reference SOPS placeholders that
+# only resolve in-cluster, so the chart cannot render in CI.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deadvalues:
+    name: Dead Values - scan Helm values
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Dead values
+        uses: guarnz/deadvalues@v0
+        with:
+          path: kubernetes/apps
+          skip: renovate/renovate-operator
+          fail-on-scan: dead

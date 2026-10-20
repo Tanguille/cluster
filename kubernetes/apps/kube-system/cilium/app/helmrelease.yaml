@@ -64,6 +64,9 @@ spec:
       enabled: true
       serviceMonitor:
         enabled: true
+        # Required for offline renders (Flate, deadvalues CI): without it the
+        # chart's pre-install validate fails outside a cluster that serves
+        # monitoring.coreos.com/v1. In-cluster the guard never fires.
         trustCRDsExist: true
     rollOutCiliumPods: true
     routingMode: native
