@@ -7,6 +7,5 @@ spec:
   podSelector:
     matchLabels:
       app.kubernetes.io/name: opencode-inspection
+  # No rules: deny all traffic both ways.
   policyTypes: [Ingress, Egress]
-  ingress: []
-  egress: []

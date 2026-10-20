@@ -122,6 +122,11 @@ class InspectionTests(unittest.TestCase):
         self.db.commit()
         self.assertEqual(self.capture(), (1, "inspection failed-closed\n"))
 
+    def test_virtual_table_fails_closed(self):
+        self.db.execute("CREATE VIRTUAL TABLE notes USING fts5(body)")
+        self.db.commit()
+        self.assertEqual(self.capture(), (1, "inspection failed-closed\n"))
+
     def test_connection_is_readonly_and_one_transaction(self):
         original = sqlite3.connect
         statements = []
