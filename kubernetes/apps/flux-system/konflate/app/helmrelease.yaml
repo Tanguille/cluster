@@ -22,6 +22,7 @@ spec:
       verifyImages: true
       mcp: true
       kubeVersion: "{{ .Capabilities.KubeVersion.Version }}"
+      helmApiVersions: '{{ join "," .Capabilities.APIVersions }}'
       # No push endpoint yet, so this is the only refresh besides head-SHA changes seen on the PR list.
       refreshInterval: 5m
     secret:
