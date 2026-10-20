@@ -62,7 +62,7 @@ spec:
         - alert: LanDnsDegraded
           # Intermittent drops keep resetting LanProbeFailed's `for`; a ratio catches a half-working resolver
           expr: avg_over_time(probe_success{job="probe/observability/lan-dns"}[15m]) < 0.9
-          for: 15m
+          for: 5m
           labels:
             severity: warning
           annotations:

@@ -71,6 +71,7 @@ spec:
       static:
         - ${OPNSENSE_IP}
   interval: 30s
+  scrapeTimeout: 5s
   metricRelabelings:
     - targetLabel: service
       replacement: blackbox-exporter
