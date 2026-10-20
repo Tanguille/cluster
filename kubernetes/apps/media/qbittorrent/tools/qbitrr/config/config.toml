@@ -10,7 +10,7 @@ CompletedDownloadFolder = "/completed_downloads"
 FreeSpaceFolder = "/completed_downloads"
 # Desired free space in download dir (K/M/G/T, -1 = disable)
 FreeSpace = "500G"
-# Don't touch torrents younger than this (seconds); recheck/failed only. Default 180; we use 10 min.
+# Grace period for recheck/failed handling (seconds; default 180). Runtime stalled handling has a separate 15-minute grace.
 IgnoreTorrentsYoungerThan = 600
 
 [WebUI]
@@ -30,9 +30,9 @@ ReSearch = true
 # Minutes; 0 = disable
 RssSyncTimer = 5
 RefreshDownloadsTimer = 5
-# Arr messages treated as failure; qBitrr removes files and reports failed to Arr
-# "Unable to determine if file is a sample" excluded: false-positives on irregular-runtime
-# content (e.g. reality TV), causing good files to be blocklisted
+# Treat only upgrade failures as blocklist-worthy: qBitrr removes files and reports failure to Arr.
+# Exclude "Unable to determine if file is a sample": false positives on irregular-runtime
+# content (e.g. reality TV) can remove good files and blocklist them.
 ArrErrorCodesToBlocklist = [
   "Not an upgrade for existing episode file(s)",
   "Not a preferred word upgrade for existing episode file(s)"
@@ -45,11 +45,10 @@ SearchLimit = 2
 SearchRequestsEvery = 600
 DoUpgradeSearch = true
 QualityUnmetSearch = true
-# Disabled: in qBitrr v5.12.12 CustomFormatUnmetSearch also gates automatic
-# deletion + Arr blocklisting of any torrent whose custom-format score is below
-# the existing library file ("CF unmet deletion"), including manual overrides.
-# QualityUnmetSearch/DoUpgradeSearch still search for unmet and upgrade
-# releases; only the CF-driven delete/blocklist behaviour is turned off.
+# Disabled: CustomFormatUnmetSearch still gates automatic deletion and Arr
+# blocklisting when a torrent's custom-format score is below the library file,
+# including manual overrides (confirmed through qBitrr v5.14.6-1).
+# QualityUnmetSearch/DoUpgradeSearch still find unmet and upgrade releases.
 CustomFormatUnmetSearch = false
 # true | false | "smart" (series vs episode search)
 SearchBySeries = "smart"
@@ -78,11 +77,10 @@ FileNameExclusionRegex = [
   "music video",
   "comandotorrents.com"
 ]
-# No FileExtensionAllowlist: an allowlist of .mkv/.mp4/.srt only made qBitrr treat
-# RAR-multipart scene releases (.rar, .r00…, .nfo, .sfv), .avi/.mpg XviD releases
-# and similar as "all files excluded" -> delete torrent + mark release failed in
-# Sonarr (blocklist). Sample/extras folders and files are still excluded by
-# FolderExclusionRegex/FileNameExclusionRegex above.
+# No FileExtensionAllowlist: narrowing extensions made qBitrr treat RAR-multipart
+# (.rar, .r00…, .nfo, .sfv), .avi/.mpg XviD, and similar releases as "all files
+# excluded," deleting them and marking them failed in Sonarr (blocklist).
+# FolderExclusionRegex/FileNameExclusionRegex still exclude samples and extras.
 # Max remaining ETA in seconds before removal (604800 = 7 days)
 MaximumETA = 604800
 # Don't delete torrents above this completion % (0.99 = 99%)
@@ -98,9 +96,9 @@ ReSearch = true
 # Minutes; 0 = disable
 RssSyncTimer = 5
 RefreshDownloadsTimer = 5
-# Arr messages treated as failure; qBitrr removes files and reports failed to Arr
-# "Unable to determine if file is a sample" excluded: false-positives on short/irregular
-# runtime content, causing good files to be blocklisted
+# Treat only upgrade failures as blocklist-worthy: qBitrr removes files and reports failure to Arr.
+# Exclude "Unable to determine if file is a sample": false positives on short or
+# irregular-runtime content can remove good files and blocklist them.
 ArrErrorCodesToBlocklist = [
   "Not an upgrade for existing movie file(s)",
   "Not a preferred word upgrade for existing movie file(s)"
@@ -112,11 +110,9 @@ SearchLimit = 2
 # Seconds between checking for new Overseerr/Ombi requests (default 300)
 SearchRequestsEvery = 600
 QualityUnmetSearch = true
-# Disabled: in qBitrr v5.12.12 CustomFormatUnmetSearch also gates automatic
-# deletion + Arr blocklisting of any torrent whose custom-format score is below
-# the existing library file ("CF unmet deletion"), including manual overrides.
-# QualityUnmetSearch still searches for unmet releases; only the CF-driven
-# delete/blocklist behaviour is turned off.
+# Disabled: see Sonarr-TV above. Custom-format score deletion and Arr blocklisting
+# remain coupled to this setting (confirmed through qBitrr v5.14.6-1).
+# QualityUnmetSearch still searches for unmet releases.
 CustomFormatUnmetSearch = false
 
 [Radarr.EntrySearch.Overseerr]
