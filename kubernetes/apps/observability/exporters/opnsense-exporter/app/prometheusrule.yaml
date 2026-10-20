@@ -23,9 +23,10 @@ spec:
         - alert: UnboundStatsStale
           # node_exporter keeps serving the last unbound.prom if the per-minute cron stops.
           expr: |-
-            time() - max(node_textfile_mtime_seconds{nodename="opnsense",file=~".*unbound.prom"}) > 600
+            time() - max(node_textfile_mtime_seconds{nodename="opnsense",file=~".*unbound.prom"}) > 300
               or absent(node_textfile_mtime_seconds{nodename="opnsense",file=~".*unbound.prom"})
-          for: 10m
+          # 5m age + 5m hold = paged at 10m stale, as the summary says.
+          for: 5m
           annotations:
             summary: >-
               OPNsense Unbound stats have not been refreshed for over 10 minutes;
