@@ -10,6 +10,10 @@ on:
   pull_request:
     branches: ["main"]
     paths: ["kubernetes/**", ".deadvalues.yaml"]
+  # PRs only restore caches saved on main; these runs keep the chart cache warm.
+  push:
+    branches: ["main"]
+    paths: ["kubernetes/**", ".deadvalues.yaml"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -30,8 +34,18 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Chart cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/deadvalues
+          key: deadvalues-${{ hashFiles('kubernetes/**/ocirepository.yaml', 'kubernetes/**/helmrelease.yaml') }}
+          restore-keys: deadvalues-
+
       - name: Dead values
         uses: guarnz/deadvalues@eac40e4919709b2450e1f7eae5d60d401a278fb5 # v0.1.7
         with:
           path: kubernetes/apps
+          # HEAD^1 is main in the PR merge checkout (and the previous commit on push); the default
+          # pull_request base.sha is the stale merge-base.
+          base: HEAD^1
           fail-on-scan: dead
