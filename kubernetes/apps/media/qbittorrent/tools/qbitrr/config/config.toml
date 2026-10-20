@@ -1,8 +1,11 @@
 # Minimal qBitrr config — only required and non-default values
 
 [Settings]
-# ConfigVersion: qBitrr schema version (Renovate-synced with feramance/qbitrr tag)
-ConfigVersion = "5.12.12"
+# ConfigVersion: qBitrr schema version (Renovate-synced with feramance/qbitrr image tag;
+# the schema tracks major.minor.patch, so image v5.14.6-1 expects "5.14.6")
+ConfigVersion = "5.14.6"
+# qBitrr >=5.13 ships a self-updater; keep it disabled so the image tag stays GitOps-owned.
+AutoUpdateEnabled = false
 CompletedDownloadFolder = "/completed_downloads"
 FreeSpaceFolder = "/completed_downloads"
 # Desired free space in download dir (K/M/G/T, -1 = disable)
