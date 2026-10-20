@@ -101,12 +101,9 @@
       matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
       depNameTemplate: "feramance/qbitrr",
       datasourceTemplate: "docker",
-      // The schema version tracks major.minor.patch only: image v5.14.6-1 expects ConfigVersion
-      // "5.14.6" (qBitrr/config_version.py). Keeping the -N suffix would write a value the
-      // image does not expect.
+      // Image v5.14.6-1 expects ConfigVersion "5.14.6" (qBitrr/config_version.py), so drop the -N suffix.
       extractVersionTemplate: "^v?(?<version>\\d+\\.\\d+\\.\\d+)",
-      // newValue is the extracted version, so write it verbatim. (A {{replace}} here would
-      // re-extract empty and abort the branch with "update failure".)
+      // newValue is already extracted; a {{replace}} here re-extracts empty and aborts with "update failure".
       autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
     },
     {
@@ -331,17 +328,11 @@
       versioning: "loose"
     },
     {
-      // Upstream switched release tags to `X.Y.Z-N` at v5.13.0-1; v5.12.12 is the last unsuffixed tag.
-      // Docker versioning treats `-N` as a compatibility suffix, so isCompatible() is false for every
-      // later tag and updates stop SILENTLY (no PR, nothing on the dashboard). `loose` drops the compat
-      // check; allowedVersions is required because loose would otherwise accept branch tags (pr-*,
-      // `<n>-<slug>`) as versions. Only `-1` is allowed: that is upstream's "stable" channel
-      // (build segment 1); later `-N` tags are rebuilds of the same release. The bare form is
-      // allowed too because the ConfigVersion dep extracts to `X.Y.Z` before this filter.
-      description: "qBitrr: release tags carry a -N build suffix that docker versioning never matches",
+      // Docker versioning reads the -N build suffix (since v5.13.0-1) as a compat tag and stops updates silently.
+      // -1 is the stable build; rebuilds (-2..) and branch tags fail the regex. The bare form is the extracted ConfigVersion.
+      description: "qBitrr: track vX.Y.Z-1 release tags",
       matchPackageNames: ["/feramance\\/qbitrr/"],
-      versioning: "loose",
-      allowedVersions: "/^v?\\d+\\.\\d+\\.\\d+(-1)?$/"
+      versioning: "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-1)?$"
     },
     // Labeling rules
     {
