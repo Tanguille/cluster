@@ -20,35 +20,36 @@ were ruled out on mechanism without a benchmark:
 | --- | --- | --- | --- |
 | **n-gram / prompt-lookup** | **corrupts output** | measured, incl. production | vllm#39273: SSM state corruption on hybrid GDN models — truncated/repeated fragments. Faster (see caveat below) and silently wrong. |
 | **DSpark** | rejected | measured | 0.59x (18.84 vs 31.73). Drafter KV is additive and bf16: +70% B/token, forcing the cap to 88K, below the 112K production peak. |
-| **MTP** | rejected | measured previously | + tool-calling grammar wedges to ~0.2 tok/s (100x) under concurrent tool traffic; -27% at M=5 standalone. Production traffic *is* grammar-constrained tool calling. |
+| **MTP** | rejected | measured previously | -27% at M=5; 09-12 retest: wedge gone, but 48K conc 2-5 still loses (33/40/44/39 vs 45/51/62/71) and greedy output diverges. |
 | **EAGLE3 / DFlash** | blocked | **not benchmarked** — mechanism only | Same drafter-KV tax as DSpark, plus vllm#41640 (below). No published drafter for this base sized under the ~2.5 GiB break-even, so there was nothing to benchmark. |
 
 Also untested, and worth knowing before any retry: n-gram was never run against
 a same-prompt spec-off control, and no method was tested under sustained
 concurrency beyond conc 5.
 
-Three independent blockers apply to every **drafter-based** method (MTP, DSpark,
-EAGLE3, DFlash), any one disqualifying:
+Two independent blockers apply to every **drafter-based** method (MTP, DSpark,
+EAGLE3, DFlash), either one disqualifying:
 
 1. **Drafter KV is additive and bf16** — pushes the model-length cap below the
    112K production peak.
-2. **vllm#41640 (unmerged, stale since 2026-08-24)** — vLLM cannot identify a
+2. **vllm#41640 (closed unmerged 2026-09-08)** — vLLM cannot identify a
    GQA drafter's KV group on a non-MLA target, so every group including the
    Mamba groups is treated as a draft group. That disables prefix caching and
    makes the KV offload tier write-only. This deployment cannot afford either:
-   removing the fs tier alone halved single-stream decode.
-3. **vllm#49002 (closed 2026-09-09 as fixed by vllm#55223, unverified here)** —
-   the tool-calling/structured-output wedge.
+   removing the fs tier alone halved single-stream decode. Fixed for MTP only
+   by vllm#55390 (merged 2026-09-22), unverified here.
+
+A third, the tool-calling/structured-output wedge (vllm#49002), was fixed by
+vllm#55223 and verified here 2026-09-12.
 
 And the one blocker that kills the **drafter-free** method: **vllm#39273**, the
-GDN corruption bug. n-gram sidesteps all three of the above by construction —
+GDN corruption bug. n-gram sidesteps both of the above by construction —
 no draft model, no draft KV group — and is still unusable because it produces
 wrong output on this model family.
 
 So the exit condition is narrow: **vllm#39273 fixed** re-opens n-gram, which is
 the only method whose performance was ever worth having here. Everything
-drafter-based additionally needs vllm#41640, a tool-calling retest on a build
-with vllm#55223, and a drafter under ~2.5 GiB that does not currently exist.
+drafter-based additionally needs a draft-group fix (merged for MTP only, vllm#55390) and a drafter under ~2.5 GiB that does not currently exist.
 
 n-gram is fast — measurably 1.8-2.1x on echo-heavy work — and it silently
 corrupts output.
@@ -226,7 +227,7 @@ Consequences, in order of how they bit:
 Quantizing the drafter does not help here: KV cost follows the drafter's
 *layers*, not its weights. The W4A16 DFlash2 drafter has the same 5 layers.
 
-### 2. Prefix caching and the KV offload tier get disabled (vllm#41640, open)
+### 2. Prefix caching and the KV offload tier get disabled (vllm#41640, closed unmerged)
 
 With DSpark on, the engine logs:
 
@@ -243,7 +244,7 @@ volatility.`
 
 This deployment cannot afford that: removing the fs secondary tier alone was
 measured to **halve single-stream decode** (15.5 vs 31 tok/s, exact-revert
-confirmed), and prefix caching had a 91% pod-lifetime local hit rate (see `vllm-nightly-bench-2026-09-29.md`).
+confirmed), and 91% of prompt tokens were prefix-cache hits over 30 days (ultraquant-2026-10-07.md, Workload).
 
 Root cause, in `vllm/v1/core/kv_cache_utils.py` at our pinned `8a728663c`:
 `_annotate_eagle_groups` identifies the drafter's KV group only via a
@@ -255,26 +256,27 @@ every group is treated as a draft group.
 
 - vllm#41640 generalizes the annotation (`is_eagle` on `AttentionSpec`). Two
   maintainers reviewed it favorably; it then went stale (bot-marked 2026-08-24)
-  with unresolved conflicts. **Not merged.**
+  with unresolved conflicts. **Closed unmerged 2026-09-08.**
 - vllm#55622 (2026-09-07) hit the identical problem independently for GLM-5.3's
   GQA drafters and confirmed the same fix shape; withdrawn as fork-only.
-- vllm#55519 (open) only suppresses a false-positive variant of the warning; it
-  does not fix detection.
+- vllm#55519 (closed unmerged 2026-09-24) only suppresses a false-positive
+  variant of the warning; it does not fix detection.
+- vllm#55390 (merged 2026-09-22) extends the positional fallback to any `mtp`
+  drafter; its own test keeps `eagle`, `eagle3` and `dspark` warning.
 
-Not fundamental in principle — a fix exists and is half-reviewed — but unfixed
-in anything shipped, and stalled for months. Treat as fundamental for planning.
+Not fundamental in principle — a fix was written and half-reviewed — but unfixed
+for non-MTP drafters in anything shipped, and stalled for months. Treat as
+fundamental for planning.
 
-### 3. The tool-calling / structured-output wedge: fixed upstream, unverified here (vllm#49002)
+### 3. The tool-calling / structured-output wedge: fixed upstream, verified here 2026-09-12 (vllm#49002)
 
 Opened 2026-07-18; the reporter ruled out the grammar-bitmask-cost theory by
 direct benchmark. A maintainer closed it 2026-09-09 as fixed by vllm#55223
 (eliminate full-history reasoning scans for structured outputs, merged
-2026-09-08, in every nightly since); the reporter never confirmed, and it was
-not retested on this deployment.
+2026-09-08, in every nightly since).
 This is the same failure class already recorded here for MTP: MTP + tool-calling
-grammar wedged to ~0.2 tok/s (100x) under concurrent tool traffic. Production
-traffic on this model **is** grammar-constrained tool calling, so any
-drafter-based method is exposed to it.
+grammar wedged to ~0.2 tok/s (100x) under concurrent tool traffic; the
+2026-09-12 MTP retest no longer shows it.
 
 vllm#50924 (dspark grammar bitmask width mismatch, EngineCore crash) closed
 2026-08-10, but that is a crash-on-first-request bug, not this wedge.
@@ -365,8 +367,8 @@ number is not comparable to a `walltime.py` figure. Neither affects the verdict.
    one reboot and is the single highest-value remaining measurement.
 2. **Concurrency is unmeasured.** Every number here is single-stream. Under
    concurrency a spec step batches `seqs x (spec+1)` tokens, which walks
-   straight into the `MAX_SKINNY_BATCH_SIZE=5` / LDS-gate territory documented
-   in the manifest. The win could shrink or invert at `parallelSlots` 5.
+   straight into the 5-row skinny W4A16 kernel limit (`MAX_SKINNY_BATCH_SIZE=5`);
+   the win could shrink or invert there.
 3. **The tool-calling wedge (blocker 3) is untested for n-gram.** It was
    observed with MTP. n-gram's drafts are not model-generated, so it may be
    unaffected — but production traffic here *is* grammar-constrained tool

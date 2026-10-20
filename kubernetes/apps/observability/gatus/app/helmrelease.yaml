@@ -38,9 +38,8 @@ spec:
 
     sidecar:
       gatewayNames:
-        # envoy-external is what serves public traffic; the isolated probe only
-        # covers the tunnel and its own gateway, so dropping this in #4086 left
-        # every public hostname unmonitored.
+        # envoy-external serves public traffic; the isolated probe only covers the
+        # tunnel and its own gateway.
         - envoy-external
         - envoy-internal
         - envoy-internal-tls
@@ -69,6 +68,7 @@ spec:
         gethomepage.dev/description: Endpoint status monitoring
         gethomepage.dev/group: Status
         gethomepage.dev/icon: gatus.png
+        gethomepage.dev/pod-selector: app.kubernetes.io/instance=gatus
         gethomepage.dev/widget.type: gatus
         gethomepage.dev/widget.url: http://gatus.observability.svc.cluster.local:8080
       hostnames:

@@ -1,11 +1,13 @@
 # GitHub's hosted MCP server instead of the self-run container: stdio dies on the
-# virtual-MCP health check re-running `initialize` (#5890, still open in 0.41.0) and
+# virtual-MCP health check re-running `initialize` (#5890, closed upstream but stdio stays off) and
 # the container's http mode has no server-side token path (#4220). A remote entry has
 # neither problem — headerForward injects the PAT server-side, the same shape context7
 # uses. The endpoint takes a raw PAT (verified: `Bearer <pat>` and a
 # bare `<pat>` both return 200, `token <pat>` returns 400), so the existing secret key
 # goes in unmodified. Despite the hostname, no Copilot entitlement is involved: a token
 # carrying no `copilot` scope lists all 46 repo/issue/PR tools.
+# The endpoint serves only the toolsets in X-MCP-Toolsets (default: context,repos,issues,
+# pull_requests,users), so toolsFilter entries from any other toolset never reach the catalog.
 ---
 apiVersion: toolhive.stacklok.dev/v1beta1
 kind: MCPServerEntry
@@ -17,6 +19,8 @@ spec:
   groupRef:
     name: all
   headerForward:
+    addPlaintextHeaders:
+      X-MCP-Toolsets: context,repos,issues,pull_requests,users,actions
     addHeadersFromSecret:
       - headerName: Authorization
         valueSecretRef:
@@ -29,7 +33,7 @@ kind: MCPToolConfig
 metadata:
   name: github
 spec:
-  # Source: github/github-mcp-server upstream catalog; exhaustive catalog, hosted endpoint exposes an approximately 46-tool subset.
+  # Source: github/github-mcp-server upstream catalog; exhaustive catalog, hosted endpoint exposes only the X-MCP-Toolsets subset.
   toolsFilter:
     - actions_get
     - actions_list

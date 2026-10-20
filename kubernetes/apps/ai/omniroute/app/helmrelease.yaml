@@ -22,11 +22,13 @@ spec:
           app:
             image:
               repository: diegosouzapw/omniroute
-              tag: 3.8.51@sha256:8bd462c9f60d8eda79329cfbb6ea7ea723505fe7721beb944f3d43835409e218
+              tag: 3.8.52@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
             env:
               TZ: ${TIMEZONE}
               PORT: &port 20128
               REQUIRE_API_KEY: "false"
+              # V8 heap ceiling; chat sheds 503 at 85% of it.
+              OMNIROUTE_MEMORY_MB: "1536"
               # envoy-internal terminates TLS at the gateway.
               AUTH_COOKIE_SECURE: "true"
             envFrom:
@@ -46,9 +48,8 @@ spec:
                 memory: 512Mi
               limits:
                 cpu: 1000m
-                memory: 2Gi
+                memory: 3Gi
     defaultPodOptions:
-      # 5000 (homelab-important): evicted before an llmkube model, after unclassified pods.
       priorityClassName: homelab-important
       securityContext:
         runAsNonRoot: true

@@ -4,12 +4,8 @@ kind: ConfigMap
 metadata:
   name: nfs-media
   annotations:
-    # Built by seven per-app Kustomizations (radarr, sonarr, bazarr, qbittorrent,
-    # unpackerr, qui, fileflows), each of which consumes it via valuesFrom. Flux
-    # gates prune/delete on the owner labels of whichever Kustomization applied
-    # last, so any one of them pruning it deletes it for all seven until the next
-    # owner re-applies -- the same guard the Namespace objects in components/common
-    # carry. Delete manually if the last consumer ever goes away.
+    # Applied by every consumer's Kustomization (last applier owns it): a prune from any one deletes it
+    # for all, so delete it by hand when the last consumer goes.
     kustomize.toolkit.fluxcd.io/prune: disabled
 data:
   values.yaml: |

@@ -7,7 +7,6 @@ metadata:
   namespace: &namespace default
 spec:
   dependsOn:
-    # The `ghostfolio` Database CR is applied here, not by cloudnative-pg-cluster.
     - name: cloudnative-pg-databases
       namespace: database
     - name: dragonfly-cluster

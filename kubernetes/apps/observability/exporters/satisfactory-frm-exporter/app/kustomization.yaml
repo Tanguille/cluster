@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - grafanadashboard.yaml
+  - helmrelease.yaml
+  - prometheusrule.yaml
+
+# grafana.com 22341 (Power) and 22342 (Global Production), revision 1, trimmed to emitted metrics (no Postgres
+# frmcache panels). `server` is scoped by job: unscoped label_values(url) defaults to a non-FRM url.
+configMapGenerator:
+  - name: satisfactory-frm-dashboards
+    files:
+      - dashboard/power.json
+      - dashboard/global-production.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true

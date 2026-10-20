@@ -85,7 +85,6 @@ spec:
               capabilities: { drop: ["ALL"] }
     service:
       app:
-        controller: jellyfin
         ports:
           http:
             port: *port
@@ -120,10 +119,6 @@ spec:
         path: ${MEDIA_NFS_PATH}
         globalMounts:
           - path: /ext_media
-
-      library:
-        type: hostPath
-        hostPath: "/var/mnt/merged/"
 
       tmpfs:
         type: emptyDir

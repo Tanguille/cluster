@@ -15,30 +15,33 @@ Stable, non-sensitive facts about this cluster and tooling.
 
 ### GitHub (`github_*`)
 
-All GitHub work routes here: `call_tool` with `tool_name = github_<name>` (prefix mandatory),
-backend params inside `parameters`. This box has no `gh`/`GITHUB_TOKEN`, so there is no local
-`git push`.
+All agents route GitHub work here when the tools are available, via `call_tool` with
+`tool_name = github_<name>` (prefix mandatory) and backend params inside `parameters`. The Hermes
+box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 | Job | Tool |
 |---|---|
-| Commit to a branch (FULL file contents, 1 commit/call) | `github_push_files` — `files: [{path, content}]` + `message` |
-| Delete a file | `github_delete_file` (push_files has no delete) |
+| Commit one file to a branch (FULL contents, 1 commit/call) | `github_create_or_update_file` — `path`, `content`, `message`, blob `sha` when updating |
+| Delete a file | `github_delete_file` |
 | New branch | `github_create_branch` |
 
 - Read current contents before pushing (worktree, or `get_diff`/`get_files`, or raw.githubusercontent.com).
-- `push_files` bypasses local hooks; for code changes verify in a worktree first.
+- `create_or_update_file` bypasses local hooks; for code changes verify in a worktree first.
 - Degraded envelope: check `agent.log` first ("unknown argument" = cron model-routing bug, not
   outage), then `~/.hermes/scripts/toolhive_retry.py call <tool> <json>` — flags BEFORE positionals;
   its SDK client crashes on large payloads even when the server succeeds, trust the raw HTTP
   fallback it prints.
-- No workflow re-run/job-log tool. Only ssh-gh fallbacks (server = fish, NO heredocs; one-liners only):
+- CI triage: `github_actions_list` (`list_workflow_runs`/`list_workflow_jobs`), `github_actions_get`
+  (`get_workflow_run`), `github_get_job_logs` (`run_id` + `failed_only` + `return_content`),
+  `github_actions_run_trigger` (`rerun_failed_jobs`); the `actions` toolset comes from the entry's
+  `X-MCP-Toolsets` header. If `find_tool` lacks them, ssh-gh fallbacks (server = fish, NO heredocs; one-liners only):
   `gh run view <id> --repo Tanguille/cluster --log-failed` · `gh run rerun <id> --repo Tanguille/cluster --failed` · `gh run list --branch main --limit 1`.
 - Last resort (conflict resolution only): worktree commit → `git bundle` → `scp` to server → push
   from `~/cluster` (authed gh).
 
 ## Talos
 
-- Talos kernel arguments belong in `schematic.yaml`; existing nodes need a schematic rebuild and Talos upgrade to receive them.
+- Talos kernel arguments belong in `schematic.yaml`; existing nodes only get them from a rebuilt installer (`just talos kernel-build`) plus an upgrade.
 - Large Talos `/var/lib/containerd` usage is often old image layers. Configure kubelet image GC thresholds to run sooner; confirm Talos apply mode before assuming a reboot is unnecessary.
 
 ## Storage

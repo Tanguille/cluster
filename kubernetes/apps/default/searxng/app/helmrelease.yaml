@@ -21,7 +21,7 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.10.7-6671d89be@sha256:cc026dbee25b864d7f9731957cd5ef36ba2e2d61abd2996d57f1b863483e7409
+              tag: 2026.10.19-62366b05c@sha256:b9383ac59bc9c7f6d68f29db201e90329d734a77bbc917f238144c74cd66f6a8
             env:
               SEARXNG_BASE_URL: https://search.${SECRET_DOMAIN}
               SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
@@ -112,8 +112,6 @@ spec:
       tmp:
         type: emptyDir
         medium: Memory
-        globalMounts:
-          - path: /tmp
       cache:
         type: emptyDir
         globalMounts:

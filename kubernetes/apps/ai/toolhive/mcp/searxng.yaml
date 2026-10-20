@@ -4,16 +4,31 @@ kind: MCPServer
 metadata:
   name: searxng
 spec:
-  image: ghcr.io/rcdailey/mcp-searxng:0.8.0@sha256:5f4359be5f43b3bb77daabc60884dcd8c1d05a3c0b761ad78730da8453a660a2
+  image: ghcr.io/rcdailey/mcp-searxng:latest@sha256:ccef0130bbbadb0593512cd24a1176e517245887c103859154b4afb93e5c90dc
+  transport: streamable-http
+  mcpPort: 8080
   groupRef:
     name: all
   env:
+    # Setting MCP_HTTP_PORT switches the server from stdio to streamable HTTP on /mcp.
+    - name: MCP_HTTP_PORT
+      value: "8080"
     - name: SEARXNG_URL
       value: http://searxng.default.svc.cluster.local:8080
   podTemplateSpec:
     spec:
       containers:
         - name: mcp
+          ports:
+            - name: mcp
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: mcp
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
           resources:
             requests:
               cpu: 10m

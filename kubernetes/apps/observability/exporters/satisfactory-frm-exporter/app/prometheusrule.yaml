@@ -1,0 +1,82 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: satisfactory-rules
+spec:
+  groups:
+    - name: satisfactory.rules
+      rules:
+        # A cold start runs steamcmd + mods, up to the 20 min startup probe window.
+        - alert: SatisfactoryServerDown
+          expr: kube_deployment_status_replicas_available{namespace="default", deployment="satisfactory"} == 0
+          for: 20m
+          annotations:
+            summary: The Satisfactory server has had no ready pod for 20 minutes
+          labels:
+            severity: critical
+            app: satisfactory
+        - alert: SatisfactoryRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace="default", pod=~"satisfactory-.*", container="app"}[1h]) > 2
+          annotations:
+            summary: The Satisfactory server container restarted more than twice in the last hour
+          labels:
+            severity: warning
+            app: satisfactory
+        - alert: SatisfactoryRestartJobFailed
+          expr: kube_job_status_failed{namespace="default", job_name=~"satisfactory-restart-.*"} > 0
+          annotations:
+            summary: The daily FRM-recovery restart failed, so FRM stays broken until the next run
+          labels:
+            severity: warning
+            app: satisfactory
+        # The daily 06:00 UTC session reload plus the 06:10 restart takes FRM away for ~15-20 min; 30m rides that out.
+        - alert: SatisfactoryFrmMissing
+          expr: |-
+            kube_deployment_status_replicas_available{namespace="default", deployment="satisfactory"} > 0
+            unless on() count(power_capacity{job="satisfactory-frm-exporter"}) > 0
+          for: 30m
+          annotations:
+            summary: >-
+              The Satisfactory server is up but FRM returns no data (porisius/FicsitRemoteMonitoring#313);
+              restart the server pod
+          labels:
+            severity: warning
+            app: satisfactory
+        # In-game alerts depend on FRM, so they stay silent whenever SatisfactoryFrmMissing fires.
+        - alert: SatisfactoryFuseBlown
+          expr: fuse_triggered{job="satisfactory-frm-exporter"} == 1
+          for: 1m
+          annotations:
+            summary: >-
+              A fuse blew on power circuit {{ $labels.circuit_id }}: consumption exceeded capacity
+          labels:
+            severity: critical
+            app: satisfactory
+        # battery_capacity > 0 skips circuits without batteries (percent reads 0 there); only alert while draining.
+        - alert: SatisfactoryBatteryLow
+          expr: |-
+            battery_percent{job="satisfactory-frm-exporter"} < 15
+            and on(circuit_id) battery_capacity{job="satisfactory-frm-exporter"} > 0
+            and on(circuit_id) battery_differential{job="satisfactory-frm-exporter"} < 0
+          for: 5m
+          annotations:
+            summary: >-
+              Batteries on power circuit {{ $labels.circuit_id }} are under 15% and still draining
+          labels:
+            severity: warning
+            app: satisfactory
+        # battery_differential flickers around 0 (spikes when machines start), so test the 15m average, not the raw value.
+        - alert: SatisfactoryOnBattery
+          expr: |-
+            avg_over_time(battery_differential{job="satisfactory-frm-exporter"}[15m]) < 0
+            and on(circuit_id) battery_capacity{job="satisfactory-frm-exporter"} > 0
+          for: 5m
+          annotations:
+            summary: >-
+              Power circuit {{ $labels.circuit_id }} has been net-discharging its batteries
+              for 20 minutes ({{ $value | humanize }} MW); add generation before they run out
+          labels:
+            severity: warning
+            app: satisfactory
