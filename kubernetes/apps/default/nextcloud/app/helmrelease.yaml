@@ -161,7 +161,7 @@ spec:
           pm.max_spare_servers = 6
           pm.max_requests = 800
           request_terminate_timeout = 600
-          ; CVE-2026-109619 confirmed paths until PHP >= 8.5.12; Nextcloud uses neither
+          ; Kept after the CVE-2026-109619 fix (PHP 8.5.12), per the advisory; Nextcloud uses neither
           php_admin_value[session.upload_progress.enabled] = 0
           php_admin_value[fatal_error_backtraces] = 0
 
@@ -250,7 +250,7 @@ spec:
       hostnames:
         - "nextcloud.${SECRET_DOMAIN}"
       parentRefs:
-        - name: envoy-internal
+        - name: envoy-external
           namespace: network
       # /push/ is routed by notify-push (this chart pins every rule to nextcloud).
       # The four rewritten rules stay here because nginx's /.well-known fallback 301s to $host:80 without X-Forwarded-Port from Envoy.
