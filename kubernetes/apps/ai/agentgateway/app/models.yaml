@@ -1,11 +1,8 @@
 ---
-# Models listener: every request is routed on the body's model, which the
-# agentgateway-model-header policy copies into x-gateway-model before routing. Each model is
-# its own file under models/ (backend, route, model-specific policies); this file holds what
-# they share. Not the AgentgatewayModel API: its virtual models fail over on the next request
-# instead of retrying the one that failed, and a policy cannot target a model to give it its
-# own retries. Model routes repeat the /v1 prefix of unknown-model so the header match, not
-# path length, decides.
+# Models listener, shared by every model: routing key, auth, catch-alls and default retry.
+# Each model is a file under models/ (backend, route, its own policies), routed on the body's
+# model. Not the AgentgatewayModel API: its virtual models fail over on the next request
+# instead of retrying the one that failed, and a policy cannot target a model.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -17,6 +14,7 @@ spec:
       sectionName: models
   rules:
     # Lowest precedence: any model without a route in models/. Answered by agentgateway-unknown-model.
+    # Model routes repeat this /v1 prefix so their header match, not path length, wins.
     - name: unknown-model
       matches:
         - path:
@@ -128,9 +126,9 @@ spec:
       body: '{"error":{"message":"Invalid model name passed in model=...; see GET /v1/models","type":"invalid_request_error","code":"model_not_found"}}'
 ---
 # Retry dropped connections (each costs a Hermes cron run), never timeouts: re-running a 900s
-# prefill deepens the contention. A refused or reset connection surfaces as 503. Every rule
-# gets it; agentgateway-retry-omniroute replaces it on the omniroute route (a route-level
-# policy wins over a listener-level one).
+# prefill deepens the contention. A refused or reset connection surfaces as 503. Every model
+# gets it; agentgateway-retry-omniroute (models/omniroute.yaml) replaces it on omniroute (a
+# route-level policy wins over a listener-level one).
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
