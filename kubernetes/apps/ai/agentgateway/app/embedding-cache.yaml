@@ -110,8 +110,6 @@ spec:
             readOnly: true
       tmp:
         type: emptyDir
-        globalMounts:
-          - path: /tmp
       cache:
         type: emptyDir
         # Headroom over max_size above, so the cache manager evicts before the kubelet does.
