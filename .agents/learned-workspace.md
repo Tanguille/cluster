@@ -42,13 +42,12 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 ## Talos
 
 - Talos kernel arguments belong in `schematic.yaml`; existing nodes only get them from a rebuilt installer (`just talos kernel-build`) plus an upgrade.
-- Large Talos `/var/lib/containerd` usage is often old image layers. Configure kubelet image GC thresholds to run sooner; confirm Talos apply mode before assuming a reboot is unnecessary.
+- Large Talos `/var/lib/containerd` usage is often old image layers. Kubelet image GC thresholds are already tuned in `talos/cluster.yaml.j2`; confirm Talos apply mode before assuming a reboot is unnecessary.
 
 ## Storage
 
 - With `ceph-block` RWO storage, use Deployment strategy `Recreate`; RollingUpdate is unsupported.
 - The app-template chart defaults to `Recreate`. If it emits `rollingUpdate` too, fix the chart, postRenderer, or patch.
-- Ceph `mon_data_avail_warn` defaults to 30%. Address Talos node EPHEMERAL headroom before lowering the threshold.
 
 ## Flux
 

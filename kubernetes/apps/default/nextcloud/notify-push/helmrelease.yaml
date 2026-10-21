@@ -81,7 +81,7 @@ spec:
             conditions: ["[STATUS] == 400"]
         hostnames: ["nextcloud.${SECRET_DOMAIN}"]
         parentRefs:
-          - name: envoy-external
+          - name: envoy-internal
             namespace: network
         rules:
           - matches:
