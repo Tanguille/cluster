@@ -8,13 +8,12 @@ spec:
   # llmkube InferenceService pods (vLLM :8000, llama.cpp :8080) are
   # unauthenticated; agentgateway is the only sanctioned front door (keys,
   # routing, admission), with its embedding cache in front of the embedder.
-  # Observed ingress under LiteLLM over 48h (kguardian): litellm, vmagent
-  # scrapes, kubelet probes. Note ai-ingress-allowlist (../../networkpolicy.yaml)
+  # Expected ingress: agentgateway, embedding-cache, vmagent scrapes, kubelet
+  # probes. Note ai-ingress-allowlist (../../networkpolicy.yaml)
   # also selects these pods and admits the whole namespace; allows union, so
   # this list documents intent rather than enforcing it. Health/guard probes run in-pod.
   # (The one sanctioned exception, memini -> bge-reranker-v2-m3, lives in its
-  # own policy below: LiteLLM had no rerank provider (v1.102.0), and the
-  # cross-encoder /v1/rerank contract is LLMKube's own, so memini talks to the
+  # own policy below: the cross-encoder /v1/rerank contract is LLMKube's own, so memini talks to the
   # reranker directly. Scoped to that one service, not the whole fleet.)
   endpointSelector:
     matchExpressions:

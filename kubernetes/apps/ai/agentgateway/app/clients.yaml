@@ -80,7 +80,7 @@ spec:
                 unhealthyCondition: "!has(response.code)"
                 eviction:
                   duration: 10s
-      # Fail open: uncompressed, like the LiteLLM guardrail's unreachable_fallback.
+      # Fail open: uncompressed while Headroom is unreachable.
       - providers:
           - name: uncompressed
             host: agentgateway.ai.svc.cluster.local

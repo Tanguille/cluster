@@ -69,7 +69,7 @@ spec:
               log_format cache '$remote_addr "$request" $status $body_bytes_sent $request_time cache=$upstream_cache_status';
               access_log /dev/stdout cache;
               error_log /dev/stderr warn;
-              # 7d like the LiteLLM cache it replaces; tool descriptions are stable.
+              # 7d: tool descriptions are stable.
               proxy_cache_path /var/cache/nginx/embeddings levels=1:2 keys_zone=embeddings:16m max_size=1g inactive=7d use_temp_path=off;
               # $request_body is empty once a body spills past client_body_buffer_size; such a
               # request must bypass the cache, or every large body would share one key.

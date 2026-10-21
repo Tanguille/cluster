@@ -77,11 +77,11 @@ spec:
           matchLabels:
             grafana.internal/instance: grafana
     env:
-      LITELLM_API_KEY:
+      LLM_API_KEY:
         valueFrom:
           secretKeyRef:
             name: cluster-secrets
-            key: LITELLM_API_KEY
+            key: LLM_API_KEY
       GITHUB_APP_PRIVATE_KEY:
         valueFrom:
           secretKeyRef:
@@ -111,7 +111,7 @@ spec:
         llm:
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
-          apiKey: { env: LITELLM_API_KEY }
+          apiKey: { env: LLM_API_KEY }
       review:
         # The gateway falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
         model: llm/omniroute

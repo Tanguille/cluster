@@ -64,7 +64,7 @@ spec:
           value: qwen-3.8
         # From cluster-secrets via substituteFrom; stays literal in git.
         - name: OPENAI_API_KEY
-          value: ${LITELLM_API_KEY}
+          value: ${LLM_API_KEY}
 
     # Via pgbouncer-rw (no TLS): labeled pods on the primary's node blackhole to the postgres16-rw VIP (control-3 Cilium), the pgbouncer VIP works from all nodes.
     database:
