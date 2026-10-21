@@ -1,9 +1,9 @@
 # Hermes web extract rerank plugin
 
 When `web_extract` truncates a page (Hermes's `[TRUNCATED]` footer), this plugin keeps the page start and
-replaces the rest of the window with the passages most relevant to the task's last `web_search` query,
-ranked by the in-cluster `bge-reranker-v2-m3` cross-encoder. Same character budget, same footer (stored
-path and `read_file` hint). Standard library only.
+replaces the rest of the window with the passages most relevant to the task's last `web_search` query:
+BM25 picks up to 12 candidates, then the in-cluster `bge-reranker-v2-m3` cross-encoder ranks them. Same
+character budget, same footer (stored path and `read_file` hint). Standard library only.
 
 It leaves the result unchanged when:
 
