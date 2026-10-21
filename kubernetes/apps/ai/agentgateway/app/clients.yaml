@@ -1,0 +1,201 @@
+---
+# Client-facing http listener. Chat goes through Headroom (compression), the rest straight
+# to the models listener.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-clients
+spec:
+  parentRefs:
+    - name: agentgateway
+      sectionName: http
+  rules:
+    - name: compressed
+      matches:
+        - path:
+            type: PathPrefix
+            value: /v1/chat/completions
+        - path:
+            type: PathPrefix
+            value: /v1/messages
+        - path:
+            type: PathPrefix
+            value: /v1/responses
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: headroom
+    - name: direct
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: agentgateway-models
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: headroom
+spec:
+  ai:
+    groups:
+      - providers:
+          - name: headroom
+            host: headroom.ai.svc.cluster.local
+            port: 8787
+            custom:
+              &passthrough # Same formats in and out: nothing is translated on this hop.
+              formats:
+                - type: Completions
+                  path: /v1/chat/completions
+                - type: Messages
+                  path: /v1/messages
+                - type: AnthropicTokenCount
+                  path: /v1/messages/count_tokens
+                - type: Responses
+                  path: /v1/responses
+            policies:
+              auth:
+                credentials:
+                  - &internalKey
+                    secretRef:
+                      name: agentgateway-internal-key
+                      key: key
+                    location:
+                      header:
+                        name: Authorization
+                        prefix: "Bearer "
+                  - secretRef:
+                      name: headroom-secret
+                      key: HEADROOM_PROXY_TOKEN
+                    location:
+                      header:
+                        name: x-headroom-proxy-token
+              http:
+                requestTimeout: 1800s
+              health:
+                # Only Headroom itself being down (refused, reset, timed out) skips it. A status
+                # code is the models listener answering through Headroom, not a Headroom fault.
+                unhealthyCondition: "!has(response.code)"
+                eviction:
+                  duration: 10s
+      # Fail open: uncompressed, like the LiteLLM guardrail's unreachable_fallback.
+      - providers:
+          - name: uncompressed
+            host: agentgateway.ai.svc.cluster.local
+            port: 8080
+            custom: *passthrough
+            policies:
+              auth:
+                credentials:
+                  - *internalKey
+              http:
+                requestTimeout: 1800s
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: agentgateway-models
+spec:
+  ai:
+    provider:
+      host: agentgateway.ai.svc.cluster.local
+      port: 8080
+      custom:
+        formats:
+          - type: Embeddings
+            path: /v1/embeddings
+          - type: Rerank
+            path: /v1/rerank
+  policies:
+    ai:
+      routes:
+        /v1/embeddings: Embeddings
+        /v1/rerank: Rerank
+        "*": Passthrough
+    auth:
+      credentials:
+        - secretRef:
+            name: agentgateway-internal-key
+            key: key
+          location:
+            header:
+              name: Authorization
+              prefix: "Bearer "
+    http:
+      requestTimeout: 1800s
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-clients-auth
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+      sectionName: http
+  traffic:
+    apiKeyAuthentication:
+      mode: Strict
+      secretSelector:
+        matchLabels:
+          agentgateway.dev/apikey: "true"
+    # Assist voice agent: low-latency alias only, revocable without touching the shared key.
+    authorization:
+      action: Require
+      policy:
+        matchExpressions:
+          - '!has(apiKey.user_id) || apiKey.user_id != "home-assistant" || request.method == "GET" || json(request.body).model == "qwen-3.8-fast"'
+    rateLimit:
+      conditional:
+        - condition: 'has(apiKey.user_id) && apiKey.user_id == "home-assistant"'
+          policy:
+            # Local limits count per proxy replica: 2 x 15 holds the key to 30/min overall.
+            local:
+              - requests: 15
+                unit: Minutes
+                key: apiKey.user_id
+    # Headroom honours these per request; x-headroom-base-url alone would turn it into an open
+    # relay for anything that can reach this listener (litellm-api is public).
+    headerModifiers:
+      request:
+        remove:
+          - x-headroom-base-url
+          - x-headroom-bypass
+          - x-headroom-mode
+          - x-headroom-keep-last-turns
+          - x-headroom-original-path
+          - x-headroom-key
+          - x-headroom-proxy-token
+          - x-headroom-session-token
+          - x-headroom-session-id
+          - x-headroom-user-id
+          - x-headroom-tenant-id
+          - x-headroom-stack
+          - x-headroom-cwd
+          - x-headroom-project
+          - x-headroom-project-id
+          - x-headroom-model
+---
+# Retries a request whose Headroom hop failed (now evicted) on the uncompressed group. A
+# models-listener failure already had its own retries, so it is not repeated here.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-clients-retry
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-clients
+      sectionName: compressed
+  traffic:
+    retry:
+      attempts: 1
+      backoff: 100ms
+      condition: "!has(response.code)"

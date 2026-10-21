@@ -1,0 +1,206 @@
+---
+# One backend per client-facing model, carrying its timeout, defaults and failover. Not the
+# AgentgatewayModel API: its virtual models fail over on the next request instead of retrying
+# the one that failed, and a policy cannot target a model to give it its own retries.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: qwen-3.8
+spec:
+  ai:
+    provider:
+      host: qwen38-27b-vllm.ai.svc.cluster.local
+      port: 8000
+      custom:
+        model: qwen-3.8
+        providerOverride: vllm
+        # vLLM serves Anthropic Messages and Responses itself, so nothing is translated.
+        formats:
+          - type: Completions
+            path: /v1/chat/completions
+          - type: Messages
+            path: /v1/messages
+          - type: AnthropicTokenCount
+            path: /v1/messages/count_tokens
+          - type: Responses
+            path: /v1/responses
+  policies:
+    ai:
+      defaults:
+        # Sharp template default is medium; medium is also the better
+        # quality/latency point for most turns. Only affects this alias --
+        # qwen-3.8-fast sets enable_thinking false, and the template gates effort
+        # behind thinking.
+        - field: chat_template_kwargs
+          value:
+            reasoning_effort: medium
+    http:
+      requestTimeout: 1800s
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: qwen-3.8-fast
+spec:
+  ai:
+    provider:
+      # Moves with qwen-3.8 above: both must always name the same live backend.
+      host: qwen38-27b-vllm.ai.svc.cluster.local
+      port: 8000
+      custom:
+        model: qwen-3.8
+        providerOverride: vllm
+        formats:
+          - type: Completions
+            path: /v1/chat/completions
+          - type: Messages
+            path: /v1/messages
+          - type: AnthropicTokenCount
+            path: /v1/messages/count_tokens
+          - type: Responses
+            path: /v1/responses
+  policies:
+    ai:
+      # Non-thinking instruct-mode sampling, matching Qwen3.8's model card
+      # exactly (temperature/top_p/presence_penalty). Defaults only: client-set
+      # params win.
+      defaults:
+        - field: temperature
+          value: 0.7
+        - field: top_p
+          value: 0.8
+        - field: presence_penalty
+          value: 1.5
+        - field: chat_template_kwargs
+          value:
+            enable_thinking: false
+    http:
+      # Hermes compression is a ~100K+ prefill on this alias; under GPU contention the shared prefill rate drops below what 600s covers.
+      requestTimeout: 900s
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: omniroute
+spec:
+  ai:
+    groups:
+      # smart-free is a persisted omniroute combo (Gemini 3.8 Flash, Antigravity Gemini Flash,
+      # Groq qwen3.8-27b, charm-hyper glm-5.3-flash last: paid, monthly quota). A model joins only
+      # if on par with qwen3.8-27b and no successor at similar price exists, or it is another quota tier.
+      - providers:
+          - name: omniroute
+            host: omniroute.ai.svc.cluster.local
+            port: 20128
+            custom:
+              model: smart-free
+              providerOverride: omniroute
+              formats:
+                - type: Completions
+                  path: /v1/chat/completions
+                - type: Messages
+                  path: /v1/messages
+            policies:
+              # pii-masker rewrites any bare 10-digit number as [PHONE_REDACTED], corrupting byte counts and memory limits (8 of 9 review runs); guardrails have only a per-request opt-out, credential-masker stays on.
+              transformation:
+                request:
+                  set:
+                    - name: x-omniroute-disabled-guardrails
+                      value: '"pii-masker"'
+              http:
+                # Bounded so the qwen-3.8 fallback fires instead of a stalled free provider holding the call; 90s cut healthy-but-slow 115s/92s streams, 150s clears the observed tail.
+                requestTimeout: 150s
+              health:
+                # A free tier out of quota answers 402/429 and a rejected payload 400, all of
+                # which must fall through to qwen-3.8 like a 5xx. `!has(response.code)` keeps
+                # timeouts and refused connections unhealthy: a custom condition replaces the
+                # default, and a CEL error there reads as healthy.
+                unhealthyCondition: "!has(response.code) || response.code >= 400"
+                eviction:
+                  # Short: free-tier quota cycles, so retry omniroute soon. Grows with each
+                  # consecutive ejection and resets on the next success.
+                  duration: 5s
+      # Thinking on: the reviewer is a tool loop; thinking-off scored 0/20 on DeepSWE (docs/llm-hosting/deepswe-swift-2026-09-22.md).
+      # One deep: qwen35-2b's 16384-token slot rejects review payloads (503 becomes 400) and widening it
+      # costs iGPU-node RAM; it still serves karakeep. AgentgatewayFallbackBackendDown guards the target.
+      - providers:
+          - name: qwen-3.8
+            host: qwen38-27b-vllm.ai.svc.cluster.local
+            port: 8000
+            custom:
+              model: qwen-3.8
+              providerOverride: vllm
+              formats:
+                - type: Completions
+                  path: /v1/chat/completions
+                - type: Messages
+                  path: /v1/messages
+            policies:
+              # Same defaults as the qwen-3.8 backend: a fallback is still a qwen-3.8 call.
+              ai:
+                defaults:
+                  - field: chat_template_kwargs
+                    value:
+                      reasoning_effort: medium
+              http:
+                requestTimeout: 1800s
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: qwen35-2b
+spec:
+  ai:
+    provider:
+      host: qwen35-2b.ai.svc.cluster.local
+      port: 8080
+      custom:
+        providerOverride: llamacpp
+        formats:
+          - type: Completions
+            path: /v1/chat/completions
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: embeddinggemma-2
+spec:
+  ai:
+    groups:
+      # Through the response cache in front of the embedder (embedding-cache.yaml)...
+      - providers:
+          - name: embedding-cache
+            host: embedding-cache.ai.svc.cluster.local
+            port: 8080
+            custom: &embedder
+              providerOverride: llamacpp
+              formats:
+                - type: Embeddings
+                  path: /v1/embeddings
+      # ...and straight to the embedder while the cache is down (fail open).
+      - providers:
+          - name: embeddinggemma-2
+            host: embeddinggemma-2.ai.svc.cluster.local
+            port: 8080
+            custom: *embedder
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: bge-reranker-v2-m3
+spec:
+  ai:
+    provider:
+      host: bge-reranker-v2-m3.ai.svc.cluster.local
+      port: 8080
+      custom:
+        providerOverride: llamacpp
+        formats:
+          - type: Rerank
+            path: /v1/rerank

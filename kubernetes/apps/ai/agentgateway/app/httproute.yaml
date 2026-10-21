@@ -1,10 +1,26 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
-# Public for inference only; admin UI, swagger and management stay on the internal litellm host.
+# Hostnames kept from LiteLLM so external clients need no change.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: litellm-external
+  name: agentgateway-internal
+spec:
+  hostnames: ["litellm.${SECRET_DOMAIN}"]
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+  rules:
+    - backendRefs:
+        - name: agentgateway
+          port: 4000
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+# Public for inference only, as under LiteLLM.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-external
   annotations:
     # "/" 404s like an unrouted host; a keyless request to a routed path returns 401.
     gatus.home-operations.com/endpoint: |-
@@ -17,8 +33,8 @@ spec:
       namespace: network
   rules:
     - backendRefs:
-        - name: litellm
-          port: 80
+        - name: agentgateway
+          port: 4000
       matches:
         - path:
             type: PathPrefix

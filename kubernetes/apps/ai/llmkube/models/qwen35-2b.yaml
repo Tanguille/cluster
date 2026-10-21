@@ -39,9 +39,9 @@ spec:
   jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
   extraArgs:
     - "--alias"
-    - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
-    # Unsloth's non-thinking sampling for Qwen3.5 Small (repeats otherwise); litellm's auto-registered
-    # alias carries no sampling params.
+    - "qwen3.5-2b" # served model name; llama-server answers whatever model the gateway sends
+    # Unsloth's non-thinking sampling for Qwen3.5 Small (repeats otherwise); the gateway's qwen35-2b
+    # backend sets no sampling defaults.
     - "--temp"
     - "0.7"
     - "--top-p"

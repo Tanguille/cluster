@@ -4,21 +4,23 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - secret.sops.yaml
-  - proxy.yaml
-  - httproute-external.yaml
-  - pdb.yaml
-  - models.yaml
-  - virtualkeys.yaml
-  - guardrails.yaml
-  - servicemonitor.yaml
+  - secret.yaml
+  - modelcatalog.yaml
+  - gateway.yaml
+  - service.yaml
+  - backends.yaml
+  - routes.yaml
+  - clients.yaml
+  - policies.yaml
+  - embedding-cache.yaml
+  - httproute.yaml
   - grafanadashboard.yaml
   - prometheusrule.yaml
 
 configMapGenerator:
-  - name: litellm-dashboard
+  - name: agentgateway-llm-dashboard
     files:
-      - dashboard/litellm.json
+      - dashboard/agentgateway-llm.json
     options:
       annotations:
         kustomize.toolkit.fluxcd.io/substitute: disabled

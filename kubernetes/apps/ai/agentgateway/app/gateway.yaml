@@ -1,0 +1,69 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewayparameters_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: agentgateway
+spec:
+  # Prices the self-hosted models (agentgateway_gen_ai_client_cost_usd_total).
+  modelCatalog:
+    sources:
+      - configMap:
+          name: agentgateway-model-costs
+  deployment:
+    spec:
+      replicas: 2
+      template:
+        spec:
+          priorityClassName: homelab-important
+          # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
+          # pod-template-hash: only same-revision pods repel, so a rollout surge pod may share a node with an old pod.
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      gateway.networking.k8s.io/gateway-name: agentgateway
+                  matchLabelKeys:
+                    - pod-template-hash
+  podDisruptionBudget:
+    spec:
+      minAvailable: 1
+  # In-cluster only (internal and external access go through the envoy gateways); the
+  # default LoadBalancer type would take an address from the LB pool.
+  service:
+    spec:
+      type: ClusterIP
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gateway_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: agentgateway
+spec:
+  gatewayClassName: agentgateway
+  infrastructure:
+    parametersRef:
+      group: agentgateway.dev
+      kind: AgentgatewayParameters
+      name: agentgateway
+  listeners:
+    # Clients: authenticates, then sends chat to Headroom, which compresses and comes back on
+    # the models listener. Everything else goes straight to the models listener.
+    # 4000 like LiteLLM's: client egress policies match the pod port after Service DNAT
+    # (kritika allows 4000, not 80).
+    - name: http
+      port: 4000
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    # Routes on the model name to the inference backends. Reached from the http listener and
+    # from Headroom, both carrying the internal credential (agentgateway-internal-key).
+    - name: models
+      port: 8080
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same

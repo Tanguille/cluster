@@ -53,7 +53,8 @@ spec:
     # Server egress; runners use the chart's separate policy.
     networkPolicy:
       enabled: true
-      # 4000 for litellm: Cilium matches the pod port after service DNAT.
+      # 4000 for the LLM gateway (agentgateway's http listener behind the litellm Service):
+      # Cilium matches the pod port after service DNAT.
       egressPorts:
         - 443
         - 4000
@@ -112,7 +113,7 @@ spec:
           baseUrl: "http://litellm.ai.svc.cluster.local/v1"
           apiKey: { env: LITELLM_API_KEY }
       review:
-        # LiteLLM falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
+        # The gateway falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
         model: litellm/omniroute
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true

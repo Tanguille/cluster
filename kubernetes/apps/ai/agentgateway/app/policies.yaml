@@ -1,0 +1,200 @@
+---
+# Routing key for agentgateway-models: the OpenAI and Anthropic bodies both carry `model`.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-model-header
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+      sectionName: models
+  traffic:
+    phase: PreRouting
+    transformation:
+      request:
+        set:
+          - name: x-gateway-model
+            value: json(request.body).model
+---
+# The http listener and Headroom both arrive with the internal key; checking it here keeps
+# this listener closed to the rest of the namespace, which can reach port 8080 directly. The
+# gateway strips Authorization before forwarding, so backends never see a key.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-auth
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+      sectionName: models
+  traffic:
+    apiKeyAuthentication:
+      mode: Strict
+      secretSelector:
+        matchLabels:
+          agentgateway.dev/apikey: "true"
+---
+# Hand-maintained: one entry per agentgateway-models rule.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-models-list
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: models-list
+  traffic:
+    directResponse:
+      status: 200
+      headers:
+        - name: content-type
+          value: application/json
+      body: |-
+        {"object":"list","data":[
+        {"id":"qwen-3.8","object":"model","owned_by":"vllm"},
+        {"id":"qwen-3.8-fast","object":"model","owned_by":"vllm"},
+        {"id":"omniroute","object":"model","owned_by":"omniroute"},
+        {"id":"qwen35-2b","object":"model","owned_by":"llamacpp"},
+        {"id":"embeddinggemma-2","object":"model","owned_by":"llamacpp"},
+        {"id":"bge-reranker-v2-m3","object":"model","owned_by":"llamacpp"}]}
+---
+# OpenAI-shaped, like LiteLLM's: Headroom turns the gateway's plain-text 404 into a 502.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-unknown-model
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: unknown-model
+  traffic:
+    directResponse:
+      status: 400
+      headers:
+        - name: content-type
+          value: application/json
+      body: '{"error":{"message":"Invalid model name passed in model=...; see GET /v1/models","type":"invalid_request_error","code":"model_not_found"}}'
+---
+# Retry dropped connections (each costs a Hermes cron run), never timeouts: re-running a 900s
+# prefill deepens the contention. A refused or reset connection surfaces as 503.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-retry
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: qwen-3-8
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: qwen-3-8-fast
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: qwen35-2b
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: embeddinggemma-2
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: bge-reranker-v2-m3
+  traffic:
+    retry:
+      attempts: 2
+      codes:
+        - 500
+        - 502
+        - 503
+---
+# Every omniroute failure the health policy evicts on is retried once, and the retry lands
+# on the qwen-3.8 group. The backoff lets the eviction register first; without it the retry
+# goes back to omniroute (a second 150s timeout before the fallback). One attempt so a
+# timed-out fallback is not re-run either.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-retry-omniroute
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: omniroute
+  traffic:
+    retry:
+      attempts: 1
+      backoff: 100ms
+      codes:
+        - 400
+        - 402
+        - 408
+        - 413
+        - 429
+        - 500
+        - 502
+        - 503
+        - 504
+---
+# Route types by path, on both listeners. Unmapped paths default to Completions, which would
+# parse an Anthropic or rerank body as a chat completion.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-routes
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+  backend:
+    ai:
+      routes:
+        /v1/chat/completions: Completions
+        /v1/messages: Messages
+        /v1/messages/count_tokens: AnthropicTokenCount
+        /v1/responses: Responses
+        /v1/embeddings: Embeddings
+        /v1/rerank: Rerank
+---
+# Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
+# the http listener) and whether the embedding cache answered. A missing value reads "unknown".
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-metrics
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+  frontend:
+    metrics:
+      attributes:
+        add:
+          - name: user_agent
+            expression: 'request.headers["user-agent"]'
+          - name: user_id
+            expression: apiKey.user_id
+          - name: cache_status
+            expression: 'response.headers["x-cache-status"]'

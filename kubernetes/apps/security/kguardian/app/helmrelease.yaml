@@ -46,7 +46,7 @@ spec:
         intervalSeconds: 30
 
     # Stateless bridge; 1 replica saves 256Mi req on tight nodes.
-    # OPENAI_* passthrough points at LiteLLM instead of api.openai.com.
+    # OPENAI_* passthrough points at the LLM gateway (litellm Service) instead of api.openai.com.
     llmBridge:
       enabled: true
       replicaCount: 1

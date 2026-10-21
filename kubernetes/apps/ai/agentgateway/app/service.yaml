@@ -1,0 +1,15 @@
+---
+# The name every client already uses (Hermes's profile configs and Home Assistant are configured
+# outside this repo), kept pointing at the http listener after LiteLLM's removal.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/service_v1.json
+apiVersion: v1
+kind: Service
+metadata:
+  name: litellm
+spec:
+  selector:
+    gateway.networking.k8s.io/gateway-name: agentgateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: 4000

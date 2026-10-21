@@ -1,0 +1,20 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: agentgateway
+  namespace: &namespace ai
+spec:
+  interval: 30m
+  dependsOn:
+    # GatewayClass, CRDs and the controller.
+    - name: agentgateway
+      namespace: network
+  path: ./kubernetes/apps/ai/agentgateway/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
