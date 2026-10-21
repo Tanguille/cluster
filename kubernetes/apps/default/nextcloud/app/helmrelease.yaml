@@ -247,7 +247,7 @@ spec:
       hostnames:
         - "nextcloud.${SECRET_DOMAIN}"
       parentRefs:
-        - name: envoy-external
+        - name: envoy-internal
           namespace: network
       # /push/ is routed by notify-push (this chart pins every rule to nextcloud).
       # The four rewritten rules stay here because nginx's /.well-known fallback 301s to $host:80 without X-Forwarded-Port from Envoy.
