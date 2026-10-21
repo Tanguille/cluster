@@ -90,7 +90,7 @@ spec:
         /v1/rerank: Rerank
 ---
 # Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
-# the http listener) and whether the embedding cache answered. A missing value reads "unknown".
+# the http listener), which model (models listener) and whether the embedding cache answered. A missing value reads "unknown".
 # user_agent only once a key matched: a client-chosen value on rejected requests would mint a
 # series per request.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
@@ -113,3 +113,5 @@ spec:
             expression: apiKey.user_id
           - name: cache_status
             expression: 'response.headers["x-cache-status"]'
+          - name: model
+            expression: 'request.headers["x-gateway-model"]'

@@ -1,49 +1,27 @@
 ---
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
-kind: AgentgatewayBackend
+kind: AgentgatewayModel
 metadata:
   name: qwen-3.8
 spec:
-  ai:
-    provider:
-      # Also named by qwen-3.8-fast and omniroute's fallback group; models.yaml's catch-all
-      # rules use this backend as their placeholder.
-      host: qwen38-27b-vllm.ai.svc.cluster.local
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: models
+  provider: Custom
+  custom:
+    # Also used by qwen-3.8-fast and omniroute's fallback group.
+    backendRef:
+      name: qwen38-27b-vllm
       port: 8000
-      custom:
-        providerOverride: vllm
-        # vLLM serves Anthropic Messages and Responses itself, so nothing is translated.
-        formats:
-          - type: Completions
-          - type: Messages
-          - type: AnthropicTokenCount
-          - type: Responses
+    providerOverride: vllm
+    # vLLM serves Anthropic Messages and Responses itself, so nothing is translated.
+    formats:
+      - type: Completions
+      - type: Messages
+      - type: AnthropicTokenCount
+      - type: Responses
   # No reasoning_effort default: the sharp chat template already defaults to medium, the
   # better quality/latency point for most turns.
-  policies:
-    http:
-      requestTimeout: 1800s
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: agentgateway-qwen-3.8
-spec:
-  parentRefs:
-    - name: agentgateway
-      sectionName: models
-  rules:
-    - name: qwen-3-8
-      matches:
-        - path:
-            type: PathPrefix
-            value: /v1
-          headers:
-            - name: x-gateway-model
-              value: qwen-3.8
-      backendRefs:
-        - group: agentgateway.dev
-          kind: AgentgatewayBackend
-          name: qwen-3.8

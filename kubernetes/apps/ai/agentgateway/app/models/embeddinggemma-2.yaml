@@ -1,4 +1,6 @@
 ---
+# A backend group, not an AgentgatewayModel like the others: a failover virtual model keeps
+# retrying a refused target instead of evicting it, so it cannot fail open past the cache.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayBackend
@@ -23,6 +25,7 @@ spec:
             port: 8080
             custom: *embedder
 ---
+# A longer path than the model router's "/", so it wins for this model.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -45,3 +48,24 @@ spec:
         - group: agentgateway.dev
           kind: AgentgatewayBackend
           name: embeddinggemma-2
+---
+# Listed in GET /v1/models only; requests match the route above.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: embeddinggemma-2
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: models
+  provider: Custom
+  custom:
+    backendRef:
+      name: embedding-cache
+      port: 8080
+    providerOverride: llamacpp
+    formats:
+      - type: Embeddings

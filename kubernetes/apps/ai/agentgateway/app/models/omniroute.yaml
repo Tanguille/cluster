@@ -81,6 +81,29 @@ spec:
           kind: AgentgatewayBackend
           name: omniroute
 ---
+# Listed in GET /v1/models only: requests for omniroute match agentgateway-omniroute above
+# (a longer path than the model router's "/"), so this model never serves one.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: omniroute
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
+      sectionName: models
+  provider: Custom
+  custom:
+    backendRef:
+      name: omniroute
+      port: 20128
+    providerOverride: omniroute
+    formats:
+      - type: Completions
+      - type: Messages
+---
 # Every omniroute failure the health policy evicts on is retried once, and the retry lands
 # on the qwen-3.8 group. The backoff lets the eviction register first; without it the retry
 # goes back to omniroute (a second 150s timeout before the fallback). One attempt so a

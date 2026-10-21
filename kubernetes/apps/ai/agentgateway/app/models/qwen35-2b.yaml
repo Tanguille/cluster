@@ -1,38 +1,20 @@
 ---
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
-kind: AgentgatewayBackend
+kind: AgentgatewayModel
 metadata:
   name: qwen35-2b
 spec:
-  ai:
-    provider:
-      host: qwen35-2b.ai.svc.cluster.local
-      port: 8080
-      custom:
-        providerOverride: llamacpp
-        formats:
-          - type: Completions
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: agentgateway-qwen35-2b
-spec:
   parentRefs:
-    - name: agentgateway
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-models
       sectionName: models
-  rules:
-    - name: qwen35-2b
-      matches:
-        - path:
-            type: PathPrefix
-            value: /v1
-          headers:
-            - name: x-gateway-model
-              value: qwen35-2b
-      backendRefs:
-        - group: agentgateway.dev
-          kind: AgentgatewayBackend
-          name: qwen35-2b
+  provider: Custom
+  custom:
+    backendRef:
+      name: qwen35-2b
+      port: 8080
+    providerOverride: llamacpp
+    formats:
+      - type: Completions

@@ -15,14 +15,14 @@ spec:
         # omniroute failing after its fallback is AgentgatewayFallbackTargetUnavailable.
         - alert: AgentgatewayRequestsFailing
           expr: |-
-            sum by (route_rule, status) (
-              increase(agentgateway_requests_total{namespace="ai", listener="models", route_rule!="omniroute", status=~"5.."}[15m])
+            sum by (model, status) (
+              increase(agentgateway_requests_total{namespace="ai", listener="models", model!="omniroute", status=~"5.."}[15m])
             ) > 2
           for: 10m
           annotations:
             summary: >-
               agentgateway is returning {{ $labels.status }} for
-              {{ $labels.route_rule }} — the fallback chain is not covering it
+              {{ $labels.model }} — the fallback chain is not covering it
           labels:
             severity: critical
 
@@ -46,7 +46,7 @@ spec:
         - alert: AgentgatewayFallbackTargetUnavailable
           expr: |-
             sum by (status) (
-              increase(agentgateway_requests_total{namespace="ai", listener="models", route_rule="omniroute", status=~"5.."}[30m])
+              increase(agentgateway_requests_total{namespace="ai", listener="models", model="omniroute", status=~"5.."}[30m])
             ) > 0
           for: 5m
           annotations:
@@ -60,7 +60,7 @@ spec:
         - alert: AgentgatewayPrimaryDegraded
           expr: |-
             sum(
-              increase(agentgateway_gen_ai_client_token_usage_count{namespace="ai", listener="models", route_rule="omniroute", gen_ai_system="vllm", gen_ai_token_type="input"}[30m])
+              increase(agentgateway_gen_ai_client_token_usage_count{namespace="ai", listener="models", model="omniroute", gen_ai_system="vllm", gen_ai_token_type="input"}[30m])
             ) > 5
           for: 5m
           annotations:
