@@ -161,8 +161,9 @@ spec:
           pm.max_spare_servers = 6
           pm.max_requests = 800
           request_terminate_timeout = 600
-          ; CVE-2026-109618/109619 interim hardening; Nextcloud does not use upload progress
+          ; CVE-2026-109619 confirmed paths until PHP >= 8.5.12; Nextcloud uses neither
           php_admin_value[session.upload_progress.enabled] = 0
+          php_admin_value[fatal_error_backtraces] = 0
 
       configs:
         proxy.config.php: |-
