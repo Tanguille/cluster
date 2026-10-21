@@ -6,7 +6,7 @@ metadata:
   name: embeddinggemma-2
 spec:
   # EmbeddingGemma 2: 270M params, 768 dims native; needs llama.cpp with gemma-embedding2.
-  source: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/bfcd298762cc34d0357ece5ebdd31791a3a374d8/embeddinggemma-2-Q8_0.gguf
+  source: https://huggingface.co/ggml-org/embeddinggemma-2-GGUF/resolve/58faf90940886df2d62be555c8765d00dac362c5/embeddinggemma-2-Q8_0.gguf
   quantization: Q8_0
   refreshPolicy: OnChange
   hardware:
@@ -32,7 +32,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:1b0f1d02bb9077a8a52c2a9951259ac49ed68a5bf564e2ad68cbbffe9274d387
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:57350ca6eb16ea4470e784499290e703e5ca92219d63b14232ddd0e1556b0856
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch from queueing behind memini (bench: 7.43s median for 194
   # 400-char items isolated, 120s is the toolhive timeout). Vulkan warmup hangs

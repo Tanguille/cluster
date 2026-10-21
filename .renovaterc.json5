@@ -3,11 +3,11 @@
   extends: [
     "abandonments:recommended",
     // Pin every github> preset to the same tag; an unpinned one tracks main.
-    "github>home-operations/renovate-presets#8.1.0",
-    "github>home-operations/renovate-presets//apps/cnpg.json5#8.1.0",
+    "github>home-operations/renovate-presets#10.0.0",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#10.0.0",
     // grafanaDashboards preset inlined below: its grafanaCom template needs capture groups Renovate never passes to templates.
-    "github>home-operations/renovate-presets//apps/llamacpp.json5#8.1.0",
-    "github>home-operations/renovate-presets//apps/searxng.json5#8.1.0"
+    "github>home-operations/renovate-presets//apps/llamacpp.json5#10.0.0",
+    "github>home-operations/renovate-presets//apps/searxng.json5#10.0.0"
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
@@ -95,15 +95,15 @@
       autoReplaceStringTemplate: "grafanaCom:\n{{{indentation}}}id: {{{depName}}}\n{{{indentation}}}revision: {{{newValue}}}"
     },
     {
-      description: "qBitrr ConfigVersion (semver, no v prefix)",
+      description: "qBitrr ConfigVersion (schema version, no v prefix or -N build suffix)",
       customType: "regex",
       managerFilePatterns: ["/qbitrr/config/config\\.toml$/"],
       matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
       depNameTemplate: "feramance/qbitrr",
       datasourceTemplate: "docker",
-      extractVersionTemplate: "^v(?<version>.*)$",
-      // newValue is already v-stripped by extractVersionTemplate, so write it verbatim. (A
-      // {{replace}} here would re-extract empty and abort the branch with "update failure".)
+      // Image v5.14.6-1 expects ConfigVersion "5.14.6" (qBitrr/config_version.py), so drop the -N suffix.
+      extractVersionTemplate: "^v?(?<version>\\d+\\.\\d+\\.\\d+)",
+      // newValue is already extracted; a {{replace}} here re-extracts empty and aborts with "update failure".
       autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
     },
     {
@@ -326,6 +326,13 @@
         "nousresearch/hermes-agent"
       ],
       versioning: "loose"
+    },
+    {
+      // Docker versioning reads the -N build suffix (since v5.13.0-1) as a compat tag and stops updates silently.
+      // -1 is the stable build; rebuilds (-2..) and branch tags fail the regex. The bare form is the extracted ConfigVersion.
+      description: "qBitrr: track vX.Y.Z-1 release tags",
+      matchPackageNames: ["/feramance\\/qbitrr/"],
+      versioning: "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-1)?$"
     },
     // Labeling rules
     {

@@ -1,19 +1,20 @@
 min_version = "2026.7.0"
 
 [env]
+FLATE_API_VERSIONS = "monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard"
 KUBECONFIG = "{{config_root}}/kubeconfig"
 MINIJINJA_CONFIG_FILE = "{{config_root}}/.minijinja.toml"
 SOPS_AGE_KEY_FILE = "{{config_root}}/age.key"
 TALOSCONFIG = "{{config_root}}/talos/talosconfig"
 
 [tools]
-oxfmt = "0.73.0"
+oxfmt = "0.74.0"
 "aqua:evilmartians/lefthook" = "2.2.2"
 "aqua:zizmorcore/zizmor" = "1.31.1"
 "aqua:google/go-containerregistry" = "0.22.1"
 "aqua:cilium/cilium-cli" = "0.20.1"
-"aqua:cli/cli" = "2.102.0"
-"aqua:cloudflare/cloudflared" = "2026.10.1"
+"aqua:cli/cli" = "2.102.1"
+"aqua:cloudflare/cloudflared" = "2026.10.3"
 "aqua:FiloSottile/age" = "1.3.2"
 "aqua:fluxcd/flux2" = "2.9.6"
 "aqua:getsops/sops" = "3.13.3"
@@ -30,7 +31,7 @@ oxfmt = "0.73.0"
 "aqua:mvdan/sh" = "3.14.1"
 "aqua:hadolint/hadolint" = "2.15.1"
 "aqua:derailed/k9s" = "0.51.0"
-"npm:markdownlint-cli2" = "0.23.3"
+"npm:markdownlint-cli2" = "0.24.0"
 "aqua:kubescape/kubescape" = "4.0.16"
 "github:home-operations/flate" = "v0.6.5"
 

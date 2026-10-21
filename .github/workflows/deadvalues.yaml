@@ -1,0 +1,51 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Dead Values
+
+# Helm silently ignores values keys a chart does not read: typos, keys a chart
+# dropped, or keys an AI agent invented. Flux stays green while the key does
+# nothing. deadvalues renders every changed chart and reports the keys with no
+# effect; a chart bump that kills a key (BREAKING) fails the pull request.
+on:
+  pull_request:
+    branches: ["main"]
+    paths: ["kubernetes/**", ".deadvalues.yaml"]
+  # PRs only restore caches saved on main; these runs keep the chart cache warm.
+  push:
+    branches: ["main"]
+    paths: ["kubernetes/**", ".deadvalues.yaml"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deadvalues:
+    name: Dead Values - scan Helm values
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Chart cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/deadvalues
+          key: deadvalues-${{ hashFiles('kubernetes/**/ocirepository.yaml', 'kubernetes/**/helmrelease.yaml') }}
+          restore-keys: deadvalues-
+
+      - name: Dead values
+        uses: guarnz/deadvalues@eac40e4919709b2450e1f7eae5d60d401a278fb5 # v0.1.7
+        with:
+          path: kubernetes/apps
+          # HEAD^1 is main in the PR merge checkout (and the previous commit on push); the default
+          # pull_request base.sha is the stale merge-base.
+          base: HEAD^1
+          fail-on-scan: dead

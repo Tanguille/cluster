@@ -51,7 +51,7 @@ spec:
               effect: NoSchedule
           containers:
             - name: guard
-              image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+              image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
@@ -150,7 +150,7 @@ spec:
   # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
   # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
   # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:520e098f54ec96837228aaddea0a833cbf6374dbdffd480c1d65f26ffab7701b
+  image: vllm/vllm-openai-rocm:nightly@sha256:fdd4e1041ad3f3a9c5bf61f291f934405d7b22bcb841c380dc72235411f4f0c0
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:

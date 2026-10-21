@@ -59,7 +59,7 @@ spec:
     image:
       # Spelled out so Renovate tracks the digest.
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:4448306f97d54585e56b1854ec144d89aa82a388e9eb44e655ce9ddced6b9690
+      tag: 35.0.2-fpm@sha256:2556e045d57fff50d2b50ddd160d2d0730e6d5b6f71c33b903d491baa8444f03
 
     lifecycle:
       postStartCommand:
@@ -161,6 +161,9 @@ spec:
           pm.max_spare_servers = 6
           pm.max_requests = 800
           request_terminate_timeout = 600
+          ; CVE-2026-109619 confirmed paths until PHP >= 8.5.12; Nextcloud uses neither
+          php_admin_value[session.upload_progress.enabled] = 0
+          php_admin_value[fatal_error_backtraces] = 0
 
       configs:
         proxy.config.php: |-
@@ -223,7 +226,6 @@ spec:
       enabled: false
 
     externalDatabase:
-      enabled: true
       type: postgresql
       host: pgbouncer-rw.database.svc.cluster.local:5432
       existingSecret:
@@ -248,7 +250,7 @@ spec:
       hostnames:
         - "nextcloud.${SECRET_DOMAIN}"
       parentRefs:
-        - name: envoy-external
+        - name: envoy-internal
           namespace: network
       # /push/ is routed by notify-push (this chart pins every rule to nextcloud).
       # The four rewritten rules stay here because nginx's /.well-known fallback 301s to $host:80 without X-Forwarded-Port from Envoy.
