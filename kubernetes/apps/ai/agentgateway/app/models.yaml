@@ -1,5 +1,44 @@
 ---
-# Routing key for agentgateway-models: the OpenAI and Anthropic bodies both carry `model`.
+# Models listener: every request is routed on the body's model, which the
+# agentgateway-model-header policy copies into x-gateway-model before routing. Each model is
+# its own file under models/ (backend, route, model-specific policies); this file holds what
+# they share. Not the AgentgatewayModel API: its virtual models fail over on the next request
+# instead of retrying the one that failed, and a policy cannot target a model to give it its
+# own retries. Model routes repeat the /v1 prefix of unknown-model so the header match, not
+# path length, decides.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-models
+spec:
+  parentRefs:
+    - name: agentgateway
+      sectionName: models
+  rules:
+    # Lowest precedence: any model without a route in models/. Answered by agentgateway-unknown-model.
+    - name: unknown-model
+      matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: qwen-3.8
+    # Answered by agentgateway-models-list; the backend only exists to make the rule valid.
+    - name: models-list
+      matches:
+        - path:
+            type: Exact
+            value: /v1/models
+          method: GET
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: qwen-3.8
+---
+# Routing key for the model routes: the OpenAI and Anthropic bodies both carry `model`.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -41,7 +80,7 @@ spec:
         matchLabels:
           agentgateway.dev/apikey-internal: "true"
 ---
-# Hand-maintained: one entry per agentgateway-models rule.
+# Hand-maintained: one entry per file in models/.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -90,8 +129,8 @@ spec:
 ---
 # Retry dropped connections (each costs a Hermes cron run), never timeouts: re-running a 900s
 # prefill deepens the contention. A refused or reset connection surfaces as 503. Every rule
-# gets it; agentgateway-retry-omniroute replaces it on the omniroute rule (a rule-level policy
-# wins over a route-level one).
+# gets it; agentgateway-retry-omniroute replaces it on the omniroute route (a route-level
+# policy wins over a listener-level one).
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -100,8 +139,9 @@ metadata:
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: agentgateway-models
+      kind: Gateway
+      name: agentgateway
+      sectionName: models
   traffic:
     retry:
       attempts: 2
@@ -109,80 +149,3 @@ spec:
         - 500
         - 502
         - 503
----
-# Every omniroute failure the health policy evicts on is retried once, and the retry lands
-# on the qwen-3.8 group. The backoff lets the eviction register first; without it the retry
-# goes back to omniroute (a second 150s timeout before the fallback). One attempt so a
-# timed-out fallback is not re-run either.
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
-apiVersion: agentgateway.dev/v1alpha1
-kind: AgentgatewayPolicy
-metadata:
-  name: agentgateway-retry-omniroute
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: agentgateway-models
-      sectionName: omniroute
-  traffic:
-    retry:
-      attempts: 1
-      backoff: 100ms
-      codes:
-        - 400
-        - 402
-        - 408
-        - 413
-        - 429
-        - 500
-        - 502
-        - 503
-        - 504
----
-# Route types by path, on both listeners. Unmapped paths default to Completions, which would
-# parse an Anthropic or rerank body as a chat completion.
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
-apiVersion: agentgateway.dev/v1alpha1
-kind: AgentgatewayPolicy
-metadata:
-  name: agentgateway-routes
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: agentgateway
-  backend:
-    ai:
-      routes:
-        /v1/chat/completions: Completions
-        /v1/messages: Messages
-        /v1/messages/count_tokens: AnthropicTokenCount
-        /v1/responses: Responses
-        /v1/embeddings: Embeddings
-        /v1/rerank: Rerank
----
-# Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
-# the http listener) and whether the embedding cache answered. A missing value reads "unknown".
-# user_agent only once a key matched: litellm-api is public, and a client-chosen value on
-# rejected requests would mint a series per request.
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
-apiVersion: agentgateway.dev/v1alpha1
-kind: AgentgatewayPolicy
-metadata:
-  name: agentgateway-metrics
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: agentgateway
-  frontend:
-    metrics:
-      attributes:
-        add:
-          - name: user_agent
-            expression: 'has(apiKey.user_id) ? request.headers["user-agent"] : "anonymous"'
-          - name: user_id
-            expression: apiKey.user_id
-          - name: cache_status
-            expression: 'response.headers["x-cache-status"]'

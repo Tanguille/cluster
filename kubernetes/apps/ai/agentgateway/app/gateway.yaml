@@ -67,3 +67,50 @@ spec:
       allowedRoutes:
         namespaces:
           from: Same
+---
+# Route types by path, on both listeners. Unmapped paths default to Completions, which would
+# parse an Anthropic or rerank body as a chat completion.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-routes
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+  backend:
+    ai:
+      routes:
+        /v1/chat/completions: Completions
+        /v1/messages: Messages
+        /v1/messages/count_tokens: AnthropicTokenCount
+        /v1/responses: Responses
+        /v1/embeddings: Embeddings
+        /v1/rerank: Rerank
+---
+# Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
+# the http listener) and whether the embedding cache answered. A missing value reads "unknown".
+# user_agent only once a key matched: litellm-api is public, and a client-chosen value on
+# rejected requests would mint a series per request.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-metrics
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+  frontend:
+    metrics:
+      attributes:
+        add:
+          - name: user_agent
+            expression: 'has(apiKey.user_id) ? request.headers["user-agent"] : "anonymous"'
+          - name: user_id
+            expression: apiKey.user_id
+          - name: cache_status
+            expression: 'response.headers["x-cache-status"]'

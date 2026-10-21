@@ -1,0 +1,111 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: omniroute
+spec:
+  # The qwen-3.8 fallback's ceiling; omniroute's own 150s below overrides it.
+  policies:
+    http:
+      requestTimeout: 1800s
+  ai:
+    groups:
+      # smart-free is a persisted omniroute combo (Gemini 3.8 Flash, Antigravity Gemini Flash,
+      # Groq qwen3.8-27b, charm-hyper glm-5.3-flash last: paid, monthly quota). A model joins only
+      # if on par with qwen3.8-27b and no successor at similar price exists, or it is another quota tier.
+      - providers:
+          - name: omniroute
+            host: omniroute.ai.svc.cluster.local
+            port: 20128
+            custom:
+              model: smart-free
+              providerOverride: omniroute
+              formats:
+                - type: Completions
+                - type: Messages
+            policies:
+              # pii-masker rewrites any bare 10-digit number as [PHONE_REDACTED], corrupting byte counts and memory limits (8 of 9 review runs); guardrails have only a per-request opt-out, credential-masker stays on.
+              transformation:
+                request:
+                  set:
+                    - name: x-omniroute-disabled-guardrails
+                      value: '"pii-masker"'
+              http:
+                # Bounded so the qwen-3.8 fallback fires instead of a stalled free provider holding the call; 90s cut healthy-but-slow 115s/92s streams, 150s clears the observed tail.
+                requestTimeout: 150s
+              health:
+                # A free tier out of quota answers 402/429 and a rejected payload 400, all of
+                # which must fall through to qwen-3.8 like a 5xx. `!has(response.code)` keeps
+                # timeouts and refused connections unhealthy: a custom condition replaces the
+                # default, and a CEL error there reads as healthy.
+                unhealthyCondition: "!has(response.code) || response.code >= 400"
+                eviction:
+                  # Short: free-tier quota cycles, so retry omniroute soon. Grows with each
+                  # consecutive ejection and resets on the next success.
+                  duration: 5s
+      # Thinking on: the reviewer is a tool loop; thinking-off scored 0/20 on DeepSWE (docs/llm-hosting/deepswe-swift-2026-09-22.md).
+      # One deep: qwen35-2b's 16384-token slot rejects review payloads (503 becomes 400) and widening it
+      # costs iGPU-node RAM; it still serves karakeep. AgentgatewayFallbackBackendDown guards the target.
+      - providers:
+          - name: qwen-3.8
+            host: qwen38-27b-vllm.ai.svc.cluster.local
+            port: 8000
+            custom:
+              model: qwen-3.8
+              providerOverride: vllm
+              formats:
+                - type: Completions
+                - type: Messages
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-omniroute
+spec:
+  parentRefs:
+    - name: agentgateway
+      sectionName: models
+  rules:
+    - name: omniroute
+      matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+          headers:
+            - name: x-gateway-model
+              value: omniroute
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: omniroute
+---
+# Every omniroute failure the health policy evicts on is retried once, and the retry lands
+# on the qwen-3.8 group. The backoff lets the eviction register first; without it the retry
+# goes back to omniroute (a second 150s timeout before the fallback). One attempt so a
+# timed-out fallback is not re-run either.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-retry-omniroute
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: agentgateway-omniroute
+  traffic:
+    retry:
+      attempts: 1
+      backoff: 100ms
+      codes:
+        - 400
+        - 402
+        - 408
+        - 413
+        - 429
+        - 500
+        - 502
+        - 503
+        - 504

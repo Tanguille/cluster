@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: bge-reranker-v2-m3
+spec:
+  ai:
+    provider:
+      host: bge-reranker-v2-m3.ai.svc.cluster.local
+      port: 8080
+      custom:
+        providerOverride: llamacpp
+        formats:
+          - type: Rerank
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-bge-reranker-v2-m3
+spec:
+  parentRefs:
+    - name: agentgateway
+      sectionName: models
+  rules:
+    - name: bge-reranker-v2-m3
+      matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+          headers:
+            - name: x-gateway-model
+              value: bge-reranker-v2-m3
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: bge-reranker-v2-m3
