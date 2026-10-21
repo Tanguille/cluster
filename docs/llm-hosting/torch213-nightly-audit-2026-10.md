@@ -54,20 +54,13 @@ tier) with production paused:
 | decode tok/s (`longctx.py 18000 qwen-3.8 4000 3`) | 33.43-33.52 | 33.23 median |
 | KV pool tokens (boot log `GPU KV cache size`) | 469,489 | 451,780 (-17,709, -3.8%) |
 
-No quality or speed gain, 3.8% less KV: keep bf16. The needle test passed 17.5K (3/3) and 52.5K
-(2 of 3 depths) before the clone was evicted for filling its 20Gi scratch volume, so the 175K needle
-and the offload-reload check did not run. Control-1 sits near the 160Gi kv-offload guard floor; do
-not retry with a bigger scratch volume.
+No quality or speed gain, 3.8% less KV: keep bf16. Needles passed at 17.5K (3/3) and 52.5K (2/3
+depths); the clone was then evicted for filling its 20Gi scratch volume, so the 175K needle and the
+offload-reload check did not run. Control-1 sits near the 160Gi kv-offload guard floor, so do not
+retry with a bigger volume.
 
 ## Compile cache growth
 
 `/cache/vllm/torch_compile_cache/torch_aot_compile` gets one entry per build and was never pruned:
 189 entries, 17.5 GB (`du -sh`), 185 older than two days. Pruned live to the 4 newest (145 MB, `/cache`
-free 161G to 171G). The `qwen38-27b-vllm-compile-cache-prune` CronJob now keeps the 4 newest daily.
-
-## Next nightly (not tested)
-
-`8e2beaa3b` (80 commits) was published only as `nightly-rocm72`; `nightly-rocm100` stayed `fdd4e10`.
-Only three items touch us: AITER 0.1.26 (GDN decode kernels unchanged), `+rms_norm_gated` as a ROCm
-default (skips quantized models, so not applied to our W4A16), and #62326, which reshapes
-`rdna_hybrid_w4a16.process_weights_after_loading` (load path only; needs a boot check).
+free 161G to 171G). The `qwen38-27b-vllm-compile-cache-prune` CronJob now bounds it.

@@ -1,5 +1,6 @@
 ---
-# Persist torch, Triton, and Inductor compile caches across restarts.
+# Persist torch, Triton, and Inductor compile caches across restarts; hostpath has no quota, so the 10Gi is
+# advisory and the prune CronJob below is the bound.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -314,8 +315,7 @@ spec:
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
     # NO --speculative-config: rejected, see docs/llm-hosting/spec-decode-rejected.md.
-    # Both needed: the ssm dtype does not inherit. fp32 measured: no NLL or speed gain, 3.8% fewer KV tokens
-    # (docs/llm-hosting/torch213-nightly-audit-2026-10.md).
+    # Both needed: the ssm dtype does not inherit. fp32 gains nothing, -3.8% KV (docs/llm-hosting/torch213-nightly-audit-2026-10.md).
     - --mamba-cache-dtype
     - bfloat16
     - --mamba-ssm-cache-dtype
