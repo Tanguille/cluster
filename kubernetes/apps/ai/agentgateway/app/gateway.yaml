@@ -113,5 +113,7 @@ spec:
             expression: apiKey.user_id
           - name: cache_status
             expression: 'response.headers["x-cache-status"]'
+          # Only once routed: an unknown model (404) or a rejected key (401) would let a client
+          # mint a series per made-up name.
           - name: model
-            expression: 'request.headers["x-gateway-model"]'
+            expression: 'response.code == 401 || response.code == 404 ? "unknown" : request.headers["x-gateway-model"]'
