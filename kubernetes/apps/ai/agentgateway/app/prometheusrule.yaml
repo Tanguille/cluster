@@ -12,10 +12,11 @@ spec:
       rules:
         # The outage itself, per model on the models listener; 5xx only, so client errors (an
         # oversized prompt, an unknown model) do not page. Keyless probes stop at the http listener.
+        # omniroute failing after its fallback is AgentgatewayFallbackTargetUnavailable.
         - alert: AgentgatewayRequestsFailing
           expr: |-
             sum by (route_rule, status) (
-              increase(agentgateway_requests_total{namespace="ai", listener="models", status=~"5.."}[15m])
+              increase(agentgateway_requests_total{namespace="ai", listener="models", route_rule!="omniroute", status=~"5.."}[15m])
             ) > 2
           for: 10m
           annotations:

@@ -91,6 +91,10 @@ spec:
                   proxy_cache_valid 200 7d;
                   proxy_cache_bypass $skip_cache;
                   proxy_no_cache $skip_cache;
+                  # MCP sessions initializing together on a cold cache send the same 194-item
+                  # batch; one goes upstream, the rest wait for it. Past one cold batch (~35s).
+                  proxy_cache_lock on;
+                  proxy_cache_lock_timeout 60s;
                   # Surfaced as the cache_status metric label (agentgateway-metrics policy).
                   add_header X-Cache-Status $upstream_cache_status always;
                 }

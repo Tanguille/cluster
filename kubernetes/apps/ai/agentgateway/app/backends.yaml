@@ -13,28 +13,16 @@ spec:
       host: qwen38-27b-vllm.ai.svc.cluster.local
       port: 8000
       custom:
-        model: qwen-3.8
         providerOverride: vllm
         # vLLM serves Anthropic Messages and Responses itself, so nothing is translated.
         formats:
           - type: Completions
-            path: /v1/chat/completions
           - type: Messages
-            path: /v1/messages
           - type: AnthropicTokenCount
-            path: /v1/messages/count_tokens
           - type: Responses
-            path: /v1/responses
+  # No reasoning_effort default: the sharp chat template already defaults to medium, the
+  # better quality/latency point for most turns.
   policies:
-    ai:
-      defaults:
-        # Sharp template default is medium; medium is also the better
-        # quality/latency point for most turns. Only affects this alias --
-        # qwen-3.8-fast sets enable_thinking false, and the template gates effort
-        # behind thinking.
-        - field: chat_template_kwargs
-          value:
-            reasoning_effort: medium
     http:
       requestTimeout: 1800s
 ---
@@ -54,13 +42,9 @@ spec:
         providerOverride: vllm
         formats:
           - type: Completions
-            path: /v1/chat/completions
           - type: Messages
-            path: /v1/messages
           - type: AnthropicTokenCount
-            path: /v1/messages/count_tokens
           - type: Responses
-            path: /v1/responses
   policies:
     ai:
       # Non-thinking instruct-mode sampling, matching Qwen3.8's model card
@@ -86,6 +70,10 @@ kind: AgentgatewayBackend
 metadata:
   name: omniroute
 spec:
+  # The qwen-3.8 fallback's ceiling; omniroute's own 150s below overrides it.
+  policies:
+    http:
+      requestTimeout: 1800s
   ai:
     groups:
       # smart-free is a persisted omniroute combo (Gemini 3.8 Flash, Antigravity Gemini Flash,
@@ -100,9 +88,7 @@ spec:
               providerOverride: omniroute
               formats:
                 - type: Completions
-                  path: /v1/chat/completions
                 - type: Messages
-                  path: /v1/messages
             policies:
               # pii-masker rewrites any bare 10-digit number as [PHONE_REDACTED], corrupting byte counts and memory limits (8 of 9 review runs); guardrails have only a per-request opt-out, credential-masker stays on.
               transformation:
@@ -135,18 +121,7 @@ spec:
               providerOverride: vllm
               formats:
                 - type: Completions
-                  path: /v1/chat/completions
                 - type: Messages
-                  path: /v1/messages
-            policies:
-              # Same defaults as the qwen-3.8 backend: a fallback is still a qwen-3.8 call.
-              ai:
-                defaults:
-                  - field: chat_template_kwargs
-                    value:
-                      reasoning_effort: medium
-              http:
-                requestTimeout: 1800s
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
@@ -162,7 +137,6 @@ spec:
         providerOverride: llamacpp
         formats:
           - type: Completions
-            path: /v1/chat/completions
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
@@ -181,7 +155,6 @@ spec:
               providerOverride: llamacpp
               formats:
                 - type: Embeddings
-                  path: /v1/embeddings
       # ...and straight to the embedder while the cache is down (fail open).
       - providers:
           - name: embeddinggemma-2
@@ -203,4 +176,3 @@ spec:
         providerOverride: llamacpp
         formats:
           - type: Rerank
-            path: /v1/rerank

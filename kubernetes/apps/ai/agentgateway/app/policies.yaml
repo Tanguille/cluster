@@ -19,9 +19,10 @@ spec:
           - name: x-gateway-model
             value: json(request.body).model
 ---
-# The http listener and Headroom both arrive with the internal key; checking it here keeps
-# this listener closed to the rest of the namespace, which can reach port 8080 directly. The
-# gateway strips Authorization before forwarding, so backends never see a key.
+# The http listener and Headroom both arrive with the internal key, and only that key is
+# accepted: the rest of the namespace can reach port 8080 directly, and a client key here would
+# skip the http listener's per-key limits. The gateway strips Authorization before forwarding,
+# so backends never see a key.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -38,7 +39,7 @@ spec:
       mode: Strict
       secretSelector:
         matchLabels:
-          agentgateway.dev/apikey: "true"
+          agentgateway.dev/apikey-internal: "true"
 ---
 # Hand-maintained: one entry per agentgateway-models rule.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
@@ -88,7 +89,9 @@ spec:
       body: '{"error":{"message":"Invalid model name passed in model=...; see GET /v1/models","type":"invalid_request_error","code":"model_not_found"}}'
 ---
 # Retry dropped connections (each costs a Hermes cron run), never timeouts: re-running a 900s
-# prefill deepens the contention. A refused or reset connection surfaces as 503.
+# prefill deepens the contention. A refused or reset connection surfaces as 503. Every rule
+# gets it; agentgateway-retry-omniroute replaces it on the omniroute rule (a rule-level policy
+# wins over a route-level one).
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -99,23 +102,6 @@ spec:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
       name: agentgateway-models
-      sectionName: qwen-3-8
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: agentgateway-models
-      sectionName: qwen-3-8-fast
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: agentgateway-models
-      sectionName: qwen35-2b
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: agentgateway-models
-      sectionName: embeddinggemma-2
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: agentgateway-models
-      sectionName: bge-reranker-v2-m3
   traffic:
     retry:
       attempts: 2
@@ -178,6 +164,8 @@ spec:
 ---
 # Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
 # the http listener) and whether the embedding cache answered. A missing value reads "unknown".
+# user_agent only once a key matched: litellm-api is public, and a client-chosen value on
+# rejected requests would mint a series per request.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -193,7 +181,7 @@ spec:
       attributes:
         add:
           - name: user_agent
-            expression: 'request.headers["user-agent"]'
+            expression: 'has(apiKey.user_id) ? request.headers["user-agent"] : "anonymous"'
           - name: user_id
             expression: apiKey.user_id
           - name: cache_status

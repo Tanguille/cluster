@@ -38,23 +38,25 @@ kind: AgentgatewayBackend
 metadata:
   name: headroom
 spec:
+  # Past the longest inner chain (Headroom's 2000s, itself past omniroute's 150s plus the
+  # 1800s qwen-3.8 fallback), so the models listener or Headroom always answers first. A
+  # timeout here has no status code and would replay the whole call uncompressed.
+  policies:
+    http:
+      requestTimeout: 2100s
   ai:
     groups:
       - providers:
           - name: headroom
             host: headroom.ai.svc.cluster.local
             port: 8787
-            custom:
-              &passthrough # Same formats in and out: nothing is translated on this hop.
+            # Same formats in and out: nothing is translated on this hop.
+            custom: &passthrough
               formats:
                 - type: Completions
-                  path: /v1/chat/completions
                 - type: Messages
-                  path: /v1/messages
                 - type: AnthropicTokenCount
-                  path: /v1/messages/count_tokens
                 - type: Responses
-                  path: /v1/responses
             policies:
               auth:
                 credentials:
@@ -72,8 +74,6 @@ spec:
                     location:
                       header:
                         name: x-headroom-proxy-token
-              http:
-                requestTimeout: 1800s
               health:
                 # Only Headroom itself being down (refused, reset, timed out) skips it. A status
                 # code is the models listener answering through Headroom, not a Headroom fault.
@@ -90,8 +90,6 @@ spec:
               auth:
                 credentials:
                   - *internalKey
-              http:
-                requestTimeout: 1800s
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
@@ -106,9 +104,7 @@ spec:
       custom:
         formats:
           - type: Embeddings
-            path: /v1/embeddings
           - type: Rerank
-            path: /v1/rerank
   policies:
     ai:
       routes:
@@ -125,7 +121,7 @@ spec:
               name: Authorization
               prefix: "Bearer "
     http:
-      requestTimeout: 1800s
+      requestTimeout: 2100s
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
@@ -154,9 +150,10 @@ spec:
       conditional:
         - condition: 'has(apiKey.user_id) && apiKey.user_id == "home-assistant"'
           policy:
-            # Local limits count per proxy replica: 2 x 15 holds the key to 30/min overall.
+            # Per proxy replica, like every local limit: 30/min on Home Assistant's one keep-alive
+            # connection, up to 60/min if its connections land on both replicas.
             local:
-              - requests: 15
+              - requests: 30
                 unit: Minutes
                 key: apiKey.user_id
     # Headroom honours these per request; x-headroom-base-url alone would turn it into an open

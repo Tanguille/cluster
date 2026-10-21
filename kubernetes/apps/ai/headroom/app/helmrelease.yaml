@@ -20,41 +20,19 @@ spec:
 
     controllers:
       headroom:
-        # Inline on every chat request now (agentgateway -> headroom -> agentgateway), so a
-        # rollout or drain must leave one serving; agentgateway skips it only once it is
-        # unreachable.
-        replicas: 2
-        pod:
-          affinity:
-            podAntiAffinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                - topologyKey: kubernetes.io/hostname
-                  labelSelector:
-                    matchLabels:
-                      app.kubernetes.io/name: headroom
-                  # Only same-revision pods repel, so a rollout surge pod may share a node.
-                  matchLabelKeys:
-                    - pod-template-hash
+        # One replica is enough inline (agentgateway -> headroom -> agentgateway): while it is
+        # unreachable agentgateway retries the request uncompressed (agentgateway-clients-retry).
         containers:
           app:
             image:
               repository: ghcr.io/headroomlabs-ai/headroom
               # slim: code-aware parsing and ML extras are disabled below anyway.
               tag: 0.41.0-slim-nonroot@sha256:686a86ad0f7dba60816b5d3d6f6438a02323d256d70491c6448526212c6c08b3
-            # The image runs `headroom proxy` with its semantic response cache and rate limiter on;
-            # chat is near-unique per turn, and agentgateway owns rate limits. --no-ccr: CCR
-            # injects a headroom_retrieve tool (~380 prompt tokens) into every request, and with
-            # HEADROOM_STATELESS there is no store for it to retrieve from.
-            command:
-              [
-                "python3",
-                "-m",
-                "headroom.cli",
-                "proxy",
-                "--no-cache",
-                "--no-rate-limit",
-                "--no-ccr"
-              ]
+            # Appended to the image's `headroom proxy` entrypoint, which runs a semantic response
+            # cache and rate limiter by default; chat is near-unique per turn, and agentgateway
+            # owns rate limits. --no-ccr: CCR injects a headroom_retrieve tool (~380 prompt tokens)
+            # into every request, and with HEADROOM_STATELESS there is no store to retrieve from.
+            args: ["--no-cache", "--no-rate-limit", "--no-ccr"]
             env:
               TZ: ${TIMEZONE}
               # Image default is 127.0.0.1.
@@ -64,8 +42,9 @@ spec:
               # model name; Headroom appends the /v1/... path itself.
               OPENAI_TARGET_API_URL: &models http://agentgateway.ai.svc.cluster.local:8080
               ANTHROPIC_TARGET_API_URL: *models
-              # Default 300s; qwen-3.8 calls run up to agentgateway's 1800s.
-              HEADROOM_REQUEST_TIMEOUT: "1800"
+              # Default 300s; past the longest models-listener chain (omniroute's 150s, then the
+              # 1800s qwen-3.8 fallback) so that listener answers first.
+              HEADROOM_REQUEST_TIMEOUT: "2000"
               # agentgateway retries and fails over; Headroom retrying too would multiply both.
               HEADROOM_RETRY_MAX_ATTEMPTS: "1"
               # The proxy default (cache) never rewrites prior turns, so older tool results, the
