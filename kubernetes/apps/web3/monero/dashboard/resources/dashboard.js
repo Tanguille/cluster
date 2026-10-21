@@ -802,7 +802,11 @@ also multiplied by the pool luck (derived from the pool effort).
     `.trim()
     );
 
-    setTextContent("luckFactor", betterLuckFactor.toFixed(2));
+    // Idle for the whole window: there is no expected rate to divide by
+    setTextContent(
+      "luckFactor",
+      avgMyHashPPLNS > 0 ? betterLuckFactor.toFixed(2) : "–"
+    );
     // 12 decimals is one atomic unit — six is the payout threshold's own precision
     setTextContent("xmrThisWindow", accumulatedXMR.toFixed(6));
     setTextContent("eurThisWindow", `≈ €${accumulatedEUR.toFixed(2)}`);
@@ -1014,6 +1018,11 @@ function calculateAveragingWindow(historyData) {
   return Math.max(0, Math.min(availableHours, CONFIG.DEFAULT_RANGE_HOURS));
 }
 
+/** "24h" once the log spans the full day, else the partial span, e.g. "3.5h". */
+function avgWindowText(hours) {
+  return hours >= CONFIG.DEFAULT_RANGE_HOURS ? "24h" : `${hours.toFixed(1)}h`;
+}
+
 function calculateEarnings(avgMyHash, avgNetHash, blockReward, priceEUR) {
   const myNetShareAvg = avgNetHash > 0 ? avgMyHash / avgNetHash : 0;
   const xmrPerDayAvg = myNetShareAvg * CONFIG.BLOCKS_PER_DAY * blockReward;
@@ -1051,10 +1060,7 @@ function updateEarningsTooltip(
   avgNetHash,
   avgWindowHours
 ) {
-  const avgWindowLabel =
-    avgWindowHours >= CONFIG.DEFAULT_RANGE_HOURS
-      ? "24h moving average"
-      : `${avgWindowHours.toFixed(1)}h moving average`;
+  const avgWindowLabel = `${avgWindowText(avgWindowHours)} moving average`;
 
   setTooltipContent(
     "earnTooltip",
@@ -1068,7 +1074,8 @@ Avg network hashrate: ${scaleHashrate(avgNetHash)}
 }
 
 function updateStatsDisplay(
-  instMyHash,
+  myHash,
+  myHashLabel,
   instPoolHash,
   instNetHash,
   blockReward,
@@ -1078,7 +1085,8 @@ function updateStatsDisplay(
   payoutInfo,
   avgWindowHours
 ) {
-  setTextContent("myHashrate", scaleHashrate(instMyHash));
+  setTextContent("myHashrate", scaleHashrate(myHash));
+  setTextContent("myHashrateLabel", myHashLabel);
   setTextContent("poolHashrate", scaleHashrate(instPoolHash));
   setTextContent("netHashrate", scaleHashrate(instNetHash));
   setTextContent("blockReward", blockReward.toFixed(6));
@@ -1087,11 +1095,10 @@ function updateStatsDisplay(
   setTextContent("earnXMR", `${earnings.xmr.toFixed(6)} XMR`);
   setTextContent("earnEUR", `≈ €${earnings.eur.toFixed(2)}`);
 
-  const legendText =
-    avgWindowHours >= CONFIG.DEFAULT_RANGE_HOURS
-      ? "Based on 24h moving average"
-      : `Based on ${avgWindowHours.toFixed(1)}h moving average`;
-  setTextContent("earnLegend", legendText);
+  setTextContent(
+    "earnLegend",
+    `Based on ${avgWindowText(avgWindowHours)} moving average`
+  );
 
   setTextContent("lastRefreshed", `Updated ${formatDate24(new Date())}`);
   setTextContent("payoutInterval", payoutInfo.intervalText);
@@ -1149,7 +1156,11 @@ async function updateStats() {
       instNetHash
     );
 
-    const poolShare = instPoolHash > 0 ? (instMyHash / instPoolHash) * 100 : 0;
+    // Idle (KEDA-gated): show the moving average instead of 0 H/s
+    const [myHash, myHashLabel] = xmrigOnline
+      ? [instMyHash, "Your hashrate"]
+      : [avgMyHash, `Your hashrate, ${avgWindowText(avgWindowHours)} avg`];
+    const poolShare = instPoolHash > 0 ? (myHash / instPoolHash) * 100 : 0;
 
     const priceEUR =
       state.history?.price?.[state.history.price.length - 1] || 0;
@@ -1169,7 +1180,8 @@ async function updateStats() {
     );
 
     updateStatsDisplay(
-      instMyHash,
+      myHash,
+      myHashLabel,
       instPoolHash,
       instNetHash,
       blockReward,

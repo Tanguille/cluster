@@ -86,6 +86,8 @@ spec:
         runAsGroup: 101
         fsGroup: 101
         fsGroupChangePolicy: OnRootMismatch
+        # p2pool (gid 1000) writes local/ as 0770 with 0640 files; without the group, /local/stratum is a 403
+        supplementalGroups: [1000]
     service:
       dashboard:
         ports:
