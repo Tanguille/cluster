@@ -33,6 +33,17 @@ spec:
             query_name: k8s-gateway.network.${SECRET_DOMAIN}
             query_type: A
             preferred_ip_protocol: ip4
+        dns_a_public:
+          prober: dns
+          timeout: 5s
+          dns:
+            # Public name, not a local zone; checks the LAN resolver answers.
+            query_name: example.com
+            query_type: A
+            preferred_ip_protocol: ip4
+            # NOERROR with no answer would otherwise pass.
+            validate_answer_rrs:
+              fail_if_none_matches_regexp: ["\tIN\tA\t"]
     serviceMonitor:
       selfMonitor:
         enabled: true
@@ -51,3 +62,12 @@ spec:
           annotations:
             summary: |-
               The probe targeting {{ $labels.instance }} is currently having connectivity issues
+        - alert: LanDnsDegraded
+          # Intermittent drops keep resetting LanProbeFailed's `for`; a ratio catches a half-working resolver
+          expr: avg_over_time(probe_success{job="probe/observability/lan-dns"}[15m]) < 0.9
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: |-
+              The LAN resolver {{ $labels.instance }} failed more than 10% of DNS probes over 15 minutes
