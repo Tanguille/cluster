@@ -62,9 +62,10 @@ def _install_triton_tiles(hy):
     print("[lds-gate-patch] Triton tiles M<=32 16x16x128 w2, M>=768 256x128x64 w8, 1 stage", file=sys.stderr, flush=True)
 
 
-# UltraQuant keeps a max_model_len bf16 K/V buffer per layer (16 x 966 MiB), which OOMs the card. Layers run
-# one at a time and rewrite [:seq_len] first, so one shared holder serves all. Required, so a moved symbol
-# fails the boot; the fast kernels below are optional (SKIPPED).
+# UltraQuant keeps a max_model_len bf16 K/V concat buffer per layer (16 x 966 MiB), which OOMs the card;
+# upstream shares only the dequant target, not this one. Layers run one at a time and rewrite [:seq_len]
+# first, so one shared holder serves all. Required, so a moved symbol fails the boot; the fast kernels
+# below are optional (SKIPPED).
 def _patch_uq(module):
     try:
         cls = module.UltraQuantAttentionImpl
