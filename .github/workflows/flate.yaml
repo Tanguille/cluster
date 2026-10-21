@@ -35,6 +35,7 @@ jobs:
       - name: Run Flate
         id: flate
         env:
+          FLATE_API_VERSIONS: monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard
           FLATE_OUTPUT: github
           FLATE_PATH: ./flate
         run: |-
