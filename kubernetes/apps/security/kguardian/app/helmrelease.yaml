@@ -46,7 +46,7 @@ spec:
         intervalSeconds: 30
 
     # Stateless bridge; 1 replica saves 256Mi req on tight nodes.
-    # OPENAI_* passthrough points at the LLM gateway (litellm Service) instead of api.openai.com.
+    # OPENAI_* passthrough points at the LLM gateway (agentgateway) instead of api.openai.com.
     llmBridge:
       enabled: true
       replicaCount: 1
@@ -59,7 +59,7 @@ spec:
           memory: 128Mi
       env:
         - name: OPENAI_BASE_URL
-          value: http://litellm.ai.svc.cluster.local/v1
+          value: http://agentgateway.ai.svc.cluster.local:4000/v1
         - name: OPENAI_MODEL
           value: qwen-3.8
         # From cluster-secrets via substituteFrom; stays literal in git.

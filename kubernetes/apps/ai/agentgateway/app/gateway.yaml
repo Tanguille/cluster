@@ -51,8 +51,7 @@ spec:
   listeners:
     # Clients: authenticates, then sends chat to Headroom, which compresses and comes back on
     # the models listener. Everything else goes straight to the models listener.
-    # 4000 like LiteLLM's: client egress policies match the pod port after Service DNAT
-    # (kritika allows 4000, not 80).
+    # Clients use agentgateway.ai.svc.cluster.local:4000; kritika's egress policy allows 4000.
     - name: http
       port: 4000
       protocol: HTTP
@@ -92,8 +91,8 @@ spec:
 ---
 # Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
 # the http listener) and whether the embedding cache answered. A missing value reads "unknown".
-# user_agent only once a key matched: litellm-api is public, and a client-chosen value on
-# rejected requests would mint a series per request.
+# user_agent only once a key matched: a client-chosen value on rejected requests would mint a
+# series per request.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy

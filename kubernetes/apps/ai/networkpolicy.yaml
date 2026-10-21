@@ -12,10 +12,10 @@ spec:
   endpointSelector: {}
   ingress:
     # Namespaces that consume *.ai.svc (grep '\.ai\.svc' across the repo):
-    # default = karakeep -> litellm; observability = vmagent scrapes +
-    # gatus probes; security = kguardian llm-bridge -> litellm;
+    # default = karakeep -> agentgateway; observability = vmagent scrapes +
+    # gatus probes; security = kguardian llm-bridge -> agentgateway;
     # network = envoy-internal fronting the HTTPRoutes; ai = intra-namespace.
-    # kritika = review, confidence and embedding models through litellm on :80.
+    # kritika = review, confidence and embedding models through agentgateway on :4000.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai

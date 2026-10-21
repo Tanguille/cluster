@@ -1,12 +1,12 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
-# Hostnames kept from LiteLLM so external clients need no change.
+# Internal only: no public route, so the http listener's API keys are not internet-facing.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: agentgateway-internal
+  name: agentgateway
 spec:
-  hostnames: ["litellm.${SECRET_DOMAIN}"]
+  hostnames: ["llm.${SECRET_DOMAIN}"]
   parentRefs:
     - name: envoy-internal
       namespace: network
@@ -14,34 +14,3 @@ spec:
     - backendRefs:
         - name: agentgateway
           port: 4000
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
-# Public for inference only, as under LiteLLM.
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: agentgateway-external
-  annotations:
-    # "/" 404s like an unrouted host; a keyless request to a routed path returns 401.
-    gatus.home-operations.com/endpoint: |-
-      url: https://litellm-api.${SECRET_DOMAIN}/v1/models
-      conditions: ["[STATUS] == 401"]
-spec:
-  hostnames: ["litellm-api.${SECRET_DOMAIN}"]
-  parentRefs:
-    - name: envoy-external
-      namespace: network
-  rules:
-    - backendRefs:
-        - name: agentgateway
-          port: 4000
-      matches:
-        - path:
-            type: PathPrefix
-            value: /v1/messages
-        - path:
-            type: PathPrefix
-            value: /v1/chat/completions
-        - path:
-            type: PathPrefix
-            value: /v1/models
