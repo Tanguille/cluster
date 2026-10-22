@@ -389,7 +389,9 @@ function isObserverReady() {
 function setTextContent(elementId, text) {
   // Ids outside the cacheDOMElements list resolve through getElementById.
   const el = DOM[elementId] || document.getElementById(elementId);
-  if (el) el.textContent = text;
+  // Unchanged text is skipped so the aria-live state band is not re-announced every poll
+  const next = String(text);
+  if (el && el.textContent !== next) el.textContent = next;
 }
 
 function setTooltipContent(tooltipId, content) {
