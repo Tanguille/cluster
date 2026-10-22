@@ -13,8 +13,8 @@ spec:
   # also selects these pods and admits the whole namespace; allows union, so
   # this list documents intent rather than enforcing it. Health/guard probes run in-pod.
   # (The one sanctioned exception, memini -> bge-reranker-v2-m3, lives in its
-  # own policy below: the cross-encoder /v1/rerank contract is LLMKube's own, so memini talks to the
-  # reranker directly. Scoped to that one service, not the whole fleet.)
+  # own policy below: memini still calls the reranker directly, until it moves behind
+  # agentgateway's /v1/rerank. Scoped to that one service, not the whole fleet.)
   endpointSelector:
     matchExpressions:
       - key: inference.llmkube.dev/service

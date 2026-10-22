@@ -55,6 +55,12 @@
         },
         "sort": 1,
         "regex": "/^(?!unknown$).*/"
+      },
+      {
+        "name": "backends",
+        "type": "constant",
+        "query": "agentgateway|headroom|embedding-cache|qwen38-27b-vllm|qwen35-2b|embeddinggemma-2|bge-reranker-v2-m3|omniroute",
+        "hide": 2
       }
     ]
   },
@@ -87,7 +93,8 @@
             "uid": "${datasource}"
           },
           "expr": "sum(rate(agentgateway_requests_total{listener=\"models\",model=~\"$model\"}[$__range])) * 60",
-          "legendFormat": ""
+          "legendFormat": "",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -138,7 +145,8 @@
             "uid": "${datasource}"
           },
           "expr": "sum(increase(agentgateway_requests_total{listener=\"models\",model=~\"$model\",status!~\"2..\"}[$__range])) / sum(increase(agentgateway_requests_total{listener=\"models\",model=~\"$model\"}[$__range]))",
-          "legendFormat": ""
+          "legendFormat": "",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -197,7 +205,8 @@
             "uid": "${datasource}"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(agentgateway_gen_ai_server_request_duration_bucket{listener=\"models\",model=~\"$model\"}[$__range])))",
-          "legendFormat": ""
+          "legendFormat": "",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -255,7 +264,8 @@
             "uid": "${datasource}"
           },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(agentgateway_gen_ai_server_time_to_first_token_bucket{listener=\"models\",model=~\"$model\"}[$__range])))",
-          "legendFormat": ""
+          "legendFormat": "",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -300,7 +310,7 @@
       "id": 6,
       "type": "stat",
       "title": "Headroom tokens saved",
-      "description": "Share of prompt tokens removed by the headroom pre_call guardrail.",
+      "description": "Share of prompt tokens Headroom removed.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -359,8 +369,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "count((kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"agentgateway|headroom|embedding-cache|qwen38-27b-vllm|qwen35-2b|embeddinggemma-2|bge-reranker-v2-m3|omniroute\"} < kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"agentgateway|headroom|embedding-cache|qwen38-27b-vllm|qwen35-2b|embeddinggemma-2|bge-reranker-v2-m3|omniroute\"})) or vector(0)",
-          "legendFormat": ""
+          "expr": "count((kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"} < kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"$backends\"})) or vector(0)",
+          "legendFormat": "",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -469,7 +480,7 @@
       "id": 10,
       "type": "timeseries",
       "title": "Failures by model and cause",
-      "description": "Blank model = requests rejected before routing (auth or bad body).",
+      "description": "model=\"unknown\": requests rejected before routing (auth or bad body).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -662,7 +673,8 @@
             "uid": "${datasource}"
           },
           "expr": "sum(increase(agentgateway_gen_ai_client_cost_usd_total{listener=\"models\",model=~\"$model\"}[$__range]))",
-          "legendFormat": ""
+          "legendFormat": "",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -713,7 +725,8 @@
             "uid": "${datasource}"
           },
           "expr": "sum(increase(agentgateway_gen_ai_client_cost_usd_total{listener=\"models\",model=~\"$model\"}[$__range])) / $__range_s * 86400 * 30",
-          "legendFormat": ""
+          "legendFormat": "",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -764,7 +777,8 @@
             "uid": "${datasource}"
           },
           "expr": "sum(increase(agentgateway_gen_ai_client_cost_usd_total{listener=\"models\",model=~\"$model\"}[$__range])) / sum(increase(agentgateway_gen_ai_client_token_usage_sum{listener=\"models\",model=~\"$model\"}[$__range])) * 1e6",
-          "legendFormat": ""
+          "legendFormat": "",
+          "instant": true
         }
       ],
       "fieldConfig": {
@@ -1284,7 +1298,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "2 * (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"agentgateway|headroom|embedding-cache|qwen38-27b-vllm|qwen35-2b|embeddinggemma-2|bge-reranker-v2-m3|omniroute\"} == bool 0) + (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"agentgateway|headroom|embedding-cache|qwen38-27b-vllm|qwen35-2b|embeddinggemma-2|bge-reranker-v2-m3|omniroute\"} < bool kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"agentgateway|headroom|embedding-cache|qwen38-27b-vllm|qwen35-2b|embeddinggemma-2|bge-reranker-v2-m3|omniroute\"}) * (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"agentgateway|headroom|embedding-cache|qwen38-27b-vllm|qwen35-2b|embeddinggemma-2|bge-reranker-v2-m3|omniroute\"} > bool 0)",
+          "expr": "2 * (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"} == bool 0) + (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"} < bool kube_deployment_spec_replicas{namespace=\"ai\",deployment=~\"$backends\"}) * (kube_deployment_status_replicas_available{namespace=\"ai\",deployment=~\"$backends\"} > bool 0)",
           "legendFormat": "{{deployment}}"
         }
       ],
@@ -1348,21 +1362,12 @@
     {
       "id": 22,
       "type": "timeseries",
-      "title": "Upstream failures",
+      "title": "Retries and fallback",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (model, status) (rate(agentgateway_requests_total{listener=\"models\",model=~\"$model\",status!~\"2..\"}[$__rate_interval])) > 0",
-          "legendFormat": "{{model}} {{status}}"
-        },
         {
           "refId": "B",
           "datasource": {
@@ -1416,7 +1421,7 @@
         "w": 12,
         "h": 7
       },
-      "description": "Non-2xx answers per model, retries, and omniroute requests the qwen-3.8 fallback served."
+      "description": "Retries per model, and omniroute requests the qwen-3.8 fallback served. Non-2xx answers are in Failures by model and cause."
     },
     {
       "id": 23,
@@ -1484,7 +1489,7 @@
       "id": 25,
       "type": "timeseries",
       "title": "Headroom outcomes",
-      "description": "fail_open: a headroom failure passes the request through uncompressed.",
+      "description": "Requests through Headroom, and those that failed in it.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1602,57 +1607,6 @@
       }
     },
     {
-      "id": 28,
-      "type": "timeseries",
-      "title": "Proxy memory",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (pod) (agentgateway_process_rss{namespace=\"ai\"})",
-          "legendFormat": "{{pod}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "min": 0,
-          "custom": {
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": 300000
-          }
-        }
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "calcs": ["mean", "max"],
-          "sortBy": "Max",
-          "sortDesc": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 70,
-        "w": 12,
-        "h": 7
-      },
-      "description": "agentgateway proxy resident memory per pod."
-    },
-    {
       "id": 29,
       "type": "timeseries",
       "title": "Embedding cache",
@@ -1697,9 +1651,9 @@
         }
       },
       "gridPos": {
-        "x": 12,
+        "x": 0,
         "y": 70,
-        "w": 12,
+        "w": 24,
         "h": 7
       }
     }
