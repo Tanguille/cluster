@@ -1,9 +1,9 @@
 /* =========================================================
    P2POOL DASHBOARD: TIDE TABLE
    The miner runs only on surplus solar, so the page reads like
-   a harbour tide table: mining is high water, idle is slack.
+   a harbour tide table of daily mining windows.
    Sun-amber means mining and nothing else; teal is the pool
-   and network; slate is slack water.
+   and network; slate is idle.
    ========================================================= */
 
 :root {
@@ -203,8 +203,8 @@ main {
   --tide-stroke: var(--high-ink);
 }
 
-/* High water owns the band: the one place amber floods a region */
-.state[data-state="high"] {
+/* Mining owns the band: the one place amber floods a region */
+.state[data-state="mining"] {
   background: var(--high);
   border-bottom-color: transparent;
   --tide-fill: color-mix(in oklch, var(--on-high) 85%, transparent);
@@ -215,9 +215,9 @@ main {
   --tide-future: color-mix(in oklch, var(--on-high) 8%, transparent);
 }
 
-.state[data-state="high"] .state__line,
-.state[data-state="high"] .state__detail,
-.state[data-state="high"] .hours {
+.state[data-state="mining"] .state__line,
+.state[data-state="mining"] .state__detail,
+.state[data-state="mining"] .hours {
   color: var(--on-high);
 }
 
@@ -247,7 +247,7 @@ main {
   color: var(--ink-3);
 }
 
-.state[data-state="high"] .state__caption {
+.state[data-state="mining"] .state__caption {
   color: var(--on-high);
 }
 
@@ -492,7 +492,7 @@ main {
   outline-offset: -1.5px;
 }
 
-/* No logger record that day: hatched, so it never reads as slack water */
+/* No logger record that day: hatched, so it never reads as an idle day */
 .day.is-unrecorded {
   background: repeating-linear-gradient(
     -45deg,
@@ -550,6 +550,11 @@ main {
 .ledger__note {
   font-size: var(--step--1);
   color: var(--ink-3);
+}
+
+/* One miner per line: the list breaks between entries, never inside one */
+.ledger__note--lines {
+  white-space: pre-line;
 }
 
 .ledger__list--pair {

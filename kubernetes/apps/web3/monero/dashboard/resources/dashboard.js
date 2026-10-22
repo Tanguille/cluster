@@ -1005,7 +1005,7 @@ function updateOldDashboardStats(poolData) {
 // TIDE TABLE
 // ==============================
 // KEDA runs xmrig only on surplus solar, so history reads per calendar day:
-// when the miner ran (high water), for how long, and what the day yielded.
+// when the miners ran, for how long, and what the day yielded.
 
 function startOfDay(ms) {
   const d = new Date(ms);
@@ -1038,7 +1038,7 @@ function sampleStepMs(timestamps) {
 /**
  * Split a /stats_history.json window into local calendar days, newest first.
  * A null hashrate is "not recorded" (logger down or price-only backfill), which
- * is kept apart from a recorded 0 H/s so it never reads as slack water.
+ * is kept apart from a recorded 0 H/s so it never reads as an idle day.
  */
 function splitDays(data, count) {
   const stamps = data?.timestamps;
@@ -1153,7 +1153,7 @@ function renderWeek(days) {
           ? `${clockTime(day.runs[0].start)}–${clockTime(day.runs[day.runs.length - 1].end)}`
           : i === 0
             ? "None yet"
-            : "Slack all day";
+            : "No mining";
       const avg = mined ? scaleHashrate((day.hashSum * day.stepMs) / day.minedMs) : "–";
       // A past slack day really earned 0; today simply has not had its window yet
       const settled = day.recorded && (mined || i > 0);
@@ -1254,32 +1254,53 @@ function renderStateBand() {
     DOM.todayTide.innerHTML = tideSvg(days[index], state.weekPeak, { now: index === 0 });
     setTextContent(
       "tideCaption",
-      index === 0 ? "Today" : `${dayName(days[index].start, index)}, the last high water`
+      index === 0 ? "Today" : `${dayName(days[index].start, index)}, the last day with mining`
     );
   }
 
-  DOM.state.dataset.state = online ? "high" : "slack";
+  DOM.state.dataset.state = online ? "mining" : "idle";
   if (online) {
     // A window still open at the latest bucket started this run
     const running = last && Date.now() - last.end < 3 * (today?.stepMs || 0);
-    setTextContent("stateLine", "High water");
-    setTextContent("stateFigure", scaleHashrate(hash));
+    const count = state.live.miners.length;
+    setTextContent("stateLine", "Mining");
+    setTextContent(
+      "stateFigure",
+      `${scaleHashrate(hash)} · ${count} ${count === 1 ? "miner" : "miners"}`
+    );
     setTextContent(
       "stateDetail",
-      running
-        ? `Running on surplus solar since ${whenText(last.start)}.`
-        : "Running on surplus solar."
+      `${state.live.miners.map((m) => minerName(m.name)).join(", ")} on surplus solar${running ? ` since ${whenText(last.start)}` : ""}.`
     );
     return;
   }
 
-  setTextContent("stateLine", "Slack water");
+  setTextContent("stateLine", "Idle");
   setTextContent("stateFigure", last ? `since ${whenText(last.end)}` : "");
   setTextContent(
     "stateDetail",
     last
-      ? `Last high water ${clockTime(lastDay.runs[0].start)}–${clockTime(last.end)}, ${hoursMinutes(lastDay.minedMs)} mined. The miner runs on surplus solar.`
-      : "No high water in the last 7 days. The miner runs on surplus solar."
+      ? `Last mined ${clockTime(lastDay.runs[0].start)}–${clockTime(last.end)}, ${hoursMinutes(lastDay.minedMs)} in total. The miners start when there is surplus solar.`
+      : "No mining in the last 7 days. The miners start when there is surplus solar."
+  );
+}
+
+/** Pod name to node: "xmrig-control-1-6f7d8c9b5-x2k4p" reads as "control-1". */
+function minerName(name) {
+  return name.replace(/^xmrig-/, "").replace(/-[a-z0-9]+-[a-z0-9]+$/, "");
+}
+
+/** One miner per node, each gated on its own surplus: name every one that is running. */
+function renderMiners(miners) {
+  setTextContent(
+    "minersCount",
+    miners.length ? `${miners.length} running` : "None running"
+  );
+  setTextContent(
+    "minersList",
+    miners.length
+      ? miners.map((m) => `${minerName(m.name)} ${scaleHashrate(m.hashrate)}`).join("\n")
+      : "They start on surplus solar"
   );
 }
 
@@ -1473,7 +1494,12 @@ async function updateStats() {
       : [avgMyHash, `Your hashrate, ${avgWindowText(avgWindowHours)} avg`];
     const poolShare = instPoolHash > 0 ? (myHash / instPoolHash) * 100 : 0;
 
-    state.live = { online: xmrigOnline, hash: instMyHash };
+    state.live = {
+      online: xmrigOnline,
+      hash: instMyHash,
+      miners: xmrigOnline ? xmrigData.miners || [] : []
+    };
+    renderMiners(state.live.miners);
     state.blockReward = blockReward;
     renderStateBand();
 
