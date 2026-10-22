@@ -114,6 +114,8 @@ spec:
           gethomepage.dev/widget.type: fileflows
           gethomepage.dev/widget.version: "2"
           gethomepage.dev/widget.url: http://fileflows.media.svc.cluster.local:5000
+          # v2 reads the Fenrus Dashboard Endpoint token (FileFlows > Settings > General).
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_FILEFLOWS_KEY}}`}}"
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
