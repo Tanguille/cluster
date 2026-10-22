@@ -67,6 +67,7 @@ const state = {
   // Live miner reading for the state band; null until the first poll lands
   live: null,
   weekDays: null,
+  weekPeak: 1,
   blockReward: 0
 };
 
@@ -95,7 +96,7 @@ function cacheDOMElements() {
     "rangeControl",
     "state",
     "stateLine",
-    "stateSince",
+    "stateFigure",
     "tideCaption",
     "stateDetail",
     "todayTide",
@@ -921,13 +922,11 @@ goes. Shows "–" if no payouts yet or not enough data.
 /** No stratum connections is the idle miner, not a dead node: read the sidechain instead. */
 function updatePoolStatus(poolData) {
   const poolStatus = DOM["pool-status"];
-  const poolStatusText = DOM["pool-status-text"];
-
-  if (!poolStatus || !poolStatusText) return;
+  if (!poolStatus) return;
 
   const isSynced = poolData?.pool_statistics?.sidechainHeight > 0;
   poolStatus.className = `dot ${isSynced ? "is-live" : "is-down"}`;
-  poolStatusText.textContent = isSynced ? "running" : "unreachable";
+  setTextContent("pool-status-text", isSynced ? "running" : "unreachable");
 }
 
 
@@ -1159,7 +1158,7 @@ function renderWeek(days) {
       // A past slack day really earned 0; today simply has not had its window yet
       const settled = day.recorded && (mined || i > 0);
       const minedText = settled ? hoursMinutes(day.minedMs) : "–";
-      const xmr = mined && day.xmr > 0 ? day.xmr.toFixed(6) : settled ? "0" : "–";
+      const xmr = mined ? day.xmr.toFixed(6) : settled ? "0" : "–";
       const extra = mined ? ` · ${minedText} mined · avg ${avg}` : "";
       const classes = [
         i === 0 && "is-today",
@@ -1243,20 +1242,19 @@ function whenText(ms) {
 function renderStateBand() {
   if (!DOM.state || !state.live) return;
   const { online, hash } = state.live;
-  const lastDay = state.weekDays?.find((d) => d.runs.length);
+  const days = state.weekDays || [];
+  const lastIndex = days.findIndex((d) => d.runs.length);
+  const lastDay = days[lastIndex];
   const last = lastDay?.runs.at(-1);
-  const today = state.weekDays?.[0];
+  const today = days[0];
 
   // Idle with no window yet today: show the last day that had one, not an empty box
-  const tideDay = online || today?.runs.length ? today : lastDay || today;
-  if (DOM.todayTide && tideDay) {
-    DOM.todayTide.innerHTML = tideSvg(tideDay, state.weekPeak || 1, {
-      now: tideDay === today
-    });
-    const index = state.weekDays.indexOf(tideDay);
+  const index = online || today?.runs.length ? 0 : Math.max(lastIndex, 0);
+  if (DOM.todayTide && days[index]) {
+    DOM.todayTide.innerHTML = tideSvg(days[index], state.weekPeak, { now: index === 0 });
     setTextContent(
       "tideCaption",
-      index === 0 ? "Today" : `${dayName(tideDay.start, index)}, the last high water`
+      index === 0 ? "Today" : `${dayName(days[index].start, index)}, the last high water`
     );
   }
 
@@ -1265,7 +1263,7 @@ function renderStateBand() {
     // A window still open at the latest bucket started this run
     const running = last && Date.now() - last.end < 3 * (today?.stepMs || 0);
     setTextContent("stateLine", "High water");
-    setTextContent("stateSince", scaleHashrate(hash));
+    setTextContent("stateFigure", scaleHashrate(hash));
     setTextContent(
       "stateDetail",
       running
@@ -1276,7 +1274,7 @@ function renderStateBand() {
   }
 
   setTextContent("stateLine", "Slack water");
-  setTextContent("stateSince", last ? `since ${whenText(last.end)}` : "");
+  setTextContent("stateFigure", last ? `since ${whenText(last.end)}` : "");
   setTextContent(
     "stateDetail",
     last

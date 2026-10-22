@@ -212,6 +212,7 @@ main {
   --tide-base: color-mix(in oklch, var(--on-high) 35%, transparent);
   --tide-grid: color-mix(in oklch, var(--on-high) 15%, transparent);
   --tide-now: var(--on-high);
+  --tide-future: color-mix(in oklch, var(--on-high) 8%, transparent);
 }
 
 .state[data-state="high"] .state__line,
@@ -230,7 +231,7 @@ main {
   text-wrap: balance;
 }
 
-.state__since {
+.state__figure {
   display: block;
   margin-top: 0.375rem;
   font-size: var(--step-4);
@@ -930,7 +931,7 @@ main {
     height: 55%;
   }
 
-  .state__since {
+  .state__figure {
     font-size: var(--step-3);
   }
 
@@ -1003,7 +1004,7 @@ main {
   }
 
   .tides__extra {
-    display: inline !important;
+    display: inline;
   }
 
   .tides__empty {
