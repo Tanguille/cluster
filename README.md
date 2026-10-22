@@ -104,7 +104,7 @@ Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 | **Hermes**   | Autonomous agentic harness                                 |
 | **OpenCode** | CLI coding agent for repo work                             |
 | **ToolHive** | Unified MCP server gateway                                 |
-| **LiteLLM**  | LLM proxy / routing layer                                  |
+| **agentgateway** | LLM gateway: keys, routing, fallback, Headroom compression |
 | **OmniRoute**| LLM routing                                                |
 | **LLMKube**  | K8s-native LLM model management (vLLM/llama.cpp)           |
 | **Memini**   | Long-term memory for agents                                |

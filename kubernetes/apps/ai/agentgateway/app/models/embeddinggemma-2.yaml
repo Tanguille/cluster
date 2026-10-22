@@ -1,0 +1,69 @@
+---
+# A backend group, not an AgentgatewayModel like the others: a failover virtual model keeps
+# retrying a refused target instead of evicting it, so it cannot fail open past the cache.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayBackend
+metadata:
+  name: embeddinggemma-2
+spec:
+  ai:
+    groups:
+      # Through the response cache in front of the embedder (embedding-cache.yaml)...
+      - providers:
+          - name: embedding-cache
+            host: embedding-cache.ai.svc.cluster.local
+            port: 8080
+            custom: &embedder
+              providerOverride: llamacpp
+              formats:
+                - type: Embeddings
+      # ...and straight to the embedder while the cache is down (fail open).
+      - providers:
+          - name: embeddinggemma-2
+            host: embeddinggemma-2.ai.svc.cluster.local
+            port: 8080
+            custom: *embedder
+---
+# A longer path than the model router's "/", so it wins for this model.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-embeddinggemma-2
+spec:
+  parentRefs:
+    - name: agentgateway
+      sectionName: models
+  rules:
+    - name: embeddinggemma-2
+      matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+          headers:
+            - name: x-gateway-model
+              value: embeddinggemma-2
+      backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayBackend
+          name: embeddinggemma-2
+---
+# Listed in GET /v1/models only; requests match the route above. backendRef is the cache's Service.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: embeddinggemma-2
+spec:
+  parentRefs:
+    - kind: HTTPRoute
+      name: agentgateway-models
+  provider: Custom
+  custom:
+    backendRef:
+      name: embedding-cache
+      port: 8080
+    providerOverride: llamacpp
+    formats:
+      - type: Embeddings

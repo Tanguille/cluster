@@ -29,7 +29,7 @@ spec:
               REQUIRE_API_KEY: "false"
               # V8 heap ceiling; chat sheds 503 at 85% of it.
               OMNIROUTE_MEMORY_MB: "1536"
-              # First-event wait per combo step (default adapts up to 180s for tool-heavy calls); a stalled free provider fails over inside LiteLLM's 150s.
+              # First-event wait per combo step (default adapts up to 180s for tool-heavy calls); a stalled free provider fails over inside agentgateway's 150s.
               STREAM_READINESS_TIMEOUT_MS: "60000"
               STREAM_READINESS_MAX_TIMEOUT_MS: "60000"
               # envoy-internal terminates TLS at the gateway.

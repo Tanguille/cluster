@@ -1,0 +1,23 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: agentgateway
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: agentgateway
+  values:
+    controller:
+      priorityClassName: homelab-important
+    # No Istio here; enabled (the chart default) watches mesh CRDs that do not exist.
+    istio:
+      enabled: false
+    monitoring:
+      enabled: true
+      proxy:
+        # Proxies run next to their Gateway (ai), not in this namespace.
+        namespaceSelector:
+          any: true

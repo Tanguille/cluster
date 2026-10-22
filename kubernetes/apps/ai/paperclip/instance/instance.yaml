@@ -32,22 +32,22 @@ spec:
   # Anthropic clients append /v1/messages themselves; OpenAI clients expect /v1.
   env:
     - name: ANTHROPIC_BASE_URL
-      value: http://litellm.ai.svc.cluster.local
-    # Adapter default is claude-opus-5; litellm serves no Claude models.
+      value: http://agentgateway.ai.svc.cluster.local:4000
+    # Adapter default is claude-opus-5; the LLM gateway serves no Claude models.
     - name: ANTHROPIC_MODEL
       value: qwen-3.8
     # Claude CLI background calls otherwise request a haiku model.
     - name: ANTHROPIC_DEFAULT_HAIKU_MODEL
       value: qwen-3.8
     - name: OPENAI_BASE_URL
-      value: http://litellm.ai.svc.cluster.local/v1
+      value: http://agentgateway.ai.svc.cluster.local:4000/v1
   storage:
     persistence:
       accessModes:
         - ReadWriteOnce
   security:
     seLinuxRelabel: false
-    # The rendered default-deny policy blocks egress to in-cluster LiteLLM.
+    # The rendered default-deny policy blocks egress to the in-cluster LLM gateway.
     networkPolicy:
       enabled: false
   probes:

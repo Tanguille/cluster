@@ -1,0 +1,71 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: agentgateway-rules
+spec:
+  groups:
+    - name: agentgateway.rules
+      # increase() over rate(): tiny bursty traffic rounds a rate to noise. The window is the debounce,
+      # so keep `for` short or the two delays add up and hide the real firing time.
+      rules:
+        # The outage itself, per model on the models listener; 5xx only, so client errors (an
+        # oversized prompt, an unknown model) do not page. Keyless probes stop at the http listener.
+        # omniroute failing after its fallback is AgentgatewayFallbackTargetUnavailable.
+        - alert: AgentgatewayRequestsFailing
+          expr: |-
+            sum by (model) (
+              increase(agentgateway_requests_total{namespace="ai", listener="models", model!="omniroute", status=~"5.."}[15m])
+            ) > 2
+          for: 10m
+          annotations:
+            summary: >-
+              agentgateway is returning 5xx for
+              {{ $labels.model }} — the fallback chain is not covering it
+          labels:
+            severity: critical
+
+        # Structural rule, needs no traffic to fire; the deployment name is hardcoded, so it moves with the omniroute backend's fallback group or goes blind.
+        - alert: AgentgatewayFallbackBackendDown
+          expr: |-
+            kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"} == 0
+            or
+            absent(kube_deployment_status_replicas_available{namespace="ai", deployment="qwen38-27b-vllm"})
+          # replicas: 1 on a single dGPU node, so every pod roll dips to 0.
+          for: 10m
+          annotations:
+            summary: >-
+              qwen38-27b-vllm has no available replica — agentgateway's only fallback
+              target is gone and hermes has no local model
+          labels:
+            severity: critical
+
+        # Target up but rejecting the payload: omniroute requests that failed after the fallback
+        # retry. > 0 because the chain is one deep.
+        - alert: AgentgatewayFallbackTargetUnavailable
+          expr: |-
+            sum by (status) (
+              increase(agentgateway_requests_total{namespace="ai", listener="models", model="omniroute", status=~"5.."}[30m])
+            ) > 0
+          for: 5m
+          annotations:
+            summary: >-
+              omniroute requests are failing with {{ $labels.status }} even after the
+              qwen-3.8 fallback — the chain is shorter than it looks
+          labels:
+            severity: warning
+
+        # Brief fallbacks are normal as omniroute's free-tier quota cycles; sustained ones mean it is not recovering.
+        - alert: AgentgatewayPrimaryDegraded
+          expr: |-
+            sum(
+              increase(agentgateway_gen_ai_client_token_usage_count{namespace="ai", listener="models", model="omniroute", gen_ai_system="vllm", gen_ai_token_type="input"}[30m])
+            ) > 5
+          for: 5m
+          annotations:
+            summary: >-
+              omniroute has leaned on its qwen-3.8 fallback repeatedly — the primary is
+              not recovering
+          labels:
+            severity: warning

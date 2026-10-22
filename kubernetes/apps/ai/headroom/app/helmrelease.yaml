@@ -20,19 +20,41 @@ spec:
 
     controllers:
       headroom:
+        # One replica is enough inline (agentgateway -> headroom -> agentgateway): while it is
+        # unreachable agentgateway retries the request uncompressed (agentgateway-clients-retry).
         containers:
           app:
             image:
               repository: ghcr.io/headroomlabs-ai/headroom
               # slim: code-aware parsing and ML extras are disabled below anyway.
               tag: 0.41.0-slim-nonroot@sha256:686a86ad0f7dba60816b5d3d6f6438a02323d256d70491c6448526212c6c08b3
+            # Appended to the image's `headroom proxy` entrypoint, which runs a semantic response
+            # cache and rate limiter by default; chat is near-unique per turn, and agentgateway
+            # owns rate limits. --no-ccr: CCR injects a headroom_retrieve tool (~380 prompt tokens)
+            # into every request, and with HEADROOM_STATELESS there is no store to retrieve from.
+            args: ["--no-cache", "--no-rate-limit", "--no-ccr"]
             env:
               TZ: ${TIMEZONE}
               # Image default is 127.0.0.1.
               HEADROOM_HOST: 0.0.0.0
               HEADROOM_PORT: &port 8787
-              # /v1/compress is loopback-only by default (headroom #1537); litellm calls it remotely.
-              HEADROOM_COMPRESS_ALLOW_REMOTE: "1"
+              # Compressed requests go back to agentgateway's models listener, which routes on the
+              # model name; Headroom appends the /v1/... path itself.
+              OPENAI_TARGET_API_URL: &models http://agentgateway.ai.svc.cluster.local:8080
+              ANTHROPIC_TARGET_API_URL: *models
+              # Allow-only mode for x-headroom-base-url: an override to any other host is ignored
+              # or rejected, so it cannot carry the forwarded internal key off-cluster.
+              HEADROOM_ALLOWED_BASE_URLS: agentgateway.ai.svc.cluster.local
+              # Default 300s; past the longest models-listener chain (omniroute's 150s, then the
+              # 1800s qwen-3.8 fallback) so that listener answers first.
+              HEADROOM_REQUEST_TIMEOUT: "2000"
+              # agentgateway retries and fails over; Headroom retrying too would multiply both.
+              HEADROOM_RETRY_MAX_ATTEMPTS: "1"
+              # The proxy default (cache) never rewrites prior turns, so older tool results, the
+              # only thing worth compressing here, went through whole (0 vs 34% saved on a
+              # 65K-token turn). The compressors below are deterministic, so the rewritten
+              # prefix stays byte-identical across turns and vLLM's prefix cache still hits.
+              HEADROOM_MODE: token
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"
               # JSON-only: HEADROOM_LOSSLESS=1 saved 0 tokens, and the log compressor drops whole
@@ -44,7 +66,8 @@ spec:
               HEADROOM_DISABLE_KOMPRESS_FALLBACK: "1"
               HEADROOM_LOSSLESS_THEN_LOSSY: "0"
               HEADROOM_CODE_AWARE_ENABLED: "0"
-              # litellm withholds assistant rows, so dedup pointers and tool-name guards can't resolve.
+              # Off since Headroom ran as a guardrail that withheld assistant rows, so dedup pointers and
+              # tool-name guards could not resolve; the proxy sees whole turns, so it can be re-tested.
               HEADROOM_DEDUPE: "0"
               HEADROOM_COMPRESS_USER_MESSAGES: "0"
               HEADROOM_COMPRESSION_MAX_WORKERS: "2"
