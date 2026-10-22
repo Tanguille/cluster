@@ -3,25 +3,12 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: agentgateway-crds
-spec:
-  interval: 1h
-  chartRef:
-    kind: OCIRepository
-    name: agentgateway-crds
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
   name: agentgateway
 spec:
   interval: 1h
   chartRef:
     kind: OCIRepository
     name: agentgateway
-  dependsOn:
-    - name: agentgateway-crds
   values:
     controller:
       priorityClassName: homelab-important
