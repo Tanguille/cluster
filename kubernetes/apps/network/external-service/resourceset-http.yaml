@@ -8,6 +8,7 @@ spec:
   # ResourceSet.spec.wait defaults to false.
   wait: true
   # Plain HTTP to an off-cluster host, fronted on :80. One input entry per service.
+  # gethomepage.dev/external skips the pod status: no pods back these targets.
   inputs:
     - name: arm
       service: internal-arm
@@ -20,7 +21,6 @@ spec:
         gethomepage.dev/name: ARM
         gethomepage.dev/group: External
         gethomepage.dev/icon: mdi-server-network
-        # external target — no pods to health-check
         gethomepage.dev/external: "true"
 
     - name: avr
