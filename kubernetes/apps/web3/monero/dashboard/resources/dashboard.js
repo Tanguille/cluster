@@ -277,10 +277,6 @@ function movingAverage(timestamps, values, windowSeconds) {
   return count > 0 ? sum / count : values[values.length - 1] || 0;
 }
 
-function extractXMRigHashrate(xmrigData) {
-  return xmrigData.hashrate?.total?.[0] || 0;
-}
-
 function extractPoolHashrate(poolData) {
   if (!isValidObject(poolData)) return 0;
   return poolData.pool_statistics?.hashRate || 0;
@@ -1155,7 +1151,7 @@ function renderWeek(days) {
             ? "None yet"
             : "No mining";
       const avg = mined ? scaleHashrate((day.hashSum * day.stepMs) / day.minedMs) : "–";
-      // A past slack day really earned 0; today simply has not had its window yet
+      // A past idle day really earned 0; today simply has not had its window yet
       const settled = day.recorded && (mined || i > 0);
       const minedText = settled ? hoursMinutes(day.minedMs) : "–";
       const xmr = mined ? day.xmr.toFixed(6) : settled ? "0" : "–";
@@ -1163,7 +1159,7 @@ function renderWeek(days) {
       const classes = [
         i === 0 && "is-today",
         mined && "is-mined",
-        day.recorded && !mined && "is-slack"
+        day.recorded && !mined && "is-idle"
       ]
         .filter(Boolean)
         .join(" ");
@@ -1210,7 +1206,7 @@ function renderSeason(days) {
           ? "no record"
           : day.runs.length
             ? `est. ${day.xmr.toFixed(6)} XMR`
-            : "slack all day";
+            : "no mining";
         const classes = ["day", isToday && "is-today", !day.recorded && "is-unrecorded"]
           .filter(Boolean)
           .join(" ");
@@ -1236,8 +1232,8 @@ function whenText(ms) {
 }
 
 /**
- * The band answers "is it mining" first. Idle is the normal state, so slack
- * water names the last window rather than showing zeros.
+ * The band answers "is it mining" first. Idle is the normal state, so it
+ * names the last mining window rather than showing zeros.
  */
 function renderStateBand() {
   if (!DOM.state || !state.live) return;
@@ -1270,7 +1266,7 @@ function renderStateBand() {
     );
     setTextContent(
       "stateDetail",
-      `${state.live.miners.map((m) => minerName(m.name)).join(", ")} on surplus solar${running ? ` since ${whenText(last.start)}` : ""}.`
+      `${state.live.miners.map((m) => m.name).join(", ")} on surplus solar${running ? ` since ${whenText(last.start)}` : ""}.`
     );
     return;
   }
@@ -1285,11 +1281,6 @@ function renderStateBand() {
   );
 }
 
-/** Pod name to node: "xmrig-control-1-6f7d8c9b5-x2k4p" reads as "control-1". */
-function minerName(name) {
-  return name.replace(/^xmrig-/, "").replace(/-[a-z0-9]+-[a-z0-9]+$/, "");
-}
-
 /** One miner per node, each gated on its own surplus: name every one that is running. */
 function renderMiners(miners) {
   setTextContent(
@@ -1299,7 +1290,7 @@ function renderMiners(miners) {
   setTextContent(
     "minersList",
     miners.length
-      ? miners.map((m) => `${minerName(m.name)} ${scaleHashrate(m.hashrate)}`).join("\n")
+      ? miners.map((m) => `${m.name} ${scaleHashrate(m.hashrate)}`).join("\n")
       : "They start on surplus solar"
   );
 }
@@ -1468,7 +1459,8 @@ async function updateStats() {
     applyChartWindow(chartWindow);
 
     const xmrigOnline = isValidObject(xmrigData);
-    const instMyHash = xmrigOnline ? extractXMRigHashrate(xmrigData) : 0;
+    const miners = xmrigOnline ? xmrigData.miners || [] : [];
+    const instMyHash = miners.reduce((sum, m) => sum + m.hashrate, 0);
     const instPoolHash = extractPoolHashrate(poolData);
     const instNetHash = calculateNetworkHashrate(networkData);
     const blockReward =
@@ -1497,9 +1489,9 @@ async function updateStats() {
     state.live = {
       online: xmrigOnline,
       hash: instMyHash,
-      miners: xmrigOnline ? xmrigData.miners || [] : []
+      miners
     };
-    renderMiners(state.live.miners);
+    renderMiners(miners);
     state.blockReward = blockReward;
     renderStateBand();
 

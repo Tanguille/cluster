@@ -4,8 +4,7 @@ kind: Service
 metadata:
   name: xmrig-miners
 spec:
-  # Headless across the three per-node Deployments: DNS returns every running miner,
-  # so the dashboard sums them instead of reading whichever one a ClusterIP picks.
+  # Headless: DNS returns every running miner, so the dashboard sums all three, not one
   clusterIP: None
   selector:
     app.kubernetes.io/component: thermal-guarded

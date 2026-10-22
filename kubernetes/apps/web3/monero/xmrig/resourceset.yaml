@@ -36,7 +36,7 @@ spec:
             xmrig-<< inputs.node >>:
               pod:
                 labels:
-                  # the shared xmrig Service selects on this across all three Deployments
+                  # the headless xmrig-miners Service selects on this across all three Deployments
                   app.kubernetes.io/component: thermal-guarded
               containers:
                 app:

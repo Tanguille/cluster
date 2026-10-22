@@ -13,6 +13,7 @@ import http.server
 import json
 import math
 import os
+import re
 import shutil
 import urllib.request
 import time
@@ -63,7 +64,7 @@ CHART_MAX_POINTS = 720
 
 SERIES = ("myHash", "poolHash", "netHash", "price")
 
-# Headless Service: one A record per running miner (one per node), none when all are gated off
+# Headless Service: one A record per running miner, none when all are gated off
 XMRIG_MINERS_HOST = os.getenv("XMRIG_MINERS_HOST", "xmrig-miners.web3.svc.cluster.local")
 XMRIG_API_PORT = 42000
 MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.local:18089/json_rpc")
@@ -208,16 +209,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
             shutil.copyfileobj(r, self.wfile)
 
     def serve_miners(self):
-        """Every running miner from the logger's last poll, summed; 503 when none runs.
-
-        KEDA scales each miner to 0 without surplus solar, so 503 is the normal idle answer.
-        """
+        """Running miners from the logger's last poll; 503 is the normal idle answer."""
+        # A stalled logger must not keep reporting its last miners as running
         miners = _miners["list"] if time.time() - _miners["ts"] < 30 else []
         if not miners:
             self.send_json_error("No miners running", 503)
             return
-        total = sum(m["hashrate"] for m in miners)
-        self.send_json({"miners": miners, "hashrate": {"total": [total]}})
+        self.send_json({"miners": miners})
 
     def serve_log(self):
         """Serve in-memory rolling log as JSON"""
@@ -457,20 +455,29 @@ def read_pool_hashrate():
 # The logger's latest poll of every miner, served by /xmrig_summary without a second fan-out
 _miners = {"ts": 0.0, "list": []}
 
+def miner_summary(ip):
+    """One miner as {"name", "hashrate"}, or None if it does not answer.
+
+    The name is the pod's node: "xmrig-control-1-6f7d8c9b5-x2k4p" reads as "control-1".
+    """
+    try:
+        summary = _fetch_json(f"http://{ip}:{XMRIG_API_PORT}/2/summary", timeout=3)
+    except Exception:
+        return None
+    name = re.sub(r"^xmrig-|-[a-z0-9]+-[a-z0-9]+$", "", summary.get("worker_id") or ip)
+    return {"name": name, "hashrate": num(summary.get("hashrate", {}).get("total", [None])[0])}
+
 def poll_miners():
-    """Summary from each running miner: [{"name", "hashrate"}], empty when none runs."""
+    """Every running miner, empty when none runs."""
     try:
         infos = socket.getaddrinfo(XMRIG_MINERS_HOST, XMRIG_API_PORT, proto=socket.IPPROTO_TCP)
     except socket.gaierror:
         return []  # no ready pods: the headless name has no records
     ips = sorted({info[4][0] for info in infos})
+    if not ips:
+        return []
     with ThreadPoolExecutor(max_workers=len(ips)) as executor:
-        summaries = executor.map(
-            lambda ip: fetch_or(lambda: _fetch_json(f"http://{ip}:{XMRIG_API_PORT}/2/summary", timeout=3), None),
-            ips)
-        return [{"name": summary.get("worker_id") or ip,
-                 "hashrate": num(summary.get("hashrate", {}).get("total", [None])[0])}
-                for ip, summary in zip(ips, summaries) if summary]
+        return [m for m in executor.map(miner_summary, ips) if m]
 
 def last_logged(key):
     """Most recent value for `key`, or 0.0 on an empty log."""
