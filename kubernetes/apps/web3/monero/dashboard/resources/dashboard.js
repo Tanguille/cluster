@@ -32,6 +32,11 @@ const CONFIG = {
   RANGE_STORAGE_KEY: "p2pool.chartRangeHours",
   REFRESH_INTERVAL_MS: 10000, // match server.py's 10s log cadence — faster polls fetch identical data
   OBSERVER_SHARES_LIMIT: 10000,
+  // The tide table reads the 5-minute rollup, so polling it faster gains nothing
+  WEEK_REFRESH_MS: 60000,
+  SEASON_REFRESH_MS: 900000,
+  WEEK_DAYS: 7,
+  SEASON_DAYS: 90,
 
   // Hashrate scaling thresholds
   HASHRATE_SCALE: {
@@ -58,7 +63,12 @@ const state = {
   observerBase: null,
   observerWallet: null,
   oldStatsData: {},
-  isTabVisible: true
+  isTabVisible: true,
+  // Live miner reading for the state band; null until the first poll lands
+  live: null,
+  weekDays: null,
+  weekPeak: 1,
+  blockReward: 0
 };
 
 // ==============================
@@ -84,7 +94,14 @@ function cacheDOMElements() {
     "reward-share",
     "workers-list",
     "rangeControl",
-    "minerState",
+    "state",
+    "stateLine",
+    "stateFigure",
+    "tideCaption",
+    "stateDetail",
+    "todayTide",
+    "weekRows",
+    "seasonGrid",
     "hashrateEmpty",
     "priceEmpty"
   ];
@@ -126,16 +143,13 @@ function scaleHashrate(hashrate) {
   return `${Math.round(hashrate)} H/s`;
 }
 
-function pad2(n) {
-  return String(n).padStart(2, "0");
+/** Approximate EUR; sub-cent amounts are the norm here and "≈ €0.00" would read as nothing earned. */
+function eurText(eur) {
+  return eur > 0 && eur < 0.01 ? "< €0.01" : `≈ €${eur.toFixed(2)}`;
 }
 
-function formatDate24(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-    return "Invalid date";
-  }
-
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+function pad2(n) {
+  return String(n).padStart(2, "0");
 }
 
 function formatDate24Hours(date) {
@@ -376,7 +390,9 @@ function isObserverReady() {
 function setTextContent(elementId, text) {
   // Ids outside the cacheDOMElements list resolve through getElementById.
   const el = DOM[elementId] || document.getElementById(elementId);
-  if (el) el.textContent = text;
+  // Unchanged text is skipped so the aria-live state band is not re-announced every poll
+  const next = String(text);
+  if (el && el.textContent !== next) el.textContent = next;
 }
 
 function setTooltipContent(tooltipId, content) {
@@ -398,6 +414,8 @@ const CHART_COLORS = Object.fromEntries(
   Object.entries({
     accent: "--accent",
     accentFill: "--chart-fill",
+    alt: "--chart-alt",
+    altFill: "--chart-alt-fill",
     surface: "--surface-raised",
     line: "--line",
     grid: "--chart-grid",
@@ -474,19 +492,19 @@ function sharedChartOptions(overrides = {}) {
 /**
  * Shared dataset config for line charts.
  */
-function lineDataset(label, data) {
+function lineDataset(label, data, line = CHART_COLORS.accent, fill = CHART_COLORS.accentFill) {
   return {
     label,
     data,
-    borderColor: CHART_COLORS.accent,
-    backgroundColor: CHART_COLORS.accentFill,
+    borderColor: line,
+    backgroundColor: fill,
     borderWidth: 1.5,
     fill: true,
     // Straight segments: over 90d the smoothing invented dips between buckets
     tension: 0,
     pointRadius: 0,
     pointHoverRadius: 4,
-    pointHoverBackgroundColor: CHART_COLORS.accent,
+    pointHoverBackgroundColor: line,
     pointHoverBorderColor: CHART_COLORS.surface,
     pointHoverBorderWidth: 2
   };
@@ -508,7 +526,9 @@ function initOrUpdateChart(canvas, chartState, stateKey, chartConfig) {
       type: "line",
       data: {
         labels: chartConfig.labels,
-        datasets: [lineDataset(chartConfig.label, chartConfig.data)]
+        datasets: [
+          lineDataset(chartConfig.label, chartConfig.data, chartConfig.line, chartConfig.fill)
+        ]
       },
       options: sharedChartOptions({
         yTicks: chartConfig.yTicks,
@@ -606,6 +626,8 @@ function initializePriceChart(chartWindow) {
     );
     initOrUpdateChart(DOM.priceChart, state, "priceChart", {
       label: "XMR Price (EUR)",
+      line: CHART_COLORS.alt,
+      fill: CHART_COLORS.altFill,
       data: chartWindow.price,
       labels: chartWindow.labels,
       yTicks: {
@@ -659,7 +681,7 @@ function updateRecentPayments(payouts, priceEUR) {
     setTextContent(
       "totalEurEarned",
       typeof priceEUR === "number"
-        ? `≈ €${(totalXMR * priceEUR).toFixed(2)}`
+        ? eurText(totalXMR * priceEUR)
         : ""
     );
 
@@ -673,18 +695,15 @@ function updateRecentPayments(payouts, priceEUR) {
           return `
           <tr>
             <td>${formatRelativeTime(p.timestamp)}</td>
-            <td class="cell-right">${xmr.toFixed(6)}</td>
-            <td class="cell-right">${eurValue}</td>
+            <td class="num">${xmr.toFixed(6)}</td>
+            <td class="num">${eurValue}</td>
           </tr>
         `;
         })
         .join("");
     }
 
-    setTextContent(
-      "paymentsStatus",
-      `Showing last ${Math.min(CONFIG.PPLNS_WINDOW_MAX_SHARES, sortedPayouts.length)} payouts`
-    );
+    setTextContent("paymentsStatus", "");
 
     return [newestPayoutTime, totalXMR];
   } catch (error) {
@@ -738,7 +757,10 @@ function updateSharesDisplay(
   totalShares,
   totalUncles
 ) {
-  setTextContent("sharesSinceLastPayout", sharesSince);
+  setTextContent(
+    "sharesSinceLastPayout",
+    sharesSince === 0 ? "None yet" : sharesSince
+  );
   setTextContent("unclesSinceLastPayout", unclesSince);
   // The <dt> carries the label; the value is the bare count
   setTextContent("totalSharesMined", totalShares);
@@ -770,6 +792,7 @@ function updateWindowLuck({
     const myWindowShares = shares.filter(
       (share) => share.timestamp >= windowStart
     );
+    const hasShares = myWindowShares.length > 0;
     const totalDifficulty = myWindowShares.reduce(
       (sum, share) => sum + (share.difficulty || 0),
       0
@@ -805,11 +828,14 @@ also multiplied by the pool luck (derived from the pool effort).
     // Idle for the whole window: there is no expected rate to divide by
     setTextContent(
       "luckFactor",
-      avgMyHashPPLNS > 0 ? betterLuckFactor.toFixed(2) : "–"
+      avgMyHashPPLNS > 0 && hasShares ? `${betterLuckFactor.toFixed(2)}×` : "–"
     );
     // 12 decimals is one atomic unit — six is the payout threshold's own precision
-    setTextContent("xmrThisWindow", accumulatedXMR.toFixed(6));
-    setTextContent("eurThisWindow", `≈ €${accumulatedEUR.toFixed(2)}`);
+    setTextContent(
+      "xmrThisWindow",
+      hasShares ? `${accumulatedXMR.toFixed(6)} XMR` : "No shares yet"
+    );
+    setTextContent("eurThisWindow", hasShares ? eurText(accumulatedEUR) : "");
     setTextContent("dayHash", scaleHashrate(myWindowHash));
     setTextContent(
       "pplnsStart",
@@ -827,7 +853,6 @@ also multiplied by the pool luck (derived from the pool effort).
 function updateTrueLuck(payouts, newestPayoutTime, xmrPerDayAvg, totalXMR) {
   const reset = () => {
     setTextContent("trueLuckFactor", "–");
-    setTextContent("trueLuckWindow", "–");
   };
 
   try {
@@ -864,7 +889,7 @@ function updateTrueLuck(payouts, newestPayoutTime, xmrPerDayAvg, totalXMR) {
     }
 
     const trueLuckFactor = totalXMR / expectedXMR;
-    setTextContent("trueLuckFactor", trueLuckFactor.toFixed(2));
+    setTextContent("trueLuckFactor", `${trueLuckFactor.toFixed(2)}×`);
 
     // Show the time window context so users understand accuracy
     const displayHours = cappedWindowDays * 24;
@@ -874,11 +899,10 @@ function updateTrueLuck(payouts, newestPayoutTime, xmrPerDayAvg, totalXMR) {
         : displayHours < 24
           ? `${displayHours.toFixed(1)}h window`
           : `${cappedWindowDays.toFixed(1)}d window`;
-    setTextContent("trueLuckWindow", windowText);
-
     setTooltipContent(
       "trueLuckTooltip",
       `
+Over a ${windowText}.
 Estimated true luck: total payouts divided by expected earnings
 over the same period. Expected earnings use a 24h moving average
 of hashrates, so accuracy decreases the further back the window
@@ -895,26 +919,16 @@ goes. Shows "–" if no payouts yet or not enough data.
 // OLD DASHBOARD STATS
 // ==============================
 
-function updatePoolStatus() {
+/** No stratum connections is the idle miner, not a dead node: read the sidechain instead. */
+function updatePoolStatus(poolData) {
   const poolStatus = DOM["pool-status"];
-  const poolStatusText = DOM["pool-status-text"];
+  if (!poolStatus) return;
 
-  if (!poolStatus || !poolStatusText) return;
-
-  const isActive = state.oldStatsData?.connections > 0;
-  poolStatus.className = `dot ${isActive ? "is-live" : "is-down"}`;
-  poolStatusText.textContent = isActive ? "Active" : "Inactive";
+  const isSynced = poolData?.pool_statistics?.sidechainHeight > 0;
+  poolStatus.className = `dot ${isSynced ? "is-live" : "is-down"}`;
+  setTextContent("pool-status-text", isSynced ? "running" : "unreachable");
 }
 
-/**
- * The miner is KEDA-gated on excess solar, so "offline" is the expected
- * daily state rather than a fault — the pill says idle, not error.
- */
-function updateMinerState(xmrigOnline) {
-  if (!DOM.minerState) return;
-  DOM.minerState.className = `pill ${xmrigOnline ? "is-live" : "is-down"}`;
-  setTextContent("minerStateText", xmrigOnline ? "Mining" : "Idle");
-}
 
 function updateHashrate24hDisplay() {
   const el = DOM["user-hashrate-24h"];
@@ -947,7 +961,8 @@ function updateWorkersList() {
 
   const workers = state.oldStatsData?.workers;
   if (!Array.isArray(workers) || workers.length === 0) {
-    workersList.innerHTML = '<div class="no-workers">No miners connected</div>';
+    workersList.innerHTML =
+      '<div class="no-workers">No miners connected. xmrig is scaled to zero until there is surplus solar.</div>';
     return;
   }
 
@@ -972,7 +987,7 @@ function updateWorkersList() {
 }
 
 function updateOldDashboardStats(poolData) {
-  updatePoolStatus();
+  updatePoolStatus(poolData);
   updateHashrate24hDisplay();
   setTextContent("shares-found", state.oldStatsData?.shares_found ?? "–");
   setTextContent("shares-failed", state.oldStatsData?.shares_failed ?? "–");
@@ -984,6 +999,305 @@ function updateOldDashboardStats(poolData) {
     formatTime(state.oldStatsData?.last_share_found_time)
   );
   updateWorkersList();
+}
+
+// ==============================
+// TIDE TABLE
+// ==============================
+// KEDA runs xmrig only on surplus solar, so history reads per calendar day:
+// when the miner ran (high water), for how long, and what the day yielded.
+
+function startOfDay(ms) {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function shortDate(ms) {
+  const d = new Date(ms);
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
+}
+
+function clockTime(ms) {
+  const d = new Date(ms);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function hoursMinutes(ms) {
+  const minutes = Math.round(ms / 60000);
+  return `${Math.floor(minutes / 60)}:${pad2(minutes % 60)}`;
+}
+
+/** Median sample spacing; the server's bucket width depends on the range. */
+function sampleStepMs(timestamps) {
+  const diffs = timestamps.slice(1).map((t, i) => t - timestamps[i]);
+  diffs.sort((a, b) => a - b);
+  return (diffs[Math.floor(diffs.length / 2)] || 300) * 1000;
+}
+
+/**
+ * Split a /stats_history.json window into local calendar days, newest first.
+ * A null hashrate is "not recorded" (logger down or price-only backfill), which
+ * is kept apart from a recorded 0 H/s so it never reads as slack water.
+ */
+function splitDays(data, count) {
+  const stamps = data?.timestamps;
+  if (!Array.isArray(stamps) || stamps.length < 2) return null;
+  const stepMs = sampleStepMs(stamps);
+
+  // setDate rather than subtracting 24h, so DST days keep their own length
+  const days = Array.from({ length: count }, (_, i) => {
+    const start = new Date(startOfDay(Date.now()));
+    start.setDate(start.getDate() - i);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return {
+      start: start.getTime(),
+      end: end.getTime(),
+      stepMs,
+      points: [],
+      runs: [],
+      recorded: false,
+      minedMs: 0,
+      hashSum: 0,
+      peak: 0,
+      xmr: 0
+    };
+  });
+
+  stamps.forEach((t, i) => {
+    const ms = t * 1000;
+    const day = days.find((d) => ms >= d.start && ms < d.end);
+    if (!day) return;
+    const hash = data.myHash?.[i];
+    day.points.push([ms, hash]);
+    if (hash == null) return;
+    day.recorded = true;
+    if (!(hash > 0)) return;
+
+    day.minedMs += stepMs;
+    day.hashSum += hash;
+    day.peak = Math.max(day.peak, hash);
+    const net = data.netHash?.[i];
+    if (net > 0 && state.blockReward > 0) {
+      day.xmr +=
+        (hash / net) *
+        (stepMs / 1000 / CONFIG.BLOCK_TIME_SECONDS) *
+        state.blockReward;
+    }
+    // Adjacent mined samples merge into one window
+    const last = day.runs[day.runs.length - 1];
+    if (last && ms - last.end <= stepMs / 2) last.end = ms + stepMs;
+    else day.runs.push({ start: ms, end: ms + stepMs });
+  });
+  return days;
+}
+
+/** The tide curve: one day's hashrate as a filled step profile on a 1440x100 box. */
+function tideSvg(day, peak, { now = false, grid = true } = {}) {
+  const span = day.end - day.start;
+  const x = (ms) =>
+    Math.max(0, Math.min(1440, ((ms - day.start) / span) * 1440)).toFixed(1);
+  const y = (hash) => (100 - Math.min(1, hash / peak) * 92).toFixed(1);
+
+  const runs = [];
+  let run = null;
+  for (const [ms, hash] of day.points) {
+    if (!(hash > 0)) {
+      run = null;
+      continue;
+    }
+    if (!run || ms - run.end > day.stepMs / 2) {
+      run = { start: ms, end: ms, path: "" };
+      runs.push(run);
+    }
+    run.path += `V${y(hash)}H${x(ms + day.stepMs)}`;
+    run.end = ms + day.stepMs;
+  }
+  const area = runs.map((r) => `M${x(r.start)} 100${r.path}V100Z`).join("");
+
+  const parts = [];
+  if (grid) parts.push('<path class="tide__grid" d="M360 0V100M720 0V100M1080 0V100"/>');
+  if (area) parts.push(`<path class="tide__area" d="${area}"/>`);
+  parts.push('<line class="tide__base" x1="0" y1="100" x2="1440" y2="100"/>');
+  if (now && Date.now() < day.end) {
+    const nx = x(Date.now());
+    parts.push(`<rect class="tide__future" x="${nx}" y="0" width="${1440 - nx}" height="100"/>`);
+    parts.push(`<line class="tide__now" x1="${nx}" y1="0" x2="${nx}" y2="100"/>`);
+  }
+  return parts.join("");
+}
+
+function dayName(ms, index) {
+  if (index === 0) return "Today";
+  if (index === 1) return "Yesterday";
+  return new Date(ms).toLocaleDateString("en-GB", { weekday: "long" });
+}
+
+function renderWeek(days) {
+  if (!DOM.weekRows) return;
+  if (!days) {
+    DOM.weekRows.innerHTML =
+      '<tr><td colspan="7" class="tides__empty">The logger has no history to read yet.</td></tr>';
+    return;
+  }
+  const peak = Math.max(1, ...days.map((d) => d.peak));
+  state.weekPeak = peak;
+
+  DOM.weekRows.innerHTML = days
+    .map((day, i) => {
+      const mined = day.runs.length > 0;
+      const window = !day.recorded
+        ? "No record"
+        : mined
+          ? `${clockTime(day.runs[0].start)}–${clockTime(day.runs[day.runs.length - 1].end)}`
+          : i === 0
+            ? "None yet"
+            : "Slack all day";
+      const avg = mined ? scaleHashrate((day.hashSum * day.stepMs) / day.minedMs) : "–";
+      // A past slack day really earned 0; today simply has not had its window yet
+      const settled = day.recorded && (mined || i > 0);
+      const minedText = settled ? hoursMinutes(day.minedMs) : "–";
+      const xmr = mined ? day.xmr.toFixed(6) : settled ? "0" : "–";
+      const extra = mined ? ` · ${minedText} mined · avg ${avg}` : "";
+      const classes = [
+        i === 0 && "is-today",
+        mined && "is-mined",
+        day.recorded && !mined && "is-slack"
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return `
+        <tr class="${classes}">
+          <th scope="row">${dayName(day.start, i)}<span class="tides__date">${shortDate(day.start)}</span></th>
+          <td class="tides__curve">
+            <svg class="tide" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true">${tideSvg(day, peak, { now: i === 0 })}</svg>
+          </td>
+          <td class="tides__window">${window}<span class="tides__extra">${extra}</span></td>
+          <td class="num tides__stat">${minedText}</td>
+          <td class="num tides__stat">${avg}</td>
+          <td class="num tides__stat">${mined ? scaleHashrate(day.peak) : "–"}</td>
+          <td class="num tides__xmr">${xmr}</td>
+        </tr>`;
+    })
+    .join("");
+
+}
+
+function renderSeason(days) {
+  if (!DOM.seasonGrid || !days) return;
+  const peak = Math.max(1, ...days.map((d) => d.peak));
+  const ordered = [...days].reverse();
+  // Monday-first columns: pad the first week so every day sits under its weekday
+  const lead = (new Date(ordered[0].start).getDay() + 6) % 7;
+  const pad = '<div class="day day--pad" aria-hidden="true"></div>'.repeat(lead);
+
+  DOM.seasonGrid.innerHTML =
+    pad +
+    ordered
+      .map((day, i) => {
+        const date = new Date(day.start);
+        const isToday = i === ordered.length - 1;
+        const firstOfMonth = date.getDate() === 1;
+        const label = date.toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "numeric",
+          month: "short"
+        });
+        // 3h buckets cannot time a short burst, but the mean-based estimate holds
+        const summary = !day.recorded
+          ? "no record"
+          : day.runs.length
+            ? `est. ${day.xmr.toFixed(6)} XMR`
+            : "slack all day";
+        const classes = ["day", isToday && "is-today", !day.recorded && "is-unrecorded"]
+          .filter(Boolean)
+          .join(" ");
+        const dateText = firstOfMonth
+          ? date.toLocaleDateString("en-GB", { month: "short" })
+          : date.getDate();
+
+        return `<div class="${classes}" role="listitem" title="${label}: ${summary}" aria-label="${label}: ${summary}">
+          <span class="day__date${firstOfMonth ? " day__date--month" : ""}">${dateText}</span>
+          ${day.recorded ? `<svg class="tide" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true">${tideSvg(day, peak, { now: isToday, grid: false })}</svg>` : ""}
+        </div>`;
+      })
+      .join("");
+}
+
+/** "16:42" today, "yesterday 16:42", otherwise "Mon 20/10 16:42". */
+function whenText(ms) {
+  const today = startOfDay(Date.now());
+  if (ms >= today) return clockTime(ms);
+  if (ms >= startOfDay(today - 1)) return `yesterday ${clockTime(ms)}`;
+  const weekday = new Date(ms).toLocaleDateString("en-GB", { weekday: "short" });
+  return `${weekday} ${shortDate(ms)} ${clockTime(ms)}`;
+}
+
+/**
+ * The band answers "is it mining" first. Idle is the normal state, so slack
+ * water names the last window rather than showing zeros.
+ */
+function renderStateBand() {
+  if (!DOM.state || !state.live) return;
+  const { online, hash } = state.live;
+  const days = state.weekDays || [];
+  const lastIndex = days.findIndex((d) => d.runs.length);
+  const lastDay = days[lastIndex];
+  const last = lastDay?.runs.at(-1);
+  const today = days[0];
+
+  // Idle with no window yet today: show the last day that had one, not an empty box
+  const index = online || today?.runs.length ? 0 : Math.max(lastIndex, 0);
+  if (DOM.todayTide && days[index]) {
+    DOM.todayTide.innerHTML = tideSvg(days[index], state.weekPeak, { now: index === 0 });
+    setTextContent(
+      "tideCaption",
+      index === 0 ? "Today" : `${dayName(days[index].start, index)}, the last high water`
+    );
+  }
+
+  DOM.state.dataset.state = online ? "high" : "slack";
+  if (online) {
+    // A window still open at the latest bucket started this run
+    const running = last && Date.now() - last.end < 3 * (today?.stepMs || 0);
+    setTextContent("stateLine", "High water");
+    setTextContent("stateFigure", scaleHashrate(hash));
+    setTextContent(
+      "stateDetail",
+      running
+        ? `Running on surplus solar since ${whenText(last.start)}.`
+        : "Running on surplus solar."
+    );
+    return;
+  }
+
+  setTextContent("stateLine", "Slack water");
+  setTextContent("stateFigure", last ? `since ${whenText(last.end)}` : "");
+  setTextContent(
+    "stateDetail",
+    last
+      ? `Last high water ${clockTime(lastDay.runs[0].start)}–${clockTime(last.end)}, ${hoursMinutes(lastDay.minedMs)} mined. The miner runs on surplus solar.`
+      : "No high water in the last 7 days. The miner runs on surplus solar."
+  );
+}
+
+async function refreshWeek() {
+  if (!state.isTabVisible) return;
+  const data = await fetchJSON(
+    `/stats_history.json?hours=${CONFIG.WEEK_DAYS * 24}&points=${CONFIG.WEEK_DAYS * 288}`
+  );
+  if (!data) return;
+  state.weekDays = splitDays(data, CONFIG.WEEK_DAYS);
+  renderWeek(state.weekDays);
+  renderStateBand();
+}
+
+async function refreshSeason() {
+  if (!state.isTabVisible) return;
+  const data = await fetchJSON(`/stats_history.json?hours=${CONFIG.SEASON_DAYS * 24}`);
+  if (data) renderSeason(splitDays(data, CONFIG.SEASON_DAYS));
 }
 
 // ==============================
@@ -1050,7 +1364,11 @@ function calculatePayoutInterval(
   const intervalHours = (minPaymentThreshold / xmrPerBlock) * 24;
   return {
     intervalHours,
-    intervalText: `~${intervalHours.toFixed(1)}h/payout`
+    // Weeks between payouts are normal at this hashrate; days read better than 697h
+    intervalText:
+      intervalHours >= 48
+        ? `~${Math.round(intervalHours / 24)} days`
+        : `~${intervalHours.toFixed(1)} h`
   };
 }
 
@@ -1082,8 +1400,7 @@ function updateStatsDisplay(
   poolShare,
   priceEUR,
   earnings,
-  payoutInfo,
-  avgWindowHours
+  payoutInfo
 ) {
   setTextContent("myHashrate", scaleHashrate(myHash));
   setTextContent("myHashrateLabel", myHashLabel);
@@ -1093,17 +1410,12 @@ function updateStatsDisplay(
   setTextContent("poolShare", poolShare > 0 ? `${poolShare.toFixed(4)}%` : "–");
   setTextContent("price", `€${priceEUR.toFixed(2)}`);
   setTextContent("earnXMR", `${earnings.xmr.toFixed(6)} XMR`);
-  setTextContent("earnEUR", `≈ €${earnings.eur.toFixed(2)}`);
+  setTextContent("earnEUR", eurText(earnings.eur));
 
-  setTextContent(
-    "earnLegend",
-    `Based on ${avgWindowText(avgWindowHours)} moving average`
-  );
-
-  setTextContent("lastRefreshed", `Updated ${formatDate24(new Date())}`);
+  setTextContent("lastRefreshed", `Updated ${formatDate24Hours(new Date())}`);
   setTextContent("payoutInterval", payoutInfo.intervalText);
 
-  const tooltipIcon = document.querySelector(".bottom-stats .info");
+  const tooltipIcon = document.getElementById("payoutTerm");
   if (tooltipIcon && payoutInfo.intervalHours !== null) {
     tooltipIcon.title = `Average payout interval: ~${payoutInfo.intervalHours.toFixed(1)} hours\nYour actual payouts can be shorter or longer, depending on mining luck.`;
   }
@@ -1135,7 +1447,6 @@ async function updateStats() {
     applyChartWindow(chartWindow);
 
     const xmrigOnline = isValidObject(xmrigData);
-    updateMinerState(xmrigOnline);
     const instMyHash = xmrigOnline ? extractXMRigHashrate(xmrigData) : 0;
     const instPoolHash = extractPoolHashrate(poolData);
     const instNetHash = calculateNetworkHashrate(networkData);
@@ -1161,6 +1472,10 @@ async function updateStats() {
       ? [instMyHash, "Your hashrate"]
       : [avgMyHash, `Your hashrate, ${avgWindowText(avgWindowHours)} avg`];
     const poolShare = instPoolHash > 0 ? (myHash / instPoolHash) * 100 : 0;
+
+    state.live = { online: xmrigOnline, hash: instMyHash };
+    state.blockReward = blockReward;
+    renderStateBand();
 
     const priceEUR =
       state.history?.price?.[state.history.price.length - 1] || 0;
@@ -1188,15 +1503,14 @@ async function updateStats() {
       poolShare,
       priceEUR,
       earnings,
-      payoutInfo,
-      avgWindowHours
+      payoutInfo
     );
     updateEarningsTooltip(avgMyHash, avgPoolHash, avgNetHash, avgWindowHours);
 
     // Fetch observer data once — shared by payments, shares, and luck
     // Note: p2pool.observer /shares does NOT support ?miner= filter,
     // so we fetch all recent shares and filter client-side.
-    const [payouts, allShares, poolInfo] =
+    const fetched =
       state.observerBase && state.observerWallet
         ? await Promise.all([
             fetchJSON(`/observer/payouts/${state.observerWallet}`),
@@ -1204,6 +1518,7 @@ async function updateStats() {
             fetchJSON("/observer/pool_info")
           ])
         : [null, null, null];
+    const [payouts, allShares, poolInfo] = fetched;
 
     // Filter shares to only this miner's
     // Note: API returns `miner` as a numeric ID, so we match on `miner_address`
@@ -1257,6 +1572,13 @@ async function updateStats() {
 }
 
 function handleStatsError() {
+  if (!state.live) {
+    setTextContent("stateLine", "No reading");
+    setTextContent(
+      "stateDetail",
+      "The dashboard server did not answer. Retrying every 10 seconds."
+    );
+  }
   const errorElements = [
     "myHashrate",
     "poolHashrate",
@@ -1283,6 +1605,7 @@ function handleVisibilityChange() {
   state.isTabVisible = !document.hidden;
   if (state.isTabVisible) {
     updateStats();
+    refreshWeek();
   }
 }
 
@@ -1348,8 +1671,13 @@ async function initialize() {
 
   // updateStats() refetches /stats_log.json and calls initializeCharts() itself
   await updateStats();
+  // After the first poll: the day estimates need the block reward it reads
+  refreshWeek();
+  refreshSeason();
 
   setInterval(updateStats, CONFIG.REFRESH_INTERVAL_MS);
+  setInterval(refreshWeek, CONFIG.WEEK_REFRESH_MS);
+  setInterval(refreshSeason, CONFIG.SEASON_REFRESH_MS);
 }
 
 initialize();

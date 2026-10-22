@@ -220,18 +220,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_json(data)
 
     def serve_history(self, query):
-        """Serve a bounded, downsampled window for the charts: ?hours=<float>."""
+        """Serve a bounded, downsampled window: ?hours=<float>&points=<int>."""
+        params = parse_qs(query)
         try:
-            hours = float(parse_qs(query).get("hours", ["24"])[0])
+            hours = float(params.get("hours", ["24"])[0])
         except ValueError:
             hours = 24.0
+        # The tide table asks for a week at the rollup's own 5-minute resolution
+        try:
+            points = int(params.get("points", [CHART_MAX_POINTS])[0])
+        except ValueError:
+            points = CHART_MAX_POINTS
+        points = min(max(points, 1), ROLLUP_MAX_AGE // ROLLUP_INTERVAL)
         if not math.isfinite(hours):
             hours = 24.0
         hours = min(max(hours, 0.1), ROLLUP_MAX_AGE / 3600)
         # The 10s log only reaches back MAX_LOG_AGE; beyond that the rollup is
         # the only source, and inside it the fine samples give a truer shape.
         source = log if hours * 3600 <= MAX_LOG_AGE else rollup
-        self.send_json(break_gaps(downsample(source, hours)))
+        self.send_json(break_gaps(downsample(source, hours, points)))
 
     def proxy_observer_api(self):
         """Proxy requests to p2pool.observer API to avoid CORS issues in browser.

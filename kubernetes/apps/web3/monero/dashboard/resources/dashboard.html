@@ -11,7 +11,14 @@
     />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap"
+    />
     <link rel="stylesheet" href="dashboard.css" />
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -20,61 +27,217 @@
   </head>
 
   <body>
-    <header class="masthead">
-      <div>
-        <h1>P2Pool</h1>
-        <p class="masthead__sub">Solar-gated Monero mining</p>
-      </div>
-      <div class="masthead__state">
-        <span class="pill" id="minerState">
-          <span class="pill__dot"></span>
-          <span id="minerStateText">Connecting</span>
-        </span>
-        <span class="masthead__stamp" id="lastRefreshed"></span>
-      </div>
+    <header class="bar">
+      <p class="bar__name">
+        P2Pool <span class="bar__sub">Solar-gated Monero miner</span>
+      </p>
+      <span class="bar__stamp" id="lastRefreshed"></span>
     </header>
 
     <main>
-      <!-- Headline figures, glanceable without scrolling -->
-      <section class="overview" aria-label="Current figures">
-        <div class="metric">
-          <span class="metric__label" id="myHashrateLabel">Your hashrate</span>
-          <span class="metric__value" id="myHashrate"
-            ><span class="skeleton"></span
-          ></span>
-          <span class="metric__note">
-            <span id="poolShare">–</span> of pool
-          </span>
+      <!-- The miner only runs on surplus solar: high water or slack water -->
+      <section
+        class="state"
+        id="state"
+        data-state="unknown"
+        aria-labelledby="stateLine"
+      >
+        <div class="state__text" aria-live="polite">
+          <h1 class="state__line">
+            <span id="stateLine">Reading the gauge</span>
+            <span class="state__figure" id="stateFigure"></span>
+          </h1>
+          <p class="state__detail" id="stateDetail">&nbsp;</p>
         </div>
-        <div class="metric">
-          <span class="metric__label">XMR price</span>
-          <span class="metric__value" id="price"
-            ><span class="skeleton"></span
-          ></span>
-          <span class="metric__note">EUR, spot</span>
-        </div>
-        <div class="metric">
-          <span class="metric__label">Total earned</span>
-          <span class="metric__value" id="totalEarned"
-            ><span class="skeleton"></span
-          ></span>
-          <span class="metric__note" id="totalEurEarned">–</span>
-        </div>
-        <div class="metric">
-          <span class="metric__label">Pool hashrate</span>
-          <span class="metric__value metric__value--sm" id="poolHashrate"
-            ><span class="skeleton"></span
-          ></span>
-          <span class="metric__note">
-            network <span id="netHashrate">–</span>
-          </span>
-        </div>
+        <figure class="state__tide">
+          <svg
+            class="tide tide--lg"
+            id="todayTide"
+            viewBox="0 0 1440 100"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label="Today's hashrate by hour"
+          ></svg>
+          <figcaption>
+            <span class="hours" aria-hidden="true">
+              <span>00</span><span>06</span><span>12</span><span>18</span
+              ><span>24</span>
+            </span>
+            <span class="state__caption" id="tideCaption">Today</span>
+          </figcaption>
+        </figure>
       </section>
 
-      <!-- Trends: one range control drives both charts -->
-      <section aria-labelledby="trendsHeading">
-        <div class="section-head">
-          <h2 id="trendsHeading">Trends</h2>
+      <div class="sheets">
+        <section class="sheet sheet--tides" aria-labelledby="weekHeading">
+          <h2 class="sheet__title" id="weekHeading">Last 7 days</h2>
+          <table class="tides">
+            <thead>
+              <tr>
+                <th scope="col">Day</th>
+                <th scope="col" class="tides__curve-head">
+                  <span class="hours" aria-hidden="true">
+                    <span>00</span><span>06</span><span>12</span><span>18</span
+                    ><span>24</span>
+                  </span>
+                  <span class="visually-hidden">Hashrate by hour</span>
+                </th>
+                <th scope="col">Window</th>
+                <th scope="col" class="num">Mined</th>
+                <th scope="col" class="num">Avg</th>
+                <th scope="col" class="num">Peak</th>
+                <th scope="col" class="num">
+                  <span
+                    class="term"
+                    tabindex="0"
+                    title="Estimated from that day's hashrate share of the network and the current block reward"
+                    >Est. XMR</span
+                  >
+                </th>
+              </tr>
+            </thead>
+            <tbody id="weekRows">
+              <tr>
+                <td colspan="7" class="tides__empty">Reading the log</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2 class="sheet__title sheet__title--sub" id="seasonHeading">
+            90 days
+          </h2>
+          <div class="season" aria-labelledby="seasonHeading">
+            <div class="season__head" aria-hidden="true">
+              <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span
+              ><span>Fri</span><span>Sat</span><span>Sun</span>
+            </div>
+            <div class="season__grid" id="seasonGrid" role="list"></div>
+          </div>
+        </section>
+
+        <aside class="sheet ledger" aria-labelledby="ledgerHeading">
+          <h2 class="sheet__title" id="ledgerHeading">Ledger</h2>
+
+          <dl class="ledger__list">
+            <div class="ledger__row ledger__row--lead">
+              <dt>Total earned</dt>
+              <dd>
+                <span class="ledger__value" id="totalEarned"
+                  ><span class="skeleton"></span
+                ></span>
+                <span class="ledger__note" id="totalEurEarned"></span>
+              </dd>
+            </div>
+
+            <div class="ledger__row">
+              <dt>
+                <span class="term" id="earnTooltip" tabindex="0"
+                  >Estimate</span
+                >
+                <label class="select">
+                  <span class="visually-hidden">Earnings period</span>
+                  <select id="earnPeriod">
+                    <option value="hour">per hour</option>
+                    <option value="day" selected>per day</option>
+                    <option value="week">per week</option>
+                    <option value="month">per month</option>
+                    <option value="year">per year</option>
+                  </select>
+                </label>
+              </dt>
+              <dd>
+                <span class="ledger__value" id="earnXMR"
+                  ><span class="skeleton"></span
+                ></span>
+                <span class="ledger__note" id="earnEUR"></span>
+              </dd>
+            </div>
+
+            <div class="ledger__row">
+              <dt>
+                <span class="term" id="payoutTerm" tabindex="0"
+                  >Payout interval</span
+                >
+              </dt>
+              <dd><span class="ledger__value" id="payoutInterval">–</span></dd>
+            </div>
+
+            <div class="ledger__row">
+              <dt id="myHashrateLabel">Your hashrate</dt>
+              <dd>
+                <span class="ledger__value" id="myHashrate"
+                  ><span class="skeleton"></span
+                ></span>
+              </dd>
+            </div>
+
+            <div class="ledger__row">
+              <dt>XMR price</dt>
+              <dd>
+                <span class="ledger__value" id="price"
+                  ><span class="skeleton"></span
+                ></span>
+              </dd>
+            </div>
+          </dl>
+
+          <h3 class="ledger__heading">
+            <span class="term" id="luckTooltip" tabindex="0"
+              >This PPLNS window</span
+            >
+          </h3>
+          <dl class="ledger__list ledger__list--pair">
+            <div class="ledger__row">
+              <dt>Accumulated</dt>
+              <dd>
+                <span class="ledger__value" id="xmrThisWindow">–</span>
+                <span class="ledger__note" id="eurThisWindow"></span>
+              </dd>
+            </div>
+            <div class="ledger__row">
+              <dt>Luck</dt>
+              <dd>
+                <span class="ledger__value" id="luckFactor">–</span>
+              </dd>
+            </div>
+            <div class="ledger__row">
+              <dt>
+                <span class="term" id="trueLuckTooltip" tabindex="0"
+                  >True luck</span
+                >
+              </dt>
+              <dd>
+                <span class="ledger__value" id="trueLuckFactor">–</span>
+              </dd>
+            </div>
+            <div class="ledger__row">
+              <dt>Shares since payout</dt>
+              <dd>
+                <span class="ledger__value" id="sharesSinceLastPayout">–</span>
+              </dd>
+            </div>
+          </dl>
+
+          <h3 class="ledger__heading">
+            Payouts <span class="ledger__status" id="paymentsStatus"></span>
+          </h3>
+          <table class="payouts" id="paymentsTable">
+            <thead>
+              <tr>
+                <th scope="col">When</th>
+                <th scope="col" class="num">XMR</th>
+                <th scope="col" class="num">EUR</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </aside>
+      </div>
+
+      <!-- One range control drives both charts -->
+      <section class="trends" aria-labelledby="trendsHeading">
+        <div class="trends__head">
+          <h2 class="sheet__title" id="trendsHeading">Trends</h2>
           <div
             class="range"
             id="rangeControl"
@@ -103,9 +266,9 @@
           </div>
         </div>
 
-        <div class="trends__grid">
-          <article class="panel">
-            <h3 class="panel__title">Hashrate</h3>
+        <div class="sheet trends__grid">
+          <figure class="chart-sheet">
+            <figcaption class="chart-sheet__title">Your hashrate</figcaption>
             <div class="chart">
               <canvas id="hashrateChart"></canvas>
               <p class="chart__empty" id="hashrateEmpty" hidden>
@@ -113,205 +276,102 @@
                 logger runs.
               </p>
             </div>
-          </article>
-
-          <article class="panel">
-            <h3 class="panel__title">XMR price</h3>
+          </figure>
+          <figure class="chart-sheet">
+            <figcaption class="chart-sheet__title">XMR price, EUR</figcaption>
             <div class="chart">
               <canvas id="priceChart"></canvas>
               <p class="chart__empty" id="priceEmpty" hidden>
                 No samples in this range yet.
               </p>
             </div>
-          </article>
+          </figure>
         </div>
       </section>
 
-      <section class="panels" aria-label="Mining detail">
-        <article class="panel">
-          <div class="panel__head">
-            <h3 class="panel__title">Estimated earnings</h3>
-            <label class="select">
-              <span class="visually-hidden">Earnings period</span>
-              <select id="earnPeriod">
-                <option value="hour">per hour</option>
-                <option value="day" selected>per day</option>
-                <option value="week">per week</option>
-                <option value="month">per month</option>
-                <option value="year">per year</option>
-              </select>
-            </label>
-          </div>
-          <p class="figure">
-            <span id="earnXMR"><span class="skeleton"></span></span>
-            <span class="info" id="earnTooltip" tabindex="0" role="note"
-              >i</span
-            >
-          </p>
-          <p class="figure__note" id="earnEUR">–</p>
-          <p class="footnote" id="earnLegend">–</p>
-          <dl class="facts bottom-stats">
+      <details class="node" id="nodeDetails">
+        <summary class="node__summary">
+          <span class="sheet__title">Pool &amp; node</span>
+          <span class="node__glance">
+            <span class="dot" id="pool-status"></span>
+            p2pool <span id="pool-status-text">unknown</span> · pool
+            <span class="is-water" id="poolHashrate">–</span> · network
+            <span class="is-water" id="netHashrate">–</span>
+          </span>
+        </summary>
+
+        <div class="node__body">
+          <dl class="facts">
             <div class="fact">
-              <dt>Payout interval <span class="info">i</span></dt>
-              <dd id="payoutInterval">–</dd>
+              <dt>Your share of pool</dt>
+              <dd id="poolShare">–</dd>
+            </div>
+            <div class="fact">
+              <dt>Uncles since payout</dt>
+              <dd id="unclesSinceLastPayout">–</dd>
             </div>
             <div class="fact">
               <dt>Block reward</dt>
               <dd><span id="blockReward">–</span> XMR</dd>
             </div>
-          </dl>
-        </article>
-
-        <article class="panel panel--wide">
-          <h3 class="panel__title">Luck</h3>
-          <div class="luck">
-            <section class="luck__part">
-              <h4 class="luck__label">
-                PPLNS window
-                <span class="info" id="luckTooltip" tabindex="0" role="note"
-                  >i</span
-                >
-              </h4>
-              <p class="figure figure--sm">
-                <span id="luckFactor">–</span>&#8288;⨯
-              </p>
-              <p class="figure__note">
-                <span id="xmrThisWindow">0.000000</span> XMR accumulated
-              </p>
-              <p class="figure__note" id="eurThisWindow">–</p>
-              <p class="footnote">
-                Only true if the pool mines its expected blocks for this
-                window's network share and average effort; minimum payout
-                0.00027 XMR.
-              </p>
-              <dl class="facts">
-                <div class="fact">
-                  <dt>Window start</dt>
-                  <dd id="pplnsStart">–</dd>
-                </div>
-                <div class="fact">
-                  <dt>Window hashrate</dt>
-                  <dd id="dayHash">–</dd>
-                </div>
-                <div class="fact">
-                  <dt>Pool effort</dt>
-                  <dd><span id="currentEffort">–</span>%</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section class="luck__part">
-              <h4 class="luck__label">
-                Estimated true
-                <span class="info" id="trueLuckTooltip" tabindex="0" role="note"
-                  >i</span
-                >
-              </h4>
-              <p class="figure figure--sm">
-                <span id="trueLuckFactor">–</span>&#8288;⨯
-              </p>
-              <p class="figure__note" id="trueLuckWindow">–</p>
-              <p class="footnote">
-                Longer windows reduce accuracy; uses a 24h moving average of
-                hashrates.
-              </p>
-            </section>
-          </div>
-        </article>
-
-        <article class="panel">
-          <h3 class="panel__title">Shares &amp; uncles</h3>
-          <div class="pair">
-            <p class="figure figure--sm" id="sharesSinceLastPayout">–</p>
-            <p class="figure__note">Shares since last payout</p>
-          </div>
-          <div class="pair">
-            <p class="figure figure--sm" id="unclesSinceLastPayout">–</p>
-            <p class="figure__note">Uncles since last payout</p>
-          </div>
-          <dl class="facts">
             <div class="fact">
-              <dt>Shares, all time</dt>
-              <dd id="totalSharesMined">–</dd>
+              <dt>Pool effort</dt>
+              <dd><span id="currentEffort">–</span>%</dd>
             </div>
             <div class="fact">
-              <dt>Uncles, all time</dt>
-              <dd id="totalUnclesMined">–</dd>
-            </div>
-          </dl>
-        </article>
-
-        <article class="panel panel--wide">
-          <div class="panel__head">
-            <h3 class="panel__title">Recent payments</h3>
-            <span class="footnote" id="paymentsStatus"></span>
-          </div>
-          <div class="table-scroll">
-            <table id="paymentsTable">
-              <thead>
-                <tr>
-                  <th scope="col">Time</th>
-                  <th scope="col" class="cell-right">XMR</th>
-                  <th scope="col" class="cell-right">€</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </article>
-      </section>
-
-      <section class="panels" aria-label="Pool and workers">
-        <article class="panel panel--wide">
-          <h3 class="panel__title">Pool status</h3>
-          <dl class="facts facts--grid">
-            <div class="fact">
-              <dt>Pool</dt>
-              <dd>
-                <span class="dot" id="pool-status"></span>
-                <span id="pool-status-text">Unknown</span>
-              </dd>
+              <dt>PPLNS window start</dt>
+              <dd id="pplnsStart">–</dd>
             </div>
             <div class="fact">
-              <dt>Your hashrate, 24h</dt>
+              <dt>Your window hashrate</dt>
+              <dd id="dayHash">–</dd>
+            </div>
+            <div class="fact">
+              <dt>Your hashrate, 24h (p2pool)</dt>
               <dd id="user-hashrate-24h">–</dd>
-            </div>
-            <div class="fact">
-              <dt>Shares found</dt>
-              <dd id="shares-found">–</dd>
-            </div>
-            <div class="fact">
-              <dt>Shares failed</dt>
-              <dd id="shares-failed">–</dd>
-            </div>
-            <div class="fact">
-              <dt>Connections</dt>
-              <dd id="connections">–</dd>
             </div>
             <div class="fact">
               <dt>Block reward share</dt>
               <dd id="reward-share">–</dd>
             </div>
             <div class="fact">
-              <dt>Blocks found</dt>
-              <dd id="blocks-found">–</dd>
+              <dt>Shares found / failed</dt>
+              <dd>
+                <span id="shares-found">–</span> /
+                <span id="shares-failed">–</span>
+              </dd>
+            </div>
+            <div class="fact">
+              <dt>Shares / uncles, all time</dt>
+              <dd>
+                <span id="totalSharesMined">–</span> /
+                <span id="totalUnclesMined">–</span>
+              </dd>
+            </div>
+            <div class="fact">
+              <dt>Stratum connections</dt>
+              <dd id="connections">–</dd>
             </div>
             <div class="fact">
               <dt>Last share</dt>
               <dd id="last-share-time">–</dd>
             </div>
             <div class="fact">
+              <dt>Blocks found</dt>
+              <dd id="blocks-found">–</dd>
+            </div>
+            <div class="fact">
               <dt>Last block</dt>
               <dd id="last-block-time">–</dd>
             </div>
           </dl>
-        </article>
 
-        <article class="panel">
-          <h3 class="panel__title">Connected miners</h3>
-          <div id="workers-list" class="workers"></div>
-        </article>
-      </section>
+          <div class="workers-sheet">
+            <h3 class="ledger__heading">Connected miners</h3>
+            <div id="workers-list" class="workers"></div>
+          </div>
+        </div>
+      </details>
     </main>
 
     <script src="dashboard.js"></script>
