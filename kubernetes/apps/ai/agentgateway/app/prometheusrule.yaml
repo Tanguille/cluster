@@ -15,13 +15,13 @@ spec:
         # omniroute failing after its fallback is AgentgatewayFallbackTargetUnavailable.
         - alert: AgentgatewayRequestsFailing
           expr: |-
-            sum by (model, status) (
+            sum by (model) (
               increase(agentgateway_requests_total{namespace="ai", listener="models", model!="omniroute", status=~"5.."}[15m])
             ) > 2
           for: 10m
           annotations:
             summary: >-
-              agentgateway is returning {{ $labels.status }} for
+              agentgateway is returning 5xx for
               {{ $labels.model }} — the fallback chain is not covering it
           labels:
             severity: critical
