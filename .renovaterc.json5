@@ -11,6 +11,10 @@
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
+  // Appends to the preset's list: the kubernetes manager cannot see a split repository/tag image in a ResourceSet.
+  "helm-values": {
+    managerFilePatterns: ["/(^|/)resourceset\\.ya?ml$/"]
+  },
   // The operator webhook starts a run on any ticked dashboard checkbox; Renovate resets it on rewrite.
   dependencyDashboardFooter: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository",
   // The Main ruleset does not require up-to-date branches, and `auto` would
@@ -140,6 +144,16 @@
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
       datasourceTemplate: "npm"
+    },
+    {
+      // The preset's oci:// manager reads "tag@sha256:..." as one version and skips it as invalid-value.
+      description: "Digest-pinned oci:// references",
+      customType: "regex",
+      managerFilePatterns: ["/\\.ya?ml(?:\\.j2)?$/"],
+      matchStrings: [
+        "oci://(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      datasourceTemplate: "docker"
     }
   ],
   packageRules: [
