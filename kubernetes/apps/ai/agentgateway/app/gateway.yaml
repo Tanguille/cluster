@@ -49,23 +49,14 @@ spec:
       kind: AgentgatewayParameters
       name: agentgateway
   listeners:
-    # Clients: authenticates, then sends chat to Headroom, which compresses and comes back on
-    # the models listener. Everything else goes straight to the models listener.
-    # Clients use agentgateway.ai.svc.cluster.local:4000; kritika's egress policy allows 4000.
+    # Clients (clients.yaml) use agentgateway.ai.svc.cluster.local:4000; kritika's egress policy allows 4000.
     - name: http
       port: 4000
       protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: Same
-    # Routes on the model name to the inference backends. Reached from the http listener and
-    # from Headroom, both carrying the internal credential (agentgateway-internal-key).
+    # Model routing (models.yaml), internal key only.
     - name: models
       port: 8080
       protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: Same
 ---
 # Route types by path, on both listeners. Unmapped paths default to Completions, which would
 # parse an Anthropic or rerank body as a chat completion.

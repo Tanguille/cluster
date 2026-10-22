@@ -48,15 +48,9 @@ spec:
       config:
         data:
           nginx.conf: |
-            worker_processes 1;
             pid /tmp/nginx.pid;
             events { worker_connections 1024; }
             http {
-              client_body_temp_path /tmp/client_body;
-              proxy_temp_path /tmp/proxy;
-              fastcgi_temp_path /tmp/fastcgi;
-              uwsgi_temp_path /tmp/uwsgi;
-              scgi_temp_path /tmp/scgi;
               log_format cache '$remote_addr "$request" $status $body_bytes_sent $request_time cache=$upstream_cache_status';
               access_log /dev/stdout cache;
               error_log /dev/stderr warn;
@@ -71,8 +65,6 @@ spec:
                 client_body_buffer_size 16m;
                 location / {
                   proxy_pass http://embeddinggemma-2.ai.svc.cluster.local:8080;
-                  proxy_http_version 1.1;
-                  proxy_set_header Connection "";
                   # embeddinggemma-2's 194-item batch is ~7.4s; toolhive gives up at 120s.
                   proxy_read_timeout 600s;
                   proxy_cache embeddings;

@@ -38,12 +38,6 @@ kind: AgentgatewayBackend
 metadata:
   name: headroom
 spec:
-  # Past the longest inner chain (Headroom's 2000s, itself past omniroute's 150s plus the
-  # 1800s qwen-3.8 fallback), so the models listener or Headroom always answers first. A
-  # timeout here has no status code and would replay the whole call uncompressed.
-  policies:
-    http:
-      requestTimeout: 2100s
   ai:
     groups:
       - providers:
@@ -58,10 +52,10 @@ spec:
                 - type: AnthropicTokenCount
                 - type: Responses
             policies:
+              # Replaces the listener's credentials (agentgateway-clients-auth), so it repeats the internal key.
               auth:
                 credentials:
-                  - &internalKey
-                    secretRef:
+                  - secretRef:
                       name: agentgateway-internal-key
                       key: key
                     location:
@@ -86,10 +80,6 @@ spec:
             host: agentgateway.ai.svc.cluster.local
             port: 8080
             custom: *passthrough
-            policies:
-              auth:
-                credentials:
-                  - *internalKey
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaybackend_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
@@ -111,17 +101,6 @@ spec:
         /v1/embeddings: Embeddings
         /v1/rerank: Rerank
         "*": Passthrough
-    auth:
-      credentials:
-        - secretRef:
-            name: agentgateway-internal-key
-            key: key
-          location:
-            header:
-              name: Authorization
-              prefix: "Bearer "
-    http:
-      requestTimeout: 2100s
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
@@ -155,16 +134,33 @@ spec:
             local:
               - requests: 30
                 unit: Minutes
-                key: apiKey.user_id
     # Backup to Headroom's HEADROOM_ALLOWED_BASE_URLS: this header alone would turn Headroom into
     # a relay. The other x-headroom-* request headers only tune or tag the caller's own request.
     headerModifiers:
       request:
         remove:
           - x-headroom-base-url
+  # Every backend on this listener calls back into agentgateway (via Headroom or directly), so
+  # all of them carry the internal key.
+  backend:
+    auth:
+      credentials:
+        - secretRef:
+            name: agentgateway-internal-key
+            key: key
+          location:
+            header:
+              name: Authorization
+              prefix: "Bearer "
+    http:
+      # Past the longest inner chain (Headroom's 2000s, itself past omniroute's 150s plus the
+      # 1800s qwen-3.8 fallback), so the models listener or Headroom always answers first. A
+      # timeout here has no status code and would replay the whole call uncompressed.
+      requestTimeout: 2100s
 ---
-# Retries a request whose Headroom hop failed (now evicted) on the uncompressed group. A
-# models-listener failure already had its own retries, so it is not repeated here.
+# Retries a request whose Headroom hop got no answer (refused, reset or timed out; Headroom is
+# then evicted) on the uncompressed group. No codes: a status is the models listener answering
+# after its own retries, so it is not repeated here.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -180,4 +176,3 @@ spec:
     retry:
       attempts: 1
       backoff: 100ms
-      condition: "!has(response.code)"
