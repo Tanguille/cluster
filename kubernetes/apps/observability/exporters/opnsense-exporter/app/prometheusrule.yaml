@@ -24,7 +24,9 @@ spec:
           # node_exporter keeps serving the last unbound.prom if the per-minute cron stops.
           expr: |-
             time() - max(node_textfile_mtime_seconds{nodename="opnsense",file=~".*unbound.prom"}) > 300
-              or absent(node_textfile_mtime_seconds{nodename="opnsense",file=~".*unbound.prom"})
+              or absent(max(node_textfile_mtime_seconds{nodename="opnsense",file=~".*unbound.prom"}))
+          # absent() over max() keeps the label set empty like the age branch, so a vanished
+          # file stays the same alert instead of resolving it and restarting the `for` timer.
           # 5m age + 5m hold = paged at 10m stale, as the summary says.
           for: 5m
           annotations:
