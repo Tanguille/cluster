@@ -5,10 +5,6 @@ kind: AgentgatewayBackend
 metadata:
   name: omniroute
 spec:
-  # The qwen-3.8 fallback's ceiling; omniroute's own 150s below overrides it.
-  policies:
-    http:
-      requestTimeout: 1800s
   ai:
     groups:
       # smart-free is a persisted omniroute combo (Logfare DeepSeek V4.1 Flash 1017, GLM 5.3, MiniMax
@@ -90,10 +86,8 @@ metadata:
   name: omniroute
 spec:
   parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
+    - kind: HTTPRoute
       name: agentgateway-models
-      sectionName: models
   provider: Custom
   custom:
     backendRef:

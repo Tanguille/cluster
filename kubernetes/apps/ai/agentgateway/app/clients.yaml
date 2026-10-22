@@ -156,27 +156,12 @@ spec:
               - requests: 30
                 unit: Minutes
                 key: apiKey.user_id
-    # Headroom honours these per request; x-headroom-base-url alone would turn it into an open
-    # relay for anything that can reach this listener.
+    # Backup to Headroom's HEADROOM_ALLOWED_BASE_URLS: this header alone would turn Headroom into
+    # a relay. The other x-headroom-* request headers only tune or tag the caller's own request.
     headerModifiers:
       request:
         remove:
           - x-headroom-base-url
-          - x-headroom-bypass
-          - x-headroom-mode
-          - x-headroom-keep-last-turns
-          - x-headroom-original-path
-          - x-headroom-key
-          - x-headroom-proxy-token
-          - x-headroom-session-token
-          - x-headroom-session-id
-          - x-headroom-user-id
-          - x-headroom-tenant-id
-          - x-headroom-stack
-          - x-headroom-cwd
-          - x-headroom-project
-          - x-headroom-project-id
-          - x-headroom-model
 ---
 # Retries a request whose Headroom hop failed (now evicted) on the uncompressed group. A
 # models-listener failure already had its own retries, so it is not repeated here.

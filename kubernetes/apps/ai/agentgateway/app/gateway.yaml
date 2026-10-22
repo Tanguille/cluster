@@ -92,7 +92,7 @@ spec:
 # Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
 # the http listener), which model (models listener) and whether the embedding cache answered. A missing value reads "unknown".
 # user_agent only once a key matched: a client-chosen value on rejected requests would mint a
-# series per request.
+# series per request. Product token only, so a client upgrade keeps its series.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -108,7 +108,7 @@ spec:
       attributes:
         add:
           - name: user_agent
-            expression: 'has(apiKey.user_id) ? request.headers["user-agent"] : "anonymous"'
+            expression: 'has(apiKey.user_id) ? request.headers["user-agent"].split("/")[0] : "anonymous"'
           - name: user_id
             expression: apiKey.user_id
           - name: cache_status

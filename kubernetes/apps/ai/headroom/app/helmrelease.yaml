@@ -42,6 +42,9 @@ spec:
               # model name; Headroom appends the /v1/... path itself.
               OPENAI_TARGET_API_URL: &models http://agentgateway.ai.svc.cluster.local:8080
               ANTHROPIC_TARGET_API_URL: *models
+              # Allow-only mode for x-headroom-base-url: an override to any other host is ignored
+              # or rejected, so it cannot carry the forwarded internal key off-cluster.
+              HEADROOM_ALLOWED_BASE_URLS: agentgateway.ai.svc.cluster.local
               # Default 300s; past the longest models-listener chain (omniroute's 150s, then the
               # 1800s qwen-3.8 fallback) so that listener answers first.
               HEADROOM_REQUEST_TIMEOUT: "2000"

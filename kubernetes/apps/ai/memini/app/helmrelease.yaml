@@ -44,7 +44,7 @@ spec:
               MEMINI_WRITE_EMBED_TIMEOUT: "15s"
               # The 2s default degrades recall to keyword_only when the embedder is busy.
               MEMINI_RECALL_EMBED_TIMEOUT: "20s"
-              # Direct to the LLMKube reranker (predates the gateway's /v1/rerank support); allowed by inference-rerank-memini-allow. Base URL is the API root, memini appends /rerank.
+              # Direct to the LLMKube reranker, allowed by inference-rerank-memini-allow. Base URL is the API root, memini appends /rerank.
               MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local:8080/v1"
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
               # One wider than the recall limit of 3. codingagent_v1 (166 q, EmbeddingGemma 2, 2026-10-15): pools 4-24 all

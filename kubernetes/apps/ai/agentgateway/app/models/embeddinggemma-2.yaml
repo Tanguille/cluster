@@ -57,10 +57,8 @@ metadata:
   name: embeddinggemma-2
 spec:
   parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
+    - kind: HTTPRoute
       name: agentgateway-models
-      sectionName: models
   provider: Custom
   custom:
     backendRef:

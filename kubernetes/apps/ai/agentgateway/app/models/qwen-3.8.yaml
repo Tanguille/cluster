@@ -6,10 +6,8 @@ metadata:
   name: qwen-3.8
 spec:
   parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
+    - kind: HTTPRoute
       name: agentgateway-models
-      sectionName: models
   provider: Custom
   custom:
     # Also used by qwen-3.8-fast and omniroute's fallback group.

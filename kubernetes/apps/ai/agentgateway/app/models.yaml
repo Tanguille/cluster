@@ -14,9 +14,9 @@ spec:
     - name: agentgateway
       sectionName: models
   rules:
-    # At "/": the router strips its rule's path prefix before classifying the endpoint.
-    - name: models
-      backendRefs:
+    # At "/": the router strips its rule's path prefix before classifying the endpoint. Keep
+    # one rule: models attach without a sectionName, which agentgateway allows only then.
+    - backendRefs:
         - group: agentgateway.dev
           kind: AgentgatewayModel
           name: "*"
@@ -89,4 +89,5 @@ spec:
         - 503
   backend:
     http:
+      # Also omniroute's qwen-3.8 fallback ceiling; omniroute's own provider-level 150s wins.
       requestTimeout: 1800s
