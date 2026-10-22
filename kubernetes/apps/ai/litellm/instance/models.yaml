@@ -80,9 +80,9 @@ spec:
   modelName: omniroute
   proxyRef: litellm
   params:
-    # smart-free is a persisted omniroute combo (Logfare DeepSeek V4.1 Flash 1017, GLM 5.3, MiniMax
-    # M3.1 Flash; Gemini 3.8 Flash, Antigravity Gemini 3.8 Flash High). A model joins only if on par
-    # with qwen3.8-27b on the AA index and no successor at similar price exists, or it is another quota tier.
+    # smart-free is a persisted omniroute combo (Logfare DeepSeek V4.1 Flash 1017, GLM 5.3; Gemini
+    # 3.8 Flash, Antigravity Gemini 3.8 Flash High). A model joins only if on par with qwen3.8-27b
+    # on the AA index and no successor at similar price exists, or it is another quota tier.
     model: openai/smart-free
     apiBase: http://omniroute.ai.svc.cluster.local:20128/v1
     # REQUIRE_API_KEY=false internally; LiteLLM's OpenAI provider still needs
