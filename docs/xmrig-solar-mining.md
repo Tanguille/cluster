@@ -17,9 +17,11 @@ node labels or taints (needs RBAC on a pod that deliberately runs with
 descheduler (new component, unbounded eviction latency), priority/preemption (nothing to
 preempt with).
 
-`service.yaml` keeps one stable `xmrig` Service across the three Deployments, selecting
-`app.kubernetes.io/component: thermal-guarded`, so the dashboard's
-`http://xmrig.web3.svc.cluster.local:42000` resolves regardless of which node is mining.
+`service.yaml` defines one headless `xmrig-miners` Service across the three Deployments, selecting
+`app.kubernetes.io/component: thermal-guarded`. `xmrig-miners.web3.svc.cluster.local` resolves to
+one A record per running miner (none when all are gated off), and the dashboard queries
+`http://<pod-ip>:42000/2/summary` on each and sums them. A ClusterIP Service would answer from
+one random miner.
 
 ## The guard
 
