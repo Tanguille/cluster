@@ -39,20 +39,11 @@ spec:
                 memory: 32Mi
               limits:
                 memory: 128Mi
-            probes:
-              liveness: &probe
-                enabled: true
-                custom: true
-                spec:
-                  httpGet:
-                    path: /healthz
-                    port: &port 8080
-              readiness: *probe
     service:
       app:
         ports:
           http:
-            port: *port
+            port: 8080
     configMaps:
       config:
         data:
@@ -78,7 +69,6 @@ spec:
                 listen 8080;
                 client_max_body_size 16m;
                 client_body_buffer_size 16m;
-                location = /healthz { access_log off; return 200; }
                 location / {
                   proxy_pass http://embeddinggemma-2.ai.svc.cluster.local:8080;
                   proxy_http_version 1.1;
