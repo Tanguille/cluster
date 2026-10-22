@@ -11,9 +11,9 @@ spec:
       requestTimeout: 1800s
   ai:
     groups:
-      # smart-free is a persisted omniroute combo (Gemini 3.8 Flash, Antigravity Gemini Flash,
-      # Groq qwen3.8-27b, charm-hyper glm-5.3-flash last: paid, monthly quota). A model joins only
-      # if on par with qwen3.8-27b and no successor at similar price exists, or it is another quota tier.
+      # smart-free is a persisted omniroute combo (Logfare DeepSeek V4.1 Flash 1017, GLM 5.3, MiniMax
+      # M3.1 Flash; Gemini 3.8 Flash, Antigravity Gemini 3.8 Flash High). A model joins only if on par
+      # with qwen3.8-27b on the AA index and no successor at similar price exists, or it is another quota tier.
       - providers:
           - name: omniroute
             host: omniroute.ai.svc.cluster.local
