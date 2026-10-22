@@ -3,11 +3,11 @@
   extends: [
     "abandonments:recommended",
     // Pin every github> preset to the same tag; an unpinned one tracks main.
-    "github>home-operations/renovate-presets#10.0.0",
-    "github>home-operations/renovate-presets//apps/cnpg.json5#10.0.0",
+    "github>home-operations/renovate-presets#10.0.1",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#10.0.1",
     // grafanaDashboards preset inlined below: its grafanaCom template needs capture groups Renovate never passes to templates.
-    "github>home-operations/renovate-presets//apps/llamacpp.json5#10.0.0",
-    "github>home-operations/renovate-presets//apps/searxng.json5#10.0.0"
+    "github>home-operations/renovate-presets//apps/llamacpp.json5#10.0.1",
+    "github>home-operations/renovate-presets//apps/searxng.json5#10.0.1"
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
