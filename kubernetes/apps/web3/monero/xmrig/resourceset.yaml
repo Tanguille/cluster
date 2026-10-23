@@ -34,6 +34,8 @@ spec:
         values:
           controllers:
             xmrig-<< inputs.node >>:
+              # KEDA owns the count; a rendered 1 started every miner at 0 W on each upgrade.
+              replicas: null
               pod:
                 labels:
                   # the headless xmrig-miners Service selects on this across all three Deployments
