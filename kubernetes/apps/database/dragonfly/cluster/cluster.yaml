@@ -23,7 +23,8 @@ spec:
   resources:
     requests:
       cpu: 100m
-      memory: 128Mi
+      # 7d median ~1.1 GiB per replica, 30d max 1.7 GiB.
+      memory: 1Gi
     limits:
       memory: 2Gi
   topologySpreadConstraints:
