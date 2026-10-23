@@ -1,0 +1,315 @@
+# Bitmagnet + Armiger Ultra stack (DHT torrent indexer + neural classifier -> Torznab for Prowlarr)
+# Live-applied to media ns; mirrored in Tanguille/cluster at kubernetes/apps/media/bitmagnet
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bitmagnet-pgdata
+  namespace: media
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ceph-block
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: armiger-connector-data
+  namespace: media
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ceph-block
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bitmagnet-postgres
+  namespace: media
+  labels:
+    app.kubernetes.io/name: bitmagnet-postgres
+    app.kubernetes.io/part-of: bitmagnet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bitmagnet-postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bitmagnet-postgres
+        app.kubernetes.io/part-of: bitmagnet
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: bitmagnet
+            - name: POSTGRES_USER
+              value: postgres
+            - name: PGDATA
+              value: /var/lib/postgresql/data
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bitmagnet-postgres
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-d", "bitmagnet", "-U", "postgres"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-d", "bitmagnet", "-U", "postgres"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: bitmagnet-pgdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bitmagnet-postgres
+  namespace: media
+spec:
+  selector:
+    app.kubernetes.io/name: bitmagnet-postgres
+  ports:
+    - name: postgres
+      port: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bitmagnet
+  namespace: media
+  labels:
+    app.kubernetes.io/name: bitmagnet
+    app.kubernetes.io/part-of: bitmagnet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bitmagnet
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bitmagnet
+        app.kubernetes.io/part-of: bitmagnet
+    spec:
+      containers:
+        - name: bitmagnet
+          image: ghcr.io/bitmagnet-io/bitmagnet:v0.10.1
+          args:
+            [
+              "worker",
+              "run",
+              "--keys=http_server",
+              "--keys=queue_server",
+              "--keys=dht_crawler"
+            ]
+          ports:
+            - name: http
+              containerPort: 3333
+            - name: dht
+              containerPort: 3334
+              protocol: TCP
+            - name: dht-udp
+              containerPort: 3334
+              protocol: UDP
+          env:
+            - name: POSTGRES_HOST
+              value: bitmagnet-postgres
+            - name: POSTGRES_NAME
+              value: bitmagnet
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bitmagnet-postgres
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 2Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bitmagnet
+  namespace: media
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: bitmagnet
+  ports:
+    - name: http
+      port: 3333
+      targetPort: 3333
+    - name: dht-udp
+      port: 3334
+      protocol: UDP
+      targetPort: 3334
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: armiger-connector
+  namespace: media
+  labels:
+    app.kubernetes.io/name: armiger-connector
+    app.kubernetes.io/part-of: bitmagnet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: armiger-connector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: armiger-connector
+        app.kubernetes.io/part-of: bitmagnet
+    spec:
+      containers:
+        - name: armiger
+          image: python:3.12-slim
+          command:
+            [
+              "/data/armiger/.venv/bin/python3",
+              "/data/armiger/bitmagnet_connector.py"
+            ]
+          ports:
+            - name: bridge
+              containerPort: 8096
+            - name: torznab-proxy
+              containerPort: 8097
+          env:
+            - name: ARMIGER_MODEL_DIR
+              value: /data/armiger/model
+            - name: ARMIGER_HF_REPO
+              value: NorviTech/armiger-ultra
+            - name: ARMIGER_AUTO_DOWNLOAD
+              value: "true"
+            - name: ARMIGER_VARIANT
+              value: ultra
+            - name: ARMIGER_USE_ZERO_CUE_CATALOG
+              value: "true"
+            - name: ARMIGER_DHT_RSI_MODE
+              value: pull_only
+            - name: ARMIGER_CONNECTOR_MODE
+              value: both
+            - name: ARMIGER_CONNECTOR_HOST
+              value: 0.0.0.0
+            - name: ARMIGER_CONNECTOR_PORT
+              value: "8096"
+            - name: ARMIGER_PROXY_PORT
+              value: "8097"
+            - name: BITMAGNET_GRAPHQL_URL
+              value: http://bitmagnet:3333/graphql
+            - name: UPSTREAM_TORZNAB_URL
+              value: http://bitmagnet:3333/torznab
+            - name: BITMAGNET_POLL_SECONDS
+              value: "5"
+            - name: BITMAGNET_BATCH_SIZE
+              value: "100"
+            - name: ARMIGER_PRUNE_MALWARE
+              value: "true"
+            - name: ARMIGER_PRUNE_DEAD_SWARMS
+              value: "false"
+            - name: ARMIGER_REQUIRE_ENGLISH_AUDIO
+              value: "false"
+            - name: ARMIGER_ALLOW_ENGLISH_SUBS
+              value: "true"
+            - name: ARMIGER_REJECT_DEAD_SWARMS
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: bridge
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: bridge
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 250m, memory: 1Gi }
+            limits: { memory: 3Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: data
+              mountPath: /data/armiger
+      initContainers:
+        - name: bootstrap
+          image: python:3.12-slim
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              if [ ! -f /data/armiger/.venv/.armiger_ultra_v3_ready ]; then
+                python3 -m venv /data/armiger/.venv
+                /data/armiger/.venv/bin/pip install --no-cache-dir --upgrade pip
+                /data/armiger/.venv/bin/pip install --no-cache-dir numpy onnxruntime cryptography huggingface_hub
+                /data/armiger/.venv/bin/pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+                touch /data/armiger/.venv/.armiger_ultra_v3_ready
+              fi
+              if [ ! -f /data/armiger/bitmagnet_connector.py ]; then
+                /data/armiger/.venv/bin/python3 -c "import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/spencernorton/Armiger-Connectors/main/bitmagnet/bitmagnet_connector.py', '/data/armiger/bitmagnet_connector.py')"
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /data/armiger
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: armiger-connector-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: armiger-connector
+  namespace: media
+spec:
+  selector:
+    app.kubernetes.io/name: armiger-connector
+  ports:
+    - name: bridge
+      port: 8096
+      targetPort: 8096
+    - name: torznab-proxy
+      port: 8097
+      targetPort: 8097
