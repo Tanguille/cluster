@@ -68,6 +68,9 @@ spec:
           mon_cluster_log_level: info
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
+      # Posts nothing (mgr crash module: do_post() missing 'inbuf'); re-test on the v21 bump.
+      crashCollector:
+        disable: true
       # Off: duplicates stdout (victoria-logs has it); its 100Mi request left rook-ceph-exporter-control-2 unschedulable.
       logCollector:
         enabled: false
