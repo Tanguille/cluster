@@ -38,16 +38,17 @@ ArrErrorCodesToBlocklist = [
 ]
 
 [Sonarr-TV.EntrySearch]
-SearchMissing = true
+# Off: each 15-min loop re-searched every missing/unmet item (~30k Prowlarr queries/day); Arr RSS grabs releases and upgrades.
+SearchMissing = false
 SearchLimit = 2
 # Seconds between checking for new Overseerr/Ombi requests (default 300)
 SearchRequestsEvery = 600
-DoUpgradeSearch = true
-QualityUnmetSearch = true
+DoUpgradeSearch = false
+QualityUnmetSearch = false
 # Disabled: CustomFormatUnmetSearch still gates automatic deletion and Arr
 # blocklisting when a torrent's custom-format score is below the library file,
 # including manual overrides (confirmed through qBitrr v5.14.6-1).
-# QualityUnmetSearch/DoUpgradeSearch still find unmet and upgrade releases.
+# Arr RSS still grabs unmet and upgrade releases.
 CustomFormatUnmetSearch = false
 # true | false | "smart" (series vs episode search)
 SearchBySeries = "smart"
@@ -104,14 +105,15 @@ ArrErrorCodesToBlocklist = [
 ]
 
 [Radarr.EntrySearch]
-SearchMissing = true
+# Off: each 15-min loop re-searched every missing/unmet item (~30k Prowlarr queries/day); Arr RSS grabs releases and upgrades.
+SearchMissing = false
 SearchLimit = 2
 # Seconds between checking for new Overseerr/Ombi requests (default 300)
 SearchRequestsEvery = 600
-QualityUnmetSearch = true
+QualityUnmetSearch = false
 # Disabled: see Sonarr-TV above. Custom-format score deletion and Arr blocklisting
 # remain coupled to this setting (confirmed through qBitrr v5.14.6-1).
-# QualityUnmetSearch still searches for unmet releases.
+# Arr RSS still grabs unmet releases.
 CustomFormatUnmetSearch = false
 
 [Radarr.EntrySearch.Overseerr]
