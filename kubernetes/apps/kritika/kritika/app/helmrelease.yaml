@@ -37,10 +37,7 @@ spec:
               memory: 128Mi
             limits:
               memory: 1Gi
-    # Cache the runner's mise-pinned tool downloads: one private emptyDir per
-    # replica, shared by every runner Job in the pod. S3 (RGW) would carry the
-    # cache across a rollout and share it between replicas; we run one replica,
-    # so filesystem keeps the win with no new storage dependency.
+    # Runner mise downloads cached on a per-pod emptyDir; S3 would survive rollouts but adds a storage dependency for one replica.
     gatewayCache:
       enabled: true
     # Internal only: public dashboard with local admin is too exposed.
@@ -211,6 +208,29 @@ spec:
         # One prompt for both sides, as the model card has it. A change rebuilds the index: recheck similarFloor.
         queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
         documentPrompt: *embeddingPrompt
+      # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs); github.com is implicit.
+      # cafe.github.com (gh telemetry) stays refused.
+      egress:
+        allow:
+          # raw, release-assets (mise installs), pkg-containers (ghcr blobs)
+          - "*.githubusercontent.com"
+          - ghcr.io
+          # registry-1, auth; hub, registry.hub and the blob CDNs
+          - "*.docker.io"
+          - "*.docker.com"
+          - cr.agentgateway.dev
+          - crates.io
+          - codeberg.org
+          - grafana.com
+          - huggingface.co
+          - cloudnative-pg.io
+          - "*.kernel.org"
+          # mise, mise-versions
+          - "*.jdx.dev"
+          - www.sqlite.org
+          - shadcn-svelte.com
+          - "*.shadcn-svelte.com"
+          - api.flathub.com
       # Local admin until GitHub or OIDC is set up.
       auth:
         admin:
