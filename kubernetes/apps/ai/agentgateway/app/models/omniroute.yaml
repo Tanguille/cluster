@@ -37,9 +37,9 @@ spec:
                 # default, and a CEL error there reads as healthy.
                 unhealthyCondition: "!has(response.code) || response.code >= 400"
                 eviction:
-                  # Short: free-tier quota cycles, so retry omniroute soon. Grows with each
-                  # consecutive ejection and resets on the next success.
-                  duration: 5s
+                  # Bodies over 64 KiB are never retried; 5m outlasts kritika's 30s-2m retry gap so its
+                  # retry lands on qwen-3.8. Grows with each consecutive ejection, resets on success.
+                  duration: 5m
       # Thinking on: the reviewer is a tool loop; thinking-off scored 0/20 on DeepSWE (docs/llm-hosting/deepswe-swift-2026-09-22.md).
       # One deep: qwen35-2b's 16384-token slot rejects review payloads (503 becomes 400) and widening it
       # costs iGPU-node RAM; it still serves karakeep. The AgentgatewayFallbackBackendDown alert (prometheusrule.yaml) guards the target.
@@ -98,7 +98,7 @@ spec:
       - type: Completions
       - type: Messages
 ---
-# Every omniroute failure the health policy evicts on is retried once, and the retry lands
+# Every omniroute failure the health policy evicts on is retried once (bodies up to 64 KiB), and the retry lands
 # on the qwen-3.8 group. The backoff lets the eviction register first; without it the retry
 # goes back to omniroute (a second 150s timeout before the fallback). One attempt so a
 # timed-out fallback is not re-run either.

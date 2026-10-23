@@ -56,16 +56,19 @@ spec:
           labels:
             severity: warning
 
-        # Brief fallbacks are normal as omniroute's free-tier quota cycles; sustained ones mean it is not recovering.
+        # An eviction sends all omniroute traffic to qwen-3.8 for 5m+, so alert on the fallback serving most of it (and over 5).
         - alert: AgentgatewayPrimaryDegraded
           expr: |-
             sum(
               increase(agentgateway_gen_ai_client_token_usage_count{namespace="ai", listener="models", model="omniroute", gen_ai_system="vllm", gen_ai_token_type="input"}[30m])
-            ) > 5
+            )
+            > clamp_min(sum(
+              increase(agentgateway_gen_ai_client_token_usage_count{namespace="ai", listener="models", model="omniroute", gen_ai_token_type="input"}[30m])
+            ) / 2, 5)
           for: 5m
           annotations:
             summary: >-
-              omniroute has leaned on its qwen-3.8 fallback repeatedly — the primary is
+              omniroute has leaned on its qwen-3.8 fallback for most requests — the primary is
               not recovering
           labels:
             severity: warning
