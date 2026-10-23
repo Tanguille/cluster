@@ -43,7 +43,8 @@ spec:
                   image:
                     repository: djerfy/xmrig
                     tag: 6.26.0@sha256:74847c25c6273248d2387c41feac55d2833c6a347f5c9e63e5cf19ed4a0406bd
-                  command: ["/usr/bin/xmrig"]
+                  # The 10-08 rebuild's Cmd is the /xmrig source dir; the binary sits inside it.
+                  command: ["/xmrig/xmrig"]
                   args:
                     - "-o"
                     - "p2pool.web3.svc.cluster.local:3333"
