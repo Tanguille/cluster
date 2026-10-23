@@ -64,9 +64,10 @@ spec:
         matchLabels:
           agentgateway.dev/apikey-internal: "true"
 ---
-# Retry dropped connections (each costs a Hermes cron run), never timeouts: re-running a long
-# prefill deepens the contention. A refused or reset connection surfaces as 503. Every model
-# gets it; agentgateway-retry-omniroute (models/omniroute.yaml) replaces it on omniroute (a
+# Retry dropped connections (each costs a Hermes cron run). A refused or reset connection
+# surfaces as 503. A call that hits the timeout below is re-sent too (agentgateway retries that
+# error whatever `codes` says); Headroom's 2000s and the http listener's 2100s cut the replay
+# short. Every model gets it; agentgateway-retry-omniroute (models/omniroute.yaml) replaces it on omniroute (a
 # route-level policy wins over a listener-level one). The timeout covers the longest call, a
 # 100K+ token prefill on qwen-3.8 under GPU contention.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
