@@ -37,6 +37,8 @@ spec:
               PROWLARR__LOG__LEVEL: info
               PROWLARR__LOG__DBENABLED: "False"
               PROWLARR__SERVER__PORT: &port 80
+              # Every name callers use; loopback and the pod hostname are always allowed.
+              PROWLARR__SERVER__ALLOWEDHOSTS: prowlarr,prowlarr.media,prowlarr.media.svc,prowlarr.media.svc.cluster.local,prowlarr.${SECRET_DOMAIN}
               PROWLARR__AUTH__APIKEY: ${PROWLARR_API_KEY}
               TZ: ${TIMEZONE}
             envFrom:
@@ -51,6 +53,10 @@ spec:
                   httpGet:
                     path: /ping
                     port: *port
+                    # kubelet sends the pod IP as Host, which AllowedHosts rejects.
+                    httpHeaders:
+                      - name: Host
+                        value: localhost
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 5
