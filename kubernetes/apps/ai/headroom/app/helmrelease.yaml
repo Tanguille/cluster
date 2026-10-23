@@ -86,29 +86,28 @@ spec:
               limits:
                 cpu: "2"
                 memory: 1Gi
+            # /livez throughout: /readyz sends a keyless HEAD / to agentgateway every 30s (a 401 that counts as ready).
             probes:
               startup:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: &readyz
-                    path: /readyz
+                  httpGet: &livez
+                    path: /livez
                     port: *port
                   failureThreshold: 30
               liveness:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /livez
-                    port: *port
+                  httpGet: *livez
                   periodSeconds: 30
                   timeoutSeconds: 5
               readiness:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: *readyz
+                  httpGet: *livez
                   periodSeconds: 10
                   timeoutSeconds: 5
     service:
