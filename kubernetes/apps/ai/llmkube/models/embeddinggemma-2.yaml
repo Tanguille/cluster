@@ -78,7 +78,7 @@ spec:
       - 44
       - 226
   resources:
-    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
+    cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
     # Request AND limit (llmkube >= 0.9.29); working set ~250Mi, model buffer in
     # amdgpu GTT (uncharged). The 6Gi reservation held control-2 at 95.8% overcommit.
     memory: 512Mi
