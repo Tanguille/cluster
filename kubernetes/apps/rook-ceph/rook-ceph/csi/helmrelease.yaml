@@ -15,6 +15,8 @@ spec:
       driverSpecDefaults:
         imageSet:
           name: rook-csi-operator-image-set-configmap
+        # cephcsi ships no logrotate (the sidecar only errors); defaults and drivers both carry the chart's rotation.
+        log: &csiLog { rotation: { enabled: false } }
         controllerPlugin:
           priorityClassName: system-cluster-critical
           replicas: 2
@@ -24,8 +26,7 @@ spec:
       rbd:
         name: rook-ceph.rbd.csi.ceph.com
         snapshotPolicy: volumeSnapshot
-        # cephcsi ships no logrotate (the sidecar only errors); plugin stderr reaches victoria-logs.
-        log: &csiLog { rotation: { enabled: false } }
+        log: *csiLog
         controllerPlugin:
           replicas: 2
           # ~2x observed steady state (defaults asked ~3.7 CPU cluster-wide); container keys left out render as {}.
@@ -44,6 +45,7 @@ spec:
               requests: { cpu: 50m, memory: 64Mi }
             addons:
               requests: { cpu: 50m, memory: 64Mi }
+            # 30d peak 85Mi (rbd), 42Mi (cephfs).
             plugin:
               requests: { cpu: 100m, memory: 128Mi }
         nodePlugin:

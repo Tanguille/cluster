@@ -12,7 +12,7 @@ spec:
   values:
     fullnameOverride: *app
     config:
-      # Only reaps orphaned Jobs: each run replaces its project's previous Job.
+      # TTL for every finished Job; in practice only orphans reach it, as each run replaces its project's previous Job.
       jobTTLSecondsAfterFinished: 86400
     rbac:
       ownNamespaceOnly: true
