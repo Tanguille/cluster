@@ -446,24 +446,6 @@ spec:
                 for: 15m
                 labels:
                   severity: warning
-              # Keyed by serial: TrueNAS reshuffles sdX letters on reboot, so a per-device delta false-fires.
-              - alert: DiskBadSectorsIncreased
-                annotations:
-                  summary: Disk {{ $labels.model_name }} {{ $labels.serial_number }} {{ $labels.attribute_name }} rose by {{ $value }} in 24h
-                  description: SMART 5 (reallocated), 197 (pending) or 198 (uncorrectable) rose. One reallocation step with 197/198 at 0 is a one-off media event; repeated steps or any pending or uncorrectable sectors mean the drive is failing.
-                expr: |-
-                  max by (model_name, serial_number, attribute_name) (
-                    smartctl_device_attribute{attribute_id=~"5|197|198",attribute_value_type="raw"}
-                    * on (instance, device) group_left (model_name, serial_number) smartctl_device
-                  )
-                  - max by (model_name, serial_number, attribute_name) (
-                    smartctl_device_attribute{attribute_id=~"5|197|198",attribute_value_type="raw"} offset 1d
-                    * on (instance, device) group_left (model_name, serial_number) smartctl_device offset 1d
-                  )
-                  > 0
-                for: 15m
-                labels:
-                  severity: warning
               - alert: NodeCPUPressureSustained
                 annotations:
                   summary: Sustained CPU pressure on {{ $labels.nodename }}
