@@ -123,8 +123,8 @@ spec:
         risk: high
       # Step/token limits stay at kritika's defaults (60 steps, 4M tokens): 1M stopped a 98-file PR with 42 files unread.
       agent:
-        # 30m cut off reviews still progressing.
-        timeout: 45m
+        # 60 default steps at omniroute's ~80s p95 per call need over an hour; 45m canceled 98- and 28-file reviews.
+        timeout: 90m
       rules:
         - id: renovate
           when:
