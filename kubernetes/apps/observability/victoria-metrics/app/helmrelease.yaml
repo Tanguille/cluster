@@ -390,8 +390,7 @@ spec:
                   summary: CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is {{ $value | humanizeDuration }} past its scheduled run with no Job running
                 expr: |-
                   time() - max by (namespace, cronjob) (kube_cronjob_next_schedule_time) > 1800
-                  and on (namespace, cronjob) max by (namespace, cronjob) (kube_cronjob_status_active) == 0
-                  and on (namespace, cronjob) max by (namespace, cronjob) (kube_cronjob_spec_suspend) == 0
+                  and max by (namespace, cronjob) (kube_cronjob_status_active) == 0
                 for: 5m
                 labels:
                   severity: warning
@@ -448,20 +447,18 @@ spec:
                 labels:
                   severity: warning
               # Keyed by serial: TrueNAS reshuffles sdX letters on reboot, so a per-device delta false-fires.
-              - alert: DiskReallocatedSectorsIncreased
+              - alert: DiskBadSectorsIncreased
                 annotations:
-                  summary: Disk {{ $labels.model_name }} {{ $labels.serial_number }} remapped {{ $value }} more sectors in 24h
-                  description: SMART attribute 5 rose. One step with 197/198 still at 0 is a one-off media event; if it keeps climbing or 197/198 go nonzero, the drive is failing.
+                  summary: Disk {{ $labels.model_name }} {{ $labels.serial_number }} {{ $labels.attribute_name }} rose by {{ $value }} in 24h
+                  description: SMART 5 (reallocated), 197 (pending) or 198 (uncorrectable) rose. One reallocation step with 197/198 at 0 is a one-off media event; repeated steps or any pending or uncorrectable sectors mean the drive is failing.
                 expr: |-
-                  max by (model_name, serial_number) (
-                    smartctl_device_attribute{attribute_id="5",attribute_value_type="raw"}
-                    * on (instance, device) group_left (model_name, serial_number)
-                    max by (instance, device, model_name, serial_number) (smartctl_device)
+                  max by (model_name, serial_number, attribute_name) (
+                    smartctl_device_attribute{attribute_id=~"5|197|198",attribute_value_type="raw"}
+                    * on (instance, device) group_left (model_name, serial_number) smartctl_device
                   )
-                  - max by (model_name, serial_number) (
-                    smartctl_device_attribute{attribute_id="5",attribute_value_type="raw"} offset 1d
-                    * on (instance, device) group_left (model_name, serial_number)
-                    max by (instance, device, model_name, serial_number) (smartctl_device offset 1d)
+                  - max by (model_name, serial_number, attribute_name) (
+                    smartctl_device_attribute{attribute_id=~"5|197|198",attribute_value_type="raw"} offset 1d
+                    * on (instance, device) group_left (model_name, serial_number) smartctl_device offset 1d
                   )
                   > 0
                 for: 15m

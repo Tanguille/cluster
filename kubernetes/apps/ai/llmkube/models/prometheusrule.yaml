@@ -39,8 +39,8 @@ spec:
             severity: warning
 
         # GPU and external tier hits are anticorrelated, so judge them combined.
-        # The 1d ratio bottomed at 76% over 30d. The external term falls back to
-        # 0 so the rule keeps evaluating if KV offload is ever turned off.
+        # The 1d ratio bottomed at 76% over 30d. `or vector(0)`: keeps the rule
+        # alive with KV offload off.
         - alert: VLLMPrefixCacheHitRateLow
           expr: |-
             (
