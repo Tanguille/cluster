@@ -35,7 +35,7 @@
     </header>
 
     <main>
-      <!-- The miner only runs on surplus solar: high water or slack water -->
+      <!-- The miners only run on surplus solar: mining or idle -->
       <section
         class="state"
         id="state"
@@ -44,7 +44,7 @@
       >
         <div class="state__text" aria-live="polite">
           <h1 class="state__line">
-            <span id="stateLine">Reading the gauge</span>
+            <span id="stateLine">Connecting</span>
             <span class="state__figure" id="stateFigure"></span>
           </h1>
           <p class="state__detail" id="stateDetail">&nbsp;</p>
@@ -160,6 +160,16 @@
                 >
               </dt>
               <dd><span class="ledger__value" id="payoutInterval">–</span></dd>
+            </div>
+
+            <div class="ledger__row">
+              <dt>Miners</dt>
+              <dd>
+                <span class="ledger__value" id="minersCount"
+                  ><span class="skeleton"></span
+                ></span>
+                <span class="ledger__note ledger__note--lines" id="minersList"></span>
+              </dd>
             </div>
 
             <div class="ledger__row">

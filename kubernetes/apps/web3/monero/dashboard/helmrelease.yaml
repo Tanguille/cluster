@@ -62,7 +62,7 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
-            # Any JSON endpoint proves the server is up; avoid ones that proxy xmrig (503 when scaled to 0) or the observer.
+            # Any JSON endpoint proves the server is up; avoid /xmrig_summary (503 when idle) and the observer.
             probes:
               liveness: &probe
                 enabled: true

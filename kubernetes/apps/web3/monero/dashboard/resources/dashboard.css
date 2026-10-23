@@ -1,9 +1,9 @@
 /* =========================================================
    P2POOL DASHBOARD: TIDE TABLE
-   The miner runs only on surplus solar, so the page reads like
-   a harbour tide table: mining is high water, idle is slack.
+   The miners run only on surplus solar, so the page reads like
+   a harbour tide table of daily mining windows.
    Sun-amber means mining and nothing else; teal is the pool
-   and network; slate is slack water.
+   and network; slate is idle.
    ========================================================= */
 
 :root {
@@ -26,9 +26,9 @@
   --high-ink: oklch(0.47 0.11 65);
   --high-wash: color-mix(in oklch, var(--high) 22%, transparent);
   --water: oklch(0.52 0.08 205);
-  --slack: oklch(0.72 0.025 240);
+  --idle: oklch(0.72 0.025 240);
   --negative: oklch(0.52 0.18 28);
-  /* Navy on amber in both themes: the high-water band keeps its ink */
+  /* Navy on amber in both themes: the mining band keeps its ink */
   --on-high: oklch(0.27 0.065 258);
 
   /* Chart.js reads these through getComputedStyle, so they live here too */
@@ -81,7 +81,7 @@
     --high: oklch(0.82 0.16 80);
     --high-ink: oklch(0.85 0.15 82);
     --water: oklch(0.74 0.09 200);
-    --slack: oklch(0.5 0.03 245);
+    --idle: oklch(0.5 0.03 245);
     --negative: oklch(0.72 0.17 28);
 
     --accent: oklch(0.82 0.16 80);
@@ -203,8 +203,8 @@ main {
   --tide-stroke: var(--high-ink);
 }
 
-/* High water owns the band: the one place amber floods a region */
-.state[data-state="high"] {
+/* Mining owns the band: the one place amber floods a region */
+.state[data-state="mining"] {
   background: var(--high);
   border-bottom-color: transparent;
   --tide-fill: color-mix(in oklch, var(--on-high) 85%, transparent);
@@ -215,9 +215,9 @@ main {
   --tide-future: color-mix(in oklch, var(--on-high) 8%, transparent);
 }
 
-.state[data-state="high"] .state__line,
-.state[data-state="high"] .state__detail,
-.state[data-state="high"] .hours {
+.state[data-state="mining"] .state__line,
+.state[data-state="mining"] .state__detail,
+.state[data-state="mining"] .hours {
   color: var(--on-high);
 }
 
@@ -247,7 +247,7 @@ main {
   color: var(--ink-3);
 }
 
-.state[data-state="high"] .state__caption {
+.state[data-state="mining"] .state__caption {
   color: var(--on-high);
 }
 
@@ -300,7 +300,7 @@ main {
   stroke-width: 1.5;
 }
 
-/* Hours after now have not happened: dim them rather than drawing them as slack */
+/* Hours after now have not happened: dim them rather than drawing them as idle */
 .tide__future {
   fill: var(--tide-future, color-mix(in oklch, var(--ground) 70%, transparent));
 }
@@ -416,7 +416,7 @@ main {
   font-weight: 600;
 }
 
-.tides tr.is-slack td {
+.tides tr.is-idle td {
   color: var(--ink-3);
 }
 
@@ -492,7 +492,7 @@ main {
   outline-offset: -1.5px;
 }
 
-/* No logger record that day: hatched, so it never reads as slack water */
+/* No logger record that day: hatched, so it never reads as an idle day */
 .day.is-unrecorded {
   background: repeating-linear-gradient(
     -45deg,
@@ -550,6 +550,11 @@ main {
 .ledger__note {
   font-size: var(--step--1);
   color: var(--ink-3);
+}
+
+/* One miner per line: the list breaks between entries, never inside one */
+.ledger__note--lines {
+  white-space: pre-line;
 }
 
 .ledger__list--pair {
@@ -827,7 +832,7 @@ main {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: var(--slack);
+  background: var(--idle);
   vertical-align: 0.05em;
 }
 
