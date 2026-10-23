@@ -121,10 +121,8 @@ spec:
         model: llm/qwen-3.8-fast
         threshold: 4
         risk: high
+      # Step/token limits stay at kritika's defaults (60 steps, 4M tokens): 1M stopped a 98-file PR with 42 files unread.
       agent:
-        steps: 30
-        output: 12288
-        tokens: 1000000
         # 30m cut off reviews still progressing.
         timeout: 45m
       rules:
