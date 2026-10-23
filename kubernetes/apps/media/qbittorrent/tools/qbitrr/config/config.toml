@@ -40,10 +40,9 @@ ArrErrorCodesToBlocklist = [
 
 [Sonarr-TV.EntrySearch]
 # Off: each 15-min loop re-searched every missing/unmet item (~30k Prowlarr queries/day); Arr RSS grabs releases and upgrades.
+# Also gates qBitrr's request search (v5.14.6); Seerr searches on approve.
 SearchMissing = false
 SearchLimit = 2
-# Seconds between checking for new Overseerr/Ombi requests (default 300)
-SearchRequestsEvery = 600
 DoUpgradeSearch = false
 QualityUnmetSearch = false
 # Disabled: CustomFormatUnmetSearch still gates automatic deletion and Arr
@@ -53,13 +52,6 @@ QualityUnmetSearch = false
 CustomFormatUnmetSearch = false
 # true | false | "smart" (series vs episode search)
 SearchBySeries = "smart"
-
-[Sonarr-TV.EntrySearch.Overseerr]
-SearchOverseerrRequests = true
-OverseerrURI = "http://seerr.media.svc.cluster.local:5055"
-OverseerrAPIKey = "${JELLYSEERR_API_KEY}"
-# 4K instance
-Is4K = true
 
 [Sonarr-TV.Torrent]
 FolderExclusionRegex = [
@@ -91,7 +83,7 @@ DoNotRemoveSlow = true
 [Radarr]
 Managed = true
 URI = "http://radarr.media.svc.cluster.local"
-APIKey = "${RADARR_API_KEY}"
+APIKey = "$${RADARR_API_KEY}"
 Category = "radarr"
 ReSearch = true
 # Minutes; 0 = disable
@@ -107,21 +99,14 @@ ArrErrorCodesToBlocklist = [
 
 [Radarr.EntrySearch]
 # Off: each 15-min loop re-searched every missing/unmet item (~30k Prowlarr queries/day); Arr RSS grabs releases and upgrades.
+# Also gates qBitrr's request search (v5.14.6); Seerr searches on approve.
 SearchMissing = false
 SearchLimit = 2
-# Seconds between checking for new Overseerr/Ombi requests (default 300)
-SearchRequestsEvery = 600
 QualityUnmetSearch = false
 # Disabled: see Sonarr-TV above. Custom-format score deletion and Arr blocklisting
 # remain coupled to this setting (confirmed through qBitrr v5.14.6-1).
 # Arr RSS still grabs unmet releases.
 CustomFormatUnmetSearch = false
-
-[Radarr.EntrySearch.Overseerr]
-SearchOverseerrRequests = true
-OverseerrURI = "http://seerr.media.svc.cluster.local:5055"
-OverseerrAPIKey = "${JELLYSEERR_API_KEY}"
-Is4K = true
 
 [Radarr.Torrent]
 FolderExclusionRegex = [
