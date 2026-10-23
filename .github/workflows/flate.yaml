@@ -45,7 +45,7 @@ jobs:
           for kind in helmrelease kustomization; do
             diff="$(flate diff "$kind")"
             if [ -n "$diff" ]; then
-              printf '```diff\n%s\n```\n' "$diff" > "${RUNNER_TEMP}/flate-${kind}.md"
+              printf '%s\n' '```diff' "$diff" '```' > "${RUNNER_TEMP}/flate-${kind}.md"
               echo "${kind}=true" >> "$GITHUB_OUTPUT"
             fi
           done

@@ -75,7 +75,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 32Mi
+                memory: 64Mi
               limits:
                 cpu: 100m
                 memory: 256Mi
@@ -84,10 +84,9 @@ spec:
         runAsNonRoot: true
         runAsUser: 101
         runAsGroup: 101
-        fsGroup: 101
+        # p2pool's gid (it writes local/ 0770); any other fsGroup re-chgrps the shared PVC each mount.
+        fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
-        # p2pool (gid 1000) writes local/ as 0770 with 0640 files; without the group, /local/stratum is a 403
-        supplementalGroups: [1000]
     service:
       dashboard:
         ports:

@@ -11,6 +11,9 @@ spec:
   interval: 1h
   values:
     fullnameOverride: blackbox-exporter
+    resources:
+      requests:
+        memory: 64Mi
     securityContext:
       capabilities: { add: ["NET_RAW"] }
     config:

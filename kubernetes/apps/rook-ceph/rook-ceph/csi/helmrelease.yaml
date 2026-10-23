@@ -24,6 +24,8 @@ spec:
       rbd:
         name: rook-ceph.rbd.csi.ceph.com
         snapshotPolicy: volumeSnapshot
+        # cephcsi ships no logrotate (the sidecar only errors); plugin stderr reaches victoria-logs.
+        log: &csiLog { rotation: { enabled: false } }
         controllerPlugin:
           replicas: 2
           # ~2x observed steady state (defaults asked ~3.7 CPU cluster-wide); container keys left out render as {}.
@@ -42,10 +44,8 @@ spec:
               requests: { cpu: 50m, memory: 64Mi }
             addons:
               requests: { cpu: 50m, memory: 64Mi }
-            logRotator:
-              requests: { cpu: 50m, memory: 64Mi }
             plugin:
-              requests: { cpu: 100m, memory: 256Mi }
+              requests: { cpu: 100m, memory: 128Mi }
         nodePlugin:
           resources: &csiNodeResources
             registrar:
@@ -54,12 +54,11 @@ spec:
               requests: { cpu: 50m, memory: 64Mi }
             addons:
               requests: { cpu: 50m, memory: 64Mi }
-            logRotator:
-              requests: { cpu: 50m, memory: 64Mi }
             plugin:
               requests: { cpu: 100m, memory: 128Mi }
       cephfs:
         name: rook-ceph.cephfs.csi.ceph.com
+        log: *csiLog
         controllerPlugin:
           replicas: 2
           resources: *csiControllerResources
