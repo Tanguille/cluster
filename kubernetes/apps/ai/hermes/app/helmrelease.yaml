@@ -29,7 +29,7 @@ spec:
 
         containers:
           app:
-            image:
+            image: &image
               repository: nousresearch/hermes-agent
               tag: v0.22.5@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
             # The image entrypoint starts as root for s6/permission setup, then
@@ -91,6 +91,27 @@ spec:
               limits:
                 cpu: 2
                 memory: 6Gi
+          # Holds the Google token away from the agents; serves the digest on 127.0.0.1:8765 (resources/google_digest.py).
+          google-digest:
+            image: *image
+            command:
+              - /opt/hermes/.venv/bin/python
+              - /app/google_digest.py
+            env:
+              TZ: ${TIMEZONE}
+            securityContext:
+              runAsUser: 65534
+              runAsGroup: 65534
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 128Mi
+              limits:
+                memory: 256Mi
 
     service:
       app:
@@ -112,20 +133,41 @@ spec:
           - name: envoy-internal
             namespace: network
 
+    # Agent volumes mount into app only: google-digest holds the token and shares nothing writable with the agents.
     persistence:
       data:
         existingClaim: *app
-        globalMounts:
-          - path: /opt/data
+        advancedMounts:
+          hermes:
+            app:
+              - path: /opt/data
       # uv/huggingface/pnpm caches reached 9.4GB of the 20Gi PVC (and every kopiur snapshot).
       cache:
         type: emptyDir
         sizeLimit: 10Gi
-        globalMounts:
-          - path: /opt/data/.cache
+        advancedMounts:
+          hermes:
+            app:
+              - path: /opt/data/.cache
       dshm:
         type: emptyDir
         medium: Memory
         sizeLimit: 1Gi
-        globalMounts:
-          - path: /dev/shm
+        advancedMounts:
+          hermes:
+            app:
+              - path: /dev/shm
+      google-digest:
+        type: configMap
+        name: hermes-google-digest
+        advancedMounts:
+          hermes:
+            google-digest:
+              - path: /app
+      google-token:
+        type: secret
+        name: hermes-google
+        advancedMounts:
+          hermes:
+            google-digest:
+              - path: /secret
