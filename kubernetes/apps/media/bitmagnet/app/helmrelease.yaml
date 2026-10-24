@@ -1,0 +1,263 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app bitmagnet
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    defaultPodOptions:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    controllers:
+      postgres:
+        forceRename: bitmagnet-postgres
+        type: deployment
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          terminationGracePeriodSeconds: 120
+          securityContext:
+            # Official Alpine postgres uid; retain the existing PG16 data layout.
+            runAsUser: 70
+            runAsGroup: 70
+            runAsNonRoot: true
+            fsGroup: 70
+            fsGroupChangePolicy: OnRootMismatch
+            seccompProfile: { type: RuntimeDefault }
+        containers:
+          postgres:
+            image:
+              repository: docker.io/library/postgres
+              tag: 16-alpine@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36
+            env:
+              POSTGRES_DB: bitmagnet
+              POSTGRES_USER: postgres
+              PGDATA: /var/lib/postgresql/data
+              POSTGRES_PASSWORD: &password
+                valueFrom:
+                  secretKeyRef:
+                    name: bitmagnet-postgres
+                    key: POSTGRES_PASSWORD
+            probes:
+              readiness: &pg-probe
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: [pg_isready, -d, bitmagnet, -U, postgres]
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+              liveness: *pg-probe
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command: [pg_isready, -d, bitmagnet, -U, postgres]
+                  periodSeconds: 10
+                  failureThreshold: 60
+                  timeoutSeconds: 5
+            resources:
+              requests: { cpu: 100m, memory: 128Mi }
+              limits: { memory: 1Gi }
+            securityContext: &container-security
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: [ALL] }
+      bitmagnet:
+        forceRename: *app
+        type: deployment
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/bitmagnet-io/bitmagnet
+              tag: v0.10.1@sha256:b6373349a30193b436ce6b05e21f91aa4934074268105dded1f3b065b8c86f19
+            args:
+              [
+                worker,
+                run,
+                --keys=http_server,
+                --keys=queue_server,
+                --keys=dht_crawler
+              ]
+            env:
+              POSTGRES_HOST: bitmagnet-postgres
+              HOME: /tmp
+              POSTGRES_NAME: bitmagnet
+              POSTGRES_USER: postgres
+              POSTGRES_PASSWORD: *password
+            # Bind only the DHT ports on the scheduled node, not the HTTP UI.
+            # No new LB address is allocated; router forwarding remains operator-owned.
+            ports:
+              - name: dht-tcp
+                containerPort: 3334
+                hostPort: 3334
+                protocol: TCP
+              - name: dht-udp
+                containerPort: 3334
+                hostPort: 3334
+                protocol: UDP
+            probes:
+              readiness: &bitmagnet-probe
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: 3333 }
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+              liveness: *bitmagnet-probe
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: 3333 }
+                  periodSeconds: 10
+                  failureThreshold: 60
+                  timeoutSeconds: 5
+            resources:
+              requests: { cpu: 250m, memory: 512Mi }
+              limits: { memory: 2Gi }
+            securityContext: *container-security
+      connector:
+        forceRename: armiger-connector
+        type: deployment
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          bootstrap:
+            image: &python-image
+              repository: docker.io/library/python
+              tag: 3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+            command: [python3, /bootstrap/bootstrap.py]
+            env:
+              HOME: /tmp
+              HF_HOME: /tmp/huggingface
+            securityContext: *container-security
+        containers:
+          app:
+            image: *python-image
+            command:
+              [
+                /data/armiger/runtime-v1/venv/bin/python3,
+                /data/armiger/runtime-v1/bitmagnet_connector.py
+              ]
+            env:
+              HOME: /tmp
+              PYTHONDONTWRITEBYTECODE: "1"
+              ARMIGER_MODEL_DIR: /data/armiger/model-cdf7036c45a0d9751d18e738c7abfde485552964
+              ARMIGER_HF_REPO: NorviTech/armiger-ultra
+              # Init downloads a fixed revision; never execute a floating HF bundle.
+              ARMIGER_AUTO_DOWNLOAD: "false"
+              ARMIGER_VARIANT: ultra
+              ARMIGER_USE_ZERO_CUE_CATALOG: "true"
+              ARMIGER_DHT_RSI_MODE: pull_only
+              ARMIGER_CONNECTOR_MODE: both
+              ARMIGER_CONNECTOR_HOST: 0.0.0.0
+              ARMIGER_CONNECTOR_PORT: "8096"
+              ARMIGER_PROXY_PORT: "8097"
+              BITMAGNET_GRAPHQL_URL: http://bitmagnet:3333/graphql
+              UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
+              BITMAGNET_POLL_SECONDS: "5"
+              BITMAGNET_BATCH_SIZE: "100"
+              ARMIGER_PRUNE_MALWARE: "true"
+              ARMIGER_PRUNE_DEAD_SWARMS: "false"
+              ARMIGER_REQUIRE_ENGLISH_AUDIO: "false"
+              ARMIGER_ALLOW_ENGLISH_SUBS: "true"
+              ARMIGER_REJECT_DEAD_SWARMS: "true"
+            probes:
+              readiness: &connector-probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: { path: /healthz, port: 8096 }
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+              liveness: *connector-probe
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: { path: /healthz, port: 8096 }
+                  periodSeconds: 10
+                  failureThreshold: 90
+                  timeoutSeconds: 5
+            resources:
+              requests: { cpu: 250m, memory: 1Gi }
+              limits: { memory: 3Gi }
+            securityContext: *container-security
+    service:
+      postgres:
+        forceRename: bitmagnet-postgres
+        controller: postgres
+        ports:
+          postgres: { port: 5432 }
+      app:
+        forceRename: *app
+        controller: bitmagnet
+        ports:
+          http: { port: 3333 }
+          dht-tcp: { port: 3334, protocol: TCP }
+          dht-udp: { port: 3334, protocol: UDP }
+      connector:
+        forceRename: armiger-connector
+        controller: connector
+        ports:
+          bridge: { port: 8096 }
+          torznab-proxy: { port: 8097 }
+    route:
+      app:
+        hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: http
+    persistence:
+      pgdata:
+        existingClaim: bitmagnet-pgdata
+        advancedMounts:
+          postgres:
+            postgres:
+              - path: /var/lib/postgresql
+      postgres-run:
+        type: emptyDir
+        advancedMounts:
+          postgres:
+            postgres:
+              - path: /var/run/postgresql
+      connector-data:
+        existingClaim: armiger-connector-data
+        advancedMounts:
+          connector:
+            bootstrap:
+              - path: /data/armiger
+            app:
+              - path: /data/armiger
+      bootstrap:
+        type: configMap
+        name: armiger-bootstrap
+        advancedMounts:
+          connector:
+            bootstrap:
+              - path: /bootstrap
+                readOnly: true
+      tmp:
+        type: emptyDir
