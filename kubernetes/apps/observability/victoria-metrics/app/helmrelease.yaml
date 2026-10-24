@@ -315,7 +315,8 @@ spec:
         resources:
           requests:
             cpu: 100m
-            memory: 512Mi
+            # 30d peak 289Mi; 512Mi left control-2 no room for its crowdsec agent.
+            memory: 256Mi
           limits:
             cpu: 1
             memory: 1Gi
