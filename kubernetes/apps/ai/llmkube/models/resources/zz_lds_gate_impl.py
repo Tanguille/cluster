@@ -32,12 +32,6 @@ def _install_triton_tiles(hy):
         return
     orig = hy.triton_w4a16_skinny_fmt_gemm
     kernel = hy._triton_w4a16_skinny_fmt_kernel
-    # Row strides vary by vllm version: pass the known ones by name, else keep upstream's gemm.
-    known = ("stride_sn", "stride_bn", "stride_am")
-    stride_names = [n for n in kernel.arg_names if n.startswith("stride_")]
-    if not set(stride_names) <= set(known):
-        print(f"[lds-gate-patch] SKIPPED Triton tiles: unknown kernel strides {stride_names}", file=sys.stderr, flush=True)
-        return
 
     def gemm(a, b_q, scales, group_size, zp_bias=8, zp=None):
         M, K = a.shape
@@ -47,13 +41,14 @@ def _install_triton_tiles(hy):
         N = b_q.shape[0]
         c = torch.empty((M, N), dtype=a.dtype, device=a.device)
         grid = (triton.cdiv(M, bm), triton.cdiv(N, bn))
-        stride_of = dict(zip(known, (scales.stride(0), b_q.stride(0), a.stride(0))))
-        strides = {n: stride_of[n] for n in stride_names}
         kernel[grid](
             # the zp pointer is unused when HAS_ZP is False; any tensor will do
             a, b_q, scales, zp if zp is not None else scales, c,
-            M, N, K, K // 8, K // group_size, **strides,
-            group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None,
+            # Named strides preserve padded rows without building dictionaries per GEMM.
+            M, N, K, K // 8, K // group_size,
+            stride_sn=scales.stride(0), stride_bn=b_q.stride(0), stride_am=a.stride(0),
+            # Keep the scalar dequant path these gfx12 tiles were measured with.
+            group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None, PACKED_DEQUANT=False,
             BLOCK_M=bm, BLOCK_N=bn, BLOCK_K=min(bk, group_size), num_warps=warps, num_stages=1,
         )
         return c

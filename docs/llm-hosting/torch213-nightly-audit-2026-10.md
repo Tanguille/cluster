@@ -64,3 +64,26 @@ retry with a bigger volume.
 `/cache/vllm/torch_compile_cache/torch_aot_compile` gets one entry per build and was never pruned:
 189 entries, 17.5 GB (`du -sh`), 185 older than two days. Pruned live to the 4 newest (145 MB, `/cache`
 free 161G to 171G). The `qwen38-27b-vllm-compile-cache-prune` CronJob now bounds it.
+
+## Nightly ad061ff compatibility, 2026-10-24
+
+[PR #6123](https://github.com/Tanguille/cluster/pull/6123) updates `d92e7eb` to `ad061ff`:
+the image metadata identifies vLLM `83c078d95` → `c50aca144` (74 commits). The torch,
+Triton, AITER and ROCm base layers are identical between these two images.
+
+Upstream `96bbaa300f` adds the required `PACKED_DEQUANT` argument to the W4A16 Triton
+kernel. The hook and both `bench/downfix/triton_*_sweep.py` launchers pass `False` to
+preserve the measured gfx1201 path. Named strides replace per-GEMM dictionary building;
+tile geometry is unchanged. Roll back the image and these calls together.
+The UltraQuant backend, Triton launcher, reduction kernel, cache store and format
+sources are byte-identical, so those patches stay as they are.
+
+Validation: hook routing, padded strides, zero-points and UQ fallback checks pass.
+All three W4A16 callers failed signature binding against image `ad061ff` before the
+fix and passed afterward. `validate-pr.sh` passed Flate, shellcheck and 24 guardrail tests.
+
+GPU execution remains untested. Upstream `d561af5dfc` changes hybrid prefix-cache
+partial-tail reuse, which this service exercises. Before deployment, run
+`bench/qualitygate.py` and `bench/prodshape.py` on an unrouted clone with production
+paused, recording NLL/agreement, prefix-cache reuse and boot-log KV capacity against
+[the baseline](ttft-breakdown-2026-10.md). No cluster resources were changed for this audit.
