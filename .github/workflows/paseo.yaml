@@ -1,0 +1,125 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Paseo
+
+# Pull requests build and smoke-test the image without any registry write.
+# Only a push to main or an explicit dispatch on main reaches publication. The
+# source-revision tag is immutable in intent: no `latest`, branch, or PR tag.
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - docker/paseo/**
+      # Not a build input; evidence edits do not need a run.
+      - "!docker/paseo/README.md"
+      - scripts/paseo-smoke.sh
+      - .github/workflows/paseo.yaml
+  push:
+    branches: ["main"]
+    paths:
+      - docker/paseo/**
+      # Not a build input; evidence edits do not need a run.
+      - "!docker/paseo/README.md"
+      - scripts/paseo-smoke.sh
+      - .github/workflows/paseo.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Paseo - Build and smoke
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build --platform linux/amd64 -t paseo:check docker/paseo
+
+      - name: Smoke test image
+        run: bash scripts/paseo-smoke.sh paseo:check
+
+  publish:
+    name: Paseo - Publish tested image
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Build once locally, smoke-test that image, then publish that same image.
+      # GitHub's signed provenance attestation is attached to its registry digest
+      # after the push; no candidate image is published before the smoke test.
+      - name: Build image
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          docker buildx build --load --platform linux/amd64 \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${SOURCE_REVISION}" \
+            --label "org.opencontainers.image.version=sha-${SOURCE_REVISION}" \
+            -t paseo:check docker/paseo
+
+      - name: Smoke test image
+        run: bash scripts/paseo-smoke.sh paseo:check
+
+      - name: Log in to GHCR
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish tested image
+        env:
+          IMAGE: ghcr.io/tanguille/paseo
+        run: |
+          set -euo pipefail
+          tag="sha-${GITHUB_SHA}"
+          docker tag paseo:check "${IMAGE}:${tag}"
+          docker push "${IMAGE}:${tag}"
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "${IMAGE}:${tag}")"
+          echo "IMAGE_DIGEST=${digest#*@}" >>"${GITHUB_ENV}"
+          {
+            echo "### Paseo image published"
+            echo ""
+            echo "- Image: \`${digest}\`"
+            echo "- Source revision: \`${GITHUB_SHA}\`"
+            echo "- Smoke checks: passed before this push"
+          } >>"${GITHUB_STEP_SUMMARY}"
+
+      - name: Attest tested image digest
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ghcr.io/tanguille/paseo
+          subject-digest: ${{ env.IMAGE_DIGEST }}
+          push-to-registry: true
+
+      - name: Record provenance result
+        run: |
+          {
+            echo "- Provenance: signed GitHub build attestation for \`${IMAGE_DIGEST}\`"
+          } >>"${GITHUB_STEP_SUMMARY}"

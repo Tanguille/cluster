@@ -1,0 +1,75 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app paseo-home
+  namespace: &namespace ai
+spec:
+  interval: 30m
+  path: ./kubernetes/apps/ai/paseo/home
+  targetNamespace: *namespace
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  components:
+    - ../../../../components/kopiur
+  postBuild:
+    substitute:
+      APP: *app
+      PVC_CAPACITY: 20Gi
+      KOPIUR_PUID: "1000"
+      KOPIUR_PGID: "1000"
+      KOPIUR_IGNORE_RULES: "[/lost+found, /.cache/*, /.npm/*]"
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app paseo-workspace
+  namespace: &namespace ai
+spec:
+  interval: 30m
+  path: ./kubernetes/apps/ai/paseo/workspace
+  targetNamespace: *namespace
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  components:
+    - ../../../../components/kopiur
+  postBuild:
+    substitute:
+      APP: *app
+      PVC_CAPACITY: 50Gi
+      KOPIUR_PUID: "1000"
+      KOPIUR_PGID: "1000"
+      KOPIUR_IGNORE_RULES: "[/lost+found]"
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+# DETACHED: do not activate until publication, real encrypted password and deployment approval.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app paseo
+  namespace: &namespace ai
+spec:
+  interval: 30m
+  path: ./kubernetes/apps/ai/paseo/app
+  targetNamespace: *namespace
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  dependsOn:
+    - name: paseo-home
+    - name: paseo-workspace
+  postBuild:
+    substitute:
+      APP: *app
+      # Before activation add PASEO_IMAGE_TAG: <source-revision-tag>@sha256:<published-digest>.
+      # No default, local image ID or invented registry digest is acceptable.
