@@ -32,7 +32,7 @@ creds = InstalledAppFlow.from_client_config(client, scopes).run_local_server(por
 secret = {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": "hermes-google", "namespace": "ai"},
           "stringData": {"token.json": creds.to_json(strip=["token", "expiry"])}}
 enc = subprocess.run(
-    ["sops", "--encrypt", "--filename-override", out, "--input-type", "yaml", "--output-type", "yaml", "/dev/stdin"],
+    ["sops", "--encrypt", "--filename-override", out, "/dev/stdin"],
     cwd=repo, input=json.dumps(secret), check=True, capture_output=True, text=True).stdout
 open(f"{repo}/{out}", "w").write(enc)
 print(f"wrote {out}: commit and push it")

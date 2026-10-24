@@ -26,7 +26,7 @@ Self-check: `python3 -I test_web_extract_rerank.py`.
 Copy this directory to the shared plugin directory on the Hermes PVC, next to memini:
 
 ```sh
-tar -cf - --exclude=__pycache__ web-extract-rerank | kubectl -n ai exec -i <hermes-pod> -- tar -xf - -C /opt/data/plugins
+tar -cf - --exclude=__pycache__ web-extract-rerank | kubectl -n ai exec -i <hermes-pod> -c app -- tar -xf - -C /opt/data/plugins
 ```
 
 Add `web-extract-rerank` to `plugins.enabled` in `/opt/data/config.yaml` (main) and in

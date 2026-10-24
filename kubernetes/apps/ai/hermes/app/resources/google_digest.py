@@ -9,7 +9,7 @@ field: one line each, truncated, with control and invisible characters removed.
 import datetime as dt
 import os
 import unicodedata
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
 
 TOKEN = "/secret/token.json"
@@ -74,7 +74,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             body, status = fetch().encode(), 200
-        except Exception as e:  # report the failure to the briefing instead of hanging it
+        except Exception as e:  # hand the error to the briefing instead of an empty reply
             body, status = f"google-digest failed: {type(e).__name__}: {clean(str(e), 300)}\n".encode(), 502
         self.send_response(status)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -83,7 +83,6 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-
 if __name__ == "__main__":
     # Loopback only: the pod's containers share it, nothing outside the pod can reach it.
-    HTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
+    ThreadingHTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
