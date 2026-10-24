@@ -16,7 +16,7 @@ class Shared:
 def original(job, platform, platform_name, target, adapters, config):
     """Stands in for upstream: only a SharedRouteAdapters (or an owned discord adapter) resolves."""
     if isinstance(adapters, Shared) or "discord" in (adapters or {}):
-        return ("transport", adapters), None
+        return ("transport", adapters, platform, platform_name, target, config), None
     return None, f"platform '{platform_name}' not configured/enabled"
 
 
@@ -26,8 +26,10 @@ def check():
     job = {"id": "f020ea3b6598"}
 
     # The #139825 shape: a satellite whose map holds only its local session adapter.
-    resolved, err = resolve(job, "discord", "discord", {}, {"local": object()}, None)
+    target, config = {"chat_id": "1"}, "cfg"
+    resolved, err = resolve(job, "discord", "discord", target, {"local": object()}, config)
     assert err is None and isinstance(resolved[1], Shared) and resolved[1].primary is primary
+    assert resolved[2:] == ("discord", "discord", target, config)
 
     # An empty map already takes upstream's shared path; the wrapper must not touch it.
     assert resolve(job, "discord", "discord", {}, {}, None)[0] is None
@@ -36,7 +38,8 @@ def check():
     assert resolve(job, "telegram", "telegram", {}, {"local": 1, "telegram": 1}, None)[0] is None
 
     # Its own bot on another platform does not block a routed Discord delivery.
-    assert isinstance(resolve(job, "discord", "discord", {}, {"local": 1, "telegram": 1}, None)[0][1], Shared)
+    resolved = resolve(job, "discord", "discord", target, {"local": 1, "telegram": 1}, config)[0]
+    assert isinstance(resolved[1], Shared) and resolved[2:] == ("discord", "discord", target, config)
 
     # No live default adapters (worker subprocess) or no route: unchanged failure.
     assert plugin._wrap(original, Shared, lambda: routes, lambda: None)(
@@ -56,6 +59,13 @@ def check():
     dead = lambda *a: ((None, "pconfig", None, a[4]), None)
     assert plugin._wrap(dead, Shared, lambda: routes, lambda: primary)(
         job, "discord", "discord", {}, {"local": 1}, None)[0][3] == {"local": 1}
+
+    # A retry that raises (renamed upstream symbol) keeps the original failure.
+    def gone():
+        raise ImportError("_ACTIVE_RUNNER")
+    plugin._LOG.disabled = True  # its traceback is expected here
+    assert plugin._wrap(original, Shared, lambda: routes, gone)(
+        job, "discord", "discord", {}, {"local": 1}, None) == (None, "platform 'discord' not configured/enabled")
     print("ok")
 
 

@@ -16,10 +16,14 @@ def _wrap(original, shared_cls, routes_for_home, primary_adapters):
             return resolved, err
         if platform in adapters:
             return resolved, err  # the profile owns this platform's bot (#133138's rule): its own failure stands
-        primary, routes = primary_adapters(), routes_for_home()
-        if not primary or not routes:
+        try:  # upstream renames surface here, after the first failure: keep it, do not abort later targets
+            primary, routes = primary_adapters(), routes_for_home()
+            if not primary or not routes:
+                return resolved, err
+            retried, retry_err = original(job, platform, platform_name, target, shared_cls(primary, routes), config)
+        except Exception:
+            _LOG.exception("job=%s platform=%s outcome=retry-raised", job.get("id"), platform_name)
             return resolved, err
-        retried, retry_err = original(job, platform, platform_name, target, shared_cls(primary, routes), config)
         _LOG.info("job=%s platform=%s outcome=%s", job.get("id"), platform_name,
                   "rerouted" if _live(retried) else "still-failed")
         return (retried, retry_err) if _live(retried) else (resolved, err)
