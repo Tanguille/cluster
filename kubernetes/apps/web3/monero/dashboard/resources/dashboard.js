@@ -16,6 +16,7 @@ const CONFIG = {
   BLOCKS_PER_DAY: 720,
   BLOCK_TIME_SECONDS: 120,
   PPLNS_WINDOW_MAX_SHARES: 5,
+  MIN_PAYMENT_XMR: 0.0003, // p2pool hardcodes stats_mod minPaymentThreshold 300000000
 
   // Conversion multipliers for earnings periods
   PERIOD_MULTIPLIERS: {
@@ -28,7 +29,6 @@ const CONFIG = {
 
   // Default values
   DEFAULT_RANGE_HOURS: 24,
-  DEFAULT_MIN_PAYMENT: 0.01,
   RANGE_STORAGE_KEY: "p2pool.chartRangeHours",
   REFRESH_INTERVAL_MS: 10000, // match server.py's 10s log cadence — faster polls fetch identical data
   OBSERVER_SHARES_LIMIT: 10000,
@@ -808,19 +808,6 @@ function updateWindowLuck({
     const accumulatedXMR = difficultyShare * blockReward;
     const accumulatedEUR = accumulatedXMR * priceEUR;
 
-    setTooltipContent(
-      "luckTooltip",
-      `
-Luck factor is based on your performance in the
-current PPLNS window compared to your expected performance.
-Basically it is your hashrate calculated based on the summed
-difficulty of your hashes compared to the total difficulty in the
-current PPLNS window divided by your actual moving average
-(as long as the PPLNS window age) hashrate from XMRig. And that
-also multiplied by the pool luck (derived from the pool effort).
-    `.trim()
-    );
-
     // Idle for the whole window: there is no expected rate to divide by
     setTextContent(
       "luckFactor",
@@ -1321,7 +1308,6 @@ function fetchDashboardData() {
     fetchJSON("/xmrig_summary"),
     fetchJSON("/pool/stats"),
     fetchJSON("/network/stats"),
-    fetchJSON("/min_payment_threshold"),
     fetchJSON("/stats_log.json"),
     fetchJSON("/local/stratum"),
     fetchChartWindow()
@@ -1365,15 +1351,14 @@ function calculateEarnings(avgMyHash, avgNetHash, blockReward, priceEUR) {
 function calculatePayoutInterval(
   avgMyHash,
   avgPoolHash,
-  blockReward,
-  minPaymentThreshold
+  blockReward
 ) {
   const xmrPerBlock =
     avgPoolHash > 0 ? (avgMyHash / avgPoolHash) * blockReward : 0;
 
   if (xmrPerBlock <= 0) return { intervalHours: null, intervalText: "N/A" };
 
-  const intervalHours = (minPaymentThreshold / xmrPerBlock) * 24;
+  const intervalHours = (CONFIG.MIN_PAYMENT_XMR / xmrPerBlock) * 24;
   return {
     intervalHours,
     // Weeks between payouts are normal at this hashrate; days read better than 697h
@@ -1447,7 +1432,6 @@ async function updateStats() {
       xmrigData,
       poolData,
       networkData,
-      thresholdObj,
       hist,
       oldStats,
       chartWindow
@@ -1467,8 +1451,6 @@ async function updateStats() {
       isValidObject(networkData) && isPositiveNumber(networkData.reward)
         ? networkData.reward / CONFIG.ATOMIC_UNITS_PER_XMR
         : 0;
-    const minPaymentThreshold =
-      thresholdObj?.minPaymentThreshold || CONFIG.DEFAULT_MIN_PAYMENT;
 
     const avgWindowHours = calculateAveragingWindow(state.history);
 
@@ -1508,8 +1490,7 @@ async function updateStats() {
     const payoutInfo = calculatePayoutInterval(
       avgMyHash,
       avgPoolHash,
-      blockReward,
-      minPaymentThreshold
+      blockReward
     );
 
     updateStatsDisplay(

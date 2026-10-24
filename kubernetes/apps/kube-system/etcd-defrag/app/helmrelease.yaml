@@ -12,9 +12,8 @@ spec:
 
   values:
     defaultPodOptions:
-      # Must use host network and PID namespace to access Talos etcd on localhost:2379.
+      # Host network reaches Talos etcd on localhost:2379.
       hostNetwork: true
-      hostPID: true
       securityContext:
         runAsGroup: 0
         runAsUser: 0

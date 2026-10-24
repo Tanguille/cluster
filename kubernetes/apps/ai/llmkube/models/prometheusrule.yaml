@@ -37,3 +37,21 @@ spec:
               band: restart the pod to clear it.
           labels:
             severity: warning
+
+        # GPU and external tier hits are anticorrelated, so judge them combined.
+        # The 1d ratio bottomed at 76% over 30d. `or vector(0)`: keeps the rule
+        # alive with KV offload off.
+        - alert: VLLMPrefixCacheHitRateLow
+          expr: |-
+            (
+              sum(increase(vllm:prefix_cache_hits_total{model_name="qwen-3.8"}[1d]))
+              + (sum(increase(vllm:external_prefix_cache_hits_total{model_name="qwen-3.8"}[1d])) or vector(0))
+            )
+            / sum(increase(vllm:prefix_cache_queries_total{model_name="qwen-3.8"}[1d]))
+            < 0.75
+          annotations:
+            summary: >-
+              qwen-3.8 prefix cache served only {{ $value | humanizePercentage }}
+              of prompt tokens over 24h: something is rewriting the resent prefix.
+          labels:
+            severity: warning

@@ -12,6 +12,9 @@ spec:
   timeout: 10m
   values:
     replicaCount: 2
+    resources:
+      requests:
+        memory: 512Mi
     # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
     affinity:
       podAntiAffinity:

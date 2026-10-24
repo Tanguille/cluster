@@ -12,7 +12,7 @@ spec:
         # individual backends drop out; only the CR reports per-backend health
         - alert: VirtualMCPServerNotReady
           expr: |-
-            toolhive_resource_info{ready!="True"} == 1
+            max by (exported_namespace, name, phase) (toolhive_resource_info{ready!="True"})
           for: 15m
           annotations:
             summary: >-
