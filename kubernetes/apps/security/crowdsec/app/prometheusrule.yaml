@@ -24,14 +24,10 @@ spec:
             severity: critical
         # Reading nothing at all (agent down, acquisition glob or log path no longer matching) leaves
         # CrowdsecEnvoyParserYieldZero quiet, since it only fires while lines are read.
-        # Keep each agent's identity; scrape targets supply zeroes for missing parser metrics.
+        # Summed: a quiet node's agent dips to 0.009 lines/s by design; one dead agent is KubePodNotReady/TargetDown.
         - alert: CrowdsecAcquisitionSilent
           expr: |-
-            (
-              sum by (namespace, pod) (rate(cs_node_hits_ok_total{job="crowdsec-agent-service",name="crowdsecurity/cri-logs"}[15m]))
-              or on (namespace, pod)
-              (0 * max by (namespace, pod) (up{job="crowdsec-agent-service"}))
-            ) < 0.01
+            (sum(rate(cs_node_hits_ok_total{job="crowdsec-agent-service",name="crowdsecurity/cri-logs"}[15m])) or vector(0)) < 0.01
           for: 30m
           annotations:
             summary: >-
