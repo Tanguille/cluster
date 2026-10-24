@@ -8,14 +8,14 @@
 set -euo pipefail
 
 if [[ -z "${PASEO_PASSWORD:-}" ]]; then
-  echo "[paseo] FATAL: PASEO_PASSWORD is missing or empty; refusing to start." >&2
-  exit 1
+    echo "[paseo] FATAL: PASEO_PASSWORD is missing or empty; refusing to start." >&2
+    exit 1
 fi
 
 readonly UPSTREAM_ENTRYPOINT="/usr/local/bin/paseo-docker-entrypoint"
 if [[ "$#" -ne 1 || "$1" != "${UPSTREAM_ENTRYPOINT}" ]]; then
-  echo "[paseo] FATAL: refusing unexpected daemon command." >&2
-  exit 1
+    echo "[paseo] FATAL: refusing unexpected daemon command." >&2
+    exit 1
 fi
 
 exec "${UPSTREAM_ENTRYPOINT}"

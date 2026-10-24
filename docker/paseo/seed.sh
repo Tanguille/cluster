@@ -33,9 +33,9 @@ XDG_CACHE_HOME="${XDG_CACHE_HOME:-${HOME_DIR}/.cache}"
 TEMP_PATH=""
 
 cleanup() {
-  if [[ -n "${TEMP_PATH}" && -d "${TEMP_PATH}" ]]; then
-    rm -rf -- "${TEMP_PATH}"
-  fi
+    if [[ -n "${TEMP_PATH}" && -d "${TEMP_PATH}" ]]; then
+        rm -rf -- "${TEMP_PATH}"
+    fi
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -44,54 +44,54 @@ trap 'exit 143' TERM
 log() { printf '[paseo-seed] %s\n' "$*"; }
 
 for dir in "${HOME_DIR}" "${PASEO_HOME_DIR}" "${HERMES_HOME_DIR}" \
-  "${CLAUDE_CONFIG_DIR}" "${CODEX_HOME}" "${XDG_CONFIG_HOME}" \
-  "${XDG_DATA_HOME}" "${XDG_STATE_HOME}" "${XDG_CACHE_HOME}" "${WORKSPACE}"; do
-  mkdir -p -- "${dir}"
+    "${CLAUDE_CONFIG_DIR}" "${CODEX_HOME}" "${XDG_CONFIG_HOME}" \
+    "${XDG_DATA_HOME}" "${XDG_STATE_HOME}" "${XDG_CACHE_HOME}" "${WORKSPACE}"; do
+    mkdir -p -- "${dir}"
 done
 
 # Default config: never replace a file, directory or symlink already there.
 if [[ ! -e "${PASEO_HOME_DIR}/config.json" && ! -L "${PASEO_HOME_DIR}/config.json" ]]; then
-  cp -- "${DEFAULT_CONFIG}" "${PASEO_HOME_DIR}/config.json"
-  chmod 0644 "${PASEO_HOME_DIR}/config.json"
-  log "installed default config at ${PASEO_HOME_DIR}/config.json"
+    cp -- "${DEFAULT_CONFIG}" "${PASEO_HOME_DIR}/config.json"
+    chmod 0644 "${PASEO_HOME_DIR}/config.json"
+    log "installed default config at ${PASEO_HOME_DIR}/config.json"
 else
-  log "keeping existing ${PASEO_HOME_DIR}/config.json"
+    log "keeping existing ${PASEO_HOME_DIR}/config.json"
 fi
 
 clone_if_absent() {
-  local url="$1" destination="$2" name
-  name="$(basename -- "${destination}")"
+    local url="$1" destination="$2" name
+    name="$(basename -- "${destination}")"
 
-  if [[ -e "${destination}" || -L "${destination}" ]]; then
-    log "keeping existing ${destination}"
-    return 0
-  fi
+    if [[ -e "${destination}" || -L "${destination}" ]]; then
+        log "keeping existing ${destination}"
+        return 0
+    fi
 
-  TEMP_PATH="$(mktemp -d --tmpdir="$(dirname -- "${destination}")" ".${name}.seed.XXXXXX")"
-  if ! GIT_TERMINAL_PROMPT=0 git clone --branch main -- "${url}" "${TEMP_PATH}"; then
-    log "failed to clone ${url}; nothing was installed"
-    exit 1
-  fi
+    TEMP_PATH="$(mktemp -d --tmpdir="$(dirname -- "${destination}")" ".${name}.seed.XXXXXX")"
+    if ! GIT_TERMINAL_PROMPT=0 git clone --branch main -- "${url}" "${TEMP_PATH}"; then
+        log "failed to clone ${url}; nothing was installed"
+        exit 1
+    fi
 
-  # A concurrent writer may have created the destination while cloning. GNU
-  # mv -Tn uses a no-clobber rename and -T forbids treating a new directory as
-  # a target directory. If publication loses the race, discard only our clone.
-  if [[ -e "${destination}" || -L "${destination}" ]]; then
-    log "keeping existing ${destination}"
-    cleanup
+    # A concurrent writer may have created the destination while cloning. GNU
+    # mv -Tn uses a no-clobber rename and -T forbids treating a new directory as
+    # a target directory. If publication loses the race, discard only our clone.
+    if [[ -e "${destination}" || -L "${destination}" ]]; then
+        log "keeping existing ${destination}"
+        cleanup
+        TEMP_PATH=""
+        return 0
+    fi
+
+    mv -Tn -- "${TEMP_PATH}" "${destination}"
+    if [[ -e "${TEMP_PATH}" || -L "${TEMP_PATH}" ]]; then
+        log "keeping concurrently created ${destination}"
+        cleanup
+        TEMP_PATH=""
+        return 0
+    fi
     TEMP_PATH=""
-    return 0
-  fi
-
-  mv -Tn -- "${TEMP_PATH}" "${destination}"
-  if [[ -e "${TEMP_PATH}" || -L "${TEMP_PATH}" ]]; then
-    log "keeping concurrently created ${destination}"
-    cleanup
-    TEMP_PATH=""
-    return 0
-  fi
-  TEMP_PATH=""
-  log "cloned ${url} into ${destination}"
+    log "cloned ${url} into ${destination}"
 }
 
 clone_if_absent "${CLUSTER_URL}" "${WORKSPACE}/cluster"
