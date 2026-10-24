@@ -23,7 +23,8 @@ Port = 80
 [Sonarr-TV]
 Managed = true
 URI = "http://sonarr.media.svc.cluster.local"
-APIKey = "${SONARR_API_KEY}"
+# $$ on purpose: Flux postBuild leaves ${VAR} for the envsubst init, which fills it from qbitrr-secrets.
+APIKey = "$${SONARR_API_KEY}"
 Category = "tv-sonarr"
 ReSearch = true
 # Minutes; 0 = disable
