@@ -380,6 +380,20 @@ spec:
                 for: 5m
                 labels:
                   severity: critical
+      cronjob-rules:
+        groups:
+          - name: cronjob
+            rules:
+              # concurrencyPolicy Forbid: a long run blocks schedules, so only an idle CronJob counts as missed.
+              - alert: CronJobNotScheduled
+                annotations:
+                  summary: CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is {{ $value | humanizeDuration }} past its scheduled run with no Job running
+                expr: |-
+                  time() - max by (namespace, cronjob) (kube_cronjob_next_schedule_time) > 1800
+                  and max by (namespace, cronjob) (kube_cronjob_status_active) == 0
+                for: 5m
+                labels:
+                  severity: warning
       node-hardware-rules:
         groups:
           - name: node-hardware
