@@ -33,9 +33,10 @@ class DatabaseWiringTests(unittest.TestCase):
         for key in ("username", "password"):
             self.assertTrue(secret["stringData"][key].startswith("ENC["))
 
-    def test_runtime_and_pending_migration_gate(self):
+    def test_runtime_ready_for_fresh_install(self):
         hr = load(APP / "app/helmrelease.yaml")["spec"]
-        self.assertTrue(hr["suspend"], "Remove this gate only after approved migration/adoption")
+        self.assertFalse(hr.get("suspend", False))
+        self.assertIn("./bitmagnet/ks.yaml", load(APP.parent / "kustomization.yaml")["resources"])
         values = hr["values"]
         self.assertEqual({"bitmagnet", "connector"}, set(values["controllers"]))
         self.assertNotIn("postgres", values["service"])
@@ -50,13 +51,14 @@ class DatabaseWiringTests(unittest.TestCase):
         self.assertIn("bootstrap", connector["initContainers"])
         self.assertEqual("both", connector["containers"]["app"]["env"]["ARMIGER_CONNECTOR_MODE"])
 
-    def test_backup_removal_and_pvc_retention(self):
+    def test_only_connector_storage_is_provisioned(self):
         self.assertFalse((APP / "app/backup.yaml").exists())
         self.assertNotIn("backup.yaml", load(APP / "app/kustomization.yaml")["resources"])
         self.assertEqual([{"name": "cloudnative-pg-databases", "namespace": "database"}],
                          load(APP / "ks.yaml")["spec"]["dependsOn"])
         pvcs = list(yaml.safe_load_all((APP / "app/pvc.yaml").read_text()))
-        self.assertEqual({"bitmagnet-pgdata", "armiger-connector-data"},
+        self.assertEqual(1, len(pvcs))
+        self.assertEqual({"armiger-connector-data"},
                          {p["metadata"]["name"] for p in pvcs})
         for pvc in pvcs:
             self.assertEqual("disabled", pvc["metadata"]["annotations"]

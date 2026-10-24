@@ -5,10 +5,6 @@ kind: HelmRelease
 metadata:
   name: &app bitmagnet
 spec:
-  # Existing data and deployment ownership are unverified; PG16 -> PG18 migration
-  # and Helm adoption must be checked before an approved cutover.
-  # Keep the existing release untouched until the README cutover gates are met.
-  suspend: true
   interval: 30m
   chartRef:
     kind: OCIRepository
