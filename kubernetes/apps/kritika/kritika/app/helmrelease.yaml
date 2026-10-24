@@ -119,6 +119,8 @@ spec:
       # Scores each PR 0-5; under 4 fails the check, critical risk needs a human.
       confidence:
         model: llm/qwen-3.8-fast
+        # Scores when the dGPU model is down (502 left #6100 unscored and so unapproved).
+        fallback: llm/omniroute
         threshold: 4
         risk: high
       # Step/token limits stay at kritika's defaults (60 steps, 4M tokens): 1M stopped a 98-file PR with 42 files unread.
