@@ -1,46 +1,64 @@
 # Bitmagnet stack
 
-One app-template HelmRelease manages PostgreSQL 16, Bitmagnet and the Armiger
-connector. Services remain `bitmagnet-postgres:5432`, `bitmagnet:3333` and
+One app-template HelmRelease manages Bitmagnet and the Armiger connector.
+The database is `bitmagnet`, owned by the non-superuser `bitmagnet` role on the
+existing shared CNPG cluster `postgres16` (currently PostgreSQL **18**, despite
+its retained name). No dedicated PostgreSQL deployment or cluster is created.
+Application services remain `bitmagnet:3333` and
 `armiger-connector:8096` / `:8097`. Prowlarr can use the connector's `/torznab`
 endpoint. The UI is routed through `envoy-internal` at
 `bitmagnet.${SECRET_DOMAIN}`; it is not internet-facing or authenticated by this
 stack. Keep it on the trusted internal network.
 
-## Deployment gate and rollback
+## Credentials and cutover gate
 
-This is **not** a claim that the stack is deployed or the existing data is empty.
-Before allowing Flux to reconcile this refactor, an operator must inspect the
-target context, existing resources/Flux inventory, PVC contents, ownership and
-free space, and take a verified backup. Do not delete or reinitialize either PVC.
+The shared ResourceSet provisions the database with reclaim policy `retain`,
+following peer apps. Its managed login role is not a superuser and cannot create
+databases or roles. The HelmRelease is suspended until existing data and resource
+ownership have been checked and any migration is complete. Suspension does not stop
+already running workloads; it prevents this change removing the old database
+Deployment before migration. The Flux dependency is `cloudnative-pg-databases`.
 
-Raw Deployment selectors and Helm ownership differ. If the raw stack exists,
-suspend its reconciliation, stop the three old Deployments in a maintenance
-window, and arrange their controlled replacement plus Service ownership adoption
-before resuming the HelmRelease. Ensure the old Flux inventory cannot prune
-resources now owned by Helm. These are live mutations requiring explicit approval;
-simply merging over an existing raw deployment is not a safe adoption procedure.
-For an absent stack, normal Flux reconciliation creates the retained PVCs.
+The registered SOPS-encrypted `database/cloudnative-pg/cluster/roles/bitmagnet.sops.yaml`
+(relative to `kubernetes/apps`) defines `database/bitmagnet-db`, type
+`kubernetes.io/basic-auth`, with username `bitmagnet` and the existing app password.
+It was created with approval using in-memory decryption/encryption; the original
+app secret is unchanged. The managed role references this secret through
+`passwordSecret.name: bitmagnet-db`. The app still reads the existing
+`media/bitmagnet-postgres` secret, but connects as `bitmagnet`, never `postgres`.
+CNPG requires the role secret in its own namespace with `username`/`password`
+keys; the existing media secret cannot be referenced directly.
+Password rotation must update both encrypted secrets together.
 
-`bitmagnet-pgdata` remains 5Gi on `ceph-block`, mounted at `/var/lib/postgresql`
-with `PGDATA=/var/lib/postgresql/data`; PostgreSQL stays on major 16 and uid 70.
-`armiger-connector-data` also remains 5Gi. Both are managed outside Helm, with
-Flux pruning disabled. Check existing ownership before enforcing uid/fsGroup
-70 (database) and 568 (connector); do not blindly recursively chown live PGDATA.
+## Migration and rollback
 
-For rollback, suspend the new HelmRelease/reconciliation first, stop its
-workloads, revert the Git change, and perform the reverse ownership transition
-under the same maintenance window. Never run old and new PostgreSQL processes
-against one claim. Restore the pre-change backup if data requires rollback.
-Existing connector `.venv`, script and model paths are untouched: the new runtime
-uses `runtime-v1` and a revision-specific model directory.
+Before resuming Helm, inspect the actual target cluster and data; absence has
+not been established. With approval, stop Bitmagnet and connector writers, keep
+the source PG16 accessible, and take a logical dump. Restore into the shared
+`bitmagnet` database as its owner using `pg_restore --no-owner --no-acl`, then
+verify extensions, schema/migrations, row counts and application compatibility
+with PG18. Use suitable migration-admin access only for the migration, not the
+runtime app. Never mount PG16 files into PG18. Rehearse on an isolated database
+before cutover; do not initialize an empty target over unexamined existing data.
+
+Only after credential and data verification should `spec.suspend` be removed.
+The Helm upgrade then retires its standalone postgres Deployment/Service.
+If resources are still raw/unmanaged, separately arrange approved ownership
+adoption/replacement; prevent old Flux inventory pruning newly adopted resources.
+
+`bitmagnet-pgdata` remains 5Gi with Flux prune protection, but no new workload
+mounts it. Retain it and its credentials for rollback until explicit retirement
+approval. `armiger-connector-data` is unchanged and also prune-protected.
+Rollback requires stopping writers and restoring the old release/ownership with
+PG16 against the retained claim. Writes made after cutover require a deliberate
+data-reconciliation plan: restoring the old PVC alone would lose those writes.
 
 ## DHT networking
 
 HTTP uses ClusterIP + HTTPRoute, not NodePort. DHT uses TCP and UDP 3334 on the
 scheduled node via `hostPort`, supported by this cluster's Cilium kube-proxy
 replacement. Only these ports are allowed from `world` for Bitmagnet pods; the
-namespace ingress allowlist still governs HTTP, PostgreSQL and the connector.
+namespace ingress allowlists still govern HTTP, the shared database and connector.
 There is no host networking, new LB allocation or unrestricted ingress rule.
 
 Check node port conflicts and actual DHT reachability during rollout. Node
@@ -48,27 +66,15 @@ placement may change on restart; any upstream NAT forwarding must follow the
 scheduled node. No router/firewall configuration is changed here and public
 inbound connectivity is not guaranteed by these manifests alone.
 
-## Backups and recovery
+## Existing shared backups
 
-Kopiur's repository is a Flux dependency. Hourly CSI snapshots of both claims
-are uploaded to `kopia-nas`, retaining 24 hourly / 7 daily copies and weekly quick
-verification. No restore dataSource is added to either existing PVC.
-
-Before each database snapshot, a fail-closed hook runs `pg_dump -Fc` as the
-database user and atomically replaces `/var/lib/postgresql/backup/bitmagnet.dump`.
-The CSI snapshot contains PGDATA and WAL on the same volume (crash recovery),
-plus a transaction-consistent logical dump as an alternative recovery path.
-Allow room for the current and temporary dump in addition to PGDATA: 5Gi may
-need expansion as crawling grows. A failed/15-minute timed-out dump fails the
-backup, rather than reporting success with an old dump.
-
-Use the [Kopiur restore runbook](../../../../docs/kopiur-restore.md), with the
-explicit PVC names above and policies `bitmagnet-postgres` / `armiger-connector`.
-Stop all writers before recovery. Restore full PG16 storage using the unchanged
-secret, or recover `backup/bitmagnet.dump` into a separately initialized PG16
-database with `pg_restore`; validate the recovered database before switching
-the application. A successful first snapshot and an isolated restore test remain
-rollout requirements, not results established by manifest validation.
+There are no app-specific SnapshotPolicies, SnapshotSchedules or dump hooks.
+The shared CNPG cluster already has daily Barman backups, continuous WAL
+archiving to R2 and seven-day retention. This database participates after
+migration; existing backup health and recoverability must still be verified.
+Recover individual data through an isolated cluster restore, not by rolling
+back the shared production cluster and its other applications. The retained
+legacy PVC and connector PVC have no backup policy in this stack.
 
 ## Supply chain and runtime limitations
 

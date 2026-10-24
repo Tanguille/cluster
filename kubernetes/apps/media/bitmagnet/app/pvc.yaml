@@ -2,6 +2,8 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
+  # Retained only for migration/rollback; no workload mounts this legacy PG16 PVC.
+  # Remove only after verified migration and explicit data-retirement approval.
   name: bitmagnet-pgdata
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled

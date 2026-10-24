@@ -5,6 +5,10 @@ kind: HelmRelease
 metadata:
   name: &app bitmagnet
 spec:
+  # Existing data and deployment ownership are unverified; PG16 -> PG18 migration
+  # and Helm adoption must be checked before an approved cutover.
+  # Keep the existing release untouched until the README cutover gates are met.
+  suspend: true
   interval: 30m
   chartRef:
     kind: OCIRepository
@@ -20,62 +24,6 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
     controllers:
-      postgres:
-        forceRename: bitmagnet-postgres
-        type: deployment
-        strategy: Recreate
-        annotations:
-          reloader.stakater.com/auto: "true"
-        pod:
-          terminationGracePeriodSeconds: 120
-          securityContext:
-            # Official Alpine postgres uid; retain the existing PG16 data layout.
-            runAsUser: 70
-            runAsGroup: 70
-            runAsNonRoot: true
-            fsGroup: 70
-            fsGroupChangePolicy: OnRootMismatch
-            seccompProfile: { type: RuntimeDefault }
-        containers:
-          postgres:
-            image:
-              repository: docker.io/library/postgres
-              tag: 16-alpine@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36
-            env:
-              POSTGRES_DB: bitmagnet
-              POSTGRES_USER: postgres
-              PGDATA: /var/lib/postgresql/data
-              POSTGRES_PASSWORD: &password
-                valueFrom:
-                  secretKeyRef:
-                    name: bitmagnet-postgres
-                    key: POSTGRES_PASSWORD
-            probes:
-              readiness: &pg-probe
-                enabled: true
-                custom: true
-                spec:
-                  exec:
-                    command: [pg_isready, -d, bitmagnet, -U, postgres]
-                  periodSeconds: 10
-                  timeoutSeconds: 5
-              liveness: *pg-probe
-              startup:
-                enabled: true
-                custom: true
-                spec:
-                  exec:
-                    command: [pg_isready, -d, bitmagnet, -U, postgres]
-                  periodSeconds: 10
-                  failureThreshold: 60
-                  timeoutSeconds: 5
-            resources:
-              requests: { cpu: 100m, memory: 128Mi }
-              limits: { memory: 1Gi }
-            securityContext: &container-security
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: { drop: [ALL] }
       bitmagnet:
         forceRename: *app
         type: deployment
@@ -96,11 +44,15 @@ spec:
                 --keys=dht_crawler
               ]
             env:
-              POSTGRES_HOST: bitmagnet-postgres
+              POSTGRES_HOST: postgres16-rw.database.svc.cluster.local
               HOME: /tmp
               POSTGRES_NAME: bitmagnet
-              POSTGRES_USER: postgres
-              POSTGRES_PASSWORD: *password
+              POSTGRES_USER: bitmagnet
+              POSTGRES_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: bitmagnet-postgres
+                    key: POSTGRES_PASSWORD
             # Bind only the DHT ports on the scheduled node, not the HTTP UI.
             # No new LB address is allocated; router forwarding remains operator-owned.
             ports:
@@ -132,7 +84,10 @@ spec:
             resources:
               requests: { cpu: 250m, memory: 512Mi }
               limits: { memory: 2Gi }
-            securityContext: *container-security
+            securityContext: &container-security
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: [ALL] }
       connector:
         forceRename: armiger-connector
         type: deployment
@@ -202,11 +157,6 @@ spec:
               limits: { memory: 3Gi }
             securityContext: *container-security
     service:
-      postgres:
-        forceRename: bitmagnet-postgres
-        controller: postgres
-        ports:
-          postgres: { port: 5432 }
       app:
         forceRename: *app
         controller: bitmagnet
@@ -231,18 +181,6 @@ spec:
               - identifier: app
                 port: http
     persistence:
-      pgdata:
-        existingClaim: bitmagnet-pgdata
-        advancedMounts:
-          postgres:
-            postgres:
-              - path: /var/lib/postgresql
-      postgres-run:
-        type: emptyDir
-        advancedMounts:
-          postgres:
-            postgres:
-              - path: /var/run/postgresql
       connector-data:
         existingClaim: armiger-connector-data
         advancedMounts:

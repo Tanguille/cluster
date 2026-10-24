@@ -7,8 +7,8 @@ metadata:
   namespace: &namespace media
 spec:
   dependsOn:
-    - name: kopiur-repository
-      namespace: kopiur-system
+    - name: cloudnative-pg-databases
+      namespace: database
   path: ./kubernetes/apps/media/bitmagnet/app
   targetNamespace: *namespace
   wait: true
