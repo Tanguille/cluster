@@ -45,6 +45,9 @@ spec:
               requests: { cpu: 50m, memory: 64Mi }
             addons:
               requests: { cpu: 50m, memory: 64Mi }
+            # Inert (rotation off, no sidecar) but non-empty: applying {} over the old requests reaches the CRD as null.
+            logRotator: &inertLogRotator
+              requests: { cpu: 10m, memory: 16Mi }
             # 30d peak 85Mi (rbd), 42Mi (cephfs).
             plugin:
               requests: { cpu: 100m, memory: 128Mi }
@@ -56,6 +59,7 @@ spec:
               requests: { cpu: 50m, memory: 64Mi }
             addons:
               requests: { cpu: 50m, memory: 64Mi }
+            logRotator: *inertLogRotator
             plugin:
               requests: { cpu: 100m, memory: 128Mi }
       cephfs:
