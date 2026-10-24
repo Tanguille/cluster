@@ -56,7 +56,7 @@ spec:
           labels:
             severity: warning
 
-        # An eviction sends all omniroute traffic to qwen-3.8 for 5m+, so alert on the fallback serving most of it (and over 5).
+        # An eviction sends all omniroute traffic to qwen-3.8 for 30s+, so alert on the fallback serving most of it (and over 5).
         - alert: AgentgatewayPrimaryDegraded
           expr: |-
             sum(
