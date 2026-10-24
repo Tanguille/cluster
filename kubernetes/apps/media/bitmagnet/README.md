@@ -86,6 +86,6 @@ establish model/API compatibility or throughput. Check actual inference,
 `/healthz`, GraphQL tagging and Torznab responses during rollout. The inherited
 malware-pruning setting can delete indexed records; it has not been changed.
 
-When changing Python requirements/image ABI, bump `runtime-v1` consistently in
+When changing Python requirements/image ABI, bump `runtime-v2` consistently in
 bootstrap and Helm values so a stale success marker cannot suppress installation.
 Versioned runtime/model paths preserve rollback data but consume extra PVC space.

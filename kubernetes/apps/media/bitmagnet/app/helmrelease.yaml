@@ -94,7 +94,7 @@ spec:
           bootstrap:
             image: &python-image
               repository: docker.io/library/python
-              tag: 3.12-slim@sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704
+              tag: 3.14-slim@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8
             command: [python3, /bootstrap/bootstrap.py]
             env:
               HOME: /tmp
@@ -105,8 +105,8 @@ spec:
             image: *python-image
             command:
               [
-                /data/armiger/runtime-v1/venv/bin/python3,
-                /data/armiger/runtime-v1/bitmagnet_connector.py
+                /data/armiger/runtime-v2/venv/bin/python3,
+                /data/armiger/runtime-v2/bitmagnet_connector.py
               ]
             env:
               HOME: /tmp

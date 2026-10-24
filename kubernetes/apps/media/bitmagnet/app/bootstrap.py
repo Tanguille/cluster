@@ -5,7 +5,7 @@ import subprocess
 import urllib.request
 
 ROOT = Path("/data/armiger")
-RUNTIME = ROOT / "runtime-v1"
+RUNTIME = ROOT / "runtime-v2"
 REVISION = "fd5c3faae6f5bd915a66010b7d1ed67ed8dd96f8"
 SOURCE_SHA256 = "99db79de2c70f1c9b8e0d41c4b441c106c5557ae08ab61af62db0abae51e776c"
 MODEL_REVISION = "cdf7036c45a0d9751d18e738c7abfde485552964"

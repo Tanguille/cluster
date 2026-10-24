@@ -46,7 +46,7 @@ class BootstrapTests(unittest.TestCase):
         old = self.root / "bitmagnet_connector.py"
         old.write_text("old runtime")
         self.execute()
-        self.assertTrue((self.root / "runtime-v1/.ready").exists())
+        self.assertTrue((self.root / "runtime-v2/.ready").exists())
         first = len(self.calls)
         self.execute()
         self.assertEqual(first, len(self.calls))
@@ -57,17 +57,17 @@ class BootstrapTests(unittest.TestCase):
             raise subprocess.CalledProcessError(1, args)
         with self.assertRaises(subprocess.CalledProcessError):
             self.execute(runner=fail)
-        self.assertFalse((self.root / "runtime-v1/.ready").exists())
+        self.assertFalse((self.root / "runtime-v2/.ready").exists())
 
     def test_bad_source_digest_is_rejected(self):
         with self.assertRaisesRegex(RuntimeError, "digest mismatch"):
             self.execute(content=b"unexpected source")
-        self.assertFalse((self.root / "runtime-v1/bitmagnet_connector.py").exists())
+        self.assertFalse((self.root / "runtime-v2/bitmagnet_connector.py").exists())
         self.assertFalse(list(self.root.glob("model-*/.ready")))
 
     def test_modified_source_is_repaired_even_when_ready(self):
         self.execute()
-        source = self.root / "runtime-v1/bitmagnet_connector.py"
+        source = self.root / "runtime-v2/bitmagnet_connector.py"
         source.write_bytes(b"corrupted")
         self.execute()
         self.assertEqual(CONTENT, source.read_bytes())
