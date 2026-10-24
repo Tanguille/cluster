@@ -34,6 +34,8 @@ spec:
         values:
           controllers:
             xmrig-<< inputs.node >>:
+              # KEDA owns the count; a rendered 1 started every miner at 0 W on each upgrade.
+              replicas: null
               pod:
                 labels:
                   # the headless xmrig-miners Service selects on this across all three Deployments
@@ -69,8 +71,7 @@ spec:
                   resources:
                     requests:
                       cpu: 1
-                      # RandomX fast mode needs ~2336Mi; requested under that because control-2/3 have
-                      # ~2.3Gi free and the true figure parks the miner Pending.
+                      # RandomX fast mode needs ~2336Mi; requested under that so the miner fits more often.
                       memory: 2Gi
                     limits:
                       cpu: 6

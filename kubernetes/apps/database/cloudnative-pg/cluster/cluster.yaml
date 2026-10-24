@@ -26,10 +26,6 @@ spec:
         createrole: false
         passwordSecret:
           name: bitmagnet-db
-      # LiteLLM is gone; its database is retained, so the role stays (it owns it) but cannot log in.
-      # Drop both by hand (DROP DATABASE litellm; DROP ROLE litellm;), then remove this entry.
-      - name: litellm
-        login: false
       - name: jellystat
         login: true
         passwordSecret:
@@ -175,7 +171,7 @@ spec:
       memory: 2Gi
     limits:
       cpu: 4
-      # primary working set peaked 1.85GiB at 1GB shared_buffers (now 2GB, not remeasured)
+      # primary working set peaked 2.83GiB (7d) at 2GB shared_buffers
       memory: 4Gi
   monitoring:
     enablePodMonitor: true

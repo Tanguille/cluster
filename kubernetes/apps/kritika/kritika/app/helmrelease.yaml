@@ -119,14 +119,15 @@ spec:
       # Scores each PR 0-5; under 4 fails the check, critical risk needs a human.
       confidence:
         model: llm/qwen-3.8-fast
+        # Scores when the dGPU model is down (502 left #6100 unscored and so unapproved).
+        fallback: llm/omniroute
         threshold: 4
         risk: high
+      # Step/token limits stay at kritika's defaults (60 steps, 4M tokens): 1M stopped a 98-file PR with 42 files unread.
       agent:
-        steps: 30
-        output: 12288
-        tokens: 1000000
-        # 30m cut off reviews still progressing.
-        timeout: 45m
+        parts: 16
+        # 60 default steps at omniroute's ~80s p95 per call need over an hour; 45m canceled 98- and 28-file reviews.
+        timeout: 90m
       rules:
         - id: renovate
           when:

@@ -59,7 +59,7 @@ spec:
     image:
       # Spelled out so Renovate tracks the digest.
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:7c27d9b6df1413e07c94fd7ab11333cf7c4e7d5a544b1d2ec4963587df0f6da7
+      tag: 35.0.2-fpm@sha256:b69c5c73663e0c924bd634f750f960469ae2eec42972cf31c5316beb6fb5a5f5
 
     lifecycle:
       postStartCommand:
@@ -68,6 +68,9 @@ spec:
 
     nginx:
       enabled: true
+      image:
+        repository: nginx
+        tag: 1.31.8-alpine@sha256:1ef7ca94d7879df82421428ce13bd1eaa412404953859cf7a5b6512c25e67a60
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
@@ -334,7 +337,7 @@ spec:
             cpu: 100m
             memory: 500Mi
           limits:
-            cpu: "1"
+            cpu: "2"
             # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
             memory: 4Gi
 
@@ -355,5 +358,5 @@ spec:
         memory: 500Mi
       limits:
         cpu: 4
-        # 30d max WSS 1.57GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
+        # 30d max WSS 1.92GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
         memory: 4Gi

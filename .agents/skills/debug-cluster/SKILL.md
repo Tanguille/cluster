@@ -51,7 +51,7 @@ When root cause is unclear, spawn a subagent with gathered facts and ask for fiv
 | Issue | Fix |
 |-------|-----|
 | Config not picked up | Reloader annotation on workload |
-| HelmRelease stuck | Delete HR; Flux recreates from git |
+| HelmRelease stuck | `flux reconcile hr <name> -n <ns> --reset` (or `--force`); never delete the HR (uninstalls) |
 | Wrong image/tag | HelmRelease `values` (`app/helmrelease.yaml`) |
 | PVC issues | storage class, events, kopiur `Restore`/mover path |
 

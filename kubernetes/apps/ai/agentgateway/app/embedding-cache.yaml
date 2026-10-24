@@ -22,8 +22,6 @@ spec:
         seccompProfile: { type: RuntimeDefault }
     controllers:
       embedding-cache:
-        annotations:
-          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -71,6 +69,11 @@ spec:
                   proxy_cache_methods POST;
                   proxy_cache_key "$request_uri|$request_body";
                   proxy_cache_valid 200 7d;
+                  # The key is stored in the cache file header, which must fit proxy_buffer_size: at the
+                  # 4k default ~40% of embedding requests failed "cache key too large" and bypassed.
+                  proxy_buffer_size 64k;
+                  proxy_buffers 4 64k;
+                  proxy_busy_buffers_size 64k;
                   proxy_cache_bypass $skip_cache;
                   proxy_no_cache $skip_cache;
                   # MCP sessions initializing together on a cold cache send the same 194-item

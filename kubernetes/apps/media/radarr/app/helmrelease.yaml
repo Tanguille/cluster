@@ -39,7 +39,16 @@ spec:
               - secretRef:
                   name: radarr-secret
             probes:
-              liveness: &probes
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: *port
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 5
+              readiness:
                 enabled: true
                 custom: true
                 spec:
@@ -49,7 +58,6 @@ spec:
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 5
-              readiness: *probes
               startup:
                 enabled: true
                 spec:
