@@ -12,9 +12,7 @@ spec:
   # probes. Note ai-ingress-allowlist (../../networkpolicy.yaml)
   # also selects these pods and admits the whole namespace; allows union, so
   # this list documents intent rather than enforcing it. Health/guard probes run in-pod.
-  # (The one sanctioned exception, memini -> bge-reranker-v2-m3, lives in its
-  # own policy below: memini still calls the reranker directly, until it moves behind
-  # agentgateway's /v1/rerank. Scoped to that one service, not the whole fleet.)
+  # Direct bge-reranker-v2-m3 callers get their own policy below.
   endpointSelector:
     matchExpressions:
       - key: inference.llmkube.dev/service
@@ -46,7 +44,7 @@ spec:
 ---
 # memini's and Hermes's (web-extract-rerank plugin) rerank paths, carved out of the gateway-only allowlist above.
 # Deliberately a SEPARATE policy: its endpointSelector pins the reranker
-# service, so memini reaches bge-reranker-v2-m3 and nothing else in the
+# service, so memini and Hermes reach bge-reranker-v2-m3 and nothing else in the
 # llmkube fleet — the unauthenticated 27B chat and vLLM pods stay
 # gateway-only.
 apiVersion: cilium.io/v2

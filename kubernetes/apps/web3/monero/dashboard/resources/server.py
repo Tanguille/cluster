@@ -48,7 +48,6 @@ WALLET_ADDRESS = args.wallet or ""
 
 LOG_FILE = os.path.join(DATA_DIR, "stats_log.json")      # 10s samples, last 24h
 ROLLUP_FILE = os.path.join(DATA_DIR, "stats_rollup.json")  # 5min means, last 90d
-STATS_MOD_FILE = os.path.join(DATA_DIR, "stats_mod")  # configuration for min payment
 MAX_LOG_AGE = 24 * 3600  # seconds, keep last 24h of data
 
 # Second retention tier. 10s samples cost 8640 points/day, so the 24h buffer is
@@ -146,15 +145,6 @@ def get_xmr_price():
     print("Price has come from last recorded value")
     return last_price
 
-def get_min_payment_threshold():
-    """Read min payment threshold from stats_mod file; fallback to 0.01 XMR"""
-    try:
-        with open(STATS_MOD_FILE) as f:
-            data = json.load(f)
-        return data["config"]["minPaymentThreshold"] / 1e12
-    except Exception:
-        return 0.01
-
 class Handler(http.server.BaseHTTPRequestHandler):
     """
     Static files are nginx's job (it aliases the p2pool API dir directly);
@@ -169,8 +159,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.serve_log()
         elif path == "/stats_history.json":
             self.serve_history(query)
-        elif path == "/min_payment_threshold":
-            self.send_json({"minPaymentThreshold": get_min_payment_threshold()})
         elif path == "/observer_config":
             self.send_json({"wallet": WALLET_ADDRESS, "observer": OBSERVER_URL})
         elif path.startswith("/observer/"):
@@ -286,8 +274,7 @@ def load_log_disk():
     with log_lock:
         load_tier(LOG_FILE, log)
         load_tier(ROLLUP_FILE, rollup, keep_missing=True)
-        # No rollup yet (first start or fresh PVC): replay the 24h log through
-        # the bucketer so the long ranges are not blank for the first three months.
+        # Rollup missing or unreadable beside a 24h log: replay it so the long ranges are not blank
         if not rollup["timestamps"] and log["timestamps"]:
             columns = {k: list(log[k]) for k in SERIES}
             # A ragged column (missing/short series in stats_log.json) must not

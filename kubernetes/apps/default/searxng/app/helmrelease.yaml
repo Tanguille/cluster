@@ -93,7 +93,6 @@ spec:
           gethomepage.dev/icon: searxng.png
         hostnames:
           - search.${SECRET_DOMAIN}
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-internal
             namespace: network

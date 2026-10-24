@@ -127,7 +127,7 @@ Unpackerr · FlareSolverr · BRRPolice · FileFlows · Qui
 <summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
-Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman
+Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman · Satisfactory
 
 </details>
 
@@ -135,7 +135,7 @@ Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman
 <summary>🌐 <b>Network & edge</b> (namespace <code>network/</code>)</summary>
 
 Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (internal DNS) · external-dns ·
-External-Service · SMTP-Relay
+External-Service · SMTP-Relay · Cloudflare-DDNS
 
 </details>
 
@@ -145,7 +145,7 @@ External-Service · SMTP-Relay
 Prometheus Operator CRDs · Grafana · Gatus (uptime) · Siren ·
 VictoriaMetrics · VictoriaLogs · KEDA (event-driven scaling) ·
 kube-state-metrics · Kromgo (cluster stats badges) · Silence-operator ·
-custom exporters
+Kepler (power metrics) · custom exporters
 
 </details>
 
@@ -170,8 +170,9 @@ security monitoring) · Trivy-Operator (image & CVE scanning)
 Cilium · CoreDNS · Spegel (local path) · descheduler · etcd-defrag ·
 metrics-server · reloader · snapshot-controller · node-problem-detector ·
 generic-device-plugin · AMD GPU undervolt · actions-runner-controller (self-hosted
-GitHub runners) · Flux · Rook-Ceph · OpenEBS · cert-manager ·
-kopiur (backup machinery) · system-upgrade (Talos upgrades)
+GitHub runners) · Flux · Konflate · Rook-Ceph · OpenEBS · cert-manager ·
+kopiur (backup machinery) · system-upgrade (Talos upgrades) · renovate-operator ·
+Kritika (namespace kritika/) · Monero node + P2Pool (namespace web3/)
 
 </details>
 
@@ -259,7 +260,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 
 | Doc                       | What it's for                              |
 |---------------------------|--------------------------------------------|
-| [Useful commands](docs/useful_commands.md) | flux / just / talos / sops reference + app runbooks |
+| [Useful commands](docs/useful_commands.md) | flux / just / talos reference + app runbooks |
 | [LLM hosting](docs/llm-hosting/) | vLLM tuning constraints + benchmark history |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |

@@ -334,7 +334,7 @@ spec:
             cpu: 100m
             memory: 500Mi
           limits:
-            cpu: "1"
+            cpu: "2"
             # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
             memory: 4Gi
 
@@ -355,5 +355,5 @@ spec:
         memory: 500Mi
       limits:
         cpu: 4
-        # 30d max WSS 1.57GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
+        # 30d max WSS 1.92GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
         memory: 4Gi

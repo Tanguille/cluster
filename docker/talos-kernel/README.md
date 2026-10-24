@@ -37,11 +37,11 @@ Kernel-series changes that bear on these nodes:
   view of the iGPU GTT leak that is invisible to `kubectl top`. Not exported: node-exporter
   v1.12.1 has no `GPUActive` collector, so it needs a bump or a textfile shim before it can be
   alerted on.
-- **r8169 LTR (7.0) cannot engage.** Both NICs are RTL8125B in `bond0`, but ACPI `_OSC` on the
-  Chuwi boxes reports `platform does not support [AER LTR DPC]` and the OS only gets
-  `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to the kernel. AER
-  reporting is unavailable for the same reason: PCIe errors are invisible here by construction,
-  so do not write alerts against AER on these nodes.
+- **r8169 LTR (7.0) cannot engage.** Both NICs are RTL8125B (eno1 carries the link, enp2s0 is
+  down), but ACPI `_OSC` on the Chuwi boxes reports `platform does not support [AER LTR DPC]`
+  and the OS only gets `[PCIeHotplug PME PCIeCapability]`, so the firmware never hands LTR to
+  the kernel. AER reporting is unavailable for the same reason: PCIe errors are invisible here
+  by construction, so do not write alerts against AER on these nodes.
 
 ## Pipeline
 

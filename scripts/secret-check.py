@@ -175,7 +175,7 @@ def main():
     failures = 0
     for path, reason in reasons.items():
         if reason:
-            # repr escapes embedded newlines/control characters in filenames.
+            # ascii() escapes newlines, control and non-ASCII characters.
             print(f"secret-check: {ascii(path)}: {reason}", file=sys.stderr)
             failures += 1
     print(f"secret-check: checked {len(reasons)} index files; {failures} failure(s)")

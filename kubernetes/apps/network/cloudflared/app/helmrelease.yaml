@@ -31,14 +31,14 @@ spec:
               - tunnel
               - run
             probes:
-              liveness: &probes
+              # No liveness: /ready tracks the edge, so it would restart-loop through WAN outages.
+              readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
                     path: /ready
                     port: &port 8080
-              readiness: *probes
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

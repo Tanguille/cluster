@@ -31,8 +31,8 @@ kind: CronJob
 metadata:
   name: qwen38-27b-vllm-kv-offload-guard
 spec:
-  # Hourly: a restart can regrow the tier past the floor within a day.
-  schedule: "0 * * * *"
+  # Every 15 min: the tier writes up to ~56 GiB/h; hourly let /var pass mon-c's 27% warn line.
+  schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3

@@ -24,7 +24,7 @@ spec:
       resources:
         requests:
           cpu: 10m
-          memory: 64Mi
+          memory: 256Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -108,6 +108,8 @@ spec:
         spec:
           interval: 60s
           scrapeTimeout: 50s
+          # control-1 /metrics/cadvisor hit vmagent's 16MiB default cap (10-16); 2x so growth doesn't re-hit it
+          max_scrape_size: 32MiB
           relabelConfigs:
             - action: labelmap
               regex: __meta_kubernetes_node_label_(.+)
@@ -269,8 +271,7 @@ spec:
           - vmalert.${SECRET_DOMAIN}
         parentRefs: *internalParentRefs
       spec:
-        # Observed usage, not the request below; pipeline went fully Pending in the 07-23 outage.
-        priorityClassName: homelab-critical # 149Mi
+        priorityClassName: homelab-critical # alerting path
         datasource:
           url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
         extraArgs:
@@ -288,7 +289,7 @@ spec:
 
     vmagent:
       spec:
-        priorityClassName: homelab-critical # 512Mi, sole scrape path
+        priorityClassName: homelab-critical # sole scrape path
         # vllm:cache_config_info carries 43 labels, past vmsingle's 40-label cap, so every
         # 30s scrape is rejected and logged: it fired RowsRejectedOnIngestion and TooManyLogs
         # while never being stored.
@@ -307,7 +308,7 @@ spec:
     vmauth:
       enabled: true
       spec:
-        priorityClassName: homelab-critical # 89Mi, Grafana's query path
+        priorityClassName: homelab-critical # Grafana's query path
         # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its
         # 25Mi default, which its 39Mi peak already exceeds.
         resources:
