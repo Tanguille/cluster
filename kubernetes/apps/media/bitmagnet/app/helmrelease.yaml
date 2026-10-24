@@ -11,7 +11,6 @@ spec:
     name: app-template
   values:
     defaultPodOptions:
-      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 568
@@ -22,7 +21,6 @@ spec:
     controllers:
       bitmagnet:
         forceRename: *app
-        type: deployment
         strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
@@ -61,20 +59,16 @@ spec:
                 hostPort: 3334
                 protocol: UDP
             probes:
+              # Chart default handler: TCP on the primary service port (http 3333).
               readiness: &bitmagnet-probe
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket: { port: 3333 }
                   periodSeconds: 15
                   timeoutSeconds: 5
               liveness: *bitmagnet-probe
               startup:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket: { port: 3333 }
-                  periodSeconds: 10
                   failureThreshold: 60
                   timeoutSeconds: 5
             resources:
@@ -86,7 +80,6 @@ spec:
               capabilities: { drop: [ALL] }
       connector:
         forceRename: armiger-connector
-        type: deployment
         strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
@@ -99,38 +92,30 @@ spec:
             env:
               HOME: /tmp
               HF_HOME: /tmp/huggingface
+              # Bump either version suffix to reinstall; old dirs are kept for rollback.
+              ARMIGER_RUNTIME_DIR: &runtime-dir /data/armiger/runtime-v2
+              ARMIGER_MODEL_DIR: &model-dir /data/armiger/model-cdf7036c45a0d9751d18e738c7abfde485552964
             securityContext: *container-security
         containers:
           app:
             image: *python-image
             command:
               [
-                /data/armiger/runtime-v2/venv/bin/python3,
-                /data/armiger/runtime-v2/bitmagnet_connector.py
+                $(ARMIGER_RUNTIME_DIR)/venv/bin/python3,
+                $(ARMIGER_RUNTIME_DIR)/bitmagnet_connector.py
               ]
             env:
               HOME: /tmp
               PYTHONDONTWRITEBYTECODE: "1"
-              ARMIGER_MODEL_DIR: /data/armiger/model-cdf7036c45a0d9751d18e738c7abfde485552964
-              ARMIGER_HF_REPO: NorviTech/armiger-ultra
+              ARMIGER_RUNTIME_DIR: *runtime-dir
+              ARMIGER_MODEL_DIR: *model-dir
               # Init downloads a fixed revision; never execute a floating HF bundle.
               ARMIGER_AUTO_DOWNLOAD: "false"
-              ARMIGER_VARIANT: ultra
-              ARMIGER_USE_ZERO_CUE_CATALOG: "true"
-              ARMIGER_DHT_RSI_MODE: pull_only
-              ARMIGER_CONNECTOR_MODE: both
-              ARMIGER_CONNECTOR_HOST: 0.0.0.0
+              # Unset ARMIGER_* tuning (mode both, malware pruning on, 5s poll) uses the pinned connector's defaults.
               ARMIGER_CONNECTOR_PORT: "8096"
               ARMIGER_PROXY_PORT: "8097"
               BITMAGNET_GRAPHQL_URL: http://bitmagnet:3333/graphql
               UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
-              BITMAGNET_POLL_SECONDS: "5"
-              BITMAGNET_BATCH_SIZE: "100"
-              ARMIGER_PRUNE_MALWARE: "true"
-              ARMIGER_PRUNE_DEAD_SWARMS: "false"
-              ARMIGER_REQUIRE_ENGLISH_AUDIO: "false"
-              ARMIGER_ALLOW_ENGLISH_SUBS: "true"
-              ARMIGER_REJECT_DEAD_SWARMS: "true"
             probes:
               readiness: &connector-probe
                 enabled: true
@@ -145,7 +130,6 @@ spec:
                 custom: true
                 spec:
                   httpGet: { path: /healthz, port: 8096 }
-                  periodSeconds: 10
                   failureThreshold: 90
                   timeoutSeconds: 5
             resources:
@@ -158,8 +142,6 @@ spec:
         controller: bitmagnet
         ports:
           http: { port: 3333 }
-          dht-tcp: { port: 3334, protocol: TCP }
-          dht-udp: { port: 3334, protocol: UDP }
       connector:
         forceRename: armiger-connector
         controller: connector

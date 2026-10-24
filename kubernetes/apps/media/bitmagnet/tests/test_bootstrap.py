@@ -2,6 +2,7 @@
 import ast
 import hashlib
 import io
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -11,6 +12,7 @@ from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "app/bootstrap.py"
 CONTENT = b"# verified connector fixture\n"
+MODEL_REVISION = "cdf7036c45a0d9751d18e738c7abfde485552964"
 
 
 class BootstrapTests(unittest.TestCase):
@@ -18,14 +20,14 @@ class BootstrapTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+        env = {"ARMIGER_RUNTIME_DIR": str(self.root / "runtime-v2"),
+               "ARMIGER_MODEL_DIR": str(self.root / f"model-{MODEL_REVISION}")}
+        self.enterContext(patch.dict(os.environ, env))
         tree = ast.parse(SCRIPT.read_text())
-        # Replace only storage root and expected fixture hash; execute real logic.
+        # Replace only the expected fixture hash; execute real logic.
         for node in tree.body:
             if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
-                if node.targets[0].id == "ROOT":
-                    node.value = ast.Call(func=ast.Name(id="Path", ctx=ast.Load()),
-                                          args=[ast.Constant(str(self.root))], keywords=[])
-                elif node.targets[0].id == "SOURCE_SHA256":
+                if node.targets[0].id == "SOURCE_SHA256":
                     node.value = ast.Constant(hashlib.sha256(CONTENT).hexdigest())
         self.code = compile(ast.fix_missing_locations(tree), str(SCRIPT), "exec")
         self.calls = []
@@ -35,7 +37,7 @@ class BootstrapTests(unittest.TestCase):
         self.calls.append(args)
         if "snapshot_download" in args[-1]:
             # Emulate the successful download, not its completion marker.
-            (self.root / "model-cdf7036c45a0d9751d18e738c7abfde485552964").mkdir(exist_ok=True)
+            (self.root / f"model-{MODEL_REVISION}").mkdir(exist_ok=True)
 
     def execute(self, runner=None, content=CONTENT):
         with patch("subprocess.run", side_effect=runner or self.fake_run), \
