@@ -150,8 +150,8 @@ sliding window:
   of 128 tokens or fewer (BLOCK_M 16 rows = tokens x GQA heads, causal mask), which
   replaces upstream's per-token synthetic decode.
 - Hadamard query rotation runs once per call outside the kernel.
-- `UQ_FAST=0` keeps the old upstream path with tuned geometry (`_patch_uq_ops`): 64K
-  decode about 23.6 instead of 29.6 tok/s.
+- `UQ_FAST=0` uses upstream kernels and their default geometry. Custom fallback tuning
+  was removed on 2026-10-24; the shared continuation buffer and length buckets stay active.
 
 **flash-attn length buckets (2026-10-09).** flash-attn's Triton AMD kernel takes
 `max_seqlen_q/k` as constexprs, so each new prompt length JIT-compiled a variant (3.4-5 s,
@@ -334,6 +334,6 @@ prompt-length mix below.
   fp8_e4m3`, drop `kvCacheCustomDtype`, `--kv-cache-memory 10200547328`,
   `maxModelLen: 246944`), restore the aiter `attn_3d` num_stages patch from the hook's
   git history (dropped with nightly `81198e97`), then reconcile.
-- **Partial rollback:** `UQ_FAST=0` returns to upstream kernels with tuned geometry.
+- **Partial rollback:** `UQ_FAST=0` returns to upstream kernels with default geometry.
   The KV format stays, so the KV tiers stay warm.
 - Any KV dtype change re-keys the disk tier, which then starts cold.

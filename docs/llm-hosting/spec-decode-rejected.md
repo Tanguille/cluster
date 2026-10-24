@@ -20,7 +20,7 @@ were ruled out on mechanism without a benchmark:
 | --- | --- | --- | --- |
 | **n-gram / prompt-lookup** | **corrupts output** | measured, incl. production | vllm#39273: SSM state corruption on hybrid GDN models — truncated/repeated fragments. Faster (see caveat below) and silently wrong. |
 | **DSpark** | rejected | measured | 0.59x (18.84 vs 31.73). Drafter KV is additive and bf16: +70% B/token, forcing the cap to 88K, below the 112K production peak. |
-| **MTP** | rejected | measured previously | -27% at M=5; 09-12 retest: wedge gone, but 48K conc 2-5 still loses (33/40/44/39 vs 45/51/62/71) and greedy output diverges. |
+| **MTP** | rejected | measured 2026-10-24 | Corrupts output on nightly `83c078d` (k=1 and k=3), see "MTP retest 2026-10-24". Earlier: -27% at M=5; 09-12 retest: 48K conc 2-5 loses (33/40/44/39 vs 45/51/62/71) and greedy output diverges. |
 | **EAGLE3 / DFlash** | blocked | **not benchmarked** — mechanism only | Same drafter-KV tax as DSpark, plus vllm#41640 (below). No published drafter for this base sized under the ~2.5 GiB break-even, so there was nothing to benchmark. |
 
 Also untested, and worth knowing before any retry: n-gram was never run against
@@ -393,6 +393,34 @@ fluent paraphrases (`departs 14:05; second departs` vs `departs at 14:05,
 second at`), the same verify-step signature as the radiance run. And the
 production shape still loses: 48K cached prefix, conc 2-5 aggregate 33 / 40 /
 44 / 39 with MTP vs 45 / 51 / 62 / 71 without, on the same image and band.
+
+## MTP retest 2026-10-24 on nightly 83c078d (vllm#61855 Triton fused GDN MTP decode): corrupts output
+
+Question: does the ROCm Triton port of `fused_gdn_decode_post_conv_mtp` (vllm#61855, replaces ~8 small
+kernels per GDN layer on the spec-decode step) change the 09-25 verdict? No: the correctness gate fails,
+so no speed number counts. Image `vllm-openai-rocm:nightly@sha256:d92e7eb` (`0.32.1rc1.dev361+g83c078d95`),
+unrouted clone of the production ISVC on a scratch kv-offload emptyDir, production and Hermes paused.
+
+| config | KV pool | boot | `spectest.py` | chat, temp 0 |
+| --- | ---: | --- | --- | --- |
+| spec off (control) | 469,489 | | coherent, 18.85 tok/s | full function and explanation |
+| MTP k=3 | 377,838 (-19.5%) | draft group `[3]` found, offload tier made, prefix caching on | degenerate: `Here` repeated, then `<think>` repeated | stops after 42 tokens, mid-function |
+| MTP k=1 | 391,759 (-16.6%) | same | degenerate: `Here` repeated, then endless backticks | 300 tokens of backticks |
+
+Acceptance: k=3 50/1,170 draft tokens (4%, 09-12 saw 66%), k=1 190/509 (37%). `spectest.py` always prints
+`DIVERGED at char 0` here because the model prefixes `Here are...`; read the output, not that line. Cause
+unknown (new kernel, the config overlay below, or elsewhere in the build); not isolated.
+vllm#55390 holds: the MTP draft group is identified and the offload tier is created.
+
+Clone recipe: `config.json` from the model dir with `re:.*mtp.*` appended to `quantization_config.ignore`
+(ConfigMap subPath-mounted over `/models/<hash>/config.json`, else boot dies on `fc.weight`); `--speculative-config`
+MTP; `--kv-cache-memory` 8.5 GB minus the 849 MB `model-mtp-bf16.safetensors`; cudagraph capture sizes
+multiples of k+1 up to `parallelSlots * (k+1)`. Pause with `flux suspend hr hermes`, scale Hermes to 0,
+`flux suspend ks llmkube-models` and `replicas: 0` on the production ISVC; restore in reverse.
+
+DFlash2 and DSpark were not rerun. The only relevant commit in the range is vllm#54163 (stops dropping the last
+prefix-cache block), which touches neither the drafter KV tax, the FP8 DFlash2 load failure nor the DSpark
+sampler crash.
 
 ## Unrelated finding: the nightly regression persists
 

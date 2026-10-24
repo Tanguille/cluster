@@ -95,14 +95,6 @@ spec:
           http:
             port: *port
 
-    route:
-      app:
-        hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
-        parentRefs:
-          - name: envoy-internal
-            namespace: network
-
     persistence:
       config:
         storageClass: ceph-block

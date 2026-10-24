@@ -34,7 +34,7 @@ def launch(x, w_q, w_s, w_zp, N, K, BM, BN, BK, warps, stages):
     kw = {} if stages is None else {"num_stages": stages}
     KERNEL[(triton.cdiv(M, BM), triton.cdiv(N, BN))](
         x, w_q, w_s, w_zp, c, M, N, K, K // 8, K // G, **strides(x, w_q, w_s),
-        group_size=G, ZP_BIAS=8, HAS_ZP=True, BLOCK_M=BM, BLOCK_N=BN, BLOCK_K=min(BK, G),
+        group_size=G, ZP_BIAS=8, HAS_ZP=True, PACKED_DEQUANT=False, BLOCK_M=BM, BLOCK_N=BN, BLOCK_K=min(BK, G),
         num_warps=warps, **kw)
     return c
 

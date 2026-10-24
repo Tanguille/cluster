@@ -13,6 +13,10 @@ spec:
     monitoring:
       enabled: true
       createPrometheusRules: true
+      # predict_linear duplicate of NodeVarFillingUp; KV-tier and image-GC sawtooth on /var trip it
+      prometheusRuleOverrides:
+        CephNodeDiskspaceWarning:
+          disabled: true
     toolbox:
       enabled: true
     route:
@@ -55,7 +59,8 @@ spec:
           bdev_enable_discard: "true"
           bdev_async_discard_threads: "1"
           osd_class_update_on_start: "false"
-          device_failure_prediction_mode: local # requires mgr module
+          # Inert (diskprediction_local is off below); kept because Rook never unsets a removed key.
+          device_failure_prediction_mode: local
           # RECENT_CRASH and RECENT_MGR_MODULE_CRASH warn for 1 day, not 14; nothing is archived
           mgr/crash/warn_recent_interval: "86400"
         mon:

@@ -37,13 +37,17 @@ spec:
       slow: false
       # Server DB is a re-downloadable cache; emptyDir avoids a Ceph PVC.
       storageClassEnabled: false
+      server:
+        resources:
+          requests:
+            memory: 256Mi
     # Per-run runner pods and AI jobs are scanned then discarded. Also skips
     # persistent AI workloads, which get no image scanning elsewhere.
     excludeNamespaces: "actions-runner-system,ai"
     resources:
       requests:
         cpu: 100m
-        memory: 256Mi
+        memory: 512Mi
       limits:
         # ~800Mi steady during scan storms.
         memory: 2Gi

@@ -138,8 +138,8 @@ Cooling that drive converts directly into safe-time; no threshold change can.
 ## Known and accepted
 
 - **A full node forfeits its slot.** The hard `nodeSelector` means a miner cannot shop for
-  another node. control-2 and control-3 have 21.7Gi allocatable and sit near 99% memory
-  requests, which cost 1.69 replica-hours in the first 24h. `preemptionPolicy: Never` on
+  another node. control-2 and control-3 have 25.6Gi allocatable; memory requests ran near 99% in
+  the first 24h, costing 1.69 replica-hours. `preemptionPolicy: Never` on
   `low-priority-mining` means the miner waits rather than evicting real work, which is correct.
 - **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every
   node's allocatable memory even at 0 replicas, so it was dropped. The reclaim is 2368Mi while
@@ -156,8 +156,6 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   recovery dwell. It was self-reinforcing: 1.7 errors/h idle against 4.8/h with a miner present,
   because the cAdvisor join only engages when one is. 85 of control-1's 118 mining bursts died
   under 5 minutes to this, not to its thresholds, which replay at 93.8% safe against 75.8% live.
-- **The dashboard under-reports hashrate when more than one miner runs**, because it polls one
-  Service and gets whichever pod answers.
 - **A missing rank series fails open on allocation only.** `scalar()` yields NaN, every rank
   comparison is false, and the node behaves as top priority: worst case one extra miner, 50W
   over-drawn. The safety gate is a separate factor and still fails closed.
