@@ -1,0 +1,52 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: d3-nano-ingress
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: d3-nano
+  ingress:
+    - fromEntities: [host]
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            gateway.networking.k8s.io/gateway-name: agentgateway
+      toPorts:
+        - ports:
+            - port: "8101"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: hermes
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: siren
+      toPorts:
+        - ports:
+            - port: "8100"
+              protocol: TCP
+          rules:
+            http:
+              - method: POST
+                path: /v1/systemone
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+            app.kubernetes.io/name: vmagent
+      toPorts:
+        - ports:
+            - port: "8100"
+              protocol: TCP
+          rules:
+            http:
+              - method: GET
+                path: /metrics
+    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns

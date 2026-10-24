@@ -12,6 +12,8 @@ spec:
   values:
     controllers:
       siren:
+        annotations:
+          reloader.stakater.com/auto: "true"
         replicas: 2
         strategy: RollingUpdate
         # app-template renders this as a PDB on the siren pods: keep one alert
@@ -25,7 +27,7 @@ spec:
               tag: 1.4.40@sha256:b322bb92b4f0746266e9a73fa36820a16987d32026279d6e180c2ff1836e272c
             env:
               TZ: ${TIMEZONE}
-              ALERTMANAGER_BASE_URL: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
+              ALERTMANAGER_BASE_URL: http://127.0.0.1:8102
               PORT: &port 3000
             probes:
               liveness:
@@ -58,6 +60,44 @@ spec:
               limits:
                 cpu: 100m
                 memory: 512Mi
+          decisions:
+            image:
+              repository: python
+              tag: 3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+            command: ["python", "/app/decision_gateway.py"]
+            env:
+              PYTHONDONTWRITEBYTECODE: "1"
+              D3_NATIVE_URL: http://d3-nano.ai.svc.cluster.local:8100
+              D3_ALERT_PORT: "8102"
+              D3_ALERTMANAGER_URL: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
+            probes:
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  exec: &decisionsLive
+                    command:
+                      - python
+                      - -c
+                      - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8102/healthz', timeout=3).read()"
+                  timeoutSeconds: 5
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  exec: *decisionsLive
+                  timeoutSeconds: 5
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 128Mi
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -89,6 +129,14 @@ spec:
           - name: envoy-internal
             namespace: network
     persistence:
+      d3-gateway:
+        type: configMap
+        name: d3-gateway
+        advancedMounts:
+          siren:
+            decisions:
+              - path: /app
+                readOnly: true
       tmpfs:
         type: emptyDir
         globalMounts:

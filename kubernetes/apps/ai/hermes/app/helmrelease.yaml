@@ -24,14 +24,34 @@ spec:
 
     controllers:
       hermes:
+        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
 
-        containers:
-          app:
-            image:
+        initContainers:
+          configure-d3:
+            image: &image
               repository: nousresearch/hermes-agent
               tag: v0.22.5@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
+            command:
+              ["/opt/hermes/.venv/bin/python", "-P", "/opt/d3/configure_d3.py"]
+            securityContext:
+              runAsUser: 10000
+              runAsGroup: 10000
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                cpu: "1"
+                memory: 256Mi
+
+        containers:
+          app:
+            image: *image
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -113,6 +133,32 @@ spec:
             namespace: network
 
     persistence:
+      d3-decisions:
+        type: configMap
+        name: hermes-d3-decisions
+        globalMounts:
+          - path: /opt/d3/plugins/d3-decisions
+            readOnly: true
+      d3-memini:
+        type: configMap
+        name: hermes-d3-memini
+        globalMounts:
+          - path: /opt/d3/plugins/d3-memini
+            readOnly: true
+      d3-client:
+        type: configMap
+        name: hermes-d3-gateway
+        globalMounts:
+          - path: /opt/d3/shared/d3_client.py
+            subPath: d3_client.py
+            readOnly: true
+      d3-configure:
+        type: configMap
+        name: hermes-d3-configure
+        globalMounts:
+          - path: /opt/d3/configure_d3.py
+            subPath: configure_d3.py
+            readOnly: true
       data:
         existingClaim: *app
         globalMounts:

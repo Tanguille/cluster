@@ -1,0 +1,32 @@
+---
+# The D3 adapter checks this bearer; the gateway strips the client's Authorization before forwarding.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/secret_v1.json
+apiVersion: v1
+kind: Secret
+metadata:
+  name: d3-confidence-key
+type: Opaque
+stringData:
+  Authorization: ${LLM_API_KEY}
+---
+# Serves only Kritika's fixed score/risk schema, not general chat; kritika falls back to omniroute.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: d3-confidence
+spec:
+  parentRefs:
+    - kind: HTTPRoute
+      name: agentgateway-models
+  provider: Custom
+  custom:
+    backendRef:
+      name: d3-nano
+      port: 8101
+    formats:
+      - type: Completions
+  policies:
+    auth:
+      secretRef:
+        name: d3-confidence-key

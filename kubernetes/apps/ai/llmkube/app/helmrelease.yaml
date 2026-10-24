@@ -55,7 +55,7 @@ spec:
     # RWX on CephFS: controller and iGPU services land on different nodes; read
     # once at load. qwen38-27b-vllm has its own node-local cache.
     modelCache:
-      # embeddinggemma-2 0.31Gi + qwen35-2b 1.18Gi + bge-reranker-v2-m3; 16Gi after 91% at 8Gi: the operator never GCs old revisions.
+      # embeddinggemma-2 0.31Gi + bge-reranker-v2-m3; 16Gi after 91% at 8Gi: the operator never GCs old revisions.
       size: 16Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany
