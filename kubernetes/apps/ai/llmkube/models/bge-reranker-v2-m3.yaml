@@ -43,7 +43,7 @@ spec:
   # GTT-leak mitigation as with embeddinggemma-2: lifetime covers startup and
   # model load before this Vulkan server is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5a23ea3de52d4004f21f929f7365b97df03db12b946117eeed214337379994a8
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:2716be5463dcecd02ace322f77fa0ea10b7168c5c8f0e45458b303541fca6632
   # memini serializes rerank calls (MEMINI_RERANK_MAX_CONCURRENCY=1), and
   # each slot gets contextSize/parallelSlots, so one slot keeps the full window.
   parallelSlots: 1
@@ -86,7 +86,7 @@ spec:
       - 226
 
   resources:
-    cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
+    cpu: "100m" # inference is on the iGPU; CPU only tokenises/schedules
     # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~0.65Gi of amdgpu
     # GTT. memcg does not charge GTT, but the scheduler must count it. 2Gi did
     # not fit control-3 (1.76Gi requestable), pushing it onto the embedder's node.

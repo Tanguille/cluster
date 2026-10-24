@@ -21,8 +21,6 @@ spec:
               This may indicate a Cilium L2 announcement issue after node restarts.
           labels:
             severity: critical
-            component: cilium
-            type: loadbalancer
 
     - name: cilium.bpf.rules
       rules:
@@ -37,5 +35,3 @@ spec:
               CT map sizes are fixed (bpf.ctTcpMax/ctAnyMax in the cilium HelmRelease); sustained pressure means raising them.
           labels:
             severity: warning
-            component: cilium
-            type: bpf-map

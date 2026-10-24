@@ -10,9 +10,7 @@ spec:
     name: kopiur
   interval: 1h
   values:
-    # The controller pod itself needs direct NFS access to the repo, not just
-    # the per-app movers — kopiur#137, filesystem Restore fails with
-    # "/repo not mounted" without this. Confirmed by every NFS-backend adopter.
+    # Controller runs kopia in-process; Restore fails "/repo not mounted" without this (kopiur#137).
     extraVolumes:
       - name: repo
         nfs:

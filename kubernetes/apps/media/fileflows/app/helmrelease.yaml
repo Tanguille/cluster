@@ -56,7 +56,7 @@ spec:
           app:
             image:
               repository: revenz/fileflows
-              tag: 26.10@sha256:b35d2ed5e725ec74b4ead73eaae062bd9fa57837d2bce7fda85192b91af5d562
+              tag: 26.10@sha256:f8455245b0a328c79e3536515024ff15f388b77197e9f84eab316ee2561a99a6
             env:
               TZ: ${TIMEZONE}
               PUID: "568"
@@ -114,6 +114,8 @@ spec:
           gethomepage.dev/widget.type: fileflows
           gethomepage.dev/widget.version: "2"
           gethomepage.dev/widget.url: http://fileflows.media.svc.cluster.local:5000
+          # v2 reads the Fenrus Dashboard Endpoint token (FileFlows > Settings > General).
+          gethomepage.dev/widget.key: "{{`{{HOMEPAGE_VAR_FILEFLOWS_KEY}}`}}"
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:

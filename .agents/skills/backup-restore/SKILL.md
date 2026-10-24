@@ -29,12 +29,7 @@ compatibility: Requires `kubectl` access to the cluster and the `kopiur` kubectl
 
 ## Check status
 
-A healthy policy shows `Ready: True` and a recent `status.lastSuccessfulSnapshot`. The
-`SnapshotSchedule` object's `status.observedGeneration` sticking behind
-`.metadata.generation` is a known cosmetic quirk (fleet-wide, harmless) — it makes the owning
-Flux Kustomization's `wait: true` health check flap (`HealthCheckFailed ... status: 'InProgress'`,
-self-clears on retry). Don't chase it; trust the policy's own `Ready` condition and a fresh
-manual snapshot instead.
+A healthy policy shows `Ready: True` and a recent `status.lastSuccessfulSnapshot`.
 
 ## Restore from backup
 

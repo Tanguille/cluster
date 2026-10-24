@@ -1,0 +1,94 @@
+---
+# Models listener, shared by every model. agentgateway's model router (AgentgatewayModel, one
+# per file in models/) routes on the body's model and answers GET /v1/models and unknown
+# models itself. omniroute and embeddinggemma-2 are the exceptions: their fallbacks (to
+# qwen-3.8, and past the embedding cache) need a backend group, so each keeps a header-matched
+# route in its own file.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-models
+spec:
+  parentRefs:
+    - name: agentgateway
+      sectionName: models
+  rules:
+    # At "/": the router strips its rule's path prefix before classifying the endpoint. Keep
+    # one rule: models attach without a sectionName, which agentgateway allows only then.
+    - backendRefs:
+        - group: agentgateway.dev
+          kind: AgentgatewayModel
+          name: "*"
+---
+# Copies the body's model into x-gateway-model before routing: the omniroute and
+# embeddinggemma-2 routes match on it, and agentgateway-metrics labels every request with it.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-model-header
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+      sectionName: models
+  traffic:
+    phase: PreRouting
+    transformation:
+      request:
+        set:
+          - name: x-gateway-model
+            value: json(request.body).model
+---
+# The http listener and Headroom both arrive with the internal key, and only that key is
+# accepted: the rest of the namespace can reach port 8080 directly, and a client key here would
+# skip the http listener's per-key limits. The gateway strips Authorization before forwarding,
+# so backends never see a key.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-auth
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+      sectionName: models
+  traffic:
+    apiKeyAuthentication:
+      mode: Strict
+      secretSelector:
+        matchLabels:
+          agentgateway.dev/apikey-internal: "true"
+---
+# Retry dropped connections (each costs a Hermes cron run). A refused or reset connection
+# surfaces as 503. A call that hits the timeout below is re-sent too (agentgateway retries that
+# error whatever `codes` says); Headroom's 2000s and the http listener's 2100s cut the replay
+# short. Every model gets it; agentgateway-retry-omniroute (models/omniroute.yaml) replaces it on omniroute (a
+# route-level policy wins over a listener-level one). The timeout covers the longest call, a
+# 100K+ token prefill on qwen-3.8 under GPU contention.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-retry
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+      sectionName: models
+  traffic:
+    retry:
+      attempts: 2
+      codes:
+        - 500
+        - 502
+        - 503
+  backend:
+    http:
+      # Also omniroute's qwen-3.8 fallback ceiling; omniroute's own provider-level 150s wins.
+      requestTimeout: 1800s

@@ -4,7 +4,7 @@ Replace `$WINDOW` (default `30m`) and `$STEP` (`1m` for windows ≤ ~2h, `5m` fo
 
 ## Step 1 — Alerts
 
-**Fallback instant query:**
+**Instant query:**
 
 ```promql
 ALERTS{alertstate="firing"}

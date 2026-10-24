@@ -3,35 +3,35 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: litellm
-  namespace: &namespace ai
+  name: agentgateway-crds
+  namespace: &namespace network
 spec:
-  interval: 30m
-  dependsOn:
-    - name: litellm-operator
-    - name: cloudnative-pg-databases
-      namespace: database
-  path: ./kubernetes/apps/ai/litellm/instance
-  prune: true
+  interval: 1h
+  path: ./kubernetes/apps/network/agentgateway/crds
+  # The chart ships its CRDs as templates: pruning the release would delete every Agentgateway* object.
+  prune: false
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
   targetNamespace: *namespace
+  wait: true
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: litellm-operator
-  namespace: &namespace ai
+  name: agentgateway
+  namespace: &namespace network
 spec:
-  targetNamespace: *namespace
-  path: ./kubernetes/apps/ai/litellm/app
+  dependsOn:
+    - name: agentgateway-crds
+  interval: 1h
+  path: ./kubernetes/apps/network/agentgateway/app
+  prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  prune: true
+  targetNamespace: *namespace
   wait: true
-  interval: 30m

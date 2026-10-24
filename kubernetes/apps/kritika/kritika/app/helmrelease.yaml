@@ -37,10 +37,7 @@ spec:
               memory: 128Mi
             limits:
               memory: 1Gi
-    # Cache the runner's mise-pinned tool downloads: one private emptyDir per
-    # replica, shared by every runner Job in the pod. S3 (RGW) would carry the
-    # cache across a rollout and share it between replicas; we run one replica,
-    # so filesystem keeps the win with no new storage dependency.
+    # Runner mise downloads cached on a per-pod emptyDir; S3 would survive rollouts but adds a storage dependency for one replica.
     gatewayCache:
       enabled: true
     # Internal only: public dashboard with local admin is too exposed.
@@ -53,7 +50,8 @@ spec:
     # Server egress; runners use the chart's separate policy.
     networkPolicy:
       enabled: true
-      # 4000 for litellm: Cilium matches the pod port after service DNAT.
+      # 4000 for the LLM gateway (agentgateway's http listener):
+      # Cilium matches the pod port after service DNAT.
       egressPorts:
         - 443
         - 4000
@@ -76,11 +74,11 @@ spec:
           matchLabels:
             grafana.internal/instance: grafana
     env:
-      LITELLM_API_KEY:
+      LLM_API_KEY:
         valueFrom:
           secretKeyRef:
             name: cluster-secrets
-            key: LITELLM_API_KEY
+            key: LLM_API_KEY
       GITHUB_APP_PRIVATE_KEY:
         valueFrom:
           secretKeyRef:
@@ -107,28 +105,28 @@ spec:
           privateKey: { env: GITHUB_APP_PRIVATE_KEY }
           webhookSecret: { env: GITHUB_APP_WEBHOOK_SECRET }
       providers:
-        litellm:
+        llm:
           type: openai
-          baseUrl: "http://litellm.ai.svc.cluster.local/v1"
-          apiKey: { env: LITELLM_API_KEY }
+          baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
+          apiKey: { env: LLM_API_KEY }
       review:
-        # LiteLLM falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
-        model: litellm/omniroute
+        # The gateway falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
+        model: llm/omniroute
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
         approve: true
       # Scores each PR 0-5; under 4 fails the check, critical risk needs a human.
       confidence:
-        model: litellm/qwen-3.8-fast
+        model: llm/qwen-3.8-fast
+        # Scores when the dGPU model is down (502 left #6100 unscored and so unapproved).
+        fallback: llm/omniroute
         threshold: 4
         risk: high
+      # Step/token limits stay at kritika's defaults (60 steps, 4M tokens): 1M stopped a 98-file PR with 42 files unread.
       agent:
-        steps: 30
-        output: 12288
-        tokens: 1000000
-        # 30m cut off reviews still progressing.
-        timeout: 45m
+        # 60 default steps at omniroute's ~80s p95 per call need over an hour; 45m canceled 98- and 28-file reviews.
+        timeout: 90m
       rules:
         - id: renovate
           when:
@@ -201,7 +199,7 @@ spec:
       ignore:
         - "**/*.out"
       embedding:
-        model: litellm/embeddinggemma-2
+        model: llm/embeddinggemma-2
         dims: 768
         # 200000-char default batches of long chunks ran past the 1 min embed timeout on the iGPU.
         maxBatchChars: 50000
@@ -210,6 +208,29 @@ spec:
         # One prompt for both sides, as the model card has it. A change rebuilds the index: recheck similarFloor.
         queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
         documentPrompt: *embeddingPrompt
+      # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs); github.com is implicit.
+      # cafe.github.com (gh telemetry) stays refused.
+      egress:
+        allow:
+          # raw, release-assets (mise installs), pkg-containers (ghcr blobs)
+          - "*.githubusercontent.com"
+          - ghcr.io
+          # registry-1, auth; hub, registry.hub and the blob CDNs
+          - "*.docker.io"
+          - "*.docker.com"
+          - cr.agentgateway.dev
+          - crates.io
+          - codeberg.org
+          - grafana.com
+          - huggingface.co
+          - cloudnative-pg.io
+          - "*.kernel.org"
+          # mise, mise-versions
+          - "*.jdx.dev"
+          - www.sqlite.org
+          - shadcn-svelte.com
+          - "*.shadcn-svelte.com"
+          - api.flathub.com
       # Local admin until GitHub or OIDC is set up.
       auth:
         admin:

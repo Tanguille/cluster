@@ -20,10 +20,8 @@ spec:
           labels:
             severity: warning
 
-        # 44 images carry criticals at baseline: alert on increases vs the 1d-ago max (spans 48h report gaps).
-        # seerr v3.5.0 is the latest upstream release and still bundles fixable criticals (tar, next,
-        # handlebars, proxy-addr); only an upstream rebuild clears them. Excluded from the alert, not from
-        # the reports. Drop the exclusion when a patched seerr release lands.
+        # Criticals are common at baseline: alert on rises vs the 1d-ago max (spans 48h report gaps).
+        # seerr: fixable criticals only upstream can clear; drop this exclusion once it scans clean.
         - alert: TrivyNewCriticalVulnerabilities
           expr: |-
             max by (namespace, image_repository) (trivy_image_vulnerabilities{severity="Critical",image_repository!="seerr-team/seerr"})
