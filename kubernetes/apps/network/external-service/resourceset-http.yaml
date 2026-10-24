@@ -8,6 +8,7 @@ spec:
   # ResourceSet.spec.wait defaults to false.
   wait: true
   # Plain HTTP to an off-cluster host, fronted on :80. One input entry per service.
+  # gethomepage.dev/external skips the pod status: no pods back these targets.
   inputs:
     - name: arm
       service: internal-arm
@@ -18,10 +19,10 @@ spec:
       annotations:
         gethomepage.dev/enabled: "true"
         gethomepage.dev/name: ARM
+        gethomepage.dev/description: Automatic Ripping Machine
         gethomepage.dev/group: External
-        gethomepage.dev/icon: mdi-server-network
-        # external target — no pods to health-check
-        gethomepage.dev/pod-selector: ""
+        gethomepage.dev/icon: mdi-disc-player
+        gethomepage.dev/external: "true"
 
     - name: avr
       service: internal-avr
@@ -32,9 +33,10 @@ spec:
       annotations:
         gethomepage.dev/enabled: "true"
         gethomepage.dev/name: AVR
+        gethomepage.dev/description: Denon receiver
         gethomepage.dev/group: External
-        gethomepage.dev/icon: mdi-server-network
-        gethomepage.dev/pod-selector: ""
+        gethomepage.dev/icon: denon-light.png
+        gethomepage.dev/external: "true"
 
     - name: centauri-carbon
       service: internal-centauri-carbon
@@ -47,8 +49,8 @@ spec:
         gethomepage.dev/name: Centauri Carbon
         gethomepage.dev/description: 3D printer web UI
         gethomepage.dev/group: External
-        gethomepage.dev/icon: mdi:printer-3d
-        gethomepage.dev/pod-selector: ""
+        gethomepage.dev/icon: mdi-printer-3d
+        gethomepage.dev/external: "true"
 
     - name: homeassistant
       service: external-homeassistant
@@ -62,7 +64,7 @@ spec:
         gethomepage.dev/description: Home automation
         gethomepage.dev/group: Portals
         gethomepage.dev/icon: home-assistant.png
-        gethomepage.dev/pod-selector: ""
+        gethomepage.dev/external: "true"
         gethomepage.dev/widget.type: homeassistant
         gethomepage.dev/widget.url: https://homeassistant.${SECRET_DOMAIN}
         gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_HOMEASSISTANT_TOKEN}}"
@@ -79,7 +81,7 @@ spec:
         gethomepage.dev/description: Network traffic analysis
         gethomepage.dev/group: External
         gethomepage.dev/icon: ntopng.png
-        gethomepage.dev/pod-selector: ""
+        gethomepage.dev/external: "true"
 
     - name: scrutiny
       service: internal-scrutiny
@@ -95,7 +97,7 @@ spec:
         gethomepage.dev/icon: scrutiny.png
         gethomepage.dev/widget.type: scrutiny
         gethomepage.dev/widget.url: https://scrutiny.${SECRET_DOMAIN}
-        gethomepage.dev/pod-selector: ""
+        gethomepage.dev/external: "true"
 
     - name: vaultwarden
       service: internal-vaultwarden
@@ -109,7 +111,7 @@ spec:
         gethomepage.dev/description: Password manager
         gethomepage.dev/group: Utilities
         gethomepage.dev/icon: vaultwarden.png
-        gethomepage.dev/pod-selector: ""
+        gethomepage.dev/external: "true"
 
   resources:
     - apiVersion: v1

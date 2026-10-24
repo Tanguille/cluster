@@ -5,7 +5,7 @@ description: >-
   and workload signal. Default lookback is 30 minutes unless the user specifies another window.
 
   user: "cluster health" / "health snapshot" → alerts + top CPU pods over $WINDOW
-  user: "firing alerts" → list_alert_rules or ALERTS PromQL fallback
+  user: "firing alerts" → ALERTS PromQL, or alerting_rules_read (datasource_uid victoriametrics)
   user: "top CPU pods" / "how's the load" → container_cpu usage queries (cores, not sec/min)
   user: "is karakeep healthy?" → filter namespace/pod + correlate alerts
 
@@ -31,16 +31,14 @@ Stack: Grafana MCP (`grafana/mcp-grafana`), behind the ToolHive unified vMCP. Da
 
 | Goal | Tools |
 |------|--------|
-| Datasource UID | `list_datasources`, `get_datasource_by_uid` |
-| Firing alerts | **`list_alert_rules`**, `list_alert_groups` |
+| Datasource UID | `list_datasources`, `get_datasource` |
+| Firing alerts | **`ALERTS{alertstate="firing"}`** PromQL; `alerting_rules_read` with `datasource_uid: victoriametrics` |
 | PromQL | **`query_prometheus`** (`queryType`, `startTime`, `endTime`, `stepSeconds`) |
 | Discovery | `list_prometheus_metric_names`, `list_prometheus_label_*` |
 | Dashboards | `search_dashboards`, `get_dashboard_summary`, `get_dashboard_panel_queries` |
 | Logs follow-up | `victorialogs-mcp_*` tools via the vMCP; raw fallback: vmauth :8427 `/select/logsql/*` or victoria-logs.observability:9428 |
 
 **`query_prometheus`:** use `instant` + subquery PromQL from [references/promql-queries.md](references/promql-queries.md); for `range`, align `stepSeconds` with `$STEP` (60 for 1m, 300 for 5m).
-
-Recommended flow: datasource UID → alerting rules → CPU/memory PromQL → discovery if empty → optional dashboards/logs.
 
 ## Principles
 
@@ -54,7 +52,7 @@ Recommended flow: datasource UID → alerting rules → CPU/memory PromQL → di
 ## Workflow
 
 1. Set `$WINDOW` / `$STEP` from user request.
-2. Alerts — Grafana rules, then PromQL fallback ([references/promql-queries.md](references/promql-queries.md#step-1--alerts)).
+2. Alerts: ALERTS PromQL first, then `alerting_rules_read` for rule detail ([references/promql-queries.md](references/promql-queries.md#step-1--alerts)).
 3. CPU — avg or max cores per pod/namespace; top N sorted ([references/promql-queries.md](references/promql-queries.md#step-2--cpu-by-workload)).
 4. Optional memory / node queries — same reference.
 5. Report using template in [references/promql-queries.md](references/promql-queries.md#report-template).

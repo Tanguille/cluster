@@ -26,7 +26,7 @@ spec:
   values:
     ai:
       mcp:
-        # /mcp for kubectl port-forward telemetry; token required.
+        # /mcp backs the toolhive kguardian MCPServerEntry (ai/toolhive/mcp/kguardian.yaml); token required.
         enabled: true
         auth:
           existingSecret: kguardian-mcp-token
@@ -46,7 +46,7 @@ spec:
         intervalSeconds: 30
 
     # Stateless bridge; 1 replica saves 256Mi req on tight nodes.
-    # OPENAI_* passthrough points at LiteLLM instead of api.openai.com.
+    # OPENAI_* passthrough points at the LLM gateway (agentgateway) instead of api.openai.com.
     llmBridge:
       enabled: true
       replicaCount: 1
@@ -59,12 +59,12 @@ spec:
           memory: 128Mi
       env:
         - name: OPENAI_BASE_URL
-          value: http://litellm.ai.svc.cluster.local/v1
+          value: http://agentgateway.ai.svc.cluster.local:4000/v1
         - name: OPENAI_MODEL
           value: qwen-3.8
         # From cluster-secrets via substituteFrom; stays literal in git.
         - name: OPENAI_API_KEY
-          value: ${LITELLM_API_KEY}
+          value: ${LLM_API_KEY}
 
     # Via pgbouncer-rw (no TLS): labeled pods on the primary's node blackhole to the postgres16-rw VIP (control-3 Cilium), the pgbouncer VIP works from all nodes.
     database:
@@ -113,9 +113,9 @@ spec:
         requests:
           memory: 64Mi
 
-    # Trimmed requests save 150m + 384Mi across the DaemonSet on tight control-1 (91% req); limits stay at chart defaults for eBPF headroom.
+    # Memory covers the 368Mi 30d peak (grows with pod age); CPU trim saves 150m across the DaemonSet.
     controller:
       resources:
         requests:
           cpu: 50m
-          memory: 128Mi
+          memory: 512Mi

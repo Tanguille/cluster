@@ -53,7 +53,7 @@ spec:
           app:
             image:
               repository: feramance/qbitrr
-              tag: v5.12.12
+              tag: v5.14.6-1
             # Skip docker-entrypoint.sh (gosu/setuid). Init already chowns /config; run as 568 to match qBittorrent download ownership.
             command: ["/usr/bin/tini", "--"]
             args: ["python", "-m", "qBitrr.main"]
@@ -83,8 +83,8 @@ spec:
                   failureThreshold: 30
             resources:
               requests:
-                cpu: 10m
-                memory: 128Mi
+                cpu: 200m
+                memory: 512Mi
               limits:
                 cpu: 1
                 memory: 1Gi
@@ -94,14 +94,6 @@ spec:
         ports:
           http:
             port: *port
-
-    route:
-      app:
-        hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
-        parentRefs:
-          - name: envoy-internal
-            namespace: network
 
     persistence:
       config:

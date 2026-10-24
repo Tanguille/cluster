@@ -35,15 +35,19 @@ jobs:
       - name: Run Flate
         id: flate
         env:
+          FLATE_API_VERSIONS: monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard
           FLATE_OUTPUT: github
           FLATE_PATH: ./flate
+        # Diffs go to files, not step outputs: the comment action receives an input as one
+        # environment variable, and Linux caps a single one at 128 KiB ("Argument list too
+        # long" on large PRs). Outputs only flag which comments to post.
         run: |-
           for kind in helmrelease kustomization; do
-            {
-              echo "${kind}<<EOF"
-              flate diff "$kind"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
+            diff="$(flate diff "$kind")"
+            if [ -n "$diff" ]; then
+              printf '%s\n' '```diff' "$diff" '```' > "${RUNNER_TEMP}/flate-${kind}.md"
+              echo "${kind}=true" >> "$GITHUB_OUTPUT"
+            fi
           done
           {
             echo 'images<<EOF'
@@ -51,7 +55,7 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - if: ${{ steps.flate.outputs.helmrelease != '' || steps.flate.outputs.kustomization != '' }}
+      - if: ${{ steps.flate.outputs.helmrelease == 'true' || steps.flate.outputs.kustomization == 'true' }}
         name: Generate Token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
@@ -60,27 +64,21 @@ jobs:
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
           permission-pull-requests: write
 
-      - if: ${{ steps.flate.outputs.helmrelease != '' }}
+      - if: ${{ steps.flate.outputs.helmrelease == 'true' }}
         name: Add Comment (HelmRelease)
         uses: mshick/add-pr-comment@ec328af66588ab8f77cdeb2c264f14aba45bbf59 # v3.12.0
         with:
           repo-token: ${{ steps.app-token.outputs.token }}
           message-id: ${{ github.event.pull_request.number }}/kubernetes/helmrelease
-          message: |-
-            ```diff
-            ${{ steps.flate.outputs.helmrelease }}
-            ```
+          message-path: ${{ runner.temp }}/flate-helmrelease.md
 
-      - if: ${{ steps.flate.outputs.kustomization != '' }}
+      - if: ${{ steps.flate.outputs.kustomization == 'true' }}
         name: Add Comment (Kustomization)
         uses: mshick/add-pr-comment@ec328af66588ab8f77cdeb2c264f14aba45bbf59 # v3.12.0
         with:
           repo-token: ${{ steps.app-token.outputs.token }}
           message-id: ${{ github.event.pull_request.number }}/kubernetes/kustomization
-          message: |-
-            ```diff
-            ${{ steps.flate.outputs.kustomization }}
-            ```
+          message-path: ${{ runner.temp }}/flate-kustomization.md
 
   pull:
     if: >-

@@ -54,6 +54,10 @@ spec:
       backoffLimit: 1
       activeDeadlineSeconds: 300
       template:
+        metadata:
+          labels:
+            # kubectl needs the apiserver, which default's deny-kube-apiserver-egress blocks.
+            egress.home.arpa/kube-apiserver: allow
         spec:
           serviceAccountName: satisfactory-restart
           restartPolicy: Never

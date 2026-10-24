@@ -12,7 +12,7 @@ spec:
     - name: bazarr
     - name: crowdsec
       extensions:
-        # Must equal the cluster.yaml image's vector default_version (checked in flate.yaml).
+        # Must equal the cluster.yaml image's vector default_version (checked in pgvector-pin.yaml).
         - &vector
           name: vector
           version: "0.8.7"
@@ -32,9 +32,6 @@ spec:
         - &vchord
           name: vchord
           version: "1.1.1"
-        - *vector
-    - name: litellm
-      extensions:
         - *vector
     - name: memini
       extensions:

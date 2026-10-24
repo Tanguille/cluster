@@ -1,0 +1,36 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: qwen-3.8-fast
+spec:
+  parentRefs:
+    - kind: HTTPRoute
+      name: agentgateway-models
+  provider: Custom
+  custom:
+    # Same server as qwen-3.8. Concrete, not a virtual model: virtual models cannot carry policies.
+    backendRef:
+      name: qwen38-27b-vllm
+      port: 8000
+    providerOverride: vllm
+    formats:
+      - type: Completions
+      - type: Messages
+      - type: AnthropicTokenCount
+      - type: Responses
+  policies:
+    # Non-thinking instruct-mode sampling, matching Qwen3.8's model card exactly
+    # (temperature/top_p/presence_penalty). Defaults only: client-set params win.
+    transformations:
+      - field: model
+        expression: '"qwen-3.8"'
+      - field: temperature
+        expression: "has(llmRequest.temperature) ? llmRequest.temperature : 0.7"
+      - field: top_p
+        expression: "has(llmRequest.top_p) ? llmRequest.top_p : 0.8"
+      - field: presence_penalty
+        expression: "has(llmRequest.presence_penalty) ? llmRequest.presence_penalty : 1.5"
+      - field: chat_template_kwargs
+        expression: 'has(llmRequest.chat_template_kwargs) ? llmRequest.chat_template_kwargs : {"enable_thinking": false}'

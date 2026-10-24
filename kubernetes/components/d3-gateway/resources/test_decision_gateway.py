@@ -273,7 +273,7 @@ class GatewayTests(unittest.TestCase):
         environment = os.environ | {"D3_ALERT_PORT": str(alert_port), "D3_GATEWAY_PORT": str(central_port),
                                     "D3_NATIVE_URL": "http://127.0.0.1:0",
                                     "D3_ALERTMANAGER_URL": "http://127.0.0.1:0"}
-        environment.pop("LITELLM_API_KEY", None)
+        environment.pop("LLM_API_KEY", None)
         process = subprocess.Popen([sys.executable, str(PATH)], env=environment,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         try:

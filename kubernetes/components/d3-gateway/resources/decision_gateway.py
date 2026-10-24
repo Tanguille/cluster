@@ -82,7 +82,7 @@ class Native:
 
 
 class Gateway(Native):
-    """Kritika confidence adapter behind litellm."""
+    """Kritika confidence adapter behind agentgateway."""
 
     def __init__(self, api_key, native_url="http://127.0.0.1:8100", timeout=30):
         if not api_key:
@@ -270,4 +270,4 @@ if __name__ == "__main__":
     if alert_port:
         make_server(AlertGateway(native_url, os.environ["D3_ALERTMANAGER_URL"]), ("127.0.0.1", alert_port)).serve_forever()
     else:
-        make_server(Gateway(os.getenv("LITELLM_API_KEY", ""), native_url), ("0.0.0.0", int(os.getenv("D3_GATEWAY_PORT", "8101")))).serve_forever()
+        make_server(Gateway(os.getenv("LLM_API_KEY", ""), native_url), ("0.0.0.0", int(os.getenv("D3_GATEWAY_PORT", "8101")))).serve_forever()

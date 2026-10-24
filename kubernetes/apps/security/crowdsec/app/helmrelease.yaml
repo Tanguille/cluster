@@ -204,9 +204,10 @@ spec:
           cpu: 100m
       acquisition:
         # Only the gateway the SecurityPolicy enforces on; envoy-internal/-tls have no
-        # bouncer, so their alerts would ban at the external gateway only
+        # bouncer, so their alerts would ban at the external gateway only.
+        # ????? is the DaemonSet pod suffix, which keeps envoy-external-probe-* out
         - namespace: network
-          podName: envoy-external-*
+          podName: envoy-external-?????
           program: envoy
           poll_without_inotify: true
       env:

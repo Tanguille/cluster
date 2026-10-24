@@ -40,7 +40,7 @@ to run only the native worker; no router process, custom image or publishing wor
 Hermes calls native `/v1/systemone` on port 8100. Two compatibility adapters share one ConfigMap source:
 Kritika uses an authenticated confidence endpoint on 8101; Siren uses a localhost alert proxy on 8102.
 There is no public route or general chat API. Cilium restricts native inference to Hermes/Siren,
-confidence to LiteLLM, and metrics to vmagent; the namespace-wide allowlist excludes D3 pods.
+confidence to agentgateway, and metrics to vmagent; the namespace-wide allowlist excludes D3 pods.
 The adapters use the standard library and are reloaded when their ConfigMap changes.
 
 ## Useful integrations implemented
@@ -50,7 +50,7 @@ The adapters use the standard library and are reloaded when their ConfigMap chan
 | Hermes | Tool-family hints and fast/reasoning choice | Existing tools resolve arguments and execute; explicit thinking settings and other providers are preserved |
 | Hermes tools | Home Assistant intent, supplied bookmark categories, alert urgency | Advisory results; no device changes, bookmark edits or remediation |
 | Memini provider | Gate automatic recall/capture | Explicit memory tools, lifecycle, disabled gates and uncertain/error cases retain upstream behavior |
-| Kritika | Existing confidence tool's 0–5 score and risk enum | Full reviews remain generative; LiteLLM falls back to Qwen on failure |
+| Kritika | Existing confidence tool's 0–5 score and risk enum | Full reviews remain generative; Kritika falls back to omniroute on failure |
 | Siren | Cached alert category/urgency annotations | Alerts appear immediately; original severity, delivery and silence operations remain intact |
 
 Hermes decisions require complete input, valid normalized probabilities and conservative confidence/margin checks.
@@ -73,7 +73,7 @@ v0.7.36 provider's explicit tools and lifecycle methods.
   Each row selects its shared question schema by family. The official-image replay matched all 30 previous predictions
   with complete input coverage (four-CPU/10 GiB cap, slowest 1.39s). These synthetic cases do not calibrate production thresholds.
 - A request with Kritika's real confidence system prompt used 3,489 input tokens and took 13.1 seconds locally.
-  Central timeout is 30 seconds; LiteLLM is 35 seconds. Hermes/Siren use three-second decision budgets.
+  Central timeout is 30 seconds; agentgateway-retry re-sends 503s. Hermes/Siren use three-second decision budgets.
 - Resource requests: native 8 GiB / 500m CPU, gateway 64 MiB / 50m CPU; native limits 10 GiB / four CPUs.
   Startup measurements justify the memory request. A prior two-CPU request would not schedule.
 - Read-only snapshot: control-1 had 9.64 GiB unreserved memory and 815m unreserved CPU; other nodes had
@@ -100,11 +100,11 @@ Use `ghcr.io/vllm-project/semantic-router/vllm-sr:5bd7c69419487a783cbce18dfd41f7
 `sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7` for runtime and gateway.
 Anonymous image pull is verified; our private GHCR package and its settings are no longer dependencies.
 The upstream image includes the exact native runtime revision used in the earlier CPU evaluation.
-Deliver D3, Hermes, Siren, LiteLLM, Kritika and Karakeep changes while retaining the old Qwen model manifest.
+Deliver D3, Hermes, Siren, agentgateway, Kritika and Karakeep changes while retaining the old Qwen model manifest.
 Setup and Qwen retirement use separate commits. Split the retirement commit into a later
 delivery before merging; do not merge both together. Keep `kubernetes/apps/ai/llmkube/` and the historical
 embedder comparison cleanup out of the first delivery. Wait for CI and approval before reconciliation.
-Hermes restarts once with Recreate; Siren rolls its two replicas; LiteLLM/Kritika/Karakeep update normally.
+Hermes restarts once with Recreate; Siren rolls its two replicas; agentgateway/Kritika/Karakeep update normally.
 Verify image/revision/golden readiness, network allow/deny behavior, Hermes tools and memory, an actual bookmark
 summary/tag job, confidence fallback, Siren alert/silence behavior and target-node load before retiring Qwen.
 

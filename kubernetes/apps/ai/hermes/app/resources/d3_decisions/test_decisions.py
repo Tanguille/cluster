@@ -70,7 +70,7 @@ class DecisionsTest(unittest.TestCase):
             self.assertIn("home_assistant", result["context"])
             self.assertIn("permissions", result["context"])
             original = {"model": "qwen-3.8", "extra_body": {"other": True}}
-            routed = plugin.route_request(request=original, session_id="s", turn_id="t", base_url="http://litellm.ai.svc.cluster.local/v1")["request"]
+            routed = plugin.route_request(request=original, session_id="s", turn_id="t", base_url="http://agentgateway.ai.svc.cluster.local:4000/v1")["request"]
             self.assertEqual(routed["model"], "qwen-3.8-fast")
             self.assertFalse(routed["extra_body"]["chat_template_kwargs"]["enable_thinking"])
             self.assertEqual(original, {"model": "qwen-3.8", "extra_body": {"other": True}})
@@ -82,18 +82,18 @@ class DecisionsTest(unittest.TestCase):
                         {"model": "qwen-3.8", "extra_body": {"chat_template_kwargs": {"enable_thinking": True}}},
                         {"model": "qwen-3.8", "extra_body": {"chat_template_kwargs": {"reasoning_effort": "xhigh"}}}):
             with self.subTest(request=request):
-                self.assertIsNone(plugin.route_request(request=request, session_id="s", turn_id="t", base_url="http://litellm.ai.svc.cluster.local/v1"))
-        self.assertIsNone(plugin.route_request(request={"model": "qwen-3.8"}, session_id="s", turn_id="other", base_url="http://litellm.ai.svc.cluster.local/v1"))
+                self.assertIsNone(plugin.route_request(request=request, session_id="s", turn_id="t", base_url="http://agentgateway.ai.svc.cluster.local:4000/v1"))
+        self.assertIsNone(plugin.route_request(request={"model": "qwen-3.8"}, session_id="s", turn_id="other", base_url="http://agentgateway.ai.svc.cluster.local:4000/v1"))
 
     def test_reasoning_restored_and_ambiguous_request_untouched(self):
         plugin._decisions[("s", "t")] = {"thinking": "reasoning"}
         request = {"model": "qwen-3.8-fast"}
-        result = plugin.route_request(request=request, session_id="s", turn_id="t", base_url="http://litellm.ai.svc.cluster.local/v1/")["request"]
+        result = plugin.route_request(request=request, session_id="s", turn_id="t", base_url="http://agentgateway.ai.svc.cluster.local:4000/v1/")["request"]
         self.assertEqual(result["model"], "qwen-3.8")
         self.assertTrue(result["extra_body"]["chat_template_kwargs"]["enable_thinking"])
         with patch.object(plugin, "decide", return_value={}):
             self.assertIsNone(plugin.before_turn(user_message="ambiguous", session_id="s", turn_id="t"))
-        self.assertIsNone(plugin.route_request(request=request, session_id="s", turn_id="t", base_url="http://litellm.ai.svc.cluster.local/v1"))
+        self.assertIsNone(plugin.route_request(request=request, session_id="s", turn_id="t", base_url="http://agentgateway.ai.svc.cluster.local:4000/v1"))
 
     def test_bad_json_incomplete_and_oversized_responses_fallback(self):
         cases = [b"{", b"[]", b"x" * 65537,
@@ -137,7 +137,7 @@ class DecisionsTest(unittest.TestCase):
 
     def test_same_alias_on_external_or_unknown_endpoint_is_never_routed(self):
         plugin._decisions[("s", "t")] = {"thinking": "fast"}
-        for base_url in (None, "", "https://external.example/v1", "http://litellm.ai.svc.cluster.local.evil/v1"):
+        for base_url in (None, "", "https://external.example/v1", "http://agentgateway.ai.svc.cluster.local.evil:4000/v1"):
             with self.subTest(base_url=base_url):
                 self.assertIsNone(plugin.route_request(request={"model": "qwen-3.8"}, session_id="s", turn_id="t", base_url=base_url))
 

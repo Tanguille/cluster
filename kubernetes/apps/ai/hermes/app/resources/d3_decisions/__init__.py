@@ -81,7 +81,7 @@ def before_turn(user_message=None, session_id="", turn_id="", **kwargs):
 
 
 def route_request(request=None, session_id="", turn_id="", base_url=None, **kwargs):
-    if not isinstance(base_url, str) or base_url.rstrip("/") != "http://litellm.ai.svc.cluster.local/v1":
+    if not isinstance(base_url, str) or base_url.rstrip("/") != "http://agentgateway.ai.svc.cluster.local:4000/v1":
         return None
     if not isinstance(request, dict) or request.get("model") not in ("qwen-3.8", "qwen-3.8-fast"):
         return None
