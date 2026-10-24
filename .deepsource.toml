@@ -1,0 +1,18 @@
+version = 1
+
+# Bench and eval scripts under docs/ are throwaway experiments, not deployed code.
+exclude_patterns = ["docs/**"]
+
+test_patterns = ["**/test_*.py"]
+
+[[analyzers]]
+name = "python"
+
+  [analyzers.meta]
+  runtime_version = "3.x.x"
+
+[[analyzers]]
+name = "shell"
+
+[[analyzers]]
+name = "docker"
