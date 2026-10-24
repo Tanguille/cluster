@@ -22,6 +22,19 @@ spec:
               while the agent, lapi and bouncer all report healthy
           labels:
             severity: critical
+        # Reading nothing at all (agent down, acquisition glob or log path no longer matching) leaves
+        # CrowdsecEnvoyParserYieldZero quiet, since it only fires while lines are read.
+        # Summed: a quiet node's agent dips to 0.009 lines/s by design; one dead agent is KubePodNotReady/TargetDown.
+        - alert: CrowdsecAcquisitionSilent
+          expr: |-
+            (sum(rate(cs_node_hits_ok_total{job="crowdsec-agent-service",name="crowdsecurity/cri-logs"}[15m])) or vector(0)) < 0.01
+          for: 30m
+          annotations:
+            summary: >-
+              Crowdsec has read no envoy-external log lines for 30m, so detection is off
+              for the only gateway the bouncer enforces on
+          labels:
+            severity: critical
         - alert: CrowdsecAppsecAbsent
           expr: |-
             absent(up{job="crowdsec-appsec-service"})
