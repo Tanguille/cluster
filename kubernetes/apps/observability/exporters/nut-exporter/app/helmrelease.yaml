@@ -43,6 +43,10 @@ spec:
             probes:
               liveness:
                 enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 9199
               readiness:
                 enabled: true
                 custom: true

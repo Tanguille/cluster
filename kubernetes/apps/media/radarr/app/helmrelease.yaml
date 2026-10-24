@@ -41,7 +41,10 @@ spec:
             probes:
               liveness:
                 enabled: true
+                custom: true
                 spec:
+                  tcpSocket:
+                    port: *port
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 5
