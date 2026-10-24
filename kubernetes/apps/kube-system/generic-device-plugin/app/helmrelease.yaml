@@ -41,7 +41,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 16Mi
+                memory: 32Mi
               limits:
                 memory: 64Mi
 
@@ -52,5 +52,3 @@ spec:
       device-plugin:
         type: hostPath
         hostPath: /var/lib/kubelet/device-plugins
-        globalMounts:
-          - path: /var/lib/kubelet/device-plugins

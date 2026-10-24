@@ -31,7 +31,7 @@ spec:
           app:
             image:
               repository: nousresearch/hermes-agent
-              tag: v0.22.2@sha256:36099926da316742423544e055d4734777105ffe6341873af5459b957d0c2919
+              tag: v0.22.5@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -43,7 +43,7 @@ spec:
               TZ: ${TIMEZONE}
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_PORT: &port 9119
-              # Scheduler inactivity watchdog in seconds; matches qwen-3.8-fast's 900s request timeout.
+              # Scheduler inactivity watchdog in seconds.
               HERMES_CRON_TIMEOUT: "900"
               S6_CMD_RECEIVE_SIGNALS: "1"
               HERMES_RESTART_DRAIN_TIMEOUT: "45"

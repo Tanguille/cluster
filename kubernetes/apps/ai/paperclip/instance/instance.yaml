@@ -8,8 +8,8 @@ spec:
   # The operator pulls by digest when set; tag is kept for Renovate.
   image:
     repository: ghcr.io/paperclipai/paperclip
-    tag: 2026.1012.0
-    digest: sha256:1661b3dd3fdf7a9b59542d1ced464c3faf9dc8309798b4d15a9923ed32795307
+    tag: 2026.1023.0
+    digest: sha256:40f46940c4612ead131aebe6079cd4651f8cd1434af49f7c621887f4a452a62e
   # Kept explicit: CRD defaults apply only inside a present object, and the
   # operator (no webhook) passes an empty mode through to the app.
   deployment:
@@ -32,22 +32,22 @@ spec:
   # Anthropic clients append /v1/messages themselves; OpenAI clients expect /v1.
   env:
     - name: ANTHROPIC_BASE_URL
-      value: http://litellm.ai.svc.cluster.local
-    # Adapter default is claude-opus-5; litellm serves no Claude models.
+      value: http://agentgateway.ai.svc.cluster.local:4000
+    # Adapter default is claude-opus-5; the LLM gateway serves no Claude models.
     - name: ANTHROPIC_MODEL
       value: qwen-3.8
     # Claude CLI background calls otherwise request a haiku model.
     - name: ANTHROPIC_DEFAULT_HAIKU_MODEL
       value: qwen-3.8
     - name: OPENAI_BASE_URL
-      value: http://litellm.ai.svc.cluster.local/v1
+      value: http://agentgateway.ai.svc.cluster.local:4000/v1
   storage:
     persistence:
       accessModes:
         - ReadWriteOnce
   security:
     seLinuxRelabel: false
-    # The rendered default-deny policy blocks egress to in-cluster LiteLLM.
+    # The rendered default-deny policy blocks egress to the in-cluster LLM gateway.
     networkPolicy:
       enabled: false
   probes:

@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: qwen-3.8
+spec:
+  parentRefs:
+    - kind: HTTPRoute
+      name: agentgateway-models
+  provider: Custom
+  custom:
+    # Also used by qwen-3.8-fast and omniroute's fallback group.
+    backendRef:
+      name: qwen38-27b-vllm
+      port: 8000
+    providerOverride: vllm
+    # vLLM serves Anthropic Messages and Responses itself, so nothing is translated.
+    formats:
+      - type: Completions
+      - type: Messages
+      - type: AnthropicTokenCount
+      - type: Responses
+  # No reasoning_effort default: the sharp chat template already defaults to medium, the
+  # better quality/latency point for most turns.

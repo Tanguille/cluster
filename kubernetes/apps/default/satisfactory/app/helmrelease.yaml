@@ -45,7 +45,6 @@ spec:
                 enabled: true
                 command: ["/home/steam/healthcheck.sh"]
                 spec:
-                  periodSeconds: 10
                   timeoutSeconds: 30
                   failureThreshold: 120
             resources:
@@ -106,10 +105,6 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: satisfactory
-                port: frm
       # Public view-only copy: FRM's write endpoints (setSwitches, ...) are POSTs, dropped here even if the token leaks.
       external:
         hostnames:

@@ -32,12 +32,6 @@ def _install_triton_tiles(hy):
         return
     orig = hy.triton_w4a16_skinny_fmt_gemm
     kernel = hy._triton_w4a16_skinny_fmt_kernel
-    # Row strides vary by vllm version: pass the known ones by name, else keep upstream's gemm.
-    known = ("stride_sn", "stride_bn", "stride_am")
-    stride_names = [n for n in kernel.arg_names if n.startswith("stride_")]
-    if not set(stride_names) <= set(known):
-        print(f"[lds-gate-patch] SKIPPED Triton tiles: unknown kernel strides {stride_names}", file=sys.stderr, flush=True)
-        return
 
     def gemm(a, b_q, scales, group_size, zp_bias=8, zp=None):
         M, K = a.shape
@@ -47,13 +41,14 @@ def _install_triton_tiles(hy):
         N = b_q.shape[0]
         c = torch.empty((M, N), dtype=a.dtype, device=a.device)
         grid = (triton.cdiv(M, bm), triton.cdiv(N, bn))
-        stride_of = dict(zip(known, (scales.stride(0), b_q.stride(0), a.stride(0))))
-        strides = {n: stride_of[n] for n in stride_names}
         kernel[grid](
             # the zp pointer is unused when HAS_ZP is False; any tensor will do
             a, b_q, scales, zp if zp is not None else scales, c,
-            M, N, K, K // 8, K // group_size, **strides,
-            group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None,
+            # Named strides preserve padded rows without building dictionaries per GEMM.
+            M, N, K, K // 8, K // group_size,
+            stride_sn=scales.stride(0), stride_bn=b_q.stride(0), stride_am=a.stride(0),
+            # Keep the scalar dequant path these gfx12 tiles were measured with.
+            group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None, PACKED_DEQUANT=False,
             BLOCK_M=bm, BLOCK_N=bn, BLOCK_K=min(bk, group_size), num_warps=warps, num_stages=1,
         )
         return c
@@ -62,9 +57,10 @@ def _install_triton_tiles(hy):
     print("[lds-gate-patch] Triton tiles M<=32 16x16x128 w2, M>=768 256x128x64 w8, 1 stage", file=sys.stderr, flush=True)
 
 
-# UltraQuant keeps a max_model_len bf16 K/V buffer per layer (16 x 966 MiB), which OOMs the card. Layers run
-# one at a time and rewrite [:seq_len] first, so one shared holder serves all. Required, so a moved symbol
-# fails the boot; the fast kernels below are optional (SKIPPED).
+# UltraQuant keeps a max_model_len bf16 K/V concat buffer per layer (16 x 966 MiB), which OOMs the card;
+# upstream shares only the dequant target, not this one. Layers run one at a time and rewrite [:seq_len]
+# first, so one shared holder serves all. Required, so a moved symbol fails the boot; the fast kernels
+# below are optional (SKIPPED).
 def _patch_uq(module):
     try:
         cls = module.UltraQuantAttentionImpl
@@ -75,7 +71,7 @@ def _patch_uq(module):
     # Chunks up to the threshold: uq_prefill_fast reads the prefix once per 2 tokens, not per token
     # (6.8 vs 15.9 ms per layer, 128 tokens at 48K); above it dequant + flash-attn stays faster.
     prefill, small, fast = None, 0, None
-    if UQ_CFG["fast"]:
+    if UQ_FAST:
         if hasattr(module, "_CONTINUATION_DECODE_THRESHOLD"):
             from uq_decode_fast import uq_prefill_fast as prefill
 
@@ -104,39 +100,28 @@ def _patch_uq(module):
 
         cls._flash_attn_varlen = flash_attn_varlen
     # Decode: UQ_FAST=1 runs the RDNA4 kernel in uq_decode_fast.py; otherwise (and for sinks, windows or other
-    # head sizes) upstream's launcher with this card's geometry.
+    # head sizes) upstream's launcher with its default geometry.
     if hasattr(module, "ultraquant_unified_attention"):
         launcher = module.ultraquant_unified_attention
-        if UQ_CFG["fast"]:
+        if UQ_FAST:
             from uq_decode_fast import uq_decode_fast as fast
 
         def decode(query, kv_cache, block_table, seq_lens, query_start_loc, scale, PiT=None, output=None, **kw):
-            if kw.get("max_query_len") == 1:
-                if fast and _fast_ok(kw.get("sinks"), kw.get("sliding_window"), query.shape[-1]):
-                    return fast(query, kv_cache, block_table, seq_lens, query_start_loc, scale,
-                                PiT=PiT, output=output, max_seq_len=kw.get("max_seq_len"))
-                if not UQ_CFG["stock"]:
-                    kw["tile_size"], kw["num_kv_splits"] = UQ_CFG["tile"], UQ_CFG["splits"]
+            if fast and kw.get("max_query_len") == 1 and _fast_ok(kw.get("sinks"), kw.get("sliding_window"), query.shape[-1]):
+                return fast(query, kv_cache, block_table, seq_lens, query_start_loc, scale,
+                            PiT=PiT, output=output, max_seq_len=kw.get("max_seq_len"))
             return launcher(query, kv_cache, block_table, seq_lens, query_start_loc, scale, PiT=PiT, output=output, **kw)
 
         module.ultraquant_unified_attention = decode
     else:
         print("[lds-gate-patch] SKIPPED uq decode: no ultraquant_unified_attention", file=sys.stderr, flush=True)
     # fast= is the requested mode; prefill=/decode= show which fast kernels actually installed.
-    print("[lds-gate-patch] UltraQuant shared continuation buffer + decode geometry, fast=%s (prefill=%s, decode=%s)"
-          % (UQ_CFG["fast"], prefill is not None, fast is not None), file=sys.stderr, flush=True)
+    print("[lds-gate-patch] UltraQuant shared continuation buffer, fast=%s (prefill=%s, decode=%s)"
+          % (UQ_FAST, prefill is not None, fast is not None), file=sys.stderr, flush=True)
 
 
-# UQ_* env vars are the sweep and rollback knobs; UQ_STOCK=1 leaves upstream geometry alone.
-UQ_CFG = {
-    "stock": os.environ.get("UQ_STOCK") == "1",
-    # Swept in a pod at 64K (3D kernel, 16 layer-calls): stock 50.1 ms/token, this 13.5 ms.
-    "splits": int(os.environ.get("UQ_SPLITS", "32")),
-    "tile": int(os.environ.get("UQ_TILE", "32")),
-    "warps": int(os.environ.get("UQ_WARPS", "8")),
-    "stages": int(os.environ.get("UQ_STAGES", "1")),
-    "fast": os.environ.get("UQ_FAST") == "1",
-}
+# UQ_FAST=0 keeps upstream kernels as the rollback path.
+UQ_FAST = os.environ.get("UQ_FAST") == "1"
 
 
 def _fast_ok(sinks, sliding_window, head_size):
@@ -144,33 +129,7 @@ def _fast_ok(sinks, sliding_window, head_size):
     return sinks is None and not sliding_window and head_size == 256
 
 
-def _patch_uq_ops(module):
-    try:
-        kernel = module.kernel_ultraquant_unified_attention_3d
-    except AttributeError as e:
-        print("[lds-gate-patch] SKIPPED ultraquant ops: %r" % e, file=sys.stderr, flush=True)
-        return
-    if UQ_CFG["stock"]:
-        return
-
-    class _Proxy:
-        def __getitem__(self, grid):
-            launch = kernel[grid]
-
-            def run(*a, **kw):
-                kw["num_warps"], kw["num_stages"] = UQ_CFG["warps"], UQ_CFG["stages"]
-                return launch(*a, **kw)
-
-            return run
-
-        def __getattr__(self, name):
-            return getattr(kernel, name)
-
-    module.kernel_ultraquant_unified_attention_3d = _Proxy()
-
-
 PATCHES = {
-    "vllm.v1.attention.ops.ultraquant.triton_unified_attention": _patch_uq_ops,
     "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16": _install_triton_tiles,
     "vllm.v1.attention.backends.ultraquant_attn": _patch_uq,
 }

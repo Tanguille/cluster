@@ -32,7 +32,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5a23ea3de52d4004f21f929f7365b97df03db12b946117eeed214337379994a8
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:2716be5463dcecd02ace322f77fa0ea10b7168c5c8f0e45458b303541fca6632
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch from queueing behind memini (bench: 7.43s median for 194
   # 400-char items isolated, 120s is the toolhive timeout). Vulkan warmup hangs
@@ -78,7 +78,7 @@ spec:
       - 44
       - 226
   resources:
-    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
+    cpu: "250m" # inference is on the iGPU; CPU only tokenises/schedules
     # Request AND limit (llmkube >= 0.9.29); working set ~250Mi, model buffer in
     # amdgpu GTT (uncharged). The 6Gi reservation held control-2 at 95.8% overcommit.
     memory: 512Mi
