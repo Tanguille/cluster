@@ -89,8 +89,7 @@ Why each one:
   heads x 272 B), and the fixed UltraQuant overhead eats the rest.
 - `maxModelLen` 262144 is the trained max (`max_position_embeddings`). fp8 stayed at
   246944 because decode roughly halved below about 1.17x pool/cap (bisected
-  2026-08-19, cause unexplained). Clients still cap lower: Hermes 238752, litellm
-  246944.
+  2026-08-19, cause unexplained). Hermes still caps lower at 238752.
 - 8 slots: the user asked to test more than 5 streams; capture sizes must cover every
   slot (see Results for the M=6 dip).
 - Manager block size is 1536 tokens under UltraQuant (832 under fp8: "Setting
@@ -255,7 +254,7 @@ prompt-length mix below.
     after an uptime or CPU-fill gate, while writes continue. `tiering/manager.py:441-478`
     handles `MISS`.
   - Native per-request option: `kv_transfer_params: {"kv_load_tiers": [{"medium":
-    "cpu"}]}`, passed through litellm `extra_body`.
+    "cpu"}]}`, passed through gateway `extra_body`.
   - Neither is built. Every disk hit given up becomes GPU recompute, which slows every
     stream; decide on warm, restart-free data.
 - **The manifest's "removing the disk tier halved decode"** (2026-08-19) has no mechanism
