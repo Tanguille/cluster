@@ -40,7 +40,7 @@ Live-pod gates on `fdd4e10` (no clone): vision 2/2, tools 12/12 single and 12/12
   the monitor hooks Triton post-compile, which also fires on disk-cache loads. No `/cache/triton`
   entry was newer than 2026-10-15, so nothing compiled.
 - The generation-config override is deliberate: the model's `generation_config.json` is the
-  thinking-mode set and the LiteLLM `qwen-3.8-fast` alias overrides it with the non-thinking set.
+  thinking-mode set and the agentgateway `qwen-3.8-fast` alias defaults it to the non-thinking set.
 
 ## SSM state dtype: bf16 stays
 

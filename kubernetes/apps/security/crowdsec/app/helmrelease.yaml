@@ -24,6 +24,8 @@ spec:
                 name: not-used
               spec:
                 duration: 87600h
+                # Covers the live 90d cert's whole life, so it reissues now (same key) instead of in the leaves' 11-27 second.
+                renewBefore: 2160h
                 privateKey:
                   rotationPolicy: Never
   values:
