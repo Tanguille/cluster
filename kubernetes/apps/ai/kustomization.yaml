@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ai
+
+components:
+  - ../../components/common
+  - ../../components/ndots-1
+  - ../../components/psa-privileged
+  - ../../components/kopiur/privileged-movers
+
+resources:
+  - ./agentgateway/ks.yaml
+  - ./hermes/ks.yaml
+  - ./headroom/ks.yaml
+  - ./memini/ks.yaml
+  - ./omniroute/ks.yaml
+  - ./llmkube/ks.yaml
+  - ./opencode/ks.yaml
+  - ./toolhive/ks.yaml
+  - ./networkpolicy.yaml
