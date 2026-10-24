@@ -178,7 +178,12 @@ spec:
                 port: http
     persistence:
       connector-data:
-        existingClaim: armiger-connector-data
+        type: persistentVolumeClaim
+        forceRename: armiger-connector-data
+        accessMode: ReadWriteOnce
+        size: 5Gi
+        storageClass: ceph-block
+        retain: true
         advancedMounts:
           connector:
             bootstrap:
@@ -195,3 +200,19 @@ spec:
                 readOnly: true
       tmp:
         type: emptyDir
+    networkpolicies:
+      dht:
+        type: cilium
+        forceRename: bitmagnet-dht
+        endpointSelector:
+          matchLabels:
+            app.kubernetes.io/instance: bitmagnet
+            app.kubernetes.io/controller: bitmagnet
+        ingress:
+          - fromEntities: [world]
+            toPorts:
+              - ports:
+                  - port: "3334"
+                    protocol: TCP
+                  - port: "3334"
+                    protocol: UDP

@@ -40,10 +40,11 @@ After merge, verify database/role readiness, Helm readiness, initial schema
 creation on PostgreSQL 18, Armiger classification and Torznab filtering.
 Manifest validation is not proof of runtime compatibility.
 
-The 5Gi `armiger-connector-data` claim retains Flux prune protection. Do not
-delete it or the shared database as part of routine rollback. If rollout fails,
-stop writers and inspect the failure before changing data; shared CNPG and
-other applications must remain untouched.
+The 5Gi `armiger-connector-data` claim is managed by the app-template HelmRelease
+and uses Helm's PVC retention setting, so uninstalling the release retains the
+claim. Do not delete it or the shared database as part of routine rollback. If
+rollout fails, stop writers and inspect the failure before changing data; shared
+CNPG and other applications must remain untouched.
 
 ## DHT networking
 

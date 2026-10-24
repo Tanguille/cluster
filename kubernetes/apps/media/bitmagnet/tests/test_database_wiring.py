@@ -51,19 +51,39 @@ class DatabaseWiringTests(unittest.TestCase):
         self.assertIn("bootstrap", connector["initContainers"])
         self.assertEqual("both", connector["containers"]["app"]["env"]["ARMIGER_CONNECTOR_MODE"])
 
-    def test_only_connector_storage_is_provisioned(self):
+    def test_chart_manages_retained_connector_storage_and_dht_policy(self):
         self.assertFalse((APP / "app/backup.yaml").exists())
         self.assertNotIn("backup.yaml", load(APP / "app/kustomization.yaml")["resources"])
         self.assertEqual([{"name": "cloudnative-pg-databases", "namespace": "database"}],
                          load(APP / "ks.yaml")["spec"]["dependsOn"])
-        pvcs = list(yaml.safe_load_all((APP / "app/pvc.yaml").read_text()))
-        self.assertEqual(1, len(pvcs))
-        self.assertEqual({"armiger-connector-data"},
-                         {p["metadata"]["name"] for p in pvcs})
-        for pvc in pvcs:
-            self.assertEqual("disabled", pvc["metadata"]["annotations"]
-                             ["kustomize.toolkit.fluxcd.io/prune"])
-            self.assertEqual("5Gi", pvc["spec"]["resources"]["requests"]["storage"])
+        app = load(APP / "app/helmrelease.yaml")["spec"]["values"]
+        pvc = app["persistence"]["connector-data"]
+        self.assertEqual("persistentVolumeClaim", pvc["type"])
+        self.assertEqual("armiger-connector-data", pvc["forceRename"])
+        self.assertEqual("ReadWriteOnce", pvc["accessMode"])
+        self.assertEqual("5Gi", pvc["size"])
+        self.assertEqual("ceph-block", pvc["storageClass"])
+        self.assertTrue(pvc["retain"])
+        self.assertEqual([{"path": "/data/armiger"}],
+                         pvc["advancedMounts"]["connector"]["bootstrap"])
+        self.assertEqual([{"path": "/data/armiger"}],
+                         pvc["advancedMounts"]["connector"]["app"])
+        policy = app["networkpolicies"]["dht"]
+        self.assertEqual("cilium", policy["type"])
+        self.assertEqual("bitmagnet-dht", policy["forceRename"])
+        self.assertEqual({"matchLabels": {
+            "app.kubernetes.io/instance": "bitmagnet",
+            "app.kubernetes.io/controller": "bitmagnet",
+        }}, policy["endpointSelector"])
+        self.assertEqual([{"fromEntities": ["world"], "toPorts": [{"ports": [
+            {"port": "3334", "protocol": "TCP"},
+            {"port": "3334", "protocol": "UDP"},
+        ]}]}], policy["ingress"])
+        resources = load(APP / "app/kustomization.yaml")["resources"]
+        self.assertNotIn("pvc.yaml", resources)
+        self.assertNotIn("networkpolicy.yaml", resources)
+        self.assertFalse((APP / "app/pvc.yaml").exists())
+        self.assertFalse((APP / "app/networkpolicy.yaml").exists())
 
 
 if __name__ == "__main__":
