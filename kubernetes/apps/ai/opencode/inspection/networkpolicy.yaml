@@ -1,0 +1,11 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: opencode-inspection
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: opencode-inspection
+  # No rules: deny all traffic both ways.
+  policyTypes: [Ingress, Egress]
