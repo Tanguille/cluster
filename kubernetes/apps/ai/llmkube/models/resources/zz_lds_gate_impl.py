@@ -71,7 +71,7 @@ def _patch_uq(module):
     # Chunks up to the threshold: uq_prefill_fast reads the prefix once per 2 tokens, not per token
     # (6.8 vs 15.9 ms per layer, 128 tokens at 48K); above it dequant + flash-attn stays faster.
     prefill, small, fast = None, 0, None
-    if UQ_CFG["fast"]:
+    if UQ_FAST:
         if hasattr(module, "_CONTINUATION_DECODE_THRESHOLD"):
             from uq_decode_fast import uq_prefill_fast as prefill
 
@@ -100,39 +100,28 @@ def _patch_uq(module):
 
         cls._flash_attn_varlen = flash_attn_varlen
     # Decode: UQ_FAST=1 runs the RDNA4 kernel in uq_decode_fast.py; otherwise (and for sinks, windows or other
-    # head sizes) upstream's launcher with this card's geometry.
+    # head sizes) upstream's launcher with its default geometry.
     if hasattr(module, "ultraquant_unified_attention"):
         launcher = module.ultraquant_unified_attention
-        if UQ_CFG["fast"]:
+        if UQ_FAST:
             from uq_decode_fast import uq_decode_fast as fast
 
         def decode(query, kv_cache, block_table, seq_lens, query_start_loc, scale, PiT=None, output=None, **kw):
-            if kw.get("max_query_len") == 1:
-                if fast and _fast_ok(kw.get("sinks"), kw.get("sliding_window"), query.shape[-1]):
-                    return fast(query, kv_cache, block_table, seq_lens, query_start_loc, scale,
-                                PiT=PiT, output=output, max_seq_len=kw.get("max_seq_len"))
-                if not UQ_CFG["stock"]:
-                    kw["tile_size"], kw["num_kv_splits"] = UQ_CFG["tile"], UQ_CFG["splits"]
+            if fast and kw.get("max_query_len") == 1 and _fast_ok(kw.get("sinks"), kw.get("sliding_window"), query.shape[-1]):
+                return fast(query, kv_cache, block_table, seq_lens, query_start_loc, scale,
+                            PiT=PiT, output=output, max_seq_len=kw.get("max_seq_len"))
             return launcher(query, kv_cache, block_table, seq_lens, query_start_loc, scale, PiT=PiT, output=output, **kw)
 
         module.ultraquant_unified_attention = decode
     else:
         print("[lds-gate-patch] SKIPPED uq decode: no ultraquant_unified_attention", file=sys.stderr, flush=True)
     # fast= is the requested mode; prefill=/decode= show which fast kernels actually installed.
-    print("[lds-gate-patch] UltraQuant shared continuation buffer + decode geometry, fast=%s (prefill=%s, decode=%s)"
-          % (UQ_CFG["fast"], prefill is not None, fast is not None), file=sys.stderr, flush=True)
+    print("[lds-gate-patch] UltraQuant shared continuation buffer, fast=%s (prefill=%s, decode=%s)"
+          % (UQ_FAST, prefill is not None, fast is not None), file=sys.stderr, flush=True)
 
 
-# UQ_* env vars are the sweep and rollback knobs; UQ_STOCK=1 leaves upstream geometry alone.
-UQ_CFG = {
-    "stock": os.environ.get("UQ_STOCK") == "1",
-    # Swept in a pod at 64K (3D kernel, 16 layer-calls): stock 50.1 ms/token, this 13.5 ms.
-    "splits": int(os.environ.get("UQ_SPLITS", "32")),
-    "tile": int(os.environ.get("UQ_TILE", "32")),
-    "warps": int(os.environ.get("UQ_WARPS", "8")),
-    "stages": int(os.environ.get("UQ_STAGES", "1")),
-    "fast": os.environ.get("UQ_FAST") == "1",
-}
+# UQ_FAST=0 keeps upstream kernels as the rollback path.
+UQ_FAST = os.environ.get("UQ_FAST") == "1"
 
 
 def _fast_ok(sinks, sliding_window, head_size):
@@ -140,33 +129,7 @@ def _fast_ok(sinks, sliding_window, head_size):
     return sinks is None and not sliding_window and head_size == 256
 
 
-def _patch_uq_ops(module):
-    try:
-        kernel = module.kernel_ultraquant_unified_attention_3d
-    except AttributeError as e:
-        print("[lds-gate-patch] SKIPPED ultraquant ops: %r" % e, file=sys.stderr, flush=True)
-        return
-    if UQ_CFG["stock"]:
-        return
-
-    class _Proxy:
-        def __getitem__(self, grid):
-            launch = kernel[grid]
-
-            def run(*a, **kw):
-                kw["num_warps"], kw["num_stages"] = UQ_CFG["warps"], UQ_CFG["stages"]
-                return launch(*a, **kw)
-
-            return run
-
-        def __getattr__(self, name):
-            return getattr(kernel, name)
-
-    module.kernel_ultraquant_unified_attention_3d = _Proxy()
-
-
 PATCHES = {
-    "vllm.v1.attention.ops.ultraquant.triton_unified_attention": _patch_uq_ops,
     "vllm.model_executor.kernels.linear.mixed_precision.rdna_hybrid_w4a16": _install_triton_tiles,
     "vllm.v1.attention.backends.ultraquant_attn": _patch_uq,
 }

@@ -126,14 +126,20 @@ def run(H, expect, calls):
                 query_start_loc=types.SimpleNamespace(shape=(2,)), scale=0.0625, PiT="P", output="O", max_seq_len=100)
     f = mod.ultraquant_unified_attention
     if expect == "off":
-        assert f(**base, max_query_len=1) == "upstream" and calls[-1][1]["tile_size"] == 32
+        assert f(**base, max_query_len=1) == "upstream"
+        assert calls[-1][1] == dict(PiT="P", output="O", max_seq_len=100, max_query_len=1), calls[-1]
     else:
         assert f(**base, max_query_len=1, sinks=None, sliding_window=None) == "fast"
         assert calls[-1][1] == dict(PiT="P", output="O", max_seq_len=100), calls[-1]
         assert f(**base, max_query_len=1, sinks="s", sliding_window=None) == "upstream"
-        assert calls[-1][1]["tile_size"] == 32 and calls[-1][1]["num_kv_splits"] == 32  # geometry wrapper still applies
+        assert calls[-1][1] == dict(PiT="P", output="O", max_seq_len=100, max_query_len=1,
+                                   sinks="s", sliding_window=None), calls[-1]
         assert f(**base, max_query_len=1, sinks=None, sliding_window=128) == "upstream"
         assert f(**dict(base, query=types.SimpleNamespace(shape=(1, 24, 128))), max_query_len=1) == "upstream"
+    # Fallback preserves explicit caller settings as well as upstream defaults.
+    assert f(**base, max_query_len=1, sinks="s", tile_size=16, num_kv_splits=8) == "upstream"
+    assert calls[-1][1] == dict(PiT="P", output="O", max_seq_len=100, max_query_len=1,
+                               sinks="s", tile_size=16, num_kv_splits=8), calls[-1]
 
 
 def run_all(path):

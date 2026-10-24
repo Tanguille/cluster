@@ -25,13 +25,13 @@ The 1-2.5% gap is inside the fast/slow band noise ([band doc](gfx1201-fast-slow-
 Live-pod gates on `fdd4e10` (no clone): vision 2/2, tools 12/12 single and 12/12 x5, GSM8K
 147/150 (gate 143), NLL 2.08676 (-0.00024 vs e885).
 
-## Patches: all still needed
+## Patches
 
 - Upstream gfx12 W4A16 tiles are unchanged, so the Triton tile hook stays.
 - Upstream now shares only the UltraQuant dequant `k_buf`/`v_buf` through the workspace manager;
   the per-layer K/V concat buffer remains, so the shared-holder patch stays.
-- `_patch_uq_ops` and the `UQ_SPLITS/TILE/WARPS/STAGES` geometry are dead on the production path
-  (`UQ_FAST=1` and head 256 always take the fast kernel). They are the `UQ_FAST=0` rollback.
+- The custom fallback geometry was unused on the production path (`UQ_FAST=1`, head 256).
+  It was removed on 2026-10-24; `UQ_FAST=0` now uses upstream defaults.
 
 ## Warnings that are not bugs
 
@@ -76,11 +76,17 @@ kernel. The hook and both `bench/downfix/triton_*_sweep.py` launchers pass `Fals
 preserve the measured gfx1201 path. Named strides replace per-GEMM dictionary building;
 tile geometry is unchanged. Roll back the image and these calls together.
 The UltraQuant backend, Triton launcher, reduction kernel, cache store and format
-sources are byte-identical, so those patches stay as they are.
+sources are byte-identical; the shared-buffer and fast-kernel patches stay.
 
 Validation: hook routing, padded strides, zero-points and UQ fallback checks pass.
 All three W4A16 callers failed signature binding against image `ad061ff` before the
 fix and passed afterward. `validate-pr.sh` passed Flate, shellcheck and 24 guardrail tests.
+
+Removed the `_patch_uq_ops` proxy and `UQ_STOCK/SPLITS/TILE/WARPS/STAGES` knobs. The last
+documented tuned-fallback GPU use was the October 7 benchmark; all 94 retained hook
+initializations from October 10–24 reported fast kernels enabled. These logs do not
+count individual fallback calls. `UQ_FAST=0` still works, using upstream defaults;
+the old benchmark results do not describe its performance after this removal.
 
 GPU execution remains untested. Upstream `d561af5dfc` changes hybrid prefix-cache
 partial-tail reuse, which this service exercises. Before deployment, run
