@@ -5,10 +5,14 @@ import logging
 _LOG = logging.getLogger("plugins.satellite_delivery_fix")
 
 
+def _live(resolved):
+    return resolved is not None and resolved[0] is not None  # transport None = standalone path, no credential here
+
+
 def _wrap(original, shared_cls, routes_for_home, primary_adapters):
     def resolve(job, platform, platform_name, target, adapters, config):
         resolved, err = original(job, platform, platform_name, target, adapters, config)
-        if resolved is not None or not adapters or isinstance(adapters, shared_cls):
+        if _live(resolved) or not adapters or isinstance(adapters, shared_cls):
             return resolved, err
         if platform in adapters:
             return resolved, err  # the profile owns this platform's bot (#133138's rule): its own failure stands
@@ -17,8 +21,8 @@ def _wrap(original, shared_cls, routes_for_home, primary_adapters):
             return resolved, err
         retried, retry_err = original(job, platform, platform_name, target, shared_cls(primary, routes), config)
         _LOG.info("job=%s platform=%s outcome=%s", job.get("id"), platform_name,
-                  "rerouted" if retried is not None else "still-failed")
-        return (retried, retry_err) if retried is not None else (resolved, err)
+                  "rerouted" if _live(retried) else "still-failed")
+        return (retried, retry_err) if _live(retried) else (resolved, err)
 
     return resolve
 

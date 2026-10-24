@@ -43,6 +43,19 @@ def check():
         job, "discord", "discord", {}, {"local": 1}, None)[0] is None
     assert plugin._wrap(original, Shared, lambda: [], lambda: primary)(
         job, "discord", "discord", {}, {"local": 1}, None)[0] is None
+
+    # Enabled platform block but no adapter: upstream returns transport None (standalone path); reroute it.
+    def standalone(job, platform, platform_name, target, adapters, config):
+        if isinstance(adapters, Shared):
+            return ("transport", adapters), None
+        return (None, "pconfig", None, adapters), None
+    assert isinstance(plugin._wrap(standalone, Shared, lambda: routes, lambda: primary)(
+        job, "discord", "discord", {}, {"local": 1}, None)[0][1], Shared)
+
+    # A retry without a live transport keeps the original result.
+    dead = lambda *a: ((None, "pconfig", None, a[4]), None)
+    assert plugin._wrap(dead, Shared, lambda: routes, lambda: primary)(
+        job, "discord", "discord", {}, {"local": 1}, None)[0][3] == {"local": 1}
     print("ok")
 
 
