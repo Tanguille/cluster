@@ -11,12 +11,14 @@ spec:
   inputs:
     - name: bazarr
     - name: bitmagnet
-    - name: crowdsec
       extensions:
         # Must equal the cluster.yaml image's vector default_version (checked in pgvector-pin.yaml).
         - &vector
           name: vector
           version: "0.8.7"
+    - name: crowdsec
+      extensions:
+        - *vector
     - name: gatus
     - name: ghostfolio
       extensions:
