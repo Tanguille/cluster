@@ -98,9 +98,6 @@ spec:
               ARMIGER_AUTO_DOWNLOAD: "false"
               BITMAGNET_GRAPHQL_URL: http://bitmagnet:3333/graphql
               UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
-              # 500 per 15s keeps up with classifier bursts (~35/s) at a third of the polls.
-              BITMAGNET_POLL_SECONDS: "15"
-              BITMAGNET_BATCH_SIZE: "500"
               # Caps glibc arenas from onnxruntime threads, which otherwise hold RSS after a burst.
               MALLOC_ARENA_MAX: "2"
             probes:
