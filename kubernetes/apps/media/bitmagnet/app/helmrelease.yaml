@@ -47,17 +47,7 @@ spec:
                   secretKeyRef:
                     name: bitmagnet-postgres
                     key: POSTGRES_PASSWORD
-            # Bind only the DHT ports on the scheduled node, not the HTTP UI.
-            # No new LB address is allocated; router forwarding remains operator-owned.
-            ports:
-              - name: dht-tcp
-                containerPort: 3334
-                hostPort: 3334
-                protocol: TCP
-              - name: dht-udp
-                containerPort: 3334
-                hostPort: 3334
-                protocol: UDP
+            # No hostPort: media enforces PSA baseline. DHT crawls outbound through NAT; inbound would need an LB IP.
             probes:
               # Chart default handler: TCP on the primary service port (http 3333).
               readiness: &bitmagnet-probe
@@ -182,19 +172,3 @@ spec:
                 readOnly: true
       tmp:
         type: emptyDir
-    networkpolicies:
-      dht:
-        type: cilium
-        forceRename: bitmagnet-dht
-        endpointSelector:
-          matchLabels:
-            app.kubernetes.io/instance: bitmagnet
-            app.kubernetes.io/controller: bitmagnet
-        ingress:
-          - fromEntities: [world]
-            toPorts:
-              - ports:
-                  - port: "3334"
-                    protocol: TCP
-                  - port: "3334"
-                    protocol: UDP
