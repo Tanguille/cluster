@@ -7,11 +7,11 @@ resources:
 configMapGenerator:
   - name: bitmagnet-config
     files:
-      - classifier.yml
+      - config/classifier.yaml
   - name: armiger-bootstrap
     files:
-      - bootstrap.py
-      - requirements.txt
+      - config/bootstrap.py
+      - config/requirements.txt
 generatorOptions:
   disableNameSuffixHash: true
   annotations:

@@ -1,16 +1,14 @@
 """Offline: no installs, downloads or real PVCs."""
-import hashlib
 import io
 import os
 from pathlib import Path
-import re
 import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "app/bootstrap.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "app/config/bootstrap.py"
 CONTENT = b"# verified connector fixture\n"
 
 
@@ -24,9 +22,7 @@ class BootstrapTests(unittest.TestCase):
         self.requirements.write_text("numpy==1\n")
         self.enterContext(patch.dict(os.environ, {"ARMIGER_ROOT": str(self.root),
                                                   "ARMIGER_REQUIREMENTS": str(self.requirements)}))
-        source = re.sub(r'SOURCE_SHA256 = "\w+"', f'SOURCE_SHA256 = "{hashlib.sha256(CONTENT).hexdigest()}"',
-                        SCRIPT.read_text())
-        self.code = compile(source, str(SCRIPT), "exec")
+        self.code = compile(SCRIPT.read_text(), str(SCRIPT), "exec")
         self.calls = []
 
     def fake_run(self, args, check):
@@ -35,10 +31,11 @@ class BootstrapTests(unittest.TestCase):
         if "snapshot_download" in args[-1]:
             (self.root / "model").mkdir()
 
-    def execute(self, runner=None, content=CONTENT):
+    def execute(self, runner=None, code=None):
         with patch("subprocess.run", side_effect=runner or self.fake_run), \
-             patch("urllib.request.urlopen", return_value=io.BytesIO(content)):
-            exec(self.code, {"__name__": "__main__"})
+             patch("urllib.request.urlopen", side_effect=lambda *a, **k: io.BytesIO(CONTENT)) as fetch:
+            exec(code or self.code, {"__name__": "__main__"})
+        return fetch.call_count
 
     def test_success_is_idempotent(self):
         self.execute()
@@ -67,18 +64,13 @@ class BootstrapTests(unittest.TestCase):
             self.execute(runner=fail)
         self.assertFalse((self.root / "runtime/.ready").exists())
 
-    def test_bad_source_digest_is_rejected(self):
-        with self.assertRaisesRegex(RuntimeError, "digest mismatch"):
-            self.execute(content=b"unexpected source")
-        self.assertFalse((self.root / "runtime/bitmagnet_connector.py").exists())
-        self.assertFalse((self.root / "model").exists())
-
-    def test_modified_source_is_repaired_even_when_ready(self):
-        self.execute()
-        source = self.root / "runtime/bitmagnet_connector.py"
-        source.write_bytes(b"corrupted")
-        self.execute()
-        self.assertEqual(CONTENT, source.read_bytes())
+    def test_connector_refetched_only_on_revision_change(self):
+        self.assertEqual(1, self.execute())
+        self.assertEqual(0, self.execute())
+        bumped = compile(SCRIPT.read_text().replace('CONNECTOR_REVISION = "', 'CONNECTOR_REVISION = "0'),
+                         str(SCRIPT), "exec")
+        self.assertEqual(1, self.execute(code=bumped))
+        self.assertEqual(CONTENT, (self.root / "runtime/bitmagnet_connector.py").read_bytes())
 
     def test_failed_model_download_retries_without_reinstall(self):
         def fail_model(args, check):

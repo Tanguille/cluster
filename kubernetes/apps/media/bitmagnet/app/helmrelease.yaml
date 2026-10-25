@@ -38,9 +38,10 @@ spec:
                 --keys=dht_crawler
               ]
             env:
-              POSTGRES_HOST: postgres16-rw.database.svc.cluster.local
+              # Session mode: pgx prepares statements; the direct -rw VIP can blackhole from the primary's node.
+              POSTGRES_HOST: pgbouncer-session.database.svc.cluster.local
               HOME: /tmp
-              EXTRA_CONFIG_FILES: /etc/bitmagnet/classifier.yml
+              EXTRA_CONFIG_FILES: /etc/bitmagnet/classifier.yaml
               POSTGRES_USER: bitmagnet
             # TMDB_API_KEY is shared with Jellyfin Enhanced; the default key throttles to 1 req/s.
             envFrom:
@@ -60,8 +61,11 @@ spec:
                   failureThreshold: 60
                   timeoutSeconds: 5
             resources:
-              requests: { cpu: 250m, memory: 512Mi }
-              limits: { memory: 2Gi }
+              requests:
+                cpu: 250m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
             securityContext: &container-security
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -94,6 +98,11 @@ spec:
               ARMIGER_AUTO_DOWNLOAD: "false"
               BITMAGNET_GRAPHQL_URL: http://bitmagnet:3333/graphql
               UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
+              # 500 per 15s keeps up with classifier bursts (~35/s) at a third of the polls.
+              BITMAGNET_POLL_SECONDS: "15"
+              BITMAGNET_BATCH_SIZE: "500"
+              # Caps glibc arenas from onnxruntime threads, which otherwise hold RSS after a burst.
+              MALLOC_ARENA_MAX: "2"
             probes:
               readiness: &connector-probe
                 enabled: true
@@ -111,8 +120,11 @@ spec:
                   failureThreshold: 90
                   timeoutSeconds: 5
             resources:
-              requests: { cpu: 250m, memory: 1Gi }
-              limits: { memory: 3Gi }
+              requests:
+                cpu: 250m
+                memory: 1Gi
+              limits:
+                memory: 3Gi
             securityContext: *container-security
     service:
       app:
