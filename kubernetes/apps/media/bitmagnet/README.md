@@ -17,6 +17,7 @@ cluster `postgres16`. The UI is on `envoy-internal` only and unauthenticated.
 - The init container pip-installs into the PVC at runtime. Direct dependencies
   are pinned, transitive ones are not. The connector source is SHA-256 verified;
   the pinned HF bundle contains unaudited executable Python.
-- Changing requirements or the image ABI: bump the `runtime-v*` suffix of
-  `ARMIGER_RUNTIME_DIR` in the HelmRelease so a stale `.ready` marker cannot
-  suppress the reinstall.
+- The venv reinstalls itself when the python minor or a pin changes; Renovate
+  holds python minor bumps for dashboard approval until onnxruntime ships wheels.
+- `classifier.yml` deletes non-video content types after classification;
+  unknown ones are kept. Existing rows are not affected until reprocessed.
