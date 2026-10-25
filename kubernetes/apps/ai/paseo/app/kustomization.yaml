@@ -5,3 +5,14 @@ kind: Kustomization
 resources:
   - helmrelease.yaml
 # Activation gate: add secret.sops.yaml only after permission and a real password.
+configMapGenerator:
+  - name: paseo-runtime
+    files:
+      - resources/seed.sh
+      - resources/password-guard.sh
+      - resources/config.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true

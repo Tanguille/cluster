@@ -13,7 +13,7 @@ if [[ -z "${PASEO_PASSWORD:-}" ]]; then
 fi
 
 readonly UPSTREAM_ENTRYPOINT="/usr/local/bin/paseo-docker-entrypoint"
-if [[ "$#" -ne 1 || "$1" != "${UPSTREAM_ENTRYPOINT}" ]]; then
+if [[ "$#" -ne 0 ]]; then
     echo "[paseo] FATAL: refusing unexpected daemon command." >&2
     exit 1
 fi

@@ -25,7 +25,7 @@ spec:
       KOPIUR_IGNORE_RULES: "[/lost+found, /home/.cache/*, /home/.npm/*]"
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
-# DETACHED: do not activate until publication, real encrypted password and deployment approval.
+# DETACHED: do not activate until real encrypted password and deployment approval.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -45,5 +45,3 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      # Before activation add PASEO_IMAGE_TAG: <source-revision-tag>@sha256:<published-digest>.
-      # No default, local image ID or invented registry digest is acceptable.

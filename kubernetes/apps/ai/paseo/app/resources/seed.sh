@@ -15,7 +15,7 @@
 #   * private repositories (rsume) are never cloned here.
 set -euo pipefail
 
-readonly DEFAULT_CONFIG="/opt/paseo/config.json"
+readonly DEFAULT_CONFIG="/etc/paseo-runtime/config.json"
 readonly WORKSPACE="/workspace"
 readonly CLUSTER_URL="https://github.com/Tanguille/cluster.git"
 readonly MESH_ORGANISER_URL="https://github.com/Tanguille/mesh-organiser.git"
@@ -23,8 +23,6 @@ readonly MESH_ORGANISER_URL="https://github.com/Tanguille/mesh-organiser.git"
 HOME_DIR="${HOME:?HOME must be set}"
 PASEO_HOME_DIR="${PASEO_HOME:?PASEO_HOME must be set}"
 HERMES_HOME_DIR="${HERMES_HOME:-${HOME_DIR}/.hermes}"
-CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-${HOME_DIR}/.claude}"
-CODEX_HOME="${CODEX_HOME:-${HOME_DIR}/.codex}"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${HOME_DIR}/.config}"
 XDG_DATA_HOME="${XDG_DATA_HOME:-${HOME_DIR}/.local/share}"
 XDG_STATE_HOME="${XDG_STATE_HOME:-${HOME_DIR}/.local/state}"
@@ -44,7 +42,7 @@ trap 'exit 143' TERM
 log() { printf '[paseo-seed] %s\n' "$*"; }
 
 for dir in "${HOME_DIR}" "${PASEO_HOME_DIR}" "${HERMES_HOME_DIR}" \
-    "${CLAUDE_CONFIG_DIR}" "${CODEX_HOME}" "${XDG_CONFIG_HOME}" \
+    "${XDG_CONFIG_HOME}" \
     "${XDG_DATA_HOME}" "${XDG_STATE_HOME}" "${XDG_CACHE_HOME}" "${WORKSPACE}"; do
     mkdir -p -- "${dir}"
 done

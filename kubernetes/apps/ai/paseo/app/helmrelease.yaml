@@ -36,9 +36,8 @@ spec:
           # Mount the PVC root only here; fsGroup makes it writable without root.
           prepare-storage:
             image: &image
-              repository: ghcr.io/tanguille/paseo
-              # REQUIRED, no default. Detached until a tested published digest exists.
-              tag: "${PASEO_IMAGE_TAG}"
+              repository: ghcr.io/joryirving/paseo
+              tag: 0.13.0@sha256:4f4034e053e45b25b69b6072149267b035062543304e07166c33801d0d8b8805
             command:
               - /bin/bash
               - -c
@@ -70,7 +69,8 @@ spec:
           seed:
             image: *image
             command:
-              - /usr/local/bin/paseo-seed
+              - /bin/bash
+              - /etc/paseo-runtime/seed.sh
             env:
               HOME: /home/paseo
               PASEO_HOME: /home/paseo/.paseo
@@ -80,6 +80,13 @@ spec:
         containers:
           app:
             image: *image
+            # Override ENTRYPOINT and CMD: never invoke community paseo-start.
+            command:
+              - /usr/bin/tini
+            args:
+              - --
+              - /bin/bash
+              - /etc/paseo-runtime/password-guard.sh
             env:
               HOME: /home/paseo
               PASEO_HOME: /home/paseo/.paseo
@@ -140,6 +147,17 @@ spec:
               - identifier: app
                 port: http
     persistence:
+      runtime:
+        type: configMap
+        name: paseo-runtime
+        advancedMounts:
+          paseo:
+            seed:
+              - path: /etc/paseo-runtime
+                readOnly: true
+            app:
+              - path: /etc/paseo-runtime
+                readOnly: true
       data:
         existingClaim: *app
         advancedMounts:

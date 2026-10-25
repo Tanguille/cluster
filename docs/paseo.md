@@ -1,126 +1,88 @@
-# Paseo operator runbook
+# Paseo operations
 
-## Status and activation gates
+## Architecture and activation
 
-**Prepared, detached, not deployed.** No entry has been added to the `ai`
-namespace root. The custom image has local smoke evidence, not a published
-registry digest. See [image contract](../docker/paseo/README.md) and
-[approved design](superpowers/specs/2026-10-24-paseo-design.md).
+**Detached, not deployed.** Use the digest-pinned `ghcr.io/joryirving/paseo`
+community image in the HelmRelease; no custom image or publishing workflow.
+OpenCode and GitHub CLI are bundled. Hermes is installed manually once after
+deployment; Claude/Codex and other unused built-ins are disabled in the seeded
+config. An unavailable Hermes executable must not prevent daemon startup.
 
-Before activation, obtain and record all of these separately:
+The explicit command runs tini → ConfigMap password guard → upstream
+`paseo-docker-entrypoint` without arguments. It deliberately bypasses the image's
+`paseo-start` CMD, which requires LiteLLM credentials and overwrites config.
+No LiteLLM key is required. Missing or empty `PASEO_PASSWORD` fails closed.
 
-1. Permission to push/publish the image. Publish the smoke-tested source through
-   the trusted workflow; verify provenance and anonymous cluster pullability
-   (or separately design approved pull credentials). Record the real registry
-   digest. A local Docker image ID is **not** a registry digest.
-2. Set `PASEO_IMAGE_TAG` in the **paseo app** Kustomization's
-   `spec.postBuild.substitute` to the published immutable
-   `<source-revision-tag>@sha256:<registry-digest>`. All init containers and daemon use
-   `ghcr.io/tanguille/paseo:${PASEO_IMAGE_TAG}` through one YAML anchor. There
-   is deliberately no default and no checked-in render-test tag.
-3. Obtain permission for SOPS operations and a human-provided, real nonempty
-   password. Following the [SOPS runbook](sops.md), create encrypted
-   `kubernetes/apps/ai/paseo/app/secret.sops.yaml`: Secret `ai/paseo-secret`,
-   key `PASEO_PASSWORD`. Only then add it to the app's Kustomize resources.
-   Never use a dummy password, copy sibling credentials, or put plaintext in
-   Git, image layers, command arguments, logs, or Flux substitutions.
-4. Re-render the real image reference and encrypted-Secret resource graph;
-   parent runs full repository validation. Obtain separate push and deployment
-   approval before adding `./paseo/ks.yaml` to the namespace resource list.
-   Merge may trigger Flux automatically; it is a deployment boundary too.
+Before activation, obtain separate approval for:
 
-The upstream `ai/kustomization.yaml` now contains the existing namespace apps;
-Paseo is deliberately not listed there. Keep it detached until all activation
-gates above are approved. Do not replace or otherwise edit the namespace root
-as part of this work.
+- A real nonempty human-supplied password and [SOPS operations](sops.md).
+  Create encrypted `app/secret.sops.yaml` for Secret `ai/paseo-secret`, key
+  `PASEO_PASSWORD`, then include it in the app Kustomization. No dummy value,
+  plaintext in Git/arguments/logs, or sibling/workstation credential imports.
+- Final validation/review, push and deployment. Only then add
+  `./paseo/ks.yaml` to the existing ai namespace root. Merge can trigger Flux;
+  it is also a deployment boundary. The public image already has a digest;
+  no custom-image build/publication or image-tag substitution gate remains.
 
-The required substitution shape is `${PASEO_IMAGE_TAG}` (no default). Validate
-locally with strict Flux substitution; a missing variable must fail:
+One Recreate replica runs with gVisor, UID/GID/fsGroup 1000, dropped capabilities,
+RuntimeDefault seccomp, no privilege escalation/token/RBAC/host mounts. Agents
+can access all mounted data and credentials; gVisor is not isolation between
+agents. The only route is `https://paseo.${SECRET_DOMAIN}` through internal
+`network/envoy-internal`, port 6767. Relay disabled; existing policies unchanged.
 
-```bash
-set -euo pipefail
-mise exec -- kustomize build kubernetes/apps/ai/paseo/app |
-  PASEO_IMAGE_TAG=render-only-not-published SECRET_DOMAIN=example.invalid \
-    mise exec -- flux envsubst --strict
-```
+## Persistence and seeding
 
-This non-pullable tag is **only for local render inspection**, not image
-verification or activation. Do not assume the cluster enables strict
-substitution, or use shell `${VAR:?error}` syntax as a Flux required-variable
-guard. The detached graph and activation review are the deployment gate.
-The Secret reference is required even if that gate is bypassed: the Helm values
-provide the Secret name and key and omit `optional`, which Kubernetes defaults
-to false. A missing Secret/key blocks Pod startup, and the image wrapper rejects
-an empty password.
+`paseo-storage` provides one `paseo` 70Gi ceph-block RWO PVC. `home` subPath
+mounts at `/home/paseo`; `workspace` mounts at `/workspace`. Capacity is shared,
+so workspace growth can exhaust home space. Non-root `prepare-storage` first
+mounts the root at `/data`, creates missing subdirectories with umask 077, and
+rejects symlinks/inaccessible paths without chown/chmod of existing data.
+fsGroup must make the Ceph volume root writable; confirm this on first live use.
 
-## Runtime and data boundaries
+The read-only `paseo-runtime` ConfigMap supplies guard, seed and default config.
+Its substitution-disabled annotation protects shell expressions from Flux.
+Seed copies default config only when absent; clones public `Tanguille/cluster`
+and `Tanguille/mesh-organiser` main branches only into absent destinations.
+Temporary sibling clones and no-clobber publication preserve dirty files,
+existing directories and dangling symlinks. No startup dependency installer or
+private clone runs. Later defaults require an intentional manual config merge;
+never delete persistent config just to force reseeding.
 
-- One amd64 replica, `Recreate`, gVisor, UID/GID/fsGroup 1000. No token mount,
-  RBAC grants, host mounts, Docker socket, or kubeconfig. All containers drop
-  all capabilities and disable privilege escalation, using RuntimeDefault
-  seccomp. The writable root filesystem does not make agent execution safe:
-  each agent can access both mounted subdirectories and their tokens.
-- One `paseo` 70Gi ceph-block RWO PVC: `home` subPath at `/home/paseo` for
-  config/provider state/GitHub login, `workspace` subPath at `/workspace` for
-  checkouts, Git metadata and dirty/untracked files. Capacity is shared, not
-  reserved 20Gi/50Gi partitions: workspace growth can exhaust home space too.
-- First, non-root `prepare-storage` mounts the PVC root at `/data` and creates
-  `home` and `workspace` as UID/GID 1000 (umask 077) before the seed container
-  receives subPath mounts. `fsGroup: 1000` makes a supported Ceph volume root
-  group-writable. Existing directories are checked for write/search access;
-  symlinks, files or inaccessible directories fail closed, without chown or
-  chmod of existing state. The daemon never receives the whole-volume mount.
-  This avoids assuming kubelet-created subPaths are UID-1000-owned. Verify
-  first-mount CSI/fsGroup behavior live; no privileged/root init is used.
-- Next, init runs `/usr/local/bin/paseo-seed` with the same image as the daemon.
-  It seeds config only when absent, and public `cluster` and `mesh-organiser`
-  main-branch clones only when destinations are absent. Existing directories
-  and symlinks are preserved; failures retry without overwriting existing work.
-  No private repository is cloned by init.
-- The `paseo-storage` Flux root generates one PVC `paseo`, Restore
-  `paseo-restore`, SnapshotPolicy and hourly SnapshotSchedule `paseo`, UID/GID
-  1000, repository `kopia-nas`, retention 24 hourly / 7 daily. Volume-root
-  exclusions are only `/lost+found`, `/home/.cache/*`, `/home/.npm/*`.
-  Tokens and private source remain backed up together; retain the repository's
-  access/encryption protections. Home and workspace share a snapshot/restore
-  boundary, not independent restore histories or capacity isolation. Snapshots
-  of an active agent are not automatically application-consistent.
-  This replaces draft-only storage: no deployed PVC migration is involved.
+One kopiur policy/schedule `paseo` backs up both subdirectories hourly to
+`kopia-nas`, retaining 24 hourly/7 daily snapshots. Exclude only `/lost+found`,
+`/home/.cache/*`, `/home/.npm/*`. Git metadata, credentials and installed Hermes
+runtime remain backed up. Keep repository encryption/access protections.
+Home/workspace have one restore boundary; active snapshots are not necessarily
+application-consistent.
 
-## Approved post-deployment login
+## Operator login after approved deployment
 
-These are operator instructions, **not actions already performed**. Confirm
-deployment approval and readiness first; never log credentials or dump env.
-The verified Helm render names the Deployment `paseo`, app container `app`.
+Commands below are instructions, not actions already performed:
 
 ```bash
 mise exec -- kubectl -n ai get kustomizations paseo-storage paseo
 mise exec -- kubectl -n ai get helmrelease paseo
-mise exec -- kubectl -n ai get deployment paseo
 mise exec -- kubectl -n ai get pods -l app.kubernetes.io/instance=paseo -o wide
 mise exec -- kubectl -n ai exec -it deployment/paseo -c app -- bash
 ```
 
-Inside that shell:
+Inside the pod, verify identity/mounts, then authenticate GitHub:
 
 ```bash
 id
 test "$(id -u)" = 1000 && test "$(id -g)" = 1000
 stat -c '%u:%g %a %n' /home/paseo /workspace
 test -w /home/paseo && test -w /workspace
-printf 'HOME=%s\nPASEO_HOME=%s\n' "$HOME" "$PASEO_HOME"
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status --hostname github.com
 ```
 
-Use the displayed browser/device flow, least required account/repository
-access, and do not run `gh auth token` or `--show-token`. Without a keyring,
-`gh` may store its token in `~/.config/gh/hosts.yml`; the PVC's home subdirectory
-and its backups then hold a sensitive plaintext-at-rest application credential.
-Do not print/copy it into manifests or transfer workstation credentials.
-
-Only after successful GitHub authentication, clone private `rsume`:
+Use least required account/repository access. Without a keyring, gh may store
+its token in `~/.config/gh/hosts.yml`; HOME and backups then hold a sensitive
+application credential. Never print tokens (`gh auth token`, `--show-token`) or
+copy workstation credentials. Only after authentication, without concurrent
+clones, create the private checkout:
 
 ```bash
 if gh auth status --hostname github.com >/dev/null 2>&1; then
@@ -134,80 +96,75 @@ else
 fi
 ```
 
-Do not run concurrent clones into the same destination. A failed manual clone
-may leave a directory: inspect it with the operator, do not automatically
-delete/reset/pull it. The `-L` check also protects dangling symlinks.
+Inspect failed/partial manual clones with the operator; never auto-delete/reset
+an existing destination. Authenticate OpenCode with `opencode auth login`.
+Its default state under `~/.local/share/opencode` persists on HOME.
 
-Authenticate each provider interactively, using supported headless/device
-flows as offered by its CLI:
+## One-time manual Hermes installation
+
+Run **inside the UID1000 pod shell after deployment**, not an init container.
+The official pinned installer uses PM to provision Python/dependencies under
+persistent HOME. First installation requires outbound network access and disk
+space; git/curl are included in the community image. Do not install system
+packages, escalate privileges or replace the image's Node/PATH shims.
+
+Download the pinned installer to a temporary file and inspect it first:
 
 ```bash
-opencode auth login
-claude
-codex login
-hermes setup
+set -euo pipefail
+HERMES_COMMIT=bf0203a794a07aac3ff764972ab9087baa4e4f4e
+installer=$(mktemp /tmp/hermes-install.XXXXXX.sh)
+curl --fail --show-error --location \
+  "https://raw.githubusercontent.com/NousResearch/hermes-agent/$HERMES_COMMIT/scripts/install.sh" \
+  --output "$installer"
+cat "$installer"
 ```
 
-For Claude, complete its interactive sign-in flow. For Codex, use its supported
-device-auth option if the browser callback cannot reach the pod. Do not bypass
-provider policy or copy workstation tokens. Verify chosen versions' prompts
-and credential locations without printing credential contents: OpenCode's
-default state is under `~/.local/share/opencode`, Claude under HOME
-(`~/.claude`/`~/.claude.json`), Codex under `~/.codex`, Hermes under
-`$HERMES_HOME` (`/home/paseo/.hermes`). If a selected auth method stores state
-elsewhere, stop and arrange persistence explicitly before relying on restart
-survival. Interactive authentication and inference remain live acceptance
-gates, not consequences of a successful CLI version check.
+After inspection, run that downloaded file (not mutable curl-to-shell):
 
-## Internal connection and acceptance
+```bash
+bash "$installer" --non-interactive \
+  --hermes-home /home/paseo/.hermes --commit "$HERMES_COMMIT"
+rm -- "$installer"
+/home/paseo/.local/bin/hermes acp --check
+/home/paseo/.local/bin/hermes setup
+```
 
-From the internal network, open `https://paseo.${SECRET_DOMAIN}` with the
-operator's real domain. Connect directly to that internal HTTPS daemon and
-enter the password in the client, not a URL. Relay is disabled. The only
-HTTPRoute parent is `network/envoy-internal`; service port is 6767. Existing
-namespace policies remain unchanged; no new public route/ingress allowance.
+The installer's standard dependency selection includes ACP. If install/check
+fails, retain the error for diagnosis; do not add startup pip/uv installs or
+invent a fallback packaging path. Source/runtime/state under `~/.hermes` and
+the launcher under `~/.local/bin` persist; do not move them to `/tmp` or excluded
+caches. Paseo config uses absolute command
+`["/home/paseo/.local/bin/hermes", "acp"]`, preserving the image's existing PATH.
+Complete Hermes provider authentication interactively. Refresh provider
+availability; any required daemon restart needs approval. Installation/ACP
+checks do not prove authenticated inference or gVisor compatibility.
 
-After approved deployment, check:
+## Acceptance and rollback
 
-1. Storage/app Kustomizations and HelmRelease are Ready;
-   gVisor init/daemon startup succeeds and the pod's effective `id` is 1000.
-2. Internal DNS/TLS and WebSocket upgrades work. Unauthenticated and wrong-
-   password **control** requests fail, authenticated control succeeds.
-   Static UI assets and `/api/health` intentionally do not require login.
-3. Each provider completes one benign session in the intended checkout;
-   verify the session working directory before allowing changes. Health
-   probes do not establish provider authentication or successful inference.
-4. With separate restart permission, record a benign dirty/untracked workspace
-   fixture and config/auth state, restart the workload, and verify they survive.
-   Existing public/private repositories must not be overwritten. Do not treat
-   local Docker smoke results as gVisor or live persistence evidence.
-5. Inspect the shared backup root:
+After deployment approval, verify Flux/Helm readiness, UID1000/CSI ownership,
+internal TLS and WebSocket upgrades. Wrong/missing-password **control** must
+fail and authenticated control succeed; public UI assets and `/api/health`
+are intentional. Run one benign session each for OpenCode and installed Hermes
+in the intended checkout. Health alone is not agent usability evidence.
 
-   ```bash
-   mise exec -- kubectl -n ai get snapshotpolicy paseo
-   mise exec -- kubectl -n ai get snapshotschedule paseo
-   mise exec -- kubectl -n ai describe snapshotpolicy paseo
-   mise exec -- kubectl kopiur snapshots list --policy paseo -n ai
-   ```
+With separate restart approval verify auth, Hermes installation, mutable config
+and dirty/untracked workspace survive. Verify shared backup status:
 
-   Require a Ready policy and recent successful snapshots covering both
-   subdirectories.
-   Request permission before manual snapshots or restore exercises. Snapshot
-   success alone does not prove a restore works.
+```bash
+mise exec -- kubectl -n ai get snapshotpolicy,snapshotschedule
+mise exec -- kubectl -n ai describe snapshotpolicy paseo
+mise exec -- kubectl kopiur snapshots list --policy paseo -n ai
+```
 
-## Upgrades and rollback
+Require Ready and recent successful snapshots. Manual snapshots/restores need
+permission; snapshot success is not restore evidence.
 
-Publish and test each new image through the approved workflow, then update
-the digest-pinned `PASEO_IMAGE_TAG` in Git with normal validation and approval.
-Config defaults do not replace existing `$PASEO_HOME/config.json`. Merge
-intentional provider changes manually into the persistent version-1 config;
-retain `agents.providers.hermes` extending `acp`, label `Hermes`, command
-`["hermes", "acp"]`. Do not delete config merely to force reseeding.
-
-Rollback by reverting the workload image/config change through GitOps,
-retaining **the storage Kustomization, shared PVC and backup resources**. Do not
-remove the namespace resource entry or prune storage as a casual rollback.
-Image rollback is not data rollback: if a version migrated state incompatibly,
-stop and request the [kopiur restore workflow](kopiur-restore.md), coordinating
-the shared home/workspace restore point and suspending all writers. Deletion,
-restore and live reconciliation each need their own authorization.
+Upgrade the community image by reviewed digest changes. Treat Hermes updates
+as separate explicit manual changes with a recorded source pin; no silent
+startup updates. Merge provider defaults into existing config deliberately.
+Rollback workload image/config in Git while retaining storage Kustomization,
+PVC and backups. Do not remove the namespace entry or prune storage as rollback.
+Image rollback does not undo persisted Hermes/state migrations; incompatible
+state needs an approved [kopiur restore](kopiur-restore.md) of the shared volume
+with all writers suspended.
