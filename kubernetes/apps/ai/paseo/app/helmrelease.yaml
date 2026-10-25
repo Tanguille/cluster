@@ -32,17 +32,30 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
-          seed:
+          # Init containers are rendered in alphabetical order: prepare before seed.
+          # Mount the PVC root only here; fsGroup makes it writable without root.
+          prepare-storage:
             image: &image
               repository: ghcr.io/tanguille/paseo
               # REQUIRED, no default. Detached until a tested published digest exists.
               tag: "${PASEO_IMAGE_TAG}"
             command:
-              - /usr/local/bin/paseo-seed
-            env:
-              HOME: /home/paseo
-              PASEO_HOME: /home/paseo/.paseo
-              GIT_TERMINAL_PROMPT: "0"
+              - /bin/bash
+              - -c
+              - |
+                set -euo pipefail
+                umask 077
+                for directory in /data/home /data/workspace; do
+                  if [ -L "$directory" ]; then
+                    printf 'Refusing symlink: %s\n' "$directory" >&2
+                    exit 1
+                  fi
+                  mkdir -p -- "$directory"
+                  if [ ! -d "$directory" ] || [ ! -w "$directory" ] || [ ! -x "$directory" ]; then
+                    printf 'Directory is not writable/searchable: %s\n' "$directory" >&2
+                    exit 1
+                  fi
+                done
             securityContext: &containerSecurity
               allowPrivilegeEscalation: false
               capabilities:
@@ -54,6 +67,16 @@ spec:
               limits:
                 cpu: 2
                 memory: 4Gi
+          seed:
+            image: *image
+            command:
+              - /usr/local/bin/paseo-seed
+            env:
+              HOME: /home/paseo
+              PASEO_HOME: /home/paseo/.paseo
+              GIT_TERMINAL_PROMPT: "0"
+            securityContext: *containerSecurity
+            resources: *resources
         containers:
           app:
             image: *image
@@ -117,11 +140,19 @@ spec:
               - identifier: app
                 port: http
     persistence:
-      home:
-        existingClaim: paseo-home
-        globalMounts:
-          - path: /home/paseo
-      workspace:
-        existingClaim: paseo-workspace
-        globalMounts:
-          - path: /workspace
+      data:
+        existingClaim: *app
+        advancedMounts:
+          paseo:
+            prepare-storage:
+              - path: /data
+            seed:
+              - path: /home/paseo
+                subPath: home
+              - path: /workspace
+                subPath: workspace
+            app:
+              - path: /home/paseo
+                subPath: home
+              - path: /workspace
+                subPath: workspace

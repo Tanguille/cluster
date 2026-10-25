@@ -3,11 +3,11 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: &app paseo-home
+  name: paseo-storage
   namespace: &namespace ai
 spec:
   interval: 30m
-  path: ./kubernetes/apps/ai/paseo/home
+  path: ./kubernetes/apps/ai/paseo/storage
   targetNamespace: *namespace
   prune: true
   sourceRef:
@@ -18,36 +18,11 @@ spec:
     - ../../../../components/kopiur
   postBuild:
     substitute:
-      APP: *app
-      PVC_CAPACITY: 20Gi
+      APP: paseo
+      PVC_CAPACITY: 70Gi
       KOPIUR_PUID: "1000"
       KOPIUR_PGID: "1000"
-      KOPIUR_IGNORE_RULES: "[/lost+found, /.cache/*, /.npm/*]"
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: &app paseo-workspace
-  namespace: &namespace ai
-spec:
-  interval: 30m
-  path: ./kubernetes/apps/ai/paseo/workspace
-  targetNamespace: *namespace
-  prune: true
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  components:
-    - ../../../../components/kopiur
-  postBuild:
-    substitute:
-      APP: *app
-      PVC_CAPACITY: 50Gi
-      KOPIUR_PUID: "1000"
-      KOPIUR_PGID: "1000"
-      KOPIUR_IGNORE_RULES: "[/lost+found]"
+      KOPIUR_IGNORE_RULES: "[/lost+found, /home/.cache/*, /home/.npm/*]"
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 # DETACHED: do not activate until publication, real encrypted password and deployment approval.
@@ -66,8 +41,7 @@ spec:
     name: flux-system
     namespace: flux-system
   dependsOn:
-    - name: paseo-home
-    - name: paseo-workspace
+    - name: paseo-storage
   postBuild:
     substitute:
       APP: *app

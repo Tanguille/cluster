@@ -85,23 +85,37 @@ value is specified here.
 Seed a version-1 Paseo config into `$PASEO_HOME/config.json` only if absent;
 the Hermes entry is `agents.providers.hermes` with `extends: "acp"`,
 `label: "Hermes"`, and `command: ["hermes", "acp"]`. Config remains writable
-on the home PVC; later default changes do not silently replace user config.
+in the PVC's home subdirectory; later default changes do not silently replace user config.
 Operators merge intentional provider changes explicitly. Built-in providers
 use installed executables; no runtime `npx` downloads.
 
-| PVC | Mount | Initial size | Backup |
-| --- | --- | --- | --- |
-| `paseo-home` | `/home/paseo` | 20Gi | Existing kopiur component |
-| `paseo-workspace` | `/workspace` | 50Gi | Existing kopiur component |
+Storage simplification approved 2026-10-25: one shared PVC, following the
+home/workspace subPath layout of joryirving/home-ops and aumer-amr/labv2 Paseo.
+This replaces detached draft resources; there is no deployed data migration.
 
-Use two storage Flux Kustomizations with separate `APP` substitutions and
-UID/GID 1000, producing each PVC, Restore, SnapshotPolicy and SnapshotSchedule.
+| PVC | SubPath mounts | Initial size | Backup |
+| --- | --- | --- | --- |
+| `paseo` | `home` → `/home/paseo`, `workspace` → `/workspace` | 70Gi shared | Existing kopiur component |
+
+Use one `paseo-storage` Flux Kustomization with `APP=paseo` and UID/GID 1000,
+producing one PVC, Restore, SnapshotPolicy and SnapshotSchedule.
 Use `ceph-block`, ReadWriteOnce, `kopia-nas` and existing hourly retention
-defaults. Exclude only `/lost+found` plus home `/.cache/*` and `/.npm/*`;
+defaults. Exclude only `/lost+found`, `/home/.cache/*` and `/home/.npm/*`;
 preserve Git metadata, untracked work and credentials. Backups therefore contain
 sensitive provider/GitHub tokens and must retain existing repository protections.
-The workload depends on both storage Kustomizations. Do not alter shared kopiur
-components. Single replica, `Recreate`; no HPA for shared mutable sessions/RWO.
+The workload depends on `paseo-storage`. Capacity and backup/restore history
+are shared: neither home capacity isolation nor independent restores remain.
+Do not alter shared kopiur components. Single replica, `Recreate`; no HPA for
+shared mutable sessions/RWO.
+
+Before seed, a non-root `prepare-storage` init container using the same image
+mounts the full PVC at `/data`, and creates `home`/`workspace` with UID/GID 1000
+and umask 077. `fsGroup: 1000` supplies group write access to the Ceph volume
+root. Existing directories are preserved and checked for write/search access;
+symlinks or inaccessible paths fail closed, without chown/chmod. Only this
+preparation container mounts the root; seed and daemon mount both subPaths.
+Do not rely on kubelet-created directories having UID-1000 ownership and do
+not add a root/privileged permission fixer. Verify CSI/fsGroup on first live use.
 
 Run seeding in a non-root init container using the same image. Disable Git
 terminal prompts for public clones; clone into a temporary sibling, then rename
@@ -140,11 +154,12 @@ paths. Never bypass provider policy or require a workstation token copy.
 
 After approved deployment, verify internal TLS/WebSocket login, one authorized
 session per provider, persistent auth and workspace state across a controlled
-restart, plus both backup policies. Live restart/snapshot/restore operations
+restart, plus the shared backup policy. Live restart/snapshot/restore operations
 need explicit authorization. Roll back by reverting the workload image digest
-and config change through GitOps, retaining PVCs. Do not delete/prune storage
+and config change through GitOps, retaining the PVC. Do not delete/prune storage
 to roll back. If a release migrates state incompatibly, stop and use the
-approved kopiur restore workflow; image rollback alone is not data rollback.
+approved kopiur restore workflow for both subdirectories together; image
+rollback alone is not data rollback. Suspend all writers before shared restore.
 
 ## Evidence and remaining gates
 

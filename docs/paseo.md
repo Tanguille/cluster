@@ -15,7 +15,7 @@ Before activation, obtain and record all of these separately:
    digest. A local Docker image ID is **not** a registry digest.
 2. Set `PASEO_IMAGE_TAG` in the **paseo app** Kustomization's
    `spec.postBuild.substitute` to the published immutable
-   `<source-revision-tag>@sha256:<registry-digest>`. Both seed and daemon use
+   `<source-revision-tag>@sha256:<registry-digest>`. All init containers and daemon use
    `ghcr.io/tanguille/paseo:${PASEO_IMAGE_TAG}` through one YAML anchor. There
    is deliberately no default and no checked-in render-test tag.
 3. Obtain permission for SOPS operations and a human-provided, real nonempty
@@ -56,23 +56,36 @@ an empty password.
 ## Runtime and data boundaries
 
 - One amd64 replica, `Recreate`, gVisor, UID/GID/fsGroup 1000. No token mount,
-  RBAC grants, host mounts, Docker socket, or kubeconfig. Both containers drop
+  RBAC grants, host mounts, Docker socket, or kubeconfig. All containers drop
   all capabilities and disable privilege escalation, using RuntimeDefault
   seccomp. The writable root filesystem does not make agent execution safe:
-  each agent can access both mounted volumes and their tokens.
-- `paseo-home`: 20Gi ceph-block RWO at `/home/paseo`; persistent Paseo config,
-  provider state and GitHub login. `paseo-workspace`: 50Gi at `/workspace`;
-  Git metadata, dirty/untracked files and private checkout remain persistent.
-- Init runs `/usr/local/bin/paseo-seed` with the same image as the daemon.
+  each agent can access both mounted subdirectories and their tokens.
+- One `paseo` 70Gi ceph-block RWO PVC: `home` subPath at `/home/paseo` for
+  config/provider state/GitHub login, `workspace` subPath at `/workspace` for
+  checkouts, Git metadata and dirty/untracked files. Capacity is shared, not
+  reserved 20Gi/50Gi partitions: workspace growth can exhaust home space too.
+- First, non-root `prepare-storage` mounts the PVC root at `/data` and creates
+  `home` and `workspace` as UID/GID 1000 (umask 077) before the seed container
+  receives subPath mounts. `fsGroup: 1000` makes a supported Ceph volume root
+  group-writable. Existing directories are checked for write/search access;
+  symlinks, files or inaccessible directories fail closed, without chown or
+  chmod of existing state. The daemon never receives the whole-volume mount.
+  This avoids assuming kubelet-created subPaths are UID-1000-owned. Verify
+  first-mount CSI/fsGroup behavior live; no privileged/root init is used.
+- Next, init runs `/usr/local/bin/paseo-seed` with the same image as the daemon.
   It seeds config only when absent, and public `cluster` and `mesh-organiser`
   main-branch clones only when destinations are absent. Existing directories
   and symlinks are preserved; failures retry without overwriting existing work.
   No private repository is cloned by init.
-- Separate kopiur roots generate one PVC, Restore, SnapshotPolicy and hourly
-  SnapshotSchedule each, UID/GID 1000, repository `kopia-nas`, retention 24
-  hourly / 7 daily. Home excludes only `/lost+found`, `/.cache/*`, `/.npm/*`;
-  workspace excludes only `/lost+found`. Tokens and private source are backed
-  up: retain the repository's access/encryption protections.
+- The `paseo-storage` Flux root generates one PVC `paseo`, Restore
+  `paseo-restore`, SnapshotPolicy and hourly SnapshotSchedule `paseo`, UID/GID
+  1000, repository `kopia-nas`, retention 24 hourly / 7 daily. Volume-root
+  exclusions are only `/lost+found`, `/home/.cache/*`, `/home/.npm/*`.
+  Tokens and private source remain backed up together; retain the repository's
+  access/encryption protections. Home and workspace share a snapshot/restore
+  boundary, not independent restore histories or capacity isolation. Snapshots
+  of an active agent are not automatically application-consistent.
+  This replaces draft-only storage: no deployed PVC migration is involved.
 
 ## Approved post-deployment login
 
@@ -81,7 +94,7 @@ deployment approval and readiness first; never log credentials or dump env.
 The verified Helm render names the Deployment `paseo`, app container `app`.
 
 ```bash
-mise exec -- kubectl -n ai get kustomizations paseo-home paseo-workspace paseo
+mise exec -- kubectl -n ai get kustomizations paseo-storage paseo
 mise exec -- kubectl -n ai get helmrelease paseo
 mise exec -- kubectl -n ai get deployment paseo
 mise exec -- kubectl -n ai get pods -l app.kubernetes.io/instance=paseo -o wide
@@ -93,6 +106,8 @@ Inside that shell:
 ```bash
 id
 test "$(id -u)" = 1000 && test "$(id -g)" = 1000
+stat -c '%u:%g %a %n' /home/paseo /workspace
+test -w /home/paseo && test -w /workspace
 printf 'HOME=%s\nPASEO_HOME=%s\n' "$HOME" "$PASEO_HOME"
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
@@ -101,8 +116,8 @@ gh auth status --hostname github.com
 
 Use the displayed browser/device flow, least required account/repository
 access, and do not run `gh auth token` or `--show-token`. Without a keyring,
-`gh` may store its token in `~/.config/gh/hosts.yml`; the home PVC and its
-backups then hold a sensitive plaintext-at-rest application credential.
+`gh` may store its token in `~/.config/gh/hosts.yml`; the PVC's home subdirectory
+and its backups then hold a sensitive plaintext-at-rest application credential.
 Do not print/copy it into manifests or transfer workstation credentials.
 
 Only after successful GitHub authentication, clone private `rsume`:
@@ -154,7 +169,7 @@ namespace policies remain unchanged; no new public route/ingress allowance.
 
 After approved deployment, check:
 
-1. Both storage Kustomizations, app Kustomization and HelmRelease are Ready;
+1. Storage/app Kustomizations and HelmRelease are Ready;
    gVisor init/daemon startup succeeds and the pod's effective `id` is 1000.
 2. Internal DNS/TLS and WebSocket upgrades work. Unauthenticated and wrong-
    password **control** requests fail, authenticated control succeeds.
@@ -166,18 +181,17 @@ After approved deployment, check:
    fixture and config/auth state, restart the workload, and verify they survive.
    Existing public/private repositories must not be overwritten. Do not treat
    local Docker smoke results as gVisor or live persistence evidence.
-5. Inspect both backup roots:
+5. Inspect the shared backup root:
 
    ```bash
-   mise exec -- kubectl -n ai get snapshotpolicy paseo-home paseo-workspace
-   mise exec -- kubectl -n ai get snapshotschedule paseo-home paseo-workspace
-   mise exec -- kubectl -n ai describe snapshotpolicy paseo-home
-   mise exec -- kubectl -n ai describe snapshotpolicy paseo-workspace
-   mise exec -- kubectl kopiur snapshots list --policy paseo-home -n ai
-   mise exec -- kubectl kopiur snapshots list --policy paseo-workspace -n ai
+   mise exec -- kubectl -n ai get snapshotpolicy paseo
+   mise exec -- kubectl -n ai get snapshotschedule paseo
+   mise exec -- kubectl -n ai describe snapshotpolicy paseo
+   mise exec -- kubectl kopiur snapshots list --policy paseo -n ai
    ```
 
-   Require Ready policies and recent successful snapshots for both PVCs.
+   Require a Ready policy and recent successful snapshots covering both
+   subdirectories.
    Request permission before manual snapshots or restore exercises. Snapshot
    success alone does not prove a restore works.
 
@@ -191,9 +205,9 @@ retain `agents.providers.hermes` extending `acp`, label `Hermes`, command
 `["hermes", "acp"]`. Do not delete config merely to force reseeding.
 
 Rollback by reverting the workload image/config change through GitOps,
-retaining **both storage Kustomizations, PVCs and backup resources**. Do not
+retaining **the storage Kustomization, shared PVC and backup resources**. Do not
 remove the namespace resource entry or prune storage as a casual rollback.
 Image rollback is not data rollback: if a version migrated state incompatibly,
 stop and request the [kopiur restore workflow](kopiur-restore.md), coordinating
-both roots and suspending all writers. Deletion, restore and live reconciliation
-each need their own authorization.
+the shared home/workspace restore point and suspending all writers. Deletion,
+restore and live reconciliation each need their own authorization.
