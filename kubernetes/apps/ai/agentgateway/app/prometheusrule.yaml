@@ -26,8 +26,7 @@ spec:
           labels:
             severity: critical
 
-        # A refused compile (models.yaml) keeps the last route, so the models listener answers
-        # stale or 404s, and a 404 is labelled model="unknown" (gateway.yaml): only the CR shows it.
+        # A refused compile (models.yaml) 404s as model="unknown" (gateway.yaml); only the CR shows it.
         - alert: LLMKubeModelRouterNotReady
           expr: |-
             max by (exported_namespace, name, reason) (llmkube_resource_info{ready!="True"})
@@ -38,16 +37,6 @@ spec:
               ({{ $labels.reason }}) — kubectl -n ai describe modelrouter {{ $labels.name }}
           labels:
             severity: critical
-
-        - alert: LLMKubeModelRouterAbsent
-          expr: |-
-            absent(llmkube_resource_info{name="agentgateway-router"})
-          for: 15m
-          annotations:
-            summary: >-
-              No ModelRouter metrics — kube-state-metrics lost agentgateway-router, model routing is unmonitored
-          labels:
-            severity: warning
 
         # Structural rule, needs no traffic to fire; the deployment name is hardcoded, so it moves with the omniroute backend's fallback group or goes blind.
         - alert: AgentgatewayFallbackBackendDown
