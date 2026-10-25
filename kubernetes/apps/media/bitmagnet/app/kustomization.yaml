@@ -5,9 +5,14 @@ resources:
   - helmrelease.yaml
   - secret.sops.yaml
 configMapGenerator:
+  - name: bitmagnet-config
+    files:
+      - classifier.yml
   - name: armiger-bootstrap
     files:
       - bootstrap.py
       - requirements.txt
 generatorOptions:
   disableNameSuffixHash: true
+  annotations:
+    kustomize.toolkit.fluxcd.io/substitute: disabled

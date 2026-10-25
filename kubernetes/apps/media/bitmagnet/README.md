@@ -9,13 +9,15 @@ cluster `postgres16`. The UI is on `envoy-internal` only and unauthenticated.
 
 - The password lives in two SOPS secrets, `database/bitmagnet-db` (CNPG role)
   and `media/bitmagnet-postgres` (app). Rotate both together.
-- DHT uses `hostPort` 3334 TCP/UDP on the scheduled node. Any router NAT
-  forwarding must follow that node; nothing here configures it.
+- DHT is outbound-only: `media` enforces PSA baseline, which forbids
+  `hostPort`. Inbound DHT (faster crawl) would need a LoadBalancer IP plus
+  router forwarding, like satisfactory.
 - The `armiger-connector-data` PVC (venv + model) has no backup; it is
   re-downloadable. Do not delete it or the shared database on rollback.
 - The init container pip-installs into the PVC at runtime. Direct dependencies
   are pinned, transitive ones are not. The connector source is SHA-256 verified;
   the pinned HF bundle contains unaudited executable Python.
-- Changing requirements or the image ABI: bump the `runtime-v*` suffix of
-  `ARMIGER_RUNTIME_DIR` in the HelmRelease so a stale `.ready` marker cannot
-  suppress the reinstall.
+- The venv reinstalls itself when the python minor or a pin changes; Renovate
+  holds python minor bumps for dashboard approval until onnxruntime ships wheels.
+- `classifier.yml` deletes non-video content types after classification;
+  unknown ones are kept. Existing rows are not affected until reprocessed.

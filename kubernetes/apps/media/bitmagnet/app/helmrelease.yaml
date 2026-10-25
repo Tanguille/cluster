@@ -40,26 +40,14 @@ spec:
             env:
               POSTGRES_HOST: postgres16-rw.database.svc.cluster.local
               HOME: /tmp
-              POSTGRES_NAME: bitmagnet
+              EXTRA_CONFIG_FILES: /etc/bitmagnet/classifier.yml
               POSTGRES_USER: bitmagnet
-              POSTGRES_PASSWORD:
-                valueFrom:
-                  secretKeyRef:
-                    name: bitmagnet-postgres
-                    key: POSTGRES_PASSWORD
-            # Bind only the DHT ports on the scheduled node, not the HTTP UI.
-            # No new LB address is allocated; router forwarding remains operator-owned.
-            ports:
-              - name: dht-tcp
-                containerPort: 3334
-                hostPort: 3334
-                protocol: TCP
-              - name: dht-udp
-                containerPort: 3334
-                hostPort: 3334
-                protocol: UDP
+            # TMDB_API_KEY is shared with Jellyfin Enhanced; the default key throttles to 1 req/s.
+            envFrom:
+              - secretRef:
+                  name: bitmagnet-postgres
+            # No hostPort: media enforces PSA baseline, so DHT is outbound-only.
             probes:
-              # Chart default handler: TCP on the primary service port (http 3333).
               readiness: &bitmagnet-probe
                 enabled: true
                 spec:
@@ -91,29 +79,19 @@ spec:
             command: [python3, /bootstrap/bootstrap.py]
             env:
               HOME: /tmp
-              HF_HOME: /tmp/huggingface
-              # Bump either version suffix to reinstall; old dirs are kept for rollback.
-              ARMIGER_RUNTIME_DIR: &runtime-dir /data/armiger/runtime-v2
-              ARMIGER_MODEL_DIR: &model-dir /data/armiger/model-cdf7036c45a0d9751d18e738c7abfde485552964
             securityContext: *container-security
         containers:
           app:
             image: *python-image
             command:
               [
-                $(ARMIGER_RUNTIME_DIR)/venv/bin/python3,
-                $(ARMIGER_RUNTIME_DIR)/bitmagnet_connector.py
+                /data/armiger/runtime/venv/bin/python3,
+                /data/armiger/runtime/bitmagnet_connector.py
               ]
             env:
               HOME: /tmp
-              PYTHONDONTWRITEBYTECODE: "1"
-              ARMIGER_RUNTIME_DIR: *runtime-dir
-              ARMIGER_MODEL_DIR: *model-dir
-              # Init downloads a fixed revision; never execute a floating HF bundle.
+              ARMIGER_MODEL_DIR: /data/armiger/model
               ARMIGER_AUTO_DOWNLOAD: "false"
-              # Unset ARMIGER_* tuning (mode both, malware pruning on, 5s poll) uses the pinned connector's defaults.
-              ARMIGER_CONNECTOR_PORT: "8096"
-              ARMIGER_PROXY_PORT: "8097"
               BITMAGNET_GRAPHQL_URL: http://bitmagnet:3333/graphql
               UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
             probes:
@@ -121,7 +99,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: { path: /healthz, port: 8096 }
+                  httpGet: &healthz { path: /healthz, port: 8096 }
                   periodSeconds: 15
                   timeoutSeconds: 5
               liveness: *connector-probe
@@ -129,7 +107,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: { path: /healthz, port: 8096 }
+                  httpGet: *healthz
                   failureThreshold: 90
                   timeoutSeconds: 5
             resources:
@@ -172,6 +150,14 @@ spec:
               - path: /data/armiger
             app:
               - path: /data/armiger
+      config:
+        type: configMap
+        name: bitmagnet-config
+        advancedMounts:
+          bitmagnet:
+            app:
+              - path: /etc/bitmagnet
+                readOnly: true
       bootstrap:
         type: configMap
         name: armiger-bootstrap
@@ -182,19 +168,3 @@ spec:
                 readOnly: true
       tmp:
         type: emptyDir
-    networkpolicies:
-      dht:
-        type: cilium
-        forceRename: bitmagnet-dht
-        endpointSelector:
-          matchLabels:
-            app.kubernetes.io/instance: bitmagnet
-            app.kubernetes.io/controller: bitmagnet
-        ingress:
-          - fromEntities: [world]
-            toPorts:
-              - ports:
-                  - port: "3334"
-                    protocol: TCP
-                  - port: "3334"
-                    protocol: UDP
