@@ -52,26 +52,22 @@ Budget: max **3 fix-push cycles per failure class**, then escalate with the evid
 
 ## Shepherd loop (per open owner-PR)
 
-1. Call `kritika_get_pull` first, then refresh GitHub's head, CI and human/other-bot feedback.
-   Compare Kritika's `headSha` with GitHub's head; do not treat lagging state as current.
-2. DIRTY → Gate A.
-3. CI red → triage above.
-4. For each newly completed Kritika review of the current head, call `kritika_get_review`
-   and remember its id. Re-fetch that id only to verify changed finding/dismissal state;
-   do not repeatedly fetch GitHub comment history for Kritika findings.
-5. Triage Kritika findings and GitHub feedback, including CodeRabbit (login startswith
-   `coderabbitai`): fix valid issues, dismiss false positives with evidence, then push fixes.
-6. An unfinished Kritika job for the current head, including scheduled/running jobs and
-   pending retries, means wait; continue independent CI/feedback work without a duplicate
-   review command. If no job remains, inspect the failure/skip/paused reason before retrying
-   through GitHub, and refresh `kritika_get_pull` immediately before requesting a review.
-7. Body contradicts diff → Gate B.
-8. Require the latest Kritika review of GitHub's current head to be `completed`, with blocking
-   findings resolved and configured confidence gates passed. Superseded, skipped, failed,
-   canceled or unfinished reviews are not approval, even if a GitHub status is green.
-   Confirm the current-head GitHub review status and, when automatic approval is enabled,
-   the bot's approval; `completed` alone is insufficient.
-9. Green + clean + draft → `update_pull_request {pullNumber, draft: false}`; report merge-ready.
+1. Refresh `kritika_get_pull`, then GitHub's head, CI and human/other-bot feedback.
+   Match Kritika's `headSha` to GitHub's head before using its results.
+2. Fetch `kritika_get_review` once per newly completed current-head review id;
+   re-fetch only when finding/dismissal state changes. Use these findings instead
+   of GitHub comment history.
+3. Fix valid findings; dismiss false positives with evidence. Triage CI as above
+   and apply Gates A–C before pushing.
+4. If Kritika has an unfinished current-head job, wait while handling independent work.
+   Before any review command, refresh `kritika_get_pull`: require no current-head job
+   and inspect the failure/skip/paused reason.
+5. Ready requires green CI, all feedback triaged, and the latest current-head Kritika
+   review `completed` with no blocking findings, passing configured confidence/status gates and
+   the bot's approval when enabled. Older reviews and all other states, including
+   skipped/superseded/failed, do not count as approval.
+6. When ready, mark a draft ready with `update_pull_request {pullNumber, draft: false}`
+   and report merge-ready.
 
 Stop: green+clean, escalated, or budget exhausted.
 
