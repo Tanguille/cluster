@@ -19,6 +19,10 @@ spec:
   # CNPG enforces the basic-auth Secret password, so the app's DATABASE_URL must match; nothing re-syncs them, so rotation is off.
   managed:
     roles:
+      - name: bitmagnet
+        login: true
+        passwordSecret:
+          name: bitmagnet-db
       - name: jellystat
         login: true
         passwordSecret:

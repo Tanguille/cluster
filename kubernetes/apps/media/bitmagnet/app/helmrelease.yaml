@@ -1,0 +1,182 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app bitmagnet
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    controllers:
+      bitmagnet:
+        forceRename: *app
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/bitmagnet-io/bitmagnet
+              tag: v0.10.1@sha256:b6373349a30193b436ce6b05e21f91aa4934074268105dded1f3b065b8c86f19
+            args:
+              [
+                worker,
+                run,
+                --keys=http_server,
+                --keys=queue_server,
+                --keys=dht_crawler
+              ]
+            env:
+              # Session mode: pgx prepares statements; the direct -rw VIP can blackhole from the primary's node.
+              POSTGRES_HOST: pgbouncer-session.database.svc.cluster.local
+              HOME: /tmp
+              EXTRA_CONFIG_FILES: /etc/bitmagnet/classifier.yaml
+              POSTGRES_USER: bitmagnet
+            # TMDB_API_KEY is shared with Jellyfin Enhanced; the default key throttles to 1 req/s.
+            envFrom:
+              - secretRef:
+                  name: bitmagnet-postgres
+            # No hostPort: media enforces PSA baseline, so DHT is outbound-only.
+            probes:
+              readiness: &bitmagnet-probe
+                enabled: true
+                spec:
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+              liveness: *bitmagnet-probe
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 60
+                  timeoutSeconds: 5
+            resources:
+              requests:
+                cpu: 250m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+            securityContext: &container-security
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: [ALL] }
+      connector:
+        forceRename: armiger-connector
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          bootstrap:
+            image: &python-image
+              repository: docker.io/library/python
+              tag: 3.14-slim@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8
+            command: [python3, /bootstrap/bootstrap.py]
+            env:
+              HOME: /tmp
+            securityContext: *container-security
+        containers:
+          app:
+            image: *python-image
+            command:
+              [
+                /data/armiger/runtime/venv/bin/python3,
+                /data/armiger/runtime/bitmagnet_connector.py
+              ]
+            env:
+              HOME: /tmp
+              ARMIGER_MODEL_DIR: /data/armiger/model
+              ARMIGER_AUTO_DOWNLOAD: "false"
+              BITMAGNET_GRAPHQL_URL: http://bitmagnet:3333/graphql
+              UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
+              # 500 per 15s keeps up with classifier bursts (~35/s) at a third of the polls.
+              BITMAGNET_POLL_SECONDS: "15"
+              BITMAGNET_BATCH_SIZE: "500"
+              # Caps glibc arenas from onnxruntime threads, which otherwise hold RSS after a burst.
+              MALLOC_ARENA_MAX: "2"
+            probes:
+              readiness: &connector-probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &healthz { path: /healthz, port: 8096 }
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+              liveness: *connector-probe
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *healthz
+                  failureThreshold: 90
+                  timeoutSeconds: 5
+            resources:
+              requests:
+                cpu: 250m
+                memory: 1Gi
+              limits:
+                memory: 3Gi
+            securityContext: *container-security
+    service:
+      app:
+        forceRename: *app
+        controller: bitmagnet
+        ports:
+          http: { port: 3333 }
+      connector:
+        forceRename: armiger-connector
+        controller: connector
+        ports:
+          bridge: { port: 8096 }
+          torznab-proxy: { port: 8097 }
+    route:
+      app:
+        hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: http
+    persistence:
+      connector-data:
+        type: persistentVolumeClaim
+        forceRename: armiger-connector-data
+        accessMode: ReadWriteOnce
+        size: 5Gi
+        storageClass: ceph-block
+        retain: true
+        advancedMounts:
+          connector:
+            bootstrap:
+              - path: /data/armiger
+            app:
+              - path: /data/armiger
+      config:
+        type: configMap
+        name: bitmagnet-config
+        advancedMounts:
+          bitmagnet:
+            app:
+              - path: /etc/bitmagnet
+                readOnly: true
+      bootstrap:
+        type: configMap
+        name: armiger-bootstrap
+        advancedMounts:
+          connector:
+            bootstrap:
+              - path: /bootstrap
+                readOnly: true
+      tmp:
+        type: emptyDir

@@ -488,7 +488,12 @@ function sharedChartOptions(overrides = {}) {
 /**
  * Shared dataset config for line charts.
  */
-function lineDataset(label, data, line = CHART_COLORS.accent, fill = CHART_COLORS.accentFill) {
+function lineDataset(
+  label,
+  data,
+  line = CHART_COLORS.accent,
+  fill = CHART_COLORS.accentFill
+) {
   return {
     label,
     data,
@@ -523,7 +528,12 @@ function initOrUpdateChart(canvas, chartState, stateKey, chartConfig) {
       data: {
         labels: chartConfig.labels,
         datasets: [
-          lineDataset(chartConfig.label, chartConfig.data, chartConfig.line, chartConfig.fill)
+          lineDataset(
+            chartConfig.label,
+            chartConfig.data,
+            chartConfig.line,
+            chartConfig.fill
+          )
         ]
       },
       options: sharedChartOptions({
@@ -676,9 +686,7 @@ function updateRecentPayments(payouts, priceEUR) {
     setTextContent("totalEarned", `${totalXMR.toFixed(6)} XMR`);
     setTextContent(
       "totalEurEarned",
-      typeof priceEUR === "number"
-        ? eurText(totalXMR * priceEUR)
-        : ""
+      typeof priceEUR === "number" ? eurText(totalXMR * priceEUR) : ""
     );
 
     if (tbody) {
@@ -912,7 +920,6 @@ function updatePoolStatus(poolData) {
   setTextContent("pool-status-text", isSynced ? "running" : "unreachable");
 }
 
-
 function updateHashrate24hDisplay() {
   const el = DOM["user-hashrate-24h"];
   if (!el) return;
@@ -1100,13 +1107,20 @@ function tideSvg(day, peak, { now = false, grid = true } = {}) {
   const area = runs.map((r) => `M${x(r.start)} 100${r.path}V100Z`).join("");
 
   const parts = [];
-  if (grid) parts.push('<path class="tide__grid" d="M360 0V100M720 0V100M1080 0V100"/>');
+  if (grid)
+    parts.push(
+      '<path class="tide__grid" d="M360 0V100M720 0V100M1080 0V100"/>'
+    );
   if (area) parts.push(`<path class="tide__area" d="${area}"/>`);
   parts.push('<line class="tide__base" x1="0" y1="100" x2="1440" y2="100"/>');
   if (now && Date.now() < day.end) {
     const nx = x(Date.now());
-    parts.push(`<rect class="tide__future" x="${nx}" y="0" width="${1440 - nx}" height="100"/>`);
-    parts.push(`<line class="tide__now" x1="${nx}" y1="0" x2="${nx}" y2="100"/>`);
+    parts.push(
+      `<rect class="tide__future" x="${nx}" y="0" width="${1440 - nx}" height="100"/>`
+    );
+    parts.push(
+      `<line class="tide__now" x1="${nx}" y1="0" x2="${nx}" y2="100"/>`
+    );
   }
   return parts.join("");
 }
@@ -1137,7 +1151,9 @@ function renderWeek(days) {
           : i === 0
             ? "None yet"
             : "No mining";
-      const avg = mined ? scaleHashrate((day.hashSum * day.stepMs) / day.minedMs) : "–";
+      const avg = mined
+        ? scaleHashrate((day.hashSum * day.stepMs) / day.minedMs)
+        : "–";
       // A past idle day really earned 0; today simply has not had its window yet
       const settled = day.recorded && (mined || i > 0);
       const minedText = settled ? hoursMinutes(day.minedMs) : "–";
@@ -1165,7 +1181,6 @@ function renderWeek(days) {
         </tr>`;
     })
     .join("");
-
 }
 
 function renderSeason(days) {
@@ -1174,7 +1189,9 @@ function renderSeason(days) {
   const ordered = [...days].reverse();
   // Monday-first columns: pad the first week so every day sits under its weekday
   const lead = (new Date(ordered[0].start).getDay() + 6) % 7;
-  const pad = '<div class="day day--pad" aria-hidden="true"></div>'.repeat(lead);
+  const pad = '<div class="day day--pad" aria-hidden="true"></div>'.repeat(
+    lead
+  );
 
   DOM.seasonGrid.innerHTML =
     pad +
@@ -1194,7 +1211,11 @@ function renderSeason(days) {
           : day.runs.length
             ? `est. ${day.xmr.toFixed(6)} XMR`
             : "no mining";
-        const classes = ["day", isToday && "is-today", !day.recorded && "is-unrecorded"]
+        const classes = [
+          "day",
+          isToday && "is-today",
+          !day.recorded && "is-unrecorded"
+        ]
           .filter(Boolean)
           .join(" ");
         const dateText = firstOfMonth
@@ -1214,7 +1235,9 @@ function whenText(ms) {
   const today = startOfDay(Date.now());
   if (ms >= today) return clockTime(ms);
   if (ms >= startOfDay(today - 1)) return `yesterday ${clockTime(ms)}`;
-  const weekday = new Date(ms).toLocaleDateString("en-GB", { weekday: "short" });
+  const weekday = new Date(ms).toLocaleDateString("en-GB", {
+    weekday: "short"
+  });
   return `${weekday} ${shortDate(ms)} ${clockTime(ms)}`;
 }
 
@@ -1234,10 +1257,14 @@ function renderStateBand() {
   // Idle with no window yet today: show the last day that had one, not an empty box
   const index = online || today?.runs.length ? 0 : Math.max(lastIndex, 0);
   if (DOM.todayTide && days[index]) {
-    DOM.todayTide.innerHTML = tideSvg(days[index], state.weekPeak, { now: index === 0 });
+    DOM.todayTide.innerHTML = tideSvg(days[index], state.weekPeak, {
+      now: index === 0
+    });
     setTextContent(
       "tideCaption",
-      index === 0 ? "Today" : `${dayName(days[index].start, index)}, the last day with mining`
+      index === 0
+        ? "Today"
+        : `${dayName(days[index].start, index)}, the last day with mining`
     );
   }
 
@@ -1295,7 +1322,9 @@ async function refreshWeek() {
 
 async function refreshSeason() {
   if (!state.isTabVisible) return;
-  const data = await fetchJSON(`/stats_history.json?hours=${CONFIG.SEASON_DAYS * 24}`);
+  const data = await fetchJSON(
+    `/stats_history.json?hours=${CONFIG.SEASON_DAYS * 24}`
+  );
   if (data) renderSeason(splitDays(data, CONFIG.SEASON_DAYS));
 }
 
@@ -1348,11 +1377,7 @@ function calculateEarnings(avgMyHash, avgNetHash, blockReward, priceEUR) {
   return { xmr, eur, xmrPerDayAvg };
 }
 
-function calculatePayoutInterval(
-  avgMyHash,
-  avgPoolHash,
-  blockReward
-) {
+function calculatePayoutInterval(avgMyHash, avgPoolHash, blockReward) {
   const xmrPerBlock =
     avgPoolHash > 0 ? (avgMyHash / avgPoolHash) * blockReward : 0;
 
@@ -1428,14 +1453,8 @@ async function updateStats() {
   if (!isObserverReady()) loadObserverConfig();
 
   try {
-    const [
-      xmrigData,
-      poolData,
-      networkData,
-      hist,
-      oldStats,
-      chartWindow
-    ] = await fetchDashboardData();
+    const [xmrigData, poolData, networkData, hist, oldStats, chartWindow] =
+      await fetchDashboardData();
 
     state.history = hist;
     state.oldStatsData = oldStats || {};
