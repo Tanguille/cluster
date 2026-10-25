@@ -42,6 +42,13 @@ spec:
           verbs:
             - list
             - watch
+        - apiGroups:
+            - inference.llmkube.dev
+          resources:
+            - modelrouters
+          verbs:
+            - list
+            - watch
     customResourceState:
       enabled: true
       config:
@@ -171,3 +178,26 @@ spec:
                     phase:
                       - status
                       - phase
+            # Same for a ModelRouter compiled to agentgateway: a refusal keeps the last route
+            # serving, so only its AgentGatewayReady condition reports it.
+            - groupVersionKind:
+                group: inference.llmkube.dev
+                version: v1alpha1
+                kind: ModelRouter
+              metricNamePrefix: llmkube
+              metrics:
+                - name: resource_info
+                  help: The current state of an LLMKube ModelRouter resource.
+                  each: *eachName
+                  labelsFromPath:
+                    exported_namespace: *namespacePath
+                    ready:
+                      - status
+                      - conditions
+                      - "[type=AgentGatewayReady]"
+                      - status
+                    reason:
+                      - status
+                      - conditions
+                      - "[type=AgentGatewayReady]"
+                      - reason

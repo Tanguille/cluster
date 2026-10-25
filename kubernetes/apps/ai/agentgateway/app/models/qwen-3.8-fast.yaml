@@ -7,10 +7,11 @@ metadata:
 spec:
   parentRefs:
     - kind: HTTPRoute
-      name: agentgateway-models
+      name: agentgateway-router
   provider: Custom
   custom:
-    # Same server as qwen-3.8. Concrete, not a virtual model: virtual models cannot carry policies.
+    # Same server as qwen-3.8 (agentgateway-router in models.yaml). Concrete, not a virtual model:
+    # virtual models cannot carry policies.
     backendRef:
       name: qwen38-27b-vllm
       port: 8000
