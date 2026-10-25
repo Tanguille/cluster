@@ -133,10 +133,22 @@
       datasourceTemplate: "npm"
     },
     {
+      description: "Armiger connector and HF model commits (each REPO line is followed by its REVISION)",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/media/bitmagnet/app/config/bootstrap\\.py$/"
+      ],
+      matchStrings: [
+        '_REPO = "(?<depName>https://[^"]+)"\\n\\w+_REVISION = "(?<currentDigest>[a-f0-9]{40})"'
+      ],
+      currentValueTemplate: "main",
+      datasourceTemplate: "git-refs"
+    },
+    {
       description: "Armiger torch pin (installed from the CPU wheel index; PyPI carries the same versions)",
       customType: "regex",
       managerFilePatterns: [
-        "/kubernetes/apps/media/bitmagnet/app/bootstrap\\.py$/"
+        "/kubernetes/apps/media/bitmagnet/app/config/bootstrap\\.py$/"
       ],
       matchStrings: ['"torch==(?<currentValue>\\d+\\.\\d+\\.\\d+)\\+cpu"'],
       depNameTemplate: "torch",
@@ -238,6 +250,12 @@
       matchPackageNames: ["docker.io/library/python"],
       matchUpdateTypes: ["major", "minor"],
       dependencyDashboardApproval: true
+    },
+    {
+      // The HF bundle ships executable Python; review every connector and model bump.
+      matchFileNames: ["kubernetes/apps/media/bitmagnet/**"],
+      matchDatasources: ["git-refs"],
+      automerge: false
     },
     // Grouping rules
     {

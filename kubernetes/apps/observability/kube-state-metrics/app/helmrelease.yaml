@@ -37,14 +37,9 @@ spec:
             - watch
         - apiGroups:
             - toolhive.stacklok.dev
-          resources:
-            - virtualmcpservers
-          verbs:
-            - list
-            - watch
-        - apiGroups:
             - inference.llmkube.dev
           resources:
+            - virtualmcpservers
             - modelrouters
           verbs:
             - list
@@ -178,8 +173,7 @@ spec:
                     phase:
                       - status
                       - phase
-            # Same for a ModelRouter compiled to agentgateway: a refusal keeps the last route
-            # serving, so only its AgentGatewayReady condition reports it.
+            # Same for a ModelRouter: a refused compile keeps the last route, only AgentGatewayReady shows it.
             - groupVersionKind:
                 group: inference.llmkube.dev
                 version: v1alpha1
