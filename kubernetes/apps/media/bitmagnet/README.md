@@ -9,8 +9,9 @@ cluster `postgres16`. The UI is on `envoy-internal` only and unauthenticated.
 
 - The password lives in two SOPS secrets, `database/bitmagnet-db` (CNPG role)
   and `media/bitmagnet-postgres` (app). Rotate both together.
-- DHT uses `hostPort` 3334 TCP/UDP on the scheduled node. Any router NAT
-  forwarding must follow that node; nothing here configures it.
+- DHT is outbound-only: `media` enforces PSA baseline, which forbids
+  `hostPort`. Inbound DHT (faster crawl) would need a LoadBalancer IP plus
+  router forwarding, like satisfactory.
 - The `armiger-connector-data` PVC (venv + model) has no backup; it is
   re-downloadable. Do not delete it or the shared database on rollback.
 - The init container pip-installs into the PVC at runtime. Direct dependencies
