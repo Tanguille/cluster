@@ -26,3 +26,5 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
   `bitmagnet reprocess --classifyMode rematch --contentTypes <types>`.
 - `ARMIGER_VARIANT` stays ultra: on 500 local torrents int8 matched 496/500
   categories at the same speed and only 27 MiB less memory.
+- `dub-cleanup` (daily) deletes and blocklists TMDB-matched dubs with no English,
+  Dutch or original-language track.
