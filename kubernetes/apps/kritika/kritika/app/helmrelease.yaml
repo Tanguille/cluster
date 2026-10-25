@@ -96,6 +96,8 @@ spec:
             key: admin-password
     config:
       reviewWorkers: 4
+      limits:
+        concurrency: 4
       webUrl: "https://kritika.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
       indexGrace: 1h
