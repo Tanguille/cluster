@@ -133,6 +133,16 @@
       datasourceTemplate: "npm"
     },
     {
+      description: "Armiger torch pin (installed from the CPU wheel index; PyPI carries the same versions)",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/media/bitmagnet/app/bootstrap\\.py$/"
+      ],
+      matchStrings: ['"torch==(?<currentValue>\\d+\\.\\d+\\.\\d+)\\+cpu"'],
+      depNameTemplate: "torch",
+      datasourceTemplate: "pypi"
+    },
+    {
       // The preset's oci:// manager reads "tag@sha256:..." as one version and skips it as invalid-value.
       description: "Digest-pinned oci:// references",
       customType: "regex",
@@ -221,6 +231,13 @@
       matchPackageNames: ["ghcr.io/anomalyco/opencode"],
       allowedVersions: "1.18.x",
       automerge: false
+    },
+    {
+      // Approve once onnxruntime and torch ship wheels for the new python minor.
+      matchFileNames: ["kubernetes/apps/media/bitmagnet/**"],
+      matchPackageNames: ["docker.io/library/python"],
+      matchUpdateTypes: ["major", "minor"],
+      dependencyDashboardApproval: true
     },
     // Grouping rules
     {
