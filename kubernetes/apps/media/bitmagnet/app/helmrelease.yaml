@@ -123,7 +123,7 @@ spec:
               limits:
                 memory: 3Gi
             securityContext: *container-security
-      dub-cleanup:
+      prune:
         type: cronjob
         cronjob:
           timeZone: ${TIMEZONE}
@@ -144,9 +144,9 @@ spec:
                 ON_ERROR_STOP=1,
                 -At,
                 -f,
-                /etc/bitmagnet/dub-select.sql,
+                /etc/bitmagnet/prune-select.sql,
                 -o,
-                /tmp/dubs.txt
+                /tmp/prune.txt
               ]
             env:
               PGHOST: *pg-host
@@ -168,7 +168,7 @@ spec:
           app:
             # Deleting through GraphQL blocklists the hashes, so the crawler does not re-add them.
             image: *python-image
-            command: [python3, /etc/bitmagnet/dub-delete.py]
+            command: [python3, /etc/bitmagnet/prune-delete.py]
             resources: *job-resources
             securityContext: *container-security
 
@@ -216,7 +216,7 @@ spec:
             app:
               - path: /etc/bitmagnet
                 readOnly: true
-          dub-cleanup:
+          prune:
             select:
               - path: /etc/bitmagnet
                 readOnly: true
