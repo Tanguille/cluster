@@ -7,10 +7,10 @@ metadata:
 spec:
   parentRefs:
     - kind: HTTPRoute
-      name: llmkube-models
+      name: agentgateway-router
   provider: Custom
   custom:
-    # Same server as qwen-3.8 (llmkube-models in models.yaml). Concrete, not a virtual model:
+    # Same server as qwen-3.8 (agentgateway-router in models.yaml). Concrete, not a virtual model:
     # virtual models cannot carry policies.
     backendRef:
       name: qwen38-27b-vllm

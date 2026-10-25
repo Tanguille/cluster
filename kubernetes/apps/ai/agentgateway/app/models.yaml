@@ -1,9 +1,12 @@
 ---
 # Models listener, shared by every model. agentgateway's model router routes on the body's
 # model and answers GET /v1/models and unknown models itself. LLMKube compiles this router into
-# the llmkube-models HTTPRoute (one rule at "/" to AgentgatewayModel "*") and one
-# AgentgatewayModel per backend, with formats taken from each InferenceService. It refuses
-# (AgentGatewayReady=False) a vLLM backend whose --served-model-name does not match. The
+# the agentgateway-router HTTPRoute (one rule at "/" to AgentgatewayModel "*") and one
+# AgentgatewayModel per backend, with formats taken from each InferenceService. A refusal is
+# router-wide: one bad backend (a vLLM --served-model-name that does not match, a missing
+# InferenceService) sets AgentGatewayReady=False and writes nothing, so the last compiled route
+# and models keep serving as they were, and on a first compile nothing here or in models/ is
+# routed. LLMKubeModelRouterNotReady (prometheusrule.yaml) alerts on it. The
 # hand-written models in models/ attach to that route: qwen-3.8-fast needs request defaults, and
 # omniroute and embeddinggemma-2 need a backend group for their fallbacks (to qwen-3.8, and past
 # the embedding cache), so each keeps a header-matched route in its own file.
@@ -11,7 +14,7 @@
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: ModelRouter
 metadata:
-  name: llmkube-models
+  name: agentgateway-router
 spec:
   dataPlane: AgentGateway
   agentGatewayRef:
