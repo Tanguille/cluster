@@ -15,7 +15,7 @@ The PR-specific half:
 | One Kritika review's structured findings and confidence | `kritika_get_review {repository, reviewId}` |
 | Open-PR board | `github_list_pull_requests` (state=open) |
 | Details / status / checks / comments / diff / files / commits | `github_pull_request_read` (method=…) |
-| Edit title / body / state / reviewers | `github_update_pull_request` |
+| Edit title / body / state / reviewers / `draft: true` | `github_update_pull_request` |
 | Rebase PR onto base (server-side) | `github_update_pull_request_branch` |
 
 Verified quirks (2026-09-07):
@@ -63,9 +63,10 @@ Budget: max **3 fix-push cycles per failure class**, then escalate with the evid
    Before any review command, refresh `kritika_get_pull`: require no current-head job
    and inspect the failure/skip/paused reason.
 5. Ready requires green CI, all feedback triaged, and the latest current-head Kritika
-   review `completed` with no blocking findings, passing configured confidence/status gates and
-   the bot's approval when enabled. Older reviews and all other states, including
-   skipped/superseded/failed, do not count as approval.
+   review `completed` with no blocking findings and passing configured confidence gates.
+   Require a green current-head `Kritika / Review` GitHub status, plus the bot's approval
+   when enabled. Older reviews and all other states, including skipped/superseded/failed,
+   do not count as approval.
 6. Report merge-readiness; only the user may mark a draft ready.
 
 Stop: green+clean, escalated, or budget exhausted.
