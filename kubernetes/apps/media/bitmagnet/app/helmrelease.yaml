@@ -47,6 +47,12 @@ spec:
                   secretKeyRef:
                     name: bitmagnet-postgres
                     key: POSTGRES_PASSWORD
+              # Personal key (shared with Jellyfin Enhanced) lifts bitmagnet's 1 req/s default-key throttle.
+              TMDB_API_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: bitmagnet-postgres
+                    key: TMDB_API_KEY
             # No hostPort: media enforces PSA baseline. DHT crawls outbound through NAT; inbound would need an LB IP.
             probes:
               # Chart default handler: TCP on the primary service port (http 3333).
