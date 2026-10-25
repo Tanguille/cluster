@@ -15,7 +15,7 @@ The PR-specific half:
 | One Kritika review's structured findings and confidence | `kritika_get_review {repository, reviewId}` |
 | Open-PR board | `github_list_pull_requests` (state=open) |
 | Details / status / checks / comments / diff / files / commits | `github_pull_request_read` (method=…) |
-| Edit title / body / draft / state / reviewers | `github_update_pull_request` |
+| Edit title / body / state / reviewers | `github_update_pull_request` |
 | Rebase PR onto base (server-side) | `github_update_pull_request_branch` |
 
 Verified quirks (2026-09-07):
@@ -66,11 +66,10 @@ Budget: max **3 fix-push cycles per failure class**, then escalate with the evid
    review `completed` with no blocking findings, passing configured confidence/status gates and
    the bot's approval when enabled. Older reviews and all other states, including
    skipped/superseded/failed, do not count as approval.
-6. When ready, mark a draft ready with `update_pull_request {pullNumber, draft: false}`
-   and report merge-ready.
+6. Report merge-readiness; only the user may mark a draft ready.
 
 Stop: green+clean, escalated, or budget exhausted.
 
-**Boundaries (never, even "automatically"):** no merge, no push to `main`, no force-push, no
-cluster apply/reconcile, no secret decryption, no touching non-owner PRs (renovate/dependabot/
-other users have their own automation). Merging is a human decision.
+**Boundaries (never, even "automatically"):** no marking drafts ready, no merge, no push to
+`main`, no force-push, no cluster apply/reconcile, no secret decryption, no touching non-owner
+PRs (renovate/dependabot/other users have their own automation). Merging is a human decision.
