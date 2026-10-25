@@ -1,25 +1,37 @@
 ---
-# Models listener, shared by every model. agentgateway's model router (AgentgatewayModel, one
-# per file in models/) routes on the body's model and answers GET /v1/models and unknown
-# models itself. omniroute and embeddinggemma-2 are the exceptions: their fallbacks (to
-# qwen-3.8, and past the embedding cache) need a backend group, so each keeps a header-matched
-# route in its own file.
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+# Models listener, shared by every model. agentgateway's model router routes on the body's
+# model and answers GET /v1/models and unknown models itself. LLMKube compiles this router into
+# the llmkube-models HTTPRoute (one rule at "/" to AgentgatewayModel "*") and one
+# AgentgatewayModel per backend, with formats taken from each InferenceService. It refuses
+# (AgentGatewayReady=False) a vLLM backend whose --served-model-name does not match. The
+# hand-written models in models/ attach to that route: qwen-3.8-fast needs request defaults, and
+# omniroute and embeddinggemma-2 need a backend group for their fallbacks (to qwen-3.8, and past
+# the embedding cache), so each keeps a header-matched route in its own file.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/modelrouter_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: ModelRouter
 metadata:
-  name: agentgateway-models
+  name: llmkube-models
 spec:
-  parentRefs:
-    - name: agentgateway
-      sectionName: models
-  rules:
-    # At "/": the router strips its rule's path prefix before classifying the endpoint. Keep
-    # one rule: models attach without a sectionName, which agentgateway allows only then.
-    - backendRefs:
-        - group: agentgateway.dev
-          kind: AgentgatewayModel
-          name: "*"
+  dataPlane: AgentGateway
+  agentGatewayRef:
+    name: agentgateway
+    routing: Model
+    sectionName: models
+  backends:
+    # Also served by qwen-3.8-fast and omniroute's fallback group. vLLM serves Anthropic Messages
+    # and Responses itself, so nothing is translated. No reasoning_effort default: the sharp chat
+    # template already defaults to medium, the better quality/latency point for most turns.
+    - name: qwen38
+      displayName: qwen-3.8
+      inferenceServiceRef:
+        name: qwen38-27b-vllm
+    - name: qwen35-2b
+      inferenceServiceRef:
+        name: qwen35-2b
+    - name: bge-reranker-v2-m3
+      inferenceServiceRef:
+        name: bge-reranker-v2-m3
 ---
 # Copies the body's model into x-gateway-model before routing: the omniroute and
 # embeddinggemma-2 routes match on it, and agentgateway-metrics labels every request with it.
