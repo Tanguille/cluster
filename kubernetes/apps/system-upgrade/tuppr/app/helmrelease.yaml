@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: tuppr
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: tuppr
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 0.5.10
+      url: oci://ghcr.io/home-operations/charts/tuppr
   interval: 1h
   timeout: 10m
   values:

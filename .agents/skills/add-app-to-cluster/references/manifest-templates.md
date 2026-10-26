@@ -44,7 +44,34 @@ resources:
   - helmrelease.yaml
 ```
 
+## app/helmrelease.yaml (dedicated OCI chart)
+
+Use an inline source for a chart consumed by one release; preserve any required
+authentication, verification, and layer-selection settings in `chart.spec`.
+Do not also list a separate `ocirepository.yaml` in the app Kustomization.
+
+```yaml
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: <app-name>
+spec:
+  interval: 1h
+  chart:
+    kind: OCIRepository
+    spec:
+      interval: 1h
+      url: oci://<registry>/<owner>/<chart>
+      ref:
+        tag: <chart-version>
+  values: {}
+```
+
 ## app/helmrelease.yaml (app-template)
+
+Retain `chartRef` for this shared source instead of duplicating its configuration.
 
 ```yaml
 ---

@@ -6,10 +6,16 @@ metadata:
   name: speedtest-exporter
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: speedtest-exporter
-
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: v1.8.1
+      url: oci://ghcr.io/heathcliff26/manifests/speedtest-exporter
   values:
     # Chart defaults to dual-stack; this cluster is IPv4-only.
     service:

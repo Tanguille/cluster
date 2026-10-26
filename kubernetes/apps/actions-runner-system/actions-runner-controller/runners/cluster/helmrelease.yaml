@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: &app cluster-runner
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: gha-runner-scale-set
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 0.15.1
+      url: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
   interval: 1h
   values:
     githubConfigUrl: https://github.com/tanguille/cluster

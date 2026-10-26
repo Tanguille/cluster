@@ -3,13 +3,19 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: metrics-server
+  name: &name metrics-server
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: &name metrics-server
-
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 3.14.0
+      url: oci://ghcr.io/home-operations/charts-mirror/metrics-server
   values:
     replicas: 2
     topologySpreadConstraints:

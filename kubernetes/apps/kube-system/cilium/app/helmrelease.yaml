@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: cilium
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: cilium
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 1.20.4
+      url: oci://quay.io/cilium/charts/cilium
   interval: 1h
 
   values:

@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: kritika
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: kritika
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 0.0.106
+      url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
     deploymentAnnotations:

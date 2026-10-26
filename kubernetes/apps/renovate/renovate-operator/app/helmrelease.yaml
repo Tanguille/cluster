@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: &app renovate-operator
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: renovate-operator
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 6.6.0
+      url: oci://ghcr.io/mogenius/helm-charts/renovate-operator
   interval: 1h
   values:
     fullnameOverride: *app

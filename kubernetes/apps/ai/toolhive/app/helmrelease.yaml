@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: toolhive-operator
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: toolhive-operator
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 0.57.0
+      url: oci://ghcr.io/stacklok/toolhive/toolhive-operator
   interval: 1h
   values:
     operator:

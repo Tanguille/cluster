@@ -6,9 +6,16 @@ metadata:
   name: kepler-operator
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: kepler-operator
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 0.25.0
+      url: oci://quay.io/sustainable_computing_io/charts/kepler-operator
   values:
     namespace: &namespace observability
     operator:

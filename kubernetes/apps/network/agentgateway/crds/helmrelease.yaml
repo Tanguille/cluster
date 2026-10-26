@@ -6,6 +6,13 @@ metadata:
   name: agentgateway-crds
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: agentgateway-crds
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: v1.6.0
+      url: oci://cr.agentgateway.dev/charts/agentgateway-crds

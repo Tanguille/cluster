@@ -6,9 +6,16 @@ metadata:
   name: barman-cloud
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: plugin-barman-cloud
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 0.8.1
+      url: oci://ghcr.io/cloudnative-pg/charts/plugin-barman-cloud
   values:
     resources:
       requests:

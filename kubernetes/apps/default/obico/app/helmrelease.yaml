@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: obico
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: obico
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 0.6.0
+      url: oci://ghcr.io/gabe565/charts/obico
   interval: 30m
   timeout: 15m
 
