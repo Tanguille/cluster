@@ -41,8 +41,11 @@ fsGroup must make the Ceph volume root writable; confirm this on first live use.
 
 The read-only `paseo-runtime` ConfigMap supplies guard, seed and default config.
 Its substitution-disabled annotation protects shell expressions from Flux.
-Seed copies default config only when absent; clones public `Tanguille/cluster`
-and `Tanguille/mesh-organiser` main branches only into absent destinations.
+Seed copies default config only when absent; best-effort clones of public
+`Tanguille/cluster` and `Tanguille/mesh-organiser` main branches run only for
+absent destinations. A failed public clone is warned about and cleaned up; it
+does not block startup or the other starter repository. Retry an absent checkout
+by restarting the pod after network access is available, or clone it manually.
 Temporary sibling clones and no-clobber publication preserve dirty files,
 existing directories and dangling symlinks. No startup dependency installer or
 private clone runs. Later defaults require an intentional manual config merge;

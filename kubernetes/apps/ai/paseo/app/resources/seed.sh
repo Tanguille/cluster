@@ -67,8 +67,10 @@ clone_if_absent() {
 
     TEMP_PATH="$(mktemp -d --tmpdir="$(dirname -- "${destination}")" ".${name}.seed.XXXXXX")"
     if ! GIT_TERMINAL_PROMPT=0 git clone --branch main -- "${url}" "${TEMP_PATH}"; then
-        log "failed to clone ${url}; nothing was installed"
-        exit 1
+        log "warning: failed to clone ${url}; continuing without ${destination}"
+        cleanup
+        TEMP_PATH=""
+        return 0
     fi
 
     # A concurrent writer may have created the destination while cloning. GNU

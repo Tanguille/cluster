@@ -13,7 +13,6 @@ spec:
     defaultPodOptions:
       priorityClassName: homelab-important
       runtimeClassName: gvisor
-      automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/arch: amd64
       securityContext:
@@ -26,9 +25,6 @@ spec:
           type: RuntimeDefault
     controllers:
       paseo:
-        type: deployment
-        replicas: 1
-        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
         initContainers:
@@ -94,7 +90,7 @@ spec:
               PASEO_LISTEN: 0.0.0.0:6767
               PASEO_WEB_UI_ENABLED: "true"
               PASEO_RELAY_ENABLED: "false"
-              PASEO_HOSTNAMES: paseo.${SECRET_DOMAIN}
+              PASEO_HOSTNAMES: &hostname "{{ .Release.Name }}.${SECRET_DOMAIN}"
               PASEO_PASSWORD:
                 valueFrom:
                   secretKeyRef:
@@ -131,21 +127,16 @@ spec:
                   failureThreshold: 3
     service:
       app:
-        controller: paseo
         ports:
           http:
             port: *port
     route:
       app:
         hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+          - *hostname
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: http
     persistence:
       runtime:
         type: configMap
