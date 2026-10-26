@@ -28,5 +28,5 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
   categories at the same speed and only 27 MiB less memory.
 - `prune` (daily) deletes and blocklists TMDB-matched dubs with no English, Dutch
   or original-language track, and DHT-only swarms still at 0 seeders after 3 days.
-- `config/connector.py` runs the pinned connector with a 1 h per-infohash prediction
-  cache, so repeated Torznab results skip the model.
+- `config/connector.py` runs the pinned connector with a prediction cache keyed on
+  infohash, name, file count and seeder bucket, so unchanged repeat results skip the model.

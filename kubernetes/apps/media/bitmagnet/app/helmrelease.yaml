@@ -97,7 +97,7 @@ spec:
               UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
               # Caps glibc arenas from onnxruntime threads, which otherwise hold RSS after a burst.
               MALLOC_ARENA_MAX: "2"
-              # torch defaults to every host core; 2 measured 13% faster per batch at 30% less CPU (onnxruntime keeps its own 4).
+              # torch defaults to every host core; onnxruntime caps itself at 4.
               OMP_NUM_THREADS: "2"
             probes:
               readiness: &connector-probe
