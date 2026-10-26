@@ -12,14 +12,7 @@ helmDefaults:
     - --include-crds
     - --no-hooks
 
-# Each release reads its chart url and tag from the inline spec.chart in kubernetes/apps/<namespace>/<name>/app/,
-# so its name must match the app directory and chartRef releases can't be listed (scripts/test_bootstrap_helmfiles.py).
-templates:
-  app-chart:
-    chart: '{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace .Release.Name))).spec.chart.spec.url }}'
-    version: '{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace .Release.Name))).spec.chart.spec.ref.tag }}'
-
-defaultInherit: app-chart
+bases: [./templates/app-chart.yaml]
 
 releases:
   - name: external-dns

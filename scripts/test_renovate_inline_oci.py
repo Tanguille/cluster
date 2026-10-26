@@ -18,8 +18,7 @@ class InlineOciRenovateTests(unittest.TestCase):
         charts = 0
         for path in (ROOT / "kubernetes/apps").rglob("helmrelease.yaml"):
             content = path.read_text()
-            # Match loosely so a reformatted inline chart is still checked against the strict regex.
-            if not re.search(r"kind:\s*['\"]?OCIRepository", content) or "chartRef:" in content:
+            if "chartRef:" in content:
                 continue
             charts += 1
             with self.subTest(path=str(path.relative_to(ROOT))):
