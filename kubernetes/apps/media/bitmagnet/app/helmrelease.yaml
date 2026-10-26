@@ -41,7 +41,9 @@ spec:
               # Session mode: pgx prepares statements; the direct -rw VIP can blackhole from the primary's node.
               POSTGRES_HOST: &pg-host pgbouncer-session.database.svc.cluster.local
               HOME: /tmp
-              EXTRA_CONFIG_FILES: /etc/bitmagnet/classifier.yaml
+              # Loads /etc/bitmagnet/classifier.yml from the config mount.
+              XDG_CONFIG_HOME: /etc
+              CLASSIFIER_WORKFLOW: movies_tv
               POSTGRES_USER: bitmagnet
             # TMDB_API_KEY is shared with Jellyfin Enhanced; the default key throttles to 1 req/s.
             envFrom:

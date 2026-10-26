@@ -13,7 +13,7 @@ spec:
         mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
         operation: copy
       ref:
-        tag: 0.0.106
+        tag: 0.0.107
       url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
@@ -44,7 +44,7 @@ spec:
               memory: 128Mi
             limits:
               memory: 1Gi
-    # Runner mise downloads cached on a per-pod emptyDir; S3 would survive rollouts but adds a storage dependency for one replica.
+    # Aqua tool downloads cached on a per-pod emptyDir; S3 would survive rollouts but adds a storage dependency for one replica.
     gatewayCache:
       enabled: true
     # Internal only: public dashboard with local admin is too exposed.
@@ -231,20 +231,27 @@ spec:
         # One prompt for both sides, as the model card has it. A change rebuilds the index: recheck similarFloor.
         queryPrompt: &embeddingPrompt "task: sentence similarity | query: "
         documentPrompt: *embeddingPrompt
-      # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs); github.com is implicit.
-      # cafe.github.com (gh telemetry) stays refused.
+      # Read-only public hosts runners were refused ("egress refused" in VictoriaLogs).
+      # github.com and api.github.com are implicit; cafe.github.com (gh telemetry) stays refused.
       egress:
         allow:
-          # raw, release-assets (mise installs), pkg-containers (ghcr blobs)
-          - "*.githubusercontent.com"
+          # GitHub source archives, registry and release assets (redirects/fallbacks).
+          - raw.githubusercontent.com
+          - release-assets.githubusercontent.com
+          - objects.githubusercontent.com
+          - pkg-containers.githubusercontent.com
           - codeload.github.com
+          # GHCR registry endpoint (blobs use pkg-containers above).
           - ghcr.io
-          # registry-1, auth; hub, registry.hub and the blob CDNs
+          # Docker registry/auth and blob CDN hosts.
           - "*.docker.io"
           - "*.docker.com"
+          # Agentgateway OCI chart registry.
           - cr.agentgateway.dev
+          # Rust package index and downloads.
           - crates.io
           - static.crates.io
+          # Historical review documentation and source hosts.
           - codeberg.org
           - grafana.com
           - huggingface.co
@@ -252,8 +259,7 @@ spec:
           - nginx.org
           - rook.github.io
           - "*.kernel.org"
-          # mise, mise-versions
-          - "*.jdx.dev"
+          # SQLite documentation, shadcn docs/assets, and Flathub metadata.
           - www.sqlite.org
           - shadcn-svelte.com
           - "*.shadcn-svelte.com"
