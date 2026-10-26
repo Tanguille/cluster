@@ -1,0 +1,48 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
+# Trusted LAN only, without authentication: UI/configuration/log data is visible.
+# v1.6.0 serves assets at /ui but fetches data from /api and /config_dump.
+# Allow read requests and query-only POSTs, not config writes, cost refresh,
+# /logging, /quitquitquit, or the other debugging/admin endpoints.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-ui
+spec:
+  hostnames: ["agentgateway.${SECRET_DOMAIN}"]
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /
+          method: GET
+        - path:
+            type: PathPrefix
+            value: /ui
+          method: GET
+        - path:
+            type: PathPrefix
+            value: /api
+          method: GET
+        - path:
+            type: Exact
+            value: /config_dump
+          method: GET
+      backendRefs:
+        - name: agentgateway-ui
+          port: 15000
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/logs
+          method: POST
+        - path:
+            type: Exact
+            value: /api/cel
+          method: POST
+      backendRefs:
+        - name: agentgateway-ui
+          port: 15000

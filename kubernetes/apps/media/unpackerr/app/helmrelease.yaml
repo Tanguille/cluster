@@ -96,11 +96,20 @@ spec:
           gethomepage.dev/description: Archive extraction daemon
           gethomepage.dev/group: Processing
           gethomepage.dev/icon: unpackerr.png
+          gethomepage.dev/href: https://unpackerr.${SECRET_DOMAIN}
           gethomepage.dev/widget.type: unpackerr
           gethomepage.dev/widget.url: http://unpackerr.media.svc.cluster.local:5656
         ports:
           http:
             port: 5656
+
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
 
     serviceMonitor:
       app:
