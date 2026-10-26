@@ -12,6 +12,8 @@ helmDefaults:
     - --include-crds
     - --no-hooks
 
+# Each release reads its chart url and tag from kubernetes/apps/<namespace>/<name>/app/, so its name must
+# match the app directory (scripts/test_bootstrap_helmfiles.py builds both helmfiles).
 templates:
   app-chart:
     chart: '{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace .Release.Name))).spec.chart.spec.url }}'
