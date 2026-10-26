@@ -31,4 +31,6 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
 - `prune` (daily) deletes and blocklists TMDB-matched dubs with no English, Dutch
   or original-language track, and DHT-only swarms still at 0 seeders after 3 days.
 - `config/connector.py` runs the pinned connector with a prediction cache keyed on
-  infohash, name, file count and seeder bucket, so unchanged repeat results skip the model.
+  infohash, name, file count and seeder bucket, so unchanged repeat results skip the model. It also strips
+  imdbid/tmdbid from Torznab caps: bitmagnet answers id searches only from TMDB-matched
+  torrents (76 vs 87 hits by title on 133 test titles), so Radarr/Sonarr search it by title.
