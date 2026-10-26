@@ -56,10 +56,6 @@ spec:
               GATEWAY_MULTIPLEX_PROFILES: "true"
               # Profile subprocesses get their own HOME; one cache root keeps uv/HF/pnpm off the PVC.
               XDG_CACHE_HOME: /opt/data/.cache
-              # Subagent fan-out limits for every profile whose config sets none (config wins over env);
-              # Hermes defaults to 10 parallel children with no timeout, too many for one GPU.
-              DELEGATION_MAX_CONCURRENT_CHILDREN: "2"
-              DELEGATION_CHILD_TIMEOUT_SECONDS: "600"
             envFrom:
               - secretRef:
                   name: hermes-secret
