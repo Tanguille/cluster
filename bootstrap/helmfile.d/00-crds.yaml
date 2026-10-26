@@ -12,28 +12,33 @@ helmDefaults:
     - --include-crds
     - --no-hooks
 
+templates:
+  app-chart:
+    chart: '{{- $app := .Release.Name -}}{{- if eq $app "grafana-operator" -}}{{- $app = "grafana" -}}{{- end -}}{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace $app))).spec.chart.spec.url }}'
+    version: '{{- $app := .Release.Name -}}{{- if eq $app "grafana-operator" -}}{{- $app = "grafana" -}}{{- end -}}{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace $app))).spec.chart.spec.ref.tag }}'
+
 releases:
   - name: external-dns
     namespace: network
-    chart: oci://ghcr.io/home-operations/charts-mirror/external-dns
-    version: 1.23.0
+    inherit:
+      - template: app-chart
 
   - name: envoy-gateway
     namespace: network
-    chart: oci://mirror.gcr.io/envoyproxy/gateway-helm
-    version: 1.9.3
+    inherit:
+      - template: app-chart
 
   - name: grafana-operator
     namespace: observability
-    chart: oci://ghcr.io/grafana/helm-charts/grafana-operator
-    version: 5.25.0
+    inherit:
+      - template: app-chart
 
   - name: prometheus-operator-crds
     namespace: observability
-    chart: oci://ghcr.io/prometheus-community/charts/prometheus-operator-crds
-    version: 32.0.2
+    inherit:
+      - template: app-chart
 
   - name: keda
     namespace: observability
-    chart: oci://ghcr.io/home-operations/charts-mirror/keda
-    version: 2.21.0
+    inherit:
+      - template: app-chart

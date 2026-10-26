@@ -61,7 +61,7 @@ Two related traps in the same family:
 Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full procedure.
 
 1. For a new namespace, create `kubernetes/apps/<namespace>/kustomization.yaml` with `namespace: <ns>` and component `../../components/common`; existing namespaces need no namespace step
-2. Add OCIRepository if external
+2. Declare dedicated OCI charts inline in `HelmRelease.spec.chart` (`kind: OCIRepository`); retain `chartRef` for shared sources such as `app-template`.
 3. Create app in `kubernetes/apps/<namespace>/<app>/`
 4. Add Kustomization in appropriate `ks.yaml`
 5. Run validation on the new app: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (or `mise exec -- flate test all` directly, which renders the HelmRelease too — `kustomize build` alone doesn't)

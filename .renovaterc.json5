@@ -163,6 +163,29 @@
         "oci://(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
       datasourceTemplate: "docker"
+    },
+    {
+      // Renovate's Flux manager does not yet extract chart.kind=OCIRepository from HelmRelease.
+      // A single match per chart prevents overlapping combination matches; the line indentation
+      // restricts it to chart.spec and prevents falling through into values.
+      description: "Inline OCI chart specs with URL before ref",
+      customType: "regex",
+      managerFilePatterns: ["/(?:^|\\/)helmrelease\\.ya?ml$/"],
+      matchStrings: [
+        "(?:^|\\r?\\n)    kind: OCIRepository[ \\t]*\\r?\\n    spec:[ \\t]*\\r?\\n(?: {6,}[^\\r\\n]*\\r?\\n|[ \\t]*\\r?\\n)*?      url:[ \\t]*oci://(?<depName>[^ \\t\\r\\n#]+)\\r?\\n(?: {6,}[^\\r\\n]*\\r?\\n|[ \\t]*\\r?\\n)*?      ref:[ \\t]*\\r?\\n(?: {8,}#[^\\r\\n]*\\r?\\n|[ \\t]*\\r?\\n)*?        tag:[ \\t]*[\\\"']?(?<currentValue>[^ \\t\\r\\n#\\\"']+)[\\\"']?"
+      ],
+      depTypeTemplate: "HelmChart",
+      datasourceTemplate: "docker"
+    },
+    {
+      description: "Inline OCI chart specs with ref before URL",
+      customType: "regex",
+      managerFilePatterns: ["/(?:^|\\/)helmrelease\\.ya?ml$/"],
+      matchStrings: [
+        "(?:^|\\r?\\n)    kind: OCIRepository[ \\t]*\\r?\\n    spec:[ \\t]*\\r?\\n(?: {6,}[^\\r\\n]*\\r?\\n|[ \\t]*\\r?\\n)*?      ref:[ \\t]*\\r?\\n(?: {8,}#[^\\r\\n]*\\r?\\n|[ \\t]*\\r?\\n)*?        tag:[ \\t]*[\\\"']?(?<currentValue>[^ \\t\\r\\n#\\\"']+)[\\\"']?\\r?\\n(?: {6,}[^\\r\\n]*\\r?\\n|[ \\t]*\\r?\\n)*?      url:[ \\t]*oci://(?<depName>[^ \\t\\r\\n#]+)"
+      ],
+      depTypeTemplate: "HelmChart",
+      datasourceTemplate: "docker"
     }
   ],
   packageRules: [
@@ -172,6 +195,13 @@
       description: "Title OCI chart updates as charts instead of images",
       matchDatasources: ["docker"],
       matchFileNames: ["**/ocirepository.yaml"],
+      semanticCommitScope: "helm",
+      commitMessageTopic: "chart {{depName}}"
+    },
+    {
+      description: "Title inline OCI chart updates as charts, not images",
+      matchDatasources: ["docker"],
+      matchDepTypes: ["HelmChart"],
       semanticCommitScope: "helm",
       commitMessageTopic: "chart {{depName}}"
     },

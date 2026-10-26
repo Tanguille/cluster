@@ -6,10 +6,16 @@ metadata:
   name: memini
 spec:
   interval: 30m
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: memini
-
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: v0.7.37
+      url: oci://registry.erwanleboucher.dev/eleboucher/charts/memini
   values:
     controllers:
       main:

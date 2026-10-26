@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: rook-ceph-cluster
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: rook-ceph-cluster
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 1.21.0
+      url: oci://ghcr.io/rook/rook-ceph-cluster
   interval: 1h
   values:
     monitoring:

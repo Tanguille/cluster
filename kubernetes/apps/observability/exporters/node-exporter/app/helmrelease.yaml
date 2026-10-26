@@ -5,9 +5,16 @@ kind: HelmRelease
 metadata:
   name: &app node-exporter
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: *app
+    spec:
+      interval: 1h
+      layerSelector:
+        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+        operation: copy
+      ref:
+        tag: 4.60.1
+      url: oci://ghcr.io/prometheus-community/charts/prometheus-node-exporter
   interval: 1h
   values:
     fullnameOverride: *app

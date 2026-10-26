@@ -59,6 +59,7 @@ Scaffold YAML: [references/manifest-templates.md](references/manifest-templates.
 ### 5. HelmRelease essentials
 
 - Chart: `bjw-s/app-template` (pinned version)
+- Keep shared charts such as `app-template` behind `spec.chartRef`. For a dedicated OCI chart, put its source in `spec.chart.kind: OCIRepository` and `spec.chart.spec` (URL, interval, and ref), next to the release values. This requires a compatible helm-controller/CRD; it still creates an OCIRepository at runtime.
 - `reloader.stakater.com/auto: "true"` when using ConfigMaps/Secrets
 - Probes, resources, persistence as needed
 - RWO `ceph-block`: `Recreate` strategy when appropriate
@@ -92,4 +93,4 @@ directory and the namespace `kustomization.yaml` by path, commit as
 
 ## Anti-patterns
 
-- Non-app-template chart without its own `ocirepository.yaml` — the shared `app-template` OCIRepository covers only that chart
+- Pointing a dedicated chart at the shared `app-template` source — inline its own OCI source instead; keep a separate OCIRepository only when shared or otherwise required.
