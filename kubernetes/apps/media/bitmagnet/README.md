@@ -21,7 +21,7 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
   bundle contains unaudited executable Python.
 - Each part reinstalls itself when its pin changes. Python minor bumps wait for
   dashboard approval until onnxruntime ships wheels for them.
-- `config/classifier.yml` deletes non-video content types after
+- `config/classifier.yaml` deletes non-video content types after
   classification, plus unknown torrents with no video (release-named archives
   stay). Apply it to existing rows with
   `bitmagnet reprocess --classifyMode rematch --contentTypes <types>`.
