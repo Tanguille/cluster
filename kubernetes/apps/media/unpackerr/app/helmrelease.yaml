@@ -18,7 +18,8 @@ spec:
   values:
     controllers:
       unpackerr:
-        strategy: RollingUpdate
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -27,7 +28,14 @@ spec:
             env:
               TZ: ${TIMEZONE}
               UN_WEBSERVER_METRICS: true
-              UN_WEBSERVER_LOG_FILE: /logs/webserver.log
+              UN_WEBSERVER_API_KEYS_0_NAME: prometheus
+              UN_WEBSERVER_API_KEYS_0_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: unpackerr-secret
+                    key: metrics-key
+              UN_WEBSERVER_API_KEYS_0_ROLES_0: prometheus
+              UN_WEBSERVER_ROLES_prometheus_PERMISSIONS_0: system:metrics:read
               UN_ACTIVITY: true
               UN_SONARR_0_URL: http://sonarr.media.svc.cluster.local
               UN_SONARR_0_PATHS_0: /media/Downloads/tv-sonarr
@@ -46,7 +54,7 @@ spec:
                 custom: true
                 spec:
                   httpGet:
-                    path: /metrics
+                    path: /
                     port: 5656
                   initialDelaySeconds: 5
                   periodSeconds: 5
@@ -97,7 +105,7 @@ spec:
         endpoints:
           - port: http
             interval: 1m
-
-    persistence:
-      logs:
-        type: emptyDir
+            authorization:
+              credentials:
+                name: unpackerr-secret
+                key: metrics-key
