@@ -11,44 +11,34 @@ templates:
     chart: '{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace .Release.Name))).spec.chart.spec.url }}'
     version: '{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace .Release.Name))).spec.chart.spec.ref.tag }}'
 
+defaultInherit: app-chart
+
 releases:
   - name: cilium
     namespace: kube-system
-    inherit:
-      - template: app-chart
     values: ["./templates/values.yaml.gotmpl"]
 
   - name: coredns
     namespace: kube-system
-    inherit:
-      - template: app-chart
     values: ["./templates/values.yaml.gotmpl"]
     needs: ["kube-system/cilium"]
 
   - name: spegel
     namespace: kube-system
-    inherit:
-      - template: app-chart
     values: ["./templates/values.yaml.gotmpl"]
     needs: ["kube-system/coredns"]
 
   - name: cert-manager
     namespace: cert-manager
-    inherit:
-      - template: app-chart
     values: ["./templates/values.yaml.gotmpl"]
     needs: ["kube-system/spegel"]
 
   - name: flux-operator
     namespace: flux-system
-    inherit:
-      - template: app-chart
     values: ["./templates/values.yaml.gotmpl"]
     needs: ["cert-manager/cert-manager"]
 
   - name: flux-instance
     namespace: flux-system
-    inherit:
-      - template: app-chart
     values: ["./templates/values.yaml.gotmpl"]
     needs: ["flux-system/flux-operator"]

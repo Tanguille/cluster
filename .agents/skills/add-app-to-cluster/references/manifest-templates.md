@@ -46,9 +46,8 @@ resources:
 
 ## app/helmrelease.yaml (dedicated OCI chart)
 
-Use an inline source for a chart consumed by one release; preserve any required
-authentication, verification, and layer-selection settings in `chart.spec`.
-Do not also list a separate `ocirepository.yaml` in the app Kustomization.
+Keep `ref` before `url`: the Renovate regex manager for inline charts relies on
+that order (`scripts/test_renovate_inline_oci.py` checks it).
 
 ```yaml
 ---
@@ -62,10 +61,9 @@ spec:
   chart:
     kind: OCIRepository
     spec:
-      interval: 1h
-      url: oci://<registry>/<owner>/<chart>
       ref:
         tag: <chart-version>
+      url: oci://<registry>/<owner>/<chart>
   values: {}
 ```
 

@@ -9,10 +9,6 @@ spec:
   chart:
     kind: OCIRepository
     spec:
-      interval: 1h
-      layerSelector:
-        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
-        operation: copy
       ref:
         tag: v1.8.1
       url: oci://ghcr.io/heathcliff26/manifests/speedtest-exporter

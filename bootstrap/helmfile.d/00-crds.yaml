@@ -14,31 +14,23 @@ helmDefaults:
 
 templates:
   app-chart:
-    chart: '{{- $app := .Release.Name -}}{{- if eq $app "grafana-operator" -}}{{- $app = "grafana" -}}{{- end -}}{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace $app))).spec.chart.spec.url }}'
-    version: '{{- $app := .Release.Name -}}{{- if eq $app "grafana-operator" -}}{{- $app = "grafana" -}}{{- end -}}{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace $app))).spec.chart.spec.ref.tag }}'
+    chart: '{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace .Release.Name))).spec.chart.spec.url }}'
+    version: '{{ (fromYaml (readFile (printf "../../kubernetes/apps/%s/%s/app/helmrelease.yaml" .Release.Namespace .Release.Name))).spec.chart.spec.ref.tag }}'
+
+defaultInherit: app-chart
 
 releases:
   - name: external-dns
     namespace: network
-    inherit:
-      - template: app-chart
 
   - name: envoy-gateway
     namespace: network
-    inherit:
-      - template: app-chart
 
-  - name: grafana-operator
+  - name: grafana
     namespace: observability
-    inherit:
-      - template: app-chart
 
   - name: prometheus-operator-crds
     namespace: observability
-    inherit:
-      - template: app-chart
 
   - name: keda
     namespace: observability
-    inherit:
-      - template: app-chart
