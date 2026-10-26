@@ -15,8 +15,7 @@ from (
 where words ~ '\m(rus(sian)?|rudub|ukr(ainian)?|(true)?french|vf[fqi2]?|ita(lian)?|ger(man)?|deutsch|spanish|castellano|latino|esp|pol(ish)?|pl|lektor|cze(ch)?|hun(garian)?|tur(kish)?|por(tuguese)?|dublado|hindi|tamil|telugu|jap(anese)?|kor(ean)?|chinese|mandarin|swe(dish)?|norwegian|danish|finnish|ara(bic)?|heb(rew)?|greek)\M'
   and words !~ '\m(en|eng)?subs?(bed)?\M'
 union
--- 2. Dead swarms: DHT-only (imports stay), every scrape reported 0 seeders, first seen over 3 days ago.
---    Re-sightings update the counts, so the grace period lets a revived swarm escape.
+-- 2. Dead swarms: DHT-only, always 0 seeders, first seen over 3 days ago (re-sightings update counts, so revived swarms escape).
 select encode(info_hash, 'hex')
 from torrents_torrent_sources
 group by info_hash
