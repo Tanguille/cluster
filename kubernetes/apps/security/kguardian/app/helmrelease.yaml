@@ -95,6 +95,11 @@ spec:
       dbPoolMaxSize: 16
       # Per-connection SET statement_timeout parks pool creation behind transaction-mode pgbouncer (16 direct dials take ~0.1s); migrations stay exempt.
       statementTimeoutMs: 0
+      # bitmagnet's DHT crawler and qbittorrent logged ~1M external-peer rows/day (95% of pod_traffic).
+      # The cap trims only identity-less peers; monerod, the busiest other pod, holds ~5k.
+      traffic:
+        retention:
+          maxRowsPerPod: 10000
       audit:
         inflightPermits: 8
         retention:
