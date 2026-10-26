@@ -8,10 +8,6 @@ spec:
   chart:
     kind: OCIRepository
     spec:
-      interval: 1h
-      layerSelector:
-        mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
-        operation: copy
       ref:
         # Pair with the ceph-csi-operator subchart bundled by ../app/helmrelease.yaml; read its Chart.yaml dependencies before bumping.
         tag: 1.1.0

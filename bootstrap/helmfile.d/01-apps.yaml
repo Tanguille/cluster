@@ -8,6 +8,8 @@ helmDefaults:
 
 bases: [./templates/app-chart.yaml]
 
+defaultInherit: app-chart
+
 releases:
   - name: cilium
     namespace: kube-system

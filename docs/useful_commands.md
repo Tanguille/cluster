@@ -26,22 +26,6 @@ flux get kustomizations -A
 flux get helmreleases -A
 ```
 
-Dedicated OCI charts are configured in `HelmRelease.spec.chart` alongside their
-values; shared charts such as `app-template` retain `chartRef`. Inline sources
-still create controller-managed OCIRepository objects, so this reduces Git
-configuration, not runtime resource count.
-
-Both Kustomize and Helm enable `CancelHealthCheckOnNewRevision`. For Helm this
-interrupts poller readiness checks when the release is requeued, not apply,
-hooks, or tests. Existing `RemediateOnFailure` and rollback settings still apply.
-helm-controller 1.7.0 includes the canceled-rollback fix
-([#1605](https://github.com/fluxcd/helm-controller/pull/1605)); canceled attempts
-still appear as failed in Helm history, and cancellation is not an atomic undo
-or a guarantee that resources unique to the interrupted revision are removed.
-To restore the previous waiting behavior, remove only
-`CancelHealthCheckOnNewRevision=true` from the Helm controller's feature-gate
-argument through GitOps. Applying or reconciling requires approval.
-
 ---
 
 ## Talos
