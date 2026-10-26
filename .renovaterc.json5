@@ -348,13 +348,6 @@
       matchPackageNames: ["quay.io/ceph/ceph"],
       sourceUrl: "https://github.com/ceph/ceph"
     },
-    {
-      // The preset override gives docker.io but re-extraction gives mirror.gcr.io: "depName mismatch".
-      description: "Keep envoy-gateway's helmfile depName on mirror.gcr.io so it edits with the OCIRepository",
-      matchManagers: ["helmfile"],
-      matchPackageNames: ["docker.io/envoyproxy/gateway-helm"],
-      overrideDepName: "mirror.gcr.io/envoyproxy/gateway-helm"
-    },
     // Versioning overrides
     {
       description: "Mixed-segment tags (p2pool v4.15/v4.15.1, hermes v2026.5.29/v2026.5.29.2); docker versioning skips patch bumps",

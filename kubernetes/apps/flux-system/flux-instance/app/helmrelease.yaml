@@ -201,11 +201,9 @@ spec:
               # explicit RemediateOnFailure, which overrides this gate.
               # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
               # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
-              # CancelHealthCheckOnNewRevision: interrupt poller health checks on requeue; apply, hooks and tests
-              # are not canceled. Explicit upgrade remediation/rollback policy remains unchanged.
               - op: add
                 path: /spec/template/spec/containers/0/args/-
-                value: --feature-gates=OOMWatch=true,DefaultToRetryOnFailure=true,DisableChartDigestTracking=true,CancelHealthCheckOnNewRevision=true
+                value: --feature-gates=OOMWatch=true,DefaultToRetryOnFailure=true,DisableChartDigestTracking=true
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --watch-configs-label-selector=owner!=helm
