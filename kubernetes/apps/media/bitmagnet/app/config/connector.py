@@ -3,9 +3,7 @@
 The Torznab proxy re-classifies every result on every search, and Prowlarr's RSS sync keeps
 re-fetching the same newest items. The key holds every input that moves the prediction (name,
 file count, seeder bucket), so a changed torrent or swarm is re-classified and new ones always are.
-
-bitmagnet answers ID searches only from TMDB-matched torrents: on 133 test titles, IMDb-id searches
-found 76 where title searches found 87. Advertising no id params makes Radarr/Sonarr search by title.
+bitmagnet answers id searches only from TMDB-matched torrents, so caps advertise title search only.
 """
 from collections import OrderedDict
 import importlib.util
@@ -63,11 +61,14 @@ def cached(run):
     return wrapper
 
 
+ID_PARAMS = {b"imdbid", b"tmdbid", b"tvdbid"}
+
+
 def strip_id_params(caps_xml):
-    """Drop imdbid/tmdbid/tvdbid from every supportedParams list."""
+    """Drop ID_PARAMS from every supportedParams list."""
     return re.sub(
         rb'supportedParams="([^"]*)"',
-        lambda m: b'supportedParams="%s"' % b",".join(p for p in m.group(1).split(b",") if not p.endswith(b"id")),
+        lambda m: b'supportedParams="%s"' % b",".join(p for p in m.group(1).split(b",") if p not in ID_PARAMS),
         caps_xml,
     )
 
@@ -85,9 +86,12 @@ def text_only_caps(create_server):
             if (urllib.parse.parse_qs(url.query).get("t") or [""])[0].lower() != "caps":
                 return do_get(self)
             subpath = url.path[len("/torznab"):] if url.path.startswith("/torznab") else url.path
-            with urllib.request.urlopen(f"{connector.upstream_torznab_url}{subpath}?{url.query}", timeout=15) as resp:
-                body = strip_id_params(resp.read())
-                content_type = resp.headers.get("Content-Type", "application/xml")
+            try:
+                with urllib.request.urlopen(f"{connector.upstream_torznab_url}{subpath}?{url.query}", timeout=15) as resp:
+                    body = strip_id_params(resp.read())
+                    content_type = resp.headers.get("Content-Type", "application/xml")
+            except OSError:
+                return do_get(self)  # upstream's handler owns the 502 response
             self.send_response(200)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
