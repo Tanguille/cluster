@@ -16,5 +16,12 @@ workflows:
             - not:
                 and:
                   - "torrent.files.exists(f, f.extension.matches('^(rar|r[0-9]{2}|zip|7z|[0-9]{3})$'))"
-                  - "torrent.baseName.matches('(?i)(480p|720p|1080p|2160p|x26[45]|h\\.?26[45]|hevc|web-?dl|webrip|bluray|bdrip|dvdrip|hdtv|s[0-9]{2}e[0-9]{2})')"
+                  - "torrent.baseName.matches('(?i)(480p|720p|1080p|2160p|x26[45]|h[.]?26[45]|hevc|web-?dl|webrip|bluray|bdrip|dvdrip|hdtv|s[0-9]{2}e[0-9]{2})')"
+        if_action: delete
+    # Only 720p and up is wanted: drop SD resolutions and cam/DVD sources.
+    - if_else:
+        condition:
+          or:
+            - "result.videoResolution in ['V360p', 'V480p', 'V540p', 'V576p']"
+            - "result.videoSource in ['CAM', 'TELESYNC', 'TELECINE', 'WORKPRINT', 'DVD']"
         if_action: delete
