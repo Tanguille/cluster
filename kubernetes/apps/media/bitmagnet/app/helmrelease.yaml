@@ -88,10 +88,7 @@ spec:
           app:
             image: *python-image
             command:
-              [
-                /data/armiger/runtime/venv/bin/python3,
-                /data/armiger/runtime/bitmagnet_connector.py
-              ]
+              [/data/armiger/runtime/venv/bin/python3, /bootstrap/connector.py]
             env:
               HOME: /tmp
               ARMIGER_MODEL_DIR: /data/armiger/model
@@ -100,6 +97,8 @@ spec:
               UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
               # Caps glibc arenas from onnxruntime threads, which otherwise hold RSS after a burst.
               MALLOC_ARENA_MAX: "2"
+              # torch defaults to every host core; 2 measured 13% faster per batch at 30% less CPU (onnxruntime keeps its own 4).
+              OMP_NUM_THREADS: "2"
             probes:
               readiness: &connector-probe
                 enabled: true
@@ -229,6 +228,9 @@ spec:
         advancedMounts:
           connector:
             bootstrap:
+              - path: /bootstrap
+                readOnly: true
+            app:
               - path: /bootstrap
                 readOnly: true
       tmp:
