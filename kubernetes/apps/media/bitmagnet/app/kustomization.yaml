@@ -8,9 +8,12 @@ configMapGenerator:
   - name: bitmagnet-config
     files:
       - config/classifier.yaml
+      - config/prune-delete.py
+      - config/prune-select.sql
   - name: armiger-bootstrap
     files:
       - config/bootstrap.py
+      - config/connector.py
       - config/requirements.txt
 generatorOptions:
   disableNameSuffixHash: true
