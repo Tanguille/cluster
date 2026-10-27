@@ -1,0 +1,163 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+# Local proposal: audit the full reconciliation cycle before enforcement.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: flux-system-ingress-allowlist
+  namespace: flux-system
+specs:
+  - endpointSelector: {}
+    enableDefaultDeny:
+      ingress: true
+      egress: true
+    ingress:
+      # Rev-NAT'd DNS replies target ephemeral client ports.
+      - fromEndpoints:
+          - matchLabels: &dns
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+      - fromEntities: [host] # Kubelet probes.
+    egress:
+      - toEndpoints:
+          - matchLabels: *dns
+        toPorts:
+          - ports:
+              - port: "53"
+                protocol: UDP
+              - port: "53"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/part-of: flux
+    ingress: &controllerMetrics
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: vmagent
+        toPorts:
+          - ports:
+              - port: "8080"
+                protocol: TCP
+    egress: &controllerEgress
+      - toEntities: [kube-apiserver]
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+              - port: "6443"
+                protocol: TCP
+      # Git/OCI/Helm sources, remote bases, distribution manifests and provider webhooks.
+      - toEntities: [world]
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: flux-system
+              app: notification-controller
+        toPorts:
+          - ports:
+              - port: "9090"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: flux-operator
+    ingress: *controllerMetrics
+    egress: *controllerEgress
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: flux-operator
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-internal
+        toPorts:
+          - ports:
+              - port: "9080"
+                protocol: TCP
+  - endpointSelector:
+      matchExpressions:
+        - key: app
+          operator: In
+          values: [helm-controller, kustomize-controller]
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: flux-system
+              app: source-controller
+        toPorts:
+          - ports:
+              - port: "9090"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: source-controller
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: flux-system
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [helm-controller, kustomize-controller]
+        toPorts:
+          - ports:
+              - port: "9090"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: notification-controller
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: flux-system
+              app.kubernetes.io/part-of: flux
+          - matchLabels:
+              io.kubernetes.pod.namespace: flux-system
+              app.kubernetes.io/name: flux-operator
+        toPorts:
+          - ports:
+              - port: "9090"
+                protocol: TCP
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-external
+        toPorts:
+          - ports:
+              - port: "9292"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: konflate
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-external
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app.kubernetes.io/name: virtualmcpserver
+              app.kubernetes.io/instance: unified
+        toPorts:
+          - ports:
+              - port: "8080"
+                protocol: TCP
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: vmagent
+        toPorts:
+          - ports:
+              - port: "8081"
+                protocol: TCP
+    egress:
+      # Rendering and image verification fetch public source, charts and registry blobs.
+      - toEntities: [world]
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP

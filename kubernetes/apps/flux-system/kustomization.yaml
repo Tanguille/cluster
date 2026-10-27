@@ -6,6 +6,7 @@ namespace: flux-system
 components:
   - ../../components/common
 resources:
+  - ./networkpolicy.yaml
   # The only SOPS key Flux reads (kustomize-controller --sops-age-secret); never remove it.
   - ./sops-age.sops.yaml
   - ./flux-instance/ks.yaml
