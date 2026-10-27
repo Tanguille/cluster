@@ -5,49 +5,127 @@ kind: CiliumNetworkPolicy
 metadata:
   name: web3-ingress-allowlist
   namespace: web3
-spec:
-  # endpointSelector {} => default-deny ingress for every pod in the
-  # namespace, same shape as ai/ and database/networkpolicy.yaml. Egress
-  # stays default-allow (monerod peer sync is outbound, xmrig stratum +
-  # pool traffic).
-  endpointSelector: {}
-  ingress:
-    # Namespaces that actually talk to web3 pods, discovered from the repo:
-    # observability = vmagent scraping guard's ServiceMonitor; network =
-    # envoy-internal fronting the dashboard HTTPRoute; web3 = intra-ns
-    # (p2pool -> monerod rpc/zmq, xmrig -> p2pool stratum, dashboard -> xmrig api / monerod rpc).
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: web3
-        - matchLabels:
-            io.kubernetes.pod.namespace: observability
-        - matchLabels:
-            io.kubernetes.pod.namespace: network
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-        # ephemeral not 53.
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
-    - fromEntities:
-        # kubelet probes.
-        - host
-    # monerod and p2pool publish LoadBalancer services; their
-    # loadBalancerSourceRanges (LAN_CIDR) is the real gate — this only lets
-    # the LAN traffic that passes it reach the pods (externalTrafficPolicy
-    # Local preserves the client source IP, so it arrives as world).
-    - fromEntities:
-        - world
-      toPorts:
-        - ports:
-            # monerod: p2p, zmq, restricted rpc
-            - port: "18080"
-              protocol: TCP
-            - port: "18083"
-              protocol: TCP
-            - port: "18089"
-              protocol: TCP
-            # p2pool: stratum, p2p
-            - port: "3333"
-              protocol: TCP
-            - port: "37890"
-              protocol: TCP
+# DRAFT: collect seven days of AuditNetworkPolicy evidence before enforcement.
+specs:
+  # Default-deny both directions; app rules below union with these infrastructure paths.
+  - endpointSelector: {}
+    ingress:
+      - fromEntities: [host] # kubelet probes
+      # Rev-NAT'd DNS replies target ephemeral ports, not port 53.
+      - fromEndpoints:
+          - matchLabels: &dns
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+    egress:
+      - toEndpoints:
+          - matchLabels: *dns
+        toPorts:
+          - ports:
+              - { port: "53", protocol: UDP }
+              - { port: "53", protocol: TCP }
+
+  - endpointSelector:
+      matchLabels: &monerod
+        app.kubernetes.io/instance: monerod
+    ingress:
+      - fromEndpoints:
+          - matchLabels: &p2pool
+              app.kubernetes.io/instance: p2pool
+        toPorts:
+          - ports:
+              - { port: "18083", protocol: TCP }
+              - { port: "18089", protocol: TCP }
+      - fromEndpoints:
+          - matchLabels: &dashboard
+              app.kubernetes.io/instance: dashboard
+        toPorts:
+          - ports: [{ port: "18089", protocol: TCP }]
+      # LoadBalancer source ranges remain LAN_CIDR; Local preserves the external client source.
+      - fromEntities: [world]
+        toPorts:
+          - ports:
+              - { port: "18080", protocol: TCP }
+              - { port: "18083", protocol: TCP }
+              - { port: "18089", protocol: TCP }
+    egress:
+      # Monero peers advertise arbitrary ports; the captured peer list is truncated.
+      - toEntities: [world]
+
+  - endpointSelector:
+      matchLabels: *p2pool
+    ingress:
+      - fromEndpoints:
+          - matchLabels: &miners
+              app.kubernetes.io/component: thermal-guarded
+        toPorts:
+          - ports: [{ port: "3333", protocol: TCP }]
+      # Keep the existing LAN-gated LoadBalancer stratum and P2P interfaces on this app only.
+      - fromEntities: [world]
+        toPorts:
+          - ports:
+              - { port: "3333", protocol: TCP }
+              - { port: "37890", protocol: TCP }
+    egress:
+      - toEndpoints:
+          - matchLabels: *monerod
+        toPorts:
+          - ports:
+              - { port: "18083", protocol: TCP }
+              - { port: "18089", protocol: TCP }
+      # P2Pool peers also advertise non-default ports.
+      - toEntities: [world]
+
+  - endpointSelector:
+      matchLabels: *miners
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *dashboard
+        toPorts:
+          - ports: [{ port: "42000", protocol: TCP }]
+    egress:
+      # Stable component label covers all three solar-scaled Deployments, including scale from zero.
+      - toEndpoints:
+          - matchLabels: *p2pool
+        toPorts:
+          - ports: [{ port: "3333", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels: *dashboard
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-internal
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+    egress:
+      - toEndpoints:
+          - matchLabels: *monerod
+        toPorts:
+          - ports: [{ port: "18089", protocol: TCP }]
+      - toEndpoints:
+          - matchLabels: *miners
+        toPorts:
+          - ports: [{ port: "42000", protocol: TCP }]
+      # Observer, exchange prices and fallback FX APIs in dashboard/resources/server.py.
+      - toEntities: [world]
+        toPorts:
+          - ports: [{ port: "443", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/instance: guard
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: vmagent
+        toPorts:
+          - ports: [{ port: "8080", protocol: TCP }]
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: vmauth
+        toPorts:
+          - ports: [{ port: "8427", protocol: TCP }]
