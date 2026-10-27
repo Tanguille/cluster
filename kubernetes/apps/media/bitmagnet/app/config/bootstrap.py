@@ -33,10 +33,6 @@ def ready(marker, key):
     return marker.exists() and marker.read_text() == key
 
 
-# Earlier layouts.
-for legacy in [*ROOT.glob("runtime-*"), *ROOT.glob("model-*")]:
-    shutil.rmtree(legacy)
-
 if not ready(RUNTIME / ".ready", RUNTIME_KEY):
     RUNTIME.mkdir(parents=True, exist_ok=True)
     (RUNTIME / ".ready").unlink(missing_ok=True)

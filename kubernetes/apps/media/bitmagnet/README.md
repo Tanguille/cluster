@@ -22,10 +22,8 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
 - Each part reinstalls itself when its pin changes. Python minor bumps wait for
   dashboard approval until onnxruntime ships wheels for them.
 - `config/classifier.yaml` deletes non-video and unknown content types after
-  classification, and anything below 720p or from cam/DVD sources. Unknown
-  torrents only appear in category-less Torznab searches, which Radarr/Sonarr
-  never send. CEL string literals reject `\.`; use `[.]` in regexes. Apply it
-  to existing rows with
+  classification, and anything below 720p or from cam/DVD sources. CEL string
+  literals reject `\.`; use `[.]` in regexes. Apply it to existing rows with
   `bitmagnet reprocess --classifyMode rematch --contentTypes <types>`.
 - The unused trigram index `torrent_tags_name_idx1` (migration 00003, 261 MB)
   was dropped by hand on 2026-10-27. Tag lookups use the btree
@@ -34,7 +32,9 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
   categories at the same speed and only 27 MiB less memory.
 - `prune` (daily) deletes and blocklists TMDB-matched dubs with no English, Dutch
   or original-language track, and DHT-only swarms still at 0 seeders after 3 days.
-- `config/connector.py` runs the pinned connector with a prediction cache keyed on
-  infohash, name, file count and seeder bucket, so unchanged repeat results skip the model. It also strips
-  imdbid/tmdbid from Torznab caps: bitmagnet answers id searches only from TMDB-matched
-  torrents (76 vs 87 hits by title on 133 test titles), so Radarr/Sonarr search it by title.
+  Its scripts live in the `bitmagnet-prune` ConfigMap, so editing them does not
+  restart bitmagnet.
+- `config/connector.py` wraps the pinned connector with a search prediction cache
+  and id-free Torznab caps (see its docstring). bitmagnet answers id searches only
+  from TMDB-matched torrents (76 vs 87 hits by title on 133 test titles), so
+  Radarr/Sonarr search it by title.
