@@ -11,6 +11,8 @@ data:
         SELECT pg_catalog.current_database() AS datname, count(*) AS drifted FROM pg_available_extensions
         WHERE name = 'vector' AND installed_version IS NOT NULL AND installed_version <> default_version
       target_databases: ["*"]
+      # Extension versions replicate; standbys would only repeat the primary.
+      primary: true
       metrics:
         - datname:
             usage: LABEL

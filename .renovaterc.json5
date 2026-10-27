@@ -98,18 +98,6 @@
       autoReplaceStringTemplate: "grafanaCom:\n{{{indentation}}}id: {{{depName}}}\n{{{indentation}}}revision: {{{newValue}}}"
     },
     {
-      description: "qBitrr ConfigVersion (schema version, no v prefix or -N build suffix)",
-      customType: "regex",
-      managerFilePatterns: ["/qbitrr/config/config\\.toml$/"],
-      matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
-      depNameTemplate: "feramance/qbitrr",
-      datasourceTemplate: "docker",
-      // Image v5.14.6-1 expects ConfigVersion "5.14.6" (qBitrr/config_version.py), so drop the -N suffix.
-      extractVersionTemplate: "^v?(?<version>\\d+\\.\\d+\\.\\d+)",
-      // newValue is already extracted; a {{replace}} here re-extracts empty and aborts with "update failure".
-      autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
-    },
-    {
       description: "HuggingFace model files revision-pinned in llmkube Model sources (HF model repos are git repos; digest = repo commit sha)",
       customType: "regex",
       managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
@@ -143,6 +131,28 @@
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
       datasourceTemplate: "npm"
+    },
+    {
+      description: "Armiger connector and HF model commits (each REPO line is followed by its REVISION)",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/media/bitmagnet/app/config/bootstrap\\.py$/"
+      ],
+      matchStrings: [
+        '_REPO = "(?<depName>https://[^"]+)"\\n\\w+_REVISION = "(?<currentDigest>[a-f0-9]{40})"'
+      ],
+      currentValueTemplate: "main",
+      datasourceTemplate: "git-refs"
+    },
+    {
+      description: "Armiger torch pin (installed from the CPU wheel index; PyPI carries the same versions)",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/media/bitmagnet/app/config/bootstrap\\.py$/"
+      ],
+      matchStrings: ['"torch==(?<currentValue>\\d+\\.\\d+\\.\\d+)\\+cpu"'],
+      depNameTemplate: "torch",
+      datasourceTemplate: "pypi"
     },
     {
       // The preset's oci:// manager reads "tag@sha256:..." as one version and skips it as invalid-value.
@@ -234,6 +244,19 @@
       allowedVersions: "1.18.x",
       automerge: false
     },
+    {
+      // Approve once onnxruntime and torch ship wheels for the new python minor.
+      matchFileNames: ["kubernetes/apps/media/bitmagnet/**"],
+      matchPackageNames: ["docker.io/library/python"],
+      matchUpdateTypes: ["major", "minor"],
+      dependencyDashboardApproval: true
+    },
+    {
+      // The HF bundle ships executable Python; review every connector and model bump.
+      matchFileNames: ["kubernetes/apps/media/bitmagnet/**"],
+      matchDatasources: ["git-refs"],
+      automerge: false
+    },
     // Grouping rules
     {
       description: "Actions Runner Controller Group",
@@ -304,15 +327,6 @@
       minimumGroupSize: 2
     },
     {
-      // No matchManagers on purpose: flux and helm-values both detect the HelmRelease image,
-      // and constraining managers let one copy escape into a duplicate PR.
-      description: "qBitrr: group image tag and ConfigVersion",
-      groupName: "qbitrr",
-      matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
-      matchPackageNames: ["/feramance\\/qbitrr/"]
-    },
-    {
       // Last release 2025-08-04, past `abandonments:recommended`, but still a pinned mise tool.
       description: "shellcheck releases rarely; not abandoned",
       matchPackageNames: ["koalaman/shellcheck"],
@@ -339,13 +353,6 @@
         "nousresearch/hermes-agent"
       ],
       versioning: "loose"
-    },
-    {
-      // Docker versioning reads the -N build suffix (since v5.13.0-1) as a compat tag and stops updates silently.
-      // -1 is the stable build; rebuilds (-2..) and branch tags fail the regex. The bare form is the extracted ConfigVersion.
-      description: "qBitrr: track vX.Y.Z-1 release tags",
-      matchPackageNames: ["/feramance\\/qbitrr/"],
-      versioning: "regex:^v?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-1)?$"
     },
     // Labeling rules
     {

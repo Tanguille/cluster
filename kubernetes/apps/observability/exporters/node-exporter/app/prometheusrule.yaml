@@ -110,3 +110,13 @@ spec:
               control-1's thin-provisioned disk fails writes if this pool fills
           labels:
             severity: critical
+        - alert: OPNsenseCPUTemperatureHigh
+          # 30-day peak is ~42C, so 80C means a cooling fault, not load; root disk fill is already CephNodeDiskspaceWarning.
+          expr: |-
+            max by (nodename) (node_cpu_temperature_celsius{nodename="opnsense"}) > 80
+          for: 15m
+          annotations:
+            summary: >-
+              OPNsense CPU is at {{ $value | humanize }}°C; check the router's fan and airflow
+          labels:
+            severity: warning

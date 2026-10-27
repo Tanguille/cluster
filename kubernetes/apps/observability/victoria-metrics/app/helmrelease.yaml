@@ -89,6 +89,11 @@ spec:
         # Fires on two empty-by-design k8s.rules.pod_owner recordings (namespace_workload_pod:kube_pod_owner:relabel); key is the exact alert name.
         RecordingRulesNoData:
           enabled: false
+        # Both duplicate TargetDown (1,230 alert-min/7d each); TooManyLogs covers every VM component.
+        TooManyLogs:
+          enabled: false
+        TooManyScrapeErrors:
+          enabled: false
 
     grafana:
       enabled: false
@@ -157,6 +162,10 @@ spec:
         spec:
           endpoints:
             - scheme: http
+              # Per-pod series made etcdInsufficientMembers fire once per down member, critical with 2/3 up.
+              relabelConfigs:
+                - action: labeldrop
+                  regex: pod
     kubeScheduler:
       vmScrape:
         spec:
@@ -179,7 +188,7 @@ spec:
           routes:
             - receiver: blackhole
               matchers:
-                - alertname = InfoInhibitor
+                - alertname =~ "InfoInhibitor|TrivyNewCriticalVulnerabilities"
             - receiver: discord-satisfactory
               matchers:
                 - app = satisfactory
@@ -189,6 +198,11 @@ spec:
               - severity = "critical"
             target_matchers:
               - severity = "warning"
+          # A down repository fails every app's backup; one outage raised 48 KopiurSnapshotFailed + 19 KopiurLastBackupFailed.
+          - source_matchers:
+              - alertname =~ "KopiurRepositoryNotReady|KopiurRepositoryBreakerOpen"
+            target_matchers:
+              - alertname =~ "KopiurSnapshotFailed|KopiurLastBackupFailed|KopiurBackupConsecutiveFailures|KopiurBackupStale"
         receivers:
           - name: blackhole
           - name: discord
@@ -246,6 +260,7 @@ spec:
           - name: envoy-internal
             namespace: network
       spec:
+        priorityClassName: homelab-critical # alerting path
         externalURL: https://vmalertmanager.${SECRET_DOMAIN}
         image:
           repository: quay.io/prometheus/alertmanager
@@ -300,7 +315,8 @@ spec:
         resources:
           requests:
             cpu: 100m
-            memory: 512Mi
+            # 30d peak 289Mi; 512Mi left control-2 no room for its crowdsec agent.
+            memory: 256Mi
           limits:
             cpu: 1
             memory: 1Gi

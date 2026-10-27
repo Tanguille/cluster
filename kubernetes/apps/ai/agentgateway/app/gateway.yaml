@@ -5,6 +5,11 @@ kind: AgentgatewayParameters
 metadata:
   name: agentgateway
 spec:
+  # The UI uses the admin listener, not the metrics listener on 15020.
+  # Network policies remain the boundary for direct pod access to this listener.
+  env:
+    - name: ADMIN_ADDR
+      value: 0.0.0.0:15000
   # Prices the self-hosted models (agentgateway_gen_ai_client_cost_usd_total).
   modelCatalog:
     sources:

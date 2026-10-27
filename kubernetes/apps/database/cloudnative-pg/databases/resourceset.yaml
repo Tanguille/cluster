@@ -10,12 +10,15 @@ spec:
   # db: only when the physical database name differs from the app name.
   inputs:
     - name: bazarr
-    - name: crowdsec
+    - name: bitmagnet
       extensions:
         # Must equal the cluster.yaml image's vector default_version (checked in pgvector-pin.yaml).
         - &vector
           name: vector
           version: "0.8.7"
+    - name: crowdsec
+      extensions:
+        - *vector
     - name: gatus
     - name: ghostfolio
       extensions:

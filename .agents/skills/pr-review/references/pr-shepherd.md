@@ -4,22 +4,27 @@ Shepherd = carry a PR to green CI + clean automated review, iterating, without o
 Extends `pr-review`. This file is the SINGLE SOURCE OF TRUTH for the loop — the cron prompt and
 learned-preferences only point here.
 
-## Route: ToolHive MCP `github_*` — the PR tools
+## Route: ToolHive MCP — the PR tools
 
 General GitHub routing, call shape and fallbacks: `.agents/learned-workspace.md` § ToolHive / MCP.
 The PR-specific half:
 
 | Job | Tool |
 |---|---|
+| Kritika head / reviews / unfinished job / retry and failure reasons | `kritika_get_pull {repository, number}` |
+| One Kritika review's structured findings and confidence | `kritika_get_review {repository, reviewId}` |
 | Open-PR board | `github_list_pull_requests` (state=open) |
 | Details / status / checks / comments / diff / files / commits | `github_pull_request_read` (method=…) |
-| Edit title / body / draft / state / reviewers | `github_update_pull_request` |
+| Edit title / body / state / reviewers / `draft: true` | `github_update_pull_request` |
 | Rebase PR onto base (server-side) | `github_update_pull_request_branch` |
 
 Verified quirks (2026-09-07):
 
 - Selector is `pullNumber`, not `number`.
 - `create_pull_request` ignores `draft: true` → follow with `update_pull_request {pullNumber, draft: true}`.
+
+Kritika's tools are read-only. Keep GitHub for CI, human/other-bot feedback, replies,
+thread resolution and review commands (`@tanguille-cluster review` for this repository).
 
 ## Gates
 
@@ -47,14 +52,25 @@ Budget: max **3 fix-push cycles per failure class**, then escalate with the evid
 
 ## Shepherd loop (per open owner-PR)
 
-1. DIRTY → Gate A.
-2. CI red → triage above.
-3. CodeRabbit blocking findings (login startswith `coderabbitai`) → address, push.
-4. Body contradicts diff → Gate B.
-5. Green + clean + draft → `update_pull_request {pullNumber, draft: false}`; report merge-ready.
+1. Refresh `kritika_get_pull`, then GitHub's head, CI and human/other-bot feedback.
+   Match Kritika's `headSha` to GitHub's head before using its results.
+2. Fetch `kritika_get_review` once per newly completed current-head review id;
+   re-fetch only when finding/dismissal state changes. Use these findings instead
+   of GitHub comment history.
+3. Fix valid findings; dismiss false positives with evidence. Triage CI as above
+   and apply Gates A–C before pushing.
+4. If Kritika has an unfinished current-head job, wait while handling independent work.
+   Before any review command, refresh `kritika_get_pull`: require no current-head job
+   and inspect the failure/skip/paused reason.
+5. Ready requires green CI, all feedback triaged, and the latest current-head Kritika
+   review `completed` with no blocking findings and passing configured confidence gates.
+   Require a green current-head `Kritika / Review` GitHub status, plus the bot's approval
+   when enabled. Older reviews and all other states, including skipped/superseded/failed,
+   do not count as approval.
+6. Report merge-readiness; only the user may mark a draft ready.
 
 Stop: green+clean, escalated, or budget exhausted.
 
-**Boundaries (never, even "automatically"):** no merge, no push to `main`, no force-push, no
-cluster apply/reconcile, no secret decryption, no touching non-owner PRs (renovate/dependabot/
-other users have their own automation). Merging is a human decision.
+**Boundaries (never, even "automatically"):** no marking drafts ready, no merge, no push to
+`main`, no force-push, no cluster apply/reconcile, no secret decryption, no touching non-owner
+PRs (renovate/dependabot/other users have their own automation). Merging is a human decision.

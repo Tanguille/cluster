@@ -19,6 +19,7 @@ patches:
 resources:
   - helmrelease.yaml
   - prometheusrule.yaml
+  - google-secret.sops.yaml
   - secret.sops.yaml
 
 configMapGenerator:
@@ -33,6 +34,12 @@ configMapGenerator:
   - name: hermes-d3-configure
     files:
       - configure_d3.py=resources/configure_d3.py
+  - name: hermes-google-digest
+    files:
+      - google_digest.py=./resources/google_digest.py
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
 
 generatorOptions:
   disableNameSuffixHash: true
