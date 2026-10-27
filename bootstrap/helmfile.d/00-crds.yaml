@@ -12,28 +12,20 @@ helmDefaults:
     - --include-crds
     - --no-hooks
 
+bases: [./templates/app-chart.yaml]
+
 releases:
   - name: external-dns
     namespace: network
-    chart: oci://ghcr.io/home-operations/charts-mirror/external-dns
-    version: 1.23.0
 
   - name: envoy-gateway
     namespace: network
-    chart: oci://mirror.gcr.io/envoyproxy/gateway-helm
-    version: 1.9.3
 
-  - name: grafana-operator
+  - name: grafana
     namespace: observability
-    chart: oci://ghcr.io/grafana/helm-charts/grafana-operator
-    version: 5.25.0
 
   - name: prometheus-operator-crds
     namespace: observability
-    chart: oci://ghcr.io/prometheus-community/charts/prometheus-operator-crds
-    version: 32.0.2
 
   - name: keda
     namespace: observability
-    chart: oci://ghcr.io/home-operations/charts-mirror/keda
-    version: 2.21.0
