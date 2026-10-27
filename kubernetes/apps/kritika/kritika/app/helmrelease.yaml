@@ -10,7 +10,7 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 0.0.107
+        tag: 0.0.109
       url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
@@ -123,13 +123,6 @@ spec:
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
         approve: true
-      # Scores each PR 0-5; under 4 fails the check, critical risk needs a human.
-      confidence:
-        model: llm/qwen-3.8-fast
-        # Scores when the dGPU model is down (502 left #6100 unscored and so unapproved).
-        fallback: llm/omniroute
-        threshold: 4
-        risk: high
       # Keep default step/token limits: 1M tokens stopped a 98-file PR with 42 files unread.
       agent:
         parts: 16

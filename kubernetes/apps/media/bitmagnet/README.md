@@ -21,11 +21,15 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
   bundle contains unaudited executable Python.
 - Each part reinstalls itself when its pin changes. Python minor bumps wait for
   dashboard approval until onnxruntime ships wheels for them.
-- `config/classifier.yaml` deletes non-video content types after
-  classification, plus unknown torrents with no video (release-named archives
-  stay) and anything below 720p or from cam/DVD sources. CEL string literals
-  reject `\.`; use `[.]` in regexes. Apply it to existing rows with
+- `config/classifier.yaml` deletes non-video and unknown content types after
+  classification, and anything below 720p or from cam/DVD sources. Unknown
+  torrents only appear in category-less Torznab searches, which Radarr/Sonarr
+  never send. CEL string literals reject `\.`; use `[.]` in regexes. Apply it
+  to existing rows with
   `bitmagnet reprocess --classifyMode rematch --contentTypes <types>`.
+- The unused trigram index `torrent_tags_name_idx1` (migration 00003, 261 MB)
+  was dropped by hand on 2026-10-27. Tag lookups use the btree
+  `torrent_tags_name_idx`.
 - `ARMIGER_VARIANT` stays ultra: on 500 local torrents int8 matched 496/500
   categories at the same speed and only 27 MiB less memory.
 - `prune` (daily) deletes and blocklists TMDB-matched dubs with no English, Dutch
