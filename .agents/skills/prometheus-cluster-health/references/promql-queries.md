@@ -15,16 +15,16 @@ Summarize by `alertname`, `severity`, `namespace`, `pod`, `job`. Empty result â‰
 `ALERTS` also lists alerts Alertmanager silences, inhibits or routes to `blackhole`; report only the instances it notifies on:
 
 ```bash
-kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?silenced=false&inhibited=false' | jq -r '.[] | select(any(.receivers[]; .name | endswith("blackhole") | not)) | [.labels.alertname, .labels.severity // "-", .labels.namespace // "-", .labels.pod // "-"] | @tsv'
+kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?silenced=false&inhibited=false&unprocessed=false' | jq -r '.[] | select(any(.receivers[]; .name | endswith("blackhole") | not)) | [.labels.alertname, .labels.severity // "-", .labels.namespace // "-", .labels.pod // "-"] | @tsv'
 ```
 
 List silenced and inhibited instances separately as known conditions, so a silence that masks a real problem stays visible:
 
 ```bash
-kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?active=false' | jq -r '.[] | [.labels.alertname, .labels.namespace // "-", (if (.status.silencedBy | length) > 0 then "silenced" else "inhibited" end)] | @tsv'
+kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?active=false&unprocessed=false' | jq -r '.[] | [.labels.alertname, .labels.severity // "-", .labels.namespace // "-", .labels.pod // "-", (if (.status.silencedBy | length) > 0 then "silenced" else "inhibited" end)] | @tsv'
 ```
 
-Without kubectl, drop instances matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml` (`alerting_silences_read` sees only Grafana's own silences). In `kubernetes/apps/observability/victoria-metrics/app/helmrelease.yaml`, also drop those routed to `blackhole`, and `inhibit_rules` targets only while their source alert fires.
+Without kubectl, drop instances matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml` (`alerting_silences_read` sees only Grafana's own silences). In `kubernetes/apps/observability/victoria-metrics/app/helmrelease.yaml`, also drop those routed to `blackhole`, and `inhibit_rules` targets only while a source alert with the same `equal` labels fires.
 
 ## Step 2 â€” CPU by workload
 
