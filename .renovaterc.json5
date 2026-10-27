@@ -341,7 +341,9 @@
     {
       // Image labels point at the rocky-kiwi build repo; ceph has no GitHub releases, so this yields compare links only.
       matchPackageNames: ["quay.io/ceph/ceph"],
-      sourceUrl: "https://github.com/ceph/ceph"
+      sourceUrl: "https://github.com/ceph/ceph",
+      // x.0 is dev and x.1 is a release candidate; only x.2 is stable.
+      allowedVersions: "/^v\\d+\\.2\\.\\d+$/"
     },
     {
       // The preset override gives docker.io but re-extraction gives mirror.gcr.io: "depName mismatch".
