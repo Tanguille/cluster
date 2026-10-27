@@ -5,7 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: changedetection-ingress-allowlist
 spec:
-  # Ingress only; egress stays open.
+  # Ingress only here; the namespace policy permits check/notification HTTP(S) egress.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: changedetection

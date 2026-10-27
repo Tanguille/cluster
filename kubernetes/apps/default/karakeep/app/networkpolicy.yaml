@@ -7,7 +7,7 @@ metadata:
 spec:
   # chrome (:9222 remote debugging, no auth) and meilisearch (:7700) exist only
   # for the karakeep app container (BROWSER_WEB_URL / MEILI_ADDR in the
-  # helmrelease). Ingress only; egress stays open.
+  # helmrelease). Egress is constrained by the namespace policy.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: karakeep
