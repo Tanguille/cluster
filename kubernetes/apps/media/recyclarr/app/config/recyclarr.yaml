@@ -8,6 +8,10 @@ radarr:
     quality_definition:
       type: movie
 
+    # The custom formats score repacks; preferring them would override release-group tiers.
+    media_management:
+      propers_and_repacks: do_not_prefer
+
     quality_profiles:
       - trash_id: 64fb5f9858489bdac2af690e27c8f42f # UHD Bluray + WEB
         reset_unmatched_scores:
@@ -65,13 +69,17 @@ sonarr:
     quality_definition:
       type: series
 
+    media_management:
+      propers_and_repacks: do_not_prefer
+
     quality_profiles:
       - name: Any
         reset_unmatched_scores:
           enabled: true
+        # 2160p TV Bluray is rare and huge; stop upgrading at WEB 2160p.
         upgrade:
           allowed: true
-          until_quality: Bluray-2160p
+          until_quality: WEB 2160p
         qualities:
           - name: Bluray-2160p
           - name: WEB 2160p
