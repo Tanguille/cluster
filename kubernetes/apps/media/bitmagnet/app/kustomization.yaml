@@ -1,0 +1,22 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - helmrelease.yaml
+  - secret.sops.yaml
+configMapGenerator:
+  - name: bitmagnet-config
+    files:
+      # bitmagnet only reads bitmagnet/classifier.yml under XDG_CONFIG_HOME.
+      - classifier.yml=config/classifier.yaml
+      - config/prune-delete.py
+      - config/prune-select.sql
+  - name: armiger-bootstrap
+    files:
+      - config/bootstrap.py
+      - config/connector.py
+      - config/requirements.txt
+generatorOptions:
+  disableNameSuffixHash: true
+  annotations:
+    kustomize.toolkit.fluxcd.io/substitute: disabled

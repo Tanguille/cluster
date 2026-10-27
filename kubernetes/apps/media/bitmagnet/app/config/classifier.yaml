@@ -1,0 +1,27 @@
+# Classifier source, merged over bitmagnet's core workflow.
+flags:
+  delete_content_types: [xxx, music, software, game, ebook, audiobook, comic]
+workflows:
+  # Keep movies, TV and unknown video (Armiger may still classify those).
+  movies_tv:
+    - run_workflow: default
+    # Unknown torrents with no video can't feed Radarr/Sonarr. Archives with a release-style name stay for unpackerr.
+    # Torrents without a saved file list are kept.
+    - if_else:
+        condition:
+          and:
+            - "result.contentType == contentType.unknown"
+            - "torrent.files.size() > 0"
+            - "!torrent.files.exists(f, f.extension in extensions.video)"
+            - not:
+                and:
+                  - "torrent.files.exists(f, f.extension.matches('^(rar|r[0-9]{2}|zip|7z|[0-9]{3})$'))"
+                  - "torrent.baseName.matches('(?i)(480p|720p|1080p|2160p|x26[45]|h[.]?26[45]|hevc|web-?dl|webrip|bluray|bdrip|dvdrip|hdtv|s[0-9]{2}e[0-9]{2})')"
+        if_action: delete
+    # Only 720p and up is wanted: drop SD resolutions and cam/DVD sources.
+    - if_else:
+        condition:
+          or:
+            - "result.videoResolution in ['V360p', 'V480p', 'V540p', 'V576p']"
+            - "result.videoSource in ['CAM', 'TELESYNC', 'TELECINE', 'WORKPRINT', 'DVD']"
+        if_action: delete

@@ -5,6 +5,8 @@ kind: EnvoyProxy
 metadata:
   name: envoy
 spec:
+  # One worker per host CPU loads the eep wasm 12x per proxy; 7d peak is 0.15 cores.
+  concurrency: 2
   logging:
     level:
       default: info

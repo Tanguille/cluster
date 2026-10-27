@@ -24,6 +24,8 @@ spec:
                 name: not-used
               spec:
                 duration: 87600h
+                # Under the live 90d cert's life (cert-manager ignores renewBefore >= it), so it reissues now (same key), off the leaves' 11-27 second.
+                renewBefore: 2000h
                 privateKey:
                   rotationPolicy: Never
   values:

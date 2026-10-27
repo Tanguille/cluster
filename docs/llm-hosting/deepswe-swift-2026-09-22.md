@@ -124,7 +124,7 @@ SWE-bench Pro 61.7, Terminal-Bench 2.1 73.0 and QwenSWEBench 79.0 for the base.
 | Hermes `qwen38-effort-router` (PVC, not in git), greeting as first message | thinking off for the whole session | medium |
 | same, session with tool turns | low | medium, xhigh when the text contains code |
 | same, brevity / debug-math-long prompts | low / xhigh | unchanged |
-| PR reviewer fallback (litellm `fallbacks` + `ai_fallback_model`) | `qwen-3.8-fast` (thinking off) | `qwen-3.8` (medium) |
+| PR reviewer fallback (gateway `fallbacks` + `ai_fallback_model`) | `qwen-3.8-fast` (thinking off) | `qwen-3.8` (medium) |
 
 The router picks once per session: switching effort mid-conversation changes
 the templated prefix and busts the prefix cache.

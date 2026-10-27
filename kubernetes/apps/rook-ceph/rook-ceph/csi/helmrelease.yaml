@@ -29,22 +29,22 @@ spec:
         log: *csiLog
         controllerPlugin:
           replicas: 2
-          # ~2x observed steady state (defaults asked ~3.7 CPU cluster-wide); container keys left out render as {}.
+          # Sidecars idle at <=1m CPU p99 (7d), plugins 39m; container keys left out render as {}.
           resources: &csiControllerResources
             attacher:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             snapshotter:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             resizer:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             provisioner:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             omapGenerator:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             liveness:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             addons:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             # Inert (rotation off, no sidecar) but non-empty: applying {} over the old requests reaches the CRD as null.
             logRotator: &inertLogRotator
               requests: { cpu: 10m, memory: 16Mi }
@@ -54,11 +54,11 @@ spec:
         nodePlugin:
           resources: &csiNodeResources
             registrar:
-              requests: { cpu: 25m, memory: 32Mi }
+              requests: { cpu: 10m, memory: 32Mi }
             liveness:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             addons:
-              requests: { cpu: 50m, memory: 64Mi }
+              requests: { cpu: 10m, memory: 64Mi }
             logRotator: *inertLogRotator
             plugin:
               requests: { cpu: 100m, memory: 128Mi }
