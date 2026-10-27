@@ -18,7 +18,7 @@ Summarize by `alertname`, `severity`, `namespace`, `pod`, `job`. Empty result â‰
 kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?silenced=false&inhibited=false' | jq -r '.[].labels.alertname' | sort -u
 ```
 
-Without kubectl, drop alerts matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml` and note that inhibited alerts may remain (`alerting_silences_read` sees only Grafana's own silences).
+Without kubectl, drop alerts matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml`; inhibited ones may remain (`alerting_silences_read` sees only Grafana's own silences).
 
 ## Step 2 â€” CPU by workload
 
