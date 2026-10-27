@@ -12,13 +12,13 @@ ALERTS{alertstate="firing"}
 
 Summarize by `alertname`, `severity`, `namespace`, `pod`, `job`. Empty result ≠ guaranteed healthy (wrong datasource or missing rules).
 
-`ALERTS` includes silenced and inhibited alerts; report only what Alertmanager would notify on:
+`ALERTS` includes silenced and inhibited alerts; report only the instances Alertmanager neither silences nor inhibits:
 
 ```bash
-kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?silenced=false&inhibited=false' | jq -r '.[].labels.alertname' | sort -u
+kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?silenced=false&inhibited=false' | jq -r '.[] | [.labels.alertname, .labels.namespace // "-", .labels.pod // "-"] | @tsv'
 ```
 
-Without kubectl, drop alerts matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml`; inhibited ones may remain (`alerting_silences_read` sees only Grafana's own silences).
+Without kubectl, drop instances matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml` (`alerting_silences_read` sees only Grafana's own silences) or by `inhibit_rules` in `kubernetes/apps/observability/victoria-metrics/app/helmrelease.yaml`.
 
 ## Step 2 — CPU by workload
 
@@ -141,7 +141,7 @@ Label as approximate non-idle % averaged over the window.
 ```text
 CLUSTER HEALTH SNAPSHOT (Prometheus, last <window>)
 
-Alerts: none | <alertname + key labels>   (silenced: <names>)
+Alerts: none | <alertname + key labels>
 
 CPU (avg cores over <window>) — top pods:
 - <ns>/<pod>: <cores>
