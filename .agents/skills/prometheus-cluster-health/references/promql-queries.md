@@ -18,6 +18,12 @@ Summarize by `alertname`, `severity`, `namespace`, `pod`, `job`. Empty result �
 kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?silenced=false&inhibited=false' | jq -r '.[] | select(any(.receivers[]; .name | endswith("blackhole") | not)) | [.labels.alertname, .labels.severity // "-", .labels.namespace // "-", .labels.pod // "-"] | @tsv'
 ```
 
+List silenced and inhibited instances separately as known conditions, so a silence that masks a real problem stays visible:
+
+```bash
+kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?active=false' | jq -r '.[] | [.labels.alertname, .labels.namespace // "-", (if (.status.silencedBy | length) > 0 then "silenced" else "inhibited" end)] | @tsv'
+```
+
 Without kubectl, drop instances matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml` (`alerting_silences_read` sees only Grafana's own silences). In `kubernetes/apps/observability/victoria-metrics/app/helmrelease.yaml`, also drop those routed to `blackhole`, and `inhibit_rules` targets only while their source alert fires.
 
 ## Step 2 — CPU by workload
@@ -142,6 +148,7 @@ Label as approximate non-idle % averaged over the window.
 CLUSTER HEALTH SNAPSHOT (Prometheus, last <window>)
 
 Alerts: none | <alertname + key labels>
+Known (silenced/inhibited): none | <alertname + reason>
 
 CPU (avg cores over <window>) — top pods:
 - <ns>/<pod>: <cores>
