@@ -52,9 +52,12 @@ spec:
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
+              # Right-sized 2026-10 (KubeMemoryOvercommit): 0.58Gi live against
+              # a 1Gi reservation. The 3Gi limit, which is what bounds the disk
+              # cache, is unchanged; only the scheduler's view shrinks.
               requests:
                 cpu: 200m
-                memory: 1Gi
+                memory: 512Mi
               limits:
                 cpu: 1
                 memory: 3Gi

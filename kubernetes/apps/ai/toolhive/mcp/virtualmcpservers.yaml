@@ -37,9 +37,12 @@ spec:
             - name: OPENAI_API_KEY
               value: ${LLM_API_KEY}
           resources:
+            # Right-sized 2026-10 (KubeMemoryOvercommit): 0.28Gi live just after
+            # the 4-day restart, so 384Mi reserves that floor. The leak's growth
+            # is bounded by the 2Gi limit; the request is scheduler bookkeeping.
             requests:
               cpu: 200m
-              memory: 1Gi
+              memory: 384Mi
             limits:
               memory: 2Gi
           startupProbe:

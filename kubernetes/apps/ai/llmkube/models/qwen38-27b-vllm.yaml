@@ -259,10 +259,12 @@ spec:
       persistentVolumeClaim:
         claimName: qwen38-27b-vllm-kv-offload
     # = cpu_bytes_to_use + 2Gi; the 64M default EFAULTs on pre-fault.
+    # 2026-10: follows the 6Gi tier below (was 14Gi at 12Gi), and tmpfs is
+    # charged to the pod's memory limit, so this is part of the 24Gi cap.
     - name: dshm
       emptyDir:
         medium: Memory
-        sizeLimit: 14Gi
+        sizeLimit: 8Gi
     - name: lds-gate-patch
       configMap:
         name: lds-gate-patch
@@ -334,13 +336,20 @@ spec:
     - --prefix-match-unit
     - "64"
     # No --language-model-only: Hermes uses the vision tower.
-    # CPU tier 12Gi (~712K tokens); 22Gi only if a restart-free 7d shows hit < 0.25 or fs share > 20%.
+    # CPU tier 6Gi (~356K offloaded tokens). The 24Gi request/limit cannot grow
+    # (control-1 has no headroom), and tmpfs + this tier are what the pod
+    # actually charges against it, so the host side is what gets capped: 6Gi
+    # tier + 8Gi dshm + ~6Gi anon = ~20Gi, inside the limit. Tokens are the
+    # currency here, not sequence count: --max-num-seqs is the operator's
+    # (parallelSlots), and --max-model-len 262144 fits the GPU pool regardless.
+    # Revert to 12884901888 (dshm 14Gi) if a restart-free 7d shows external
+    # prefix-hit ratio < 0.25 or fs->cpu share > 20% (same criteria as 2026-09-18).
     # Keep the fs tier: removing it halved decode (2026-08-19); no mechanism found, unproven.
     # blocks_per_chunk 1: 8 sessions 8.4 -> 30.5 tok/s alone, 43 with --prefix-match-unit 64.
     # kv_load_failure_policy is top-level; nested it is silently ignored.
     - --kv-transfer-config
     - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":12884901888,"blocks_per_chunk":1,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
+      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":6442450944,"blocks_per_chunk":1,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:

@@ -87,9 +87,12 @@ spec:
 
   resources:
     cpu: "100m" # inference is on the iGPU; CPU only tokenises/schedules
-    # Request AND limit (llmkube >= 0.9.29); ~0.2Gi RSS plus ~0.65Gi of amdgpu
-    # GTT. memcg does not charge GTT, but the scheduler must count it. 2Gi did
-    # not fit control-3 (1.76Gi requestable), pushing it onto the embedder's node.
-    memory: 1Gi
+    # ~0.2Gi RSS plus ~0.65Gi of amdgpu GTT. memcg does not charge GTT, so the
+    # reservation only has to cover RSS. 384Mi right-sizes that (2026-10,
+    # KubeMemoryOvercommit) and leaves ~0.18Gi above the 0.33Gi live set.
+    # memoryLimit pins the ceiling at the old 1Gi: without it llmkube would
+    # carry the request down into the limit and a reload could OOMKill the pod.
+    memory: 384Mi
+    memoryLimit: 1Gi
   endpoint:
     path: /v1/rerank
