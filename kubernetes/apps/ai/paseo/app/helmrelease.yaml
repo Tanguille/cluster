@@ -27,68 +27,24 @@ spec:
       paseo:
         annotations:
           reloader.stakater.com/auto: "true"
-        initContainers:
-          # Init containers are rendered in alphabetical order: prepare before seed.
-          # Mount the PVC root only here; fsGroup makes it writable without root.
-          prepare-storage:
-            image: &image
+        containers:
+          app:
+            image:
               repository: ghcr.io/joryirving/paseo
               tag: 0.13.0@sha256:4f4034e053e45b25b69b6072149267b035062543304e07166c33801d0d8b8805
+            # Skips the image's paseo-start CMD, which requires LiteLLM and overwrites config.json on every start.
             command:
+              - /usr/bin/tini
+              - --
               - /bin/bash
               - -c
               - |
                 set -euo pipefail
-                umask 077
-                for directory in /data/home /data/workspace; do
-                  if [ -L "$directory" ]; then
-                    printf 'Refusing symlink: %s\n' "$directory" >&2
-                    exit 1
-                  fi
-                  mkdir -p -- "$directory"
-                  if [ ! -d "$directory" ] || [ ! -w "$directory" ] || [ ! -x "$directory" ]; then
-                    printf 'Directory is not writable/searchable: %s\n' "$directory" >&2
-                    exit 1
-                  fi
-                done
-            securityContext: &containerSecurity
-              allowPrivilegeEscalation: false
-              capabilities:
-                drop: [ALL]
-            resources: &resources
-              requests:
-                cpu: 250m
-                memory: 1Gi
-              limits:
-                cpu: 2
-                memory: 4Gi
-          seed:
-            image: *image
-            command:
-              - /bin/bash
-              - /etc/paseo-runtime/seed.sh
+                [[ $${PASEO_PASSWORD} =~ [^[:space:]] ]] || { echo "PASEO_PASSWORD is empty" >&2; exit 1; }
+                [[ -e /home/paseo/.paseo/config.json ]] || install -Dm600 /etc/paseo-runtime/config.json /home/paseo/.paseo/config.json
+                exec /usr/local/bin/paseo-docker-entrypoint
             env:
-              HOME: /home/paseo
-              PASEO_HOME: /home/paseo/.paseo
-              GIT_TERMINAL_PROMPT: "0"
-            securityContext: *containerSecurity
-            resources: *resources
-        containers:
-          app:
-            image: *image
-            # Override ENTRYPOINT and CMD: never invoke community paseo-start.
-            command:
-              - /usr/bin/tini
-            args:
-              - --
-              - /bin/bash
-              - /etc/paseo-runtime/password-guard.sh
-            env:
-              HOME: /home/paseo
-              PASEO_HOME: /home/paseo/.paseo
               HERMES_HOME: /home/paseo/.hermes
-              PASEO_LISTEN: 0.0.0.0:6767
-              PASEO_WEB_UI_ENABLED: "true"
               PASEO_RELAY_ENABLED: "false"
               PASEO_HOSTNAMES: &hostname "{{ .Release.Name }}.${SECRET_DOMAIN}"
               PASEO_PASSWORD:
@@ -96,35 +52,37 @@ spec:
                   secretKeyRef:
                     name: paseo-secret
                     key: PASEO_PASSWORD
-            securityContext: *containerSecurity
-            resources: *resources
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: [ALL]
+            resources:
+              requests:
+                cpu: 250m
+                memory: 1Gi
+              limits:
+                cpu: 2
+                memory: 4Gi
             probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: &port 6767
+                  timeoutSeconds: 5
+              readiness: *probes
               startup:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: &health
+                  httpGet:
                     path: /api/health
-                    port: &port 6767
+                    port: *port
                   periodSeconds: 5
                   timeoutSeconds: 5
                   failureThreshold: 60
-              readiness:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet: *health
-                  periodSeconds: 10
-                  timeoutSeconds: 5
-                  failureThreshold: 3
-              liveness:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet: *health
-                  periodSeconds: 30
-                  timeoutSeconds: 5
-                  failureThreshold: 3
     service:
       app:
         ports:
@@ -141,27 +99,13 @@ spec:
       runtime:
         type: configMap
         name: paseo-runtime
-        advancedMounts:
-          paseo:
-            seed:
-              - path: /etc/paseo-runtime
-                readOnly: true
-            app:
-              - path: /etc/paseo-runtime
-                readOnly: true
+        globalMounts:
+          - path: /etc/paseo-runtime
+            readOnly: true
       data:
         existingClaim: *app
-        advancedMounts:
-          paseo:
-            prepare-storage:
-              - path: /data
-            seed:
-              - path: /home/paseo
-                subPath: home
-              - path: /workspace
-                subPath: workspace
-            app:
-              - path: /home/paseo
-                subPath: home
-              - path: /workspace
-                subPath: workspace
+        globalMounts:
+          - path: /home/paseo
+            subPath: home
+          - path: /workspace
+            subPath: workspace
