@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "app/config/bootstrap.py"
-CONTENT = b"# verified connector fixture\n"
+CONTENT = b"# connector fixture\n"
 
 
 class BootstrapTests(unittest.TestCase):
@@ -50,12 +50,6 @@ class BootstrapTests(unittest.TestCase):
         self.execute()
         self.assertTrue(any("-r" in call for call in self.calls))
         self.assertFalse(any("snapshot_download" in call[-1] for call in self.calls))
-
-    def test_legacy_layout_is_removed(self):
-        (self.root / "runtime-v2/venv").mkdir(parents=True)
-        (self.root / "model-old").mkdir()
-        self.execute()
-        self.assertEqual(["model", "runtime"], sorted(p.name for p in self.root.iterdir()))
 
     def test_failed_install_does_not_mark_runtime_ready(self):
         def fail(args, check):

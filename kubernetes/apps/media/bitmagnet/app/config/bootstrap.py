@@ -12,9 +12,9 @@ REQUIREMENTS = Path(os.environ.get("ARMIGER_REQUIREMENTS", "/bootstrap/requireme
 TORCH = "torch==2.14.1+cpu"
 # Commit-pinned, so the fetched content is immutable; Renovate bumps each pair.
 CONNECTOR_REPO = "https://github.com/spencernorton/Armiger-Connectors"
-CONNECTOR_REVISION = "062a9cbe6e0c1ff25576c4e8e24d516543c37859"
+CONNECTOR_REVISION = "9b00089a06df24497e45d2f2144eb14a1bb03ac2"
 MODEL_REPO = "https://huggingface.co/NorviTech/armiger-ultra"
-MODEL_REVISION = "cdf7036c45a0d9751d18e738c7abfde485552964"
+MODEL_REVISION = "18ef5418b3858ee4f70c137540febb5343b8754e"
 RUNTIME = ROOT / "runtime"
 MODEL = ROOT / "model"
 PYTHON = RUNTIME / "venv/bin/python3"
@@ -32,10 +32,6 @@ def run(*args):
 def ready(marker, key):
     return marker.exists() and marker.read_text() == key
 
-
-# Earlier layouts.
-for legacy in [*ROOT.glob("runtime-*"), *ROOT.glob("model-*")]:
-    shutil.rmtree(legacy)
 
 if not ready(RUNTIME / ".ready", RUNTIME_KEY):
     RUNTIME.mkdir(parents=True, exist_ok=True)

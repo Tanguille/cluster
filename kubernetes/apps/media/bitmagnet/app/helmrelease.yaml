@@ -3,7 +3,7 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: &app bitmagnet
+  name: bitmagnet
 spec:
   interval: 30m
   chartRef:
@@ -20,7 +20,6 @@ spec:
         seccompProfile: { type: RuntimeDefault }
     controllers:
       bitmagnet:
-        forceRename: *app
         strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
@@ -41,7 +40,9 @@ spec:
               # Session mode: pgx prepares statements; the direct -rw VIP can blackhole from the primary's node.
               POSTGRES_HOST: &pg-host pgbouncer-session.database.svc.cluster.local
               HOME: /tmp
-              EXTRA_CONFIG_FILES: /etc/bitmagnet/classifier.yaml
+              # Loads /etc/bitmagnet/classifier.yml from the config mount.
+              XDG_CONFIG_HOME: /etc
+              CLASSIFIER_WORKFLOW: movies_tv
               POSTGRES_USER: bitmagnet
             # TMDB_API_KEY is shared with Jellyfin Enhanced; the default key throttles to 1 req/s.
             envFrom:
@@ -79,7 +80,7 @@ spec:
           bootstrap:
             image: &python-image
               repository: docker.io/library/python
-              tag: 3.14-slim@sha256:35caba83af2fe6da9a5d922f9b0156f21d1246a48278c58a08bd253303ba42e8
+              tag: 3.14-slim@sha256:82abc9f53600280b0757126f83c5a7d47088592d2acb6b4c0b9e97f76865508c
             command: [python3, /bootstrap/bootstrap.py]
             env:
               HOME: /tmp
@@ -143,7 +144,7 @@ spec:
                 ON_ERROR_STOP=1,
                 -At,
                 -f,
-                /etc/bitmagnet/prune-select.sql,
+                /prune/prune-select.sql,
                 -o,
                 /tmp/prune.txt
               ]
@@ -167,13 +168,12 @@ spec:
           app:
             # Deleting through GraphQL blocklists the hashes, so the crawler does not re-add them.
             image: *python-image
-            command: [python3, /etc/bitmagnet/prune-delete.py]
+            command: [python3, /prune/prune-delete.py]
             resources: *job-resources
             securityContext: *container-security
 
     service:
-      app:
-        forceRename: *app
+      bitmagnet:
         controller: bitmagnet
         ports:
           http: { port: 3333 }
@@ -184,14 +184,14 @@ spec:
           bridge: { port: 8096 }
           torznab-proxy: { port: 8097 }
     route:
-      app:
+      bitmagnet:
         hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-internal
             namespace: network
         rules:
           - backendRefs:
-              - identifier: app
+              - identifier: bitmagnet
                 port: http
     persistence:
       connector-data:
@@ -215,12 +215,17 @@ spec:
             app:
               - path: /etc/bitmagnet
                 readOnly: true
+      # Separate from bitmagnet-config, so script edits do not restart bitmagnet through Reloader.
+      prune:
+        type: configMap
+        name: bitmagnet-prune
+        advancedMounts:
           prune:
             select:
-              - path: /etc/bitmagnet
+              - path: /prune
                 readOnly: true
             app:
-              - path: /etc/bitmagnet
+              - path: /prune
                 readOnly: true
       bootstrap:
         type: configMap

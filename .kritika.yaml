@@ -9,9 +9,9 @@ context:
   - path: .agents/learned-workspace.md
     description: Cluster-specific chart, networking, storage and controller behavior.
     paths: ["kubernetes/**", "talos/**"]
-# Use the existing renderer from .mise.toml to check effective Helm values.
+# Install flate from the aqua registry to check effective Helm values.
 tools:
-  "github:home-operations/flate": "v0.6.5"
+  "aqua:home-operations/flate": "v0.6.5"
 rules:
   - id: ceph-csi-lockstep
     paths: ["kubernetes/apps/rook-ceph/**"]

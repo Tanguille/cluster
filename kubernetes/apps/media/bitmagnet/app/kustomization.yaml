@@ -7,7 +7,10 @@ resources:
 configMapGenerator:
   - name: bitmagnet-config
     files:
-      - config/classifier.yaml
+      # bitmagnet only reads bitmagnet/classifier.yml under XDG_CONFIG_HOME.
+      - classifier.yml=config/classifier.yaml
+  - name: bitmagnet-prune
+    files:
       - config/prune-delete.py
       - config/prune-select.sql
   - name: armiger-bootstrap
