@@ -51,7 +51,7 @@ specs:
               io.kubernetes.pod.namespace: ai
               app: mcpserver
               toolhive: "true"
-        toPorts:
+        toPorts: &tcp-8080
           - ports:
               - port: "8080"
                 protocol: TCP
@@ -65,10 +65,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: security
               app.kubernetes.io/name: kguardian-llm-bridge
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
@@ -94,7 +91,8 @@ specs:
           - ports:
               - port: "10443"
                 protocol: TCP
-      - toEntities:
+      - &internet-https
+        toEntities:
           - world
         toPorts:
           - ports:
@@ -109,12 +107,10 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmagent
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
     egress:
-      - toEntities:
+      - &kube-api
+        toEntities:
           - kube-apiserver
         toPorts:
           - ports:
@@ -136,10 +132,7 @@ specs:
               io.kubernetes.pod.namespace: ai
               app: mcpserver
               toolhive: "true"
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         app: mcpserver
@@ -153,19 +146,9 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/name: toolhive-operator
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
     egress:
-      - toEntities:
-          - kube-apiserver
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
-              - port: "6443"
-                protocol: TCP
+      - *kube-api
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -177,34 +160,21 @@ specs:
               io.kubernetes.pod.namespace: ai
               toolhive: "true"
               toolhive-basename: flux-operator
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
         toolhive: "true"
         toolhive-basename: flux-operator
     egress:
-      - toEntities:
-          - kube-apiserver
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
-              - port: "6443"
-                protocol: TCP
+      - *kube-api
     ingress:
       - fromEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app: mcpserver
               toolhive-name: flux-operator
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -244,7 +214,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app: grafana
-        toPorts:
+        toPorts: &tcp-3000
           - ports:
               - port: "3000"
                 protocol: TCP
@@ -307,10 +277,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: default
               app.kubernetes.io/instance: karakeep
-        toPorts:
-          - ports:
-              - port: "3000"
-                protocol: TCP
+        toPorts: *tcp-3000
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -322,32 +289,21 @@ specs:
               io.kubernetes.pod.namespace: ai
               toolhive: "true"
               toolhive-basename: kubesearch
-        toPorts:
-          - ports:
-              - port: "3000"
-                protocol: TCP
+        toPorts: *tcp-3000
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
         toolhive: "true"
         toolhive-basename: kubesearch
     egress:
-      - toEntities:
-          - world
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
+      - *internet-https
     ingress:
       - fromEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app: mcpserver
               toolhive-name: kubesearch
-        toPorts:
-          - ports:
-              - port: "3000"
-                protocol: TCP
+        toPorts: *tcp-3000
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -359,10 +315,7 @@ specs:
               io.kubernetes.pod.namespace: ai
               toolhive: "true"
               toolhive-basename: searxng
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -373,10 +326,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: default
               app.kubernetes.io/instance: searxng
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
       - toEntities:
           - world
         toPorts:
@@ -391,10 +341,7 @@ specs:
               io.kubernetes.pod.namespace: ai
               app: mcpserver
               toolhive-name: searxng
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -406,10 +353,7 @@ specs:
               io.kubernetes.pod.namespace: ai
               toolhive: "true"
               toolhive-basename: talos-mcp
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -429,10 +373,7 @@ specs:
               io.kubernetes.pod.namespace: ai
               app: mcpserver
               toolhive-name: talos-mcp
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai

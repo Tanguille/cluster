@@ -16,11 +16,9 @@ specs:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: NotIn
-          values:
-            - prometheus-node-exporter
+          values: [prometheus-node-exporter]
     ingress:
-      - fromEntities:
-          - host
+      - fromEntities: [host]
       - fromEndpoints:
           - &kube-dns
             matchLabels:
@@ -31,10 +29,8 @@ specs:
           - *kube-dns
         toPorts:
           - ports:
-              - port: "53"
-                protocol: TCP
-              - port: "53"
-                protocol: UDP
+              - { port: "53", protocol: TCP }
+              - { port: "53", protocol: UDP }
   - description: vmagent scrapes pod port 8080.
     endpointSelector:
       matchExpressions:
@@ -59,282 +55,217 @@ specs:
             matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmagent
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: &tcp-8080
+          - ports: [{ port: "8080", protocol: TCP }]
   - description: vmagent scrapes pod port 8081.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - drm-exporter
-            - kromgo
-            - kube-state-metrics
+          values: [drm-exporter, kromgo, kube-state-metrics]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "8081"
-                protocol: TCP
+          - ports: [{ port: "8081", protocol: TCP }]
   - description: vmagent scrapes pod port 9090.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - grafana-operator
+          values: [grafana-operator]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9090"
-                protocol: TCP
+          - ports: [{ port: "9090", protocol: TCP }]
   - description: vmagent scrapes pod port 9115.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - prometheus-blackbox-exporter
+          values: [prometheus-blackbox-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9115"
-                protocol: TCP
+          - ports: [{ port: "9115", protocol: TCP }]
   - description: vmagent scrapes pod port 9101.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - klipper-exporter
+          values: [klipper-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9101"
-                protocol: TCP
+          - ports: [{ port: "9101", protocol: TCP }]
   - description: vmagent scrapes pod port 9205.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - nextcloud-exporter
+          values: [nextcloud-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9205"
-                protocol: TCP
+          - ports: [{ port: "9205", protocol: TCP }]
   - description: vmagent scrapes pod port 9199.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - nut-exporter
+          values: [nut-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9199"
-                protocol: TCP
+          - ports: [{ port: "9199", protocol: TCP }]
   - description: vmagent scrapes pod port 9707.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - prowlarr-exporter
-            - sonarr-exporter
+          values: [prowlarr-exporter, sonarr-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9707"
-                protocol: TCP
+          - ports: [{ port: "9707", protocol: TCP }]
   - description: vmagent scrapes pod port 8000.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - qbittorrent-exporter
+          values: [qbittorrent-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "8000"
-                protocol: TCP
+          - ports: [{ port: "8000", protocol: TCP }]
   - description: vmagent scrapes pod port 9000.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - satisfactory-frm-exporter
+          values: [satisfactory-frm-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9000"
-                protocol: TCP
+          - ports: [{ port: "9000", protocol: TCP }]
   - description: vmagent scrapes pod port 7100.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - scraparr
+          values: [scraparr]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "7100"
-                protocol: TCP
+          - ports: [{ port: "7100", protocol: TCP }]
   - description: vmagent scrapes pod port 28282.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - power-monitor-exporter
+          values: [power-monitor-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "28282"
-                protocol: TCP
+          - ports: [{ port: "28282", protocol: TCP }]
   - description: vmagent scrapes pod port 9633.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - prometheus-smartctl-exporter
+          values: [prometheus-smartctl-exporter]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9633"
-                protocol: TCP
+          - ports: [{ port: "9633", protocol: TCP }]
   - description: vmagent scrapes pod port 9429.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - victoria-logs-collector
+          values: [victoria-logs-collector]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "9429"
-                protocol: TCP
+          - ports: [{ port: "9429", protocol: TCP }]
   - description: vmagent scrapes pod port 9428.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - victoria-logs-single
+          values: [victoria-logs-single]
     ingress:
       - fromEndpoints:
           - *vmagent
-        toPorts:
-          - ports:
-              - port: "9428"
-                protocol: TCP
+        toPorts: &tcp-9428
+          - ports: [{ port: "9428", protocol: TCP }]
   - description: vmagent scrapes pod port 8427.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - vmauth
+          values: [vmauth]
     ingress:
       - fromEndpoints:
           - *vmagent
-        toPorts:
-          - ports:
-              - port: "8427"
-                protocol: TCP
+        toPorts: &tcp-8427
+          - ports: [{ port: "8427", protocol: TCP }]
   - description: vmagent scrapes pod port 8428.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - vmsingle
+          values: [vmsingle]
     ingress:
       - fromEndpoints:
           - *vmagent
-        toPorts:
-          - ports:
-              - port: "8428"
-                protocol: TCP
+        toPorts: &tcp-8428
+          - ports: [{ port: "8428", protocol: TCP }]
   - description: vmagent scrapes pod port 8429.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - vmagent
+          values: [vmagent]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "8429"
-                protocol: TCP
+          - ports: [{ port: "8429", protocol: TCP }]
   - description: vmagent scrapes pod port 8435.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - vmagent
-            - vmalert
-            - vmauth
-            - vmalertmanager
+          values: [vmagent, vmalert, vmauth, vmalertmanager]
     ingress:
       - fromEndpoints:
           - *vmagent
         toPorts:
-          - ports:
-              - port: "8435"
-                protocol: TCP
+          - ports: [{ port: "8435", protocol: TCP }]
   - description: vmagent scrapes pod port 9093.
     endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
-          values:
-            - vmalertmanager
+          values: [vmalertmanager]
     ingress:
       - fromEndpoints:
           - *vmagent
-        toPorts:
-          - ports:
-              - port: "9093"
-                protocol: TCP
+        toPorts: &tcp-9093
+          - ports: [{ port: "9093", protocol: TCP }]
   - description: "Grafana: gateway, homepage, ToolHive, operator and metrics."
     endpointSelector:
       matchLabels:
@@ -347,8 +278,7 @@ specs:
             matchExpressions:
               - key: gateway.networking.k8s.io/gateway-name
                 operator: In
-                values:
-                  - envoy-internal
+                values: [envoy-internal]
           - &homepage
             matchLabels:
               io.kubernetes.pod.namespace: default
@@ -361,87 +291,58 @@ specs:
               io.kubernetes.pod.namespace: ai
               app: grafana
               toolhive: "true"
-        toPorts:
-          - ports:
-              - port: "3000"
-                protocol: TCP
+        toPorts: &tcp-3000
+          - ports: [{ port: "3000", protocol: TCP }]
     egress:
-      - toEndpoints:
+      - toEndpoints: &observability-vmauth-peers
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmauth
-        toPorts:
-          - ports:
-              - port: "8427"
-                protocol: TCP
-      - toEndpoints:
+        toPorts: *tcp-8427
+      - toEndpoints: &observability-vmsingle-peers
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmsingle
-        toPorts:
-          - ports:
-              - port: "8428"
-                protocol: TCP
-      - toEndpoints:
+        toPorts: *tcp-8428
+      - toEndpoints: &observability-vmalertmanager-peers
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmalertmanager
-        toPorts:
-          - ports:
-              - port: "9093"
-                protocol: TCP
+        toPorts: *tcp-9093
       - toEndpoints:
           - &victoria-logs
             matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: victoria-logs-single
-        toPorts:
-          - ports:
-              - port: "9428"
-                protocol: TCP
+        toPorts: *tcp-9428
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: database
               cnpg.io/poolerName: pgbouncer-session
               cnpg.io/podRole: pooler
-        toPorts:
-          - ports:
-              - port: "5432"
-                protocol: TCP
-      - toEntities:
-          - world
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
+        toPorts: &tcp-5432
+          - ports: [{ port: "5432", protocol: TCP }]
+      - toEntities: [world]
+        toPorts: &tcp-443
+          - ports: [{ port: "443", protocol: TCP }]
   - description: Grafana operator reconciles dashboards and downloads their published sources.
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: grafana-operator
     egress:
       - &kube-api
-        toEntities:
-          - kube-apiserver
+        toEntities: [kube-apiserver]
         toPorts:
           - ports:
-              - port: "443"
-                protocol: TCP
-              - port: "6443"
-                protocol: TCP
+              - { port: "443", protocol: TCP }
+              - { port: "6443", protocol: TCP }
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app: grafana
-        toPorts:
-          - ports:
-              - port: "3000"
-                protocol: TCP
-      - toEntities:
-          - world
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
+        toPorts: *tcp-3000
+      - toEntities: [world]
+        toPorts: *tcp-443
   - description: "Gatus: internal dashboard and isolated external health probe."
     endpointSelector:
       matchLabels:
@@ -454,13 +355,9 @@ specs:
             matchExpressions:
               - key: gateway.networking.k8s.io/gateway-name
                 operator: In
-                values:
-                  - envoy-external-probe
+                values: [envoy-external-probe]
           - *homepage
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
     egress:
       - *kube-api
       - toEndpoints:
@@ -468,10 +365,7 @@ specs:
               io.kubernetes.pod.namespace: database
               cnpg.io/cluster: postgres16
               cnpg.io/podRole: pooler
-        toPorts:
-          - ports:
-              - port: "5432"
-                protocol: TCP
+        toPorts: *tcp-5432
       - toEndpoints:
           - &envoy-gateways
             matchLabels:
@@ -484,29 +378,21 @@ specs:
                   - envoy-external
                   - envoy-internal-tls
                   - envoy-external-probe
-        toPorts:
-          - ports:
-              - port: "10443"
-                protocol: TCP
+        toPorts: &tcp-10443
+          - ports: [{ port: "10443", protocol: TCP }]
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: unified
               app: virtualmcpserver
         toPorts:
-          - ports:
-              - port: "4483"
-                protocol: TCP
-      - toEntities:
-          - world
+          - ports: [{ port: "4483", protocol: TCP }]
+      - toEntities: [world]
         toPorts:
           - ports:
-              - port: "443"
-                protocol: TCP
-              - port: "53"
-                protocol: TCP
-      - toEntities:
-          - world
+              - { port: "443", protocol: TCP }
+              - { port: "53", protocol: TCP }
+      - toEntities: [world]
         icmps:
           - fields:
               - family: IPv4
@@ -522,22 +408,12 @@ specs:
             matchExpressions:
               - key: gateway.networking.k8s.io/gateway-name
                 operator: In
-                values:
-                  - envoy-external
+                values: [envoy-external]
           - *homepage
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
     egress:
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmsingle
-        toPorts:
-          - ports:
-              - port: "8428"
-                protocol: TCP
+      - toEndpoints: *observability-vmsingle-peers
+        toPorts: *tcp-8428
   - description: "Siren: internal UI reads Alertmanager."
     endpointSelector:
       matchLabels:
@@ -545,19 +421,10 @@ specs:
     ingress:
       - fromEndpoints:
           - *envoy-internal
-        toPorts:
-          - ports:
-              - port: "3000"
-                protocol: TCP
+        toPorts: *tcp-3000
     egress:
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmalertmanager
-        toPorts:
-          - ports:
-              - port: "9093"
-                protocol: TCP
+      - toEndpoints: *observability-vmalertmanager-peers
+        toPorts: *tcp-9093
   - description: Kubernetes controllers and API-watching reloaders need the control plane.
     endpointSelector:
       matchExpressions:
@@ -584,38 +451,30 @@ specs:
         - key: app.kubernetes.io/name
           operator: In
           values:
-            - keda-admission-webhooks
-            - kepler-operator
-            - victoria-metrics-operator
+            [
+              keda-admission-webhooks,
+              kepler-operator,
+              victoria-metrics-operator
+            ]
     ingress:
-      - fromEntities:
-          - kube-apiserver
-          - remote-node
+      - fromEntities: [kube-apiserver, remote-node]
         toPorts:
-          - ports:
-              - port: "9443"
-                protocol: TCP
+          - ports: [{ port: "9443", protocol: TCP }]
   - description: KEDA aggregated metrics API.
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: keda-operator-metrics-apiserver
     ingress:
-      - fromEntities:
-          - kube-apiserver
-          - remote-node
+      - fromEntities: [kube-apiserver, remote-node]
         toPorts:
-          - ports:
-              - port: "6443"
-                protocol: TCP
+          - ports: [{ port: "6443", protocol: TCP }]
     egress:
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: keda-operator
-        toPorts:
-          - ports:
-              - port: "9666"
-                protocol: TCP
+        toPorts: &tcp-9666
+          - ports: [{ port: "9666", protocol: TCP }]
   - description: KEDA metric requests and configured Prometheus scaling queries.
     endpointSelector:
       matchLabels:
@@ -625,41 +484,22 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: keda-operator-metrics-apiserver
-        toPorts:
-          - ports:
-              - port: "9666"
-                protocol: TCP
+        toPorts: *tcp-9666
     egress:
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmsingle
-        toPorts:
-          - ports:
-              - port: "8428"
-                protocol: TCP
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmauth
-        toPorts:
-          - ports:
-              - port: "8427"
-                protocol: TCP
+      - toEndpoints: *observability-vmsingle-peers
+        toPorts: *tcp-8428
+      - toEndpoints: *observability-vmauth-peers
+        toPorts: *tcp-8427
   - description: Silence reconciler uses Alertmanager.
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: silence-operator
     egress:
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmalertmanager
-        toPorts:
-          - ports:
-              - port: "9093"
-                protocol: TCP
-  - description: vmagent discovers cluster scrape targets; broad pod egress is an explicit collector exception.
+      - toEndpoints: *observability-vmalertmanager-peers
+        toPorts: *tcp-9093
+  - description:
+      vmagent discovers cluster scrape targets; broad pod egress is an explicit collector
+      exception.
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: vmagent
@@ -668,9 +508,7 @@ specs:
           - matchExpressions:
               - key: io.kubernetes.pod.namespace
                 operator: Exists
-      - toEntities:
-          - host
-          - remote-node
+      - toEntities: [host, remote-node]
         toPorts:
           - ports:
               - port: "2381"
@@ -693,28 +531,18 @@ specs:
                 protocol: TCP
               - port: "10259"
                 protocol: TCP
-      - toCIDR:
-          - ${TRUENAS_IP}/32
+      - toCIDR: ["${TRUENAS_IP}/32"]
         toPorts:
           - ports:
-              - port: "9100"
-                protocol: TCP
-              - port: "9633"
-                protocol: TCP
-              - port: "28284"
-                protocol: TCP
-      - toCIDR:
-          - ${OPNSENSE_IP}/32
+              - { port: "9100", protocol: TCP }
+              - { port: "9633", protocol: TCP }
+              - { port: "28284", protocol: TCP }
+      - toCIDR: ["${OPNSENSE_IP}/32"]
         toPorts:
-          - ports:
-              - port: "9100"
-                protocol: TCP
-      - toCIDR:
-          - ${HOME_ASSISTANT_IP}/32
+          - ports: [{ port: "9100", protocol: TCP }]
+      - toCIDR: ["${HOME_ASSISTANT_IP}/32"]
         toPorts:
-          - ports:
-              - port: "8123"
-                protocol: TCP
+          - ports: [{ port: "8123", protocol: TCP }]
   - description: "vmalert: UI, rule evaluation, recording rules and alert notifications."
     endpointSelector:
       matchLabels:
@@ -725,35 +553,14 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmsingle
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
     egress:
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmauth
-        toPorts:
-          - ports:
-              - port: "8427"
-                protocol: TCP
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmsingle
-        toPorts:
-          - ports:
-              - port: "8428"
-                protocol: TCP
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmalertmanager
-        toPorts:
-          - ports:
-              - port: "9093"
-                protocol: TCP
+      - toEndpoints: *observability-vmauth-peers
+        toPorts: *tcp-8427
+      - toEndpoints: *observability-vmsingle-peers
+        toPorts: *tcp-8428
+      - toEndpoints: *observability-vmalertmanager-peers
+        toPorts: *tcp-9093
   - description: "vmauth: configured metric and log query clients."
     endpointSelector:
       matchLabels:
@@ -766,30 +573,16 @@ specs:
           - matchExpressions:
               - key: app.kubernetes.io/name
                 operator: In
-                values:
-                  - vmalert
-                  - keda-operator
+                values: [vmalert, keda-operator]
             matchLabels:
               io.kubernetes.pod.namespace: observability
-        toPorts:
-          - ports:
-              - port: "8427"
-                protocol: TCP
+        toPorts: *tcp-8427
     egress:
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmsingle
-        toPorts:
-          - ports:
-              - port: "8428"
-                protocol: TCP
+      - toEndpoints: *observability-vmsingle-peers
+        toPorts: *tcp-8428
       - toEndpoints:
           - *victoria-logs
-        toPorts:
-          - ports:
-              - port: "9428"
-                protocol: TCP
+        toPorts: *tcp-9428
   - description: "vmsingle: ingestion, rules, dashboards, status badges and Hermes metrics."
     endpointSelector:
       matchLabels:
@@ -800,12 +593,7 @@ specs:
           - matchExpressions:
               - key: app.kubernetes.io/name
                 operator: In
-                values:
-                  - vmagent
-                  - vmauth
-                  - vmalert
-                  - kromgo
-                  - keda-operator
+                values: [vmagent, vmauth, vmalert, kromgo, keda-operator]
             matchLabels:
               io.kubernetes.pod.namespace: observability
           - matchLabels:
@@ -817,19 +605,13 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: rook-ceph
               app: rook-ceph-mgr
-        toPorts:
-          - ports:
-              - port: "8428"
-                protocol: TCP
+        toPorts: *tcp-8428
     egress:
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmalert
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - description: "Alertmanager: UI, alert producers, silences, peers and Discord notifications."
     endpointSelector:
       matchLabels:
@@ -840,10 +622,7 @@ specs:
           - matchExpressions:
               - key: app.kubernetes.io/name
                 operator: In
-                values:
-                  - vmalert
-                  - silence-operator
-                  - siren
+                values: [vmalert, silence-operator, siren]
             matchLabels:
               io.kubernetes.pod.namespace: observability
           - matchLabels:
@@ -853,37 +632,17 @@ specs:
               io.kubernetes.pod.namespace: security
               k8s-app: crowdsec
               type: lapi
-        toPorts:
+        toPorts: *tcp-9093
+      - fromEndpoints: *observability-vmalertmanager-peers
+        toPorts: &tcp-udp-9094
           - ports:
-              - port: "9093"
-                protocol: TCP
-      - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmalertmanager
-        toPorts:
-          - ports:
-              - port: "9094"
-                protocol: TCP
-              - port: "9094"
-                protocol: UDP
+              - { port: "9094", protocol: TCP }
+              - { port: "9094", protocol: UDP }
     egress:
-      - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmalertmanager
-        toPorts:
-          - ports:
-              - port: "9094"
-                protocol: TCP
-              - port: "9094"
-                protocol: UDP
-      - toEntities:
-          - world
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
+      - toEndpoints: *observability-vmalertmanager-peers
+        toPorts: *tcp-udp-9094
+      - toEntities: [world]
+        toPorts: *tcp-443
   - description: "VictoriaLogs: collectors, query clients, UI and ToolHive backend."
     endpointSelector:
       matchLabels:
@@ -894,9 +653,7 @@ specs:
           - matchExpressions:
               - key: app.kubernetes.io/name
                 operator: In
-                values:
-                  - victoria-logs-collector
-                  - vmauth
+                values: [victoria-logs-collector, vmauth]
             matchLabels:
               io.kubernetes.pod.namespace: observability
           - matchLabels:
@@ -906,10 +663,7 @@ specs:
               io.kubernetes.pod.namespace: ai
               app: victorialogs-mcp
               toolhive: "true"
-        toPorts:
-          - ports:
-              - port: "9428"
-                protocol: TCP
+        toPorts: *tcp-9428
   - description: VictoriaLogs collector ships logs.
     endpointSelector:
       matchLabels:
@@ -917,10 +671,7 @@ specs:
     egress:
       - toEndpoints:
           - *victoria-logs
-        toPorts:
-          - ports:
-              - port: "9428"
-                protocol: TCP
+        toPorts: *tcp-9428
   - description: "nextcloud-exporter: configured application API."
     endpointSelector:
       matchLabels:
@@ -930,10 +681,8 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: default
               app.kubernetes.io/name: nextcloud
-        toPorts:
-          - ports:
-              - port: "80"
-                protocol: TCP
+        toPorts: &tcp-80
+          - ports: [{ port: "80", protocol: TCP }]
   - description: "satisfactory-frm-exporter: configured application API."
     endpointSelector:
       matchLabels:
@@ -943,10 +692,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: default
               app.kubernetes.io/name: satisfactory
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - description: "prowlarr-exporter: configured application API."
     endpointSelector:
       matchLabels:
@@ -956,10 +702,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: media
               app.kubernetes.io/name: prowlarr
-        toPorts:
-          - ports:
-              - port: "80"
-                protocol: TCP
+        toPorts: *tcp-80
   - description: "qbittorrent-exporter: configured application API."
     endpointSelector:
       matchLabels:
@@ -969,10 +712,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: media
               app.kubernetes.io/name: qbittorrent
-        toPorts:
-          - ports:
-              - port: "80"
-                protocol: TCP
+        toPorts: *tcp-80
   - description: "sonarr-exporter: configured application API."
     endpointSelector:
       matchLabels:
@@ -982,10 +722,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: media
               app.kubernetes.io/name: sonarr
-        toPorts:
-          - ports:
-              - port: "80"
-                protocol: TCP
+        toPorts: *tcp-80
   - description: Scraparr configured media APIs.
     endpointSelector:
       matchLabels:
@@ -995,87 +732,61 @@ specs:
           - matchExpressions:
               - key: app.kubernetes.io/name
                 operator: In
-                values:
-                  - radarr
-                  - sonarr
+                values: [radarr, sonarr]
             matchLabels:
               io.kubernetes.pod.namespace: media
-        toPorts:
-          - ports:
-              - port: "80"
-                protocol: TCP
+        toPorts: *tcp-80
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: media
               app.kubernetes.io/name: bazarr
         toPorts:
-          - ports:
-              - port: "6767"
-                protocol: TCP
+          - ports: [{ port: "6767", protocol: TCP }]
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: media
               app.kubernetes.io/name: jellyfin
         toPorts:
-          - ports:
-              - port: "8096"
-                protocol: TCP
+          - ports: [{ port: "8096", protocol: TCP }]
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: media
               app.kubernetes.io/name: seerr-chart
         toPorts:
-          - ports:
-              - port: "5055"
-                protocol: TCP
+          - ports: [{ port: "5055", protocol: TCP }]
   - description: "nut-exporter: configured LAN target; addresses use existing Flux substitutions."
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: nut-exporter
     egress:
-      - toCIDR:
-          - ${TRUENAS_IP}/32
+      - toCIDR: ["${TRUENAS_IP}/32"]
         toPorts:
-          - ports:
-              - port: "3493"
-                protocol: TCP
+          - ports: [{ port: "3493", protocol: TCP }]
   - description: "opnsense-exporter: configured LAN target; addresses use existing Flux substitutions."
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: opnsense-exporter
     egress:
-      - toCIDR:
-          - ${OPNSENSE_IP}/32
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
+      - toCIDR: ["${OPNSENSE_IP}/32"]
+        toPorts: *tcp-443
   - description: "klipper-exporter: configured LAN target; addresses use existing Flux substitutions."
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: klipper-exporter
     egress:
-      - toCIDR:
-          - ${CENTAURI_CARBON_IP}/32
-        toPorts:
-          - ports:
-              - port: "80"
-                protocol: TCP
+      - toCIDR: ["${CENTAURI_CARBON_IP}/32"]
+        toPorts: *tcp-80
   - description: Ookla tests select public servers on HTTP, HTTPS and test port 8080.
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: speedtest-exporter
     egress:
-      - toEntities:
-          - world
+      - toEntities: [world]
         toPorts:
           - ports:
-              - port: "80"
-                protocol: TCP
-              - port: "443"
-                protocol: TCP
-              - port: "8080"
-                protocol: TCP
+              - { port: "80", protocol: TCP }
+              - { port: "443", protocol: TCP }
+              - { port: "8080", protocol: TCP }
   - description: Blackbox probes mirror configured DNS, NFS, gateway TLS and LAN ICMP targets.
     endpointSelector:
       matchLabels:
@@ -1083,41 +794,24 @@ specs:
     egress:
       - toEndpoints:
           - *envoy-gateways
-        toPorts:
-          - ports:
-              - port: "10443"
-                protocol: TCP
+        toPorts: *tcp-10443
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: network
               app.kubernetes.io/name: k8s-gateway
+        toPorts: &udp-53
+          - ports: [{ port: "53", protocol: UDP }]
+      - toCIDR: ["${OPNSENSE_IP}/32"]
+        toPorts: *udp-53
+      - toCIDR: ["${TRUENAS_IP}/32"]
         toPorts:
-          - ports:
-              - port: "53"
-                protocol: UDP
-      - toCIDR:
-          - ${OPNSENSE_IP}/32
-        toPorts:
-          - ports:
-              - port: "53"
-                protocol: UDP
-      - toCIDR:
-          - ${TRUENAS_IP}/32
-        toPorts:
-          - ports:
-              - port: "2049"
-                protocol: TCP
-      - toCIDR:
-          - ${IPMI_IP}/32
-          - ${OPNSENSE_IP}/32
-          - ${TRUENAS_IP}/32
+          - ports: [{ port: "2049", protocol: TCP }]
+      - toCIDR: ["${IPMI_IP}/32", "${OPNSENSE_IP}/32", "${TRUENAS_IP}/32"]
         icmps:
           - fields:
               - family: IPv4
                 type: 8
-      - toEntities:
-          - host
-          - remote-node
+      - toEntities: [host, remote-node]
         icmps:
           - fields:
               - family: IPv4

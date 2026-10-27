@@ -5,7 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: ai-ingress-allowlist
   namespace: ai
-# Local proposal only: see docs/kguardian-ai-policy-draft.md before audit/enforcement.
+# Local proposal only: see docs/kguardian-policy-drafts.md before audit/enforcement.
 # CNPs and native NetworkPolicies are additive; app rules below union with the
 # ToolHive/inference policies. No namespace-wide application grant remains.
 specs:
@@ -46,7 +46,8 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: memini
-          - matchLabels:
+          - &unified
+            matchLabels:
               io.kubernetes.pod.namespace: ai
               app: virtualmcpserver
               app.kubernetes.io/instance: unified
@@ -59,10 +60,11 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: security
               app.kubernetes.io/name: kguardian-llm-bridge
-          - matchLabels:
+          - &envoy-internal
+            matchLabels:
               io.kubernetes.pod.namespace: network
               gateway.networking.k8s.io/gateway-name: envoy-internal
-        toPorts:
+        toPorts: &tcp-4000
           - ports:
               - port: "4000"
                 protocol: TCP
@@ -70,23 +72,23 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: headroom
-          - matchLabels:
+          - &agentgateway
+            matchLabels:
               io.kubernetes.pod.namespace: ai
               gateway.networking.k8s.io/gateway-name: agentgateway
-        toPorts:
+        toPorts: &tcp-8080
           - ports:
               - port: "8080"
                 protocol: TCP
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: network
-              gateway.networking.k8s.io/gateway-name: envoy-internal
+          - *envoy-internal
         toPorts:
           - ports:
               - port: "15000"
                 protocol: TCP
       - fromEndpoints:
-          - matchLabels:
+          - &vmagent
+            matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmagent
         toPorts:
@@ -103,13 +105,12 @@ specs:
               - port: "8787"
                 protocol: TCP
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              gateway.networking.k8s.io/gateway-name: agentgateway
+          - *agentgateway
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: embedding-cache
-          - matchLabels:
+          - &reranker
+            matchLabels:
               io.kubernetes.pod.namespace: ai
               inference.llmkube.dev/service: bge-reranker-v2-m3
           - matchLabels:
@@ -118,10 +119,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               inference.llmkube.dev/service: qwen35-2b
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
@@ -153,47 +151,30 @@ specs:
         app.kubernetes.io/instance: headroom
     ingress:
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              gateway.networking.k8s.io/gateway-name: agentgateway
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmagent
+          - *agentgateway
+          - *vmagent
         toPorts:
           - ports:
               - port: "8787"
                 protocol: TCP
     egress:
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              gateway.networking.k8s.io/gateway-name: agentgateway
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+          - *agentgateway
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
         app.kubernetes.io/instance: embedding-cache
     ingress:
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              gateway.networking.k8s.io/gateway-name: agentgateway
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+          - *agentgateway
+        toPorts: *tcp-8080
     egress:
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               inference.llmkube.dev/service: embeddinggemma-2
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+        toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -203,47 +184,27 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: hermes
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              app: virtualmcpserver
-              app.kubernetes.io/instance: unified
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+          - *unified
+        toPorts: *tcp-8080
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: network
-              gateway.networking.k8s.io/gateway-name: envoy-internal
+          - *envoy-internal
         toPorts:
           - ports:
               - port: "8081"
                 protocol: TCP
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmagent
+          - *vmagent
         toPorts:
           - ports:
               - port: "9090"
                 protocol: TCP
     egress:
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              gateway.networking.k8s.io/gateway-name: agentgateway
-        toPorts:
-          - ports:
-              - port: "4000"
-                protocol: TCP
+          - *agentgateway
+        toPorts: *tcp-4000
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              inference.llmkube.dev/service: bge-reranker-v2-m3
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+          - *reranker
+        toPorts: *tcp-8080
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: database
@@ -258,18 +219,15 @@ specs:
         app.kubernetes.io/instance: omniroute
     ingress:
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              gateway.networking.k8s.io/gateway-name: agentgateway
-          - matchLabels:
-              io.kubernetes.pod.namespace: network
-              gateway.networking.k8s.io/gateway-name: envoy-internal
+          - *agentgateway
+          - *envoy-internal
         toPorts:
           - ports:
               - port: "20128"
                 protocol: TCP
     egress:
-      - toEntities:
+      - &internet-https
+        toEntities:
           - world
         toPorts:
           - ports:
@@ -283,42 +241,27 @@ specs:
         app.kubernetes.io/instance: hermes
     ingress:
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: network
-              gateway.networking.k8s.io/gateway-name: envoy-internal
+          - *envoy-internal
         toPorts:
           - ports:
               - port: "9119"
                 protocol: TCP
     egress:
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              app: virtualmcpserver
-              app.kubernetes.io/instance: unified
+          - *unified
         toPorts:
           - ports:
               - port: "4483"
                 protocol: TCP
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              gateway.networking.k8s.io/gateway-name: agentgateway
-        toPorts:
-          - ports:
-              - port: "4000"
-                protocol: TCP
+          - *agentgateway
+        toPorts: *tcp-4000
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: memini
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              inference.llmkube.dev/service: bge-reranker-v2-m3
-        toPorts:
-          - ports:
-              - port: "8080"
-                protocol: TCP
+          - *reranker
+        toPorts: *tcp-8080
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: media
@@ -338,9 +281,7 @@ specs:
       # The prior profile includes internal HTTPS through the gateway as well as
       # public web requests; world does not match these in-cluster proxy endpoints.
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: network
-              gateway.networking.k8s.io/gateway-name: envoy-internal
+          - *envoy-internal
         toPorts:
           - ports:
               - port: "10443"
@@ -353,7 +294,8 @@ specs:
           - ports:
               - port: "8123"
                 protocol: TCP
-      - toEntities:
+      - &internet-http
+        toEntities:
           - world
         toPorts:
           - ports:
@@ -367,39 +309,22 @@ specs:
         app.kubernetes.io/instance: opencode
     ingress:
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: network
-              gateway.networking.k8s.io/gateway-name: envoy-internal
+          - *envoy-internal
         toPorts:
           - ports:
               - port: "4096"
                 protocol: TCP
     egress:
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              app: virtualmcpserver
-              app.kubernetes.io/instance: unified
+          - *unified
         toPorts:
           - ports:
               - port: "4483"
                 protocol: TCP
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              gateway.networking.k8s.io/gateway-name: agentgateway
-        toPorts:
-          - ports:
-              - port: "4000"
-                protocol: TCP
-      - toEntities:
-          - world
-        toPorts:
-          - ports:
-              - port: "80"
-                protocol: TCP
-              - port: "443"
-                protocol: TCP
+          - *agentgateway
+        toPorts: *tcp-4000
+      - *internet-http
   - endpointSelector:
       matchLabels:
         io.kubernetes.pod.namespace: ai
@@ -413,15 +338,14 @@ specs:
               - port: "9443"
                 protocol: TCP
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app.kubernetes.io/name: vmagent
+          - *vmagent
         toPorts:
           - ports:
               - port: "8443"
                 protocol: TCP
     egress:
-      - toEntities:
+      - &kube-api
+        toEntities:
           - kube-apiserver
         toPorts:
           - ports:
@@ -429,35 +353,16 @@ specs:
                 protocol: TCP
               - port: "6443"
                 protocol: TCP
-      - toEntities:
-          - world
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
+      - *internet-https
   - endpointSelector:
       matchLabels:
         # Kopiur reads its job/config API. NFS mounts are performed by the node.
         app.kubernetes.io/managed-by: kopiur
     egress:
-      - toEntities:
-          - kube-apiserver
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
-              - port: "6443"
-                protocol: TCP
+      - *kube-api
   - endpointSelector:
       matchLabels:
         # Scheduled rollout restart; do not depend on a particular Job/pod name.
         io.cilium.k8s.policy.serviceaccount: vmcp-restart
     egress:
-      - toEntities:
-          - kube-apiserver
-        toPorts:
-          - ports:
-              - port: "443"
-                protocol: TCP
-              - port: "6443"
-                protocol: TCP
+      - *kube-api
