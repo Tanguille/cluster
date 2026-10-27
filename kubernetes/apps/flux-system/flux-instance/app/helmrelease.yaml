@@ -201,9 +201,13 @@ spec:
               # explicit RemediateOnFailure, which overrides this gate.
               # DisableChartDigestTracking: prevents helm-controller from pinning OCI chart digests in HelmRelease
               # status, which otherwise causes spurious drift when registries reassign digests (e.g. after re-push).
+              # CancelHealthCheckOnNewRevision: any new reconcile request (chart revision, valuesFrom object change,
+              # `flux reconcile hr`) interrupts a pending health check; apply, hooks and tests are not canceled. A cancel
+              # counts as an upgrade failure, so with unchanged chart and values the RemediateOnFailure patch rolls back
+              # and re-upgrades; `flux reconcile hr --reset` clears the count instead.
               - op: add
                 path: /spec/template/spec/containers/0/args/-
-                value: --feature-gates=OOMWatch=true,DefaultToRetryOnFailure=true,DisableChartDigestTracking=true
+                value: --feature-gates=OOMWatch=true,DefaultToRetryOnFailure=true,DisableChartDigestTracking=true,CancelHealthCheckOnNewRevision=true
               - op: add
                 path: /spec/template/spec/containers/0/args/-
                 value: --watch-configs-label-selector=owner!=helm

@@ -12,9 +12,9 @@ REQUIREMENTS = Path(os.environ.get("ARMIGER_REQUIREMENTS", "/bootstrap/requireme
 TORCH = "torch==2.14.1+cpu"
 # Commit-pinned, so the fetched content is immutable; Renovate bumps each pair.
 CONNECTOR_REPO = "https://github.com/spencernorton/Armiger-Connectors"
-CONNECTOR_REVISION = "062a9cbe6e0c1ff25576c4e8e24d516543c37859"
+CONNECTOR_REVISION = "6bcd1d593bc1aa3c72ff08aaaff8417d807a6fc3"
 MODEL_REPO = "https://huggingface.co/NorviTech/armiger-ultra"
-MODEL_REVISION = "cdf7036c45a0d9751d18e738c7abfde485552964"
+MODEL_REVISION = "e17153fb00b7a749e0f9d1f1c605e3c8c92c6a22"
 RUNTIME = ROOT / "runtime"
 MODEL = ROOT / "model"
 PYTHON = RUNTIME / "venv/bin/python3"
