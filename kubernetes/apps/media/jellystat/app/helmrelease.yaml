@@ -26,6 +26,10 @@ spec:
             env:
               TZ: ${TIMEZONE}
 
+            # Entrypoint only reads secret files and starts npm; no privilege switch.
+            securityContext:
+              allowPrivilegeEscalation: false
+
             resources:
               requests:
                 cpu: 10m

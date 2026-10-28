@@ -10,6 +10,9 @@ spec:
     kind: OCIRepository
     name: victoria-logs-collector
   values:
+    securityContext:
+      # uid and capabilities unchanged: reads host-owned log files.
+      allowPrivilegeEscalation: false
     resources:
       requests:
         cpu: 25m

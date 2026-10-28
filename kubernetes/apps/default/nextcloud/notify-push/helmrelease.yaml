@@ -16,6 +16,8 @@ spec:
           reloader.stakater.com/auto: "true"
         containers:
           app:
+            securityContext:
+              allowPrivilegeEscalation: false
             # No official image; using icewind1991/notify_push (Nextcloud contributor).
             # Track https://github.com/nextcloud/notify_push for an official image.
             image:

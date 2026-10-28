@@ -329,6 +329,9 @@ spec:
           - /bin/bash
           - /scripts/cron.sh
         securityContext:
+          # cron.sh runs as www-data, not via the root entrypoint.
+          allowPrivilegeEscalation: false
+          capabilities: { drop: [ALL] }
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true
