@@ -122,6 +122,18 @@
       datasourceTemplate: "docker"
     },
     {
+      // csi.<sidecar> keys miss the flux manager's values heuristic, which needs a parent key ending in "image".
+      description: "Rook CSI sidecar images: split repository/tag fields",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/rook-ceph/rook-ceph/app/helmrelease\\.yaml$/"
+      ],
+      matchStrings: [
+        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      datasourceTemplate: "docker"
+    },
+    {
       description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
       customType: "regex",
       managerFilePatterns: [
@@ -227,6 +239,7 @@
         "/openebs/",
         "/kopiur/",
         "/snapshot-controller/",
+        "/sig-storage/",
         "/cloudnative-pg/",
         "/postgres/",
         "/vchord/",
