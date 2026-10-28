@@ -5,7 +5,6 @@ kind: CiliumNetworkPolicy
 metadata:
   name: web3-ingress-allowlist
   namespace: web3
-# DRAFT: collect seven days of AuditNetworkPolicy evidence before enforcement.
 specs:
   # Default-deny both directions; app rules below union with these infrastructure paths.
   - endpointSelector: {}
