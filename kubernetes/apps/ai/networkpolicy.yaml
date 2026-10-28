@@ -5,7 +5,6 @@ kind: CiliumNetworkPolicy
 metadata:
   name: ai-ingress-allowlist
   namespace: ai
-# Local proposal only: see docs/security/kguardian-ai.md before audit/enforcement.
 # Policies are additive; app rules below union with the ToolHive/inference policies.
 specs:
   # Default-deny both directions for every pod, including Jobs. The qwen38-27b-vllm
