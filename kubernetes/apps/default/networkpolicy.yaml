@@ -146,7 +146,7 @@ specs:
               app.kubernetes.io/name: nextcloud-exporter
         toPorts: &tcp-80
           - ports: [{ port: "80", protocol: TCP }]
-  - description: "Obico server: internal route and hostNetwork moonraker-obico clients."
+  - description: "Obico server: internal route, ML image callbacks and hostNetwork moonraker-obico clients."
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: server
@@ -154,6 +154,10 @@ specs:
     ingress:
       - fromEndpoints:
           - *envoy-internal
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: ml-api
+              app.kubernetes.io/instance: obico
         toPorts: &tcp-3334
           - ports: [{ port: "3334", protocol: TCP }]
       - fromEntities: [remote-node]
@@ -172,7 +176,7 @@ specs:
               app.kubernetes.io/name: ml-api
               app.kubernetes.io/instance: obico
         toPorts: *tcp-3333
-  - description: "Obico ML API: only the Obico server."
+  - description: "Obico ML API: server requests and image download callbacks."
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: ml-api
@@ -184,6 +188,13 @@ specs:
               app.kubernetes.io/name: server
               app.kubernetes.io/instance: obico
         toPorts: *tcp-3333
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: server
+              app.kubernetes.io/instance: obico
+        toPorts: *tcp-3334
   - description: "Satisfactory: FRM monitoring; game ingress remains in the app policy."
     endpointSelector:
       matchLabels:

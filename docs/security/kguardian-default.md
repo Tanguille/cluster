@@ -131,6 +131,9 @@ Narrow app policies remain additive. Satisfactory world ingress excludes FRM
 Nextcloud-to-notify-push 7867 is permitted in both directions. The five-minute
 Nextcloud CronJob, daily Satisfactory restart and nightly Kopiur movers are covered
 by stable selectors; movers retain API access for the filesystem repository.
+Obico's ML API downloads each detection image from the server's internal media
+URL, so the policy permits ML API egress and server ingress on TCP 3334. Validate
+an actual image-analysis request during audit, including the callback.
 
 Audit cold starts, browser/model fetches, optional integrations, callbacks,
 notifications and backup/restore cycles. A newer Nextcloud CronJob had no data.
