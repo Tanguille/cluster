@@ -29,6 +29,8 @@ spec:
       value: :8080
   podTemplateSpec:
     spec:
+      # No cluster access needed.
+      automountServiceAccountToken: false
       volumes:
         - name: talos
           secret:

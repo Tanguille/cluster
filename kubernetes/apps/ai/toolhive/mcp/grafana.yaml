@@ -29,6 +29,8 @@ spec:
       value: disabled
   podTemplateSpec:
     spec:
+      # No cluster access needed.
+      automountServiceAccountToken: false
       containers:
         - name: mcp
           resources:

@@ -13,6 +13,17 @@ spec:
 
   values:
     server:
+      securityContext: &nonroot-context
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities: { drop: [ALL] }
+      initContainers:
+        # Chart runs collectstatic as root; keep its uid and capabilities.
+        collectstatic:
+          securityContext:
+            allowPrivilegeEscalation: false
+        migrate:
+          securityContext: *nonroot-context
       # Repositories equal the chart defaults; spelled out so Renovate tracks the digests.
       image:
         repository: ghcr.io/gabe565/obico/web
@@ -30,6 +41,7 @@ spec:
           memory: 1Gi
       additionalContainers:
         tasks:
+          securityContext: *nonroot-context
           resources:
             requests:
               cpu: 100m
@@ -49,6 +61,7 @@ spec:
           size: 20Gi
 
     ml-api:
+      securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/ml-api
         tag: release@sha256:1f2eb63dff11731f4a87d5055c9cf062ae7475af73caae5fecc1dd284600b3ce
