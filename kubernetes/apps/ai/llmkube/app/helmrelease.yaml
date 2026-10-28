@@ -44,7 +44,14 @@ spec:
       dashboards:
         enabled: true
         namespace: observability
-        # Auto mode gates the SGLang and vLLM dashboards; quota, slo and model-router render blank (no GPUQuota, pyrra or router-proxy: the ModelRouter compiles to agentgateway).
+        # Skips quota, slo and model-router, which render blank (no GPUQuota, pyrra or router-proxy; the ModelRouter compiles to agentgateway).
+        # Auto mode publishes the runtime dashboards only while a matching InferenceService exists.
+        only:
+          - amd-gpu-observability
+          - llamacpp-dashboard
+          - llmkube-inference
+          - sglang-dashboard
+          - vllm-dashboard
         operator:
           enabled: true
           folder: ai

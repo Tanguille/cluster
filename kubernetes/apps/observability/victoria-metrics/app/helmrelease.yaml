@@ -37,7 +37,8 @@ spec:
             matchLabels:
               grafana.internal/instance: grafana
           allowCrossNamespaceImport: true
-      # No AIX/Darwin/Windows nodes here; these bundle dashboards stay empty.
+      # Bundle dashboards that stay empty here: no AIX/Darwin/Windows nodes,
+      # no Prometheus, no instance:node_* recording rules, one cluster.
       dashboards:
         nodes-aix:
           enabled: false
@@ -52,6 +53,16 @@ spec:
         k8s-windows-cluster-rsrc-use:
           enabled: false
         k8s-windows-node-rsrc-use:
+          enabled: false
+        prometheus:
+          enabled: false
+        prometheus-remote-write:
+          enabled: false
+        node-rsrc-use:
+          enabled: false
+        node-cluster-rsrc-use:
+          enabled: false
+        k8s-resources-multicluster:
           enabled: false
 
     defaultDatasources:
