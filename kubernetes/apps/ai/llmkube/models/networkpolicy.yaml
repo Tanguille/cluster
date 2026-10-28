@@ -9,8 +9,7 @@ spec:
   # unauthenticated; agentgateway is the only sanctioned front door (keys,
   # routing, admission), with its embedding cache in front of the embedder.
   # Expected ingress: agentgateway, vmagent scrapes and kubelet probes.
-  # The namespace policy now only adds host probes and DNS replies; it no longer
-  # grants all AI callers access. Health/guard probes run in-pod.
+  # The namespace policy adds only host probes and DNS. Health/guard probes run in-pod.
   # Direct bge-reranker-v2-m3 callers get their own policy below.
   endpointSelector:
     matchExpressions:

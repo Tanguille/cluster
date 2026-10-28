@@ -21,7 +21,7 @@ spec:
       targetEnvName: TRUENAS_MCP_API_KEY
   podTemplateSpec:
     spec:
-      # Only the proxy manages Kubernetes pods; this backend uses its configured service credentials.
+      # No cluster access needed.
       automountServiceAccountToken: false
       containers:
         - name: mcp

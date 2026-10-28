@@ -79,7 +79,6 @@ spec:
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime
   # path. Mirrored by embeddinggemma-2 / qwen35-2b.
   podSecurityContext:
-    # Keep the existing GPU/cache ownership; use the runtime syscall baseline.
     seccompProfile:
       type: RuntimeDefault
     runAsUser: 0

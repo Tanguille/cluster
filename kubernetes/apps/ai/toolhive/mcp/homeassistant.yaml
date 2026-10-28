@@ -20,7 +20,7 @@ spec:
       targetEnvName: HOMEASSISTANT_TOKEN
   podTemplateSpec:
     spec:
-      # Only the proxy manages Kubernetes pods; this backend uses its configured service credentials.
+      # No cluster access needed.
       automountServiceAccountToken: false
       volumes:
         - name: tmp

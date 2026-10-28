@@ -104,9 +104,3 @@ spec:
 
     grafanaDashboards:
       enabled: true
-
-    networkpolicies:
-      main:
-        # Avoid an additive namespace-wide grant over the per-peer Cilium rules.
-        # ai/networkpolicy.yaml owns memini ingress and egress, including probes/DNS.
-        enabled: false

@@ -70,7 +70,6 @@ spec:
           topologyKey: kubernetes.io/hostname
 
   podSecurityContext:
-    # Keep the existing GPU/cache ownership; use the runtime syscall baseline.
     seccompProfile:
       type: RuntimeDefault
     runAsUser: 0

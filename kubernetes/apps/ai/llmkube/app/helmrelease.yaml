@@ -11,8 +11,7 @@ spec:
     name: llmkube
   values:
     controllerManager:
-      # Override the chart's 8.18.0 downloader, whose dependency findings also affect current model init pods.
-      # Keep model-cache-prep and downloader identities/capabilities under the operator's existing policy.
+      # Model init downloader; the chart default image carries Critical/High CVEs.
       initContainer:
         repository: docker.io/curlimages/curl
         tag: 8.23.0@sha256:11e64e28c5f58c8d93ee95fcf22ac055f48b0bc440e0ce7d8013bbb5ad6aa8ac

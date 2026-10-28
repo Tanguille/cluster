@@ -6,17 +6,16 @@ metadata:
   name: ai-ingress-allowlist
   namespace: ai
 # Local proposal only: see docs/security/kguardian-ai.md before audit/enforcement.
-# CNPs and native NetworkPolicies are additive; app rules below union with the
-# ToolHive/inference policies. No namespace-wide application grant remains.
+# Policies are additive; app rules below union with the ToolHive/inference policies.
 specs:
-  # Default-deny both directions, including future Jobs and unknown pods.
-  # DNS-only today: the qwen38-27b-vllm kv-offload-guard and compile-cache-prune CronJobs (filesystem only).
-  # Host probes and rev-NAT DNS replies retain unported ingress; reply destination
-  # ports are ephemeral. DNS queries use kube-dns TCP/UDP53 without an L7 proxy.
+  # Default-deny both directions for every pod, including Jobs. The qwen38-27b-vllm
+  # kv-offload-guard and compile-cache-prune CronJobs need only this DNS egress.
   - endpointSelector: {}
     ingress:
+      # kubelet probes.
       - fromEntities:
           - host
+      # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
       - fromEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: kube-system
@@ -38,13 +37,15 @@ specs:
         gateway.networking.k8s.io/gateway-name: agentgateway
     ingress:
       - fromEndpoints:
-          - matchLabels:
+          - &hermes
+            matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: hermes
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: opencode
-          - matchLabels:
+          - &memini
+            matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: memini
           - &unified
@@ -70,7 +71,8 @@ specs:
               - port: "4000"
                 protocol: TCP
       - fromEndpoints:
-          - matchLabels:
+          - &headroom
+            matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: headroom
           - &agentgateway
@@ -98,10 +100,8 @@ specs:
                 protocol: TCP
     egress:
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              app.kubernetes.io/instance: headroom
-        toPorts:
+          - *headroom
+        toPorts: &tcp-8787
           - ports:
               - port: "8787"
                 protocol: TCP
@@ -114,7 +114,8 @@ specs:
             matchLabels:
               io.kubernetes.pod.namespace: ai
               inference.llmkube.dev/service: bge-reranker-v2-m3
-          - matchLabels:
+          - &embedder
+            matchLabels:
               io.kubernetes.pod.namespace: ai
               inference.llmkube.dev/service: embeddinggemma-2
           - matchLabels:
@@ -133,7 +134,7 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: omniroute
-        toPorts:
+        toPorts: &tcp-20128
           - ports:
               - port: "20128"
                 protocol: TCP
@@ -154,10 +155,7 @@ specs:
       - fromEndpoints:
           - *agentgateway
           - *vmagent
-        toPorts:
-          - ports:
-              - port: "8787"
-                protocol: TCP
+        toPorts: *tcp-8787
     egress:
       - toEndpoints:
           - *agentgateway
@@ -172,9 +170,7 @@ specs:
         toPorts: *tcp-8080
     egress:
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              inference.llmkube.dev/service: embeddinggemma-2
+          - *embedder
         toPorts: *tcp-8080
   - endpointSelector:
       matchLabels:
@@ -182,9 +178,7 @@ specs:
         app.kubernetes.io/instance: memini
     ingress:
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              app.kubernetes.io/instance: hermes
+          - *hermes
           - *unified
         toPorts: *tcp-8080
       - fromEndpoints:
@@ -222,10 +216,7 @@ specs:
       - fromEndpoints:
           - *agentgateway
           - *envoy-internal
-        toPorts:
-          - ports:
-              - port: "20128"
-                protocol: TCP
+        toPorts: *tcp-20128
     egress:
       - &internet-https
         toEntities:
@@ -250,7 +241,7 @@ specs:
     egress:
       - toEndpoints:
           - *unified
-        toPorts:
+        toPorts: &tcp-4483
           - ports:
               - port: "4483"
                 protocol: TCP
@@ -258,9 +249,7 @@ specs:
           - *agentgateway
         toPorts: *tcp-4000
       - toEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: ai
-              app.kubernetes.io/instance: memini
+          - *memini
           - *reranker
         toPorts: *tcp-8080
       - toEndpoints:
@@ -279,8 +268,7 @@ specs:
           - ports:
               - port: "8428"
                 protocol: TCP
-      # The prior profile includes internal HTTPS through the gateway as well as
-      # public web requests; world does not match these in-cluster proxy endpoints.
+      # In-cluster HTTPS goes through envoy-internal, which world does not match.
       - toEndpoints:
           - *envoy-internal
         toPorts:
@@ -318,10 +306,7 @@ specs:
     egress:
       - toEndpoints:
           - *unified
-        toPorts:
-          - ports:
-              - port: "4483"
-                protocol: TCP
+        toPorts: *tcp-4483
       - toEndpoints:
           - *agentgateway
         toPorts: *tcp-4000

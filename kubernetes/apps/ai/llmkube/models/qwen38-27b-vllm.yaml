@@ -42,7 +42,7 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
-          # Filesystem maintenance uses no Kubernetes API client.
+          # No cluster access needed.
           automountServiceAccountToken: false
           securityContext:
             seccompProfile:
@@ -156,7 +156,7 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
-          # Filesystem maintenance uses no Kubernetes API client.
+          # No cluster access needed.
           automountServiceAccountToken: false
           securityContext:
             seccompProfile:
