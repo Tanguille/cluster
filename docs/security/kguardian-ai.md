@@ -126,6 +126,7 @@ Local validation passed:
   tests. All 38 controller profiles have a decision row above.
 
 Runtime verification is still required:
+
 - Before enforcement, test cold model downloads/loads, inference and probes,
   OpenCode plugin/tool execution, each MCP transport and both maintenance Job
   schedules. Ensure removal of the backend token does not expose an undocumented
