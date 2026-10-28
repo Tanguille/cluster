@@ -35,7 +35,8 @@ spec:
       enabled: true
       storageClass: ceph-block
     networkPolicy:
-      enabled: true
+      # The namespace CNP owns the allowlist; additive chart rules would widen it.
+      enabled: false
     monitoring:
       serviceMonitor:
         enabled: true
