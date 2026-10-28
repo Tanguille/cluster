@@ -35,7 +35,7 @@ never means safe. Raw pod addresses, credentials and captures are not published.
 | Workload inventory, profiles and revision diffs | 1 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
 | Namespace traffic | 0 records, 0 pods, 0 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
 | Image inventory | 1 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
-| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| Vulnerabilities and exposure | kguardian's HIGH/CRITICAL query returned no findings because its image reports are absent. Separate Trivy findings appear below; kguardian exposure evaluation still needs ingested reports. This is not zero vulnerabilities. |
 | SBOM and signer queries | Queried all 1 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
 | Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
 | Syscalls and profile generation | Representative `renovate-operator` pod returned 33 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
@@ -114,3 +114,26 @@ include the namespace; the unmerged write-rate branch proposed excluding it.
 `mise exec -- bash .agents/skills/pr-review/scripts/validate-pr.sh` passed:
 full Flux/Helm rendering, shellcheck, repository secret guardrails and all 25
 regression tests. No live deployment or seven-day audit was performed.
+
+## Trivy follow-up, 2026-10-28
+
+The [image ledger](trivy-renovate-images.csv) records the operator and generated
+Job images separately. MCP confirms the operator's running digest matches its
+2026-10-26 report. The [finding ledger](trivy-renovate-findings.csv) preserves its
+one High finding: CVE-2026-78669 in `golang.org/x/net` v0.59.0, fixed in v0.60.0.
+The newest stable publisher release 6.7.0 was checked, but its
+[tagged source](https://github.com/mogenius/renovate-operator/blob/01b4299e9bd2af6f8a6dfcbed8cff65610cc64bf/src/go.mod)
+still selects v0.59.0. Its newer Go compiler does not update that separate module.
+No ineffective security bump is included; a publisher dependency fix and a
+matching fresh scan remain required.
+
+The generated Renovate Job image has no matching report in the captured inventory
+and remains **unknown**, not clean. Current namespace config/RBAC reports contain
+no failed Critical/High checks, and MCP binding inspection found no additional
+cluster-role grant to a Renovate service account. Keep `ownNamespaceOnly: true`
+and the operator's Job/API permissions. No scanner exclusions, ignores, custom
+images or live changes are introduced.
+
+The snapshot above observed the Renovate job image 44.190.2. Main subsequently
+advanced that job to 44.191.0 in #6300; that replacement has no verified report
+in this collection. This docs-only follow-up does not revert the image update.
