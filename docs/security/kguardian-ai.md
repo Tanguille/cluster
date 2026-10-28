@@ -149,7 +149,7 @@ never means safe. Raw pod addresses, credentials and captures are not published.
 | Workload inventory, profiles and revision diffs | 38 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
 | Namespace traffic | 0 records, 0 pods, 0 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
 | Image inventory | 24 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
-| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| Vulnerabilities and exposure | kguardian's HIGH/CRITICAL query returned no findings because its image reports are absent. Separate Trivy findings appear below; kguardian exposure evaluation still needs ingested reports. This is not zero vulnerabilities. |
 | SBOM and signer queries | Queried all 24 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
 | Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
 | Syscalls and profile generation | Representative `hermes` pod returned 72 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
@@ -273,3 +273,75 @@ is bound to get/list/watch MCP resources, configuration and discovery credential
 and patch VirtualMCPServer status. Add Kubernetes API TCP 443/6443 to Unified's
 existing app/instance selector; the operator/proxy selectors do not cover it.
 This narrow rule fixes a draft omission; no other agent gains API access.
+
+## Trivy follow-up, 2026-10-28
+
+The [image ledger](trivy-ai-images.csv) records 26 distinct current or scheduled
+image digests: 13 have matching reports and 13 have **unknown** vulnerability
+contents. The [finding ledger](trivy-ai-findings.csv) preserves all 408 distinct
+Critical/High image/package findings (12 Critical, 396 High), including installed
+versions and every reported fixed version. These are existing report findings,
+not a new scan or the number of distinct CVE identifiers. Repeated pods and report
+owners are deduplicated by image digest, finding id, package and version.
+
+Read-only Flux MCP queries refreshed pod images, init-container imageIDs, report
+metadata and RBAC bindings. AI is excluded from current Trivy capture, so old
+reports remain evidence of known defects, not current coverage. Most MCP backend
+reports are 4–16 days old. The 34-day-old `curlimages/curl:8.18.0` report belongs
+to an obsolete Job, but its exact digest still matches current LLMKube init
+containers. An owner-only join would incorrectly discard its 2 Critical and
+24 High findings. The recent BusyBox report from another namespace matches the
+exact scheduled/current digest. No report is counted as clean merely because its
+owner disappeared; no missing report is counted as zero.
+
+Two publisher-image updates are drafted:
+
+| Consumer | Candidate | Evidence and limits |
+| --- | --- | --- |
+| Flux MCP backend | `ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.62.1@sha256:0b4181bc9ada80eedf3e9df3355153abc9c3e6d8b913bddebe0b12908309bff6` | Reading the exported binary with `go version -m` found actual Go 1.27.3 and `golang.org/x/net` v0.61.0, meeting the fix versions in all four existing High records. No image or binary was executed. |
+| LLMKube model initialization | `docker.io/curlimages/curl:8.23.0@sha256:11e64e28c5f58c8d93ee95fcf22ac055f48b0bc440e0ce7d8013bbb5ad6aa8ac` | The amd64 image's APK database has libcrypto3/libssl3 3.5.9-r0, libssh2 1.11.1-r4, musl/musl-utils 1.2.6-r2, nghttp2-libs 1.70.0-r0 and zlib 1.3.2-r1; nghttp2-dev is absent. These meet the 26 historical package fix criteria or remove the affected package. |
+
+Flux MCP's OCI revision matches
+[the inspected source](https://github.com/controlplaneio-fluxcd/flux-operator/blob/48e2cd76c475be87a1c9a8bd83fe07e064abd725/cmd/mcp/main.go):
+`serve --transport=http --port=8080`, `/mcp`, KUBECONFIG and the nonroot entrypoint
+remain supported. No tool filters, credentials or permissions change.
+LLMKube uses the pinned chart's native `controllerManager.initContainer` values;
+the chart renders the override into `--init-container-image`. Current model
+pod/initialization identities, CHOWN/FOWNER cache preparation and download flags
+remain unchanged. The candidate archive contains the existing scripts' shell,
+curl, flock, stat, find, hash and filesystem utilities. Static package/command
+inspection does not test cold downloads, cache revalidation or filesystem locks.
+The evidence covers amd64, the current model/MCP node architecture; another
+architecture needs separate artifact validation.
+
+The other backend stable tags still resolve to the reported digests. Publisher
+release checks and blockers are recorded per image. Talos MCP's stable 0.0.2 is
+unchanged; its unversioned latest image was built on 2026-07-16 and has no verified
+fix set. Kubernetes' latest stable kubectl 1.37.2 still has the two reported
+dependencies. No unverified digest refresh is called a fix.
+
+Searxng's unchanged fork is still package version 0.10.0. The
+[official 2.9.0 source](https://github.com/ihor-sokoliuk/mcp-searxng/blob/59635c3a4b3cca5aafc183570be3f56a6032dcdc/package.json)
+is a migration candidate, with newer MCP SDK/undici/Hono dependencies, but is
+deferred: its HTTP default bind is loopback, it validates Origin, and authentication,
+session handling, tool inventory and result contracts differ. The
+[HTTP guide](https://github.com/ihor-sokoliuk/mcp-searxng/blob/59635c3a4b3cca5aafc183570be3f56a6032dcdc/docs/http-server.md)
+requires explicit deployment choices. Keep a versioned candidate, exercise
+ToolHive discovery, `/health`, search and URL-read contracts, and obtain a fresh
+scan before replacing the fork. No authentication bypass is added.
+
+The config/RBAC review retains the following explicit blockers; none is ignored
+or removed from Trivy:
+
+| Finding | Evidence and decision |
+| --- | --- |
+| AVD-KSV-0014 / AVD-KSV-0118 on old prestage/prepull Jobs | These config reports do not match active workload owner UIDs. They do not establish the current pod's security context. The Curl image finding above still applies independently by digest. |
+| AVD-KSV-0056 on ten ToolHive proxy runner Roles | MCP confirms these Roles manage backend StatefulSets and Services. Removing Service create/update/delete breaks the proxy's backend lifecycle. Keep the necessary capability; narrower operator-generated RBAC needs an upstream-supported design and lifecycle tests. |
+| AVD-KSV-0041 / 0050 / 0056 on `llmkube-manager-role` | Model credentials, generated Services and controller-managed RBAC need these permissions. Keep the controller's functioning permissions; any namespace/feature restriction requires separately tested operator support. |
+| AVD-KSV-0041 / 0046 / 0050 / 0056 on `toolhive-operator-manager-role` | MCP confirms the active binding. MCPServer/VirtualMCPServer reconciliation creates credentials, proxy identities and network resources. Do not remove API watches or managed-resource permissions to clear the scanner. |
+
+The 30 candidate-addressed ledger rows are **not deployed or rescanned**. The
+remaining findings and unknown images still need fresh reports and patched
+publisher artifacts, or an explicitly reviewed migration. Network restrictions
+do not repair vulnerable packages, and none of these results authorizes enforcing
+the network-policy draft.
