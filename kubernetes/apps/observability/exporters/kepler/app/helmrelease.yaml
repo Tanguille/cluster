@@ -10,6 +10,8 @@ spec:
     kind: OCIRepository
     name: kepler-operator
   values:
+    securityContext:
+      seccompProfile: { type: RuntimeDefault }
     namespace: &namespace observability
     operator:
       deploymentNamespace: *namespace

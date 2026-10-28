@@ -10,6 +10,8 @@ spec:
     name: grafana-operator
   interval: 1h
   values:
+    podSecurityContext:
+      seccompProfile: { type: RuntimeDefault }
     dashboard:
       enabled: true
     serviceMonitor:

@@ -10,6 +10,8 @@ spec:
     name: blackbox-exporter
   interval: 1h
   values:
+    podSecurityContext:
+      seccompProfile: { type: RuntimeDefault }
     fullnameOverride: blackbox-exporter
     resources:
       requests:

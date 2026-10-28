@@ -14,6 +14,9 @@ spec:
       name: ndots-1
 
   values:
+    defaultPodOptions:
+      securityContext:
+        seccompProfile: { type: RuntimeDefault }
     controllers:
       satisfactory-frm-exporter:
         containers:

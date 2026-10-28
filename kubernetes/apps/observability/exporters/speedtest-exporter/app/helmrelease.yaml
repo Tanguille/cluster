@@ -16,6 +16,7 @@ spec:
       ipFamilyPolicy: SingleStack
       ipFamilies: [IPv4]
     podSecurityContext:
+      seccompProfile: { type: RuntimeDefault }
       runAsGroup: 1000
       runAsUser: 1000
       fsGroup: 1000
@@ -35,7 +36,8 @@ spec:
       enabled: true
       interval: 30m
       scrapeTimeout: 5m
-    # Ingress only: metrics scrape from observability; egress stays open for Ookla.
+    # Keep this additive chart policy as narrow as the namespace CNP.
+    # The namespace policy separately permits Ookla egress.
     networkPolicy:
       enabled: true
       ingress:
@@ -43,6 +45,9 @@ spec:
             - namespaceSelector:
                 matchLabels:
                   kubernetes.io/metadata.name: observability
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: vmagent
           ports:
             - protocol: TCP
               port: metrics

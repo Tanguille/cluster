@@ -10,6 +10,11 @@ spec:
     kind: OCIRepository
     name: victoria-logs-collector
   values:
+    podSecurityContext:
+      seccompProfile: { type: RuntimeDefault }
+    securityContext:
+      # Keep the current uid/capabilities: the collector reads host-owned log files.
+      allowPrivilegeEscalation: false
     resources:
       requests:
         cpu: 25m

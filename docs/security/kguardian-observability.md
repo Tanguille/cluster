@@ -1,0 +1,174 @@
+# observability: kguardian hardening draft
+
+Evidence collected on 2026-10-28. This is a reviewable GitOps proposal: no cluster configuration was applied or reconciled. Network restrictions and workload contexts require owner approval before rollout. The network draft still requires at least seven days of representative audit evidence, including scheduled jobs and backups.
+
+The table records the **current observed posture**, not a prediction after these changes. Coverage is kguardian overall coverage; unknown dimensions are listed explicitly. PSS values are **upper bounds only**, with 9 of 18 checks evaluated where data exists. A `restricted` upper bound does not establish restricted compliance. `Apply` means proposed in this branch, `already` means retained, and exemptions/deferred items remain unresolved restrictions.
+
+| Workload | Posture / coverage / unknown dimensions | PSS upper bound | Recommendation decision and evidence |
+| --- | --- | --- | --- |
+| DaemonSet/victoria-logs-collector | warn / 50% / network, images | baseline | Apply RuntimeDefault and no privilege escalation. Defer non-root/drop ALL: the collector reads host-owned logs; retain current identity and capabilities until permissions are tested. |
+| DaemonSet/smartctl-exporter-0 | risk / 50% / network, images | privileged | Exemption: privileged root access is required by the current host-device configuration. Defer suggested non-root, capability removal and seccomp changes pending device-access validation. |
+| DaemonSet/power-monitor | risk / 50% / network, images | privileged | Exemption: retain SYS_PTRACE and existing no-privilege-escalation/drop-ALL/read-only controls for process telemetry. Defer non-root and RuntimeDefault until operator support and hardware syscall compatibility are demonstrated. |
+| DaemonSet/node-exporter | risk / 50% / network, images | privileged | Apply RuntimeDefault, no privilege escalation and drop ALL. Retain pinned chart uid/gid/fsGroup 65534 and hostNetwork for node telemetry; validate collector coverage during an approved rollout. |
+| DaemonSet/igpu-gtt-exporter | risk / 50% / network, images | privileged | Exemption: retain root, SYS_PTRACE and hostPID for host process fdinfo access. RuntimeDefault, no privilege escalation, drop ALL and read-only filesystem already configured. |
+| DaemonSet/drm-exporter | risk / 50% / network, images | privileged | Exemption: preserve root, PERFMON/SYS_RAWIO and Unconfined seccomp for documented GPU access. Do not replace these without hardware/syscall testing. |
+| StatefulSet/vmalertmanager-victoria-metrics | warn / 50% / network, images | baseline | Apply RuntimeDefault, non-root, no privilege escalation and drop ALL through native VMAlertmanager securityContext. Explicitly preserve the chart fallback uid/gid/fsGroup 1000. |
+| StatefulSet/victoria-logs | warn / 50% / network, images | baseline | Apply RuntimeDefault; preserve chart uid 1000/fsGroup 2000 and existing no-privilege-escalation/drop-ALL/read-only controls. |
+| Deployment/vmsingle-victoria-metrics | warn / 50% / network, images | baseline | Apply RuntimeDefault and no privilege escalation through native operator securityContext. Defer non-root/drop ALL until image user, storage ownership and init/reloader behavior are verified; preserve existing identity and writable paths. |
+| Deployment/vmauth-victoria-metrics | warn / 50% / network, images | baseline | Apply RuntimeDefault and no privilege escalation through native operator securityContext. Defer non-root/drop ALL until image user, storage ownership and init/reloader behavior are verified; preserve existing identity and writable paths. |
+| Deployment/vmagent-victoria-metrics | warn / 50% / network, images | baseline | Apply RuntimeDefault and no privilege escalation through native operator securityContext. Defer non-root/drop ALL until image user, storage ownership and init/reloader behavior are verified; preserve existing identity and writable paths. |
+| Deployment/vmalert-victoria-metrics | warn / 50% / network, images | baseline | Apply RuntimeDefault and no privilege escalation through native operator securityContext. Defer non-root/drop ALL until image user, storage ownership and init/reloader behavior are verified; preserve existing identity and writable paths. |
+| Deployment/victoria-metrics-victoria-metrics-operator | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain pinned operator chart identity and container controls. |
+| Deployment/speedtest-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 1000 and existing container controls. |
+| Deployment/sonarr-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
+| Deployment/siren | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 1000 and existing container controls. |
+| Deployment/silence-operator | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
+| Deployment/scraparr | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
+| Deployment/satisfactory-frm-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault. Defer runAsNonRoot until the image user/startup contract is verified; retain existing no-privilege-escalation/drop-ALL/read-only controls. |
+| Deployment/qbittorrent-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
+| Deployment/prowlarr-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
+| Deployment/opnsense-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
+| Deployment/nut-exporter | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
+| Deployment/nextcloud-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
+| Deployment/kube-state-metrics | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
+| Deployment/kromgo | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
+| Deployment/klipper-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault. Defer runAsNonRoot until the image user/startup contract is verified; retain existing no-privilege-escalation/drop-ALL/read-only controls. |
+| Deployment/kepler-operator-controller | warn / 50% / network, images | baseline | Apply RuntimeDefault through the chart manager-container securityContext; retain non-root, no privilege escalation and drop ALL. This does not change PowerMonitor-generated pods. |
+| Deployment/keda-operator-metrics-apiserver | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
+| Deployment/keda-operator | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
+| Deployment/keda-admission-webhooks | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
+| Deployment/grafana-operator | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain pinned chart non-root identity and container controls. |
+| Deployment/grafana-deployment | warn / 50% / network, images | baseline | Apply RuntimeDefault through the Grafana CR pod template, covering Grafana and plugin initialization; retain uid/gid/fsGroup 1000 and current writable paths. |
+| Deployment/gatus | risk / 50% / network, images | privileged | Apply RuntimeDefault. Exemption: retain NET_RAW for configured ICMP health checks and existing non-root/container controls. |
+| Deployment/blackbox-exporter | risk / 50% / network, images | privileged | Apply RuntimeDefault. Exemption: retain NET_RAW for configured ICMP probes and existing non-root/container controls. |
+
+No profile reported a drift item. This is not proof of clean execution: executable inventory, prior export or security-context baseline is missing for the relevant drift checks. Investigate any later `unshippedExecutable` or `securityContextRegression` before rollout. Image vulnerability/signature data is not configured, so image safety remains unknown.
+
+Observed syscall sets are available, but their timestamps can predate this collection and a missing SeccompProfile CR is not evidence that RuntimeDefault is absent. These changes select the container runtime default where defensible; they do not install an observation-derived syscall allowlist. Existing writable filesystems are retained. Capability recommendations are defaults, not continuous observations of capability use.
+
+Validation passed: the required full repository validator (Flux/Helm rendering, shellcheck, secret guardrails and 25 regression tests), namespace chart renders, and before/after structural checks. Existing identities, added capabilities, privileged/host settings, application configuration and selectors are unchanged. Operator-created pods still need runtime verification: Helm can validate the CR, not the final reconciliation or application startup. Approval should include checking startup, storage writes, monitoring and scheduled jobs for each changed workload.
+
+VictoriaMetrics operator v0.75.0 accepts pod and container fields directly under `spec.securityContext`; the pinned [API type](https://github.com/VictoriaMetrics/operator/blob/v0.75.0/api/operator/v1beta1/vmextra_types.go) and [container builder](https://github.com/VictoriaMetrics/operator/blob/v0.75.0/internal/controller/operator/factory/build/security.go) were checked because its CRD preserves unknown nested fields. `useStrictSecurity` is deliberately not enabled: its additional identity/filesystem changes would require separate validation.
+
+## Other kguardian features (2026-10-28)
+
+These are sanitized read-only results, not live hardening or an audit pass.
+The profile table above quotes posture coverage and unknown dimensions; unknown
+never means safe. Raw pod addresses, credentials and captures are not published.
+
+| Feature used | Evidence and decision |
+| --- | --- |
+| Workload inventory, profiles and revision diffs | 35 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
+| Namespace traffic | 0 records, 0 pods, 0 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
+| Image inventory | 36 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
+| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| SBOM and signer queries | Queried all 36 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
+| Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
+| Syscalls and profile generation | Representative `gatus` pod returned 85 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
+| Seccomp denials | Profile counters have zero observed denials. No SeccompProfile CR exists; this is not proof of complete enforcement coverage or safe custom allowlists. |
+| Compute findings | 48 victims evaluated; 0 findings; truncated=false, history_disabled=false. This is a bounded observation window. |
+| Audit verdicts | WouldDeny query empty; live inventory contains no AuditNetworkPolicy/AuditClusterNetworkPolicy CRs. No audit has started or passed. |
+
+The MCP `generate_seccomp_profile` call returned `unrecognized architecture —
+no seccomp arch mapping (supported: x86_64, aarch64)`, even though
+`get_pod_syscalls` reports x86_64 for the same pod. Treat this as an export blocker.
+Keep RuntimeDefault; do not replace it with an unverified allowlist or LOG profile.
+A workload aggregate can include older pods and differs from this single-pod set.
+Resolve the exporter and capture startup, Jobs and rare paths before proposing
+a custom profile; no generated syscall set is claimed complete over seven days.
+
+No `unshippedExecutable` or `securityContextRegression` drift item was returned.
+Executable inventory and a context/export baseline are missing for these checks;
+that is unknown, not a clean drift result. Investigate any future positive finding
+before advancing enforcement.
+
+### Revision evidence
+
+Latest retained revision pairs were compared, not a seven-day continuous history.
+Peer addresses are deliberately omitted. New ports require attribution; an added
+HTTPS peer alone does not identify its hostname or justify a broader grant.
+
+| Workload | Revisions | Changed dimensions | Network observations |
+| --- | --- | --- | --- |
+| DaemonSet / drm-exporter | 12 → 13 | images | No peer changes |
+| DaemonSet / igpu-gtt-exporter | 17 → 18 | images | No peer changes |
+| DaemonSet / node-exporter | 111 → 112 | network | 2 removed: egress TCP/3300, ingress TCP/2380 |
+| DaemonSet / power-monitor | 22 → 23 | network | 1 added: egress TCP/10250 |
+| DaemonSet / smartctl-exporter-0 | 10 → 11 | images | No peer changes |
+| DaemonSet / victoria-logs-collector | 6 → 7 | network | 1 added: egress TCP/9428 |
+| Deployment / blackbox-exporter | 21 → 22 | network | 1 removed: ingress TCP/9115 |
+| Deployment / gatus | 28 → 29 | images | No peer changes |
+| Deployment / grafana-deployment | 24 → 25 | images | No peer changes |
+| Deployment / grafana-operator | 21 → 22 | network | 1 removed: ingress TCP/9090 |
+| Deployment / keda-admission-webhooks | 8 → 9 | network | 1 removed: ingress TCP/9443 |
+| Deployment / keda-operator-metrics-apiserver | 11 → 12 | network | 1 removed: egress TCP/9666 |
+| Deployment / keda-operator | 8 → 9 | network | 1 added: egress TCP/6443 |
+| Deployment / kepler-operator-controller | 12 → 13 | images | No peer changes |
+| Deployment / klipper-exporter | 7 → 8 | network | 1 removed: ingress TCP/9101 |
+| Deployment / kromgo | 11 → 12 | images | No peer changes |
+| Deployment / kube-state-metrics | 6 → 7 | network | 1 removed: egress TCP/6443 |
+| Deployment / nextcloud-exporter | 6 → 7 | images | No peer changes |
+| Deployment / nut-exporter | 5 → 6 | network | 1 removed: ingress TCP/9199 |
+| Deployment / opnsense-exporter | 8 → 9 | images | No peer changes |
+| Deployment / prowlarr-exporter | 9 → 10 | network | 1 removed: ingress TCP/9707 |
+| Deployment / qbittorrent-exporter | 7 → 8 | images | No peer changes |
+| Deployment / satisfactory-frm-exporter | 2 → 3 | network | 1 added: egress UDP/53 |
+| Deployment / scraparr | 11 → 12 | network | 1 removed: egress TCP/8096 |
+| Deployment / silence-operator | 11 → 12 | network | 1 removed: ingress TCP/8080 |
+| Deployment / siren | 4 → 5 | network | 1 removed: egress UDP/53 |
+| Deployment / sonarr-exporter | 4 → 5 | network | 1 removed: ingress TCP/9707 |
+| Deployment / speedtest-exporter | 13 → 14 | network | 3 added: egress TCP/8080 |
+| Deployment / victoria-metrics-victoria-metrics-operator | 9 → 10 | network | 1 added: egress TCP/6443 |
+| Deployment / vmagent-victoria-metrics | 314 → 315 | network | 2 added: egress TCP/8080 |
+| Deployment / vmalert-victoria-metrics | 18 → 19 | images | No peer changes |
+| Deployment / vmauth-victoria-metrics | 27 → 28 | network | 1 added: egress TCP/6443 |
+| Deployment / vmsingle-victoria-metrics | 30 → 31 | network | 3 removed: ingress TCP/8428 |
+| StatefulSet / victoria-logs | 22 → 23 | network | 3 removed: ingress TCP/9428 |
+| StatefulSet / vmalertmanager-victoria-metrics | 17 → 18 | images | No peer changes |
+
+### Feature prerequisites and audit gate
+
+Pinned kguardian chart 1.29.2 defaults and live settings were inspected.
+PR #6264 (`fix/kguardian-write-rate`) remains open and unmerged at this check;
+evaluator and compute are enabled, syscall capture is full, and `llmBridge` remains
+enabled. Recheck before starting an audit: that proposal disables the evaluator
+and excludes additional namespaces. Do not enable expensive capture implicitly.
+
+The installed AuditNetworkPolicy/AuditClusterNetworkPolicy schemas use native
+Kubernetes NetworkPolicy peers/selectors/ports. They cannot faithfully express
+Cilium entities, service-account identities, selectorless Services, ICMP or DNS/L7
+restrictions and Cilium deny precedence. A lossy conversion would produce false
+confidence. No purported equivalent audit CR is included. Establish equivalent
+evaluation or independently test unsupported dimensions before approval.
+
+Supply-chain ingestion is off. In this chart it requires scoped broker auth with
+a supplychain token and an actual report source (for example Trivy Operator; a
+Trivy server alone does not supply operator reports). Signature discovery and
+image-trust evaluation are separate opt-ins. Runtime executable inventory is
+`controller.runtimeInventory.mode: off`, with capability tracing also off; enabling
+them needs an overhead/write-rate check and owner approval. No secrets or global
+kguardian settings are changed by this namespace PR.
+
+Before merging the enforcing CNPs: refresh live settings and workloads; obtain
+approval for the audit deployment; collect at least seven complete days including
+the rare paths below; fix every legitimate WouldDeny with evidence; validate the
+unsupported Cilium dimensions; then obtain explicit enforcement approval. Watch
+drop deltas and app health after an approved rollout. Static rendering and an
+empty query are not runtime validation.
+
+## Network policy and rare-path review
+
+[Policy](../../kubernetes/apps/observability/networkpolicy.yaml) separates scrapers,
+exporters, query/write services, alert delivery, operators and UIs. Gatus uses
+its actual `gatus-sidecar` label; only its probe gateway is public. Kromgo uses
+pod ports 8080/8081, not Service ports 80/8080. Hermes and Ceph-manager writes,
+CrowdSec alerts, exporter application calls and admission callbacks are retained.
+
+vmagent deliberately reaches pods across namespaces for dynamic monitors through
+an explicit namespace-exists selector; node/API/LAN paths are separately scoped.
+Its unexplained external TCP/9090 sample is not allowed. Twelve exporters/log
+collectors had no data, including host-network samples. Audit scrape discovery,
+webhook/aggregated-API source identities, Gatus ICMP/DNS/MCP checks, substituted
+LAN targets, Grafana pooler/plugin downloads, log metadata and alert webhooks.
+The speedtest native policy now admits only vmagent. Node-exporter remains outside
+pod policy; all host/NAT identity assumptions need runtime verification.

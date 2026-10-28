@@ -10,6 +10,11 @@ spec:
     name: *app
   interval: 1h
   values:
+    securityContext:
+      seccompProfile: { type: RuntimeDefault }
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities: { drop: [ALL] }
     fullnameOverride: *app
     extraArgs:
       # GTT/VRAM totals for NodeGTTMemoryHigh and DgpuVramLow; GTT is pinned RAM outside memcg, so the embedder leak wedged control-2

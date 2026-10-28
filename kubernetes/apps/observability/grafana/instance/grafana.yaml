@@ -95,6 +95,7 @@ spec:
                 - name: bundled-plugins
                   mountPath: /var/lib/grafana/plugins-bundled
           securityContext:
+            seccompProfile: { type: RuntimeDefault }
             runAsNonRoot: true
             runAsUser: 1000
             runAsGroup: 1000

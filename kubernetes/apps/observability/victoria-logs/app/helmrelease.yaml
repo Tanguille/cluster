@@ -18,6 +18,8 @@ spec:
       grafanaOperator:
         enabled: true
     server:
+      podSecurityContext:
+        seccompProfile: { type: RuntimeDefault }
       fullnameOverride: victoria-logs
       resources:
         requests:

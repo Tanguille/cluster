@@ -10,6 +10,8 @@ spec:
     name: gatus-sidecar
   interval: 1h
   values:
+    podSecurityContext:
+      seccompProfile: { type: RuntimeDefault }
     fullnameOverride: gatus
 
     deploymentAnnotations:

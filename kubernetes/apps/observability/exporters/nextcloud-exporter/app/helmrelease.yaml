@@ -43,6 +43,7 @@ spec:
                 drop: ["ALL"]
     defaultPodOptions:
       securityContext:
+        seccompProfile: { type: RuntimeDefault }
         runAsNonRoot: true
         runAsUser: 568
         runAsGroup: 568
