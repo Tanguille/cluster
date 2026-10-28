@@ -102,8 +102,11 @@ empty query are not runtime validation.
 server allow-all ingress and runner `ingress: [{}]`. Server paths remain Envoy
 8080, vmagent 8081, runner gateway 8082, API, model gateway 4000, DB and HTTPS.
 Runners have only service-name DNS, DB and gateway egress; no internet/API grant.
-The native DB/gateway-only fallback has no DNS and fails closed if Cilium rejects
-the L7 rule. gVisor and chart admission controls remain enabled. The public
+Host ingress for kubelet probes selects only the server; runners have no probes.
+The runner's L7 policy is a separate object, so its rejection does not remove the
+namespace default-deny or server allowlist. The native DB/gateway-only fallback
+has no DNS and confines runners if Cilium rejects their L7 rule. gVisor and chart
+admission controls remain enabled. The public
 HTTPRoute still limits access to `/hooks/`.
 
 Both `pgbouncer-rw` and `pgbouncer-session` rejected each startup parameter used
@@ -161,6 +164,8 @@ still selects gRPC v1.83.1. Updating only the image tag would not demonstrate a
 fix. Keep the finding unresolved until a publisher patch and matching scan exist.
 The tools-runner digest has no matching report and remains **unknown**; the
 server report cannot establish the runner's package contents.
+Its runtime digest is recorded as `observed_image_digest`; `report_digest: none`
+keeps the missing scanner evidence distinct from the observed image identity.
 
 Current namespace config/RBAC reports contain no failed Critical/High checks.
 MCP confirms the namespace RoleBinding; no service-account ClusterRoleBinding

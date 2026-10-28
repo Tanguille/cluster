@@ -17,13 +17,13 @@ specs:
           - matchLabels: &dns
               io.kubernetes.pod.namespace: kube-system
               k8s-app: kube-dns
-      - fromEntities: [host] # Kubelet probes.
   - endpointSelector:
-      matchLabels: &server
+      matchLabels:
         app.kubernetes.io/name: kritika
         app.kubernetes.io/instance: kritika
         app.kubernetes.io/component: server
     ingress:
+      - fromEntities: [host] # Only the server has kubelet probes; runners stay closed.
       - fromEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: network
@@ -82,8 +82,7 @@ specs:
               - port: "4000"
                 protocol: TCP
       # PgBouncer rejects this release's startup parameters; see the draft evidence.
-      - &postgres
-        toEndpoints:
+      - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: database
               cnpg.io/cluster: postgres16
@@ -92,31 +91,52 @@ specs:
           - ports:
               - port: "5432"
                 protocol: TCP
-  - endpointSelector:
-      matchLabels:
-        kritika.home-operations.com/role: runner
-    egress:
-      - toEndpoints:
-          - matchLabels: *dns
-        toPorts:
-          - ports:
-              - port: "53"
-                protocol: UDP
-              - port: "53"
-                protocol: TCP
-            # Preserve the chart's service-only DNS rule; no unrestricted DNS union.
-            rules:
-              dns:
-                - matchPattern: "*.*.svc.cluster.local"
-      - *postgres
-      - toEndpoints:
-          - matchLabels:
-              <<: *server
-              io.kubernetes.pod.namespace: kritika
-        toPorts:
-          - ports:
-              - port: "8082"
-                protocol: TCP
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+# Keep runner L7 validation separate: rejecting it must not remove the server allowlist.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: kritika-runner-allowlist
+  namespace: kritika
+spec:
+  endpointSelector:
+    matchLabels:
+      kritika.home-operations.com/role: runner
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          # Preserve the chart's service-only DNS rule; no unrestricted DNS union.
+          rules:
+            dns:
+              - matchPattern: "*.*.svc.cluster.local"
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: database
+            cnpg.io/cluster: postgres16
+            cnpg.io/podRole: instance
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: kritika
+            app.kubernetes.io/instance: kritika
+            app.kubernetes.io/component: server
+            io.kubernetes.pod.namespace: kritika
+      toPorts:
+        - ports:
+            - port: "8082"
+              protocol: TCP
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/networking.k8s.io/networkpolicy_v1.json
 # Retain the chart's fail-closed fallback if Cilium rejects the L7 DNS policy.
