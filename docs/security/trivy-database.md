@@ -3,7 +3,9 @@
 The October 28, 2026 Trivy report for Dragonfly operator's `kube-rbac-proxy`
 v0.20.2 sidecar contains 2 Critical and 48 High findings. The proposed change
 updates only that sidecar to upstream v0.23.1 through the pinned chart's native
-`rbacProxy.image.tag` value. The Dragonfly operator and chart remain v1.7.1.
+`rbacProxy.image.repository` and `rbacProxy.image.tag` values. The repository
+stays explicit so chart default changes cannot separate the digest from its
+registry. The Dragonfly operator and chart remain v1.7.1.
 
 ## Evidence and compatibility
 
@@ -30,7 +32,10 @@ separate; no suppressions or startup package upgrades are introduced.
 
 Pinned-chart before/after renders differed only in the proxy container image.
 The repository validator and Markdown lint passed.
-After owner-approved rollout, verify operator readiness and Dragonfly
-reconciliation, authenticated metrics access and rejection of unauthorized
-access, then obtain a fresh Trivy report for the deployed digest. Applying this
-change and those runtime checks have not occurred as part of this local update.
+Owner approval is required before merging this draft. Merging to main allows
+the unsuspended `dragonfly` Flux Kustomization to roll out the change on its
+next reconciliation; there is no additional deployment approval gate. After
+that rollout, verify operator readiness and Dragonfly reconciliation,
+authenticated metrics access and rejection of unauthorized access, then record
+a fresh Trivy report for the deployed digest. As of the October 28 review,
+deployment and these runtime checks remain unverified.
