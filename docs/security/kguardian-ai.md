@@ -1,10 +1,12 @@
 # AI security hardening decisions
 
-Draft based on main `5f33d7baf`, with the AI network-policy proposal from PR #6265
+Draft initially based on main `5f33d7baf`, with the AI network-policy proposal from PR #6265
 head `2535e0525`. Branch `harden/kguardian-ai-security`; worktree
-`.claude/worktrees/kguardian-ai-security`. These are local proposed changes, not
-live rollout results. Network enforcement and any custom seccomp binding still
-require owner approval and the separate audit gates.
+`.claude/worktrees/kguardian-ai-security`. These proposals are not rollout
+evidence. Merging this PR lets Flux reconcile its network policies, security
+contexts and downloader configuration. The whole PR requires owner approval
+after both the runtime-validation and network-audit gates below; merging does
+not leave its CNPs parked for a later audit. No custom seccomp binding is proposed.
 
 ## Evidence and interpretation
 
@@ -118,19 +120,27 @@ Local validation passed:
   CronJobs, ten MCPServer templates and AgentgatewayParameters. GPU groups, UID 0,
   existing mounts and API credentials for the controller/proxy paths are retained.
   Read-only live CRD inspection confirmed the native field paths.
-- The source semantic diff contains exactly nine new RuntimeDefault fields, ten
-  token-disable fields and one no-escalation field. No unrelated source value
-  changed; existing staged namespace network changes were the comparison base.
+- The context-only source comparison contains nine new RuntimeDefault fields,
+  ten token-disable fields and one no-escalation field; the namespace network
+  changes were its comparison base. The subsequent Trivy follow-up also adds
+  the LLMKube downloader repository/tag override for curl 8.23.0. Flux MCP's
+  v0.62.1 pin independently merged in #6303 and is already observed running;
+  that image update is not new work relative to current main.
 - The required `mise exec -- bash .agents/skills/pr-review/scripts/validate-pr.sh`
   passed full Flux/Helm rendering, shellcheck, secret guardrails and 25 regression
   tests. All 38 controller profiles have a decision row above.
 
 Runtime verification is still required:
 
-- Before enforcement, test cold model downloads/loads, inference and probes,
+- Before approving merge, test cold model downloads/loads, inference and probes,
   OpenCode plugin/tool execution, each MCP transport and both maintenance Job
   schedules. Ensure removal of the backend token does not expose an undocumented
   API dependency. Token removal does not revoke other explicit service secrets.
+- Security-context and downloader changes take effect through Flux after merge,
+  alongside the network policies. Pod-template changes can roll long-running
+  workloads; CronJob template changes affect future Jobs, and the downloader
+  override affects future model initialization. Runtime validation therefore
+  gates the whole PR's merge, not just subsequent network enforcement.
 - Preserve network audit gaps and at least seven days of usable capture/verdicts.
   The feature evidence below is review material, not resources reconciled by
   Flux. Unsupported Cilium audit dimensions must not
@@ -276,13 +286,15 @@ This narrow rule fixes a draft omission; no other agent gains API access.
 
 ## Trivy follow-up, 2026-10-28
 
-The [image ledger](trivy-ai-images.csv) records 26 distinct current or scheduled
-image digests: 13 have matching reports and 13 have **unknown** vulnerability
+The [image ledger](trivy-ai-images.csv) records 26 distinct image digests from the
+initial workload snapshot: 13 have matching reports and 13 have **unknown** vulnerability
 contents. The [finding ledger](trivy-ai-findings.csv) preserves all 408 distinct
 Critical/High image/package findings (12 Critical, 396 High), including installed
 versions and every reported fixed version. These are existing report findings,
 not a new scan or the number of distinct CVE identifiers. Repeated pods and report
 owners are deduplicated by image digest, finding id, package and version.
+Unscanned runtime identities use `observed_image_digest` with `report_digest: none`;
+an observed digest is not evidence that the image was scanned.
 
 Read-only Flux MCP queries refreshed pod images, init-container imageIDs, report
 metadata and RBAC bindings. AI is excluded from current Trivy capture, so old
@@ -294,11 +306,15 @@ containers. An owner-only join would incorrectly discard its 2 Critical and
 exact scheduled/current digest. No report is counted as clean merely because its
 owner disappeared; no missing report is counted as zero.
 
-Two publisher-image updates are drafted:
+The LLMKube downloader update remains proposed. Main independently merged the
+same Flux MCP pin in [#6303](https://github.com/Tanguille/cluster/pull/6303).
+A subsequent read-only MCP check confirmed its backend running that exact digest
+and Ready. Its four historical findings remain in the ledger pending a fresh
+report; the Flux MCP image bump is no longer new work in this draft.
 
 | Consumer | Candidate | Evidence and limits |
 | --- | --- | --- |
-| Flux MCP backend | `ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.62.1@sha256:0b4181bc9ada80eedf3e9df3355153abc9c3e6d8b913bddebe0b12908309bff6` | Reading the exported binary with `go version -m` found actual Go 1.27.3 and `golang.org/x/net` v0.61.0, meeting the fix versions in all four existing High records. No image or binary was executed. |
+| Flux MCP backend, already in main and running | `ghcr.io/controlplaneio-fluxcd/flux-operator-mcp:v0.62.1@sha256:0b4181bc9ada80eedf3e9df3355153abc9c3e6d8b913bddebe0b12908309bff6` | Reading the exported binary with `go version -m` found actual Go 1.27.3 and `golang.org/x/net` v0.61.0, meeting the fix versions in all four existing High records. No image or binary was executed during inspection. |
 | LLMKube model initialization | `docker.io/curlimages/curl:8.23.0@sha256:11e64e28c5f58c8d93ee95fcf22ac055f48b0bc440e0ce7d8013bbb5ad6aa8ac` | The amd64 image's APK database has libcrypto3/libssl3 3.5.9-r0, libssh2 1.11.1-r4, musl/musl-utils 1.2.6-r2, nghttp2-libs 1.70.0-r0 and zlib 1.3.2-r1; nghttp2-dev is absent. These meet the 26 historical package fix criteria or remove the affected package. |
 
 Flux MCP's OCI revision matches
@@ -340,8 +356,10 @@ or removed from Trivy:
 | AVD-KSV-0041 / 0050 / 0056 on `llmkube-manager-role` | Model credentials, generated Services and controller-managed RBAC need these permissions. Keep the controller's functioning permissions; any namespace/feature restriction requires separately tested operator support. |
 | AVD-KSV-0041 / 0046 / 0050 / 0056 on `toolhive-operator-manager-role` | MCP confirms the active binding. MCPServer/VirtualMCPServer reconciliation creates credentials, proxy identities and network resources. Do not remove API watches or managed-resource permissions to clear the scanner. |
 
-The 30 candidate-addressed ledger rows are **not deployed or rescanned**. The
-remaining findings and unknown images still need fresh reports and patched
+Of the 30 rows meeting inspected package fix criteria, 26 belong to the
+**proposed, undeployed LLMKube downloader**. Four belong to Flux MCP's replacement,
+now in main and observed running. No fresh scan of either replacement is in this
+evidence collection. The remaining findings and unknown images need fresh reports and patched
 publisher artifacts, or an explicitly reviewed migration. Network restrictions
 do not repair vulnerable packages, and none of these results authorizes enforcing
 the network-policy draft.
