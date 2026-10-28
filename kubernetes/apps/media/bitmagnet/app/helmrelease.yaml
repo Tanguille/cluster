@@ -71,58 +71,6 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: [ALL] }
-      connector:
-        forceRename: armiger-connector
-        strategy: Recreate
-        annotations:
-          reloader.stakater.com/auto: "true"
-        initContainers:
-          bootstrap:
-            image: &python-image
-              repository: docker.io/library/python
-              tag: 3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8
-            command: [python3, /bootstrap/bootstrap.py]
-            env:
-              HOME: /tmp
-            securityContext: *container-security
-        containers:
-          app:
-            image: *python-image
-            command:
-              [/data/armiger/runtime/venv/bin/python3, /bootstrap/connector.py]
-            env:
-              HOME: /tmp
-              ARMIGER_MODEL_DIR: /data/armiger/model
-              ARMIGER_AUTO_DOWNLOAD: "false"
-              BITMAGNET_GRAPHQL_URL: http://bitmagnet:3333/graphql
-              UPSTREAM_TORZNAB_URL: http://bitmagnet:3333/torznab
-              # Caps glibc arenas from onnxruntime threads, which otherwise hold RSS after a burst.
-              MALLOC_ARENA_MAX: "2"
-              # torch defaults to every host core; onnxruntime caps itself at 4.
-              OMP_NUM_THREADS: "2"
-            probes:
-              readiness: &connector-probe
-                enabled: true
-                custom: true
-                spec:
-                  httpGet: &healthz { path: /healthz, port: 8096 }
-                  periodSeconds: 15
-                  timeoutSeconds: 5
-              liveness: *connector-probe
-              startup:
-                enabled: true
-                custom: true
-                spec:
-                  httpGet: *healthz
-                  failureThreshold: 90
-                  timeoutSeconds: 5
-            resources:
-              requests:
-                cpu: 250m
-                memory: 1Gi
-              limits:
-                memory: 3Gi
-            securityContext: *container-security
       prune:
         type: cronjob
         cronjob:
@@ -167,7 +115,9 @@ spec:
         containers:
           app:
             # Deleting through GraphQL blocklists the hashes, so the crawler does not re-add them.
-            image: *python-image
+            image:
+              repository: python
+              tag: 3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
             command: [python3, /prune/prune-delete.py]
             resources: *job-resources
             securityContext: *container-security
@@ -177,12 +127,6 @@ spec:
         controller: bitmagnet
         ports:
           http: { port: 3333 }
-      connector:
-        forceRename: armiger-connector
-        controller: connector
-        ports:
-          bridge: { port: 8096 }
-          torznab-proxy: { port: 8097 }
     route:
       bitmagnet:
         hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
@@ -194,19 +138,6 @@ spec:
               - identifier: bitmagnet
                 port: http
     persistence:
-      connector-data:
-        type: persistentVolumeClaim
-        forceRename: armiger-connector-data
-        accessMode: ReadWriteOnce
-        size: 5Gi
-        storageClass: ceph-block
-        retain: true
-        advancedMounts:
-          connector:
-            bootstrap:
-              - path: /data/armiger
-            app:
-              - path: /data/armiger
       config:
         type: configMap
         name: bitmagnet-config
@@ -226,17 +157,6 @@ spec:
                 readOnly: true
             app:
               - path: /prune
-                readOnly: true
-      bootstrap:
-        type: configMap
-        name: armiger-bootstrap
-        advancedMounts:
-          connector:
-            bootstrap:
-              - path: /bootstrap
-                readOnly: true
-            app:
-              - path: /bootstrap
                 readOnly: true
       tmp:
         type: emptyDir
