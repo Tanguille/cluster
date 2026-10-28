@@ -5,7 +5,6 @@ kind: CiliumNetworkPolicy
 metadata:
   name: media-ingress-allowlist
   namespace: media
-# DRAFT: collect seven days of AuditNetworkPolicy evidence before enforcement.
 specs:
   # Default-deny both directions. App grants union with these infrastructure paths
   # and the existing narrow flaresolverr policy; no blanket same-namespace access.
