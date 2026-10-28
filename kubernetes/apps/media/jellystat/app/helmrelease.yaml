@@ -26,6 +26,12 @@ spec:
             env:
               TZ: ${TIMEZONE}
 
+            # The entrypoint reads configured files and starts npm; it needs no
+            # privilege gain or capabilities. UID and writable-path changes need a separate trial.
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+
             resources:
               requests:
                 cpu: 10m
@@ -49,6 +55,9 @@ spec:
                   failureThreshold: 30
                   periodSeconds: 5
 
+    defaultPodOptions:
+      securityContext:
+        seccompProfile: { type: RuntimeDefault }
     service:
       main:
         ports:

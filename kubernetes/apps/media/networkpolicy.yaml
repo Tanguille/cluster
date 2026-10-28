@@ -5,25 +5,398 @@ kind: CiliumNetworkPolicy
 metadata:
   name: media-ingress-allowlist
   namespace: media
-spec:
-  # Default-deny ingress for every media pod; per-pod allowlists (flaresolverr) union with it, egress stays open.
-  endpointSelector: {}
-  ingress:
-    # Callers: homepage widgets (default), vmagent + *arr exporters (observability), envoy gateways (network), *arr tooling (media).
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: media
-        - matchLabels:
-            io.kubernetes.pod.namespace: default
-        - matchLabels:
-            io.kubernetes.pod.namespace: observability
-        - matchLabels:
-            io.kubernetes.pod.namespace: network
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-        # ephemeral not 53.
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
-    - fromEntities:
-        # kubelet probes.
-        - host
+# DRAFT: collect seven days of AuditNetworkPolicy evidence before enforcement.
+specs:
+  # Default-deny both directions. App grants union with these infrastructure paths
+  # and the existing narrow flaresolverr policy; no blanket same-namespace access.
+  - endpointSelector: {}
+    ingress:
+      - fromEntities: [host] # kubelet probes
+      # Rev-NAT'd DNS replies target ephemeral ports, not port 53.
+      - fromEndpoints:
+          - matchLabels: &dns
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+    egress:
+      - toEndpoints:
+          - matchLabels: *dns
+        toPorts:
+          - ports:
+              - { port: "53", protocol: UDP }
+              - { port: "53", protocol: TCP }
+
+  # Database clients use the pooler VIP; the direct primary VIP has a documented
+  # same-node routing failure. Bitmagnet's session pool is scoped separately below.
+  - endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/instance
+          operator: In
+          values: [bazarr, jellystat, prowlarr, radarr, sonarr]
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: database
+              cnpg.io/poolerName: pgbouncer-rw
+        toPorts:
+          - ports: [{ port: "5432", protocol: TCP }]
+
+  # Metadata, subtitle/indexer providers and FileFlows startup package retrieval.
+  # FileFlows' documented root startup exception is unchanged.
+  - endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/instance
+          operator: In
+          values: [bazarr, fileflows, flaresolverr, prowlarr, radarr, sonarr]
+    egress:
+      - toEntities: [world]
+        toPorts:
+          - ports:
+              - { port: "80", protocol: TCP }
+              - { port: "443", protocol: TCP }
+  - endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/instance
+          operator: In
+          values: [jellyfin, qui, recyclarr, seerr, wizarr]
+    egress:
+      # Provider APIs, tracker downloads and Recyclarr's Git-hosted definitions.
+      - toEntities: [world]
+        toPorts:
+          - ports: [{ port: "443", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels: &bazarr
+        app.kubernetes.io/instance: bazarr
+    ingress:
+      - fromEndpoints:
+          - matchLabels: &internal
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-internal
+          - matchLabels: &homepage
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/instance: homepage
+          - matchLabels: &scraparr
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/instance: scraparr
+        toPorts:
+          - ports: [{ port: "6767", protocol: TCP }]
+    egress:
+      - &arr-api
+        toEndpoints:
+          - matchLabels: &radarr
+              app.kubernetes.io/instance: radarr
+          - matchLabels: &sonarr
+              app.kubernetes.io/instance: sonarr
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+      - &jellyfin-api
+        toEndpoints:
+          - matchLabels: &jellyfin
+              app.kubernetes.io/instance: jellyfin
+        toPorts:
+          - ports: [{ port: "8096", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels: &bitmagnet
+        app.kubernetes.io/instance: bitmagnet
+        app.kubernetes.io/controller: bitmagnet
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *internal
+          - matchLabels: &connector
+              app.kubernetes.io/instance: bitmagnet
+              app.kubernetes.io/controller: connector
+          - matchLabels: &prune
+              app.kubernetes.io/instance: bitmagnet
+              app.kubernetes.io/controller: prune
+        toPorts:
+          - ports: [{ port: "3333", protocol: TCP }]
+    egress:
+      # DHT/torrent peers advertise arbitrary ports. Never share this grant with
+      # the connector or prune Job, which have the same Helm instance label.
+      - toEntities: [world]
+      - toEndpoints:
+          - matchLabels: &session-pooler
+              io.kubernetes.pod.namespace: database
+              cnpg.io/poolerName: pgbouncer-session
+        toPorts:
+          - ports: [{ port: "5432", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels: *connector
+    ingress:
+      - fromEndpoints:
+          - matchLabels: &prowlarr
+              app.kubernetes.io/instance: prowlarr
+        toPorts:
+          - ports: [{ port: "8097", protocol: TCP }]
+    egress:
+      - toEndpoints:
+          - matchLabels: *bitmagnet
+        toPorts:
+          - ports: [{ port: "3333", protocol: TCP }]
+      # The pinned bootstrap still retrieves Python packages and model files.
+      - toEntities: [world]
+        toPorts:
+          - ports: [{ port: "443", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels: *prune
+    egress:
+      - toEndpoints:
+          - matchLabels: *bitmagnet
+        toPorts:
+          - ports: [{ port: "3333", protocol: TCP }]
+      # The daily Job queries the queue through session pooling before pruning.
+      - toEndpoints:
+          - matchLabels: *session-pooler
+        toPorts:
+          - ports: [{ port: "5432", protocol: TCP }]
+
+  - endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/instance
+          operator: In
+          values: [brrpolice, cleanrr, deduparr]
+    ingress:
+      - fromEndpoints:
+          - matchLabels: &vmagent
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: vmagent
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+  - endpointSelector:
+      matchLabels: &brrpolice
+        app.kubernetes.io/instance: brrpolice
+    egress:
+      - toEndpoints:
+          - matchLabels: &qbittorrent
+              app.kubernetes.io/instance: qbittorrent
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+  - endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/instance
+          operator: In
+          values: [cleanrr, deduparr, recyclarr, unpackerr]
+    egress:
+      - *arr-api
+
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/instance: fileflows
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *internal
+          - matchLabels: *homepage
+        toPorts:
+          - ports: [{ port: "5000", protocol: TCP }]
+  - endpointSelector:
+      matchLabels: &flaresolverr
+        app.kubernetes.io/instance: flaresolverr
+    # Ingress stays in flaresolverr/app/networkpolicy.yaml (Prowlarr only).
+    egress:
+      - toEntities: [world]
+        toPorts:
+          - ports: [{ port: "443", protocol: UDP }] # observed browser QUIC
+
+  - endpointSelector:
+      matchLabels: *jellyfin
+    ingress:
+      - fromEndpoints:
+          - matchLabels: &external
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-external
+          - matchLabels: *homepage
+          - matchLabels: *scraparr
+          - matchLabels: *bazarr
+          - matchLabels: *radarr
+          - matchLabels: &wizarr
+              app.kubernetes.io/instance: wizarr
+        toPorts:
+          - ports: [{ port: "8096", protocol: TCP }]
+    egress:
+      - *arr-api
+      - toEndpoints:
+          - matchLabels: &seerr
+              app.kubernetes.io/instance: seerr
+        toPorts:
+          - ports: [{ port: "5055", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/instance: jellystat
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *internal
+          - matchLabels: *homepage
+        toPorts:
+          - ports: [{ port: "3000", protocol: TCP }]
+    egress:
+      # Current Jellystat integration uses Jellyfin's public hostname; retain
+      # its observed gateway path instead of silently changing app configuration.
+      - toEndpoints:
+          - matchLabels: *external
+        toPorts:
+          - ports: [{ port: "10443", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels: *prowlarr
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *internal
+          - matchLabels: *homepage
+          - matchLabels: *radarr
+          - matchLabels: *sonarr
+          - matchLabels: &qui
+              app.kubernetes.io/instance: qui
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/instance: prowlarr-exporter
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+    egress:
+      - *arr-api
+      - toEndpoints:
+          - matchLabels: *connector
+        toPorts:
+          - ports: [{ port: "8097", protocol: TCP }]
+      - toEndpoints:
+          - matchLabels: *flaresolverr
+        toPorts:
+          - ports: [{ port: "8191", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels: *qbittorrent
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *internal
+          - matchLabels: *homepage
+          - matchLabels: *brrpolice
+          - matchLabels: *qui
+          - matchLabels: *radarr
+          - matchLabels: *sonarr
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/instance: qbittorrent-exporter
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+    egress:
+      # Tracker/peer ports vary. This grants no inbound torrent listener access.
+      - toEntities: [world]
+
+  - endpointSelector:
+      matchLabels: *qui
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *internal
+        toPorts:
+          - ports: [{ port: "7476", protocol: TCP }]
+      - fromEndpoints:
+          - matchLabels: *vmagent
+        toPorts:
+          - ports: [{ port: "8080", protocol: TCP }]
+    egress:
+      - toEndpoints:
+          - matchLabels: *prowlarr
+          - matchLabels: *qbittorrent
+          - matchLabels: *radarr
+          - matchLabels: *sonarr
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+
+  - endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/instance
+          operator: In
+          values: [radarr, sonarr]
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *internal
+          - matchLabels: *homepage
+          - matchLabels: *scraparr
+          - matchLabels: *bazarr
+          - matchLabels: *jellyfin
+          - matchLabels: *prowlarr
+          - matchLabels: *qui
+          - matchLabels: *seerr
+          - matchExpressions:
+              - key: app.kubernetes.io/instance
+                operator: In
+                values: [cleanrr, deduparr, recyclarr, unpackerr]
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+    egress:
+      - toEndpoints:
+          - matchLabels: *prowlarr
+          - matchLabels: *qbittorrent
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+  - endpointSelector:
+      matchLabels: *radarr
+    egress:
+      - *jellyfin-api
+  - endpointSelector:
+      matchLabels: *sonarr
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/instance: sonarr-exporter
+        toPorts:
+          - ports: [{ port: "80", protocol: TCP }]
+
+  - endpointSelector:
+      # The chart's name label is seerr-chart; instance stays stable across chart updates.
+      matchLabels: *seerr
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *external
+          - matchLabels: *homepage
+          - matchLabels: *scraparr
+          - matchLabels: *jellyfin
+        toPorts:
+          - ports: [{ port: "5055", protocol: TCP }]
+    egress:
+      - *arr-api
+      - toEndpoints:
+          - matchLabels: *external
+        toPorts:
+          - ports: [{ port: "10443", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/instance: unpackerr
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *internal
+          - matchLabels: *homepage
+          - matchLabels: *vmagent
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app.kubernetes.io/instance: hermes
+        toPorts:
+          # Unpackerr v1 replaced the historical 16373 listener with 5656.
+          - ports: [{ port: "5656", protocol: TCP }]
+
+  - endpointSelector:
+      matchLabels: *wizarr
+    ingress:
+      - fromEndpoints:
+          - matchLabels: *external
+        toPorts:
+          - ports: [{ port: "5690", protocol: TCP }]
+    egress:
+      - *jellyfin-api
+
+  - endpointSelector:
+      matchLabels:
+        app.kubernetes.io/managed-by: kopiur
+    egress:
+      # Ephemeral nightly movers need Kubernetes API access. The existing
+      # deny-apiserver component excludes this label; NFS is mounted by the node.
+      - toEntities: [kube-apiserver]
+        toPorts:
+          - ports:
+              - { port: "443", protocol: TCP }
+              - { port: "6443", protocol: TCP }

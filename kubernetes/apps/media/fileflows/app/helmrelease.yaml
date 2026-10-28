@@ -51,6 +51,8 @@ spec:
                 chown -R 0:0 /app /temp
             securityContext:
               runAsUser: 0
+              # mkdir/chown need root's existing permissions, not setuid executable gains.
+              allowPrivilegeEscalation: false
 
         containers:
           app:

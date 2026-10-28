@@ -40,6 +40,10 @@ spec:
               limits:
                 cpu: 500m
                 memory: 500Mi
+    defaultPodOptions:
+      securityContext:
+        # Preserve the entrypoint's root ownership setup and su-exec privilege drop.
+        seccompProfile: { type: RuntimeDefault }
     service:
       app:
         ports:
