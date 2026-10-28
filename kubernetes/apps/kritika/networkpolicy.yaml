@@ -1,6 +1,5 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
-# Local proposal: preserve runner confinement while auditing review/startup paths.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -81,7 +80,7 @@ specs:
           - ports:
               - port: "4000"
                 protocol: TCP
-      # PgBouncer rejects this release's startup parameters; see the draft evidence.
+      # PgBouncer rejects this release's startup parameters, so kritika connects to postgres16-rw directly.
       - toEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: database
