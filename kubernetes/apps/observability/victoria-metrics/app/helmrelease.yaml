@@ -64,6 +64,33 @@ spec:
           enabled: false
         k8s-resources-multicluster:
           enabled: false
+        # Covered by kubernetes-views-* plus k8s-resources-cluster/node (requests vs allocatable).
+        k8s-resources-namespace:
+          enabled: false
+        k8s-resources-nodes-overview:
+          enabled: false
+        k8s-resources-pod:
+          enabled: false
+        k8s-resources-workload:
+          enabled: false
+        k8s-resources-workloads-namespace:
+          enabled: false
+        cluster-total:
+          enabled: false
+        namespace-by-pod:
+          enabled: false
+        namespace-by-workload:
+          enabled: false
+        pod-total:
+          enabled: false
+        workload-total:
+          enabled: false
+        # Covered by node-exporter-full.
+        nodes:
+          enabled: false
+        # Covered by kubernetes-system-api-server.
+        apiserver:
+          enabled: false
 
     defaultDatasources:
       grafanaOperator:
