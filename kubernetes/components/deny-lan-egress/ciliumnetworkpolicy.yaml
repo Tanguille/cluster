@@ -22,3 +22,8 @@ spec:
         - cidr: 10.0.0.0/8
         - cidr: 172.16.0.0/12
         - cidr: 192.168.0.0/16
+    # envoy-internal-tls only passes TLS through to the OPNsense, TrueNAS and IPMI UIs on the LAN.
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+            gateway.networking.k8s.io/gateway-name: envoy-internal-tls
