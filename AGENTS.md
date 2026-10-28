@@ -10,6 +10,8 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 
 - Before any work, verify the branch and worktree, run `git status`, then `git pull --ff-only && git status`. Never assume the branch is current.
 - Preserve unrelated changes and follow existing patterns; keep changes small and focused.
+- When a change renames or alters a value, name, label or behavior, grep for the old one and update every comment, doc, alert and selector that still cites it.
+- Take versions, SHAs and config fields from upstream (release, registry, chart values, CRD schema), never from memory.
 - Validate the changed scope before declaring work complete or committing; follow the nearest scoped `AGENTS.md` and [common operations](.agents/common-operations.md).
 - Shell scripts use `set -euo pipefail` and must pass shellcheck on every touched `*.sh` (`bash .agents/skills/pr-review/scripts/validate-pr.sh` covers this).
 - Use Conventional Commit titles, for example `feat(scope): description`.
