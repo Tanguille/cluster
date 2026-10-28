@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
-# Local proposal: audit discovery, dependency updates and webhook sync before enforcement.
+# Local proposal: default-deny ingress/egress; audit discovery, updates and webhook sync before enforcement.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -17,7 +17,7 @@ specs:
           - matchLabels: &dns
               io.kubernetes.pod.namespace: kube-system
               k8s-app: kube-dns
-      - fromEntities: [host] # Kubelet probes.
+      # The operator and generated Jobs declare no probes requiring host ingress.
     egress:
       - toEndpoints:
           - matchLabels: *dns

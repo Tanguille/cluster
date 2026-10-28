@@ -98,6 +98,10 @@ empty query are not runtime validation.
 
 ## Network policy and rare-path review
 
+The established `renovate-ingress-allowlist` object name is retained to avoid
+replacement/pruning churn. The draft controls both ingress and egress, as its
+header and explicit default-deny fields state.
+
 [Policy](../../kubernetes/apps/renovate/networkpolicy.yaml) gives the operator internal
 UI 8081, public webhook 8082, vmagent metrics 8080, API, Dragonfly 6379 and HTTPS.
 Stable discovery/executor Job labels allow cache and public HTTPS, without API
@@ -134,6 +138,9 @@ cluster-role grant to a Renovate service account. Keep `ownNamespaceOnly: true`
 and the operator's Job/API permissions. No scanner exclusions, ignores, custom
 images or live changes are introduced.
 
-The snapshot above observed the Renovate job image 44.190.2. Main subsequently
-advanced that job to 44.191.0 in #6300; that replacement has no verified report
-in this collection. This docs-only follow-up does not revert the image update.
+The snapshot above observed the Renovate job image 44.190.2. Main has advanced
+beyond that snapshot; replacements have no verified report in this collection.
+Re-read the pinned tag in
+[RenovateJob](../../kubernetes/apps/renovate/renovate-operator/jobs/renovatejob.yaml)
+at merge time and match its deployed digest to a fresh report. The ledger records
+unscanned runtime digests separately from report digests. No image is reverted.
