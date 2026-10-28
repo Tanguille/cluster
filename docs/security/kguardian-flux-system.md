@@ -40,7 +40,7 @@ never means safe. Raw pod addresses, credentials and captures are not published.
 | Workload inventory, profiles and revision diffs | 6 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
 | Namespace traffic | 0 records, 0 pods, 0 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
 | Image inventory | 6 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
-| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| Vulnerabilities and exposure | kguardian's HIGH/CRITICAL query returned no findings because its image reports are absent. Separate Trivy findings appear below; kguardian exposure evaluation still needs ingested reports. This is not zero vulnerabilities. |
 | SBOM and signer queries | Queried all 6 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
 | Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
 | Syscalls and profile generation | Representative `konflate` pod returned 87 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
@@ -124,3 +124,34 @@ traffic records despite six generated policies is a coverage gap.
 `mise exec -- bash .agents/skills/pr-review/scripts/validate-pr.sh` passed:
 full Flux/Helm rendering, shellcheck, repository secret guardrails and all 25
 regression tests. No live deployment or seven-day audit was performed.
+
+## Trivy follow-up, 2026-10-28
+
+The [image ledger](trivy-flux-system-images.csv) matches all six current image
+digests to existing reports, 0–1 days old. Those reports contain no Critical/High
+package findings; the [finding ledger](trivy-flux-system-findings.csv) is therefore
+empty. This is bounded report evidence, not a new scan or a statement about other
+severities, future images or runtime compromise. No image bump is justified by
+these reports.
+
+Read-only MCP inspection confirms the running Flux operator already sets
+container `runAsNonRoot: true`, `allowPrivilegeEscalation: false`, `drop: [ALL]`,
+`readOnlyRootFilesystem: true` and `RuntimeDefault`. AVD-KSV-0118 reports the empty
+pod security context as allowing root, while the actual container overrides it.
+The claimed root permission is not present. No redundant override or scanner
+ignore is added.
+
+Cluster-scoped reports must also be included: MCP confirms `cluster-admin` is
+bound to Flux operator, Helm controller and Kustomize controller, and
+`crd-controller-flux-system` is bound to the Flux controllers. AVD-KSV-0044/0046
+and AVD-KSV-0041/0046 respectively remain controller privilege risks. This cluster's
+GitOps controllers manage cluster resources and secrets, so deleting those grants
+would stop reconciliation. Narrowing them requires a separate tenancy/service-
+account design and permission tests, not a mechanical removal.
+
+AVD-KSV-0046 on `flux-web-admin` remains relevant to the configured anonymous
+internal UI's `flux-admin` group. The internal gateway is not an authentication
+boundary. Changing its access model needs an explicit authentication/authorization
+design and owner review; no functionality or permissions are silently removed.
+The aggregate Flux view/edit/user roles are definitions whose warnings alone do
+not prove a workload binding; do not count them as newly compromised workloads.
