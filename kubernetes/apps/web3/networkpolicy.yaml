@@ -59,7 +59,7 @@ specs:
               app.kubernetes.io/component: thermal-guarded
         toPorts:
           - ports: [{ port: "3333", protocol: TCP }]
-      # Keep the existing LAN-gated LoadBalancer stratum and P2P interfaces on this app only.
+      # LAN-gated LoadBalancer stratum and P2P.
       - fromEntities: [world]
         toPorts:
           - ports:
@@ -75,6 +75,7 @@ specs:
       # P2Pool peers also advertise non-default ports.
       - toEntities: [world]
 
+  # Stable component label covers all three solar-scaled Deployments, including scale from zero.
   - endpointSelector:
       matchLabels: *miners
     ingress:
@@ -83,7 +84,6 @@ specs:
         toPorts:
           - ports: [{ port: "42000", protocol: TCP }]
     egress:
-      # Stable component label covers all three solar-scaled Deployments, including scale from zero.
       - toEndpoints:
           - matchLabels: *p2pool
         toPorts:

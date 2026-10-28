@@ -18,8 +18,7 @@ spec:
               repository: ghcr.io/sethforprivacy/simple-monerod
               tag: v0.18.5.4@sha256:465a9458f148d31748731cfb6bc1ab38289313dcb858a699838ab8d1b828578d
             securityContext:
-              # The entrypoint chowns data as root then uses su-exec; keep those
-              # capabilities, but do not allow executable-based privilege gains.
+              # Entrypoint chowns data as root then su-execs to the app UID, so capabilities stay.
               allowPrivilegeEscalation: false
             args:
               - "--data-dir=/home/monero/.bitmonero"
