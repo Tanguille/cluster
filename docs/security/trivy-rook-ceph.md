@@ -27,8 +27,8 @@ the exact Linux/amd64 manifests inspected.
   enables group snapshots by default. The native controller
   `containerExtraArgs` explicitly retains `CSIVolumeGroupSnapshot=false` for
   both drivers, preserving their existing `volumeSnapshot` behavior. The
-  installed group-snapshot CRDs already serve v1 and existing RBAC covers them,
-  but this update does not enable the feature. Operator 1.1.0 inherits these
+  installed group-snapshot CRDs already serve v1 and existing RBAC covers them.
+  Operator 1.1.0 inherits these
   default arguments and appends them to the snapshotter command; neither
   driver supplies conflicting arguments.
 - [Resizer v2.3.0](https://github.com/kubernetes-csi/external-resizer/blob/v2.3.0/CHANGELOG/CHANGELOG-2.3.md)
@@ -43,15 +43,12 @@ the exact Linux/amd64 manifests inspected.
 Snapshotter retains two known High vulnerability/package findings:
 `CVE-2026-78669` in `golang.org/x/net` and `CVE-2026-111943` in Go. Provisioner
 retains those plus Go findings `CVE-2026-78667`, `CVE-2026-78669` and
-`CVE-2026-97031`. Other Rook/Ceph images are unchanged. A newer dependency
-version does not establish that the namespace is vulnerability free.
+`CVE-2026-97031`. Other Rook/Ceph images are unchanged.
 
 Before/after renders differed only in the two image-set entries and the
 explicit snapshotter feature argument. CSI RBAC, storage classes, driver
 identities, two controller replicas, mounts, contexts and resources were
-unchanged. The repository validator, Markdown lint and independent review passed.
-After owner-approved rollout, verify both controller deployments use the exact
-images and preserve single-volume snapshot behavior. Exercise PVC provisioning,
-snapshot/restore and expansion using disposable fixtures, then obtain fresh
-Trivy reports for the deployed digests. No live update or storage fixture has
-been performed in this draft.
+unchanged. After owner-approved rollout, verify both controller deployments use
+the exact images and preserve single-volume snapshot behavior. Exercise PVC
+provisioning, snapshot/restore and expansion using disposable fixtures, then
+obtain fresh Trivy reports for the deployed digests.
