@@ -74,11 +74,56 @@ still contains brotli-libs 1.2.0-r1, libcurl 8.22.0-r0 and go-jose/v4 4.1.5 belo
 the reported fixes for some findings. Node-problem-detector 1.37.0 still uses Go
 1.27.2; a remaining High finding requires 1.27.3. Neither update is a clean scan.
 
+The [Kubernetes patch draft](https://github.com/Tanguille/cluster/pull/6308)
+sets Tuppr's target to 1.37.2 while preserving its health gates. Actual API server
+metadata confirms Go 1.26.10 meets four current standard-library High fix criteria;
+five module findings remain. Other candidate control-plane binaries still need
+fresh reports. Merging that separate draft would start an upgrade and requires
+owner approval; this ledger changes no upgrade settings.
+
+The [Rook CSI draft](https://github.com/Tanguille/cluster/pull/6310) updates provisioner to 6.4.0 and snapshotter to 8.7.0 via
+the native image set. Artifact versions meet 18 of 23 and 24 of 26 existing High
+fix criteria respectively; residual Go/x/net findings remain. A native snapshotter
+argument preserves the existing disabled group-snapshot behavior. Resizer 2.3.0
+is blocked because it removes a feature gate still passed unconditionally by
+operator 1.1.0. No storage rollout or disposable fixture test has occurred.
+
 Trivy Operator remains on its existing image: its latest source/image release
 does not have a published compatible chart at the configured source. The latest
 published chart is still 0.32.1, and the inspected newer operator image itself
 retains old Go/x/net dependencies. A standalone image override would bypass
 unverified chart, CRD and RBAC changes. No such override is proposed.
+
+Final primary release checks matched the existing Cilium 1.20.4, etcd-defrag
+0.47.0, Spegel 0.8.1, CSI attacher 4.13.0 and node-driver-registrar 2.18.0
+versions. The generic-device-plugin `latest` registry digest still equals its
+configured immutable pin, and the k8s-gateway registry has no stable version
+newer than 1.9.2. Those checks found no newer published replacement; their
+reported findings remain open.
+
+Three additional publisher checks have concrete blockers:
+
+- **CrowdSec:** [v1.8.2 source](https://github.com/crowdsecurity/crowdsec/releases/tag/v1.8.2)
+  is released, but its image tag returns `MANIFEST_UNKNOWN` from both Docker Hub
+  and the official GHCR mirror. Both tag inventories still end at v1.8.1;
+  Docker Hub's unprefixed `1.8.2` tag is also absent. Image publication uses a
+  separate [manual workflow](https://github.com/crowdsecurity/crowdsec/blob/v1.8.2/.github/workflows/publish-docker-release.yml).
+  Chart 0.24.2 has a shared native `image.tag` for agent, AppSec, LAPI and their
+  registration init containers, but a source release does not prove the image's
+  compiler or dependencies. Keep the 21 deduplicated High findings open until
+  a published artifact can be inspected and scanned; no override or rebuild.
+- **ExternalDNS:** [v0.24.0](https://github.com/kubernetes-sigs/external-dns/releases/tag/v0.24.0)
+  is published, but changes HTTPRoute annotation/template hostname precedence
+  over listener fallback. This cluster uses `gateway-httproute` with `policy: sync`,
+  so an upgrade can delete previously created listener/wildcard records. The
+  enabled `crd` source also needs the new DNSEndpoint/DNSRecord admission schemas
+  and existing objects reviewed. Compare intended DNS changes in dry-run mode
+  and validate the CRD migration before proposing a pin; no blind image override.
+- **Ceph:** the [official release manifest](https://github.com/ceph/ceph/blob/main/doc/releases/releases.yml)
+  lists Umbrella 21.2.0 released on October 28. Tentacle 20.2.4 remains the latest
+  20.x release, supported until June 1, 2027. A move to 21.x requires supported
+  Rook pairing and a storage migration review; it is not a routine security pin.
+  Neither the newer major's package fixes nor upgrade safety is established here.
 
 The MCP tools expose existing report readers, not an image scan/recheck operation.
 Kguardian supply-chain ingestion is unavailable: its 168-hour
@@ -135,3 +180,26 @@ of every Critical/High package finding and reported fix string, per-image totals
 coverage joins and current-owner audit membership. Public output contains no raw
 capture addresses, credentials, binding subjects or private source paths.
 Static validation does not authorize an infrastructure rollout.
+
+## Namespace drafts
+
+All remain drafts. The eight kguardian PRs also contain enforcing network policies;
+those require at least seven days of usable audit evidence and explicit owner
+approval. The five image/upgrade drafts require their documented compatibility,
+fresh-scan and rollout checks. No PR is deployment approval.
+
+| Namespace | Draft | Scope |
+| --- | --- | --- |
+| flux-system | [#6288](https://github.com/Tanguille/cluster/pull/6288) | Network/context draft and Trivy coverage |
+| renovate | [#6289](https://github.com/Tanguille/cluster/pull/6289) | Network/context draft and unresolved dependency |
+| kritika | [#6290](https://github.com/Tanguille/cluster/pull/6290) | Network/context draft and unresolved dependency |
+| media | [#6291](https://github.com/Tanguille/cluster/pull/6291) | Network/context draft, FileFlows init and findings |
+| web3 | [#6292](https://github.com/Tanguille/cluster/pull/6292) | Network/context draft, P2Pool root and miner findings |
+| ai | [#6293](https://github.com/Tanguille/cluster/pull/6293) | Network/context draft, Flux MCP and curl images |
+| default | [#6294](https://github.com/Tanguille/cluster/pull/6294) | Network/context draft, notify-push and findings |
+| observability | [#6295](https://github.com/Tanguille/cluster/pull/6295) | Network/context draft, VM images and exporters |
+| security | [#6305](https://github.com/Tanguille/cluster/pull/6305) | Trivy engine and infrastructure evidence |
+| database | [#6306](https://github.com/Tanguille/cluster/pull/6306) | Dragonfly metrics proxy image |
+| kube-system | [#6307](https://github.com/Tanguille/cluster/pull/6307) | CoreDNS and Node Problem Detector images |
+| system-upgrade | [#6308](https://github.com/Tanguille/cluster/pull/6308) | Kubernetes patch target |
+| rook-ceph | [#6310](https://github.com/Tanguille/cluster/pull/6310) | CSI provisioner/snapshotter images |
