@@ -109,12 +109,16 @@ spec:
       storage:
         useAllNodes: false
         useAllDevices: false
+        # No pool selects a device class, so relabelling an OSD moves no data.
+        allowDeviceClassUpdate: true
         nodes:
           - name: control-1
             devices:
+              # Created as hdd while virtio reported rotational; see control-1's UdevRulesConfig.
               - name: /dev/disk/by-id/virtio-ZF6YrnfZ
             config:
               osdsPerDevice: "1"
+              deviceClass: nvme
           - name: control-2
             devices:
               # Samsung 980 PRO 1TB
