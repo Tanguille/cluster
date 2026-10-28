@@ -116,8 +116,8 @@ spec:
           app:
             # Deleting through GraphQL blocklists the hashes, so the crawler does not re-add them.
             image:
-              repository: docker.io/library/python
-              tag: 3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8
+              repository: python
+              tag: 3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
             command: [python3, /prune/prune-delete.py]
             resources: *job-resources
             securityContext: *container-security
