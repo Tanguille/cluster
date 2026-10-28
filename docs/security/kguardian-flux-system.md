@@ -111,13 +111,16 @@ empty query are not runtime validation.
 [Policy](../../kubernetes/apps/flux-system/networkpolicy.yaml) permits artifact/event
 pod port 9090, external webhook 9292, internal operator UI 9080, vmagent metrics,
 controller API/HTTPS and Konflate public rendering/image-verification HTTPS.
+The operator's own selector grants controller egress and metrics independently of
+the distribution controllers' `app.kubernetes.io/part-of: flux` label.
 Konflate accepts the public gateway and AI Unified (`virtualmcpserver`, instance
 `unified`) on 8080, but receives no API grant. Its additive chart policy is disabled.
 There were no CronJobs/Jobs or configured movers in this namespace.
 
 Audit source refreshes, chart installation/upgrades, remote bases, receiver hooks,
-provider notifications, image verification and cold renders. Zero namespace
-traffic records despite six generated policies is a coverage gap.
+provider notifications, image verification, cold renders and AI Unified's MCP
+call to Konflate `/mcp` on 8080. Zero namespace traffic records despite six
+generated policies is a coverage gap.
 
 ## Local validation
 
