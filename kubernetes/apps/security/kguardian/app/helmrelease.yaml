@@ -53,12 +53,13 @@ spec:
     telemetry:
       enabled: false
 
-    # Barely used: drop the per-pod compute gauges and seccomp denials (no SeccompProfiles exist).
+    # Per-pod gauges duplicate cAdvisor and cost ~85 writes/s (pod_compute_latest + history).
     compute:
       enabled: false
+    # 30s denial drain; still inside 5m alert window.
     seccomp:
       denials:
-        enabled: false
+        intervalSeconds: 30
     # No AuditNetworkPolicies exist.
     evaluator:
       enabled: false
@@ -105,6 +106,9 @@ spec:
       metrics:
         serviceMonitor:
           enabled: true
+        # Chart's seccomp denial alerts (observed, enforcing, abnormal rate).
+        prometheusRule:
+          enabled: true
 
       # 16 = inflightPermits + 8 floor; fits the 25/30 pooler and a 2x16 rollout burst.
       dbPoolMaxSize: 16
@@ -124,10 +128,8 @@ spec:
       podInventory:
         retention:
           deadPodDays: 3
-      # Denial capture is off; the gauge still ran a count query every 15s.
       seccomp:
         denials:
-          metricsIntervalSeconds: 3600
           retention:
             days: 14
       # Every finished Job instance stays a workload row until pruned (~1.3k/day); at 30d the in-use coverage recompute took ~200s.
@@ -146,9 +148,6 @@ spec:
 
     # Memory covers the 368Mi 30d peak (grows with pod age); CPU trim saves 150m across the DaemonSet.
     controller:
-      # Job-heavy namespaces (trivy scans, kopiur movers, renovate) piled up ~57k dead workloads; stops new rows only, nothing prunes the old ones.
-      excludedNamespaces:
-        [kguardian, kube-system, security, kopiur-system, renovate]
       resources:
         requests:
           cpu: 50m
