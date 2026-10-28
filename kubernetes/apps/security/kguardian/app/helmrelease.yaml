@@ -23,7 +23,7 @@ spec:
                 name: not-used
                 labels:
                   app.kubernetes.io/name: kguardian-broker
-          # Snapshotter has no chart value: hourly, one batch per tick (default re-profiled every Job workload ever seen every 300s).
+          # Snapshotter has no chart value: one 256 batch per 300s tick, live workloads first (default swept every workload ever seen each tick).
           - target:
               kind: Deployment
               name: kguardian-broker
@@ -38,8 +38,6 @@ spec:
                     containers:
                       - name: broker
                         env:
-                          - name: PROFILE_SNAPSHOT_INTERVAL_SECS
-                            value: "3600"
                           - name: PROFILE_SNAPSHOT_TICK_BUDGET_SECS
                             value: "0"
                           - name: PROFILE_SNAPSHOT_BATCH
@@ -130,6 +128,8 @@ spec:
       seccomp:
         denials:
           metricsIntervalSeconds: 3600
+          retention:
+            days: 14
       # Every finished Job instance stays a workload row until pruned (~1.3k/day); at 30d the in-use coverage recompute took ~200s.
       imageInventory:
         retention:
@@ -146,7 +146,7 @@ spec:
 
     # Memory covers the 368Mi 30d peak (grows with pod age); CPU trim saves 150m across the DaemonSet.
     controller:
-      # Job-heavy namespaces (trivy scans, kopiur movers, renovate) piled up ~57k dead workloads to re-profile.
+      # Job-heavy namespaces (trivy scans, kopiur movers, renovate) piled up ~57k dead workloads; stops new rows only, nothing prunes the old ones.
       excludedNamespaces:
         [kguardian, kube-system, security, kopiur-system, renovate]
       resources:

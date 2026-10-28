@@ -24,7 +24,7 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 5,
+        "w": 6,
         "h": 4
       },
       "datasource": {
@@ -64,9 +64,9 @@
       "type": "stat",
       "title": "Database usable",
       "gridPos": {
-        "x": 5,
+        "x": 6,
         "y": 0,
-        "w": 5,
+        "w": 6,
         "h": 4
       },
       "datasource": {
@@ -104,50 +104,11 @@
     },
     {
       "type": "stat",
-      "title": "Workloads with seccomp denials",
-      "gridPos": {
-        "x": 10,
-        "y": 0,
-        "w": 5,
-        "h": 4
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(kguardian_seccomp_denial_workloads)"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              }
-            ]
-          }
-        }
-      },
-      "options": {
-        "colorMode": "background"
-      }
-    },
-    {
-      "type": "stat",
       "title": "Audit permits free",
       "gridPos": {
-        "x": 15,
+        "x": 12,
         "y": 0,
-        "w": 5,
+        "w": 6,
         "h": 4
       },
       "datasource": {
@@ -184,9 +145,9 @@
       "type": "stat",
       "title": "DB pool idle",
       "gridPos": {
-        "x": 20,
+        "x": 18,
         "y": 0,
-        "w": 4,
+        "w": 6,
         "h": 4
       },
       "datasource": {
@@ -220,39 +181,11 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Seccomp denials by workload",
-      "gridPos": {
-        "x": 0,
-        "y": 4,
-        "w": 24,
-        "h": 9
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (workload_namespace, workload, action) (increase(kguardian_seccomp_denials_total[$__rate_interval]))",
-          "legendFormat": "{{workload_namespace}}/{{workload}} {{action}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "bars"
-          }
-        }
-      }
-    },
-    {
       "type": "table",
       "title": "Drift findings",
       "gridPos": {
         "x": 0,
-        "y": 13,
+        "y": 4,
         "w": 24,
         "h": 8
       },
