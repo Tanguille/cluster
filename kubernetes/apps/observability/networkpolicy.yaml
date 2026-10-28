@@ -1,9 +1,7 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
 # LOCAL DRAFT: audit for at least seven days and obtain owner approval before enforcement.
-# New namespace ingress/egress boundary; hostNetwork node-exporter requires separate host-policy review.
 # Rev-NAT DNS replies need unported ingress; kubelet probes arrive from host.
-# vmagent deliberately retains broad pod egress for dynamically discovered scrape targets.
 # LAN destinations use existing Flux substitution keys, never captured peer addresses.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -222,17 +220,6 @@ specs:
           - *vmagent
         toPorts: &tcp-8427
           - ports: [{ port: "8427", protocol: TCP }]
-  - description: vmagent scrapes pod port 8428.
-    endpointSelector:
-      matchExpressions:
-        - key: app.kubernetes.io/name
-          operator: In
-          values: [vmsingle]
-    ingress:
-      - fromEndpoints:
-          - *vmagent
-        toPorts: &tcp-8428
-          - ports: [{ port: "8428", protocol: TCP }]
   - description: vmagent scrapes pod port 8429.
     endpointSelector:
       matchExpressions:
@@ -303,7 +290,8 @@ specs:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmsingle
-        toPorts: *tcp-8428
+        toPorts: &tcp-8428
+          - ports: [{ port: "8428", protocol: TCP }]
       - toEndpoints: &observability-vmalertmanager-peers
           - matchLabels:
               io.kubernetes.pod.namespace: observability
@@ -337,7 +325,8 @@ specs:
               - { port: "443", protocol: TCP }
               - { port: "6443", protocol: TCP }
       - toEndpoints:
-          - matchLabels:
+          - &grafana
+            matchLabels:
               io.kubernetes.pod.namespace: observability
               app: grafana
         toPorts: *tcp-3000
@@ -451,11 +440,9 @@ specs:
         - key: app.kubernetes.io/name
           operator: In
           values:
-            [
-              keda-admission-webhooks,
-              kepler-operator,
-              victoria-metrics-operator
-            ]
+            - keda-admission-webhooks
+            - kepler-operator
+            - victoria-metrics-operator
     ingress:
       - fromEntities: [kube-apiserver, remote-node]
         toPorts:
@@ -511,26 +498,16 @@ specs:
       - toEntities: [host, remote-node]
         toPorts:
           - ports:
-              - port: "2381"
-                protocol: TCP
-              - port: "4244"
-                protocol: TCP
-              - port: "9090"
-                protocol: TCP
-              - port: "9100"
-                protocol: TCP
-              - port: "9962"
-                protocol: TCP
-              - port: "9963"
-                protocol: TCP
-              - port: "9964"
-                protocol: TCP
-              - port: "10250"
-                protocol: TCP
-              - port: "10257"
-                protocol: TCP
-              - port: "10259"
-                protocol: TCP
+              - { port: "2381", protocol: TCP }
+              - { port: "4244", protocol: TCP }
+              - { port: "9090", protocol: TCP }
+              - { port: "9100", protocol: TCP }
+              - { port: "9962", protocol: TCP }
+              - { port: "9963", protocol: TCP }
+              - { port: "9964", protocol: TCP }
+              - { port: "10250", protocol: TCP }
+              - { port: "10257", protocol: TCP }
+              - { port: "10259", protocol: TCP }
       - toCIDR: ["${TRUENAS_IP}/32"]
         toPorts:
           - ports:
@@ -567,9 +544,7 @@ specs:
         app.kubernetes.io/name: vmauth
     ingress:
       - fromEndpoints:
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app: grafana
+          - *grafana
           - matchExpressions:
               - key: app.kubernetes.io/name
                 operator: In
@@ -600,9 +575,7 @@ specs:
                 values: [vmagent, vmauth, vmalert, kromgo, keda-operator]
             matchLabels:
               io.kubernetes.pod.namespace: observability
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app: grafana
+          - *grafana
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app.kubernetes.io/instance: hermes
@@ -629,9 +602,7 @@ specs:
                 values: [vmalert, silence-operator, siren]
             matchLabels:
               io.kubernetes.pod.namespace: observability
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app: grafana
+          - *grafana
           - matchLabels:
               io.kubernetes.pod.namespace: security
               k8s-app: crowdsec
@@ -660,9 +631,7 @@ specs:
                 values: [victoria-logs-collector, vmauth]
             matchLabels:
               io.kubernetes.pod.namespace: observability
-          - matchLabels:
-              io.kubernetes.pod.namespace: observability
-              app: grafana
+          - *grafana
           - matchLabels:
               io.kubernetes.pod.namespace: ai
               app: victorialogs-mcp
@@ -758,7 +727,7 @@ specs:
               app.kubernetes.io/name: seerr-chart
         toPorts:
           - ports: [{ port: "5055", protocol: TCP }]
-  - description: "nut-exporter: configured LAN target; addresses use existing Flux substitutions."
+  - description: "nut-exporter: configured LAN target."
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: nut-exporter
@@ -766,14 +735,14 @@ specs:
       - toCIDR: ["${TRUENAS_IP}/32"]
         toPorts:
           - ports: [{ port: "3493", protocol: TCP }]
-  - description: "opnsense-exporter: configured LAN target; addresses use existing Flux substitutions."
+  - description: "opnsense-exporter: configured LAN target."
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: opnsense-exporter
     egress:
       - toCIDR: ["${OPNSENSE_IP}/32"]
         toPorts: *tcp-443
-  - description: "klipper-exporter: configured LAN target; addresses use existing Flux substitutions."
+  - description: "klipper-exporter: configured LAN target."
     endpointSelector:
       matchLabels:
         app.kubernetes.io/name: klipper-exporter

@@ -38,8 +38,7 @@ spec:
       enabled: true
       interval: 30m
       scrapeTimeout: 5m
-    # Keep this additive chart policy as narrow as the namespace CNP.
-    # The namespace policy separately permits Ookla egress.
+    # Ingress only, as narrow as the namespace CNP, which also scopes Ookla egress.
     networkPolicy:
       enabled: true
       ingress:

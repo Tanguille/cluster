@@ -48,7 +48,7 @@ Observed syscall sets are available, but their timestamps can predate this colle
 
 Validation passed: the required full repository validator (Flux/Helm rendering, shellcheck, secret guardrails and 25 regression tests), namespace chart renders, and before/after structural checks. Existing identities, added capabilities, privileged/host settings, application configuration and selectors are unchanged. Operator-created pods still need runtime verification: Helm can validate the CR, not the final reconciliation or application startup. Approval should include checking startup, storage writes, monitoring and scheduled jobs for each changed workload.
 
-VictoriaMetrics operator v0.75.0 accepts pod and container fields directly under `spec.securityContext`; the pinned [API type](https://github.com/VictoriaMetrics/operator/blob/v0.75.0/api/operator/v1beta1/vmextra_types.go) and [container builder](https://github.com/VictoriaMetrics/operator/blob/v0.75.0/internal/controller/operator/factory/build/security.go) were checked because its CRD preserves unknown nested fields. `useStrictSecurity` is deliberately not enabled: its additional identity/filesystem changes would require separate validation.
+VictoriaMetrics operator v0.75.2 accepts pod and container fields directly under `spec.securityContext`; the pinned [API type](https://github.com/VictoriaMetrics/operator/blob/v0.75.2/api/operator/v1beta1/vmextra_types.go) and [container builder](https://github.com/VictoriaMetrics/operator/blob/v0.75.2/internal/controller/operator/factory/build/security.go) were checked because its CRD preserves unknown nested fields. `useStrictSecurity` is deliberately not enabled: its additional identity/filesystem changes would require separate validation.
 
 ## Other kguardian features (2026-10-28)
 
@@ -76,11 +76,6 @@ Keep RuntimeDefault; do not replace it with an unverified allowlist or LOG profi
 A workload aggregate can include older pods and differs from this single-pod set.
 Resolve the exporter and capture startup, Jobs and rare paths before proposing
 a custom profile; no generated syscall set is claimed complete over seven days.
-
-No `unshippedExecutable` or `securityContextRegression` drift item was returned.
-Executable inventory and a context/export baseline are missing for these checks;
-that is unknown, not a clean drift result. Investigate any future positive finding
-before advancing enforcement.
 
 ### Revision evidence
 
