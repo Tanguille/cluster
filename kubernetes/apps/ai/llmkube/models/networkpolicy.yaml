@@ -17,7 +17,7 @@ spec:
       - key: inference.llmkube.dev/service
         operator: Exists
   # Init model-downloader revalidates/downloads HuggingFace artifacts on startup.
-  # Steady-state traffic alone cannot establish that model pods need no internet.
+  # Pod-wide: Cilium cannot scope egress to an init container, so serving containers get it too.
   egress:
     - toEntities:
         - world

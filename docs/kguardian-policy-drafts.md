@@ -130,7 +130,8 @@ Resolve Hermes SSH/1925/4096 attribution, Headroom HTTPS despite offline mode,
 and shared ToolHive operator/proxy HTTPS that is not the Kubernetes Service IP.
 No guessed SSH/LAN/internet grants were added. Karakeep and the KV-guard Job had
 no data. Audit every MCP transport, Home Assistant's selectorless
-Service, node-based Talos access, browser/code tasks, cold models, Hermes schedules,
+Service, node-based Talos access, browser/code tasks, cold models and their pod-wide
+`world` 443 (init downloader), Hermes schedules,
 cache pruning, vMCP restart and nightly movers. Detached Paseo is not active and
 needs its own policy/evidence before activation; it does not inherit Hermes rules.
 

@@ -10,6 +10,7 @@ metadata:
 # ToolHive/inference policies. No namespace-wide application grant remains.
 specs:
   # Default-deny both directions, including future Jobs and unknown pods.
+  # DNS-only today: the qwen38-27b-vllm kv-offload-guard and compile-cache-prune CronJobs (filesystem only).
   # Host probes and rev-NAT DNS replies retain unported ingress; reply destination
   # ports are ephemeral. DNS queries use kube-dns TCP/UDP53 without an L7 proxy.
   - endpointSelector: {}

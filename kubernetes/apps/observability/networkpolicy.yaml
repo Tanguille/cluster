@@ -576,6 +576,10 @@ specs:
                 values: [vmalert, keda-operator]
             matchLabels:
               io.kubernetes.pod.namespace: observability
+          # Miner guard: a failed query publishes safe=0 and KEDA holds every miner at zero.
+          - matchLabels:
+              io.kubernetes.pod.namespace: web3
+              app.kubernetes.io/instance: guard
         toPorts: *tcp-8427
     egress:
       - toEndpoints: *observability-vmsingle-peers
