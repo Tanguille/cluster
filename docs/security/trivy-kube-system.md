@@ -2,8 +2,7 @@
 
 The October 28, 2026 review matched existing Trivy reports to the running
 workloads and inspected the proposed upstream images without executing them.
-These are image updates only; applying them and scanning the resulting pods
-remain separate owner-approved steps.
+These are image updates only.
 
 | Workload | Reported image | Existing report | Proposed image |
 | --- | --- | --- | --- |
@@ -30,6 +29,9 @@ they are not counts of distinct flaws or a scan of the proposed images.
   including their command, RBAC, mounts, contexts and resource settings.
 - Both HelmReleases pin the release's registry index digest. The inspected
   Linux/amd64 manifest matches that index's Linux/amd64 descriptor.
+- Pinned-chart before/after renders differed only in container images and
+  CoreDNS's derived metadata version label, which passed the Kubernetes label
+  length and character checks.
 
 ## Remaining findings and rollout gates
 
@@ -39,14 +41,9 @@ findings also remain, including unchanged zlib packages without a reported fix.
 CoreDNS embeds a pseudo-version for its main module; existing findings against
 that package need release-to-source mapping and a fresh scan before closure.
 Other kube-system images and configuration findings are outside these two
-updates. Neither this namespace nor either candidate is claimed vulnerability
-free.
+updates.
 
-Pinned-chart before/after renders differed only in container images and
-CoreDNS's derived metadata version label, which passed the Kubernetes label
-length and character checks. The repository validator and Markdown lint passed.
-After owner-approved rollout, verify
-cluster DNS (including forwarding and negative responses), CoreDNS readiness,
-Node Problem Detector node-condition reporting and metrics, then obtain fresh
-Trivy reports for the exact deployed digests. Static artifact metadata and local
-validation do not establish those runtime results.
+After owner-approved rollout, verify cluster DNS (including forwarding and
+negative responses), CoreDNS readiness, Node Problem Detector node-condition
+reporting and metrics, then obtain fresh Trivy reports for the exact deployed
+digests.
