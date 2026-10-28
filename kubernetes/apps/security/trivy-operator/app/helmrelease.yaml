@@ -30,6 +30,11 @@ spec:
       resources:
         limits:
           cpu: 1000m
+      image:
+        # Spelled out so Renovate tracks the digest.
+        registry: mirror.gcr.io
+        repository: aquasec/trivy
+        tag: 0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
       # Full reports exceeded the 2MB gRPC limit and looped the operator into
       # OOM (aquasecurity/trivy-operator#757). LOW/MEDIUM findings are not stored.
       severity: HIGH,CRITICAL
