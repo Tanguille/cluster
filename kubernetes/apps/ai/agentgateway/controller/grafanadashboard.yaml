@@ -9,8 +9,7 @@ spec:
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: network
   configMapRef:
     # Rendered by the chart (monitoring.grafanaDashboard).
-    name: agentgateway-dashboard
+    name: agentgateway-controller-dashboard
     key: agentgateway.json
