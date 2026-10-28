@@ -13,12 +13,20 @@ spec:
     defaultPodOptions:
       securityContext:
         seccompProfile: { type: RuntimeDefault }
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
     controllers:
       notify-push:
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
+            # The image is a static binary; configuration is supplied through the environment.
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: [ALL] }
             # No official image; using icewind1991/notify_push (Nextcloud contributor).
             # Track https://github.com/nextcloud/notify_push for an official image.
             image:

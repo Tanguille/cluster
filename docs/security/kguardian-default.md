@@ -14,7 +14,7 @@ The table records the **current observed posture**, not a prediction after these
 | Deployment/picoshare | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain existing non-root identity and container controls. |
 | Deployment/obico-server | risk / 50% / network, images | baseline | Apply RuntimeDefault; add non-root, no privilege escalation and drop ALL to server, migrate and tasks using pinned chart uid/gid 65534. collectstatic retains its explicit root uid/gid 0 and capabilities for shared static assets; only disable privilege escalation there. |
 | Deployment/obico-ml-api | warn / 50% / network, images | baseline | Apply RuntimeDefault, non-root, no privilege escalation and drop ALL; pinned chart already supplies uid/gid 65534 and directly starts gunicorn. |
-| Deployment/notify-push | warn / 50% / network, images | baseline | Apply RuntimeDefault only. Defer identity and capability restrictions until image entrypoint and writable-path behavior are verified. |
+| Deployment/notify-push | warn / 50% / network, images | baseline | Apply RuntimeDefault plus the Trivy follow-up below: verified scratch binary supports uid/gid 65534, non-root, no privilege escalation, drop ALL and read-only root. |
 | Deployment/nextcloud | risk / 50% / network, images | baseline | Apply RuntimeDefault through nextcloud.podSecurityContext. Preserve root app startup: the documented hook installs packages and the entrypoint changes ownership/drops privileges. Defer app/nginx non-root, no privilege escalation and drop ALL pending startup testing. |
 | Deployment/karakeep-meilisearch | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain existing non-root identity and container controls. |
 | Deployment/moonraker-obico | risk / 50% / network, images | privileged | Retain existing RuntimeDefault and container hardening. Exemption: hostNetwork is required for the configured printer connection; no host-network change. |
@@ -26,9 +26,9 @@ The table records the **current observed posture**, not a prediction after these
 | Deployment/dumbassets | warn / 50% / network, images | baseline | Apply RuntimeDefault only. Defer non-root, no privilege escalation and drop ALL until image startup and writable-directory ownership are verified. |
 | Deployment/changedetection | warn / 50% / network, images | baseline | Apply RuntimeDefault, preserving gVisor. Defer non-root, no privilege escalation and drop ALL until image startup and writable-directory ownership are verified. |
 
-No profile reported a drift item. This is not proof of clean execution: executable inventory, prior export or security-context baseline is missing for the relevant drift checks. Investigate any later `unshippedExecutable` or `securityContextRegression` before rollout. Image vulnerability/signature data is not configured, so image safety remains unknown.
+No profile reported a drift item. This is not proof of clean execution: executable inventory, prior export or security-context baseline is missing for the relevant drift checks. Investigate any later `unshippedExecutable` or `securityContextRegression` before rollout. kguardian vulnerability/signature ingestion is not configured; the separate Trivy follow-up below records available operator reports. Missing scan or signature coverage remains unknown.
 
-Observed syscall sets are available, but their timestamps can predate this collection and a missing SeccompProfile CR is not evidence that RuntimeDefault is absent. These changes select the container runtime default where defensible; they do not install an observation-derived syscall allowlist. Existing writable filesystems are retained. Capability recommendations are defaults, not continuous observations of capability use.
+Observed syscall sets are available, but their timestamps can predate this collection and a missing SeccompProfile CR is not evidence that RuntimeDefault is absent. These changes select the container runtime default where defensible; they do not install an observation-derived syscall allowlist. Existing writable filesystems are retained except the stateless notify-push proposal described below. Capability recommendations are defaults, not continuous observations of capability use.
 
 Validation passed: the required full repository validator (Flux/Helm rendering, shellcheck, secret guardrails and 25 regression tests), namespace chart renders, and before/after structural checks. Existing identities, added capabilities, privileged/host settings, application configuration and selectors are unchanged. Operator-created pods still need runtime verification: Helm can validate the CR, not the final reconciliation or application startup. Approval should include checking startup, storage writes, monitoring and scheduled jobs for each changed workload.
 
@@ -43,7 +43,7 @@ never means safe. Raw pod addresses, credentials and captures are not published.
 | Workload inventory, profiles and revision diffs | 19 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
 | Namespace traffic | 0 records, 0 pods, 0 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
 | Image inventory | 19 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
-| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| Vulnerabilities and exposure | kguardian's HIGH/CRITICAL query returned no findings because its image reports are absent. Separate Trivy findings appear below; kguardian exposure evaluation still needs ingested reports. This is not zero vulnerabilities. |
 | SBOM and signer queries | Queried all 19 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
 | Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
 | Syscalls and profile generation | Representative `nextcloud` pod returned 147 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
@@ -139,3 +139,35 @@ mail delivery. Ghostfolio alone retains its documented direct-instance 5432
 `DIRECT_URL` migration path for session advisory locks; steady-state traffic uses
 `pgbouncer-rw`. Investigate session-pooler compatibility and the known same-node
 primary VIP issue before changing that URL. Secret-backed endpoints remain unverified.
+
+## Trivy follow-up: 2026-10-28
+
+The [image ledger](trivy-default-images.csv) covers 16 image digests; 72 Critical and 1,697 High deduplicated package findings. The [finding ledger](trivy-default-findings.csv) retains every Critical/High id, package, installed version and all reported fixed versions, deduplicated per digest/id/package/version/severity. Raw report counts remain alongside deduplicated counts. Reports were joined to active owner uids and checked against current regular/init container spec pins and status imageIDs; historical reports were also checked for exact current digest matches. Source report names, timestamps and ages are retained. These are observed findings, not a claim that every affected package is reachable.
+
+Most pinned tags still identify the same publisher image, and many applications are already on their latest published release. A fixed package version does not imply a supported patched application image exists. No findings are suppressed, no packages are upgraded at startup, and no custom image forks are introduced. Fresh scanning remains unavailable through the discovered MCP tools: kguardian returns no vulnerability data even for a VM operator digest with an existing Trivy report. That is an ingestion/coverage gap, not zero vulnerabilities.
+
+Current-owner configuration findings are accounted for below. Repeated checks for multiple containers are grouped; the table describes the remaining requirement rather than treating a retained exception as resolved. Several configuration reports predate the latest image scan; for example node-exporter has an older report despite its current owner uid.
+
+| Workload | Failed High checks | Draft action or blocker |
+| --- | --- | --- |
+| CronJob/nextcloud-cron | AVD-KSV-0014 | Deferred: the separate cron image shares Nextcloud runtime paths; verify temporary files and hooks before making its root filesystem read-only. |
+| Deployment/changedetection | AVD-KSV-0014, AVD-KSV-0118 | Deferred: the image uses a root entrypoint and /datastore. RuntimeDefault alone does not resolve default-context or writable-root checks; verify its entrypoint and all write paths. |
+| Deployment/dumbassets | AVD-KSV-0014, AVD-KSV-0118 | Deferred: npm startup and /app/data ownership are not validated for a non-root, read-only filesystem. |
+| Deployment/ghostfolio | AVD-KSV-0014 | Deferred: Prisma migration/startup and temporary writes need a read-only-root compatibility check. |
+| Deployment/karakeep | AVD-KSV-0014 | Exemption/deferred: documented s6 setuid/chown startup needs retained privileges and writable runtime paths. |
+| Deployment/karakeep-chrome | AVD-KSV-0014 | Deferred: browser profile/cache writes require explicit writable mounts before a read-only root. |
+| Deployment/karakeep-meilisearch | AVD-KSV-0014 | Deferred: preserve search storage and startup paths until a read-only-root startup test succeeds. |
+| Deployment/moonraker-obico | AVD-KSV-0009, AVD-KSV-0014 | Exemption: host networking supports the printer connection. App and render-config writable-root checks remain pending write-path verification. |
+| Deployment/nextcloud | AVD-KSV-0014, AVD-KSV-0118 | Exemption/deferred: root startup installs required packages and initializes shared data; nginx startup paths also need validation. No blind read-only-root or non-root setting. |
+| Deployment/notify-push | AVD-KSV-0014, AVD-KSV-0118 | Proposed fix: uid/gid 65534, non-root, no privilege escalation, drop ALL and read-only root. Static scratch image, env-only configuration, stdout logging and port 7867 require no writable root or privileged bind. |
+| Deployment/obico-ml-api | AVD-KSV-0014 | Deferred: Python/gunicorn temporary and model/cache paths need validation before a read-only root. |
+| Deployment/obico-server | AVD-KSV-0014 | Deferred: collectstatic, migrations, server and Celery paths need a writable-path inventory; retain collectstatic root exception. |
+| Deployment/picoshare | AVD-KSV-0014 | Deferred: verify the database, temporary uploads and image entrypoint before making root read-only. |
+| Deployment/satisfactory | AVD-KSV-0014 | Exemption/deferred: Steam/mod installation and updates need writable paths; do not prevent the documented startup downloads. |
+| Deployment/spoolman | AVD-KSV-0014, AVD-KSV-0118 | Deferred: entrypoint, application user and writable paths require validation; existing RuntimeDefault does not resolve these findings. |
+
+The two High RBAC findings (`AVD-KSV-0056`) concern `default/rook-ceph-mgr` and `default/rook-ceph-system` service-management permissions. MCP confirmed the report owner uids, Roles, bindings and service accounts still exist. Their Rook labels require a storage ownership/consumer review before reducing permissions or deleting resources; this namespace draft does neither.
+
+Notify-push evidence: the pinned image `icewind1991/notify_push:1.4.2@sha256:614a936770c045c5ee8d1e05f9f8a36e31cf0c3ae58073b2dd710d554486d992` has `/notify_push` as its command. The upstream [v1.4.2 Dockerfile](https://github.com/nextcloud/notify_push/blob/v1.4.2/Dockerfile) contains only that static executable in a scratch image; [startup code](https://github.com/nextcloud/notify_push/blob/v1.4.2/src/main.rs) logs to stdout. This deployment supplies configuration through environment variables and listens on port 7867. Proposed controls still need approved startup and self-test verification.
+
+Rollout and rescan are pending owner approval. Retained root, startup, writable-filesystem, host/device and ICMP exceptions remain visible findings; they are not suppressed or reported as fixed.
