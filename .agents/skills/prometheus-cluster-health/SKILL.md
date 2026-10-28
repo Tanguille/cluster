@@ -52,7 +52,7 @@ Stack: Grafana MCP (`grafana/mcp-grafana`), behind the ToolHive unified vMCP. Da
 ## Workflow
 
 1. Set `$WINDOW` / `$STEP` from user request.
-2. Alerts: ALERTS PromQL first, then `alerting_rules_read` for rule detail ([references/promql-queries.md](references/promql-queries.md#step-1--alerts)).
+2. Alerts: ALERTS PromQL first, drop silenced/inhibited ones, then `alerting_rules_read` for rule detail ([references/promql-queries.md](references/promql-queries.md#step-1--alerts)).
 3. CPU — avg or max cores per pod/namespace; top N sorted ([references/promql-queries.md](references/promql-queries.md#step-2--cpu-by-workload)).
 4. Optional memory / node queries — same reference.
 5. Report using template in [references/promql-queries.md](references/promql-queries.md#report-template).

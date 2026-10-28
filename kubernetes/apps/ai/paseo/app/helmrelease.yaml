@@ -1,0 +1,111 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app paseo
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    defaultPodOptions:
+      priorityClassName: homelab-important
+      runtimeClassName: gvisor
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    controllers:
+      paseo:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/joryirving/paseo
+              tag: 0.13.2@sha256:63cd3eab45ac840992ec579804da883e79ca7713886605118f2f71b0a111e097
+            # Skips the image's paseo-start CMD, which requires LiteLLM and overwrites config.json on every start.
+            command:
+              - /usr/bin/tini
+              - --
+              - /bin/bash
+              - -c
+              - |
+                set -euo pipefail
+                [[ $${PASEO_PASSWORD} =~ [^[:space:]] ]] || { echo "PASEO_PASSWORD is empty" >&2; exit 1; }
+                [[ -e /home/paseo/.paseo/config.json ]] || install -Dm600 /etc/paseo-runtime/config.json /home/paseo/.paseo/config.json
+                exec /usr/local/bin/paseo-docker-entrypoint
+            env:
+              HERMES_HOME: /home/paseo/.hermes
+              PASEO_RELAY_ENABLED: "false"
+              PASEO_HOSTNAMES: &hostname "{{ .Release.Name }}.${SECRET_DOMAIN}"
+              PASEO_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: paseo-secret
+                    key: PASEO_PASSWORD
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: [ALL]
+            resources:
+              requests:
+                cpu: 250m
+                memory: 1Gi
+              limits:
+                cpu: 2
+                memory: 4Gi
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: &port 6767
+                  timeoutSeconds: 5
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /api/health
+                    port: *port
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        hostnames:
+          - *hostname
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+    persistence:
+      runtime:
+        type: configMap
+        name: paseo-runtime
+        globalMounts:
+          - path: /etc/paseo-runtime
+            readOnly: true
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /home/paseo
+            subPath: home
+          - path: /workspace
+            subPath: workspace

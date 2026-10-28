@@ -210,7 +210,7 @@ spec:
   # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
   # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
   # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:0c030ba9e2e5fd2f45f2a048a1c8bb239d9674b63297166b79e258b4ce65c6cc
+  image: vllm/vllm-openai-rocm:nightly@sha256:009169c114af5b15e25eddc808afb3c1fc3f12c94e746472b16f39fcf39cd716
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -229,6 +229,9 @@ spec:
     # On gfx12 this gates aiter's Triton GDN decode kernels (qwen_gdn_linear_attn.py); full attention runs ULTRAQUANT regardless.
     - name: VLLM_ROCM_USE_AITER
       value: "1"
+    # vllm#52970 routes rms_norm to aiter on RDNA4 when this is on (default); keep the native norm until a clone test measures it.
+    - name: VLLM_ROCM_USE_AITER_RMSNORM
+      value: "0"
     # Raises the odds of the fast gfx1201 band (2x decode, ROCm/ROCm#6347); not a pin.
     - name: GPU_MAX_HW_QUEUES
       value: "1"

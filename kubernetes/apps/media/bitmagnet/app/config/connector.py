@@ -1,8 +1,10 @@
-"""Run the pinned upstream connector with a prediction cache and text-only Torznab caps.
+"""Run the pinned upstream connector with a search prediction cache and text-only Torznab caps.
 
 The Torznab proxy re-classifies every result on every search, and Prowlarr's RSS sync keeps
 re-fetching the same newest items. The key holds every input that moves the prediction (name,
 file count, seeder bucket), so a changed torrent or swarm is re-classified and new ones always are.
+Only searches use the cache: the poller sees each torrent once, with real file lists that never
+match a Torznab row's key.
 bitmagnet answers id searches only from TMDB-matched torrents, so caps advertise title search only.
 """
 from collections import OrderedDict
@@ -30,11 +32,11 @@ def _key(row):
 
 
 def cached(run):
-    """Wrap `run(self, rows) -> preds` with a thread-safe LRU of predictions."""
+    """Wrap `run(ctx, rows) -> preds` with a thread-safe LRU of predictions; `ctx` passes through."""
     cache = OrderedDict()
     lock = threading.Lock()
 
-    def wrapper(self, rows):
+    def wrapper(ctx, rows):
         now = time.monotonic()
         keys = [_key(row) for row in rows]
         out = [None] * len(rows)
@@ -46,7 +48,7 @@ def cached(run):
                     out[i] = hit[1]
         misses = [i for i, pred in enumerate(out) if pred is None]
         if misses:
-            preds = run(self, [rows[i] for i in misses])
+            preds = run(ctx, [rows[i] for i in misses])
             assert len(preds) == len(misses), "upstream changed the batch inference contract"
             with lock:
                 for i, pred in zip(misses, preds):
@@ -85,9 +87,9 @@ def text_only_caps(create_server):
             url = urllib.parse.urlsplit(self.path)
             if (urllib.parse.parse_qs(url.query).get("t") or [""])[0].lower() != "caps":
                 return do_get(self)
-            subpath = url.path[len("/torznab"):] if url.path.startswith("/torznab") else url.path
             try:
-                with urllib.request.urlopen(f"{connector.upstream_torznab_url}{subpath}?{url.query}", timeout=15) as resp:
+                upstream = f"{connector.upstream_torznab_url}{url.path.removeprefix('/torznab')}?{url.query}"
+                with urllib.request.urlopen(upstream, timeout=15) as resp:
                     body = strip_id_params(resp.read())
                     content_type = resp.headers.get("Content-Type", "application/xml")
             except OSError:
@@ -108,8 +110,11 @@ if __name__ == "__main__":
     spec = importlib.util.spec_from_file_location("bitmagnet_connector", "/data/armiger/runtime/bitmagnet_connector.py")
     connector = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(connector)
-    # Fails loudly at startup if upstream renames the method.
-    cls = connector.BitmagnetConnector
-    cls._run_batch_inference = cached(cls._run_batch_inference)
+    # filter_torznab_xml looks the feed filter up at call time; fails loudly at startup if upstream renames it.
+    # span_bio (per-byte span tags, about half of each prediction) is never read on the search path.
+    infer = cached(lambda classify, rows: [{**pred, "span_bio": None} for pred in classify(rows)])
+    feed = connector.filter_torznab_feed
+    connector.filter_torznab_feed = lambda xml, extract, classify, *rest: feed(
+        xml, extract, lambda rows: infer(classify, rows), *rest)
     connector.create_server = text_only_caps(connector.create_server)
     connector.main()

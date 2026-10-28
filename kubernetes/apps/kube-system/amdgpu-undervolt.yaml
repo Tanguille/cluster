@@ -24,8 +24,9 @@ spec:
         - name: app
           image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
           env:
+            # -100 was bit-identical to -82 on the quality gate; -120 silently changed greedy tokens.
             - name: VOLTAGE_OFFSET_MV
-              value: "-82"
+              value: "-100"
             # Decode is bandwidth-bound (flat ~23 TG from 210W to 330W); 250W buys +15% PP over 210W for 2.8% worse PP/W.
             - name: POWER_LIMIT_WATTS
               value: "250"
