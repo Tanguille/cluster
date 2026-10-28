@@ -40,7 +40,7 @@ dimensions. Deferred settings need a separate compatibility trial.
 | Workload | Posture; coverage; unknown dimensions | PSS upper bound | Decision |
 | --- | --- | --- | --- |
 | Deployment/monerod | warn; 50%; network, images | baseline | Applied: RuntimeDefault and escalation disabled. Exempt: root startup and ownership/UID/GID capabilities. Deferred: non-root enforcement, drop ALL and read-only root. |
-| Deployment/p2pool | warn; 50%; network, images | baseline | Applied: RuntimeDefault. Already: non-root, escalation disabled and drop ALL. Deferred: changing its explicitly writable root until all runtime data paths are exercised. |
+| Deployment/p2pool | warn; 50%; network, images | baseline | Applied: RuntimeDefault and read-only root after checking pinned startup/data paths. Already: non-root, escalation disabled and drop ALL. Preserve writable data/API/tmp mounts; runtime verification remains required. |
 | Deployment/dashboard | warn; 50%; network, images | baseline | Applied: pod RuntimeDefault for both Python and nginx containers. Already: non-root, escalation disabled, drop ALL and read-only root; shared PVC group stays unchanged. |
 | Deployment/guard | warn; 25%; network, podSecurity, images | restricted | Already: non-root, RuntimeDefault, escalation disabled, drop ALL and read-only root. No additional patch. |
 | Deployment/xmrig-control-1 | warn; 50%; network, images | baseline | Applied: RuntimeDefault through the shared ResourceSet Helm values. Already: non-root, escalation disabled, drop ALL and read-only root. Preserve no-huge-pages and thermal/solar scaling. |
@@ -92,7 +92,7 @@ never means safe. Raw pod addresses, credentials and captures are not published.
 | Workload inventory, profiles and revision diffs | 7 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
 | Namespace traffic | 3 records, 1 pods, 0 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
 | Image inventory | 6 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
-| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| Vulnerabilities and exposure | kguardian's HIGH/CRITICAL query returned no findings because its image reports are absent. Separate Trivy findings appear below; kguardian exposure evaluation still needs ingested reports. This is not zero vulnerabilities. |
 | SBOM and signer queries | Queried all 6 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
 | Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
 | Syscalls and profile generation | Representative `monerod` pod returned 108 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
@@ -171,3 +171,56 @@ All three miners were scaled to zero. Audit scale-up/down, reconnects, peer chur
 dashboard fallbacks and monitoring failures. XMRig donation is not explicitly
 disabled; its unobserved destinations need investigation before any internet grant
 or owner-approved command change. No scaling or guard thresholds changed.
+
+## Trivy follow-up (2026-10-28)
+
+The [image ledger](trivy-web3-images.csv) records five image contents (six reported digests),
+scan times/ages, publisher checks and blockers; join `image_id` with the
+[complete finding ledger](trivy-web3-findings.csv). After deduplicating the shared
+Python/miner images and repeated target copies, the reports contain 355
+image/package/version findings: 12 Critical and 343 High. Sixteen have a package
+fix version reported; none is claimed resolved. Blank fixed versions mean the
+report supplied none. No image version or digest changes: publisher tag content
+for the configured amd64 platform is unchanged, and a fixed dependency version alone is not a verified patched
+publisher image. The latest stable Monero and P2Pool releases match this draft;
+the P2Pool beta is not selected as a speculative security fix.
+
+The reports are zero or one day old, but they are not scans of the proposed
+contexts. All regular/init container specs were matched against the complete
+report inventory, including reports from older owners with an identical digest.
+This includes the three scaled-to-zero miners: their retained exact-digest report
+from October 27 contains 12 Critical and 289 High findings, and is retained as
+configured-image evidence rather than proof of current execution. Python/nginx
+reports match the configured index digests. Their live `imageID` values name
+different OCI indexes, but reading both indexes and their amd64 children confirms
+identical manifest, config and layer digests on the cluster's amd64 nodes; only
+ppc64le descriptors differ. The older guard report for the equivalent Python
+index is included and adds no unique finding. This is platform-content
+equivalence, not evidence of drift or a fresh scan. Raw Trivy findings
+also remain absent from kguardian's disabled supply-chain ingestion. No scan was
+forced, image executed, runtime changed or suppression added.
+
+P2Pool's High AVD-KSV-0014 finding is addressed in the draft by making its root
+filesystem read-only. The exact
+[image source](https://github.com/sethforprivacy/p2pool-docker/blob/21106ba39adefd53dbf9f9ffe316f1f3b836b5e6/Dockerfile)
+sets a non-root user and `/home/p2pool` working directory, already a writable PVC.
+The pinned application's
+[startup check](https://github.com/SChernykh/p2pool/blob/abc833598f80d7a0345b6020ced90f19957d7a7c/src/params.cpp#L147)
+uses the working directory or home fallback; cache, logs and saved peers use that
+data directory. API output, including temporary files before rename, uses the
+configured `/var/lib/p2pool/api` writable volume; `/tmp` keeps its emptyDir.
+The command, UID, groups, volumes, ports, resource settings and miner safeguards
+are unchanged. Cold start, peer/cache persistence and dashboard API writes still
+need verification after an approved rollout.
+
+Monerod's High AVD-KSV-0118 is addressed by the earlier explicit container context;
+a fresh audit must confirm the result. Its AVD-KSV-0014 remains a documented
+writable-root/startup exception. Older ReplicaSet reports are historical; no
+current Critical/High namespace RBAC finding appeared in the collected inventory.
+Filesystem restrictions do not remediate the image findings recorded in the ledger.
+
+The follow-up passed the required `validate-pr.sh` checks and a targeted P2Pool
+Helm render. Assertions verified that only the read-only field changed, with the
+UID, dropped capabilities and writable mounts preserved. The finding ledger was
+checked against every retained report matching current regular/init container
+spec or runtime digests, including the equivalent Python index and idle miners.
