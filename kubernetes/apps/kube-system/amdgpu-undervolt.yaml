@@ -31,7 +31,7 @@ spec:
             - name: POWER_LIMIT_WATTS
               value: "250"
             # Auto-mode scalars, NOT fan_curve (driver 0x2E vs PMFW 0x32 mismatch on this SKU); a 70C target cost +36% rpm for ~3C mem.
-            # The target gates the 4000rpm ceiling on edge temp (72-79C at 250W), not junction; 76C lets the fan ramp at full load.
+            # 82C held ~3500rpm at 250W (junction up to 102C); 76C lets it pass 4000rpm. Not edge-gated: edge 66C still ramped.
             - name: FAN_TARGET_TEMP_C
               value: "76"
             - name: ACOUSTIC_TARGET_RPM
