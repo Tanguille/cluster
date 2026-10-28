@@ -51,7 +51,7 @@ needs further compatibility or coverage evidence.
 | Deployment/brrpolice | warn; 50%; network, images | baseline | Applied: RuntimeDefault. Already: non-root, escalation disabled, drop ALL, read-only root. |
 | Deployment/cleanrr | warn; 50%; network, images | baseline | Applied: RuntimeDefault. Already: non-root, escalation disabled, drop ALL, read-only root. |
 | Deployment/deduparr | warn; 50%; network, images | baseline | Applied: RuntimeDefault. Already: non-root, escalation disabled, drop ALL, read-only root. |
-| Deployment/fileflows | risk; 50%; network, images | baseline | Applied: escalation disabled only for the explicit mkdir/chown init command. Already: RuntimeDefault. Exempt: root startup and ownership capabilities. Deferred: app escalation/capability changes and read-only root. |
+| Deployment/fileflows | risk; 50%; network, images | baseline | Applied: escalation disabled and read-only root for the init container, with mkdir/chown limited to shared mounts. Already: RuntimeDefault. Exempt: root startup and ownership capabilities. Deferred: app escalation/capability changes and read-only root. |
 | Deployment/flaresolverr | warn; 50%; network, images | baseline | Applied: RuntimeDefault, escalation disabled and drop ALL. Deferred: numeric non-root identity and read-only root; image uses a named USER and patches Chromium's driver at runtime. |
 | Deployment/jellyfin | warn; 25%; network, podSecurity, images | restricted | Already: non-root, escalation disabled, drop ALL and RuntimeDefault. Deferred: read-only root until writable paths and GPU playback/transcoding are exercised. |
 | Deployment/jellystat | warn; 50%; network, images | baseline | Applied: RuntimeDefault, escalation disabled and drop ALL. Deferred: non-root UID and read-only root until npm/application writes are mapped and tested. |
@@ -119,7 +119,7 @@ never means safe. Raw pod addresses, credentials and captures are not published.
 | Workload inventory, profiles and revision diffs | 20 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
 | Namespace traffic | 4992 records, 2 pods, 121 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
 | Image inventory | 19 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
-| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| Vulnerabilities and exposure | kguardian's HIGH/CRITICAL query returned no findings because its image reports are absent. Separate Trivy findings appear below; kguardian exposure evaluation still needs ingested reports. This is not zero vulnerabilities. |
 | SBOM and signer queries | Queried all 19 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
 | Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
 | Syscalls and profile generation | Representative `jellyfin` pod returned 102 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
@@ -223,3 +223,55 @@ root-startup exceptions remain; context changes are described above. Recyclarr/p
 separate grants. Audit these rare paths, provider redirects, notifications and
 backups, and investigate Jellyfin's unexplained LAN UDP/65001 before enforcement.
 Historical qBitrr and migration Jobs do not justify grants to future workloads.
+
+## Trivy follow-up (2026-10-28)
+
+Trivy Operator reports were joined to current controller/Pod ownership and checked
+against image digests. The complete report inventory was also checked against
+current regular/init container spec digests, including old-Job reports where the
+exact image is still configured. No additional media image was found. The separate [image ledger](trivy-media-images.csv) records
+all 21 image digests, report times/ages, publisher status and remaining blockers;
+join its `image_id` with the [complete finding ledger](trivy-media-findings.csv).
+The latter retains all 2,249 Critical/High image/package/version findings after
+deduplicating repeated container/target copies: 78 Critical and 2,171 High.
+Of these, 1,260 have a package fix version reported. Blank fixed-version fields
+mean the report supplied no fix, not that remediation is impossible. Multiple
+fixed versions are retained as reported; these counts are not unique CVE counts.
+
+The reports are current/recent image scans (zero or one day old), but several
+configuration reports date to September. None is a scan of this draft. Same-tag
+publisher registry checks found no changed effective image content. In particular,
+the PostgreSQL `18.6-standard-trixie` index resolves to the existing pinned amd64
+manifest; replacing the pin with its index would not patch the prune init image.
+Release checks found the same deployed versions for the principal applications,
+including Flaresolverr, Seerr, Wizarr, Jellystat and Bazarr+. Where a release
+catalog was unavailable or empty, the ledger states that limitation.
+No image pin is changed and **no image finding is claimed resolved**. A fixed
+package version is not evidence that a compatible publisher image contains it.
+
+The raw Trivy reports contain findings that kguardian currently returns as
+`noVulnerabilityData`; its missing supply-chain ingestion explains why its earlier
+empty vulnerability result cannot be used as a clean scan. Konflate 0.6.6 renders
+Flux diffs and checks image existence; it does not run Trivy or publish a Trivy
+scan artifact. No scan was forced, no image executed, and no suppression added.
+
+| Current High configuration finding | Draft decision |
+| --- | --- |
+| FileFlows init: AVD-KSV-0014 | Add read-only root after restricting initialization to `/app/Data` and `/temp`, the shared mounts. The former `/app/Logs` and `/app/ManuallyAdded` directories existed only in the init container's private filesystem and did not initialize the app. UID 0, capabilities and both shared-volume ownership changes stay intact. |
+| FileFlows app: AVD-KSV-0014 | Remains an explicit exception: package/user/group startup and transcode scratch require writable root. No startup package upgrade is added. |
+| Flaresolverr and Jellystat: AVD-KSV-0118 | Existing draft contexts replace the defaults; confirmation requires a new rendered/live audit report. |
+| Flaresolverr, Jellystat, Jellyfin, Seerr: AVD-KSV-0014 | Remain deferred until browser/driver, npm, GPU and application writes are mapped and tested. Do not substitute a read-only setting merely to clear a scanner row. |
+| Wizarr: AVD-KSV-0118 and AVD-KSV-0014 | Preserve documented root user/group and ownership startup; the earlier RuntimeDefault addition does not remove that exception. |
+
+Old ReplicaSet findings were excluded from the current-workload decisions.
+The retained `volsync-copy-data` Job completed in December 2025; its default-context
+and writable-root findings are historical, not a running migration. Nothing was
+deleted. No current Critical/High namespace RBAC report was found in the collected
+inventory. The proposed context changes still require owner-approved runtime
+validation and a fresh report; they do not remediate the image CVEs in the ledger.
+
+The follow-up passed the required `validate-pr.sh` checks and a targeted FileFlows
+Helm render. Assertions verified that only the init command and read-only field
+changed; shared-volume ownership, main-container context and GPU groups remain
+unchanged. The ledger retains every Critical/High finding and reported fixed
+version from all matching current spec/runtime image reports.
