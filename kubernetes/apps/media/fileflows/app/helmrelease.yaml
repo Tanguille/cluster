@@ -49,11 +49,10 @@ spec:
               - |
                 mkdir -p /app/Data /temp
                 chown -R 0:0 /app/Data /temp
+            # Root for chown only; writes go to the shared mounts.
             securityContext:
               runAsUser: 0
-              # mkdir/chown need root's existing permissions, not setuid executable gains.
               allowPrivilegeEscalation: false
-              # Only shared mounts need initialization; other paths are private to this init container.
               readOnlyRootFilesystem: true
 
         containers:

@@ -41,7 +41,6 @@ specs:
           - ports: [{ port: "5432", protocol: TCP }]
 
   # Metadata, subtitle/indexer providers and FileFlows startup package retrieval.
-  # FileFlows' documented root startup exception is unchanged.
   - endpointSelector:
       matchExpressions:
         - key: app.kubernetes.io/instance
@@ -115,8 +114,9 @@ specs:
       # DHT/torrent peers advertise arbitrary ports. Never share this grant with
       # the connector or prune Job, which have the same Helm instance label.
       - toEntities: [world]
-      - toEndpoints:
-          - matchLabels: &session-pooler
+      - &session-pool
+        toEndpoints:
+          - matchLabels:
               io.kubernetes.pod.namespace: database
               cnpg.io/poolerName: pgbouncer-session
         toPorts:
@@ -131,7 +131,8 @@ specs:
         toPorts:
           - ports: [{ port: "8097", protocol: TCP }]
     egress:
-      - toEndpoints:
+      - &bitmagnet-api
+        toEndpoints:
           - matchLabels: *bitmagnet
         toPorts:
           - ports: [{ port: "3333", protocol: TCP }]
@@ -143,15 +144,9 @@ specs:
   - endpointSelector:
       matchLabels: *prune
     egress:
-      - toEndpoints:
-          - matchLabels: *bitmagnet
-        toPorts:
-          - ports: [{ port: "3333", protocol: TCP }]
+      - *bitmagnet-api
       # The daily Job queries the queue through session pooling before pruning.
-      - toEndpoints:
-          - matchLabels: *session-pooler
-        toPorts:
-          - ports: [{ port: "5432", protocol: TCP }]
+      - *session-pool
 
   - endpointSelector:
       matchExpressions:
@@ -233,9 +228,9 @@ specs:
         toPorts:
           - ports: [{ port: "3000", protocol: TCP }]
     egress:
-      # Current Jellystat integration uses Jellyfin's public hostname; retain
-      # its observed gateway path instead of silently changing app configuration.
-      - toEndpoints:
+      # Jellystat reaches Jellyfin through its public hostname (gateway hairpin).
+      - &hairpin
+        toEndpoints:
           - matchLabels: *external
         toPorts:
           - ports: [{ port: "10443", protocol: TCP }]
@@ -359,10 +354,7 @@ specs:
           - ports: [{ port: "5055", protocol: TCP }]
     egress:
       - *arr-api
-      - toEndpoints:
-          - matchLabels: *external
-        toPorts:
-          - ports: [{ port: "10443", protocol: TCP }]
+      - *hairpin
 
   - endpointSelector:
       matchLabels:

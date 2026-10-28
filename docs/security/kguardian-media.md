@@ -1,7 +1,6 @@
 # Media security draft
 
-Local proposal on `harden/kguardian-media-security`, worktree
-`.claude/worktrees/kguardian-media-security`, based on `5f33d7baf`.
+Draft on `harden/kguardian-media-security`, based on `5f33d7baf`.
 The namespace CNP and Helm values are enforcement candidates. Merging would
 change Flux-managed runtime behavior; neither a draft PR nor local validation
 authorizes that. No live workload was changed or restarted for this review.
@@ -26,15 +25,20 @@ are missing. Both remain **unknown**. The CronJob diffs lose container context
 after completion; those null values do not prove a configuration regression.
 Radarr added `rmdir` to its observed syscalls; Unpackerr added `readv`, `recvmsg`
 and `setitimer`. These changes must remain in the seccomp review evidence.
+Investigate any future positive drift finding before advancing enforcement.
 
 Audit verdicts were empty without a completed audit window. Image-trust
 evaluation is unavailable, and the zero HIGH/CRITICAL vulnerability results omit
-images without reports: neither result is a pass. Compute findings reported
-FileFlows CPU throttling around 32% in its five-minute finding. A longer
-54-sample window showed CPU averaging 1.366 cores, peaking at 1.985 cores,
-and a throttled ratio of 0.52, without OOM events. Node contention was not loaded
-and returned no pairs, so there is no causal blame evidence. Preserve the
-intentional two-core limit; defer sizing to a matched transcode/node-load test.
+images without reports: neither result is a pass.
+
+FileFlows compute: the five-minute finding reported 32% CPU throttling at its
+two-core limit. `get_pod_compute` then returned 54 minute samples from 11:52:28
+to 12:45:28 UTC: average 1.366 cores, maximum 1.985, aggregate throttled ratio
+0.52, no OOM kill. Node contention tracing was not loaded and
+`get_node_contention` returned no pairs, so no noisy-neighbor attribution is
+possible. Keep the intentional two-core limit pending a matched transcode/node-load
+test; raising it automatically could harm other services. This is separate from
+the FileFlows root-startup exception.
 
 ## Recommendation decisions
 
@@ -96,23 +100,31 @@ Local validation passed: `mise exec -- bash .agents/skills/pr-review/scripts/val
 completed the full Flux/Helm render, shellcheck, secret guardrails and 25 regression
 tests. Pinned app-template 5.3.0 and Seerr 3.10.1 renders verified all 20 workload
 and CronJob pod contexts, Seerr's ServiceAccount, the FileFlows root/GPU exception,
-and unchanged image/resource values. Static success is not runtime validation.
+and unchanged image/resource values. Static rendering and an empty query are
+not runtime validation.
 
-Before enforcement, require the owner's approval, at least seven days of audit
-coverage, and evidence for every legitimate WouldDeny. Include daily prune and
-Recyclarr, nightly Kopiur movers, startup packages, invitations, playback,
-downloads, provider/webhook paths and DNS replies. Recheck all CNP/native-policy
-unions and preserve the deny-apiserver overlay and backup exceptions. Resolve
-the unexplained earlier Jellyfin LAN UDP path before tightening it. Obtain
-executable inventory and security-context baselines before claiming drift is
-clear. Apply custom seccomp or image-trust policies only as a separate reviewed
-stage; their generated artifacts are not authorizations to enforce them.
+Before merging the enforcing CNPs:
+
+1. Refresh live settings and workloads; obtain owner approval for the audit deployment.
+2. Collect at least seven complete days of audit coverage, including daily prune
+   and Recyclarr, nightly Kopiur movers, startup packages, invitations, playback,
+   downloads, provider/webhook paths and DNS replies.
+3. Fix every legitimate WouldDeny with evidence and validate the unsupported Cilium
+   dimensions. Recheck all CNP/native-policy unions; preserve the deny-apiserver
+   overlay and backup exceptions.
+4. Resolve the unexplained earlier Jellyfin LAN UDP path before tightening it.
+   Obtain executable inventory and security-context baselines before claiming
+   drift is clear.
+5. Obtain explicit enforcement approval, then watch drop deltas and app health
+   after the rollout.
+
+Apply custom seccomp or image-trust policies only as a separate reviewed stage;
+their generated artifacts are not authorizations to enforce them.
 
 ## Other kguardian features (2026-10-28)
 
-These are sanitized read-only results, not live hardening or an audit pass.
-The profile table above quotes posture coverage and unknown dimensions; unknown
-never means safe. Raw pod addresses, credentials and captures are not published.
+Sanitized read-only results, not live hardening or an audit pass; unknown never
+means safe.
 
 | Feature used | Evidence and decision |
 | --- | --- |
@@ -134,11 +146,6 @@ Keep RuntimeDefault; do not replace it with an unverified allowlist or LOG profi
 A workload aggregate can include older pods and differs from this single-pod set.
 Resolve the exporter and capture startup, Jobs and rare paths before proposing
 a custom profile; no generated syscall set is claimed complete over seven days.
-
-No `unshippedExecutable` or `securityContextRegression` drift item was returned.
-Executable inventory and a context/export baseline are missing for these checks;
-that is unknown, not a clean drift result. Investigate any future positive finding
-before advancing enforcement.
 
 ### Revision evidence
 
@@ -169,15 +176,6 @@ HTTPS peer alone does not identify its hostname or justify a broader grant.
 | Deployment / wizarr | 16 → 17 | network | 1 removed: egress TCP/8096 |
 | StatefulSet / seerr | 60 → 61 | network | 1 added: egress TCP/443 |
 
-FileFlows compute follow-up: the initial five-minute finding reported 32% CPU
-throttling at its two-core limit. `get_pod_compute` then returned 54 minute samples
-from 11:52:28 to 12:45:28 UTC, average CPU 1.37 cores, maximum 1.98 and aggregate
-throttled ratio 0.52. No OOM kill was reported. Node contention tracing was not
-loaded and `get_node_contention` returned no pairs: no noisy-neighbor attribution
-is possible. Keep the limit pending a matched transcode/node-load test; increasing
-it automatically could harm other services. This resource decision is separate
-from the FileFlows root-startup exception.
-
 ### Feature prerequisites and audit gate
 
 Pinned kguardian chart 1.29.2 defaults and live settings were inspected.
@@ -201,13 +199,6 @@ image-trust evaluation are separate opt-ins. Runtime executable inventory is
 them needs an overhead/write-rate check and owner approval. No secrets or global
 kguardian settings are changed by this namespace PR.
 
-Before merging the enforcing CNPs: refresh live settings and workloads; obtain
-approval for the audit deployment; collect at least seven complete days including
-the rare paths below; fix every legitimate WouldDeny with evidence; validate the
-unsupported Cilium dimensions; then obtain explicit enforcement approval. Watch
-drop deltas and app health after an approved rollout. Static rendering and an
-empty query are not runtime validation.
-
 ## Network policy and rare-path review
 
 [Policy](../../kubernetes/apps/media/networkpolicy.yaml) permits named Arr/download,
@@ -218,10 +209,10 @@ Seerr/Jellystat gateway hairpins use 10443. Unpackerr uses current port **5656**
 including Hermes access; historical 16373 is stale.
 
 Only qBittorrent and main Bitmagnet get unrestricted world P2P egress. FileFlows'
-root-startup package retrieval and Armiger's package/model downloads remain;
-root-startup exceptions remain; context changes are described above. Recyclarr/prune schedules and Kopiur movers have
-separate grants. Audit these rare paths, provider redirects, notifications and
-backups, and investigate Jellyfin's unexplained LAN UDP/65001 before enforcement.
+root-startup package retrieval and Armiger's package/model downloads keep their
+grants. Recyclarr/prune schedules and Kopiur movers have separate grants. Audit
+these rare paths, provider redirects, notifications and backups, and investigate
+Jellyfin's unexplained LAN UDP/65001 before enforcement.
 Historical qBitrr and migration Jobs do not justify grants to future workloads.
 
 ## Trivy follow-up (2026-10-28)
@@ -229,9 +220,10 @@ Historical qBitrr and migration Jobs do not justify grants to future workloads.
 Trivy Operator reports were joined to current controller/Pod ownership and checked
 against image digests. The complete report inventory was also checked against
 current regular/init container spec digests, including old-Job reports where the
-exact image is still configured. No additional media image was found. The separate [image ledger](trivy-media-images.csv) records
-all 21 image digests, report times/ages, publisher status and remaining blockers;
-join its `image_id` with the [complete finding ledger](trivy-media-findings.csv).
+exact image is still configured. No additional media image was found. The
+separate [image ledger](trivy-media-images.csv) records all 21 image digests,
+report times/ages, publisher status and remaining blockers; join its `image_id`
+with the [complete finding ledger](trivy-media-findings.csv).
 The latter retains all 2,249 Critical/High image/package/version findings after
 deduplicating repeated container/target copies: 78 Critical and 2,171 High.
 Of these, 1,260 have a package fix version reported. Blank fixed-version fields
@@ -273,5 +265,4 @@ validation and a fresh report; they do not remediate the image CVEs in the ledge
 The follow-up passed the required `validate-pr.sh` checks and a targeted FileFlows
 Helm render. Assertions verified that only the init command and read-only field
 changed; shared-volume ownership, main-container context and GPU groups remain
-unchanged. The ledger retains every Critical/High finding and reported fixed
-version from all matching current spec/runtime image reports.
+unchanged.
