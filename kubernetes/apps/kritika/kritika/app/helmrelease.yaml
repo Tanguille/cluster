@@ -12,8 +12,7 @@ spec:
   values:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
-    # Direct to postgres16-rw: both poolers still reject 0.0.109's startup params
-    # (2026-10-28 probe). LISTEN/session locks also preclude transaction pooling.
+    # Direct to postgres16-rw: both poolers reject kritika's startup params, and it needs LISTEN/session locks.
     database:
       owner:
         existingSecret: &secret kritika-secret
