@@ -50,7 +50,8 @@ spec:
                     key: address
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
+              # Cache/log/peers use the /home/p2pool PVC; API output and /tmp have their own mounts.
+              readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
@@ -90,6 +91,7 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
     service:
       p2pool:
         type: LoadBalancer
