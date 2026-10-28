@@ -23,6 +23,8 @@ spec:
       key: GHOSTFOLIO_TOKEN
   podTemplateSpec:
     spec:
+      # Only the proxy manages Kubernetes pods; this backend uses its configured service credentials.
+      automountServiceAccountToken: false
       containers:
         - name: mcp
           resources:

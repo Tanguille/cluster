@@ -29,6 +29,8 @@ spec:
       value: :8080
   podTemplateSpec:
     spec:
+      # Only the proxy manages Kubernetes pods; this backend uses its configured service credentials.
+      automountServiceAccountToken: false
       volumes:
         - name: talos
           secret:

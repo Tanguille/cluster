@@ -3,120 +3,429 @@
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: vmcp-unified-ingress-allowlist
-spec:
-  # ToolHive vMCP (`unified`) aggregates every ToolHive backend behind one
-  # :4483/mcp endpoint and is anonymous (spec.incomingAuth: anonymous), so
-  # reachability is the only access control there is. Scoped to the unified
-  # vMCP pod alone, on top of the ai namespace ingress allowlist. Egress untouched
-  # (backends, redis session storage, agentgateway embedder all keep working).
-  # The pod has kubelet probes, so the host entity must stay allowed.
-  endpointSelector:
-    matchLabels:
-      app: virtualmcpserver
-      app.kubernetes.io/instance: unified
-  ingress:
-    - fromEntities:
-        # kubelet probes (/health, /readyz on :4483). Omitting this blocks the
-        # probes and takes the pod down.
-        - host
-    - fromEndpoints:
-        # Same-namespace consumers: hermes (MCP client), opencode (MCP client),
-        # toolhive-operator (reconciler/health).
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-            app.kubernetes.io/name: hermes
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-            app.kubernetes.io/name: opencode
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-            app.kubernetes.io/name: toolhive-operator
-        # envoy-internal proxying mcp.${SECRET_DOMAIN}; the only gateway that
-        # front-refs the mcp-unified HTTPRoute.
-        - matchLabels:
-            io.kubernetes.pod.namespace: network
-            gateway.networking.k8s.io/gateway-name: envoy-internal
-        # gatus probing the service directly (not via envoy).
-        - matchLabels:
-            io.kubernetes.pod.namespace: observability
-            app.kubernetes.io/name: gatus-sidecar
-      toPorts:
-        - ports:
-            - port: "4483"
-              protocol: TCP
-    # vmagent scraping /metrics on the diagnostics port (MCPTelemetryConfig).
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: observability
-            app.kubernetes.io/name: vmagent
-      toPorts:
-        - ports:
-            - port: "9464"
-              protocol: TCP
-    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-    # ephemeral not 53.
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: mcpserver-proxy-ingress-allowlist
-spec:
-  # Every MCPServer gets a toolhive proxy Deployment (app: mcpserver) on :8080
-  # with no auth of its own; only the unified vMCP, toolhive-operator and
-  # kubelet probes reach it.
-  endpointSelector:
-    matchLabels:
-      app: mcpserver
-  ingress:
-    - fromEntities:
-        - host
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-            app: virtualmcpserver
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-            app.kubernetes.io/name: toolhive-operator
-      toPorts:
-        - ports:
-            - port: "8080"
-              protocol: TCP
-    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: mcpserver-backend-ingress-allowlist
-spec:
-  # The MCP server StatefulSets (toolhive: "true" minus the proxy/vMCP
-  # Deployments) hold the real credentials (talos, truenas, ...). Ports vary
-  # per transport (8080/8086/3000/8081), so no toPorts: the only peer is the
-  # proxy. stdio servers have no listener at all and are unaffected.
-  endpointSelector:
-    matchLabels:
-      toolhive: "true"
-    matchExpressions:
-      - key: app
-        operator: NotIn
-        values: [mcpserver, virtualmcpserver]
-  ingress:
-    - fromEntities:
-        - host
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-            app: mcpserver
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
+  name: toolhive-allowlist
+# Replaces the three overlapping ToolHive ingress policies as one native rule list.
+# The namespace policy supplies host probes, DNS replies and DNS egress.
+# unified is anonymous: only named consumers reach its MCP/diagnostics listeners.
+# Proxies need the API (including stdio exec/attach); only each matching streaming
+# backend is reachable directly. stdio backends have no inbound listener.
+# External HTTPS on unified serves GitHub, context7 and flux-schema remote MCPs.
+specs:
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app: virtualmcpserver
+        app.kubernetes.io/instance: unified
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app.kubernetes.io/instance: hermes
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app.kubernetes.io/instance: opencode
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app.kubernetes.io/name: toolhive-operator
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-internal
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: gatus-sidecar
+        toPorts:
+          - ports:
+              - port: "4483"
+                protocol: TCP
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: vmagent
+        toPorts:
+          - ports:
+              - port: "9464"
+                protocol: TCP
+    egress:
+      # Unified watches MCP resources/discovered auth and updates its status.
+      - &kube-api
+        toEntities:
+          - kube-apiserver
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+              - port: "6443"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive: "true"
+        toPorts: &tcp-8080
+          - ports:
+              - port: "8080"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app.kubernetes.io/instance: memini
+          - matchLabels:
+              io.kubernetes.pod.namespace: flux-system
+              app.kubernetes.io/instance: konflate
+          - matchLabels:
+              io.kubernetes.pod.namespace: security
+              app.kubernetes.io/name: kguardian-llm-bridge
+        toPorts: *tcp-8080
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              gateway.networking.k8s.io/gateway-name: agentgateway
+        toPorts:
+          - ports:
+              - port: "4000"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: database
+              app: dragonfly
+              role: master
+        toPorts:
+          - ports:
+              - port: "6379"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-internal
+        toPorts:
+          - ports:
+              - port: "10443"
+                protocol: TCP
+      - &internet-https
+        toEntities:
+          - world
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app.kubernetes.io/name: toolhive-operator
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: vmagent
+        toPorts: *tcp-8080
+    egress:
+      - *kube-api
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: virtualmcpserver
+              app.kubernetes.io/instance: unified
+        toPorts:
+          - ports:
+              - port: "4483"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive: "true"
+        toPorts: *tcp-8080
+  - endpointSelector:
+      matchLabels:
+        app: mcpserver
+        toolhive: "true"
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: virtualmcpserver
+              app.kubernetes.io/instance: unified
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app.kubernetes.io/name: toolhive-operator
+        toPorts: *tcp-8080
+    egress:
+      - *kube-api
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app: mcpserver
+        toolhive-name: flux-operator
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              toolhive: "true"
+              toolhive-basename: flux-operator
+        toPorts: *tcp-8080
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: flux-operator
+    egress:
+      - *kube-api
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive-name: flux-operator
+        toPorts: *tcp-8080
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: ghostfolio
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/instance: ghostfolio
+        toPorts:
+          - ports:
+              - port: "3333"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app: mcpserver
+        toolhive-name: grafana
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              toolhive: "true"
+              toolhive-basename: grafana
+        toPorts:
+          - ports:
+              - port: "8000"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: grafana
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app: grafana
+        toPorts: &tcp-3000
+          - ports:
+              - port: "3000"
+                protocol: TCP
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive-name: grafana
+        toPorts:
+          - ports:
+              - port: "8000"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app: mcpserver
+        toolhive-name: homeassistant
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              toolhive: "true"
+              toolhive-basename: homeassistant
+        toPorts:
+          - ports:
+              - port: "8086"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: homeassistant
+    egress:
+      - toServices:
+          - k8sService:
+              serviceName: external-homeassistant
+              namespace: network
+        toPorts:
+          - ports:
+              - port: "8123"
+                protocol: TCP
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive-name: homeassistant
+        toPorts:
+          - ports:
+              - port: "8086"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: karakeep
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/instance: karakeep
+        toPorts: *tcp-3000
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app: mcpserver
+        toolhive-name: kubesearch
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              toolhive: "true"
+              toolhive-basename: kubesearch
+        toPorts: *tcp-3000
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: kubesearch
+    egress:
+      - *internet-https
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive-name: kubesearch
+        toPorts: *tcp-3000
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app: mcpserver
+        toolhive-name: searxng
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              toolhive: "true"
+              toolhive-basename: searxng
+        toPorts: *tcp-8080
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: searxng
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/instance: searxng
+        toPorts: *tcp-8080
+      - toEntities:
+          - world
+        toPorts:
+          - ports:
+              - port: "80"
+                protocol: TCP
+              - port: "443"
+                protocol: TCP
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive-name: searxng
+        toPorts: *tcp-8080
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app: mcpserver
+        toolhive-name: talos-mcp
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              toolhive: "true"
+              toolhive-basename: talos-mcp
+        toPorts: *tcp-8080
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: talos-mcp
+    egress:
+      - toEntities:
+          - host
+          - remote-node
+        toPorts:
+          - ports:
+              - port: "50000"
+                protocol: TCP
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive-name: talos-mcp
+        toPorts: *tcp-8080
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: truenas
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-internal-tls
+        toPorts:
+          - ports:
+              - port: "10443"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        app: mcpserver
+        toolhive-name: victorialogs-mcp
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              toolhive: "true"
+              toolhive-basename: victorialogs-mcp
+        toPorts:
+          - ports:
+              - port: "8081"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        io.kubernetes.pod.namespace: ai
+        toolhive: "true"
+        toolhive-basename: victorialogs-mcp
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/instance: victoria-logs
+        toPorts:
+          - ports:
+              - port: "9428"
+                protocol: TCP
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: mcpserver
+              toolhive-name: victorialogs-mcp
+        toPorts:
+          - ports:
+              - port: "8081"
+                protocol: TCP

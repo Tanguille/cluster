@@ -25,6 +25,9 @@ spec:
               HOME: /home/opencode
               OPENCODE_CONFIG: /config/opencode.jsonc
               LLM_API_KEY: ${LLM_API_KEY}
+            # Direct server command: no privileged startup or setuid helper is configured.
+            securityContext:
+              allowPrivilegeEscalation: false
             command:
               - opencode
               - web
@@ -62,6 +65,9 @@ spec:
       priorityClassName: homelab-important
       # Runs model-directed bash and in-process npm plugins.
       runtimeClassName: gvisor
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
 
     service:
       app:

@@ -21,6 +21,9 @@ spec:
       template:
         spec:
           priorityClassName: homelab-important
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
           # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
           # pod-template-hash: only same-revision pods repel, so a rollout surge pod may share a node with an old pod.
           affinity:

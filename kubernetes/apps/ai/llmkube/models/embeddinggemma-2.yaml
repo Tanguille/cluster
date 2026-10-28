@@ -72,6 +72,9 @@ spec:
           topologyKey: kubernetes.io/hostname
   # Render/video groups for /dev/dri (Vulkan path); mirrored by qwen35-2b.
   podSecurityContext:
+    # Keep the existing GPU/cache ownership; use the runtime syscall baseline.
+    seccompProfile:
+      type: RuntimeDefault
     runAsUser: 0
     runAsGroup: 0
     supplementalGroups:

@@ -81,6 +81,9 @@ spec:
 
     defaultPodOptions:
       priorityClassName: homelab-important
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
 
     persistence:
       data:
@@ -104,26 +107,6 @@ spec:
 
     networkpolicies:
       main:
-        # No auth (/v1/handshake: admin=true), and policies union: ai-ingress-allowlist still admits default, kritika and security.
-        rules:
-          ingress:
-            - from:
-                # ai = hermes' memory provider and toolhive's MCP entry, both :8080.
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: ai
-                # network = envoy-internal fronting the memini UI route (:8081).
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: network
-                # observability = vmagent scraping the serviceMonitor (:9090).
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: observability
-                # Rev-NAT'd DNS replies hit ingress; no ports, dest port is ephemeral not 53.
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: kube-system
-                  podSelector:
-                    matchLabels:
-                      k8s-app: kube-dns
+        # Avoid an additive namespace-wide grant over the per-peer Cilium rules.
+        # ai/networkpolicy.yaml owns memini ingress and egress, including probes/DNS.
+        enabled: false

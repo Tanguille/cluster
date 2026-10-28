@@ -15,6 +15,8 @@ spec:
       key: KARAKEEP_API_KEY
   podTemplateSpec:
     spec:
+      # Only the proxy manages Kubernetes pods; this backend uses its configured service credentials.
+      automountServiceAccountToken: false
       containers:
         - name: mcp
           resources:

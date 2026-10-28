@@ -11,6 +11,8 @@ spec:
     name: all
   podTemplateSpec:
     spec:
+      # Only the proxy manages Kubernetes pods; this backend uses its configured service credentials.
+      automountServiceAccountToken: false
       # The operator sets readOnlyRootFilesystem, but kubesearch downloads its
       # catalog DB to /data (repos-extended-<date>.db): without a writable
       # mount every tool call fails with EROFS. Same pattern as /tmp.

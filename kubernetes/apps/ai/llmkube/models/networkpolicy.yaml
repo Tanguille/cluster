@@ -8,15 +8,23 @@ spec:
   # llmkube InferenceService pods (vLLM :8000, llama.cpp :8080) are
   # unauthenticated; agentgateway is the only sanctioned front door (keys,
   # routing, admission), with its embedding cache in front of the embedder.
-  # Expected ingress: agentgateway, embedding-cache, vmagent scrapes, kubelet
-  # probes. Note ai-ingress-allowlist (../../networkpolicy.yaml)
-  # also selects these pods and admits the whole namespace; allows union, so
-  # this list documents intent rather than enforcing it. Health/guard probes run in-pod.
+  # Expected ingress: agentgateway, vmagent scrapes and kubelet probes.
+  # The namespace policy now only adds host probes and DNS replies; it no longer
+  # grants all AI callers access. Health/guard probes run in-pod.
   # Direct bge-reranker-v2-m3 callers get their own policy below.
   endpointSelector:
     matchExpressions:
       - key: inference.llmkube.dev/service
         operator: Exists
+  # Init model-downloader revalidates/downloads HuggingFace artifacts on startup.
+  # Pod-wide: Cilium cannot scope egress to an init container, so serving containers get it too.
+  egress:
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
   ingress:
     - fromEntities:
         - host
@@ -24,9 +32,6 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
             gateway.networking.k8s.io/gateway-name: agentgateway
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-            app.kubernetes.io/name: embedding-cache
         - matchLabels:
             io.kubernetes.pod.namespace: observability
             app.kubernetes.io/name: vmagent
@@ -63,6 +68,25 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
             app.kubernetes.io/name: hermes
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+---
+# The cache fronts only the embedder, not the unauthenticated chat models.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: inference-embedding-cache-allow
+spec:
+  endpointSelector:
+    matchLabels:
+      inference.llmkube.dev/service: embeddinggemma-2
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: embedding-cache
       toPorts:
         - ports:
             - port: "8080"
