@@ -9,7 +9,7 @@ import urllib.request
 
 ROOT = Path(os.environ.get("ARMIGER_ROOT", "/data/armiger"))
 REQUIREMENTS = Path(os.environ.get("ARMIGER_REQUIREMENTS", "/bootstrap/requirements.txt"))
-TORCH = "torch==2.14.1+cpu"
+TORCH = "torch==2.15.0+cpu"
 # Commit-pinned, so the fetched content is immutable; Renovate bumps each pair.
 CONNECTOR_REPO = "https://github.com/spencernorton/Armiger-Connectors"
 CONNECTOR_REVISION = "9b00089a06df24497e45d2f2144eb14a1bb03ac2"
