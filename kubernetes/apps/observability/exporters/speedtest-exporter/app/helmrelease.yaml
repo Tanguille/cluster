@@ -23,6 +23,8 @@ spec:
       runAsNonRoot: true
     securityContext:
       allowPrivilegeEscalation: false
+      # The chart already mounts the writable cache PVC at /cache.
+      readOnlyRootFilesystem: true
       capabilities: { drop: ["ALL"] }
     resources:
       requests:

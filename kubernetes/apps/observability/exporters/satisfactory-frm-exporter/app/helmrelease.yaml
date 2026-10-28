@@ -17,6 +17,10 @@ spec:
     defaultPodOptions:
       securityContext:
         seccompProfile: { type: RuntimeDefault }
+        # The scratch image contains only a mode-0755 binary and needs no root-owned files.
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
     controllers:
       satisfactory-frm-exporter:
         containers:

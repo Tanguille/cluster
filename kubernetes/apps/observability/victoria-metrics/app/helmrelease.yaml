@@ -16,6 +16,14 @@ spec:
         registry: quay.io
 
     victoria-metrics-operator:
+      # These builds include Go 1.27.3 and x/net 0.61.0 for the reported High findings.
+      image:
+        repository: victoriametrics/operator
+        tag: v0.75.2@sha256:237fac68b608c7ed7bc4c47ad25ebcb1cbe973c9a789661d2b6cfaa83093f87a
+      configReloader:
+        image:
+          repository: victoriametrics/operator
+          tag: config-reloader-v0.75.2@sha256:6a997c5fe38692bff0384c0f113f8ab560f429d215649b16afc102ff81c80299
       podSecurityContext:
         seccompProfile: { type: RuntimeDefault }
       crds:

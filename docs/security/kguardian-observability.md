@@ -19,12 +19,12 @@ The table records the **current observed posture**, not a prediction after these
 | Deployment/vmagent-victoria-metrics | warn / 50% / network, images | baseline | Apply RuntimeDefault and no privilege escalation through native operator securityContext. Defer non-root/drop ALL until image user, storage ownership and init/reloader behavior are verified; preserve existing identity and writable paths. |
 | Deployment/vmalert-victoria-metrics | warn / 50% / network, images | baseline | Apply RuntimeDefault and no privilege escalation through native operator securityContext. Defer non-root/drop ALL until image user, storage ownership and init/reloader behavior are verified; preserve existing identity and writable paths. |
 | Deployment/victoria-metrics-victoria-metrics-operator | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain pinned operator chart identity and container controls. |
-| Deployment/speedtest-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 1000 and existing container controls. |
+| Deployment/speedtest-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault and read-only root; retain uid/gid 1000 and the existing writable /cache PVC. |
 | Deployment/sonarr-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
 | Deployment/siren | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 1000 and existing container controls. |
 | Deployment/silence-operator | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
 | Deployment/scraparr | warn / 25% / network, podSecurity, images | restricted | Already configured: retain non-root identity, no privilege escalation, dropped capabilities and RuntimeDefault; no new context changes. |
-| Deployment/satisfactory-frm-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault. Defer runAsNonRoot until the image user/startup contract is verified; retain existing no-privilege-escalation/drop-ALL/read-only controls. |
+| Deployment/satisfactory-frm-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault and verified uid/gid 65534 with runAsNonRoot; retain existing no-privilege-escalation/drop-ALL/read-only controls. |
 | Deployment/qbittorrent-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
 | Deployment/prowlarr-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
 | Deployment/opnsense-exporter | warn / 50% / network, images | baseline | Apply RuntimeDefault; retain uid/gid 568 and existing container controls. |
@@ -42,9 +42,9 @@ The table records the **current observed posture**, not a prediction after these
 | Deployment/gatus | risk / 50% / network, images | privileged | Apply RuntimeDefault. Exemption: retain NET_RAW for configured ICMP health checks and existing non-root/container controls. |
 | Deployment/blackbox-exporter | risk / 50% / network, images | privileged | Apply RuntimeDefault. Exemption: retain NET_RAW for configured ICMP probes and existing non-root/container controls. |
 
-No profile reported a drift item. This is not proof of clean execution: executable inventory, prior export or security-context baseline is missing for the relevant drift checks. Investigate any later `unshippedExecutable` or `securityContextRegression` before rollout. Image vulnerability/signature data is not configured, so image safety remains unknown.
+No profile reported a drift item. This is not proof of clean execution: executable inventory, prior export or security-context baseline is missing for the relevant drift checks. Investigate any later `unshippedExecutable` or `securityContextRegression` before rollout. kguardian vulnerability/signature ingestion is not configured; the separate Trivy follow-up below records available operator reports. Missing scan or signature coverage remains unknown.
 
-Observed syscall sets are available, but their timestamps can predate this collection and a missing SeccompProfile CR is not evidence that RuntimeDefault is absent. These changes select the container runtime default where defensible; they do not install an observation-derived syscall allowlist. Existing writable filesystems are retained. Capability recommendations are defaults, not continuous observations of capability use.
+Observed syscall sets are available, but their timestamps can predate this collection and a missing SeccompProfile CR is not evidence that RuntimeDefault is absent. These changes select the container runtime default where defensible; they do not install an observation-derived syscall allowlist. Existing writable filesystems are retained except speedtest-exporter, whose cache already has a writable PVC. Capability recommendations are defaults, not continuous observations of capability use.
 
 Validation passed: the required full repository validator (Flux/Helm rendering, shellcheck, secret guardrails and 25 regression tests), namespace chart renders, and before/after structural checks. Existing identities, added capabilities, privileged/host settings, application configuration and selectors are unchanged. Operator-created pods still need runtime verification: Helm can validate the CR, not the final reconciliation or application startup. Approval should include checking startup, storage writes, monitoring and scheduled jobs for each changed workload.
 
@@ -61,7 +61,7 @@ never means safe. Raw pod addresses, credentials and captures are not published.
 | Workload inventory, profiles and revision diffs | 35 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
 | Namespace traffic | 0 records, 0 pods, 0 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
 | Image inventory | 36 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
-| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| Vulnerabilities and exposure | kguardian's HIGH/CRITICAL query returned no findings because its image reports are absent. Separate Trivy findings appear below; kguardian exposure evaluation still needs ingested reports. This is not zero vulnerabilities. |
 | SBOM and signer queries | Queried all 36 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
 | Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
 | Syscalls and profile generation | Representative `gatus` pod returned 85 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
@@ -172,3 +172,42 @@ webhook/aggregated-API source identities, Gatus ICMP/DNS/MCP checks, substituted
 LAN targets, Grafana pooler/plugin downloads, log metadata and alert webhooks.
 The speedtest native policy now admits only vmagent. Node-exporter remains outside
 pod policy; all host/NAT identity assumptions need runtime verification.
+
+## Trivy follow-up: 2026-10-28
+
+The [image ledger](trivy-observability-images.csv) covers 27 image rows; 8 Critical and 572 High deduplicated package findings. The [finding ledger](trivy-observability-findings.csv) retains every Critical/High id, package, installed version and all reported fixed versions, deduplicated per digest/id/package/version/severity. Raw report counts remain alongside deduplicated counts. Reports were joined to active owner uids and checked against current regular/init container spec pins and status imageIDs; historical reports were also checked for exact current digest matches. Source report names, timestamps and ages are retained. These are observed findings, not a claim that every affected package is reachable.
+
+Most pinned tags still identify the same publisher image, and many applications are already on their latest published release. A fixed package version does not imply a supported patched application image exists. No findings are suppressed, no packages are upgraded at startup, and no custom image forks are introduced. Fresh scanning remains unavailable through the discovered MCP tools: kguardian returns no vulnerability data even for a VM operator digest with an existing Trivy report. That is an ingestion/coverage gap, not zero vulnerabilities.
+
+Current-owner configuration findings are accounted for below. Repeated checks for multiple containers are grouped; the table describes the remaining requirement rather than treating a retained exception as resolved. Several configuration reports predate the latest image scan; for example node-exporter has an older report despite its current owner uid.
+
+| Workload | Failed High checks | Draft action or blocker |
+| --- | --- | --- |
+| DaemonSet/drm-exporter | AVD-KSV-0121 | Exemption: /sys access is required for the current GPU collector; retain its documented hardware settings. |
+| DaemonSet/igpu-gtt-exporter | AVD-KSV-0010 | Exemption: hostPID is required for process fdinfo telemetry. Image index equivalence is separately recorded below. |
+| DaemonSet/node-exporter | AVD-KSV-0009, AVD-KSV-0010, AVD-KSV-0121 | Exemption: hostPID, hostNetwork and host /proc, /sys and filesystem mounts supply node metrics. Container context hardening does not remove these required host accesses. |
+| DaemonSet/power-monitor | AVD-KSV-0010, AVD-KSV-0118, AVD-KSV-0121 | Exemption/deferred: host process/sysfs telemetry needs hostPID and mounts; root/default-context removal requires operator and hardware validation. |
+| DaemonSet/smartctl-exporter-0 | AVD-KSV-0014, AVD-KSV-0017, AVD-KSV-0118, AVD-KSV-0121 | Exemption/deferred: privileged root and /dev access support disk health reads; read-only-root compatibility still needs validation. |
+| DaemonSet/victoria-logs-collector | AVD-KSV-0014, AVD-KSV-0118 | Deferred: host-owned log access, checkpoints and temporary paths require testing. Proposed no-privilege-escalation does not establish non-root/read-only compatibility. |
+| Deployment/blackbox-exporter | AVD-KSV-0118, AVD-KSV-0119 | Exemption: NET_RAW supports ICMP. Review the scanner default-context result against the rendered non-root container before altering its pod identity. |
+| Deployment/gatus | AVD-KSV-0119 | Exemption: NET_RAW supports configured ICMP checks. |
+| Deployment/grafana-operator | AVD-KSV-0118 | Pending scanner verification: retain rendered non-root container controls; do not infer that a pod-level default-context finding proves the container runs as root. |
+| Deployment/kepler-operator-controller | AVD-KSV-0014 | Deferred: controller temporary/certificate writes need validation before making its filesystem read-only. |
+| Deployment/klipper-exporter | AVD-KSV-0118 | Deferred: pinned image starts ./main from /root; forcing a non-root uid without validating directory traversal would risk startup. |
+| Deployment/satisfactory-frm-exporter | AVD-KSV-0118 | Proposed fix: uid/gid 65534 and non-root; retain existing read-only root, no privilege escalation and drop ALL. Image contains only the executable and mode-0755 parent directories. |
+| Deployment/speedtest-exporter | AVD-KSV-0014 | Proposed fix: read-only root; pinned chart already mounts its writable cache PVC at /cache and supplies configuration as a mounted file. |
+| Deployment/vmagent-victoria-metrics | AVD-KSV-0014, AVD-KSV-0118 | Deferred: verify init/reloader, buffering and filesystem ownership before adding non-root/read-only controls; current RuntimeDefault/no-privilege-escalation is partial. |
+| Deployment/vmalert-victoria-metrics | AVD-KSV-0014, AVD-KSV-0118 | Deferred: verify init/reloader and writable paths before adding non-root/read-only controls; current RuntimeDefault/no-privilege-escalation is partial. |
+| Deployment/vmauth-victoria-metrics | AVD-KSV-0014, AVD-KSV-0118 | Deferred: verify init/reloader and writable paths before adding non-root/read-only controls; current RuntimeDefault/no-privilege-escalation is partial. |
+| Deployment/vmsingle-victoria-metrics | AVD-KSV-0014, AVD-KSV-0118 | Deferred: verify TSDB ownership and runtime paths before adding non-root/read-only controls; preserve existing data identity. |
+| StatefulSet/vmalertmanager-victoria-metrics | AVD-KSV-0014 | Deferred: app and init/reloader read-only-root compatibility remains untested; retain current uid/gid/fsGroup 1000. |
+
+The operator and config-reloader are proposed at upstream v0.75.2 using the pinned chart’s native `image` and `configReloader.image` values. Exact candidate digests are in the image ledger. Read-only extraction of each candidate `/app` binary and `go version -m` proved **Go 1.27.3 and `golang.org/x/net` 0.61.0**; neither binary was executed. Those versions meet the fixed-version requirements of all five current High findings on each old image. This is package-version evidence, not a fresh full-image vulnerability scan. The [release](https://github.com/VictoriaMetrics/operator/releases/tag/v0.75.2) and [source dependencies](https://github.com/VictoriaMetrics/operator/blob/v0.75.2/go.mod) were checked; the source minimum Go version alone was not used to infer the compiled version.
+
+FRM evidence: the pinned image `docker.io/featheredtoast/ficsit-remote-monitoring-companion:latest@sha256:6c003115f5b748687cdff1dea963d956a005fee6239265e357ea8b14c7bfb18b` contains only `/usr/local/bin/companion` and its parent directories, all mode 0755. It already runs with a read-only filesystem, drops all capabilities, and listens on unprivileged port 9000. Setting uid/gid 65534 does not require changes to mounts or writable paths. Its existing image vulnerabilities remain unresolved.
+
+Speedtest evidence: the pinned v1.8.1 chart defaults `config.persistCache: true` and mounts its cache PVC at `/cache`; the [image Dockerfile](https://github.com/Heathcliff26/speedtest-exporter/blob/v1.8.1/Dockerfile) declares the same cache path. The draft changes only `securityContext.readOnlyRootFilesystem`, preserving the PVC, uid/gid and cache behavior.
+
+Image index verification: igpu-gtt-exporter spec pin `sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913` and runtime imageID `sha256:80cd82871b55326f05d4c3a3b714b371b0e9833891de4be4eb4b99d3092e0029` are different OCI indexes selecting the same linux/amd64 manifest, `sha256:3053ea19f29305df68292b41291d621e0cbc9c1c826822c631713891ea0b64e9`, with identical config and layers. This is equivalent runtime content, not workload drift. The runtime-index report from web3/guard was checked as a historical-owner fallback: its 48 High findings are a subset of the 49 reported against the spec pin. The ledger retains that source and the equivalent digest without double-counting them. Likewise, Scraparr’s current tag index contains its exact pinned amd64 digest; changing only that pin would not fix its vulnerabilities.
+
+Rollout and rescan are pending owner approval. Retained root, startup, writable-filesystem, host/device and ICMP exceptions remain visible findings; they are not suppressed or reported as fixed.
