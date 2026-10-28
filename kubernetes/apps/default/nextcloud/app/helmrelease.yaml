@@ -118,6 +118,7 @@ spec:
         runAsUser: 0
         runAsGroup: 0
       podSecurityContext:
+        seccompProfile: { type: RuntimeDefault }
         fsGroup: 33
 
       # Runs after `occ upgrade`; a non-zero exit aborts startup, hence `|| true`.
@@ -329,6 +330,9 @@ spec:
           - /bin/bash
           - /scripts/cron.sh
         securityContext:
+          # cron.sh runs directly as www-data; it does not use the root image entrypoint.
+          allowPrivilegeEscalation: false
+          capabilities: { drop: [ALL] }
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true

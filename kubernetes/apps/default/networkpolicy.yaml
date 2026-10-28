@@ -1,35 +1,471 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+# LOCAL DRAFT: audit for at least seven days and obtain owner approval before enforcement.
+# Replaces broad namespace ingress with app rules and default-deny egress.
+# hostNetwork moonraker-obico stays excluded: loopback nginx and host UDP need a separate review.
+# Existing changedetection, karakeep, satisfactory and searxng ingress rules remain additive.
+# Rev-NAT DNS replies use ephemeral destination ports: keep their ingress grant unported.
+# Keep the deny-apiserver-egress component and its existing opt-out/mover selectors.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: default-ingress-allowlist
   namespace: default
-spec:
-  # Default-deny ingress (egress open), except hostNetwork moonraker-obico: nginx binds loopback, janus host UDP can't be expressed.
-  # Per-pod allowlists (changedetection, karakeep, satisfactory, searxng) stay and union with this one.
-  endpointSelector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: NotIn
-        values:
-          - moonraker-obico
-  ingress:
-    # ai: ToolHive MCP backends; observability: nextcloud-exporter, satisfactory-frm-exporter; network: envoy gateways; default: intra-namespace.
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: default
-        - matchLabels:
-            io.kubernetes.pod.namespace: ai
-        - matchLabels:
-            io.kubernetes.pod.namespace: observability
-        - matchLabels:
-            io.kubernetes.pod.namespace: network
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-        # ephemeral not 53.
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
-    - fromEntities:
-        # kubelet probes.
-        - host
+specs:
+  - description: Host probes and DNS; all other ingress and egress require an app rule.
+    endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: NotIn
+          values: [moonraker-obico]
+    ingress:
+      - fromEntities: [host]
+      - fromEndpoints:
+          - &kube-dns
+            matchLabels:
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+    egress:
+      - toEndpoints:
+          - *kube-dns
+        toPorts:
+          - ports:
+              - { port: "53", protocol: TCP }
+              - { port: "53", protocol: UDP }
+  - description: "dumbassets: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: dumbassets
+    ingress:
+      - fromEndpoints:
+          - &envoy-internal
+            matchLabels:
+              io.kubernetes.pod.namespace: network
+            matchExpressions:
+              - key: gateway.networking.k8s.io/gateway-name
+                operator: In
+                values: [envoy-internal]
+        toPorts: &tcp-3000
+          - ports: [{ port: "3000", protocol: TCP }]
+  - description: "ghostfolio: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: ghostfolio
+    ingress:
+      - fromEndpoints:
+          - *envoy-internal
+        toPorts: &tcp-3333
+          - ports: [{ port: "3333", protocol: TCP }]
+  - description: "homepage: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: homepage
+    ingress:
+      - fromEndpoints:
+          - *envoy-internal
+        toPorts: *tcp-3000
+  - description: "it-tools: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: it-tools
+    ingress:
+      - fromEndpoints:
+          - *envoy-internal
+        toPorts: &tcp-8080
+          - ports: [{ port: "8080", protocol: TCP }]
+  - description: "karakeep: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: karakeep
+        app.kubernetes.io/controller: karakeep
+    ingress:
+      - fromEndpoints:
+          - *envoy-internal
+        toPorts: *tcp-3000
+  - description: "notify-push: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: notify-push
+    ingress:
+      - fromEndpoints:
+          - &envoy-external
+            matchLabels:
+              io.kubernetes.pod.namespace: network
+            matchExpressions:
+              - key: gateway.networking.k8s.io/gateway-name
+                operator: In
+                values: [envoy-external]
+        toPorts: &tcp-7867
+          - ports: [{ port: "7867", protocol: TCP }]
+  - description: "picoshare: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: picoshare
+    ingress:
+      - fromEndpoints:
+          - *envoy-external
+        toPorts:
+          - ports: [{ port: "4001", protocol: TCP }]
+  - description: "satisfactory: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: satisfactory
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+            matchExpressions:
+              - key: gateway.networking.k8s.io/gateway-name
+                operator: In
+                values: [envoy-internal, envoy-external]
+        toPorts: *tcp-8080
+  - description: "spoolman: HTTPRoute backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: spoolman
+    ingress:
+      - fromEndpoints:
+          - *envoy-internal
+        toPorts:
+          - ports: [{ port: "8000", protocol: TCP }]
+  - description:
+      "Nextcloud: HTTPRoute, notify-push callback and exporter; pod port is 80, Service port is
+      8080."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: nextcloud
+        app.kubernetes.io/component: app
+    ingress:
+      - fromEndpoints:
+          - *envoy-external
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: notify-push
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: nextcloud-exporter
+        toPorts: &tcp-80
+          - ports: [{ port: "80", protocol: TCP }]
+  - description: "Obico server: internal route and hostNetwork moonraker-obico clients."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: server
+        app.kubernetes.io/instance: obico
+    ingress:
+      - fromEndpoints:
+          - *envoy-internal
+        toPorts: &tcp-3334
+          - ports: [{ port: "3334", protocol: TCP }]
+      - fromEntities: [remote-node]
+        toPorts: *tcp-3334
+    egress:
+      - toEndpoints:
+          - &dragonfly
+            matchLabels:
+              io.kubernetes.pod.namespace: database
+              app.kubernetes.io/name: dragonfly
+        toPorts: &tcp-6379
+          - ports: [{ port: "6379", protocol: TCP }]
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: ml-api
+              app.kubernetes.io/instance: obico
+        toPorts: *tcp-3333
+  - description: "Obico ML API: only the Obico server."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: ml-api
+        app.kubernetes.io/instance: obico
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: server
+              app.kubernetes.io/instance: obico
+        toPorts: *tcp-3333
+  - description: "Satisfactory: FRM monitoring; game ingress remains in the app policy."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: satisfactory
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: satisfactory-frm-exporter
+        toPorts: *tcp-8080
+    egress:
+      - toEntities: [world]
+  - description: "Ghostfolio: authenticated ToolHive backend."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: ghostfolio
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: ghostfolio
+              toolhive: "true"
+        toPorts: *tcp-3333
+  - description: "Karakeep: ToolHive backend, browser, index and agentgateway."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: karakeep
+        app.kubernetes.io/controller: karakeep
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              app: karakeep
+              toolhive: "true"
+        toPorts: *tcp-3000
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: karakeep
+              app.kubernetes.io/controller: chrome
+        toPorts:
+          - ports: [{ port: "9222", protocol: TCP }]
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: karakeep
+              app.kubernetes.io/controller: meilisearch
+        toPorts:
+          - ports: [{ port: "7700", protocol: TCP }]
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: ai
+              gateway.networking.k8s.io/gateway-name: agentgateway
+        toPorts:
+          - ports: [{ port: "4000", protocol: TCP }]
+  - description: Database clients use pooler VIPs; DIRECT_URL resolution remains a rollout gate.
+    endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values: [ghostfolio, nextcloud, notify-push, spoolman]
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: database
+              cnpg.io/cluster: postgres16
+              cnpg.io/podRole: pooler
+        toPorts: &tcp-5432
+          - ports: [{ port: "5432", protocol: TCP }]
+  - description:
+      "Ghostfolio DIRECT_URL startup migrations: preserve the documented direct-instance exception
+      until session-pooler migration is verified."
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: ghostfolio
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: database
+              cnpg.io/cluster: postgres16
+              cnpg.io/podRole: instance
+        toPorts: *tcp-5432
+  - description: Configured Redis clients.
+    endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values: [ghostfolio, nextcloud, notify-push]
+    egress:
+      - toEndpoints:
+          - *dragonfly
+        toPorts: *tcp-6379
+  - description: Notify-push uses Nextcloud Service 8080, translated to pod port 80.
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: notify-push
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: nextcloud
+              app.kubernetes.io/component: app
+        toPorts: *tcp-80
+  - description: Notify-push self-test from Nextcloud app and CronJob.
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: notify-push
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: nextcloud
+        toPorts: *tcp-7867
+  - description: Nextcloud self-test and public URL callbacks, including the CronJob.
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: nextcloud
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: default
+              app.kubernetes.io/name: notify-push
+        toPorts: *tcp-7867
+      - toEndpoints:
+          - *envoy-external
+        toPorts: &tcp-10443
+          - ports: [{ port: "10443", protocol: TCP }]
+      - toEntities: [world]
+        toPorts:
+          - ports:
+              - { port: "80", protocol: TCP }
+              - { port: "443", protocol: TCP }
+              - { port: "465", protocol: TCP }
+  - description: Changedetection checks and notification webhooks.
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: changedetection
+    egress:
+      - toEntities: [world]
+        toPorts: &tcp-80-443
+          - ports:
+              - { port: "80", protocol: TCP }
+              - { port: "443", protocol: TCP }
+  - description: Market data and spool metadata.
+    endpointSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values: [ghostfolio, spoolman]
+    egress:
+      - toEntities: [world]
+        toPorts: &tcp-443
+          - ports: [{ port: "443", protocol: TCP }]
+  - description: Karakeep fetching and browser navigation; Meilisearch gets no internet grant.
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: karakeep
+      matchExpressions:
+        - key: app.kubernetes.io/controller
+          operator: In
+          values: [karakeep, chrome]
+    egress:
+      - toEntities: [world]
+        toPorts: *tcp-80-443
+  - description: Searxng search engines include QUIC.
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: searxng
+    egress:
+      - toEntities: [world]
+        toPorts: *tcp-80-443
+      - toEntities: [world]
+        toPorts:
+          - ports: [{ port: "443", protocol: UDP }]
+  - description: API exceptions already declared by homepage and the daily Satisfactory restart.
+    endpointSelector:
+      matchLabels:
+        egress.home.arpa/kube-apiserver: allow
+    egress:
+      - &kube-api
+        toEntities: [kube-apiserver]
+        toPorts:
+          - ports:
+              - { port: "443", protocol: TCP }
+              - { port: "6443", protocol: TCP }
+  - description: Kopiur movers retain API access; repository NFS mounts happen on the node.
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/managed-by: kopiur
+    egress:
+      - *kube-api
+  - description: Homepage server-side widgets, status checks and discovered routes.
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: homepage
+    egress:
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+            matchExpressions:
+              - key: gateway.networking.k8s.io/gateway-name
+                operator: In
+                values:
+                  - envoy-internal
+                  - envoy-external
+                  - envoy-internal-tls
+                  - envoy-external-probe
+        toPorts: *tcp-10443
+      - toEntities: [world]
+        toPorts: *tcp-443
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: kromgo
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: gatus-sidecar
+        toPorts: *tcp-8080
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app: grafana
+        toPorts: *tcp-3000
+      - toEndpoints:
+          - matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [sonarr, radarr, prowlarr, qbittorrent]
+            matchLabels:
+              io.kubernetes.pod.namespace: media
+        toPorts: *tcp-80
+      - toEndpoints:
+          - matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [jellystat]
+            matchLabels:
+              io.kubernetes.pod.namespace: media
+        toPorts: *tcp-3000
+      - toEndpoints:
+          - matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [jellyfin]
+            matchLabels:
+              io.kubernetes.pod.namespace: media
+        toPorts:
+          - ports: [{ port: "8096", protocol: TCP }]
+      - toEndpoints:
+          - matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [fileflows]
+            matchLabels:
+              io.kubernetes.pod.namespace: media
+        toPorts:
+          - ports: [{ port: "5000", protocol: TCP }]
+      - toEndpoints:
+          - matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [unpackerr]
+            matchLabels:
+              io.kubernetes.pod.namespace: media
+        toPorts:
+          - ports: [{ port: "5656", protocol: TCP }]
+      - toEndpoints:
+          - matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [bazarr]
+            matchLabels:
+              io.kubernetes.pod.namespace: media
+        toPorts:
+          - ports: [{ port: "6767", protocol: TCP }]
+      - toEndpoints:
+          - matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [seerr-chart]
+            matchLabels:
+              io.kubernetes.pod.namespace: media
+        toPorts:
+          - ports: [{ port: "5055", protocol: TCP }]

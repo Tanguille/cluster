@@ -13,6 +13,7 @@ spec:
   values:
     defaultPodOptions:
       securityContext:
+        seccompProfile: { type: RuntimeDefault }
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
         runAsGroup: 1000

@@ -11,6 +11,9 @@ spec:
     name: app-template
 
   values:
+    defaultPodOptions:
+      securityContext:
+        seccompProfile: { type: RuntimeDefault }
     controllers:
       spoolman:
         strategy: RollingUpdate

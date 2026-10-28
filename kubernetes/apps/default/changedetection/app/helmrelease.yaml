@@ -12,6 +12,8 @@ spec:
 
   values:
     defaultPodOptions:
+      securityContext:
+        seccompProfile: { type: RuntimeDefault }
       # Fetches and parses untrusted pages.
       runtimeClassName: gvisor
 

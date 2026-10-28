@@ -75,6 +75,7 @@ spec:
       priorityClassName: homelab-important
       # init.sh skips its root-only uid remap when started as the image's steam user (1000:1000).
       securityContext:
+        seccompProfile: { type: RuntimeDefault }
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000

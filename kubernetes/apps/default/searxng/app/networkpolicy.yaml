@@ -5,7 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: searxng-ingress-allowlist
 spec:
-  # Ingress only; egress stays open (searxng speaks QUIC/UDP 443 to engines).
+  # Ingress only here; the namespace policy permits engine HTTP(S), including QUIC/UDP 443.
   endpointSelector:
     matchLabels:
       app.kubernetes.io/name: searxng
