@@ -59,8 +59,6 @@ spec:
           bdev_enable_discard: "true"
           bdev_async_discard_threads: "1"
           osd_class_update_on_start: "false"
-          # Was local (inert, module off). Rook never unsets a removed key: once Ceph shows none, delete this line.
-          device_failure_prediction_mode: none
           # RECENT_CRASH and RECENT_MGR_MODULE_CRASH warn for 1 day, not 14; nothing is archived
           mgr/crash/warn_recent_interval: "86400"
         mon:
@@ -68,9 +66,6 @@ spec:
           mon_cluster_log_level: info
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
-      # Posts nothing (mgr crash module: do_post() missing 'inbuf'); re-test on the v21 bump.
-      crashCollector:
-        disable: true
       # Off: duplicates stdout (victoria-logs has it); its 100Mi request left rook-ceph-exporter-control-2 unschedulable.
       logCollector:
         enabled: false
