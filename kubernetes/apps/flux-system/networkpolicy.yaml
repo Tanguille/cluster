@@ -30,8 +30,9 @@ specs:
   - endpointSelector:
       matchLabels:
         app.kubernetes.io/part-of: flux
-    ingress: &controllerMetrics
-      - fromEndpoints:
+    ingress:
+      - &controllerMetrics
+        fromEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: observability
               app.kubernetes.io/name: vmagent
@@ -64,12 +65,8 @@ specs:
   - endpointSelector:
       matchLabels:
         app.kubernetes.io/name: flux-operator
-    ingress: *controllerMetrics
-    egress: *controllerEgress
-  - endpointSelector:
-      matchLabels:
-        app.kubernetes.io/name: flux-operator
     ingress:
+      - *controllerMetrics
       - fromEndpoints:
           - matchLabels:
               io.kubernetes.pod.namespace: network
@@ -78,6 +75,7 @@ specs:
           - ports:
               - port: "9080"
                 protocol: TCP
+    egress: *controllerEgress
   - endpointSelector:
       matchExpressions:
         - key: app
