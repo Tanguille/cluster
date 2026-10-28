@@ -5,6 +5,12 @@ apiVersions:
   - monitoring.coreos.com/v1/ServiceMonitor
   - grafana.integreatly.org/v1beta1/GrafanaDashboard
 
+ignore:
+  # Equals the chart default, but Renovate only tracks an image with both repository and tag.
+  - app: rook-ceph-cluster
+    keys:
+      - cephImage.repository
+
 flux:
   # cluster-secrets is SOPS-encrypted; charts that parse URLs fail on a literal ${SECRET_DOMAIN}.
   substitute:
