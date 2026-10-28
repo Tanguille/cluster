@@ -1,0 +1,104 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+# Local proposal: audit discovery, dependency updates and webhook sync before enforcement.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: renovate-ingress-allowlist
+  namespace: renovate
+specs:
+  - endpointSelector: {}
+    enableDefaultDeny:
+      ingress: true
+      egress: true
+    ingress:
+      # Rev-NAT'd DNS replies target ephemeral client ports.
+      - fromEndpoints:
+          - matchLabels: &dns
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
+      - fromEntities: [host] # Kubelet probes.
+    egress:
+      - toEndpoints:
+          - matchLabels: *dns
+        toPorts:
+          - ports:
+              - port: "53"
+                protocol: UDP
+              - port: "53"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: renovate-operator
+    ingress:
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-internal
+        toPorts:
+          - ports:
+              - port: "8081"
+                protocol: TCP
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: network
+              gateway.networking.k8s.io/gateway-name: envoy-external
+        toPorts:
+          - ports:
+              - port: "8082"
+                protocol: TCP
+      - fromEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: observability
+              app.kubernetes.io/name: vmagent
+        toPorts:
+          - ports:
+              - port: "8080"
+                protocol: TCP
+    egress:
+      &jobEgress # GitHub installation/webhook APIs and Renovate package/registry metadata.
+      - toEntities: [world]
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+      - toEndpoints:
+          - matchLabels:
+              io.kubernetes.pod.namespace: database
+              app: dragonfly
+              app.kubernetes.io/name: dragonfly
+        toPorts:
+          - ports:
+              - port: "6379"
+                protocol: TCP
+  - endpointSelector:
+      matchLabels:
+        app: renovate-operator
+    egress:
+      - toEntities: [kube-apiserver]
+        toPorts:
+          - ports:
+              - port: "443"
+                protocol: TCP
+              - port: "6443"
+                protocol: TCP
+  - endpointSelector:
+      # Controller-generated Jobs retain these labels across every scheduled run.
+      matchLabels:
+        renovate-operator.mogenius.com/renovatejob: cluster
+      matchExpressions:
+        - key: renovate-operator.mogenius.com/type
+          operator: In
+          values: [discovery, executor]
+    egress: *jobEgress
+  - endpointSelector:
+      matchLabels:
+        renovate-operator.mogenius.com/renovatejob: cluster
+        renovate-operator.mogenius.com/type: executor
+    egress:
+      # Captured on a dependency-update Job; verify the HTTP destinations during audit.
+      - toEntities: [world]
+        toPorts:
+          - ports:
+              - port: "80"
+                protocol: TCP
