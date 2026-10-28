@@ -1,6 +1,6 @@
 ---
-# vmcp leaks 250-414 MiB/day (14d, stacklok/toolhive#5860); at the peak, restarting every 3 days
-# stays under AiContainerMemoryNearLimit, short of the ~5-day OOM.
+# vmcp leaks 250-430 MiB/day (stacklok/toolhive#5860); its session handling degraded on day 3 of the
+# old 4-day cycle with the working set still near 40% of the limit, so restart every 2 days.
 # Delete this file once #5860 is fixed.
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
@@ -41,9 +41,8 @@ kind: CronJob
 metadata:
   name: vmcp-restart
 spec:
-  # Same days as 1-31/3, spelled out. Worst gap is 3 days (28->1 in a 30-day
-  # month); 31->1 is 1 day, tighter than the cadence, never looser.
-  schedule: "30 3 1,4,7,10,13,16,19,22,25,28,31 * *"
+  # Odd days: worst gap is 2 days; 31->1 is 1 day, tighter, never looser.
+  schedule: "30 3 */2 * *"
   timeZone: ${TIMEZONE}
   # Don't start a missed run after 04:30 (quiet-window cutoff).
   startingDeadlineSeconds: 3600

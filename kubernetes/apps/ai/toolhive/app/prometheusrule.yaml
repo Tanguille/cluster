@@ -35,7 +35,7 @@ spec:
               {{ $value | humanizePercentage }} of its memory limit
             description: >-
               If this is vmcp (pod unified-*): expected, it leaks and this is the
-              warning shot. The vmcp-restart CronJob restarts it every 3 days at
+              warning shot. The vmcp-restart CronJob restarts it every 2 days at
               03:30, so firing ahead of that means the leak rate grew -- restart
               it deliberately at a quiet moment --
               `kubectl rollout restart deploy/unified -n ai` -- rather than
@@ -66,7 +66,7 @@ spec:
               service. Confirm it came back ready, then work out why this was not
               caught by AiContainerMemoryNearLimit first -- either the growth
               outran the 15m `for:` window, or the jump was sudden rather than a
-              leak. For vmcp specifically, an OOM sooner than roughly 3 days
+              leak. For vmcp specifically, an OOM sooner than roughly 2 days
               (the restart cadence) after the previous one means the leak
               accelerated and is worth reporting upstream on
               stacklok/toolhive#5860 with the growth series.
