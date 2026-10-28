@@ -1,12 +1,17 @@
 # Classifier source, merged over bitmagnet's core workflow.
 flags:
   # unknown: Radarr/Sonarr search by category, so torrents without a content type never reach them.
-  # Armiger's verdict only lands in tags, which category searches ignore.
   delete_content_types:
     [xxx, music, software, game, ebook, audiobook, comic, unknown]
 workflows:
   movies_tv:
     - run_workflow: default
+    # Malware lures: core only types a torrent as software when executables dominate its size,
+    # so a fake video beside an .exe or .lnk still classifies as a movie. Single files are covered too.
+    # RARBG releases ship a harmless RARBG_DO_NOT_MIRROR.exe marker (8.7k of the 9.2k matches on 2026-10-28).
+    - if_else:
+        condition: "torrent.files.exists(f, f.extension in ['exe', 'msi', 'bat', 'cmd', 'com', 'scr', 'pif', 'lnk', 'vbs', 'ps1', 'jar'] && f.baseName.lowerAscii() != 'rarbg_do_not_mirror')"
+        if_action: delete
     # Only 720p and up is wanted: drop SD resolutions and cam/DVD sources.
     - if_else:
         condition:
