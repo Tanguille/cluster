@@ -17,6 +17,10 @@ spec:
             image:
               repository: ghcr.io/sethforprivacy/simple-monerod
               tag: v0.18.5.4@sha256:465a9458f148d31748731cfb6bc1ab38289313dcb858a699838ab8d1b828578d
+            securityContext:
+              # The entrypoint chowns data as root then uses su-exec; keep those
+              # capabilities, but do not allow executable-based privilege gains.
+              allowPrivilegeEscalation: false
             args:
               - "--data-dir=/home/monero/.bitmonero"
               - "--log-file=/var/log/monero/monerod.log"
@@ -71,6 +75,7 @@ spec:
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
     service:
       monerod:
         type: LoadBalancer
