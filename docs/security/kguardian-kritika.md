@@ -35,7 +35,7 @@ never means safe. Raw pod addresses, credentials and captures are not published.
 | Workload inventory, profiles and revision diffs | 1 controller profiles and diffs reviewed; revision details below. Observed churn is not necessarily configuration drift. |
 | Namespace traffic | 0 records, 0 pods, 0 drops at this snapshot. Coverage is incomplete; a rolling count is not a before/after enforcement delta. |
 | Image inventory | 1 running digests in the returned inventory; inventory truncated: false. Inventory is not a vulnerability verdict. |
-| Vulnerabilities and exposure | Namespace HIGH/CRITICAL query returned no findings; running-image reports are absent. No evidence-backed CVE id exists for `explain_cve_exposure`; do not invent one or claim zero vulnerabilities. |
+| Vulnerabilities and exposure | kguardian's HIGH/CRITICAL query returned no findings because its image reports are absent. Separate Trivy findings appear below; kguardian exposure evaluation still needs ingested reports. This is not zero vulnerabilities. |
 | SBOM and signer queries | Queried all 1 returned running digests: no SBOM reports, and signers unknown/not_checked. This is neither unsigned nor verified/trusted. No trusted issuer/subject is inferred. |
 | Image-trust explanation | Evaluation unavailable: signature discovery is off. No ImageTrustPolicy is added without verified signer evidence and owner-selected trust roots. |
 | Syscalls and profile generation | Representative `kritika` pod returned 81 observed x86_64 syscalls. Generation failed with the architecture error below; no custom profile is bound. |
@@ -144,3 +144,25 @@ compare reviewed SHAs and reject incomplete/skipped review as approval evidence.
 `mise exec -- bash .agents/skills/pr-review/scripts/validate-pr.sh` passed:
 full Flux/Helm rendering, shellcheck, repository secret guardrails and all 25
 regression tests. No live deployment or seven-day audit was performed.
+
+## Trivy follow-up, 2026-10-28
+
+The [image ledger](trivy-kritika-images.csv) records server and tools-runner
+digests separately. Read-only MCP queries confirm that the server's current
+digest matches its 2026-10-27 report. The
+[finding ledger](trivy-kritika-findings.csv) contains its one High finding:
+CVE-2026-84445 in `google.golang.org/grpc` v1.83.1. The report lists fixes in
+1.82.2, 1.83.2 and two development branches; use a compatible patched release,
+not a downgrade based only on that unordered list.
+
+Publisher release 0.0.110 was checked, but its
+[tagged source](https://github.com/home-operations/kritika/blob/d8327f8ba9efd5130d3f45a0c709bf1cc68ccd6e/go.mod)
+still selects gRPC v1.83.1. Updating only the image tag would not demonstrate a
+fix. Keep the finding unresolved until a publisher patch and matching scan exist.
+The tools-runner digest has no matching report and remains **unknown**; the
+server report cannot establish the runner's package contents.
+
+Current namespace config/RBAC reports contain no failed Critical/High checks.
+MCP confirms the namespace RoleBinding; no service-account ClusterRoleBinding
+was found. Preserve the existing server Job/API permissions and isolated runner
+context. No scanner ignores, custom images or live changes are introduced.
