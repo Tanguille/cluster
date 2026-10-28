@@ -68,10 +68,9 @@ node-problem-detector 1.37.0 and CoreDNS 1.15.0. Their actual image build/packag
 metadata was read without executing image binaries. The ledgers retain the
 pre-change findings because package evidence is narrower than a fresh image scan.
 
-The [Trivy engine proposal](trivy-security.md) records both verified dependency
-improvements and remaining candidate findings. In particular, Trivy's candidate
-still contains brotli-libs 1.2.0-r1, libcurl 8.22.0-r0 and go-jose/v4 4.1.5 below
-the reported fixes for some findings. Node-problem-detector 1.37.0 still uses Go
+The [Trivy engine proposal](trivy-security.md) records its verified dependency
+improvements, remaining candidate findings and why Trivy Operator itself stays on
+its current chart and image. Node-problem-detector 1.37.0 still uses Go
 1.27.2; a remaining High finding requires 1.27.3. Neither update is a clean scan.
 
 The [Kubernetes patch draft](https://github.com/Tanguille/cluster/pull/6308)
@@ -87,12 +86,6 @@ fix criteria respectively; residual Go/x/net findings remain. A native snapshott
 argument preserves the existing disabled group-snapshot behavior. Resizer 2.3.0
 is blocked because it removes a feature gate still passed unconditionally by
 operator 1.1.0. No storage rollout or disposable fixture test has occurred.
-
-Trivy Operator remains on its existing image: its latest source/image release
-does not have a published compatible chart at the configured source. The latest
-published chart is still 0.32.1, and the inspected newer operator image itself
-retains old Go/x/net dependencies. A standalone image override would bypass
-unverified chart, CRD and RBAC changes. No such override is proposed.
 
 Final primary release checks matched the existing Cilium 1.20.4, etcd-defrag
 0.47.0, Spegel 0.8.1, CSI attacher 4.13.0 and node-driver-registrar 2.18.0

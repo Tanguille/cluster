@@ -7,7 +7,7 @@ reported findings and coverage gaps across the remaining namespaces.
 ## Proposed change
 
 Pin the shared Trivy scan-client/server image to 0.76.1 using the existing chart's
-native `trivy.image.tag`. Keep chart 0.32.1 and operator 0.30.1, the current scanner
+native `trivy.image` values. Keep chart 0.32.1 and operator 0.30.1, the current scanner
 concurrency, resource settings, namespace exclusions and report retention.
 The chart renders the same image for its built-in server and scanner configuration.
 No kguardian setting changes; `llmBridge` remains enabled.
@@ -60,17 +60,7 @@ exclusions leave persistent AI images without current scans. Restoring that
 coverage requires an explicit scan-load review because report churn previously
 caused storage pressure. Absence of a report is unknown, not a pass.
 
-The MCP `explain_cve_exposure` query for CVE-2026-31789 over 168 hours returned
-`found: false` even though direct Trivy reports list it on current digests. This
-confirms the missing kguardian ingestion; it cannot establish reachability or
-absence of exposure for this known finding.
-
-The discovered MCP tools can read existing reports; they do not expose a fresh
-image-scan operation. A fresh candidate scan and an approved rollout must verify
-scanner startup, report parsing, DB/cache behavior, queue throughput and the
-remaining findings. Do not merge or deploy merely because static rendering passes.
-
-Validation passed: required full repository validator (Flux/Helm rendering,
-shellcheck, secret guardrails and 25 regression tests), Markdown lint and exact
-before/after pinned-chart render comparison. Independent source review found no
-static compatibility blocker; the runtime gates above remain open.
+The MCP tools read existing reports but cannot run a fresh image scan, and
+kguardian ingestion is unavailable (see the [ledger](trivy-infrastructure.md)).
+A fresh candidate scan and an approved rollout must verify scanner startup,
+report parsing, DB/cache behavior, queue throughput and the remaining findings. Do not merge or deploy merely because static rendering passes.
