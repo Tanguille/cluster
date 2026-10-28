@@ -27,6 +27,9 @@ spec:
       enabled: true
     # Scan Jobs sat 100% CPU-throttled at the chart-default 500m limit (kguardian).
     trivy:
+      # Keep scan Jobs and the built-in server on the same patched engine.
+      image:
+        tag: 0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
       resources:
         limits:
           cpu: 1000m
