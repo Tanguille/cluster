@@ -1,0 +1,24 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+# Internet-exposed namespaces must not reach the home LAN or other private ranges.
+# Pure deny overlay: enableDefaultDeny egress:false keeps DNS/internet/cluster egress default-allow.
+# CIDR rules never match pods or nodes, and socketLB turns Service/LB IPs into backend pods
+# before policy, so in-cluster traffic and the gateway hairpin are unaffected.
+# Workloads that need the LAN opt out with the pod label egress.home.arpa/lan: allow.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: deny-lan-egress
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: egress.home.arpa/lan
+        operator: NotIn
+        values: [allow]
+  enableDefaultDeny:
+    egress: false
+  egressDeny:
+    - toCIDRSet:
+        - cidr: 10.0.0.0/8
+        - cidr: 172.16.0.0/12
+        - cidr: 192.168.0.0/16
