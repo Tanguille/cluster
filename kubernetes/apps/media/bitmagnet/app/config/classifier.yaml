@@ -1,23 +1,19 @@
 # Classifier source, merged over bitmagnet's core workflow.
 flags:
-  delete_content_types: [xxx, music, software, game, ebook, audiobook, comic]
+  # unknown: Radarr/Sonarr search by category, so torrents without a content type never reach them.
+  delete_content_types:
+    [xxx, music, software, game, ebook, audiobook, comic, unknown]
+extensions:
+  executable: [exe, msi, bat, cmd, com, scr, pif, lnk, vbs, ps1, jar]
 workflows:
-  # Keep movies, TV and unknown video (Armiger may still classify those).
   movies_tv:
-    - run_workflow: default
-    # Unknown torrents with no video can't feed Radarr/Sonarr. Archives with a release-style name stay for unpackerr.
-    # Torrents without a saved file list are kept.
+    # Malware lures, before default spends a TMDB lookup on them: core types a torrent as software
+    # only when executables dominate its size, so a fake video beside an .exe stays a movie.
+    # RARBG_DO_NOT_MIRROR.exe is a harmless 99-byte marker in most RARBG releases.
     - if_else:
-        condition:
-          and:
-            - "result.contentType == contentType.unknown"
-            - "torrent.files.size() > 0"
-            - "!torrent.files.exists(f, f.extension in extensions.video)"
-            - not:
-                and:
-                  - "torrent.files.exists(f, f.extension.matches('^(rar|r[0-9]{2}|zip|7z|[0-9]{3})$'))"
-                  - "torrent.baseName.matches('(?i)(480p|720p|1080p|2160p|x26[45]|h[.]?26[45]|hevc|web-?dl|webrip|bluray|bdrip|dvdrip|hdtv|s[0-9]{2}e[0-9]{2})')"
+        condition: "torrent.files.exists(f, f.extension in extensions.executable && !(f.baseName == 'RARBG_DO_NOT_MIRROR' && f.size == 99))"
         if_action: delete
+    - run_workflow: default
     # Only 720p and up is wanted: drop SD resolutions and cam/DVD sources.
     - if_else:
         condition:

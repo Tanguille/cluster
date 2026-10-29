@@ -1,8 +1,7 @@
 # Bitmagnet stack
 
-Bitmagnet (DHT crawler, `bitmagnet:3333`) and the Armiger connector
-(`armiger-connector:8096`, Torznab proxy `:8097` for Prowlarr) share one
-app-template HelmRelease. The database `bitmagnet` lives on the shared CNPG
+Bitmagnet is a DHT crawler; Prowlarr queries its Torznab API at
+`bitmagnet:3333/torznab`. The database `bitmagnet` lives on the shared CNPG
 cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
 `envoy-internal` only and unauthenticated.
 
@@ -13,24 +12,22 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
 - DHT is outbound-only: `media` enforces PSA baseline, which forbids
   `hostPort`. Inbound DHT (faster crawl) would need a LoadBalancer IP plus
   router forwarding, like satisfactory.
-- The `armiger-connector-data` PVC (venv + model) has no backup; it is
-  re-downloadable. Do not delete it or the shared database on rollback.
-- The init container pip-installs into the PVC at runtime. Direct dependencies,
-  torch and the connector/model commits are pinned and tracked by Renovate;
-  transitive ones are not. Connector and model bumps never automerge: the HF
-  bundle contains unaudited executable Python.
-- Each part reinstalls itself when its pin changes. Python minor bumps wait for
-  dashboard approval until onnxruntime ships wheels for them.
-- `config/classifier.yaml` deletes non-video content types after
-  classification, plus unknown torrents with no video (release-named archives
-  stay) and anything below 720p or from cam/DVD sources. CEL string literals
-  reject `\.`; use `[.]` in regexes. Apply it to existing rows with
+- `config/classifier.yaml` deletes non-video and unknown content types after
+  classification, anything below 720p or from cam/DVD sources, and malware
+  lures (any executable or script file except RARBG's marker). CEL string
+  literals reject `\.`; use `[.]` in regexes. Apply it to existing rows with
   `bitmagnet reprocess --classifyMode rematch --contentTypes <types>`.
-- `ARMIGER_VARIANT` stays ultra: on 500 local torrents int8 matched 496/500
-  categories at the same speed and only 27 MiB less memory.
+- The unused trigram index `torrent_tags_name_idx1` (migration 00003, 261 MB)
+  was dropped by hand on 2026-10-27. Tag lookups use the btree
+  `torrent_tags_name_idx`.
 - `prune` (daily) deletes and blocklists TMDB-matched dubs with no English, Dutch
   or original-language track, and DHT-only swarms still at 0 seeders after 3 days.
-- `config/connector.py` runs the pinned connector with a prediction cache keyed on
-  infohash, name, file count and seeder bucket, so unchanged repeat results skip the model. It also strips
-  imdbid/tmdbid from Torznab caps: bitmagnet answers id searches only from TMDB-matched
-  torrents (76 vs 87 hits by title on 133 test titles), so Radarr/Sonarr search it by title.
+  Its scripts live in the `bitmagnet-prune` ConfigMap, so editing them does not
+  restart bitmagnet.
+- bitmagnet always advertises imdbid/tmdbid but answers id searches only from
+  TMDB-matched torrents. On 2026-10-28 ids won for movies (96 vs 93 of 100) and
+  lost for TV (32 vs 37 of 60). Prowlarr indexer 130 refetches caps on every
+  save, so they cannot be trimmed there; Sonarr still searched an id-miss
+  episode (Weeds S01E01) by title.
+- qBittorrent's excluded file names (UI setting) skip executables in every
+  download, and Sonarr/Radarr fail imports that contain one.

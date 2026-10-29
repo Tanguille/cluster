@@ -3,13 +3,13 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
-  name: nvme-fleet
+  name: agentgateway
 spec:
   allowCrossNamespaceImport: true
   instanceSelector:
     matchLabels:
       grafana.internal/instance: grafana
-  folder: hardware
   configMapRef:
-    name: nvme-fleet-dashboard
-    key: nvme-fleet.json
+    # Rendered by the chart (monitoring.grafanaDashboard).
+    name: agentgateway-controller-dashboard
+    key: agentgateway.json

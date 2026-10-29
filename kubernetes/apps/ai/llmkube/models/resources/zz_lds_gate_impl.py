@@ -23,37 +23,30 @@ class _PatchLoader(importlib.abc.Loader):
 #   (docs/llm-hosting/bench/downfix/triton_m32.out).
 # - M>=768 (prefill chunks): 256x128x64, 8 warps, 1 stage, 1.02-1.25x on all 5 shapes at M=768-2048; it loses
 #   up to 0.80x at 520-640 (docs/llm-hosting/bench/downfix/triton_prefill.out), so 33-767 stays upstream.
-# The custom op resolves this module global at call time, so replacing it needs no re-registration.
+# Upstream's gemm resolves the kernel global at call time. The proxy rewrites only the tile and launch kwargs of
+# kernel[grid](a, b_q, scales, zp, c, M, N, ...) and forwards the rest, so a new kernel parameter cannot break it
+# (a re-launched copy of the signature crash-looped prod on 10-14). If c is not (M, N) the layout moved: upstream tiles.
 def _install_triton_tiles(hy):
-    import torch
     from vllm.triton_utils import triton
 
     if not hy._on_gfx12x():
         return
-    orig = hy.triton_w4a16_skinny_fmt_gemm
     kernel = hy._triton_w4a16_skinny_fmt_kernel
 
-    def gemm(a, b_q, scales, group_size, zp_bias=8, zp=None):
-        M, K = a.shape
-        if 32 < M < 768:
-            return orig(a, b_q, scales, group_size, zp_bias, zp)
-        bm, bn, bk, warps = (16, 16, 128, 2) if M <= 32 else (256, 128, 64, 8)
-        N = b_q.shape[0]
-        c = torch.empty((M, N), dtype=a.dtype, device=a.device)
-        grid = (triton.cdiv(M, bm), triton.cdiv(N, bn))
-        kernel[grid](
-            # the zp pointer is unused when HAS_ZP is False; any tensor will do
-            a, b_q, scales, zp if zp is not None else scales, c,
-            # Named strides preserve padded rows without building dictionaries per GEMM.
-            M, N, K, K // 8, K // group_size,
-            stride_sn=scales.stride(0), stride_bn=b_q.stride(0), stride_am=a.stride(0),
-            # Keep the scalar dequant path these gfx12 tiles were measured with.
-            group_size=group_size, ZP_BIAS=zp_bias, HAS_ZP=zp is not None, PACKED_DEQUANT=False,
-            BLOCK_M=bm, BLOCK_N=bn, BLOCK_K=min(bk, group_size), num_warps=warps, num_stages=1,
-        )
-        return c
+    class _Tiles:
+        def __getitem__(self, grid):
+            def launch(*args, **kw):
+                c, M, N, g = args[4], args[5], args[6], kw.get("group_size")
+                if 32 < M < 768 or g is None or tuple(c.shape) != (M, N):
+                    return kernel[grid](*args, **kw)
+                bm, bn, bk, warps = (16, 16, 128, 2) if M <= 32 else (256, 128, 64, 8)
+                # Keep the scalar dequant path these gfx12 tiles were measured with.
+                kw.update(PACKED_DEQUANT=False, BLOCK_M=bm, BLOCK_N=bn, BLOCK_K=min(bk, g), num_warps=warps, num_stages=1)
+                return kernel[(triton.cdiv(M, bm), triton.cdiv(N, bn))](*args, **kw)
 
-    hy.triton_w4a16_skinny_fmt_gemm = gemm
+            return launch
+
+    hy._triton_w4a16_skinny_fmt_kernel = _Tiles()
     print("[lds-gate-patch] Triton tiles M<=32 16x16x128 w2, M>=768 256x128x64 w8, 1 stage", file=sys.stderr, flush=True)
 
 

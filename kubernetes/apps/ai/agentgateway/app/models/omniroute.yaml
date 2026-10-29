@@ -108,8 +108,8 @@ spec:
 ---
 # Every omniroute failure the health policy evicts on is retried once (bodies up to 64 KiB), and the retry lands
 # on the qwen-3.8 group. The backoff lets the eviction register first; without it the retry
-# goes back to omniroute (a second 150s timeout before the fallback). One attempt so a
-# timed-out fallback is not re-run either.
+# goes back to omniroute (a second 150s timeout before the fallback). The default single
+# retry also keeps a timed-out fallback from being re-run.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -122,7 +122,6 @@ spec:
       name: agentgateway-omniroute
   traffic:
     retry:
-      attempts: 1
       backoff: 100ms
       codes:
         - 400

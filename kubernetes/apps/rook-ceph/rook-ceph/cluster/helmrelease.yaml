@@ -36,7 +36,7 @@ spec:
     cephImage:
       # Spelled out so Renovate tracks the image.
       repository: quay.io/ceph/ceph
-      tag: v20.2.4@sha256:6bb1c8a42fbc0bf87938946990b65174466997bc11c31eb5a323225a779fd8f9
+      tag: v21.2.0@sha256:c9e6ed4ac3fcf67b28f38358bb9619dee4d1dfb96ddd4b9b583eee316a15f04d
     cephClusterSpec:
       # Ceph 20 rates cipher `aes` HEALTH_ERR, which blocks Rook's OSD upgrades. aes256k needs the
       # in-kernel client from Linux 7.0. keyType does nothing unless keyRotationPolicy is set.
@@ -59,8 +59,6 @@ spec:
           bdev_enable_discard: "true"
           bdev_async_discard_threads: "1"
           osd_class_update_on_start: "false"
-          # Was local (inert, module off). Rook never unsets a removed key: once Ceph shows none, delete this line.
-          device_failure_prediction_mode: none
           # RECENT_CRASH and RECENT_MGR_MODULE_CRASH warn for 1 day, not 14; nothing is archived
           mgr/crash/warn_recent_interval: "86400"
         mon:
@@ -68,9 +66,6 @@ spec:
           mon_cluster_log_level: info
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
-      # Posts nothing (mgr crash module: do_post() missing 'inbuf'); re-test on the v21 bump.
-      crashCollector:
-        disable: true
       # Off: duplicates stdout (victoria-logs has it); its 100Mi request left rook-ceph-exporter-control-2 unschedulable.
       logCollector:
         enabled: false
@@ -117,9 +112,11 @@ spec:
         nodes:
           - name: control-1
             devices:
+              # Created as hdd while virtio reported rotational; see control-1's UdevRulesConfig.
               - name: /dev/disk/by-id/virtio-ZF6YrnfZ
             config:
               osdsPerDevice: "1"
+              deviceClass: nvme
           - name: control-2
             devices:
               # Samsung 980 PRO 1TB

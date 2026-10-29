@@ -3,12 +3,12 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
-  name: agentgateway
+  name: brrpolice
 spec:
-  interval: 1h
+  interval: 15m
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: v1.6.0
-  url: oci://cr.agentgateway.dev/charts/agentgateway
+    tag: 0.16.3
+  url: oci://ghcr.io/zariel/charts/brrpolice

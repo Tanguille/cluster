@@ -19,7 +19,7 @@ spec:
           web:
             image:
               repository: nginx
-              tag: 1.31-alpine@sha256:a3554c0d0b48177b1413c26e01f695334428020d9df01243fbae3e11cfd17417
+              tag: 1.31-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
             resources:
               requests:
                 cpu: 10m
@@ -43,7 +43,7 @@ spec:
           dashboard-server:
             image:
               repository: python
-              tag: 3.15-slim@sha256:f786b2e19cf9bb54e96bfcd4c1b40c4c56336c22e60607ffd4b080ae5b5dee83
+              tag: 3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
             command:
               - python3
               - /config/server.py
@@ -87,6 +87,7 @@ spec:
         # p2pool's gid (it writes local/ 0770); any other fsGroup re-chgrps the shared PVC each mount.
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
     service:
       dashboard:
         ports:

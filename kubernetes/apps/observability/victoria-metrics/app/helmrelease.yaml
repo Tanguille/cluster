@@ -37,7 +37,8 @@ spec:
             matchLabels:
               grafana.internal/instance: grafana
           allowCrossNamespaceImport: true
-      # No AIX/Darwin/Windows nodes here; these bundle dashboards stay empty.
+      # Bundle dashboards that stay empty here: no AIX/Darwin/Windows nodes,
+      # no Prometheus, no instance:node_* recording rules, one cluster.
       dashboards:
         nodes-aix:
           enabled: false
@@ -52,6 +53,43 @@ spec:
         k8s-windows-cluster-rsrc-use:
           enabled: false
         k8s-windows-node-rsrc-use:
+          enabled: false
+        prometheus:
+          enabled: false
+        prometheus-remote-write:
+          enabled: false
+        node-rsrc-use:
+          enabled: false
+        node-cluster-rsrc-use:
+          enabled: false
+        k8s-resources-multicluster:
+          enabled: false
+        # Covered by kubernetes-views-* plus k8s-resources-cluster/node (requests vs allocatable).
+        k8s-resources-namespace:
+          enabled: false
+        k8s-resources-nodes-overview:
+          enabled: false
+        k8s-resources-pod:
+          enabled: false
+        k8s-resources-workload:
+          enabled: false
+        k8s-resources-workloads-namespace:
+          enabled: false
+        cluster-total:
+          enabled: false
+        namespace-by-pod:
+          enabled: false
+        namespace-by-workload:
+          enabled: false
+        pod-total:
+          enabled: false
+        workload-total:
+          enabled: false
+        # Covered by node-exporter-full.
+        nodes:
+          enabled: false
+        # Covered by kubernetes-system-api-server.
+        apiserver:
           enabled: false
 
     defaultDatasources:
