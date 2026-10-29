@@ -5,9 +5,7 @@ kind: ResourceSet
 metadata:
   name: xmrig
 spec:
-  # One miner per node, each gated on its own node's guard verdict. A single Deployment
-  # cannot do this: the HPA sheds an arbitrary pod, so nothing guarantees the pod on the
-  # node that just tripped is the one that dies.
+  # One miner per node, each gated on its own guard verdict: docs/xmrig-solar-mining.md#shape
   inputs:
     - node: control-1
     - node: control-2
@@ -45,7 +43,7 @@ spec:
                   image:
                     repository: djerfy/xmrig
                     tag: 6.26.0@sha256:74847c25c6273248d2387c41feac55d2833c6a347f5c9e63e5cf19ed4a0406bd
-                  # The 10-08 rebuild's Cmd is the /xmrig source dir; the binary sits inside it.
+                  # The image's Cmd is the /xmrig source dir; the binary sits inside it.
                   command: ["/xmrig/xmrig"]
                   args:
                     - "-o"
@@ -100,9 +98,6 @@ spec:
       metadata:
         name: xmrig-<< inputs.node >>
         namespace: web3
-        labels:
-          app.kubernetes.io/name: xmrig-<< inputs.node >>
-          app.kubernetes.io/component: autoscaler
       spec:
         scaleTargetRef:
           name: xmrig-<< inputs.node >>
@@ -139,15 +134,7 @@ spec:
           - type: prometheus
             metadata:
               serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-              # Preserve the 15-minute solar average and 150W physical cap, then hand this
-              # node only the surplus left after every safe node that outranks it has taken
-              # its 50W. That subtraction is what stops three ScaledObjects reading one global
-              # figure from all starting at 50W, and unlike a fixed activation threshold it
-              # skips a node that is unavailable instead of reserving watts for it. Ranking
-              # is the guard's xmrig_guard_rank, so priority changes need no manifest edit.
-              # The aggregations strip labels for the on() match and reject duplicate guard
-              # series; the timestamp check closes the gate within 120s if guard scraping
-              # stops, and the final fallback covers absent guard data.
+              # Ranked surplus share times this node's safety gate: docs/xmrig-solar-mining.md#allocation
               query: >-
                 (
                   clamp_min(

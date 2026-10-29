@@ -20,7 +20,6 @@ spec:
       targetEnvName: HOMEASSISTANT_TOKEN
   podTemplateSpec:
     spec:
-      # No cluster access needed.
       automountServiceAccountToken: false
       volumes:
         - name: tmp

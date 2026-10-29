@@ -64,7 +64,6 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  #!/bin/sh
                   # KV-offload guard: sweeps /kvoffload back above a 160Gi free-space floor on
                   # the shared root fs. Flux postBuild envsubst context: bare $VAR -> $$.
                   # Up to 3 eviction passes: vLLM writes back 1-2Gi mid-sweep, so one pass can end short.
@@ -77,10 +76,7 @@ spec:
                     find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%s' {} + 2>/dev/null \
                       | awk '{s+=$$1} END{printf "%.0f\n", s/1024}'
                   }
-                  # 160Gi = 32% of the 499.6Gi root disk; ceph mon_data_avail_warn=27, so an
-                  # 80Gi (15%) floor could never clear it. Non-tier usage measured 219Gi
-                  # (2026-09-24). A property of the shared root disk, not of the (label-only)
-                  # 128Gi openebs-hostpath PVC.
+                  # 160Gi = 32% of the 499.6Gi shared root disk, clear of ceph mon_data_avail_warn=27%; not the label-only 128Gi PVC.
                   floor=167772160
                   # Margin = max(shortfall/16, 4Gi): write-back is 1-2Gi, beyond shortfall/16 at that size.
                   min_margin_kb=4194304
@@ -95,8 +91,7 @@ spec:
                     margin=$$((shortfall / 16))
                     [ "$$margin" -lt "$$min_margin_kb" ] && margin=$$min_margin_kb
                     need_kb=$$((shortfall + margin))
-                    # Evict by bytes, not file count: chunk files are 104Mi, so a 2000-file
-                    # check interval wiped the whole tier each time.
+                    # Evict by bytes, not file count: at 104Mi a chunk, a 2000-file check wiped the tier.
                     # LRU by mtime, oldest first; blocks are write-once.
                     # busybox find has no -printf.
                     find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
@@ -342,7 +337,7 @@ spec:
     - "64"
     # No --language-model-only: Hermes uses the vision tower.
     # CPU tier 12Gi (~712K tokens); 22Gi only if a restart-free 7d shows hit < 0.25 or fs share > 20%.
-    # Keep the fs tier: removing it halved decode (2026-08-19); no mechanism found, unproven.
+    # Keep the fs tier: removing it halved decode; no mechanism found, unproven.
     # blocks_per_chunk 1: 8 sessions 8.4 -> 30.5 tok/s alone, 43 with --prefix-match-unit 64.
     # kv_load_failure_policy is top-level; nested it is silently ignored.
     - --kv-transfer-config

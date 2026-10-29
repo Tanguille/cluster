@@ -58,8 +58,7 @@ spec:
                 cpu: 50m
                 memory: 1Gi
               limits:
-                # kguardian cpu-throttled, ~33% sustained (bursty share
-                # validation vs 500m quota despite low average use).
+                # Bursty share validation throttles at 500m despite low average use.
                 cpu: 1000m
                 memory: 2Gi
             probes:

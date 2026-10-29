@@ -21,7 +21,7 @@ spec:
           labels:
             severity: warning
 
-        # vmcp leaks 250-430 MiB/day (vmcp-restart.yaml); alert on the approach, since each OOM kill costs a full optimizer re-embed and Gatus probes every 15m miss it.
+        # vmcp leaks (#5860, vmcp-restart.yaml); alert on the approach, since each OOM kill costs a full optimizer re-embed and Gatus probes every 15m miss it.
         - alert: AiContainerMemoryNearLimit
           expr: |-
             container_memory_working_set_bytes{namespace="ai", container!=""}
@@ -34,19 +34,12 @@ spec:
               ai/{{ $labels.pod }} container {{ $labels.container }} is at
               {{ $value | humanizePercentage }} of its memory limit
             description: >-
-              If this is vmcp (pod unified-*): expected, it leaks and this is the
-              warning shot. The vmcp-restart CronJob restarts it every 2 days at
-              03:30, so firing ahead of that means the leak rate grew -- restart
-              it deliberately at a quiet moment --
-              `kubectl rollout restart deploy/unified -n ai` -- rather than
-              letting it OOM. A deliberate restart drains cleanly in the 60s
-              grace period; an OOM kill is exit 137 mid-drain. Cost either way is
-              a full optimizer re-embed, so tools are briefly missing from the
-              gateway. Do NOT raise the limit: it only moves the date.
-              If this is any other container, it is a sizing problem, not a known
-              leak -- plot the working set between restarts first. A rising slope
-              means a leak (raising the limit only delays it); a flat line near
-              the ceiling means the limit is genuinely too low.
+              vmcp (pod unified-*): the known #5860 leak; firing before the vmcp-restart
+              CronJob runs means the leak grew. Restart it at a quiet moment with
+              `kubectl rollout restart deploy/unified -n ai` (drains cleanly, an OOM kill
+              does not); raising the limit only moves the OOM.
+              Any other container: plot the working set between restarts; a rising slope
+              is a leak, a flat line near the ceiling means the limit is too low.
           labels:
             severity: warning
 
@@ -62,14 +55,10 @@ spec:
             summary: >-
               ai/{{ $labels.pod }} container {{ $labels.container }} was OOMKilled
             description: >-
-              The container is already restarting; nothing to do to restore
-              service. Confirm it came back ready, then work out why this was not
-              caught by AiContainerMemoryNearLimit first -- either the growth
-              outran the 15m `for:` window, or the jump was sudden rather than a
-              leak. For vmcp specifically, an OOM sooner than roughly 2 days
-              (the restart cadence) after the previous one means the leak
-              accelerated and is worth reporting upstream on
-              stacklok/toolhive#5860 with the growth series.
+              Already restarting; confirm it came back ready, then find why
+              AiContainerMemoryNearLimit missed it (growth outran its 15m `for:`, or a
+              sudden jump). vmcp OOMing between vmcp-restart runs means the leak
+              accelerated: report it on stacklok/toolhive#5860 with the growth series.
           labels:
             severity: warning
 

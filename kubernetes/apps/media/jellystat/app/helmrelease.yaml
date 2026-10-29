@@ -79,7 +79,5 @@ spec:
     persistence:
       backup:
         type: emptyDir
-        advancedMounts:
-          main:
-            main:
-              - path: /app/backend/backup-data
+        globalMounts:
+          - path: /app/backend/backup-data
