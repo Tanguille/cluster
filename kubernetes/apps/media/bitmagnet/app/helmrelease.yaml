@@ -1,0 +1,162 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: bitmagnet
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    controllers:
+      bitmagnet:
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/bitmagnet-io/bitmagnet
+              tag: v0.10.1@sha256:b6373349a30193b436ce6b05e21f91aa4934074268105dded1f3b065b8c86f19
+            args:
+              [
+                worker,
+                run,
+                --keys=http_server,
+                --keys=queue_server,
+                --keys=dht_crawler
+              ]
+            env:
+              # Session mode: pgx prepares statements; the direct -rw VIP can blackhole from the primary's node.
+              POSTGRES_HOST: &pg-host pgbouncer-session.database.svc.cluster.local
+              HOME: /tmp
+              # Loads /etc/bitmagnet/classifier.yml from the config mount.
+              XDG_CONFIG_HOME: /etc
+              CLASSIFIER_WORKFLOW: movies_tv
+              POSTGRES_USER: bitmagnet
+            # TMDB_API_KEY is shared with Jellyfin Enhanced; the default key throttles to 1 req/s.
+            envFrom:
+              - secretRef:
+                  name: bitmagnet-postgres
+            # No hostPort: media enforces PSA baseline, so DHT is outbound-only.
+            probes:
+              readiness: &bitmagnet-probe
+                enabled: true
+                spec:
+                  periodSeconds: 15
+                  timeoutSeconds: 5
+              liveness: *bitmagnet-probe
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 60
+                  timeoutSeconds: 5
+            resources:
+              requests:
+                cpu: 250m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+            securityContext: &container-security
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: [ALL] }
+      prune:
+        type: cronjob
+        cronjob:
+          timeZone: ${TIMEZONE}
+          schedule: "@daily"
+          backoffLimit: 1
+          # A kept failed Job holds KubeJobFailed until it is deleted (same as etcd-defrag).
+          ttlSecondsAfterFinished: 3600
+        initContainers:
+          select:
+            # The postgres16 cluster's image: already on every node.
+            image:
+              repository: ghcr.io/cloudnative-pg/postgresql
+              tag: 18.6-standard-trixie@sha256:9d1808e9b9c82fb1175ecc7aba615e88b16013e8f118c536a8b5a9aca017ec03
+            command:
+              [
+                psql,
+                -v,
+                ON_ERROR_STOP=1,
+                -At,
+                -f,
+                /prune/prune-select.sql,
+                -o,
+                /tmp/prune.txt
+              ]
+            env:
+              PGHOST: *pg-host
+              PGUSER: bitmagnet
+              PGDATABASE: bitmagnet
+              PGPASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: bitmagnet-postgres
+                    key: POSTGRES_PASSWORD
+            resources: &job-resources
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+            securityContext: *container-security
+        containers:
+          app:
+            # Deleting through GraphQL blocklists the hashes, so the crawler does not re-add them.
+            image:
+              repository: python
+              tag: 3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
+            command: [python3, /prune/prune-delete.py]
+            resources: *job-resources
+            securityContext: *container-security
+
+    service:
+      bitmagnet:
+        controller: bitmagnet
+        ports:
+          http: { port: 3333 }
+    route:
+      bitmagnet:
+        hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+        rules:
+          - backendRefs:
+              - identifier: bitmagnet
+                port: http
+    persistence:
+      config:
+        type: configMap
+        name: bitmagnet-config
+        advancedMounts:
+          bitmagnet:
+            app:
+              - path: /etc/bitmagnet
+                readOnly: true
+      # Separate from bitmagnet-config, so script edits do not restart bitmagnet through Reloader.
+      prune:
+        type: configMap
+        name: bitmagnet-prune
+        advancedMounts:
+          prune:
+            select:
+              - path: /prune
+                readOnly: true
+            app:
+              - path: /prune
+                readOnly: true
+      tmp:
+        type: emptyDir

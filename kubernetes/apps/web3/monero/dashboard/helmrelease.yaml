@@ -19,7 +19,7 @@ spec:
           web:
             image:
               repository: nginx
-              tag: 1.31-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d
+              tag: 1.31-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
             resources:
               requests:
                 cpu: 10m
@@ -43,7 +43,7 @@ spec:
           dashboard-server:
             image:
               repository: python
-              tag: 3.15-slim@sha256:2da676046630d7bf14c6764ae1143dc7fa0377a53f94bf5a642f0b214aca5bce
+              tag: 3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
             command:
               - python3
               - /config/server.py
@@ -62,7 +62,7 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
-            # Any JSON endpoint proves the server is up; avoid ones that proxy xmrig (503 when scaled to 0) or the observer.
+            # Any JSON endpoint proves the server is up; avoid /xmrig_summary (503 when idle) and the observer.
             probes:
               liveness: &probe
                 enabled: true
@@ -75,7 +75,7 @@ spec:
             resources:
               requests:
                 cpu: 10m
-                memory: 32Mi
+                memory: 64Mi
               limits:
                 cpu: 100m
                 memory: 256Mi
@@ -84,8 +84,10 @@ spec:
         runAsNonRoot: true
         runAsUser: 101
         runAsGroup: 101
-        fsGroup: 101
+        # p2pool's gid (it writes local/ 0770); any other fsGroup re-chgrps the shared PVC each mount.
+        fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
     service:
       dashboard:
         ports:

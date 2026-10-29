@@ -16,6 +16,10 @@ spec:
       APP: *app
       KOPIUR_PUID: "1000"
       KOPIUR_PGID: "1000"
+    substituteFrom:
+      # ${TIMEZONE} for the HelmRelease; matches what is applied live today.
+      - kind: ConfigMap
+        name: cluster-settings
   prune: true
   sourceRef:
     kind: GitRepository

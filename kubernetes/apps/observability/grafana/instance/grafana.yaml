@@ -43,7 +43,7 @@ spec:
         spec:
           initContainers:
             - name: seed-bundled-plugins
-              image: grafana/grafana:13.2.4
+              image: grafana/grafana:13.3.0
               command:
                 [
                   "sh",
@@ -69,11 +69,11 @@ spec:
               emptyDir: {}
           containers:
             - name: grafana
-              image: grafana/grafana:13.2.4
+              image: grafana/grafana:13.3.0
               resources:
                 requests:
                   cpu: 10m
-                  memory: 256Mi
+                  memory: 1Gi
                 limits:
                   # Throttled 13% of CFS periods at 100m despite a 34m p95.
                   cpu: "1"

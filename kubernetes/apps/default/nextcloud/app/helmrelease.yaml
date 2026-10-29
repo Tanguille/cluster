@@ -59,7 +59,7 @@ spec:
     image:
       # Spelled out so Renovate tracks the digest.
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:4448306f97d54585e56b1854ec144d89aa82a388e9eb44e655ce9ddced6b9690
+      tag: 35.0.2-fpm@sha256:a04e3bb8df30769a5edbb01434893d3873a11e6e42a53b984c06e27944a014c2
 
     lifecycle:
       postStartCommand:
@@ -68,6 +68,9 @@ spec:
 
     nginx:
       enabled: true
+      image:
+        repository: nginx
+        tag: 1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
@@ -161,6 +164,9 @@ spec:
           pm.max_spare_servers = 6
           pm.max_requests = 800
           request_terminate_timeout = 600
+          ; Kept after the CVE-2026-109619 fix (PHP 8.5.12), per the advisory; Nextcloud uses neither
+          php_admin_value[session.upload_progress.enabled] = 0
+          php_admin_value[fatal_error_backtraces] = 0
 
       configs:
         proxy.config.php: |-
@@ -223,7 +229,6 @@ spec:
       enabled: false
 
     externalDatabase:
-      enabled: true
       type: postgresql
       host: pgbouncer-rw.database.svc.cluster.local:5432
       existingSecret:
@@ -332,7 +337,7 @@ spec:
             cpu: 100m
             memory: 500Mi
           limits:
-            cpu: "1"
+            cpu: "2"
             # 2Gi was hit (cron OOMKilled); 7d max 2.78GiB
             memory: 4Gi
 
@@ -353,5 +358,5 @@ spec:
         memory: 500Mi
       limits:
         cpu: 4
-        # 30d max WSS 1.57GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
+        # 30d max WSS 1.92GiB, 0 OOM; imagick previews allocate outside memory_limit (preview_max_memory 1024)
         memory: 4Gi

@@ -32,16 +32,16 @@ spec:
   modelRef: qwen35-2b
   # Must be recent enough for Qwen3.5's GDN (Gated Delta Networks) architecture;
   # verified to load `qwen35` and run GDN fully on Vulkan (no CPU fallback).
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:5a23ea3de52d4004f21f929f7365b97df03db12b946117eeed214337379994a8
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:76af7ee470093727cb66db78368935b027b965df8a6c4dc4ca6e782c1cd0cfac
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # llama.cpp splits contextSize across parallelSlots (32768/2 = 16384 per slot); GDN keeps KV tiny, so that is cheap.
   contextSize: 32768
   jinja: true # use the model's chat template (correct Qwen3.5 formatting + tool calls)
   extraArgs:
     - "--alias"
-    - "qwen3.5-2b" # served model name litellm sends in /v1/chat/completions
-    # Unsloth's non-thinking sampling for Qwen3.5 Small (repeats otherwise); litellm's auto-registered
-    # alias carries no sampling params.
+    - "qwen3.5-2b" # served model name; llama-server answers whatever model the gateway sends
+    # Unsloth's non-thinking sampling for Qwen3.5 Small (repeats otherwise); the gateway's qwen35-2b
+    # backend sets no sampling defaults.
     - "--temp"
     - "0.7"
     - "--top-p"

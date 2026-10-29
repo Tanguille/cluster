@@ -23,10 +23,29 @@ spec:
                 name: not-used
                 labels:
                   app.kubernetes.io/name: kguardian-broker
+          # Snapshotter has no chart value: one 256 batch per 300s tick, live workloads first (default swept every workload ever seen each tick).
+          - target:
+              kind: Deployment
+              name: kguardian-broker
+            patch: |-
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: not-used
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: broker
+                        env:
+                          - name: PROFILE_SNAPSHOT_TICK_BUDGET_SECS
+                            value: "0"
+                          - name: PROFILE_SNAPSHOT_BATCH
+                            value: "256"
   values:
     ai:
       mcp:
-        # /mcp for kubectl port-forward telemetry; token required.
+        # /mcp backs the toolhive kguardian MCPServerEntry (ai/toolhive/mcp/kguardian.yaml); token required.
         enabled: true
         auth:
           existingSecret: kguardian-mcp-token
@@ -34,19 +53,19 @@ spec:
     telemetry:
       enabled: false
 
+    # Per-pod gauges duplicate cAdvisor and cost ~85 writes/s (pod_compute_latest + history).
     compute:
-      sampleInterval: 10
-      history:
-        retentionDays: 3
-        minuteResolutionHours: 12
-
+      enabled: false
     # 30s denial drain; still inside 5m alert window.
     seccomp:
       denials:
         intervalSeconds: 30
+    # No AuditNetworkPolicies exist.
+    evaluator:
+      enabled: false
 
     # Stateless bridge; 1 replica saves 256Mi req on tight nodes.
-    # OPENAI_* passthrough points at LiteLLM instead of api.openai.com.
+    # OPENAI_* passthrough points at the LLM gateway (agentgateway) instead of api.openai.com.
     llmBridge:
       enabled: true
       replicaCount: 1
@@ -59,12 +78,12 @@ spec:
           memory: 128Mi
       env:
         - name: OPENAI_BASE_URL
-          value: http://litellm.ai.svc.cluster.local/v1
+          value: http://agentgateway.ai.svc.cluster.local:4000/v1
         - name: OPENAI_MODEL
           value: qwen-3.8
         # From cluster-secrets via substituteFrom; stays literal in git.
         - name: OPENAI_API_KEY
-          value: ${LITELLM_API_KEY}
+          value: ${LLM_API_KEY}
 
     # Via pgbouncer-rw (no TLS): labeled pods on the primary's node blackhole to the postgres16-rw VIP (control-3 Cilium), the pgbouncer VIP works from all nodes.
     database:
@@ -93,12 +112,22 @@ spec:
 
       # 16 = inflightPermits + 8 floor; fits the 25/30 pooler and a 2x16 rollout burst.
       dbPoolMaxSize: 16
-      # Per-connection SET statement_timeout parks pool creation behind transaction-mode pgbouncer (16 direct dials take ~0.1s); migrations stay exempt.
-      statementTimeoutMs: 0
       audit:
         inflightPermits: 8
+      # Per-connection SET statement_timeout parks pool creation behind transaction-mode pgbouncer (16 direct dials take ~0.1s); migrations stay exempt.
+      statementTimeoutMs: 0
+      # bitmagnet's DHT crawler and qbittorrent logged ~1M external-peer rows/day (95% of pod_traffic).
+      # The cap trims only identity-less peers; monerod, the busiest other pod, holds ~5k.
+      traffic:
         retention:
-          days: 14
+          maxRowsPerPod: 10000
+      # Rescanned ~13k unresolved DHT-peer rows every ~76s and resolved 1 in 16 passes; ingest still resolves.
+      peerResolution:
+        lateResolveWindowSeconds: 0
+      # Its own window; it followed the audit retention (14 -> chart 30) when unset.
+      podInventory:
+        retention:
+          deadPodDays: 3
       seccomp:
         denials:
           retention:
@@ -107,15 +136,19 @@ spec:
       imageInventory:
         retention:
           days: 3
+      # Each pass rewrites all of runtime_in_use_coverage (default every 300s) for vuln tables that stay empty.
+      supplychain:
+        retention:
+          intervalSeconds: 86400
 
     frontend:
       resources:
         requests:
           memory: 64Mi
 
-    # Trimmed requests save 150m + 384Mi across the DaemonSet on tight control-1 (91% req); limits stay at chart defaults for eBPF headroom.
+    # Memory covers the 368Mi 30d peak (grows with pod age); CPU trim saves 150m across the DaemonSet.
     controller:
       resources:
         requests:
           cpu: 50m
-          memory: 128Mi
+          memory: 512Mi

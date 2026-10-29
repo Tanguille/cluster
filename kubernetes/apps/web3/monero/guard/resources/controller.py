@@ -191,7 +191,6 @@ class VictoriaMetricsClient:
         idle_raw = f'node_cpu_seconds_total{{kubernetes_node="{node}",mode="idle"}}'
         cadvisor_raw = f'container_cpu_usage_seconds_total{{node="{node}",namespace="web3",container!="",container!="POD"}}'
         host_query = f'sum(rate({host_raw}[{window}])) / count(count({idle_raw}) by (cpu)) * 100'
-        ksm_raw = 'kube_pod_info{namespace="web3"}'
         label_selector = 'namespace="web3",label_app_kubernetes_io_component="thermal-guarded"'
         node_pods_raw = f'kube_pod_info{{namespace="web3",node="{node}"}}'
         xmrig_presence_raw = f'kube_pod_labels{{{label_selector}}} * on(namespace,pod) group_left(node) {node_pods_raw}'
@@ -211,6 +210,7 @@ class VictoriaMetricsClient:
                     raise ValueError(f"missing raw timestamps: {selector}")
                 out.extend(self._sources(rows, raw_timestamp=True).values())
             return min(item.timestamp for item in out)
+        host = Source(one(host_query).value, oldest(host_raw))
         presence = one(xmrig_presence_query)
         if presence.value < 0:
             raise ValueError("invalid labelled XMRig presence source")
@@ -223,10 +223,10 @@ class VictoriaMetricsClient:
             # verified exactly when its data enters the subtraction
             xmrig = Source(one(xmrig_query).value, min(membership, oldest(cadvisor_raw)))
         else:
-            # no labelled miner on this node: anchor presence freshness to pod-info stamps
-            presence = Source(0, oldest(ksm_raw))
+            # No labelled miner here: date it by the host sample. Pod-info keeps deleted pods
+            # ~200s, past control-1's budget; a miner it misses still counts in host CPU (fails safe).
+            presence = Source(0, host.timestamp)
             xmrig = None
-        host = Source(one(host_query).value, oldest(host_raw))
         return CPUObservation(host, xmrig, presence)
 
 

@@ -10,18 +10,12 @@ spec:
     kind: OCIRepository
     name: llmkube
   values:
-    namespace: ai
-
     controllerManager:
-      # The chart renders the lease RoleBinding only with leader election on, and
-      # the watch canary (on by default) needs it; without it no controller starts.
-      leaderElection:
-        enabled: true
       resources:
         requests:
           memory: 128Mi
         limits:
-          memory: 128Mi
+          memory: 256Mi
 
     metrics:
       secure: false
@@ -42,12 +36,21 @@ spec:
           # NVIDIA DCGM alerts; nothing exports DCGM_* on this AMD-only cluster.
           gpuHealth:
             enabled: false
+          serving:
+            kvOffload:
+              enabled: true
 
     grafana:
       dashboards:
         enabled: true
         namespace: observability
-        # Auto mode gates the SGLang and vLLM dashboards; quota, slo and model-router render blank (no GPUQuota, pyrra or ModelRouter).
+        # Skips quota, slo and model-router: blank without GPUQuota, pyrra or router-proxy (the ModelRouter compiles to agentgateway).
+        # Skips sglang (no SGLang runtime) and amd-gpu-observability (drm-exporter has its own GPU dashboard).
+        # Auto mode publishes the runtime dashboards only while a matching InferenceService exists.
+        only:
+          - llamacpp-dashboard
+          - llmkube-inference
+          - vllm-dashboard
         operator:
           enabled: true
           folder: ai
@@ -61,7 +64,7 @@ spec:
     # RWX on CephFS: controller and iGPU services land on different nodes; read
     # once at load. qwen38-27b-vllm has its own node-local cache.
     modelCache:
-      # embeddinggemma-2 0.31Gi + qwen35-2b 1.18Gi + bge-reranker-v2-m3; 8Gi after 100% at 4Gi: the operator never GCs old revisions.
-      size: 8Gi
+      # embeddinggemma-2 0.31Gi + qwen35-2b 1.18Gi + bge-reranker-v2-m3; 16Gi after 91% at 8Gi: the operator never GCs old revisions.
+      size: 16Gi
       storageClass: ceph-filesystem
       accessMode: ReadWriteMany

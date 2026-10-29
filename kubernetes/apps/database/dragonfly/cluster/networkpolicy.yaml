@@ -16,22 +16,14 @@ spec:
       app: dragonfly
       app.kubernetes.io/name: dragonfly
   ingress:
-    # 6379 (redis): dragonfly clients (renovate = operator cache) plus the namespaces copied from database-ingress-allowlist.
+    # 6379 (redis): ai (toolhive vmcp), default, renovate (operator cache); replication uses 9999.
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
         - matchLabels:
             io.kubernetes.pod.namespace: default
         - matchLabels:
-            io.kubernetes.pod.namespace: media
-        - matchLabels:
-            io.kubernetes.pod.namespace: observability
-        - matchLabels:
             io.kubernetes.pod.namespace: renovate
-        - matchLabels:
-            io.kubernetes.pod.namespace: security
-        - matchLabels:
-            io.kubernetes.pod.namespace: database
       toPorts:
         - ports:
             - port: "6379"

@@ -1,0 +1,42 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: agentgateway-controller
+  namespace: &namespace ai
+spec:
+  dependsOn:
+    # The CRDs stay in network: moving their release would need a manual Helm ownership handover.
+    - name: agentgateway-crds
+      namespace: network
+  interval: 1h
+  path: ./kubernetes/apps/ai/agentgateway/controller
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
+  wait: true
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: agentgateway
+  namespace: &namespace ai
+spec:
+  interval: 30m
+  dependsOn:
+    # GatewayClass and the controller.
+    - name: agentgateway-controller
+    # The ModelRouter CRD and its webhook (models.yaml).
+    - name: llmkube
+  path: ./kubernetes/apps/ai/agentgateway/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace

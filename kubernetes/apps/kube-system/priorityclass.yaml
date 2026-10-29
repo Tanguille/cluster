@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/scheduling.k8s.io/priorityclass_v1.json
-# Unclassified pods default to 0, so this alone restores preemption ordering for vmagent/vmalert/vmauth/vmsingle after the 07-23 outage.
+# Unclassified pods default to 0, so this alone lets vmagent/vmalert/vmalertmanager/vmauth/vmsingle preempt them.
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:

@@ -26,6 +26,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          install_args: aqua:mikefarah/yq
+
+      - name: Check all tracked index blobs (no decryption)
+        run: mise exec -- python3 scripts/secret-check.py --all
+
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:

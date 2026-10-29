@@ -4,13 +4,27 @@ Replace `$WINDOW` (default `30m`) and `$STEP` (`1m` for windows ≤ ~2h, `5m` fo
 
 ## Step 1 — Alerts
 
-**Fallback instant query:**
+**Instant query:**
 
 ```promql
 ALERTS{alertstate="firing"}
 ```
 
 Summarize by `alertname`, `severity`, `namespace`, `pod`, `job`. Empty result ≠ guaranteed healthy (wrong datasource or missing rules).
+
+`ALERTS` also lists alerts Alertmanager silences, inhibits or routes to `blackhole`; report only the instances it notifies on:
+
+```bash
+kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?silenced=false&inhibited=false&unprocessed=false' | jq -r '.[] | select(any(.receivers[]; .name | endswith("blackhole") | not)) | [.labels.alertname, .labels.severity // "-", .labels.namespace // "-", .labels.pod // "-"] | @tsv'
+```
+
+List silenced and inhibited instances separately as known conditions, so a silence that masks a real problem stays visible:
+
+```bash
+kubectl get --raw '/api/v1/namespaces/observability/services/vmalertmanager-victoria-metrics:9093/proxy/api/v2/alerts?active=false&unprocessed=false' | jq -r '.[] | [.labels.alertname, .labels.severity // "-", .labels.namespace // "-", .labels.pod // "-", (if (.status.silencedBy | length) > 0 then "silenced" else "inhibited" end)] | @tsv'
+```
+
+Without kubectl, drop instances matched by `kubernetes/apps/observability/silence-operator/silences/silences.yaml` (`alerting_silences_read` sees only Grafana's own silences). In `kubernetes/apps/observability/victoria-metrics/app/helmrelease.yaml`, also drop those routed to `blackhole`, and `inhibit_rules` targets only while a source alert with the same `equal` labels fires.
 
 ## Step 2 — CPU by workload
 
@@ -134,6 +148,7 @@ Label as approximate non-idle % averaged over the window.
 CLUSTER HEALTH SNAPSHOT (Prometheus, last <window>)
 
 Alerts: none | <alertname + key labels>
+Known (silenced/inhibited): none | <alertname + reason>
 
 CPU (avg cores over <window>) — top pods:
 - <ns>/<pod>: <cores>

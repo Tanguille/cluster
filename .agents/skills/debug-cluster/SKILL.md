@@ -24,7 +24,7 @@ Structured debugging with parallel fact gathering; delegate deep 5-Whys or log m
 - Kubernetes resources (pods, deployments, services, events)
 - Logs (current + previous containers)
 - Flux instance when GitOps-related
-- Historical/crashed-pod logs and firing alerts: `grafana_*` / `victorialogs-mcp_*` tools via the unified vMCP (`find_tool`/`call_tool`)
+- Historical/crashed-pod logs and firing alerts: `grafana_*` / `victorialogs-mcp_*` tools via the unified vMCP (`find_tool`/`call_tool`); mark silenced/inhibited alerts as known conditions ([how](../prometheus-cluster-health/references/promql-queries.md#step-1--alerts))
 
 ```bash
 kubectl get pods -n <ns> -o wide
@@ -51,7 +51,7 @@ When root cause is unclear, spawn a subagent with gathered facts and ask for fiv
 | Issue | Fix |
 |-------|-----|
 | Config not picked up | Reloader annotation on workload |
-| HelmRelease stuck | Delete HR; Flux recreates from git |
+| HelmRelease stuck | `flux reconcile hr <name> -n <ns> --reset` (or `--force`); never delete the HR (uninstalls) |
 | Wrong image/tag | HelmRelease `values` (`app/helmrelease.yaml`) |
 | PVC issues | storage class, events, kopiur `Restore`/mover path |
 

@@ -23,7 +23,7 @@ spec:
           app:
             image:
               repository: mirror.gcr.io/cloudflare/cloudflared
-              tag: 2026.10.2@sha256:0e56c13c7058fcef9c4f0e7d83372f82330548dbf8f8b366f3d8b506526d93b2
+              tag: 2026.10.6@sha256:004d843fa5fdc3103983fd580ee19fab4a8fa98add31f87249c1659e848c98e0
             envFrom:
               - secretRef:
                   name: "{{ .Release.Name }}-secret"
@@ -31,14 +31,14 @@ spec:
               - tunnel
               - run
             probes:
-              liveness: &probes
+              # No liveness: /ready tracks the edge, so it would restart-loop through WAN outages.
+              readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
                     path: /ready
                     port: &port 8080
-              readiness: *probes
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

@@ -12,6 +12,7 @@ spec:
   values:
     image:
       repository: mirror.gcr.io/coredns/coredns
+      tag: 1.15.0@sha256:0a9d8c8ddf34347eb59aad9a8784f0710de88d6d112726d11d271f9bc6daca26
     replicaCount: 2
     k8sAppLabelOverride: kube-dns
     priorityClassName: system-cluster-critical
@@ -25,8 +26,6 @@ spec:
         labelSelector:
           matchLabels:
             k8s-app: kube-dns
-    serviceAccount:
-      create: true
     service:
       name: kube-dns
       clusterIP: ${COREDNS_IP}

@@ -16,13 +16,15 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/simple-monerod
-              tag: v0.18.5.4@sha256:272ca78d28f6090bccd915447fa62038b40f9661c52ce585cd26bc23bb8acb3f
+              tag: v0.18.5.4@sha256:465a9458f148d31748731cfb6bc1ab38289313dcb858a699838ab8d1b828578d
+            securityContext:
+              # Entrypoint chowns data as root then su-execs to the app UID, so capabilities stay.
+              allowPrivilegeEscalation: false
             args:
               - "--data-dir=/home/monero/.bitmonero"
               - "--log-file=/var/log/monero/monerod.log"
               - "--rpc-restricted-bind-ip=0.0.0.0"
               - "--rpc-restricted-bind-port=18089"
-              - "--log-level=2"
               - "--no-igd"
               - "--fast-block-sync=1"
               - "--zmq-pub=tcp://0.0.0.0:18083"
@@ -37,7 +39,7 @@ spec:
             resources:
               requests:
                 cpu: 50m
-                memory: 512Mi
+                memory: 1Gi
               limits:
                 cpu: 500m
                 memory: 1Gi
@@ -72,6 +74,7 @@ spec:
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
     service:
       monerod:
         type: LoadBalancer

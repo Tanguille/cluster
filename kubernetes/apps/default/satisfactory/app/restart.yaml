@@ -1,5 +1,5 @@
 ---
-# FG.ServerRestartTimeSlot=360 reloads the session in-process at 06:00 UTC, which leaves FRM's web
+# FG.ServerRestartTimeSlot=360 reloads the session in-process at 06:00 UTC, which can leave FRM's web
 # server bound to the destroyed world ("Blocked API call: World not ready", porisius/FicsitRemoteMonitoring#313).
 # Only a process restart recovers it, so restart once the game is back up. Delete once #313 is fixed.
 ---
@@ -54,6 +54,10 @@ spec:
       backoffLimit: 1
       activeDeadlineSeconds: 300
       template:
+        metadata:
+          labels:
+            # kubectl needs the apiserver, which default's deny-kube-apiserver-egress blocks.
+            egress.home.arpa/kube-apiserver: allow
         spec:
           serviceAccountName: satisfactory-restart
           restartPolicy: Never
@@ -66,7 +70,7 @@ spec:
           containers:
             - name: kubectl
               # Skew-matched to the 1.37 server; Renovate bumps it.
-              image: registry.k8s.io/kubectl:v1.37.1
+              image: registry.k8s.io/kubectl:v1.37.2
               args:
                 - rollout
                 - restart

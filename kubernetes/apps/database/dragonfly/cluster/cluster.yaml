@@ -23,7 +23,8 @@ spec:
   resources:
     requests:
       cpu: 100m
-      memory: 128Mi
+      # Under the ~1.1 GiB median on purpose: control-2 has ~330Mi unrequested, and 1Gi left dragonfly-0 Pending.
+      memory: 256Mi
     limits:
       memory: 2Gi
   topologySpreadConstraints:

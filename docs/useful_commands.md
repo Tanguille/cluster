@@ -22,7 +22,7 @@ flux reconcile kustomization <name> --with-source
 flux reconcile source git flux-system
 
 # Status overview
-flux get kustomizations
+flux get kustomizations -A
 flux get helmreleases -A
 ```
 
