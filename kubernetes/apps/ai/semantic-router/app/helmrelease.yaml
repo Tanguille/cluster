@@ -9,10 +9,10 @@ spec:
   chartRef:
     kind: OCIRepository
     name: semantic-router
-  # The chart has no strategy value. Two 6Gi pods do not fit control-1, and the model cache is RWO.
   postRenderers:
     - kustomize:
         patches:
+          # The chart has no strategy value, and the model cache PVC is RWO.
           - target:
               kind: Deployment
               name: semantic-router
@@ -21,10 +21,16 @@ spec:
                 path: /spec/strategy
                 value:
                   type: Recreate
+          # Without its applied-revision annotation the chart never reuses the live config,
+          # so every upgrade renders configOverride from Git.
+          - target:
+              kind: ConfigMap
+              name: semantic-router-config
+            patch: |-
+              - op: remove
+                path: /metadata/annotations/semantic-router.vllm.ai~1chart-config-revision
   values:
-    # Same digest as the vllm-sr image: the router plus its vllm-srun D3 runtime on CPU Torch.
     image:
-      repository: ghcr.io/vllm-project/semantic-router/extproc
       tag: 5bd7c69419487a783cbce18dfd41f707441a1b85@sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7
     resources:
       requests:
@@ -34,34 +40,30 @@ spec:
       limits:
         cpu: "4"
         memory: 10Gi
+    extraEnv:
+      # The router keeps half the cores for a second worker; D3 is the only one.
+      - name: VLLM_SRUN_CPU_THREADS
+        valueFrom:
+          resourceFieldRef:
+            resource: limits.cpu
     persistence:
       storageClassName: ceph-block
     # Serve only ExtProc (50051) behind agentgateway; no OpenAI listener of its own.
     gateway:
       mode: extproc
     configMap:
-      # The chart reapplies configOverride only when this changes and otherwise keeps the
-      # live config, so bump it with every configOverride edit.
-      applyValuesRevision: "1"
-    # Replaces the chart's demo config. agentgateway sends only `vllm-sr/auto` requests here
-    # (agentgateway/app/models/vllm-sr-auto.yaml); the router rewrites the model before routing.
+      # Must differ from the (stripped) live annotation; see the postRenderer.
+      applyValuesRevision: git
+    # Picks the model for `vllm-sr/auto`; see agentgateway/app/models/vllm-sr-auto.yaml.
     configOverride:
-      version: v0.3
       providers:
         defaults:
           model: qwen-3.8
-        # agentgateway model names; each keeps its own sampling and thinking policies.
         models:
           - name: qwen-3.8
-            provider_model_id: qwen-3.8
             backend_refs: &agentgateway
-              - name: agentgateway
-                provider: vllm
-                endpoint: agentgateway.ai.svc.cluster.local:4000
-                protocol: http
-                weight: 1
+              - endpoint: agentgateway.ai.svc.cluster.local:4000
           - name: qwen-3.8-fast
-            provider_model_id: qwen-3.8-fast
             backend_refs: *agentgateway
       routing:
         signals:
@@ -79,18 +81,13 @@ spec:
           - name: fast
             priority: 200
             rules:
-              operator: AND
+              type: decision
+              name: direct_answer
               on_unknown: no_match
-              conditions:
-                - type: decision
-                  name: direct_answer
             modelRefs:
               - model: qwen-3.8-fast
           - name: default
             priority: 100
-            rules:
-              operator: AND
-              conditions: []
             modelRefs:
               - model: qwen-3.8
       global:

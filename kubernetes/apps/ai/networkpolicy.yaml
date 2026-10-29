@@ -9,8 +9,7 @@ spec:
   # Default-deny ingress for every pod in the namespace. The per-pod allowlists (vmcp,
   # MCP proxies/backends, inference pods) stay and union with this one. Egress
   # stays default-allow.
-  # The Semantic Router has its own port-scoped allowlist (unauthenticated management API);
-  # Cilium allow policies otherwise union.
+  # Excludes the Semantic Router; its own policy port-scopes the unauthenticated management API.
   endpointSelector:
     matchExpressions:
       - key: app.kubernetes.io/name
