@@ -32,7 +32,7 @@ spec:
             value: /config_dump
           method: GET
       backendRefs:
-        - name: agentgateway-ui
+        - name: agentgateway
           port: 15000
     - matches:
         - path:
@@ -44,5 +44,5 @@ spec:
             value: /api/cel
           method: POST
       backendRefs:
-        - name: agentgateway-ui
+        - name: agentgateway
           port: 15000
