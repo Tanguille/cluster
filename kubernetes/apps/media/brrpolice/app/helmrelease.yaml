@@ -13,28 +13,19 @@ spec:
     config:
       qbittorrent:
         base_url: http://qbittorrent.media.svc.cluster.local
-      http:
-        port: 80
+      # The chart's info level adds ~1200 per-peer "policy update" lines an hour; bans log at warn.
+      logging:
+        level: warn
     extraEnv:
       - name: TZ
         value: ${TIMEZONE}
-    # Keep uid/gid 1000 so the existing PVC (written as 1000 by the
-    # previous deployment and by the kopiur backups) stays readable.
+    # PVC data is owned by 1000; keep in sync with KOPIUR_PUID/PGID in ks.yaml.
     podSecurityContext:
-      runAsNonRoot: true
       runAsUser: 1000
       runAsGroup: 1000
       fsGroup: 1000
-      fsGroupChangePolicy: OnRootMismatch
     persistence:
       existingClaim: brrpolice
-    resources:
-      requests:
-        cpu: 10m
-      limits:
-        memory: 128Mi
-    service:
-      port: 80
     monitoring:
       serviceMonitor:
         enabled: true
