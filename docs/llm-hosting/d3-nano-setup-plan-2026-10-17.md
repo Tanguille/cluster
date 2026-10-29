@@ -47,24 +47,19 @@ The adapters use the standard library and are reloaded when their ConfigMap chan
 
 | Caller | D3 job | Preserved behavior |
 | --- | --- | --- |
-| Hermes | Tool-family hints and fast/reasoning choice | Existing tools resolve arguments and execute; explicit thinking settings and other providers are preserved |
-| Hermes tools | Home Assistant intent, supplied bookmark categories, alert urgency | Advisory results; no device changes, bookmark edits or remediation |
-| Memini provider | Gate automatic recall/capture | Explicit memory tools, lifecycle, disabled gates and uncertain/error cases retain upstream behavior |
 | Kritika | Existing confidence tool's 0–5 score and risk enum | Full reviews remain generative; Kritika falls back to omniroute on failure |
 | Siren | Cached alert category/urgency annotations | Alerts appear immediately; original severity, delivery and silence operations remain intact |
 
-Hermes decisions require complete input, valid normalized probabilities and conservative confidence/margin checks.
-Timeouts, oversized input and uncertain results preserve the existing workflow. Siren enrichment is asynchronous
+Siren enrichment is asynchronous
 and bounded; it cannot delay alert delivery. Kritika uses its actual `confidence` function-tool contract,
 including `tool_calls`, rather than plain JSON content. Its requests must fit without truncation.
 
-Qwen2B text generation cannot be replaced by a classifier. Karakeep summaries/tags and Hermes title generation
-move to `qwen-3.8-fast`; decisions use D3. The Hermes side (`d3-decisions`, `d3-memini`, `configure_d3.py`)
-lives on the Hermes PVC under `/opt/data/plugins/`, installed by a user-run apply script that runs their
-tests in the pod first. Owner decision (#6137): self-made Hermes plugins stay out of the repo and its review.
-`configure_d3.py` backs each config up once as `config.yaml.before-d3`, preserves
-unrelated settings, and updates root plus every profile. The Memini wrapper inherits the installed provider,
-including its local PVC patches. `d3-decisions/d3_client.py` is a copy of the component's `d3_client.py`.
+Qwen2B text generation cannot be replaced by a classifier. Karakeep summaries/tags move to
+`qwen-3.8-fast` (Hermes title generation follows in the Hermes delivery); decisions use D3.
+
+Not part of this change: Hermes tool-family/thinking hints, Home Assistant/bookmark/alert classifier tools and
+Memini recall/capture gates. They are a separate delivery on the Hermes PVC (`/opt/data/plugins/`), outside
+the repository by owner decision (#6137). This change only allows Hermes to reach native port 8100.
 
 ## Evidence and capacity
 
@@ -105,7 +100,7 @@ The upstream image includes the exact native runtime revision used in the earlie
 Deliver D3, Siren, agentgateway, Kritika and Karakeep changes while retaining the old Qwen model manifest;
 `kubernetes/apps/ai/llmkube/` and the embedder comparison cleanup are not in this delivery.
 Wait for CI and approval before reconciliation. Siren rolls its two replicas; agentgateway/Kritika/Karakeep
-update normally. Once D3 is Ready, the user runs the Hermes apply script: it stages both plugins, runs their
+update normally. The separate Hermes delivery follows once D3 is Ready: a user-run script stages both plugins, runs their
 self-checks with the pod's Python, installs them, runs `configure_d3.py` as `hermes`, and restarts the
 gateway drain-aware with SIGUSR1 (`s6-svc -1`), so running cron turns finish first.
 Verify image/revision/golden readiness, network allow/deny behavior, Hermes tools and memory, an actual bookmark
