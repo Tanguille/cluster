@@ -13,25 +13,9 @@ spec:
     config:
       qbittorrent:
         base_url: http://qbittorrent.media.svc.cluster.local
-      # The chart's info level adds ~1200 per-peer "policy update" lines an hour; bans log at warn.
-      logging:
-        level: warn
-    extraEnv:
-      - name: TZ
-        value: ${TIMEZONE}
-    # PVC data is owned by 1000; keep in sync with KOPIUR_PUID/PGID in ks.yaml.
-    podSecurityContext:
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 1000
+      logging: { level: warn }
     persistence:
       existingClaim: brrpolice
     monitoring:
-      serviceMonitor:
-        enabled: true
-      dashboards:
-        enabled: true
-        grafanaOperator:
-          enabled: true
-          matchLabels:
-            grafana.internal/instance: grafana
+      serviceMonitor: { enabled: true }
+      dashboards: { enabled: true, grafanaOperator: { enabled: true } }
