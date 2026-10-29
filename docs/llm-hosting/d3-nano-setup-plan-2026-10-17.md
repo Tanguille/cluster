@@ -60,8 +60,9 @@ including `tool_calls`, rather than plain JSON content. Its requests must fit wi
 
 Qwen2B text generation cannot be replaced by a classifier. Karakeep summaries/tags and Hermes title generation
 move to `qwen-3.8-fast`; decisions use D3. The Hermes side (`d3-decisions`, `d3-memini`, `configure_d3.py`)
-lives on the Hermes PVC under `/opt/data/plugins/`, like every self-made Hermes plugin, installed by a
-user-run apply script. `configure_d3.py` backs each config up once as `config.yaml.before-d3`, preserves
+lives on the Hermes PVC under `/opt/data/plugins/`, installed by a user-run apply script that runs their
+tests in the pod first. Owner decision (#6137): self-made Hermes plugins stay out of the repo and its review.
+`configure_d3.py` backs each config up once as `config.yaml.before-d3`, preserves
 unrelated settings, and updates root plus every profile. The Memini wrapper inherits the installed provider,
 including its local PVC patches. `d3-decisions/d3_client.py` is a copy of the component's `d3_client.py`.
 
