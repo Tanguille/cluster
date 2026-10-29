@@ -21,7 +21,7 @@ spec:
           labels:
             severity: warning
 
-        # vmcp leaks 250-414 MiB/day (vmcp-restart.yaml); alert on the approach, since each OOM kill costs a full optimizer re-embed and Gatus probes every 15m miss it.
+        # vmcp leaks 250-430 MiB/day (vmcp-restart.yaml); alert on the approach, since each OOM kill costs a full optimizer re-embed and Gatus probes every 15m miss it.
         - alert: AiContainerMemoryNearLimit
           expr: |-
             container_memory_working_set_bytes{namespace="ai", container!=""}
