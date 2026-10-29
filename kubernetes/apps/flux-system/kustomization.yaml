@@ -5,6 +5,7 @@ kind: Kustomization
 namespace: flux-system
 components:
   - ../../components/common
+  - ../../components/deny-lan-egress
 resources:
   # The only SOPS key Flux reads (kustomize-controller --sops-age-secret); never remove it.
   - ./sops-age.sops.yaml

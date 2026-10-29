@@ -51,6 +51,7 @@ spec:
                 chown -R 0:0 /app /temp
             securityContext:
               runAsUser: 0
+              allowPrivilegeEscalation: false
 
         containers:
           app:
