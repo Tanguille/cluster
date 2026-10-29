@@ -186,7 +186,7 @@ sops: {json.dumps(META)}
         # Reuse the actual job order and grouping, replacing only commands and globs.
         mutators = {job["name"] for job in jobs if job.get("stage_fixed")}
         mutators.add("mise-lock")  # This command calls git add itself.
-        self.assertEqual(mutators, {"format-just", "format-mise", "format-json", "format-yaml", "mise-lock"})
+        self.assertEqual(mutators, {"format-just", "format-mise", "format-oxfmt", "format-shell", "mise-lock"})
         self.assertEqual(jobs[-1]["group"]["jobs"][-1]["name"], "secret-check")
         (self.root / "restage.py").write_text(
             "from pathlib import Path\nimport subprocess\n"
