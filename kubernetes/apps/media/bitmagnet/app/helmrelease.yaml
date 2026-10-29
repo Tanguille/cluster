@@ -20,7 +20,6 @@ spec:
         seccompProfile: { type: RuntimeDefault }
     controllers:
       bitmagnet:
-        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -136,10 +135,6 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: bitmagnet
-                port: http
     persistence:
       config:
         type: configMap
