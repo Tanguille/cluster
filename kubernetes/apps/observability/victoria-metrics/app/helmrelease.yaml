@@ -132,6 +132,17 @@ spec:
           enabled: false
         TooManyScrapeErrors:
           enabled: false
+        # ZFS ARC counts as used memory (fired on truenas 57% of 7d); NodeMemoryAvailableLow and PSI cover k8s nodes.
+        NodeMemoryHighUtilization:
+          enabled: false
+      groups:
+        # Its recordings only fed the disabled node-rsrc-use dashboards.
+        node-exporter.rules:
+          enabled: false
+      sources:
+        # Chart gates these on its bundled node-exporter (off); ours scrapes as job node-exporter, which they select.
+        node-exporter:
+          enabled: true
 
     grafana:
       enabled: false
