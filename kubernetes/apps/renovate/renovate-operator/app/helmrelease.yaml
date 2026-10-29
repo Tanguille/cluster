@@ -11,9 +11,17 @@ spec:
   interval: 1h
   values:
     fullnameOverride: *app
+    # Egress grants under the namespace egress-allowlist; without them the operator loses its apiserver watches and cache.
+    deployment:
+      podLabels:
+        egress.home.arpa/kube-apiserver: allow
+        egress.home.arpa/dragonfly: allow
     config:
       # TTL for every finished Job; in practice only orphans reach it, as each run replaces its project's previous Job.
       jobTTLSecondsAfterFinished: 86400
+      # Renovate Job pods mount no ServiceAccount token, so the package cache is their only non-internet egress.
+      podLabelTemplates:
+        egress.home.arpa/dragonfly: allow
     rbac:
       ownNamespaceOnly: true
     # Reuse the shared Dragonfly; operator takes dbs 0-2, Renovate's package cache lands in db 1.
