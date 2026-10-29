@@ -228,6 +228,10 @@ spec:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
 
+    # App and cron pods both get these; database-ingress-allowlist only admits 5432 from pods with this label.
+    podLabels:
+      egress.home.arpa/postgres: allow
+
     internalDatabase:
       enabled: false
 

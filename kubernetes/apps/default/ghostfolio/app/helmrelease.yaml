@@ -11,6 +11,8 @@ spec:
 
   values:
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch

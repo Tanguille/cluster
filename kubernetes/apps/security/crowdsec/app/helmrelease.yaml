@@ -167,6 +167,8 @@ spec:
       # Reloader reads workload metadata, not pod-template annotations
       deployAnnotations:
         reloader.stakater.com/auto: "true"
+      podLabels:
+        egress.home.arpa/postgres: allow
       # chart default 500m cpu vs ~13m observed; 30d peak 189Mi vs 500Mi request
       resources:
         requests:

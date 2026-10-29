@@ -80,6 +80,8 @@ spec:
                 memory: 512Mi
 
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       priorityClassName: homelab-important
 
     persistence:
