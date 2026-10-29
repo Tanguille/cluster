@@ -1,8 +1,7 @@
 ---
-# vmcp leaks 250-430 MiB/day (stacklok/toolhive#5860); its session handling degraded on day 3 of the
-# original 4-day cycle with the working set still near 40% of the limit, so restart every 2 days.
-# Delete this file once #5860 is fixed.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
+# vmcp leaks 250-430 MiB/day (stacklok/toolhive#5860) and its sessions degrade by day 3 at ~40% of the
+# memory limit, so restart every 2 days. Delete this file once #5860 is fixed.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
