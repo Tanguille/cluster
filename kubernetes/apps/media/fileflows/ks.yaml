@@ -7,6 +7,9 @@ metadata:
   namespace: &namespace media
 spec:
   targetNamespace: *namespace
+  dependsOn:
+    - name: truenas-csi
+      namespace: truenas-csi
   components:
     - ../../../../components/nfs-scaler
     - ../../../../components/nfs-media

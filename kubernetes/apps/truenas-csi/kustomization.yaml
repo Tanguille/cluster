@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: truenas-csi
+components:
+  - ../../components/common
+  # The node plugin runs privileged on hostNetwork to connect NVMe-oF volumes; baseline rejects it.
+  - ../../components/psa-privileged
+resources:
+  - ./truenas-csi/ks.yaml
