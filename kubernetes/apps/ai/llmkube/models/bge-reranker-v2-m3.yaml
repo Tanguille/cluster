@@ -64,8 +64,8 @@ spec:
   nodeSelector:
     amd.com/igpu: "true"
 
-  # SOFT, so it still schedules with one iGPU node down; otherwise avoid
-  # the embedder, whose GTT its request omits.
+  # SOFT, so it still schedules with one iGPU node down: pairs with qwen35-2b
+  # (0.8 GiB GTT) rather than the embedder, whose GTT its request omits.
   affinity:
     podAntiAffinity:
       preferredDuringSchedulingIgnoredDuringExecution:
@@ -77,7 +77,7 @@ spec:
             topologyKey: kubernetes.io/hostname
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime
-  # path. Mirrored by embeddinggemma-2.
+  # path. Mirrored by embeddinggemma-2 / qwen35-2b.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0

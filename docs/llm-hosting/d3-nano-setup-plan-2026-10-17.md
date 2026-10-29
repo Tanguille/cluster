@@ -1,13 +1,13 @@
 # D3-nano replacement and rollout
 
-Status, 2026-10-18: locally implemented and tested; draft PR publication authorized.
-The official CPU runtime image is public and digest-pinned. Live rollout remains pending approval.
-Control-1 maintenance is expected; do not deploy during it.
+Status, 2026-10-29: phase 2 is ready for merge and rollout approval. The branch carries main, the Qwen2B
+retirement is split out to phase 3, and the Hermes plugins moved to the Hermes PVC (no repo plugin code).
+The official CPU runtime image is public and digest-pinned.
 The user's request to set up all useful candidates authorizes the local implementation steps below.
 
 ## Workspace
 
-- Branch: `feat/d3-nano-preparation`, based on `origin/main` at `7f11d3b389110ba8942cdb8b797bf110a12b8a62`.
+- Branch: `feat/d3-nano-preparation`, merged with `origin/main` on 2026-10-29.
 - Worktree: `/home/tanguille/Documents/PriveProjecten/cluster/.worktrees/d3-nano-preparation`.
 - Preserve unrelated copied `.Codex/` and `.vscode/` files; do not include them in commits.
 
@@ -59,10 +59,11 @@ and bounded; it cannot delay alert delivery. Kritika uses its actual `confidence
 including `tool_calls`, rather than plain JSON content. Its requests must fit without truncation.
 
 Qwen2B text generation cannot be replaced by a classifier. Karakeep summaries/tags and Hermes title generation
-move to `qwen-3.8-fast`; decisions use D3. The Hermes init migration backs up existing YAML on its PVC,
-preserves unrelated settings, and updates root plus configured profiles. A fresh empty PVC uses Hermes's
-native bootstrap first and needs a later restart to enable D3. The Memini wrapper inherits the deployed
-v0.7.36 provider's explicit tools and lifecycle methods.
+move to `qwen-3.8-fast`; decisions use D3. The Hermes side (`d3-decisions`, `d3-memini`, `configure_d3.py`)
+lives on the Hermes PVC under `/opt/data/plugins/`, like every self-made Hermes plugin, installed by a
+user-run apply script. `configure_d3.py` backs each config up once as `config.yaml.before-d3`, preserves
+unrelated settings, and updates root plus every profile. The Memini wrapper inherits the installed provider,
+including its local PVC patches. `d3-decisions/d3_client.py` is a copy of the component's `d3_client.py`.
 
 ## Evidence and capacity
 
@@ -74,11 +75,11 @@ v0.7.36 provider's explicit tools and lifecycle methods.
   with complete input coverage (four-CPU/10 GiB cap, slowest 1.39s). These synthetic cases do not calibrate production thresholds.
 - A request with Kritika's real confidence system prompt used 3,489 input tokens and took 13.1 seconds locally.
   Central timeout is 30 seconds; agentgateway-retry re-sends 503s. Hermes/Siren use three-second decision budgets.
-- Resource requests: native 8 GiB / 500m CPU, gateway 64 MiB / 50m CPU; native limits 10 GiB / four CPUs.
-  Startup measurements justify the memory request. A prior two-CPU request would not schedule.
-- Read-only snapshot: control-1 had 9.64 GiB unreserved memory and 815m unreserved CPU; other nodes had
-  approximately 5.20/4.12 GiB unreserved memory. Only control-1 currently fits. Refresh capacity before rollout;
-  it also hosts the 27B model. Node performance and interference remain unverified.
+- Resource requests: native 6 GiB / 500m CPU, gateway 64 MiB / 50m CPU; native limits 10 GiB / four CPUs.
+  Steady RSS (4.65 GiB) sets the request; the 7.35 GiB load peak fits under the limit. A two-CPU request would not schedule.
+- Read-only snapshot, 2026-10-29: unrequested memory/CPU was control-1 11.1 GiB / 2.7 cores, control-2 0.6 GiB,
+  control-3 2.5 GiB; actual use on control-1 was 33.2 of 59.3 GiB. Only control-1 fits. It also hosts
+  the 27B model; node performance and interference remain unverified.
 - Hermes v0.22.2 was Ready. Authenticated calls through its actual local inference configuration succeeded
   for fast and reasoning aliases. The migration was tested against all nine live configurations in memory:
   no remaining old aliases, primary models preserved, and no live writes. Full deployed D3 integration remains pending.
@@ -100,11 +101,12 @@ Use `ghcr.io/vllm-project/semantic-router/vllm-sr:5bd7c69419487a783cbce18dfd41f7
 `sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7` for runtime and gateway.
 Anonymous image pull is verified; our private GHCR package and its settings are no longer dependencies.
 The upstream image includes the exact native runtime revision used in the earlier CPU evaluation.
-Deliver D3, Hermes, Siren, agentgateway, Kritika and Karakeep changes while retaining the old Qwen model manifest.
-Setup and Qwen retirement use separate commits. Split the retirement commit into a later
-delivery before merging; do not merge both together. Keep `kubernetes/apps/ai/llmkube/` and the historical
-embedder comparison cleanup out of the first delivery. Wait for CI and approval before reconciliation.
-Hermes restarts once with Recreate; Siren rolls its two replicas; agentgateway/Kritika/Karakeep update normally.
+Deliver D3, Siren, agentgateway, Kritika and Karakeep changes while retaining the old Qwen model manifest;
+`kubernetes/apps/ai/llmkube/` and the embedder comparison cleanup are not in this delivery.
+Wait for CI and approval before reconciliation. Siren rolls its two replicas; agentgateway/Kritika/Karakeep
+update normally. Once D3 is Ready, the user runs the Hermes apply script: it stages both plugins, runs their
+self-checks with the pod's Python, installs them, runs `configure_d3.py` as `hermes`, and restarts the
+gateway drain-aware with SIGUSR1 (`s6-svc -1`), so running cron turns finish first.
 Verify image/revision/golden readiness, network allow/deny behavior, Hermes tools and memory, an actual bookmark
 summary/tag job, confidence fallback, Siren alert/silence behavior and target-node load before retiring Qwen.
 
@@ -116,7 +118,8 @@ Continuation: “Verify the D3 branch/worktree, verify the pinned upstream image
 
 ### 3. Retire Qwen and consolidate documentation — pending live checks
 
-Deliver the remaining llmkube deletion, placement/comment changes and comparison-doc cleanup only after phase 2 checks pass.
+Deliver the llmkube deletion, placement/comment changes and comparison-doc cleanup only after phase 2 checks pass.
+They are in this branch's history as `114f180df` (`git show 114f180df`), removed from the delivery on 2026-10-29.
 Reconcile and verify the old workload is gone, all Hermes profiles use the replacements, and no active dependency remains.
 Retain the pinned old model in git history for rollback. If consumers regress, revert their configuration changes first;
 restore Hermes's `config.yaml.before-d3` backups only through an explicitly approved recovery operation.

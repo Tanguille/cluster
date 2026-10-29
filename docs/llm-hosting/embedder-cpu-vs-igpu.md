@@ -58,9 +58,9 @@ including startup and model load time, without bespoke controller logic.
 node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable
 <2 GiB, and missing GTT telemetry are the burst-leak backstop.
 
-The former small generative model on the same `server-vulkan` image measured
-32 MiB GTT after 7 h versus the embedders' 2+ GiB. That historical comparison
-points to `mode: embedding`, rather than the Vulkan runtime, as the leaking path.
+`qwen35-2b` (generative, same `server-vulkan` image on the same iGPU) is *not*
+enrolled: measured at 32 MiB GTT after 7 h versus the embedders' 2+ GiB, so the
+leak is specific to `mode: embedding`, not the Vulkan runtime.
 
 ## Alternatives considered
 

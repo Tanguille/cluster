@@ -1,4 +1,4 @@
-"""D3 /v1/systemone client pieces shared by the gateway and the Hermes plugins."""
+"""D3 /v1/systemone client pieces shared by the decision gateways."""
 import json
 import math
 from urllib.request import Request, urlopen

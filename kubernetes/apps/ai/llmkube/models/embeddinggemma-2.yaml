@@ -62,17 +62,15 @@ spec:
   # free, under the 1.82 GiB Jellyfin floor.
   nodeSelector:
     amd.com/igpu: "true"
-  # Spread the two remaining iGPU services without preventing a one-node recovery.
+  # One iGPU model per node; both sides carry the rule (checked for the moving pod only).
   affinity:
     podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-        - weight: 100
-          podAffinityTerm:
-            labelSelector:
-              matchLabels:
-                app: bge-reranker-v2-m3
-            topologyKey: kubernetes.io/hostname
-  # Render/video groups for /dev/dri (Vulkan path); mirrored by the reranker.
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: qwen35-2b
+          topologyKey: kubernetes.io/hostname
+  # Render/video groups for /dev/dri (Vulkan path); mirrored by qwen35-2b.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
