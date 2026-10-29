@@ -13,9 +13,14 @@ spec:
     config:
       qbittorrent:
         base_url: http://qbittorrent.media.svc.cluster.local
-      logging: { level: warn }
+      logging:
+        level: warn
     persistence:
       existingClaim: brrpolice
     monitoring:
-      serviceMonitor: { enabled: true }
-      dashboards: { enabled: true, grafanaOperator: { enabled: true } }
+      serviceMonitor:
+        enabled: true
+      dashboards:
+        enabled: true
+        grafanaOperator:
+          enabled: true
