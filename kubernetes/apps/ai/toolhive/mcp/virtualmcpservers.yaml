@@ -56,6 +56,9 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
+    passwordRef:
+      name: dragonfly-auth
+      key: password
     keyPrefix: "thv:vmcp:unified:session:"
   incomingAuth:
     type: anonymous
