@@ -28,6 +28,10 @@ spec:
     dashboards:
       enabled: true
     enableIPv4BIGTCP: true
+    # Pod-to-pod only: nodeEncryption would be a no-op, every node carries the control-plane opt-out label.
+    encryption:
+      enabled: true
+      type: wireguard
     endpointRoutes:
       enabled: true
     envoy:
