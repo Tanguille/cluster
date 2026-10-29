@@ -13,6 +13,9 @@ spec:
 
   values:
     server:
+      # Server and tasks containers share this pod, so one label covers both.
+      podLabels:
+        egress.home.arpa/dragonfly: allow
       securityContext: &nonroot-context
         runAsNonRoot: true
         allowPrivilegeEscalation: false
