@@ -30,21 +30,26 @@ publisher's Helm chart with config only. The router runs as an ExtProc service
 ([upstream agentgateway guide](https://github.com/vllm-project/semantic-router/blob/5bd7c69419487a783cbce18dfd41f707441a1b85/website/docs/installation/k8s/agentgateway.md))
 and supervises d3-nano on CPU in the same pod. Clients ask agentgateway for `vllm-sr/auto`; a `PreRouting`
 ExtProc policy ([`vllm-sr-auto.yaml`](../../kubernetes/apps/ai/agentgateway/app/models/vllm-sr-auto.yaml)) sends
-only those requests to the router, which asks D3 whether the request can be answered directly and rewrites
-the model to `qwen-3.8-fast` (confident yes) or `qwen-3.8` (anything else, including a late or failed answer).
-agentgateway then routes the rewritten model normally, so each model keeps its own sampling and thinking
-policies. If the router is unreachable, `vllm-sr/auto` fails over to `qwen-3.8`.
+only those requests to the router. D3 picks a reasoning effort, and the router rewrites the body to `qwen-3.8`
+with `chat_template_kwargs.reasoning_effort` set: `low` for greetings, short facts and single actions (only when
+D3 is at least 0.85 sure), `xhigh` for coding, debugging, planning and hard analysis, `medium` otherwise or when
+D3 is late or fails. Thinking stays on, as the Hermes effort router has done since its 2026-09-22 DeepSWE change;
+the router replaces that plugin. A client-set effort is replaced; clients that need a fixed effort call
+`qwen-3.8`. If the router is unreachable, `vllm-sr/auto` fails over to `qwen-3.8` at its default effort.
 
-The chart is a nightly: v0.4.0, the latest release, predates D3, `decision` signals and the managed
-`model_runtime`. Move to the first release that has them.
+Pins, checked 2026-10-29: chart `0.0.0-nightly.20261026` with its matching `nightly-20261026` image, the newest
+published pair (v0.4.0, the latest release, predates D3; main's later commits have no image). d3-nano `aeb70d4`
+is a card-only commit on top of the newest weights release, `v3.1.3`. Vela 3 adds span and entity adapters to
+the same D3 bases and answers plain decisions identically, so it gains nothing here.
 
 ## Evidence and capacity
 
-- Local run of the pinned image on the flate-rendered config, four CPUs, 10 GiB cap: d3-nano downloaded and
-  became ready in about a minute. `POST /api/v1/routing/preview` sent two simple prompts to `qwen-3.8-fast`
-  and a Ceph-debugging and a coding prompt to `qwen-3.8` in 0.54–0.70 s; a 64 KiB Hermes-shaped request
-  (long system prompt, 40 tools, 12 prior turns) routed the same way. That laptop CPU has AVX-512 BF16;
-  control-1's Ryzen 7 5800X does not, so expect slower decisions there.
+- Local run of the pinned image on the flate-rendered config, four CPUs, 10 GiB cap, with the router in
+  standalone mode in front of an echo backend so the forwarded body could be read: a greeting and a short
+  fact went out as `low`, a lights-and-temperature tool turn as `medium`, a Ceph-debugging and a coding prompt
+  as `xhigh`, in 0.68–0.93 s. A 64 KiB Hermes-shaped request (long system prompt, 40 tools, 12 prior turns)
+  routed the same way in about 1 s with all tools kept. The same config starts cleanly in ExtProc mode.
+  That laptop CPU has AVX-512 BF16; control-1's Ryzen 7 5800X does not, so expect slower decisions there.
 - Earlier `vllm-srun` evaluation, BF16 on four threads: startup peak RSS 7.35 GiB, steady RSS 4.65 GiB.
 - Read-only snapshot, 2026-10-29: unrequested memory/CPU was control-1 11.1 GiB / 2.7 cores, control-2 0.6 GiB,
   control-3 2.5 GiB; actual use on control-1 was 33.2 of 59.3 GiB. Only control-1 fits the 6 GiB request.
@@ -61,15 +66,17 @@ old Qwen model stays. Verify, in order:
 
 1. The router pod is Ready on control-1 and `GET /api/v1/inventory/model-runtime` (port-forward 8080) shows `d3` ready.
 2. `POST /api/v1/routing/preview` on control-1 stays well under the 3 s decision budget. If not, try `vllm-sr/d3-lite`.
-3. A `vllm-sr/auto` chat request through agentgateway answers. A simple prompt returns no reasoning content and a
-   hard one does. `x-gateway-model` and agentgateway metrics may show `vllm-sr/auto` instead of the rewritten model.
+3. A `vllm-sr/auto` chat request through agentgateway answers, and the router log shows the `low`, `medium` or
+   `xhigh` decision for simple, tool and hard prompts. `x-gateway-model` and agentgateway metrics may show
+   `vllm-sr/auto` instead of `qwen-3.8`.
 4. With the router scaled to zero, `vllm-sr/auto` still answers through the `qwen-3.8` failover.
 5. Another namespace cannot reach the router on 8080 or 50051.
 6. A real Karakeep bookmark summary/tag job succeeds on `qwen-3.8-fast`.
 
-Then point Hermes's main model at `vllm-sr/auto` in its PVC config (root and profiles), keep auxiliary tasks on
-explicit models so they skip the router, and disable the `qwen38-effort-router` plugin, whose fast/reasoning
-choice the router replaces. Restart drain-aware with SIGUSR1.
+Then cut Hermes over in its PVC config: point the main model at `vllm-sr/auto` in root and profiles, remove
+`qwen38-effort-router` from root `plugins.enabled` and any profile `reasoning_effort` pins (the router replaces
+both), and keep auxiliary tasks on explicit models so they skip the router. Restart drain-aware with SIGUSR1,
+then confirm with a `HERMES_DUMP_REQUESTS=1` request dump that Hermes sends `vllm-sr/auto`.
 
 Continuation: “Verify the D3 branch/worktree, reconcile the semantic router and run the phase 2 checks.”
 

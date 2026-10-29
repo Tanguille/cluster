@@ -31,7 +31,7 @@ spec:
                 path: /metadata/annotations/semantic-router.vllm.ai~1chart-config-revision
   values:
     image:
-      tag: 5bd7c69419487a783cbce18dfd41f707441a1b85@sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7
+      tag: nightly-20261026@sha256:f6107cfbb35dc89f0ea752ab8ae1882ca654031151f182804f78cf827843811d
     resources:
       requests:
         cpu: 500m
@@ -54,42 +54,72 @@ spec:
     configMap:
       # Must differ from the (stripped) live annotation; see the postRenderer.
       applyValuesRevision: git
-    # Picks the model for `vllm-sr/auto`; see agentgateway/app/models/vllm-sr-auto.yaml.
+    # Picks the reasoning effort for `vllm-sr/auto`; see agentgateway/app/models/vllm-sr-auto.yaml.
     configOverride:
       providers:
         defaults:
           model: qwen-3.8
         models:
           - name: qwen-3.8
-            backend_refs: &agentgateway
+            # Qwen3.8's chat template reads chat_template_kwargs.reasoning_effort: low, medium or xhigh.
+            reasoning:
+              type: reasoning_effort
+              parameter: reasoning_effort
+              levels: [low, medium, xhigh]
+              default: medium
+            backend_refs:
               - endpoint: agentgateway.ai.svc.cluster.local:4000
-          - name: qwen-3.8-fast
-            backend_refs: *agentgateway
       routing:
         signals:
           decision:
-            - name: direct_answer
+            - name: effort
               deployment: d3
               question:
-                type: noul
-                instructions: Can this request be answered directly, without multi-step reasoning, debugging, coding or planning?
+                type: choice
+                instructions: How much reasoning does a good answer to this request need?
+                choices:
+                  - key: low
+                    description: A greeting, short factual answer or one clearly specified action
+                  - key: medium
+                    description: An ordinary question, explanation or routine tool use
+                  - key: xhigh
+                    description: Coding, debugging, planning, mathematics or hard analysis
+              timeout_ms: 3000
+        # Underthinking costs quality and overthinking only time, so low needs more confidence.
+        # A late or failed answer keeps medium.
+        decisions:
+          - name: low
+            priority: 300
+            rules:
+              type: decision
+              name: effort
+              label: low
               predicate:
                 gte: 0.85
-              timeout_ms: 3000
-        # Thinking stays on unless D3 is confident; a late or failed answer keeps qwen-3.8.
-        decisions:
-          - name: fast
+              on_unknown: no_match
+            modelRefs:
+              - model: qwen-3.8
+                use_reasoning: true
+                reasoning_effort: low
+          - name: xhigh
             priority: 200
             rules:
               type: decision
-              name: direct_answer
+              name: effort
+              label: xhigh
+              predicate:
+                gte: 0.6
               on_unknown: no_match
             modelRefs:
-              - model: qwen-3.8-fast
-          - name: default
+              - model: qwen-3.8
+                use_reasoning: true
+                reasoning_effort: xhigh
+          - name: medium
             priority: 100
             modelRefs:
               - model: qwen-3.8
+                use_reasoning: true
+                reasoning_effort: medium
       global:
         model_catalog:
           deployments:
