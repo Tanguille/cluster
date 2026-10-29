@@ -14,9 +14,36 @@ spec:
       priorityClassName: system-node-critical
 
     controllers:
-      # dGPU (control-1) is on DRA (kube-system/k8s-gpu-dra-driver). The iGPU stays on
-      # squat.ai/dri: the AMD DRA driver has no timeslicing/consumable capacity.
-      # 2 slots: one iGPU model per node plus the co-located reranker; count only gates scheduling.
+      generic-device-plugin:
+        type: daemonset
+        pod:
+          nodeSelector:
+            amd.com/gpu: "true"
+        containers:
+          app:
+            image: &devicePluginImage
+              repository: ghcr.io/squat/generic-device-plugin
+              tag: latest@sha256:8dc84958301f054bf72d9753a7a2c9af3d6642a9844b34d1171b3f2cdb4a15f6
+            args:
+              - --domain=squat.ai
+              - --device
+              - |
+                name: dri
+                groups:
+                  # Only the 27B vllm holds one: media and drm-exporter claim the dGPU via DRA
+                  - count: 5
+                    paths:
+                      - path: /dev/dri
+                      - path: /dev/kfd
+            securityContext: &devicePluginSecurityContext
+              privileged: true
+            resources: &devicePluginResources
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 64Mi
+      # iGPU nodes: 2 slots (one iGPU model per node plus the co-located reranker); count only gates scheduling.
       generic-device-plugin-igpu:
         type: daemonset
         pod:
@@ -24,9 +51,7 @@ spec:
             amd.com/igpu: "true"
         containers:
           app:
-            image:
-              repository: ghcr.io/squat/generic-device-plugin
-              tag: latest@sha256:5c48f7a16cfb37c4e07731bfa384b9dba6e12d2b0fb4350d8a321d49f12ac494
+            image: *devicePluginImage
             args:
               - --domain=squat.ai
               - --device
@@ -36,14 +61,8 @@ spec:
                   - count: 2
                     paths:
                       - path: /dev/dri
-            securityContext:
-              privileged: true
-            resources:
-              requests:
-                cpu: 10m
-                memory: 32Mi
-              limits:
-                memory: 64Mi
+            securityContext: *devicePluginSecurityContext
+            resources: *devicePluginResources
 
     persistence:
       dev:
