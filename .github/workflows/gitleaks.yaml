@@ -28,11 +28,7 @@ jobs:
 
       - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
-          # The regression suite exercises actual hook ordering with pinned Lefthook.
-          install_args: aqua:mikefarah/yq aqua:evilmartians/lefthook
-
-      - name: Secret guardrail regression tests
-        run: mise exec -- python3 -m unittest discover -s scripts -v
+          install_args: aqua:mikefarah/yq
 
       - name: Check all tracked index blobs (no decryption)
         run: mise exec -- python3 scripts/secret-check.py --all

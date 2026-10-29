@@ -122,6 +122,18 @@
       datasourceTemplate: "docker"
     },
     {
+      // csi.<sidecar> keys miss the flux manager's values heuristic, which needs a parent key ending in "image".
+      description: "Rook CSI sidecar images: split repository/tag fields",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/rook-ceph/rook-ceph/app/helmrelease\\.yaml$/"
+      ],
+      matchStrings: [
+        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      datasourceTemplate: "docker"
+    },
+    {
       description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
       customType: "regex",
       managerFilePatterns: [
@@ -131,28 +143,6 @@
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
       datasourceTemplate: "npm"
-    },
-    {
-      description: "Armiger connector and HF model commits (each REPO line is followed by its REVISION)",
-      customType: "regex",
-      managerFilePatterns: [
-        "/kubernetes/apps/media/bitmagnet/app/config/bootstrap\\.py$/"
-      ],
-      matchStrings: [
-        '_REPO = "(?<depName>https://[^"]+)"\\n\\w+_REVISION = "(?<currentDigest>[a-f0-9]{40})"'
-      ],
-      currentValueTemplate: "main",
-      datasourceTemplate: "git-refs"
-    },
-    {
-      description: "Armiger torch pin (installed from the CPU wheel index; PyPI carries the same versions)",
-      customType: "regex",
-      managerFilePatterns: [
-        "/kubernetes/apps/media/bitmagnet/app/config/bootstrap\\.py$/"
-      ],
-      matchStrings: ['"torch==(?<currentValue>\\d+\\.\\d+\\.\\d+)\\+cpu"'],
-      depNameTemplate: "torch",
-      datasourceTemplate: "pypi"
     },
     {
       // The preset's oci:// manager reads "tag@sha256:..." as one version and skips it as invalid-value.
@@ -227,6 +217,7 @@
         "/openebs/",
         "/kopiur/",
         "/snapshot-controller/",
+        "/sig-storage/",
         "/cloudnative-pg/",
         "/postgres/",
         "/vchord/",
@@ -242,19 +233,6 @@
       // opencode 2.x changed the server API (probes fail); hold at 1.18.x until the chart is migrated.
       matchPackageNames: ["ghcr.io/anomalyco/opencode"],
       allowedVersions: "1.18.x",
-      automerge: false
-    },
-    {
-      // Approve once onnxruntime and torch ship wheels for the new python minor.
-      matchFileNames: ["kubernetes/apps/media/bitmagnet/**"],
-      matchPackageNames: ["docker.io/library/python"],
-      matchUpdateTypes: ["major", "minor"],
-      dependencyDashboardApproval: true
-    },
-    {
-      // The HF bundle ships executable Python; review every connector and model bump.
-      matchFileNames: ["kubernetes/apps/media/bitmagnet/**"],
-      matchDatasources: ["git-refs"],
       automerge: false
     },
     // Grouping rules
@@ -341,14 +319,9 @@
     {
       // Image labels point at the rocky-kiwi build repo; ceph has no GitHub releases, so this yields compare links only.
       matchPackageNames: ["quay.io/ceph/ceph"],
-      sourceUrl: "https://github.com/ceph/ceph"
-    },
-    {
-      // The preset override gives docker.io but re-extraction gives mirror.gcr.io: "depName mismatch".
-      description: "Keep envoy-gateway's helmfile depName on mirror.gcr.io so it edits with the OCIRepository",
-      matchManagers: ["helmfile"],
-      matchPackageNames: ["docker.io/envoyproxy/gateway-helm"],
-      overrideDepName: "mirror.gcr.io/envoyproxy/gateway-helm"
+      sourceUrl: "https://github.com/ceph/ceph",
+      // x.0 is dev, x.1 is RC; only x.2 is stable.
+      allowedVersions: "/^v\\d+\\.2\\.\\d+$/"
     },
     // Versioning overrides
     {

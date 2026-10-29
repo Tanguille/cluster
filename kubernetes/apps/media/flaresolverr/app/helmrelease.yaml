@@ -19,6 +19,10 @@ spec:
             image:
               repository: ghcr.io/flaresolverr/flaresolverr
               tag: v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767
+            # The image runs as flaresolverr and disables Chromium's setuid sandbox.
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 10m

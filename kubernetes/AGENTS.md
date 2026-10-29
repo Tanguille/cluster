@@ -8,4 +8,5 @@
 - Use YAML anchors only within one `---` document; Kustomize does not resolve anchors across documents.
 - Store secrets with SOPS; never commit plaintext secrets or `age.key`.
 - Use lowercase-dash Kubernetes names. Applications live under `kubernetes/apps/<namespace>/<app>/`; follow peer layouts and include `ks.yaml`.
+- Check new or changed selectors and label references (NetworkPolicy peers, affinity, ServiceMonitor ports, alert annotations) against the labels and ports the target actually has, rendered or live.
 - Ask before applying or reconciling live resources or decrypting or editing SOPS secrets.

@@ -241,6 +241,14 @@ spec:
           - "*.docker.com"
           # Agentgateway OCI chart registry.
           - cr.agentgateway.dev
+          # Other registries this repo pulls from; registry.k8s.io redirects manifests to *.pkg.dev.
+          - quay.io
+          - registry.k8s.io
+          - "*.pkg.dev"
+          - gcr.io
+          - mirror.gcr.io
+          - gsoci.azurecr.io
+          - registry.erwanleboucher.dev
           # Rust package index and downloads.
           - crates.io
           - static.crates.io
@@ -252,6 +260,9 @@ spec:
           - nginx.org
           - rook.github.io
           - "*.kernel.org"
+          - rocm.github.io
+          - doc.rust-lang.org
+          - pypi.org
           # SQLite documentation, shadcn docs/assets, and Flathub metadata.
           - www.sqlite.org
           - shadcn-svelte.com

@@ -29,6 +29,8 @@ spec:
       value: :8080
   podTemplateSpec:
     spec:
+      # No Kubernetes API access needed; Talos access uses the mounted talosconfig.
+      automountServiceAccountToken: false
       volumes:
         - name: talos
           secret:

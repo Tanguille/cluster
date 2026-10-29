@@ -59,7 +59,7 @@ spec:
     image:
       # Spelled out so Renovate tracks the digest.
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:30a14c923025b51d7b3f7d4bf853bcd655bf73c07cf7112e388f232caf956ed3
+      tag: 35.0.2-fpm@sha256:a04e3bb8df30769a5edbb01434893d3873a11e6e42a53b984c06e27944a014c2
 
     lifecycle:
       postStartCommand:
@@ -70,7 +70,7 @@ spec:
       enabled: true
       image:
         repository: nginx
-        tag: 1.31.8-alpine@sha256:1ef7ca94d7879df82421428ce13bd1eaa412404953859cf7a5b6512c25e67a60
+        tag: 1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
@@ -329,6 +329,9 @@ spec:
           - /bin/bash
           - /scripts/cron.sh
         securityContext:
+          # cron.sh runs as www-data, not via the root entrypoint.
+          allowPrivilegeEscalation: false
+          capabilities: { drop: [ALL] }
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true
