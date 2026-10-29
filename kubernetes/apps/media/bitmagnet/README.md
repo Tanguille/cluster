@@ -17,10 +17,9 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
   lures (any executable or script file except RARBG's marker). CEL string
   literals reject `\.`; use `[.]` in regexes. Apply it to existing rows with
   `bitmagnet reprocess --classifyMode rematch --contentTypes <types>`.
-- `prune` (daily) first runs `prune-maintenance.sql`: it trims processed queue
-  jobs after one day and drops indexes nothing but the web UI uses. Then it
-  deletes and blocklists TMDB-matched dubs with no English, Dutch or
-  original-language track, and DHT-only swarms still at 0 seeders after 3 days.
+- `prune` (daily) runs `prune-maintenance.sql`, then deletes and blocklists
+  TMDB-matched dubs with no English, Dutch or original-language track, and
+  DHT-only swarms still at 0 seeders after 3 days.
   Its scripts live in the `bitmagnet-prune` ConfigMap, so editing them does not
   restart bitmagnet.
 - bitmagnet always advertises imdbid/tmdbid but answers id searches only from
