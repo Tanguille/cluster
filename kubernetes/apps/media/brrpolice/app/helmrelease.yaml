@@ -9,19 +9,6 @@ spec:
     kind: OCIRepository
     name: brrpolice
   interval: 1h
-  # Pins DS_PROMETHEUS like the hand-written dashboards; the chart can't, so it would ride on prometheus being the default.
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: GrafanaDashboard
-              name: brrpolice-dashboard
-            patch: |-
-              - op: add
-                path: /spec/datasources
-                value:
-                  - datasourceName: prometheus
-                    inputName: DS_PROMETHEUS
   values:
     config:
       qbittorrent:
