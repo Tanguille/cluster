@@ -5,4 +5,15 @@ kind: Kustomization
 resources:
   - grafanadashboard.yaml
   - helmrelease.yaml
+  - prometheusrule.yaml
   - secret.sops.yaml
+
+configMapGenerator:
+  - name: opnsense-dns-dashboard
+    files:
+      - dashboard/opnsense-dns.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
+generatorOptions:
+  disableNameSuffixHash: true

@@ -39,16 +39,21 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
-            # Probe the scraped /ups_metrics: a 200 means the UPS connection answers, not just the exporter.
+            # TCP liveness: a NUT outage must not restart the exporter; readiness gates on /ups_metrics.
             probes:
-              liveness: &probe
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket:
+                    port: 9199
+              readiness:
                 enabled: true
                 custom: true
                 spec:
                   httpGet:
                     path: /ups_metrics
                     port: 9199
-              readiness: *probe
             resources:
               requests:
                 cpu: 10m

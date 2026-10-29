@@ -21,6 +21,6 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      KOPIUR_PUID: "0"
-      KOPIUR_PGID: "0"
-      KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
+      # Wizarr drops to uid 1000 and every PVC file is 1000:1000, so the mover needs no root.
+      KOPIUR_PUID: "1000"
+      KOPIUR_PGID: "1000"

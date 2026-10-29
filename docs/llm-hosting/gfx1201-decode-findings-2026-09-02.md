@@ -272,7 +272,7 @@ expectation.**
 Two data traps found while establishing this:
 
 - vLLM's own `request_prompt_tokens` mean reads ~6.8K, but that is contaminated
-  by 23.7K one-token benchmark requests on 09-02. litellm's mean over 7d is
+  by 23.7K one-token benchmark requests on 09-02. the retired gateway's mean over 7d is
   **49.9K tokens/request** and is the trustworthy figure.
 - `e2e_request_latency_sum` (783K s) is less than `request_inference_time_sum`
   (1.72M s) over the same 7d, which is impossible; counter resets from restart
@@ -395,9 +395,9 @@ plus the cold-cache stall on recovery.
 ## Where the remaining headroom is, ranked
 
 1. **Reasoning tokens — 68.8% of output.** Confirmed:
-   `litellm_output_reasoning_tokens_metric_total` for qwen-3.8 over 7d is
+   The retired gateway’s reasoning-token counter for qwen-3.8 over 7d is
    2,378,922 of 3,457,317 output tokens (0.63-0.79 per day). At production ITL
-   that is ~69% of ~417K decode-seconds/week. Both the litellm alias and every
+   that is ~69% of ~417K decode-seconds/week. Both the retired gateway alias and every
    hermes profile pin `reasoning_effort: medium`; the chat template supports
    `low`. **This dwarfs every kernel-level lever.** Measure: add a
    `qwen-3.8-low` alias, move one hermes profile to it for a day, compare
@@ -416,6 +416,6 @@ plus the cold-cache stall on recovery.
    lever is lookup cost.
 5. **4-bit `lm_head`**: shipped (#5007), reverted (#5118), declined on quality; do not revisit.
 6. **omniroute** — confirmed broken (all four opencode free models return 401,
-   stale gemini model id). litellm sent 1154 requests/7d to its api_base. Even
+   stale gemini model id). The retired gateway sent 1154 requests/7d to its api_base. Even
    if all of it fell back to the 27B it is ~3% of weekly prompt tokens: a real
    fix for the credential, low expected value for the GPU.

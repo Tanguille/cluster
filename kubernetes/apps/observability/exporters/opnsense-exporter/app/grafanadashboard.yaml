@@ -16,3 +16,18 @@ spec:
   grafanaCom:
     id: 21113
     revision: 1
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: opnsense-dns
+spec:
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      grafana.internal/instance: grafana
+  folder: network
+  configMapRef:
+    name: opnsense-dns-dashboard
+    key: opnsense-dns.json

@@ -13,12 +13,14 @@ import http.server
 import json
 import math
 import os
+import re
 import shutil
 import urllib.request
 import time
 import argparse
 import threading
 import signal
+import socket
 import statistics
 import sys
 from collections import deque
@@ -46,7 +48,6 @@ WALLET_ADDRESS = args.wallet or ""
 
 LOG_FILE = os.path.join(DATA_DIR, "stats_log.json")      # 10s samples, last 24h
 ROLLUP_FILE = os.path.join(DATA_DIR, "stats_rollup.json")  # 5min means, last 90d
-STATS_MOD_FILE = os.path.join(DATA_DIR, "stats_mod")  # configuration for min payment
 MAX_LOG_AGE = 24 * 3600  # seconds, keep last 24h of data
 
 # Second retention tier. 10s samples cost 8640 points/day, so the 24h buffer is
@@ -62,7 +63,9 @@ CHART_MAX_POINTS = 720
 
 SERIES = ("myHash", "poolHash", "netHash", "price")
 
-XMRIG_API_URL = os.getenv("XMRIG_API_URL", "http://xmrig.web3.svc.cluster.local:42000/2/summary")
+# Headless Service: one A record per running miner, none when all are gated off
+XMRIG_MINERS_HOST = os.getenv("XMRIG_MINERS_HOST", "xmrig-miners.web3.svc.cluster.local")
+XMRIG_API_PORT = 42000
 MONEROD_RPC_URL = os.getenv("MONEROD_RPC_URL", "http://monerod.web3.svc.cluster.local:18089/json_rpc")
 
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -142,15 +145,6 @@ def get_xmr_price():
     print("Price has come from last recorded value")
     return last_price
 
-def get_min_payment_threshold():
-    """Read min payment threshold from stats_mod file; fallback to 0.01 XMR"""
-    try:
-        with open(STATS_MOD_FILE) as f:
-            data = json.load(f)
-        return data["config"]["minPaymentThreshold"] / 1e12
-    except Exception:
-        return 0.01
-
 class Handler(http.server.BaseHTTPRequestHandler):
     """
     Static files are nginx's job (it aliases the p2pool API dir directly);
@@ -160,13 +154,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         path, _, query = self.path.partition("?")
         if path == "/xmrig_summary":
-            self.proxy_xmrig()
+            self.serve_miners()
         elif path == "/stats_log.json":
             self.serve_log()
         elif path == "/stats_history.json":
             self.serve_history(query)
-        elif path == "/min_payment_threshold":
-            self.send_json({"minPaymentThreshold": get_min_payment_threshold()})
         elif path == "/observer_config":
             self.send_json({"wallet": WALLET_ADDRESS, "observer": OBSERVER_URL})
         elif path.startswith("/observer/"):
@@ -204,14 +196,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.end_headers()
             shutil.copyfileobj(r, self.wfile)
 
-    def proxy_xmrig(self):
-        """Proxy xmrig summary with graceful fallback when miner is scaled to 0.
-
-        XMRig uses KEDA ScaledObject with minReplicaCount: 0 — when no excess
-        solar power, the pod scales down and has no endpoints. Instead of
-        crashing with ConnectionRefusedError, return a 503 JSON response.
-        """
-        self.proxy(urllib.request.Request(XMRIG_API_URL), "XMRig miner offline", 503)
+    def serve_miners(self):
+        """Running miners from the logger's last poll; 503 is the normal idle answer."""
+        # A stalled logger must not keep reporting its last miners as running
+        miners = _miners["list"] if time.time() - _miners["ts"] < 30 else []
+        if not miners:
+            self.send_json_error("No miners running", 503)
+            return
+        self.send_json({"miners": miners})
 
     def serve_log(self):
         """Serve in-memory rolling log as JSON"""
@@ -220,18 +212,25 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_json(data)
 
     def serve_history(self, query):
-        """Serve a bounded, downsampled window for the charts: ?hours=<float>."""
+        """Serve a bounded, downsampled window: ?hours=<float>&points=<int>."""
+        params = parse_qs(query)
         try:
-            hours = float(parse_qs(query).get("hours", ["24"])[0])
+            hours = float(params.get("hours", ["24"])[0])
         except ValueError:
             hours = 24.0
+        # The tide table asks for a week at the rollup's own 5-minute resolution
+        try:
+            points = int(params.get("points", [CHART_MAX_POINTS])[0])
+        except ValueError:
+            points = CHART_MAX_POINTS
+        points = min(max(points, 1), ROLLUP_MAX_AGE // ROLLUP_INTERVAL)
         if not math.isfinite(hours):
             hours = 24.0
         hours = min(max(hours, 0.1), ROLLUP_MAX_AGE / 3600)
         # The 10s log only reaches back MAX_LOG_AGE; beyond that the rollup is
         # the only source, and inside it the fine samples give a truer shape.
         source = log if hours * 3600 <= MAX_LOG_AGE else rollup
-        self.send_json(break_gaps(downsample(source, hours)))
+        self.send_json(break_gaps(downsample(source, hours, points)))
 
     def proxy_observer_api(self):
         """Proxy requests to p2pool.observer API to avoid CORS issues in browser.
@@ -275,8 +274,7 @@ def load_log_disk():
     with log_lock:
         load_tier(LOG_FILE, log)
         load_tier(ROLLUP_FILE, rollup, keep_missing=True)
-        # No rollup yet (first start or fresh PVC): replay the 24h log through
-        # the bucketer so the long ranges are not blank for the first three months.
+        # Rollup missing or unreadable beside a 24h log: replay it so the long ranges are not blank
         if not rollup["timestamps"] and log["timestamps"]:
             columns = {k: list(log[k]) for k in SERIES}
             # A ragged column (missing/short series in stats_log.json) must not
@@ -441,6 +439,33 @@ def read_pool_hashrate():
     with open(os.path.join(DATA_DIR, "pool", "stats")) as f:
         return json.load(f)["pool_statistics"]["hashRate"]
 
+# The logger's latest poll of every miner, served by /xmrig_summary without a second fan-out
+_miners = {"ts": 0.0, "list": []}
+
+def miner_summary(ip):
+    """One miner as {"name", "hashrate"}, or None if it does not answer.
+
+    The name is the pod's node: "xmrig-control-1-6f7d8c9b5-x2k4p" reads as "control-1".
+    """
+    try:
+        summary = _fetch_json(f"http://{ip}:{XMRIG_API_PORT}/2/summary", timeout=3)
+    except Exception:
+        return None
+    name = re.sub(r"^xmrig-|-[a-z0-9]+-[a-z0-9]+$", "", summary.get("worker_id") or ip)
+    return {"name": name, "hashrate": num(summary.get("hashrate", {}).get("total", [None])[0])}
+
+def poll_miners():
+    """Every running miner, empty when none runs."""
+    try:
+        infos = socket.getaddrinfo(XMRIG_MINERS_HOST, XMRIG_API_PORT, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return []  # no ready pods: the headless name has no records
+    ips = sorted({info[4][0] for info in infos})
+    if not ips:
+        return []
+    with ThreadPoolExecutor(max_workers=len(ips)) as executor:
+        return [m for m in executor.map(miner_summary, ips) if m]
+
 def last_logged(key):
     """Most recent value for `key`, or 0.0 on an empty log."""
     with log_lock:
@@ -471,15 +496,17 @@ def log_loop():
     with ThreadPoolExecutor(max_workers=2) as pool_executor:
         while not shutdown_event.is_set():
             try:
-                # xmrig and monerod are independent HTTP calls (5s timeout each) —
+                # The miners and monerod are independent HTTP calls (5s timeout each) —
                 # fire both concurrently instead of stacking their worst-case latency
-                xmrig_future = pool_executor.submit(_fetch_json, XMRIG_API_URL)
+                miners_future = pool_executor.submit(poll_miners)
                 net_future = pool_executor.submit(_fetch_json, monerod_get_info_request())
 
                 # KEDA scales xmrig to 0 replicas without excess solar, so a
                 # gated-off miner really is 0 H/s. The network and the pool did
                 # not stop when their read blipped, so those carry forward.
-                myHash = fetch_or(lambda: xmrig_future.result()["hashrate"]["total"][0], 0.0)
+                miners = fetch_or(miners_future.result, [])
+                _miners.update(ts=time.time(), list=miners)
+                myHash = sum(m["hashrate"] for m in miners)
                 poolHash = fetch_or(read_pool_hashrate, last_logged("poolHash"))
                 netHash = fetch_or(lambda: net_future.result()["result"]["difficulty"] / 120,
                                    last_logged("netHash"))

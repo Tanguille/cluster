@@ -12,7 +12,7 @@ spec:
   values:
     fullnameOverride: *app
     config:
-      # Reaps succeeded and failed jobs alike; logs stay readable for a day.
+      # TTL for every finished Job; in practice only orphans reach it, as each run replaces its project's previous Job.
       jobTTLSecondsAfterFinished: 86400
     rbac:
       ownNamespaceOnly: true
@@ -58,6 +58,3 @@ spec:
         enabled: true
         grafanaDashboard:
           allowCrossNamespaceImport: true
-          instanceSelector:
-            matchLabels:
-              grafana.internal/instance: grafana

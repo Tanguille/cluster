@@ -1,0 +1,28 @@
+---
+# Electricity only: 250 W x EUR 0.30/kWh / (1083 t/s prefill, 74 t/s decode at 3 concurrent),
+# per 1M tokens. The rates are EUR: agentgateway names the metric _usd_ whatever the catalog's
+# currency, and the dashboard's spend panels display EUR. Both the vllm provider (models listener) and custom (http listener, before the model is resolved)
+# price the same names; omniroute's free tier is left unpriced.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/configmap_v1.json
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentgateway-model-costs
+data:
+  catalog.json: |
+    {
+      "providers": {
+        "vllm": {
+          "models": {
+            "qwen-3.8": { "rates": { "input": "0.02", "output": "0.28" } },
+            "qwen-3.8-fast": { "rates": { "input": "0.02", "output": "0.28" } }
+          }
+        },
+        "custom": {
+          "models": {
+            "qwen-3.8": { "rates": { "input": "0.02", "output": "0.28" } },
+            "qwen-3.8-fast": { "rates": { "input": "0.02", "output": "0.28" } }
+          }
+        }
+      }
+    }

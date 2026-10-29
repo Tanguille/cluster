@@ -21,7 +21,7 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.10.19-62366b05c@sha256:b9383ac59bc9c7f6d68f29db201e90329d734a77bbc917f238144c74cd66f6a8
+              tag: 2026.10.29-cff884f98@sha256:dc2f7ed8a215b2f8244eaed083acdd50406f0de18bf43410cc460a4b511b7424
             env:
               SEARXNG_BASE_URL: https://search.${SECRET_DOMAIN}
               SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
@@ -93,7 +93,6 @@ spec:
           gethomepage.dev/icon: searxng.png
         hostnames:
           - search.${SECRET_DOMAIN}
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
         parentRefs:
           - name: envoy-internal
             namespace: network

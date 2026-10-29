@@ -34,16 +34,19 @@ spec:
         values:
           controllers:
             xmrig-<< inputs.node >>:
+              # KEDA owns the count; a rendered 1 started every miner at 0 W on each upgrade.
+              replicas: null
               pod:
                 labels:
-                  # the shared xmrig Service selects on this across all three Deployments
+                  # the headless xmrig-miners Service selects on this across all three Deployments
                   app.kubernetes.io/component: thermal-guarded
               containers:
                 app:
                   image:
                     repository: djerfy/xmrig
-                    tag: 6.26.0@sha256:bd72a33a41d67a74956fd494ab7ee0d79efdf616db8f0829fb5186eec91152d3
-                  command: ["/usr/bin/xmrig"]
+                    tag: 6.26.0@sha256:74847c25c6273248d2387c41feac55d2833c6a347f5c9e63e5cf19ed4a0406bd
+                  # The 10-08 rebuild's Cmd is the /xmrig source dir; the binary sits inside it.
+                  command: ["/xmrig/xmrig"]
                   args:
                     - "-o"
                     - "p2pool.web3.svc.cluster.local:3333"
@@ -68,8 +71,7 @@ spec:
                   resources:
                     requests:
                       cpu: 1
-                      # RandomX fast mode needs ~2336Mi; requested under that because control-2/3 have
-                      # ~2.3Gi free and the true figure parks the miner Pending.
+                      # RandomX fast mode needs ~2336Mi; requested under that so the miner fits more often.
                       memory: 2Gi
                     limits:
                       cpu: 6
@@ -93,6 +95,7 @@ spec:
               runAsGroup: 1000
               fsGroup: 1000
               fsGroupChangePolicy: OnRootMismatch
+              seccompProfile: { type: RuntimeDefault }
     - apiVersion: keda.sh/v1alpha1
       kind: ScaledObject
       metadata:

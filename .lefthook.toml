@@ -1,18 +1,22 @@
 [pre-commit]
-parallel = true
 skip = ["merge", "rebase"]
 
-[pre-commit.commands.format-just]
+# Jobs run in this order. Mutators stay serial: each re-stages files, and parallel
+# git adds race on index.lock. The read-only checks then run in parallel.
+[[pre-commit.jobs]]
+name = "format-just"
 glob = ["*.just", ".justfile"]
 run = 'for f in {staged_files}; do just --justfile "$f" --fmt; done'
 stage_fixed = true
 
-[pre-commit.commands.format-mise]
+[[pre-commit.jobs]]
+name = "format-mise"
 glob = [".mise.toml"]
 run = "mise fmt"
 stage_fixed = true
 
-[pre-commit.commands.format-json]
+[[pre-commit.jobs]]
+name = "format-json"
 glob = ["*.json", "*.json5", "*.jsonc"]
 run = "oxfmt {staged_files}"
 stage_fixed = true
@@ -20,21 +24,35 @@ stage_fixed = true
 # cluster-template's format-markdown is omitted: .prettierignore excludes **/*.md
 # and oxfmt exits 2 when every input is ignored.
 # The same exit-2 applies to sops files, so they are excluded before oxfmt sees them.
-[pre-commit.commands.format-yaml]
+[[pre-commit.jobs]]
+name = "format-yaml"
 glob = ["*.yaml", "*.yml"]
 exclude = ["*.sops.yaml"]
 run = "oxfmt {staged_files}"
 stage_fixed = true
 
-[pre-commit.commands.mise-lock]
+[[pre-commit.jobs]]
+name = "mise-lock"
 glob = [".mise.toml"]
 run = 'mise lock && { for f in {staged_files}; do l="$(dirname "$f")/mise.lock"; [ -f "$l" ] && git add "$l"; done; true; }'
 
+[[pre-commit.jobs]]
+name = "checks"
+[pre-commit.jobs.group]
+parallel = true
+
 # Not in cluster-template; taken from home-operations/.github lefthook.common.toml.
-[pre-commit.commands.shellcheck]
+[[pre-commit.jobs.group.jobs]]
+name = "shellcheck"
 glob = ["*.sh"]
 run = "shellcheck {staged_files}"
 
-[pre-commit.commands.zizmor]
+[[pre-commit.jobs.group.jobs]]
+name = "zizmor"
 glob = [".github/workflows/*.yaml"]
 run = "zizmor --offline {staged_files}"
+
+# Reads the index after every mutator has re-staged.
+[[pre-commit.jobs.group.jobs]]
+name = "secret-check"
+run = "mise exec -- python3 scripts/secret-check.py --staged"

@@ -15,8 +15,7 @@ configMapGenerator:
       - scripts/post-start.sh
     options:
       annotations:
-        # Plain shell scripts: their ${vars} are shell syntax, not flux vars —
-        # without this, strict postBuild envsubst fails the build on "${cmd}".
+        # Shell scripts, not flux templates: keep postBuild envsubst off them.
         kustomize.toolkit.fluxcd.io/substitute: disabled
 generatorOptions:
   disableNameSuffixHash: true

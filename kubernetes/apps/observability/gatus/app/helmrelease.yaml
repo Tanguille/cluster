@@ -21,10 +21,11 @@ spec:
       envFrom:
         - secretRef:
             name: "{{ .Release.Name }}-secret"
-      livenessProbe: &probes
+      livenessProbe:
         initialDelaySeconds: 0
         periodSeconds: 10
-      readinessProbe: *probes
+      readinessProbe:
+        initialDelaySeconds: 0
       securityContext:
         capabilities: { add: ["NET_RAW"] }
 

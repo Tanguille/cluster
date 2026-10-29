@@ -34,9 +34,8 @@ def timeit(fn, iters=40, warm=5):
 
 
 def strides(a, b_q, scales):
-    """Row-stride kwargs the installed kernel accepts."""
-    of = {"stride_sn": scales.stride(0), "stride_bn": b_q.stride(0), "stride_am": a.stride(0)}
-    return {n: of[n] for n in hy._triton_w4a16_skinny_fmt_kernel.arg_names if n.startswith("stride_")}
+    """Named row strides for the pinned nightly, including padded rows."""
+    return {"stride_sn": scales.stride(0), "stride_bn": b_q.stride(0), "stride_am": a.stride(0)}
 
 
 def launch(x, w_q, w_s, w_zp, N, K, BN, BK, warps, stages):
@@ -47,7 +46,7 @@ def launch(x, w_q, w_s, w_zp, N, K, BN, BK, warps, stages):
     wq = w_q.view(torch.int32)
     hy._triton_w4a16_skinny_fmt_kernel[grid](
         x, wq, w_s, w_zp, c, M, N, K, K // 8, K // G, **strides(x, wq, w_s),
-        group_size=G, ZP_BIAS=8, HAS_ZP=True, BLOCK_M=16, BLOCK_N=BN, BLOCK_K=BK,
+        group_size=G, ZP_BIAS=8, HAS_ZP=True, PACKED_DEQUANT=False, BLOCK_M=16, BLOCK_N=BN, BLOCK_K=BK,
         num_warps=warps, **kw)
     return c
 

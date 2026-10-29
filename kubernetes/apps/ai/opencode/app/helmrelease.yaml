@@ -24,7 +24,7 @@ spec:
               TZ: ${TIMEZONE}
               HOME: /home/opencode
               OPENCODE_CONFIG: /config/opencode.jsonc
-              LITELLM_API_KEY: ${LITELLM_API_KEY}
+              LLM_API_KEY: ${LLM_API_KEY}
             command:
               - opencode
               - web
@@ -60,9 +60,6 @@ spec:
 
     defaultPodOptions:
       priorityClassName: homelab-important
-      # No ServiceAccount, Role or ClusterRole exists for opencode; it reaches litellm and vmcp
-      # over HTTP only, so the default SA token is unused reach.
-      automountServiceAccountToken: false
       # Runs model-directed bash and in-process npm plugins.
       runtimeClassName: gvisor
 

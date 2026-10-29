@@ -1,63 +1,93 @@
 /* =========================================================
-   P2POOL DASHBOARD
-   Dark instrument panel. One accent (Monero orange) for the
-   live series and current selection; red and green are
-   reserved for state, never decoration.
+   P2POOL DASHBOARD: TIDE TABLE
+   The miners run only on surplus solar, so the page reads like
+   a harbour tide table of daily mining windows.
+   Sun-amber means mining and nothing else; teal is the pool
+   and network; slate is idle.
    ========================================================= */
 
 :root {
-  /* Neutrals carry a trace of the accent's hue rather than a default warm tint */
-  --bg: oklch(0.16 0.006 60);
-  --surface: oklch(0.2 0.007 60);
-  --surface-raised: oklch(0.245 0.008 60);
-  --line: oklch(0.3 0.01 60);
-  --line-strong: oklch(0.38 0.012 60);
+  /* Day chart: pale water ground, navy ink */
+  --ground: oklch(0.95 0.012 230);
+  --sheet: oklch(0.99 0.004 230);
+  --rule: oklch(0.86 0.018 235);
+  --rule-strong: oklch(0.72 0.03 245);
 
-  /* Every ink step clears 4.5:1 on --surface */
-  --ink: oklch(0.97 0.004 60);
-  --ink-2: oklch(0.8 0.006 60);
-  --ink-3: oklch(0.66 0.008 60);
+  /* Every ink step clears 4.5:1 on --sheet and --ground */
+  --ink: oklch(0.27 0.065 258);
+  --ink-2: oklch(0.38 0.05 255);
+  --ink-3: oklch(0.48 0.04 250);
 
-  --accent: oklch(0.72 0.175 55);
-  --accent-dim: color-mix(in oklch, var(--accent) 14%, transparent);
-  --accent-line: color-mix(in oklch, var(--accent) 35%, transparent);
+  --shell: oklch(0.27 0.065 258);
+  --shell-ink: oklch(0.95 0.012 230);
+  --shell-ink-2: oklch(0.78 0.03 240);
+
+  --high: oklch(0.8 0.16 78);
+  --high-ink: oklch(0.47 0.11 65);
+  --water: oklch(0.52 0.08 205);
+  --idle: oklch(0.72 0.025 240);
+  --negative: oklch(0.52 0.18 28);
+  /* Navy on amber in both themes: the mining band keeps its ink */
+  --on-high: oklch(0.27 0.065 258);
+
   /* Chart.js reads these through getComputedStyle, so they live here too */
-  --chart-fill: color-mix(in oklch, var(--accent) 12%, transparent);
-  --chart-grid: color-mix(in oklch, var(--line) 60%, transparent);
+  --accent: oklch(0.62 0.15 70);
+  --chart-fill: color-mix(in oklch, var(--high) 28%, transparent);
+  --chart-grid: color-mix(in oklch, var(--rule) 70%, transparent);
+  /* Price is not mining, so it stays out of amber */
+  --chart-alt: var(--ink-2);
+  --chart-alt-fill: color-mix(in oklch, var(--ink-2) 10%, transparent);
+  --surface-raised: var(--sheet);
+  --line: var(--rule);
 
-  --positive: oklch(0.76 0.15 155);
-  --positive-line: color-mix(in oklch, var(--positive) 40%, transparent);
-  --negative: oklch(0.68 0.19 25);
+  --font: "Archivo", system-ui, sans-serif;
 
-  --font-ui:
-    system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica", "Arial",
-    sans-serif;
-  /* Figures are the content here: a mono keeps columns and deltas aligned */
-  --font-num:
-    ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", "Menlo",
-    "Consolas", monospace;
-
-  --step--2: 0.6875rem;
   --step--1: 0.75rem;
-  --step-0: 0.8125rem;
-  --step-1: 0.875rem;
-  --step-2: 1rem;
-  --step-3: 1.25rem;
-  --step-4: 1.625rem;
-  --step-5: 2rem;
+  --step-0: 0.875rem;
+  --step-1: 1rem;
+  --step-2: 1.25rem;
+  --step-3: 1.625rem;
+  --step-4: 2.25rem;
+  --step-5: 3.5rem;
 
-  --gap: 1rem;
-  --pad: 1.125rem;
-  --radius: 10px;
-  --radius-sm: 6px;
-
-  --chart-h: 300px;
+  --gutter: clamp(1rem, 3vw, 2.5rem);
+  --gap: 1.5rem;
+  --chart-h: 260px;
 
   /* ease-out-quart: fast departure, no overshoot */
   --ease: cubic-bezier(0.25, 1, 0.5, 1);
-  --speed: 160ms;
+  --speed: 180ms;
 
-  --z-sticky: 10;
+  color-scheme: light;
+}
+
+/* Night chart: the page is opened as often after dark as by day */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: oklch(0.19 0.035 255);
+    --sheet: oklch(0.225 0.04 255);
+    --rule: oklch(0.33 0.04 255);
+    --rule-strong: oklch(0.46 0.045 250);
+
+    --ink: oklch(0.95 0.012 235);
+    --ink-2: oklch(0.83 0.02 238);
+    --ink-3: oklch(0.72 0.025 240);
+
+    --shell: oklch(0.15 0.03 258);
+    --shell-ink: oklch(0.95 0.012 235);
+    --shell-ink-2: oklch(0.74 0.03 240);
+
+    --high: oklch(0.82 0.16 80);
+    --high-ink: oklch(0.85 0.15 82);
+    --water: oklch(0.74 0.09 200);
+    --idle: oklch(0.5 0.03 245);
+    --negative: oklch(0.72 0.17 28);
+
+    --accent: oklch(0.82 0.16 80);
+    --chart-fill: color-mix(in oklch, var(--high) 22%, transparent);
+
+    color-scheme: dark;
+  }
 }
 
 *,
@@ -68,29 +98,34 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--ground);
   color: var(--ink-2);
-  font-family: var(--font-ui);
+  font-family: var(--font);
   font-size: var(--step-0);
+  font-variant-numeric: tabular-nums;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 h1,
 h2,
 h3,
-h4,
 p,
 dl,
-dd {
+dd,
+figure {
   margin: 0;
 }
 
-:where(a, button, select, [tabindex]):focus-visible {
-  outline: 2px solid var(--accent);
+::selection {
+  background: var(--high);
+  color: var(--on-high);
+}
+
+:focus-visible {
+  outline: 2px solid var(--water);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
 }
 
 .visually-hidden {
@@ -98,310 +133,686 @@ dd {
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip-path: inset(50%);
+  clip: rect(0 0 0 0);
   white-space: nowrap;
 }
 
-/* =========================================================
-   MASTHEAD
-   ========================================================= */
-.masthead {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--gap);
-  padding: 0.875rem clamp(0.75rem, 3vw, 2rem);
-  background: var(--bg);
-  border-bottom: 1px solid var(--line);
+.num {
+  text-align: right;
 }
 
-.masthead h1 {
-  font-size: var(--step-3);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--ink);
+/* Explanations live in the title, not in fine print under every figure */
+.term {
+  cursor: help;
+  text-decoration: underline dotted var(--rule-strong);
+  text-underline-offset: 3px;
 }
 
-.masthead__sub {
-  font-size: var(--step--1);
-  color: var(--ink-3);
-}
+/* ---------- Shell ---------- */
 
-.masthead__state {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.masthead__stamp {
-  font-family: var(--font-num);
-  font-size: var(--step--2);
-  color: var(--ink-3);
-}
-
-/* State pill: the one place colour means status rather than brand */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.6rem 0.25rem 0.5rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-size: var(--step--1);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-.pill__dot,
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ink-3);
-  flex: none;
-}
-
-.dot {
-  display: inline-block;
-  margin-right: 0.4rem;
-  vertical-align: 0.05em;
-}
-
-.is-live .pill__dot,
-.dot.is-live {
-  background: var(--positive);
-  animation: breathe 2.4s var(--ease) infinite;
-}
-
-.is-down .pill__dot,
-.dot.is-down {
-  background: var(--negative);
-}
-
-.is-live {
-  border-color: var(--positive-line);
-}
-
-@keyframes breathe {
-  50% {
-    opacity: 0.35;
-  }
-}
-
-/* =========================================================
-   PAGE SHELL
-   ========================================================= */
-main {
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-  max-width: 100rem;
-  margin: 0 auto;
-  padding: 1.5rem clamp(0.75rem, 3vw, 2rem) 3rem;
-}
-
-.section-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.section-head h2 {
-  font-size: var(--step-2);
-  font-weight: 600;
-  color: var(--ink);
-}
-
-/* =========================================================
-   OVERVIEW STRIP
-   ========================================================= */
-.overview {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.metric {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: var(--pad);
-  background: var(--surface);
-}
-
-.metric__label {
-  font-size: var(--step--1);
-  color: var(--ink-3);
-}
-
-.metric__value {
-  font-family: var(--font-num);
-  font-size: var(--step-5);
-  font-weight: 500;
-  line-height: 1.1;
-  /* Mono runs wide at display sizes; pull it back so "2.41 kH/s" reads as one figure */
-  letter-spacing: -0.03em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.metric__value--sm {
-  font-size: var(--step-4);
-}
-
-.metric__note {
-  font-size: var(--step--1);
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-
-/* =========================================================
-   RANGE CONTROL
-   ========================================================= */
-.range {
-  display: inline-flex;
-  padding: 2px;
-  gap: 2px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-
-.range__opt {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--ink-3);
-  font: inherit;
-  font-size: var(--step--1);
-  font-variant-numeric: tabular-nums;
-  padding: 0.3rem 0.7rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition:
-    color var(--speed) var(--ease),
-    background-color var(--speed) var(--ease);
-}
-
-.range__opt:hover {
-  color: var(--ink);
-  background: var(--surface-raised);
-}
-
-.range__opt[aria-pressed="true"] {
-  background: var(--accent-dim);
-  color: var(--accent);
-  font-weight: 600;
-}
-
-/* =========================================================
-   PANELS
-   ========================================================= */
-.trends__grid,
-.panels {
-  display: grid;
-  gap: var(--gap);
-  grid-template-columns: 1fr;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: var(--pad);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  min-width: 0;
-  transition: border-color var(--speed) var(--ease);
-}
-
-.panel:hover {
-  border-color: var(--line-strong);
-}
-
-.panel__head {
+.bar {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 1rem;
+  padding: 0.75rem var(--gutter);
+  background: var(--shell);
+  color: var(--shell-ink);
 }
 
-.panel__title {
+.bar__name {
   font-size: var(--step-1);
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: 0.01em;
+}
+
+.bar__sub {
+  margin-left: 0.5rem;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-size: var(--step--1);
+  color: var(--shell-ink-2);
+}
+
+.bar__stamp {
+  font-size: var(--step--1);
+  color: var(--shell-ink-2);
+}
+
+main {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 var(--gutter) 4rem;
+}
+
+/* ---------- State band ---------- */
+
+.state {
+  display: grid;
+  grid-template-columns: minmax(18rem, 2fr) 3fr;
+  gap: 2rem;
+  align-items: end;
+  margin: 0 calc(-1 * var(--gutter)) var(--gap);
+  padding: 2.25rem var(--gutter) 1.5rem;
+  background: var(--sheet);
+  border-bottom: 1px solid var(--rule);
+  transition: background-color 400ms var(--ease);
+  --tide-fill: var(--high);
+  --tide-stroke: var(--high-ink);
+}
+
+/* Mining owns the band: the one place amber floods a region */
+.state[data-state="mining"] {
+  background: var(--high);
+  border-bottom-color: transparent;
+  --tide-fill: color-mix(in oklch, var(--on-high) 85%, transparent);
+  --tide-stroke: var(--on-high);
+  --tide-base: color-mix(in oklch, var(--on-high) 35%, transparent);
+  --tide-grid: color-mix(in oklch, var(--on-high) 15%, transparent);
+  --tide-now: var(--on-high);
+  --tide-future: color-mix(in oklch, var(--on-high) 8%, transparent);
+}
+
+.state[data-state="mining"] .state__line,
+.state[data-state="mining"] .state__detail,
+.state[data-state="mining"] .hours {
+  color: var(--on-high);
+}
+
+.state__line {
+  font-size: var(--step-5);
+  font-weight: 800;
+  font-stretch: 125%;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.state__figure {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: var(--step-4);
+  font-weight: 700;
+  font-stretch: 112%;
+  letter-spacing: -0.01em;
+}
+
+.state__caption {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+.state[data-state="mining"] .state__caption {
+  color: var(--on-high);
+}
+
+.state[data-state="unknown"] .state__line {
+  color: var(--ink-3);
+}
+
+.state__detail {
+  margin-top: 0.75rem;
+  font-size: var(--step-1);
+  color: var(--ink-2);
+}
+
+.state__tide .tide {
+  height: 7rem;
+}
+
+/* ---------- The tide curve: one form at three sizes ---------- */
+
+.tide {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.tide * {
+  vector-effect: non-scaling-stroke;
+}
+
+.tide__area {
+  fill: var(--tide-fill, var(--high));
+  stroke: var(--tide-stroke, var(--high-ink));
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
+.tide__base {
+  stroke: var(--tide-base, var(--rule-strong));
+  stroke-width: 1;
+}
+
+.tide__grid {
+  stroke: var(--tide-grid, var(--rule));
+  stroke-width: 1;
+  fill: none;
+}
+
+.tide__now {
+  stroke: var(--tide-now, var(--ink));
+  stroke-width: 1.5;
+}
+
+/* Hours after now have not happened: dim them rather than drawing them as idle */
+.tide__future {
+  fill: var(--tide-future, color-mix(in oklch, var(--ground) 70%, transparent));
+}
+
+.hours {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.25rem;
+  font-size: var(--step--1);
+  font-stretch: 85%;
+  color: var(--ink-3);
+}
+
+/* ---------- Sheets ---------- */
+
+.sheets {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(19rem, 25rem);
+  gap: var(--gap);
+  align-items: start;
+}
+
+.sheet {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.sheet__title {
+  font-size: var(--step-1);
+  font-weight: 700;
+  font-stretch: 112%;
+  color: var(--ink);
+}
+
+.sheet__title--sub {
+  margin-top: 2.25rem;
+}
+
+/* ---------- Week tide table ---------- */
+
+.tides {
+  width: 100%;
+  margin-top: 0.75rem;
+  border-collapse: collapse;
+  font-stretch: 88%;
+}
+
+.tides th,
+.tides td {
+  padding: 0.5rem 0.625rem;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tides th:first-child,
+.tides td:first-child {
+  padding-left: 0;
+}
+
+.tides th:last-child,
+.tides td:last-child {
+  padding-right: 0;
+}
+
+.tides thead th {
+  padding-top: 0;
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--ink-3);
+  border-bottom-color: var(--rule-strong);
+  vertical-align: bottom;
+}
+
+.tides .num {
+  text-align: right;
+}
+
+.tides tbody th {
   font-weight: 600;
   color: var(--ink);
 }
 
-/* =========================================================
-   FIGURES & FACTS
-   ========================================================= */
-.figure {
-  font-family: var(--font-num);
-  font-size: var(--step-4);
-  font-weight: 500;
-  line-height: 1.15;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.figure--sm {
-  font-size: var(--step-3);
-}
-
-.figure__note {
-  font-size: var(--step-0);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.footnote {
+.tides__date {
+  display: block;
   font-size: var(--step--1);
+  font-weight: 400;
   color: var(--ink-3);
-  text-wrap: pretty;
 }
 
-.pair + .pair {
+.tides__curve-head,
+.tides__curve {
+  width: 42%;
+  min-width: 12rem;
+}
+
+.tides__curve-head .hours {
+  margin: 0;
+}
+
+.tides__curve .tide {
+  height: 2.25rem;
+}
+
+.tides td {
+  color: var(--ink-2);
+}
+
+.tides__xmr {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.tides tr.is-idle td {
+  color: var(--ink-3);
+}
+
+.tides tr.is-today th {
+  font-weight: 700;
+}
+
+.tides tr.is-today.is-mined th {
+  color: var(--high-ink);
+}
+
+.tides__empty {
+  color: var(--ink-3);
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.tides__extra {
+  display: none;
+}
+
+/* ---------- 90-day record: whole cells, one per day ---------- */
+
+.season {
+  margin-top: 0.75rem;
+}
+
+.season__head,
+.season__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.season__head {
+  margin-bottom: 0.25rem;
+  font-size: var(--step--1);
+  font-stretch: 85%;
+  color: var(--ink-3);
+}
+
+.day {
+  position: relative;
+  aspect-ratio: 3.2;
+  padding: 2px 3px 0;
+  background: var(--ground);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.day .tide {
+  position: absolute;
+  inset: auto 0 0;
+  height: 75%;
+}
+
+.day__date {
+  position: relative;
+  z-index: 1;
+  font-size: 0.6875rem;
+  font-stretch: 80%;
+  line-height: 1;
+  color: var(--ink-3);
+}
+
+.day__date--month {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.day.is-today {
+  outline: 1.5px solid var(--ink);
+  outline-offset: -1.5px;
+}
+
+/* No logger record that day: hatched, so it never reads as an idle day */
+.day.is-unrecorded {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 4px,
+    var(--rule) 4px 5px
+  );
+}
+
+.day--pad {
+  background: none;
+}
+
+/* ---------- Ledger ---------- */
+
+.ledger__list {
   margin-top: 0.5rem;
 }
 
-.facts {
+.ledger__row {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-top: auto;
-  padding-top: 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--rule);
 }
 
-.facts--grid {
+.ledger__row dt {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  color: var(--ink-2);
+}
+
+.ledger__row dd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.ledger__value {
+  font-size: var(--step-1);
+  font-weight: 600;
+  font-stretch: 92%;
+  color: var(--ink);
+}
+
+.ledger__row--lead .ledger__value {
+  font-size: var(--step-3);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.ledger__note {
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+/* One miner per line: the list breaks between entries, never inside one */
+.ledger__note--lines {
+  white-space: pre-line;
+}
+
+.ledger__list--pair {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.75rem 1.25rem;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 1.25rem;
+}
+
+.ledger__list--pair .ledger__row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+
+.ledger__list--pair dd {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.ledger__heading {
+  margin-top: 1.75rem;
+  font-size: var(--step-0);
+  font-weight: 700;
+  font-stretch: 112%;
+  color: var(--ink);
+}
+
+.ledger__status {
+  margin-left: 0.375rem;
+  font-weight: 400;
+  font-stretch: 100%;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+.select {
+  position: relative;
+}
+
+.select select {
+  appearance: none;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--ink-2);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.125rem 1.25rem 0.125rem 0.375rem;
+  cursor: pointer;
+  transition: border-color var(--speed) var(--ease);
+}
+
+.select::after {
+  content: "";
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.select select:hover {
+  border-color: var(--rule-strong);
+}
+
+.payouts {
+  width: 100%;
+  margin-top: 0.5rem;
+  border-collapse: collapse;
+  font-stretch: 92%;
+}
+
+.payouts th,
+.payouts td {
+  padding: 0.4375rem 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+}
+
+.payouts th {
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+.payouts .num {
+  text-align: right;
+  padding-left: 1rem;
+}
+
+.payouts td {
+  color: var(--ink);
+}
+
+/* ---------- Trends ---------- */
+
+.trends {
+  margin-top: 2.5rem;
+}
+
+.trends__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.trends__grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+}
+
+.chart-sheet + .chart-sheet {
+  margin-left: var(--gap);
+  padding-left: var(--gap);
+  border-left: 1px solid var(--rule);
+}
+
+.chart-sheet__title {
+  margin-bottom: 0.75rem;
+  font-size: var(--step-0);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.chart {
+  position: relative;
+  height: var(--chart-h);
+}
+
+.chart__empty[hidden] {
+  display: none;
+}
+
+.chart__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  color: var(--ink-3);
+}
+
+.range {
+  display: inline-flex;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.range__opt {
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: 600;
+  min-width: 2.75rem;
+  padding: 0.375rem 0.625rem;
+  color: var(--ink-2);
+  background: var(--sheet);
+  border: 0;
+  border-left: 1px solid var(--rule);
+  cursor: pointer;
+  transition:
+    background-color var(--speed) var(--ease),
+    color var(--speed) var(--ease);
+}
+
+.range__opt:first-child {
+  border-left: 0;
+}
+
+.range__opt:hover {
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.range__opt[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--sheet);
+}
+
+/* ---------- Pool & node ---------- */
+
+/* A ruled section: heavy rule above, hairlines inside, like a table's foot */
+.node {
+  margin-top: 2.5rem;
+  border-top: 2px solid var(--ink);
+  border-bottom: 1px solid var(--rule);
+}
+
+.node__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.node__summary::-webkit-details-marker {
+  display: none;
+}
+
+.node__summary::before {
+  content: "";
+  align-self: center;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 1.5px solid var(--ink-2);
+  border-bottom: 1.5px solid var(--ink-2);
+  transform: rotate(-45deg);
+  transition: transform var(--speed) var(--ease);
+}
+
+.node[open] .node__summary::before {
+  transform: rotate(45deg);
+}
+
+.node__glance {
+  color: var(--ink-3);
+}
+
+.node__glance span {
+  color: var(--ink-2);
+}
+
+.node__glance .is-water {
+  color: var(--water);
+  font-weight: 600;
+}
+
+.node__body {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+  gap: 2rem;
+  padding: 1rem 0 1.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  column-gap: 1.5rem;
 }
 
 .fact {
   display: flex;
-  align-items: baseline;
   justify-content: space-between;
-  gap: 0.75rem;
-  font-size: var(--step--1);
-}
-
-.facts--grid .fact {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
 }
 
 .fact dt {
@@ -409,290 +820,199 @@ main {
 }
 
 .fact dd {
-  font-family: var(--font-num);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.facts--grid .fact dd {
-  font-size: var(--step-0);
   color: var(--ink);
-  text-align: left;
-}
-
-/* Help affordance — a badge, not a superscript glyph */
-.info {
-  display: inline-grid;
-  place-items: center;
-  width: 14px;
-  height: 14px;
-  margin-left: 0.3rem;
-  border: 1px solid var(--line-strong);
-  border-radius: 50%;
-  font-family: var(--font-ui);
-  font-size: 9px;
-  font-style: italic;
-  line-height: 1;
-  color: var(--ink-3);
-  cursor: help;
-  vertical-align: 0.15em;
-  transition:
-    color var(--speed) var(--ease),
-    border-color var(--speed) var(--ease);
-}
-
-.info:hover,
-.info:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent-line);
-}
-
-/* =========================================================
-   CHARTS
-   ========================================================= */
-.chart {
-  position: relative;
-  width: 100%;
-  height: var(--chart-h);
-  margin-top: 0.25rem;
-}
-
-/* An explicit `display` beats the UA rule for [hidden], so restore it */
-[hidden] {
-  display: none !important;
-}
-
-.chart__empty {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  text-align: center;
-  padding: 1.5rem;
-  max-width: 34ch;
-  margin: auto;
-  font-size: var(--step--1);
-  color: var(--ink-3);
-  text-wrap: pretty;
-}
-
-/* =========================================================
-   LUCK
-   ========================================================= */
-.luck {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: 1fr;
-}
-
-/* A rule, not a nested card: the panel is already the container */
-.luck__part + .luck__part {
-  padding-top: 1rem;
-  border-top: 1px solid var(--line);
-}
-
-.luck__label {
-  font-size: var(--step--1);
-  font-weight: 500;
-  color: var(--ink-3);
-  margin-bottom: 0.25rem;
-}
-
-/* =========================================================
-   SELECT
-   ========================================================= */
-.select {
-  position: relative;
-  display: inline-flex;
-}
-
-.select::after {
-  content: "";
-  position: absolute;
-  right: 0.6rem;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border-right: 1.5px solid var(--ink-3);
-  border-bottom: 1.5px solid var(--ink-3);
-  transform: translateY(-70%) rotate(45deg);
-  pointer-events: none;
-}
-
-.select select {
-  appearance: none;
-  padding: 0.3rem 1.75rem 0.3rem 0.6rem;
-  background: var(--surface-raised);
-  color: var(--ink-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-size: var(--step--1);
-  cursor: pointer;
-  transition: border-color var(--speed) var(--ease);
-}
-
-.select select:hover {
-  border-color: var(--line-strong);
-}
-
-/* =========================================================
-   TABLE
-   ========================================================= */
-.table-scroll {
-  overflow-x: auto;
-}
-
-#paymentsTable {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
-
-#paymentsTable th {
-  position: sticky;
-  top: 0;
-  padding: 0.4rem 0.5rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-  font-size: var(--step--2);
-  font-weight: 500;
-  color: var(--ink-3);
-  text-align: left;
-  white-space: nowrap;
-}
-
-#paymentsTable td {
-  padding: 0.45rem 0.5rem;
-  border-bottom: 1px solid var(--line);
-  font-family: var(--font-num);
-  font-size: var(--step--1);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-#paymentsTable tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-#paymentsTable tbody tr:hover td {
-  background: var(--surface-raised);
-}
-
-.cell-right {
+  font-weight: 600;
+  font-stretch: 92%;
   text-align: right;
 }
 
-/* =========================================================
-   WORKERS
-   ========================================================= */
+.dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--idle);
+  vertical-align: 0.05em;
+}
+
+.dot.is-live {
+  background: var(--water);
+}
+
+.dot.is-down {
+  background: var(--negative);
+}
+
+.workers-sheet .ledger__heading {
+  margin-top: 0.5rem;
+}
+
 .workers {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-height: 320px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  margin-top: 0.5rem;
 }
 
 .worker-item {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.55rem 0.7rem;
-  background: var(--surface-raised);
-  border-radius: var(--radius-sm);
-  font-size: var(--step--1);
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--rule);
 }
 
 .worker-name {
-  color: var(--ink-2);
+  color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .worker-hash {
-  font-family: var(--font-num);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  color: var(--ink-2);
+  font-weight: 600;
 }
 
 .no-workers {
-  padding: 1.25rem 0;
-  text-align: center;
-  font-size: var(--step--1);
+  padding: 0.5rem 0;
   color: var(--ink-3);
 }
 
-/* =========================================================
-   LOADING SKELETON
-   Replaced by real text on first paint; never gates content
-   visibility, so a headless render still shows the markup.
-   ========================================================= */
+/* ---------- Loading ---------- */
+
 .skeleton {
   display: inline-block;
-  width: 5ch;
-  height: 0.7em;
-  vertical-align: middle;
-  border-radius: 3px;
-  background: linear-gradient(
-      90deg,
-      var(--surface-raised),
-      var(--line),
-      var(--surface-raised)
-    )
-    0 0 / 200% 100%;
-  animation: sweep 1.4s linear infinite;
+  width: 6em;
+  height: 0.9em;
+  border-radius: 2px;
+  background: var(--rule);
+  animation: pulse 1.4s var(--ease) infinite alternate;
 }
 
-@keyframes sweep {
+@keyframes pulse {
   to {
-    background-position: -200% 0;
+    opacity: 0.45;
   }
 }
 
-/* =========================================================
-   BREAKPOINTS
-   Structural only: column counts and chart height, never
-   fluid type.
-   ========================================================= */
-@media (min-width: 40rem) {
-  .luck {
-    grid-template-columns: 1fr 1fr;
+/* ---------- Narrow screens ---------- */
+
+@media (max-width: 1080px) {
+  .sheets,
+  .trends__grid,
+  .node__body {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .luck__part + .luck__part {
-    padding-top: 0;
-    padding-left: 1rem;
-    border-top: 0;
-    border-left: 1px solid var(--line);
-  }
-
-  .panels {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .chart-sheet + .chart-sheet {
+    margin: var(--gap) 0 0;
+    padding: var(--gap) 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--rule);
   }
 }
 
-@media (min-width: 64rem) {
+@media (max-width: 760px) {
   :root {
-    --chart-h: 340px;
+    --step-5: 2.5rem;
+    --chart-h: 220px;
   }
 
-  .trends__grid {
-    grid-template-columns: 1.7fr 1fr;
+  .state {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    padding-top: 1.75rem;
   }
 
-  .panels {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .state__tide .tide {
+    height: 4.5rem;
   }
 
-  .panel--wide {
-    grid-column: span 2;
+  .day {
+    aspect-ratio: 1.6;
+  }
+
+  /* Keep the date clear of the curve in the small cells */
+  .day .tide {
+    height: 55%;
+  }
+
+  .state__figure {
+    font-size: var(--step-3);
+  }
+
+  .sheet {
+    padding: 1rem;
+  }
+
+  .bar__sub {
+    display: none;
+  }
+
+  /* Each day becomes a two-line entry: figures above, its tide below */
+  .tides thead {
+    display: none;
+  }
+
+  .tides,
+  .tides tbody {
+    display: block;
+  }
+
+  .tides tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "day xmr"
+      "curve curve"
+      "meta meta";
+    column-gap: 1rem;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .tides th,
+  .tides td {
+    padding: 0;
+    border: 0;
+  }
+
+  .tides tbody th {
+    grid-area: day;
+  }
+
+  .tides__date {
+    display: inline;
+    margin-left: 0.375rem;
+  }
+
+  .tides__curve {
+    grid-area: curve;
+    width: auto;
+    min-width: 0;
+    padding: 0.375rem 0 !important;
+  }
+
+  .tides__xmr {
+    grid-area: xmr;
+  }
+
+  /* Mined, avg and peak fold into the window cell's phone-only summary */
+  .tides__window {
+    grid-area: meta;
+    white-space: normal !important;
+    font-size: var(--step--1);
+    color: var(--ink-3);
+  }
+
+  .tides__stat {
+    display: none;
+  }
+
+  .tides__extra {
+    display: inline;
+  }
+
+  .tides__empty {
+    grid-column: 1 / -1;
   }
 }
 
@@ -700,12 +1020,7 @@ main {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-
-  .skeleton {
-    background: var(--surface-raised);
+    transition-duration: 0ms !important;
+    animation: none !important;
   }
 }

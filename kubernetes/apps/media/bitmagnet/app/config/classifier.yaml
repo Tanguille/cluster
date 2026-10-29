@@ -1,0 +1,23 @@
+# Classifier source, merged over bitmagnet's core workflow.
+flags:
+  # unknown: Radarr/Sonarr search by category, so torrents without a content type never reach them.
+  delete_content_types:
+    [xxx, music, software, game, ebook, audiobook, comic, unknown]
+extensions:
+  executable: [exe, msi, bat, cmd, com, scr, pif, lnk, vbs, ps1, jar]
+workflows:
+  movies_tv:
+    # Malware lures, before default spends a TMDB lookup on them: core types a torrent as software
+    # only when executables dominate its size, so a fake video beside an .exe stays a movie.
+    # RARBG_DO_NOT_MIRROR.exe is a harmless 99-byte marker in most RARBG releases.
+    - if_else:
+        condition: "torrent.files.exists(f, f.extension in extensions.executable && !(f.baseName == 'RARBG_DO_NOT_MIRROR' && f.size == 99))"
+        if_action: delete
+    - run_workflow: default
+    # Only 720p and up is wanted: drop SD resolutions and cam/DVD sources.
+    - if_else:
+        condition:
+          or:
+            - "result.videoResolution in ['V360p', 'V480p', 'V540p', 'V576p']"
+            - "result.videoSource in ['CAM', 'TELESYNC', 'TELECINE', 'WORKPRINT', 'DVD']"
+        if_action: delete

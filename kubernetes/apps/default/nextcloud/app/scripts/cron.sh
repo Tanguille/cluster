@@ -10,7 +10,8 @@ if ! php occ status >/dev/null 2>&1; then
 fi
 
 # App background jobs (memories, recognize, ...) all run inside cron.php
-php -f cron.php || echo "ERROR: cron.php failed" >&2
+# Preview generation (Image.php) exhausts the image's 512M PHP limit nightly; the container allows 4Gi.
+php -d memory_limit=1536M -f cron.php || echo "ERROR: cron.php failed" >&2
 
 # Daily block. Runs take ~9min under concurrencyPolicy Forbid, so a fixed :00
 # slot gets skipped when the previous run overruns; the stamp makes any run in

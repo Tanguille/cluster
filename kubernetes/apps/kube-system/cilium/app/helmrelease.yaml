@@ -53,18 +53,22 @@ spec:
       enabled: true
     operator:
       rollOutPods: true
-      dashboards:
-        enabled: true
+      resources:
+        requests:
+          memory: 512Mi # 30d peak 332Mi
       prometheus:
         serviceMonitor:
           enabled: true
     pmtuDiscovery:
       enabled: true
+    # 7d median 839 MiB, 30d max 952 MiB.
+    resources:
+      requests:
+        memory: 1Gi
     prometheus:
       enabled: true
       serviceMonitor:
         enabled: true
-        trustCRDsExist: true
     rollOutCiliumPods: true
     routingMode: native
     securityContext:

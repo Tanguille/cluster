@@ -5,9 +5,10 @@ kind: CiliumLoadBalancerIPPool
 metadata:
   name: pool
 spec:
-  allowFirstLastIPs: "No"
+  # Pinned LB IPs only: with the whole LAN an unpinned Service took the router's .1; now it stays pending
   blocks:
-    - cidr: ${LAN_CIDR}
+    - start: ${LB_POOL_START}
+      stop: ${LB_POOL_STOP}
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliuml2announcementpolicy_v2alpha1.json
 apiVersion: cilium.io/v2alpha1

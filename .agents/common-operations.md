@@ -74,8 +74,9 @@ Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full proc
 
 Never commit plaintext secrets or the age key. Use placeholders so I can add the secrets manually.
 
-Post-quantum age (age1pq1) is supported. Both halves of the key must be present in `age.key`: a
-key that lost its PQ half decrypts `talos/` but fails on everything under `kubernetes/`.
+See the [SOPS runbook](../docs/sops.md) for key scope, index-based guardrails,
+human-held Vaultwarden backup, recovery, and coordinated rotation.
+`flux-system/sops-age` is the only key Flux reads (`--sops-age-secret`); never remove it.
 
 ## Debugging
 

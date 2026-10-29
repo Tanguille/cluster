@@ -17,10 +17,10 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 ## Load context on demand
 
 - [Learned preferences](.agents/learned-preferences.md): tool selection, ToolHive workflow, reversions, resources, and confidence
-- [Learned workspace](.agents/learned-workspace.md): cluster-specific Kubernetes, ToolHive, database, storage, Talos, and media facts
+- [Learned workspace](.agents/learned-workspace.md): cluster-specific Kubernetes, ToolHive, database, storage, and Talos facts
 - [Common operations](.agents/common-operations.md): validation, app operations, SOPS, debugging, and backup/restore
 - [Skill catalog](.agents/skills/): add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation, handoff, k8s-at-home-research, pr-review, prometheus-cluster-health — one `SKILL.md` per directory
-- [Useful commands](docs/useful_commands.md): flux/just/talos/sops command reference and app-specific runbooks
+- [Useful commands](docs/useful_commands.md): flux/just/talos command reference and app-specific runbooks
 - [Drives](docs/drives.md): drive inventory, PLP/write-cache policy, control-1 zvol chain, smartctl on Talos and TrueNAS
 - [Archived migrations](docs/archived-migrations.md): completed ZFS→Ceph, Radarr→Postgres and OPNsense BGP procedures, with git recovery pointers
 - [LLM hosting](docs/llm-hosting/): vLLM tuning constraints and benchmark history for `kubernetes/apps/ai/`; records pruned on 2026-10-09 (plans, SGLang/engine/cutover records, fp8-era tuning log and nightly benches) are in git at `6f1c0b4c7`

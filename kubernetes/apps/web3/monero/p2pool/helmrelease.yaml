@@ -19,14 +19,12 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/p2pool
-              tag: v4.18.1@sha256:e3951704f942e0188ed0428661f4d1531f38325bf48b391b97ada3726d4b0036
+              tag: v4.18.1@sha256:a78dfe82c52e43c2678af2a599ba593e010ee467ede33f17856abdf412d7333c
             args:
               - "--host"
               - "monerod.web3.svc.cluster.local"
               - "--rpc-port"
               - "18089"
-              - "--loglevel"
-              - "4"
               - "--wallet"
               - "$(P2POOL_WALLET_ADDRESS)"
               - "--stratum"
@@ -52,12 +50,13 @@ spec:
                     key: address
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
+              # Cache/log/peers use the /home/p2pool PVC; API output and /tmp have their own mounts.
+              readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
                 cpu: 50m
-                memory: 550Mi
+                memory: 1Gi
               limits:
                 # kguardian cpu-throttled, ~33% sustained (bursty share
                 # validation vs 500m quota despite low average use).
@@ -92,6 +91,7 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
     service:
       p2pool:
         type: LoadBalancer

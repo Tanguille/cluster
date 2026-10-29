@@ -52,8 +52,4 @@ cluster:
       key: {{ certs.etcd.key }}
     extraArgs:
       listen-metrics-urls: http://0.0.0.0:2381
-      # Compact old revisions hourly so the DB stops growing; compaction never shrinks
-      # the file, the etcd-defrag CronJob reclaims that.
-      auto-compaction-mode: periodic
-      auto-compaction-retention: 1h
     advertisedSubnets: [192.168.0.0/24]

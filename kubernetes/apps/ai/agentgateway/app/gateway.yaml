@@ -1,0 +1,115 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewayparameters_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: agentgateway
+spec:
+  # The UI uses the admin listener, not the metrics listener on 15020.
+  # Network policies remain the boundary for direct pod access to this listener.
+  env:
+    - name: ADMIN_ADDR
+      value: 0.0.0.0:15000
+  # Prices the self-hosted models (agentgateway_gen_ai_client_cost_usd_total).
+  modelCatalog:
+    sources:
+      - configMap:
+          name: agentgateway-model-costs
+  deployment:
+    spec:
+      replicas: 2
+      template:
+        spec:
+          priorityClassName: homelab-important
+          # One replica per node, else both can share the drained node and the PDB deadlocks the drain.
+          # pod-template-hash: only same-revision pods repel, so a rollout surge pod may share a node with an old pod.
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      gateway.networking.k8s.io/gateway-name: agentgateway
+                  matchLabelKeys:
+                    - pod-template-hash
+  podDisruptionBudget:
+    spec:
+      minAvailable: 1
+  # In-cluster only (internal and external access go through the envoy gateways); the
+  # default LoadBalancer type would take an address from the LB pool.
+  service:
+    spec:
+      type: ClusterIP
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gateway_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: agentgateway
+spec:
+  gatewayClassName: agentgateway
+  infrastructure:
+    parametersRef:
+      group: agentgateway.dev
+      kind: AgentgatewayParameters
+      name: agentgateway
+  listeners:
+    # Clients (clients.yaml) use agentgateway.ai.svc.cluster.local:4000; kritika's egress policy allows 4000.
+    - name: http
+      port: 4000
+      protocol: HTTP
+    # Model routing (models.yaml), internal key only.
+    - name: models
+      port: 8080
+      protocol: HTTP
+---
+# Route types by path, on both listeners. Unmapped paths default to Completions, which would
+# parse an Anthropic or rerank body as a chat completion.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-routes
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+  backend:
+    ai:
+      routes:
+        /v1/chat/completions: Completions
+        /v1/messages: Messages
+        /v1/messages/count_tokens: AnthropicTokenCount
+        /v1/responses: Responses
+        /v1/embeddings: Embeddings
+        /v1/rerank: Rerank
+---
+# Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
+# the http listener), which model (models listener) and whether the embedding cache answered. A missing value reads "unknown".
+# user_agent only once a key matched: a client-chosen value on rejected requests would mint a
+# series per request. Product token only, so a client upgrade keeps its series.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: agentgateway-metrics
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+  frontend:
+    metrics:
+      attributes:
+        add:
+          - name: user_agent
+            expression: 'has(apiKey.user_id) ? request.headers["user-agent"].split("/")[0] : "anonymous"'
+          - name: user_id
+            expression: apiKey.user_id
+          - name: cache_status
+            expression: 'response.headers["x-cache-status"]'
+          # Only once routed: an unknown model (404) or a rejected key (401) would let a client
+          # mint a series per made-up name.
+          - name: model
+            expression: 'response.code == 401 || response.code == 404 ? "unknown" : request.headers["x-gateway-model"]'

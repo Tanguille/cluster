@@ -20,7 +20,7 @@ spec:
 
         - alert: FluxInstanceNotReady
           expr: |-
-            flux_instance_info{exported_namespace="flux-system", name="flux", ready!="True"}
+            max by (exported_namespace, name) (flux_instance_info{exported_namespace="flux-system", name="flux", ready!="True"})
           for: 5m
           annotations:
             summary: >-
@@ -30,7 +30,7 @@ spec:
 
         - alert: HelmReleaseReconciliationFailure
           expr: |-
-            gotk_resource_info{customresource_kind="HelmRelease", ready!="True"} == 1
+            max by (exported_namespace, name) (gotk_resource_info{customresource_kind="HelmRelease", ready!="True"})
           for: 15m
           annotations:
             summary: >-
@@ -40,7 +40,7 @@ spec:
 
         - alert: KustomizationReconciliationFailure
           expr: |-
-            gotk_resource_info{customresource_kind="Kustomization", ready!="True"} == 1
+            max by (exported_namespace, name) (gotk_resource_info{customresource_kind="Kustomization", ready!="True"})
           for: 15m
           annotations:
             summary: >-

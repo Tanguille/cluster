@@ -9,12 +9,13 @@ spec:
     - name: rook-ceph.custom.rules
       rules:
         - alert: CephOSDSustainedHighLatency
+          # Not ceph_osd_apply_latency_ms: it (and `ceph osd perf`) reads 0 since Ceph 21.
           expr: |-
-            avg_over_time(ceph_osd_apply_latency_ms[30m]) > 100
+            rate(ceph_bluestore_txc_commit_lat_sum[30m]) / rate(ceph_bluestore_txc_commit_lat_count[30m]) * 1000 > 100
           for: 30m
           annotations:
             summary: >-
-              OSD {{ $labels.ceph_daemon }} apply latency has averaged over 100ms for 30 minutes
+              OSD {{ $labels.ceph_daemon }} BlueStore commit latency has averaged over 100ms for 30 minutes
               (CephSlowOps only fires on healthcheck-level stalls, not this)
           labels:
             severity: warning

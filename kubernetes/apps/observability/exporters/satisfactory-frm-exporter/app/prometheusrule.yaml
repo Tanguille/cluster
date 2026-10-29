@@ -24,14 +24,8 @@ spec:
           labels:
             severity: warning
             app: satisfactory
-        - alert: SatisfactoryRestartJobFailed
-          expr: kube_job_status_failed{namespace="default", job_name=~"satisfactory-restart-.*"} > 0
-          annotations:
-            summary: The daily FRM-recovery restart failed, so FRM stays broken until the next run
-          labels:
-            severity: warning
-            app: satisfactory
         # The daily 06:00 UTC session reload plus the 06:10 restart takes FRM away for ~15-20 min; 30m rides that out.
+        # A failed restart leaves FRM broken and surfaces here, so it needs no alert of its own.
         - alert: SatisfactoryFrmMissing
           expr: |-
             kube_deployment_status_replicas_available{namespace="default", deployment="satisfactory"} > 0
@@ -64,19 +58,6 @@ spec:
           annotations:
             summary: >-
               Batteries on power circuit {{ $labels.circuit_id }} are under 15% and still draining
-          labels:
-            severity: warning
-            app: satisfactory
-        # battery_differential flickers around 0 (spikes when machines start), so test the 15m average, not the raw value.
-        - alert: SatisfactoryOnBattery
-          expr: |-
-            avg_over_time(battery_differential{job="satisfactory-frm-exporter"}[15m]) < 0
-            and on(circuit_id) battery_capacity{job="satisfactory-frm-exporter"} > 0
-          for: 5m
-          annotations:
-            summary: >-
-              Power circuit {{ $labels.circuit_id }} has been net-discharging its batteries
-              for 20 minutes ({{ $value | humanize }} MW); add generation before they run out
           labels:
             severity: warning
             app: satisfactory

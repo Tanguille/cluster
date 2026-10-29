@@ -24,7 +24,7 @@ spec:
       resources:
         requests:
           cpu: 10m
-          memory: 64Mi
+          memory: 256Mi
         limits:
           cpu: 500m
           memory: 512Mi
@@ -37,7 +37,8 @@ spec:
             matchLabels:
               grafana.internal/instance: grafana
           allowCrossNamespaceImport: true
-      # No AIX/Darwin/Windows nodes here; these bundle dashboards stay empty.
+      # Bundle dashboards that stay empty here: no AIX/Darwin/Windows nodes,
+      # no Prometheus, no instance:node_* recording rules, one cluster.
       dashboards:
         nodes-aix:
           enabled: false
@@ -52,6 +53,43 @@ spec:
         k8s-windows-cluster-rsrc-use:
           enabled: false
         k8s-windows-node-rsrc-use:
+          enabled: false
+        prometheus:
+          enabled: false
+        prometheus-remote-write:
+          enabled: false
+        node-rsrc-use:
+          enabled: false
+        node-cluster-rsrc-use:
+          enabled: false
+        k8s-resources-multicluster:
+          enabled: false
+        # Covered by kubernetes-views-* plus k8s-resources-cluster/node (requests vs allocatable).
+        k8s-resources-namespace:
+          enabled: false
+        k8s-resources-nodes-overview:
+          enabled: false
+        k8s-resources-pod:
+          enabled: false
+        k8s-resources-workload:
+          enabled: false
+        k8s-resources-workloads-namespace:
+          enabled: false
+        cluster-total:
+          enabled: false
+        namespace-by-pod:
+          enabled: false
+        namespace-by-workload:
+          enabled: false
+        pod-total:
+          enabled: false
+        workload-total:
+          enabled: false
+        # Covered by node-exporter-full.
+        nodes:
+          enabled: false
+        # Covered by kubernetes-system-api-server.
+        apiserver:
           enabled: false
 
     defaultDatasources:
@@ -89,6 +127,11 @@ spec:
         # Fires on two empty-by-design k8s.rules.pod_owner recordings (namespace_workload_pod:kube_pod_owner:relabel); key is the exact alert name.
         RecordingRulesNoData:
           enabled: false
+        # Both duplicate TargetDown (1,230 alert-min/7d each); TooManyLogs covers every VM component.
+        TooManyLogs:
+          enabled: false
+        TooManyScrapeErrors:
+          enabled: false
 
     grafana:
       enabled: false
@@ -108,6 +151,8 @@ spec:
         spec:
           interval: 60s
           scrapeTimeout: 50s
+          # control-1 /metrics/cadvisor hit vmagent's 16MiB default cap (10-16); 2x so growth doesn't re-hit it
+          max_scrape_size: 32MiB
           relabelConfigs:
             - action: labelmap
               regex: __meta_kubernetes_node_label_(.+)
@@ -155,6 +200,10 @@ spec:
         spec:
           endpoints:
             - scheme: http
+              # Per-pod series made etcdInsufficientMembers fire once per down member, critical with 2/3 up.
+              relabelConfigs:
+                - action: labeldrop
+                  regex: pod
     kubeScheduler:
       vmScrape:
         spec:
@@ -177,7 +226,7 @@ spec:
           routes:
             - receiver: blackhole
               matchers:
-                - alertname = InfoInhibitor
+                - alertname =~ "InfoInhibitor|TrivyNewCriticalVulnerabilities"
             - receiver: discord-satisfactory
               matchers:
                 - app = satisfactory
@@ -187,6 +236,11 @@ spec:
               - severity = "critical"
             target_matchers:
               - severity = "warning"
+          # A down repository fails every app's backup; one outage raised 48 KopiurSnapshotFailed + 19 KopiurLastBackupFailed.
+          - source_matchers:
+              - alertname =~ "KopiurRepositoryNotReady|KopiurRepositoryBreakerOpen"
+            target_matchers:
+              - alertname =~ "KopiurSnapshotFailed|KopiurLastBackupFailed|KopiurBackupConsecutiveFailures|KopiurBackupStale"
         receivers:
           - name: blackhole
           - name: discord
@@ -244,6 +298,7 @@ spec:
           - name: envoy-internal
             namespace: network
       spec:
+        priorityClassName: homelab-critical # alerting path
         externalURL: https://vmalertmanager.${SECRET_DOMAIN}
         image:
           repository: quay.io/prometheus/alertmanager
@@ -269,8 +324,7 @@ spec:
           - vmalert.${SECRET_DOMAIN}
         parentRefs: *internalParentRefs
       spec:
-        # Observed usage, not the request below; pipeline went fully Pending in the 07-23 outage.
-        priorityClassName: homelab-critical # 149Mi
+        priorityClassName: homelab-critical # alerting path
         datasource:
           url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
         extraArgs:
@@ -288,7 +342,7 @@ spec:
 
     vmagent:
       spec:
-        priorityClassName: homelab-critical # 512Mi, sole scrape path
+        priorityClassName: homelab-critical # sole scrape path
         # vllm:cache_config_info carries 43 labels, past vmsingle's 40-label cap, so every
         # 30s scrape is rejected and logged: it fired RowsRejectedOnIngestion and TooManyLogs
         # while never being stored.
@@ -299,7 +353,8 @@ spec:
         resources:
           requests:
             cpu: 100m
-            memory: 512Mi
+            # 30d peak 289Mi; 512Mi left control-2 no room for its crowdsec agent.
+            memory: 256Mi
           limits:
             cpu: 1
             memory: 1Gi
@@ -307,7 +362,7 @@ spec:
     vmauth:
       enabled: true
       spec:
-        priorityClassName: homelab-critical # 89Mi, Grafana's query path
+        priorityClassName: homelab-critical # Grafana's query path
         # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its
         # 25Mi default, which its 39Mi peak already exceeds.
         resources:
@@ -380,6 +435,20 @@ spec:
                 for: 5m
                 labels:
                   severity: critical
+      cronjob-rules:
+        groups:
+          - name: cronjob
+            rules:
+              # concurrencyPolicy Forbid: a long run blocks schedules, so only an idle CronJob counts as missed.
+              - alert: CronJobNotScheduled
+                annotations:
+                  summary: CronJob {{ $labels.namespace }}/{{ $labels.cronjob }} is {{ $value | humanizeDuration }} past its scheduled run with no Job running
+                expr: |-
+                  time() - max by (namespace, cronjob) (kube_cronjob_next_schedule_time) > 1800
+                  and max by (namespace, cronjob) (kube_cronjob_status_active) == 0
+                for: 5m
+                labels:
+                  severity: warning
       node-hardware-rules:
         groups:
           - name: node-hardware

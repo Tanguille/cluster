@@ -4,9 +4,9 @@
   // Pinned: these execute in-process in an agent pod, so an unpinned npm range is remote code
   // execution on any upstream publish. Bumped by the opencode customManager in .renovaterc.json5.
   "plugin": [
-    "cc-safety-net@2.6.16",
+    "cc-safety-net@2.7.0",
     "@tarquinen/opencode-dcp@3.2.0",
-    "oh-my-opencode-slim@3.0.5"
+    "oh-my-opencode-slim@3.0.6"
   ],
   "mcp": {
     "toolhive": {
@@ -15,12 +15,12 @@
     }
   },
   "provider": {
-    "litellm": {
+    "llm": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "LiteLLM",
+      "name": "LLM gateway",
       "options": {
-        "baseURL": "http://litellm.ai.svc.cluster.local/v1",
-        "apiKey": "{env:LITELLM_API_KEY}"
+        "baseURL": "http://agentgateway.ai.svc.cluster.local:4000/v1",
+        "apiKey": "{env:LLM_API_KEY}"
       }
     }
   }

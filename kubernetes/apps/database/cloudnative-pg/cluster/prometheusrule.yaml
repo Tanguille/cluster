@@ -10,10 +10,10 @@ spec:
       rules:
         - alert: PgvectorVersionDrift
           annotations:
-            description: Database {{ $labels.datname }} on {{ $labels.pod }} runs a vector extension that differs from the one the image ships; bump the version pin in cloudnative-pg/databases/resourceset.yaml.
+            description: Database {{ $labels.datname }} runs a vector extension that differs from the one the image ships; bump the version pin in cloudnative-pg/databases/resourceset.yaml.
             summary: Installed pgvector differs from the image's version.
           expr: |-
-            cnpg_pgvector_drifted > 0
+            max by (namespace, job, datname) (cnpg_pgvector_drifted) > 0
           for: 1h
           labels:
             severity: warning
@@ -22,7 +22,7 @@ spec:
             description: Pod {{ $labels.pod }} is taking more than 5 minutes (300 seconds) for a query.
             summary: A query is taking longer than 5 minutes.
           expr: |-
-            cnpg_backends_max_tx_duration_seconds > 300
+            cnpg_backends_max_tx_duration_seconds{application_name!="barman_cloud_backup"} > 300
           for: 1m
           labels:
             severity: warning
@@ -58,7 +58,7 @@ spec:
             description: There are over 10 deadlock conflicts in {{ $labels.pod }}
             summary: Checks the number of database conflicts
           expr: |-
-            cnpg_pg_stat_database_deadlocks > 10
+            increase(cnpg_pg_stat_database_deadlocks[1h]) > 10
           for: 1m
           labels:
             severity: warning
@@ -67,7 +67,7 @@ spec:
             description: Query on pod {{ $labels.pod }} has been running for more than 30 seconds
             summary: A query is taking longer than 30 seconds to execute
           expr: |-
-            cnpg_backends_max_tx_duration_seconds > 30
+            cnpg_backends_max_tx_duration_seconds{application_name!="barman_cloud_backup"} > 30
           for: 1m
           labels:
             severity: info
@@ -76,7 +76,7 @@ spec:
             description: Query on pod {{ $labels.pod }} has been running for more than 60 seconds
             summary: A query is taking longer than 60 seconds to execute
           expr: |-
-            cnpg_backends_max_tx_duration_seconds > 60
+            cnpg_backends_max_tx_duration_seconds{application_name!="barman_cloud_backup"} > 60
           for: 1m
           labels:
             severity: warning

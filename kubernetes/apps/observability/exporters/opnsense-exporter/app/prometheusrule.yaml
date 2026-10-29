@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: opnsense-unbound-rules
+spec:
+  groups:
+    - name: opnsense-unbound.rules
+      rules:
+        - alert: UnboundDroppingLookups
+          # Lookups abandoned after discard-timeout; 1.6% knocked the Tuya cloud hub offline.
+          expr: |-
+            sum(rate(opnsense_unbound_stat{nodename="opnsense",name="total.num.queries_discard_timeout"}[1h]))
+              / sum(rate(opnsense_unbound_stat{nodename="opnsense",name="total.num.queries"}[1h]))
+              > 0.005
+          for: 30m
+          annotations:
+            summary: >-
+              OPNsense Unbound dropped {{ $value | humanizePercentage }} of lookups over the last hour
+          labels:
+            severity: warning
+        - alert: UnboundStatsStale
+          # node_exporter keeps serving the last unbound.prom if the per-minute cron stops.
+          expr: |-
+            time() - max(node_textfile_mtime_seconds{nodename="opnsense",file=~".*unbound.prom"}) > 300
+              or absent(max(node_textfile_mtime_seconds{nodename="opnsense",file=~".*unbound.prom"}))
+          # absent() over max() keeps the label set empty like the age branch, so a vanished
+          # file stays the same alert instead of resolving it and restarting the `for` timer.
+          # 5m age + 5m hold = paged at 10m stale, as the summary says.
+          for: 5m
+          annotations:
+            summary: >-
+              OPNsense Unbound stats have not been refreshed for over 10 minutes;
+              check the "Unbound stats for node_exporter" cron job and /usr/local/bin/unbound-prom.sh
+          labels:
+            severity: warning

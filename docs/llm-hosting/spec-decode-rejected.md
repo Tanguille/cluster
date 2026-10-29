@@ -12,6 +12,8 @@ published benchmarks.
 
 **DO NOT ENABLE speculative decoding of any kind on this deployment.** Re-open
 only when one of the named upstream issues is fixed, not on a new idea.
+The Hermes cron job `spec-decode-watch` (profile `local-llm-operator`, Mondays 09:00, script on the
+Hermes PVC) posts to Discord when one of the open blockers changes state.
 
 Status is not uniform across methods — two were measured on this hardware, two
 were ruled out on mechanism without a benchmark:
@@ -20,8 +22,9 @@ were ruled out on mechanism without a benchmark:
 | --- | --- | --- | --- |
 | **n-gram / prompt-lookup** | **corrupts output** | measured, incl. production | vllm#39273: SSM state corruption on hybrid GDN models — truncated/repeated fragments. Faster (see caveat below) and silently wrong. |
 | **DSpark** | rejected | measured | 0.59x (18.84 vs 31.73). Drafter KV is additive and bf16: +70% B/token, forcing the cap to 88K, below the 112K production peak. |
-| **MTP** | rejected | measured previously | -27% at M=5; 09-12 retest: wedge gone, but 48K conc 2-5 still loses (33/40/44/39 vs 45/51/62/71) and greedy output diverges. |
-| **EAGLE3 / DFlash** | blocked | **not benchmarked** — mechanism only | Same drafter-KV tax as DSpark, plus vllm#41640 (below). No published drafter for this base sized under the ~2.5 GiB break-even, so there was nothing to benchmark. |
+| **MTP** | rejected | measured 2026-10-24 | Corrupts output on nightly `83c078d` (k=1 and k=3), see "MTP retest 2026-10-24". Earlier: -27% at M=5; 09-12 retest: 48K conc 2-5 loses (33/40/44/39 vs 45/51/62/71) and greedy output diverges. |
+| **DFlash2** | blocked | measured 2026-10-27 | Cannot boot beside the UltraQuant KV (page padding, vllm#62558); on an fp8-KV stack +40% decode at 4K but pool 143K and a 120K cap. See "DFlash2 test 2026-10-27". |
+| **EAGLE3** | blocked | **not benchmarked** — mechanism only | Same drafter-KV tax as DSpark. No standalone EAGLE3 drafter is published for Qwen3.8-27B. |
 
 Also untested, and worth knowing before any retry: n-gram was never run against
 a same-prompt spec-off control, and no method was tested under sustained
@@ -393,6 +396,75 @@ fluent paraphrases (`departs 14:05; second departs` vs `departs at 14:05,
 second at`), the same verify-step signature as the radiance run. And the
 production shape still loses: 48K cached prefix, conc 2-5 aggregate 33 / 40 /
 44 / 39 with MTP vs 45 / 51 / 62 / 71 without, on the same image and band.
+
+## MTP retest 2026-10-24 on nightly 83c078d (vllm#61855 Triton fused GDN MTP decode): corrupts output
+
+Question: does the ROCm Triton port of `fused_gdn_decode_post_conv_mtp` (vllm#61855, replaces ~8 small
+kernels per GDN layer on the spec-decode step) change the 09-25 verdict? No: the correctness gate fails,
+so no speed number counts. Image `vllm-openai-rocm:nightly@sha256:d92e7eb` (`0.32.1rc1.dev361+g83c078d95`),
+unrouted clone of the production ISVC on a scratch kv-offload emptyDir, production and Hermes paused.
+
+| config | KV pool | boot | `spectest.py` | chat, temp 0 |
+| --- | ---: | --- | --- | --- |
+| spec off (control) | 469,489 | | coherent, 18.85 tok/s | full function and explanation |
+| MTP k=3 | 377,838 (-19.5%) | draft group `[3]` found, offload tier made, prefix caching on | degenerate: `Here` repeated, then `<think>` repeated | stops after 42 tokens, mid-function |
+| MTP k=1 | 391,759 (-16.6%) | same | degenerate: `Here` repeated, then endless backticks | 300 tokens of backticks |
+
+Acceptance: k=3 50/1,170 draft tokens (4%, 09-12 saw 66%), k=1 190/509 (37%). `spectest.py` always prints
+`DIVERGED at char 0` here because the model prefixes `Here are...`; read the output, not that line. Cause
+unknown (new kernel, the config overlay below, or elsewhere in the build); not isolated.
+vllm#55390 holds: the MTP draft group is identified and the offload tier is created.
+
+Clone recipe: `config.json` from the model dir with `re:.*mtp.*` appended to `quantization_config.ignore`
+(ConfigMap subPath-mounted over `/models/<hash>/config.json`, else boot dies on `fc.weight`); `--speculative-config`
+MTP; `--kv-cache-memory` 8.5 GB minus the 849 MB `model-mtp-bf16.safetensors`; cudagraph capture sizes
+multiples of k+1 up to `parallelSlots * (k+1)`. Pause with `flux suspend hr hermes`, scale Hermes to 0,
+`flux suspend ks llmkube-models` and `replicas: 0` on the production ISVC; restore in reverse.
+
+DFlash2 and DSpark were not rerun. The only relevant commit in the range is vllm#54163 (stops dropping the last
+prefix-cache block), which touches neither the drafter KV tax, the FP8 DFlash2 load failure nor the DSpark
+sampler crash.
+
+## DFlash2 test 2026-10-27 on nightly 0c030ba: cannot coexist with UltraQuant
+
+Question: with the draft-group detection rewritten (vllm#61455: explicit draft-layer tags; dflash and dspark
+skip the trailing-block drop, `config/speculative.py:2091`) and a 1.19 GiB drafter published
+(`syvai/Qwen3.8-27B-DFlash2-W4A16@4d30ec73`, a GPTQ requant of the z-lab drafter, 5 sliding-window layers), is
+DFlash2 viable? Image `0.32.1rc1.dev602+g5d35ce393`, unrouted clone, production and Hermes paused 41 min.
+The drafter suits our target: on a Swift-1.5 W4A16 derivative it accepts 3.6 tokens per step (akumaburn card).
+
+With the production KV (`ultraquant_4bit`), DFlash2 does not boot:
+
+| drafter KV | result |
+| --- | --- |
+| fp8, 262K cap | refused: 11.55 GiB KV needed vs 6.41 GiB available (est. max 128,544) |
+| fp8, 120K cap | pool 126,924 tokens (-73%); hybrid block 1536 -> 1648 breaks `--prefix-match-unit 64`; with 16 or none: `block stride 3375104 != page 1793024`, the drafter page pads every target page (vllm#62558) |
+| inherit `ultraquant_4bit` | no ROCm backend for head_size 128 (`platforms/rocm.py:876`) |
+
+The drafter also reserves KV for the full sequence although it keeps a 2048 window (vllm#55800).
+
+To measure the method anyway, both arms ran fp8 target KV, `TRITON_ATTN`, 120K cap, `--prefix-match-unit 16`
+(block 880), drafter k=7:
+
+| | DFlash2 k=7 | spec off | production (UltraQuant) |
+| --- | ---: | ---: | ---: |
+| KV pool (tokens) | 142,862 | 248,832 | 469,489 |
+| decode tok/s, 4K (`walltime.py`) | 48.3 | 34.4 | |
+| decode tok/s, 40K | 37.2 | 31.2 | |
+| 40K cold TTFT (s) | 63-77 | 58.5 | 32.8 (10-26 `prodshape.py`) |
+| `concsweep.py` agg tok/s, 1/2/4/8 | 32.7/57.9/97.7/185.6 | 33.1/60.8/95.8/148.6 | |
+
+- Acceptance: 4.05 tokens per verify step on chat, 7.5 on the verbatim echo, 2.8-3.3 on synthetic text.
+  A verify step costs 65-78 ms against 29-32 ms for a decode step.
+- Correctness: the full `spectest.py` output (not its 200-char head) matched the source verbatim, and
+  three temperature-0 chats stayed coherent. Greedy text diverges from spec-off at chars 5/15/436/1172.
+  Rescored on the spec-off target, the spec-on token was the second choice 0.25-0.38 nats behind
+  (near-tie flips, vllm#54928), not a garbage token. GSM8K, tools and agree were not run.
+- `longctx.py` reported 16.8 tok/s for the spec arm; per the method note above that figure is invalid.
+
+Verdict: the fp8 stack trades two thirds of the KV pool, the 262K context and about twice the prefill time for
++19-40% decode. Retest at 262K with UltraQuant once vllm#62558 (or a head-128 UltraQuant backend) and
+vllm#55800 land; the Hermes watch flags both.
 
 ## Unrelated finding: the nightly regression persists
 

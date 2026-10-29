@@ -1,0 +1,103 @@
+---
+# Response cache in front of the embedder (agentgateway has no response cache). vmcp re-embeds
+# the same ~194 tool descriptions on every MCP initialize; chat is near-unique per turn, so
+# only embeddings go through here.
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: embedding-cache
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    defaultPodOptions:
+      priorityClassName: homelab-important
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile: { type: RuntimeDefault }
+    controllers:
+      embedding-cache:
+        containers:
+          app:
+            image:
+              repository: docker.io/nginxinc/nginx-unprivileged
+              tag: 1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                memory: 128Mi
+    service:
+      app:
+        ports:
+          http:
+            port: 8080
+    configMaps:
+      config:
+        data:
+          nginx.conf: |
+            pid /tmp/nginx.pid;
+            events { worker_connections 1024; }
+            http {
+              log_format cache '$remote_addr "$request" $status $body_bytes_sent $request_time cache=$upstream_cache_status';
+              access_log /dev/stdout cache;
+              error_log /dev/stderr warn;
+              # 7d: tool descriptions are stable.
+              proxy_cache_path /var/cache/nginx/embeddings levels=1:2 keys_zone=embeddings:16m max_size=1g inactive=7d use_temp_path=off;
+              # $request_body is empty once a body spills past client_body_buffer_size; such a
+              # request must bypass the cache, or every large body would share one key.
+              map $request_body $skip_cache { "" 1; default 0; }
+              server {
+                listen 8080;
+                client_max_body_size 16m;
+                client_body_buffer_size 16m;
+                location / {
+                  proxy_pass http://embeddinggemma-2.ai.svc.cluster.local:8080;
+                  # embeddinggemma-2's 194-item batch is ~7.4s; toolhive gives up at 120s.
+                  proxy_read_timeout 600s;
+                  proxy_cache embeddings;
+                  proxy_cache_methods POST;
+                  proxy_cache_key "$request_uri|$request_body";
+                  proxy_cache_valid 200 7d;
+                  # The key is stored in the cache file header, which must fit proxy_buffer_size: at the
+                  # 4k default ~40% of embedding requests failed "cache key too large" and bypassed.
+                  proxy_buffer_size 64k;
+                  proxy_buffers 4 64k;
+                  proxy_busy_buffers_size 64k;
+                  proxy_cache_bypass $skip_cache;
+                  proxy_no_cache $skip_cache;
+                  # MCP sessions initializing together on a cold cache send the same 194-item
+                  # batch; one goes upstream, the rest wait for it. Past one cold batch (~35s).
+                  proxy_cache_lock on;
+                  proxy_cache_lock_timeout 60s;
+                  # Surfaced as the cache_status metric label (agentgateway-metrics policy).
+                  add_header X-Cache-Status $upstream_cache_status always;
+                }
+              }
+            }
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /etc/nginx/nginx.conf
+            subPath: nginx.conf
+            readOnly: true
+      tmp:
+        type: emptyDir
+      cache:
+        type: emptyDir
+        # Headroom over max_size above, so the cache manager evicts before the kubelet does.
+        sizeLimit: 2Gi
+        globalMounts:
+          - path: /var/cache/nginx

@@ -1,5 +1,6 @@
 ---
-# Persist torch, Triton, and Inductor compile caches across restarts.
+# Persist torch, Triton, and Inductor compile caches across restarts; hostpath has no quota, so the 10Gi is
+# advisory and the prune CronJob below is the bound.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -30,8 +31,8 @@ kind: CronJob
 metadata:
   name: qwen38-27b-vllm-kv-offload-guard
 spec:
-  # Hourly: a restart can regrow the tier past the floor within a day.
-  schedule: "0 * * * *"
+  # Every 15 min: the tier writes up to ~56 GiB/h; hourly let /var pass mon-c's 27% warn line.
+  schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
@@ -51,7 +52,7 @@ spec:
               effect: NoSchedule
           containers:
             - name: guard
-              image: ghcr.io/home-operations/busybox:1.38.0@sha256:7e2c04dd50ede647bf4a7a4c8dbd629dd4971cd139b9b88fb22bfc3c7a6c13df
+              image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
@@ -134,6 +135,65 @@ spec:
               persistentVolumeClaim:
                 claimName: qwen38-27b-vllm-kv-offload
 ---
+# Every nightly bump leaves a torch.compile AOT entry that nothing reads again; hostpath has no quota, so
+# it eats the same root-fs headroom the guard above protects.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: qwen38-27b-vllm-compile-cache-prune
+spec:
+  schedule: "30 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            # The serving pod runs as root, so the cache is root-owned.
+            runAsUser: 0
+          # Pruning is most useful under the DiskPressure it helps clear (hostPath pins it to control-1).
+          tolerations:
+            - key: node.kubernetes.io/disk-pressure
+              operator: Exists
+              effect: NoSchedule
+          containers:
+            - name: prune
+              image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Flux postBuild envsubst context: bare $VAR -> $$.
+                  # Keeps the 4 newest AOT entries (current build plus rollback). /cache/triton is left alone:
+                  # its key is the kernel source, so mtime cannot tell live entries from stale ones.
+                  set -eu
+                  aot=/cache/vllm/torch_compile_cache/torch_aot_compile
+                  [ -d "$$aot" ] || exit 0
+                  cd "$$aot"
+                  ls -t | tail -n +5 | xargs -rt rm -rf --
+              volumeMounts:
+                - name: compile-cache
+                  mountPath: /cache
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: compile-cache
+              persistentVolumeClaim:
+                claimName: qwen38-27b-vllm-compile-cache
+---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
 kind: InferenceService
@@ -150,7 +210,7 @@ spec:
   # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
   # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
   # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:fdd4e1041ad3f3a9c5bf61f291f934405d7b22bcb841c380dc72235411f4f0c0
+  image: vllm/vllm-openai-rocm:nightly@sha256:8649354473843f477a96d3aa659d0ae56bcc7df743d2d02d52aaa318178ac881
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -166,9 +226,12 @@ spec:
     # Shared with Jellyfin: card1 idles at 29.7 of 31.9 GiB with vLLM and media, leaving 2.1 GiB (>= 1.82 GiB Jellyfin floor). --kv-cache-memory sets the pool.
     gpuMemoryUtilization: 0.9
   env:
-    # Kept from the fp8 stack; full attention now runs the ULTRAQUANT backend (boot log "Overriding with").
+    # On gfx12 this gates aiter's Triton GDN decode kernels (qwen_gdn_linear_attn.py); full attention runs ULTRAQUANT regardless.
     - name: VLLM_ROCM_USE_AITER
       value: "1"
+    # vllm#52970 routes rms_norm to aiter on RDNA4 when this is on (default); keep the native norm until a clone test measures it.
+    - name: VLLM_ROCM_USE_AITER_RMSNORM
+      value: "0"
     # Raises the odds of the fast gfx1201 band (2x decode, ROCm/ROCm#6347); not a pin.
     - name: GPU_MAX_HW_QUEUES
       value: "1"
@@ -255,7 +318,7 @@ spec:
     - --default-chat-template-kwargs
     - '{"preserve_thinking": true}'
     # NO --speculative-config: rejected, see docs/llm-hosting/spec-decode-rejected.md.
-    # Both needed: the ssm dtype does not inherit (fp32 would cost 7,160 KV tokens).
+    # Both needed: the ssm dtype does not inherit. fp32 gains nothing, -3.8% KV (docs/llm-hosting/torch213-nightly-audit-2026-10.md).
     - --mamba-cache-dtype
     - bfloat16
     - --mamba-ssm-cache-dtype

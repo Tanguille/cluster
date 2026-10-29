@@ -3,14 +3,17 @@
   extends: [
     "abandonments:recommended",
     // Pin every github> preset to the same tag; an unpinned one tracks main.
-    "github>home-operations/renovate-presets#9.0.0",
-    "github>home-operations/renovate-presets//apps/cnpg.json5#9.0.0",
+    "github>home-operations/renovate-presets#10.0.1",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#10.0.1",
     // grafanaDashboards preset inlined below: its grafanaCom template needs capture groups Renovate never passes to templates.
-    "github>home-operations/renovate-presets//apps/llamacpp.json5#9.0.0",
-    "github>home-operations/renovate-presets//apps/searxng.json5#9.0.0"
+    "github>home-operations/renovate-presets//apps/searxng.json5#10.0.1"
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
+  // Appends to the preset's list: the kubernetes manager cannot see a split repository/tag image in a ResourceSet.
+  "helm-values": {
+    managerFilePatterns: ["/(^|/)resourceset\\.ya?ml$/"]
+  },
   // The operator webhook starts a run on any ticked dashboard checkbox; Renovate resets it on rewrite.
   dependencyDashboardFooter: "- [ ] <!-- manual job -->Check this box to trigger a request for Renovate to run again on this repository",
   // The Main ruleset does not require up-to-date branches, and `auto` would
@@ -95,18 +98,6 @@
       autoReplaceStringTemplate: "grafanaCom:\n{{{indentation}}}id: {{{depName}}}\n{{{indentation}}}revision: {{{newValue}}}"
     },
     {
-      description: "qBitrr ConfigVersion (semver, no v prefix)",
-      customType: "regex",
-      managerFilePatterns: ["/qbitrr/config/config\\.toml$/"],
-      matchStrings: ['ConfigVersion\\s*=\\s*"(?<currentValue>[^"]+)"'],
-      depNameTemplate: "feramance/qbitrr",
-      datasourceTemplate: "docker",
-      extractVersionTemplate: "^v(?<version>.*)$",
-      // newValue is already v-stripped by extractVersionTemplate, so write it verbatim. (A
-      // {{replace}} here would re-extract empty and abort the branch with "update failure".)
-      autoReplaceStringTemplate: 'ConfigVersion = "{{{newValue}}}"'
-    },
-    {
       description: "HuggingFace model files revision-pinned in llmkube Model sources (HF model repos are git repos; digest = repo commit sha)",
       customType: "regex",
       managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
@@ -131,6 +122,18 @@
       datasourceTemplate: "docker"
     },
     {
+      // csi.<sidecar> keys miss the flux manager's values heuristic, which needs a parent key ending in "image".
+      description: "Rook CSI sidecar images: split repository/tag fields",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/rook-ceph/rook-ceph/app/helmrelease\\.yaml$/"
+      ],
+      matchStrings: [
+        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      datasourceTemplate: "docker"
+    },
+    {
       description: "opencode npm plugins (executed in-process in an agent pod, so they stay pinned)",
       customType: "regex",
       managerFilePatterns: [
@@ -140,6 +143,16 @@
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
       datasourceTemplate: "npm"
+    },
+    {
+      // The preset's oci:// manager reads "tag@sha256:..." as one version and skips it as invalid-value.
+      description: "Digest-pinned oci:// references",
+      customType: "regex",
+      managerFilePatterns: ["/\\.ya?ml(?:\\.j2)?$/"],
+      matchStrings: [
+        "oci://(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      datasourceTemplate: "docker"
     }
   ],
   packageRules: [
@@ -212,6 +225,7 @@
         "/openebs/",
         "/kopiur/",
         "/snapshot-controller/",
+        "/sig-storage/",
         "/cloudnative-pg/",
         "/postgres/",
         "/vchord/",
@@ -276,6 +290,12 @@
       matchFileNames: ["kubernetes/apps/ai/toolhive/mcp/**"]
     },
     {
+      // Chart and its CRDs chart are published together: one PR per release.
+      description: "Agentgateway chart and CRDs",
+      groupName: "agentgateway",
+      matchPackageNames: ["/cr\.agentgateway\.dev/"]
+    },
+    {
       description: "VectorChord CNPG images and Memini database version",
       groupName: "vectorchord",
       matchPackageNames: ["ghcr.io/tensorchord/vchord-scratch"]
@@ -299,15 +319,6 @@
       minimumGroupSize: 2
     },
     {
-      // No matchManagers on purpose: flux and helm-values both detect the HelmRelease image,
-      // and constraining managers let one copy escape into a duplicate PR.
-      description: "qBitrr: group image tag and ConfigVersion",
-      groupName: "qbitrr",
-      matchDatasources: ["docker"],
-      matchFileNames: ["kubernetes/apps/media/qbittorrent/tools/qbitrr/**"],
-      matchPackageNames: ["/feramance\\/qbitrr/"]
-    },
-    {
       // Last release 2025-08-04, past `abandonments:recommended`, but still a pinned mise tool.
       description: "shellcheck releases rarely; not abandoned",
       matchPackageNames: ["koalaman/shellcheck"],
@@ -316,14 +327,9 @@
     {
       // Image labels point at the rocky-kiwi build repo; ceph has no GitHub releases, so this yields compare links only.
       matchPackageNames: ["quay.io/ceph/ceph"],
-      sourceUrl: "https://github.com/ceph/ceph"
-    },
-    {
-      // The preset override gives docker.io but re-extraction gives mirror.gcr.io: "depName mismatch".
-      description: "Keep envoy-gateway's helmfile depName on mirror.gcr.io so it edits with the OCIRepository",
-      matchManagers: ["helmfile"],
-      matchPackageNames: ["docker.io/envoyproxy/gateway-helm"],
-      overrideDepName: "mirror.gcr.io/envoyproxy/gateway-helm"
+      sourceUrl: "https://github.com/ceph/ceph",
+      // x.0 is dev, x.1 is RC; only x.2 is stable.
+      allowedVersions: "/^v\\d+\\.2\\.\\d+$/"
     },
     // Versioning overrides
     {

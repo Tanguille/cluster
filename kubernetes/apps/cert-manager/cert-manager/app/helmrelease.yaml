@@ -19,11 +19,23 @@ spec:
         enabled: true
     networkPolicy:
       enabled: true
+    resources:
+      requests:
+        cpu: 10m
+        memory: 128Mi
     cainjector:
       networkPolicy:
         enabled: true
+      resources:
+        requests:
+          cpu: 10m
+          memory: 256Mi
     webhook:
       replicaCount: 2
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
       podDisruptionBudget:
         enabled: true
       networkPolicy:

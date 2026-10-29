@@ -35,9 +35,16 @@ at 1 / 2 / 4 / 8 sessions.
 
 Snapshot names: `base` (pre-roll stack), `c5` (both flags on `43b4aaea3`), `n81` (both flags on
 `81198e97`), `c5n` (needles on both flags), `n8c` (the rolled stack: `8cbd5d03`, mnbt 2048), `e885`
-(nightly `e8851fc` on kernel 7.2.10, same config). Only `bench/quality/baseline-e885.jsonl` is committed, as
-the reference for the next A/B (`qualitygate.py agree --compare e885`). Agree and needles come from an idle
-clone, NLL, tools and vision from the live pod.
+(nightly `e8851fc` on kernel 7.2.10, same config), `n009` (nightly `009169c`, native rms_norm, -100 mV). Only
+`bench/quality/baseline-n009.jsonl` is committed, as the reference for the next A/B
+(`qualitygate.py agree --compare n009`); `e885` is in git at `5f33d7baf`. `e885` agree and needles come from an
+idle clone, NLL, tools and vision from the live pod; every `n009` mode ran on the live pod, each started only
+when no request was running or waiting.
+
+`n009` vs `e885` agree was 65.30% (33 of 60 prompts diverged, 5 before token 16), accepted: every divergence is a
+near-tie (chosen-token logprob <= -0.44 in both runs, within 0.33 of each other), warm vs cold 100% (0 of 20),
+NLL -0.00009, tools 12/12 single and 5 concurrent, vision 2/2, needles 3/3 at 17.5K/52.5K/175K, cached prefix
+and offload reload pass.
 
 `e885` vs `n8c` agree was 59.43% (34 of 60 prompts diverged, 7 before token 16), accepted: every divergence is
 a near-tie (chosen-token logprob <= -0.63, within 0.22 of the other stack), warm vs cold in the same run is

@@ -1,4 +1,4 @@
-"""Routing check for the live UQ_FAST hook (no vllm, no GPU).
+"""Routing checks for the W4A16 and UQ_FAST hooks (no vllm, no GPU).
 
   python check_hook.py [hook_src]
 
@@ -34,6 +34,49 @@ def load(path, env):
 class Impl:
     # run() installs _ultraquant_continuation_prefill and _flash_attn_varlen before each pass
     sinks, sliding_window, scale, _max_model_len = None, None, 0.0625, 262144
+
+
+def run_tiles(H):
+    calls = []
+
+    # Required since vllm 96bbaa300f; omitting it used to break warmup.
+    def launch(*args, PACKED_DEQUANT, **kw):
+        assert PACKED_DEQUANT is False
+        calls.append((args, kw))
+
+    kernel = mock.MagicMock()
+    kernel.__getitem__.return_value = launch
+
+    hy = types.SimpleNamespace(
+        _on_gfx12x=lambda: True,
+        _triton_w4a16_skinny_fmt_kernel=kernel,
+        triton_w4a16_skinny_fmt_gemm=mock.Mock(return_value="upstream"),
+    )
+    upstream = hy.triton_w4a16_skinny_fmt_gemm
+    torch = types.SimpleNamespace(empty=lambda *a, **kw: "output")
+    triton = types.SimpleNamespace(cdiv=lambda n, d: -(-n // d))
+    with mock.patch.dict(sys.modules, {"torch": torch, "vllm.triton_utils": types.SimpleNamespace(triton=triton)}):
+        H._install_triton_tiles(hy)
+    weights = types.SimpleNamespace(shape=(5120, 640), stride=lambda _: 672)
+    for m in (1, 32, 33, 767, 768, 2048):
+        a = types.SimpleNamespace(shape=(m, 5120), dtype="bf16", device="cuda", stride=lambda _: 5184)
+        for group_size in (32, 128):
+            scale_stride = 5120 // group_size
+            scales = types.SimpleNamespace(stride=lambda _: scale_stride)
+            for zp in (None, "zero-points"):
+                result = hy.triton_w4a16_skinny_fmt_gemm(a, weights, scales, group_size, zp=zp)
+                if 32 < m < 768:
+                    assert result == "upstream"
+                    upstream.assert_called_with(a, weights, scales, group_size, 8, zp)
+                    continue
+                args, kw = calls[-1]
+                bm, bn, bk, warps = (16, 16, 128, 2) if m <= 32 else (256, 128, 64, 8)
+                assert result == "output"
+                kernel.__getitem__.assert_called_with((triton.cdiv(m, bm), triton.cdiv(5120, bn)))
+                assert args[3] == (zp if zp is not None else scales)
+                assert kw == dict(stride_sn=scale_stride, stride_bn=672, stride_am=5184, group_size=group_size,
+                                  ZP_BIAS=8, HAS_ZP=zp is not None, BLOCK_M=bm, BLOCK_N=bn,
+                                  BLOCK_K=min(bk, group_size), num_warps=warps, num_stages=1)
 
 
 def run(H, expect, calls):
@@ -83,17 +126,24 @@ def run(H, expect, calls):
                 query_start_loc=types.SimpleNamespace(shape=(2,)), scale=0.0625, PiT="P", output="O", max_seq_len=100)
     f = mod.ultraquant_unified_attention
     if expect == "off":
-        assert f(**base, max_query_len=1) == "upstream" and calls[-1][1]["tile_size"] == 32
+        assert f(**base, max_query_len=1) == "upstream"
+        assert calls[-1][1] == dict(PiT="P", output="O", max_seq_len=100, max_query_len=1), calls[-1]
     else:
         assert f(**base, max_query_len=1, sinks=None, sliding_window=None) == "fast"
         assert calls[-1][1] == dict(PiT="P", output="O", max_seq_len=100), calls[-1]
         assert f(**base, max_query_len=1, sinks="s", sliding_window=None) == "upstream"
-        assert calls[-1][1]["tile_size"] == 32 and calls[-1][1]["num_kv_splits"] == 32  # geometry wrapper still applies
+        assert calls[-1][1] == dict(PiT="P", output="O", max_seq_len=100, max_query_len=1,
+                                   sinks="s", sliding_window=None), calls[-1]
         assert f(**base, max_query_len=1, sinks=None, sliding_window=128) == "upstream"
         assert f(**dict(base, query=types.SimpleNamespace(shape=(1, 24, 128))), max_query_len=1) == "upstream"
+    # Fallback preserves explicit caller settings as well as upstream defaults.
+    assert f(**base, max_query_len=1, sinks="s", tile_size=16, num_kv_splits=8) == "upstream"
+    assert calls[-1][1] == dict(PiT="P", output="O", max_seq_len=100, max_query_len=1,
+                               sinks="s", tile_size=16, num_kv_splits=8), calls[-1]
 
 
 def run_all(path):
+    run_tiles(load(path, {}))
     calls = []
     sys.modules["uq_decode_fast"] = types.SimpleNamespace(
         uq_decode_fast=lambda *a, **kw: calls.append(("fast", kw)) or "fast",

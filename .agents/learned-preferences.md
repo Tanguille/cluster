@@ -24,16 +24,12 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 - When a tool returns a successful response, report the outcome as fact.
 - When a user confirms an action worked, trust that feedback. Do not second-guess it.
 - **All agents: GitHub work goes through ToolHive `github_*` tools** when they are available, in
-  preference to local `gh`/`git push`. The hermes container has no `gh`/`GITHUB_TOKEN`, so there
-  they are the only route.
-  Push + PR create/update is ONE step — can't finish this turn → write `.agents/handoff/<task>.md`
-  (handoff skill) BEFORE stopping, because a session boundary orphans the finish.
-  Call shape, tool table and fallbacks: `.agents/learned-workspace.md` § ToolHive / MCP.
+  preference to local `gh`/`git push`. Call shape, tool table, fallbacks and the hermes case:
+  `.agents/learned-workspace.md` § ToolHive / MCP. Push + PR as one step: the handoff skill.
 - **PR shepherding (standing order):** on PR tasks and pr-shepherd cron runs, iterate
   until CI + automated review pass, and follow rather than restate
-  `.agents/skills/pr-review/references/pr-shepherd.md` — gates, CI triage, cycle budget, and the
-  boundaries that hold even in auto mode (no merge, no push to `main`, no force-push, no cluster
-  apply/reconcile, no secret decryption).
+  `.agents/skills/pr-review/references/pr-shepherd.md`: gates, CI triage, cycle budget, and the
+  boundaries that hold even in auto mode.
 
 ---
 
@@ -45,4 +41,4 @@ If the available tools include `find_tool` and `call_tool` (ToolHive unified gat
 - For Flux reconciles and cluster diagnostics, use ToolHive flux-operator MCP tools (e.g. reconcile_flux_resource, get_kubernetes_logs) when available instead of raw kubectl.
 - Avoid running containers as root when not necessary.
 - For Helm values and Kustomize in this repo, use DRY YAML anchors and the same patterns as peer apps unless there is a reason not to (see `kubernetes/AGENTS.md`).
-- Prefer fixing root causes (disk space, capacity, config) over silencing or weakening alerts—for Ceph mon disk warnings, add EPHEMERAL headroom on the node (prune, expand VM disk / Talos layout) instead of only lowering `mon_data_avail_warn`.
+- Prefer fixing root causes (disk space, capacity, config) over silencing or weakening alerts; for Ceph mon disk warnings, add EPHEMERAL headroom on the node (prune, expand VM disk / Talos layout) instead of only lowering `mon_data_avail_warn` (default 30%).

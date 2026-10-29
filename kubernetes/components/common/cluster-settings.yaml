@@ -6,6 +6,9 @@ metadata:
 data:
   TIMEZONE: "Europe/Brussels"
   OPNSENSE_IP: 192.168.0.1
+  # Cilium LB pool; every LoadBalancer *_IP below must fall inside it
+  LB_POOL_START: 192.168.0.3
+  LB_POOL_STOP: 192.168.0.10
   K8S_GATEWAY_IP: 192.168.0.3
   ENVOY_INTERNAL_IP: 192.168.0.4
   P2POOL_IP: 192.168.0.5

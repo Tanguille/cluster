@@ -87,6 +87,6 @@ new multi-document config, native BGP, and the workload mount-namespace change.
 ## Reachability
 
 `ai-ingress-allowlist` (selector `{}`) admits every pod in `ai`, `default`, `kritika`, `observability` and
-more to all `ai` pods. Cilium policies union, so the "litellm-only" inference policy does not restrict
+more to all `ai` pods. Cilium policies union, so the gateway-only inference policy does not restrict
 anything: Hermes, and every pod in those namespaces, already reaches the reranker and vLLM. The Hermes entry
 in `inference-rerank-memini-allow` records the intent and only matters once that hole is closed.
