@@ -3,7 +3,9 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: agentgateway
+  # Not agentgateway: the release name becomes the Deployment, Service and
+  # ServiceAccount name, which the Gateway's proxy already uses in this namespace.
+  name: agentgateway-controller
 spec:
   interval: 1h
   chart:
@@ -20,7 +22,3 @@ spec:
       enabled: false
     monitoring:
       enabled: true
-      proxy:
-        # Proxies run next to their Gateway (ai), not in this namespace.
-        namespaceSelector:
-          any: true

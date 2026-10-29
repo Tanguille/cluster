@@ -94,6 +94,10 @@ spec:
         login: true
         passwordSecret:
           name: kritik-runner-db
+      - name: mealie
+        login: true
+        passwordSecret:
+          name: mealie-db
   # TLS: refs left empty on purpose so CNPG auto-generates and rotates everything:
   # a self-signed CA, the server TLS cert (clients -> server), and a client CA with
   # per-instance client certs, which also encrypts primary -> replica streaming

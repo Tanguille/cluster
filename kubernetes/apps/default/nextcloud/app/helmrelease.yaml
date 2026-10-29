@@ -62,7 +62,7 @@ spec:
     image:
       # Spelled out so Renovate tracks the digest.
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:ed6670344529b68ce81d74304db90e04b81404ca87bff4d2dc5cb6f66eb66739
+      tag: 35.0.2-fpm@sha256:a04e3bb8df30769a5edbb01434893d3873a11e6e42a53b984c06e27944a014c2
 
     lifecycle:
       postStartCommand:
@@ -73,7 +73,7 @@ spec:
       enabled: true
       image:
         repository: nginx
-        tag: 1.31.8-alpine@sha256:1ef7ca94d7879df82421428ce13bd1eaa412404953859cf7a5b6512c25e67a60
+        tag: 1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
@@ -98,6 +98,9 @@ spec:
           value: dragonfly.database.svc.cluster.local
         - name: REDIS_HOST_PORT
           value: "6379"
+        # libpq: covers the replica connections too, which pgsql_ssl does not reach.
+        - name: PGSSLMODE
+          value: require
 
       existingSecret:
         enabled: true
@@ -235,7 +238,6 @@ spec:
       type: postgresql
       host: pgbouncer-rw.database.svc.cluster.local:5432
       existingSecret:
-        enabled: true
         secretName: nextcloud-secret
         usernameKey: INIT_POSTGRES_USER
         passwordKey: INIT_POSTGRES_PASS
@@ -332,6 +334,9 @@ spec:
           - /bin/bash
           - /scripts/cron.sh
         securityContext:
+          # cron.sh runs as www-data, not via the root entrypoint.
+          allowPrivilegeEscalation: false
+          capabilities: { drop: [ALL] }
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true

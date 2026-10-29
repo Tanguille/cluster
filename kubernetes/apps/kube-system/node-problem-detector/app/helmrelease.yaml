@@ -13,6 +13,10 @@ spec:
         tag: 2.4.2
       url: oci://ghcr.io/deliveryhero/helm-charts/node-problem-detector
   values:
+    image:
+      # Spelled out so Renovate tracks the digest.
+      repository: registry.k8s.io/node-problem-detector/node-problem-detector
+      tag: v1.37.0@sha256:a222c1bc31efe64a5698e8ba4ac7acf7f09f065eb2fbfb5c436488439decd69a
     settings:
       # Talos has no dockerd/journald — only the kmsg-based monitors apply.
       log_monitors:

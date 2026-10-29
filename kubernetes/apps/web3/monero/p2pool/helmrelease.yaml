@@ -19,7 +19,7 @@ spec:
           app:
             image:
               repository: ghcr.io/sethforprivacy/p2pool
-              tag: v4.18.1@sha256:54cbeb65b0333f1ef883b545bc8815c3388c7db06f9255d062f80bf66ec5964a
+              tag: v4.18.1@sha256:a78dfe82c52e43c2678af2a599ba593e010ee467ede33f17856abdf412d7333c
             args:
               - "--host"
               - "monerod.web3.svc.cluster.local"
@@ -50,7 +50,8 @@ spec:
                     key: address
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
+              # Cache/log/peers use the /home/p2pool PVC; API output and /tmp have their own mounts.
+              readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
               requests:

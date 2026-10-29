@@ -40,7 +40,8 @@ spec:
             matchLabels:
               grafana.internal/instance: grafana
           allowCrossNamespaceImport: true
-      # No AIX/Darwin/Windows nodes here; these bundle dashboards stay empty.
+      # Bundle dashboards that stay empty here: no AIX/Darwin/Windows nodes,
+      # no Prometheus, no instance:node_* recording rules, one cluster.
       dashboards:
         nodes-aix:
           enabled: false
@@ -55,6 +56,43 @@ spec:
         k8s-windows-cluster-rsrc-use:
           enabled: false
         k8s-windows-node-rsrc-use:
+          enabled: false
+        prometheus:
+          enabled: false
+        prometheus-remote-write:
+          enabled: false
+        node-rsrc-use:
+          enabled: false
+        node-cluster-rsrc-use:
+          enabled: false
+        k8s-resources-multicluster:
+          enabled: false
+        # Covered by kubernetes-views-* plus k8s-resources-cluster/node (requests vs allocatable).
+        k8s-resources-namespace:
+          enabled: false
+        k8s-resources-nodes-overview:
+          enabled: false
+        k8s-resources-pod:
+          enabled: false
+        k8s-resources-workload:
+          enabled: false
+        k8s-resources-workloads-namespace:
+          enabled: false
+        cluster-total:
+          enabled: false
+        namespace-by-pod:
+          enabled: false
+        namespace-by-workload:
+          enabled: false
+        pod-total:
+          enabled: false
+        workload-total:
+          enabled: false
+        # Covered by node-exporter-full.
+        nodes:
+          enabled: false
+        # Covered by kubernetes-system-api-server.
+        apiserver:
           enabled: false
 
     defaultDatasources:
@@ -97,6 +135,17 @@ spec:
           enabled: false
         TooManyScrapeErrors:
           enabled: false
+        # ZFS ARC counts as used memory (fired on truenas 57% of 7d); NodeMemoryAvailableLow and PSI cover k8s nodes.
+        NodeMemoryHighUtilization:
+          enabled: false
+      groups:
+        # Its recordings only fed the disabled node-rsrc-use dashboards.
+        node-exporter.rules:
+          enabled: false
+      sources:
+        # Chart gates these on its bundled node-exporter (off); ours scrapes as job node-exporter, which they select.
+        node-exporter:
+          enabled: true
 
     grafana:
       enabled: false
@@ -263,6 +312,14 @@ spec:
           - name: envoy-internal
             namespace: network
       spec:
+        securityContext:
+          # Replaces the chart fallback, so restate its uid/gid/fsGroup 1000.
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities: { drop: [ALL] }
         priorityClassName: homelab-critical # alerting path
         externalURL: https://vmalertmanager.${SECRET_DOMAIN}
         image:
@@ -289,6 +346,9 @@ spec:
           - vmalert.${SECRET_DOMAIN}
         parentRefs: *internalParentRefs
       spec:
+        # Keeps the image uid and writable paths, unlike strict mode.
+        securityContext: &vm-security-context
+          allowPrivilegeEscalation: false
         priorityClassName: homelab-critical # alerting path
         datasource:
           url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
@@ -307,6 +367,7 @@ spec:
 
     vmagent:
       spec:
+        securityContext: *vm-security-context
         priorityClassName: homelab-critical # sole scrape path
         # vllm:cache_config_info carries 43 labels, past vmsingle's 40-label cap, so every
         # 30s scrape is rejected and logged: it fired RowsRejectedOnIngestion and TooManyLogs
@@ -327,6 +388,7 @@ spec:
     vmauth:
       enabled: true
       spec:
+        securityContext: *vm-security-context
         priorityClassName: homelab-critical # Grafana's query path
         # 28Mi cgroup peak over 30d against the chart's 100Mi default. config-reloader keeps its
         # 25Mi default, which its 39Mi peak already exceeds.
@@ -361,6 +423,7 @@ spec:
         hostnames: ["vmsingle.${SECRET_DOMAIN}"]
         parentRefs: *internalParentRefs
       spec:
+        securityContext: *vm-security-context
         # TSDB the other three write to/query; scheduling them without this buys nothing.
         priorityClassName: homelab-critical
         # 180d: 365d retention couldn't fit the 200Gi PVC at current 140GB usage

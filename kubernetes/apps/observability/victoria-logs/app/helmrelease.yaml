@@ -12,6 +12,19 @@ spec:
         tag: 0.13.10
       url: oci://ghcr.io/victoriametrics/helm-charts/victoria-logs-single
   interval: 1h
+  # No Vector here (vlagent ships logs), so the chart's vector dashboard stays empty; the chart can't skip one.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: GrafanaDashboard
+              name: .*-vector-k8s-monitoring
+            patch: |-
+              $patch: delete
+              apiVersion: grafana.integreatly.org/v1beta1
+              kind: GrafanaDashboard
+              metadata:
+                name: not-used
   values:
     global:
       image:

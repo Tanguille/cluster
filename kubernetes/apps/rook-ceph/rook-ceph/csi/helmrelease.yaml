@@ -24,6 +24,11 @@ spec:
         controllerPlugin:
           priorityClassName: system-cluster-critical
           replicas: 2
+          # Snapshotter 8.7 enables groups by default; both drivers use volumeSnapshot.
+          # Drop this arg before switching a driver to volumeGroupSnapshot, or it stays off.
+          containerExtraArgs:
+            csi-snapshotter:
+              - --feature-gates=CSIVolumeGroupSnapshot=false
         nodePlugin:
           priorityClassName: system-node-critical
     drivers:

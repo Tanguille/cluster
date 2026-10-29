@@ -42,6 +42,8 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          # No cluster access needed.
+          automountServiceAccountToken: false
           securityContext:
             # The serving pod runs as root, so the store is root-owned.
             runAsUser: 0
@@ -152,6 +154,8 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          # No cluster access needed.
+          automountServiceAccountToken: false
           securityContext:
             # The serving pod runs as root, so the cache is root-owned.
             runAsUser: 0
@@ -210,7 +214,7 @@ spec:
   # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
   # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
   # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:009169c114af5b15e25eddc808afb3c1fc3f12c94e746472b16f39fcf39cd716
+  image: vllm/vllm-openai-rocm:nightly@sha256:8649354473843f477a96d3aa659d0ae56bcc7df743d2d02d52aaa318178ac881
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:

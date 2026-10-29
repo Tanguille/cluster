@@ -13,6 +13,9 @@ spec:
       url: oci://ghcr.io/prometheus-community/charts/prometheus-node-exporter
   interval: 1h
   values:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities: { drop: [ALL] }
     fullnameOverride: *app
     extraArgs:
       # GTT/VRAM totals for NodeGTTMemoryHigh and DgpuVramLow; GTT is pinned RAM outside memcg, so the embedder leak wedged control-2

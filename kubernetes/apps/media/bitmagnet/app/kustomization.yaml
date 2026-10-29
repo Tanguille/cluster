@@ -12,12 +12,8 @@ configMapGenerator:
   - name: bitmagnet-prune
     files:
       - config/prune-delete.py
+      - config/prune-maintenance.sql
       - config/prune-select.sql
-  - name: armiger-bootstrap
-    files:
-      - config/bootstrap.py
-      - config/connector.py
-      - config/requirements.txt
 generatorOptions:
   disableNameSuffixHash: true
   annotations:

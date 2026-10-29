@@ -30,11 +30,15 @@ spec:
             # Decode is bandwidth-bound (flat ~23 TG from 210W to 330W); 250W buys +15% PP over 210W for 2.8% worse PP/W.
             - name: POWER_LIMIT_WATTS
               value: "250"
-            # Auto-mode scalars, NOT fan_curve (driver 0x2E vs PMFW 0x32 mismatch on this SKU); a 70C target cost +36% rpm for ~3C mem, 82C only +6%.
+            # Auto-mode scalars, NOT fan_curve (driver 0x2E vs PMFW 0x32 mismatch on this SKU); a 70C target cost +36% rpm for ~3C mem.
+            # 82C held ~3500rpm at 250W (junction up to 102C); 76C lets it pass 4000rpm. Not edge-gated: edge 66C still ramped.
             - name: FAN_TARGET_TEMP_C
-              value: "82"
+              value: "76"
             - name: ACOUSTIC_TARGET_RPM
               value: "4000"
+            # Noise cap above the target (default 5500 = fan1_max); stock settings peaked at ~4500.
+            - name: ACOUSTIC_LIMIT_RPM
+              value: "4500"
           command:
             - /bin/sh
             - -c
@@ -91,6 +95,7 @@ spec:
 
                 apply_fan_setting "$fan_ctrl/fan_target_temperature" "$FAN_TARGET_TEMP_C"
                 apply_fan_setting "$fan_ctrl/acoustic_target_rpm_threshold" "$ACOUSTIC_TARGET_RPM"
+                apply_fan_setting "$fan_ctrl/acoustic_limit_rpm_threshold" "$ACOUSTIC_LIMIT_RPM"
 
                 for cap in "$card"/hwmon/hwmon*/power1_cap; do
                   [ -e "$cap" ] || continue
