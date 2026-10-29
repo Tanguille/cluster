@@ -67,6 +67,8 @@ spec:
                 cpu: 500m
                 memory: 1Gi
     defaultPodOptions:
+      labels:
+        egress.home.arpa/dragonfly: allow
       securityContext:
         fsGroup: 977
         fsGroupChangePolicy: OnRootMismatch
