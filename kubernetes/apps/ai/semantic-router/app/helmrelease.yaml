@@ -1,0 +1,103 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: semantic-router
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: semantic-router
+  # The chart has no strategy value. Two 6Gi pods do not fit control-1, and the model cache is RWO.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: semantic-router
+            patch: |-
+              - op: add
+                path: /spec/strategy
+                value:
+                  type: Recreate
+  values:
+    # Same digest as the vllm-sr image: the router plus its vllm-srun D3 runtime on CPU Torch.
+    image:
+      repository: ghcr.io/vllm-project/semantic-router/extproc
+      tag: 5bd7c69419487a783cbce18dfd41f707441a1b85@sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7
+    resources:
+      requests:
+        cpu: 500m
+        # d3-nano BF16: 4.65Gi steady RSS, 7.35Gi load peak.
+        memory: 6Gi
+      limits:
+        cpu: "4"
+        memory: 10Gi
+    persistence:
+      storageClassName: ceph-block
+    # Serve only ExtProc (50051) behind agentgateway; no OpenAI listener of its own.
+    gateway:
+      mode: extproc
+    configMap:
+      # The chart reapplies configOverride only when this changes and otherwise keeps the
+      # live config, so bump it with every configOverride edit.
+      applyValuesRevision: "1"
+    # Replaces the chart's demo config. agentgateway sends only `vllm-sr/auto` requests here
+    # (agentgateway/app/models/vllm-sr-auto.yaml); the router rewrites the model before routing.
+    configOverride:
+      version: v0.3
+      providers:
+        defaults:
+          model: qwen-3.8
+        # agentgateway model names; each keeps its own sampling and thinking policies.
+        models:
+          - name: qwen-3.8
+            provider_model_id: qwen-3.8
+            backend_refs: &agentgateway
+              - name: agentgateway
+                provider: vllm
+                endpoint: agentgateway.ai.svc.cluster.local:4000
+                protocol: http
+                weight: 1
+          - name: qwen-3.8-fast
+            provider_model_id: qwen-3.8-fast
+            backend_refs: *agentgateway
+      routing:
+        signals:
+          decision:
+            - name: direct_answer
+              deployment: d3
+              question:
+                type: noul
+                instructions: Can this request be answered directly, without multi-step reasoning, debugging, coding or planning?
+              predicate:
+                gte: 0.85
+              timeout_ms: 3000
+        # Thinking stays on unless D3 is confident; a late or failed answer keeps qwen-3.8.
+        decisions:
+          - name: fast
+            priority: 200
+            rules:
+              operator: AND
+              on_unknown: no_match
+              conditions:
+                - type: decision
+                  name: direct_answer
+            modelRefs:
+              - model: qwen-3.8-fast
+          - name: default
+            priority: 100
+            rules:
+              operator: AND
+              conditions: []
+            modelRefs:
+              - model: qwen-3.8
+      global:
+        model_catalog:
+          deployments:
+            d3:
+              provider: model_runtime
+              artifact: vllm-sr/d3-nano
+              revision: aeb70d4dd53ed25b855c3b0a66394b8fe265db7f
+              device: cpu

@@ -1,9 +1,7 @@
 # D3-nano replacement and rollout
 
-Status, 2026-10-29: phase 2 is ready for merge and rollout approval. The branch carries main, the Qwen2B
-retirement is split out to phase 3, and the Hermes plugins moved to the Hermes PVC (no repo plugin code).
-The official CPU runtime image is public and digest-pinned.
-The user's request to set up all useful candidates authorizes the local implementation steps below.
+Status, 2026-10-29: reworked onto the upstream vLLM Semantic Router; no custom code remains. Awaiting merge and
+rollout approval. The Qwen2B retirement stays split out to phase 3.
 
 ## Workspace
 
@@ -20,105 +18,79 @@ The user's request to set up all useful candidates authorizes the local implemen
 - Every continuation prompt must verify the branch and worktree before any work: run `git status`, then `git pull --ff-only && git status`.
 - Push and live reconciliation require explicit approval under [AGENTS.md](../../AGENTS.md).
 
-## Runtime and architecture
+## Architecture
 
-The [publisher catalog](https://huggingface.co/vllm-sr/models), checked on 2026-10-17,
-identifies D3 as the latest decision family and d3-nano as its approximately 2B offering.
-The pinned [model package](https://huggingface.co/vllm-sr/d3-nano/tree/aeb70d4dd53ed25b855c3b0a66394b8fe265db7f)
-is Apache-2.0, with 2,213,241,664 backbone parameters plus 522,240 readout parameters.
-Its main weights occupy 4.12 GiB.
+The [publisher catalog](https://huggingface.co/vllm-sr/models), checked on 2026-10-17, identifies D3 as the
+latest decision family and d3-nano as its approximately 2B offering. The pinned
+[model package](https://huggingface.co/vllm-sr/d3-nano/tree/aeb70d4dd53ed25b855c3b0a66394b8fe265db7f) is
+Apache-2.0; its main weights occupy 4.12 GiB. D3 needs its decision readout, so it runs in the publisher's
+`vllm-srun` runtime rather than as a llama.cpp chat model.
 
-Use the publisher's native CPU worker, `vllm-srun`, from
-[semantic-router revision 5bd7c69419487a783cbce18dfd41f707441a1b85](https://github.com/vllm-project/semantic-router/tree/5bd7c69419487a783cbce18dfd41f707441a1b85/src/model-runtime).
-D3 needs its decision readout and noncausal attention; a llama.cpp chat-model substitution loses that behavior.
-No Vulkan path has been established for our iGPU. Use the publisher's public
-[`vllm-sr` CPU image](https://github.com/vllm-project/semantic-router/pkgs/container/semantic-router%2Fvllm-sr),
-which includes `vllm-srun` and CPU Torch 2.10.0. The image tag matches the tested source revision and its
-digest is pinned independently of the model revision. Override the router entrypoint with `command: ["vllm-srun"]`
-to run only the native worker; no router process, custom image or publishing workflow is needed.
+`kubernetes/apps/ai/semantic-router` deploys the publisher's Helm chart with config only. The router runs as an
+ExtProc service ([upstream agentgateway guide](https://github.com/vllm-project/semantic-router/blob/5bd7c69419487a783cbce18dfd41f707441a1b85/website/docs/installation/k8s/agentgateway.md))
+and supervises d3-nano on CPU in the same pod. Clients ask agentgateway for `vllm-sr/auto`; a `PreRouting`
+ExtProc policy sends only those requests to the router, which asks D3 whether the request can be answered
+directly and rewrites the model to `qwen-3.8-fast` (confident yes) or `qwen-3.8` (anything else, including a
+late or failed answer). agentgateway then routes the rewritten model normally, so each model keeps its own
+sampling and thinking policies. If the router is unreachable, the request continues as `vllm-sr/auto`, a
+virtual model that fails over to `qwen-3.8`.
 
-Hermes calls native `/v1/systemone` on port 8100. Two compatibility adapters share one ConfigMap source:
-Kritika uses an authenticated confidence endpoint on 8101; Siren uses a localhost alert proxy on 8102.
-There is no public route or general chat API. Cilium restricts native inference to Hermes/Siren,
-confidence to agentgateway, and metrics to vmagent; the namespace-wide allowlist excludes D3 pods.
-The adapters use the standard library and are reloaded when their ConfigMap changes.
+Pins:
 
-## Useful integrations implemented
+- Chart `0.0.0-nightly.20261019`: v0.4.0, the latest release, predates D3, `decision` signals and the managed
+  `model_runtime`. Move to the first release that has them.
+- Image `ghcr.io/vllm-project/semantic-router/extproc` at revision `5bd7c694`, digest
+  `sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7` (the same digest as the
+  `vllm-sr` image evaluated earlier).
+- The chart reapplies `configOverride` only when `configMap.applyValuesRevision` changes; bump it with every
+  config edit, or the live config stays.
 
-| Caller | D3 job | Preserved behavior |
-| --- | --- | --- |
-| Kritika | Existing confidence tool's 0–5 score and risk enum | Full reviews remain generative; Kritika falls back to omniroute on failure |
-| Siren | Cached alert category/urgency annotations | Alerts appear immediately; original severity, delivery and silence operations remain intact |
+Cilium admits only agentgateway to ExtProc (50051); the unauthenticated management API (8080) serves kubelet
+probes alone, and the namespace-wide allowlist excludes the router pod.
 
-Siren enrichment is asynchronous
-and bounded; it cannot delay alert delivery. Kritika uses its actual `confidence` function-tool contract,
-including `tool_calls`, rather than plain JSON content. Its requests must fit without truncation.
-
-Qwen2B text generation cannot be replaced by a classifier. Karakeep summaries/tags move to
-`qwen-3.8-fast` (Hermes title generation follows in the Hermes delivery); decisions use D3.
-
-Not part of this change: Hermes tool-family/thinking hints, Home Assistant/bookmark/alert classifier tools and
-Memini recall/capture gates. They are a separate delivery on the Hermes PVC (`/opt/data/plugins/`), outside
-the repository by owner decision (#6137). This change only allows Hermes to reach native port 8100.
+Karakeep summaries/tags move from Qwen2B to `qwen-3.8-fast`: a classifier cannot generate text.
 
 ## Evidence and capacity
 
-- Official CPU image: native runtime 0.2.0, CPU Torch 2.10.0, golden checks 5/5; UID 65532 with a read-only root passed readiness and a real decision.
-- Local BF16, four threads: startup peak RSS 7.35 GiB, steady RSS 4.65 GiB; a short decision took about 0.43–0.64 seconds.
-- The [30 labeled examples and results](bench/d3-nano/local-results.json) cover routes 10/10,
-  alert urgency 10/10, capture 4/5 and recall 4/5. The two misses had low confidence and preserve existing memory behavior.
-  Each row selects its shared question schema by family. The official-image replay matched all 30 previous predictions
-  with complete input coverage (four-CPU/10 GiB cap, slowest 1.39s). These synthetic cases do not calibrate production thresholds.
-- A request with Kritika's real confidence system prompt used 3,489 input tokens and took 13.1 seconds locally.
-  Central timeout is 30 seconds; agentgateway-retry re-sends 503s. Hermes/Siren use three-second decision budgets.
-- Resource requests: native 6 GiB / 500m CPU, gateway 64 MiB / 50m CPU; native limits 10 GiB / four CPUs.
-  Steady RSS (4.65 GiB) sets the request; the 7.35 GiB load peak fits under the limit. A two-CPU request would not schedule.
+- Local run of the pinned image on the rendered chart config, four CPUs, 10 GiB cap: d3-nano downloaded and
+  became ready in about a minute. `POST /api/v1/routing/preview` sent two simple prompts to `qwen-3.8-fast`
+  and a Ceph-debugging and a coding prompt to `qwen-3.8` in 0.97–1.22 s. A 64 KiB Hermes-shaped request
+  (long system prompt, 40 tools, 12 prior turns) routed the same way in 0.74–0.77 s, well inside the 3 s budget.
+- Earlier `vllm-srun` evaluation, BF16 on four threads: startup peak RSS 7.35 GiB, steady RSS 4.65 GiB. The
+  6 GiB request covers steady state; the 10 GiB limit covers the load peak.
 - Read-only snapshot, 2026-10-29: unrequested memory/CPU was control-1 11.1 GiB / 2.7 cores, control-2 0.6 GiB,
-  control-3 2.5 GiB; actual use on control-1 was 33.2 of 59.3 GiB. Only control-1 fits. It also hosts
-  the 27B model; node performance and interference remain unverified.
-- Hermes v0.22.2 was Ready. Authenticated calls through its actual local inference configuration succeeded
-  for fast and reasoning aliases. The migration was tested against all nine live configurations in memory:
-  no remaining old aliases, primary models preserved, and no live writes. Full deployed D3 integration remains pending.
-- Hermes logs contained earlier shutdown/tool-call errors; current inference success does not establish their absence historically.
+  control-3 2.5 GiB; actual use on control-1 was 33.2 of 59.3 GiB. Only control-1 fits; two router pods do
+  not, hence the `Recreate` post-renderer. It also hosts the 27B model; interference remains unverified.
+- Not verified locally: the agentgateway ExtProc hook itself (PreRouting, conditional, body rewrite before
+  model selection). The upstream guide covers PostRouting on agentgateway 1.4; we run 1.7.
 
 ## Delivery steps
 
 ### 1. Local implementation — complete
 
-Native worker, pinned upstream image, integrations, migration, replacement aliases and final removal manifests are prepared.
-Tests cover malformed results, unavailable inference, provider boundaries, memory preservation, config migration,
-Kritika's tool contract and alert proxy behavior. Run repository validation, YAML schema checks and scoped tests before delivery.
+### 2. Router rollout and Hermes cutover — awaiting merge and rollout approval
 
-Continuation: “Verify the D3 branch/worktree, finish final local validation and present the exact delivery scope.”
+Merging reconciles the router, the agentgateway model and policy, the network policies and Karakeep, while the
+old Qwen model stays. Verify, in order:
 
-### 2. Enable consumers — awaiting rollout approval
+1. The router pod is Ready on control-1 and `GET /api/v1/inventory/model-runtime` (port-forward 8080) shows `d3` ready.
+2. A `vllm-sr/auto` chat request through agentgateway answers, and agentgateway metrics record the rewritten
+   model; a simple and a hard prompt land on different models.
+3. With the router scaled to zero, `vllm-sr/auto` still answers through the `qwen-3.8` failover.
+4. Another namespace cannot reach the router on 8080 or 50051.
+5. A real Karakeep bookmark summary/tag job succeeds on `qwen-3.8-fast`.
 
-Use `ghcr.io/vllm-project/semantic-router/vllm-sr:5bd7c69419487a783cbce18dfd41f707441a1b85` at
-`sha256:6f6a2cd99677dedff4bbb7fdc41fb5597b8e8980489f8070eb741ffb0b8236c7` for runtime and gateway.
-Anonymous image pull is verified; our private GHCR package and its settings are no longer dependencies.
-The upstream image includes the exact native runtime revision used in the earlier CPU evaluation.
-Deliver D3, Siren, agentgateway, Kritika and Karakeep changes while retaining the old Qwen model manifest;
-`kubernetes/apps/ai/llmkube/` and the embedder comparison cleanup are not in this delivery.
-Wait for CI and approval before reconciliation. Siren rolls its two replicas; agentgateway/Kritika/Karakeep
-update normally. The separate Hermes delivery follows once D3 is Ready: a user-run script stages both plugins, runs their
-self-checks with the pod's Python, installs them, runs `configure_d3.py` as `hermes`, and restarts the
-gateway drain-aware with SIGUSR1 (`s6-svc -1`), so running cron turns finish first.
-Verify image/revision/golden readiness, network allow/deny behavior, Hermes tools and memory, an actual bookmark
-summary/tag job, confidence fallback, Siren alert/silence behavior and target-node load before retiring Qwen.
+Then point Hermes's main model at `vllm-sr/auto` in its PVC config (root and profiles) and disable the
+`qwen38-effort-router` plugin, whose fast/reasoning choice the router replaces. Restart drain-aware with SIGUSR1.
 
-The rendered `cluster-apps` patch supplies `cluster-secrets` substitution to D3, as it does for every child
-Kustomization. CPU thread arguments use [Kubernetes environment expansion](https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/).
-The gateway's startup probe checks `/healthz` independently of native model loading; readiness waits for the worker.
-
-Continuation: “Verify the D3 branch/worktree, verify the pinned upstream image and deliver the approved first phase, retaining Qwen2B.”
+Continuation: “Verify the D3 branch/worktree, reconcile the semantic router and run the phase 2 checks.”
 
 ### 3. Retire Qwen and consolidate documentation — pending live checks
 
 Deliver the llmkube deletion, placement/comment changes and comparison-doc cleanup only after phase 2 checks pass.
-They are in this branch's history as `114f180df` (`git show 114f180df`), removed from the delivery on 2026-10-29.
-Reconcile and verify the old workload is gone, all Hermes profiles use the replacements, and no active dependency remains.
-Retain the pinned old model in git history for rollback. If consumers regress, revert their configuration changes first;
-restore Hermes's `config.yaml.before-d3` backups only through an explicitly approved recovery operation.
-Convert this document into the operating reference after verified rollout and record final image digest and measurements.
+They are in this branch's history as `114f180df` (`git show 114f180df`). Move Hermes title generation from
+`qwen35-2b` to `qwen-3.8-fast` first. Reconcile and verify the old workload is gone and no active dependency
+remains. Retain the pinned old model in git history for rollback. Convert this document into the operating
+reference after verified rollout.
 
-Continuation: “Verify the D3 branch/worktree and first-phase live evidence, then retire Qwen2B and finish the reference documentation.”
+Continuation: “Verify the D3 branch/worktree and phase 2 live evidence, then retire Qwen2B and finish the reference documentation.”

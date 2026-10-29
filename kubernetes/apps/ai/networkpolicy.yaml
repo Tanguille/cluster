@@ -9,12 +9,13 @@ spec:
   # Default-deny ingress for every pod in the namespace. The per-pod allowlists (vmcp,
   # MCP proxies/backends, inference pods) stay and union with this one. Egress
   # stays default-allow.
-  # D3 has its own port-scoped allowlist; Cilium allow policies otherwise union.
+  # The Semantic Router has its own port-scoped allowlist (unauthenticated management API);
+  # Cilium allow policies otherwise union.
   endpointSelector:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: NotIn
-        values: [d3-nano]
+        values: [semantic-router]
   ingress:
     # Namespaces that consume *.ai.svc (grep '\.ai\.svc' across the repo):
     # default = karakeep -> agentgateway; observability = vmagent scrapes +

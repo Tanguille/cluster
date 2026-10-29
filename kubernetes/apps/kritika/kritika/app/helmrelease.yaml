@@ -119,13 +119,6 @@ spec:
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
         approve: true
-      # Scores each PR 0-5; under 4 withholds approval (no gate, so the check is unchanged), critical risk needs a human.
-      confidence:
-        model: llm/d3-confidence
-        # Scores when D3 is down; omniroute itself falls back to qwen-3.8 (502 left #6100 unscored and so unapproved).
-        fallback: llm/omniroute
-        threshold: 4
-        risk: high
       # Keep default step/token limits: 1M tokens stopped a 98-file PR with 42 files unread.
       agent:
         parts: 16
