@@ -5,8 +5,10 @@
 delete from queue_jobs where status = 'processed' and ran_at < now() - interval '1 day';
 
 -- Only the web UI sorts or filters on these; the crawler, Torznab, classifier and prune never scan them.
--- Up migrations drop indexes IF EXISTS, so this is upgrade-safe. Re-check this list after bitmagnet bumps:
--- a new migration that re-creates one of these names to serve a query would be dropped again here, silently.
+-- Checked against schema version 20 (bitmagnet v0.10.1). A newer migration may re-create one to serve a
+-- query, so after a bump the drops skip until this list is re-checked and the version raised.
+select coalesce(max(version_id) = 20, false) as known_schema from goose_db_version where is_applied \gset
+\if :known_schema
 drop index concurrently if exists queue_jobs_queue_payload_idx;
 drop index concurrently if exists torrent_tags_name_idx1;
 drop index concurrently if exists torrent_files_size_idx;
@@ -32,4 +34,7 @@ drop index concurrently if exists torrent_contents_content_source_idx;
 drop index concurrently if exists content_attributes_key_idx;
 drop index concurrently if exists content_attributes_source_key_idx;
 drop index concurrently if exists content_popularity_idx;
+\else
+\echo 'bitmagnet schema is not version 20: index drops skipped, re-check prune-maintenance.sql'
+\endif
 \set ON_ERROR_STOP on
