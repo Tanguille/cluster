@@ -29,13 +29,6 @@ spec:
             io.kubernetes.pod.namespace: security
         - matchLabels:
             io.kubernetes.pod.namespace: network
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-        # ephemeral not 53.
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
     - fromEntities:
-        # kubelet probes.
-        - host
         # llmkube admission webhooks.
         - kube-apiserver

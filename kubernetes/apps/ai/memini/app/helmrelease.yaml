@@ -120,10 +120,3 @@ spec:
                 - namespaceSelector:
                     matchLabels:
                       kubernetes.io/metadata.name: observability
-                # Rev-NAT'd DNS replies hit ingress; no ports, dest port is ephemeral not 53.
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: kube-system
-                  podSelector:
-                    matchLabels:
-                      k8s-app: kube-dns

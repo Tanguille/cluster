@@ -8,16 +8,14 @@ metadata:
 specs:
   # Default-deny both directions; app rules below union with these infrastructure paths.
   - endpointSelector: {}
-    ingress:
-      - fromEntities: [host] # kubelet probes
-      # Rev-NAT'd DNS replies target ephemeral ports, not port 53.
-      - fromEndpoints:
-          - matchLabels: &dns
-              io.kubernetes.pod.namespace: kube-system
-              k8s-app: kube-dns
+    # No ingress rules left here (kube-dns replies: allow-kube-dns-replies CCNP), so fence ingress explicitly.
+    enableDefaultDeny:
+      ingress: true
     egress:
       - toEndpoints:
-          - matchLabels: *dns
+          - matchLabels:
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
         toPorts:
           - ports:
               - { port: "53", protocol: UDP }
