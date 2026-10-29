@@ -40,4 +40,7 @@ spec:
         enabled: true
       dashboards:
         enabled: true
-        namespace: observability
+        grafanaOperator:
+          enabled: true
+          matchLabels:
+            grafana.internal/instance: grafana
