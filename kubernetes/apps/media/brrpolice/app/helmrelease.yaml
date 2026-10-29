@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     name: brrpolice
   interval: 1h
-  # The chart can't set datasources; without it the dashboard's DS_PROMETHEUS input falls back to the default datasource.
+  # Pins DS_PROMETHEUS like the hand-written dashboards; the chart can't, so it would ride on prometheus being the default.
   postRenderers:
     - kustomize:
         patches:
@@ -17,12 +17,9 @@ spec:
               kind: GrafanaDashboard
               name: brrpolice-dashboard
             patch: |-
-              apiVersion: grafana.integreatly.org/v1beta1
-              kind: GrafanaDashboard
-              metadata:
-                name: brrpolice-dashboard
-              spec:
-                datasources:
+              - op: add
+                path: /spec/datasources
+                value:
                   - datasourceName: prometheus
                     inputName: DS_PROMETHEUS
   values:
