@@ -95,6 +95,9 @@ spec:
           value: dragonfly.database.svc.cluster.local
         - name: REDIS_HOST_PORT
           value: "6379"
+        # libpq: covers the replica connections too, which pgsql_ssl does not reach.
+        - name: PGSSLMODE
+          value: require
 
       existingSecret:
         enabled: true
@@ -232,7 +235,6 @@ spec:
       type: postgresql
       host: pgbouncer-rw.database.svc.cluster.local:5432
       existingSecret:
-        enabled: true
         secretName: nextcloud-secret
         usernameKey: INIT_POSTGRES_USER
         passwordKey: INIT_POSTGRES_PASS

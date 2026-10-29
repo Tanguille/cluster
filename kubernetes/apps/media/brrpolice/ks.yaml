@@ -14,12 +14,8 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      KOPIUR_PUID: "1000"
-      KOPIUR_PGID: "1000"
-    substituteFrom:
-      # ${TIMEZONE} for the HelmRelease; matches what is applied live today.
-      - kind: ConfigMap
-        name: cluster-settings
+      KOPIUR_PUID: "65532"
+      KOPIUR_PGID: "65532"
   prune: true
   sourceRef:
     kind: GitRepository
