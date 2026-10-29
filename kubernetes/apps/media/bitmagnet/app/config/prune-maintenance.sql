@@ -1,10 +1,9 @@
--- Housekeeping before prune-select.sql. psql runs each statement in autocommit, so CONCURRENTLY works.
--- bitmagnet archives processed jobs for 7 days (hardcoded); their payloads are pure dead weight after a day.
+-- psql autocommits each statement, so CONCURRENTLY works.
+-- bitmagnet purges processed jobs after 7 days (hardcoded); keep 1, their payloads are never read again.
 delete from queue_jobs where status = 'processed' and ran_at < now() - interval '1 day';
 
--- Indexes bitmagnet's migrations create that neither the crawler, Torznab, the classifier nor prune use:
--- 0 scans in 51 h on 2026-10-29 (the size, name and files_status ones: 2-3, from manual queries).
--- Only the web UI sorts or filters on these columns. Migrations drop indexes with IF EXISTS, so this is upgrade-safe.
+-- Only the web UI sorts or filters on these; the crawler, Torznab, classifier and prune never scan them.
+-- Up migrations drop indexes IF EXISTS, so this is upgrade-safe. Re-check pg_stat_user_indexes after bitmagnet bumps.
 drop index concurrently if exists queue_jobs_queue_payload_idx;
 drop index concurrently if exists torrent_tags_name_idx1;
 drop index concurrently if exists torrent_files_size_idx;
