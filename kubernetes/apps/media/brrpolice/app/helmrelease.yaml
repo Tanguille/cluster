@@ -28,16 +28,8 @@ spec:
       fsGroupChangePolicy: OnRootMismatch
     persistence:
       existingClaim: brrpolice
-    resources:
-      requests:
-        cpu: 10m
-      limits:
-        memory: 128Mi
     service:
       port: 80
     monitoring:
       serviceMonitor:
         enabled: true
-      dashboards:
-        enabled: true
-        namespace: observability

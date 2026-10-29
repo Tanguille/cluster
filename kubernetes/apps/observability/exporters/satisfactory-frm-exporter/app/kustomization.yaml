@@ -7,8 +7,7 @@ resources:
   - helmrelease.yaml
   - prometheusrule.yaml
 
-# grafana.com 22341 (Power) and 22342 (Global Production), revision 1, trimmed to emitted metrics (no Postgres
-# frmcache panels). `server` is scoped by job: unscoped label_values(url) defaults to a non-FRM url.
+# grafana.com 22341/22342 rev 1 trimmed to emitted metrics; `server` is job-scoped since unscoped label_values(url) picks a non-FRM url.
 configMapGenerator:
   - name: satisfactory-frm-dashboards
     files:

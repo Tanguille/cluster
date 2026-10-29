@@ -24,8 +24,7 @@ spec:
           labels:
             severity: warning
             app: satisfactory
-        # The daily 06:00 UTC session reload plus the 06:10 restart takes FRM away for ~15-20 min; 30m rides that out.
-        # A failed restart leaves FRM broken and surfaces here, so it needs no alert of its own.
+        # 30m rides out the daily 06:00 UTC reload and 06:10 restart (~15-20 min without FRM); a failed restart surfaces here.
         - alert: SatisfactoryFrmMissing
           expr: |-
             kube_deployment_status_replicas_available{namespace="default", deployment="satisfactory"} > 0

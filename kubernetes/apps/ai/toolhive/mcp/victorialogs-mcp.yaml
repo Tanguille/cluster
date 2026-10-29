@@ -14,8 +14,6 @@ spec:
   env:
     - name: HOME
       value: /tmp
-    # VictoriaLogs single-node in observability/ (helm server.fullnameOverride: victoria-logs),
-    # no auth configured — plain HTTP.
     - name: VL_INSTANCE_ENTRYPOINT
       value: http://victoria-logs.observability.svc.cluster.local:9428
     - name: MCP_SERVER_MODE
@@ -47,7 +45,7 @@ spec:
           ports:
             - name: mcp
               containerPort: 8081
-          # The binary ships /health/liveness + /health/readiness (v1.9.0).
+          # The binary ships /health/liveness + /health/readiness.
           startupProbe:
             httpGet:
               path: /health/liveness

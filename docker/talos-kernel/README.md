@@ -254,16 +254,6 @@ dominates and is fully unattended.
 
 ## Rollout
 
-The first hop off the Image Factory is manual, once per node. tuppr's
-`buildTalosUpgradeImage` errors when the config's install image does not embed the schematic
-the running node reports (`upgrade.go`), which is what happens the moment a node's config
-points at this registry while it is still booted on a Factory image:
-
-```sh
-talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<schematic>:<version> \
-    --reboot-mode powercycle
-```
-
 Do one node at a time and confirm `etcd` rejoins between each — the fleet is three
 control-plane nodes and etcd tolerates exactly one down.
 
@@ -286,12 +276,6 @@ unreachable and it falls through to bare `<repo>:<targetVersion>` substitution. 
 from the node's **own `.machine.install.image`**. Leave that pointing at
 `factory.talos.dev/installer/<id>` and the next Talos bump quietly reinstalls the stock
 kernel — no error, because the guard that would have raised one no longer applies.
-
-Verified on control-2 on 2026-08-20: booted on `v1.13.9-k7.1.9`, kernel `7.1.9-talos`, while
-its `.machine.install.image` was still `factory.talos.dev/installer/1fd419f5…:v1.13.9`. tuppr
-reported "All nodes are up to date" only because `findNextNodes` skips every node listed in
-`Status.CompletedNodes` before it ever compares versions; that list resets when the CR
-generation changes, i.e. on the next Talos bump.
 
 Two things have to be true for a node, and all three nodes satisfy both:
 

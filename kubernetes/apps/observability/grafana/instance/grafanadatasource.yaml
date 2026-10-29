@@ -18,8 +18,7 @@ spec:
     jsonData:
       httpMethod: POST
       queryTimeout: 60s
-      # Matches the VMAgent global scrapeInterval; a lower value makes Grafana pick a step
-      # shorter than the scrape interval and rate() comes back gappy.
+      # VMAgent's global scrapeInterval; lower makes rate() gappy at short steps.
       timeInterval: 20s
       seriesLimit: 40000
     editable: true

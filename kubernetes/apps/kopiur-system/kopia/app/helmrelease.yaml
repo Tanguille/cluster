@@ -27,11 +27,7 @@ spec:
                   name: kopia-secret
             args:
               - --without-password
-              # homepage's widget calls /api/v1/* directly; kopia only issues
-              # CSRF tokens to browser sessions, so API calls need checks off.
-              # Accepted risk: combined with --without-password a
-              # LAN browser drive-by could hit the API; envoy-internal-only
-              # exposure and login-free UI convenience were judged worth it.
+              # homepage's widget calls /api/v1/* without a CSRF token; accepted LAN drive-by risk behind envoy-internal.
               - --disable-csrf-token-checks
             probes:
               liveness: &probes
@@ -41,7 +37,7 @@ spec:
                   httpGet:
                     path: /
                     port: *port
-                  # 07-18 outage: index digest of a 4.7k-blob backlog made / answer >1s, kubelet kill-looped the pod
+                  # Indexing a large blob backlog makes / answer >1s; kubelet kill-looped the pod at the defaults.
                   timeoutSeconds: 10
                   failureThreshold: 6
               readiness: *probes

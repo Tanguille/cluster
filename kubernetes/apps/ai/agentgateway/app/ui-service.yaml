@@ -6,11 +6,8 @@ kind: Service
 metadata:
   name: agentgateway-ui
 spec:
-  type: ClusterIP
   selector:
     gateway.networking.k8s.io/gateway-name: agentgateway
   ports:
     - name: http
       port: 15000
-      targetPort: 15000
-      protocol: TCP

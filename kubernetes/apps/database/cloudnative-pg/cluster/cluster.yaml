@@ -138,14 +138,12 @@ spec:
       random_page_cost: "1.1"
       effective_io_concurrency: "200"
       maintenance_io_concurrency: "200"
-      # Listed in shared_preload_libraries below; first enable rolls the cluster.
       pg_stat_statements.max: "7500"
       # pg_stat_io and pg_stat_wal timings were all 0, so IO and fsync stalls could not be measured; 23.6 ns/loop timer cost.
       track_io_timing: "on"
       track_wal_io_timing: "on"
       # Advisory-lock waits reached 9.6 s (kguardian) with nothing in the logs. Not log_min_duration_statement: it would ship statement text with literals into logs; pg_stat_statements already ranks slow statements.
       log_lock_waits: "on"
-    # vchord.so required for vchord; pg_stat_statements matches parameters above.
     shared_preload_libraries:
       - "vchord.so"
       - "pg_stat_statements"

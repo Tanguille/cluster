@@ -68,7 +68,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /api/health
                     port: &port 6767
                   timeoutSeconds: 5
@@ -77,9 +77,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /api/health
-                    port: *port
+                  httpGet: *httpGet
                   periodSeconds: 5
                   timeoutSeconds: 5
                   failureThreshold: 60

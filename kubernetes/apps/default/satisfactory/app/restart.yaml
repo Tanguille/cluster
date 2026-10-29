@@ -2,7 +2,6 @@
 # FG.ServerRestartTimeSlot=360 reloads the session in-process at 06:00 UTC, which can leave FRM's web
 # server bound to the destroyed world ("Blocked API call: World not ready", porisius/FicsitRemoteMonitoring#313).
 # Only a process restart recovers it, so restart once the game is back up. Delete once #313 is fixed.
----
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
 apiVersion: v1
 kind: ServiceAccount
