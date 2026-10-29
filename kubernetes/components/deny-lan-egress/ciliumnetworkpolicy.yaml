@@ -1,7 +1,7 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
 # Internet-exposed namespaces must not reach private ranges; a pure deny overlay, other egress stays default-allow.
-# CIDR rules never match pods or nodes, and socketLB rewrites Service/LB IPs to backend pods first, so in-cluster traffic is unaffected.
+# CIDR rules never match pods or nodes, and socketLB rewrites Service/LB IPs to backend pods first, so in-cluster traffic is unaffected except envoy-internal-tls below.
 # Opt out with the pod label egress.home.arpa/lan: allow.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
