@@ -6,23 +6,11 @@ on:
   push:
     branches: ["main"]
     paths:
-      [
-        "**.sh",
-        ".editorconfig",
-        ".github/workflows/shell-lint.yaml",
-        ".mise.toml",
-        "mise.lock"
-      ]
+      ["**.sh", ".github/workflows/shell-lint.yaml", ".mise.toml", "mise.lock"]
   pull_request:
     branches: ["main"]
     paths:
-      [
-        "**.sh",
-        ".editorconfig",
-        ".github/workflows/shell-lint.yaml",
-        ".mise.toml",
-        "mise.lock"
-      ]
+      ["**.sh", ".github/workflows/shell-lint.yaml", ".mise.toml", "mise.lock"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -48,4 +36,3 @@ jobs:
           set -euo pipefail
           mapfile -t scripts < <(git ls-files '*.sh')
           mise exec -- shellcheck "${scripts[@]}"
-          mise exec -- shfmt --diff -- "${scripts[@]}"

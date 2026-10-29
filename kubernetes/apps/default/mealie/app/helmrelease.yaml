@@ -1,0 +1,83 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app mealie
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+
+    controllers:
+      mealie:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/mealie-recipes/mealie
+              tag: v3.29.0@sha256:78eb28b8776d0bad40c5e605c72b3f4f5976793e491558c7dcbdfc04c835d4bc
+            # AI providers are set in group settings, not env.
+            env:
+              BASE_URL: https://mealie.${SECRET_DOMAIN}
+              TZ: ${TIMEZONE}
+              # Postgres for fuzzy (pg_trgm) search; POSTGRES_USER/POSTGRES_DB default to mealie.
+              # Transaction pooling is safe: psycopg2 has no prepared statements and the trigram SET runs in the search transaction.
+              DB_ENGINE: postgres
+              POSTGRES_SERVER: pgbouncer-rw.database.svc.cluster.local
+            envFrom:
+              - secretRef:
+                  name: mealie-secret
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 10m
+                memory: 256Mi
+              limits:
+                memory: 1Gi
+
+    service:
+      app:
+        ports:
+          http:
+            port: 9000
+
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /app/data
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: Mealie
+          gethomepage.dev/description: Recipes & meal planning
+          gethomepage.dev/group: Utilities
+          gethomepage.dev/icon: mealie.png
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
