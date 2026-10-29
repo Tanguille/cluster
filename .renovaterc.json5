@@ -195,9 +195,10 @@
     },
     {
       // Owner's own site: a merge to rsume master is the release decision, so skip the 3-day wait.
-      description: "Publish rsume immediately",
+      description: "Publish rsume patch and digest builds immediately",
       matchDatasources: ["docker"],
       matchPackageNames: ["ghcr.io/tanguille/rsume"],
+      matchUpdateTypes: ["patch", "digest"],
       minimumReleaseAge: "0 days",
       automerge: true
     },
