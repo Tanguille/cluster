@@ -25,6 +25,8 @@ spec:
 
             env:
               TZ: ${TIMEZONE}
+              # node-postgres: TLS without verifying the self-signed CNPG cert.
+              PGSSLMODE: no-verify
 
             # Entrypoint only reads secret files and starts npm; no privilege switch.
             securityContext:

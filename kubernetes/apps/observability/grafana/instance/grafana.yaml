@@ -11,6 +11,8 @@ spec:
   config:
     database:
       type: postgres
+      # Grafana defaults to disable.
+      ssl_mode: require
     analytics:
       check_for_updates: "false"
       check_for_plugin_updates: "false"
