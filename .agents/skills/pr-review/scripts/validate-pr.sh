@@ -34,7 +34,7 @@ warn() {
 
 # Phase 1: Flux Manifest Validation
 # flate renders every Kustomization + HelmRelease with the real Helm/Kustomize SDKs, catching
-# Helm template errors a bare `kustomize build` can't see (chartRef: OCIRepository is opaque
+# Helm template errors a bare `kustomize build` can't see (HelmRelease charts are opaque
 # to kustomize) — also validates YAML syntax and duplicate keys, so no separate yaml linter.
 # Falls back to kustomize build (Kustomization-only, no Helm render) if flate isn't installed.
 echo "[1/3] Flux Manifest Validation..."

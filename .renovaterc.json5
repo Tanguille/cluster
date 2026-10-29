@@ -168,8 +168,8 @@
   ],
   packageRules: [
     {
-      // The flux manager also extracts HelmRelease values images, so the file
-      // name is the only signal that a docker dep is a chart
+      // Only the shared app-template source is left in an ocirepository.yaml; inline
+      // charts are titled by the preset's HelmChart depType rule
       description: "Title OCI chart updates as charts instead of images",
       matchDatasources: ["docker"],
       matchFileNames: ["**/ocirepository.yaml"],
