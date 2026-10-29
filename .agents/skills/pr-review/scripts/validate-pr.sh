@@ -43,7 +43,7 @@ if command -v flate &>/dev/null; then
         fail "flate test all found issues"
     fi
 else
-    warn "flate not installed (run via mise exec)"
+    fail "flate not installed: manifests NOT rendered (run via mise exec)"
 fi
 echo ""
 
