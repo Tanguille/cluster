@@ -2,8 +2,9 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Format
 
-# Runs every formatter on the whole tree and pushes the fixes as the bot app (a GITHUB_TOKEN push
-# would not re-trigger CI). Renovate and fork branches are only checked: Renovate rebases its own.
+# Runs the lefthook `format` jobs on the whole tree and pushes the fixes as the bot app (a GITHUB_TOKEN
+# push would not re-trigger CI). Renovate commits as the same bot, so a fix doesn't mark its branch
+# as edited. Fork branches get no token: there it only fails with the diff.
 on:
   pull_request:
     branches: ["main"]
@@ -21,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Generate Token
-        if: ${{ github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.event.pull_request.head.ref, 'renovate/') }}
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
@@ -36,28 +37,21 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
+      # Only the formatters: the full tool set is a ~465 MB cache restore.
       - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          install_args: aqua:evilmartians/lefthook oxfmt aqua:casey/just aqua:mvdan/sh
 
-      # The lefthook formatters plus shfmt (shell-lint only checks it).
       - name: Format
-        run: |
-          mise exec -- oxfmt .
-          mise fmt
-          git ls-files -z '*.just' .justfile | xargs -0 -rn1 mise exec -- just --fmt --justfile
-          git ls-files -z '*.sh' | xargs -0 -r mise exec -- shfmt -w --
+        run: lefthook run pre-commit --all-files --no-auto-install --no-stage-fixed --tag format
 
       - name: Push
-        if: ${{ steps.app-token.outputs.token != '' }}
         env:
           TOKEN: ${{ steps.app-token.outputs.token }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          REPO: ${{ github.repository }}
         run: |
-          git diff --quiet && exit 0
+          git diff --exit-code && exit 0
+          [ -n "$TOKEN" ] || exit 1
           git config user.name "tanguille-cluster[bot]"
           git config user.email "205505618+tanguille-cluster[bot]@users.noreply.github.com"
-          git commit -am "style: format"
-          git push "https://x-access-token:${TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${HEAD_REF}"
-
-      - name: Check
-        run: git diff --exit-code
+          git commit --no-verify -am "style: format"
+          git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${GITHUB_HEAD_REF}"
