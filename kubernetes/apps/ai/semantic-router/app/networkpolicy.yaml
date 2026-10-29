@@ -1,6 +1,6 @@
 ---
-# Only agentgateway reaches the ExtProc port. The unauthenticated management API on 8080 serves
-# kubelet probes alone; the namespace-wide allowlist excludes this pod (../../networkpolicy.yaml).
+# Only agentgateway reaches the ExtProc port; kubelet probes it over gRPC. The unauthenticated
+# management API binds to loopback. The namespace-wide allowlist excludes this pod (../../networkpolicy.yaml).
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
