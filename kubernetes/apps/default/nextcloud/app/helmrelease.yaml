@@ -95,6 +95,9 @@ spec:
           value: dragonfly.database.svc.cluster.local
         - name: REDIS_HOST_PORT
           value: "6379"
+        # libpq: covers the replica connections too, which pgsql_ssl does not reach.
+        - name: PGSSLMODE
+          value: require
 
       existingSecret:
         enabled: true
