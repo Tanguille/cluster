@@ -135,6 +135,9 @@ spec:
         # ZFS ARC counts as used memory (fired on truenas 57% of 7d); NodeMemoryAvailableLow and PSI cover k8s nodes.
         NodeMemoryHighUtilization:
           enabled: false
+        # No inhibit rule consumes it.
+        InfoInhibitor:
+          enabled: false
       groups:
         # Its recordings only fed the disabled node-rsrc-use dashboards.
         node-exporter.rules:
@@ -235,9 +238,10 @@ spec:
           receiver: discord
           repeat_interval: 12h
           routes:
+            # Always firing; kromgo subtracts it from the badge.
             - receiver: blackhole
               matchers:
-                - alertname =~ "InfoInhibitor|TrivyNewCriticalVulnerabilities"
+                - alertname = "Watchdog"
             - receiver: discord-satisfactory
               matchers:
                 - app = satisfactory

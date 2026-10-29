@@ -79,7 +79,7 @@ spec:
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
-  name: klipper
+  name: &app klipper
 spec:
   metricsPath: /probe
   scrapeInterval: 30s
@@ -104,3 +104,5 @@ spec:
       targetLabel: instance
     - targetLabel: __address__
       replacement: klipper-exporter.observability.svc.cluster.local:9101
+    - targetLabel: job
+      replacement: *app

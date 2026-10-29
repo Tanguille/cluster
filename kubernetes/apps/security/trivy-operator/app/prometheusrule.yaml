@@ -16,26 +16,12 @@ spec:
           for: 30m
           annotations:
             summary: >-
-              trivy-operator is not being scraped; vulnerability alerts are blind
+              trivy-operator is not being scraped; exposed-secret alerts are blind
           labels:
             severity: warning
 
-        # Criticals are common at baseline: alert on rises vs the 1d-ago max (spans 48h report gaps).
-        # Info and routed to blackhole (~20k alert-min/7d of image bumps): read it in vmalert/Grafana.
-        - alert: TrivyNewCriticalVulnerabilities
-          expr: |-
-            max by (namespace, image_repository) (trivy_image_vulnerabilities{severity="Critical"})
-              > (
-                max by (namespace, image_repository) (max_over_time(trivy_image_vulnerabilities{severity="Critical"}[1d] offset 1d))
-                or max by (namespace, image_repository) (trivy_image_vulnerabilities{severity="Critical"}) * 0
-              )
-          for: 1h
-          annotations:
-            summary: >-
-              {{ $labels.namespace }}/{{ $labels.image_repository }} has {{ $value }} critical vulnerabilities, up from a day ago
-          labels:
-            severity: info
-
+        # No critical-CVE alert: a DB update moves every image at once; read them in the Trivy dashboard.
+        # Alert on rises vs the 1d-ago max (spans 48h report gaps).
         - alert: TrivyNewExposedSecrets
           expr: |-
             max by (namespace, image_repository) (trivy_image_exposedsecrets)
