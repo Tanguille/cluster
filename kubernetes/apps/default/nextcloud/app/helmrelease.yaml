@@ -91,10 +91,6 @@ spec:
     nextcloud:
       datadir: /var/www/data
       extraEnv:
-        - name: REDIS_HOST
-          value: dragonfly.database.svc.cluster.local
-        - name: REDIS_HOST_PORT
-          value: "6379"
         # libpq: covers the replica connections too, which pgsql_ssl does not reach.
         - name: PGSSLMODE
           value: require
@@ -243,6 +239,15 @@ spec:
         secretName: nextcloud-secret
         usernameKey: INIT_POSTGRES_USER
         passwordKey: INIT_POSTGRES_PASS
+
+    # REDIS_HOST/_PORT/_PASSWORD for app and cron; the image wires them into config.php and the PHP session handler.
+    externalRedis:
+      enabled: true
+      host: dragonfly.database.svc.cluster.local
+      existingSecret:
+        enabled: true
+        secretName: dragonfly-auth
+        passwordKey: password
 
     httpRoute:
       enabled: true

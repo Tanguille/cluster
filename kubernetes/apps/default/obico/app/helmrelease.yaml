@@ -34,7 +34,12 @@ spec:
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
-        REDIS_URL: "redis://dragonfly.database.svc.cluster.local:6379"
+        # Same shape as the chart's bundled-redis env; the map renders sorted, so REDIS_PASSWORD precedes REDIS_URL.
+        REDIS_PASSWORD:
+          secretKeyRef:
+            name: dragonfly-auth
+            key: password
+        REDIS_URL: "redis://:$(REDIS_PASSWORD)@dragonfly.database.svc.cluster.local:6379"
         SITE_USES_HTTPS: "True"
       resources:
         requests:
