@@ -11,6 +11,8 @@ spec:
 
   values:
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       securityContext:
         runAsGroup: 1000
         runAsNonRoot: true
