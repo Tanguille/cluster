@@ -42,7 +42,6 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
-          # No cluster access needed.
           automountServiceAccountToken: false
           securityContext:
             # The serving pod runs as root, so the store is root-owned.
@@ -149,7 +148,6 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
-          # No cluster access needed.
           automountServiceAccountToken: false
           securityContext:
             # The serving pod runs as root, so the cache is root-owned.

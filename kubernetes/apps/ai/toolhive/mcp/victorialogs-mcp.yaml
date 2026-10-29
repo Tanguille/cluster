@@ -28,8 +28,7 @@ spec:
     spec:
       # The image runs as the unprivileged user `mcp` (uid 65534, no group in the
       # image config); the operator sets readOnlyRootFilesystem — /tmp is the only
-      # path the server touches, mounted emptyDir. No cluster access needed, so no
-      # SA token.
+      # path the server touches, mounted emptyDir.
       automountServiceAccountToken: false
       volumes:
         - name: tmp
@@ -45,7 +44,6 @@ spec:
           ports:
             - name: mcp
               containerPort: 8081
-          # The binary ships /health/liveness + /health/readiness.
           startupProbe:
             httpGet:
               path: /health/liveness

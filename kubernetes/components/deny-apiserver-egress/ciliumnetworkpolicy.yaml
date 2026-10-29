@@ -1,8 +1,7 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
 # Internet-exposed namespaces must not reach the kube-apiserver; a pure deny overlay, other egress stays default-allow.
-# NotIn also matches pods without the label, so they are denied; kopiur movers and pods labelled
-# egress.home.arpa/kube-apiserver: allow are exempt.
+# NotIn matches label-less pods too, so only kopiur movers and egress.home.arpa/kube-apiserver: allow pods are exempt.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:

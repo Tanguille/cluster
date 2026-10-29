@@ -4,7 +4,6 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: default-ingress-allowlist
-  namespace: default
 spec:
   # Default-deny ingress (egress open). hostNetwork moonraker-obico has no Cilium endpoint, so no CNP applies to it.
   # Per-pod allowlists (changedetection, karakeep, satisfactory, searxng) stay and union with this one.

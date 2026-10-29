@@ -32,9 +32,9 @@ spec:
       activeDeadlineSeconds: 2700
   credentialProjection:
     allowed: true
-  # Not on moverDefaults: its container securityContext overrides the per-app mover uid/gid in components/kopiur.
   maintenance:
     mover:
+      # Not on moverDefaults: there it overrides the per-app mover uid/gid in components/kopiur.
       securityContext:
         runAsUser: 568
         runAsGroup: 568
