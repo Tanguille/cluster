@@ -36,7 +36,8 @@ spec:
               cpu: 10m
               memory: 128Mi
             limits:
-              memory: 1Gi
+              # Full reviews of #5879 were OOMKilled at 1Gi.
+              memory: 2Gi
     # Aqua tool downloads cached on a per-pod emptyDir; S3 would survive rollouts but adds a storage dependency for one replica.
     gatewayCache:
       enabled: true
