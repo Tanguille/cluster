@@ -56,7 +56,6 @@ spec:
           namespace: network
     # Server egress; runners use the chart's separate policy.
     networkPolicy:
-      enabled: true
       # 4000 for the LLM gateway (agentgateway's http listener):
       # Cilium matches the pod port after service DNAT.
       egressPorts:
@@ -106,9 +105,7 @@ spec:
       reviewWorkers: 6
       limits:
         concurrency: 6
-      # Review-comment badges (View / Re-run / severity) are embedded from
-      # webUrl and must load off-network (mobile); the public webhook
-      # host serves /badges/. The dashboard stays on the internal host.
+      # Review-comment badges embed this, so it is the public webhook host; sign-in callbacks derive from it too, so auth.signIns would need /auth/ routed there.
       webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
       indexGrace: 1h

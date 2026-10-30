@@ -1,14 +1,12 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/httproute_v1.json
-# Public for GitHub deliveries and the badge images (View / Re-run /
-# severity) that review comments embed; the dashboard and API stay on
-# envoy-internal.
+# Public for GitHub deliveries and the static badge SVGs review comments embed (read off-network); the dashboard and API stay on envoy-internal.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: kritika-webhook
   annotations:
-    # "/" 404s like an unrouted host; an unsigned POST to a known connection returns 401.
+    # "/" redirects to the dashboard; an unsigned POST to a known connection returns 401.
     gatus.home-operations.com/endpoint: |-
       url: https://kritika-webhook.${SECRET_DOMAIN}/hooks/github
       method: POST
@@ -26,8 +24,16 @@ spec:
         - path:
             type: PathPrefix
             value: /hooks/
-        # Unauthenticated badge SVGs for review comments; read off-network
-        # (mobile), where the internal kritika host is unreachable.
         - path:
             type: PathPrefix
             value: /badges/
+    # Review comments link to webUrl/#/..., which would 404 here; the redirect keeps the fragment.
+    - matches:
+        - path:
+            type: Exact
+            value: /
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            hostname: kritika.${SECRET_DOMAIN}
+            statusCode: 302
