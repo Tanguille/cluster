@@ -14,9 +14,16 @@ spec:
   interval: 1h
   values:
     fullnameOverride: *app
+    # Dragonfly admits 6379 only from pods with this label.
+    deployment:
+      podLabels:
+        egress.home.arpa/dragonfly: allow
     config:
       # TTL for every finished Job; in practice only orphans reach it, as each run replaces its project's previous Job.
       jobTTLSecondsAfterFinished: 86400
+      # Job pods use Dragonfly as the package cache.
+      podLabelTemplates:
+        egress.home.arpa/dragonfly: allow
     rbac:
       ownNamespaceOnly: true
     # Reuse the shared Dragonfly; operator takes dbs 0-2, Renovate's package cache lands in db 1.

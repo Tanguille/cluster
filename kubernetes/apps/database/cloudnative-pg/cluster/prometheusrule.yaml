@@ -10,7 +10,7 @@ spec:
       rules:
         - alert: PgvectorVersionDrift
           annotations:
-            description: Database {{ $labels.datname }} runs a vector extension that differs from the one the image ships; bump the version pin in cloudnative-pg/databases/resourceset.yaml.
+            description: Database {{ $labels.datname }} runs a vector extension that differs from the one the image ships; bump the version pin in cloudnative-pg/databases/resourceset.yaml, or DROP EXTENSION vector by hand if that database doesn't declare it.
             summary: Installed pgvector differs from the image's version.
           expr: |-
             max by (namespace, job, datname) (cnpg_pgvector_drifted) > 0

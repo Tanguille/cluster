@@ -1,0 +1,61 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: truenas-csi
+spec:
+  chart:
+    spec:
+      chart: truenas-csi
+      version: 1.4.0
+      sourceRef:
+        kind: HelmRepository
+        name: truenas-csi
+  interval: 1h
+  # The chart hardcodes a hostPath /etc/iscsi of type Directory, which Talos lacks (no iscsi-tools).
+  # Only iscsiadm config lives there and this cluster uses NVMe-oF, so point it at a writable path.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: DaemonSet
+              name: truenas-csi-node
+            patch: |-
+              apiVersion: apps/v1
+              kind: DaemonSet
+              metadata:
+                name: truenas-csi-node
+              spec:
+                template:
+                  spec:
+                    volumes:
+                      - name: iscsi-dir
+                        hostPath:
+                          path: /var/lib/iscsi-etc
+                          type: DirectoryOrCreate
+  values:
+    truenas:
+      # The TLS passthrough route, so the Let's Encrypt cert verifies; the bare IP would not.
+      url: wss://truenas.${SECRET_DOMAIN}/api/current
+      # Derived from url otherwise, which resolves to the gateway instead of the NAS.
+      nvmeofPortal: ${TRUENAS_IP}:4420
+      defaultPool: BIGHDDZ1
+      existingSecret: truenas-csi
+    node:
+      # Only FileFlows mounts these volumes, and it is pinned to the one GPU node.
+      nodeSelector:
+        amd.com/gpu: "true"
+    storageClasses:
+      # Scratch on the HDD pool, off SSD_Pool (the PM983 under osd.3 and control-1's etcd).
+      - name: truenas-scratch
+        mountOptions:
+          - discard
+        parameters:
+          protocol: nvmeof
+          datasetPath: kubernetes
+          volblocksize: 128K
+          sparse: "true"
+          # Rebuilt on loss, so neither compression nor sync writes are worth their cost.
+          compression: "OFF"
+          sync: DISABLED

@@ -23,6 +23,24 @@ spec:
       karakeep:
         annotations:
           reloader.stakater.com/auto: "true"
+        pod:
+          # karakeep and meilisearch share one RWO volume, so each must land on the other's node. The term
+          # matches both pods, so the first to schedule matches itself and goes anywhere; the second follows.
+          affinity: &sharedVolumeAffinity
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: app.kubernetes.io/name
+                        operator: In
+                        values:
+                          - karakeep
+                      - key: app.kubernetes.io/controller
+                        operator: In
+                        values:
+                          - karakeep
+                          - meilisearch
+                  topologyKey: kubernetes.io/hostname
         containers:
           app:
             image:
@@ -48,13 +66,12 @@ spec:
               # OpenAI-compatible endpoint (via agentgateway); must match /v1/models ids.
               OPENAI_BASE_URL: http://agentgateway.ai.svc.cluster.local:4000/v1
               OPENAI_API_KEY: ${LLM_API_KEY}
-              # Text tasks use the 2B iGPU model (text-only GGUF, an AgentgatewayModel under its llmkube name); images/OCR stay on the 27B's vision.
-              INFERENCE_TEXT_MODEL: qwen35-2b
+              INFERENCE_TEXT_MODEL: qwen-3.8-fast
               INFERENCE_IMAGE_MODEL: qwen-3.8-fast
               INFERENCE_NUM_WORKERS: "2"
               INFERENCE_OUTPUT_SCHEMA: "plain"
               INFERENCE_ENABLE_AUTO_SUMMARIZATION: "true"
-              # Leaves headroom under the 2B's 16K-per-slot budget (see qwen35-2b.yaml).
+              # Bound background bookmark prefill on the shared 27B backend.
               INFERENCE_CONTEXT_LENGTH: "12000"
               INFERENCE_JOB_TIMEOUT_SEC: "300"
               OCR_USE_LLM: "true"
@@ -116,20 +133,7 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         pod:
-          affinity:
-            podAffinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                - labelSelector:
-                    matchExpressions:
-                      - key: app.kubernetes.io/name
-                        operator: In
-                        values:
-                          - karakeep
-                      - key: app.kubernetes.io/controller
-                        operator: In
-                        values:
-                          - karakeep
-                  topologyKey: kubernetes.io/hostname
+          affinity: *sharedVolumeAffinity
         containers:
           app:
             image:

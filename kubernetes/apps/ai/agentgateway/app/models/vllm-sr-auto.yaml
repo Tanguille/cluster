@@ -1,0 +1,51 @@
+---
+# `vllm-sr/auto` asks the Semantic Router (apps/ai/semantic-router) for a reasoning effort.
+# It rewrites the body to qwen-3.8 with that effort before routing, so qwen-3.8's own policies
+# apply and any client-set effort is replaced. If the router is unreachable the request
+# continues as `vllm-sr/auto`, which this virtual model sends to qwen-3.8 at its default effort.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: vllm-sr-auto
+spec:
+  parentRefs:
+    - kind: HTTPRoute
+      name: agentgateway-router
+  match:
+    model: vllm-sr/auto
+  virtualModel:
+    failover:
+      targets:
+        - modelRef:
+            name: agentgateway-router-qwen38
+          priority: 0
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: vllm-sr-auto
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: agentgateway
+      sectionName: models
+  traffic:
+    phase: PreRouting
+    extProc:
+      conditional:
+        - condition: json(request.body).model == "vllm-sr/auto"
+          policy:
+            backendRef:
+              name: semantic-router
+              port: 50051
+            failureMode: FailOpen
+            # Request only: the router rewrites the body; responses stream straight back.
+            processingOptions:
+              requestBodyMode: Buffered
+              requestTrailerMode: Skip
+              responseHeaderMode: Skip
+              responseBodyMode: None
+              responseTrailerMode: Skip
