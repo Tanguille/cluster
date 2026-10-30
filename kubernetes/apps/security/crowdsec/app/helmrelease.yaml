@@ -161,6 +161,13 @@ spec:
         notifications:
           - alertmanager
         on_success: break
+      # blocklist-import alerts have no scenario hash, so CrowdSec counts them as custom and
+      # would upload every imported IP to CAPI as our signal; no custom scenarios exist here
+      console.yaml: |-
+        share_manual_decisions: false
+        share_custom: false
+        share_tainted: true
+        share_context: false
     tls:
       enabled: true
       certManager:

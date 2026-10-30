@@ -45,12 +45,16 @@ spec:
               # Both default on: telemetry pings a third-party endpoint, metrics push to a nonexistent Pushgateway
               TELEMETRY_ENABLED: false
               METRICS_ENABLED: false
+            # ALLOWLIST: LAPI skips its centralized allowlists for alerts that carry decisions
+            envFrom:
+              - secretRef:
+                  name: crowdsec-blocklist-import
             securityContext:
               allowPrivilegeEscalation: false
             resources:
               requests:
                 cpu: 10m
-                memory: 128Mi
+                memory: 64Mi
               limits:
                 memory: 512Mi
 
