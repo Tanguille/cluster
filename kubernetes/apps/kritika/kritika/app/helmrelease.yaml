@@ -106,7 +106,10 @@ spec:
       reviewWorkers: 6
       limits:
         concurrency: 6
-      webUrl: "https://kritika.${SECRET_DOMAIN}"
+      # Review-comment badges (View / Re-run / severity) are embedded from
+      # webUrl and must load off-network (mobile); the public webhook
+      # host serves /badges/. The dashboard stays on the internal host.
+      webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
       indexGrace: 1h
       apps:
