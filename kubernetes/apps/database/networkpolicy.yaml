@@ -33,10 +33,6 @@ spec:
             io.kubernetes.pod.namespace: observability
         - matchLabels:
             io.kubernetes.pod.namespace: database
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
     # cnpg serves validating/mutating webhooks the apiserver must reach.
     - fromEntities:
         - kube-apiserver

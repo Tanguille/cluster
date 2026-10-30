@@ -39,8 +39,3 @@ spec:
         - ports:
             - port: "9999"
               protocol: TCP
-    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns

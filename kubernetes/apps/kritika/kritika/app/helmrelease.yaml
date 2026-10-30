@@ -102,9 +102,10 @@ spec:
             name: kritika-secret
             key: admin-password
     config:
-      reviewWorkers: 8
+      # 8 outran the qwen-3.8 fallback whenever omniroute shed load: a 30-minute queue, past the 300s client timeout.
+      reviewWorkers: 6
       limits:
-        concurrency: 8
+        concurrency: 6
       webUrl: "https://kritika.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
       indexGrace: 1h
