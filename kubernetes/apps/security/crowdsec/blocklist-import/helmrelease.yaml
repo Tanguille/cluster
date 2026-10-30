@@ -22,6 +22,8 @@ spec:
 
     controllers:
       crowdsec-blocklist-import:
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -30,15 +32,15 @@ spec:
             env:
               CROWDSEC_LAPI_URL: https://crowdsec-service.security.svc.cluster.local:8080
               # Chart-issued client certs: agent-ou writes decisions, bouncer-ou reads them for dedup
-              CROWDSEC_LAPI_CA_CERT_PATH: /certs/agent/ca.crt
-              CROWDSEC_LAPI_AGENT_CERT_PATH: /certs/agent/tls.crt
-              CROWDSEC_LAPI_AGENT_KEY_PATH: /certs/agent/tls.key
-              CROWDSEC_LAPI_BOUNCER_CERT_PATH: /certs/bouncer/tls.crt
-              CROWDSEC_LAPI_BOUNCER_KEY_PATH: /certs/bouncer/tls.key
+              CROWDSEC_LAPI_CA_CERT_PATH: /agent-tls/ca.crt
+              CROWDSEC_LAPI_AGENT_CERT_PATH: /agent-tls/tls.crt
+              CROWDSEC_LAPI_AGENT_KEY_PATH: /agent-tls/tls.key
+              CROWDSEC_LAPI_BOUNCER_CERT_PATH: /bouncer-tls/tls.crt
+              CROWDSEC_LAPI_BOUNCER_KEY_PATH: /bouncer-tls/tls.key
               INTERVAL: 3600
-              # Drops the feeds with false-positive history (Firehol level3, VXVault, Tor)
+              # Drops Firehol level3 and VXVault (false-positive history) and the Tor exit list
               PRESET: server
-              # kritika and renovate take GitHub webhook deliveries on envoy-external
+              # GitHub delivers webhooks to envoy-external
               ALLOWLIST_GITHUB: true
               # Both default on: telemetry pings a third-party endpoint, metrics push to a nonexistent Pushgateway
               TELEMETRY_ENABLED: false
@@ -56,10 +58,6 @@ spec:
       agent-tls:
         type: secret
         name: crowdsec-agent-tls
-        globalMounts:
-          - path: /certs/agent
       bouncer-tls:
         type: secret
         name: crowdsec-bouncer-tls
-        globalMounts:
-          - path: /certs/bouncer
