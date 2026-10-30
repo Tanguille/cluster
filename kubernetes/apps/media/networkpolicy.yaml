@@ -26,3 +26,8 @@ spec:
     - fromEntities:
         # kubelet probes.
         - host
+    # Router ICMP errors miss conntrack (their source isn't the peer); without them DHT waits out dead-peer timeouts.
+    - icmps:
+        - fields:
+            - type: DestinationUnreachable
+            - type: TimeExceeded

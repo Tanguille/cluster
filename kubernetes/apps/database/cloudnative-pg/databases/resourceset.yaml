@@ -39,6 +39,8 @@ spec:
     - name: mealie
       extensions:
         - name: pg_trgm
+        # Already installed in the live DB; pinned so it tracks the image like the rest.
+        - *vector
     - name: memini
       extensions:
         # Keep vchord and vector paired; Memini's live vchordrq indexes require both.
