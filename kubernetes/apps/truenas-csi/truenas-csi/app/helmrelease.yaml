@@ -87,6 +87,9 @@ spec:
           datasetPath: kubernetes
           volblocksize: 128K
           sparse: "true"
-          # Rebuilt on loss, so neither compression nor sync writes are worth their cost.
+          # Rebuilt on loss, so neither compression nor sync writes are worth their cost. The driver
+          # applies `sync` to NFS volumes only, so these zvols inherit sync=disabled and
+          # primarycache=all from BIGHDDZ1/kubernetes, set on TrueNAS. sync=standard sent 72% of
+          # writes through the ZIL and stalled commands past 30s.
           compression: "OFF"
           sync: DISABLED
