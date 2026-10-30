@@ -15,6 +15,9 @@ spec:
   interval: 1h
   # The chart hardcodes a hostPath /etc/iscsi of type Directory, which Talos lacks (no iscsi-tools).
   # Only iscsiadm config lives there and this cluster uses NVMe-oF, so point it at a writable path.
+  # TrueNAS nvmet-tcp (6.18.52) rejects commands over 4 MiB (sc 0xf) yet advertises MDTS 0, so the
+  # host's 32 MiB max_sectors_kb broke mkfs.ext4; the sidecar caps it. A Talos udev rule only reached
+  # the multipath head: the hidden path devices (nvmeXcYnZ) kept 32 MiB and still sent 4.13 MiB writes.
   postRenderers:
     - kustomize:
         patches:
@@ -29,6 +32,34 @@ spec:
               spec:
                 template:
                   spec:
+                    containers:
+                      - name: nvme-max-sectors
+                        image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
+                        # Polled: hidden path devices send no uevent. mkfs starts ~300 ms after connect;
+                        # losing that race fails one NodeStage, and kubelet retries on the same device.
+                        command:
+                          - /bin/sh
+                          - -c
+                          - |
+                            while true; do
+                              for f in /sys/block/nvme*/queue/max_sectors_kb; do
+                                [ -e "$f" ] || continue
+                                read -r kb < "$f"
+                                if [ "$kb" -gt 4096 ]; then
+                                  echo 4096 > "$f" && echo "capped $f (was $kb)"
+                                fi
+                              done
+                              sleep 0.2
+                            done
+                        securityContext:
+                          privileged: true
+                          readOnlyRootFilesystem: true
+                        resources:
+                          requests:
+                            cpu: 5m
+                            memory: 8Mi
+                          limits:
+                            memory: 32Mi
                     volumes:
                       - name: iscsi-dir
                         hostPath:

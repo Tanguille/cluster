@@ -139,7 +139,7 @@ interval: 168h0m0s
 ---
 # The NVMe drives accept 2 TiB per discard, so the weekly trim above sends 300-600 GiB in requests
 # that take 2-4 s each on the 7450s. Cap each request at 256 MiB so other I/O can interleave.
-# Matches no device on control-1 (virtio only).
+# On control-1 it matches only the TrueNAS NVMe-oF namespaces.
 apiVersion: v1alpha1
 kind: UdevRulesConfig
 rules:
