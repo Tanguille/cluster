@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumclusterwidenetworkpolicy_v2.json
-# Same-node CoreDNS replies are rev-NAT'd into new ingress on an ephemeral port; allow-only.
+# Same-node CoreDNS replies are rev-NAT'd into new ingress on an ephemeral port.
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
@@ -16,7 +16,7 @@ spec:
             k8s-app: kube-dns
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumclusterwidenetworkpolicy_v2.json
-# Apiserver grant for egress-allowlist namespaces (the label also opts out of deny-apiserver-egress); allow-only.
+# Apiserver grant for egress-allowlist namespaces (the label also opts out of deny-apiserver-egress).
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:
@@ -32,7 +32,7 @@ spec:
         - kube-apiserver
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumclusterwidenetworkpolicy_v2.json
-# Redis port only; dragonfly-ingress-allowlist is the server-side gate; allow-only.
+# Redis port only; dragonfly-ingress-allowlist is the server-side gate.
 apiVersion: cilium.io/v2
 kind: CiliumClusterwideNetworkPolicy
 metadata:

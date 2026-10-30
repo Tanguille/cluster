@@ -7,7 +7,7 @@ metadata:
 specs:
   # Default-deny both directions; app rules below union with these infrastructure paths.
   - endpointSelector: {}
-    # Empty rule fences ingress: enableDefaultDeny alone emits nothing for a direction without rules.
+    # Empty rule admits nothing; it keeps ingress default-deny, which enableDefaultDeny alone would not emit without rules.
     ingress:
       - {}
     egress:
