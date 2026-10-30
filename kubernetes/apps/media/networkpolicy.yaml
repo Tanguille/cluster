@@ -18,14 +18,6 @@ spec:
             io.kubernetes.pod.namespace: observability
         - matchLabels:
             io.kubernetes.pod.namespace: network
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-        # ephemeral not 53.
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
-    - fromEntities:
-        # kubelet probes.
-        - host
     # Router ICMP errors miss conntrack (their source isn't the peer); without them DHT waits out dead-peer timeouts.
     - icmps:
         - fields:

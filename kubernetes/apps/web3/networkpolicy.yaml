@@ -7,16 +7,14 @@ metadata:
 specs:
   # Default-deny both directions; app rules below union with these infrastructure paths.
   - endpointSelector: {}
+    # Empty rule admits nothing; it keeps ingress default-deny, which enableDefaultDeny alone would not emit without rules.
     ingress:
-      - fromEntities: [host] # kubelet probes
-      # Rev-NAT'd DNS replies target ephemeral ports, not port 53.
-      - fromEndpoints:
-          - matchLabels: &dns
-              io.kubernetes.pod.namespace: kube-system
-              k8s-app: kube-dns
+      - {}
     egress:
       - toEndpoints:
-          - matchLabels: *dns
+          - matchLabels:
+              io.kubernetes.pod.namespace: kube-system
+              k8s-app: kube-dns
         toPorts:
           - ports:
               - { port: "53", protocol: UDP }

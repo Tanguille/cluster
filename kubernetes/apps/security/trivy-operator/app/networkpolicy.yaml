@@ -18,11 +18,3 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: security
             app.kubernetes.io/name: trivy-operator
-    # Rev-NAT'd DNS replies hit ingress; the server resolves the DB registry.
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
-    # kubelet probes.
-    - fromEntities:
-        - host
