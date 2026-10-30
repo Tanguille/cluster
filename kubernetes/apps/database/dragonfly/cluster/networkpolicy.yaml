@@ -11,14 +11,13 @@ spec:
       app: dragonfly
       app.kubernetes.io/name: dragonfly
   ingress:
-    # 6379 (redis): ai (toolhive vmcp), default, renovate (operator cache); replication uses 9999.
+    # 6379 (redis): labeled clients in any namespace; without the Exists term the selector stays inside database.
     - fromEndpoints:
         - matchLabels:
-            io.kubernetes.pod.namespace: ai
-        - matchLabels:
-            io.kubernetes.pod.namespace: default
-        - matchLabels:
-            io.kubernetes.pod.namespace: renovate
+            egress.home.arpa/dragonfly: allow
+          matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: Exists
       toPorts:
         - ports:
             - port: "6379"

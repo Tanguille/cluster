@@ -20,6 +20,11 @@ spec:
     - --lock_on_hashtags
     - --proactor_threads=4
     - --default_lua_flags=allow-undeclared-keys
+  # Sets DFLY_requirepass on 6379; the operator, probes, replication and metrics use the admin port (--admin_nopass).
+  authentication:
+    passwordFromSecret:
+      name: dragonfly-auth
+      key: password
   resources:
     requests:
       cpu: 100m
