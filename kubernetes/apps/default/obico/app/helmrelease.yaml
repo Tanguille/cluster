@@ -34,7 +34,7 @@ spec:
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
-        # Same shape as the chart's bundled-redis env; the map renders sorted, so REDIS_PASSWORD precedes REDIS_URL.
+        # The map renders sorted, so REDIS_PASSWORD precedes the REDIS_URL that expands it.
         REDIS_PASSWORD:
           secretKeyRef:
             name: dragonfly-auth
