@@ -26,3 +26,10 @@ spec:
     - fromEntities:
         # kubelet probes.
         - host
+    # ICMP errors for egress (torrent peers, mostly): without them DHT waits out timeouts on dead peers.
+    - fromEntities:
+        - world
+      icmps:
+        - fields:
+            - type: DestinationUnreachable
+            - type: TimeExceeded
