@@ -15,6 +15,9 @@ spec:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
 
+    podLabels:
+      egress.home.arpa/postgres: allow
+
     gatus:
       env:
         TZ: ${TIMEZONE}

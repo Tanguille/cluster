@@ -9,10 +9,6 @@ outgoing:
   request_timeout: 2.0
   max_request_timeout: 5.0
 
-# Limiter needs valkey (Redis-compatible); use same Dragonfly with a different db.
-valkey:
-  url: valkey://dragonfly.database.svc.cluster.local:6379/11
-
 search:
   # Allow JSON so API/MCP clients (e.g. mcp-searxng) can use format=json; otherwise they get 403.
   formats:

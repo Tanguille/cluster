@@ -83,6 +83,8 @@ spec:
               capabilities: { drop: ["ALL"] }
 
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       securityContext:
         runAsUser: 568
         runAsGroup: 568

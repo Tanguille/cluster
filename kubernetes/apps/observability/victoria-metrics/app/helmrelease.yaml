@@ -135,6 +135,9 @@ spec:
         # ZFS ARC counts as used memory (fired on truenas 57% of 7d); NodeMemoryAvailableLow and PSI cover k8s nodes.
         NodeMemoryHighUtilization:
           enabled: false
+        # No inhibit rule consumes it.
+        InfoInhibitor:
+          enabled: false
       groups:
         # Its recordings only fed the disabled node-rsrc-use dashboards.
         node-exporter.rules:
@@ -235,12 +238,10 @@ spec:
           receiver: discord
           repeat_interval: 12h
           routes:
+            # Always firing; kromgo subtracts it from the badge.
             - receiver: blackhole
               matchers:
-                - alertname =~ "InfoInhibitor|TrivyNewCriticalVulnerabilities"
-            - receiver: discord-satisfactory
-              matchers:
-                - app = satisfactory
+                - alertname = "Watchdog"
         inhibit_rules:
           - equal: ["alertname", "namespace"]
             source_matchers:
@@ -294,11 +295,6 @@ spec:
 
                   {{ end }}{{ end }}{{ if gt (len .Alerts) 5 }}…and more alerts in this group.
                   {{ end }}
-          # Same embed; the content line pings the Satisfactory role (not inside the embed, where mentions do not notify).
-          - name: discord-satisfactory
-            discord_configs:
-              - <<: *discord
-                content: '{{ if eq .Status "firing" }}<@&1561355798846906469>{{ end }}'
       monzoTemplate:
         enabled: false
       route:
