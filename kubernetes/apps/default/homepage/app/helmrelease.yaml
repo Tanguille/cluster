@@ -39,10 +39,10 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /api/healthcheck
                     port: &port 3000
-                    httpHeaders: &probeHeaders
+                    httpHeaders:
                       - name: Host
                         value: localhost:3000
                   periodSeconds: 30
@@ -53,10 +53,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /api/healthcheck
-                    port: *port
-                    httpHeaders: *probeHeaders
+                  httpGet: *httpGet
                   failureThreshold: 30
                   periodSeconds: 5
             resources:

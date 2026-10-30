@@ -4,7 +4,6 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: web3-ingress-allowlist
-  namespace: web3
 specs:
   # Default-deny both directions; app rules below union with these infrastructure paths.
   - endpointSelector: {}

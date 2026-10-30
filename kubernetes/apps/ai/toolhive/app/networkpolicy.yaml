@@ -8,9 +8,7 @@ spec:
   # ToolHive vMCP (`unified`) aggregates every ToolHive backend behind one
   # :4483/mcp endpoint and is anonymous (spec.incomingAuth: anonymous), so
   # reachability is the only access control there is. Scoped to the unified
-  # vMCP pod alone, on top of the ai namespace ingress allowlist. Egress untouched
-  # (backends, redis session storage, agentgateway embedder all keep working).
-  # Kubelet probes need no rule: allow-localhost admits the local host.
+  # vMCP pod alone, on top of the ai namespace ingress allowlist.
   endpointSelector:
     matchLabels:
       app: virtualmcpserver

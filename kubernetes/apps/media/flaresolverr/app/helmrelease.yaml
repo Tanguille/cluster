@@ -36,7 +36,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /health
                     port: 8191
                   # /health responds slowly while Chromium is busy solving a
@@ -47,9 +47,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /health
-                    port: 8191
+                  httpGet: *httpGet
                   failureThreshold: 30
                   periodSeconds: 5
 

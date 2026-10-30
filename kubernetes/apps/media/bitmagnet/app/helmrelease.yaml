@@ -47,7 +47,6 @@ spec:
             envFrom:
               - secretRef:
                   name: bitmagnet-postgres
-            # No hostPort: media enforces PSA baseline, so DHT is outbound-only.
             probes:
               readiness: &bitmagnet-probe
                 enabled: true

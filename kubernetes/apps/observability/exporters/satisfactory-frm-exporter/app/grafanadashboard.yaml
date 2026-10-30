@@ -16,21 +16,3 @@ spec:
   configMapRef:
     name: satisfactory-frm-dashboards
     key: power.json
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/grafana.integreatly.org/grafanadashboard_v1beta1.json
-apiVersion: grafana.integreatly.org/v1beta1
-kind: GrafanaDashboard
-metadata:
-  name: satisfactory-frm-exporter-global-production
-spec:
-  allowCrossNamespaceImport: true
-  instanceSelector:
-    matchLabels:
-      grafana.internal/instance: grafana
-  folder: games
-  datasources:
-    - datasourceName: prometheus
-      inputName: DS_PROMETHEUS
-  configMapRef:
-    name: satisfactory-frm-dashboards
-    key: global-production.json

@@ -1,12 +1,7 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
-# Internet-exposed app namespaces must not reach the kube-apiserver. Namespace membership
-# is a coarse proxy for exposure: not every pod in these namespaces is externally routed.
-# enableDefaultDeny egress:false keeps this a pure deny overlay — DNS/internet/cluster
-# egress stay default-allow. kopiur movers (managed-by=kopiur) legitimately need the
-# apiserver, so they are excluded via NotIn (also matches label-absent app pods => they ARE
-# denied). Workloads that need the apiserver opt out with the pod label
-# egress.home.arpa/kube-apiserver: allow, declared in their own HelmRelease.
+# Internet-exposed namespaces must not reach the kube-apiserver; a pure deny overlay, other egress stays default-allow.
+# NotIn matches label-less pods too, so only kopiur movers and egress.home.arpa/kube-apiserver: allow pods are exempt.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
