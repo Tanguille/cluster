@@ -13,6 +13,27 @@ spec:
         kind: HelmRepository
         name: truenas-csi
   interval: 1h
+  # The chart hardcodes a hostPath /etc/iscsi of type Directory, which Talos lacks (no iscsi-tools).
+  # Only iscsiadm config lives there and this cluster uses NVMe-oF, so point it at a writable path.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: DaemonSet
+              name: truenas-csi-node
+            patch: |-
+              apiVersion: apps/v1
+              kind: DaemonSet
+              metadata:
+                name: truenas-csi-node
+              spec:
+                template:
+                  spec:
+                    volumes:
+                      - name: iscsi-dir
+                        hostPath:
+                          path: /var/lib/iscsi-etc
+                          type: DirectoryOrCreate
   values:
     truenas:
       # The TLS passthrough route, so the Let's Encrypt cert verifies; the bare IP would not.
