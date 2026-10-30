@@ -35,7 +35,6 @@ spec:
               # Limiter needs valkey (Redis-compatible); same Dragonfly, own db. Env, not settings.yml, keeps the password out of the ConfigMap.
               SEARXNG_VALKEY_URL:
                 value: valkey://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/11
-                dependsOn: DRAGONFLY_PASSWORD
             envFrom:
               - secretRef:
                   name: searxng-secret

@@ -240,7 +240,7 @@ spec:
         usernameKey: INIT_POSTGRES_USER
         passwordKey: INIT_POSTGRES_PASS
 
-    # REDIS_HOST/_PORT/_PASSWORD for app and cron; the image wires them into config.php and the PHP session handler.
+    # REDIS_HOST, REDIS_HOST_PORT and REDIS_HOST_PASSWORD for app and cron; the image wires them into config.php and the session handler.
     externalRedis:
       enabled: true
       host: dragonfly.database.svc.cluster.local
