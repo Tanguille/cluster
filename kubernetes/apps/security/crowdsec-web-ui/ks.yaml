@@ -3,11 +3,13 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: crowdsec-web-ui
+  name: &app crowdsec-web-ui
   namespace: &namespace security
 spec:
   dependsOn:
     - name: crowdsec
+  components:
+    - ../../../../components/kopiur
   interval: 1h
   path: ./kubernetes/apps/security/crowdsec-web-ui/app
   prune: true
@@ -17,3 +19,9 @@ spec:
     namespace: flux-system
   targetNamespace: *namespace
   wait: true
+  postBuild:
+    substitute:
+      APP: *app
+      PVC_CAPACITY: 1Gi
+      KOPIUR_PUID: "1000"
+      KOPIUR_PGID: "1000"
