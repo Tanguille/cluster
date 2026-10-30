@@ -10,6 +10,9 @@ spec:
   # replica eliminates that cross-pod double-embed. Trade-off: no HA on this gateway.
   replicas: 1
   podTemplateSpec:
+    metadata:
+      labels:
+        egress.home.arpa/dragonfly: allow
     spec:
       # The 30s default is shorter than the drain (shutdown waits on 20s backend health checks): exit 137 mid-drain.
       terminationGracePeriodSeconds: 60
@@ -53,6 +56,9 @@ spec:
   sessionStorage:
     provider: redis
     address: dragonfly.database.svc.cluster.local:6379
+    passwordRef:
+      name: dragonfly-auth
+      key: password
     keyPrefix: "thv:vmcp:unified:session:"
   incomingAuth:
     type: anonymous

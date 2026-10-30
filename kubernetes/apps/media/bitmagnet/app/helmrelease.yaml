@@ -11,6 +11,8 @@ spec:
     name: app-template
   values:
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       securityContext:
         runAsNonRoot: true
         runAsUser: 568

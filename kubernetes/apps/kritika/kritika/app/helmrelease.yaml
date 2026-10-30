@@ -12,6 +12,9 @@ spec:
   values:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
+    # Postgres client grant for database-ingress-allowlist's label gate (runners: runner.podTemplate).
+    podLabels:
+      egress.home.arpa/postgres: allow
     # Direct to postgres16-rw: kritika sets startup params pgbouncer rejects.
     database:
       owner:
@@ -29,6 +32,9 @@ spec:
     # Keys live under podTemplate.spec; top-level runtimeClassName and resources are ignored silently and runner pods lose gVisor.
     runner:
       podTemplate:
+        metadata:
+          labels:
+            egress.home.arpa/postgres: allow
         spec:
           runtimeClassName: gvisor
           resources:
