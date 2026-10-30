@@ -12,8 +12,6 @@ spec:
   values:
     defaultPodOptions:
       securityContext:
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
         runAsGroup: 1000
         runAsNonRoot: true
         runAsUser: 1000
@@ -44,7 +42,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /api/v1/health
                     port: 3333
                   timeoutSeconds: 5
@@ -52,9 +50,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /api/v1/health
-                    port: 3333
+                  httpGet: *httpGet
                   failureThreshold: 30
                   periodSeconds: 5
             securityContext:

@@ -23,9 +23,7 @@ cluster `postgres16`, reached through `pgbouncer-session`. The UI is on
   Its scripts live in the `bitmagnet-prune` ConfigMap, so editing them does not
   restart bitmagnet.
 - bitmagnet always advertises imdbid/tmdbid but answers id searches only from
-  TMDB-matched torrents. On 2026-10-28 ids won for movies (96 vs 93 of 100) and
-  lost for TV (32 vs 37 of 60). Prowlarr indexer 130 refetches caps on every
-  save, so they cannot be trimmed there; Sonarr still searched an id-miss
-  episode (Weeds S01E01) by title.
+  TMDB-matched torrents. Prowlarr indexer 130 refetches caps on every save, so
+  they cannot be trimmed there.
 - qBittorrent's excluded file names (UI setting) skip executables in every
   download, and Sonarr/Radarr fail imports that contain one.

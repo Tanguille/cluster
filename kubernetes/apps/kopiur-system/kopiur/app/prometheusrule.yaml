@@ -6,14 +6,8 @@ metadata:
   name: kopiur-rules
 spec:
   groups:
-    # The chart ships its own `kopiur.rules` group (monitoring.prometheusRule.enabled
-    # in the HelmRelease); group and alert names here must not collide with it.
-    # Known benign-ish mode: during Talos rolling upgrades the surviving nodes fill up
-    # at request level and hourly mover pods (50m/128Mi via moverDefaults, priority 0,
-    # no CRD field to raise it) fail scheduling with MoverPodWedged "Insufficient
-    # memory". The next hourly run succeeds once the drain finishes, so the chart's
-    # KopiurBackupConsecutiveFailures (>=3, warning) only pages when a wedge outlives
-    # the window; these freshness rules catch anything longer.
+    # Names must not collide with the chart's own `kopiur.rules` group.
+    # Movers wedged by Talos drains ("Insufficient memory") recover next hour; these catch longer gaps.
     - name: kopiur.freshness.rules
       rules:
         # Snapshots run hourly; the chart's KopiurBackupStale is tuned to 6h in the
@@ -29,8 +23,7 @@ spec:
           labels:
             severity: critical
 
-        # The July outage removed the CSI snapshot CRDs, so policies stopped reporting
-        # rather than reporting failure. Absence is the failure mode to catch.
+        # Missing CSI snapshot CRDs make policies stop reporting rather than fail.
         - alert: KopiurPolicyMetricsAbsent
           expr: |-
             absent(kopiur_policy_last_backup_success_timestamp_seconds)
