@@ -35,5 +35,5 @@ spec:
           {"reasoning_effort":
           t.matches("(?i)\\b(one word|yes or no|briefly|tl;?dr|in short|one line|one sentence)\\b") ? "low"
           : (size(t) > 4000
-          || t.matches("(?i)\\b(derive|integral|equation|solve for|closed form|proof|prove|debug|traceback|stack trace|root[- ]?caus|step by step|trade-?off|pros and cons)\\b"))
+          || t.matches("(?i)\\b(derive|integral|equation|solve for|closed form|proof|prove|debug\\w*|traceback|stack trace|root[- ]?cause|step by step|trade-?off|pros and cons)\\b"))
           ? "xhigh" : "medium"})
