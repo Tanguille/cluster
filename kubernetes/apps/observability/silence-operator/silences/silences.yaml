@@ -16,8 +16,7 @@ spec:
 apiVersion: observability.giantswarm.io/v1alpha2
 kind: Silence
 metadata:
-  # Structural: control-1 (59Gi allocatable) dwarfs control-2/3 (26Gi); N-1 memory
-  # capacity is unfixable by request tuning.
+  # Structural: control-1 (59Gi) dwarfs control-2/3 (26Gi), so N-1 capacity can't be fixed by request tuning.
   name: kube-memory-overcommit-homelab
 spec:
   matchers:
@@ -28,8 +27,7 @@ spec:
 apiVersion: observability.giantswarm.io/v1alpha2
 kind: Silence
 metadata:
-  # Structural: at priority -1000 with a hard node pin, xmrig has nothing below it to
-  # preempt and nowhere to move, so Pending on a full node is its resting state.
+  # Structural: priority -1000 plus a hard node pin leaves xmrig Pending on a full node.
   name: xmrig-pending-on-full-node
 spec:
   matchers:
@@ -45,8 +43,7 @@ spec:
 apiVersion: observability.giantswarm.io/v1alpha2
 kind: Silence
 metadata:
-  # Same cause, Deployment side: KEDA scales to 1, the pod stays Pending, so spec.replicas
-  # outruns available for as long as the node is full.
+  # Same cause, Deployment side: KEDA scales to 1 while the pod stays Pending.
   name: xmrig-replicas-mismatch-on-full-node
 spec:
   matchers:
