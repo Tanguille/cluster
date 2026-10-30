@@ -32,31 +32,21 @@ spec:
       activeDeadlineSeconds: 2700
   credentialProjection:
     allowed: true
-  # NOT set on moverDefaults: moverDefaults.securityContext is baked onto
-  # every mover's *container* securityContext, which always wins over the
-  # per-app explicit mover.securityContext that components/kopiur/backup
-  # and restore set — silently clobbering source-PVC reads for any app
-  # whose real uid or gid isn't 568 (confirmed for both fields: hermes's
-  # explicit fsGroup:10000 was overridden back to runAsGroup:568 at
-  # container level). Scoped to maintenance.mover instead, which has no
-  # PVC to inherit from and so nothing to clobber.
   maintenance:
     mover:
+      # Not on moverDefaults: there it overrides the per-app mover uid/gid in components/kopiur.
       securityContext:
         runAsUser: 568
         runAsGroup: 568
     schedule:
-      # Quick maintenance (index/log work) hourly instead of the default 6h —
-      # closed epochs get compacted promptly. Full (content reclamation) stays
-      # the default daily, pinned to 03:00 local to avoid the midnight peak.
+      # Quick hourly (default 6h) compacts closed epochs promptly; full stays daily, off the midnight peak.
       quick:
         cron: 0 * * * *
         jitter: 10m
       full:
         cron: 0 3 * * *
         jitter: 1h
-  # Movers ran BestEffort (no resources) — Talos OOM killer's first victims
-  # under node memory pressure (bootstrap/mover exit 137, 07-20 outage).
+  # Requests keep movers out of BestEffort, the Talos OOM killer's first victims (exit 137).
   moverDefaults:
     resources:
       requests:
@@ -64,9 +54,7 @@ spec:
         memory: 128Mi
   parameters:
     epoch:
-      # kopia's default is 24h; 1h so closed epochs are compacted promptly
-      # and live index blob growth stays bounded. Upstream: onedr0p/home-ops#11650,
-      # joryirving/home-ops#9780.
+      # kopia default 24h; 1h bounds live index blob growth (onedr0p/home-ops#11650).
       minDuration: 1h
   scheduleDefaults:
     timezone: ${TIMEZONE}

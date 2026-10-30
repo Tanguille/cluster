@@ -1,6 +1,5 @@
 ---
-# talosctl is 96MiB and the Flate pull job runs on ~400 container PRs a month.
-# RWX so all runner pods share one copy per version; the workflow verifies and prunes.
+# RWX talosctl cache shared by all runner pods; .github/workflows/flate.yaml verifies and prunes it.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

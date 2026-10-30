@@ -20,8 +20,12 @@ spec:
     rbac:
       ownNamespaceOnly: true
     # Reuse the shared Dragonfly; operator takes dbs 0-2, Renovate's package cache lands in db 1.
+    # Job pods get the password inside the cache URL the operator forwards to them.
     externalKeyValueStore:
       host: dragonfly.database.svc.cluster.local
+      existingSecret:
+        name: dragonfly-auth
+        passwordKey: password
     # Default allowedHosts/allowedImages already cover github.com and ghcr.io/renovatebot/renovate;
     # the chart appends the webhook host.
     policy:

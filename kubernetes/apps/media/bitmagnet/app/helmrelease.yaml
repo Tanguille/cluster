@@ -11,6 +11,8 @@ spec:
     name: app-template
   values:
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       securityContext:
         runAsNonRoot: true
         runAsUser: 568
@@ -47,7 +49,6 @@ spec:
             envFrom:
               - secretRef:
                   name: bitmagnet-postgres
-            # No hostPort: media enforces PSA baseline, so DHT is outbound-only.
             probes:
               readiness: &bitmagnet-probe
                 enabled: true

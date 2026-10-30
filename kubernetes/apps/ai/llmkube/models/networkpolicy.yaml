@@ -42,11 +42,7 @@ spec:
             io.kubernetes.pod.namespace: kube-system
             k8s-app: kube-dns
 ---
-# memini's and Hermes's (web-extract-rerank plugin) rerank paths, carved out of the gateway-only allowlist above.
-# Deliberately a SEPARATE policy: its endpointSelector pins the reranker
-# service, so memini and Hermes reach bge-reranker-v2-m3 and nothing else in the
-# llmkube fleet — the unauthenticated 27B chat and vLLM pods stay
-# gateway-only.
+# memini and Hermes (web-extract-rerank) call the reranker directly; intent only, like the policy above.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:

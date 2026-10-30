@@ -24,11 +24,7 @@ spec:
       mode: console
     news:
       news_feed_enabled: "false"
-    # Upstream deb/rpm packages copy data/plugins-bundled under $DATA_DIR and
-    # point paths.bundled_plugins there so the plugin auto-updater can replace
-    # them in place. Same idea here: the initContainer below seeds the image's
-    # bundled plugins into a writable emptyDir, keeping readOnlyRootFilesystem
-    # AND working auto-updates (Grafana >=13.2 ships prometheus as standalone).
+    # initContainer seeds bundled plugins into a writable emptyDir: readOnlyRootFilesystem plus working plugin auto-updates.
     paths:
       bundled_plugins: /var/lib/grafana/plugins-bundled
     plugins:
@@ -42,6 +38,9 @@ spec:
       strategy:
         type: Recreate
       template:
+        metadata:
+          labels:
+            egress.home.arpa/postgres: allow
         spec:
           initContainers:
             - name: seed-bundled-plugins

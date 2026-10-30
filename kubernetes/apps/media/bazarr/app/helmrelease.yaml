@@ -70,6 +70,8 @@ spec:
                 memory: 1Gi
 
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       securityContext:
         runAsNonRoot: true
         runAsUser: 568

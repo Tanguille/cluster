@@ -94,12 +94,10 @@ spec:
       custom:
         formats:
           - type: Embeddings
-          - type: Rerank
   policies:
     ai:
       routes:
         /v1/embeddings: Embeddings
-        /v1/rerank: Rerank
         "*": Passthrough
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json

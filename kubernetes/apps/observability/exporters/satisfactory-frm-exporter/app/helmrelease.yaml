@@ -18,9 +18,6 @@ spec:
       satisfactory-frm-exporter:
         containers:
           app:
-            # Companion for the FicsitRemoteMonitoring mod: polls the FRM JSON API
-            # (satisfactory:8080) and re-exposes the same data in Prometheus format.
-            # Static Go binary (FROM scratch); the digest pins the moving `latest` tag.
             image:
               repository: docker.io/featheredtoast/ficsit-remote-monitoring-companion
               tag: latest@sha256:6c003115f5b748687cdff1dea963d956a005fee6239265e357ea8b14c7bfb18b

@@ -17,6 +17,9 @@ spec:
 
   values:
     server:
+      # Server and tasks containers share this pod, so one label covers both.
+      podLabels:
+        egress.home.arpa/dragonfly: allow
       securityContext: &nonroot-context
         runAsNonRoot: true
         allowPrivilegeEscalation: false
@@ -35,7 +38,12 @@ spec:
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
-        REDIS_URL: "redis://dragonfly.database.svc.cluster.local:6379"
+        # The map renders sorted, so REDIS_PASSWORD precedes the REDIS_URL that expands it.
+        REDIS_PASSWORD:
+          secretKeyRef:
+            name: dragonfly-auth
+            key: password
+        REDIS_URL: "redis://:$(REDIS_PASSWORD)@dragonfly.database.svc.cluster.local:6379"
         SITE_USES_HTTPS: "True"
       resources:
         requests:

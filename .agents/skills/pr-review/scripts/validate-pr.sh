@@ -33,10 +33,8 @@ warn() {
 }
 
 # Phase 1: Flux Manifest Validation
-# flate renders every Kustomization + HelmRelease with the real Helm/Kustomize SDKs, catching
-# Helm template errors a bare `kustomize build` can't see (HelmRelease charts are opaque
-# to kustomize) — also validates YAML syntax and duplicate keys, so no separate yaml linter.
-# Falls back to kustomize build (Kustomization-only, no Helm render) if flate isn't installed.
+# flate renders every Kustomization + HelmRelease with the real Helm/Kustomize SDKs and also
+# catches YAML syntax errors and duplicate keys, so no separate yaml linter.
 echo "[1/3] Flux Manifest Validation..."
 if command -v flate &>/dev/null; then
     if flate test all -p "${REPO_ROOT}" >/dev/null 2>&1; then
@@ -44,21 +42,8 @@ if command -v flate &>/dev/null; then
     else
         fail "flate test all found issues"
     fi
-elif command -v kustomize &>/dev/null; then
-    KUSTOMIZE_ERRORS=0
-    while IFS= read -r -d '' ks_file; do
-        app_dir=$(dirname "$ks_file")
-        if ! kustomize build "$app_dir" >/dev/null 2>&1; then
-            fail "kustomize build failed: $app_dir"
-            KUSTOMIZE_ERRORS=$((KUSTOMIZE_ERRORS + 1))
-        fi
-    done < <(find "${REPO_ROOT}/kubernetes/apps" -name "kustomization.yaml" -print0 2>/dev/null)
-
-    if [ $KUSTOMIZE_ERRORS -eq 0 ]; then
-        pass "All kustomize builds passed"
-    fi
 else
-    warn "neither flate nor kustomize installed"
+    fail "flate not installed: manifests NOT rendered (run via mise exec)"
 fi
 echo ""
 

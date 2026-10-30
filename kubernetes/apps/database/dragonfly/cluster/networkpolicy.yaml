@@ -4,13 +4,8 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: dragonfly-ingress-allowlist
-  namespace: database
 spec:
-  # Dragonfly instance pods. The operator's built-in NetworkPolicy was removed
-  # in v1.7.0 (networkPolicyEnabled field gone from the CRD), so this replaces
-  # its admin-port protection. These pods are excluded from the namespace-wide
-  # database-ingress-allowlist (it would allow every port), so this is their
-  # only ingress policy.
+  # Sole ingress policy for dragonfly pods (excluded from database-ingress-allowlist); the operator ships none.
   endpointSelector:
     matchLabels:
       app: dragonfly

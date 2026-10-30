@@ -27,6 +27,7 @@ spec:
                 labels:
                   app.kubernetes.io/name: kguardian-broker
           # Snapshotter has no chart value: one 256 batch per 300s tick, live workloads first (default swept every workload ever seen each tick).
+          # Broker pod label patched here: global.labels would hit every kguardian pod.
           - target:
               kind: Deployment
               name: kguardian-broker
@@ -37,6 +38,9 @@ spec:
                 name: not-used
               spec:
                 template:
+                  metadata:
+                    labels:
+                      egress.home.arpa/postgres: allow
                   spec:
                     containers:
                       - name: broker

@@ -4,7 +4,6 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: media-ingress-allowlist
-  namespace: media
 spec:
   # Default-deny ingress for every media pod; per-pod allowlists (flaresolverr) union with it, egress stays open.
   endpointSelector: {}

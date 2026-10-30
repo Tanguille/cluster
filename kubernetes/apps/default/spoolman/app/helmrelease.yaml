@@ -11,6 +11,10 @@ spec:
     name: app-template
 
   values:
+    defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
+
     controllers:
       spoolman:
         strategy: RollingUpdate

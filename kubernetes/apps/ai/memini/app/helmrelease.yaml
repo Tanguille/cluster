@@ -53,9 +53,7 @@ spec:
               # One wider than the recall limit of 3. codingagent_v1 (166 q, EmbeddingGemma 2, 2026-10-15): pools 4-24 all
               # give R@3 88.0% (86.1% unranked) and R@1 65.1-65.7%, while bench wall time grows 69s (4) -> 112s (8) -> 327s (24).
               MEMINI_RERANK_POOL: "4"
-              # Prompt recalls rerank on the whole prompt (~50s per pool), so ~96% timed out; skip them. Explicit short-query recalls still rerank.
-              MEMINI_RERANK_PROMPT: "false"
-              # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); 5s fits typical reranks (~3.3s) and leaves time for the fused-order fallback. No MIN_SCORE gate: it dropped on-topic keyword-query results (logits -3..0).
+              # Hermes abandons a recall at 8s (_EXTERNAL_PREFETCH_TIMEOUT_S); 5s fits pool-4 (~1.2s) and limit-10 MCP (~2.5s) reranks and leaves time for the fused-order fallback. No MIN_SCORE gate: it dropped on-topic keyword-query results (logits -3..0).
               MEMINI_RERANK_TIMEOUT: "5s"
               # /rerank payload cap (query + docs): the 6000 default fits 5 worst-case docs, splitting a 10-doc recall in 2.
               MEMINI_RERANK_MAX_BATCH_CHARS: "20000"
@@ -83,6 +81,8 @@ spec:
                 memory: 512Mi
 
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       priorityClassName: homelab-important
 
     persistence:
