@@ -106,7 +106,7 @@ spec:
           format: |
             [{{range $i, $a := .}}{{if $i}},{{end}}{
               "labels": {
-                "alertname": "CrowdsecDecision",
+                "alertname": "CrowdSecDecision",
                 "severity": "warning",
                 "scenario": {{$a.GetScenario | toJson}},
                 "source_ip": {{$a.Source.IP | toJson}}
@@ -131,6 +131,12 @@ spec:
               token: $${REGISTRATION_TOKEN}
               allowed_ranges:
                 - ${POD_CIDR}
+            # crowdsec-web-ui deletes alerts via the LAPI, which only permits that from
+            # loopback or trusted_ips; the pod CIDR spans all three control nodes
+            trusted_ips:
+              - 127.0.0.1
+              - ::1
+              - 10.42.0.0/22
         db_config:
           type: postgresql
           user: $${DB_USERNAME}
