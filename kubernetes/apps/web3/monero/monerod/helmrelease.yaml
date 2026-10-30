@@ -48,7 +48,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &get-info
                     path: /get_info
                     port: 18089
                   periodSeconds: 30
@@ -56,16 +56,12 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /get_info
-                    port: 18089
+                  httpGet: *get-info
               startup:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /get_info
-                    port: 18089
+                  httpGet: *get-info
                   failureThreshold: 60
     defaultPodOptions:
       # monerod flushes chain data to the 150Gi PVC on shutdown; the 30s

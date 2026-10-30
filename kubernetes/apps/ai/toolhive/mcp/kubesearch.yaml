@@ -11,7 +11,6 @@ spec:
     name: all
   podTemplateSpec:
     spec:
-      # No cluster access needed.
       automountServiceAccountToken: false
       # The operator sets readOnlyRootFilesystem, but kubesearch downloads its
       # catalog DB to /data (repos-extended-<date>.db): without a writable

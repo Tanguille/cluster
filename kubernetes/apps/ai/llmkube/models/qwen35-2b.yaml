@@ -50,7 +50,6 @@ spec:
     - "1.5"
     # Qwen3.5's chat template thinks by default; without this it burns the whole
     # output budget on reasoning_content and returns empty content (verified live).
-    # Sampling flags above don't touch this: it's a template setting.
     - "--reasoning"
     - "off"
 
@@ -83,4 +82,3 @@ spec:
     # Request AND limit (llmkube >= 0.9.29); ~0.14Gi RSS plus ~0.8Gi of amdgpu
     # GTT (uncharged by memcg, counted by the scheduler).
     memory: 1Gi
-  # endpoint omitted — operator defaults to a ClusterIP Service on :8080.

@@ -96,13 +96,11 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: envoy-external-probe
-  annotations:
-    external-dns.kubernetes.io/target: &probeHostname gatus-probe.${SECRET_DOMAIN}
 spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      coredns.io/hostname: *probeHostname
+      coredns.io/hostname: gatus-probe.${SECRET_DOMAIN}
       lbipam.cilium.io/ips: ${ENVOY_GATUS_PROBE_IP}
   listeners:
     - name: https
@@ -125,7 +123,6 @@ kind: Gateway
 metadata:
   name: envoy-internal
   annotations:
-    external-dns.kubernetes.io/target: &hostname internal.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
       group: internal
       guarded: true
@@ -136,7 +133,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      coredns.io/hostname: *hostname
+      coredns.io/hostname: internal.${SECRET_DOMAIN}
       lbipam.cilium.io/ips: ${ENVOY_INTERNAL_IP}
   listeners:
     - name: https
@@ -158,7 +155,6 @@ kind: Gateway
 metadata:
   name: envoy-internal-tls
   annotations:
-    external-dns.kubernetes.io/target: &hostname-tls internal-tls.${SECRET_DOMAIN}
     gatus.home-operations.com/endpoint: |-
       group: internal
       guarded: true
@@ -169,7 +165,7 @@ spec:
   gatewayClassName: envoy
   infrastructure:
     annotations:
-      coredns.io/hostname: *hostname-tls
+      coredns.io/hostname: internal-tls.${SECRET_DOMAIN}
       lbipam.cilium.io/ips: ${ENVOY_INTERNAL_TLS_IP}
   listeners:
     - name: tls
@@ -248,15 +244,11 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: https-redirect
-  annotations:
-    external-dns.kubernetes.io/controller: none
 spec:
   parentRefs:
     - name: envoy-external
-      namespace: network
       sectionName: http
     - name: envoy-internal
-      namespace: network
       sectionName: http
   rules:
     - filters:

@@ -9,3 +9,9 @@ spec:
   transport: streamable-http
   groupRef:
     name: all
+  # Same namespace and home as the hermes memini plugin (MEMINI_NAMESPACE/MEMINI_HOME), so memories
+  # written through the vMCP and by hermes share one read set instead of landing in "default".
+  headerForward:
+    addPlaintextHeaders:
+      X-Memini-Namespace: tanguille
+      X-Memini-Home: cluster

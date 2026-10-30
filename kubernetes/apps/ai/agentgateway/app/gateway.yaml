@@ -37,9 +37,13 @@ spec:
       minAvailable: 1
   # In-cluster only (internal and external access go through the envoy gateways); the
   # default LoadBalancer type would take an address from the LB pool.
+  # Strategic merge adds the admin UI port beside the listener ports.
   service:
     spec:
       type: ClusterIP
+      ports:
+        - name: admin
+          port: 15000
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/gateway.networking.k8s.io/gateway_v1.json
 apiVersion: gateway.networking.k8s.io/v1
@@ -64,7 +68,7 @@ spec:
       protocol: HTTP
 ---
 # Route types by path, on both listeners. Unmapped paths default to Completions, which would
-# parse an Anthropic or rerank body as a chat completion.
+# parse an Anthropic body as a chat completion.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
@@ -83,7 +87,6 @@ spec:
         /v1/messages/count_tokens: AnthropicTokenCount
         /v1/responses: Responses
         /v1/embeddings: Embeddings
-        /v1/rerank: Rerank
 ---
 # Extra metric labels for the dashboard: which client (user_agent, and the key's user_id on
 # the http listener), which model (models listener) and whether the embedding cache answered. A missing value reads "unknown".

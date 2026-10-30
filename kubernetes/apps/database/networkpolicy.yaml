@@ -4,7 +4,6 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: database-ingress-allowlist
-  namespace: database
 spec:
   # Default-deny ingress for every pod in the namespace (postgres, poolers, cnpg
   # + dragonfly operators) except the dragonfly instances: Cilium policies are

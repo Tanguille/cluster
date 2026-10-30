@@ -17,7 +17,7 @@ spec:
     - targetLabel: job
       replacement: *app
   metricRelabelings:
-    # OPNsense unbound chroot nullfs mounts repeat the zroot pool's free bytes; their "/" device trips CephNodeDiskspaceWarning.
+    # OPNsense unbound chroot nullfs mounts repeat the zroot pool's free bytes; their "/" device trips the NodeFilesystem* alerts.
     - action: drop
       sourceLabels: [fstype]
       regex: nullfs
