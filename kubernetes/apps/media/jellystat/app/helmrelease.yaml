@@ -11,6 +11,10 @@ spec:
     name: app-template
 
   values:
+    defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
+
     controllers:
       main:
         strategy: RollingUpdate
@@ -81,7 +85,5 @@ spec:
     persistence:
       backup:
         type: emptyDir
-        advancedMounts:
-          main:
-            main:
-              - path: /app/backend/backup-data
+        globalMounts:
+          - path: /app/backend/backup-data

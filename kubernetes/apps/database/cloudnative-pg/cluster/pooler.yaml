@@ -1,7 +1,5 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/postgresql.cnpg.io/pooler_v1.json
-# Server conns per DB = instances x max_db_connections, summed with the other poolers on that DB;
-# keep the total under cluster.yaml max_connections.
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
 metadata:

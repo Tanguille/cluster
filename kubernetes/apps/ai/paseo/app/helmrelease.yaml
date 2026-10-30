@@ -31,7 +31,7 @@ spec:
           app:
             image:
               repository: ghcr.io/joryirving/paseo
-              tag: 0.14.0@sha256:186ee4009442919605f0e3339503e036f4632574b223d4d682bec5001de4b2ae
+              tag: 0.14.0@sha256:30b48e9ba45589251d310fcbf47fd9ba76b5ca8d491de605b2a7f2f6e1ed2750
             # Skips the image's paseo-start CMD, which requires LiteLLM and overwrites config.json on every start.
             command:
               - /usr/bin/tini
@@ -68,7 +68,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /api/health
                     port: &port 6767
                   timeoutSeconds: 5
@@ -77,9 +77,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /api/health
-                    port: *port
+                  httpGet: *httpGet
                   periodSeconds: 5
                   timeoutSeconds: 5
                   failureThreshold: 60

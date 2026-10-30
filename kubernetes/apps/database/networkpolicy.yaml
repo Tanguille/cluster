@@ -4,7 +4,6 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: database-ingress-allowlist
-  namespace: database
 spec:
   # Default-deny ingress for every pod in the namespace (postgres, poolers, cnpg
   # + dragonfly operators) except the dragonfly instances: Cilium policies are
@@ -17,27 +16,23 @@ spec:
         operator: NotIn
         values: [dragonfly]
   ingress:
-    # Postgres/pgbouncer consumers per cnpg databases/ CRs, plus vmagent (observability) and intra-ns (database).
+    # Labeled Postgres/pgbouncer clients from any namespace; without the Exists term the selector stays inside database.
     - fromEndpoints:
         - matchLabels:
-            io.kubernetes.pod.namespace: ai
-        - matchLabels:
-            io.kubernetes.pod.namespace: default
-        - matchLabels:
-            # kritika: all three roles go straight to postgres16-rw (pgbouncer rejects its startup params).
-            io.kubernetes.pod.namespace: kritika
-        - matchLabels:
-            io.kubernetes.pod.namespace: media
+            egress.home.arpa/postgres: allow
+          matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: Exists
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    # vmagent (observability) and intra-ns (database).
+    - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: observability
         - matchLabels:
-            io.kubernetes.pod.namespace: security
-        - matchLabels:
             io.kubernetes.pod.namespace: database
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
     # cnpg serves validating/mutating webhooks the apiserver must reach.
     - fromEntities:
         - kube-apiserver

@@ -8,18 +8,12 @@ spec:
   # ToolHive vMCP (`unified`) aggregates every ToolHive backend behind one
   # :4483/mcp endpoint and is anonymous (spec.incomingAuth: anonymous), so
   # reachability is the only access control there is. Scoped to the unified
-  # vMCP pod alone, on top of the ai namespace ingress allowlist. Egress untouched
-  # (backends, redis session storage, agentgateway embedder all keep working).
-  # The pod has kubelet probes, so the host entity must stay allowed.
+  # vMCP pod alone, on top of the ai namespace ingress allowlist.
   endpointSelector:
     matchLabels:
       app: virtualmcpserver
       app.kubernetes.io/instance: unified
   ingress:
-    - fromEntities:
-        # kubelet probes (/health, /readyz on :4483). Omitting this blocks the
-        # probes and takes the pod down.
-        - host
     - fromEndpoints:
         # Same-namespace consumers: hermes (MCP client), opencode (MCP client),
         # toolhive-operator (reconciler/health).
@@ -54,12 +48,6 @@ spec:
         - ports:
             - port: "9464"
               protocol: TCP
-    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-    # ephemeral not 53.
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
 apiVersion: cilium.io/v2
@@ -74,8 +62,6 @@ spec:
     matchLabels:
       app: mcpserver
   ingress:
-    - fromEntities:
-        - host
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
@@ -87,11 +73,6 @@ spec:
         - ports:
             - port: "8080"
               protocol: TCP
-    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is ephemeral not 53.
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
 apiVersion: cilium.io/v2
@@ -111,12 +92,7 @@ spec:
         operator: NotIn
         values: [mcpserver, virtualmcpserver]
   ingress:
-    - fromEntities:
-        - host
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
             app: mcpserver
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns

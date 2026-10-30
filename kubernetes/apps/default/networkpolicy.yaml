@@ -4,16 +4,10 @@ apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: default-ingress-allowlist
-  namespace: default
 spec:
-  # Default-deny ingress (egress open), except hostNetwork moonraker-obico: nginx binds loopback, janus host UDP can't be expressed.
+  # Default-deny ingress (egress open). hostNetwork moonraker-obico has no Cilium endpoint, so no CNP applies to it.
   # Per-pod allowlists (changedetection, karakeep, satisfactory, searxng) stay and union with this one.
-  endpointSelector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: NotIn
-        values:
-          - moonraker-obico
+  endpointSelector: {}
   ingress:
     # ai: ToolHive MCP backends; observability: nextcloud-exporter, satisfactory-frm-exporter; network: envoy gateways; default: intra-namespace.
     - fromEndpoints:
@@ -25,11 +19,3 @@ spec:
             io.kubernetes.pod.namespace: observability
         - matchLabels:
             io.kubernetes.pod.namespace: network
-        # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-        # ephemeral not 53.
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
-    - fromEntities:
-        # kubelet probes.
-        - host

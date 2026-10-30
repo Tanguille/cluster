@@ -32,5 +32,5 @@ Read only references whose trigger keywords match the task. The learned files ar
 ## Safety and permissions (three-tier)
 
 - **Always:** Read-only inspection and local validation, formatting, or linting.
-- **Ask first:** Git push (always ask before any push), push to main, force push, applying to live cluster (`just reconcile`, `flux reconcile`, `talos apply`), decrypting/editing SOPS secrets, deleting resources.
+- **Ask first:** Git push (always ask before any push), push to main, force push, applying to live cluster (`just reconcile`, `flux reconcile`, `just talos apply-node`), decrypting/editing SOPS secrets, deleting resources.
 - **Never:** Commit secrets or age.key (no exceptions).

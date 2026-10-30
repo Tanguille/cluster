@@ -15,16 +15,26 @@ spec:
       app:
         replicas: 2
         strategy: RollingUpdate
+        podDisruptionBudget:
+          minAvailable: 1
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.10.29-cff884f98@sha256:dc2f7ed8a215b2f8244eaed083acdd50406f0de18bf43410cc460a4b511b7424
+              tag: 2026.10.30-1cd13d98d@sha256:f1bbc31c7bef7a7d8dd2b105c8397eb7dea1eeb7eceebdd45c0c29aef38c0c91
             env:
               SEARXNG_BASE_URL: https://search.${SECRET_DOMAIN}
               SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
+              DRAGONFLY_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: dragonfly-auth
+                    key: password
+              # Limiter needs valkey (Redis-compatible); same Dragonfly, own db. Env, not settings.yml, keeps the password out of the ConfigMap.
+              SEARXNG_VALKEY_URL:
+                value: valkey://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/11
             envFrom:
               - secretRef:
                   name: searxng-secret
@@ -33,10 +43,10 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /healthz
                     port: &port 8080
-                    httpHeaders: &probeHeaders
+                    httpHeaders:
                       - name: X-Real-IP
                         value: 127.0.0.1
               readiness: *probes
@@ -44,10 +54,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /healthz
-                    port: *port
-                    httpHeaders: *probeHeaders
+                  httpGet: *httpGet
                   failureThreshold: 30
                   periodSeconds: 5
             securityContext:
@@ -68,6 +75,8 @@ spec:
                 cpu: 500m
                 memory: 1Gi
     defaultPodOptions:
+      labels:
+        egress.home.arpa/dragonfly: allow
       securityContext:
         fsGroup: 977
         fsGroupChangePolicy: OnRootMismatch

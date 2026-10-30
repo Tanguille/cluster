@@ -11,9 +11,6 @@ spec:
     matchLabels:
       app.kubernetes.io/name: flaresolverr
   ingress:
-    # kubelet probes on :8191.
-    - fromEntities:
-        - host
     - fromEndpoints:
         - matchLabels:
             io.kubernetes.pod.namespace: media
@@ -22,9 +19,3 @@ spec:
         - ports:
             - port: "8191"
               protocol: TCP
-    # Rev-NAT'd DNS replies hit ingress; no toPorts, dest port is
-    # ephemeral not 53.
-    - fromEndpoints:
-        - matchLabels:
-            io.kubernetes.pod.namespace: kube-system
-            k8s-app: kube-dns
