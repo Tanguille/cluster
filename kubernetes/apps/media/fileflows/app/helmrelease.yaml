@@ -131,7 +131,8 @@ spec:
 
       temp:
         # Remuxing on an emptyDir saturated the PM983 under control-1's vda, stalling osd.3 and etcd.
-        type: persistentVolumeClaim
+        # A lone chart-made PVC takes the release name, which config's claim already holds.
+        suffix: temp
         storageClass: truenas-scratch
         accessMode: ReadWriteOnce
         size: 256Gi
