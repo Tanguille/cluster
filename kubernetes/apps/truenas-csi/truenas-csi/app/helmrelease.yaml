@@ -5,13 +5,9 @@ kind: HelmRelease
 metadata:
   name: truenas-csi
 spec:
-  chart:
-    spec:
-      chart: truenas-csi
-      version: 1.4.0
-      sourceRef:
-        kind: HelmRepository
-        name: truenas-csi
+  chartRef:
+    kind: OCIRepository
+    name: truenas-csi
   interval: 1h
   # The chart hardcodes a hostPath /etc/iscsi of type Directory, which Talos lacks (no iscsi-tools).
   # Only iscsiadm config lives there and this cluster uses NVMe-oF, so point it at a writable path.
