@@ -11,6 +11,9 @@ spec:
   interval: 1h
   values:
     fullnameOverride: *app
+    # Helm applies the CRDs itself. The default hook Job carries no labels, so it can't get the apiserver grant.
+    crd:
+      mode: template
     # Egress grants under the namespace egress-allowlist; without them the operator loses its apiserver watches and cache.
     deployment:
       podLabels:
