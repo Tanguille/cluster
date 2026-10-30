@@ -23,6 +23,24 @@ spec:
       karakeep:
         annotations:
           reloader.stakater.com/auto: "true"
+        pod:
+          # karakeep and meilisearch share one RWO volume, so each must land on the other's node. The term
+          # matches both pods, so the first to schedule matches itself and goes anywhere; the second follows.
+          affinity: &sharedVolumeAffinity
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: app.kubernetes.io/name
+                        operator: In
+                        values:
+                          - karakeep
+                      - key: app.kubernetes.io/controller
+                        operator: In
+                        values:
+                          - karakeep
+                          - meilisearch
+                  topologyKey: kubernetes.io/hostname
         containers:
           app:
             image:
@@ -115,20 +133,7 @@ spec:
         annotations:
           reloader.stakater.com/auto: "true"
         pod:
-          affinity:
-            podAffinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                - labelSelector:
-                    matchExpressions:
-                      - key: app.kubernetes.io/name
-                        operator: In
-                        values:
-                          - karakeep
-                      - key: app.kubernetes.io/controller
-                        operator: In
-                        values:
-                          - karakeep
-                  topologyKey: kubernetes.io/hostname
+          affinity: *sharedVolumeAffinity
         containers:
           app:
             image:
