@@ -54,3 +54,16 @@ spec:
     - name: deployment
       value: xmrig-.*
       matchType: "=~"
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/observability.giantswarm.io/silence_v1alpha2.json
+apiVersion: observability.giantswarm.io/v1alpha2
+kind: Silence
+metadata:
+  # Structural: the printer is off between prints, and the exporter cannot tell that from broken.
+  name: klipper-target-down
+spec:
+  matchers:
+    - name: alertname
+      value: TargetDown
+    - name: job
+      value: klipper
