@@ -1,8 +1,9 @@
 ---
-# `vllm-sr/auto` asks the Semantic Router (apps/ai/semantic-router) for a reasoning effort.
-# It rewrites the body to qwen-3.8 with that effort before routing, so qwen-3.8's own policies
-# apply and any client-set effort is replaced. If the router is unreachable the request
-# continues as `vllm-sr/auto`, which this virtual model sends to qwen-3.8 at its default effort.
+# `vllm-sr/auto` picks qwen-3.8's reasoning effort from the conversation's first user message,
+# so it stays the same for the whole conversation and keeps the vLLM prefix cache warm (the
+# effort text opens the system prompt). Ordinary code stays medium. A client-set
+# chat_template_kwargs is replaced; clients that need a fixed effort call `qwen-3.8`.
+# A failed expression drops the field and the template default (medium) applies.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayModel
@@ -14,38 +15,28 @@ spec:
       name: agentgateway-router
   match:
     model: vllm-sr/auto
-  virtualModel:
-    failover:
-      targets:
-        - modelRef:
-            name: agentgateway-router-qwen38
-          priority: 0
----
-# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
-apiVersion: agentgateway.dev/v1alpha1
-kind: AgentgatewayPolicy
-metadata:
-  name: vllm-sr-auto
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: agentgateway
-      sectionName: models
-  traffic:
-    phase: PreRouting
-    extProc:
-      conditional:
-        - condition: json(request.body).model == "vllm-sr/auto"
-          policy:
-            backendRef:
-              name: semantic-router
-              port: 50051
-            failureMode: FailOpen
-            # Request only: the router rewrites the body; responses stream straight back.
-            processingOptions:
-              requestBodyMode: Buffered
-              requestTrailerMode: Skip
-              responseHeaderMode: Skip
-              responseBodyMode: None
-              responseTrailerMode: Skip
+  provider: Custom
+  custom:
+    # Same server as qwen-3.8. Concrete, not a virtual model: virtual models cannot carry policies.
+    backendRef:
+      name: qwen38-27b-vllm
+      port: 8000
+    providerOverride: vllm
+    formats:
+      - type: Completions
+      - type: Messages
+      - type: AnthropicTokenCount
+      - type: Responses
+  policies:
+    transformations:
+      - field: model
+        expression: '"qwen-3.8"'
+      # "high" 400s on this deployment: the template's ladder is low/medium/xhigh.
+      - field: chat_template_kwargs
+        expression: >-
+          llmRequest.messages.filter(m, m.role == "user")[0].content.with(t,
+          {"reasoning_effort":
+          t.matches("(?i)\\b(one word|yes or no|briefly|tl;?dr|in short|one line|one sentence)\\b") ? "low"
+          : (size(t) > 4000
+          || t.matches("(?i)\\b(derive|integral|equation|solve for|closed form|proof|prove|debug|traceback|stack trace|root[- ]?caus|step by step|trade-?off|pros and cons)\\b"))
+          ? "xhigh" : "medium"})
