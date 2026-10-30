@@ -9,6 +9,17 @@ spec:
     kind: OCIRepository
     name: renovate-operator
   interval: 1h
+  # Template-mode CRDs are release resources; keep them so an uninstall doesn't cascade-delete
+  # RenovateProject run state and the template CRs, which git doesn't recreate.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: CustomResourceDefinition
+            patch: |-
+              - op: add
+                path: /metadata/annotations/helm.sh~1resource-policy
+                value: keep
   values:
     fullnameOverride: *app
     # Helm applies the CRDs itself. The default hook Job carries no labels, so it can't get the apiserver grant.
