@@ -1,0 +1,105 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: crowdsec-web-ui
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # ceph-block is the cluster default StorageClass
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crowdsec-web-ui
+  labels:
+    app.kubernetes.io/name: crowdsec-web-ui
+  annotations:
+    # CrowdSec LAPI machine password rotation in the secret takes effect on the next rollout
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: crowdsec-web-ui
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: crowdsec-web-ui
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: crowdsec-web-ui
+          # Pinned to the release tag (CalVer, one per day when active); Renovate-style bumps land via PR
+          image: ghcr.io/theduffman85/crowdsec-web-ui:2026.10.12
+          imagePullSecrets: []
+          securityContext:
+            allowPrivilegeEscalation: false
+          env:
+            - name: CONFIG_INSTANCE_LAPI_URL
+              value: https://crowdsec-service.security.svc.cluster.local:8080
+            # crowdsec-root-secret (Certificate crowdsec-ca) is the LAPI chain's CA
+            - name: CONFIG_INSTANCE_LAPI_TLS_CA_FILE
+              value: /certs/ca.crt
+          envFrom:
+            - secretRef:
+                name: crowdsec-web-ui
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          # 30d-observed class of app: small Node server + SQLite; headroom for chunked historical syncs
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: lapi-ca
+              mountPath: /certs
+              subPath: ca.crt
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: crowdsec-web-ui
+        - name: lapi-ca
+          secret:
+            secretName: crowdsec-root-secret
+            items:
+              - key: ca.crt
+                path: ca.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crowdsec-web-ui
+  labels:
+    app.kubernetes.io/name: crowdsec-web-ui
+spec:
+  selector:
+    app.kubernetes.io/name: crowdsec-web-ui
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
