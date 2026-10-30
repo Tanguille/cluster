@@ -10,6 +10,11 @@ spec:
     kind: OCIRepository
     name: app-template
   values:
+    defaultPodOptions:
+      labels:
+        egress.home.arpa/dragonfly: allow
+        egress.home.arpa/postgres: allow
+
     controllers:
       notify-push:
         annotations:
@@ -24,8 +29,13 @@ spec:
             env:
               - name: NEXTCLOUD_URL
                 value: "http://nextcloud.default.svc.cluster.local:8080"
+              - name: DRAGONFLY_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: dragonfly-auth
+                    key: password
               - name: REDIS_URL
-                value: "redis://dragonfly.database.svc.cluster.local:6379"
+                value: "redis://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379"
               - name: POSTGRES_USER
                 valueFrom:
                   secretKeyRef:

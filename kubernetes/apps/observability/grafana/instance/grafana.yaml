@@ -38,6 +38,9 @@ spec:
       strategy:
         type: Recreate
       template:
+        metadata:
+          labels:
+            egress.home.arpa/postgres: allow
         spec:
           initContainers:
             - name: seed-bundled-plugins

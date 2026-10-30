@@ -18,3 +18,8 @@ spec:
             io.kubernetes.pod.namespace: observability
         - matchLabels:
             io.kubernetes.pod.namespace: network
+    # Router ICMP errors miss conntrack (their source isn't the peer); without them DHT waits out dead-peer timeouts.
+    - icmps:
+        - fields:
+            - type: DestinationUnreachable
+            - type: TimeExceeded
