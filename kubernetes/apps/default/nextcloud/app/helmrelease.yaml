@@ -228,7 +228,7 @@ spec:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
 
-    # App and cron pods both get these; database-ingress-allowlist only admits 5432 from pods with this label.
+    # App and cron pods both get these: the postgres client grant for database-ingress-allowlist's label gate.
     podLabels:
       egress.home.arpa/postgres: allow
 

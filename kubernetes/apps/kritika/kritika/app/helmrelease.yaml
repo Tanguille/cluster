@@ -12,7 +12,7 @@ spec:
   values:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
-    # database-ingress-allowlist only admits 5432 from pods with this label (runners: runner.podTemplate).
+    # Postgres client grant for database-ingress-allowlist's label gate (runners: runner.podTemplate).
     podLabels:
       egress.home.arpa/postgres: allow
     # Direct to postgres16-rw: kritika sets startup params pgbouncer rejects.
