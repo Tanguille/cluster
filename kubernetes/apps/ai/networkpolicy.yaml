@@ -9,12 +9,7 @@ spec:
   # Default-deny ingress for every pod in the namespace. The per-pod allowlists (vmcp,
   # MCP proxies/backends, inference pods) stay and union with this one. Egress
   # stays default-allow.
-  # Excludes the Semantic Router, whose own policy admits only agentgateway.
-  endpointSelector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: NotIn
-        values: [semantic-router]
+  endpointSelector: {}
   ingress:
     # Namespaces that consume *.ai.svc (grep '\.ai\.svc' across the repo):
     # default = karakeep -> agentgateway; observability = vmagent scrapes +
