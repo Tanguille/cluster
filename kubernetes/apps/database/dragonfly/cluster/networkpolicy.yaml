@@ -11,7 +11,7 @@ spec:
       app: dragonfly
       app.kubernetes.io/name: dragonfly
   ingress:
-    # 6379 (redis): labeled clients from any namespace; without the Exists term the selector stays inside database. Replication uses 9999.
+    # 6379 (redis): labeled clients in any namespace; without the Exists term the selector stays inside database.
     - fromEndpoints:
         - matchLabels:
             egress.home.arpa/dragonfly: allow
