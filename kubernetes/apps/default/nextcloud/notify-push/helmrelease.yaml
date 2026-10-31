@@ -21,8 +21,16 @@ spec:
           reloader.stakater.com/auto: "true"
         containers:
           app:
+            # Static binary on scratch: no user, no writes.
             securityContext:
               allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 65534
+              runAsGroup: 65534
             image:
               repository: icewind1991/notify_push
               tag: 1.4.2@sha256:614a936770c045c5ee8d1e05f9f8a36e31cf0c3ae58073b2dd710d554486d992

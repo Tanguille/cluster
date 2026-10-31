@@ -101,22 +101,19 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/zenika/alpine-chrome
-              tag: "124@sha256:1a0046448e0bb6c275c88f86e01faf0de62b02ec8572901256ada0a8c08be23f"
-            command:
-              - chromium-browser
+              repository: ghcr.io/karakeep-app/karakeep-chrome
+              tag: 156.0.8078.47-r1@sha256:4ad61127638dd27bfe685222787c5780dd1d083d23a7658c39af657775814c44
+            # Entrypoint adds --headless=new, --no-sandbox and a socat forward to :9222.
             args:
-              - --headless
-              - --no-sandbox
               - --disable-gpu
               - --disable-dev-shm-usage
-              - --remote-debugging-address=0.0.0.0
-              - --remote-debugging-port=9222
               - --hide-scrollbars
+              - --disable-blink-features=AutomationControlled
+              - --window-size=1440,900
             securityContext:
               allowPrivilegeEscalation: false
               capabilities: { drop: ["ALL"] }
-            # Default TCP probe on 9222: an open remote-debugging socket means the browser accepts work.
+            # Default TCP probe on 9222 hits socat, up before Chrome binds: checks the container only.
             probes:
               liveness: &probe
                 enabled: true
