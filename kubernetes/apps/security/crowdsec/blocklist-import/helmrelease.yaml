@@ -38,14 +38,17 @@ spec:
               CROWDSEC_LAPI_BOUNCER_CERT_PATH: /bouncer-tls/tls.crt
               CROWDSEC_LAPI_BOUNCER_KEY_PATH: /bouncer-tls/tls.key
               INTERVAL: 3600
-              # ~20k IPs from Spamhaus DROP, abuse.ch, ET and IPsum, capped at 15k decisions (server is ~106k)
+              # Spamhaus DROP, ET compromised and IPsum 3+/4+, capped at 15k decisions (server is ~106k)
               PRESET: embedded
+              # Feodo lists botnet C2 servers, not inbound attackers, and upstream retired URLhaus (410)
+              ENABLE_ABUSE_CH: false
               # GitHub delivers webhooks to envoy-external
               ALLOWLIST_GITHUB: true
               # Both default on: telemetry pings a third-party endpoint, metrics push to a nonexistent Pushgateway
               TELEMETRY_ENABLED: false
               METRICS_ENABLED: false
-            # ALLOWLIST: LAPI skips its centralized allowlists for alerts that carry decisions
+            # ALLOWLIST (home IP as /32: feed ranges are only checked against networks): LAPI skips its
+            # centralized allowlists for alerts that carry decisions
             envFrom:
               - secretRef:
                   name: crowdsec-blocklist-import
