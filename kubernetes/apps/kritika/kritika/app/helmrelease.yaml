@@ -5,9 +5,13 @@ kind: HelmRelease
 metadata:
   name: kritika
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: kritika
+    spec:
+      interval: 1h
+      ref:
+        tag: 0.0.110
+      url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
     deploymentAnnotations:

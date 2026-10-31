@@ -6,9 +6,12 @@ metadata:
   name: trivy-operator
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: trivy-operator
+    spec:
+      ref:
+        tag: 0.32.1
+      url: oci://ghcr.io/aquasecurity/helm-charts/trivy-operator
   values:
     operator:
       # Node collector fails on Talos (read-only rootfs: mkdir /etc/systemd); node and control-plane CIS reports are lost.

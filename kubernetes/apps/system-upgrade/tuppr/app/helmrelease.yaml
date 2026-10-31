@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: tuppr
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: tuppr
+    spec:
+      ref:
+        tag: 0.5.10
+      url: oci://ghcr.io/home-operations/charts/tuppr
   interval: 1h
   timeout: 10m
   values:

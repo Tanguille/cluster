@@ -153,12 +153,23 @@
         "oci://(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
       datasourceTemplate: "docker"
+    },
+    {
+      // Drop once Renovate's flux manager extracts chart.kind: OCIRepository (renovatebot/renovate#47438)
+      description: "Inline OCI chart sources in HelmReleases",
+      customType: "regex",
+      managerFilePatterns: ["/helmrelease\\.yaml$/"],
+      matchStrings: [
+        "\\n    kind: OCIRepository\\n    spec:\\n(?:      interval: \\S+\\n)?      ref:\\n(?:        #.*\\n)?        tag: (?<currentValue>\\S+)\\n      url: oci://(?<depName>\\S+)"
+      ],
+      depTypeTemplate: "HelmChart",
+      datasourceTemplate: "docker"
     }
   ],
   packageRules: [
     {
-      // The flux manager also extracts HelmRelease values images, so the file
-      // name is the only signal that a docker dep is a chart
+      // Only the shared app-template source is left in an ocirepository.yaml; inline
+      // charts are titled by the preset's HelmChart depType rule
       description: "Title OCI chart updates as charts instead of images",
       matchDatasources: ["docker"],
       matchFileNames: ["**/ocirepository.yaml"],

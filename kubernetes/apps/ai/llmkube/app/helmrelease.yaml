@@ -6,9 +6,13 @@ metadata:
   name: llmkube
 spec:
   interval: 30m
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: llmkube
+    spec:
+      interval: 1h
+      ref:
+        tag: 0.10.14
+      url: oci://ghcr.io/defilantech/charts/llmkube
   values:
     controllerManager:
       resources:

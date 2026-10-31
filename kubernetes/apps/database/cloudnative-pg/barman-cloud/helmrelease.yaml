@@ -6,9 +6,12 @@ metadata:
   name: barman-cloud
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: plugin-barman-cloud
+    spec:
+      ref:
+        tag: 0.8.1
+      url: oci://ghcr.io/cloudnative-pg/charts/plugin-barman-cloud
   values:
     resources:
       requests:

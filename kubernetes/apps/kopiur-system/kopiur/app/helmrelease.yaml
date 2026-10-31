@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: kopiur
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: kopiur
+    spec:
+      ref:
+        tag: 0.10.16
+      url: oci://ghcr.io/home-operations/charts/kopiur
   interval: 1h
   values:
     # Controller runs kopia in-process; Restore fails "/repo not mounted" without this (kopiur#137).

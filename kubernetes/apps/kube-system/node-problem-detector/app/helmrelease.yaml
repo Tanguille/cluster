@@ -6,9 +6,12 @@ metadata:
   name: node-problem-detector
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: node-problem-detector
+    spec:
+      ref:
+        tag: 2.4.2
+      url: oci://ghcr.io/deliveryhero/helm-charts/node-problem-detector
   values:
     image:
       # Spelled out so Renovate tracks the digest.

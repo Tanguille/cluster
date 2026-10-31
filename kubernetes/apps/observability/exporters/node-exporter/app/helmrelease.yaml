@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: &app node-exporter
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: *app
+    spec:
+      ref:
+        tag: 4.60.1
+      url: oci://ghcr.io/prometheus-community/charts/prometheus-node-exporter
   interval: 1h
   values:
     containerSecurityContext:

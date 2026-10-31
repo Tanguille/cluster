@@ -6,6 +6,9 @@ metadata:
   name: agentgateway-crds
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: agentgateway-crds
+    spec:
+      ref:
+        tag: v1.7.0
+      url: oci://cr.agentgateway.dev/charts/agentgateway-crds

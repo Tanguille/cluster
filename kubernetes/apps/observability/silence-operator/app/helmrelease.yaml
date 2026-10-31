@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: silence-operator
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: silence-operator
+    spec:
+      ref:
+        tag: 0.21.1
+      url: oci://gsoci.azurecr.io/charts/giantswarm/silence-operator
   interval: 1h
   values:
     alertmanagerAddress: http://vmalertmanager-victoria-metrics:9093

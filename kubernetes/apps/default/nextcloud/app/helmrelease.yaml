@@ -7,10 +7,13 @@ metadata:
 spec:
   timeout: 15m
   interval: 30m
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: nextcloud
-
+    spec:
+      interval: 1h
+      ref:
+        tag: 9.4.1
+      url: oci://ghcr.io/nextcloud/helm/nextcloud
   # Chart has no fromAddressKey in existingSecret, so inject the secret value here.
   valuesFrom:
     - kind: Secret
