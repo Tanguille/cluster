@@ -101,7 +101,8 @@ spec:
             name: kritika-secret
             key: admin-password
     config:
-      reviewWorkers: 6
+      # PRs reviewed at once; 6 drained the free omniroute tiers (Logfare 20/min, 3 concurrent) in bursts.
+      reviewWorkers: 4
       limits:
         # Model calls in flight; more queue the qwen-3.8 fallback past kritika's 300s step timeout.
         concurrency: 6
