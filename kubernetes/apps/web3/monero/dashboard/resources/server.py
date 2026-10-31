@@ -111,7 +111,7 @@ def get_xmr_price():
     PRICE_CACHE_TTL seconds. Falls back to the last in-memory value.
     """
     now = time.time()
-    if _price_cache["value"] > 0 and now - _price_cache["ts"] < PRICE_CACHE_TTL:
+    if now - _price_cache["ts"] < PRICE_CACHE_TTL:
         return _price_cache["value"]
     sources = [
         ("https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=eur",
@@ -139,10 +139,11 @@ def get_xmr_price():
                 return price
         except Exception:
             continue
-    # Fallback: last appended in-memory value (no disk round-trip needed)
+    # Fallback: last in-memory price, cached like a success or every 10s sample retries all three APIs.
     with log_lock:
         last_price = float(log["price"][-1]) if log["price"] else 0.0
     print("Price has come from last recorded value")
+    _price_cache.update(value=last_price, ts=now)
     return last_price
 
 class Handler(http.server.BaseHTTPRequestHandler):
