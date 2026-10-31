@@ -98,11 +98,7 @@ spec:
         login: true
         passwordSecret:
           name: mealie-db
-  # TLS: refs left empty on purpose so CNPG auto-generates and rotates everything:
-  # a self-signed CA, the server TLS cert (clients -> server), and a client CA with
-  # per-instance client certs, which also encrypts primary -> replica streaming
-  # replication. The server accepts both TLS and plaintext client connections, so
-  # apps migrate to sslmode=verify-ca in a follow-up PR without a hard cutover.
+  # Refs left empty: CNPG generates and rotates postgres16-ca, the server and replication certs.
   certificates: {}
   postgresql:
     parameters:
@@ -170,7 +166,7 @@ spec:
       memory: 2Gi
     limits:
       cpu: 4
-      # primary working set peaked 2.83GiB (7d) at 2GB shared_buffers
+      # working set peaked 3.47GiB (7d) at 2GB shared_buffers
       memory: 4Gi
   monitoring:
     enablePodMonitor: true
