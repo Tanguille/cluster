@@ -131,10 +131,6 @@ spec:
               token: $${REGISTRATION_TOKEN}
               allowed_ranges:
                 - ${POD_CIDR}
-            # crowdsec-web-ui deletes alerts via the LAPI, which only permits that from
-            # loopback or trusted_ips; this lets any pod-CIDR watcher delete alerts
-            trusted_ips:
-              - ${POD_CIDR}
         db_config:
           type: postgresql
           user: $${DB_USERNAME}
