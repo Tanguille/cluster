@@ -24,7 +24,8 @@ spec:
       # KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
       # Regenerable paths to skip, anchored at the PVC root. The list REPLACES the default
       # `[/lost+found]`, so keep it. kopia never drops stored rules; undo needs
-      # `kopia policy set <id> --remove-ignore`. Example: kubernetes/apps/media/jellyfin.
+      # `kopia policy set <id> --remove-ignore` (not in the read-only kopia browser pod; use a separate --config-file).
+      # Example: kubernetes/apps/media/jellyfin.
       # KOPIUR_IGNORE_RULES: "[/lost+found, /<dir>/cache/*]"
 ```
 
