@@ -104,8 +104,8 @@ spec:
       # PRs reviewed at once; 6 drained the free omniroute tiers (Logfare 20/min, 3 concurrent) in bursts.
       reviewWorkers: 4
       limits:
-        # Model calls in flight; more queue the qwen-3.8 fallback past kritika's 300s step timeout.
-        concurrency: 6
+        # Model calls in flight, split-review parts included; matches reviewWorkers so bursts stay off the free tiers.
+        concurrency: 4
       # Review-comment badges embed this, so it is the public webhook host; sign-in callbacks derive from it too, so auth.signIns would need /auth/ routed there.
       webUrl: "https://kritika-webhook.${SECRET_DOMAIN}"
       # Index TTL; 1h (default 720h) re-onboards a re-enabled repo fast.
