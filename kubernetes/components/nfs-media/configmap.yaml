@@ -4,9 +4,11 @@ kind: ConfigMap
 metadata:
   name: nfs-media
   annotations:
-    # Applied by every consumer's Kustomization (last applier owns it): a prune from any one deletes it
+    # Created by whichever consumer's Kustomization applies first; a prune from any one deletes it
     # for all, so delete it by hand when the last consumer goes.
     kustomize.toolkit.fluxcd.io/prune: disabled
+    # Re-applies flipped the owner label and cancelled HR upgrades; delete this ConfigMap to change values.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 data:
   values.yaml: |
     persistence:
