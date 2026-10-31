@@ -52,12 +52,13 @@ spec:
       # GitHub delivers here; the chart derives WEBHOOK_BASE_URL from hostnames[0].
       route:
         enabled: true
-        # "/" 404s like an unrouted host; an empty POST reaching the operator returns 400.
+        # "/" 404s like an unrouted host; "{}" is an ignored event (200), an empty body logs an operator error.
         annotations:
           gatus.home-operations.com/endpoint: |-
             url: https://renovate-webhook.${SECRET_DOMAIN}/webhook/v1/github
             method: POST
-            conditions: ["[STATUS] == 400"]
+            body: "{}"
+            conditions: ["[STATUS] == 200"]
         hostnames: ["renovate-webhook.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-external
