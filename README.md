@@ -119,7 +119,7 @@ Tuning constraints and benchmark history for the inference stack live in
 
 Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin ·
 Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR · DedupArr ·
-Unpackerr · FlareSolverr · BRRPolice · FileFlows · Qui
+Unpackerr · BRRPolice · FileFlows · Qui
 
 </details>
 
