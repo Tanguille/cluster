@@ -19,10 +19,11 @@ spec:
     # A single node drain must not take cluster DNS down.
     podDisruptionBudget:
       maxUnavailable: 1
+    # Hard spread: ScheduleAnyway stacked both replicas on one node after a node roll.
     topologySpreadConstraints:
       - maxSkew: 1
         topologyKey: kubernetes.io/hostname
-        whenUnsatisfiable: ScheduleAnyway
+        whenUnsatisfiable: DoNotSchedule
         labelSelector:
           matchLabels:
             k8s-app: kube-dns

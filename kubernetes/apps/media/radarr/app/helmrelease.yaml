@@ -33,6 +33,8 @@ spec:
               RADARR__LOG__DBENABLED: "False"
               RADARR__LOG__LEVEL: info
               RADARR__SERVER__PORT: &port 80
+              # Every name callers use; loopback and the pod hostname are always allowed.
+              RADARR__SERVER__ALLOWEDHOSTS: radarr.media.svc.cluster.local,radarr.${SECRET_DOMAIN}
               RADARR__AUTH__APIKEY: ${RADARR_API_KEY}
               TZ: ${TIMEZONE}
             envFrom:
@@ -55,6 +57,10 @@ spec:
                   httpGet:
                     path: /ping
                     port: *port
+                    # kubelet sends the pod IP as Host, which AllowedHosts rejects.
+                    httpHeaders:
+                      - name: Host
+                        value: localhost
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 5
