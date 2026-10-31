@@ -38,8 +38,8 @@ spec:
               CROWDSEC_LAPI_BOUNCER_CERT_PATH: /bouncer-tls/tls.crt
               CROWDSEC_LAPI_BOUNCER_KEY_PATH: /bouncer-tls/tls.key
               INTERVAL: 3600
-              # Drops Firehol level3 and VXVault (false-positive history) and the Tor exit list
-              PRESET: server
+              # ~20k IPs from Spamhaus DROP, abuse.ch, ET and IPsum, capped at 15k decisions (server is ~106k)
+              PRESET: embedded
               # GitHub delivers webhooks to envoy-external
               ALLOWLIST_GITHUB: true
               # Both default on: telemetry pings a third-party endpoint, metrics push to a nonexistent Pushgateway
