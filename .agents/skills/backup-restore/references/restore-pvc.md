@@ -19,8 +19,8 @@ spec:
       # KOPIUR_PGID: "1000"
       # Root apps additionally need the capability (backup only, not restore) and the
       # namespace-level kopiur.home-operations.com/privileged-movers: "true" annotation
-      # (already applied to ai/default/media via components/kopiur/privileged-movers —
-      # check it's composed into the target namespace's kustomization.yaml).
+      # (ai and default compose components/kopiur/privileged-movers plus psa-privileged; media
+      # enforces PSA baseline and has neither, so check the target namespace's kustomization.yaml).
       # KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"
       # Regenerable paths to skip, anchored at the PVC root. The list REPLACES the default
       # `[/lost+found]`, so keep it. kopia never drops stored rules; undo needs

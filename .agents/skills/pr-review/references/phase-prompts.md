@@ -113,15 +113,7 @@ description: "PR Review Phase 5: Validation"
 prompt: |
   Run validation tools for GitOps Kubernetes PR.
 
-  TOOLS:
-  - flate test all: renders Kustomizations + HelmReleases with the real Helm/Kustomize SDKs (catches Helm template errors kustomize build can't see)
-  - shellcheck: touched shell scripts
-
-  Run `bash .agents/skills/pr-review/scripts/validate-pr.sh` for both.
-
-  TASKS:
-  1. Run shellcheck on touched scripts
-  2. Run flate test all
+  Run `bash .agents/skills/pr-review/scripts/validate-pr.sh`.
 
   OUTPUT to .agents/pr-review/pr-${PR_ID}/phase-5-validation.md.
 ```
