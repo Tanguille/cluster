@@ -43,8 +43,8 @@ flush on every one. That is why osd.0 (Samsung 980 PRO) is the slowest OSD.
 | control-1 | virtio `vdb` | Ceph osd.3 | via host | write back |
 | TrueNAS | Samsung PM983 1.92TB (`nvme0`) | `SSD_Pool` (single disk) | yes | write through, `vwc 0` |
 | TrueNAS | Intel Optane M10 32GB (`nvme1`) | `boot-pool` | no | write through, `vwc 0` |
-| TrueNAS | 2x Seagate Exos 8TB ST8000NM000A (`sda`, `sdc`) | `TanguilleServer` mirror | no | write back (keep) |
-| TrueNAS | 3x Toshiba MG08ACA16TE 16TB (`sdb`, `sdd`, `sde`) | `BIGHDDZ1` raidz1 | no | write back (keep) |
+| TrueNAS | Seagate Exos 8TB ST8000NM000A + ST8000NM017B | `TanguilleServer` mirror | no | write back (keep) |
+| TrueNAS | 3x Toshiba MG08ACA16TE 16TB | `BIGHDDZ1` raidz1 | no | write back (keep) |
 
 ## control-1 disk chain
 
@@ -75,7 +75,7 @@ rebuildable from the Talos config, and etcd survives on the other two members.
 | 7450 480GB, control-3 | 2% | 81 TB | 10,905 h | 207 h above warning, 236 min above critical (known airflow issue) |
 | PM983 | 5% | 504 TB | 42,894 h | |
 | Optane M10 | 2% | 7.5 TB | 19,223 h | |
-| Exos `sdc` | | | 26,201 h | 40 reallocated sectors, 0 pending: watch for growth |
+| Exos ST8000NM000A (replaced 2026-10) | | | 26,201 h | 40 reallocated sectors, 0 pending |
 | other HDDs | | | 21,958 to 35,937 h | 0 reallocated, 0 pending, 0 errors |
 
 All drives pass SMART with 0 media errors. The warning and critical temperature times are

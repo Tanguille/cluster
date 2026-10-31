@@ -99,8 +99,7 @@ spec:
           for: 15m
           labels:
             severity: critical
-        # method: plugin leaves last_available/first_recoverability at 0, so these alert on a failed
-        # attempt and on WAL archiving stalling (archive_timeout 300s) instead.
+        # method: plugin leaves last_available at 0, so alert on a failed attempt and on WAL archiving stalling.
         - alert: CNPGBackupFailed
           annotations:
             description: The last-failed timestamp moved within the last 2h, so a backup attempt failed. Check `kubectl get backups -n database` for the newest failed Backup, and the barman-cloud plugin logs if it recurs.
@@ -108,6 +107,16 @@ spec:
           expr: |-
             time() - max by (namespace) (cnpg_collector_last_failed_backup_timestamp) < 7200
           for: 5m
+          labels:
+            severity: warning
+        # Plugin method leaves last_available at 0, hence barman_cloud_*; 50h is a missed daily run plus 2h.
+        - alert: CNPGBackupStale
+          annotations:
+            description: No successful base backup for over 50h; the second daily run is more than 2 h late. Check `kubectl get scheduledbackups,backups -n database` and the barman-cloud plugin logs.
+            summary: Newest CNPG base backup in {{ $labels.namespace }} is {{ $value | humanizeDuration }} old
+          expr: |-
+            time() - max by (namespace) (barman_cloud_cloudnative_pg_io_last_available_backup_timestamp) > 50 * 3600
+          for: 30m
           labels:
             severity: warning
         - alert: CNPGWalArchiveStalled
