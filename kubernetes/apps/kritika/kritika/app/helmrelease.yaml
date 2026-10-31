@@ -101,7 +101,8 @@ spec:
             name: kritika-secret
             key: admin-password
     config:
-      reviewWorkers: 6
+      # PRs reviewed at once; 6 drained the free omniroute tiers (Logfare 20/min, 3 concurrent) in bursts.
+      reviewWorkers: 4
       limits:
         # Model calls in flight; more queue the qwen-3.8 fallback past kritika's 300s step timeout.
         concurrency: 6
@@ -121,9 +122,8 @@ spec:
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
       review:
-        # agentgateway only retries bodies up to 64 KiB on qwen-3.8 (agentgateway#4140 unreleased);
-        # review bodies are ~490 KB, so an exhausted omniroute combo fails the step without this.
         model: llm/omniroute
+        # agentgateway retries qwen-3.8 only for bodies <=64 KiB, reviews are ~490 KB; drop once agentgateway#4140 ships.
         fallback: llm/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
