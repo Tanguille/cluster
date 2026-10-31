@@ -9,7 +9,7 @@ import types
 # An unclean exit leaves the CPU KV-offload region in the pod's /dev/shm, so every restart fails for space
 # (247 restarts on 10-30). PID 1 is the API server, which runs before EngineCore creates this run's region.
 if os.getpid() == 1:
-    for _region in glob.glob("/dev/shm/vllm_offload_*.mmap"):
+    for _region in glob.glob("/dev/shm/vllm_offload_*"):
         with contextlib.suppress(OSError):
             os.unlink(_region)
 

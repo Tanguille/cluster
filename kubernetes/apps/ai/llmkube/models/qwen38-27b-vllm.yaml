@@ -281,7 +281,7 @@ spec:
     - name: dshm
       mountPath: /dev/shm
     # Hook (resources/zz_lds_gate_impl.py): Triton W4A16 tiles and UltraQuant fixes (drop once upstream has both)
-    # and the /dev/shm offload-region cleanup (upstream unlinks the region only for CPUOffloadingSpec, not tiering).
+    # and the /dev/shm offload-region cleanup (drop once vllm#51730 reaps orphaned regions; tiering has no unlink).
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth
