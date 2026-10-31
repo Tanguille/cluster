@@ -38,8 +38,11 @@ spec:
               CROWDSEC_LAPI_BOUNCER_CERT_PATH: /bouncer-tls/tls.crt
               CROWDSEC_LAPI_BOUNCER_KEY_PATH: /bouncer-tls/tls.key
               INTERVAL: 3600
-              # Spamhaus DROP, ET compromised and IPsum 3+/4+, capped at 15k decisions (server is ~106k)
+              # Spamhaus DROP, ET compromised and IPsum 3+/4+ (~21k IPs)
               PRESET: embedded
+              # The preset's 15k cap guards UDM ipsets and counts CAPI decisions too, so at the cap refreshes
+              # stop and imports lapse; the envoy bouncers hold decisions in memory
+              MAX_DECISIONS: 0
               # Feodo lists botnet C2 servers, not inbound attackers, and upstream retired URLhaus (410)
               ENABLE_ABUSE_CH: false
               # GitHub delivers webhooks to envoy-external
