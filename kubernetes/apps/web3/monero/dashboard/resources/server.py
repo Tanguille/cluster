@@ -139,7 +139,7 @@ def get_xmr_price():
                 return price
         except Exception:
             continue
-    # Fallback: last in-memory price, cached like a success or every 10s sample retries all three APIs.
+    # Fallback: last in-memory price. Cache it too, or every 10s sample retries all three APIs.
     with log_lock:
         last_price = float(log["price"][-1]) if log["price"] else 0.0
     print("Price has come from last recorded value")
