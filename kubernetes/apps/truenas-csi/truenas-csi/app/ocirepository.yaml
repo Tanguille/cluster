@@ -3,13 +3,12 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: OCIRepository
 metadata:
-  name: semantic-router
+  name: truenas-csi
 spec:
   interval: 1h
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    # Nightly: v0.4.0, the latest release, predates D3 and decision signals.
-    tag: 0.0.0-nightly.20261026
-  url: oci://ghcr.io/vllm-project/charts/semantic-router
+    tag: 1.4.0
+  url: oci://ghcr.io/home-operations/charts-mirror/truenas-csi

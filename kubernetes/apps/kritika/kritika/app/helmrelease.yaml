@@ -121,8 +121,10 @@ spec:
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
           apiKey: { env: LLM_API_KEY }
       review:
-        # The gateway falls back omniroute -> qwen-3.8 (own GPU); a second fallback here only repeats it.
+        # agentgateway only retries bodies up to 64 KiB on qwen-3.8 (agentgateway#4140 unreleased);
+        # review bodies are ~490 KB, so an exhausted omniroute combo fails the step without this.
         model: llm/omniroute
+        fallback: llm/qwen-3.8
         # Every finding carries a suggested fix; repositories cannot lift it.
         fixes: true
         # A clean review approves the head; a later finding withdraws it.
