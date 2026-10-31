@@ -161,13 +161,6 @@ spec:
         notifications:
           - alertmanager
         on_success: break
-      # blocklist-import alerts have no scenario hash, so CrowdSec counts them as custom and
-      # would upload every imported IP to CAPI as our signal; no custom scenarios exist here
-      console.yaml: |-
-        share_manual_decisions: false
-        share_custom: false
-        share_tainted: true
-        share_context: false
     tls:
       enabled: true
       certManager:
@@ -207,6 +200,33 @@ spec:
           enabled: false
         config:
           enabled: false
+      # blocklist-import alerts have no scenario hash, so CrowdSec counts them as custom and would upload
+      # every imported IP to CAPI as our signal; no custom scenarios exist here. Seeded writable, not via
+      # config."console.yaml" (a read-only mount): the ENROLL_KEY enroll on every start, under set -e,
+      # rewrites console.yaml after a fresh enrollment.
+      extraInitContainers:
+        - name: console-config
+          image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
+          command:
+            - /bin/sh
+            - -c
+            - |
+              cat > /console/console.yaml <<'EOF'
+              share_manual_decisions: false
+              share_custom: false
+              share_tainted: true
+              share_context: false
+              EOF
+          volumeMounts:
+            - name: console
+              mountPath: /console
+      extraVolumes:
+        - name: console
+          emptyDir: {}
+      extraVolumeMounts:
+        - name: console
+          mountPath: /etc/crowdsec/console.yaml
+          subPath: console.yaml
       metrics:
         serviceMonitor:
           enabled: true
