@@ -72,8 +72,8 @@ or replicated data where performance is critical (e.g. postgres).
 | **Tunnel**      | cloudflared                    | Public ingress without exposing home WAN |
 | **DNS**         | external-dns                   | Record sync                              |
 | **TLS**         | cert-manager                   | Certificate lifecycle                    |
-| **GPU**         | AMD R9700 (full passthrough)   | LLM inference on control-1               |
-| **Storage**     | Rook-Ceph, OpenEBS Hostpath    | Tiered by durability requirement         |
+| **GPU**         | AMD R9700 (full passthrough)   | LLM inference + media transcoding on control-1 |
+| **Storage**     | Rook-Ceph, OpenEBS Hostpath, TrueNAS CSI | Tiered by durability; TrueNAS CSI serves FileFlows scratch |
 | **Databases**   | CloudNative-PG, Dragonfly      | Postgres clusters, in-memory store       |
 | **Secrets**     | SOPS + age                     | Encrypted manifests, zero plain-text     |
 | **Backups**     | kopiur (Kopia-native)          | Per-app PV snapshots + restores          |
@@ -89,7 +89,7 @@ or replicated data where performance is critical (e.g. postgres).
 | control-2 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Samsung 980 Pro 1 TB |
 | control-3 | Chuwi UBox  | Ryzen 6600H (6 cores)   | 32 GB DDR5   | Radeon 660M (APU)                    | 2× 2.5G (1 used)     | Boot Micron 7450 Pro 480 GB · Ceph Micron 7450 Pro 960 GB |
 
-All nodes are control-plane *and* worker nodes; the R9700 on control-1 is the dedicated inference GPU.
+All nodes are control-plane *and* worker nodes; the R9700 on control-1 serves LLM inference and Jellyfin/FileFlows transcoding.
 Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 
 ---
@@ -108,6 +108,7 @@ Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 | **OmniRoute**| LLM routing                                                |
 | **LLMKube**  | K8s-native LLM model management (vLLM/llama.cpp)           |
 | **Memini**   | Long-term memory for agents                                |
+| **Paseo**    | Self-hosted daemon for coding agents                       |
 
 Tuning constraints and benchmark history for the inference stack live in
 [`docs/llm-hosting/`](docs/llm-hosting/).
@@ -119,7 +120,7 @@ Tuning constraints and benchmark history for the inference stack live in
 
 Radarr · Sonarr · Prowlarr · qBittorrent · Seerr · Jellyfin ·
 Jellystat · Wizarr · Bazarr · Recyclarr · CleanRR · DedupArr ·
-Unpackerr · BRRPolice · FileFlows · Qui
+Unpackerr · BRRPolice · FileFlows · Qui · Bitmagnet
 
 </details>
 
@@ -127,7 +128,7 @@ Unpackerr · BRRPolice · FileFlows · Qui
 <summary>🏠 <b>Personal & utilities</b> (namespace <code>default/</code>)</summary>
 
 Nextcloud · Homepage (overview) · Karakeep · Change Detection · SearXNG ·
-Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman · Satisfactory
+Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman · Satisfactory · Mealie
 
 </details>
 
@@ -135,7 +136,7 @@ Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman · Satisf
 <summary>🌐 <b>Network & edge</b> (namespace <code>network/</code>)</summary>
 
 Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (internal DNS) · external-dns ·
-External-Service · SMTP-Relay · Cloudflare-DDNS
+External-Service · Cloudflare-DDNS
 
 </details>
 
@@ -181,7 +182,7 @@ Kritika (namespace kritika/) · Monero node + P2Pool (namespace web3/)
 ## 🧠 AI stack
 
 Local-first: agents run *on* the cluster and reach it *through* a gated MCP
-gateway — no cloud LLM in the loop by default.
+gateway.
 
 ```mermaid
 flowchart TB
@@ -262,7 +263,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 |---------------------------|--------------------------------------------|
 | [Useful commands](docs/useful_commands.md) | flux / just / talos reference + app runbooks |
 | [LLM hosting](docs/llm-hosting/) | vLLM tuning constraints + benchmark history |
-| [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
+| [Storage benchmarks](docs/storage_benchmarks.md) | 2025-12 storage benchmarks (Mayastor/ZFS since retired) |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |
 | [XMRig solar mining](docs/xmrig-solar-mining.md) | solar-powered mining setup |
