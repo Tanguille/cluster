@@ -330,13 +330,8 @@
     },
     {
       matchManagers: ["mise"],
-      matchDepNames: ["aqua:jqlang/jq"],
-      extractVersion: "^jq-(?<version>\\d+\\.\\d+\\.\\d+)$"
-    },
-    {
-      matchManagers: ["mise"],
-      matchDepNames: ["aqua:kubernetes-sigs/kustomize"],
-      extractVersion: "^kustomize/v(?<version>\\d+\\.\\d+\\.\\d+)$"
+      matchDepNames: ["aqua:jqlang/jq", "aqua:kubernetes-sigs/kustomize"],
+      extractVersion: "^(?:jq-|kustomize/v)(?<version>\\d+\\.\\d+\\.\\d+)$"
     },
     // Labeling rules
     {
