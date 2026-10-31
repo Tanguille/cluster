@@ -135,7 +135,7 @@ Ghostfolio · IT-Tools · PicoShare · Obico · DumbAssets · Spoolman · Satisf
 <summary>🌐 <b>Network & edge</b> (namespace <code>network/</code>)</summary>
 
 Cloudflared (tunnel) · Envoy Gateway (L7) · k8s-gateway (internal DNS) · external-dns ·
-External-Service · SMTP-Relay · Cloudflare-DDNS
+External-Service · Cloudflare-DDNS
 
 </details>
 
