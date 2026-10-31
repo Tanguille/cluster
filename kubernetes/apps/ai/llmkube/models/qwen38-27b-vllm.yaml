@@ -46,7 +46,7 @@ spec:
           securityContext:
             # The serving pod runs as root, so the store is root-owned.
             runAsUser: 0
-          # Runs under the DiskPressure it clears (hostPath pins it to control-1); kubelet admits only critical pods.
+          # Under DiskPressure kubelet admits only critical pods (hostPath pins it to control-1).
           priorityClassName: system-cluster-critical
           tolerations:
             - key: node.kubernetes.io/disk-pressure
@@ -153,7 +153,7 @@ spec:
           securityContext:
             # The serving pod runs as root, so the cache is root-owned.
             runAsUser: 0
-          # Pruning helps under DiskPressure (hostPath pins it to control-1); kubelet admits only critical pods.
+          # Under DiskPressure kubelet admits only critical pods (hostPath pins it to control-1).
           priorityClassName: system-cluster-critical
           tolerations:
             - key: node.kubernetes.io/disk-pressure

@@ -64,7 +64,7 @@ spec:
           labels:
             severity: critical
 
-        # omniroute 5xx the client saw: the fallback retries only bodies up to 64 KiB. > 0 as the chain is one deep.
+        # omniroute 5xx the client saw after the fallback; > 0 as the chain is one deep.
         - alert: AgentgatewayFallbackTargetUnavailable
           expr: |-
             sum(

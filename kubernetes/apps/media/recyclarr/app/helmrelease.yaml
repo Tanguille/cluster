@@ -20,7 +20,7 @@ spec:
           timeZone: &timeZone ${TIMEZONE}
           schedule: "@daily"
           backoffLimit: 1
-          # A kept failed Job holds KubeJobFailed until it is deleted (same as bitmagnet prune).
+          # A kept failed Job holds KubeJobFailed until it is deleted.
           ttlSecondsAfterFinished: 3600
         containers:
           app:
