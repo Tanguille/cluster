@@ -80,6 +80,8 @@ spec:
     networkpolicies:
       app:
         # Ingress only from envoy-internal (the route the homepage widget also uses).
+        policyTypes:
+          - Ingress
         rules:
           ingress:
             - from:
