@@ -36,6 +36,10 @@ spec:
               - op: add
                 path: /spec/jobTemplate/spec/template/spec/automountServiceAccountToken
                 value: false
+              # Chart has no TTL value; a failed run otherwise keeps KubeJobFailed firing until the next failure.
+              - op: add
+                path: /spec/jobTemplate/spec/ttlSecondsAfterFinished
+                value: 3600
 
   values:
     prometheus:
