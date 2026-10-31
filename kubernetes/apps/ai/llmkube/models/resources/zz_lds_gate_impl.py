@@ -1,8 +1,18 @@
 # Import-hook patches for gfx1201, one per target module (PATCHES).
+import glob
 import importlib.abc
 import os
 import sys
 import types
+
+# An unclean exit leaves the CPU KV-offload region in the pod's /dev/shm, so every restart fails for space
+# (247 on 10-30). PID 1 is the API server, which runs before EngineCore creates this run's region.
+if os.getpid() == 1:
+    for _region in glob.glob("/dev/shm/vllm_offload_*.mmap"):
+        try:
+            os.unlink(_region)
+        except OSError:
+            pass
 
 
 class _PatchLoader(importlib.abc.Loader):
