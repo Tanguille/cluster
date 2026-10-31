@@ -24,6 +24,7 @@ spec:
             severity: critical
 
         # Missing CSI snapshot CRDs make policies stop reporting rather than fail.
+        # Also the no-leader signal: kopiur registers these gauges only after winning the lease.
         - alert: KopiurPolicyMetricsAbsent
           expr: |-
             absent(kopiur_policy_last_backup_success_timestamp_seconds)
@@ -44,15 +45,5 @@ spec:
             summary: >-
               kopiur repository {{ $labels.name }} reports zero snapshots — the repo is
               empty or unreadable
-          labels:
-            severity: critical
-
-        - alert: KopiurControllerNotLeader
-          expr: |-
-            max(kopiur_leader_is_leader) == 0
-          for: 30m
-          annotations:
-            summary: >-
-              No kopiur controller holds the leader lease — nothing is scheduling backups
           labels:
             severity: critical
