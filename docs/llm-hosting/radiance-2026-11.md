@@ -28,8 +28,10 @@ did not move.
   radiance and 63% on vLLM today, so that gate cannot compare engines.
 - Speculation (MTP, DFlash2) roughly doubles decode at 1-4 sessions (DFlash2 63/78/64 agg tok/s at 1/2/4, adaptive window
   85.5 at 4) but stalls at 8 (agg 40-49, itl p90 430-490 ms). `--draft-window adaptive`, `--busy-prefill-chunk 512` and
-  `--max-num-seqs 4` did not fix it, so speculation is off. Prompt lookup alone (`--spec-ngram`) is refused at startup
-  because the `.rad` declares an MTP head; it needs a container converted without one. Untested: `--prefill-interleave`.
+  `--max-num-seqs 4` did not fix it, so no drafter. Production runs prompt lookup alone (`--spec-ngram 5 --draft-window
+  adaptive`): distribution-exact, verified only when the measured step cost says it pays. It is refused for a container
+  with a draft head, so the Job converts with `--max-spec 0`. Not benchmarked before it went live: compare
+  `radiance:draft_*` and per-stream decode against the 2026-11-01 snapshot. Untested: `--prefill-interleave`.
 - GPU: 249 W (the card's 250 W cap), junction 85 C, fan 4.1K rpm under load, idle free VRAM 2.5 GiB (Jellyfin floor 1.82).
 
 ## Cache
@@ -56,8 +58,10 @@ did not move.
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
 - Engine or checkpoint bump: the Job `qwen38-27b-rad-convert` reruns when its image or the Model `source` changes (a kustomize
-  replacement feeds the source in). A fresh install waits 10 min for the operator to stage the weights.
-- Memory: raise the host tier only with node RAM; the pod pins ~25.7 GiB.
+  replacement feeds the source in). The `.rad` is named by the checkpoint revision, which a second replacement writes into
+  `--model`, so a pod that starts first fails until the file exists instead of serving the old checkpoint; the Job then
+  deletes the other `.rad` files. It waits for the operator to stage the weights up to its 30 min deadline.
+- Memory: raise the host tier only with node RAM; the pod pins 28.6 GiB of its 32 GiB.
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert
   boots with empty caches.

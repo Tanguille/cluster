@@ -47,18 +47,23 @@ spec:
               set -eu
               # The operator caches the Model under sha256(source)[:16]; the last file it lists marks a finished download.
               src=/models/$$(printf %s "$$MODEL_SOURCE" | sha256sum | cut -c1-16)
-              out=/out/swift15-27b-w4a16-awq.rad
-              for _ in $$(seq 1 60); do [ -f "$$src/video_preprocessor_config.json" ] && break; sleep 10; done
-              [ -f "$$src/video_preprocessor_config.json" ] || { echo "no checkpoint at $$src" >&2; exit 1; }
-              rad-convert "$$src" --recipe /opt/radiance/share/radiance/recipes/q38-27b-w4a16.recipe -o "$$out.tmp"
+              # Named by revision, like --model (kustomization.yaml), so a pod never serves the previous checkpoint.
+              out=/out/swift15-27b-w4a16-awq-nodraft.$${MODEL_SOURCE##*@}.rad
+              # activeDeadlineSeconds bounds the wait.
+              until [ -f "$$src/video_preprocessor_config.json" ]; do echo "waiting for $$src" >&2; sleep 10; done
+              # --max-spec 0 leaves out the MTP head, which --spec-ngram refuses.
+              rad-convert "$$src" --recipe /opt/radiance/share/radiance/recipes/q38-27b-w4a16.recipe --max-spec 0 -o "$$out.tmp"
               mv "$$out.tmp" "$$out"
+              # A running pod keeps an unlinked file open until it restarts.
+              find /out -maxdepth 1 -name '*.rad' ! -path "$$out" -delete
               ls -l /out
           resources:
+            # control-1 has ~1.7 GiB requestable beside the 32Gi engine.
             requests:
               cpu: "2"
-              memory: 4Gi
+              memory: 1Gi
             limits:
-              memory: 16Gi
+              memory: 8Gi
           volumeMounts:
             - name: src
               mountPath: /models
@@ -112,8 +117,9 @@ spec:
       readOnly: true
   # Read by the router for the served name, so every flag lives here.
   extraArgs:
+    # The revision is filled from the Model source by kustomization.yaml.
     - --model
-    - /rad/swift15-27b-w4a16-awq.rad
+    - /rad/swift15-27b-w4a16-awq-nodraft.revision.rad
     - --served-model-name
     - qwen-3.8
     - --max-num-seqs
@@ -132,10 +138,12 @@ spec:
     # Shared card: no weight-prefetch ring.
     - --weight-prefetch
     - "off"
-    # NO speculation: MTP and DFlash2 stall at 8 sessions, and --spec-ngram is refused because the .rad declares
-    # an MTP head (prompt lookup alone needs a container without one).
-    - --num-speculative-tokens
-    - "0"
+    # Prompt lookup only (MTP and DFlash2 stall at 8 sessions): distribution-exact, and the adaptive window
+    # verifies a draft only when it pays at the measured step cost. Sets the window; no --num-speculative-tokens.
+    - --spec-ngram
+    - "5"
+    - --draft-window
+    - adaptive
     # The 3600 s default drops idle sessions that vLLM kept until the memory was wanted.
     - --prefix-cache-ttl
     - "0"
