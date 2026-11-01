@@ -61,6 +61,7 @@ node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable
 `qwen35-2b` (generative, same `server-vulkan` image on the same iGPU) is *not*
 enrolled: measured at 32 MiB GTT after 7 h versus the embedders' 2+ GiB, so the
 leak is specific to `mode: embedding`, not the Vulkan runtime.
+(`qwen35-2b` was replaced by `d3-nano` on 2026-11-01; it was not re-measured.)
 
 ## Alternatives considered
 
