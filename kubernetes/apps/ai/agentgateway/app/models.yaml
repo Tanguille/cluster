@@ -2,7 +2,7 @@
 # Models listener, shared by every model: agentgateway routes on the body's model and answers
 # GET /v1/models itself. LLMKube compiles this into the agentgateway-router HTTPRoute, which the
 # hand-written models in models/ attach to. A refusal is router-wide (one bad backend, such as a
-# vLLM --served-model-name mismatch): nothing is written and the last compiled route keeps serving,
+# --served-model-name mismatch): nothing is written and the last compiled route keeps serving,
 # or on a first compile nothing is routed (LLMKubeModelRouterNotReady).
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/modelrouter_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
@@ -16,7 +16,7 @@ spec:
     routing: Model
     sectionName: models
   backends:
-    # Also served by qwen-3.8-fast and omniroute's fallback group. vLLM serves Anthropic Messages
+    # Also served by qwen-3.8-fast and omniroute's fallback group. The engine (radiance) serves Anthropic Messages
     # and Responses itself, so nothing is translated. No reasoning_effort default: the sharp chat
     # template already defaults to medium, the better quality/latency point for most turns.
     - name: qwen38

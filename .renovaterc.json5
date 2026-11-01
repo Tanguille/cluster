@@ -86,6 +86,16 @@
       datasourceTemplate: "github-releases"
     },
     {
+      description: "GrafanaDashboard spec.url pinned to Codeberg tags",
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
+      matchStrings: [
+        'url:\\s+"?https://codeberg\\.org/(?<depName>[^/\\s]+/[^/\\s]+)/raw/tag/(?<currentValue>v\\d+\\.\\d+\\.\\d+)/'
+      ],
+      datasourceTemplate: "gitea-tags",
+      registryUrlTemplate: "https://codeberg.org"
+    },
+    {
       // Only adjacent id then revision: `indentation` is the one custom group a template can use.
       description: "GrafanaDashboard grafanaCom id/revision",
       customType: "regex",
@@ -212,11 +222,20 @@
         "/vchord/",
         "/dragonfly/",
         "/flux/",
-        "/vllm/",
+        "/radiance/",
         "/llama/",
         "/obico/"
       ],
       automerge: false
+    },
+    {
+      // Releases land every 1-3 days and each roll empties the prefix cache; the dashboard moves with the engine.
+      matchPackageNames: [
+        "docker.io/stilldeadcode/radiance",
+        "StillDeadcode/radiance"
+      ],
+      groupName: "radiance",
+      minimumReleaseAge: "3 days"
     },
     {
       // opencode 2.x changed the server API (probes fail); hold at 1.18.x until the chart is migrated.

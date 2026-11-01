@@ -1,197 +1,140 @@
 ---
-# Persist torch, Triton, and Inductor compile caches across restarts; hostpath has no quota, so the 10Gi is
-# advisory and the prune CronJob below is the bound.
+# hostpath: size unenforced (real limit is control-1 free disk) and unraisable: any size change fails the dry-run and wedges llmkube-models.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: qwen38-27b-vllm-compile-cache
+  name: qwen38-swift-27b-vllm-model-cache
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: openebs-hostpath
   resources:
     requests:
-      storage: 10Gi
+      # 18.2G measured.
+      storage: 20Gi
 ---
-# fs KV tier (OffloadingConnector secondary); hostpath has no quota, the guard
-# CronJob below is the bound.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-swift-27b-vllm
+spec:
+  # g128 W4A16 on the base Qwen3.8-27B geometry; lm_head ships bf16 and rad-convert quantizes it (block-fp8).
+  # HF revisions are mutable (re-uploads keep the filename), so the commit is pinned; Renovate bumps it and the convert Job follows.
+  # model-mtp-bf16.safetensors holds the 15 MTP tensors; rad-convert keeps them as the MTP head, unused with speculation off.
+  source: hf://ukisai/Swift-1.5-Qwen3.8-27b-W4A16-AWQ@9dba8a058771
+  format: safetensors
+  quantization: compressed-tensors
+  refreshPolicy: OnChange
+  # Exactly what rad-convert reads; the init container exits 1 on a 404. tokenizer.json
+  # is self-contained (no merges/vocab).
+  files:
+    - model-00001-of-00006.safetensors
+    - model-00002-of-00006.safetensors
+    - model-00003-of-00006.safetensors
+    - model-00004-of-00006.safetensors
+    - model-00005-of-00006.safetensors
+    - model-00006-of-00006.safetensors
+    - model-mtp-bf16.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - chat_template.jinja
+    - preprocessor_config.json
+    # Keep last: the convert Job takes it as the end of the download.
+    - video_preprocessor_config.json
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+---
+# hostpath, as above; the .rad is 18.6 GB.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: qwen38-27b-vllm-kv-offload
+  name: radiance-engine-rad
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: openebs-hostpath
   resources:
     requests:
-      storage: 128Gi
+      storage: 24Gi
 ---
-# vLLM's fs tier has no evictor; the root fs is shared with the rook-ceph mon.
+# Converts the checkpoint into a .rad (~45 s); Flux recreates it on a bump (kustomization.yaml).
 apiVersion: batch/v1
-kind: CronJob
+kind: Job
 metadata:
-  name: qwen38-27b-vllm-kv-offload-guard
+  name: qwen38-27b-rad-convert
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
 spec:
-  # Every 15 min: the tier writes up to ~56 GiB/h; hourly let /var pass mon-c's 27% warn line.
-  schedule: "*/15 * * * *"
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 3
-  jobTemplate:
+  backoffLimit: 1
+  activeDeadlineSeconds: 1800
+  template:
     spec:
-      backoffLimit: 2
-      template:
-        spec:
-          restartPolicy: OnFailure
-          automountServiceAccountToken: false
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+      containers:
+        - name: convert
+          # The InferenceService's, by a replacement in kustomization.yaml.
+          image: replaced
           securityContext:
-            # The serving pod runs as root, so the store is root-owned.
-            runAsUser: 0
-          # Under DiskPressure kubelet admits only critical pods (the openebs-hostpath PVCs pin it to control-1).
-          priorityClassName: system-cluster-critical
-          tolerations:
-            - key: node.kubernetes.io/disk-pressure
-              operator: Exists
-              effect: NoSchedule
-          containers:
-            - name: guard
-              image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
-              securityContext:
-                allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
-                capabilities:
-                  drop: ["ALL"]
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  # KV-offload guard: sweeps /kvoffload back above a 160Gi free-space floor on
-                  # the shared root fs. Flux postBuild envsubst context: bare $VAR -> $$.
-                  # Up to 3 eviction passes: vLLM writes back 1-2Gi mid-sweep, so one pass can end short.
-                  # Exit 0 once the tier is drained (residual shortfall is non-tier growth, not evictable
-                  # here); exit 1 only when tier files remain and the floor is still unreachable.
-                  set -eu
-                  avail() { df -kP /kvoffload | awk 'NR==2{print $$4}'; }
-                  # Apparent size of finished blocks only; .tmp are in-flight writes.
-                  tier_kb() {
-                    find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%s' {} + 2>/dev/null \
-                      | awk '{s+=$$1} END{printf "%.0f\n", s/1024}'
-                  }
-                  # 160Gi = 32% of the 499.6Gi shared root disk, clear of ceph mon_data_avail_warn=27%; not the label-only 128Gi PVC.
-                  floor=167772160
-                  # Margin = max(shortfall/16, 4Gi): write-back is 1-2Gi, beyond shortfall/16 at that size.
-                  min_margin_kb=4194304
-                  # A tier this empty counts as drained for the escape check (4Gi).
-                  drained_kb=4194304
-                  avail_kb="$$(avail)"
-                  echo "avail: $$avail_kb K (floor: $$floor K)"
-                  pass=0
-                  while [ "$$avail_kb" -lt "$$floor" ] && [ "$$pass" -lt 3 ]; do
-                    pass=$$((pass + 1))
-                    shortfall=$$((floor - avail_kb))
-                    margin=$$((shortfall / 16))
-                    [ "$$margin" -lt "$$min_margin_kb" ] && margin=$$min_margin_kb
-                    need_kb=$$((shortfall + margin))
-                    # Evict by bytes, not file count: at 104Mi a chunk, a 2000-file check wiped the tier.
-                    # LRU by mtime, oldest first; blocks are write-once.
-                    # busybox find has no -printf.
-                    find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
-                    {
-                      n=0 freed_kb=0
-                      while IFS=' ' read -r size f; do
-                        rm -f -- "$$f"
-                        n=$$((n + 1)) freed_kb=$$((freed_kb + size / 1024))
-                        [ "$$freed_kb" -ge "$$need_kb" ] && break
-                      done
-                      echo "pass $$pass: evicted $$n files ($$freed_kb K) for a $$need_kb K target"
-                    }
-                    avail_kb="$$(avail)"
-                    echo "pass $$pass: avail $$avail_kb K (floor: $$floor K)"
-                  done
-                  [ "$$avail_kb" -ge "$$floor" ] && exit 0
-                  # Still short: was the tier the cause? If it is drained, the remainder is
-                  # non-tier growth on the shared root fs - not evictable from here.
-                  usage_kb="$$(tier_kb)"
-                  echo "post-sweep: avail $$avail_kb K, tier $$usage_kb K"
-                  if [ "$$usage_kb" -le "$$drained_kb" ]; then
-                    echo "tier drained; residual shortfall is non-tier growth on the shared root fs (outside this guard)"
-                    exit 0
-                  fi
-                  echo "floor unreachable: $$avail_kb K < $$floor K with $$usage_kb K tier still present" >&2
-                  exit 1
-              volumeMounts:
-                - name: kv-offload
-                  mountPath: /kvoffload
-              resources:
-                requests:
-                  cpu: 10m
-                  memory: 64Mi
-                limits:
-                  memory: 128Mi
-          volumes:
-            - name: kv-offload
-              persistentVolumeClaim:
-                claimName: qwen38-27b-vllm-kv-offload
----
-# Every nightly bump leaves a torch.compile AOT entry that nothing reads again; hostpath has no quota, so
-# it eats the same root-fs headroom the guard above protects.
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: qwen38-27b-vllm-compile-cache-prune
-spec:
-  schedule: "30 4 * * *"
-  concurrencyPolicy: Forbid
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 3
-  jobTemplate:
-    spec:
-      backoffLimit: 2
-      template:
-        spec:
-          restartPolicy: OnFailure
-          automountServiceAccountToken: false
-          securityContext:
-            # The serving pod runs as root, so the cache is root-owned.
-            runAsUser: 0
-          # Under DiskPressure kubelet admits only critical pods (the openebs-hostpath PVCs pin it to control-1).
-          priorityClassName: system-cluster-critical
-          tolerations:
-            - key: node.kubernetes.io/disk-pressure
-              operator: Exists
-              effect: NoSchedule
-          containers:
-            - name: prune
-              image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
-              securityContext:
-                allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
-                capabilities:
-                  drop: ["ALL"]
-              command:
-                - /bin/sh
-                - -c
-                - |
-                  # Flux postBuild envsubst context: bare $VAR -> $$.
-                  # Keeps the 4 newest AOT entries (current build plus rollback). /cache/triton is left alone:
-                  # its key is the kernel source, so mtime cannot tell live entries from stale ones.
-                  set -eu
-                  aot=/cache/vllm/torch_compile_cache/torch_aot_compile
-                  [ -d "$$aot" ] || exit 0
-                  cd "$$aot"
-                  ls -t | tail -n +5 | xargs -rt rm -rf --
-              volumeMounts:
-                - name: compile-cache
-                  mountPath: /cache
-              resources:
-                requests:
-                  cpu: 10m
-                  memory: 64Mi
-                limits:
-                  memory: 128Mi
-          volumes:
-            - name: compile-cache
-              persistentVolumeClaim:
-                claimName: qwen38-27b-vllm-compile-cache
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            # Filled from the Model's spec.source by the replacement in kustomization.yaml.
+            - name: MODEL_SOURCE
+              value: replaced
+            # The InferenceService's image, by the same replacement.
+            - name: ENGINE_IMAGE
+              value: replaced
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # Flux postBuild envsubst context: bare $VAR -> $$.
+              set -eu
+              # The operator caches the Model under sha256(source)[:16].
+              src=/models/$$(printf %s "$$MODEL_SOURCE" | sha256sum | cut -c1-16)
+              out=/out/swift15-27b-w4a16-awq.$${MODEL_SOURCE##*@}.$${ENGINE_IMAGE##*:}.rad
+              # activeDeadlineSeconds bounds the wait.
+              until [ -f "$$src/video_preprocessor_config.json" ]; do echo "waiting for $$src" >&2; sleep 10; done
+              rad-convert "$$src" --recipe /opt/radiance/share/radiance/recipes/q38-27b-w4a16.recipe -o "$$out.tmp"
+              mv "$$out.tmp" "$$out"
+              # Also a failed run's .tmp; a running pod keeps an unlinked file open until it restarts.
+              find /out -maxdepth 1 -name '*.rad*' ! -path "$$out" -delete
+              # Previous checkpoints; the downloader never removes them.
+              find /models -mindepth 1 -maxdepth 1 -type d ! -path "$$src" -exec rm -rf {} +
+              ls -l /out
+          resources:
+            # control-1 has ~2.2 GiB requestable beside the 32Gi engine; conversions peaked at 1.15 GiB working set
+            # (coarse samples of a 45 s run).
+            requests:
+              cpu: "2"
+              memory: 1Gi
+            limits:
+              memory: 4Gi
+          volumeMounts:
+            - name: src
+              mountPath: /models
+            - name: out
+              mountPath: /out
+      volumes:
+        - name: src
+          persistentVolumeClaim:
+            claimName: qwen38-swift-27b-vllm-model-cache
+        - name: out
+          persistentVolumeClaim:
+            claimName: radiance-engine-rad
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
 apiVersion: inference.llmkube.dev/v1alpha1
@@ -199,168 +142,99 @@ kind: InferenceService
 metadata:
   name: qwen38-27b-vllm
 spec:
-  # Checkpoint swap = modelRef + modelCache.claimName (one restart); pre-stage /models/<sha256(source)[:16]>.
   modelRef: qwen38-swift-27b-vllm
+  # radiance in the vllm runtime's own-launcher mode (command set): the ModelRouter maps only llamacpp and vllm.
   runtime: vllm
-  # 8: +19% short-context aggregate over 5; M=6-8 leave the 5-row skinny W4A16 kernel for Triton.
+  command: [radiance]
   parallelSlots: 8
-  bindAddress: 0.0.0.0
-  # Digest-pinned nightly. After a bump the boot log shows "Triton tiles" and "UltraQuant ... fast=True
-  # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
-  # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
-  # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:9cef62361792bd9cc621725c3af799993b6a68b6b62e3778dcf9b65ff6fcd872
-  # Roll only when vllm:num_requests_running is 0; 79% of 15 min windows (7d) have an idle minute, then it rolls anyway.
+  # After a bump, run bench/qualitygate.py on an unrouted clone (baseline: docs/llm-hosting/radiance-2026-11.md).
+  image: docker.io/stilldeadcode/radiance:1.15.1@sha256:cccbc0bd6bfef1441e8fcf3ca8d10313d4e6d18a03d9c6ede3bcb15d95376668
+  # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
     waitForIdle: true
     idleTimeoutSeconds: 900
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
-  vllmConfig:
-    # Trained max. vLLM refuses to boot if the pool (--kv-cache-memory below) < this: re-read "GPU KV cache size" after changes.
-    maxModelLen: 262144
-    # UltraQuant 4-bit KV (vllm#57057), 18,091 B/token; the CRD enum lacks it. See docs/llm-hosting/ultraquant-2026-10-07.md.
-    kvCacheDtype: auto
-    kvCacheCustomDtype: ultraquant_4bit
-    # 91% of prompt tokens are prefix-cache hits (30d, ultraquant-2026-10-07.md Workload).
-    enablePrefixCaching: true
-    # 2048 beats 4096 and 8192 on cold prefill and free VRAM at 8 sessions, NLL +0.00035 (ttft-breakdown-2026-10.md).
-    maxNumBatchedTokens: 2048
-    # Shared with Jellyfin: card1 idles at 29.7 of 31.9 GiB with vLLM and media, leaving 2.1 GiB (>= 1.82 GiB Jellyfin floor). --kv-cache-memory sets the pool.
-    gpuMemoryUtilization: 0.9
-  env:
-    # On gfx12 this gates aiter's Triton GDN decode kernels (qwen_gdn_linear_attn.py); full attention runs ULTRAQUANT regardless.
-    - name: VLLM_ROCM_USE_AITER
-      value: "1"
-    # vllm#52970 routes rms_norm to aiter on RDNA4 when this is on (default); keep the native norm until a clone test measures it.
-    - name: VLLM_ROCM_USE_AITER_RMSNORM
-      value: "0"
-    # Raises the odds of the fast gfx1201 band (2x decode, ROCm/ROCm#6347); not a pin.
-    - name: GPU_MAX_HW_QUEUES
-      value: "1"
-    - name: HIP_VISIBLE_DEVICES
-      value: "0"
-    - name: ROCR_VISIBLE_DEVICES
-      value: "0"
-    - name: VLLM_CACHE_ROOT
-      value: /cache/vllm
-    - name: TRITON_CACHE_DIR
-      value: /cache/triton
-    - name: TORCHINDUCTOR_CACHE_DIR
-      value: /cache/inductor
-    # Seeds fs-tier block hashes; changing it invalidates the tier.
-    - name: PYTHONHASHSEED
-      value: "0"
-    # UltraQuant continuation prefill uses flash-attn; the CK build segfaults on gfx1201.
-    - name: FLASH_ATTENTION_TRITON_AMD_ENABLE
-      value: "TRUE"
-    # Decode and <=128-token continuation chunks run resources/uq_decode_fast.py; 0 = upstream.
-    - name: UQ_FAST
-      value: "1"
   extraVolumes:
-    - name: compile-cache
-      persistentVolumeClaim:
-        claimName: qwen38-27b-vllm-compile-cache
-    - name: kv-offload
-      persistentVolumeClaim:
-        claimName: qwen38-27b-vllm-kv-offload
-    # = cpu_bytes_to_use + 2Gi; the 64M default EFAULTs on pre-fault.
-    - name: dshm
-      emptyDir:
-        medium: Memory
-        sizeLimit: 14Gi
-    - name: lds-gate-patch
-      configMap:
-        name: lds-gate-patch
     - name: qwen38-sharp-chat-template
       configMap:
         name: qwen38-sharp-chat-template
+    - name: rad
+      persistentVolumeClaim:
+        claimName: radiance-engine-rad
+        readOnly: true
   extraVolumeMounts:
-    - name: compile-cache
-      mountPath: /cache
-    - name: kv-offload
-      mountPath: /kvoffload
-    - name: dshm
-      mountPath: /dev/shm
-    # Hook (resources/zz_lds_gate_impl.py): Triton W4A16 tiles and UltraQuant fixes (drop once upstream has both)
-    # and the /dev/shm offload-region cleanup (drop once vllm#51730 reaps orphaned regions; tiering has no unlink).
-    - name: lds-gate-patch
-      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
-      subPath: zz_lds_gate.pth
-      readOnly: true
-    - name: lds-gate-patch
-      mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate_impl.py
-      subPath: zz_lds_gate_impl.py
-      readOnly: true
     # Our own path, so it survives modelRef changes.
     - name: qwen38-sharp-chat-template
       mountPath: /chat-templates/chat_template.jinja
       subPath: chat_template.jinja
       readOnly: true
-    # Imported by zz_lds_gate_impl.py when UQ_FAST=1.
-    - name: lds-gate-patch
-      mountPath: /usr/local/lib/python3.12/dist-packages/uq_decode_fast.py
-      subPath: uq_decode_fast.py
+    - name: rad
+      mountPath: /rad
       readOnly: true
+  # Read by the router for the served name, so every flag lives here.
   extraArgs:
+    # kustomization.yaml fills in the checkpoint revision and the engine digest, so a pod never serves a .rad
+    # from another checkpoint or engine: after a bump it fails until the Job writes this one. It targets
+    # extraArgs.1, so keep --model first.
+    - --model
+    - /rad/swift15-27b-w4a16-awq.revision.engine.rad
     - --served-model-name
     - qwen-3.8
-    - --trust-remote-code
-    - --reasoning-parser
-    - qwen3
-    - --enable-auto-tool-choice
-    - --tool-call-parser
-    - qwen3_coder
-    # Sharp template over the AWQ build's stock one; highest-priority source, validated at boot.
-    - --chat-template
+    - --max-num-seqs
+    - "8"
+    - --max-model-len
+    - "262144"
+    # K in E4M3, V in int4: ~0.78x the fp8 cost per token at the same KL.
+    - --kv-cache-dtype
+    - fp8_v4
+    # Leaves 2.5 GiB VRAM free for Jellyfin (floor 1.82 GiB); the engine sizes the KV pool from the rest.
+    - --gpu-headroom-mib
+    - "2560"
+    # Shared card: no weight-prefetch ring.
+    - --weight-prefetch
+    - "off"
+    # NO speculation: it stalls at 8 sessions (docs/llm-hosting/radiance-2026-11.md).
+    - --num-speculative-tokens
+    - "0"
+    # The 3600 s default drops idle sessions that vLLM kept until the memory was wanted.
+    - --prefix-cache-ttl
+    - "0"
+    # Host KV tier, pinned in node RAM; there is no disk tier.
+    - --prefix-cache-mib
+    - "20480"
+    # One state snapshot per session; the default capped the cache at ~6 sessions of 100K.
+    - --checkpoint-policy
+    - tip-only
+    # 16 auto slots overflowed (store_full) under 8 agent sessions.
+    - --checkpoint-slots
+    - "32"
+    # Hits resume on 2048-token chunks (the default batch size); nearest re-prefills up to one chunk less, so a hit is
+    # no longer bit-identical to a cold run.
+    - --prefix-resume
+    - nearest
+    # Tower read over the link once per image (~55 ms); its 0.86 GiB of VRAM goes to the KV pool, which peaked at 99.9%.
+    - --vision-tower-placement
+    - ram
+    # Sharp template over the container's; highest-priority source.
+    - --override-chat-template
     - /chat-templates/chat_template.jinja
-    # NO --long-prefill-token-threshold: 1600 doubled the stall share for no TTFT gain.
-    # Capture sizes 1..parallelSlots: the default 512 ceiling OOMs on GDN hybrids (vllm#39010).
-    - --compilation-config
-    - '{"cudagraph_capture_sizes": [1, 2, 3, 4, 5, 6, 7, 8]}'
     # Keep prior-turn reasoning in context.
-    - --default-chat-template-kwargs
+    - --chat-template-kwargs
     - '{"preserve_thinking": true}'
-    # NO --speculative-config: rejected, see docs/llm-hosting/spec-decode-rejected.md.
-    # Both needed: the ssm dtype does not inherit. fp32 gains nothing, -3.8% KV (docs/llm-hosting/torch213-nightly-audit-2026-10.md).
-    - --mamba-cache-dtype
-    - bfloat16
-    - --mamba-ssm-cache-dtype
-    - bfloat16
-    # 5% held free at admission: preemptions 117/17h -> 5/7d.
-    - --watermark
-    - "0.05"
-    # Default 25/50 ms ITL edges blur our ~32 ms decode; fine edges 30-45 ms plus 60 (slow band).
-    - --custom-histogram-buckets
-    - '{"inter_token_latency": [0.01, 0.02, 0.025, 0.03, 0.032, 0.034, 0.036, 0.038, 0.04, 0.045, 0.05, 0.06, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, 20.0, 40.0, 80.0]}'
-    # 7.91 GiB (8.5 GB) -> ~470,000 tokens, 1.79x 262K. Skips profiling, so headroom is manual: 9.5 GiB OOMed; keep >= 1.82 GiB free for Jellyfin.
-    - --kv-cache-memory
-    - "8500000000"
-    # Prefix hits on 64-token boundaries, not the 1536-token hybrid block; needs blocks_per_chunk 1.
-    # Shifts greedy outputs (66% agreement) at equal quality: NLL <= 5e-5, GSM8K 146/150, needles 3/3 to 175K.
-    - --prefix-match-unit
-    - "64"
-    # No --language-model-only: Hermes uses the vision tower.
-    # CPU tier 12Gi (~712K tokens); 22Gi only if a restart-free 7d shows hit < 0.25 or fs share > 20%.
-    # Keep the fs tier: removing it halved decode; no mechanism found, unproven.
-    # blocks_per_chunk 1: 8 sessions 8.4 -> 30.5 tok/s alone, 43 with --prefix-match-unit 64.
-    # kv_load_failure_policy is top-level; nested it is silently ignored.
-    - --kv-transfer-config
-    - >-
-      {"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_load_failure_policy":"recompute","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":12884901888,"blocks_per_chunk":1,"secondary_tiers":[{"type":"fs","root_dir":"/kvoffload","locality":"LOCAL"}]}}
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0
     supplementalGroups: [44, 226]
-    # RuntimeDefault passes ROCm compute and the liveness probe.
+    # The engine needs io_uring and NUMA binding.
     seccompProfile:
-      type: RuntimeDefault
+      type: Unconfined
   resources:
     cpu: "2"
-    # Request and limit; tmpfs counts: 12Gi shm + ~6Gi anon.
-    memory: 24Gi
+    # Pins 28.6 GiB (engine log): 20 tier + 4.6 checkpoints + 2.4 embedding + 0.9 vision tower + runtime.
+    memory: 32Gi
   endpoint:
     port: 8000
   probeOverrides:
@@ -368,40 +242,17 @@ spec:
       httpGet:
         path: /health
         port: 8000
-      initialDelaySeconds: 60
-      periodSeconds: 15
-      failureThreshold: 240
-    # (1) /health with 20x30s slack, counted in /tmp since failureThreshold is 1.
-    # (2) Restart on the slow band (thresholds below; gfx1201-fast-slow-band-2026-09-12.md). Only card1 has
-    # the counters; a busy VCN (Jellyfin) skips, since a restart cannot fix a co-tenant.
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      failureThreshold: 180
+    # No slow-band restart probe: none seen on radiance; LLMDecodeStepLatched pages instead.
     liveness:
-      exec:
-        command:
-          - /bin/sh
-          - -c
-          - |
-            f=/tmp/band; g=/sys/class/drm/card1/device
-            sclk_min=3100; busy_min=60; window=8; fast_min_pct=25; vcn_max=5
-            if ! curl -sf -m 8 -o /dev/null localhost:8000/health; then
-              n=$$(( $$(cat "$$f".fail 2>/dev/null || echo 0) + 1 )); echo "$$n" > "$$f".fail
-              [ "$$n" -ge 20 ] && exit 1; exit 0
-            fi
-            rm -f "$$f".fail
-            vcn=$$(cat $$g/vcn_busy_percent 2>/dev/null)
-            [ "$${vcn:-0}" -ge "$$vcn_max" ] && { : > "$$f"; exit 0; }
-            running=$$(curl -s -m 8 localhost:8000/metrics | awk '/^vllm:num_requests_running\{/{print $$2}')
-            sclk=$$(awk '/\*/{sub(/Mhz/,"",$$2); print $$2}' $$g/pp_dpm_sclk)
-            [ "$$running" = "1.0" ] && [ "$${sclk:-0}" -ge "$$sclk_min" ] || exit 0
-            [ "$$(cat $$g/mem_busy_percent)" -ge "$$busy_min" ] && echo 1 >> "$$f" || echo 0 >> "$$f"
-            tail -n "$$window" "$$f" > "$$f".new && mv "$$f".new "$$f"
-            n=$$(wc -l < "$$f"); fast=$$(grep -c 1 "$$f")
-            [ "$$n" -ge "$$window" ] || exit 0
-            if [ $$((fast * 100)) -lt $$((n * fast_min_pct)) ]; then echo "slow band: $$fast/$$n solo samples fast" >&2; exit 1; fi
-      # 2/5 spawns read slow in minute 1; 900s is ~10 min past startup.
-      initialDelaySeconds: 900
+      httpGet:
+        path: /health
+        port: 8000
       periodSeconds: 30
-      timeoutSeconds: 20
-      failureThreshold: 1
+      timeoutSeconds: 10
+      failureThreshold: 10
     readiness:
       tcpSocket:
         port: 8000

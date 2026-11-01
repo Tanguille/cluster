@@ -106,7 +106,7 @@ Drive details, PLP and write-cache policy: [docs/drives.md](docs/drives.md).
 | **ToolHive** | Unified MCP server gateway                                 |
 | **agentgateway** | LLM gateway: keys, routing, fallback, Headroom compression |
 | **OmniRoute**| LLM routing                                                |
-| **LLMKube**  | K8s-native LLM model management (vLLM/llama.cpp)           |
+| **LLMKube**  | K8s-native LLM model management (radiance/llama.cpp)       |
 | **Memini**   | Long-term memory for agents                                |
 
 Tuning constraints and benchmark history for the inference stack live in
@@ -202,7 +202,7 @@ flowchart TB
     end
 
     subgraph Inference[Inference — R9700 on control-1]
-        LLM[vLLM via LLMKube]
+        LLM[radiance via LLMKube]
     end
 
     H --> TH
@@ -261,7 +261,7 @@ GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
 | Doc                       | What it's for                              |
 |---------------------------|--------------------------------------------|
 | [Useful commands](docs/useful_commands.md) | flux / just / talos reference + app runbooks |
-| [LLM hosting](docs/llm-hosting/) | vLLM tuning constraints + benchmark history |
+| [LLM hosting](docs/llm-hosting/) | radiance runbook, vLLM-era tuning constraints + benchmark history |
 | [Storage benchmarks](docs/storage_benchmarks.md) | measured storage-class performance |
 | [Kopiur restore](docs/kopiur-restore.md) | backup/restore procedure |
 | [Database](docs/database/) | database operations |
