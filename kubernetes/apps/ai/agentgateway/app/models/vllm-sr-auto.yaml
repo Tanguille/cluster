@@ -16,8 +16,8 @@ spec:
   virtualModel:
     callout:
       url: http://qwen35-2b.ai.svc.cluster.local:8080/v1/chat/completions
-      # Hermes appends recalled memory to the user message, which must not count; 2000 characters bound
-      # the decision latency.
+      # Hermes appends recalled memory to the user message, which must not count. The first and last 1000
+      # characters bound the decision latency and keep a question asked after a pasted document.
       body: >-
         llmRequest.messages.filter(m, m.role == "user")[0].content.split("<memory-context>")[0].with(t, {
         "model": "qwen35-2b", "max_tokens": 20, "temperature": 0,
@@ -25,18 +25,22 @@ spec:
         "type": "object", "properties": {"effort": {"type": "string", "enum": ["low", "medium", "xhigh"]}},
         "required": ["effort"], "additionalProperties": false}}},
         "messages": [{"role": "system", "content": "Pick the reasoning effort a strong assistant needs for the user's request.\nlow: chit-chat, a quick fact, a simple command or conversion.\nmedium: ordinary work, including writing any code, writing, summaries and planning.\nxhigh: debugging, finding a bug or a root cause, proofs or math, design with trade-offs, or multi-step quantitative reasoning.\nAnswer with JSON only."},
-        {"role": "user", "content": size(t) > 2000 ? t.substring(0, 2000) : t}]})
+        {"role": "user", "content": size(t) > 2000 ? t.substring(0, 1000) + "\n...\n" + t.substring(size(t) - 1000) : t}]})
       cache:
-        # Same text the decision sees, so prompts that differ only past 2000 characters share an entry.
+        # The text the decision sees.
         key:
           - >-
             llmRequest.messages.filter(m, m.role == "user")[0].content.split("<memory-context>")[0].with(t,
-            size(t) > 2000 ? t.substring(0, 2000) : t)
-        ttl: 24h
+            size(t) > 2000 ? t.substring(0, 1000) + "\n...\n" + t.substring(size(t) - 1000) : t)
+        # An answer outside the enum evaluates to null, which skips caching it.
+        ttl: >-
+          json(callout.body.choices[0].message.content).effort in ["low", "medium", "xhigh"] ? duration("24h") : null
         maxEntries: 1024
       # Top-level, not chat_template_kwargs: vLLM lets it win, and Hermes sends one on every turn.
       transformation:
-        model: '"qwen-3.8"'
+        # An answer outside the enum goes to the keyword rule.
+        model: >-
+          json(callout.body.choices[0].message.content).effort in ["low", "medium", "xhigh"] ? "qwen-3.8" : "qwen-3.8-auto-rule"
         reasoning_effort: json(callout.body.choices[0].message.content).effort
       fallback:
         modelRef:
