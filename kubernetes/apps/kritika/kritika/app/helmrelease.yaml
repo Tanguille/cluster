@@ -154,43 +154,27 @@ spec:
             change, deprecation, rename or changed default that affects it,
             and any version it must stay in lockstep with. Start with a
             verdict, safe to merge or not, and name the sources you read.
-        - id: vllm-nightly
+        - id: radiance-bump
           when:
-            - expr: pr.headRef == "renovate/vllm-vllm-openai-rocm-nightly"
+            - expr: pr.headRef.startsWith("renovate/stilldeadcode-radiance")
           rule: >-
-            vLLM nightly bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ, KV
-            offload, hybrid GDN): config
-            kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml, import hook
-            kubernetes/apps/ai/llmkube/models/resources/zz_lds_gate_impl.py.
-            The body has digests only, so take the vllm-project/vllm main
-            commits from 6 h before the previous vllm-openai-rocm PR was opened
-            (gh pr list --state all --search 'vllm-openai-rocm in:title') to
-            this PR's creation, and name that window. Query one path per call
-            with gh api 'repos/vllm-project/vllm/commits?since=..&until=..&path=P',
-            never the whole list: vllm/v1/attention,
-            vllm/model_executor/kernels/linear/mixed_precision,
-            vllm/v1/kv_offload,
-            vllm/distributed/kv_transfer/kv_connector/v1/offloading,
-            vllm/model_executor/layers/mamba, vllm/v1/core, vllm/v1/worker,
-            vllm/platforms/rocm.py, vllm/config, docker/Dockerfile.rocm,
-            docker/Dockerfile.rocm_base. Read the patch of each hit with gh api
-            repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
-            GLM and Kimi changes. Check each hit against every symbol the hook
-            patches and every flag in the config: a moved symbol fails the
-            boot, a new default can undo a flag. The hook also calls upstream
-            functions and Triton kernels itself (kernel[grid](...), orig(...)):
-            for each, diff the full parameter list at the previous and new
-            commit and check the hook's call still binds. An added, removed
-            or reordered parameter is a P1 finding, even if the hook's
-            feature check passes. Any change to a file the hook patches is at
-            least a P1 needs-clone-test finding. Also flag KV pool sizing or
-            page size changes, Qwen3.5 or Qwen3-Next config imports, a ROCm
-            base or torch bump, and anything that makes a hook patch
-            redundant. Start with a verdict: nothing relevant, needs a clone
-            test, or needs a hook change. Then list each relevant commit as sha,
-            title, why it matters here, and what to measure (boot KV cache
-            size, agreement, NLL and needle checks, prodshape). Never call it
-            safe to roll untested.
+            radiance engine bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ .rad,
+            fp8_v4 KV, host prefix tier): config
+            kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml, whose Job
+            reconverts the .rad on every image change. The body has digests
+            only, so read the commits and tags between the previous and new
+            version at codeberg.org/StillDeadcode/radiance (its API with curl;
+            gh does not reach Codeberg), one path per call. Check every flag in
+            extraArgs against renamed, removed or re-defaulted options (a gone
+            flag fails the boot), the .rad container or recipe format
+            (q38-27b-w4a16.recipe), prefix cache, checkpoint policy and KV
+            dtype changes, and the vllm:* and radiance:* metrics read by
+            kubernetes/apps/ai/llmkube/models/prometheusrule.yaml and
+            dashboard/radiance-engine.json. Start with a verdict: nothing
+            relevant, needs a clone test, or needs a config change. Then list
+            each relevant commit as sha, title, why it matters here, and what
+            to measure (boot KV cache token count, gsm8k, tools and stream
+            gates, prodshape). Never call it safe to roll untested.
       # Offer specialist skills on demand; path scopes otherwise inject their full text on every match.
       skills:
         scope:

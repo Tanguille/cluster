@@ -35,11 +35,11 @@ spec:
         ttl: >-
           json(callout.body.choices[0].message.content).effort in ["low", "medium", "xhigh"] ? duration("24h") : null
         maxEntries: 1024
-      # Top-level, not chat_template_kwargs: vLLM lets it win, and Hermes sends one on every turn. The schema's
-      # enum is enforced by llama.cpp's grammar.
+      # In chat_template_kwargs, not top-level: radiance lets the kwargs win, and Hermes sends one on every turn.
+      # This replaces every client kwarg. The schema's enum is enforced by llama.cpp's grammar.
       transformation:
         model: '"qwen-3.8"'
-        reasoning_effort: json(callout.body.choices[0].message.content).effort
+        chat_template_kwargs: '{"reasoning_effort": json(callout.body.choices[0].message.content).effort}'
       fallback:
         modelRef:
           # The ModelRouter's generated model for qwen-3.8.

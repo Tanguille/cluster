@@ -4,24 +4,37 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - prometheusrule.yaml
+  - grafanadashboard.yaml
   - networkpolicy.yaml
   - qwen38-27b-vllm.yaml
   - qwen38-swift-27b-vllm.yaml
   - embeddinggemma-2.yaml
   - qwen35-2b.yaml
   - bge-reranker-v2-m3.yaml
-# No hash suffix: the InferenceService references these by name and kustomize
-# only rewrites built-in types. Editing a patch or template file does not roll
-# the pod; restart it.
+# Single source for the convert Job: the Renovate-bumped Model source selects the checkpoint dir, and a change reruns the Job.
+replacements:
+  - source:
+      kind: Model
+      name: qwen38-swift-27b-vllm
+      fieldPath: spec.source
+    targets:
+      - select:
+          kind: Job
+          name: qwen38-27b-rad-convert
+        fieldPaths:
+          - spec.template.spec.containers.[name=convert].env.[name=MODEL_SOURCE].value
+# No hash suffix: referenced by name, and kustomize only rewrites built-in types.
+# Editing the chat template does not roll the pod; restart it.
 configMapGenerator:
-  - name: lds-gate-patch
-    files:
-      - zz_lds_gate.pth=./resources/zz_lds_gate.pth
-      - zz_lds_gate_impl.py=./resources/zz_lds_gate_impl.py
-      - uq_decode_fast.py=./resources/uq_decode_fast.py
   # Qwen Sharp v22.5.0, from peculiar-ragdoll/Qwen-Sharp-Chat-Templates.
   - name: qwen38-sharp-chat-template
     files:
       - chat_template.jinja=./resources/qwen38_sharp_chat_template.jinja
+  - name: radiance-engine-dashboard
+    files:
+      - dashboard/radiance-engine.json
+    options:
+      annotations:
+        kustomize.toolkit.fluxcd.io/substitute: disabled
 generatorOptions:
   disableNameSuffixHash: true

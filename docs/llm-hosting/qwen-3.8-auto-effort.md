@@ -2,7 +2,8 @@
 
 [`qwen-3.8-auto.yaml`](../../kubernetes/apps/ai/agentgateway/app/models/qwen-3.8-auto.yaml) is a virtual model
 whose `callout` (agentgateway v1.7) asks `qwen35-2b` for `{"effort": "low|medium|xhigh"}` with a JSON schema,
-then sends the request to `qwen-3.8` with that top-level `reasoning_effort`. The decision reads the first user
+then sends the request to `qwen-3.8` with that effort in `chat_template_kwargs` (radiance lets the kwargs win over
+a top-level `reasoning_effort`). The decision reads the first user
 message, minus Hermes's appended `<memory-context>` block, and is cached on it for 24 hours, so a conversation
 keeps one effort and the 27B's prefix cache stays warm. If the callout fails, plain `qwen-3.8` answers with the
 client's effort.

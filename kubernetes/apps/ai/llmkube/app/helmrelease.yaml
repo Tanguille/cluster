@@ -36,9 +36,6 @@ spec:
           # NVIDIA DCGM alerts; nothing exports DCGM_* on this AMD-only cluster.
           gpuHealth:
             enabled: false
-          serving:
-            kvOffload:
-              enabled: true
 
     grafana:
       dashboards:
@@ -50,7 +47,6 @@ spec:
         only:
           - llamacpp-dashboard
           - llmkube-inference
-          - vllm-dashboard
         operator:
           enabled: true
           folder: ai

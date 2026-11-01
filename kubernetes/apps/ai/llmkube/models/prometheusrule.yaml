@@ -8,13 +8,8 @@ spec:
   groups:
     - name: qwen38-27b-vllm.rules
       rules:
-        # Latched state: +30.8ms/step fixed until restart (4K M=1 31.3 healthy
-        # vs 62.1; same delta at 32K). Healthy M=1 rises ~0.2ms/1K ctx (43.5 at
-        # 64K, ~49 at 96K); latched >= 58.8 observed, healthy <= 39.5, hence
-        # 55ms. False-fires on sustained M=1 past ~122K ctx: raise the
-        # threshold, not the guard. running<2 is load-bearing: a healthy conc-5
-        # step is 48ms. Backstop for the liveness slow-band probe in
-        # qwen38-27b-vllm.yaml.
+        # Latched adds ~30 ms/step (vLLM 31 -> 62 ms, unseen on radiance); healthy M=1 is 27-35 ms, conc-4 38 ms.
+        # running<2 is load-bearing. No liveness band probe, so this is the only guard.
         - alert: VLLMDecodeStepLatched
           expr: |-
             (
@@ -38,20 +33,20 @@ spec:
           labels:
             severity: warning
 
-        # GPU and external tier hits are anticorrelated, so judge them combined.
-        # The 1d ratio bottomed at 76% over 30d. `or vector(0)`: keeps the rule
-        # alive with KV offload off.
-        - alert: VLLMPrefixCacheHitRateLow
+        # 0.4 is provisional (warm-up read 41-44%).
+        - alert: LLMPrefixCacheHitRateLow
           expr: |-
+            sum(increase(radiance:attn_cached_tokens_total{model_name="qwen-3.8"}[1d]))
+            /
             (
-              sum(increase(vllm:prefix_cache_hits_total{model_name="qwen-3.8"}[1d]))
-              + (sum(increase(vllm:external_prefix_cache_hits_total{model_name="qwen-3.8"}[1d])) or vector(0))
+              sum(increase(radiance:attn_cached_tokens_total{model_name="qwen-3.8"}[1d]))
+              + sum(increase(radiance:prefill_tokens_total{model_name="qwen-3.8"}[1d]))
             )
-            / sum(increase(vllm:prefix_cache_queries_total{model_name="qwen-3.8"}[1d]))
-            < 0.75
+            < 0.4
           annotations:
             summary: >-
               qwen-3.8 prefix cache served only {{ $value | humanizePercentage }}
-              of prompt tokens over 24h: something is rewriting the resent prefix.
+              of prompt tokens over 24h: sessions are being evicted
+              (radiance:prefix_cache_ckpt_evictions_by_reason_total) or something is rewriting the resent prefix.
           labels:
             severity: warning
