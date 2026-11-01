@@ -80,9 +80,9 @@ spec:
           gethomepage.dev/group: Security
           gethomepage.dev/icon: mdi-shield-account
           gatus.home-operations.com/endpoint: |-
-            url: https://crowdsec-web-ui.${SECRET_DOMAIN}/api/health
+            url: https://crowdsec.${SECRET_DOMAIN}/api/health
         hostnames:
-          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+          - crowdsec.${SECRET_DOMAIN}
         parentRefs:
           - name: envoy-internal
             namespace: network
