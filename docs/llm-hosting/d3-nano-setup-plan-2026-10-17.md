@@ -21,8 +21,9 @@ message, minus Hermes's appended `<memory-context>` block, and is cached on it f
 keeps one effort and the 27B's prefix cache stays warm. The field is top-level because vLLM lets it beat
 `chat_template_kwargs`, and Hermes sends a top-level `medium` on every turn.
 
-If the callout fails, `qwen-3.8-auto-rule` decides with keywords: `low` for brevity requests, `xhigh` for
-math, debugging, root-cause or multi-step wording or a first message over 4000 characters, else `medium`.
+`qwen-3.8-auto-rule` decides with keywords when the callout fails (its `fallback`) or Qwen2B answers outside
+the enum (the `model` transformation): `low` for brevity requests, `xhigh` for math, debugging, root-cause or
+multi-step wording or a first message over 4000 characters, else `medium`.
 
 ## Evidence, 2026-11-01
 
