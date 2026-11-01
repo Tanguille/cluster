@@ -111,17 +111,6 @@
       datasourceTemplate: "git-refs"
     },
     {
-      description: "Paperclip Instance image: split repository/tag/digest fields",
-      customType: "regex",
-      managerFilePatterns: [
-        "/kubernetes/apps/ai/paperclip/instance/instance\\.yaml$/"
-      ],
-      matchStrings: [
-        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>\\S+)\\n\\s+digest: (?<currentDigest>sha256:[a-f0-9]{64})"
-      ],
-      datasourceTemplate: "docker"
-    },
-    {
       // csi.<sidecar> keys miss the flux manager's values heuristic, which needs a parent key ending in "image".
       description: "Rook CSI sidecar images: split repository/tag fields",
       customType: "regex",
@@ -332,6 +321,17 @@
         "nousresearch/hermes-agent"
       ],
       versioning: "loose"
+    },
+    {
+      // mise looks aqua tools up as tags of their own repo; prefixed tags (jq-1.8.2) never read as stable.
+      matchManagers: ["mise"],
+      matchDepNames: ["aqua:kubernetes/kubectl"],
+      overridePackageName: "kubernetes/kubernetes"
+    },
+    {
+      matchManagers: ["mise"],
+      matchDepNames: ["aqua:jqlang/jq", "aqua:kubernetes-sigs/kustomize"],
+      extractVersion: "^(?:jq-|kustomize/v)(?<version>\\d+\\.\\d+\\.\\d+)$"
     },
     // Labeling rules
     {
