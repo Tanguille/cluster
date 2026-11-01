@@ -43,16 +43,17 @@ did not move.
 
 ## Operations
 
-- Alerts: `VLLMDecodeStepLatched` is the only slow-band guard (no liveness band probe); `LLMPrefixCacheHitRateLow` reads
-  `radiance:*` and its 0.4 threshold is provisional.
+- Alerts: `LLMDecodeStepLatched` is the only slow-band guard (no liveness band probe); `LLMPrefixCacheHitRateLow` reads
+  `radiance:linear_cached_tokens_total` (attention hits without a state snapshot still re-prefill) and its 0.4 threshold is
+  provisional.
+- Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag; Renovate bumps it with the image in one
+  `radiance` group, 3 days after a release.
 - Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
 - Engine or checkpoint bump: the Job `qwen38-27b-rad-convert` reruns when its image or the Model `source` changes (a kustomize
   replacement feeds the source in). A fresh install waits 10 min for the operator to stage the weights.
 - Memory: raise the host tier only with node RAM; the pod pins ~25.7 GiB.
-- Gateway: `qwen-3.8-auto` sets `chat_template_kwargs.reasoning_effort`; radiance lets the kwargs win over a top-level
-  `reasoning_effort` (vLLM did the opposite), so a top-level value is ignored when the client sends kwargs.
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert
   boots with empty caches.

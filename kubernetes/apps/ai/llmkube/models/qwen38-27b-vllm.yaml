@@ -116,17 +116,11 @@ spec:
     - /rad/swift15-27b-w4a16-awq.rad
     - --served-model-name
     - qwen-3.8
-    - --host
-    - 0.0.0.0
-    - --port
-    - "8000"
-    - --tp
-    - "1"
-    # Prefix hits resume on 2048-token chunks, so the batch size is also the resume granularity.
     - --max-num-seqs
     - "8"
     - --max-model-len
     - "262144"
+    # Prefix hits resume on 2048-token chunks, so the batch size is also the resume granularity.
     - --max-num-batched-tokens
     - "2048"
     # K in E4M3, V in int4: ~0.78x the fp8 cost per token at the same KL.
@@ -179,7 +173,7 @@ spec:
       initialDelaySeconds: 10
       periodSeconds: 10
       failureThreshold: 180
-    # No slow-band restart probe: none seen on radiance; VLLMDecodeStepLatched pages instead.
+    # No slow-band restart probe: none seen on radiance; LLMDecodeStepLatched pages instead.
     liveness:
       httpGet:
         path: /health

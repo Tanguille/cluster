@@ -30,11 +30,5 @@ configMapGenerator:
   - name: qwen38-sharp-chat-template
     files:
       - chat_template.jinja=./resources/qwen38_sharp_chat_template.jinja
-  - name: radiance-engine-dashboard
-    files:
-      - dashboard/radiance-engine.json
-    options:
-      annotations:
-        kustomize.toolkit.fluxcd.io/substitute: disabled
 generatorOptions:
   disableNameSuffixHash: true

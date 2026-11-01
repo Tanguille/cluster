@@ -156,7 +156,7 @@ spec:
             verdict, safe to merge or not, and name the sources you read.
         - id: radiance-bump
           when:
-            - expr: pr.headRef.startsWith("renovate/stilldeadcode-radiance")
+            - expr: pr.headRef.startsWith("renovate/radiance")
           rule: >-
             radiance engine bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ .rad,
             fp8_v4 KV, host prefix tier): config
@@ -169,8 +169,7 @@ spec:
             flag fails the boot), the .rad container or recipe format
             (q38-27b-w4a16.recipe), prefix cache, checkpoint policy and KV
             dtype changes, and the vllm:* and radiance:* metrics read by
-            kubernetes/apps/ai/llmkube/models/prometheusrule.yaml and
-            dashboard/radiance-engine.json. Start with a verdict: nothing
+            kubernetes/apps/ai/llmkube/models/prometheusrule.yaml. Start with a verdict: nothing
             relevant, needs a clone test, or needs a config change. Then list
             each relevant commit as sha, title, why it matters here, and what
             to measure (boot KV cache token count, gsm8k, tools and stream

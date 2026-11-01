@@ -10,7 +10,7 @@ spec:
       rules:
         # Latched adds ~30 ms/step (vLLM 31 -> 62 ms, unseen on radiance); healthy M=1 is 27-35 ms, conc-4 38 ms.
         # running<2 is load-bearing. No liveness band probe, so this is the only guard.
-        - alert: VLLMDecodeStepLatched
+        - alert: LLMDecodeStepLatched
           expr: |-
             (
               rate(vllm:inter_token_latency_seconds_sum{model_name="qwen-3.8"}[15m])
@@ -33,13 +33,14 @@ spec:
           labels:
             severity: warning
 
-        # 0.4 is provisional (warm-up read 41-44%).
+        # The linear half: attention blocks without a state snapshot still re-prefill, yet count as attn hits.
+        # 0.4 is provisional (3h read 61%).
         - alert: LLMPrefixCacheHitRateLow
           expr: |-
-            sum(increase(radiance:attn_cached_tokens_total{model_name="qwen-3.8"}[1d]))
+            sum(increase(radiance:linear_cached_tokens_total{model_name="qwen-3.8"}[1d]))
             /
             (
-              sum(increase(radiance:attn_cached_tokens_total{model_name="qwen-3.8"}[1d]))
+              sum(increase(radiance:linear_cached_tokens_total{model_name="qwen-3.8"}[1d]))
               + sum(increase(radiance:prefill_tokens_total{model_name="qwen-3.8"}[1d]))
             )
             < 0.4
