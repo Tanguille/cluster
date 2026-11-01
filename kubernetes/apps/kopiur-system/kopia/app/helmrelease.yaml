@@ -77,9 +77,24 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
+    networkpolicies:
+      app:
+        # Ingress only from envoy-internal (the route the homepage widget also uses).
+        policyTypes:
+          - Ingress
+        rules:
+          ingress:
+            - from:
+                - namespaceSelector:
+                    matchLabels:
+                      kubernetes.io/metadata.name: network
+                  podSelector:
+                    matchLabels:
+                      gateway.networking.k8s.io/gateway-name: envoy-internal
     configMaps:
       config:
         data:
+          # readonly: kopiur owns every write; in-pod CLI repair needs its own --config-file under /tmp.
           repository.config: |-
             {
               "storage": {
@@ -91,7 +106,8 @@ spec:
               "hostname": "kopia.{{ .Release.Namespace }}.svc.cluster.local",
               "username": "kopia",
               "description": "kopia browser",
-              "enableActions": false
+              "enableActions": false,
+              "readonly": true
             }
     persistence:
       config-file:
