@@ -28,9 +28,8 @@ did not move.
   radiance and 63% on vLLM today, so that gate cannot compare engines.
 - Speculation (MTP, DFlash2) roughly doubles decode at 1-4 sessions (DFlash2 63/78/64 agg tok/s at 1/2/4, adaptive window
   85.5 at 4) but stalls at 8 (agg 40-49, itl p90 430-490 ms). `--draft-window adaptive`, `--busy-prefill-chunk 512` and
-  `--max-num-seqs 4` did not fix it, so no drafter. Production runs prompt lookup instead (`--spec-ngram 5 --draft-window
-  adaptive`): distribution-exact, verified only when the measured step cost says it pays; not benchmarked before it went
-  live, so compare `radiance:draft_*` and per-stream decode against the 2026-11-01 snapshot. Untested: `--prefill-interleave`.
+  `--max-num-seqs 4` did not fix it, so speculation is off. Prompt lookup alone (`--spec-ngram`) is refused at startup
+  because the `.rad` declares an MTP head; it needs a container converted without one. Untested: `--prefill-interleave`.
 - GPU: 249 W (the card's 250 W cap), junction 85 C, fan 4.1K rpm under load, idle free VRAM 2.5 GiB (Jellyfin floor 1.82).
 
 ## Cache

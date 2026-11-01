@@ -132,12 +132,10 @@ spec:
     # Shared card: no weight-prefetch ring.
     - --weight-prefetch
     - "off"
-    # Prompt lookup only (MTP and DFlash2 stall at 8 sessions): distribution-exact, and the adaptive window
-    # verifies a draft only when it pays at the measured step cost. Sets the window; no --num-speculative-tokens.
-    - --spec-ngram
-    - "5"
-    - --draft-window
-    - adaptive
+    # NO speculation: MTP and DFlash2 stall at 8 sessions, and --spec-ngram is refused because the .rad declares
+    # an MTP head (prompt lookup alone needs a container without one).
+    - --num-speculative-tokens
+    - "0"
     # The 3600 s default drops idle sessions that vLLM kept until the memory was wanted.
     - --prefix-cache-ttl
     - "0"
