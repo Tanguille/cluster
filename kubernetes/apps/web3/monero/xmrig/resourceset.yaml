@@ -68,7 +68,8 @@ spec:
                       drop: ["ALL"]
                   resources:
                     requests:
-                      cpu: 1
+                      # Pinned miners never reschedule; the request only inflates KubeCPUOvercommit.
+                      cpu: 250m
                       # RandomX fast mode needs ~2336Mi; requested under that so the miner fits more often.
                       memory: 2Gi
                     limits:
