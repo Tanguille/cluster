@@ -13,7 +13,7 @@ description: >-
     (rebase discipline, diff-grounded description, CI triage: references/pr-shepherd.md)
 
   Use proactively for K8s app/Flux/HelmRelease changes, infrastructure edits, or pre-commit diff review.
-compatibility: Requires `git`, `mise`, `flate`, and `shellcheck` for phase 5; optional `gh` for PR metadata.
+compatibility: Requires `git`, `python3` and the mise tools `flate`, `shellcheck`, `yq` and `lefthook` for phase 5; optional `gh` for PR metadata.
 ---
 
 # PR review
@@ -31,7 +31,7 @@ Spawn focused subagents for GitOps Kubernetes PRs. Each phase uses clean context
 - Layout: `kubernetes/apps/<namespace>/<app>/` with `ks.yaml` + `app/`
 - Charts: `bjw-s/app-template` (common); URLs `${SECRET_DOMAIN}`; secrets SOPS-only
 - Routes: Gateway API `HTTPRoute`, parentRef `envoy-internal` / `envoy-external`
-- Validation: `mise exec -- flate test all` (renders Kustomizations + HelmReleases with the real Helm/Kustomize SDKs — catches Helm template errors `kustomize build` can't see), `mise exec -- shellcheck`; both run via [scripts/validate-pr.sh](scripts/validate-pr.sh)
+- Validation: [scripts/validate-pr.sh](scripts/validate-pr.sh) (flate, shellcheck, secret guardrails)
 
 ## Workflow
 
@@ -49,4 +49,4 @@ Spawn focused subagents for GitOps Kubernetes PRs. Each phase uses clean context
 | 2 | HelmRelease / app patterns | `phase-2-best-practices.md` |
 | 3 | SOPS, domains, securityContext | `phase-3-security.md` |
 | 4 | ks.yaml + app/ structure | `phase-4-architecture.md` |
-| 5 | shellcheck, flate | `phase-5-validation.md` |
+| 5 | flate, shellcheck, secret guardrails | `phase-5-validation.md` |

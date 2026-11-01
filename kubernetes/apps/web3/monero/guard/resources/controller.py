@@ -189,27 +189,29 @@ class VictoriaMetricsClient:
     def query_cpu(self, node, evaluation, window="5m"):
         host_raw = f'node_cpu_seconds_total{{kubernetes_node="{node}",mode!="idle"}}'
         idle_raw = f'node_cpu_seconds_total{{kubernetes_node="{node}",mode="idle"}}'
-        cadvisor_raw = f'container_cpu_usage_seconds_total{{node="{node}",namespace="web3",container!="",container!="POD"}}'
+        # Only this node's miners: other pods' deleted samples linger ~200s, past the 180s budget, failing it closed.
+        pods = f'pod=~"xmrig-{node}-.+"'
+        cadvisor_raw = f'container_cpu_usage_seconds_total{{node="{node}",namespace="web3",{pods},container!="",container!="POD"}}'
         host_query = f'sum(rate({host_raw}[{window}])) / count(count({idle_raw}) by (cpu)) * 100'
         label_selector = 'namespace="web3",label_app_kubernetes_io_component="thermal-guarded"'
-        node_pods_raw = f'kube_pod_info{{namespace="web3",node="{node}"}}'
+        node_pods_raw = f'kube_pod_info{{namespace="web3",node="{node}",{pods}}}'
         xmrig_presence_raw = f'kube_pod_labels{{{label_selector}}} * on(namespace,pod) group_left(node) {node_pods_raw}'
         xmrig_presence_query = f'count({xmrig_presence_raw}) or vector(0)'
         xmrig_query = f'100 * (sum((sum by (namespace,pod) (rate({cadvisor_raw}[{window}])) * on(namespace,pod) group_left(node) ({xmrig_presence_raw})) or vector(0)) / count(count({idle_raw}) by (cpu)))'
-        labels_raw = f'kube_pod_labels{{{label_selector}}}'
+        labels_raw = f'kube_pod_labels{{{label_selector},{pods}}}'
         def one(query):
             values = self._sources(self._query(query, evaluation))
             if len(values) != 1:
                 raise ValueError(f"CPU source must be one scalar: {query}")
             return next(iter(values.values()))
-        def oldest(*selectors):
+        def oldest(*selectors, required=True):
             out = []
             for selector in selectors:
                 rows = self._query("timestamp(" + selector + ")", evaluation)
-                if not rows:
+                if not rows and required:
                     raise ValueError(f"missing raw timestamps: {selector}")
                 out.extend(self._sources(rows, raw_timestamp=True).values())
-            return min(item.timestamp for item in out)
+            return min((item.timestamp for item in out), default=None)
         host = Source(one(host_query).value, oldest(host_raw))
         presence = one(xmrig_presence_query)
         if presence.value < 0:
@@ -221,7 +223,9 @@ class VictoriaMetricsClient:
             presence = Source(presence.value, membership)
             # cadvisor joins the same membership selectors, so cadvisor freshness is
             # verified exactly when its data enters the subtraction
-            xmrig = Source(one(xmrig_query).value, min(membership, oldest(cadvisor_raw)))
+            # A miner younger than one scrape has no cadvisor series yet: nothing to subtract, so nothing to date.
+            cadvisor = oldest(cadvisor_raw, required=False)
+            xmrig = Source(one(xmrig_query).value, min(membership, cadvisor or membership))
         else:
             # No labelled miner here: date it by the host sample. Pod-info keeps deleted pods
             # ~200s, past control-1's budget; a miner it misses still counts in host CPU (fails safe).

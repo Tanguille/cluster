@@ -64,8 +64,7 @@ spec:
           labels:
             severity: critical
 
-        # Target up but rejecting the payload: omniroute requests that failed after the fallback
-        # retry. > 0 because the chain is one deep.
+        # omniroute 5xx the client saw after the fallback; > 0 as the chain is one deep.
         - alert: AgentgatewayFallbackTargetUnavailable
           expr: |-
             sum(
@@ -74,8 +73,8 @@ spec:
           for: 5m
           annotations:
             summary: >-
-              omniroute requests are failing even after the qwen-3.8 fallback — the
-              chain is shorter than it looks
+              omniroute requests are failing and the qwen-3.8 fallback did not rescue them
+              (bodies over 64 KiB are never retried)
           labels:
             severity: warning
 

@@ -21,12 +21,11 @@ spec:
                 - type: Completions
                 - type: Messages
             policies:
-              # Logfare serves DeepSeek and GLM without thinking unless asked (0 of 1362 calls on 10-23
-              # reasoned); AA's 45 for DeepSeek 1017 is the Max variant. Client-set values win.
+              # GLM thinks only when asked. No include_reasoning: since 11-01 any value makes Logfare DeepSeek 1017
+              # answer 400 "supported API model names are deepseek-flash, deepseek-v4-pro", and 1017 no longer
+              # reasons through any field. Client-set values win.
               ai:
                 defaults:
-                  - field: include_reasoning
-                    value: true
                   - field: reasoning_effort
                     value: max
               # pii-masker rewrites any bare 10-digit number as [PHONE_REDACTED], corrupting byte counts and memory limits (8 of 9 review runs); guardrails have only a per-request opt-out, credential-masker stays on.

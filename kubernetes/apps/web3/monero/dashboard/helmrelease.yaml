@@ -46,6 +46,7 @@ spec:
               tag: 3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
             command:
               - python3
+              - -u
               - /config/server.py
             args:
               - --data-dir
@@ -87,6 +88,8 @@ spec:
         # p2pool's gid (it writes local/ 0770); any other fsGroup re-chgrps the shared PVC each mount.
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        # Talos applies RuntimeDefault at runtime, but PSS restricted (and kguardian's profile baseline) needs the field declared.
+        seccompProfile: { type: RuntimeDefault }
     service:
       dashboard:
         ports:

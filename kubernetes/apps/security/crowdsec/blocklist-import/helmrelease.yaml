@@ -1,0 +1,73 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: crowdsec-blocklist-import
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      # The image's USER is the name "blocklist", which runAsNonRoot can't verify
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+    controllers:
+      crowdsec-blocklist-import:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/wolffcatskyy/crowdsec-blocklist-import
+              tag: 3.9.0
+            env:
+              CROWDSEC_LAPI_URL: https://crowdsec-service.security.svc.cluster.local:8080
+              # Chart-issued client certs: agent-ou writes decisions, bouncer-ou reads them for dedup
+              CROWDSEC_LAPI_CA_CERT_PATH: /agent-tls/ca.crt
+              CROWDSEC_LAPI_AGENT_CERT_PATH: /agent-tls/tls.crt
+              CROWDSEC_LAPI_AGENT_KEY_PATH: /agent-tls/tls.key
+              CROWDSEC_LAPI_BOUNCER_CERT_PATH: /bouncer-tls/tls.crt
+              CROWDSEC_LAPI_BOUNCER_KEY_PATH: /bouncer-tls/tls.key
+              INTERVAL: 3600
+              # Spamhaus DROP, ET compromised and IPsum 3+/4+ (~21k IPs)
+              PRESET: embedded
+              # The preset's 15k cap guards UDM ipsets and counts CAPI decisions too, so at the cap refreshes
+              # stop and imports lapse; the envoy bouncers hold decisions in memory
+              MAX_DECISIONS: 0
+              # Feodo lists botnet C2 servers, not inbound attackers, and upstream retired URLhaus (410)
+              ENABLE_ABUSE_CH: false
+              # GitHub delivers webhooks to envoy-external
+              ALLOWLIST_GITHUB: true
+              # Both default on: telemetry pings a third-party endpoint, metrics push to a nonexistent Pushgateway
+              TELEMETRY_ENABLED: false
+              METRICS_ENABLED: false
+            # ALLOWLIST (home IP as /32: feed ranges are only checked against networks): LAPI skips its
+            # centralized allowlists for alerts that carry decisions
+            envFrom:
+              - secretRef:
+                  name: crowdsec-blocklist-import
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 512Mi
+
+    persistence:
+      agent-tls:
+        type: secret
+        name: crowdsec-agent-tls
+      bouncer-tls:
+        type: secret
+        name: crowdsec-bouncer-tls

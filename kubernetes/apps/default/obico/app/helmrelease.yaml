@@ -12,6 +12,8 @@ spec:
   timeout: 15m
 
   values:
+    # Both chart pods run as the namespace default SA and never call the apiserver.
+    automountServiceAccountToken: false
     server:
       # Server and tasks containers share this pod, so one label covers both.
       podLabels:

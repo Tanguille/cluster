@@ -24,8 +24,6 @@ spec:
                 name: not-used
               spec:
                 duration: 87600h
-                # Under the live 90d cert's life (cert-manager ignores renewBefore >= it), so it reissues now (same key), off the leaves' 11-27 second.
-                renewBefore: 2000h
                 privateKey:
                   rotationPolicy: Never
   values:
@@ -139,9 +137,11 @@ spec:
           host: $${DB_HOST}
           port: 5432
           flush:
-            # The bouncer registers per pod IP (CN) and every restart leaves a stale row;
+            # Cert clients register per pod IP (CN@IP) and every restart leaves a stale row;
             # cert only: the appsec key bouncer (api-key) never pulls, so an api_key timeout would drop it
             bouncers_autodelete:
+              cert: 24h
+            agents_autodelete:
               cert: 24h
       profiles.yaml: |-
         name: default_ip_remediation
@@ -155,6 +155,9 @@ spec:
         notifications:
           - alertmanager
         on_success: break
+      # blocklist-import alerts lack a scenario hash, so LAPI would upload them to CAPI as custom signals.
+      console.yaml: |-
+        share_custom: false
     tls:
       enabled: true
       certManager:
@@ -184,8 +187,6 @@ spec:
         # LAPI defaults to agent-ou only; the appsec client cert carries appsec-ou
         - name: AGENTS_ALLOWED_OU
           value: agent-ou,appsec-ou
-        - name: ENROLL_INSTANCE_NAME
-          value: cluster
       envFrom:
         - secretRef:
             name: crowdsec-secret

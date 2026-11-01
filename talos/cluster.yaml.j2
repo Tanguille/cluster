@@ -99,7 +99,7 @@ cluster:
       service: {}
 ---
 # A document, not a machine.files drop-in: editing it restarts CRI without a reboot.
-# Keeps unpacked layers so Talos can serve them without re-unpacking after an image GC.
+# Spegel needs unpacked layers kept and exits if containerd discards them, which is the Talos default.
 apiVersion: v1alpha1
 kind: CRICustomizationConfig
 name: keep-unpacked-layers

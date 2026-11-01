@@ -30,6 +30,19 @@ spec:
           labels:
             severity: critical
 
+        # Ready stays True while renewals fail, so CertManagerCertNotReady cannot see it; a zero timestamp means not issued yet.
+        - alert: CertManagerCertRenewalOverdue
+          expr: |-
+            (time() - max by (name, exported_namespace) (certmanager_certificate_renewal_timestamp_seconds)) > 3600
+            and
+            max by (name, exported_namespace) (certmanager_certificate_renewal_timestamp_seconds) > 0
+          for: 15m
+          annotations:
+            summary: >-
+              The cert {{ $labels.name }} is {{ $value | humanizeDuration }} past its renewal time
+          labels:
+            severity: warning
+
         - alert: CertManagerHittingRateLimits
           expr: |-
             sum by (host) (rate(certmanager_http_acme_client_request_count{status="429"}[5m])) > 0

@@ -1,0 +1,112 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app crowdsec-web-ui
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+
+  values:
+    defaultPodOptions:
+      # The image starts as root and gosu's to node (1000); starting as 1000 skips that step.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+
+    controllers:
+      crowdsec-web-ui:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/theduffman85/crowdsec-web-ui
+              tag: 2026.10.13
+            env:
+              CONFIG_INSTANCE_LAPI_URL: https://crowdsec-service.security.svc.cluster.local:8080
+              # crowdsec-root-secret (Certificate crowdsec-ca) is the LAPI chain's CA
+              CONFIG_INSTANCE_LAPI_TLS_CA_FILE: /certs/ca.crt
+              # The hourly blocklist import files 3 alerts holding ~17k bans; hiding them leaves only real detections.
+              CONFIG_CROWDSEC_ALERT_FILTERS_EXCLUDE_ORIGINS_0: blocklist-import
+              # Prometheus endpoints (level full is the chart default). The agent service reaches one DaemonSet pod per scrape.
+              CONFIG_INSTANCES_0_METRICS_0_NAME: LAPI
+              CONFIG_INSTANCES_0_METRICS_0_URL: http://crowdsec-service.security.svc.cluster.local:6060/metrics
+              CONFIG_INSTANCES_0_METRICS_1_NAME: Agent
+              CONFIG_INSTANCES_0_METRICS_1_URL: http://crowdsec-agent-service.security.svc.cluster.local:6060/metrics
+              CONFIG_INSTANCES_0_METRICS_2_NAME: AppSec
+              CONFIG_INSTANCES_0_METRICS_2_URL: http://crowdsec-appsec-service.security.svc.cluster.local:6060/metrics
+            envFrom:
+              - secretRef:
+                  name: crowdsec-web-ui
+            # /api/health is static and the only path that doesn't count as user activity;
+            # anything else keeps the LAPI sync on its 1m active interval instead of 10m idle.
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &httpGet
+                    path: /api/health
+                    port: &port 3000
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: *httpGet
+                  failureThreshold: 30
+                  periodSeconds: 5
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                memory: 512Mi
+
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/name: CrowdSec Web UI
+          gethomepage.dev/description: CrowdSec alerts, decisions, and bouncer overview
+          gethomepage.dev/group: Security
+          gethomepage.dev/icon: mdi-shield-account
+          gatus.home-operations.com/endpoint: |-
+            url: https://crowdsec.${SECRET_DOMAIN}/api/health
+        hostnames:
+          - crowdsec.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+
+    persistence:
+      data:
+        existingClaim: *app
+        globalMounts:
+          - path: /app/data
+      lapi-ca:
+        type: secret
+        name: crowdsec-root-secret
+        # The CA secret also holds its private key
+        items:
+          - key: ca.crt
+            path: ca.crt
+        globalMounts:
+          - path: /certs
