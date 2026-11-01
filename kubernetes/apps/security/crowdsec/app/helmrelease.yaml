@@ -41,8 +41,9 @@ spec:
                 expression: UnmarshalJSON(evt.Parsed.message, evt.Unmarshaled, "envoy")
               - parsed: time_local
                 expression: evt.Unmarshaled.envoy["start_time"]
+              # Envoy's trusted-hop client address: the leftmost x-forwarded-for entry is client-controlled
               - parsed: remote_addr
-                expression: Split(evt.Unmarshaled.envoy["x-forwarded-for"], ",")[0]
+                expression: let a = evt.Unmarshaled.envoy["downstream_remote_address"]; trim(a[:lastIndexOf(a, ":")], "[]")
               - parsed: verb
                 expression: evt.Unmarshaled.envoy["method"]
               - parsed: request
@@ -88,8 +89,8 @@ spec:
           spa-api-requests.yaml: |-
             name: hydaz/spa-api-requests
             description: "One Jellyfin home screen is 46 distinct extensionless API calls in 10s; http-crawl-non_statics caps at 40 per 20s and bans the client"
-            # 2xx only: these endpoints 401 without a token, and enumeration shows up as 4xx for http-probing
-            filter: "evt.Meta.target_fqdn in ['jellyfin.${SECRET_DOMAIN}', 'jellyseerr.${SECRET_DOMAIN}'] && evt.Meta.http_verb in ['GET', 'HEAD'] && evt.Meta.http_status startsWith '2'"
+            # 2xx and 304 only: these endpoints 401 without a token, and enumeration shows up as 4xx for http-probing
+            filter: "evt.Meta.target_fqdn in ['jellyfin.${SECRET_DOMAIN}', 'jellyseerr.${SECRET_DOMAIN}', 'seerr.${SECRET_DOMAIN}'] && evt.Meta.http_verb in ['GET', 'HEAD'] && evt.Meta.http_status matches '^(2..|304)$'"
             statics:
               - parsed: static_ressource
                 value: "true"
@@ -231,6 +232,9 @@ spec:
       enabled: true
       deployAnnotations:
         reloader.stakater.com/auto: "true"
+      # Recreate (chart default) leaves a gap on every roll where the bouncer's WAF calls fail open
+      strategy:
+        type: RollingUpdate
       # chart default 500m cpu vs 3m observed; 30d peak 90Mi vs 250Mi request
       resources:
         requests:
