@@ -57,9 +57,9 @@ did not move.
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
 - Engine or checkpoint bump: the Job `qwen38-27b-rad-convert` reruns when its image or the Model `source` changes (a kustomize
-  replacement feeds the source in). The `.rad` is named by the checkpoint revision, which a second replacement writes into
-  `--model`, so a pod that starts first fails until the file exists instead of serving the old checkpoint; the Job then
-  deletes the other `.rad` files. It waits for the operator to stage the weights up to its 30 min deadline.
+  replacement feeds the source in). The `.rad` is named by the checkpoint revision and the engine image digest, which
+  replacements also write into `--model`, so a pod that starts first fails until the file exists instead of serving an
+  old checkpoint or another engine's container; no manual step. The Job then deletes the other `.rad` files. It waits for the operator to stage the weights up to its 30 min deadline.
 - Memory: raise the host tier only with node RAM; the pod pins 28.6 GiB of its 32 GiB.
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert

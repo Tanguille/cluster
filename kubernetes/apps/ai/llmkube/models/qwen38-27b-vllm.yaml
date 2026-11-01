@@ -39,6 +39,9 @@ spec:
             # Filled from the Model's spec.source by the replacement in kustomization.yaml.
             - name: MODEL_SOURCE
               value: replaced
+            # The InferenceService's image, by the same replacement.
+            - name: ENGINE_IMAGE
+              value: replaced
           command:
             - /bin/sh
             - -c
@@ -47,8 +50,8 @@ spec:
               set -eu
               # The operator caches the Model under sha256(source)[:16]; the last file it lists marks a finished download.
               src=/models/$$(printf %s "$$MODEL_SOURCE" | sha256sum | cut -c1-16)
-              # Named by revision (see --model).
-              out=/out/swift15-27b-w4a16-awq-nodraft.$${MODEL_SOURCE##*@}.rad
+              # Named by revision and engine digest (see --model).
+              out=/out/swift15-27b-w4a16-awq-nodraft.$${MODEL_SOURCE##*@}.$${ENGINE_IMAGE##*:}.rad
               # activeDeadlineSeconds bounds the wait.
               until [ -f "$$src/video_preprocessor_config.json" ]; do echo "waiting for $$src" >&2; sleep 10; done
               # --max-spec 0 leaves out the MTP head, which --spec-ngram refuses.
@@ -118,10 +121,11 @@ spec:
       readOnly: true
   # Read by the router for the served name, so every flag lives here.
   extraArgs:
-    # The revision is filled from the Model source by kustomization.yaml, so a pod never serves the previous
-    # checkpoint; it targets extraArgs.1, so keep --model first.
+    # kustomization.yaml fills in the checkpoint revision and the engine digest, so a pod never serves a .rad
+    # from another checkpoint or engine: after a bump it fails until the Job writes this one. It targets
+    # extraArgs.1, so keep --model first.
     - --model
-    - /rad/swift15-27b-w4a16-awq-nodraft.revision.rad
+    - /rad/swift15-27b-w4a16-awq-nodraft.revision.engine.rad
     - --served-model-name
     - qwen-3.8
     - --max-num-seqs
