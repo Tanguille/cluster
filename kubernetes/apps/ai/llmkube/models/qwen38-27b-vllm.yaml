@@ -1,5 +1,5 @@
 ---
-# hostpath: size unenforced and unraisable (the .rad is 18.6 GB); control-1 free disk is the limit.
+# hostpath: size unenforced and unraisable (the .rad is 17.4 GB); control-1 free disk is the limit.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -11,7 +11,7 @@ spec:
     requests:
       storage: 24Gi
 ---
-# Converts the checkpoint into a .rad (~2 min); Flux recreates the Job when its image or the Model source changes, which reconverts.
+# Converts the checkpoint into a .rad (~45 s); Flux recreates the Job when its image or the Model source changes, which reconverts.
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -47,23 +47,24 @@ spec:
               set -eu
               # The operator caches the Model under sha256(source)[:16]; the last file it lists marks a finished download.
               src=/models/$$(printf %s "$$MODEL_SOURCE" | sha256sum | cut -c1-16)
-              # Named by revision, like --model (kustomization.yaml), so a pod never serves the previous checkpoint.
+              # Named by revision (see --model).
               out=/out/swift15-27b-w4a16-awq-nodraft.$${MODEL_SOURCE##*@}.rad
               # activeDeadlineSeconds bounds the wait.
               until [ -f "$$src/video_preprocessor_config.json" ]; do echo "waiting for $$src" >&2; sleep 10; done
               # --max-spec 0 leaves out the MTP head, which --spec-ngram refuses.
               rad-convert "$$src" --recipe /opt/radiance/share/radiance/recipes/q38-27b-w4a16.recipe --max-spec 0 -o "$$out.tmp"
               mv "$$out.tmp" "$$out"
-              # A running pod keeps an unlinked file open until it restarts.
-              find /out -maxdepth 1 -name '*.rad' ! -path "$$out" -delete
+              # Also a failed run's .tmp; a running pod keeps an unlinked file open until it restarts.
+              find /out -maxdepth 1 -name '*.rad*' ! -path "$$out" -delete
               ls -l /out
           resources:
-            # control-1 has ~1.7 GiB requestable beside the 32Gi engine.
+            # control-1 has ~2.2 GiB requestable beside the 32Gi engine; conversions peaked at 1.15 GiB working set
+            # (coarse samples of a 45 s run).
             requests:
               cpu: "2"
               memory: 1Gi
             limits:
-              memory: 8Gi
+              memory: 4Gi
           volumeMounts:
             - name: src
               mountPath: /models
@@ -117,7 +118,8 @@ spec:
       readOnly: true
   # Read by the router for the served name, so every flag lives here.
   extraArgs:
-    # The revision is filled from the Model source by kustomization.yaml.
+    # The revision is filled from the Model source by kustomization.yaml, so a pod never serves the previous
+    # checkpoint; it targets extraArgs.1, so keep --model first.
     - --model
     - /rad/swift15-27b-w4a16-awq-nodraft.revision.rad
     - --served-model-name
@@ -139,7 +141,7 @@ spec:
     - --weight-prefetch
     - "off"
     # Prompt lookup only (MTP and DFlash2 stall at 8 sessions): distribution-exact, and the adaptive window
-    # verifies a draft only when it pays at the measured step cost. Sets the window; no --num-speculative-tokens.
+    # verifies a draft only when it pays at the measured step cost.
     - --spec-ngram
     - "5"
     - --draft-window
@@ -153,7 +155,7 @@ spec:
     # One state snapshot per session; the default capped the cache at ~6 sessions of 100K.
     - --checkpoint-policy
     - tip-only
-    # 16 auto slots overflowed (store_full) under 8 agent sessions; 146.81 MiB of pinned RAM each.
+    # 16 auto slots overflowed (store_full) under 8 agent sessions.
     - --checkpoint-slots
     - "32"
     # A resumed turn re-prefills up to one chunk less; a hit is no longer bit-identical to a cold run.
@@ -179,7 +181,7 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Pins ~29 GiB: 20 tier + 4.6 checkpoints + 2.4 embedding + 0.9 vision tower.
+    # Pins 28.6 GiB (engine log): 20 tier + 4.6 checkpoints + 2.4 embedding + 0.9 vision tower + runtime.
     memory: 32Gi
   endpoint:
     port: 8000

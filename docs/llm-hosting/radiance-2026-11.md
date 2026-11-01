@@ -41,10 +41,9 @@ did not move.
 - Radiance has no disk tier (`--weights-disk-tier` is weights only). The host tier holds attention blocks only: `--prefix-cache-mib`
   20480 is 838,848 tokens, about 8 sessions of 100K, pinned in node RAM. It is a mirror, so a tier near the VRAM pool adds nothing.
 - Resume needs a recurrent-state checkpoint. The default policy needs ~9 slots per 100K session and capped the cache at ~6
-  sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots still overflowed (92 `store_full` in 3 h),
-  so `--checkpoint-slots 32`.
-- `--prefix-resume nearest` resumes at the deepest snapshot (up to a chunk less re-prefill a turn) and
-  `--vision-tower-placement ram` gives the tower's 0.86 GiB of VRAM to the KV pool (the pool peaked at 99.9%).
+  sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots
+  still overflowed (92 `store_full` in 3 h), so `--checkpoint-slots 32`.
+- `--prefix-resume nearest` and `--vision-tower-placement ram` (the KV pool peaked at 99.9%): see the flag comments.
 - Sessions beyond that re-prefill cold: 26 s per 55K, ~45 s per 100K. Watch `radiance:prefix_cache_ckpt_evictions_by_reason_total`.
 
 ## Operations

@@ -21,7 +21,7 @@ metadata:
 spec:
   # g128 W4A16 on the base Qwen3.8-27B geometry; lm_head ships bf16 and rad-convert quantizes it (block-fp8).
   # HF revisions are mutable (re-uploads keep the filename), so the commit is pinned; Renovate bumps it and the convert Job follows.
-  # model-mtp-bf16.safetensors holds the 15 MTP tensors; rad-convert keeps them as the MTP head, unused with speculation off.
+  # model-mtp-bf16.safetensors holds the 15 MTP tensors; the Job drops them (--max-spec 0), as --spec-ngram refuses a .rad with a draft head.
   source: hf://ukisai/Swift-1.5-Qwen3.8-27b-W4A16-AWQ@9dba8a058771
   format: safetensors
   quantization: compressed-tensors
