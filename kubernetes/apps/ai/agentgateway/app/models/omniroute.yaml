@@ -7,8 +7,8 @@ metadata:
 spec:
   ai:
     groups:
-      # smart-free is a persisted omniroute combo (Logfare DeepSeek V4.1 Flash 1017, Qwen 3.8 27B; Gemini
-      # 3.8 Flash; Antigravity Gemini 3.8 Flash High; Logfare GLM 5.3 last). A model joins only if on par
+      # smart-free is a persisted omniroute combo (Logfare DeepSeek V4.1 Flash 1017; Gemini 3.8 Flash;
+      # Antigravity Gemini 3.8 Flash High; Logfare GLM 5.3, then Qwen 3.8 27B last). A model joins only if on par
       # with qwen3.8-27b on the AA index and no successor at similar price exists, or it is another quota tier.
       - providers:
           - name: omniroute
@@ -21,12 +21,11 @@ spec:
                 - type: Completions
                 - type: Messages
             policies:
-              # Logfare serves DeepSeek and GLM without thinking unless asked (0 of 1362 calls on 10-23
-              # reasoned); AA's 45 for DeepSeek 1017 is the Max variant. Client-set values win.
+              # GLM thinks only when asked. No include_reasoning: since 11-01 any value makes Logfare DeepSeek 1017
+              # answer 400 "supported API model names are deepseek-flash, deepseek-v4-pro", and 1017 no longer
+              # reasons through any field. Client-set values win.
               ai:
                 defaults:
-                  - field: include_reasoning
-                    value: true
                   - field: reasoning_effort
                     value: max
               # pii-masker rewrites any bare 10-digit number as [PHONE_REDACTED], corrupting byte counts and memory limits (8 of 9 review runs); guardrails have only a per-request opt-out, credential-masker stays on.

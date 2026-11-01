@@ -25,7 +25,7 @@ spec:
           app:
             image:
               repository: ghcr.io/home-operations/sonarr
-              tag: 5.0.0.2870@sha256:d90a762127d86cd3b7e27cc05b7acd2cf5cf33766cc8d5a5e23a0254e6a61f97
+              tag: 5.0.0.2907@sha256:75866f930b8e49c0acfc965c8ace0429231cdc69e2e4b287eb51443aa3249d86
             env:
               SONARR__AUTH__METHOD: External
               SONARR__AUTH__REQUIRED: DisabledForLocalAddresses
@@ -120,9 +120,25 @@ spec:
           - name: envoy-internal
             namespace: network
 
+    configMaps:
+      krb5:
+        data:
+          # Npgsql tries GSSAPI per connection; krb5 hostname canonicalization calls musl's
+          # non-reentrant gethostbyname, and concurrent calls double-free its buffer (exit 139).
+          krb5.conf: |
+            [libdefaults]
+              dns_canonicalize_hostname = false
+
     persistence:
       config:
         existingClaim: *app
+
+      krb5:
+        type: configMap
+        identifier: krb5
+        globalMounts:
+          - path: /etc/krb5.conf
+            subPath: krb5.conf
 
       tmp:
         type: emptyDir
