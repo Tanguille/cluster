@@ -68,6 +68,11 @@ spec:
           # v21 map cache never frees erased maps: active mgr grew ~230 MiB/h and OOMed at 2Gi.
           # Drop once ceph/ceph#72727 ships.
           mgr_map_cache_enabled: "false"
+        osd:
+          # Default 1: a single slow op in 24h flips the cluster to HEALTH_WARN (BLUESTORE_SLOW_OP_ALERT).
+          # osd.3 (shared PM983, also carries the ZIL + system disk) runs 0-1 normal slow ops/24h in steady
+          # state, so 1 pages on routine contention. 5x the 14-day max (1); real degradation still crosses it.
+          bluestore_slow_ops_warn_threshold: "5"
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
       # Off: duplicates stdout (victoria-logs has it); its 100Mi request left rook-ceph-exporter-control-2 unschedulable.
