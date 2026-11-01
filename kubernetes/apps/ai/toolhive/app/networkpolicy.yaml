@@ -96,3 +96,38 @@ spec:
         - matchLabels:
             io.kubernetes.pod.namespace: ai
             app: mcpserver
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: toolhive-ingress-deny
+spec:
+  # Deny ingress from outside ai except envoy-internal, gatus and vmagent (allow rules union, a deny wins).
+  endpointSelector:
+    matchLabels:
+      toolhive: "true"
+  ingressDeny:
+    - fromEndpoints:
+        - matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: In
+              values:
+                - default
+                - kritika
+                - security
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+          matchExpressions:
+            - key: gateway.networking.k8s.io/gateway-name
+              operator: NotIn
+              values:
+                - envoy-internal
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: NotIn
+              values:
+                - gatus-sidecar
+                - vmagent
