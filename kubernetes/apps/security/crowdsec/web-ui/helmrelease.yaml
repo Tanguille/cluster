@@ -35,6 +35,13 @@ spec:
               CONFIG_INSTANCE_LAPI_URL: https://crowdsec-service.security.svc.cluster.local:8080
               # crowdsec-root-secret (Certificate crowdsec-ca) is the LAPI chain's CA
               CONFIG_INSTANCE_LAPI_TLS_CA_FILE: /certs/ca.crt
+              # Prometheus endpoints (level full is the chart default). The agent service reaches one DaemonSet pod per scrape.
+              CONFIG_INSTANCES_0_METRICS_0_NAME: LAPI
+              CONFIG_INSTANCES_0_METRICS_0_URL: http://crowdsec-service.security.svc.cluster.local:6060/metrics
+              CONFIG_INSTANCES_0_METRICS_1_NAME: Agent
+              CONFIG_INSTANCES_0_METRICS_1_URL: http://crowdsec-agent-service.security.svc.cluster.local:6060/metrics
+              CONFIG_INSTANCES_0_METRICS_2_NAME: AppSec
+              CONFIG_INSTANCES_0_METRICS_2_URL: http://crowdsec-appsec-service.security.svc.cluster.local:6060/metrics
             envFrom:
               - secretRef:
                   name: crowdsec-web-ui
