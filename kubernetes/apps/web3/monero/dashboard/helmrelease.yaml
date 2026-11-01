@@ -88,6 +88,8 @@ spec:
         # p2pool's gid (it writes local/ 0770); any other fsGroup re-chgrps the shared PVC each mount.
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        # Talos applies RuntimeDefault at runtime, but PSS restricted (and kguardian's profile baseline) needs the field declared.
+        seccompProfile: { type: RuntimeDefault }
     service:
       dashboard:
         ports:
