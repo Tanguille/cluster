@@ -1,5 +1,5 @@
 ---
-# hostpath: size unenforced and unraisable (the .rad is 17.4 GB); control-1 free disk is the limit.
+# hostpath: size unenforced and unraisable (the .rad is 18.6 GB); control-1 free disk is the limit.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -51,11 +51,10 @@ spec:
               # The operator caches the Model under sha256(source)[:16]; the last file it lists marks a finished download.
               src=/models/$$(printf %s "$$MODEL_SOURCE" | sha256sum | cut -c1-16)
               # Named by revision and engine digest (see --model).
-              out=/out/swift15-27b-w4a16-awq-nodraft.$${MODEL_SOURCE##*@}.$${ENGINE_IMAGE##*:}.rad
+              out=/out/swift15-27b-w4a16-awq.$${MODEL_SOURCE##*@}.$${ENGINE_IMAGE##*:}.rad
               # activeDeadlineSeconds bounds the wait.
               until [ -f "$$src/video_preprocessor_config.json" ]; do echo "waiting for $$src" >&2; sleep 10; done
-              # --max-spec 0 leaves out the MTP head, which --spec-ngram refuses.
-              rad-convert "$$src" --recipe /opt/radiance/share/radiance/recipes/q38-27b-w4a16.recipe --max-spec 0 -o "$$out.tmp"
+              rad-convert "$$src" --recipe /opt/radiance/share/radiance/recipes/q38-27b-w4a16.recipe -o "$$out.tmp"
               mv "$$out.tmp" "$$out"
               # Also a failed run's .tmp; a running pod keeps an unlinked file open until it restarts.
               find /out -maxdepth 1 -name '*.rad*' ! -path "$$out" -delete
@@ -125,7 +124,7 @@ spec:
     # from another checkpoint or engine: after a bump it fails until the Job writes this one. It targets
     # extraArgs.1, so keep --model first.
     - --model
-    - /rad/swift15-27b-w4a16-awq-nodraft.revision.engine.rad
+    - /rad/swift15-27b-w4a16-awq.revision.engine.rad
     - --served-model-name
     - qwen-3.8
     - --max-num-seqs
@@ -144,12 +143,9 @@ spec:
     # Shared card: no weight-prefetch ring.
     - --weight-prefetch
     - "off"
-    # Prompt lookup only (MTP and DFlash2 stall at 8 sessions): distribution-exact, and the adaptive window
-    # verifies a draft only when it pays at the measured step cost.
-    - --spec-ngram
-    - "5"
-    - --draft-window
-    - adaptive
+    # NO speculation: it stalls at 8 sessions (docs/llm-hosting/radiance-2026-11.md).
+    - --num-speculative-tokens
+    - "0"
     # The 3600 s default drops idle sessions that vLLM kept until the memory was wanted.
     - --prefix-cache-ttl
     - "0"
