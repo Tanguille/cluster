@@ -1,6 +1,6 @@
 ---
 # Picks qwen-3.8's reasoning effort from the first user message, so it stays fixed per conversation
-# and keeps the prefix cache warm. A client-set chat_template_kwargs is replaced; call `qwen-3.8` for a fixed effort.
+# and keeps the prefix cache warm. It replaces a client's effort; call `qwen-3.8` for a fixed effort.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayModel
@@ -28,12 +28,12 @@ spec:
     transformations:
       - field: model
         expression: '"qwen-3.8"'
-      # "high" 400s on this deployment: the template's ladder is low/medium/xhigh.
-      - field: chat_template_kwargs
+      # Top-level, not chat_template_kwargs: vLLM lets it win, and Hermes sends one on every turn.
+      # The template's ladder is low/medium/xhigh. Hermes appends recalled memory, which must not count.
+      - field: reasoning_effort
         expression: >-
-          llmRequest.messages.filter(m, m.role == "user")[0].content.with(t,
-          {"reasoning_effort":
+          llmRequest.messages.filter(m, m.role == "user")[0].content.split("<memory-context>")[0].with(t,
           t.matches("(?i)\\b(one word|yes or no|briefly|tl;?dr|in short|one line|one sentence)\\b") ? "low"
           : (size(t) > 4000
           || t.matches("(?i)\\b(derive|integral|equation|solve for|closed form|proof|prove|debug\\w*|traceback|stack trace|root[- ]?cause|step by step|trade-?off|pros and cons)\\b"))
-          ? "xhigh" : "medium"})
+          ? "xhigh" : "medium")
