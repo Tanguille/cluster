@@ -53,7 +53,7 @@ The superuser (`postgres`) password is in the `cloudnative-pg-secret` secret in 
 1. Start a debug pod with database access:
 
    ```bash
-   kubectl run tmp-psql --rm -i --tty --image ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie -n database -- bash
+   kubectl run tmp-psql --rm -i --tty --image "$(kubectl -n database get cluster postgres16 -o jsonpath='{.spec.imageName}')" -n database -- bash
    ```
 
 2. Connect as `postgres` and fix permissions if needed:

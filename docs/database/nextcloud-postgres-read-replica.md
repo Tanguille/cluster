@@ -17,12 +17,13 @@ Both poolers use the same CNPG cluster (`postgres16`); the RO pooler routes to r
 
 ## Verifying Nextcloud is using RO connections
 
-Any session you see when connected **to a replica** is a read-only connection. Use the CloudNative-PG plugin to open psql on a replica and inspect `pg_stat_activity`.
+Any session you see when connected **to a replica** is a read-only connection. Open psql on a replica and inspect `pg_stat_activity`.
 
-1. **Connect to a replica with the cnpg plugin** (uses the postgres superuser; no port-forward or local psql needed):
+1. **Connect to a replica** (as the postgres superuser; no port-forward or local psql needed):
 
    ```bash
-   kubectl cnpg psql --replica postgres16 -n database
+   replica=$(kubectl -n database get pods -l cnpg.io/cluster=postgres16,cnpg.io/instanceRole=replica -o name | head -1)
+   kubectl -n database exec -it "$replica" -c postgres -- psql -U postgres
    ```
 
 2. **In the psql session**, switch to the Nextcloud database, then run the query (run `\c nextcloud` first and press Enter; run the `SELECT` separately):
@@ -42,6 +43,6 @@ Any session you see when connected **to a replica** is a read-only connection. U
 3. **Generate read load in Nextcloud** (open Files, dashboard, browse), then run the same `SELECT` again. If the replica is in use, you should see more connections (e.g. from the pooler or the nextcloud user). Those are the read connections offloaded to the replica.
 
 4. **Optional: compare with the primary**
-   Run the same query on the primary: `kubectl cnpg psql postgres16 -n database` (no `--replica`). Then `\c nextcloud` and the same `pg_stat_activity` query. You’ll see connections that use the primary (writes and causal reads). With RO in use, a good share of read traffic should show up on the replica (step 1), not only on the primary.
+   Run the same query on the primary: take `primary=$(kubectl -n database get cluster postgres16 -o jsonpath='{.status.currentPrimary}')` and exec as in step 1. Then `\c nextcloud` and the same `pg_stat_activity` query. You’ll see connections that use the primary (writes and causal reads). With RO in use, a good share of read traffic should show up on the replica (step 1), not only on the primary.
 
-**Alternative (port-forward + psql):** If you prefer not to use the cnpg plugin, port-forward to `pgbouncer-ro` and connect with the Nextcloud DB user: `kubectl port-forward -n database svc/pgbouncer-ro 5434:5432`, then `psql "postgres://<user>:<pass>@127.0.0.1:5434/<dbname>"` and run the same `pg_stat_activity` query. Connections seen there are also on the replica (RO pooler targets replicas only).
+**Alternative (port-forward + psql):** Port-forward to `pgbouncer-ro` and connect with the Nextcloud DB user: `kubectl port-forward -n database svc/pgbouncer-ro 5434:5432`, then `psql "postgres://<user>:<pass>@127.0.0.1:5434/<dbname>"` and run the same `pg_stat_activity` query. Connections seen there are also on the replica (RO pooler targets replicas only).
