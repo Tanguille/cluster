@@ -30,10 +30,12 @@ spec:
           labels:
             severity: critical
 
-        # Ready stays True while renewals fail, so CertManagerCertNotReady cannot see it.
+        # Ready stays True while renewals fail, so CertManagerCertNotReady cannot see it; a zero timestamp means not issued yet.
         - alert: CertManagerCertRenewalOverdue
           expr: |-
-            time() - max by (name, exported_namespace) (certmanager_certificate_renewal_timestamp_seconds) > 3600
+            (time() - max by (name, exported_namespace) (certmanager_certificate_renewal_timestamp_seconds)) > 3600
+            and
+            max by (name, exported_namespace) (certmanager_certificate_renewal_timestamp_seconds) > 0
           for: 15m
           annotations:
             summary: >-

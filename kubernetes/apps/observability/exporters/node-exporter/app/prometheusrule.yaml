@@ -120,6 +120,16 @@ spec:
               TrueNAS pool {{ $labels.zpool }} is {{ $labels.state }}
           labels:
             severity: critical
+        - alert: TrueNASPoolTelemetryMissing
+          # TrueNASPoolNotOnline matches node_zfs_zpool_state, which only exists while the target exports the zfs collector.
+          expr: |-
+            absent(node_zfs_zpool_state{job="node-exporter", nodename="truenas"})
+          for: 10m
+          annotations:
+            summary: >-
+              TrueNAS zpool telemetry is absent — TrueNASPoolNotOnline is blind until it recovers
+          labels:
+            severity: warning
         - alert: OPNsenseCPUTemperatureHigh
           # 30-day peak is ~42C, so 80C is a cooling fault, not load; root disk fill is NodeFilesystemAlmostOutOfSpace.
           expr: |-
