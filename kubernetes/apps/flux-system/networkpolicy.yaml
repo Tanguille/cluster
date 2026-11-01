@@ -5,7 +5,9 @@ kind: CiliumNetworkPolicy
 metadata:
   name: flux-system-ingress-allowlist
 spec:
-  # Default-deny ingress; only flux-system, observability and network may reach it.
+  # Default-deny ingress for the namespace; egress stays default-allow.
+  # flux-system = controllers to the webhook-receiver; observability = vmagent scrapes the PodMonitors, gatus probes;
+  # network = envoy-external fronts flux-webhook, envoy-internal fronts the flux UI.
   endpointSelector: {}
   ingress:
     - fromEndpoints:
