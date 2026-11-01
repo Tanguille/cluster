@@ -132,9 +132,12 @@ spec:
     # Shared card: no weight-prefetch ring.
     - --weight-prefetch
     - "off"
-    # NO speculation: it stalls at 8 sessions (docs/llm-hosting/radiance-2026-11.md).
-    - --num-speculative-tokens
-    - "0"
+    # Prompt lookup only (MTP and DFlash2 stall at 8 sessions): distribution-exact, and the adaptive window
+    # verifies a draft only when it pays at the measured step cost. Sets the window; no --num-speculative-tokens.
+    - --spec-ngram
+    - "5"
+    - --draft-window
+    - adaptive
     # The 3600 s default drops idle sessions that vLLM kept until the memory was wanted.
     - --prefix-cache-ttl
     - "0"
@@ -144,6 +147,15 @@ spec:
     # One state snapshot per session; the default capped the cache at ~6 sessions of 100K.
     - --checkpoint-policy
     - tip-only
+    # 16 auto slots overflowed (store_full) under 8 agent sessions; 146.81 MiB of pinned RAM each.
+    - --checkpoint-slots
+    - "32"
+    # A resumed turn re-prefills up to one chunk less; a hit is no longer bit-identical to a cold run.
+    - --prefix-resume
+    - nearest
+    # Tower read over the link once per image (~55 ms); its 0.86 GiB of VRAM goes to the KV pool.
+    - --vision-tower-placement
+    - ram
     # Sharp template over the container's; highest-priority source.
     - --override-chat-template
     - /chat-templates/chat_template.jinja
@@ -161,7 +173,7 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Pins ~25.7 GiB: 20 tier + 2.3 checkpoints + 2.4 embedding.
+    # Pins ~29 GiB: 20 tier + 4.6 checkpoints + 2.4 embedding + 0.9 vision tower.
     memory: 32Gi
   endpoint:
     port: 8000

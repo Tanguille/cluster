@@ -28,7 +28,9 @@ did not move.
   radiance and 63% on vLLM today, so that gate cannot compare engines.
 - Speculation (MTP, DFlash2) roughly doubles decode at 1-4 sessions (DFlash2 63/78/64 agg tok/s at 1/2/4, adaptive window
   85.5 at 4) but stalls at 8 (agg 40-49, itl p90 430-490 ms). `--draft-window adaptive`, `--busy-prefill-chunk 512` and
-  `--max-num-seqs 4` did not fix it, so speculation is off. Untested: `--spec-ngram`, `--prefill-interleave`.
+  `--max-num-seqs 4` did not fix it, so no drafter. Production runs prompt lookup instead (`--spec-ngram 5 --draft-window
+  adaptive`): distribution-exact, verified only when the measured step cost says it pays; not benchmarked before it went
+  live, so compare `radiance:draft_*` and per-stream decode against the 2026-11-01 snapshot. Untested: `--prefill-interleave`.
 - GPU: 249 W (the card's 250 W cap), junction 85 C, fan 4.1K rpm under load, idle free VRAM 2.5 GiB (Jellyfin floor 1.82).
 
 ## Cache
@@ -38,7 +40,10 @@ did not move.
 - Radiance has no disk tier (`--weights-disk-tier` is weights only). The host tier holds attention blocks only: `--prefix-cache-mib`
   20480 is 838,848 tokens, about 8 sessions of 100K, pinned in node RAM. It is a mirror, so a tier near the VRAM pool adds nothing.
 - Resume needs a recurrent-state checkpoint. The default policy needs ~9 slots per 100K session and capped the cache at ~6
-  sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session (16 slots auto-sized).
+  sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots still overflowed (92 `store_full` in 3 h),
+  so `--checkpoint-slots 32`.
+- `--prefix-resume nearest` resumes at the deepest snapshot (up to a chunk less re-prefill a turn) and
+  `--vision-tower-placement ram` gives the tower's 0.86 GiB of VRAM to the KV pool (the pool peaked at 99.9%).
 - Sessions beyond that re-prefill cold: 26 s per 55K, ~45 s per 100K. Watch `radiance:prefix_cache_ckpt_evictions_by_reason_total`.
 
 ## Operations
