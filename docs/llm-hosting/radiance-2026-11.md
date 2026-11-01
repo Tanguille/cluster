@@ -42,7 +42,6 @@ did not move.
 - Resume needs a recurrent-state checkpoint. The default policy needs ~9 slots per 100K session and capped the cache at ~6
   sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots
   still overflowed (92 `store_full` in 3 h), so `--checkpoint-slots 32`.
-- `--prefix-resume nearest` and `--vision-tower-placement ram` (the KV pool peaked at 99.9%): see the flag comments.
 - Sessions beyond that re-prefill cold: 26 s per 55K, ~45 s per 100K. Watch `radiance:prefix_cache_ckpt_evictions_by_reason_total`.
 
 ## Operations
@@ -55,10 +54,10 @@ did not move.
 - Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
-- Engine or checkpoint bump: the Job `qwen38-27b-rad-convert` reruns when its image or the Model `source` changes (a kustomize
-  replacement feeds the source in). The `.rad` is named by the checkpoint revision and the engine image digest, which
-  replacements also write into `--model`, so a pod that starts first fails until the file exists instead of serving an
-  old checkpoint or another engine's container; no manual step. The Job then deletes the other `.rad` files. It waits for the operator to stage the weights up to its 30 min deadline.
+- Engine or checkpoint bump: no manual step. The Job `qwen38-27b-rad-convert` reruns when the image or the Model `source`
+  changes. The `.rad` is named by the checkpoint revision and the engine image digest, which replacements also write into
+  `--model`, so a pod that starts first fails until the file exists instead of serving an old checkpoint or another
+  engine's container. The Job then deletes the other `.rad` files and the previous checkpoint download.
 - Memory: raise the host tier only with node RAM; the pod pins 28.6 GiB of its 32 GiB.
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert

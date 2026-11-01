@@ -1,5 +1,59 @@
 ---
-# hostpath: size unenforced and unraisable (the .rad is 18.6 GB); control-1 free disk is the limit.
+# hostpath: size unenforced (real limit is control-1 free disk) and unraisable: any size change fails the dry-run and wedges llmkube-models.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen38-swift-27b-vllm-model-cache
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      # 18.2G measured.
+      storage: 20Gi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: qwen38-swift-27b-vllm
+spec:
+  # g128 W4A16 on the base Qwen3.8-27B geometry; lm_head ships bf16 and rad-convert quantizes it (block-fp8).
+  # HF revisions are mutable (re-uploads keep the filename), so the commit is pinned; Renovate bumps it and the convert Job follows.
+  # model-mtp-bf16.safetensors holds the 15 MTP tensors; rad-convert keeps them as the MTP head, unused with speculation off.
+  source: hf://ukisai/Swift-1.5-Qwen3.8-27b-W4A16-AWQ@9dba8a058771
+  format: safetensors
+  quantization: compressed-tensors
+  refreshPolicy: OnChange
+  # Exactly what rad-convert reads; the init container exits 1 on a 404. tokenizer.json
+  # is self-contained (no merges/vocab).
+  files:
+    - model-00001-of-00006.safetensors
+    - model-00002-of-00006.safetensors
+    - model-00003-of-00006.safetensors
+    - model-00004-of-00006.safetensors
+    - model-00005-of-00006.safetensors
+    - model-00006-of-00006.safetensors
+    - model-mtp-bf16.safetensors
+    - model.safetensors.index.json
+    - config.json
+    - generation_config.json
+    - tokenizer.json
+    - tokenizer_config.json
+    - chat_template.jinja
+    - preprocessor_config.json
+    # Keep last: the convert Job takes it as the end of the download.
+    - video_preprocessor_config.json
+  hardware:
+    accelerator: rocm
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: rocm
+      resourceName: squat.ai/dri
+---
+# hostpath, as above; the .rad is 18.6 GB.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -11,7 +65,7 @@ spec:
     requests:
       storage: 24Gi
 ---
-# Converts the checkpoint into a .rad (~45 s); Flux recreates the Job when its image or the Model source changes, which reconverts.
+# Converts the checkpoint into a .rad (~45 s); Flux recreates it on a bump (kustomization.yaml).
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -30,7 +84,8 @@ spec:
         runAsGroup: 0
       containers:
         - name: convert
-          image: docker.io/stilldeadcode/radiance:1.15.1@sha256:cccbc0bd6bfef1441e8fcf3ca8d10313d4e6d18a03d9c6ede3bcb15d95376668
+          # The InferenceService's, by a replacement in kustomization.yaml.
+          image: replaced
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -48,9 +103,8 @@ spec:
             - |
               # Flux postBuild envsubst context: bare $VAR -> $$.
               set -eu
-              # The operator caches the Model under sha256(source)[:16]; the last file it lists marks a finished download.
+              # The operator caches the Model under sha256(source)[:16].
               src=/models/$$(printf %s "$$MODEL_SOURCE" | sha256sum | cut -c1-16)
-              # Named by revision and engine digest (see --model).
               out=/out/swift15-27b-w4a16-awq.$${MODEL_SOURCE##*@}.$${ENGINE_IMAGE##*:}.rad
               # activeDeadlineSeconds bounds the wait.
               until [ -f "$$src/video_preprocessor_config.json" ]; do echo "waiting for $$src" >&2; sleep 10; done
@@ -58,6 +112,8 @@ spec:
               mv "$$out.tmp" "$$out"
               # Also a failed run's .tmp; a running pod keeps an unlinked file open until it restarts.
               find /out -maxdepth 1 -name '*.rad*' ! -path "$$out" -delete
+              # Previous checkpoints; the downloader never removes them.
+              find /models -mindepth 1 -maxdepth 1 -type d ! -path "$$src" -exec rm -rf {} +
               ls -l /out
           resources:
             # control-1 has ~2.2 GiB requestable beside the 32Gi engine; conversions peaked at 1.15 GiB working set
@@ -70,14 +126,12 @@ spec:
           volumeMounts:
             - name: src
               mountPath: /models
-              readOnly: true
             - name: out
               mountPath: /out
       volumes:
         - name: src
           persistentVolumeClaim:
             claimName: qwen38-swift-27b-vllm-model-cache
-            readOnly: true
         - name: out
           persistentVolumeClaim:
             claimName: radiance-engine-rad
@@ -131,9 +185,6 @@ spec:
     - "8"
     - --max-model-len
     - "262144"
-    # Prefix hits resume on 2048-token chunks, so the batch size is also the resume granularity.
-    - --max-num-batched-tokens
-    - "2048"
     # K in E4M3, V in int4: ~0.78x the fp8 cost per token at the same KL.
     - --kv-cache-dtype
     - fp8_v4
@@ -158,10 +209,11 @@ spec:
     # 16 auto slots overflowed (store_full) under 8 agent sessions.
     - --checkpoint-slots
     - "32"
-    # A resumed turn re-prefills up to one chunk less; a hit is no longer bit-identical to a cold run.
+    # Hits resume on 2048-token chunks (the default batch size); nearest re-prefills up to one chunk less, so a hit is
+    # no longer bit-identical to a cold run.
     - --prefix-resume
     - nearest
-    # Tower read over the link once per image (~55 ms); its 0.86 GiB of VRAM goes to the KV pool.
+    # Tower read over the link once per image (~55 ms); its 0.86 GiB of VRAM goes to the KV pool, which peaked at 99.9%.
     - --vision-tower-placement
     - ram
     # Sharp template over the container's; highest-priority source.

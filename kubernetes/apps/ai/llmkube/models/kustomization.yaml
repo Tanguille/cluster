@@ -7,7 +7,6 @@ resources:
   - grafanadashboard.yaml
   - networkpolicy.yaml
   - qwen38-27b-vllm.yaml
-  - qwen38-swift-27b-vllm.yaml
   - embeddinggemma-2.yaml
   - qwen35-2b.yaml
   - bge-reranker-v2-m3.yaml
@@ -23,7 +22,7 @@ replacements:
           name: qwen38-27b-rad-convert
         fieldPaths:
           - spec.template.spec.containers.[name=convert].env.[name=MODEL_SOURCE].value
-  # The revision names the .rad the Job writes (it splits the same source on @).
+  # Revision -> --model.
   - source:
       kind: Model
       name: qwen38-swift-27b-vllm
@@ -40,7 +39,7 @@ replacements:
         options:
           delimiter: "."
           index: 1
-  # The engine image: the Job reconverts on a bump, and its digest names the .rad.
+  # The engine image is pinned once, on the InferenceService -> the Job.
   - source:
       kind: InferenceService
       name: qwen38-27b-vllm
@@ -50,7 +49,9 @@ replacements:
           kind: Job
           name: qwen38-27b-rad-convert
         fieldPaths:
+          - spec.template.spec.containers.[name=convert].image
           - spec.template.spec.containers.[name=convert].env.[name=ENGINE_IMAGE].value
+  # Engine digest -> --model.
   - source:
       kind: InferenceService
       name: qwen38-27b-vllm
