@@ -1,0 +1,43 @@
+---
+# Qwen2B picks qwen-3.8's reasoning effort from the first user message. The callout is cached on that
+# message, so a conversation keeps one effort and the 27B's prefix cache stays warm. It replaces a client's
+# effort; call `qwen-3.8` for a fixed effort. If Qwen2B fails, plain qwen-3.8 answers with the client's effort.
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayModel
+metadata:
+  name: qwen-3.8-auto
+spec:
+  parentRefs:
+    - kind: HTTPRoute
+      name: agentgateway-router
+  match:
+    model: qwen-3.8-auto
+  virtualModel:
+    callout:
+      # A url, not backendRef: v1.7 takes the callout path only from a url.
+      url: http://qwen35-2b.ai.svc.cluster.local:8080/v1/chat/completions
+      # Hermes appends recalled memory to the user message, which must not count. The first and last 1000
+      # characters bound the decision latency and keep a question asked after a pasted document.
+      body: >-
+        llmRequest.messages.filter(m, m.role == "user")[0].content.split("<memory-context>")[0].with(t, {
+        "model": "qwen35-2b", "max_tokens": 20, "temperature": 0,
+        "response_format": {"type": "json_schema", "json_schema": {"name": "effort", "strict": true, "schema": {
+        "type": "object", "properties": {"effort": {"type": "string", "enum": ["low", "medium", "xhigh"]}},
+        "required": ["effort"], "additionalProperties": false}}},
+        "messages": [{"role": "system", "content": "Pick the reasoning effort a strong assistant needs for the user's request.\nlow: chit-chat, a quick fact, a simple command or conversion.\nmedium: ordinary work, including writing any code, writing, summaries and planning.\nxhigh: debugging, finding a bug or a root cause, proofs or math, design with trade-offs, or multi-step quantitative reasoning.\nAnswer with JSON only."},
+        {"role": "user", "content": size(t) > 2000 ? t.substring(0, 1000) + "\n...\n" + t.substring(size(t) - 1000) : t}]})
+      cache:
+        key:
+          - llmRequest.messages.filter(m, m.role == "user")[0].content.split("<memory-context>")[0]
+        ttl: 24h
+        maxEntries: 1024
+      # Top-level, not chat_template_kwargs: vLLM lets it win, and Hermes sends one on every turn. The schema's
+      # enum is enforced by llama.cpp's grammar.
+      transformation:
+        model: '"qwen-3.8"'
+        reasoning_effort: json(callout.body.choices[0].message.content).effort
+      fallback:
+        modelRef:
+          # The ModelRouter's generated model for qwen-3.8.
+          name: agentgateway-router-qwen38
