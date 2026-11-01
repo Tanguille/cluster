@@ -31,7 +31,9 @@ spec:
         # Hashed, so a pasted document is not kept in memory.
         key:
           - sha256.encode(bytes(llmRequest.messages.filter(m, m.role == "user")[0].content.split("<memory-context>")[0]))
-        ttl: 24h
+        # An answer outside the enum evaluates to null, which skips caching it.
+        ttl: >-
+          json(callout.body.choices[0].message.content).effort in ["low", "medium", "xhigh"] ? duration("24h") : null
         maxEntries: 1024
       # Top-level, not chat_template_kwargs: vLLM lets it win, and Hermes sends one on every turn. The schema's
       # enum is enforced by llama.cpp's grammar.
