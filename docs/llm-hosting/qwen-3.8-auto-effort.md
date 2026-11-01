@@ -8,9 +8,9 @@ first user message, minus Hermes's appended `<memory-context>` block, and is cac
 conversation keeps one effort and the 27B's prefix cache stays warm. If the callout fails, plain `qwen-3.8`
 answers with the client's effort.
 
-D3-nano runs on llama.cpp directly, on the iGPU Qwen2B used to hold. The vLLM Semantic Router it ships with
-(#5879) could not run here: its golden-reference check needs AVX-512 BF16, which no node has, and it requires a
-runtime contract llama.cpp does not report. Hermes title generation moved from Qwen2B to `qwen-3.8-fast`.
+D3-nano runs on llama.cpp directly, not under the vLLM Semantic Router it ships with (#5879): the router's
+golden-reference check needs AVX-512 BF16, which no node has, and it requires a runtime contract llama.cpp does
+not report.
 
 ## Evidence, 2026-11-01
 
@@ -24,7 +24,6 @@ ran with the production JSON-schema prompt on the iGPU.
 
 Qwen2B's misses all rated one level too low (a landlord email `low`, a nightly Postgres replica lag `medium`). The
 lowest D3 confidences were a PodDisruptionBudget explainer (medium, 0.66) and a vLLM vs llama.cpp comparison
-(xhigh, 0.66). Earlier, through a temporary test copy, the Qwen2B callout set greeting `low`, probe yaml `medium`
-and Ceph crashloop and race condition `xhigh`, read from qwen-3.8's prompt token count.
+(xhigh, 0.66).
 
 If D3 misjudges on real traffic, try Kev-4B (4B, same API) behind the same callout.
