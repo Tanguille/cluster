@@ -36,7 +36,7 @@ spec:
               # crowdsec-root-secret (Certificate crowdsec-ca) is the LAPI chain's CA
               CONFIG_INSTANCE_LAPI_TLS_CA_FILE: /certs/ca.crt
               # The hourly blocklist import files 3 alerts holding ~17k bans; hiding them leaves only real detections.
-              CONFIG_CROWDSEC_ALERT_FILTERS_EXCLUDE_ORIGINS: blocklist-import
+              CONFIG_CROWDSEC_ALERT_FILTERS_EXCLUDE_ORIGINS_0: blocklist-import
               # Prometheus endpoints (level full is the chart default). The agent service reaches one DaemonSet pod per scrape.
               CONFIG_INSTANCES_0_METRICS_0_NAME: LAPI
               CONFIG_INSTANCES_0_METRICS_0_URL: http://crowdsec-service.security.svc.cluster.local:6060/metrics
