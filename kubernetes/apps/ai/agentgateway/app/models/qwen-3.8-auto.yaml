@@ -28,8 +28,9 @@ spec:
         "messages": [{"role": "system", "content": "Pick the reasoning effort a strong assistant needs for the user's request.\nlow: chit-chat, a quick fact, a simple command or conversion.\nmedium: ordinary work, including writing any code, writing, summaries and planning.\nxhigh: debugging, finding a bug or a root cause, proofs or math, design with trade-offs, or multi-step quantitative reasoning.\nAnswer with JSON only."},
         {"role": "user", "content": size(t) > 2000 ? t.substring(0, 1000) + "\n...\n" + t.substring(size(t) - 1000) : t}]})
       cache:
+        # Hashed, so a pasted document is not kept in memory.
         key:
-          - llmRequest.messages.filter(m, m.role == "user")[0].content.split("<memory-context>")[0]
+          - sha256.encode(bytes(llmRequest.messages.filter(m, m.role == "user")[0].content.split("<memory-context>")[0]))
         ttl: 24h
         maxEntries: 1024
       # Top-level, not chat_template_kwargs: vLLM lets it win, and Hermes sends one on every turn. The schema's
