@@ -48,6 +48,7 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 
 - With `ceph-block` RWO storage, use Deployment strategy `Recreate`; RollingUpdate is unsupported.
 - The app-template chart defaults to `Recreate`. If it emits `rollingUpdate` too, fix the chart, postRenderer, or patch.
+- CSI `readAffinity` is off: with it, every CephFS kernel write fails silently on Ceph v21 (files read back as zeros). Re-enable only on a kernel with libceph `d6c7a5fcd088`; the condition is in the rook-ceph cluster HelmRelease.
 
 ## Flux
 

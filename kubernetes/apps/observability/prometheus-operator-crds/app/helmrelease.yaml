@@ -5,7 +5,10 @@ kind: HelmRelease
 metadata:
   name: prometheus-operator-crds
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: prometheus-operator-crds
+    spec:
+      ref:
+        tag: 32.0.2
+      url: oci://ghcr.io/prometheus-community/charts/prometheus-operator-crds
   interval: 1h

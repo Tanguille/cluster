@@ -5,9 +5,13 @@ kind: HelmRelease
 metadata:
   name: kritika
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: kritika
+    spec:
+      interval: 1h
+      ref:
+        tag: 0.0.116
+      url: oci://ghcr.io/home-operations/charts/kritika
   interval: 30m
   values:
     deploymentAnnotations:
@@ -24,10 +28,6 @@ spec:
         existingSecret: *secret
         key: app-uri
         role: kritik_app
-      runner:
-        existingSecret: *secret
-        key: runner-uri
-        role: kritik_runner
     # Runner Jobs parse untrusted PR content and run model-directed code.
     # Keys live under podTemplate.spec; top-level runtimeClassName and resources are ignored silently and runner pods lose gVisor.
     runner:

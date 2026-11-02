@@ -5,12 +5,15 @@ kind: HelmRelease
 metadata:
   # Not agentgateway: the release name becomes the Deployment, Service and
   # ServiceAccount name, which the Gateway's proxy already uses in this namespace.
-  name: &app agentgateway-controller
+  name: agentgateway-controller
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: *app
+    spec:
+      ref:
+        tag: v1.7.0
+      url: oci://cr.agentgateway.dev/charts/agentgateway
   values:
     controller:
       priorityClassName: homelab-important

@@ -120,7 +120,8 @@ spec:
       max_parallel_workers_per_gather: "4"
       min_wal_size: 2GB
       max_wal_size: 8GB
-      checkpoint_timeout: 15min
+      # All checkpoints are timed (0 requested/day); each one restarts full-page images in the WAL shipped to R2.
+      checkpoint_timeout: 1h
       checkpoint_warning: "60"
       wal_compression: "zstd"
       wal_buffers: 32MB

@@ -14,6 +14,12 @@ spec:
       value: http://${HOME_ASSISTANT_IP}:8123
     - name: TMPDIR
       value: /tmp
+    - name: ENABLE_BETA_FEATURES
+      value: "true"
+    - name: HAMCP_ENABLE_DASHBOARD_SCREENSHOT
+      value: "true"
+    - name: HAMCP_DASHBOARD_SCREENSHOT_ENGINE_URL
+      value: http://${HOME_ASSISTANT_IP}:10000
   secrets:
     - name: toolhive-secrets
       key: HOMEASSISTANT_API_TOKEN
