@@ -48,6 +48,7 @@ jobs:
           # HEAD^1 is main in the PR merge checkout (and the previous commit on push); the default
           # pull_request base.sha is the stale merge-base.
           base: HEAD^1
-          # v0.1.9 errors on inline chart.kind OCIRepository (guarnz/deadvalues#80). Drop at 0.2.0 final.
+          # A SHA-pinned action installs the latest release unless told otherwise; pin the binary to the same tag.
+          # renovate: datasource=github-releases depName=guarnz/deadvalues
           version: v0.2.0-rc.1
           fail-on-scan: dead
