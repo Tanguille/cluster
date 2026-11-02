@@ -77,6 +77,10 @@ spec:
           resources: *csiNodeResources
         kernelMountOptions:
           ms_mode: prefer-crc
+          # The CephFS kernel client puts readAffinity's replica-read flag on writes too, and Ceph v21 OSDs
+          # reject those with EINVAL, which writeback drops silently: files read back as zeros. These options
+          # follow readAffinity's in the mount string, so this wins for CephFS while RBD keeps local reads.
+          read_from_replica: "no"
       nfs:
         enabled: false
       nvmeof:
