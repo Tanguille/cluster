@@ -1,6 +1,6 @@
 # radiance engine, 2026-11
 
-qwen-3.8 (Swift 1.5 W4A16-AWQ) is served by [radiance](https://codeberg.org/StillDeadcode/radiance) 1.15.1, a C++/HIP
+qwen-3.8 (Swift 1.5 W4A16-AWQ) is served by [radiance](https://codeberg.org/StillDeadcode/radiance) 1.16.0, a C++/HIP
 engine (Apache-2.0, single maintainer, own `.rad` container), replacing vLLM nightly `9cef623` with UltraQuant KV. Live since
 2026-11-01 on the R9700. The service, Deployment and `InferenceService` keep the name `qwen38-27b-vllm` so routes and alerts
 did not move.
