@@ -40,13 +40,17 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 | spec off, 8 slots | 29.8 | 73.3 | 72.6 | 13.6 s / 59.3 ms | 577,552 |
 | MTP, 8 slots (11-02 01:00Z, `--busy-prefill-chunk off`) | 54.4 | 99.0 | 10.6, 36 preemptions | 66.7 s / 631 ms | 453,408 |
 | MTP, 6 slots | 51.9 | contaminated | 95.0 | 10.3 s / 64.1 ms | 476,272 |
-| **MTP, 7 slots** | 45.4 | 104.5 | 92.4 | 6.9 s / 67.5 ms | 464,880 |
+| MTP, 7 slots | 45.4 | 104.5 | 92.4 | 6.9 s / 67.5 ms | 464,880 |
+| **MTP, 7 slots, 1.16.0** | 51.8 | contaminated | 96.1 | 8.4 s / 59.7 ms | 464,880 |
 | MTP, 8 slots, k6_v4 | contaminated | 104.4 | 104.2 | 7.5 s / 65.1 ms | 515,408 |
 
 - The 8-slot stall is KV pressure, not drafting: the MTP head takes ~124K tokens of pool and each slot ~0.29 GiB of
   recurrent state, so 8 long sessions preempt and re-prefill. A cap of 6-7 queues the extra session instead. No per-stream
   cut-off is needed: the adaptive window already prices depth by sequence count.
 - 1 session swings ±10% run to run (drafting depends on the prompt): 45-52 for the same 6-7 slot config.
+- 1.16.0 against 1.15.1 at the same flags: quality gate GSM8K 147/150, tools 12/12, vision 2/2, needles 6/6 to 175K;
+  a first 8-session run read 85.6 with cold prefill sagging to 1,864 tok/s (not reproduced, GPU temperatures equal),
+  the rerun 96.1 at 2,195 tok/s.
 - k6_v4 (int6 K, int4 V, per-32 f16 group scales, no Hadamard) passed the gate against fp8_v4: GSM8K 147 vs 146, tools 12/12,
   vision 2/2, needles 3/3 at 58K and 175K; greedy prefix agreement 62% (fp8_v4 is 100% deterministic warm vs cold), so it
   flips near-ties. Not adopted: +12% only at 8 sessions, long-session reasoning untested. With 6 slots it fell to 55-72 at 8.
