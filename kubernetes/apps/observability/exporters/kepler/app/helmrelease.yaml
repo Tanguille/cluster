@@ -6,9 +6,12 @@ metadata:
   name: kepler-operator
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: kepler-operator
+    spec:
+      ref:
+        tag: 0.25.0
+      url: oci://quay.io/sustainable_computing_io/charts/kepler-operator
   values:
     namespace: &namespace observability
     operator:

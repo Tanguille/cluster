@@ -42,10 +42,13 @@ jobs:
           restore-keys: deadvalues-
 
       - name: Dead values
-        uses: guarnz/deadvalues@6ed0a88f1513ea7c3c93b3bb9a4b4fc71b951b25 # v0.1.9
+        uses: guarnz/deadvalues@feac43f3d0c03046cc84c26cbac79c697ce841bf # v0.2.0-rc.1
         with:
           path: kubernetes/apps
           # HEAD^1 is main in the PR merge checkout (and the previous commit on push); the default
           # pull_request base.sha is the stale merge-base.
           base: HEAD^1
+          # A SHA-pinned action installs the latest release unless told otherwise; pin the binary to the same tag.
+          # renovate: datasource=github-releases depName=guarnz/deadvalues
+          version: v0.2.0-rc.1
           fail-on-scan: dead
