@@ -160,10 +160,6 @@ spec:
       enabled: false
 
     kubelet:
-      vmScrapes:
-        # /metrics/resource duplicates the container CPU/memory series cAdvisor already provides
-        resources:
-          enabled: false
       vmScrape:
         spec:
           interval: 60s
