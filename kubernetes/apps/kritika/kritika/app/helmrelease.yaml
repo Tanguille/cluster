@@ -171,8 +171,6 @@ spec:
             vllm/platforms/rocm.py, vllm/config, docker/Dockerfile.rocm,
             docker/Dockerfile.rocm_base. Read the patch of each hit with gh api
             repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
-            GLM and Kimi changes. Read the patch of each hit with gh api
-            repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
             GLM and Kimi changes. Check each hit against every symbol the hook
             patches and every flag in the config: a moved symbol fails the
             boot, a new default can undo a flag. The hook also calls upstream
@@ -183,7 +181,7 @@ spec:
             feature check passes. Any change to a file the hook patches is at
             least a P1 needs-clone-test finding. Also flag KV pool sizing or
             page size changes, Qwen3.5 or Qwen3-Next config imports, a ROCm
-            base image or torch bump, and anything that makes a hook patch
+            base or torch bump, and anything that makes a hook patch
             redundant. Start with a verdict: nothing relevant, needs a clone
             test, or needs a hook change. Then list each relevant commit as sha,
             title, why it matters here, and what to measure (boot KV cache
