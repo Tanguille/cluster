@@ -28,6 +28,10 @@ metadata:
   name: embeddinggemma-2
 spec:
   modelRef: embeddinggemma-2
+  # Off the shared CephFS cache: since 2026-11-01 CephFS reads back random data wrong (1 MiB writes already),
+  # while RBD verifies clean. Weights re-download into an emptyDir on each start.
+  modelCache:
+    persistence: Ephemeral
   mode: embedding
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
@@ -82,5 +86,6 @@ spec:
     # Request AND limit (llmkube >= 0.9.29); working set ~250Mi, model buffer in
     # amdgpu GTT (uncharged). The 6Gi reservation held control-2 at 95.8% overcommit.
     memory: 512Mi
+    ephemeralStorage: 1Gi # emptyDir sizeLimit for the weights
   endpoint:
     path: /v1/embeddings

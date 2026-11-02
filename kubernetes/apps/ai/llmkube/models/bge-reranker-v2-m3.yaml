@@ -38,6 +38,10 @@ metadata:
   name: bge-reranker-v2-m3
 spec:
   modelRef: bge-reranker-v2-m3
+  # Off the shared CephFS cache: since 2026-11-01 CephFS reads back random data wrong (1 MiB writes already),
+  # while RBD verifies clean. Weights re-download into an emptyDir on each start.
+  modelCache:
+    persistence: Ephemeral
   # mode: rerank auto-appends --reranking --embedding --pooling rank --cache-ram 0; no hand-wired flags.
   mode: rerank
   # GTT-leak mitigation as with embeddinggemma-2: lifetime covers startup and
@@ -91,5 +95,6 @@ spec:
     # GTT. memcg does not charge GTT, but the scheduler must count it. 2Gi did
     # not fit control-3 (1.76Gi requestable), pushing it onto the embedder's node.
     memory: 1Gi
+    ephemeralStorage: 2Gi # emptyDir sizeLimit for the weights
   endpoint:
     path: /v1/rerank
