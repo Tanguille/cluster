@@ -48,8 +48,8 @@ spec:
                   # The 100ms-backoff retry below still lands on qwen-3.8. Grows per consecutive ejection.
                   duration: 30s
       # Thinking on: the reviewer is a tool loop; thinking-off scored 0/20 on DeepSWE (docs/llm-hosting/deepswe-swift-2026-09-22.md).
-      # One deep: qwen35-2b's 16384-token slot rejects review payloads (503 becomes 400) and widening it
-      # costs iGPU-node RAM. The AgentgatewayFallbackBackendDown alert (prometheusrule.yaml) guards the target.
+      # One deep: the iGPU models' slots are too small for review payloads, and widening them costs iGPU-node
+      # RAM. The AgentgatewayFallbackBackendDown alert (prometheusrule.yaml) guards the target.
       - providers:
           - name: qwen-3.8
             host: qwen38-27b-vllm.ai.svc.cluster.local

@@ -1,0 +1,69 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/model_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: Model
+metadata:
+  name: d3-nano
+spec:
+  # vllm-sr/d3-nano, vLLM Semantic Router's 2B decision model: llama-server answers its typed questions at
+  # /v1/systemone with per-option probabilities in one forward pass. Revision-pinned; Renovate bumps the sha via
+  # the git-refs manager in .renovaterc.json5, and refreshPolicy makes the bump re-fetch.
+  source: https://huggingface.co/ggml-org/vllm-d3-nano-GGUF/resolve/50dea2057df10c4b393559a155ab3bf0bc7532c6/vllm-d3-nano-Q8_0.gguf
+  refreshPolicy: OnChange
+  # Only Q8_0 and BF16 are published.
+  quantization: Q8_0
+  hardware:
+    accelerator: vulkan
+    gpu:
+      enabled: true
+      count: 1
+      vendor: amd
+      runtime: vulkan
+      layers: -1
+      resourceName: squat.ai/dri
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
+apiVersion: inference.llmkube.dev/v1alpha1
+kind: InferenceService
+metadata:
+  name: d3-nano
+spec:
+  modelRef: d3-nano
+  # /v1/systemone needs llama.cpp b11361 or later; this digest is b12030.
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:dfb1ba32020a962b4aba4eab5de587907b044daff0d043b3652e15ca3b8895a1
+  parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
+  # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
+  contextSize: 8192
+  # vllm-d3 evaluates the whole prompt in one ubatch (default 512; batch already defaults to 2048). A
+  # 2000-character log is ~1300 tokens with the question; denser text past 2048 fails and qwen-3.8-auto falls back.
+  uBatchSize: 2048
+
+  # Both iGPU nodes advertise 2 squat.ai/dri slots; amd.com/igpu narrows it to
+  # those two nodes.
+  nodeSelector:
+    amd.com/igpu: "true"
+
+  # One iGPU model per node; both sides carry the rule because anti-affinity is
+  # only checked for the moving pod.
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app: embeddinggemma-2
+          topologyKey: kubernetes.io/hostname
+
+  podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    supplementalGroups:
+      - 44
+      - 226
+
+  # GPU allocation comes from Model.hardware.gpu.count; resources.gpu/gpuMemory
+  # are dead fields here.
+  resources:
+    cpu: "500m" # inference is on the iGPU; CPU only tokenises/schedules
+    # Request AND limit (llmkube >= 0.9.29); the 2.4 GiB Q8_0 lives mostly in amdgpu GTT (uncharged by memcg,
+    # counted by the scheduler).
+    memory: 2Gi
