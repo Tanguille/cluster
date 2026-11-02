@@ -89,27 +89,8 @@ sample must be under 120s old, so a duplicate or stale `safe=1` closes the gate.
 
 ## Measured
 
-Per-node gating, first 24h after rollout (2026-07-31):
-
-| metric | before | after |
-|---|---|---|
-| capture vs solar hours ≥25W | 6% | 51% |
-| peak concurrent miners | 1 | 3 |
-
-Any replay is an upper bound, because it applies a more
-permissive policy to temperatures recorded under a restrictive one, and more mining means more
-heat. It validated the harness, not the counterfactual.
-
-### Re-audit, 2026-08-06
-
 Replayed against 180d of `node_hwmon_temp_celsius` (VM retention) at the native 20s cadence.
 Downsampling to 60s hides 9C spikes and inflates safe-time by ~10pp, so do not replay at 60s.
-
-Only **2026-07-27 14:02 onward** reflects the deployed policy: before that the guard read all
-sensors rather than `temp1`, gating on a value ~9C hotter, and 2026-07-17→21 it emitted without
-enforcing. Every safe-percentage figure recorded before this audit — in the Measured section
-above and in the `controller.py` comments — came from those windows and does not reproduce on
-either sensor set. The direction holds everywhere; the magnitudes were stale.
 
 The guard works: **zero samples ≥70C occurred while `safe=1`.** Before it existed, ungated mining
 put control-3 over its rating 51% of the time it mined, peaking at 86C.

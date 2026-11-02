@@ -20,7 +20,7 @@ spec:
           app:
             image:
               repository: ghcr.io/gethomepage/homepage
-              tag: v2.7.0
+              tag: v2.7.0@sha256:19c5c09184458a41b7b5915e71463a39f36cd33540f41bdbed008791b8182d5f
             env:
               TZ: ${TIMEZONE}
               LOG_TARGETS: stdout
@@ -39,10 +39,10 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /api/healthcheck
                     port: &port 3000
-                    httpHeaders: &probeHeaders
+                    httpHeaders:
                       - name: Host
                         value: localhost:3000
                   periodSeconds: 30
@@ -53,10 +53,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
-                    path: /api/healthcheck
-                    port: *port
-                    httpHeaders: *probeHeaders
+                  httpGet: *httpGet
                   failureThreshold: 30
                   periodSeconds: 5
             resources:
@@ -77,6 +74,8 @@ spec:
         # kubernetes mode: cluster — without this the default-namespace apiserver deny
         # blanks every node/ingress/httproute widget.
         egress.home.arpa/kube-apiserver: allow
+        # TrueNAS/OPNsense site monitors go through envoy-internal-tls.
+        egress.home.arpa/lan: allow
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000

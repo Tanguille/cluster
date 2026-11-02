@@ -66,3 +66,14 @@ spec:
               check `cscli capi status` and the lapi logs for 401/403
           labels:
             severity: warning
+        # The importer has no metrics: a dead run only shows once its 24h bans expire.
+        - alert: CrowdsecBlocklistImportEmpty
+          expr: |-
+            (sum(cs_active_decisions{origin="blocklist-import"}) or (vector(0) and on() (max(up{job="crowdsec-service"}) == 1))) < 1000
+          for: 1h
+          annotations:
+            summary: >-
+              Crowdsec blocklist-import bans have lapsed: the hourly importer is failing,
+              check the crowdsec-blocklist-import logs
+          labels:
+            severity: warning

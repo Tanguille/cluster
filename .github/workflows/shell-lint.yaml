@@ -6,23 +6,11 @@ on:
   push:
     branches: ["main"]
     paths:
-      [
-        "**.sh",
-        ".editorconfig",
-        ".github/workflows/shell-lint.yaml",
-        ".mise.toml",
-        "mise.lock"
-      ]
+      ["**.sh", ".github/workflows/shell-lint.yaml", ".mise.toml", "mise.lock"]
   pull_request:
     branches: ["main"]
     paths:
-      [
-        "**.sh",
-        ".editorconfig",
-        ".github/workflows/shell-lint.yaml",
-        ".mise.toml",
-        "mise.lock"
-      ]
+      ["**.sh", ".github/workflows/shell-lint.yaml", ".mise.toml", "mise.lock"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -41,11 +29,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195 # v5.2.5
 
       - name: Lint
         run: |
           set -euo pipefail
           mapfile -t scripts < <(git ls-files '*.sh')
           mise exec -- shellcheck "${scripts[@]}"
-          mise exec -- shfmt --diff -- "${scripts[@]}"

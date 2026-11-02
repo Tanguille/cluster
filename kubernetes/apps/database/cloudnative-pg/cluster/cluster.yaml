@@ -94,11 +94,11 @@ spec:
         login: true
         passwordSecret:
           name: kritik-runner-db
-  # TLS: refs left empty on purpose so CNPG auto-generates and rotates everything:
-  # a self-signed CA, the server TLS cert (clients -> server), and a client CA with
-  # per-instance client certs, which also encrypts primary -> replica streaming
-  # replication. The server accepts both TLS and plaintext client connections, so
-  # apps migrate to sslmode=verify-ca in a follow-up PR without a hard cutover.
+      - name: mealie
+        login: true
+        passwordSecret:
+          name: mealie-db
+  # Refs left empty: CNPG generates and rotates postgres16-ca, the server and replication certs.
   certificates: {}
   postgresql:
     parameters:
@@ -138,14 +138,12 @@ spec:
       random_page_cost: "1.1"
       effective_io_concurrency: "200"
       maintenance_io_concurrency: "200"
-      # Listed in shared_preload_libraries below; first enable rolls the cluster.
       pg_stat_statements.max: "7500"
       # pg_stat_io and pg_stat_wal timings were all 0, so IO and fsync stalls could not be measured; 23.6 ns/loop timer cost.
       track_io_timing: "on"
       track_wal_io_timing: "on"
       # Advisory-lock waits reached 9.6 s (kguardian) with nothing in the logs. Not log_min_duration_statement: it would ship statement text with literals into logs; pg_stat_statements already ranks slow statements.
       log_lock_waits: "on"
-    # vchord.so required for vchord; pg_stat_statements matches parameters above.
     shared_preload_libraries:
       - "vchord.so"
       - "pg_stat_statements"
@@ -168,7 +166,7 @@ spec:
       memory: 2Gi
     limits:
       cpu: 4
-      # primary working set peaked 2.83GiB (7d) at 2GB shared_buffers
+      # working set peaked 3.47GiB (7d) at 2GB shared_buffers
       memory: 4Gi
   monitoring:
     enablePodMonitor: true

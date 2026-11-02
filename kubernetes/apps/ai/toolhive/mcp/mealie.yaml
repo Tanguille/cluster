@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: mealie
+spec:
+  image: ghcr.io/djwmarcx/better-mealie-mcp:3.29.0@sha256:7897cfb0ea86b1ff0b967c09d972c697d1f18a1441c8aac64f21d8c532cb301c
+  # Ignores MCP_TRANSPORT; HTTP needs a `--http <port>` arg, stdio is its default.
+  transport: stdio
+  groupRef:
+    name: all
+  env:
+    - name: MEALIE_BASE_URL
+      value: http://mealie.default.svc.cluster.local:9000
+    # One tool per API route, grouped by first path segment; drops admin, groups, foods/units and explore.
+    # users = ratings/favorites; households = meal plans, shopping lists, cookbooks.
+    - name: MEALIE_INCLUDE_TAGS
+      value: recipes,households,comments,users,organizers
+  # Token of a non-admin Mealie user, so admin and other-user routes fail server-side.
+  secrets:
+    - name: toolhive-secrets
+      key: MEALIE_API_TOKEN
+  podTemplateSpec:
+    spec:
+      # No cluster access needed.
+      automountServiceAccountToken: false
+      containers:
+        - name: mcp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 100Mi

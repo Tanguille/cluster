@@ -25,6 +25,8 @@ spec:
       helmApiVersions: '{{ join "," .Capabilities.APIVersions }}'
       # No push endpoint yet, so this is the only refresh besides head-SHA changes seen on the PR list.
       refreshInterval: 5m
+      # Auto is 4 without a CPU limit; four concurrent renders OOM-killed the 2Gi pod.
+      maxDiffConcurrency: 2
     secret:
       existingSecret: konflate-secret
     # The 1Gi chart default OOM-killed renders at 1.04 GiB RSS; the limit also sets GOMEMLIMIT (90%).

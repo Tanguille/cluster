@@ -3,14 +3,15 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: flaresolverr
-  namespace: &namespace media
+  name: truenas-csi
+  namespace: &namespace truenas-csi
 spec:
-  targetNamespace: *namespace
-  path: ./kubernetes/apps/media/flaresolverr/app
+  interval: 1h
+  path: ./kubernetes/apps/truenas-csi/truenas-csi/app
   prune: true
   sourceRef:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  interval: 30m
+  targetNamespace: *namespace
+  wait: true

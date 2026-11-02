@@ -42,10 +42,12 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          automountServiceAccountToken: false
           securityContext:
             # The serving pod runs as root, so the store is root-owned.
             runAsUser: 0
-          # Must tolerate the DiskPressure it exists to clear (hostPath pins it to control-1).
+          # Under DiskPressure kubelet admits only critical pods (the openebs-hostpath PVCs pin it to control-1).
+          priorityClassName: system-cluster-critical
           tolerations:
             - key: node.kubernetes.io/disk-pressure
               operator: Exists
@@ -62,7 +64,6 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  #!/bin/sh
                   # KV-offload guard: sweeps /kvoffload back above a 160Gi free-space floor on
                   # the shared root fs. Flux postBuild envsubst context: bare $VAR -> $$.
                   # Up to 3 eviction passes: vLLM writes back 1-2Gi mid-sweep, so one pass can end short.
@@ -75,10 +76,7 @@ spec:
                     find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%s' {} + 2>/dev/null \
                       | awk '{s+=$$1} END{printf "%.0f\n", s/1024}'
                   }
-                  # 160Gi = 32% of the 499.6Gi root disk; ceph mon_data_avail_warn=27, so an
-                  # 80Gi (15%) floor could never clear it. Non-tier usage measured 219Gi
-                  # (2026-09-24). A property of the shared root disk, not of the (label-only)
-                  # 128Gi openebs-hostpath PVC.
+                  # 160Gi = 32% of the 499.6Gi shared root disk, clear of ceph mon_data_avail_warn=27%; not the label-only 128Gi PVC.
                   floor=167772160
                   # Margin = max(shortfall/16, 4Gi): write-back is 1-2Gi, beyond shortfall/16 at that size.
                   min_margin_kb=4194304
@@ -93,8 +91,7 @@ spec:
                     margin=$$((shortfall / 16))
                     [ "$$margin" -lt "$$min_margin_kb" ] && margin=$$min_margin_kb
                     need_kb=$$((shortfall + margin))
-                    # Evict by bytes, not file count: chunk files are 104Mi, so a 2000-file
-                    # check interval wiped the whole tier each time.
+                    # Evict by bytes, not file count: at 104Mi a chunk, a 2000-file check wiped the tier.
                     # LRU by mtime, oldest first; blocks are write-once.
                     # busybox find has no -printf.
                     find /kvoffload -type f ! -name '*.tmp' -exec stat -c '%Y %s %n' {} + | sort -n | cut -d' ' -f2- |
@@ -152,10 +149,12 @@ spec:
       template:
         spec:
           restartPolicy: OnFailure
+          automountServiceAccountToken: false
           securityContext:
             # The serving pod runs as root, so the cache is root-owned.
             runAsUser: 0
-          # Pruning is most useful under the DiskPressure it helps clear (hostPath pins it to control-1).
+          # Under DiskPressure kubelet admits only critical pods (the openebs-hostpath PVCs pin it to control-1).
+          priorityClassName: system-cluster-critical
           tolerations:
             - key: node.kubernetes.io/disk-pressure
               operator: Exists
@@ -210,7 +209,11 @@ spec:
   # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
   # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
   # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:8649354473843f477a96d3aa659d0ae56bcc7df743d2d02d52aaa318178ac881
+  image: vllm/vllm-openai-rocm:nightly@sha256:9cef62361792bd9cc621725c3af799993b6a68b6b62e3778dcf9b65ff6fcd872
+  # Roll only when vllm:num_requests_running is 0; 79% of 15 min windows (7d) have an idle minute, then it rolls anyway.
+  rolloutPolicy:
+    waitForIdle: true
+    idleTimeoutSeconds: 900
   modelCache:
     claimName: qwen38-swift-27b-vllm-model-cache
   vllmConfig:
@@ -279,7 +282,8 @@ spec:
       mountPath: /kvoffload
     - name: dshm
       mountPath: /dev/shm
-    # Hook (resources/zz_lds_gate_impl.py): Triton W4A16 tiles and UltraQuant fixes; drop once upstream has both.
+    # Hook (resources/zz_lds_gate_impl.py): Triton W4A16 tiles and UltraQuant fixes (drop once upstream has both)
+    # and the /dev/shm offload-region cleanup (drop once vllm#51730 reaps orphaned regions; tiering has no unlink).
     - name: lds-gate-patch
       mountPath: /usr/local/lib/python3.12/dist-packages/zz_lds_gate.pth
       subPath: zz_lds_gate.pth
@@ -338,7 +342,7 @@ spec:
     - "64"
     # No --language-model-only: Hermes uses the vision tower.
     # CPU tier 12Gi (~712K tokens); 22Gi only if a restart-free 7d shows hit < 0.25 or fs share > 20%.
-    # Keep the fs tier: removing it halved decode (2026-08-19); no mechanism found, unproven.
+    # Keep the fs tier: removing it halved decode; no mechanism found, unproven.
     # blocks_per_chunk 1: 8 sessions 8.4 -> 30.5 tok/s alone, 43 with --prefix-match-unit 64.
     # kv_load_failure_policy is top-level; nested it is silently ignored.
     - --kv-transfer-config

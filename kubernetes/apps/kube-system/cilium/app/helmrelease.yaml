@@ -32,8 +32,31 @@ spec:
       enabled: true
     envoy:
       enabled: false
+    # Agent-only Hubble: cilium_drop_count_total has no pod labels, so policy drops go to the agent log.
     hubble:
-      enabled: false
+      export:
+        static:
+          enabled: true
+          filePath: stdout
+          # time and node_name come out empty unless masked in.
+          fieldMask:
+            - time
+            - node_name
+            - drop_reason_desc
+            - traffic_direction
+            - source.namespace
+            - source.pod_name
+            - source.identity
+            - destination.namespace
+            - destination.pod_name
+            - destination.identity
+            - IP.source
+            - IP.destination
+            - l4
+            - egress_denied_by
+            - ingress_denied_by
+          allowList:
+            - '{"drop_reason_desc":["POLICY_DENIED","POLICY_DENY"]}'
     ipam:
       mode: kubernetes
     ipv4NativeRoutingCIDR: ${POD_CIDR}

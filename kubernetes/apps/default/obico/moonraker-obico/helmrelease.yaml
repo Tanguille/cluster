@@ -64,7 +64,7 @@ spec:
                 else
                   echo "Rendered config without auth_token; run link flow"
                 fi
-            securityContext:
+            securityContext: &sc
               allowPrivilegeEscalation: false
               capabilities:
                 drop:
@@ -81,11 +81,7 @@ spec:
               - moonraker_obico.app
               - -c
               - /opt/printer_data/config/moonraker-obico.cfg
-            securityContext:
-              allowPrivilegeEscalation: false
-              capabilities:
-                drop:
-                  - ALL
+            securityContext: *sc
             resources:
               requests:
                 cpu: 25m
@@ -141,12 +137,6 @@ spec:
               - path: /opt/moonraker-obico/moonraker_obico/bin/janus/runtime
       tmp:
         type: emptyDir
-        advancedMounts:
-          moonraker-obico:
-            app:
-              - path: /tmp
-            moonraker-proxy:
-              - path: /tmp
       config-template:
         type: configMap
         name: moonraker-obico-config

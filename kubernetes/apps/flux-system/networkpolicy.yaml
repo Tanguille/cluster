@@ -1,0 +1,39 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: flux-system-ingress-allowlist
+spec:
+  # Default-deny ingress for the namespace; egress stays default-allow.
+  # flux-system = controllers to the webhook-receiver; observability = vmagent scrapes the PodMonitors, gatus probes;
+  # network = envoy-external fronts flux-webhook, envoy-internal fronts the flux UI.
+  endpointSelector: {}
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: flux-system
+        - matchLabels:
+            io.kubernetes.pod.namespace: observability
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: konflate-ingress-toolhive
+spec:
+  # The toolhive vmcp reaches konflate /mcp (MCPServerEntry); nothing else in ai gets into flux-system.
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: konflate
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            app.kubernetes.io/name: virtualmcpserver
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

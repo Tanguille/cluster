@@ -11,6 +11,15 @@ spec:
     name: app-template
 
   values:
+    defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
+      # Image defaults to root; uid 1000 is its node user. No fsGroup: only the 0777 backup emptyDir is written.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+
     controllers:
       main:
         strategy: RollingUpdate
@@ -25,6 +34,15 @@ spec:
 
             env:
               TZ: ${TIMEZONE}
+              # node-postgres: TLS without verifying the self-signed CNPG cert.
+              PGSSLMODE: no-verify
+
+            # Entrypoint only reads secret files and starts npm; no privilege switch.
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
 
             resources:
               requests:
@@ -75,7 +93,5 @@ spec:
     persistence:
       backup:
         type: emptyDir
-        advancedMounts:
-          main:
-            main:
-              - path: /app/backend/backup-data
+        globalMounts:
+          - path: /app/backend/backup-data
