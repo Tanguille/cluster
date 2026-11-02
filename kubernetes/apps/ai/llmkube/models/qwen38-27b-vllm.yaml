@@ -227,6 +227,10 @@ spec:
     # Keep prior-turn reasoning in context.
     - --chat-template-kwargs
     - '{"preserve_thinking": true}'
+    # The auto list minus libhalo and libr3d (gfx1151, gfx11 only), which warn at every start. A library not named is
+    # not loaded, so after a bump compare with the "--kernels ... [auto]" line of an unpinned boot.
+    - --kernels
+    - libavx,libr4d,spechub,libref
   nodeSelector:
     amd.com/gpu: "true"
   podSecurityContext:
@@ -240,6 +244,9 @@ spec:
     cpu: "2"
     # Pins 19 tier + 4.7 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); 27.6 GiB working set at 8 sessions.
     memory: 32Gi
+    # The engine warns when it pins over 80% of the limit (27 of 32 GiB). A ceiling, not a reservation: control-1's
+    # requests are full, and 64Gi would pass its 59 GiB allocatable.
+    memoryLimit: 48Gi
   endpoint:
     port: 8000
   probeOverrides:

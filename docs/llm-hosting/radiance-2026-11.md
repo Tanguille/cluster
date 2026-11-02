@@ -79,7 +79,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   changes. The `.rad` is named by the checkpoint revision and the engine image digest, which replacements also write into
   `--model`, so a pod that starts first fails until the file exists instead of serving an old checkpoint or another
   engine's container. The Job then deletes the other `.rad` files and the previous checkpoint download.
-- Memory: raise the host tier only with node RAM; the pod's working set is 27.6 GiB of its 32 GiB.
+- Memory: raise the host tier only with node RAM; the pod's working set is 27.6 GiB of its 32 GiB request (48 GiB limit).
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert
   boots with empty caches.
