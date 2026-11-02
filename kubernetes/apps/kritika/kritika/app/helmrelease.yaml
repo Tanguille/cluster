@@ -16,7 +16,6 @@ spec:
     podLabels:
       egress.home.arpa/postgres: allow
     # Direct to postgres16-rw: kritika sets startup params pgbouncer rejects.
-    # Chart 0.0.116: runner Jobs no longer take a database role; they write through the egress gateway.
     database:
       owner:
         existingSecret: &secret kritika-secret
