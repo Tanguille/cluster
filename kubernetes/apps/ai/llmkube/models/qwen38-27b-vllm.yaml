@@ -116,11 +116,11 @@ spec:
               find /models -mindepth 1 -maxdepth 1 -type d ! -path "$$src" -exec rm -rf {} +
               ls -l /out
           resources:
-            # control-1 has ~2.2 GiB requestable beside the 32Gi engine; conversions peaked at 1.15 GiB working set
-            # (coarse samples of a 45 s run).
+            # control-1's memory requests are full (136 MiB left on 2026-11-02), so a token request lets it schedule;
+            # the limit covers the 1.15 GiB peak working set (coarse samples of a 45 s run).
             requests:
               cpu: "2"
-              memory: 1Gi
+              memory: 64Mi
             limits:
               memory: 4Gi
           volumeMounts:
