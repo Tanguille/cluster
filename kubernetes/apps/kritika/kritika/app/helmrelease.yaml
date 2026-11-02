@@ -167,12 +167,11 @@ spec:
             vllm/model_executor/kernels/linear/mixed_precision,
             vllm/v1/kv_offload,
             vllm/distributed/kv_transfer/kv_connector/v1/offloading,
-            vllm/model_executor/layers/mamba,
-            vllm/v1/core,
-            vllm/v1/worker,
-            vllm/platforms/rocm.py,
-            vllm/config, docker/Dockerfile.rocm,
+            vllm/model_executor/layers/mamba, vllm/v1/core, vllm/v1/worker,
+            vllm/platforms/rocm.py, vllm/config, docker/Dockerfile.rocm,
             docker/Dockerfile.rocm_base. Read the patch of each hit with gh api
+            repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
+            GLM and Kimi changes. Read the patch of each hit with gh api
             repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
             GLM and Kimi changes. Check each hit against every symbol the hook
             patches and every flag in the config: a moved symbol fails the
