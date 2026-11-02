@@ -7,10 +7,13 @@ metadata:
 spec:
   timeout: 15m
   interval: 30m
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: nextcloud
-
+    spec:
+      interval: 1h
+      ref:
+        tag: 9.4.1
+      url: oci://ghcr.io/nextcloud/helm/nextcloud
   # Chart has no fromAddressKey in existingSecret, so inject the secret value here.
   valuesFrom:
     - kind: Secret
@@ -61,7 +64,6 @@ spec:
                   values:
                     - control-1
     image:
-      # Spelled out so Renovate tracks the digest.
       repository: nextcloud
       tag: 35.0.2-fpm@sha256:a04e3bb8df30769a5edbb01434893d3873a11e6e42a53b984c06e27944a014c2
 

@@ -42,7 +42,10 @@ jobs:
           restore-keys: deadvalues-
 
       - name: Dead values
-        uses: guarnz/deadvalues@6ed0a88f1513ea7c3c93b3bb9a4b4fc71b951b25 # v0.1.9
+        uses: guarnz/deadvalues@feac43f3d0c03046cc84c26cbac79c697ce841bf # v0.2.0-rc.1
         with:
-          # changed-since misses OCIRepository-only bumps; scan current charts without that filter.
+          # A SHA-pinned action installs the latest release unless told otherwise; pin the binary to the same tag.
+          # renovate: datasource=github-releases depName=guarnz/deadvalues
+          version: v0.2.0-rc.1
+          # Scan configured versions; migrations can remove values required by the old chart.
           args: scan kubernetes/apps --details --fail-on dead

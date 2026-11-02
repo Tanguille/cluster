@@ -6,10 +6,12 @@ metadata:
   name: &app smartctl-exporter
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: smartctl-exporter
-
+    spec:
+      ref:
+        tag: 0.19.0
+      url: oci://ghcr.io/prometheus-community/charts/prometheus-smartctl-exporter
   values:
     fullnameOverride: *app
     resources:
