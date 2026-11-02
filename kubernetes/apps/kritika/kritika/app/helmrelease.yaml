@@ -24,10 +24,6 @@ spec:
         existingSecret: *secret
         key: app-uri
         role: kritik_app
-      runner:
-        existingSecret: *secret
-        key: runner-uri
-        role: kritik_runner
     # Runner Jobs parse untrusted PR content and run model-directed code.
     # Keys live under podTemplate.spec; top-level runtimeClassName and resources are ignored silently and runner pods lose gVisor.
     runner:
@@ -120,7 +116,7 @@ spec:
         llm:
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
-          apiKey: { env: LLM_API_KEY }
+          apiKey: *** env: LLM_API_KEY }
       review:
         model: llm/omniroute
         # agentgateway retries qwen-3.8 only for bodies <=64 KiB, reviews are ~490 KB; drop once agentgateway#4140 ships.
@@ -171,8 +167,11 @@ spec:
             vllm/model_executor/kernels/linear/mixed_precision,
             vllm/v1/kv_offload,
             vllm/distributed/kv_transfer/kv_connector/v1/offloading,
-            vllm/model_executor/layers/mamba, vllm/v1/core, vllm/v1/worker,
-            vllm/platforms/rocm.py, vllm/config, docker/Dockerfile.rocm,
+            vllm/model_executor/layers/mamba,
+            vllm/v1/core,
+            vllm/v1/worker,
+            vllm/platforms/rocm.py,
+            vllm/config, docker/Dockerfile.rocm,
             docker/Dockerfile.rocm_base. Read the patch of each hit with gh api
             repos/vllm-project/vllm/commits/SHA; skip XPU, CUDA-only, DeepSeek,
             GLM and Kimi changes. Check each hit against every symbol the hook
@@ -185,7 +184,7 @@ spec:
             feature check passes. Any change to a file the hook patches is at
             least a P1 needs-clone-test finding. Also flag KV pool sizing or
             page size changes, Qwen3.5 or Qwen3-Next config imports, a ROCm
-            base or torch bump, and anything that makes a hook patch
+            base image or torch bump, and anything that makes a hook patch
             redundant. Start with a verdict: nothing relevant, needs a clone
             test, or needs a hook change. Then list each relevant commit as sha,
             title, why it matters here, and what to measure (boot KV cache
