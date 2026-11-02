@@ -79,8 +79,11 @@ spec:
       logCollector:
         enabled: false
       csi:
+        # Off: the CephFS kernel client puts the replica-read flag on writes too (ceph_osdc_new_request), and
+        # Ceph v21 OSDs reject those with EINVAL, which writeback drops silently, so files read back as zeros.
+        # ceph-csi applies it per cluster after any driver mount option, so RBD loses local reads as well.
         readAffinity:
-          enabled: true
+          enabled: false
       dashboard:
         urlPrefix: /
         ssl: false
