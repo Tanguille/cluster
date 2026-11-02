@@ -146,8 +146,9 @@ spec:
   # radiance in the vllm runtime's own-launcher mode (command set): the ModelRouter maps only llamacpp and vllm.
   runtime: vllm
   command: [radiance]
-  parallelSlots: 8
-  # After a bump, run bench/qualitygate.py on an unrouted clone (baseline: docs/llm-hosting/radiance-2026-11.md).
+  parallelSlots: 7
+  # After a bump, run bench/qualitygate.py and prodshape.py --levels 8 (0 preemptions: a bump can shrink the KV pool
+  # under the 7-slot cap) on an unrouted clone (baseline: docs/llm-hosting/radiance-2026-11.md).
   image: docker.io/stilldeadcode/radiance:1.16.0@sha256:b1017ce0e615dbd16370f84724aac1f0b999a2cfb769d1b2f49d2dd7c0913cd1
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
@@ -181,8 +182,7 @@ spec:
     - /rad/swift15-27b-w4a16-awq.revision.engine.rad
     - --served-model-name
     - qwen-3.8
-    # Each slot reserves ~0.29 GiB of recurrent state from the KV pool; with MTP, 8 slots preempted and stalled at 8
-    # sessions, 7 keeps clear and queues the 8th.
+    # With MTP, 8 slots preempt and stall at 8 sessions (docs/llm-hosting/radiance-2026-11.md); 7 queues the 8th.
     - --max-num-seqs
     - "7"
     - --max-model-len
