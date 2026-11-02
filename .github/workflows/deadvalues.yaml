@@ -49,3 +49,8 @@ jobs:
           # pull_request base.sha is the stale merge-base.
           base: HEAD^1
           fail-on-scan: dead
+          # kritika 0.0.116 drops database.runner (runners now write through the egress gateway),
+          # while 0.0.115 fails to render without it: the diff can neither analyze the bump
+          # (breaking) nor the values fix (baseline render error). Skip the app until the
+          # values-only state is the baseline on main.
+          skip: kubernetes/apps/kritika/kritika/app
