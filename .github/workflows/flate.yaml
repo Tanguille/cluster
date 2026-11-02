@@ -36,7 +36,7 @@ jobs:
         name: Install Flate (main)
         run: |
           mkdir -p "$RUNNER_TEMP/flate-main"
-          docker create --name flate-main ghcr.io/home-operations/flate@sha256:8a491e90ef5cec3918c157a14f145c809ffb56e3f7056444c98404024891ad38 # main 0d32dd7
+          docker create --name flate-main ghcr.io/home-operations/flate@sha256:47f7e536115d7f22edf7318effc3aa3f76948cce31f04726891aa6da754b7ece # main d806d58
           docker cp flate-main:/flate "$RUNNER_TEMP/flate-main/flate"
           echo "$RUNNER_TEMP/flate-main" >> "$GITHUB_PATH"
 
