@@ -78,6 +78,9 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      # Both PVCs bind where their first pod lands (WaitForFirstConsumer); keep that on the engine's node.
+      nodeSelector:
+        amd.com/gpu: "true"
       automountServiceAccountToken: false
       securityContext:
         runAsUser: 0
