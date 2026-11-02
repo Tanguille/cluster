@@ -116,7 +116,7 @@ spec:
         llm:
           type: openai
           baseUrl: "http://agentgateway.ai.svc.cluster.local:4000/v1"
-          apiKey: *** env: LLM_API_KEY }
+          apiKey: { env: LLM_API_KEY }
       review:
         model: llm/omniroute
         # agentgateway retries qwen-3.8 only for bodies <=64 KiB, reviews are ~490 KB; drop once agentgateway#4140 ships.
