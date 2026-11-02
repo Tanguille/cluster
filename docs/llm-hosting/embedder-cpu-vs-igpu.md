@@ -59,8 +59,9 @@ node-exporter's drm collector plus alerts on pinned GTT >4 GiB, MemAvailable
 <2 GiB, and missing GTT telemetry are the burst-leak backstop.
 
 `d3-nano` (same `server-vulkan` image on the same iGPU) is *not* enrolled: the
-generative model it replaced measured 32 MiB GTT after 7 h versus the embedders'
-2+ GiB, so the leak is specific to `mode: embedding`. D3 itself is unmeasured.
+generative model it replaced showed no leak (32 MiB GTT after 7 h versus the
+embedders' 2+ GiB). D3 is unmeasured; check its GTT after a day before relying on
+that.
 
 ## Alternatives considered
 

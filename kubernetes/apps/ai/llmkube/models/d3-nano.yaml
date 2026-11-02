@@ -5,7 +5,7 @@ kind: Model
 metadata:
   name: d3-nano
 spec:
-  # vLLM Semantic Router's decision model (Qwen3.5-2B fine-tune): llama-server answers its typed questions at
+  # vllm-sr/d3-nano, vLLM Semantic Router's 2B decision model: llama-server answers its typed questions at
   # /v1/systemone with per-option probabilities in one forward pass. Revision-pinned; Renovate bumps the sha via
   # the git-refs manager in .renovaterc.json5, and refreshPolicy makes the bump re-fetch.
   source: https://huggingface.co/ggml-org/vllm-d3-nano-GGUF/resolve/50dea2057df10c4b393559a155ab3bf0bc7532c6/vllm-d3-nano-Q8_0.gguf
@@ -34,6 +34,10 @@ spec:
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
+  # A decision model must take the whole prompt in one ubatch (default 512). A 2000-character log is ~1300
+  # tokens with the question; denser text past 2048 fails and qwen-3.8-auto falls back.
+  batchSize: 2048
+  uBatchSize: 2048
 
   # Both iGPU nodes advertise 2 squat.ai/dri slots; amd.com/igpu narrows it to
   # those two nodes.
