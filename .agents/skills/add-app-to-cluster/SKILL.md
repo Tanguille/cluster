@@ -90,7 +90,3 @@ Show the user the created files and get confirmation before committing. Stage th
 directory and the namespace `kustomization.yaml` by path, commit as
 `feat(<namespace>): add <app-name>`, then push and open the PR per the
 [atomic finish rule](../handoff/SKILL.md#the-atomic-finish-rule).
-
-## Anti-patterns
-
-- Pointing a dedicated chart at the shared `app-template` source — inline its own OCI source instead; keep a separate OCIRepository only when shared or otherwise required.

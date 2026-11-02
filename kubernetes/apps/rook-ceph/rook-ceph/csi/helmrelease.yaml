@@ -5,11 +5,11 @@ kind: HelmRelease
 metadata:
   name: ceph-csi-drivers
 spec:
+  # Pair with the ceph-csi-operator subchart bundled by ../app/helmrelease.yaml; read its Chart.yaml dependencies before bumping.
   chart:
     kind: OCIRepository
     spec:
       ref:
-        # Pair with the ceph-csi-operator subchart bundled by ../app/helmrelease.yaml; read its Chart.yaml dependencies before bumping.
         tag: 1.1.0
       url: oci://ghcr.io/home-operations/charts-mirror/ceph-csi-drivers
   interval: 1h

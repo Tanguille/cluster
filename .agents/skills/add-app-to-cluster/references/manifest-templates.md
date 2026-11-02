@@ -46,9 +46,6 @@ resources:
 
 ## app/helmrelease.yaml (dedicated OCI chart)
 
-Keep `ref` before `url`: the Renovate regex manager for inline charts relies on
-that order (`scripts/test_renovate_inline_oci.py` checks it).
-
 ```yaml
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
@@ -68,8 +65,6 @@ spec:
 ```
 
 ## app/helmrelease.yaml (app-template)
-
-Retain `chartRef` for this shared source instead of duplicating its configuration.
 
 ```yaml
 ---

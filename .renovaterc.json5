@@ -149,7 +149,7 @@
       customType: "regex",
       managerFilePatterns: ["/helmrelease\\.yaml$/"],
       matchStrings: [
-        "\\n    kind: OCIRepository\\n    spec:\\n(?:      interval: \\S+\\n)?      ref:\\n(?:        #.*\\n)?        tag: (?<currentValue>\\S+)\\n      url: oci://(?<depName>\\S+)"
+        "\\n    kind: OCIRepository\\n    spec:\\n(?:      interval: \\S+\\n)?      ref:\\n        tag: (?<currentValue>\\S+)\\n      url: oci://(?<depName>\\S+)"
       ],
       depTypeTemplate: "HelmChart",
       datasourceTemplate: "docker"
