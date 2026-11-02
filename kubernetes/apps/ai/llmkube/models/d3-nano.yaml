@@ -29,14 +29,13 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  # /v1/systemone needs llama.cpp b11361 or later; this digest is build 12030.
+  # /v1/systemone needs llama.cpp b11361 or later; this digest is b12030.
   image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:dfb1ba32020a962b4aba4eab5de587907b044daff0d043b3652e15ca3b8895a1
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
-  # A decision model must take the whole prompt in one ubatch (default 512). A 2000-character log is ~1300
-  # tokens with the question; denser text past 2048 fails and qwen-3.8-auto falls back.
-  batchSize: 2048
+  # vllm-d3 evaluates the whole prompt in one ubatch (default 512; batch already defaults to 2048). A
+  # 2000-character log is ~1300 tokens with the question; denser text past 2048 fails and qwen-3.8-auto falls back.
   uBatchSize: 2048
 
   # Both iGPU nodes advertise 2 squat.ai/dri slots; amd.com/igpu narrows it to
