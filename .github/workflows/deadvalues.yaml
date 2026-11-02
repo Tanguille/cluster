@@ -4,8 +4,8 @@ name: Dead Values
 
 # Helm silently ignores values keys a chart does not read: typos, keys a chart
 # dropped, or keys an AI agent invented. Flux stays green while the key does
-# nothing. deadvalues renders every changed chart and reports the keys with no
-# effect; a chart bump that kills a key (BREAKING) fails the pull request.
+# nothing. deadvalues renders every configured chart and reports the keys with no
+# effect; a chart bump that leaves a configured key dead fails the pull request.
 on:
   pull_request:
     branches: ["main"]
@@ -44,11 +44,8 @@ jobs:
       - name: Dead values
         uses: guarnz/deadvalues@feac43f3d0c03046cc84c26cbac79c697ce841bf # v0.2.0-rc.1
         with:
-          path: kubernetes/apps
-          # HEAD^1 is main in the PR merge checkout (and the previous commit on push); the default
-          # pull_request base.sha is the stale merge-base.
-          base: HEAD^1
           # A SHA-pinned action installs the latest release unless told otherwise; pin the binary to the same tag.
           # renovate: datasource=github-releases depName=guarnz/deadvalues
           version: v0.2.0-rc.1
-          fail-on-scan: dead
+          # Scan configured versions; migrations can remove values required by the old chart.
+          args: scan kubernetes/apps --details --fail-on dead
