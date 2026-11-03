@@ -43,6 +43,8 @@ spec:
               PROWLARR__SERVER__ALLOWEDHOSTS: prowlarr,prowlarr.media,prowlarr.media.svc,prowlarr.media.svc.cluster.local,prowlarr.${SECRET_DOMAIN}
               PROWLARR__AUTH__APIKEY: ${PROWLARR_API_KEY}
               TZ: ${TIMEZONE}
+              # krb5 on musl isn't thread-safe and Npgsql's default GSS probe segfaults on it (exit 139).
+              PGGSSENCMODE: disable
             envFrom:
               - secretRef:
                   name: prowlarr-secret
