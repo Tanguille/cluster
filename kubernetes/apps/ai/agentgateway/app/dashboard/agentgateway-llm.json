@@ -12,9 +12,9 @@
   },
   "links": [
     {
-      "title": "vLLM",
+      "title": "Radiance engine",
       "type": "link",
-      "url": "/d/llmkube-vllm",
+      "url": "/d/radiance",
       "icon": "dashboard",
       "keepTime": true
     }
@@ -1101,57 +1101,6 @@
       }
     },
     {
-      "id": 17,
-      "type": "timeseries",
-      "title": "vLLM queue time",
-      "description": "Time requests wait in vLLM's scheduler before running.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "histogram_quantile(0.95, sum by (le, model_name) (rate(vllm:request_queue_time_seconds_bucket[$__rate_interval])))",
-          "legendFormat": "p95 {{model_name}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "min": 0,
-          "custom": {
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": 300000
-          }
-        }
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "calcs": ["mean", "max"],
-          "sortBy": "Max",
-          "sortDesc": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 44,
-        "w": 8,
-        "h": 8
-      }
-    },
-    {
       "id": 18,
       "type": "timeseries",
       "title": "Gateway overhead",
@@ -1205,9 +1154,9 @@
         }
       },
       "gridPos": {
-        "x": 8,
+        "x": 0,
         "y": 44,
-        "w": 8,
+        "w": 12,
         "h": 8
       }
     },
@@ -1265,9 +1214,9 @@
         }
       },
       "gridPos": {
-        "x": 16,
+        "x": 12,
         "y": 44,
-        "w": 8,
+        "w": 12,
         "h": 8
       }
     },
@@ -1655,153 +1604,6 @@
         "y": 70,
         "w": 24,
         "h": 7
-      }
-    },
-    {
-      "id": 38,
-      "type": "stat",
-      "title": "Tokens from host + disk tiers",
-      "description": "Share of cached prompt tokens served by the CPU offload (host) and fs (disk) tiers over the range; the rest came from the GPU prefix cache (device). Counted at admission from vllm:prompt_tokens_cached_by_source (vllm#56318).",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "targets": [
-        {
-          "expr": "sum(increase(vllm:prompt_tokens_cached_by_source_total{source!=\"device\"}[$__range])) / sum(increase(vllm:prompt_tokens_cached_by_source_total[$__range]))",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 1,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          }
-        }
-      },
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 77,
-        "w": 6,
-        "h": 6
-      }
-    },
-    {
-      "id": 39,
-      "type": "timeseries",
-      "title": "Cached prompt tokens/s by tier",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "targets": [
-        {
-          "expr": "sum by (source) (rate(vllm:prompt_tokens_cached_by_source_total[$__rate_interval]))",
-          "legendFormat": "{{source}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "min": 0,
-          "custom": {
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": 300000,
-            "stacking": {
-              "mode": "normal"
-            }
-          }
-        }
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "calcs": ["mean", "max"],
-          "sortBy": "Max",
-          "sortDesc": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 77,
-        "w": 18,
-        "h": 6
-      }
-    },
-    {
-      "id": 40,
-      "type": "timeseries",
-      "title": "Share of cached tokens by tier",
-      "description": "Each tier's part of all cached prompt tokens. Host and disk read 0 while the GPU cache covers the prefix; they matter after eviction or a restart.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "targets": [
-        {
-          "expr": "sum by (source) (rate(vllm:prompt_tokens_cached_by_source_total[$__rate_interval])) / scalar(sum(rate(vllm:prompt_tokens_cached_by_source_total[$__rate_interval])))",
-          "legendFormat": "{{source}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "min": 0,
-          "max": 1,
-          "custom": {
-            "fillOpacity": 15,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": 300000,
-            "stacking": {
-              "mode": "normal"
-            }
-          }
-        }
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "calcs": ["mean", "max"],
-          "sortBy": "Mean",
-          "sortDesc": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 83,
-        "w": 24,
-        "h": 8
       }
     }
   ]

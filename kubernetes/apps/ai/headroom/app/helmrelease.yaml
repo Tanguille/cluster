@@ -53,7 +53,7 @@ spec:
               # The proxy default (cache) never rewrites prior turns, so older tool results, the
               # only thing worth compressing here, went through whole (0 vs 34% saved on a
               # 65K-token turn). The compressors below are deterministic, so the rewritten
-              # prefix stays byte-identical across turns and vLLM's prefix cache still hits.
+              # prefix stays byte-identical across turns and the engine's prefix cache still hits.
               HEADROOM_MODE: token
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"

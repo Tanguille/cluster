@@ -86,6 +86,18 @@
       datasourceTemplate: "github-releases"
     },
     {
+      // Versioned by the engine image, not Codeberg tags: one package and release, so a radiance group never carries
+      // only one of the two. The tag is pushed before its image is built, so the URL exists once the image does.
+      description: "radiance's GrafanaDashboard spec.url, at the engine image's version",
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
+      matchStrings: [
+        'url:\\s+"?https://codeberg\\.org/StillDeadcode/radiance/raw/tag/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/'
+      ],
+      depNameTemplate: "docker.io/stilldeadcode/radiance",
+      datasourceTemplate: "docker"
+    },
+    {
       // Only adjacent id then revision: `indentation` is the one custom group a template can use.
       description: "GrafanaDashboard grafanaCom id/revision",
       customType: "regex",
@@ -223,11 +235,19 @@
         "/vchord/",
         "/dragonfly/",
         "/flux/",
-        "/vllm/",
+        "/radiance/",
         "/llama/",
         "/obico/"
       ],
       automerge: false
+    },
+    {
+      // Releases land every 1-3 days and each roll empties the prefix cache; the dashboard moves with the engine.
+      // strict: open the PR only once the release has aged, as automerge is off and main requires no checks.
+      matchPackageNames: ["docker.io/stilldeadcode/radiance"],
+      groupName: "radiance",
+      minimumReleaseAge: "3 days",
+      internalChecksFilter: "strict"
     },
     {
       // opencode 2.x changed the server API (probes fail); hold at 1.18.x until the chart is migrated.

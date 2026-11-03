@@ -2,11 +2,12 @@
 
 [`qwen-3.8-auto.yaml`](../../kubernetes/apps/ai/agentgateway/app/models/qwen-3.8-auto.yaml) is a virtual model whose
 `callout` (agentgateway v1.7) asks D3-nano, a decision model, a `choice` question (low, medium or xhigh) at
-llama.cpp's `/v1/systemone`. `low` goes to `qwen-3.8-fast` (thinking off, instruct sampling); `medium` and `xhigh`
-go to `qwen-3.8` with that top-level `reasoning_effort`. D3 answers with per-option probabilities in one forward
-pass instead of generating text. The decision reads the first user message, minus Hermes's appended
-`<memory-context>` block, and is cached on it for 24 hours, so a conversation keeps one effort and the 27B's prefix
-cache stays warm. If the callout fails, plain `qwen-3.8` answers with the client's effort.
+llama.cpp's `/v1/systemone`. `low` goes to `qwen-3.8-fast` (thinking off, instruct sampling); `medium` and `xhigh` go
+to `qwen-3.8`. The effort is merged into the client's `chat_template_kwargs` (`none` for low), since radiance lets the
+kwargs win over a top-level `reasoning_effort`. D3 answers with per-option probabilities in one forward pass instead
+of generating text. The decision reads the first user message, minus Hermes's appended `<memory-context>` block, and
+is cached on it for 24 hours, so a conversation keeps one effort and the 27B's prefix cache stays warm. If the callout
+fails, plain `qwen-3.8` answers with the client's effort.
 
 D3-nano runs on llama.cpp directly, not under the vLLM Semantic Router it ships with (#5879): the router's
 golden-reference check needs AVX-512 BF16, which no node has, and it requires a runtime contract llama.cpp does

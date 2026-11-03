@@ -48,4 +48,5 @@ jobs:
           # renovate: datasource=github-releases depName=guarnz/deadvalues
           version: v0.2.0-rc.1
           # Scan configured versions; migrations can remove values required by the old chart.
-          args: scan kubernetes/apps --details --fail-on dead
+          # xmrig's HelmReleases come from a ResourceSet, which deadvalues lists as not supported yet.
+          args: scan kubernetes/apps --details --fail-on dead --skip xmrig

@@ -36,11 +36,14 @@ spec:
         ttl: >-
           callout.body.answers.effort.choice in ["low", "medium", "xhigh"] ? duration("24h") : null
         maxEntries: 1024
-      # Top-level effort, not chat_template_kwargs: vLLM lets it win, and Hermes sends one on every turn, so low
-      # must send "none" too.
+      # In chat_template_kwargs, not top-level: radiance lets the kwargs win, and Hermes sends an effort on every turn.
+      # Merged over the client's kwargs, so only the effort changes. "none" turns thinking off on its own, even beside
+      # a client's enable_thinking: true, so qwen-3.8-fast's default (applied only to an empty map) is not needed.
       transformation:
         model: 'callout.body.answers.effort.choice == "low" ? "qwen-3.8-fast" : "qwen-3.8"'
-        reasoning_effort: 'callout.body.answers.effort.choice == "low" ? "none" : callout.body.answers.effort.choice'
+        chat_template_kwargs: >-
+          (has(llmRequest.chat_template_kwargs) ? llmRequest.chat_template_kwargs : {}).merge({"reasoning_effort":
+          callout.body.answers.effort.choice == "low" ? "none" : callout.body.answers.effort.choice})
       fallback:
         modelRef:
           # The ModelRouter's generated model for qwen-3.8.
