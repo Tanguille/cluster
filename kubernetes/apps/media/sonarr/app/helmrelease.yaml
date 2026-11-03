@@ -39,6 +39,8 @@ spec:
               SONARR__LOG__ANALYTICSENABLED: "false"
               SONARR__AUTH__APIKEY: ${SONARR_API_KEY}
               TZ: ${TIMEZONE}
+              # krb5 on musl isn't thread-safe and Npgsql's default GSS probe segfaults on it (exit 139).
+              PGGSSENCMODE: disable
             envFrom:
               - secretRef:
                   name: sonarr-secret
@@ -120,25 +122,9 @@ spec:
           - name: envoy-internal
             namespace: network
 
-    configMaps:
-      krb5:
-        data:
-          # Npgsql tries GSSAPI per connection; krb5 hostname canonicalization calls musl's
-          # non-reentrant gethostbyname, and concurrent calls double-free its buffer (exit 139).
-          krb5.conf: |
-            [libdefaults]
-              dns_canonicalize_hostname = false
-
     persistence:
       config:
         existingClaim: *app
-
-      krb5:
-        type: configMap
-        identifier: krb5
-        globalMounts:
-          - path: /etc/krb5.conf
-            subPath: krb5.conf
 
       tmp:
         type: emptyDir
