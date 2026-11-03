@@ -74,8 +74,11 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 - Alerts: `LLMDecodeStepLatched` is the only slow-band guard (no liveness band probe); `LLMPrefixCacheHitRateLow` reads
   `radiance:linear_cached_tokens_total` (attention hits without a state snapshot still re-prefill) and its 0.4 threshold is
   provisional.
-- Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag; Renovate bumps it with the image in one
-  `radiance` group, 3 days after a release.
+- Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag. Renovate versions it by the engine image,
+  so both move in one `radiance` PR, opened only once the release is 3 days old (`internalChecksFilter: strict`).
+- Cutover, once after this migration merges: the live InferenceService carries `kustomize.toolkit.fluxcd.io/reconcile=disabled`
+  from the trial, so Flux skips it. Wait for `qwen38-27b-rad-convert` to finish, then
+  `kubectl -n ai annotate isvc qwen38-27b-vllm kustomize.toolkit.fluxcd.io/reconcile-`; the idle-gated rollout does the rest.
 - Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
