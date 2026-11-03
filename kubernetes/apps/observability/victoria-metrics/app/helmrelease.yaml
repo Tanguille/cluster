@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: &app victoria-metrics
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: *app
+    spec:
+      ref:
+        tag: 0.97.1
+      url: oci://ghcr.io/victoriametrics/helm-charts/victoria-metrics-k8s-stack
   interval: 1h
   values:
     fullnameOverride: *app
@@ -157,10 +160,6 @@ spec:
       enabled: false
 
     kubelet:
-      vmScrapes:
-        # /metrics/resource duplicates the container CPU/memory series cAdvisor already provides
-        resources:
-          enabled: false
       vmScrape:
         spec:
           interval: 60s
@@ -362,13 +361,6 @@ spec:
       spec:
         securityContext: *vm-security-context
         priorityClassName: homelab-critical # sole scrape path
-        # vllm:cache_config_info carries 43 labels, past vmsingle's 40-label cap, so every
-        # 30s scrape is rejected and logged: it fired RowsRejectedOnIngestion and TooManyLogs
-        # while never being stored.
-        inlineRelabelConfig:
-          - action: drop
-            sourceLabels: [__name__]
-            regex: vllm:cache_config_info
         resources:
           requests:
             cpu: 100m

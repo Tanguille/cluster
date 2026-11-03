@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: crowdsec
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: crowdsec
+    spec:
+      ref:
+        tag: 0.24.2
+      url: oci://ghcr.io/crowdsecurity/helm-charts/crowdsec
   interval: 1h
   # Chart's CA renews with the leaves (day 60) and cert-manager >=1.18 rotates its key, so leaves
   # signed by the old key break lapi (unknown certificate authority); keep the key, renew rarely.

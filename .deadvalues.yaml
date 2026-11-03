@@ -7,6 +7,9 @@ apiVersions:
 
 ignore:
   # Equals the chart default, but Renovate only tracks an image with both repository and tag.
+  - keys:
+      - "**.image.registry"
+      - "**.image.repository"
   - app: rook-ceph-cluster
     keys:
       - cephImage.repository

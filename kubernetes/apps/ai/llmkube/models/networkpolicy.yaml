@@ -5,7 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: inference-ingress-allowlist
 spec:
-  # llmkube InferenceService pods (vLLM :8000, llama.cpp :8080) are
+  # llmkube InferenceService pods (radiance :8000, llama.cpp :8080) are
   # unauthenticated; agentgateway is the only sanctioned front door (keys,
   # routing, admission), with its embedding cache in front of the embedder.
   # Expected ingress: agentgateway, embedding-cache, vmagent scrapes, kubelet

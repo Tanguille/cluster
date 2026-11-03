@@ -291,9 +291,12 @@ def ask(prompt, salt):
 
 
 def pool_tokens():
-    """GPU KV pool size in tokens, from vllm:cache_config_info's kv_cache_size_tokens label."""
+    """GPU KV pool size in tokens: radiance's kv_cache_max_tokens gauge, else vLLM's cache_config_info label."""
     with urllib.request.urlopen(A.base + "/metrics", timeout=10) as r:
-        return int(re.search(r'kv_cache_size_tokens="(\d+)"', r.read().decode()).group(1))
+        body = r.read().decode()
+    m = (re.search(r"^radiance:kv_cache_max_tokens(?:\{[^}]*\})? ([0-9.e+]+)$", body, re.M)
+         or re.search(r'kv_cache_size_tokens="(\d+)"', body))
+    return int(float(m.group(1)))
 
 
 def cache_probe(rng, label, counter, salt, between=lambda: None):

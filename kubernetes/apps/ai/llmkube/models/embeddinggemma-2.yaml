@@ -32,7 +32,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:dfb1ba32020a962b4aba4eab5de587907b044daff0d043b3652e15ca3b8895a1
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:1359b4e1b3896bc922563a1bb4391afaaf41f4607dfd556627187fd689778853
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch from queueing behind memini (bench: 7.43s median for 194
   # 400-char items isolated, 120s is the toolhive timeout). Vulkan warmup hangs
@@ -68,9 +68,9 @@ spec:
       requiredDuringSchedulingIgnoredDuringExecution:
         - labelSelector:
             matchLabels:
-              app: qwen35-2b
+              app: d3-nano
           topologyKey: kubernetes.io/hostname
-  # Render/video groups for /dev/dri (Vulkan path); mirrored by qwen35-2b.
+  # Render/video groups for /dev/dri (Vulkan path); mirrored by d3-nano.
   podSecurityContext:
     runAsUser: 0
     runAsGroup: 0

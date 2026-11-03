@@ -28,7 +28,17 @@ jobs:
           persist-credentials: false
 
       - name: Install Flate
+        id: install
         uses: home-operations/flate/action@631b76b69c4e58c6f4d1cb01e23616fa61aebafa # v0.6.5
+
+      # Drop once released (home-operations/flate#1377): v0.6.5 renders inline chart.kind OCIRepository as empty.
+      - if: ${{ steps.install.outputs.version == '0.6.5' }}
+        name: Install Flate (main)
+        run: |
+          mkdir -p "$RUNNER_TEMP/flate-main"
+          docker create --name flate-main ghcr.io/home-operations/flate@sha256:47f7e536115d7f22edf7318effc3aa3f76948cce31f04726891aa6da754b7ece # main d806d58
+          docker cp flate-main:/flate "$RUNNER_TEMP/flate-main/flate"
+          echo "$RUNNER_TEMP/flate-main" >> "$GITHUB_PATH"
 
       # All three diffs share one job: the first render warms flate's on-disk cache,
       # so the other two are near-free. Separate jobs each render from cold.

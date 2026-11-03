@@ -37,4 +37,13 @@ drop index concurrently if exists content_popularity_idx;
 \else
 \echo 'bitmagnet schema is not version 20: index drops skipped, re-check prune-maintenance.sql'
 \endif
+
+-- A failed concurrent rebuild leaves an invalid copy that still takes writes.
+select format('drop index concurrently %s', indexrelid::regclass) from pg_index
+where indrelid = 'torrent_files'::regclass and not indisvalid \gexec
+-- Cascading deletes bloat torrent_files' indexes (1.1x the heap fresh, 3.5x measured); rebuild past 2x.
+select pg_indexes_size('torrent_files') > 2 * pg_relation_size('torrent_files') as rebuild \gset
+\if :rebuild
+reindex table concurrently torrent_files;
+\endif
 \set ON_ERROR_STOP on

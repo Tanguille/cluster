@@ -155,6 +155,11 @@ names an installer tag that does not exist yet. Dispatching on the branch closes
 the workflow checks out that ref, so it builds that branch's `ARG KERNEL_VERSION` against that
 branch's tuppr CR, and the merge only ratifies an image that is already published.
 
+After the merge, check whether the new kernel carries libceph `d6c7a5fcd088` ("only set
+read_from_replica on read requests": `net/ceph/osd_client.c` gates `read_from_replica` on
+`CEPH_OSD_FLAG_READ`). Once it does, re-enable CSI `readAffinity` per the comment in
+`kubernetes/apps/rook-ceph/rook-ceph/cluster/helmrelease.yaml`.
+
 Renovate opens a PR bumping `ARG KERNEL_VERSION`. The tarball is verified by Greg KH's
 committed PGP key, so there is no second field to update. The key's fingerprint was
 cross-checked against the one kernel.org publishes on <https://www.kernel.org/signature.html>:

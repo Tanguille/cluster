@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: rook-ceph-cluster
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: rook-ceph-cluster
+    spec:
+      ref:
+        tag: 1.21.1
+      url: oci://ghcr.io/rook/rook-ceph-cluster
   interval: 1h
   values:
     monitoring:
@@ -79,8 +82,14 @@ spec:
       logCollector:
         enabled: false
       csi:
+        # Off: the CephFS kernel client puts the replica-read flag on writes too (ceph_osdc_new_request), and
+        # Ceph v21 OSDs reject those with EINVAL (tracker 73997), which writeback drops silently, so files read
+        # back as zeros. ceph-csi applies it per cluster after any driver mount option, so RBD loses local reads
+        # as well (replicas served 23% of reads). Turn it back on once the kernel in docker/talos-kernel carries libceph
+        # d6c7a5fcd088 "only set read_from_replica on read requests" (v7.4-rc1, Cc stable; not in 7.3.1), then
+        # scale every CephFS user to 0 and back so the volumes remount.
         readAffinity:
-          enabled: true
+          enabled: false
       dashboard:
         urlPrefix: /
         ssl: false

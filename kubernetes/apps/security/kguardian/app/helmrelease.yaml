@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: kguardian
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: kguardian
+    spec:
+      ref:
+        tag: 1.29.2
+      url: oci://ghcr.io/kguardian-dev/charts/kguardian
   interval: 1h
   # Chart omits app.kubernetes.io/name on the broker Service that its ServiceMonitor selects (0 targets); add it back.
   postRenderers:
@@ -84,7 +87,7 @@ spec:
         - name: OPENAI_BASE_URL
           value: http://agentgateway.ai.svc.cluster.local:4000/v1
         - name: OPENAI_MODEL
-          value: qwen-3.8
+          value: qwen-3.8-auto
         # From cluster-secrets via substituteFrom; stays literal in git.
         - name: OPENAI_API_KEY
           value: ${LLM_API_KEY}
