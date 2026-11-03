@@ -1,6 +1,8 @@
 ---
-# D3-nano, a decision model, picks qwen-3.8's reasoning effort from the first user message: low goes to qwen-3.8-fast
-# (no thinking, instruct sampling), medium and xhigh to qwen-3.8 at that effort. The callout is cached on that
+# D3-nano, a decision model, picks qwen-3.8's reasoning effort from the first user message. An unsure low (below 0.95)
+# counts as medium: D3 rates reports like "X is not working" low at 0.6-0.9. A sure low goes to qwen-3.8-fast (no
+# thinking, instruct sampling) unless the request has tools, where no thinking loops on repeated calls, so that stays
+# on qwen-3.8 at low. Medium and xhigh go to qwen-3.8 at that effort. The callout is cached on that
 # message, so a conversation keeps one model and effort and the 27B's prefix cache stays warm. It replaces a client's
 # effort; call `qwen-3.8` for a fixed effort. If D3 fails, plain qwen-3.8 answers with the client's effort.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaymodel_v1alpha1.json
@@ -40,10 +42,14 @@ spec:
       # Merged over the client's kwargs, so only the effort changes. "none" turns thinking off on its own, even beside
       # a client's enable_thinking: true, so qwen-3.8-fast's default (applied only to an empty map) is not needed.
       transformation:
-        model: 'callout.body.answers.effort.choice == "low" ? "qwen-3.8-fast" : "qwen-3.8"'
+        model: >-
+          callout.body.answers.effort.choice == "low" && callout.body.answers.effort.probabilities.low >= 0.95 &&
+          !has(llmRequest.tools) ? "qwen-3.8-fast" : "qwen-3.8"
         chat_template_kwargs: >-
           (has(llmRequest.chat_template_kwargs) ? llmRequest.chat_template_kwargs : {}).merge({"reasoning_effort":
-          callout.body.answers.effort.choice == "low" ? "none" : callout.body.answers.effort.choice})
+          callout.body.answers.effort.choice != "low" ? callout.body.answers.effort.choice :
+          callout.body.answers.effort.probabilities.low < 0.95 ? "medium" :
+          has(llmRequest.tools) ? "low" : "none"})
       fallback:
         modelRef:
           # The ModelRouter's generated model for qwen-3.8.

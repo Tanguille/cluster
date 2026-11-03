@@ -2,8 +2,9 @@
 
 [`qwen-3.8-auto.yaml`](../../kubernetes/apps/ai/agentgateway/app/models/qwen-3.8-auto.yaml) is a virtual model whose
 `callout` (agentgateway v1.7) asks D3-nano, a decision model, a `choice` question (low, medium or xhigh) at
-llama.cpp's `/v1/systemone`. `low` goes to `qwen-3.8-fast` (thinking off, instruct sampling); `medium` and `xhigh` go
-to `qwen-3.8`. The effort is merged into the client's `chat_template_kwargs` (`none` for low), since radiance lets the
+llama.cpp's `/v1/systemone`. A `low` below 0.95 counts as `medium`. A surer `low` goes to `qwen-3.8-fast` (thinking
+off, instruct sampling) unless the request has tools, which stays on `qwen-3.8` at `low`; `medium` and `xhigh` go to
+`qwen-3.8`. The effort is merged into the client's `chat_template_kwargs` (`none` when fast), since radiance lets the
 kwargs win over a top-level `reasoning_effort`. D3 answers with per-option probabilities in one forward pass instead
 of generating text. The decision reads the first user message, minus Hermes's appended `<memory-context>` block, and
 is cached on it for 24 hours, so a conversation keeps one effort and the 27B's prefix cache stays warm. If the callout
@@ -26,5 +27,13 @@ ran with the production JSON-schema prompt on the iGPU.
 Qwen2B's misses all rated one level too low (a landlord email `low`, a nightly Postgres replica lag `medium`). The
 lowest D3 confidences were a PodDisruptionBudget explainer (medium, 0.66) and a vLLM vs llama.cpp comparison
 (xhigh, 0.66).
+
+## Why thinking off needs a sure `low`, 2026-11-03
+
+A Hermes thread reporting a broken integration repeated `execute_code` with no reasoning until the guardrail
+stopped it: 167 of 167 Hermes streaming requests that evening had zero reasoning tokens. The first message fixes the
+effort, and D3 puts such reports at `low`. On the live criteria, greetings, facts and conversions score 0.97 or more,
+simple tasks ("restart jellyfin", "check the ceph status") about 0.94, and problem reports ("kritika seems stuck",
+"Kritika is not reviewing Renovate PRs in mesh-organiser") 0.64-0.86.
 
 If D3 misjudges on real traffic, try Kev-4B (4B, same API) behind the same callout.
