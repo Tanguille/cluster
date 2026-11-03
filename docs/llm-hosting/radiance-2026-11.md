@@ -93,5 +93,6 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 
 ## Gaps against vLLM
 
-No disk tier, no `prompt_logprobs` (so no NLL gate), no `vllm:request_queue_time`, `prefix_cache_*`, `prompt_tokens_cached_by_source`
-or `cache_config_info` series, and a single maintainer shipping a release every 1-3 days.
+No disk tier, no `prompt_logprobs` (so no NLL gate), no `vllm:request_queue_time`, `vllm:prefix_cache_*`,
+`vllm:prompt_tokens_cached_by_source` or `vllm:cache_config_info` series (the `radiance:` cache series above replace them), and a
+single maintainer shipping a release every 1-3 days.
