@@ -172,8 +172,9 @@ spec:
             kubernetes/apps/ai/llmkube/models/prometheusrule.yaml. Start with a verdict: nothing
             relevant, needs a clone test, or needs a config change. Then list
             each relevant commit as sha, title, why it matters here, and what
-            to measure (boot KV cache token count, gsm8k, tools and stream
-            gates, prodshape). Never call it safe to roll untested.
+            to measure (KV pool tokens from radiance:kv_cache_max_tokens, gsm8k,
+            tools and stream gates, prodshape --levels 8 with 0 preemptions).
+            Never call it safe to roll untested.
       # Offer specialist skills on demand; path scopes otherwise inject their full text on every match.
       skills:
         scope:
