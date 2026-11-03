@@ -53,20 +53,22 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   the rerun 96.1 at 2,195 tok/s.
 - k6_v4 (int6 K, int4 V, per-32 f16 group scales, no Hadamard) passed the gate against fp8_v4: GSM8K 147 vs 146, tools 12/12,
   vision 2/2, needles 3/3 at 58K and 175K; greedy prefix agreement 62% (fp8_v4 is 100% deterministic warm vs cold), so it
-  flips near-ties. Not adopted: +12% only at 8 sessions, long-session reasoning untested. With 6 slots it fell to 55-72 at 8.
+  flips near-ties. With 6 slots it fell to 55-72 at 8. Adopted 11-03 on 1.16.0 with 8 slots after a KL run on clean docs put
+  it level with fp8_v4 (mean KL 0.004-0.006 against bf16 KV, top-1 97-98%): GSM8K 147/150, 0 preemptions, pool 514,144 tokens,
+  81-90 tok/s at 8 sessions over 3 of 4 runs. The first run after the restart read 42.6 (unexplained, not reproduced).
 - Prompt lookup alone (`--spec-ngram`) is refused for a container that declares a draft head, and on 1.15.1
   `rad-convert --max-spec 0` drops the head's weights but still declares `mtp`, so it is untested. Untested: `--prefill-interleave`.
 - Draft acceptance in production ~52-60% (`radiance:draft_acceptance_ratio`).
 
 ## Cache
 
-- Pool: 464,880 tokens of fp8_v4 KV in VRAM (25 KiB/token) with MTP and 7 slots. vLLM held 469,489 tokens (4-bit,
+- Pool: 514,144 tokens of k6_v4 KV in VRAM with MTP and 8 slots (fp8_v4 with 7 slots: 464,880). vLLM held 469,489 tokens (4-bit,
   18 KiB/token) plus a 12 GiB CPU tier and a 128 GiB fs tier. Over 7 days 16% of its prompt tokens came from those tiers.
 - Radiance has no disk tier (`--weights-disk-tier` is weights only). The host tier holds attention blocks only: `--prefix-cache-mib`
-  19456 is 750,032 tokens, about 7 sessions of 100K, pinned in node RAM. It is a mirror, so a tier near the VRAM pool adds nothing.
+  19456 is 852,304 tokens, about 8 sessions of 100K, pinned in node RAM. It is a mirror, so a tier near the VRAM pool adds nothing.
 - Resume needs a recurrent-state checkpoint. The default policy needs ~9 slots per 100K session and capped the cache at ~6
   sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots
-  still overflowed (92 `store_full` in 3 h), so `--checkpoint-slots 32`.
+  still overflowed (92 `store_full` in 3 h), and 32 did too, so `--checkpoint-slots 48`.
 - Sessions beyond that re-prefill cold: 26 s per 55K, ~45 s per 100K. Watch `radiance:prefix_cache_ckpt_evictions_by_reason_total`.
 
 ## Operations

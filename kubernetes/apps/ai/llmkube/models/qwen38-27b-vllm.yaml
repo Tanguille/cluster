@@ -185,14 +185,14 @@ spec:
     - /rad/swift15-27b-w4a16-awq.revision.engine.rad
     - --served-model-name
     - qwen-3.8
-    # With MTP, 8 slots preempt and stall at 8 sessions (docs/llm-hosting/radiance-2026-11.md); 7 queues the 8th.
+    # With MTP, 8 slots fit k6_v4's pool; fp8_v4 preempts and stalls (docs/llm-hosting/radiance-2026-11.md).
     - --max-num-seqs
-    - "7"
+    - "8"
     - --max-model-len
     - "262144"
-    # K in E4M3, V in int4: ~0.78x the fp8 cost per token at the same KL.
+    # K in int6, V in int4: ~0.69x the fp8 cost per token at the same KL.
     - --kv-cache-dtype
-    - fp8_v4
+    - k6_v4
     # Leaves 2.5 GiB VRAM free for Jellyfin (floor 1.82 GiB); the engine sizes the KV pool from the rest.
     - --gpu-headroom-mib
     - "2560"
@@ -214,9 +214,9 @@ spec:
     # One state snapshot per session; the default capped the cache at ~6 sessions of 100K.
     - --checkpoint-policy
     - tip-only
-    # 16 auto slots overflowed (store_full) under 8 agent sessions.
+    # 16 and 32 slots overflowed (store_full) under 8 agent sessions; 48 is 7.06 GiB pinned, none on the card.
     - --checkpoint-slots
-    - "32"
+    - "48"
     # Hits resume on 2048-token chunks (the default batch size); nearest re-prefills up to one chunk less, so a hit is
     # no longer bit-identical to a cold run.
     - --prefix-resume

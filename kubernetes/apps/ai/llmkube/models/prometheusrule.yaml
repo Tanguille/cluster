@@ -8,6 +8,19 @@ spec:
   groups:
     - name: qwen38-27b-vllm.rules
       rules:
+        # /health keeps answering through a wedge, so the probes cannot catch it.
+        - alert: LLMEngineStalled
+          expr: |-
+            (sum(vllm:num_requests_running{model_name="qwen-3.8"}) > 0)
+            and on()
+            (sum(rate(radiance:engine_steps_total{model_name="qwen-3.8"}[2m])) == 0)
+          for: 5m
+          annotations:
+            summary: >-
+              qwen-3.8 has {{ $value }} request(s) running but radiance ran no engine step for 5m: the step loop or the
+              card is wedged while /health still answers. Restart the pod.
+          labels:
+            severity: critical
         # Latched adds ~30 ms/step (vLLM 31 -> 62 ms, unseen on radiance); healthy M=1 is 27-35 ms, conc-4 38 ms.
         # running<2 is load-bearing. No liveness band probe, so this is the only guard.
         - alert: LLMDecodeStepLatched
