@@ -209,7 +209,7 @@ spec:
   # (prefill=True, decode=True)", no SKIPPED. If torch/Triton/aiter or the ROCm, GDN, W4A16 or KV-offload code
   # changed, run bench/qualitygate.py and bench/prodshape.py on an unrouted clone with production paused
   # (baseline: docs/llm-hosting/ttft-breakdown-2026-10.md).
-  image: vllm/vllm-openai-rocm:nightly@sha256:7148329eff7b92a33a712a11e8e27c559fdde30105e3a29f088a077f7f476737
+  image: vllm/vllm-openai-rocm:nightly@sha256:cde0b005c994fa5b724c008c8daa0ddb036ed3b27e51befc31f77519c3eab99c
   # Roll only when vllm:num_requests_running is 0; 79% of 15 min windows (7d) have an idle minute, then it rolls anyway.
   rolloutPolicy:
     waitForIdle: true
