@@ -26,10 +26,6 @@ kind: MCPToolConfig
 metadata:
   name: github
 spec:
-  # Source: github/github-mcp-server upstream catalog; exhaustive catalog, hosted endpoint exposes only the X-MCP-Toolsets subset.
-  # 2026-11-03 fence: fork_repository and create_pull_request removed — external-repo mutations
-  # (forks, PRs on upstream projects) must not be possible via MCP without explicit permission.
-  # Approved PRs on Tanguille repos go through `gh` on the VM instead. Re-add a tool = one line here.
   toolsFilter:
     - actions_get
     - actions_list
@@ -42,6 +38,7 @@ spec:
     - create_branch
     - create_gist
     - create_or_update_file
+    - create_pull_request
     - create_repository_ruleset
     - custom_properties_read
     - custom_properties_write
