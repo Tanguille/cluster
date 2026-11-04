@@ -242,12 +242,10 @@
       automerge: false
     },
     {
-      // Releases land every 1-3 days and each roll empties the prefix cache; the dashboard moves with the engine.
-      // strict: open the PR only once the release has aged, as automerge is off and main requires no checks.
+      // No age hold: the PR opens at once for Kritika's radiance-bump review, and merging stays manual (automerge off above),
+      // since each roll empties the prefix cache. The dashboard moves with the engine.
       matchPackageNames: ["docker.io/stilldeadcode/radiance"],
-      groupName: "radiance",
-      minimumReleaseAge: "3 days",
-      internalChecksFilter: "strict"
+      groupName: "radiance"
     },
     {
       // opencode 2.x changed the server API (probes fail); hold at 1.18.x until the chart is migrated.
