@@ -1,7 +1,7 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
 # Internet-exposed namespaces must not reach private ranges; a pure deny overlay, other egress stays default-allow.
-# CIDR rules never match live pods or nodes, and socketLB rewrites Service/LB IPs to backend pods first, so in-cluster traffic is unaffected except envoy-internal-tls below.
+# 10/8 is the cluster pod (10.42/16) + service (10.43/16) overlay (kube-dns 10.43.0.10) and is deliberately NOT denied; only the real LAN (192.168/16) and other RFC1918 (172.16/12) are.
 # Opt out with the pod label egress.home.arpa/lan: allow.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -17,7 +17,6 @@ spec:
     egress: false
   egressDeny:
     - toCIDRSet:
-        - cidr: 10.0.0.0/8
         - cidr: 172.16.0.0/12
         - cidr: 192.168.0.0/16
     # envoy-internal-tls only passes TLS through to the OPNsense, TrueNAS and IPMI UIs on the LAN.
