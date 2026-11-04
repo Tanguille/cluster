@@ -79,7 +79,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 - `--gpu-headroom-mib 2048`: about 22K more KV tokens, estimated. The observed whole-card low at 2560 was 1.735 GiB free, so about
   1.24 GiB now, above `DgpuVramLow`'s 1 GiB and enough for a 0.85 GB 4K DV transcode. 1536 would sit under the alert for about
   54 minutes per 36 h.
-- The tier stays 19456: control-1's requests are at 97% of allocatable, but available RAM never fell below 20.5 GiB in 7 days.
+- The tier stays 19456: control-1's requests are at 97% of allocatable, with available RAM at 10.2 GiB at its lowest under k6_v4.
 - After a roll, check pool size, whole-card free VRAM during media use and preemptions. Rollback: headroom 2560.
 
 ## Operations
