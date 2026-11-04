@@ -210,7 +210,7 @@ spec:
     - "0"
     # Host KV tier, pinned in node RAM; there is no disk tier.
     - --prefix-cache-mib
-    - "19456"
+    - "16384"
     # One state snapshot per session; the default capped the cache at ~6 sessions of 100K.
     - --checkpoint-policy
     - tip-only
@@ -245,8 +245,8 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Pins 19 tier + 7.06 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); 30.4 GiB working set at 8 sessions.
-    memory: 32Gi
+    # Pins 16 tier + 7.06 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); ~27.4 GiB working set, estimated.
+    memory: 30Gi
     # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: control-1's
     # requests are full, and 64Gi would pass its 59 GiB allocatable.
     memoryLimit: 48Gi

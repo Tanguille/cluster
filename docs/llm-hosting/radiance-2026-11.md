@@ -67,7 +67,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   469,489 tokens (4-bit, 18 KiB/token) plus a 12 GiB CPU tier and a 128 GiB fs tier. Over 7 days 16% of its prompt tokens came
   from those tiers.
 - Radiance has no disk tier (`--weights-disk-tier` is weights only). The host tier holds attention blocks only: `--prefix-cache-mib`
-  19456 is 852,304 tokens, about 8 sessions of 100K, pinned in node RAM. It is a mirror, so a tier near the VRAM pool adds nothing.
+  16384 is about 718K tokens pinned in node RAM (19456 was 852,304). It is a mirror, so a tier near the VRAM pool adds nothing.
 - Resume needs a recurrent-state checkpoint. The default policy needs ~9 slots per 100K session and capped the cache at ~6
   sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots
   still overflowed (92 `store_full` in 3 h), and 32 did too, so `--checkpoint-slots 48`.
@@ -79,8 +79,10 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 - `--gpu-headroom-mib 2048`: about 22K more KV tokens, estimated. The observed whole-card low at 2560 was 1.735 GiB free, so about
   1.24 GiB now, above `DgpuVramLow`'s 1 GiB and enough for a 0.85 GB 4K DV transcode. 1536 would sit under the alert for about
   54 minutes per 36 h.
-- The tier stays 19456: control-1's requests are at 97% of allocatable, with available RAM at 10.2 GiB at its lowest under k6_v4.
-- After a roll, check pool size, whole-card free VRAM during media use and preemptions. Rollback: headroom 2560.
+- Tier 16384 with a 30Gi request (48Gi limit): about 27.4 GiB working set, estimated. control-1's requests were at 97% of allocatable,
+  leaving 1.6 GiB schedulable, now 3.6. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
+- After a roll, check working set, pool size, whole-card free VRAM during media use, returning-chat TTFT and preemptions. Rollback:
+  headroom 2560, tier 19456 and request 32Gi together.
 
 ## Operations
 
@@ -99,7 +101,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   changes. The `.rad` is named by the checkpoint revision and the engine image digest, which replacements also write into
   `--model`, so a pod that starts first fails until the file exists instead of serving an old checkpoint or another
   engine's container. The Job then deletes the other `.rad` files and the previous checkpoint download.
-- Memory: raise the host tier only with node RAM; the pod's working set is 30.4 GiB of its 32 GiB request (48 GiB limit).
+- Memory: raise the host tier only with node RAM; see Memory budget.
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert
   boots with empty caches.
