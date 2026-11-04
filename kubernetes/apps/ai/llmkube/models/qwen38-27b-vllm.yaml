@@ -193,9 +193,9 @@ spec:
     # K in int6, V in int4: ~0.69x the fp8 cost per token at the same KL.
     - --kv-cache-dtype
     - k6_v4
-    # The engine sizes the KV pool from the rest; Jellyfin and FileFlows share this margin (DgpuVramLow watches it).
+    # Leaves 2 GiB VRAM free for Jellyfin and FileFlows (DgpuVramLow watches it); the engine sizes the KV pool from the rest.
     - --gpu-headroom-mib
-    - "1536"
+    - "2048"
     # Shared card: no weight-prefetch ring.
     - --weight-prefetch
     - "off"
@@ -210,7 +210,7 @@ spec:
     - "0"
     # Host KV tier, pinned in node RAM; there is no disk tier.
     - --prefix-cache-mib
-    - "14336"
+    - "19456"
     # One state snapshot per session; the default capped the cache at ~6 sessions of 100K.
     - --checkpoint-policy
     - tip-only
@@ -245,8 +245,8 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Pins 14 tier + 7.06 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); ~25.4 GiB working set, estimated.
-    memory: 28Gi
+    # Pins 19 tier + 7.06 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); 30.4 GiB working set at 8 sessions.
+    memory: 32Gi
     # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: control-1's
     # requests are full, and 64Gi would pass its 59 GiB allocatable.
     memoryLimit: 48Gi

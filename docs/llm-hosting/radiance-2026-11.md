@@ -67,8 +67,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   469,489 tokens (4-bit, 18 KiB/token) plus a 12 GiB CPU tier and a 128 GiB fs tier. Over 7 days 16% of its prompt tokens came
   from those tiers.
 - Radiance has no disk tier (`--weights-disk-tier` is weights only). The host tier holds attention blocks only: `--prefix-cache-mib`
-  14336 is about 628K tokens pinned in node RAM (19456 was 852,304). It is a mirror, so a tier near the VRAM pool adds little
-  room for older sessions.
+  19456 is 852,304 tokens, about 8 sessions of 100K, pinned in node RAM. It is a mirror, so a tier near the VRAM pool adds nothing.
 - Resume needs a recurrent-state checkpoint. The default policy needs ~9 slots per 100K session and capped the cache at ~6
   sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots
   still overflowed (92 `store_full` in 3 h), and 32 did too, so `--checkpoint-slots 48`.
@@ -76,13 +75,12 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 
 ### Memory budget
 
-- Measured on 1.16.0 at tier 19456: 30.4 GiB working set, 83.47% linear-token reuse, 83 `store_full` evictions in 6 h. A checkpoint
-  is 150.5625 MiB, so 48 pin 7.06 GiB.
-- Tier 14336 with a 28Gi request (48Gi limit): about 25.4 GiB working set, estimated. Risk: more re-prefill on returning chats.
-- `--gpu-headroom-mib 1536`: about 45K more KV tokens, estimated. The observed whole-card peak left 1.735 GiB free at 2560, so about
-  753 MiB now, under `DgpuVramLow`'s 1 GiB.
-- After a roll, check working set, pool size, whole-card free VRAM during media use, reuse, returning-chat TTFT, checkpoint evictions
-  and preemptions. Rollback: tier 19456, headroom 2560 and request 32Gi together.
+- Measured on 1.16.0: 30.4 GiB working set, 83 `store_full` evictions in 6 h. A checkpoint is 150.5625 MiB, so 48 pin 7.06 GiB.
+- `--gpu-headroom-mib 2048`: about 22K more KV tokens, estimated. The observed whole-card low at 2560 was 1.735 GiB free, so about
+  1.24 GiB now, above `DgpuVramLow`'s 1 GiB and enough for a 0.85 GB 4K DV transcode. 1536 would sit under the alert for about
+  54 minutes per 36 h.
+- The tier stays 19456: control-1's requests are at 97% of allocatable, but available RAM never fell below 20.5 GiB in 7 days.
+- After a roll, check pool size, whole-card free VRAM during media use and preemptions. Rollback: headroom 2560.
 
 ## Operations
 
@@ -101,7 +99,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   changes. The `.rad` is named by the checkpoint revision and the engine image digest, which replacements also write into
   `--model`, so a pod that starts first fails until the file exists instead of serving an old checkpoint or another
   engine's container. The Job then deletes the other `.rad` files and the previous checkpoint download.
-- Memory: raise the host tier only with node RAM; see Memory budget.
+- Memory: raise the host tier only with node RAM; the pod's working set is 30.4 GiB of its 32 GiB request (48 GiB limit).
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert
   boots with empty caches.
