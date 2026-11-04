@@ -42,7 +42,7 @@ spec:
             severity: warning
         - alert: DgpuVramLow
           # Nothing enforces the LLM/transcode VRAM split (squat.ai/dri counts device nodes, not bytes); the LLM side is set by --gpu-headroom-mib in qwen38-27b-vllm.yaml.
-          # Idle free is about 2.5 GiB with radiance loaded; under 1 GiB a 4K DV transcode (0.85 GB) has no margin.
+          # Idle free is about 1.5 GiB with radiance loaded; under 1 GiB a 4K DV transcode (0.85 GB) has no margin.
           expr: |-
             node_drm_memory_vram_size_bytes{kubernetes_node="control-1"}
               - node_drm_memory_vram_used_bytes{kubernetes_node="control-1"}

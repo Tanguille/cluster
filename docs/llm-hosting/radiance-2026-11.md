@@ -63,34 +63,26 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 
 ## Cache
 
-- Before the memory adjustment below: 514,144 tokens of k6_v4 KV in VRAM with MTP and 8 slots (fp8_v4 with 7 slots: 464,880).
-  vLLM held 469,489 tokens (4-bit, 18 KiB/token) plus a 12 GiB CPU tier and a 128 GiB fs tier. Over 7 days 16% of its prompt
-  tokens came from those tiers.
-- Radiance has no disk tier (`--weights-disk-tier` is weights only). The host tier holds attention blocks only, pinned in node
-  RAM: the proposed `--prefix-cache-mib 14336` (14 GiB) holds roughly 628K tokens, versus 852,304 at the previous 19456 (19 GiB).
-  When host admission succeeds, finished turns retain both copies until GPU pressure evicts the device copy. A tier near
-  the GPU attention-pool size can back those copies but leaves less room for older, host-only conversations; it is not a
-  guarantee of unchanged reuse.
+- Pool: 514,144 tokens of k6_v4 KV in VRAM with MTP and 8 slots at headroom 2560 (fp8_v4 with 7 slots: 464,880). vLLM held
+  469,489 tokens (4-bit, 18 KiB/token) plus a 12 GiB CPU tier and a 128 GiB fs tier. Over 7 days 16% of its prompt tokens came
+  from those tiers.
+- Radiance has no disk tier (`--weights-disk-tier` is weights only). The host tier holds attention blocks only: `--prefix-cache-mib`
+  14336 is about 628K tokens pinned in node RAM (19456 was 852,304). It is a mirror, so a tier near the VRAM pool adds little
+  room for older sessions.
 - Resume needs a recurrent-state checkpoint. The default policy needs ~9 slots per 100K session and capped the cache at ~6
   sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots
   still overflowed (92 `store_full` in 3 h), and 32 did too, so `--checkpoint-slots 48`.
 - Sessions beyond that re-prefill cold: 26 s per 55K, ~45 s per 100K. Watch `radiance:prefix_cache_ckpt_evictions_by_reason_total`.
 
-### Memory allocation proposal, 2026-11-04
+### Memory budget
 
-- Read-only baseline on 1.16.0: 30.4 GiB working set with a 19 GiB attention tier and 48 checkpoints at 150.5625 MiB each
-  (7.06 GiB separately allocated). Useful linear-token reuse was 83.47%; 83 checkpoint `store_full` evictions occurred in 6 h.
-  Keep all 48 checkpoints, MTP, k6_v4 and state precision unchanged; the host tier is not unused capacity.
-- The manifest reduces the tier to 14 GiB and the memory request from 32Gi to 28Gi, retaining the 48Gi limit. Expected working
-  set is about 25.4 GiB (5 GiB less), with 2.6 GiB request margin and 4 GiB released for scheduling. These are estimates, not
-  post-rollout measurements. The main performance risk is extra re-prefill/TTFT when returning to evicted conversations.
-- `--gpu-headroom-mib 2560` becomes `1536`: approximately 1 GiB more GPU KV, or 45K additional tokens, subject to startup
-  sizing. The preceding production pod's observed whole-card peak left 1.735 GiB free; the extra allocation would leave
-  about 753 MiB. Heavier Jellyfin/FileFlows demand or unsampled peaks could exhaust that margin.
-- This is an evidence-informed starting point, not a benchmark-proven optimum. No live A/B, restart or load test was performed
-  for the proposal. After an approved rollout, verify working set, startup pool size, whole-card free VRAM during media use,
-  useful linear-token reuse, returning-chat TTFT, checkpoint evictions and preemptions. If headroom or latency is unacceptable,
-  revert all three settings together to tier 19456, GPU headroom 2560 and memory request 32Gi through GitOps.
+- Measured on 1.16.0 at tier 19456: 30.4 GiB working set, 83.47% linear-token reuse, 83 `store_full` evictions in 6 h. A checkpoint
+  is 150.5625 MiB, so 48 pin 7.06 GiB.
+- Tier 14336 with a 28Gi request (48Gi limit): about 25.4 GiB working set, estimated. Risk: more re-prefill on returning chats.
+- `--gpu-headroom-mib 1536`: about 45K more KV tokens, estimated. The observed whole-card peak left 1.735 GiB free at 2560, so about
+  753 MiB now, under `DgpuVramLow`'s 1 GiB.
+- After a roll, check working set, pool size, whole-card free VRAM during media use, reuse, returning-chat TTFT, checkpoint evictions
+  and preemptions. Rollback: tier 19456, headroom 2560 and request 32Gi together.
 
 ## Operations
 
@@ -109,8 +101,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   changes. The `.rad` is named by the checkpoint revision and the engine image digest, which replacements also write into
   `--model`, so a pod that starts first fails until the file exists instead of serving an old checkpoint or another
   engine's container. The Job then deletes the other `.rad` files and the previous checkpoint download.
-- Memory: raise the host tier only with node RAM; see the allocation proposal above for measured baseline, estimates and
-  post-rollout checks. The manifest requests 28Gi with a 48Gi limit.
+- Memory: raise the host tier only with node RAM; see Memory budget.
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert
   boots with empty caches.

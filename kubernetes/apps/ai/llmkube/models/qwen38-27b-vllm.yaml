@@ -193,8 +193,7 @@ spec:
     # K in int6, V in int4: ~0.69x the fp8 cost per token at the same KL.
     - --kv-cache-dtype
     - k6_v4
-    # Give KV ~1 GiB more than the former 2560 MiB reserve; actual free VRAM also depends on co-tenants.
-    # Estimated 753 MiB left at the 2026-11-04 observed peak, not a guaranteed Jellyfin/FileFlows margin.
+    # The engine sizes the KV pool from the rest; Jellyfin and FileFlows share this margin (DgpuVramLow watches it).
     - --gpu-headroom-mib
     - "1536"
     # Shared card: no weight-prefetch ring.
@@ -209,7 +208,7 @@ spec:
     # The 3600 s default drops idle sessions that vLLM kept until the memory was wanted.
     - --prefix-cache-ttl
     - "0"
-    # 14 GiB attention tier, down from 19 GiB to free host RAM; checkpoints are separate. No disk tier.
+    # Host KV tier, pinned in node RAM; there is no disk tier.
     - --prefix-cache-mib
     - "14336"
     # One state snapshot per session; the default capped the cache at ~6 sessions of 100K.
@@ -246,10 +245,10 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Estimate ~25.4 GiB working set: 30.4 GiB measured with the old 19 GiB tier, minus 5 GiB.
-    # Keep 48 checkpoints (7.06 GiB); 28Gi reserves ~2.6 GiB above the estimate. Verify after rollout.
+    # Pins 14 tier + 7.06 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); ~25.4 GiB working set, estimated.
     memory: 28Gi
-    # Retain the startup/pinned-memory ceiling; unlike the request, this does not reserve node RAM.
+    # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: control-1's
+    # requests are full, and 64Gi would pass its 59 GiB allocatable.
     memoryLimit: 48Gi
   endpoint:
     port: 8000
