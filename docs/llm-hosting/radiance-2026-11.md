@@ -77,7 +77,8 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 
 - Measured on 1.16.0: 30.4 GiB working set, 83 `store_full` evictions in 6 h. A checkpoint is 150.5625 MiB, so 48 pin 7.06 GiB.
 - `--gpu-headroom-mib 2048`: about 22K more KV tokens, estimated. The observed whole-card low at 2560 was 1.735 GiB free, so about
-  1.24 GiB now, above `DgpuVramLow`'s 1 GiB and enough for a 0.85 GB 4K DV transcode. 1536 would sit under the alert for about
+  1.24 GiB now if media peaks at the same absolute use (arithmetic, not measured), above `DgpuVramLow`'s 1 GiB and enough for a
+  0.85 GB 4K DV transcode. 1536 would sit under the alert for about
   54 minutes per 36 h.
 - Tier 16384 with a 30Gi request (48Gi limit): about 27.4 GiB working set, estimated. control-1's requests were at 97% of allocatable,
   leaving 1.6 GiB schedulable, now 3.6. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
