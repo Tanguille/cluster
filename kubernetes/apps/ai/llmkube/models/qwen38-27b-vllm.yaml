@@ -152,7 +152,7 @@ spec:
   parallelSlots: 7
   # After a bump, run bench/qualitygate.py and prodshape.py --levels 8 (0 preemptions: a bump can shrink the KV pool
   # under the 7-slot cap) on an unrouted clone (baseline: docs/llm-hosting/radiance-2026-11.md).
-  image: docker.io/stilldeadcode/radiance:1.16.0@sha256:b1017ce0e615dbd16370f84724aac1f0b999a2cfb769d1b2f49d2dd7c0913cd1
+  image: docker.io/stilldeadcode/radiance:1.17.0@sha256:6fb0e99bfb862e17cc15cb7b2f116c7dbdc831df59f82456a0691122e6cf5330
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
     waitForIdle: true
