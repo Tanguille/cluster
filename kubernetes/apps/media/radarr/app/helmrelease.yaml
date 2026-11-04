@@ -37,8 +37,6 @@ spec:
               RADARR__SERVER__ALLOWEDHOSTS: radarr.media.svc.cluster.local,radarr.${SECRET_DOMAIN}
               RADARR__AUTH__APIKEY: ${RADARR_API_KEY}
               TZ: ${TIMEZONE}
-              # krb5 on musl isn't thread-safe and Npgsql's default GSS probe segfaults on it (exit 139).
-              PGGSSENCMODE: disable
             envFrom:
               - secretRef:
                   name: radarr-secret
