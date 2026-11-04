@@ -42,11 +42,23 @@ spec:
       severity: HIGH,CRITICAL
       # Chart default true scans single-threaded, leaving the 1000m limit idle.
       slow: false
-      # TrivyNewExposedSecrets false positives in the mealie image (card t_19fe45f9):
-      # 2 test certs from the slapdtest LDAP test package + an AWS key hardcoded in
-      # a yt-dlp extractor. Upstream artifacts baked into ghcr.io/mealie-recipes/mealie,
-      # not cluster credentials — exclude those paths from the image scan.
-      skipDirs: "/opt/mealie/lib/python3.14/site-packages/slapdtest/certs,/opt/mealie/lib/python3.14/site-packages/yt_dlp/extractor"
+      # TrivyNewExposedSecrets: upstream-baked Mealie fixtures (card t_19fe45f9).
+      # Global across all scanned images, but only these secret rule/path pairs;
+      # vulnerability scanning and other secret findings remain enabled in these files.
+      # Revisit the exact python3.14 paths on Mealie interpreter upgrades.
+      # The .yaml suffix enables Trivy's structured, scanner-specific ignore format.
+      ignoreFileName: .trivyignore.yaml
+      ignoreFile:
+        secrets:
+          - id: private-key
+            paths:
+              - /opt/mealie/lib/python3.14/site-packages/slapdtest/certs/client.key
+              - /opt/mealie/lib/python3.14/site-packages/slapdtest/certs/server.key
+            statement: Public slapdtest LDAP test keys baked into the Mealie image, not cluster credentials.
+          - id: aws-access-key-id
+            paths:
+              - /opt/mealie/lib/python3.14/site-packages/yt_dlp/extractor/shahid.py
+            statement: Public upstream yt-dlp Shahid extractor key baked into the Mealie image.
       # Server DB is a re-downloadable cache; emptyDir avoids a Ceph PVC.
       storageClassEnabled: false
       server:
