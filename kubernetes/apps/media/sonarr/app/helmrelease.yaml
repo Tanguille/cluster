@@ -39,8 +39,6 @@ spec:
               SONARR__LOG__ANALYTICSENABLED: "false"
               SONARR__AUTH__APIKEY: ${SONARR_API_KEY}
               TZ: ${TIMEZONE}
-              # krb5 on musl isn't thread-safe and Npgsql's default GSS probe segfaults on it (exit 139).
-              PGGSSENCMODE: disable
             envFrom:
               - secretRef:
                   name: sonarr-secret
