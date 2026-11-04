@@ -59,7 +59,7 @@ spec:
     - "--cache-ram"
     - "0"
   # Pin to an iGPU node. On the dGPU it took 1.2 GiB of VRAM and left 0.93 GiB
-  # free, under the 1.82 GiB Jellyfin floor.
+  # free, under the then-used 1.82 GiB Jellyfin reserve.
   nodeSelector:
     amd.com/igpu: "true"
   # One iGPU model per node; both sides carry the rule (checked for the moving pod only).
