@@ -1,0 +1,20 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: eightball-rules
+spec:
+  groups:
+    - name: eightball.rules
+      rules:
+        # Callers fail open, so a dead backend looks like normal work plus extra cost, never like an outage.
+        - alert: EightballBackendErrors
+          expr: |-
+            sum by (endpoint) (increase(eightball_backend_errors_total[15m])) > 3
+          for: 5m
+          annotations:
+            summary: >-
+              8-ball endpoint {{ $labels.endpoint }} keeps failing; callers are failing open
+          labels:
+            severity: warning
