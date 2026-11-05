@@ -1,10 +1,10 @@
 # Kopiur TrueNAS S3 repository
 
-[`kopia-s3`](../kubernetes/apps/kopiur-system/kopiur/repository/clusterrepository-s3.yaml)
-is a second `ClusterRepository`, on TrueNAS native S3. `kopia-nas` stays the default.
-An app moves when its `ks.yaml` sets `KOPIUR_REPOSITORY: kopia-s3`, which the shared
-[backup component](../kubernetes/components/kopiur/backup/snapshotpolicy.yaml) puts on
-its `SnapshotPolicy`. Identities stay `<app>@<namespace>:/data`.
+[`kopia-s3`](../kubernetes/apps/kopiur-system/kopiur/repository/clusterrepository.yaml) is
+the `ClusterRepository` on TrueNAS native S3. All apps switch to it together by changing
+the repository in the shared
+[backup component](../kubernetes/components/kopiur/backup/snapshotpolicy.yaml). Identities
+stay `<app>@<namespace>:/data`.
 
 TrueNAS `27.0.0-RC.1` was provisioned on 2026-11-05. Its native S3 service is
 [experimental](https://www.truenas.com/docs/scale/27/shares/s3/). No backup, restore or
@@ -22,16 +22,16 @@ maintenance has run on it yet, and none of the procedures below have been exerci
   global S3 grants were added. Its key cannot create or delete buckets.
 - The bucket, dataset and account keep their original names: S3 buckets cannot be
   renamed, so changing them means provisioning replacements.
-- `kopia-s3-credentials` ([SOPS](../kubernetes/apps/kopiur-system/kopiur/repository/s3-secret.sops.yaml))
+- `kopia-s3-credentials` ([SOPS](../kubernetes/apps/kopiur-system/kopiur/repository/secret.sops.yaml))
   holds `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `KOPIA_PASSWORD`. Retain the
   password outside the cluster using the human-held procedure in [SOPS](sops.md).
 - Verified against TrueNAS directly: trusted HTTPS, signed PUT/GET/ListObjectsV2,
   byte-for-byte payload round trip, anonymous GET denied, and DELETE.
 
 **Offsite:** TrueNAS cloud sync `id 1` covers only `VolsyncKopia`. `kopia-s3` has no R2
-copy until a second task exists. Add it before moving any app whose loss would matter:
-the S3 key can delete every object in the bucket and is projected into app namespaces for
-each mover run, so a leaked key only misses the R2 copy and ZFS snapshots.
+copy until a second task exists, so add it before the switch: the S3 key can delete every
+object in the bucket and is projected into app namespaces for each mover run, so a leaked
+key only misses the R2 copy and ZFS snapshots.
 
 For reprovisioning, keep the bucket and account separate and use the
 [S3 backend requirements](https://kopiur.home-operations.com/backends/s3/). Kopiur
@@ -56,52 +56,58 @@ Checked on 2026-11-05 from the LAN and `default/homepage`, which carries the sam
 both got HTTP 403 over verified HTTPS. The dumbassets app pod, without the label, resolved
 DNS but timed out.
 
-## Move an app
+## Switch
 
-Existing Snapshot rows carry `deletionPolicy: Delete` and stay in the policy's retention
+Existing Snapshot rows carry `deletionPolicy: Delete` and stay in each policy's retention
 bucket after a repoint. As S3 rows displace them, retention prunes them and the finalizer
-deletes from `kopia-nas`, so **a bare repoint erases the app's NFS history within about
-7 days**. Step 1 prevents that: the rows still age out, but their kopia snapshots stay.
+deletes from `kopia-nas`, so **a bare repoint erases all NFS history within about 7 days**.
+`retain_nfs_rows` prevents that: the rows still age out, but their kopia snapshots stay.
 
 ```bash
-app=<app> ns=<namespace>
 retain_nfs_rows() {
-  mise exec -- kubectl -n "$ns" get snapshot -o json | jq -r --arg app "$app" \
-    '.items[] | select(.spec.policyRef.name == $app
-      and .status.resolved.repository.name == "kopia-nas") | .metadata.name' |
-    xargs -r mise exec -- kubectl -n "$ns" patch snapshot \
-      --type=merge -p '{"spec":{"deletionPolicy":"Retain"}}'
+  local rows ns
+  rows="$(mise exec -- kubectl get snapshot -A -o json)"
+  for ns in $(jq -r '[.items[].metadata.namespace] | unique[]' <<<"$rows"); do
+    jq -r --arg ns "$ns" '.items[] | select(.metadata.namespace == $ns
+      and .status.resolved.repository.name == "kopia-nas") | .metadata.name' <<<"$rows" |
+      xargs -r mise exec -- kubectl -n "$ns" patch snapshot \
+        --type=merge -p '{"spec":{"deletionPolicy":"Retain"}}'
+  done
 }
-retain_nfs_rows                                          # 1. before the repoint
-# 2. Set KOPIUR_REPOSITORY: kopia-s3 in the app's ks.yaml and merge.
-mise exec -- kubectl kopiur snapshot now --policy "$app" -n "$ns" --wait   # 3.
-retain_nfs_rows                                          # 4. rows that landed in between
+retain_nfs_rows   # 1. before the switch
+# 2. Merge the switch: component repository to kopia-s3, kopia-nas to mode: ReadOnly.
+mise exec -- kubectl get snapshotpolicy -A -o json |
+  jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' |
+  while read -r ns app; do
+    mise exec -- kubectl kopiur snapshot now --policy "$app" -n "$ns"   # 3. start every app
+  done
+retain_nfs_rows   # 4. rows that landed in between
 ```
 
-Run step 3 straight away. `fromPolicy` resolves in the policy's current repository with
-`onMissingSnapshot: Continue`, so a PVC recreated before the first S3 snapshot comes up
-**empty**.
+Do not recreate any PVC until every app has its first S3 snapshot. `fromPolicy` resolves
+in the policy's current repository with `onMissingSnapshot: Continue`, so a PVC recreated
+before then comes up **empty**.
 
-Then restore into a throwaway PVC with the
-[side-car procedure](../.agents/skills/backup-restore/references/restore-pvc.md), using the
-app's uid, and check content and ownership against the exact snapshot. Never claim the
+Then restore into throwaway PVCs with the
+[side-car procedure](../.agents/skills/backup-restore/references/restore-pvc.md), using each
+app's uid, and check content and ownership against the exact snapshot. Never claim an
 app's own PVC or its `<app>-restore`.
-
-After the last app, change the component default to `kopia-s3`, drop the per-app settings
-and set `kopia-nas` to `mode: ReadOnly`.
 
 ## Rollback
 
-Set `catalog.adoption: Ignore` on `kopia-nas` first: adoption can otherwise re-attach
-discovered NFS rows to the policy and prune them under `Delete`. Then remove
-`KOPIUR_REPOSITORY` from the app. Backups made on S3 stay in `kopia-s3`.
+Revert the switch. `catalog.adoption: Ignore` on `kopia-nas` already stops adoption pruning
+NFS rows. Backups made on S3 stay in `kopia-s3`.
 
 ## NFS history
 
-Keep `kopia-nas`, its dataset and the R2 bucket `volsync`. History stays reachable through
-the Kopia browser, which still reads the NFS repository, and through a `Restore` naming
+Keep the `kopia-nas` dataset and the R2 bucket `volsync`. History stays reachable through
+the Kopia browser, which reads the NFS repository directly, and through a `Restore` naming
 `spec.repository` and a raw `source.identity`, as in
-[the restore guide](kopiur-restore.md). Never delete the repository or repurpose its dataset.
+[the restore guide](kopiur-restore.md). Never delete the data or repurpose the dataset.
+
+`clusterrepository-nas.yaml` and `secret-nas.sops.yaml` can go once `kopia-s3` has its own
+retention depth, about 7 days after the switch. That removes Kopiur restores of NFS history
+and the quick rollback, not the data; the Kopia browser keeps working.
 
 The TanguilleServer ZFS snapshot task (daily, 14 days, recursive) should hold freed blobs,
 so read kopia statistics, not dataset `used`, when checking cleanup. It had not snapshotted

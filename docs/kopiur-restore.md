@@ -2,8 +2,8 @@
 
 This guide explains how to properly restore data from kopiur (Kopia-native) backups.
 
-Apps back up to `kopia-nas` unless they set `KOPIUR_REPOSITORY`. For moving an app to
-`kopia-s3` and reaching older NFS history, see the [S3 guide](kopiur-s3.md).
+For the switch to `kopia-s3` and reaching older NFS history, see the
+[S3 guide](kopiur-s3.md).
 
 ## Understanding the Components
 
