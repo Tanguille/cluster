@@ -15,13 +15,11 @@ maintenance has run on it yet, and none of the procedures below have been exerci
 - HTTPS listener: `192.168.0.27:9000`, region `us-east-1`, enabled at boot.
 - TLS: inherits the existing UI wildcard certificate, including future UI
   certificate replacements; no separate certificate or private key copy.
-- Bucket `kopiur-s3-pilot`, dataset `TanguilleServer/kopiur-s3-pilot`, on the same pool
-  as the NFS repository. Versioning and Object Lock are off.
+- Bucket `kopiur`, dataset `TanguilleServer/kopiur`, on the same pool as the NFS
+  repository. Versioning and Object Lock are off.
 - Account `kopiur-s3-pilot`, uid 3002, dedicated primary group, no password login,
   no shell login, no SMB access or administrative roles. It owns only this bucket; no
   global S3 grants were added. Its key cannot create or delete buckets.
-- The bucket, dataset and account keep their original names: S3 buckets cannot be
-  renamed, so changing them means provisioning replacements.
 - `kopia-s3-credentials` ([SOPS](../kubernetes/apps/kopiur-system/kopiur/repository/secret.sops.yaml))
   holds `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `KOPIA_PASSWORD`. Retain the
   password outside the cluster using the human-held procedure in [SOPS](sops.md).
