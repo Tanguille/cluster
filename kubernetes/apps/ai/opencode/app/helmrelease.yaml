@@ -18,8 +18,9 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/anomalyco/opencode
-              tag: 2.2.5@sha256:1690aad69864d2f6714772d1e040918feebc6df5286d2bd7e181fbb35d12d4a9
+              # Same binary as upstream's image, which has no git and runs as root.
+              repository: ghcr.io/joryirving/opencode
+              tag: 2.2.5@sha256:cba5da45f5d8126cf0e8aa78497406c09f71cbf73b2eac80dce0a174e82cb8c2
             env:
               TZ: ${TIMEZONE}
               # Sessions migrated from the VM store absolute paths under this home.
@@ -31,12 +32,12 @@ spec:
                   name: opencode-secret
             securityContext:
               allowPrivilegeEscalation: false
-            command:
-              - sh
-              - -c
-              # The image has no git, which OpenCode needs for projects, snapshots and git plugins.
-              # ponytail: installs at every start, build our own image if a mirror outage bites.
-              - apk add --no-cache bash curl git jq && exec opencode serve --hostname 0.0.0.0 --port 4096
+            args:
+              - serve
+              - --hostname
+              - "0.0.0.0"
+              - --port
+              - "4096"
             probes:
               liveness:
                 enabled: true
@@ -69,6 +70,11 @@ spec:
       priorityClassName: homelab-important
       # Runs model-directed bash and in-process npm plugins.
       runtimeClassName: gvisor
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
 
     service:
       app:
