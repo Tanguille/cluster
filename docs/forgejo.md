@@ -46,6 +46,11 @@ recovery dependency cycle.
 
 ## GitHub outage
 
+If the cutover hasn't happened, Flux still reads GitHub and nothing below reaches
+the cluster. First suspend the `flux-instance` Kustomization and its HelmRelease and
+change the live FluxInstance sync URL to the in-cluster URL above. After step 1,
+commit that URL on Forgejo before resuming them.
+
 1. In the repository's settings, under **Danger Zone**, use **Convert to regular
    repository** and type `tanguille/cluster`. This is one-way.
 2. Push and merge on Forgejo; Flux deploys `main`.
