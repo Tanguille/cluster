@@ -41,6 +41,9 @@ SOURCE_SAMPLE_MAX_AGE_SECONDS = 120
 CPU_SAMPLE_MAX_AGE_SECONDS = 180
 # 7 serial queries per CPU evaluation: at 10s a hung VictoriaMetrics blocked 70s against a 30s interval
 HTTP_TIMEOUT_SECONDS = 5
+# A pinned miner needs ~2Gi for the RandomX fast-mode dataset plus working set; the gate
+# holds the node to that much allocatable memory before a new miner pod may be scheduled.
+MINING_MEMORY_REQUEST_BYTES = 2 * 1024 * 1024 * 1024
 
 
 def _dt(value):
@@ -233,6 +236,21 @@ class VictoriaMetricsClient:
             xmrig = None
         return CPUObservation(host, xmrig, presence)
 
+    def query_headroom(self, node, evaluation):
+        # Schedulability: allocatable memory minus the pod requests scheduled onto the node.
+        # kube-state-metrics exposes allocatable per resource and pod requests per container,
+        # so the request side is a plain sum; pod specs exist before a pod is schedulable, so
+        # the sum covers Running and Pending miners alike.
+        allocatable = self._sources(self._query(
+            f'kube_node_status_allocatable{{node="{node}",resource="memory"}}', evaluation))
+        if len(allocatable) != 1:
+            raise ValueError(f"node allocatable memory must be one scalar: {node}")
+        requested = self._sources(self._query(
+            f'sum by (node) (kube_pod_container_resource_requests{{node="{node}",resource="memory"}})', evaluation))
+        if len(requested) != 1:
+            raise ValueError(f"pod memory request sum must be one scalar: {node}")
+        return next(iter(allocatable.values())).value - next(iter(requested.values())).value
+
 
 class _HTTPTransport:
     def __init__(self, timeout=HTTP_TIMEOUT_SECONDS):
@@ -266,6 +284,7 @@ class GuardController:
         self.metrics = {
             "evaluations": 0, "query_errors": {node: 0 for node in SENSORS},
             "safe": {node: 0 for node in SENSORS},
+            "headroom_ok": {node: 0 for node in SENSORS},
             "nvme_temp_max": {node: 0.0 for node in SENSORS if SENSORS[node]},
             "source_age_seconds": {node: 0.0 for node in SENSORS},
             "cpu_non_xmrig": {node: 0.0 for node in SENSORS if not SENSORS[node]},
@@ -297,6 +316,10 @@ class GuardController:
         stale = sorted(key for key, item in samples.items() if not _fresh(item.timestamp, evaluation, policy.max_gap))
         raise ValueError(f"stale or future source: {', '.join(map(str, stale))}")
 
+    def _headroom_ok(self, node, evaluation):
+        """True when the node keeps at least the miner's memory request free for a new pod."""
+        return self.telemetry.query_headroom(node, evaluation) >= MINING_MEMORY_REQUEST_BYTES
+
     def evaluate(self, evaluation=None):
         evaluation = evaluation or self.wall_clock()
         now = self.clock()
@@ -324,6 +347,9 @@ class GuardController:
                 safe = policy.observe(value, stamp, now) if self._new_source_set(node, samples) else policy.safe
                 self.metrics["source_age_seconds"][node] = max(0.0, evaluation.timestamp() - min(item.timestamp for item in samples.values()).timestamp())
                 self.metrics["safe"][node] = int(safe)
+                # Schedulability is an additional gate on top of the thermal verdict, not a
+                # replacement: safe=0 already covers a hot node, headroom_ok covers a full one.
+                self.metrics["headroom_ok"][node] = int(self._headroom_ok(node, evaluation))
             except Exception as exc:
                 # one line per failure, no traceback: the query text travels in the exception
                 logging.error(f"evaluation failed for {node}: {exc!r}")
@@ -331,6 +357,7 @@ class GuardController:
                 self.policies[node].invalidate()
                 self._last_source_stamps[node] = {}
                 self.metrics["safe"][node] = 0
+                self.metrics["headroom_ok"][node] = 0
                 self.metrics["source_age_seconds"][node] = float("nan")
                 if sensors:
                     self.metrics["nvme_temp_max"][node] = float("nan")
@@ -351,6 +378,7 @@ def render_metrics(controller):
         ("nvme_temp_max_celsius", m["nvme_temp_max"]),
         ("cpu_non_xmrig_percent", m["cpu_non_xmrig"]),
         ("rank", m["rank"]),
+        ("headroom_ok", m["headroom_ok"]),
     ):
         metric_name = "xmrig_guard_" + metric
         lines.extend(f'{metric_name}{{node="{node}"}} {value}' for node, value in values.items())
