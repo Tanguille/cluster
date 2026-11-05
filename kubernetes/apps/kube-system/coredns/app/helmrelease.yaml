@@ -44,6 +44,11 @@ spec:
             parameters: ANY AAAA
             configBlock: |-
               authority "{{ .Zone }} 60 IN SOA ns.dns.cluster.local. hostmaster.cluster.local. (1 60 60 60 60)"
+          # Cilium can't deny an FQDN, so telemetry hosts are blocked here; the Dragonfly licence forbids its disable flag.
+          - name: template
+            parameters: ANY ANY check.trivy.dev version.dragonflydb.io
+            configBlock: |-
+              rcode NXDOMAIN
           - name: errors
           - name: health
             configBlock: |-
