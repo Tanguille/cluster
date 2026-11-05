@@ -6,38 +6,51 @@ adds a namespaced `Repository` and a manual-only `dumbassets-s3-pilot` policy in
 The existing `kopia-nas` repository, NFS mounts, backup schedules and Kopia browser
 continue unchanged. No `SnapshotSchedule` is created for the pilot.
 
-On 2026-11-05, TrueNAS reported `27.0.0-RC.1`, no S3 listeners and no buckets.
-Its native S3 service is [experimental](https://www.truenas.com/docs/scale/27/shares/s3/).
-The endpoint below is a provisioning target, not an already available service.
+TrueNAS `27.0.0-RC.1` was provisioned on 2026-11-05. Its native S3 service is
+[experimental](https://www.truenas.com/docs/scale/27/shares/s3/).
+
+## Provisioned state
+
+- HTTPS listener: `192.168.0.27:9000`, region `us-east-1`, enabled at boot.
+- TLS: inherits the existing UI wildcard certificate, including future UI
+  certificate replacements; no separate certificate or private key copy.
+- Bucket: `kopiur-s3-pilot`, dataset `TanguilleServer/kopiur-s3-pilot`, on the same
+  pool as the NFS repository. Versioning and Object Lock are off.
+- Account: `kopiur-s3-pilot`, uid 3002, dedicated primary group, no password login,
+  no shell login, no SMB access or administrative roles. It owns only the pilot
+  bucket; no global S3 grants were added. Its key cannot create or delete buckets.
+- Credentials and a new repository password are encrypted in the pilot's
+  `app/secret.sops.yaml`. No existing credentials were changed.
+- Verified against TrueNAS directly: trusted HTTPS, signed PUT/GET/ListObjectsV2,
+  byte-for-byte payload round trip, anonymous GET denied, and DELETE. The temporary
+  test object was removed. No Kopia repository has been initialized yet.
+
+The [k8s-gateway configuration](../kubernetes/apps/network/k8s-gateway/app/helmrelease.yaml)
+adds a dedicated `s3.${SECRET_DOMAIN}` zone resolving directly to `${TRUENAS_IP}`.
+That DNS change is staged in this PR, not deployed. Connectivity checks used a
+client-side DNS override while preserving hostname and certificate verification.
 
 ## Provisioning and activation
 
 Before editing, verify the branch/worktree with `git branch --show-current` and
 `git worktree list`, then run `git status` and `git pull --ff-only && git status`.
-Provisioning TrueNAS, editing secrets and activating the pilot require owner approval.
+TrueNAS provisioning was authorized and completed. Merging, reconciling and
+activating the Kubernetes pilot remain separate owner decisions.
 
-- Configure a TrueNAS HTTPS listener on port 9000 and region `us-east-1`.
-  Point LAN DNS `s3.${SECRET_DOMAIN}` directly at TrueNAS and install a certificate
-  valid for that hostname. If a different listener is chosen, update `backend.s3`
-  in [repository.yaml](../kubernetes/apps/default/kopiur-s3-pilot/app/repository.yaml).
-  Keep certificate verification enabled; for a private CA, use Kopiur's
-  `backend.s3.tls.caBundleRef` with a ConfigMap in `default`.
-- Create the empty bucket `kopiur-s3-pilot` on a dedicated dataset, preferably on the
-  same pool as the NFS repository for comparison. Do not expose or reuse
-  `/mnt/TanguilleServer/VolsyncKopia`. Leave Object Lock, versioning and lifecycle
-  expiration disabled for this baseline so they do not interfere with maintenance.
-- Create dedicated credentials with list, read, write and delete permissions on
-  this bucket only. Kopiur creates the repository, not the bucket. See the
-  [S3 backend requirements](https://kopiur.home-operations.com/backends/s3/).
-- Add `app/secret.sops.yaml` beside the repository manifest, containing a Secret
-  named `kopiur-s3-pilot` in `default`, with encrypted `stringData` keys
-  `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `KOPIA_PASSWORD`. Use a new
-  repository password and retain it outside the cluster. Follow [SOPS](sops.md),
-  then add `secret.sops.yaml` to the pilot's `app/kustomization.yaml` resources.
-  No plaintext or dummy credential Secret is included in this PR.
-- Change the pilot Flux Kustomization's `spec.suspend` to `false` in Git only after
-  those prerequisites are complete. Merging this initial configuration alone
-  does not create a repository or start backup jobs.
+- After deploying the DNS change, verify `s3.${SECRET_DOMAIN}` resolves to
+  `${TRUENAS_IP}` from the cluster and LAN, and verify HTTPS on port 9000 without
+  a DNS override. The S3 listener itself is already running.
+- Retain the pilot repository password outside the cluster using the human-held
+  backup procedure in [SOPS](sops.md). The encrypted Secret contains
+  `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `KOPIA_PASSWORD`.
+- Change the pilot Flux Kustomization's `spec.suspend` to `false` in Git after DNS
+  verification and activation approval. Merging the suspended configuration
+  deploys DNS but does not create a repository or start backup jobs.
+
+For reprovisioning, preserve the bucket/account separation above and use the
+[S3 backend requirements](https://kopiur.home-operations.com/backends/s3/).
+Kopiur creates the repository, not the bucket. Never reuse the production NFS
+dataset `/mnt/TanguilleServer/VolsyncKopia` as this bucket.
 
 The repository grants its mover pods the existing `egress.home.arpa/lan: allow`
 exception so pod-originated S3 requests reach TrueNAS. This is the namespace's
@@ -52,13 +65,14 @@ backup/restore jobs and a new PVC; execute only after activation is approved.
 ```bash
 mise exec -- kubectl --kubeconfig ./kubeconfig -n default wait \
   --for=condition=Ready repository/kopiur-s3-pilot --timeout=5m
+pilot_snapshot="dumbassets-s3-pilot-$(date +%s)"
 mise exec -- kubectl --kubeconfig ./kubeconfig kopiur snapshot now \
-  -n default --policy dumbassets-s3-pilot --wait
+  -n default --policy dumbassets-s3-pilot --name "$pilot_snapshot" --wait
 mise exec -- kubectl --kubeconfig ./kubeconfig kopiur snapshots list \
   -n default --policy dumbassets-s3-pilot
 ```
 
-After the first backup succeeds, repeat it to measure an incremental run. Record
+After the first backup succeeds, repeat it with a new snapshot name to measure an incremental run. Record
 elapsed time, bytes uploaded, mover CPU/memory and TrueNAS CPU/disk load. Compare
 with the normal dumbassets NFS runs, distinguishing initial backup from incremental
 backup and cold cache from warm cache. This 1Gi PVC is a compatibility smoke test;
@@ -69,17 +83,22 @@ procedure in [the restore guide](kopiur-restore.md) for this test.
 
 ```bash
 mise exec -- kubectl --kubeconfig ./kubeconfig kopiur restore -n default \
-  --from-policy dumbassets-s3-pilot --on-missing-snapshot fail \
+  --from-snapshot "$pilot_snapshot" --on-missing-snapshot fail \
   --create-pvc dumbassets-s3-pilot-restore --size 1Gi \
   --storage-class ceph-block --name dumbassets-s3-pilot-restore --wait
 mise exec -- kubectl --kubeconfig ./kubeconfig -n default get \
   restore/dumbassets-s3-pilot-restore -o yaml
 ```
 
-Require `Completed` and `Ready=True`, then mount the restored PVC in an isolated
-inspection pod and verify file checksums and ownership against the captured source
-snapshot. A successful Job alone does not prove the restored application data is
-usable. Do not attach the restored PVC to the production application.
+Require `Completed` and `Ready=True`, then mount the restored PVC read-only in an
+isolated inspection pod. Obtain reference files from the exact snapshot used by
+the restore with `kubectl kopiur download -n default "$pilot_snapshot" <relative-file> <local-file>`
+(run through mise with the repository kubeconfig). Compare their `sha256sum` values
+with the corresponding restored files and verify ownership is 65532:65532.
+Use a protected temporary directory for downloaded files and remove it after the
+comparison. Do not compare against the changing live PVC. A successful Job alone
+does not prove the restored application data is usable. Do not attach the restored
+PVC to the production application.
 
 Before recommending migration, also test full maintenance, retention cleanup and
 another restore after maintenance. For a throughput decision, compare representative
