@@ -1,0 +1,9 @@
+default = "d3"
+
+[endpoints.d3]
+url = "http://d3-nano.ai.svc.cluster.local:8080"
+kind = "systemone"
+
+[specs.gitops-investigate]
+type = "noul"
+instructions = "Does this candidate warrant investigating for this homelab? The state is JSON data with context (current inventory and recent recommendations) and item (the candidate). Investigate changes plausibly affecting a component we use, including migrations, breakage, or meaningful operational improvements. Routine version bumps and changes limited to components we do not use do not warrant investigation. Judge only the supplied evidence."
