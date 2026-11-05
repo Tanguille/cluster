@@ -1,0 +1,22 @@
+---
+# Blocks Jellyfin's anonymous usage statistics / version check to api.jellyfin.org.
+# Jellyfin sends telemetry by default; this policy drops the outbound connection.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: jellyfin-egress-deny-telemetry
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: jellyfin
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.cilium.k8s.namespace: _all
+      toFQDNs:
+        - matchPattern: "api.jellyfin.org"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+      action: Drop
