@@ -122,6 +122,9 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   another node. control-2 and control-3 have 25.6Gi allocatable; memory requests ran near 99% in
   the first 24h, costing 1.69 replica-hours. `preemptionPolicy: Never` on
   `low-priority-mining` means the miner waits rather than evicting real work, which is correct.
+  The KEDA query therefore also requires allocatable memory minus Pending/Running pod requests,
+  excluding the miner itself, to cover the 2Gi request, so a full node scales to 0 instead of
+  leaving a miner Pending.
 - **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every
   node's allocatable memory even at 0 replicas, so it was dropped. The reclaim is 2368Mi while
   idle but only ~320Mi while mining, since xmrig then requests 2Gi of regular pages instead.
