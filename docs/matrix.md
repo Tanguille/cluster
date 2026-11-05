@@ -22,12 +22,11 @@ Its runtime `config.json` selects `matrix.${SECRET_DOMAIN}` by default while
 allowing users to choose another homeserver. Sign in with a local Matrix account
 after the administrator bootstrap below.
 
-The official web image serves static files on port 8080; it does not run Sable's
-optional server mode. Caddy's writable directories are ephemeral, so Sable needs
-no persistent volume or backup. Client state and encryption keys stay in the
-browser: set up recovery and retain the recovery key before clearing browser
-storage or moving devices. The minimal configuration does not configure Sable's
-hosted push, GIF or embed services.
+The official web image serves static files on port 8080. Caddy's writable
+directories are ephemeral, so Sable needs no persistent volume or backup. Client
+state and encryption keys stay in the browser: set up recovery and retain the
+recovery key before clearing browser storage or moving devices. Push, GIFs and
+embeds are not configured.
 
 ## First administrator
 
