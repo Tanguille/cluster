@@ -5,9 +5,8 @@ set -euo pipefail
 export GIT_TERMINAL_PROMPT=0
 
 git init --bare "$CACHE_DIR"
-git -C "$CACHE_DIR" config remote.source.url "$SOURCE_URL"
 # Only the disposable source cache is force-updated; Forgejo history is never rewritten.
-git -C "$CACHE_DIR" fetch --prune source '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
+git -C "$CACHE_DIR" fetch --prune "$SOURCE_URL" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
 
 # Scope the credential to this destination, without putting it in a URL, argv or the cache.
 authorization="$(printf '%s:%s' "$FORGEJO_USER" "$FORGEJO_TOKEN" | base64 | tr -d '\n')"

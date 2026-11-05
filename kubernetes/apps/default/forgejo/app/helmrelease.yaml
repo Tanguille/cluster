@@ -51,15 +51,13 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /api/healthz
                     port: 3000
               startup:
                 <<: *health
                 spec:
-                  httpGet:
-                    path: /api/healthz
-                    port: 3000
+                  httpGet: *httpGet
                   failureThreshold: 60
                   periodSeconds: 5
             securityContext:
@@ -77,11 +75,8 @@ spec:
           schedule: "*/5 * * * *"
           # Enable only after the normal repository and scoped write token exist.
           suspend: true
-          concurrencyPolicy: Forbid
           backoffLimit: 0
           activeDeadlineSeconds: 240
-          successfulJobsHistory: 1
-          failedJobsHistory: 1
           ttlSecondsAfterFinished: 3600
         containers:
           app:
@@ -126,10 +121,6 @@ spec:
         parentRefs:
           - name: envoy-internal
             namespace: network
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: http
     persistence:
       data:
         existingClaim: *app

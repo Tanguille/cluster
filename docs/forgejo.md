@@ -14,7 +14,7 @@ below use the repository kubeconfig. Verify the branch/worktree and run
 
 - Internal UI: `https://forgejo.${SECRET_DOMAIN}`; HTTPS Git access, no SSH listener.
 - In-cluster Git: `http://forgejo.default.svc.cluster.local:3000/tanguille/cluster.git`.
-- Forgejo 17.0.1 rootless, uid/gid 1000, SQLite, 10Gi `forgejo` Ceph PVC.
+- Forgejo rootless, uid/gid 1000, SQLite, 10Gi `forgejo` Ceph PVC.
 - Kopiur backs up `/var/lib/gitea`, including repositories, SQLite, generated
   internal credentials and `custom/conf/app.ini`. Keep the separate SOPS key
   backup as described in [sops.md](sops.md).
