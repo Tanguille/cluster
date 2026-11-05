@@ -44,7 +44,7 @@ spec:
             parameters: ANY AAAA
             configBlock: |-
               authority "{{ .Zone }} 60 IN SOA ns.dns.cluster.local. hostmaster.cluster.local. (1 60 60 60 60)"
-          # Cilium can't deny an FQDN, so telemetry hosts are blocked here; the Dragonfly licence forbids its disable flag.
+          # Telemetry hosts and their subdomains: Cilium can't deny an FQDN, and Dragonfly's licence forbids its disable flag; Trivy's has no chart setting for scan Jobs.
           - name: template
             parameters: ANY ANY check.trivy.dev version.dragonflydb.io
             configBlock: |-
