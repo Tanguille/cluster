@@ -1,0 +1,23 @@
+---
+# Blocks Trivy's telemetry / license check to api.aquasec.com.
+# Trivy scanner may phone home for usage data; this policy drops the connection.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: trivy-egress-deny-telemetry
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: trivy-operator
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            io.cilium.k8s.namespace: _all
+      toFQDNs:
+        - matchPattern: "api.aquasec.com"
+        - matchPattern: "*.aquasec.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+      action: Drop
