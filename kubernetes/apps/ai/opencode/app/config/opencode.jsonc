@@ -1,13 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
   // Pinned: these execute in-process in an agent pod, so an unpinned npm range is remote code
-  // execution on any upstream publish. Bumped by the opencode customManager in .renovaterc.json5.
+  // execution on any upstream publish. Bumped by the opencode customManagers in .renovaterc.json5.
   "plugins": [
     "cc-safety-net@2.7.3",
     "@tarquinen/opencode-dcp@3.2.0",
     "oh-my-opencode-slim@3.0.7",
-    // A git tag, which that customManager does not read: bump by hand.
-    "superpowers@git+https://github.com/obra/superpowers.git#v7.0.1",
+    "superpowers@git+https://github.com/obra/superpowers.git#22f0b463e7a5e579904dd6211a520321035526f7", // v7.0.2
     {
       "package": "@eleboucher/opencode-memini-v2@0.7.37",
       "options": {
@@ -33,25 +32,15 @@
       "description": "Svelte/SvelteKit specialist for frontend development",
       "prompt": "You are a Svelte/SvelteKit specialist with expertise in:\n\n- Svelte 5 runes ($state, $derived, $effect, $props, $bindable, $inspect)\n- SvelteKit routing, layouts, server functions, and form actions\n- SSR/SSG/hydration strategies and load functions\n- State management (stores, context, runes)\n- Performance optimization (runes reactivity, code splitting, prefetching)\n- TypeScript with Svelte components\n- Styling (scoped CSS, Tailwind, CSS custom properties)\n- Testing (Vitest, Playwright for E2E)\n\nGuidelines:\n- Prefer Svelte 5 runes over legacy stores/reactive declarations\n- Use server functions for data mutations, load functions for data fetching\n- Implement proper error boundaries and fallbacks\n- Consider accessibility (semantic HTML, ARIA, keyboard navigation)\n- Optimize bundle size (dynamic imports, tree shaking)\n- Follow SvelteKit conventions for file-based routing"
     },
-    "explore": {
-      "disable": true
-    },
-    "general": {
-      "disable": true
-    }
+    // oh-my-opencode-slim removes these two built-ins unless they are declared here.
+    "explore": {},
+    "general": {}
   },
   "permission": {
     "skill": {
       "*": "allow"
     }
   },
-  "policies": [
-    {
-      "action": "provider.use",
-      "resource": "hyper",
-      "effect": "deny"
-    }
-  ],
   "lsp": true,
   "mcp": {
     "toolhive": {
@@ -66,13 +55,6 @@
       "options": {
         "baseURL": "http://agentgateway.ai.svc.cluster.local:4000/v1",
         "apiKey": "{env:LLM_API_KEY}"
-      }
-    },
-    "lmstudio": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Desktop",
-      "options": {
-        "baseURL": "http://192.168.0.26:8888/v1"
       }
     }
   }
