@@ -151,7 +151,7 @@ spec:
   command: [radiance]
   parallelSlots: 7
   # After a bump the owner runs bench/qualitygate.py and prodshape.py --levels 8 (0 preemptions: a bump can shrink the
-  # KV pool under the 8-slot cap); baseline: docs/llm-hosting/radiance-2026-11.md. Never an agent or kanban task: the
+  # KV pool under --max-num-seqs); baseline: docs/llm-hosting/radiance-2026-11.md. Never an agent or kanban task: the
   # card holds one engine, so a bench means stopping production.
   image: docker.io/stilldeadcode/radiance:1.17.0@sha256:6fb0e99bfb862e17cc15cb7b2f116c7dbdc831df59f82456a0691122e6cf5330
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
