@@ -27,6 +27,8 @@ spec:
       # `kopia policy set <id> --remove-ignore` (not in the read-only kopia browser pod; use a separate --config-file).
       # Example: kubernetes/apps/media/jellyfin.
       # KOPIUR_IGNORE_RULES: "[/lost+found, /<dir>/cache/*]"
+      # Backup repository, default kopia-nas. Never flip it bare: see docs/kopiur-s3.md.
+      # KOPIUR_REPOSITORY: kopia-s3
 ```
 
 `PVC_ACCESSMODES`/`PVC_STORAGECLASS`/`BACKUP_SNAPSHOTCLASS` are also available (defaults:

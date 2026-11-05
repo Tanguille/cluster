@@ -7,7 +7,8 @@ metadata:
 spec:
   repository:
     kind: ClusterRepository
-    name: kopia-nas
+    # Per-app cutover switch: read docs/kopiur-s3.md first, a bare repoint erases NFS history.
+    name: ${KOPIUR_REPOSITORY:=kopia-nas}
   sources:
     - pvc:
         name: ${APP}
