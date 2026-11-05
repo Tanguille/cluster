@@ -1,0 +1,17 @@
+---
+# Hermes managed scope: merged per key over every profile's PVC config.yaml, and read-only from inside Hermes.
+webapp:
+  enabled: true
+  host: 0.0.0.0
+  public_url: https://hermes.${SECRET_DOMAIN}
+dashboard:
+  # Envoy pods have no fixed IP.
+  trusted_proxies:
+    - ${POD_CIDR}
+browser:
+  # Hermes only bypasses Chromium's sandbox itself for root or Docker, not uid 10000 on containerd.
+  chromium_args:
+    - --no-sandbox
+    - --disable-dev-shm-usage
+plugins:
+  auto_apply: true
