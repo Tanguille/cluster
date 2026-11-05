@@ -6,7 +6,7 @@ metadata:
   name: &app hermes
 spec:
   interval: 30m
-  # Covers Recreate grace, image pull and the startup probe's 310s budget; Flux's 5m default doesn't.
+  # Recreate grace plus the startup probe budget exceed Flux's 5m default.
   timeout: 10m
   chartRef:
     kind: OCIRepository
@@ -45,7 +45,7 @@ spec:
               TZ: ${TIMEZONE}
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_PORT: &port 9119
-              # Cron inactivity watchdog, seconds. Default-profile jobs only: named profiles read their own .env.
+              # Inactivity watchdog, seconds; named profiles read their own .env.
               HERMES_CRON_TIMEOUT: "900"
               S6_CMD_RECEIVE_SIGNALS: "1"
               HERMES_RESTART_DRAIN_TIMEOUT: "45"
