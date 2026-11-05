@@ -27,7 +27,7 @@ spec:
       # S3 uses pod networking; the default namespace otherwise denies LAN egress.
       egress.home.arpa/lan: allow
     securityContext:
-      # Match dumbassets for both backup reads and restored file ownership.
+      # dumbassets' uid; restore and maintenance read this layer, not the policy's mover.
       runAsUser: 65532
       runAsGroup: 65532
     resources:

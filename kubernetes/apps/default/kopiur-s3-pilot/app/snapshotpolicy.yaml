@@ -4,6 +4,8 @@ apiVersion: kopiur.home-operations.com/v1alpha1
 kind: SnapshotPolicy
 metadata:
   name: dumbassets-s3-pilot
+  labels:
+    kopiur-s3-pilot: "true"
 spec:
   repository:
     name: kopiur-s3-pilot
@@ -19,3 +21,90 @@ spec:
     keepDaily: 7
   files:
     ignoreRules: [/lost+found]
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: nextcloud-s3-pilot
+  labels:
+    kopiur-s3-pilot: "true"
+spec:
+  repository:
+    name: kopiur-s3-pilot
+  sources:
+    - pvc:
+        name: nextcloud
+      sourcePathOverride: /data
+  mover:
+    securityContext:
+      runAsUser: 33
+      runAsGroup: 33
+  volumeSnapshotClassName: csi-ceph-blockpool
+  # Daily, not production's weekly, so verification runs on S3 within the pilot.
+  verification:
+    quick:
+      schedule:
+        cron: 0 12 * * *
+        jitter: 1h
+  compression:
+    compressor: zstd
+  retention:
+    keepHourly: 24
+    keepDaily: 7
+  files:
+    ignoreRules: [/lost+found]
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: karakeep-s3-pilot
+  labels:
+    kopiur-s3-pilot: "true"
+spec:
+  repository:
+    name: kopiur-s3-pilot
+  sources:
+    - pvc:
+        name: karakeep
+      sourcePathOverride: /data
+  mover:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+  volumeSnapshotClassName: csi-ceph-blockpool
+  compression:
+    compressor: zstd
+  # Deliberately tight: prunes on the third run, so retention and blob cleanup are exercised on S3.
+  retention:
+    keepLatest: 2
+  files:
+    ignoreRules: [/lost+found]
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/snapshotpolicy_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotPolicy
+metadata:
+  name: satisfactory-s3-pilot
+  labels:
+    kopiur-s3-pilot: "true"
+spec:
+  repository:
+    name: kopiur-s3-pilot
+  sources:
+    - pvc:
+        name: satisfactory
+      sourcePathOverride: /data
+  mover:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+  volumeSnapshotClassName: csi-ceph-blockpool
+  compression:
+    compressor: zstd
+  retention:
+    keepHourly: 24
+    keepDaily: 7
+  files:
+    ignoreRules: [/lost+found, /gamefiles/*]

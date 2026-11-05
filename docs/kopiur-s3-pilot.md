@@ -1,10 +1,16 @@
 # Kopiur TrueNAS S3 pilot
 
 The [pilot Kustomization](../kubernetes/apps/default/kopiur-s3-pilot/ks.yaml)
-adds a namespaced `Repository` and a manual-only `dumbassets-s3-pilot` policy in
-`default`. It snapshots the existing dumbassets PVC into a separate S3 bucket.
-The existing `kopia-nas` repository, NFS mounts, backup schedules and Kopia browser
-continue unchanged. No `SnapshotSchedule` is created for the pilot.
+adds a namespaced `Repository` and four `*-s3-pilot` policies in `default`, covering
+the dumbassets, nextcloud, karakeep and satisfactory PVCs, all snapshotted into a
+separate S3 bucket. One hourly `SnapshotSchedule` fires them together. The existing
+`kopia-nas` repository, NFS mounts, backup schedules and Kopia browser continue
+unchanged.
+
+dumbassets holds two 2-byte JSON files, so it only proves connectivity. nextcloud
+(about 6 GB, 79k files) carries the size and file-count evidence. karakeep has
+`keepLatest: 2` so that retention and blob cleanup run on S3 within the pilot.
+Each policy uses its app's production mover uid and ignore rules.
 
 TrueNAS `27.0.0-RC.1` was provisioned on 2026-11-05. Its native S3 service is
 [experimental](https://www.truenas.com/docs/scale/27/shares/s3/).
@@ -34,7 +40,7 @@ client-side DNS override while preserving hostname and certificate verification.
 
 TrueNAS provisioning was authorized and completed. PR #6573 deployed DNS with
 the Kubernetes pilot suspended. The follow-up activation sets `spec.suspend: false`;
-once merged, Flux creates the repository and manual-only policy.
+once merged, Flux creates the repository, policies and schedule.
 
 - After deploying the DNS change, verify `s3.${SECRET_DOMAIN}` resolves to
   `${TRUENAS_IP}` from the cluster and LAN, and verify HTTPS on port 9000 without
@@ -44,8 +50,9 @@ once merged, Flux creates the repository and manual-only policy.
 - Retain the pilot repository password outside the cluster using the human-held
   backup procedure in [SOPS](sops.md). The encrypted Secret contains
   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `KOPIA_PASSWORD`.
-- Keep activation in Git. The enabled Kustomization creates the repository and
-  policy but does not schedule backups; run the manual tests below after it is Ready.
+- Keep activation in Git and run the manual tests below once it is Ready. The hourly
+  schedule also stops `KopiurBackupStale` firing, which a manual-only policy would
+  trip after 6h.
 
 For reprovisioning, preserve the bucket/account separation above and use the
 [S3 backend requirements](https://kopiur.home-operations.com/backends/s3/).
@@ -59,8 +66,8 @@ network policies remain unchanged. Maintenance uses Kopiur's managed defaults.
 Kopiur's [TLS configuration](https://github.com/home-operations/kopiur/blob/0.10.17/crates/api/src/common/mod.rs#L242)
 defaults both `disableTls` and `insecureSkipVerify` to false, so an unexpected DNS
 target cannot silently downgrade the client to HTTP or bypass certificate checks.
-The repository uid/gid defaults deliberately cover this one app's backup and restore;
-explicit per-recipe settings override them in
+The repository uid/gid defaults cover dumbassets; the other policies set their own
+production uid, and explicit per-recipe settings override the defaults in
 [`resolve_mover`](https://github.com/home-operations/kopiur/blob/0.10.17/crates/api/src/common/mover.rs#L350).
 
 ### Post-merge connectivity validation (2026-11-05)
@@ -73,13 +80,13 @@ The dumbassets app pod resolved DNS but its HTTPS request timed out; it lacks th
 exception and matches the live LAN-deny policy. No application labels were changed.
 
 The production `ClusterRepository/kopia-nas` remained Ready and BackendReachable.
-The pilot Kustomization was still suspended and its Repository did not exist, so
-backup, restore and maintenance validation await the activation change.
+The pilot Kustomization was still suspended at that point and its Repository did
+not exist.
 
 ## Manual backup and isolated restore
 
 Run from the repository with its kubeconfig selected. These commands create pilot
-backup/restore jobs and a new PVC; execute only after activation is approved.
+backup/restore jobs and a new PVC.
 
 ```bash
 mise exec -- kubectl -n default wait \
@@ -94,8 +101,8 @@ mise exec -- kubectl kopiur snapshots list \
 After the first backup succeeds, repeat it with a new snapshot name to measure an incremental run. Record
 elapsed time, bytes uploaded, mover CPU/memory and TrueNAS CPU/disk load. Compare
 with the normal dumbassets NFS runs, distinguishing initial backup from incremental
-backup and cold cache from warm cache. This 1Gi PVC is a compatibility smoke test;
-it cannot establish large-repository or four-concurrent-job performance.
+backup and cold cache from warm cache. The scheduled firing runs all four policies
+at the repository's cap of four, with nextcloud dominating the transferred data.
 
 Restore only to a fresh pilot PVC. Do not use the in-place production recovery
 procedure in [the restore guide](kopiur-restore.md) for this test.
