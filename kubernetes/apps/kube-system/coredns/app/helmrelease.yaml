@@ -40,15 +40,15 @@ spec:
             use_tcp: true
         port: 53
         plugins:
-          - name: template
-            parameters: ANY AAAA
-            configBlock: |-
-              authority "{{ .Zone }} 60 IN SOA ns.dns.cluster.local. hostmaster.cluster.local. (1 60 60 60 60)"
           # Telemetry hosts and their subdomains: Cilium can't deny an FQDN, and Dragonfly's licence forbids its disable flag; Trivy's has no chart setting for scan Jobs.
           - name: template
             parameters: ANY ANY check.trivy.dev version.dragonflydb.io
             configBlock: |-
               rcode NXDOMAIN
+          - name: template
+            parameters: ANY AAAA
+            configBlock: |-
+              authority "{{ .Zone }} 60 IN SOA ns.dns.cluster.local. hostmaster.cluster.local. (1 60 60 60 60)"
           - name: errors
           - name: health
             configBlock: |-
