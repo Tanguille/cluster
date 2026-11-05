@@ -19,19 +19,24 @@ spec:
           app:
             image:
               repository: ghcr.io/anomalyco/opencode
-              tag: 1.18.35@sha256:ae90ec960c871b0ea6df9abc1c2ec1e6b36464e8eca9b0e71e1ed3b553f47aa2
+              tag: 2.2.5@sha256:1690aad69864d2f6714772d1e040918feebc6df5286d2bd7e181fbb35d12d4a9
             env:
               TZ: ${TIMEZONE}
-              HOME: /home/opencode
+              # Sessions migrated from the VM store absolute paths under this home.
+              HOME: /home/tanguille
               OPENCODE_CONFIG: /config/opencode.jsonc
               LLM_API_KEY: ${LLM_API_KEY}
+            envFrom:
+              - secretRef:
+                  name: opencode-secret
             securityContext:
               allowPrivilegeEscalation: false
             command:
-              - opencode
-              - web
-              - --hostname
-              - "0.0.0.0"
+              - sh
+              - -c
+              # The image has no git, which OpenCode needs for projects, snapshots and git plugins.
+              # ponytail: installs at every start, build our own image if a mirror outage bites.
+              - apk add --no-cache bash curl git jq && exec opencode serve --hostname 0.0.0.0 --port 4096
             probes:
               liveness:
                 enabled: true
@@ -89,7 +94,7 @@ spec:
       home:
         existingClaim: *app
         globalMounts:
-          - path: /home/opencode
+          - path: /home/tanguille
       config-file:
         type: configMap
         name: opencode-config
