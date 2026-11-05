@@ -6,8 +6,10 @@ accounts therefore have ids such as `@alice:matrix.example.com`. Confirm this
 identity before the first deployment: changing the server name later requires a
 new database. The root domain does not need Matrix discovery routes.
 
-Federation is enabled over HTTPS on port 443 via `envoy-external`. Continuwuity
-serves both client and server `/.well-known/matrix/` documents. Keep the hostname
+Federation is enabled over HTTPS on port 443 via `envoy-external`, including its
+gateway-wide `crowdsec` extAuth SecurityPolicy. CrowdSec can deny requests before
+they reach Continuwuity. Continuwuity serves both client and server
+`/.well-known/matrix/` documents. Keep the hostname
 accessible to Matrix clients and remote servers without a browser-only login or
 challenge in front of it. Registration is closed except for the first-admin
 bootstrap below. Authentication uses Continuwuity's local accounts; OIDC,
@@ -60,6 +62,10 @@ one-time registration flow followed by closed registration.
 After deployment, verify public TLS/DNS, both discovery documents, federation,
 encrypted messaging and device verification with the intended clients, media
 uploads, and a Kopiur restore. The readiness check alone does not establish these.
+From an off-cluster host, request
+`https://matrix.<your-domain>/_matrix/federation/v1/version` and confirm HTTP 200.
+If it returns 403, check the CrowdSec bouncer decision before troubleshooting
+Continuwuity; do not disable the gateway policy globally.
 
 ## References
 
