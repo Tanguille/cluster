@@ -26,7 +26,6 @@ spec:
               CONTINUWUITY_ADDRESS: 0.0.0.0
               CONTINUWUITY_PORT: &port 8080
               CONTINUWUITY_ALLOW_REGISTRATION: "false"
-              CONTINUWUITY_ALLOW_FEDERATION: "true"
               CONTINUWUITY_WELL_KNOWN__CLIENT: https://matrix.${SECRET_DOMAIN}
               CONTINUWUITY_WELL_KNOWN__SERVER: matrix.${SECRET_DOMAIN}:443
             probes:
@@ -34,16 +33,14 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet:
+                  httpGet: &httpGet
                     path: /_continuwuity/server_version
                     port: *port
               readiness: *probe
               startup:
                 <<: *probe
                 spec:
-                  httpGet:
-                    path: /_continuwuity/server_version
-                    port: *port
+                  httpGet: *httpGet
                   periodSeconds: 5
                   failureThreshold: 120
             securityContext:
