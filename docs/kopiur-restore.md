@@ -2,6 +2,9 @@
 
 This guide explains how to properly restore data from kopiur (Kopia-native) backups.
 
+For the separate TrueNAS S3 experiment, use the [pilot guide](kopiur-s3-pilot.md),
+which restores into a fresh test PVC without replacing the production volume.
+
 ## Understanding the Components
 
 The `components/kopiur` component creates, per app:

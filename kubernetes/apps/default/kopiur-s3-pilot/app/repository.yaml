@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kopiur.home-operations.com/repository_v1alpha1.json
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: Repository
+metadata:
+  name: kopiur-s3-pilot
+spec:
+  backend:
+    s3:
+      bucket: kopiur-s3-pilot
+      # Planned direct TrueNAS HTTPS listener, not an existing ingress route.
+      endpoint: s3.${SECRET_DOMAIN}:9000
+      region: us-east-1
+      auth:
+        secretRef:
+          name: kopiur-s3-pilot
+  encryption:
+    passwordSecretRef:
+      name: kopiur-s3-pilot
+      key: KOPIA_PASSWORD
+  create:
+    enabled: true
+  concurrency:
+    maxConcurrentJobs: 4
+  moverDefaults:
+    podLabels:
+      # S3 uses pod networking; the default namespace otherwise denies LAN egress.
+      egress.home.arpa/lan: allow
+    securityContext:
+      # Match dumbassets for both backup reads and restored file ownership.
+      runAsUser: 65532
+      runAsGroup: 65532
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+  scheduleDefaults:
+    timezone: ${TIMEZONE}
