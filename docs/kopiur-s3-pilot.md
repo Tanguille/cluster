@@ -27,13 +27,11 @@ TrueNAS `27.0.0-RC.1` was provisioned on 2026-11-05. Its native S3 service is
 
 The [k8s-gateway configuration](../kubernetes/apps/network/k8s-gateway/app/helmrelease.yaml)
 adds a dedicated `s3.${SECRET_DOMAIN}` zone resolving directly to `${TRUENAS_IP}`.
-That DNS change is staged in this PR, not deployed. Connectivity checks used a
+Pre-deployment connectivity checks used a
 client-side DNS override while preserving hostname and certificate verification.
 
 ## Provisioning and activation
 
-Before editing, verify the branch/worktree with `git branch --show-current` and
-`git worktree list`, then run `git status` and `git pull --ff-only && git status`.
 TrueNAS provisioning was authorized and completed. Merging, reconciling and
 activating the Kubernetes pilot remain separate owner decisions.
 
@@ -71,12 +69,12 @@ Run from the repository with its kubeconfig selected. These commands create pilo
 backup/restore jobs and a new PVC; execute only after activation is approved.
 
 ```bash
-mise exec -- kubectl --kubeconfig ./kubeconfig -n default wait \
+mise exec -- kubectl -n default wait \
   --for=condition=Ready repository/kopiur-s3-pilot --timeout=5m
 pilot_snapshot="dumbassets-s3-pilot-$(date +%s)"
-mise exec -- kubectl --kubeconfig ./kubeconfig kopiur snapshot now \
+mise exec -- kubectl kopiur snapshot now \
   -n default --policy dumbassets-s3-pilot --name "$pilot_snapshot" --wait
-mise exec -- kubectl --kubeconfig ./kubeconfig kopiur snapshots list \
+mise exec -- kubectl kopiur snapshots list \
   -n default --policy dumbassets-s3-pilot
 ```
 
@@ -91,12 +89,12 @@ procedure in [the restore guide](kopiur-restore.md) for this test.
 
 ```bash
 set -euo pipefail
-mise exec -- kubectl --kubeconfig ./kubeconfig kopiur restore -n default \
+mise exec -- kubectl kopiur restore -n default \
   --from-snapshot "$pilot_snapshot" --on-missing-snapshot fail \
   --repository kopiur-s3-pilot --repository-kind repository \
   --create-pvc dumbassets-s3-pilot-restore --size 1Gi \
   --storage-class ceph-block --name dumbassets-s3-pilot-restore --wait
-mise exec -- kubectl --kubeconfig ./kubeconfig -n default get \
+mise exec -- kubectl -n default get \
   restore/dumbassets-s3-pilot-restore -o json | jq -e \
   '.status.phase == "Completed" and
    any(.status.conditions[]; .type == "Ready" and .status == "True") and
@@ -113,7 +111,7 @@ Set `pilot_inspection_pod` to that pod's name. List the exact snapshot, then cho
 regular files covering the application's database/configuration and uploaded assets:
 
 ```bash
-mise exec -- kubectl --kubeconfig ./kubeconfig kopiur ls -n default "$pilot_snapshot"
+mise exec -- kubectl kopiur ls -n default "$pilot_snapshot"
 ```
 
 Download paths are relative to the snapshot root: `config.json`, for example,
@@ -125,14 +123,11 @@ set -euo pipefail
 read -r -p 'Snapshot-relative file path: ' pilot_file
 pilot_check_dir="$(mktemp -d)"
 trap 'rm -rf -- "$pilot_check_dir"' EXIT
-mise exec -- kubectl --kubeconfig ./kubeconfig kopiur download -n default \
+mise exec -- kubectl kopiur download -n default \
   "$pilot_snapshot" "$pilot_file" "$pilot_check_dir/reference"
-mise exec -- kubectl --kubeconfig ./kubeconfig -n default exec \
-  "$pilot_inspection_pod" -- cat "/data/$pilot_file" > "$pilot_check_dir/restored"
-sha256sum "$pilot_check_dir/reference" | cut -d ' ' -f 1 > "$pilot_check_dir/reference.sha256"
-sha256sum "$pilot_check_dir/restored" | cut -d ' ' -f 1 > "$pilot_check_dir/restored.sha256"
-diff -u "$pilot_check_dir/reference.sha256" "$pilot_check_dir/restored.sha256"
-pilot_owner="$(mise exec -- kubectl --kubeconfig ./kubeconfig -n default exec \
+mise exec -- kubectl -n default exec \
+  "$pilot_inspection_pod" -- cat "/data/$pilot_file" | cmp - "$pilot_check_dir/reference"
+pilot_owner="$(mise exec -- kubectl -n default exec \
   "$pilot_inspection_pod" -- stat -c '%u:%g' "/data/$pilot_file")"
 test "$pilot_owner" = '65532:65532'
 rm -rf -- "$pilot_check_dir"
@@ -149,7 +144,7 @@ data on both backends at equal concurrency (the pilot cap matches NFS at four).
 Record results here; none of these runtime tests have been performed yet.
 
 ```bash
-mise exec -- kubectl --kubeconfig ./kubeconfig kopiur maintenance run -n default \
+mise exec -- kubectl kopiur maintenance run -n default \
   --repository kopiur-s3-pilot --full --wait
 ```
 
@@ -160,5 +155,5 @@ already-created Kopiur resources. Set the pilot Repository's `spec.suspend: true
 in Git and let Flux apply that first; stop manual triggers, wait for active pilot
 jobs to finish and verify that maintenance is no longer scheduling jobs. Then
 suspend its Flux Kustomization if retaining the experiment.
-Remove pilot PVCs, snapshots, credentials and the bucket only with explicit approval
+Remove pilot PVCs, snapshots, credentials, the bucket and the k8s-gateway `s3` zone only with explicit approval
 after preserving any results needed. Never remove the production NFS repository.
