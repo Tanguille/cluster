@@ -1,0 +1,23 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: kopiur-s3-pilot
+  namespace: &namespace default
+spec:
+  # TrueNAS is provisioned; enable after deploying and verifying DNS. See docs/kopiur-s3-pilot.md.
+  suspend: true
+  dependsOn:
+    - name: kopiur
+      namespace: kopiur-system
+    - name: dumbassets
+  interval: 1h
+  path: ./kubernetes/apps/default/kopiur-s3-pilot/app
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
+  wait: true
