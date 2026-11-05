@@ -8,7 +8,7 @@ spec:
   backend:
     s3:
       bucket: kopiur-s3-pilot
-      # Direct TrueNAS HTTPS listener; k8s-gateway supplies LAN DNS.
+      # Kopiur defaults to verified HTTPS; k8s-gateway resolves this directly to TrueNAS.
       endpoint: s3.${SECRET_DOMAIN}:9000
       region: us-east-1
       auth:

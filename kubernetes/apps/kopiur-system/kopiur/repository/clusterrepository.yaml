@@ -35,7 +35,7 @@ spec:
     allowed: true
   maintenance:
     mover:
-      # Not on moverDefaults: there it overrides the per-app mover uid/gid in components/kopiur.
+      # Maintenance reads the uid-568 NFS repo; app movers keep their per-policy identities.
       securityContext:
         runAsUser: 568
         runAsGroup: 568

@@ -40,6 +40,8 @@ activating the Kubernetes pilot remain separate owner decisions.
 - After deploying the DNS change, verify `s3.${SECRET_DOMAIN}` resolves to
   `${TRUENAS_IP}` from the cluster and LAN, and verify HTTPS on port 9000 without
   a DNS override. The S3 listener itself is already running.
+  An unsigned `curl https://s3.${SECRET_DOMAIN}:9000/` must complete TLS verification
+  and return S3 `AccessDenied` (HTTP 403); do not use `-k` or `--resolve` for this check.
 - Retain the pilot repository password outside the cluster using the human-held
   backup procedure in [SOPS](sops.md). The encrypted Secret contains
   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `KOPIA_PASSWORD`.
@@ -56,6 +58,12 @@ The repository grants its mover pods the existing `egress.home.arpa/lan: allow`
 exception so pod-originated S3 requests reach TrueNAS. This is the namespace's
 existing LAN exception, not a restriction to port 9000. The production workloads'
 network policies remain unchanged. Maintenance uses Kopiur's managed defaults.
+Kopiur's [TLS configuration](https://github.com/home-operations/kopiur/blob/0.10.17/crates/api/src/common/mod.rs#L242)
+defaults both `disableTls` and `insecureSkipVerify` to false, so an unexpected DNS
+target cannot silently downgrade the client to HTTP or bypass certificate checks.
+The repository uid/gid defaults deliberately cover this one app's backup and restore;
+explicit per-recipe settings override them in
+[`resolve_mover`](https://github.com/home-operations/kopiur/blob/0.10.17/crates/api/src/common/mover.rs#L350).
 
 ## Manual backup and isolated restore
 
@@ -82,23 +90,58 @@ Restore only to a fresh pilot PVC. Do not use the in-place production recovery
 procedure in [the restore guide](kopiur-restore.md) for this test.
 
 ```bash
+set -euo pipefail
 mise exec -- kubectl --kubeconfig ./kubeconfig kopiur restore -n default \
   --from-snapshot "$pilot_snapshot" --on-missing-snapshot fail \
+  --repository kopiur-s3-pilot --repository-kind repository \
   --create-pvc dumbassets-s3-pilot-restore --size 1Gi \
   --storage-class ceph-block --name dumbassets-s3-pilot-restore --wait
 mise exec -- kubectl --kubeconfig ./kubeconfig -n default get \
-  restore/dumbassets-s3-pilot-restore -o yaml
+  restore/dumbassets-s3-pilot-restore -o json | jq -e \
+  '.status.phase == "Completed" and
+   any(.status.conditions[]; .type == "Ready" and .status == "True") and
+   .status.resolved.repository.kind == "Repository" and
+   .status.resolved.repository.name == "kopiur-s3-pilot"'
 ```
 
-Require `Completed` and `Ready=True`, then mount the restored PVC read-only in an
-isolated inspection pod. Obtain reference files from the exact snapshot used by
-the restore with `kubectl kopiur download -n default "$pilot_snapshot" <relative-file> <local-file>`
-(run through mise with the repository kubeconfig). Compare their `sha256sum` values
-with the corresponding restored files and verify ownership is 65532:65532.
-Use a protected temporary directory for downloaded files and remove it after the
-comparison. Do not compare against the changing live PVC. A successful Job alone
-does not prove the restored application data is usable. Do not attach the restored
-PVC to the production application.
+`--name` is supported by the installed CLI (0.7.1) and honored by the
+[upstream restore builder](https://github.com/home-operations/kopiur/blob/0.10.17/crates/ops/src/actions/restore.rs#L63).
+Never claim the production passive `dumbassets-restore` with a pilot PVC.
+
+Mount `dumbassets-s3-pilot-restore` read-only at `/data` in an isolated inspection pod.
+Set `pilot_inspection_pod` to that pod's name. List the exact snapshot, then choose
+regular files covering the application's database/configuration and uploaded assets:
+
+```bash
+mise exec -- kubectl --kubeconfig ./kubeconfig kopiur ls -n default "$pilot_snapshot"
+```
+
+Download paths are relative to the snapshot root: `config.json`, for example,
+not `/data/config.json`. `sourcePathOverride: /data` records the backup identity;
+it does not add a `data/` directory to the stored tree. For each selected file, run:
+
+```bash
+set -euo pipefail
+read -r -p 'Snapshot-relative file path: ' pilot_file
+pilot_check_dir="$(mktemp -d)"
+trap 'rm -rf -- "$pilot_check_dir"' EXIT
+mise exec -- kubectl --kubeconfig ./kubeconfig kopiur download -n default \
+  "$pilot_snapshot" "$pilot_file" "$pilot_check_dir/reference"
+mise exec -- kubectl --kubeconfig ./kubeconfig -n default exec \
+  "$pilot_inspection_pod" -- cat "/data/$pilot_file" > "$pilot_check_dir/restored"
+sha256sum "$pilot_check_dir/reference" | cut -d ' ' -f 1 > "$pilot_check_dir/reference.sha256"
+sha256sum "$pilot_check_dir/restored" | cut -d ' ' -f 1 > "$pilot_check_dir/restored.sha256"
+diff -u "$pilot_check_dir/reference.sha256" "$pilot_check_dir/restored.sha256"
+pilot_owner="$(mise exec -- kubectl --kubeconfig ./kubeconfig -n default exec \
+  "$pilot_inspection_pod" -- stat -c '%u:%g' "/data/$pilot_file")"
+test "$pilot_owner" = '65532:65532'
+rm -rf -- "$pilot_check_dir"
+trap - EXIT
+```
+
+Record the selected paths and results. This is sampled content/ownership verification,
+not proof of whole-tree completeness. Do not compare against the changing live PVC
+or attach the restored PVC to the production application.
 
 Before recommending migration, also test full maintenance, retention cleanup and
 another restore after maintenance. For a throughput decision, compare representative
