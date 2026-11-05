@@ -6,8 +6,8 @@ metadata:
   name: kopiur-s3-pilot
   namespace: &namespace default
 spec:
-  # TrueNAS is provisioned; enable after deploying and verifying DNS. See docs/kopiur-s3-pilot.md.
-  suspend: true
+  # DNS and verified HTTPS are reachable; backups remain manual. See docs/kopiur-s3-pilot.md.
+  suspend: false
   dependsOn:
     - name: kopiur
       namespace: kopiur-system

@@ -1,6 +1,6 @@
 # Kopiur TrueNAS S3 pilot
 
-The suspended [pilot Kustomization](../kubernetes/apps/default/kopiur-s3-pilot/ks.yaml)
+The [pilot Kustomization](../kubernetes/apps/default/kopiur-s3-pilot/ks.yaml)
 adds a namespaced `Repository` and a manual-only `dumbassets-s3-pilot` policy in
 `default`. It snapshots the existing dumbassets PVC into a separate S3 bucket.
 The existing `kopia-nas` repository, NFS mounts, backup schedules and Kopia browser
@@ -32,8 +32,9 @@ client-side DNS override while preserving hostname and certificate verification.
 
 ## Provisioning and activation
 
-TrueNAS provisioning was authorized and completed. Merging, reconciling and
-activating the Kubernetes pilot remain separate owner decisions.
+TrueNAS provisioning was authorized and completed. PR #6573 deployed DNS with
+the Kubernetes pilot suspended. The follow-up activation sets `spec.suspend: false`;
+once merged, Flux creates the repository and manual-only policy.
 
 - After deploying the DNS change, verify `s3.${SECRET_DOMAIN}` resolves to
   `${TRUENAS_IP}` from the cluster and LAN, and verify HTTPS on port 9000 without
@@ -43,9 +44,8 @@ activating the Kubernetes pilot remain separate owner decisions.
 - Retain the pilot repository password outside the cluster using the human-held
   backup procedure in [SOPS](sops.md). The encrypted Secret contains
   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `KOPIA_PASSWORD`.
-- Change the pilot Flux Kustomization's `spec.suspend` to `false` in Git after DNS
-  verification and activation approval. Merging the suspended configuration
-  deploys DNS but does not create a repository or start backup jobs.
+- Keep activation in Git. The enabled Kustomization creates the repository and
+  policy but does not schedule backups; run the manual tests below after it is Ready.
 
 For reprovisioning, preserve the bucket/account separation above and use the
 [S3 backend requirements](https://kopiur.home-operations.com/backends/s3/).
@@ -62,6 +62,19 @@ target cannot silently downgrade the client to HTTP or bypass certificate checks
 The repository uid/gid defaults deliberately cover this one app's backup and restore;
 explicit per-recipe settings override them in
 [`resolve_mover`](https://github.com/home-operations/kopiur/blob/0.10.17/crates/api/src/common/mover.rs#L350).
+
+### Post-merge connectivity validation (2026-11-05)
+
+PR #6573 merged as `8fbb630f1`; k8s-gateway reported a successful Helm upgrade.
+Both the LAN workstation and the existing `default/homepage` pod resolved
+`s3.tanguille.site` to `192.168.0.27` and received HTTP 403 over verified HTTPS
+without a DNS override. Homepage uses the same LAN exception label as pilot movers.
+The dumbassets app pod resolved DNS but its HTTPS request timed out; it lacks that
+exception and matches the live LAN-deny policy. No application labels were changed.
+
+The production `ClusterRepository/kopia-nas` remained Ready and BackendReachable.
+The pilot Kustomization was still suspended and its Repository did not exist, so
+backup, restore and maintenance validation await the activation change.
 
 ## Manual backup and isolated restore
 
