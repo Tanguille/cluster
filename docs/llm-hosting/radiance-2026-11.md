@@ -60,6 +60,11 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
 - Prompt lookup alone (`--spec-ngram`) is refused for a container that declares a draft head, and on 1.15.1
   `rad-convert --max-spec 0` drops the head's weights but still declares `mtp`, so it is untested. Untested: `--prefill-interleave`.
 - Draft acceptance in production ~52-60% (`radiance:draft_acceptance_ratio`).
+- Ceiling 6 since 2026-11-06, set from production counters, not a bench. At ceiling 4, 91% of verify steps ran at depth 4
+  (`radiance:draft_verify_depth_total`) and the last position still accepted 83%, at 3.21 tokens a step. Upstream's cost prior
+  is 6% a draft, so 6 should give about 17% more tokens for 10% more step time; the adaptive window backs off where it does not.
+  8 sequences x 7 rows stays under the 64-row int8 path. Compare with the 4-ceiling baseline from 11-05 09:53Z to 11-06 00:48Z:
+  decode p10/p50/p90 31.8/70.8/94.2 tok/s on replies of 200+ tokens, pool 537,840 tokens. Rollback: back to 4.
 
 ## Cache
 
