@@ -20,8 +20,10 @@ spec:
 
     controllers:
       headroom:
-        # One replica is enough inline (agentgateway -> headroom -> agentgateway): while it is
-        # unreachable agentgateway retries the request uncompressed (agentgateway-clients-retry).
+        # One replica is enough inline (agentgateway -> headroom -> agentgateway): once 5 straight
+        # failures evict it, agentgateway retries the request uncompressed (agentgateway-clients-retry).
+        # Those first failures reach clients, so with no volumes a rollout starts the new pod first.
+        strategy: RollingUpdate
         containers:
           app:
             image:
