@@ -5,7 +5,7 @@
     // Pin every github> preset to the same tag; an unpinned one tracks main.
     "github>home-operations/renovate-presets#11.0.0",
     "github>home-operations/renovate-presets//apps/cnpg.json5#11.0.0",
-    // grafanaDashboards preset inlined below: its grafanaCom template needs capture groups Renovate never passes to templates.
+    "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#11.0.0",
     "github>home-operations/renovate-presets//apps/searxng.json5#11.0.0"
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
@@ -43,13 +43,6 @@
       format: "json",
       transformTemplates: [
         '{"releases":[releases[moniker="stable" and iseol=false].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
-      ]
-    },
-    "grafana-dashboards": {
-      defaultRegistryUrlTemplate: "https://grafana.com/api/dashboards/{{packageName}}",
-      format: "json",
-      transformTemplates: [
-        '{"releases":[{"version": $string(revision)}], "sourceDirectory": name}'
       ]
     }
   },
@@ -96,18 +89,6 @@
       ],
       depNameTemplate: "docker.io/stilldeadcode/radiance",
       datasourceTemplate: "docker"
-    },
-    {
-      // Only adjacent id then revision: `indentation` is the one custom group a template can use.
-      description: "GrafanaDashboard grafanaCom id/revision",
-      customType: "regex",
-      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
-      matchStrings: [
-        "grafanaCom:\\n(?<indentation> +)id: (?<depName>\\d+)\\n +revision: (?<currentValue>\\d+)"
-      ],
-      datasourceTemplate: "custom.grafana-dashboards",
-      versioningTemplate: "regex:^(?<major>\\d+)$",
-      autoReplaceStringTemplate: "grafanaCom:\n{{{indentation}}}id: {{{depName}}}\n{{{indentation}}}revision: {{{newValue}}}"
     },
     {
       description: "HuggingFace model files revision-pinned in llmkube Model sources (HF model repos are git repos; digest = repo commit sha)",
@@ -353,12 +334,9 @@
     },
     // Versioning overrides
     {
-      description: "Mixed-segment tags (p2pool v4.15/v4.15.1, hermes v2026.5.29/v2026.5.29.2); docker versioning skips patch bumps",
+      description: "Mixed-segment tags (p2pool v4.15/v4.15.1); docker versioning skips patch bumps",
       matchDatasources: ["docker"],
-      matchPackageNames: [
-        "ghcr.io/sethforprivacy/p2pool",
-        "nousresearch/hermes-agent"
-      ],
+      matchPackageNames: ["ghcr.io/sethforprivacy/p2pool"],
       versioning: "loose"
     },
     {
@@ -383,10 +361,7 @@
     },
     {
       matchDatasources: ["custom.grafana-dashboards"],
-      addLabels: ["renovate/grafana-dashboard"],
-      commitMessageTopic: "dashboard {{sourceDirectory}}",
-      semanticCommitScope: "grafana-dashboards",
-      semanticCommitType: "chore"
+      addLabels: ["renovate/grafana-dashboard"]
     },
     {
       matchDatasources: ["custom.linux-kernel"],

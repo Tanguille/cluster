@@ -11,19 +11,13 @@ spec:
     - name: ceph-osds-overview
       asset: osds-overview
     - name: ceph-cluster-advanced
-      asset: ceph-cluster-advanced
     - name: ceph-application-overview
-      asset: ceph-application-overview
     - name: cephfs-overview
       asset: cephfsdashboard
     - name: hosts-overview
-      asset: hosts-overview
     - name: osd-device-details
-      asset: osd-device-details
     - name: pool-overview
-      asset: pool-overview
     - name: pool-detail
-      asset: pool-detail
   resources:
     - apiVersion: grafana.integreatly.org/v1beta1
       kind: GrafanaDashboard
@@ -35,4 +29,4 @@ spec:
         instanceSelector:
           matchLabels:
             grafana.internal/instance: grafana
-        url: https://raw.githubusercontent.com/ceph/ceph/main/monitoring/ceph-mixin/dashboards_out/<< inputs.asset >>.json
+        url: https://raw.githubusercontent.com/ceph/ceph/main/monitoring/ceph-mixin/dashboards_out/<< dig "asset" inputs.name inputs >>.json

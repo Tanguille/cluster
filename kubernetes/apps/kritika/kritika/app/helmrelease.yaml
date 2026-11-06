@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -16,7 +16,7 @@ spec:
   values:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
-    # Postgres client grant for database-ingress-allowlist's label gate (runners: runner.podTemplate).
+    # Postgres client grant for database-ingress-allowlist's label gate.
     podLabels:
       egress.home.arpa/postgres: allow
     # Direct to postgres16-rw: kritika sets startup params pgbouncer rejects.
@@ -32,9 +32,6 @@ spec:
     # Keys live under podTemplate.spec; top-level runtimeClassName and resources are ignored silently and runner pods lose gVisor.
     runner:
       podTemplate:
-        metadata:
-          labels:
-            egress.home.arpa/postgres: allow
         spec:
           runtimeClassName: gvisor
           resources:
@@ -61,7 +58,7 @@ spec:
       egressPorts:
         - 443
         - 4000
-      # Instance pods only, not poolers: runners connect to the primary directly.
+      # Instance pods only, not poolers: the server connects to the primary directly.
       postgres:
         namespace: database
         podSelector:

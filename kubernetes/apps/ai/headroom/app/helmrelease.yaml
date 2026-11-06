@@ -37,7 +37,6 @@ spec:
               TZ: ${TIMEZONE}
               # Image default is 127.0.0.1.
               HEADROOM_HOST: 0.0.0.0
-              HEADROOM_PORT: &port 8787
               # Compressed requests go back to agentgateway's models listener, which routes on the
               # model name; Headroom appends the /v1/... path itself.
               OPENAI_TARGET_API_URL: &models http://agentgateway.ai.svc.cluster.local:8080
@@ -94,7 +93,7 @@ spec:
                 spec:
                   httpGet: &livez
                     path: /livez
-                    port: *port
+                    port: &port 8787
                   failureThreshold: 30
               liveness:
                 enabled: true

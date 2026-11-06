@@ -40,7 +40,7 @@ the PVC, resume, verify. That file is the single copy, and also covers point-in-
 check.
 
 Not in that file: when the live uid does not match the manifest's `runAsUser`,
-`KOPIUR_PUID`/`KOPIUR_PGID` (and, only for genuine root,
+`KOPIUR_PUID` (and, only for genuine root,
 `KOPIUR_MOVER_CAPS_ADD: "[DAC_READ_SEARCH]"`) go in the app's own `ks.yaml`
 `postBuild.substitute` block — see [references/restore-pvc.md](references/restore-pvc.md).
 

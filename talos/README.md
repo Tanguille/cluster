@@ -73,8 +73,8 @@ Resolution is per node: `nodes/<role>/<node>.schematic.yaml` wins when present, 
 overrides, because it is the TrueNAS VM and the only dGPU host.
 
 Schematics are plain YAML, deliberately not templates. Routing them through `template` would
-decrypt the secrets bundle to render a file that references no secrets, on the hot path of nearly
-every `just talos` command. If a schematic ever needs a variable, add the extension back.
+decrypt the secrets bundle to render a file that references no secrets. If a schematic ever needs a
+variable, add the extension back.
 
 **The ID is content-addressed, so any change to a schematic's fields moves it** — including a
 one-character change to `extraKernelArgs`. Comments and formatting do not: the Factory canonicalises
@@ -119,8 +119,8 @@ not scrub or trim in lockstep. That is what makes weekly safe on control-3 despi
 thermal-shutdown history: it never runs at the same moment as its peers.
 
 Trim reaches only what the node can discard. control-2 and control-3 install to real NVMe; control-1
-is the TrueNAS VM, installs to `/dev/vda`, and has no NVMe device at all (`talosctl get disks` shows
-only virtio and rbd), so its discards pass through to whatever the hypervisor does with them.
+is the TrueNAS VM, installs to `/dev/vda`, and has no local NVMe (its `nvme` devices are TrueNAS
+NVMe-oF namespaces), so its discards pass through to whatever the hypervisor does with them.
 
 ### Deliberately not adopted
 

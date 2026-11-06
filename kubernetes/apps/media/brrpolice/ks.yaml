@@ -7,7 +7,6 @@ metadata:
   namespace: &namespace media
 spec:
   components:
-    - ../../../../components/nfs-scaler
     - ../../../../components/kopiur
   interval: 1h
   path: ./kubernetes/apps/media/brrpolice/app
@@ -15,7 +14,6 @@ spec:
     substitute:
       APP: *app
       KOPIUR_PUID: "65532"
-      KOPIUR_PGID: "65532"
   prune: true
   sourceRef:
     kind: GitRepository

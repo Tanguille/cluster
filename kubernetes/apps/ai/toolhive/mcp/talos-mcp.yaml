@@ -15,7 +15,6 @@ metadata:
 spec:
   image: registry.erwanleboucher.dev/eleboucher/talos-mcp:0.0.2@sha256:ad1b388e20cbe171763ba0ff85ed32856f2573c9c40f5081a83c96b3b57f0d35
   transport: streamable-http
-  mcpPort: 8080
   groupRef:
     name: all
   env:
@@ -25,11 +24,8 @@ spec:
       value: "true"
     - name: TALOS_MCP_TRANSPORT
       value: http
-    - name: TALOS_MCP_HTTP_ADDR
-      value: :8080
   podTemplateSpec:
     spec:
-      # No Kubernetes API access needed; Talos access uses the mounted talosconfig.
       automountServiceAccountToken: false
       volumes:
         - name: talos

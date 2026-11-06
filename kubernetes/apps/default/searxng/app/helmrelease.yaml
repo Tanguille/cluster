@@ -26,15 +26,13 @@ spec:
               tag: 2026.11.5-3e95f6cd2@sha256:ffad724acd87b8dd312328d18da88ddd42e5c4b1d23231594662620053c13cae
             env:
               SEARXNG_BASE_URL: https://search.${SECRET_DOMAIN}
-              SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
               DRAGONFLY_PASSWORD:
                 valueFrom:
                   secretKeyRef:
                     name: dragonfly-auth
                     key: password
               # Limiter needs valkey (Redis-compatible); same Dragonfly, own db. Env, not settings.yml, keeps the password out of the ConfigMap.
-              SEARXNG_VALKEY_URL:
-                value: valkey://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/11
+              SEARXNG_VALKEY_URL: valkey://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/11
             envFrom:
               - secretRef:
                   name: searxng-secret
@@ -77,9 +75,6 @@ spec:
     defaultPodOptions:
       labels:
         egress.home.arpa/dragonfly: allow
-      securityContext:
-        fsGroup: 977
-        fsGroupChangePolicy: OnRootMismatch
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname

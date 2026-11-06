@@ -16,9 +16,6 @@ spec:
       count: 1
       vendor: amd
       runtime: vulkan
-      layers: -1
-      # Slot counts live at the device plugin (kube-system/generic-device-plugin);
-      # nodeSelector pins this to the iGPU.
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
@@ -47,17 +44,9 @@ spec:
   batchSize: 8192
   uBatchSize: 8192
   extraArgs:
-    - "--alias"
-    # served model name memini sends in /v1/embeddings
-    - "embeddinggemma-2"
     # gemma-embedding2 requires mean pooling.
     - "--pooling"
     - "mean"
-    # Host prompt cache (default 8192 MiB) is never released: 100 distinct
-    # embedding requests took anon 0.08 -> 8.06 GiB. One-shot embeddings never
-    # hit it.
-    - "--cache-ram"
-    - "0"
   # Pin to an iGPU node. On the dGPU it took 1.2 GiB of VRAM and left 0.93 GiB
   # free, under the then-used 1.82 GiB Jellyfin reserve.
   nodeSelector:

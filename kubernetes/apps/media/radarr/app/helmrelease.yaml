@@ -26,7 +26,6 @@ spec:
               repository: ghcr.io/home-operations/radarr
               tag: 7.0.1.10859@sha256:ffe1f4d7c30b33a1e1256e14ace0eefddf120b37d8defceba208e9c190772f8d
             env:
-              RADARR__APP__INSTANCENAME: Radarr
               RADARR__APP__THEME: dark
               RADARR__AUTH__METHOD: External
               RADARR__AUTH__REQUIRED: DisabledForLocalAddresses
@@ -43,10 +42,7 @@ spec:
             probes:
               liveness:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: *port
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 5
@@ -76,13 +72,6 @@ spec:
               limits:
                 cpu: 2
                 memory: 1Gi
-            lifecycle:
-              preStop:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - sleep 5
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

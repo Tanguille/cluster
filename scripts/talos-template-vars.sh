@@ -30,12 +30,7 @@ injected="$(grep -hoP -- '-D "\K[a-zA-Z_][a-zA-Z0-9_]*' \
 
 templates=("${TALOS}"/*.yaml.j2 "${TALOS}"/nodes/*/*.yaml.j2)
 
-# {% set x = %} / {% for x in %} bind locally and are not context variables. Often empty, so the
-# filter below is applied conditionally -- `grep -vxF ""` matches every line and would empty the set.
-local_names="$(grep -hoP '\{%-? *(?:set|for) +\K[a-zA-Z_][a-zA-Z0-9_]*' "${templates[@]}" | sort -u || true)"
-
 used="$(grep -hoP '\{\{-? *\K[a-zA-Z_][a-zA-Z0-9_.]*' "${templates[@]}" | sort -u)"
-[[ -n "${local_names}" ]] && used="$(grep -vxF "${local_names}" <<<"${used}" || true)"
 [[ -n "${used}" ]] || {
     echo "no {{ }} references found under talos/" >&2
     exit 1

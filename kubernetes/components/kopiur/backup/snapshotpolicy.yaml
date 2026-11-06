@@ -16,10 +16,11 @@ spec:
   # Explicit uid, not workload-based inheritSecurityContextFrom: it needs a live pod with a declared uid (many images drop privileges in an entrypoint) and never works for restore (app is scaled to 0).
   # KOPIUR_MOVER_CAPS_ADD (DAC_READ_SEARCH) is for a root mover: it drops all caps, and root without the capability can't read another uid's files.
   # The whole token is the list value: `${VAR}` braces break flow-sequence YAML parsing when nested in `[]`.
+  # Group follows the uid: every app's uid and gid match.
   mover:
     securityContext:
       runAsUser: ${KOPIUR_PUID:=568}
-      runAsGroup: ${KOPIUR_PGID:=568}
+      runAsGroup: ${KOPIUR_PUID:=568}
       capabilities:
         add: ${KOPIUR_MOVER_CAPS_ADD:=[]}
   # Verification is opt-in, and an unrestorable repo reads like a healthy one until the restore.

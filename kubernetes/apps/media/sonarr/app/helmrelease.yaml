@@ -29,7 +29,6 @@ spec:
             env:
               SONARR__AUTH__METHOD: External
               SONARR__AUTH__REQUIRED: DisabledForLocalAddresses
-              SONARR__APP__INSTANCENAME: Sonarr
               SONARR__SERVER__PORT: &port 80
               SONARR__SERVER__ALLOWEDHOSTS: "{{ .Release.Name }}.${SECRET_DOMAIN},sonarr.media.svc.cluster.local"
               SONARR__SERVER__TRUSTEDNETWORKS: ${POD_CIDR}
@@ -74,13 +73,6 @@ spec:
               limits:
                 cpu: 2
                 memory: 1Gi
-            lifecycle:
-              preStop:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - sleep 5
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true

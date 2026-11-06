@@ -149,7 +149,6 @@ spec:
   # radiance in the vllm runtime's own-launcher mode (command set): the ModelRouter maps only llamacpp and vllm.
   runtime: vllm
   command: [radiance]
-  parallelSlots: 7
   # After a bump the owner runs bench/qualitygate.py and prodshape.py --levels 8 (0 preemptions: a bump can shrink the
   # KV pool under --max-num-seqs); baseline: docs/llm-hosting/radiance-2026-11.md. Never an agent or kanban task: the
   # card holds one engine, so a bench means stopping production.
@@ -254,13 +253,6 @@ spec:
   endpoint:
     port: 8000
   probeOverrides:
-    startup:
-      httpGet:
-        path: /health
-        port: 8000
-      initialDelaySeconds: 10
-      periodSeconds: 10
-      failureThreshold: 180
     # No slow-band restart probe: none seen on radiance; LLMDecodeStepLatched pages instead.
     liveness:
       httpGet:
