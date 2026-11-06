@@ -81,6 +81,26 @@ spec:
           id: cluster_alert_count
           query: max(alertmanager_alerts{state="active"}) - 1 # Ignore Watchdog
           colorExpr: 'colorScale(result, [1.0], ["green", "red"])'
+
+        - title: LLM tokens, 30d
+          id: llm_tokens_30d
+          # Output tokens on the local model only: omniroute and smart-free are left out.
+          query: round(sum(increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type="output",gen_ai_request_model=~"qwen-3.8.*"}[30d])) / 1e6)
+          valueExpr: string(result) + "M"
+          colorExpr: '"green"'
+
+        - title: Backups, 30d
+          id: backup_snapshots_30d
+          query: round(sum(increase(kopiur_snapshots_completed_total[30d])))
+          valueExpr: humanizeCommas(result)
+          colorExpr: '"green"'
+
+        - title: Ceph
+          id: ceph_health
+          query: max(ceph_health_status)
+          # CEL: result is a double, and comparing it with an int is fatal at startup.
+          valueExpr: 'result == 0.0 ? "OK" : (result == 1.0 ? "WARN" : "ERR")'
+          colorExpr: 'colorScale(result, [1.0, 2.0], ["green", "orange", "red"])'
     service:
       port: 80
     resources:
