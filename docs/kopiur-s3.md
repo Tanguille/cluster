@@ -29,9 +29,9 @@ hard-linked into `.truenas_s3`. The service is
   byte-for-byte payload round trip, anonymous GET denied, and DELETE.
 
 **Offsite:** TrueNAS cloud sync task `2` pushes `s3data` to `kopiur/` in the R2 bucket
-`volsync` nightly at 02:30, which R2 can serve as a kopia S3 repository. Task `1` still
-mirrors `VolsyncKopia` to the bucket root and carries `exclude: /kopiur/**`; without it, its
-`SYNC` deletes that folder. Restoring from R2 has not been tested.
+`volsync` nightly at 02:30. Task `1` still mirrors `VolsyncKopia` to the bucket root and
+carries `exclude: /kopiur/**`; without it, its `SYNC` deletes that folder. The restore from
+R2 is recorded in [Results](#results-2026-11-06).
 
 Both tasks are `SYNC`, so deletions propagate. The S3 key can delete every object in the
 bucket and reaches app namespaces for each mover run, so both also carry
@@ -142,6 +142,22 @@ independent `kopia restore`: nextcloud (78,999 files, `33:33`) after full verifi
 karakeep (463 files, `1000:1000`) after full maintenance. Retention deleted snapshots from
 the bucket. Blob reclamation is unproven, because kopia keeps unreferenced blobs for at
 least 24 hours.
+
+Restore from R2, with no credential leaving TrueNAS: `cloudsync.sync_onetime` (`direction
+PULL`, `transfer_mode COPY`) pulled `volsync/kopiur` into a temporary dataset in 230 s
+(1,198 objects, 15.5G, 0 errors). 1,197 objects matched `s3data` byte for byte;
+`kopia.maintenance` differs because maintenance rewrites it. To read the copy, add kopia's
+`.f` suffix to every object, export the dataset read-only, and run `kopia repository connect
+filesystem --path=<mount> --flat --readonly`.
+
+- `kopia snapshot verify --verify-files-percent=100` passed for all 25 sources: 190,735
+  files, 27.3 GB, 1,658 s over NFS.
+- karakeep: the same snapshot id restored from the copy and from the bucket, 463 files,
+  `diff -r` clean.
+- nextcloud: 78,999 files in 605 s, `diff -r` clean against a bucket snapshot with the same
+  root object. Retention had already replaced the copy's snapshot id in the bucket.
+
+Connecting kopia directly to R2 over S3 is untested.
 
 ## Rollback
 
