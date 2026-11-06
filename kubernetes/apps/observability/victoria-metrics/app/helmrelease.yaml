@@ -252,6 +252,30 @@ spec:
               - alertname =~ "KopiurRepositoryNotReady|KopiurRepositoryBreakerOpen"
             target_matchers:
               - alertname =~ "KopiurSnapshotFailed|KopiurLastBackupFailed|KopiurBackupConsecutiveFailures|KopiurBackupStale"
+          # Permanent mutes kept in git: Watchdog always fires, so these stay suppressed and off kromgo's active count.
+          # KEDA's HPAs are min 1 max 1, so every active scaler reads as maxed out.
+          - source_matchers: &alwaysFiring
+              - alertname = "Watchdog"
+            target_matchers:
+              - alertname = "KubeHpaMaxedOut"
+              - horizontalpodautoscaler =~ "keda-hpa-.*"
+          # Structural: priority -1000 plus a hard node pin leaves xmrig Pending on a full node.
+          - source_matchers: *alwaysFiring
+            target_matchers:
+              - alertname = "KubePodNotReady"
+              - namespace = "web3"
+              - pod =~ "xmrig-.*"
+          # Same cause, Deployment side: KEDA scales to 1 while the pod stays Pending.
+          - source_matchers: *alwaysFiring
+            target_matchers:
+              - alertname = "KubeDeploymentReplicasMismatch"
+              - namespace = "web3"
+              - deployment =~ "xmrig-.*"
+          # Structural: the printer is off between prints, and the exporter cannot tell that from broken.
+          - source_matchers: *alwaysFiring
+            target_matchers:
+              - alertname = "TargetDown"
+              - job = "klipper"
         receivers:
           - name: blackhole
           - name: discord
