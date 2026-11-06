@@ -22,7 +22,7 @@
 
 <br/>
 
-[![LLM tokens](https://kromgo.tanguille.site/badges/llm_tokens_30d)](docs/llm-hosting/radiance-2026-11.md)&nbsp;&nbsp;
+[![Self-hosted LLM tokens](https://kromgo.tanguille.site/badges/llm_tokens_30d)](docs/llm-hosting/radiance-2026-11.md)&nbsp;&nbsp;
 [![Backups](https://kromgo.tanguille.site/badges/backup_snapshots_30d)](docs/kopiur-restore.md)&nbsp;&nbsp;
 [![Ceph](https://kromgo.tanguille.site/badges/ceph_health)](docs/storage_benchmarks.md)
 
