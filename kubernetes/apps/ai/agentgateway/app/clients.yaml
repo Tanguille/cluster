@@ -74,7 +74,7 @@ spec:
                 unhealthyCondition: "!has(response.code)"
                 eviction:
                   duration: 10s
-                  # A client hanging up has no status either; Kritika's ran to 4 in a row.
+                  # A client hanging up has no status either: one above Kritika's 4 calls in flight.
                   consecutiveFailures: 5
       # Fail open: uncompressed while Headroom is unreachable.
       - providers:
