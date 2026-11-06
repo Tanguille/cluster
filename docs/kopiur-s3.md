@@ -1,14 +1,16 @@
 # Kopiur TrueNAS S3 repository
 
 [`kopia-s3`](../kubernetes/apps/kopiur-system/kopiur/repository/clusterrepository.yaml) is
-the `ClusterRepository` on TrueNAS native S3. All apps switch to it together by changing
-the repository in the shared
+the `ClusterRepository` on TrueNAS native S3. Every app has backed up to it since the
+2026-11-06 switch, through the shared
 [backup component](../kubernetes/components/kopiur/backup/snapshotpolicy.yaml). Identities
 stay `<app>@<namespace>:/data`.
 
-TrueNAS `27.0.0-RC.1` was provisioned on 2026-11-05. Its native S3 service is
-[experimental](https://www.truenas.com/docs/scale/27/shares/s3/). No backup, restore or
-maintenance has run on it yet, and none of the procedures below have been exercised.
+TrueNAS `27.0.0-RC.1` serves it with `s3d` (`truenas_s3.service`, the "TrueNAS S3 gateway"),
+TrueNAS's own Rust gateway. Objects are plain files named by kopia blob id in `s3data`,
+hard-linked into `.truenas_s3`. The service is
+[experimental](https://www.truenas.com/docs/scale/27/shares/s3/). Manage it under
+**Shares** > **Object Storage (S3) Buckets** and **Credentials** > **S3 Access Keys**.
 
 ## Provisioned state
 
@@ -17,7 +19,7 @@ maintenance has run on it yet, and none of the procedures below have been exerci
   certificate replacements; no separate certificate or private key copy.
 - Bucket `kopiur`, dataset `TanguilleServer/kopiur`, on the same pool as the NFS
   repository. Versioning and Object Lock are off.
-- Account `kopiur-s3-pilot`, uid 3002, dedicated primary group, no password login,
+- Account `kopiur-s3`, uid 3002, dedicated primary group, no password login,
   no shell login, no SMB access or administrative roles. It owns only this bucket; no
   global S3 grants were added. Its key cannot create or delete buckets.
 - `kopia-s3-credentials` ([SOPS](../kubernetes/apps/kopiur-system/kopiur/repository/secret.sops.yaml))
@@ -26,10 +28,16 @@ maintenance has run on it yet, and none of the procedures below have been exerci
 - Verified against TrueNAS directly: trusted HTTPS, signed PUT/GET/ListObjectsV2,
   byte-for-byte payload round trip, anonymous GET denied, and DELETE.
 
-**Offsite:** TrueNAS cloud sync `id 1` covers only `VolsyncKopia`. `kopia-s3` has no R2
-copy until a second task exists, so add it before the switch: the S3 key can delete every
-object in the bucket and is projected into app namespaces for each mover run, so a leaked
-key only misses the R2 copy and ZFS snapshots.
+**Offsite:** TrueNAS cloud sync task `2` pushes `s3data` to `kopiur/` in the R2 bucket
+`volsync` nightly at 02:30, which R2 can serve as a kopia S3 repository. Task `1` still
+mirrors `VolsyncKopia` to the bucket root and carries `exclude: /kopiur/**`; without it, its
+`SYNC` deletes that folder. Restoring from R2 has not been tested.
+
+Both tasks are `SYNC`, so deletions propagate. The S3 key can delete every object in the
+bucket and reaches app namespaces for each mover run, so both also carry
+`--max-delete 30000` (about 3x a normal night): a wiped source stops at the cap and the task
+fails. Repeat runs would delete more, so treat that failure as urgent. Only ZFS snapshots
+are out of the key's reach.
 
 For reprovisioning, keep the bucket and account separate and use the
 [S3 backend requirements](https://kopiur.home-operations.com/backends/s3/). Kopiur
@@ -72,14 +80,14 @@ retain_nfs_rows() {
         --type=merge -p '{"spec":{"deletionPolicy":"Retain"}}'
   done
 }
-retain_nfs_rows   # 1. before the switch
+retain_nfs_rows   # 1. before merging: Flux applies the switch within a minute
 # 2. Merge the switch: the component moves to kopia-s3 and the kopia-nas files go.
 policies="$(mise exec -- kubectl get snapshotpolicy -A -o json)"
-jq -e 'all(.items[]; .spec.repository.name == "kopia-s3")' <<<"$policies"   # 3. every policy moved
-jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' <<<"$policies" |
-  while read -r ns app; do
-    mise exec -- kubectl kopiur snapshot now --policy "$app" -n "$ns" --wait &
-  done
+jq -e 'all(.items[]; .spec.repository.name == "kopia-s3")' <<<"$policies" >/dev/null ||
+  { echo 'not every policy moved yet' >&2; exit 1; }   # 3.
+while read -r ns app; do
+  mise exec -- kubectl kopiur snapshot now --policy "$app" -n "$ns" --wait &
+done < <(jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' <<<"$policies")
 wait              # 4. each first S3 snapshot, queued at the concurrency cap
 retain_nfs_rows   # 5. rows that landed in between
 ```
@@ -92,6 +100,48 @@ Then restore into throwaway PVCs with the
 [side-car procedure](../.agents/skills/backup-restore/references/restore-pvc.md), using each
 app's uid, and check content and ownership against the exact snapshot. Never claim an
 app's own PVC or its `<app>-restore`.
+
+`status.storageStats.snapshotCount` only updates on a catalog listing, so a repository that
+starts empty keeps reporting 0 and trips `KopiurRepoEmpty` even with data in it. Request a
+scan with the `kopiur.home-operations.com/catalog-scan-requested-at` annotation.
+
+## Results (2026-11-06)
+
+Incrementals, seconds in kopia. NFS is the hourly median (28 or 29 runs per app); S3 is one
+run of all four at the cap. Wall clock is mostly CSI staging and pod start.
+
+| App | NFS | S3 |
+| --- | --- | --- |
+| jellyfin | 7 | 8 |
+| nextcloud | 3 | 2 |
+| hermes | 9 | 9 |
+| omniroute | 3 | 2 |
+
+| Measure | First S3 run, all 25 apps | S3 incremental, four largest |
+| --- | --- | --- |
+| Duration | 265 s at the cap of 4 | 113 s |
+| TrueNAS disk writes (`sda`+`sdb`, both mirror sides) | 29.6 GB | 185 MB |
+| TrueNAS disk reads | 165 MB | 94 MB |
+| Disk busy, average and peak | 49%, 85% | 3%, 6% |
+| TrueNAS CPU | 45% | 24% |
+
+- Repository size: 15.6G on disk for about 29 GB of source data.
+- `s3d`: 69 MiB peak memory, about 40 s of CPU for the first run.
+- Mover peak memory: 856 MiB (jellyfin) and 748 MiB (nextcloud) on the first run, against a
+  1,012 MiB peak for the large NFS movers over the prior three days. S3 incrementals finished
+  too fast to sample.
+- **Not comparable:** the only NFS runs at equal concurrency overlapped the R2 sync, so NFS
+  disk load was not measured cleanly, and no cold NFS initial run exists. The first S3 run
+  was also not fully cold: some apps had already taken a scheduled S3 run.
+
+So incrementals run at the same speed. S3 removes the NFS mounts and the uid 568 repository
+permissions from movers, and adds a key, a LAN egress label and an experimental service.
+
+Restores into isolated PVCs matched the exact snapshot, compared with `diff -r` against an
+independent `kopia restore`: nextcloud (78,999 files, `33:33`) after full verification, and
+karakeep (463 files, `1000:1000`) after full maintenance. Retention deleted snapshots from
+the bucket. Blob reclamation is unproven, because kopia keeps unreferenced blobs for at
+least 24 hours.
 
 ## Rollback
 
