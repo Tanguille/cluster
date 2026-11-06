@@ -3,7 +3,7 @@
 apiVersion: kopiur.home-operations.com/v1alpha1
 kind: ClusterRepository
 metadata:
-  name: kopia-nas
+  name: kopia-s3
 spec:
   concurrency:
     maxConcurrentJobs: 4
@@ -15,47 +15,37 @@ spec:
       - media
       - security
   backend:
-    filesystem:
-      path: /repo
-      volume:
-        nfs:
-          server: "${TRUENAS_IP}"
-          path: ${BACKUP_NFS_PATH}
+    s3:
+      bucket: kopiur
+      # Kopiur defaults to verified HTTPS; k8s-gateway resolves this directly to TrueNAS.
+      endpoint: s3.${SECRET_DOMAIN}:9000
+      region: us-east-1
   encryption:
     passwordSecretRef:
-      name: kopia-nas-password
-      # Must stay explicit: credentialProjection reads it to know which Secret to copy (absent defaults to kopiur-system since kopiur#232).
+      name: kopia-s3-credentials
+      # Must stay explicit: credentialProjection reads it to know which Secret to copy.
       namespace: kopiur-system
       key: KOPIA_PASSWORD
-  bootstrap:
-    failurePolicy:
-      # default 120s too short to bootstrap-verify the multi-GB repo over NFS
-      activeDeadlineSeconds: 2700
   credentialProjection:
     allowed: true
   maintenance:
-    mover:
-      # Maintenance reads the uid-568 NFS repo; app movers keep their per-policy identities.
-      securityContext:
-        runAsUser: 568
-        runAsGroup: 568
     schedule:
-      # Quick hourly (default 6h) compacts closed epochs promptly; full stays daily, off the midnight peak.
       quick:
         cron: 0 * * * *
         jitter: 10m
       full:
         cron: 0 3 * * *
         jitter: 1h
-  # Requests keep movers out of BestEffort, the Talos OOM killer's first victims (exit 137).
   moverDefaults:
+    podLabels:
+      # S3 uses pod networking; default and media otherwise deny LAN egress.
+      egress.home.arpa/lan: allow
     resources:
       requests:
         cpu: 50m
         memory: 128Mi
   parameters:
     epoch:
-      # kopia default 24h; 1h bounds live index blob growth (onedr0p/home-ops#11650).
       minDuration: 1h
   scheduleDefaults:
     timezone: ${TIMEZONE}
