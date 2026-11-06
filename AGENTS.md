@@ -20,12 +20,11 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 
 - [Learned preferences](.agents/learned-preferences.md): tool selection, ToolHive workflow, reversions, resources, and confidence
 - [Learned workspace](.agents/learned-workspace.md): cluster-specific Kubernetes, ToolHive, database, storage, and Talos facts
-- [Common operations](.agents/common-operations.md): validation, app operations, SOPS, debugging, and backup/restore
+- [Common operations](.agents/common-operations.md): validation, app operations and SOPS
 - [Skill catalog](.agents/skills/): add-app-to-cluster, backup-restore, debug-cluster, git-worktree-isolation, handoff, k8s-at-home-research, pr-review, prometheus-cluster-health — one `SKILL.md` per directory
 - [Useful commands](docs/useful_commands.md): flux/just/talos command reference and app-specific runbooks
 - [Drives](docs/drives.md): drive inventory, PLP/write-cache policy, control-1 zvol chain, smartctl on Talos and TrueNAS
-- [Archived migrations](docs/archived-migrations.md): completed ZFS→Ceph, Radarr→Postgres and OPNsense BGP procedures, with git recovery pointers
-- [LLM hosting](docs/llm-hosting/): [radiance runbook](docs/llm-hosting/radiance-2026-11.md) (the serving engine since 2026-11), vLLM-era tuning constraints and benchmark history for `kubernetes/apps/ai/`; records pruned on 2026-10-09 (plans, SGLang/engine/cutover records, fp8-era tuning log and nightly benches) are in git at `6f1c0b4c7`
+- [LLM hosting](docs/llm-hosting/): [radiance runbook](docs/llm-hosting/radiance-2026-11.md) (the serving engine since 2026-11), vLLM-era tuning constraints and benchmark history for `kubernetes/apps/ai/`; records pruned on 2026-10-09 (plans, SGLang/engine/cutover records, fp8-era tuning log and nightly benches) are in git at `6f1c0b4c7`, and those pruned on 2026-11-06 (spec-decode, UltraQuant, TTFT and torch 2.13 records, the UltraQuant and Triton harnesses, the `n009` quality baseline) at `db102e988`
 
 Read only references whose trigger keywords match the task. The learned files are authoritative and maintained by continual learning.
 

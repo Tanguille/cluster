@@ -24,7 +24,7 @@ did not move.
 - Cold prefill 2,209 tok/s against 1,250 (vLLM); single-request TTFT at 16K/64K/128K 8.3/43.3/114.5 s against 15.0/81.2/221.8 s on `9cef623`.
 - Single-stream decode at 4K 36.7 tok/s against 33.5.
 - Today's vLLM nightly is no faster than `9cef623` (25.8/42.6/54.4 against 26.0/41.5/54.3 at 1/2/4 sessions).
-- Quality: GSM8K 146/150 on every arm and on vLLM; tools 12/12, vision 2/2. Greedy agreement against `n009` is 26-27% on
+- Quality: GSM8K 146/150 on every arm and on vLLM; tools 12/12, vision 2/2. Greedy agreement against `n009` (baseline in git at `db102e988`) is 26-27% on
   radiance and 63% on vLLM today, so that gate cannot compare engines.
 - Speculation (MTP, DFlash2) roughly doubles decode at 1-4 sessions (DFlash2 63/78/64 agg tok/s at 1/2/4, adaptive window
   85.5 at 4) but stalled at 8 with 8 slots (agg 40-49, itl p90 430-490 ms); see Speculation.
@@ -32,6 +32,8 @@ did not move.
   (observed minimum 1.82 GiB with Jellyfin; not a guaranteed reserve).
 
 ## Speculation
+
+`bench/spectest.py` is the correctness check: the output must quote a long prompt back verbatim.
 
 Production since 2026-11-02: the bold row (flags in the manifest). Live idle-engine runs,
 `bench/prodshape.py --levels N --warmup --runs 2`, median agg tok/s, 0 preemptions unless noted:
@@ -97,9 +99,6 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   provisional.
 - Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag. Renovate versions it by the engine image,
   so both move in one `radiance` PR, opened as soon as the release appears; merging stays manual.
-- Cutover, once after this migration merges: the live InferenceService carries `kustomize.toolkit.fluxcd.io/reconcile=disabled`
-  from the trial, so Flux skips it. Wait for `qwen38-27b-rad-convert` to finish, then
-  `kubectl -n ai annotate isvc qwen38-27b-vllm kustomize.toolkit.fluxcd.io/reconcile-`; the idle-gated rollout does the rest.
 - Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.

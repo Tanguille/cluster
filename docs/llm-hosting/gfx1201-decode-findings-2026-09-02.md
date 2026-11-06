@@ -173,8 +173,8 @@ result:
 ## What to watch, in priority order
 
 Nothing left to watch: the MTP capture-size retest is done (~41% at conc 5, still
--27% at M=5, reverted), UltraQuant replaced the TurboQuant route
-(ultraquant-2026-10-07.md), and vllm#52619 is upstream since nightly `81198e97`
+-27% at M=5, reverted), UltraQuant replaced the TurboQuant route,
+and vllm#52619 is upstream since nightly `81198e97`
 (our patch dropped in 87a35df4f).
 
 ## Corrected attributions
