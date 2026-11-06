@@ -13,13 +13,12 @@ spec:
   values:
     controllers:
       rsume:
-        # Chart default is Recreate; rolling keeps the single replica serving during a rollout.
         strategy: RollingUpdate
         containers:
           app:
             image:
               repository: ghcr.io/tanguille/rsume
-              tag: 0.1.208@sha256:a81733ca3b6782f29d55bd914641ae4e4095b6b45a9e6758231b48d31e306f0a
+              tag: 0.1.366@sha256:fa1434bb59f9cdfa6915b4357a22ceb1a91093d7447fc2e711f7a76b849a0a7a
             env:
               SITE_URL: https://${SECRET_DOMAIN}
             probes:
@@ -29,12 +28,14 @@ spec:
                 spec:
                   httpGet:
                     path: /
-                    port: &port 3000
+                    port: 3000
               readiness: *probe
             securityContext:
               readOnlyRootFilesystem: true
               allowPrivilegeEscalation: false
-              capabilities: { drop: ["ALL"] }
+              capabilities:
+                drop:
+                  - ALL
             resources:
               requests:
                 cpu: 10m
@@ -44,20 +45,17 @@ spec:
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532
-        runAsGroup: 65532
-        seccompProfile: { type: RuntimeDefault }
+        seccompProfile:
+          type: RuntimeDefault
     service:
       app:
         ports:
           http:
-            port: *port
+            port: 3000
     route:
       app:
-        annotations:
-          # The cloudflared DNSEndpoint already owns the apex CNAME.
-          external-dns.kubernetes.io/controller: none
-        hostnames: ["${SECRET_DOMAIN}"]
+        hostnames:
+          - "${SECRET_DOMAIN}"
         parentRefs:
-          - name: envoy-external
+          - name: envoy-internal
             namespace: network
