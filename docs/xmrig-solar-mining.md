@@ -30,7 +30,7 @@ and exports `xmrig_guard_safe{node}` plus `xmrig_guard_rank{node}`. It treats te
 untrusted: a complete set of fresh samples is required before a node can be safe, and every
 failure path fails closed. Policy is code, so changing a threshold requires a reviewed diff.
 
-`SENSORS` decides which source gates which node. control-1 is a VM with no local NVMe, so it
+`SENSORS` decides which source gates which node. control-1 is a VM with a properly cooled NVMe, so it
 is gated on CPU headroom; the bare-metal mini PCs are gated on NVMe Composite temperature.
 
 | node | source | recover | trip | recovery dwell | trip dwell | panic |
