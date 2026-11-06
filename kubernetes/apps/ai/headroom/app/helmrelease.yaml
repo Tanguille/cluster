@@ -32,7 +32,14 @@ spec:
             # cache and rate limiter by default; chat is near-unique per turn, and agentgateway
             # owns rate limits. --no-ccr: CCR injects a headroom_retrieve tool (~380 prompt tokens)
             # into every request, and with HEADROOM_STATELESS there is no store to retrieve from.
-            args: ["--no-cache", "--no-rate-limit", "--no-ccr"]
+            # --no-read-lifecycle: it swaps stale Read results for markers nothing can retrieve.
+            args:
+              [
+                "--no-cache",
+                "--no-rate-limit",
+                "--no-ccr",
+                "--no-read-lifecycle"
+              ]
             env:
               TZ: ${TIMEZONE}
               # Image default is 127.0.0.1.
