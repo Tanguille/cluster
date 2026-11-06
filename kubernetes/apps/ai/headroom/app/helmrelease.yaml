@@ -26,20 +26,18 @@ spec:
           app:
             image:
               repository: ghcr.io/headroomlabs-ai/headroom
-              # slim: code-aware parsing and ML extras are disabled below anyway.
+              # slim: the compressors selected below need neither code-aware parsing nor ML extras.
               tag: 0.43.1-slim-nonroot@sha256:ba108bc0c269464de93efb6ae20990b3ab0e153c888bcb217407766dbb8eaea4
             # Appended to the image's `headroom proxy` entrypoint, which runs a semantic response
             # cache and rate limiter by default; chat is near-unique per turn, and agentgateway
-            # owns rate limits. --no-ccr: CCR injects a headroom_retrieve tool (~380 prompt tokens)
-            # into every request, and with HEADROOM_STATELESS there is no store to retrieve from.
-            # --no-read-lifecycle: it swaps stale Read results for markers nothing can retrieve.
+            # owns rate limits. --no-ccr: HEADROOM_STATELESS leaves no store to retrieve from, and
+            # CCR response handling can flip streaming turns to buffered. --no-read-lifecycle: it
+            # swaps stale Read results for markers, and lossless mode doesn't gate it.
             args:
-              [
-                "--no-cache",
-                "--no-rate-limit",
-                "--no-ccr",
-                "--no-read-lifecycle"
-              ]
+              - --no-cache
+              - --no-rate-limit
+              - --no-ccr
+              - --no-read-lifecycle
             env:
               TZ: ${TIMEZONE}
               # Image default is 127.0.0.1.
@@ -52,9 +50,9 @@ spec:
               # or rejected, so it cannot carry the forwarded internal key off-cluster.
               HEADROOM_ALLOWED_BASE_URLS: agentgateway.ai.svc.cluster.local
               # Just past Kritika's 5-minute request limit: Headroom doesn't notice a non-streaming chat
-              # client leaving, so this ends the abandoned decode. Any longer one fails too. It's a read
-              # timeout, so a stream only hits it after this long without a byte. Non-streaming
-              # /v1/messages has its own 600s bound, and no client sends those here.
+              # client leaving, so this ends the abandoned decode. Longer non-streaming chat calls fail
+              # too. It's a read timeout, so a stream only hits it after this long without a byte.
+              # Non-streaming /v1/messages has its own 600s bound, and no client sends those here.
               HEADROOM_REQUEST_TIMEOUT: "330"
               # agentgateway retries and fails over; Headroom retrying too would multiply both.
               HEADROOM_RETRY_MAX_ATTEMPTS: "1"
@@ -66,17 +64,11 @@ spec:
               HEADROOM_MODE: token
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"
-              # --no-ccr leaves no markers to recover from and drops the reversibility guard, so
-              # without this dense-line elision and SmartCrusher row drops cut tool output for good.
+              # --no-ccr drops the reversibility guard; without this, dense-line elision and SmartCrusher
+              # row drops cut tool output for good.
               HEADROOM_LOSSLESS: "1"
               # Re-encode arrays as tables keeping every row (2000/2000, -65%), byte-identical across calls.
               HEADROOM_COMPRESSORS: smart_crusher tabular
-              HEADROOM_DISABLE_KOMPRESS: "1"
-              HEADROOM_DISABLE_KOMPRESS_FALLBACK: "1"
-              HEADROOM_CODE_AWARE_ENABLED: "0"
-              # Off since Headroom ran as a guardrail that withheld assistant rows, so dedup pointers and
-              # tool-name guards could not resolve; the proxy sees whole turns, so it can be re-tested.
-              HEADROOM_DEDUPE: "0"
               HEADROOM_COMPRESS_USER_MESSAGES: "0"
               HEADROOM_COMPRESSION_MAX_WORKERS: "2"
               # No Kompress model to fetch, and the only thing keeping the upload beacon off (BEACON_DEFAULT_ON is true upstream).
