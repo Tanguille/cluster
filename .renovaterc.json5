@@ -146,6 +146,17 @@
       datasourceTemplate: "npm"
     },
     {
+      description: "opencode git plugins (pinned to the commit, since a tag can move)",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/"
+      ],
+      matchStrings: [
+        '@git\\+https://github\\.com/(?<depName>[\\w.-]+/[\\w.-]+)\\.git#(?<currentDigest>[0-9a-f]{40})",?\\s*//\\s*(?<currentValue>\\S+)'
+      ],
+      datasourceTemplate: "github-tags"
+    },
+    {
       // The preset's oci:// manager reads "tag@sha256:..." as one version and skips it as invalid-value.
       description: "Digest-pinned oci:// references",
       customType: "regex",
@@ -248,9 +259,8 @@
       groupName: "radiance"
     },
     {
-      // opencode 2.x changed the server API (probes fail); hold at 1.18.x until the chart is migrated.
-      matchPackageNames: ["ghcr.io/anomalyco/opencode"],
-      allowedVersions: "1.18.x",
+      // A bump can migrate the session database, so it gets a human merge.
+      matchPackageNames: ["ghcr.io/joryirving/opencode"],
       automerge: false
     },
     // Grouping rules
