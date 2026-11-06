@@ -81,6 +81,27 @@ spec:
           id: cluster_alert_count
           query: max(alertmanager_alerts{state="active"}) - 1 # Ignore Watchdog
           colorExpr: 'colorScale(result, [1.0], ["green", "red"])'
+
+        - title: Self-hosted LLM tokens, 30d
+          id: llm_tokens_30d
+          # Output tokens at the local engine. Only the models listener counts, because a request
+          # arriving on the http listener passes through it too and would count twice.
+          query: round(sum(increase(agentgateway_gen_ai_client_token_usage_sum{listener="models",gen_ai_system="vllm",gen_ai_token_type="output"}[30d])), 1e6)
+          valueExpr: humanize(result)
+          colorExpr: '"green"'
+
+        - title: Backups, 30d
+          id: backup_snapshots_30d
+          query: round(sum(increase(kopiur_snapshots_completed_total[30d])))
+          valueExpr: humanizeCommas(result)
+          colorExpr: '"green"'
+
+        - title: Ceph
+          id: ceph_health
+          query: max(ceph_health_status)
+          # CEL: result is a double, so == needs 0.0. An int there is fatal at startup.
+          valueExpr: 'result == 0.0 ? "OK" : (result == 1.0 ? "WARN" : "ERR")'
+          colorExpr: 'colorScale(result, [1.0, 2.0], ["green", "orange", "red"])'
     service:
       port: 80
     resources:
