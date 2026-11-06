@@ -362,12 +362,19 @@
       versioning: "loose"
     },
     {
-      // mise looks aqua tools up as tags of their own repo; prefixed tags (jq-1.8.2) never read as stable.
+      // github-tags lists a tag while its release is still a draft, which leaves mise.lock without URLs.
+      matchManagers: ["mise"],
+      matchDepNames: ["/^aqua:/"],
+      overrideDatasource: "github-releases"
+    },
+    {
+      // kubernetes/kubectl has no releases.
       matchManagers: ["mise"],
       matchDepNames: ["aqua:kubernetes/kubectl"],
       overridePackageName: "kubernetes/kubernetes"
     },
     {
+      // Prefixed tags (jq-1.8.2) never read as stable.
       matchManagers: ["mise"],
       matchDepNames: ["aqua:jqlang/jq", "aqua:kubernetes-sigs/kustomize"],
       extractVersion: "^(?:jq-|kustomize/v)(?<version>\\d+\\.\\d+\\.\\d+)$"
