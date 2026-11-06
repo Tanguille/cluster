@@ -9,6 +9,14 @@ spec:
   targetNamespace: *namespace
   components:
     - ../../../../components/kopiur
+  # Temporary: kopia-s3 trial, removed by the all-app switch.
+  patches:
+    - target:
+        kind: SnapshotPolicy
+      patch: |-
+        - op: replace
+          path: /spec/repository/name
+          value: kopia-s3
   path: ./kubernetes/apps/default/dumbassets/app
   prune: true
   sourceRef:
