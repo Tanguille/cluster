@@ -73,13 +73,15 @@ retain_nfs_rows() {
   done
 }
 retain_nfs_rows   # 1. before the switch
-# 2. Merge the switch: component repository to kopia-s3, kopia-nas to mode: ReadOnly.
-mise exec -- kubectl get snapshotpolicy -A -o json |
-  jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' |
+# 2. Merge the switch: the component moves to kopia-s3 and the kopia-nas files go.
+policies="$(mise exec -- kubectl get snapshotpolicy -A -o json)"
+jq -e 'all(.items[]; .spec.repository.name == "kopia-s3")' <<<"$policies"   # 3. every policy moved
+jq -r '.items[] | "\(.metadata.namespace) \(.metadata.name)"' <<<"$policies" |
   while read -r ns app; do
-    mise exec -- kubectl kopiur snapshot now --policy "$app" -n "$ns"   # 3. start every app
+    mise exec -- kubectl kopiur snapshot now --policy "$app" -n "$ns" --wait &
   done
-retain_nfs_rows   # 4. rows that landed in between
+wait              # 4. each first S3 snapshot, queued at the concurrency cap
+retain_nfs_rows   # 5. rows that landed in between
 ```
 
 Do not recreate any PVC until every app has its first S3 snapshot. `fromPolicy` resolves
@@ -93,19 +95,16 @@ app's own PVC or its `<app>-restore`.
 
 ## Rollback
 
-Revert the switch. `catalog.adoption: Ignore` on `kopia-nas` already stops adoption pruning
-NFS rows. Backups made on S3 stay in `kopia-s3`.
+Revert the switch, which brings `kopia-nas` back with `catalog.adoption: Ignore` so adoption
+cannot prune NFS rows. Backups made on S3 stay in `kopia-s3`.
 
 ## NFS history
 
-Keep the `kopia-nas` dataset and the R2 bucket `volsync`. History stays reachable through
-the Kopia browser, which reads the NFS repository directly, and through a `Restore` naming
-`spec.repository` and a raw `source.identity`, as in
-[the restore guide](kopiur-restore.md). Never delete the data or repurpose the dataset.
-
-`clusterrepository-nas.yaml` and `secret-nas.sops.yaml` can go once `kopia-s3` has its own
-retention depth, about 7 days after the switch. That removes Kopiur restores of NFS history
-and the quick rollback, not the data; the Kopia browser keeps working.
+Keep the `VolsyncKopia` dataset and the R2 bucket `volsync`. Never delete the data or
+repurpose the dataset. The Kopia browser reads the NFS repository directly, so history stays
+browsable there. To restore it through Kopiur, bring back `clusterrepository-nas.yaml` and
+`secret-nas.sops.yaml` from Git, then use a `Restore` naming `spec.repository` and a raw
+`source.identity`, as in [the restore guide](kopiur-restore.md).
 
 The TanguilleServer ZFS snapshot task (daily, 14 days, recursive) should hold freed blobs,
 so read kopia statistics, not dataset `used`, when checking cleanup. It had not snapshotted

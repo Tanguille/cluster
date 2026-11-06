@@ -51,9 +51,9 @@ Reference patterns in `kubernetes/components/kopiur/`. See
 
 ## Troubleshooting (inline)
 
-- Repository secret: `kubectl get secret -n kopiur-system kopia-nas-password` (shared across all apps
+- Repository secret: `kubectl get secret -n kopiur-system kopia-s3-credentials` (shared across all apps
   via credential projection — apps don't carry their own copy)
-- `ClusterRepository` health: `kubectl get clusterrepository` (`kopia-nas`, `kopia-s3`; see [docs/kopiur-s3.md](../../../docs/kopiur-s3.md))
+- `ClusterRepository` health: `kubectl get clusterrepository kopia-s3` (see [docs/kopiur-s3.md](../../../docs/kopiur-s3.md))
 
 Symptom-keyed failures (PVC never claimed, restore stalling, wrong `dataSourceRef`, mover stuck
 with no output) → [docs/kopiur-restore.md](../../../docs/kopiur-restore.md) Troubleshooting.
