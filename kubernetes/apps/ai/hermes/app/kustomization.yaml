@@ -9,9 +9,6 @@ resources:
   - google-secret.sops.yaml
   - secret.sops.yaml
 configMapGenerator:
-  - name: hermes-managed-config
-    files:
-      - config.yaml=./resources/managed-config.yaml
   - name: hermes-google-digest
     files:
       - google_digest.py=./resources/google_digest.py

@@ -126,6 +126,7 @@ spec:
         parentRefs: &parentRefs
           - name: envoy-internal
             namespace: network
+      # Needs webapp.enabled, host and public_url in the PVC config.yaml.
       webapp:
         annotations:
           gethomepage.dev/enabled: "true"
@@ -164,15 +165,6 @@ spec:
           hermes:
             app:
               - path: /dev/shm
-      # subPath: a mount over /etc/hermes would hide the image's baked Chromium path and provenance.
-      managed-config:
-        type: configMap
-        name: hermes-managed-config
-        advancedMounts:
-          hermes:
-            app:
-              - path: /etc/hermes/config.yaml
-                subPath: config.yaml
       google-digest:
         type: configMap
         name: hermes-google-digest
