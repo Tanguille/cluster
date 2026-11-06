@@ -9,8 +9,5 @@ configMapGenerator:
   - name: igpu-gtt-exporter
     files:
       - exporter.py=./resources/exporter.py
-    options:
-      annotations:
-        kustomize.toolkit.fluxcd.io/substitute: disabled
 generatorOptions:
   disableNameSuffixHash: true

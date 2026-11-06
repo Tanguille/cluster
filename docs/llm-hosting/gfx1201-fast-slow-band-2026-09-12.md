@@ -109,7 +109,7 @@ reads >= 5. It is the SMU 14.0.2 VCN load sensor, `max(Vcn0, Vcn1)` per
 `smu_v14_0_2_ppt.c`, the same value `gpu_metrics` reports as
 `average_mm_activity`. A missing file reads as 0, the old behaviour. An SDR
 VAAPI transcode still uses VCN, so VCN is a reliable tell. GFX contention with no
-VCN activity can still trip the probe; `VLLMDecodeStepLatched` stays the
+VCN activity can still trip the probe; `LLMDecodeStepLatched` stays the
 backstop.
 
 Jellyfin throttling and segment deletion were enabled 10-05 (`encoding.xml`, not

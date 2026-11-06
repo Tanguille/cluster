@@ -6,9 +6,12 @@ metadata:
   name: trivy-operator
 spec:
   interval: 1h
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: trivy-operator
+    spec:
+      ref:
+        tag: 0.32.1
+      url: oci://ghcr.io/aquasecurity/helm-charts/trivy-operator
   values:
     operator:
       # Node collector fails on Talos (read-only rootfs: mkdir /etc/systemd); node and control-plane CIS reports are lost.
@@ -31,10 +34,9 @@ spec:
         limits:
           cpu: 1000m
       image:
-        # Spelled out so Renovate tracks the digest.
         registry: mirror.gcr.io
         repository: aquasec/trivy
-        tag: 0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+        tag: 0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
       # Full reports exceeded the 2MB gRPC limit and looped the operator into
       # OOM (aquasecurity/trivy-operator#757). LOW/MEDIUM findings are not stored.
       severity: HIGH,CRITICAL
@@ -54,5 +56,5 @@ spec:
         cpu: 100m
         memory: 512Mi
       limits:
-        # ~800Mi steady during scan storms.
+        # Working set peaks at 511Mi over 30d.
         memory: 2Gi

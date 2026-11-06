@@ -1,0 +1,94 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: truenas-csi
+spec:
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: 1.4.0
+      url: oci://ghcr.io/home-operations/charts-mirror/truenas-csi
+  interval: 1h
+  # The chart hardcodes a hostPath /etc/iscsi of type Directory, which Talos lacks (no iscsi-tools).
+  # Only iscsiadm config lives there and this cluster uses NVMe-oF, so point it at a writable path.
+  # TrueNAS nvmet-tcp (6.18.52) rejects commands over 4 MiB (sc 0xf) yet advertises MDTS 0, so the
+  # host's 32 MiB max_sectors_kb broke mkfs.ext4; the sidecar caps it. A Talos udev rule only reached
+  # the multipath head: the hidden path devices (nvmeXcYnZ) kept 32 MiB and still sent 4.13 MiB writes.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: DaemonSet
+              name: truenas-csi-node
+            patch: |-
+              apiVersion: apps/v1
+              kind: DaemonSet
+              metadata:
+                name: truenas-csi-node
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: nvme-max-sectors
+                        image: ghcr.io/home-operations/busybox:1.38.0@sha256:ff88728f0d5fe50a9984f6cc04d7d1185590b628f29ef4e6a3ec8cae7169e0c8
+                        # Polled: hidden path devices send no uevent. mkfs starts ~300 ms after connect;
+                        # losing that race fails one NodeStage, and kubelet retries on the same device.
+                        command:
+                          - /bin/sh
+                          - -c
+                          - |
+                            while true; do
+                              for f in /sys/block/nvme*/queue/max_sectors_kb; do
+                                [ -e "$f" ] || continue
+                                read -r kb < "$f"
+                                if [ "$kb" -gt 4096 ]; then
+                                  echo 4096 > "$f" && echo "capped $f (was $kb)"
+                                fi
+                              done
+                              sleep 0.2
+                            done
+                        securityContext:
+                          privileged: true
+                          readOnlyRootFilesystem: true
+                        resources:
+                          requests:
+                            cpu: 5m
+                            memory: 8Mi
+                          limits:
+                            memory: 32Mi
+                    volumes:
+                      - name: iscsi-dir
+                        hostPath:
+                          path: /var/lib/iscsi-etc
+                          type: DirectoryOrCreate
+  values:
+    truenas:
+      # The TLS passthrough route, so the Let's Encrypt cert verifies; the bare IP would not.
+      url: wss://truenas.${SECRET_DOMAIN}/api/current
+      # Derived from url otherwise, which resolves to the gateway instead of the NAS.
+      nvmeofPortal: ${TRUENAS_IP}:4420
+      defaultPool: BIGHDDZ1
+      existingSecret: truenas-csi
+    node:
+      # Only FileFlows mounts these volumes, and it is pinned to the one GPU node.
+      nodeSelector:
+        amd.com/gpu: "true"
+    storageClasses:
+      # Scratch on the HDD pool, off SSD_Pool (the PM983 under osd.3 and control-1's etcd).
+      - name: truenas-scratch
+        mountOptions:
+          - discard
+        parameters:
+          protocol: nvmeof
+          datasetPath: kubernetes
+          volblocksize: 128K
+          sparse: "true"
+          # Rebuilt on loss, so neither compression nor sync writes are worth their cost. The driver
+          # applies `sync` to NFS volumes only, so these zvols inherit sync=disabled and
+          # primarycache=all from BIGHDDZ1/kubernetes, set on TrueNAS. sync=standard sent 72% of
+          # writes through the ZIL and stalled commands past 30s.
+          compression: "OFF"
+          sync: DISABLED

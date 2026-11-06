@@ -96,8 +96,7 @@ no app database to own, so no `Database` CR.
     "SELECT datname, pg_catalog.pg_get_userbyid(datdba) FROM pg_database WHERE datname = '$db';"
   ```
 
-- **Extensions.** Declare them in the input's `extensions:` list (memini, kritik: `vchord` + `vector`;
-  crowdsec, ghostfolio, kguardian: `vector`). `vchord` is Renovate-tracked with its extension
+- **Extensions.** Declare them in the input's `extensions:` list. `vchord` is Renovate-tracked with its extension
   image in `cluster.yaml`. The `vector` pin is manual and must equal the image's bundled `default_version`
   (`select default_version from pg_available_extensions where name='vector'`); the `pgvector pin matches
   image` CI job checks it, and `PgvectorVersionDrift` fires if a database lags the image. A wrong pin

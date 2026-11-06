@@ -25,6 +25,8 @@ spec:
               HOME: /home/opencode
               OPENCODE_CONFIG: /config/opencode.jsonc
               LLM_API_KEY: ${LLM_API_KEY}
+            securityContext:
+              allowPrivilegeEscalation: false
             command:
               - opencode
               - web

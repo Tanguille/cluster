@@ -10,6 +10,8 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 
 - Before any work, verify the branch and worktree, run `git status`, then `git pull --ff-only && git status`. Never assume the branch is current.
 - Preserve unrelated changes and follow existing patterns; keep changes small and focused.
+- When a change renames or alters a value, name, label or behavior, grep for the old one and update every comment, doc, alert and selector that still cites it.
+- Take versions, SHAs and config fields from upstream (release, registry, chart values, CRD schema), never from memory.
 - Validate the changed scope before declaring work complete or committing; follow the nearest scoped `AGENTS.md` and [common operations](.agents/common-operations.md).
 - Shell scripts use `set -euo pipefail` and must pass shellcheck on every touched `*.sh` (`bash .agents/skills/pr-review/scripts/validate-pr.sh` covers this).
 - Use Conventional Commit titles, for example `feat(scope): description`.
@@ -23,12 +25,12 @@ GitOps-based Kubernetes cluster on Talos Linux with FluxCD reconciliation. Make 
 - [Useful commands](docs/useful_commands.md): flux/just/talos command reference and app-specific runbooks
 - [Drives](docs/drives.md): drive inventory, PLP/write-cache policy, control-1 zvol chain, smartctl on Talos and TrueNAS
 - [Archived migrations](docs/archived-migrations.md): completed ZFS→Ceph, Radarr→Postgres and OPNsense BGP procedures, with git recovery pointers
-- [LLM hosting](docs/llm-hosting/): vLLM tuning constraints and benchmark history for `kubernetes/apps/ai/`; records pruned on 2026-10-09 (plans, SGLang/engine/cutover records, fp8-era tuning log and nightly benches) are in git at `6f1c0b4c7`
+- [LLM hosting](docs/llm-hosting/): [radiance runbook](docs/llm-hosting/radiance-2026-11.md) (the serving engine since 2026-11), vLLM-era tuning constraints and benchmark history for `kubernetes/apps/ai/`; records pruned on 2026-10-09 (plans, SGLang/engine/cutover records, fp8-era tuning log and nightly benches) are in git at `6f1c0b4c7`
 
 Read only references whose trigger keywords match the task. The learned files are authoritative and maintained by continual learning.
 
 ## Safety and permissions (three-tier)
 
 - **Always:** Read-only inspection and local validation, formatting, or linting.
-- **Ask first:** Git push (always ask before any push), push to main, force push, applying to live cluster (`just reconcile`, `flux reconcile`, `talos apply`), decrypting/editing SOPS secrets, deleting resources.
+- **Ask first:** Git push (always ask before any push), push to main, force push, applying to live cluster (`just reconcile`, `flux reconcile`, `just talos apply-node`), decrypting/editing SOPS secrets, deleting resources.
 - **Never:** Commit secrets or age.key (no exceptions).

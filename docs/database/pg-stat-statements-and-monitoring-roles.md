@@ -34,7 +34,7 @@ The cluster enables the extension via **`shared_preload_libraries`** and GUCs in
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 ```
 
-Run as a superuser or a role with rights to create extensions (e.g. on CloudNative-PG, `kubectl cnpg psql postgres16 -n database` then `\c yourdb` as appropriate).
+Run as a superuser or a role with rights to create extensions (e.g. `kubectl -n database exec -it <primary> -c postgres -- psql -U postgres -d yourdb`, with `<primary>` from the Cluster's `.status.currentPrimary`).
 
 Then top-query tooling can use `pg_stat_statements` data.
 

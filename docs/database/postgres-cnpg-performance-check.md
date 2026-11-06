@@ -50,11 +50,8 @@ cnpg_backends_max_tx_duration_seconds
 From the primary Postgres pod you get exact buffer cache hit ratio and row stats:
 
 ```bash
-# Find primary (role=primary)
-kubectl get pods -n database -l cnpg.io/cluster=postgres16 -l cnpg.io/instanceRole=primary -o name
-
-# Exec into primary (replace postgres16-2 if different; get name from the get pods command above)
-kubectl exec -n database postgres16-2 -c postgres -- psql -U postgres -t -A -c "
+primary=$(kubectl -n database get cluster postgres16 -o jsonpath='{.status.currentPrimary}')
+kubectl exec -n database "$primary" -c postgres -- psql -U postgres -t -A -c "
 SELECT
   round(100.0 * sum(blks_hit) / nullif(sum(blks_hit) + sum(blks_read), 0), 2) AS cache_hit_pct,
   sum(xact_commit) AS commits,

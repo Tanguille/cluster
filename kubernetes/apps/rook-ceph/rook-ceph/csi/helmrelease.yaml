@@ -5,9 +5,13 @@ kind: HelmRelease
 metadata:
   name: ceph-csi-drivers
 spec:
-  chartRef:
+  # Pair with the ceph-csi-operator subchart bundled by ../app/helmrelease.yaml; read its Chart.yaml dependencies before bumping.
+  chart:
     kind: OCIRepository
-    name: ceph-csi-drivers
+    spec:
+      ref:
+        tag: 1.1.0
+      url: oci://ghcr.io/home-operations/charts-mirror/ceph-csi-drivers
   interval: 1h
   values:
     operatorConfig:
@@ -20,7 +24,8 @@ spec:
         controllerPlugin:
           priorityClassName: system-cluster-critical
           replicas: 2
-          # Snapshotter 8.7 enables groups by default; retain both drivers' volumeSnapshot policy.
+          # Snapshotter 8.7 enables groups by default; both drivers use volumeSnapshot.
+          # Drop this arg before switching a driver to volumeGroupSnapshot, or it stays off.
           containerExtraArgs:
             csi-snapshotter:
               - --feature-gates=CSIVolumeGroupSnapshot=false

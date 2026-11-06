@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: kguardian
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: kguardian
+    spec:
+      ref:
+        tag: 1.29.2
+      url: oci://ghcr.io/kguardian-dev/charts/kguardian
   interval: 1h
   # Chart omits app.kubernetes.io/name on the broker Service that its ServiceMonitor selects (0 targets); add it back.
   postRenderers:
@@ -24,6 +27,7 @@ spec:
                 labels:
                   app.kubernetes.io/name: kguardian-broker
           # Snapshotter has no chart value: one 256 batch per 300s tick, live workloads first (default swept every workload ever seen each tick).
+          # Broker pod label patched here: global.labels would hit every kguardian pod.
           - target:
               kind: Deployment
               name: kguardian-broker
@@ -34,6 +38,9 @@ spec:
                 name: not-used
               spec:
                 template:
+                  metadata:
+                    labels:
+                      egress.home.arpa/postgres: allow
                   spec:
                     containers:
                       - name: broker
@@ -80,19 +87,19 @@ spec:
         - name: OPENAI_BASE_URL
           value: http://agentgateway.ai.svc.cluster.local:4000/v1
         - name: OPENAI_MODEL
-          value: qwen-3.8
+          value: qwen-3.8-auto
         # From cluster-secrets via substituteFrom; stays literal in git.
         - name: OPENAI_API_KEY
           value: ${LLM_API_KEY}
 
-    # Via pgbouncer-rw (no TLS): labeled pods on the primary's node blackhole to the postgres16-rw VIP (control-3 Cilium), the pgbouncer VIP works from all nodes.
+    # Via pgbouncer-rw: labeled pods on the primary's node blackhole to the postgres16-rw VIP (control-3 Cilium), the pgbouncer VIP works from all nodes.
     database:
       enabled: false
       user: kguardian
       databaseName: kguardian
       external:
         host: pgbouncer-rw.database.svc.cluster.local
-        sslMode: disable
+        sslMode: require
 
     broker:
       podAnnotations:

@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: &app drm-exporter
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: *app
+    spec:
+      ref:
+        tag: 0.3.6
+      url: oci://ghcr.io/home-operations/charts/drm-exporter
   interval: 1h
 
   values:

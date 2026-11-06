@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: k8s-gateway
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: k8s-gateway
+    spec:
+      ref:
+        tag: 4.0.1
+      url: oci://codeberg.org/k8s-gateway/charts/k8s-gateway
   interval: 1h
   values:
     replicaCount: 2
@@ -36,6 +39,17 @@ spec:
       monitor:
         enabled: true
     servers:
+      # Keep backup traffic direct to TrueNAS, independent of the ingress gateways.
+      - zones:
+          - zone: s3.${SECRET_DOMAIN}
+            use_tcp: true
+        port: 53
+        plugins:
+          - name: hosts
+            parameters: /dev/null
+            configBlock: |-
+              ${TRUENAS_IP} s3.${SECRET_DOMAIN}
+              no_reverse
       - zones:
           - zone: ${SECRET_DOMAIN}
             use_tcp: true

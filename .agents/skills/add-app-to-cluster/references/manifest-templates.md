@@ -44,6 +44,26 @@ resources:
   - helmrelease.yaml
 ```
 
+## app/helmrelease.yaml (dedicated OCI chart)
+
+```yaml
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: <app-name>
+spec:
+  interval: 1h
+  chart:
+    kind: OCIRepository
+    spec:
+      ref:
+        tag: <chart-version>
+      url: oci://<registry>/<owner>/<chart>
+  values: {}
+```
+
 ## app/helmrelease.yaml (app-template)
 
 ```yaml
