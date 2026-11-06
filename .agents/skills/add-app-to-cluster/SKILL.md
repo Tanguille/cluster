@@ -59,6 +59,7 @@ Scaffold YAML: [references/manifest-templates.md](references/manifest-templates.
 ### 5. HelmRelease essentials
 
 - Chart: `bjw-s/app-template` (pinned version)
+- Other OCI charts: inline `spec.chart.kind: OCIRepository` ([template](references/manifest-templates.md)); shared charts such as `app-template` stay on `spec.chartRef`
 - `reloader.stakater.com/auto: "true"` when using ConfigMaps/Secrets
 - Probes, resources, persistence as needed
 - RWO `ceph-block`: `Recreate` strategy when appropriate
@@ -89,7 +90,3 @@ Show the user the created files and get confirmation before committing. Stage th
 directory and the namespace `kustomization.yaml` by path, commit as
 `feat(<namespace>): add <app-name>`, then push and open the PR per the
 [atomic finish rule](../handoff/SKILL.md#the-atomic-finish-rule).
-
-## Anti-patterns
-
-- Non-app-template chart without its own `ocirepository.yaml` — the shared `app-template` OCIRepository covers only that chart

@@ -1,9 +1,7 @@
 ---
-# vmcp leaks 250-414 MiB/day (14d, stacklok/toolhive#5860); at the peak, restarting every 3 days
-# stays under AiContainerMemoryNearLimit, short of the ~5-day OOM.
-# Delete this file once #5860 is fixed.
----
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/core/serviceaccount_v1.json
+# vmcp leaks 250-430 MiB/day (stacklok/toolhive#5860) and its sessions degrade by day 3 at ~40% of the
+# memory limit, so restart every 2 days. Delete this file once #5860 is fixed.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -41,13 +39,17 @@ kind: CronJob
 metadata:
   name: vmcp-restart
 spec:
-  # Same days as 1-31/3, spelled out. Worst gap is 3 days (28->1 in a 30-day
-  # month); 31->1 is 1 day, tighter than the cadence, never looser.
-  schedule: "30 3 1,4,7,10,13,16,19,22,25,28,31 * *"
+  # Odd days: worst gap is 2 days; 31->1 is 1 day, tighter, never looser.
+  schedule: "30 3 */2 * *"
   timeZone: ${TIMEZONE}
   # Don't start a missed run after 04:30 (quiet-window cutoff).
   startingDeadlineSeconds: 3600
-  concurrencyPolicy: Forbid
+  # Allow, not Forbid: a run stuck Pending (activeDeadlineSeconds only counts once a pod is
+  # scheduled) stays "active" and under Forbid silently skipped the next tick — that is
+  # what happened on 2026-10-29 (10-25 run stuck, 03:30 tick skipped, CronJobNotScheduled
+  # firing 4 days later). This job is an idempotent `rollout restart`, so an overlapping
+  # run is harmless: worst case the deployment restarts twice.
+  concurrencyPolicy: Allow
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
   jobTemplate:
@@ -67,7 +69,7 @@ spec:
           containers:
             - name: kubectl
               # Skew-matched to the 1.37 server; Renovate bumps it.
-              image: registry.k8s.io/kubectl:v1.37.2
+              image: registry.k8s.io/kubectl:v1.37.2@sha256:fe049faa65ae483ac200009a949a68fa4c9985daea12c9cb1195c9c7965301fc
               args:
                 - rollout
                 - restart

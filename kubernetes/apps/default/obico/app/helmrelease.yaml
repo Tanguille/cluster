@@ -5,22 +5,46 @@ kind: HelmRelease
 metadata:
   name: obico
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: obico
+    spec:
+      interval: 1h
+      ref:
+        tag: 0.6.0
+      url: oci://ghcr.io/gabe565/charts/obico
   interval: 30m
   timeout: 15m
 
   values:
+    # Both chart pods run as the namespace default SA and never call the apiserver.
+    automountServiceAccountToken: false
     server:
-      # Repositories equal the chart defaults; spelled out so Renovate tracks the digests.
+      # Server and tasks containers share this pod, so one label covers both.
+      podLabels:
+        egress.home.arpa/dragonfly: allow
+      securityContext: &nonroot-context
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities: { drop: [ALL] }
+      initContainers:
+        # Chart runs collectstatic as root; keep its uid and capabilities.
+        collectstatic:
+          securityContext:
+            allowPrivilegeEscalation: false
+        migrate:
+          securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/web
         tag: release@sha256:a6951f69b5aff050e6edc4fb991a2a86416923fbe75cc7ca8c500365893b3508
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
-        REDIS_URL: "redis://dragonfly.database.svc.cluster.local:6379"
+        # The map renders sorted, so REDIS_PASSWORD precedes the REDIS_URL that expands it.
+        REDIS_PASSWORD:
+          secretKeyRef:
+            name: dragonfly-auth
+            key: password
+        REDIS_URL: "redis://:$(REDIS_PASSWORD)@dragonfly.database.svc.cluster.local:6379"
         SITE_USES_HTTPS: "True"
       resources:
         requests:
@@ -30,6 +54,7 @@ spec:
           memory: 1Gi
       additionalContainers:
         tasks:
+          securityContext: *nonroot-context
           resources:
             requests:
               cpu: 100m
@@ -49,6 +74,7 @@ spec:
           size: 20Gi
 
     ml-api:
+      securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/ml-api
         tag: release@sha256:1f2eb63dff11731f4a87d5055c9cf062ae7475af73caae5fecc1dd284600b3ce

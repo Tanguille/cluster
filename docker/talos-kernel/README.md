@@ -155,6 +155,11 @@ names an installer tag that does not exist yet. Dispatching on the branch closes
 the workflow checks out that ref, so it builds that branch's `ARG KERNEL_VERSION` against that
 branch's tuppr CR, and the merge only ratifies an image that is already published.
 
+After the merge, check whether the new kernel carries libceph `d6c7a5fcd088` ("only set
+read_from_replica on read requests": `net/ceph/osd_client.c` gates `read_from_replica` on
+`CEPH_OSD_FLAG_READ`). Once it does, re-enable CSI `readAffinity` per the comment in
+`kubernetes/apps/rook-ceph/rook-ceph/cluster/helmrelease.yaml`.
+
 Renovate opens a PR bumping `ARG KERNEL_VERSION`. The tarball is verified by Greg KH's
 committed PGP key, so there is no second field to update. The key's fingerprint was
 cross-checked against the one kernel.org publishes on <https://www.kernel.org/signature.html>:
@@ -254,16 +259,6 @@ dominates and is fully unattended.
 
 ## Rollout
 
-The first hop off the Image Factory is manual, once per node. tuppr's
-`buildTalosUpgradeImage` errors when the config's install image does not embed the schematic
-the running node reports (`upgrade.go`), which is what happens the moment a node's config
-points at this registry while it is still booted on a Factory image:
-
-```sh
-talosctl -n <ip> upgrade --image ghcr.io/tanguille/installer/<schematic>:<version> \
-    --reboot-mode powercycle
-```
-
 Do one node at a time and confirm `etcd` rejoins between each — the fleet is three
 control-plane nodes and etcd tolerates exactly one down.
 
@@ -286,12 +281,6 @@ unreachable and it falls through to bare `<repo>:<targetVersion>` substitution. 
 from the node's **own `.machine.install.image`**. Leave that pointing at
 `factory.talos.dev/installer/<id>` and the next Talos bump quietly reinstalls the stock
 kernel — no error, because the guard that would have raised one no longer applies.
-
-Verified on control-2 on 2026-08-20: booted on `v1.13.9-k7.1.9`, kernel `7.1.9-talos`, while
-its `.machine.install.image` was still `factory.talos.dev/installer/1fd419f5…:v1.13.9`. tuppr
-reported "All nodes are up to date" only because `findNextNodes` skips every node listed in
-`Status.CompletedNodes` before it ever compares versions; that list resets when the CR
-generation changes, i.e. on the next Talos bump.
 
 Two things have to be true for a node, and all three nodes satisfy both:
 

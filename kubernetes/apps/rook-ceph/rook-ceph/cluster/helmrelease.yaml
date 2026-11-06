@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: rook-ceph-cluster
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: rook-ceph-cluster
+    spec:
+      ref:
+        tag: 1.21.2
+      url: oci://ghcr.io/rook/rook-ceph-cluster
   interval: 1h
   values:
     monitoring:
@@ -64,14 +67,29 @@ spec:
         mon:
           # Suppress pgmap/audit debug spam; keeps INF/WRN/ERR (was debug).
           mon_cluster_log_level: info
+        mgr:
+          # v21 map cache never frees erased maps: active mgr grew ~230 MiB/h and OOMed at 2Gi.
+          # Drop once ceph/ceph#72727 ships.
+          mgr_map_cache_enabled: "false"
+        osd:
+          # Default 1: a single slow op in 24h flips the cluster to HEALTH_WARN (BLUESTORE_SLOW_OP_ALERT).
+          # osd.3 (shared PM983, also carries the ZIL + system disk) runs 0-1 normal slow ops/24h in steady
+          # state, so 1 pages on routine contention. 5x the 14-day max (1); real degradation still crosses it.
+          bluestore_slow_ops_warn_threshold: "5"
       cleanupPolicy:
         wipeDevicesFromOtherClusters: true
       # Off: duplicates stdout (victoria-logs has it); its 100Mi request left rook-ceph-exporter-control-2 unschedulable.
       logCollector:
         enabled: false
       csi:
+        # Off: the CephFS kernel client puts the replica-read flag on writes too (ceph_osdc_new_request), and
+        # Ceph v21 OSDs reject those with EINVAL (tracker 73997), which writeback drops silently, so files read
+        # back as zeros. ceph-csi applies it per cluster after any driver mount option, so RBD loses local reads
+        # as well (replicas served 23% of reads). Turn it back on once the kernel in docker/talos-kernel carries libceph
+        # d6c7a5fcd088 "only set read_from_replica on read requests" (v7.4-rc1, Cc stable; not in 7.3.1), then
+        # scale every CephFS user to 0 and back so the volumes remount.
         readAffinity:
-          enabled: true
+          enabled: false
       dashboard:
         urlPrefix: /
         ssl: false

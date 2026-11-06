@@ -9,11 +9,8 @@ spec:
     # Must not collide with the chart's `tuppr.*` groups (monitoring.prometheusRule.enabled).
     - name: tuppr.parked.rules
       rules:
-        # Pending/PrePullFailed is covered by neither TalosUpgradeStuck (wrong phases) nor
-        # TupprUpgradeBlocked (reason=~"Waiting.*|Suspended"), and pre-pull retries forever
-        # without reaching Failed (prepull.go:133) -- a failed build would sit silently with the
-        # outdated taint on. 4h clears a ~90m installer build plus the pull; Pending is
-        # otherwise only the gap between node batches.
+        # Pending/PrePullFailed matches neither TalosUpgradeStuck nor TupprUpgradeBlocked and pre-pull
+        # retries forever without reaching Failed; 4h clears a ~90m installer build plus the pull.
         - alert: TalosUpgradeParked
           expr: |-
             tuppr_talos_upgrade_phase{phase="Pending"} == 1

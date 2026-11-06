@@ -7,7 +7,7 @@ Also serves as the authoritative command reference linked from `docs/useful_comm
 ## Validation and tooling
 
 - Run `flux`, `helm`, `kubectl`, `kustomize`, `flate`, `sops`, `age`, `talosctl`, `minijinja-cli`, `yq`, `jq`, and `shellcheck` through `mise exec -- <command>`.
-- Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (flate — renders Helm charts, not just Kustomization YAML — and shellcheck).
+- Kubernetes or mixed changes: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (renders Helm charts, not just Kustomization YAML).
 - Shell-only changes: `mise exec -- shellcheck` on every touched `*.sh`.
 - Documentation-only changes: run `git diff --check` and verify every changed local reference exists.
 
@@ -61,10 +61,9 @@ Two related traps in the same family:
 Use [add-app-to-cluster](skills/add-app-to-cluster/SKILL.md) skill for full procedure.
 
 1. For a new namespace, create `kubernetes/apps/<namespace>/kustomization.yaml` with `namespace: <ns>` and component `../../components/common`; existing namespaces need no namespace step
-2. Add OCIRepository if external
-3. Create app in `kubernetes/apps/<namespace>/<app>/`
-4. Add Kustomization in appropriate `ks.yaml`
-5. Run validation on the new app: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (or `mise exec -- flate test all` directly, which renders the HelmRelease too — `kustomize build` alone doesn't)
+2. Create app in `kubernetes/apps/<namespace>/<app>/`
+3. Add Kustomization in appropriate `ks.yaml`
+4. Run validation on the new app: `bash .agents/skills/pr-review/scripts/validate-pr.sh` (or `mise exec -- flate test all` directly, which renders the HelmRelease too — `kustomize build` alone doesn't)
 
 ## Secrets management (SOPS)
 

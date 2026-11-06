@@ -7,10 +7,13 @@ metadata:
 spec:
   timeout: 15m
   interval: 30m
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: nextcloud
-
+    spec:
+      interval: 1h
+      ref:
+        tag: 9.4.1
+      url: oci://ghcr.io/nextcloud/helm/nextcloud
   # Chart has no fromAddressKey in existingSecret, so inject the secret value here.
   valuesFrom:
     - kind: Secret
@@ -36,6 +39,10 @@ spec:
               - op: add
                 path: /spec/jobTemplate/spec/template/spec/automountServiceAccountToken
                 value: false
+              # Chart has no TTL value; a failed run otherwise keeps KubeJobFailed firing until the next failure.
+              - op: add
+                path: /spec/jobTemplate/spec/ttlSecondsAfterFinished
+                value: 3600
 
   values:
     prometheus:
@@ -57,9 +64,8 @@ spec:
                   values:
                     - control-1
     image:
-      # Spelled out so Renovate tracks the digest.
       repository: nextcloud
-      tag: 35.0.2-fpm@sha256:a04e3bb8df30769a5edbb01434893d3873a11e6e42a53b984c06e27944a014c2
+      tag: 35.0.2-fpm@sha256:a95dee2ba3e6be69840baac100dc81741f145427a92d0489711a85819d8cb448
 
     lifecycle:
       postStartCommand:
@@ -70,7 +76,7 @@ spec:
       enabled: true
       image:
         repository: nginx
-        tag: 1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+        tag: 1.31.8-alpine@sha256:b2f80f8f88146b0772fdcc7d92cea621aa8c2889fa8d07ed61d4884fcea53e09
       config:
         headers:
           "Strict-Transport-Security": "max-age=15552000; includeSubDomains"
@@ -91,10 +97,9 @@ spec:
     nextcloud:
       datadir: /var/www/data
       extraEnv:
-        - name: REDIS_HOST
-          value: dragonfly.database.svc.cluster.local
-        - name: REDIS_HOST_PORT
-          value: "6379"
+        # libpq: covers the replica connections too, which pgsql_ssl does not reach.
+        - name: PGSSLMODE
+          value: require
 
       existingSecret:
         enabled: true
@@ -155,6 +160,13 @@ spec:
           user = www-data
           group = www-data
           listen = 127.0.0.1:9000
+          ; The container runtime gives the fpm master - and thus the www-data workers -
+          ; HOME=/root. With PGSSLMODE=require, libpq's default client-cert lookup
+          ; ($HOME/.postgresql/postgresql.crt) then fails fatally (EACCES on the 0700 /root)
+          ; and every DB connection errors, 503-ing all web requests (seen after the
+          ; 35.0.2-fpm image re-release of 2026-11-04). Pin the workers' HOME to a
+          ; directory they can stat; verified connect OK from www-data with HOME=/var/www.
+          env[HOME] = /var/www
           pm = dynamic
           ; php-fpm ini: only ';' comments are valid here, '#' fails the parser
           ; 4 workers starved /status.php past the 5s probe under a thumbnail burst; ~175MB RSS/worker measured
@@ -225,6 +237,11 @@ spec:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
 
+    # App and cron pods both get these: client grants for the database and dragonfly label gates.
+    podLabels:
+      egress.home.arpa/dragonfly: allow
+      egress.home.arpa/postgres: allow
+
     internalDatabase:
       enabled: false
 
@@ -232,10 +249,18 @@ spec:
       type: postgresql
       host: pgbouncer-rw.database.svc.cluster.local:5432
       existingSecret:
-        enabled: true
         secretName: nextcloud-secret
         usernameKey: INIT_POSTGRES_USER
         passwordKey: INIT_POSTGRES_PASS
+
+    # REDIS_HOST, REDIS_HOST_PORT and REDIS_HOST_PASSWORD for app and cron; the image wires them into config.php and the session handler.
+    externalRedis:
+      enabled: true
+      host: dragonfly.database.svc.cluster.local
+      existingSecret:
+        enabled: true
+        secretName: dragonfly-auth
+        passwordKey: password
 
     httpRoute:
       enabled: true
@@ -329,6 +354,9 @@ spec:
           - /bin/bash
           - /scripts/cron.sh
         securityContext:
+          # cron.sh runs as www-data, not via the root entrypoint.
+          allowPrivilegeEscalation: false
+          capabilities: { drop: [ALL] }
           runAsUser: 33
           runAsGroup: 33
           runAsNonRoot: true

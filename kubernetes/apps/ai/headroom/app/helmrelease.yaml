@@ -27,7 +27,7 @@ spec:
             image:
               repository: ghcr.io/headroomlabs-ai/headroom
               # slim: code-aware parsing and ML extras are disabled below anyway.
-              tag: 0.42.0-slim-nonroot@sha256:bc9f542aebcbfe8dafa695ba8e3cf12ce32208281721bd099f5f52bad0b19a8c
+              tag: 0.43.1-slim-nonroot@sha256:ba108bc0c269464de93efb6ae20990b3ab0e153c888bcb217407766dbb8eaea4
             # Appended to the image's `headroom proxy` entrypoint, which runs a semantic response
             # cache and rate limiter by default; chat is near-unique per turn, and agentgateway
             # owns rate limits. --no-ccr: CCR injects a headroom_retrieve tool (~380 prompt tokens)
@@ -53,7 +53,7 @@ spec:
               # The proxy default (cache) never rewrites prior turns, so older tool results, the
               # only thing worth compressing here, went through whole (0 vs 34% saved on a
               # 65K-token turn). The compressors below are deterministic, so the rewritten
-              # prefix stays byte-identical across turns and vLLM's prefix cache still hits.
+              # prefix stays byte-identical across turns and the engine's prefix cache still hits.
               HEADROOM_MODE: token
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"
