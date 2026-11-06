@@ -7,15 +7,15 @@ resources:
 configMapGenerator:
   - name: dashboard
     files:
-      - dashboard.html=./resources/dashboard.html
-      - dashboard.css=./resources/dashboard.css
-      - dashboard.js=./resources/dashboard.js
+      - ./resources/dashboard.html
+      - ./resources/dashboard.css
+      - ./resources/dashboard.js
   - name: dashboard-nginx-config
     files:
-      - nginx.conf=./resources/nginx.conf
+      - ./resources/nginx.conf
   - name: dashboard-server-script
     files:
-      - server.py=./resources/server.py
+      - ./resources/server.py
 generatorOptions:
   disableNameSuffixHash: true
   annotations:

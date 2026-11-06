@@ -20,7 +20,6 @@ spec:
         seccompProfile: { type: RuntimeDefault }
     controllers:
       app:
-        strategy: Recreate
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
@@ -32,8 +31,6 @@ spec:
               TZ: ${TIMEZONE}
               FORGEJO__server__ROOT_URL: https://forgejo.${SECRET_DOMAIN}/
               FORGEJO__server__DISABLE_SSH: "true"
-              FORGEJO__server__LFS_START_SERVER: "false"
-              FORGEJO__database__DB_TYPE: sqlite3
               FORGEJO__security__INSTALL_LOCK: "true"
               FORGEJO__security__SECRET_KEY:
                 valueFrom:

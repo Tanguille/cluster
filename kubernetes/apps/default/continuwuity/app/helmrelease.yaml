@@ -12,7 +12,6 @@ spec:
   values:
     controllers:
       continuwuity:
-        strategy: Recreate
         containers:
           app:
             image:
@@ -24,7 +23,6 @@ spec:
               CONTINUWUITY_SERVER_NAME: matrix.${SECRET_DOMAIN}
               CONTINUWUITY_DATABASE_PATH: /data
               CONTINUWUITY_ADDRESS: 0.0.0.0
-              CONTINUWUITY_PORT: &port 8080
               CONTINUWUITY_ALLOW_REGISTRATION: "false"
               CONTINUWUITY_WELL_KNOWN__CLIENT: https://matrix.${SECRET_DOMAIN}
               CONTINUWUITY_WELL_KNOWN__SERVER: matrix.${SECRET_DOMAIN}:443
@@ -35,7 +33,7 @@ spec:
                 spec:
                   httpGet: &httpGet
                     path: /_continuwuity/server_version
-                    port: *port
+                    port: &port 8008
               readiness: *probe
               startup:
                 <<: *probe
@@ -72,7 +70,6 @@ spec:
         annotations:
           gatus.home-operations.com/endpoint: |-
             url: https://matrix.${SECRET_DOMAIN}/_matrix/client/versions
-            conditions: ["[STATUS] == 200"]
         hostnames:
           - matrix.${SECRET_DOMAIN}
         parentRefs:
@@ -81,7 +78,5 @@ spec:
     persistence:
       data:
         existingClaim: *app
-        globalMounts:
-          - path: /data
       tmp:
         type: emptyDir

@@ -16,7 +16,6 @@ spec:
       # never trust the helmrelease's own securityContext alone (entrypoint privilege
       # drops are invisible to it — see docs/kopiur-restore.md "Identity").
       # KOPIUR_PUID: "1000"
-      # KOPIUR_PGID: "1000"
       # Root apps additionally need the capability (backup only, not restore) and the
       # namespace-level kopiur.home-operations.com/privileged-movers: "true" annotation
       # (ai and default compose components/kopiur/privileged-movers plus psa-privileged; media

@@ -47,7 +47,7 @@ spec:
               MEMINI_WRITE_EMBED_TIMEOUT: "15s"
               # The 2s default degrades recall to keyword_only when the embedder is busy.
               MEMINI_RECALL_EMBED_TIMEOUT: "20s"
-              # Direct to the LLMKube reranker, allowed by inference-rerank-memini-allow. Base URL is the API root, memini appends /rerank.
+              # Direct to the LLMKube reranker. Base URL is the API root, memini appends /rerank.
               MEMINI_RERANK: "http://bge-reranker-v2-m3.ai.svc.cluster.local:8080/v1"
               MEMINI_RERANK_MODEL: "bge-reranker-v2-m3"
               # One wider than the recall limit of 3. codingagent_v1 (166 q, EmbeddingGemma 2, 2026-10-15): pools 4-24 all
@@ -104,22 +104,3 @@ spec:
 
     grafanaDashboards:
       enabled: true
-
-    networkpolicies:
-      main:
-        # No auth (/v1/handshake: admin=true), and policies union: ai-ingress-allowlist still admits default, kritika and security.
-        rules:
-          ingress:
-            - from:
-                # ai = hermes' memory provider and toolhive's MCP entry, both :8080.
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: ai
-                # network = envoy-internal fronting the memini UI route (:8081).
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: network
-                # observability = vmagent scraping the serviceMonitor (:9090).
-                - namespaceSelector:
-                    matchLabels:
-                      kubernetes.io/metadata.name: observability

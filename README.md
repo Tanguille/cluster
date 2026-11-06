@@ -144,7 +144,7 @@ External-Service · SMTP-Relay · Cloudflare-DDNS
 
 Prometheus Operator CRDs · Grafana · Gatus (uptime) · Siren ·
 VictoriaMetrics · VictoriaLogs · KEDA (event-driven scaling) ·
-kube-state-metrics · Kromgo (cluster stats badges) · Silence-operator ·
+kube-state-metrics · Kromgo (cluster stats badges) ·
 Kepler (power metrics) · custom exporters
 
 </details>

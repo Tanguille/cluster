@@ -109,12 +109,9 @@ spec:
             uid: victoriametrics
             type: prometheus
             access: proxy
-            isDefault: false
             jsonData:
-              httpMethod: POST
               queryTimeout: 60s
               timeInterval: 20s
-              seriesLimit: 40000
       alertmanager:
         datasources:
           - name: VictoriaMetrics Alertmanager
@@ -126,7 +123,7 @@ spec:
     defaultRules:
       rules:
         etcdMemberCommunicationSlow:
-          create: false
+          enabled: false
         # Fires on two empty-by-design k8s.rules.pod_owner recordings (namespace_workload_pod:kube_pod_owner:relabel); key is the exact alert name.
         RecordingRulesNoData:
           enabled: false
@@ -140,6 +137,9 @@ spec:
           enabled: false
         # No inhibit rule consumes it.
         InfoInhibitor:
+          enabled: false
+        # Structural: control-1 (59Gi) dwarfs control-2/3 (26Gi), so N-1 capacity can't be fixed by request tuning.
+        KubeMemoryOvercommit:
           enabled: false
       groups:
         # Its recordings only fed the disabled node-rsrc-use dashboards.
@@ -252,12 +252,35 @@ spec:
               - alertname =~ "KopiurRepositoryNotReady|KopiurRepositoryBreakerOpen"
             target_matchers:
               - alertname =~ "KopiurSnapshotFailed|KopiurLastBackupFailed|KopiurBackupConsecutiveFailures|KopiurBackupStale"
+          # Permanent mutes kept in git: Watchdog always fires, so these stay suppressed and off kromgo's active count.
+          # KEDA's HPAs are min 1 max 1, so every active scaler reads as maxed out.
+          - source_matchers: &alwaysFiring
+              - alertname = "Watchdog"
+            target_matchers:
+              - alertname = "KubeHpaMaxedOut"
+              - horizontalpodautoscaler =~ "keda-hpa-.*"
+          # Structural: priority -1000 plus a hard node pin leaves xmrig Pending on a full node.
+          - source_matchers: *alwaysFiring
+            target_matchers:
+              - alertname = "KubePodNotReady"
+              - namespace = "web3"
+              - pod =~ "xmrig-.*"
+          # Same cause, Deployment side: KEDA scales to 1 while the pod stays Pending.
+          - source_matchers: *alwaysFiring
+            target_matchers:
+              - alertname = "KubeDeploymentReplicasMismatch"
+              - namespace = "web3"
+              - deployment =~ "xmrig-.*"
+          # Structural: the printer is off between prints, and the exporter cannot tell that from broken.
+          - source_matchers: *alwaysFiring
+            target_matchers:
+              - alertname = "TargetDown"
+              - job = "klipper"
         receivers:
           - name: blackhole
           - name: discord
             discord_configs:
-              - &discord
-                webhook_url_secret:
+              - webhook_url_secret:
                   name: alertmanager-secret
                   key: DISCORD_WEBHOOK_URL
                 username: Alertmanager
@@ -342,13 +365,9 @@ spec:
         securityContext: &vm-security-context
           allowPrivilegeEscalation: false
         priorityClassName: homelab-critical # alerting path
-        datasource:
-          url: &vmqueryUrl http://vmauth-victoria-metrics.observability.svc.cluster.local:8427
         extraArgs:
           "external.url": https://vmalert.${SECRET_DOMAIN}
           "rule.evalDelay": 1m
-        remoteRead:
-          url: *vmqueryUrl
         resources:
           requests:
             cpu: 25m
@@ -385,10 +404,6 @@ spec:
             memory: 256Mi
         extraArgs:
           requestBufferSize: "65536"
-        managedMetadata:
-          labels:
-            operated-prometheus: "true"
-            self-monitor: "true"
         unauthorizedUserAccessSpec:
           url_map:
             - src_paths:
@@ -517,7 +532,7 @@ spec:
               - alert: NodeCPUPressureSustained
                 annotations:
                   summary: Sustained CPU pressure on {{ $labels.nodename }}
-                  description: CPU PSI wait on {{ $labels.nodename }} has been above 0.5s/s for 15 minutes ({{ $value }}s/s) — precedes cold-reload storms and runner starvation.
+                  description: CPU PSI wait on {{ $labels.nodename }} has been above 0.5s/s for 15 minutes ({{ $value }}s/s); precedes runner starvation.
                 expr: rate(node_pressure_cpu_waiting_seconds_total[5m]) > 0.5
                 for: 15m
                 labels:

@@ -1,20 +1,4 @@
-# Buffer stats, `pg_stat_statements`, and monitoring roles
-
-## Buffer cache stats (often empty for read-only clients)
-
-PgHero-style health tooling reads **per-table / per-index buffer statistics** from views such as `pg_statio_user_tables` and `pg_statio_user_indexes`. Those require:
-
-1. **Privileges** — a minimal read-only login often cannot see stats views. Grant the predefined role **`pg_monitor`** (PostgreSQL 10+) to the monitoring user so it can read `pg_statio_*`, `pg_stat_*`, and related monitoring views:
-
-   ```sql
-   GRANT pg_monitor TO your_monitoring_username;
-   ```
-
-   Alternatively, **`pg_read_all_stats`** covers statistics views; **`pg_monitor`** is broader and is the usual choice for observability users.
-
-2. **Where you connect** — buffer counts are **per instance**. A session on a **replica** (e.g. via `pgbouncer-ro`) reflects **that node’s** buffer cache, not the primary’s. For apples-to-apples “cache hit” work comparable to a single-host mental model, use **`pgbouncer-rw`** / primary when you explicitly want primary stats, or interpret replica stats as replica-local.
-
-3. **Per-database** — `pg_statio_user_*` only include objects in the **current database** (`dbname` in the URI). Connect to the app database you care about when measuring table/index cache behavior.
+# `pg_stat_statements`
 
 ## Overhead of `pg_stat_statements`
 

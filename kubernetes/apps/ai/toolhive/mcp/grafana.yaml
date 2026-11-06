@@ -14,7 +14,7 @@ spec:
     - "streamable-http"
     - "-address"
     - "0.0.0.0:8000"
-    # proxy sends the backend Service as Host; mcpserver-backend-ingress-allowlist limits peers to the proxy
+    # proxy sends the backend Service as Host; any ai pod can reach it, toolhive-ingress-deny fences other namespaces
     - "-allowed-hosts"
     - "*"
     # Grafana OSS + Prometheus/Alertmanager only; Cloud, Pyroscope, Loki and

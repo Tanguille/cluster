@@ -61,7 +61,6 @@ spec:
             url: https://renovate-webhook.${SECRET_DOMAIN}/webhook/v1/github
             method: POST
             body: "{}"
-            conditions: ["[STATUS] == 200"]
         hostnames: ["renovate-webhook.${SECRET_DOMAIN}"]
         parentRefs:
           - name: envoy-external

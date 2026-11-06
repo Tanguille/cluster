@@ -126,13 +126,6 @@ spec:
           headers:
             Content-Type: application/json
       config.yaml.local: |-
-        api:
-          server:
-            auto_registration:
-              enabled: true
-              token: $${REGISTRATION_TOKEN}
-              allowed_ranges:
-                - ${POD_CIDR}
         db_config:
           type: postgresql
           user: $${DB_USERNAME}
@@ -149,7 +142,6 @@ spec:
               cert: 24h
       profiles.yaml: |-
         name: default_ip_remediation
-        debug: false
         filters:
           - Alert.Remediation == true && Alert.GetScope() == "Ip"
         decisions:
@@ -171,7 +163,6 @@ spec:
           annotations:
             app.kubernetes.io/managed-by: crowdsec
     lapi:
-      # Reloader reads workload metadata, not pod-template annotations
       deployAnnotations:
         reloader.stakater.com/auto: "true"
       podLabels:
@@ -249,7 +240,6 @@ spec:
       acquisitions:
         - source: appsec
           listen_addr: 0.0.0.0:7422
-          path: /
           appsec_config: crowdsecurity/appsec-default
           labels:
             type: appsec

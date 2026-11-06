@@ -5,7 +5,7 @@ name: Dead Values
 # Helm silently ignores values keys a chart does not read: typos, keys a chart
 # dropped, or keys an AI agent invented. Flux stays green while the key does
 # nothing. deadvalues renders every configured chart and reports the keys with no
-# effect; a chart bump that leaves a configured key dead fails the pull request.
+# effect; a chart bump that leaves a configured key dead or redundant fails the pull request.
 on:
   pull_request:
     branches: ["main"]
@@ -49,4 +49,4 @@ jobs:
           version: v0.2.0-rc.1
           # Scan configured versions; migrations can remove values required by the old chart.
           # xmrig's HelmReleases come from a ResourceSet, which deadvalues lists as not supported yet.
-          args: scan kubernetes/apps --details --fail-on dead --skip xmrig
+          args: scan kubernetes/apps --details --fail-on redundant --skip xmrig

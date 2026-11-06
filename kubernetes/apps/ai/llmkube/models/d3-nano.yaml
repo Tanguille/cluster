@@ -6,8 +6,7 @@ metadata:
   name: d3-nano
 spec:
   # vllm-sr/d3-nano, vLLM Semantic Router's 2B decision model: llama-server answers its typed questions at
-  # /v1/systemone with per-option probabilities in one forward pass. Revision-pinned; Renovate bumps the sha via
-  # the git-refs manager in .renovaterc.json5, and refreshPolicy makes the bump re-fetch.
+  # /v1/systemone with per-option probabilities in one forward pass.
   source: https://huggingface.co/ggml-org/vllm-d3-nano-GGUF/resolve/50dea2057df10c4b393559a155ab3bf0bc7532c6/vllm-d3-nano-Q8_0.gguf
   refreshPolicy: OnChange
   # Only Q8_0 and BF16 are published.
@@ -19,7 +18,6 @@ spec:
       count: 1
       vendor: amd
       runtime: vulkan
-      layers: -1
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json

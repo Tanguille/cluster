@@ -25,7 +25,6 @@ spec:
               tag: 3.8.52@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
             env:
               TZ: ${TIMEZONE}
-              PORT: &port 20128
               REQUIRE_API_KEY: "false"
               # V8 heap ceiling; chat sheds 503 at 85% of it.
               OMNIROUTE_MEMORY_MB: "1536"
@@ -65,7 +64,7 @@ spec:
       app:
         ports:
           http:
-            port: *port
+            port: 20128
     route:
       app:
         hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]

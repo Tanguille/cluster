@@ -17,8 +17,6 @@ spec:
         runAsNonRoot: true
         runAsUser: 568
         runAsGroup: 568
-        fsGroup: 568
-        fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
     controllers:
       bitmagnet:
@@ -40,7 +38,6 @@ spec:
             env:
               # Session mode: pgx prepares statements; the direct -rw VIP can blackhole from the primary's node.
               POSTGRES_HOST: &pg-host pgbouncer-session.database.svc.cluster.local
-              HOME: /tmp
               # Loads /etc/bitmagnet/classifier.yml from the config mount.
               XDG_CONFIG_HOME: /etc
               CLASSIFIER_WORKFLOW: movies_tv
