@@ -74,6 +74,8 @@ spec:
                 unhealthyCondition: "!has(response.code)"
                 eviction:
                   duration: 10s
+                  # A client hanging up has no status either; Kritika's ran to 4 in a row.
+                  consecutiveFailures: 5
       # Fail open: uncompressed while Headroom is unreachable.
       - providers:
           - name: uncompressed
@@ -151,14 +153,14 @@ spec:
               name: Authorization
               prefix: "Bearer "
     http:
-      # Past the longest inner chain (Headroom's 2000s, itself past omniroute's 150s plus the
-      # 1800s qwen-3.8 fallback), so the models listener or Headroom always answers first. A
-      # timeout here has no status code and would replay the whole call uncompressed.
+      # Past the longest inner chain (omniroute's 150s plus the 1800s qwen-3.8 fallback), so the
+      # models listener or Headroom always answers first. A timeout here has no status code and
+      # would replay the whole call uncompressed.
       requestTimeout: 2100s
 ---
-# Retries a request whose Headroom hop got no answer (refused, reset or timed out; Headroom is
-# then evicted) on the uncompressed group. No codes: a status is the models listener answering
-# after its own retries, so it is not repeated here.
+# Retries a request whose Headroom hop got no answer (refused, reset or timed out), on the
+# uncompressed group once Headroom is evicted. No codes: a status is the models listener
+# answering after its own retries, so it is not repeated here.
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/agentgateway.dev/agentgatewaypolicy_v1alpha1.json
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy

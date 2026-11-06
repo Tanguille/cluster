@@ -45,22 +45,26 @@ spec:
               # Allow-only mode for x-headroom-base-url: an override to any other host is ignored
               # or rejected, so it cannot carry the forwarded internal key off-cluster.
               HEADROOM_ALLOWED_BASE_URLS: agentgateway.ai.svc.cluster.local
-              # Default 300s; past the longest models-listener chain (omniroute's 150s, then the
-              # 1800s qwen-3.8 fallback) so that listener answers first.
-              HEADROOM_REQUEST_TIMEOUT: "2000"
+              # Just past Kritika's 5-minute request limit: Headroom doesn't notice a non-streaming
+              # client leaving, so this ends the abandoned decode. It's a read timeout, so a stream
+              # only hits it after 330s without a byte (slowest first token seen: 81s).
+              HEADROOM_REQUEST_TIMEOUT: "330"
               # agentgateway retries and fails over; Headroom retrying too would multiply both.
               HEADROOM_RETRY_MAX_ATTEMPTS: "1"
               # The proxy default (cache) never rewrites prior turns, so older tool results, the
               # only thing worth compressing here, went through whole (0 vs 34% saved on a
-              # 65K-token turn). The compressors below are deterministic, so the rewritten
-              # prefix stays byte-identical across turns and the engine's prefix cache still hits.
+              # 65K-token turn, about 5% over live traffic). The compressors below are deterministic,
+              # so the rewritten prefix normally stays byte-identical across turns and the engine's
+              # prefix cache still hits.
               HEADROOM_MODE: token
               # CCR store would need the unmounted /data volume.
               HEADROOM_STATELESS: "1"
-              # JSON-only: HEADROOM_LOSSLESS=1 saved 0 tokens, and the log compressor drops whole
-              # INFO runs. smart_crusher/tabular re-encode arrays as tables keeping every row
-              # (2000/2000, -65%), byte-identical across calls. No CCR markers on this path, so
-              # anything lossy (Kompress, log, code-aware) would be unrecoverable.
+              # --no-ccr also drops the reversibility guard, so without this dense-line elision and
+              # SmartCrusher row drops would cut tool output with no marker.
+              HEADROOM_LOSSLESS: "1"
+              # The log compressor drops whole INFO runs. smart_crusher/tabular re-encode arrays as
+              # tables keeping every row (2000/2000, -65%), byte-identical across calls. No CCR markers
+              # on this path, so anything lossy (Kompress, log, code-aware) would be unrecoverable.
               HEADROOM_COMPRESSORS: smart_crusher tabular
               HEADROOM_DISABLE_KOMPRESS: "1"
               HEADROOM_DISABLE_KOMPRESS_FALLBACK: "1"
