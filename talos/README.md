@@ -119,8 +119,8 @@ not scrub or trim in lockstep. That is what makes weekly safe on control-3 despi
 thermal-shutdown history: it never runs at the same moment as its peers.
 
 Trim reaches only what the node can discard. control-2 and control-3 install to real NVMe; control-1
-is the TrueNAS VM, installs to `/dev/vda`, and has no local NVMe (its `nvme` devices are TrueNAS
-NVMe-oF namespaces), so its discards pass through to whatever the hypervisor does with them.
+is the TrueNAS VM, installs to virtio `/dev/vda` (its `nvme` devices are TrueNAS NVMe-oF
+namespaces), so its discards pass through to whatever the hypervisor does with them.
 
 ### Deliberately not adopted
 

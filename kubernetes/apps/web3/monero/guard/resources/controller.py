@@ -22,13 +22,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # the wrong reading. Fewer series also means fewer chances for a single missing sample
 # to fail the identity check and latch a node closed.
 SENSORS = frozendict({
-    # empty tuple = no local NVMe on this node (control-1 is a VM); it is gated on CPU
+    # empty tuple = no NVMe sensors on this node (control-1 is a VM with a properly cooled NVMe); it is gated on CPU
     # headroom instead, which is what every `if sensors` branch below keys off.
     "control-1": (),
     "control-2": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
     "control-3": (("nvme_nvme0", "temp1"), ("nvme_nvme1", "temp1")),
 })
-# Miner slot priority, best first: control-1 has no local NVMe to cook. Each ScaledObject subtracts one
+# Miner slot priority, best first: control-1's NVMe is properly cooled. Each ScaledObject subtracts one
 # miner's draw per safe node that outranks it, so this order decides who gets scarce watts.
 PRIORITY = ("control-1", "control-2", "control-3")
 ENDPOINT = "http://vmauth-victoria-metrics.observability.svc.cluster.local:8427"
@@ -255,7 +255,7 @@ class GuardController:
         # rating is 0.2C and nothing may be loosened.
         # max_gap is each node's slowest scrape: it dates the freshness check, the anti-replay gap
         # and the dwell reset, which must agree or a gap inside one budget resets dwell under
-        # another. control-1 has no local NVMe to cook and no panic limit; a busy CPU carries no
+        # another. control-1's NVMe is properly cooled and it has no panic limit; a busy CPU carries no
         # equivalent of a drive's absolute rating.
         self.policies = {
             "control-1": DwellPolicy(50, 70, 600, 120, CPU_SAMPLE_MAX_AGE_SECONDS),
@@ -302,7 +302,7 @@ class GuardController:
         now = self.clock()
         for node, sensors in SENSORS.items():
             try:
-                # no sensors means a node with no local NVMe (control-1, a VM): it is gated
+                # no sensors means a VM that cannot read its NVMe (control-1): it is gated
                 # on CPU headroom instead. The dwell policy and metrics are keyed identically.
                 if sensors:
                     samples = dict(zip(sensors, self.telemetry.query_nvme(node, sensors, evaluation)))
