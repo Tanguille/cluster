@@ -19,7 +19,7 @@ spec:
           web:
             image:
               repository: nginx
-              tag: 1.31-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606
+              tag: 1.31-alpine@sha256:b2f80f8f88146b0772fdcc7d92cea621aa8c2889fa8d07ed61d4884fcea53e09
             resources:
               requests:
                 cpu: 10m
@@ -43,9 +43,10 @@ spec:
           dashboard-server:
             image:
               repository: python
-              tag: 3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
+              tag: 3.15-slim@sha256:e97b88e416c3c01eb427b21fd8cd3ebf006e6ee38afcfcc3cae1c54ee2ab0a75
             command:
               - python3
+              - -u
               - /config/server.py
             args:
               - --data-dir
@@ -87,6 +88,7 @@ spec:
         # p2pool's gid (it writes local/ 0770); any other fsGroup re-chgrps the shared PVC each mount.
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
+        # Talos applies RuntimeDefault at runtime, but PSS restricted (and kguardian's profile baseline) needs the field declared.
         seccompProfile: { type: RuntimeDefault }
     service:
       dashboard:

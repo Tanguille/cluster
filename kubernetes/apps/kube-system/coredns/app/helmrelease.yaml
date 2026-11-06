@@ -5,9 +5,12 @@ kind: HelmRelease
 metadata:
   name: coredns
 spec:
-  chartRef:
+  chart:
     kind: OCIRepository
-    name: coredns
+    spec:
+      ref:
+        tag: 1.50.1
+      url: oci://ghcr.io/coredns/charts/coredns
   interval: 1h
   values:
     image:
@@ -19,10 +22,11 @@ spec:
     # A single node drain must not take cluster DNS down.
     podDisruptionBudget:
       maxUnavailable: 1
+    # Hard spread: ScheduleAnyway stacked both replicas on one node after a node roll.
     topologySpreadConstraints:
       - maxSkew: 1
         topologyKey: kubernetes.io/hostname
-        whenUnsatisfiable: ScheduleAnyway
+        whenUnsatisfiable: DoNotSchedule
         labelSelector:
           matchLabels:
             k8s-app: kube-dns
@@ -36,6 +40,11 @@ spec:
             use_tcp: true
         port: 53
         plugins:
+          # Telemetry hosts and their subdomains: Cilium can't deny an FQDN, and Dragonfly's licence forbids its disable flag; Trivy's has no chart setting for scan Jobs.
+          - name: template
+            parameters: ANY ANY check.trivy.dev version.dragonflydb.io
+            configBlock: |-
+              rcode NXDOMAIN
           - name: template
             parameters: ANY AAAA
             configBlock: |-

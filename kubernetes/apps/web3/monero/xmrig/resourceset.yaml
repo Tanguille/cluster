@@ -5,9 +5,7 @@ kind: ResourceSet
 metadata:
   name: xmrig
 spec:
-  # One miner per node, each gated on its own node's guard verdict. A single Deployment
-  # cannot do this: the HPA sheds an arbitrary pod, so nothing guarantees the pod on the
-  # node that just tripped is the one that dies.
+  # One miner per node, each gated on its own guard verdict: docs/xmrig-solar-mining.md#shape
   inputs:
     - node: control-1
     - node: control-2
@@ -45,7 +43,7 @@ spec:
                   image:
                     repository: djerfy/xmrig
                     tag: 6.26.0@sha256:74847c25c6273248d2387c41feac55d2833c6a347f5c9e63e5cf19ed4a0406bd
-                  # The 10-08 rebuild's Cmd is the /xmrig source dir; the binary sits inside it.
+                  # The image's Cmd is the /xmrig source dir; the binary sits inside it.
                   command: ["/xmrig/xmrig"]
                   args:
                     - "-o"
@@ -70,7 +68,8 @@ spec:
                       drop: ["ALL"]
                   resources:
                     requests:
-                      cpu: 1
+                      # Pinned miners never reschedule; the request only inflates KubeCPUOvercommit.
+                      cpu: 250m
                       # RandomX fast mode needs ~2336Mi; requested under that so the miner fits more often.
                       memory: 2Gi
                     limits:
@@ -95,15 +94,11 @@ spec:
               runAsGroup: 1000
               fsGroup: 1000
               fsGroupChangePolicy: OnRootMismatch
-              seccompProfile: { type: RuntimeDefault }
     - apiVersion: keda.sh/v1alpha1
       kind: ScaledObject
       metadata:
         name: xmrig-<< inputs.node >>
         namespace: web3
-        labels:
-          app.kubernetes.io/name: xmrig-<< inputs.node >>
-          app.kubernetes.io/component: autoscaler
       spec:
         scaleTargetRef:
           name: xmrig-<< inputs.node >>
@@ -140,15 +135,8 @@ spec:
           - type: prometheus
             metadata:
               serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-              # Preserve the 15-minute solar average and 150W physical cap, then hand this
-              # node only the surplus left after every safe node that outranks it has taken
-              # its 50W. That subtraction is what stops three ScaledObjects reading one global
-              # figure from all starting at 50W, and unlike a fixed activation threshold it
-              # skips a node that is unavailable instead of reserving watts for it. Ranking
-              # is the guard's xmrig_guard_rank, so priority changes need no manifest edit.
-              # The aggregations strip labels for the on() match and reject duplicate guard
-              # series; the timestamp check closes the gate within 120s if guard scraping
-              # stops, and the final fallback covers absent guard data.
+              # Ranked surplus share times this node's safety gate: docs/xmrig-solar-mining.md#allocation
+              # The memory terms require the 2Gi request to fit beside live pods, skipping miners so a running one can't gate itself off; a full node also gives up its share.
               query: >-
                 (
                   clamp_min(
@@ -160,6 +148,15 @@ spec:
                       count(
                         (xmrig_guard_safe == 1)
                         and on(node) (xmrig_guard_rank < scalar(xmrig_guard_rank{node="<< inputs.node >>"}))
+                        and on(node) (
+                          (
+                            min by (node) (kube_node_status_allocatable{resource="memory"})
+                            - sum by (node) (
+                              kube_pod_container_resource_requests{resource="memory",pod!~"xmrig-.*"}
+                              * on(namespace, pod) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+                            )
+                          ) >= 2147483648
+                        )
                       ) or vector(0)
                     ),
                     0
@@ -169,6 +166,15 @@ spec:
                     min(xmrig_guard_safe{node="<< inputs.node >>"})
                     * (count(xmrig_guard_safe{node="<< inputs.node >>"}) == bool 1)
                     * (min(timestamp(xmrig_guard_safe{node="<< inputs.node >>"})) >= bool (time() - 120))
+                    * (
+                      (
+                        min(kube_node_status_allocatable{node="<< inputs.node >>",resource="memory"})
+                        - sum(
+                          kube_pod_container_resource_requests{node="<< inputs.node >>",resource="memory",pod!~"xmrig-.*"}
+                          * on(namespace, pod) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+                        )
+                      ) >= bool 2147483648
+                    )
                   )
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)

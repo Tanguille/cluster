@@ -1,0 +1,24 @@
+# changedetection.io >= 0.70.1 ships a built-in MCP server (stateless streamable HTTP at /mcp/v1);
+# MCPServerEntry proxies the running instance in place, no bridge pod.
+# The Bearer token is created in the instance UI: Settings -> AI / LLM / MCP -> Access tokens
+# (token "hermes": write on monitors/tags, including delete_watch and clear_history; write on
+# notifications, above the upstream read default; read on system info).
+# CHANGEDETECTION_MCP_TOKEN holds 'Bearer <token>' in toolhive-secrets (sops-encrypted).
+# mcp_enabled defaults to off upstream; without it in the instance settings this entry 404s.
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserverentry_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServerEntry
+metadata:
+  name: changedetection
+spec:
+  remoteUrl: http://changedetection.default.svc:5000/mcp/v1
+  transport: streamable-http
+  groupRef:
+    name: all
+  headerForward:
+    addHeadersFromSecret:
+      - headerName: Authorization
+        valueSecretRef:
+          name: toolhive-secrets
+          key: CHANGEDETECTION_MCP_TOKEN

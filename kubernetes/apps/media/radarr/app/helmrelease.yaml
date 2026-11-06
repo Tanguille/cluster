@@ -24,7 +24,7 @@ spec:
           app:
             image:
               repository: ghcr.io/home-operations/radarr
-              tag: 7.0.0.10815@sha256:c044b4df8e7b2546ef389481626a56fabe291575ff2d65481b1555432d6161ff
+              tag: 7.0.1.10859@sha256:ffe1f4d7c30b33a1e1256e14ace0eefddf120b37d8defceba208e9c190772f8d
             env:
               RADARR__APP__INSTANCENAME: Radarr
               RADARR__APP__THEME: dark
@@ -33,6 +33,8 @@ spec:
               RADARR__LOG__DBENABLED: "False"
               RADARR__LOG__LEVEL: info
               RADARR__SERVER__PORT: &port 80
+              # Every name callers use; loopback and the pod hostname are always allowed.
+              RADARR__SERVER__ALLOWEDHOSTS: radarr.media.svc.cluster.local,radarr.${SECRET_DOMAIN}
               RADARR__AUTH__APIKEY: ${RADARR_API_KEY}
               TZ: ${TIMEZONE}
             envFrom:
@@ -55,6 +57,10 @@ spec:
                   httpGet:
                     path: /ping
                     port: *port
+                    # kubelet sends the pod IP as Host, which AllowedHosts rejects.
+                    httpHeaders:
+                      - name: Host
+                        value: localhost
                   periodSeconds: 30
                   timeoutSeconds: 10
                   failureThreshold: 5
@@ -83,6 +89,8 @@ spec:
               capabilities: { drop: ["ALL"] }
 
     defaultPodOptions:
+      labels:
+        egress.home.arpa/postgres: allow
       securityContext:
         runAsUser: 568
         runAsGroup: 568

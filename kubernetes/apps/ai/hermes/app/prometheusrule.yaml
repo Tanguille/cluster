@@ -52,8 +52,9 @@ spec:
           labels:
             severity: warning
 
-        # The exporter runs inside hermes, so a stale heartbeat means hermes itself is
-        # down. Without this the other three rules go quiet exactly when they matter.
+        # The exporter is itself a hermes cron job, so a stale heartbeat means hermes is down or
+        # long agent jobs hold every cron.max_parallel_jobs slot (pending_slot in jobs.json).
+        # Without this the other three rules go quiet exactly when they matter.
         - alert: HermesCronExporterStale
           expr: |-
             time() - last_over_time(hermes_cron_export_timestamp[2h]) > 1800
@@ -61,7 +62,7 @@ spec:
           annotations:
             summary: >-
               Hermes cron health metrics are {{ $value | humanizeDuration }} stale —
-              cron alerting is blind, check the hermes pod
+              cron alerting is blind, check the hermes pod and long-running cron jobs
           labels:
             severity: warning
 

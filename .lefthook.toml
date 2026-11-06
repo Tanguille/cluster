@@ -3,33 +3,48 @@ skip = ["merge", "rebase"]
 
 # Jobs run in this order. Mutators stay serial: each re-stages files, and parallel
 # git adds race on index.lock. The read-only checks then run in parallel.
+# The `format` tag is what .github/workflows/format.yaml runs on the whole tree.
 [[pre-commit.jobs]]
 name = "format-just"
 glob = ["*.just", ".justfile"]
 run = 'for f in {staged_files}; do just --justfile "$f" --fmt; done'
 stage_fixed = true
+tags = ["format"]
 
 [[pre-commit.jobs]]
 name = "format-mise"
 glob = [".mise.toml"]
 run = "mise fmt"
 stage_fixed = true
-
-[[pre-commit.jobs]]
-name = "format-json"
-glob = ["*.json", "*.json5", "*.jsonc"]
-run = "oxfmt {staged_files}"
-stage_fixed = true
+tags = ["format"]
 
 # cluster-template's format-markdown is omitted: .prettierignore excludes **/*.md
 # and oxfmt exits 2 when every input is ignored.
 # The same exit-2 applies to sops files, so they are excluded before oxfmt sees them.
 [[pre-commit.jobs]]
-name = "format-yaml"
-glob = ["*.yaml", "*.yml"]
+name = "format-oxfmt"
+glob = [
+  "*.yaml",
+  "*.yml",
+  "*.json",
+  "*.json5",
+  "*.jsonc",
+  "*.toml",
+  "*.js",
+  "*.css",
+  "*.html"
+]
 exclude = ["*.sops.yaml"]
 run = "oxfmt {staged_files}"
 stage_fixed = true
+tags = ["format"]
+
+[[pre-commit.jobs]]
+name = "format-shell"
+glob = ["*.sh"]
+run = "shfmt -w {staged_files}"
+stage_fixed = true
+tags = ["format"]
 
 [[pre-commit.jobs]]
 name = "mise-lock"
@@ -41,7 +56,6 @@ name = "checks"
 [pre-commit.jobs.group]
 parallel = true
 
-# Not in cluster-template; taken from home-operations/.github lefthook.common.toml.
 [[pre-commit.jobs.group.jobs]]
 name = "shellcheck"
 glob = ["*.sh"]

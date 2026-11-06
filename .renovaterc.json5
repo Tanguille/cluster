@@ -3,10 +3,10 @@
   extends: [
     "abandonments:recommended",
     // Pin every github> preset to the same tag; an unpinned one tracks main.
-    "github>home-operations/renovate-presets#10.0.1",
-    "github>home-operations/renovate-presets//apps/cnpg.json5#10.0.1",
+    "github>home-operations/renovate-presets#11.0.0",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#11.0.0",
     // grafanaDashboards preset inlined below: its grafanaCom template needs capture groups Renovate never passes to templates.
-    "github>home-operations/renovate-presets//apps/searxng.json5#10.0.1"
+    "github>home-operations/renovate-presets//apps/searxng.json5#11.0.0"
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
@@ -86,6 +86,18 @@
       datasourceTemplate: "github-releases"
     },
     {
+      // Versioned by the engine image, not Codeberg tags: one package and release, so a radiance group never carries
+      // only one of the two. The tag is pushed before its image is built, so the URL exists once the image does.
+      description: "radiance's GrafanaDashboard spec.url, at the engine image's version",
+      customType: "regex",
+      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
+      matchStrings: [
+        'url:\\s+"?https://codeberg\\.org/StillDeadcode/radiance/raw/tag/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/'
+      ],
+      depNameTemplate: "docker.io/stilldeadcode/radiance",
+      datasourceTemplate: "docker"
+    },
+    {
       // Only adjacent id then revision: `indentation` is the one custom group a template can use.
       description: "GrafanaDashboard grafanaCom id/revision",
       customType: "regex",
@@ -109,17 +121,6 @@
       packageNameTemplate: "https://huggingface.co/{{depName}}",
       currentValueTemplate: "main",
       datasourceTemplate: "git-refs"
-    },
-    {
-      description: "Paperclip Instance image: split repository/tag/digest fields",
-      customType: "regex",
-      managerFilePatterns: [
-        "/kubernetes/apps/ai/paperclip/instance/instance\\.yaml$/"
-      ],
-      matchStrings: [
-        "repository: (?<depName>\\S+)\\n\\s+tag: (?<currentValue>\\S+)\\n\\s+digest: (?<currentDigest>sha256:[a-f0-9]{64})"
-      ],
-      datasourceTemplate: "docker"
     },
     {
       // csi.<sidecar> keys miss the flux manager's values heuristic, which needs a parent key ending in "image".
@@ -153,12 +154,23 @@
         "oci://(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ],
       datasourceTemplate: "docker"
+    },
+    {
+      // Drop once Renovate's flux manager extracts chart.kind: OCIRepository (renovatebot/renovate#47438)
+      description: "Inline OCI chart sources in HelmReleases",
+      customType: "regex",
+      managerFilePatterns: ["/helmrelease\\.yaml$/"],
+      matchStrings: [
+        "\\n    kind: OCIRepository\\n    spec:\\n(?:      interval: \\S+\\n)?      ref:\\n        tag: (?<currentValue>\\S+)\\n      url: oci://(?<depName>\\S+)"
+      ],
+      depTypeTemplate: "HelmChart",
+      datasourceTemplate: "docker"
     }
   ],
   packageRules: [
     {
-      // The flux manager also extracts HelmRelease values images, so the file
-      // name is the only signal that a docker dep is a chart
+      // Only the shared app-template source is left in an ocirepository.yaml; inline
+      // charts are titled by the preset's HelmChart depType rule
       description: "Title OCI chart updates as charts instead of images",
       matchDatasources: ["docker"],
       matchFileNames: ["**/ocirepository.yaml"],
@@ -232,11 +244,17 @@
         "/vchord/",
         "/dragonfly/",
         "/flux/",
-        "/vllm/",
+        "/radiance/",
         "/llama/",
         "/obico/"
       ],
       automerge: false
+    },
+    {
+      // No age hold: the PR opens at once for Kritika's radiance-bump review, and merging stays manual (automerge off above),
+      // since each roll empties the prefix cache. The dashboard moves with the engine.
+      matchPackageNames: ["docker.io/stilldeadcode/radiance"],
+      groupName: "radiance"
     },
     {
       // opencode 2.x changed the server API (probes fail); hold at 1.18.x until the chart is migrated.
@@ -342,6 +360,17 @@
       ],
       versioning: "loose"
     },
+    {
+      // mise looks aqua tools up as tags of their own repo; prefixed tags (jq-1.8.2) never read as stable.
+      matchManagers: ["mise"],
+      matchDepNames: ["aqua:kubernetes/kubectl"],
+      overridePackageName: "kubernetes/kubernetes"
+    },
+    {
+      matchManagers: ["mise"],
+      matchDepNames: ["aqua:jqlang/jq", "aqua:kubernetes-sigs/kustomize"],
+      extractVersion: "^(?:jq-|kustomize/v)(?<version>\\d+\\.\\d+\\.\\d+)$"
+    },
     // Labeling rules
     {
       matchUpdateTypes: ["major", "minor", "patch", "digest"],
@@ -366,6 +395,11 @@
       addLabels: ["renovate/kernel"],
       // Kernel point releases are "patch"; keep them manual.
       automerge: false
+    },
+    {
+      description: "deadvalues action SHA and its pinned binary version move together",
+      matchPackageNames: ["guarnz/deadvalues"],
+      groupName: "deadvalues"
     },
     {
       matchManagers: ["github-actions"],
