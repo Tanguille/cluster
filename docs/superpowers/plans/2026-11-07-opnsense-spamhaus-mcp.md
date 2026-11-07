@@ -376,3 +376,28 @@ and request publication and live deployment permissions at their respective gate
 - Additional review delegation was unavailable due to session depth limit;
   publication scope/protections were inspected directly. No new independent
   review is claimed.
+
+### Publication attempt outcome — blocked on GHCR authentication
+
+- Implementation commit `ffaa397c1e9281b987bde62940cebc4f2f04da45` was pushed
+  normally to `origin/docs/opnsense-spamhaus-mcp-plan`; no PR/merge was created.
+  Commit hooks passed all-file secret guard and workflow zizmor checks.
+- Repeated actionlint, 40 Hermes tests, Docker test/runtime builds and restricted
+  stdio smoke on the clean committed source after hook formatting. All passed.
+  Actual branch workflow dispatch returned HTTP 404 (workflow not on default).
+- Equivalent local buildx used `linux/amd64`, runtime target, committed revision
+  label, `--provenance=mode=max --sbom=true`, and tag
+  `ghcr.io/tanguille/opnsense-mcp:0.4.2-monitor.ffaa397c1e92`.
+  Build and SBOM scan completed, but GHCR rejected layer push:
+  `permission_denied: The token provided does not match expected scopes.`
+  Existing GitHub CLI auth has `gist, read:org, repo, workflow`, without
+  `write:packages`; no token replacement or permission changes were attempted.
+- No successfully published registry digest is established. Locally generated
+  export digests are not deployment references. Package metadata query returned
+  404; registry platforms, attestation retrieval, visibility and anonymous pull
+  cannot be certified. Do not register or deploy this image.
+- Next prerequisite: user provisions suitable GHCR write authentication through
+  their normal secure channel (never chat), then retry this exact reviewed source
+  tag after checking for any existing registry manifest. Verify registry digest,
+  amd64 platform, revision/source labels, provenance/SBOM, visibility and anonymous
+  pulling before declaring publication complete. No deployment is authorized.
