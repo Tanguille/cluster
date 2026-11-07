@@ -13,7 +13,9 @@ spec:
       ref:
         tag: 0.1.0
       url: oci://ghcr.io/tanguille/charts/eightball
-  # The chart's defaults cover the image, security contexts, probes, resources, service and the eightball-config mount.
+  # The chart's defaults cover the image, security contexts, probes, resources and the Service. They also fix the
+  # mounts this app depends on: ConfigMap eightball-config (configMapGenerator) at /etc/eightball, and the database at
+  # /data/8ball.db, which the kopiur SnapshotPolicy backs up with sourcePathOverride /data.
   values:
     controllers:
       eightball:
