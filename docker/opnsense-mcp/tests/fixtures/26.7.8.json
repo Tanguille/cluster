@@ -1,0 +1,92 @@
+{
+  "/api/firewall/alias/search_item": {
+    "total": 1,
+    "current": 1,
+    "rowCount": 1,
+    "rows": [
+      {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "name": "Spamhaus_DROP",
+        "enabled": "1",
+        "type": "urltable",
+        "content": "https://example.invalid/drop.txt",
+        "updatefreq": "1",
+        "description": "Synthetic fixture"
+      }
+    ]
+  },
+  "/api/firewall/alias_util/list/Spamhaus_DROP": {
+    "total": 2,
+    "current": 1,
+    "rowCount": 2,
+    "rows": [{ "ip": "192.0.2.0/24" }, { "ip": "2001:db8::/32" }]
+  },
+  "/api/firewall/filter/search_rule": {
+    "total": 3,
+    "current": 1,
+    "rowCount": 3,
+    "rows": [
+      {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "description": "SDROP-20261106-v1",
+        "enabled": "1",
+        "direction": "out",
+        "interface": "wan",
+        "action": "block",
+        "log": "1"
+      },
+      {
+        "uuid": "shared-legacy-label",
+        "legacy": true,
+        "sort_order": "000001.1000001",
+        "description": "synthetic automatic rule"
+      },
+      {
+        "uuid": "shared-legacy-label",
+        "legacy": true,
+        "sort_order": "000001.1000002",
+        "description": "synthetic automatic rule expansion"
+      }
+    ]
+  },
+  "/api/firewall/alias/get_table_size": {
+    "status": "ok",
+    "size": 100000,
+    "used": 2000,
+    "details": {
+      "Spamhaus_DROP": {
+        "count": 1853,
+        "updated": "2000-01-01T00:00:00",
+        "in_block_p": 4,
+        "out_block_p": 3
+      }
+    }
+  },
+  "/api/firewall/filter_util/rule_stats": {
+    "status": "ok",
+    "stats": {
+      "00000000-0000-4000-8000-000000000001": {
+        "packets": 7,
+        "bytes": 700,
+        "pf_rules": 3
+      }
+    }
+  },
+  "/api/diagnostics/firewall/list_rule_ids": {
+    "items": [
+      {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "descr": "SDROP-20261106-v1"
+      }
+    ]
+  },
+  "/api/diagnostics/firewall/log": [
+    {
+      "__timestamp__": "2026-11-07T12:00:00",
+      "__digest__": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "rid": "00000000-0000-4000-8000-000000000001",
+      "dir": "out",
+      "interface": "pppoe0"
+    }
+  ]
+}
