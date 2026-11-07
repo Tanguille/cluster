@@ -27,7 +27,7 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:406ea043f19533ee7c3c8a2098aa264b72336f5563e2dcdecdae593e0cae06a5
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:872d75298ff82b771a98d3654d933b3fea65ae4eaecbd155e7c143dba743e44b
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192
