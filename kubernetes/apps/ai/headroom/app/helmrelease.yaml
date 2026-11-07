@@ -71,6 +71,12 @@ spec:
               HEADROOM_LOSSLESS: "1"
               # Re-encode arrays as tables keeping every row (2000/2000, -65%), byte-identical across calls.
               HEADROOM_COMPRESSORS: smart_crusher tabular
+              # Not implied by the compressor list: without these the startup banner shows
+              # Code-Aware: LAZY and dedupe=True.
+              HEADROOM_CODE_AWARE_ENABLED: "0"
+              # Off since Headroom ran as a guardrail that withheld assistant rows, so dedup pointers and
+              # tool-name guards could not resolve; the proxy sees whole turns, so it can be re-tested.
+              HEADROOM_DEDUPE: "0"
               HEADROOM_COMPRESS_USER_MESSAGES: "0"
               HEADROOM_COMPRESSION_MAX_WORKERS: "2"
               # No Kompress model to fetch, and the only thing keeping the upload beacon off (BEACON_DEFAULT_ON is true upstream).
