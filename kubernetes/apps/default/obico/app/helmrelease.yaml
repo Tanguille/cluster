@@ -35,7 +35,7 @@ spec:
           securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/web
-        tag: release@sha256:a6951f69b5aff050e6edc4fb991a2a86416923fbe75cc7ca8c500365893b3508
+        tag: release@sha256:a7c9eb558743508da46f2e66dcf51c42956affb7b8ed161a189ab4886fa38a65
       env:
         ACCOUNT_ALLOW_SIGN_UP: "True"
         CSRF_TRUSTED_ORIGINS: '["https://obico.${SECRET_DOMAIN}"]'
@@ -77,7 +77,7 @@ spec:
       securityContext: *nonroot-context
       image:
         repository: ghcr.io/gabe565/obico/ml-api
-        tag: release@sha256:1f2eb63dff11731f4a87d5055c9cf062ae7475af73caae5fecc1dd284600b3ce
+        tag: release@sha256:a85d2931912309265b2d8d502a29c938e8aa0931564743a4e37a71838f9a2271
       env:
         DEBUG: "False"
       resources:

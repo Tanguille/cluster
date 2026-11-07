@@ -11,7 +11,7 @@ spec:
     spec:
       interval: 1h
       ref:
-        tag: 3.10.1
+        tag: 3.11.0
       url: oci://ghcr.io/seerr-team/seerr/seerr-chart
   values:
     fullnameOverride: seerr
@@ -25,13 +25,9 @@ spec:
           value: "1"
     podSecurityContext:
       runAsNonRoot: true
-      runAsUser: 568
-      runAsGroup: 568
       fsGroup: 568
-      supplementalGroups: [10000]
       seccompProfile: { type: RuntimeDefault }
-    # Chart defaults this container securityContext to uid/gid 1000, which
-    # would silently override the pod-level 568 above (PVC is owned by 568).
+    # Chart defaults this container securityContext to uid/gid 1000; the PVC is owned by 568.
     securityContext:
       runAsUser: 568
       runAsGroup: 568

@@ -9,7 +9,7 @@ spec:
     kind: OCIRepository
     spec:
       ref:
-        tag: 1.50.0
+        tag: 1.50.2
       url: oci://ghcr.io/coredns/charts/coredns
   interval: 1h
   values:
@@ -36,10 +36,14 @@ spec:
     servers:
       - zones:
           - zone: .
-            scheme: dns://
             use_tcp: true
         port: 53
         plugins:
+          # Telemetry hosts and their subdomains: Cilium can't deny an FQDN, and Dragonfly's licence forbids its disable flag; Trivy's has no chart setting for scan Jobs.
+          - name: template
+            parameters: ANY ANY check.trivy.dev version.dragonflydb.io
+            configBlock: |-
+              rcode NXDOMAIN
           - name: template
             parameters: ANY AAAA
             configBlock: |-

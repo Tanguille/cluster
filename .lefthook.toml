@@ -49,7 +49,7 @@ tags = ["format"]
 [[pre-commit.jobs]]
 name = "mise-lock"
 glob = [".mise.toml"]
-run = 'mise lock && { for f in {staged_files}; do l="$(dirname "$f")/mise.lock"; [ -f "$l" ] && git add "$l"; done; true; }'
+run = 'mise lock && git add mise.lock'
 
 [[pre-commit.jobs]]
 name = "checks"

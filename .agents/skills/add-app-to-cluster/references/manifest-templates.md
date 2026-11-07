@@ -82,7 +82,7 @@ spec:
   values:
     controllers:
       <app-name>:
-        strategy: RollingUpdate  # use Recreate for RWO ceph-block when needed
+        strategy: RollingUpdate  # drop for RWO ceph-block: Recreate is the chart default
 
         annotations:
           reloader.stakater.com/auto: "true"
@@ -110,8 +110,8 @@ spec:
         runAsNonRoot: true
         runAsUser: 568
         runAsGroup: 568
-        fsGroup: 568
-        fsGroupChangePolicy: OnRootMismatch
+        # fsGroup: 568  # with a PVC only, like config below
+        # fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
 
     service:

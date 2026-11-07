@@ -23,18 +23,16 @@ spec:
           app:
             image:
               repository: ghcr.io/searxng/searxng
-              tag: 2026.11.2-d138f443b@sha256:9f59681775ba8d99744796e161d46dfecc771b972572edddb31d92dcfafc12b7
+              tag: 2026.11.6-ac11e14c5@sha256:c750ee1d859b26d3aeae51c07f6a48c3a0bfbaa9195d71a18b258862d88c4c3c
             env:
               SEARXNG_BASE_URL: https://search.${SECRET_DOMAIN}
-              SEARXNG_SETTINGS_PATH: /etc/searxng/settings.yml
               DRAGONFLY_PASSWORD:
                 valueFrom:
                   secretKeyRef:
                     name: dragonfly-auth
                     key: password
               # Limiter needs valkey (Redis-compatible); same Dragonfly, own db. Env, not settings.yml, keeps the password out of the ConfigMap.
-              SEARXNG_VALKEY_URL:
-                value: valkey://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/11
+              SEARXNG_VALKEY_URL: valkey://:$(DRAGONFLY_PASSWORD)@dragonfly.database.svc.cluster.local:6379/11
             envFrom:
               - secretRef:
                   name: searxng-secret
@@ -77,9 +75,6 @@ spec:
     defaultPodOptions:
       labels:
         egress.home.arpa/dragonfly: allow
-      securityContext:
-        fsGroup: 977
-        fsGroupChangePolicy: OnRootMismatch
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname

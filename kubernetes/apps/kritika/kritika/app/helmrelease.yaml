@@ -1,5 +1,5 @@
 ---
-# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/helm.toolkit.fluxcd.io/helmrelease_v2.json
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -16,7 +16,7 @@ spec:
   values:
     deploymentAnnotations:
       reloader.stakater.com/auto: "true"
-    # Postgres client grant for database-ingress-allowlist's label gate (runners: runner.podTemplate).
+    # Postgres client grant for database-ingress-allowlist's label gate.
     podLabels:
       egress.home.arpa/postgres: allow
     # Direct to postgres16-rw: kritika sets startup params pgbouncer rejects.
@@ -32,9 +32,6 @@ spec:
     # Keys live under podTemplate.spec; top-level runtimeClassName and resources are ignored silently and runner pods lose gVisor.
     runner:
       podTemplate:
-        metadata:
-          labels:
-            egress.home.arpa/postgres: allow
         spec:
           runtimeClassName: gvisor
           resources:
@@ -61,7 +58,7 @@ spec:
       egressPorts:
         - 443
         - 4000
-      # Instance pods only, not poolers: runners connect to the primary directly.
+      # Instance pods only, not poolers: the server connects to the primary directly.
       postgres:
         namespace: database
         podSelector:
@@ -159,12 +156,14 @@ spec:
             - expr: pr.headRef.startsWith("renovate/radiance")
           rule: >-
             radiance engine bump for the gfx1201 Qwen3.8 stack (W4A16 AWQ .rad,
-            fp8_v4 KV, host prefix tier): config
+            k6_v4 KV, host prefix tier): config
             kubernetes/apps/ai/llmkube/models/qwen38-27b-vllm.yaml, whose Job
             reconverts the .rad on every image change. The body has digests
-            only, so read the commits and tags between the previous and new
-            version at codeberg.org/StillDeadcode/radiance (its API with curl;
-            gh does not reach Codeberg), one path per call. Check every flag in
+            only and Codeberg has no releases: the changelog is the body of the
+            commit the new tag points at. Read it and the commits between the
+            previous and new version at codeberg.org/StillDeadcode/radiance
+            (its API with curl; gh does not reach Codeberg), one path per call.
+            Check every flag in
             extraArgs against renamed, removed or re-defaulted options (a gone
             flag fails the boot), the .rad container or recipe format
             (q38-27b-w4a16.recipe), prefix cache, checkpoint policy and KV
@@ -174,6 +173,16 @@ spec:
             each relevant commit as sha, title, why it matters here, and what
             to measure (KV pool tokens from radiance:kv_cache_max_tokens, gsm8k,
             tools and stream gates, prodshape --levels 8 with 0 preemptions).
+            Then say what the release adds for this deployment, in three lists:
+            useful now, useful only after a conversion or config change (name
+            it), and not applicable (other models, formats we do not serve).
+            Judge by the code path we run, not the changelog headline, and mark
+            each speedup or quality figure as upstream's, not measured here.
+            Call out scheduler, preemption and concurrent prefill changes, and
+            whether any open ask landed: warm restart of the prefix cache, a
+            preemption thrash guard, vllm:request_queue_time_seconds,
+            vllm:prefix_cache_queries_total, vllm:prefix_cache_hits_total and
+            vllm:cache_config_info. End with a recommendation: bump, or skip.
             Never call it safe to roll untested.
       # Offer specialist skills on demand; path scopes otherwise inject their full text on every match.
       skills:

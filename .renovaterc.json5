@@ -3,10 +3,10 @@
   extends: [
     "abandonments:recommended",
     // Pin every github> preset to the same tag; an unpinned one tracks main.
-    "github>home-operations/renovate-presets#10.0.1",
-    "github>home-operations/renovate-presets//apps/cnpg.json5#10.0.1",
-    // grafanaDashboards preset inlined below: its grafanaCom template needs capture groups Renovate never passes to templates.
-    "github>home-operations/renovate-presets//apps/searxng.json5#10.0.1"
+    "github>home-operations/renovate-presets#11.0.0",
+    "github>home-operations/renovate-presets//apps/cnpg.json5#11.0.0",
+    "github>home-operations/renovate-presets//apps/grafanaDashboards.json5#11.0.0",
+    "github>home-operations/renovate-presets//apps/searxng.json5#11.0.0"
     // talosFactory preset omitted: nodes pin ghcr.io/tanguille/installer/* and tuppr gates on the siderolabs git tag.
   ],
   ignorePaths: ["**/*.sops.*", "**/resources/**"],
@@ -43,13 +43,6 @@
       format: "json",
       transformTemplates: [
         '{"releases":[releases[moniker="stable" and iseol=false].{"version": version, "changelogUrl": changelog}], "homepage": "https://www.kernel.org"}'
-      ]
-    },
-    "grafana-dashboards": {
-      defaultRegistryUrlTemplate: "https://grafana.com/api/dashboards/{{packageName}}",
-      format: "json",
-      transformTemplates: [
-        '{"releases":[{"version": $string(revision)}], "sourceDirectory": name}'
       ]
     }
   },
@@ -98,18 +91,6 @@
       datasourceTemplate: "docker"
     },
     {
-      // Only adjacent id then revision: `indentation` is the one custom group a template can use.
-      description: "GrafanaDashboard grafanaCom id/revision",
-      customType: "regex",
-      managerFilePatterns: ["/grafanadashboard\\.ya?ml(?:\\.j2)?$/"],
-      matchStrings: [
-        "grafanaCom:\\n(?<indentation> +)id: (?<depName>\\d+)\\n +revision: (?<currentValue>\\d+)"
-      ],
-      datasourceTemplate: "custom.grafana-dashboards",
-      versioningTemplate: "regex:^(?<major>\\d+)$",
-      autoReplaceStringTemplate: "grafanaCom:\n{{{indentation}}}id: {{{depName}}}\n{{{indentation}}}revision: {{{newValue}}}"
-    },
-    {
       description: "HuggingFace model files revision-pinned in llmkube Model sources (HF model repos are git repos; digest = repo commit sha)",
       customType: "regex",
       managerFilePatterns: ["/kubernetes/apps/ai/llmkube/models/.+\\.ya?ml$/"],
@@ -144,6 +125,17 @@
         '"(?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"'
       ],
       datasourceTemplate: "npm"
+    },
+    {
+      description: "opencode git plugins (pinned to the commit, since a tag can move)",
+      customType: "regex",
+      managerFilePatterns: [
+        "/kubernetes/apps/ai/opencode/app/config/opencode\\.jsonc$/"
+      ],
+      matchStrings: [
+        '@git\\+https://github\\.com/(?<depName>[\\w.-]+/[\\w.-]+)\\.git#(?<currentDigest>[0-9a-f]{40})",?\\s*//\\s*(?<currentValue>\\S+)'
+      ],
+      datasourceTemplate: "github-tags"
     },
     {
       // The preset's oci:// manager reads "tag@sha256:..." as one version and skips it as invalid-value.
@@ -242,17 +234,14 @@
       automerge: false
     },
     {
-      // Releases land every 1-3 days and each roll empties the prefix cache; the dashboard moves with the engine.
-      // strict: open the PR only once the release has aged, as automerge is off and main requires no checks.
+      // No age hold: the PR opens at once for Kritika's radiance-bump review, and merging stays manual (automerge off above),
+      // since each roll empties the prefix cache. The dashboard moves with the engine.
       matchPackageNames: ["docker.io/stilldeadcode/radiance"],
-      groupName: "radiance",
-      minimumReleaseAge: "3 days",
-      internalChecksFilter: "strict"
+      groupName: "radiance"
     },
     {
-      // opencode 2.x changed the server API (probes fail); hold at 1.18.x until the chart is migrated.
-      matchPackageNames: ["ghcr.io/anomalyco/opencode"],
-      allowedVersions: "1.18.x",
+      // A bump can migrate the session database, so it gets a human merge.
+      matchPackageNames: ["ghcr.io/joryirving/opencode"],
       automerge: false
     },
     // Grouping rules
@@ -345,21 +334,25 @@
     },
     // Versioning overrides
     {
-      description: "Mixed-segment tags (p2pool v4.15/v4.15.1, hermes v2026.5.29/v2026.5.29.2); docker versioning skips patch bumps",
+      description: "Mixed-segment tags (p2pool v4.15/v4.15.1); docker versioning skips patch bumps",
       matchDatasources: ["docker"],
-      matchPackageNames: [
-        "ghcr.io/sethforprivacy/p2pool",
-        "nousresearch/hermes-agent"
-      ],
+      matchPackageNames: ["ghcr.io/sethforprivacy/p2pool"],
       versioning: "loose"
     },
     {
-      // mise looks aqua tools up as tags of their own repo; prefixed tags (jq-1.8.2) never read as stable.
+      // github-tags lists a tag while its release is still a draft, which leaves mise.lock without URLs.
+      matchManagers: ["mise"],
+      matchDepNames: ["/^aqua:/"],
+      overrideDatasource: "github-releases"
+    },
+    {
+      // kubernetes/kubectl has no releases.
       matchManagers: ["mise"],
       matchDepNames: ["aqua:kubernetes/kubectl"],
       overridePackageName: "kubernetes/kubernetes"
     },
     {
+      // Prefixed tags (jq-1.8.2) never read as stable.
       matchManagers: ["mise"],
       matchDepNames: ["aqua:jqlang/jq", "aqua:kubernetes-sigs/kustomize"],
       extractVersion: "^(?:jq-|kustomize/v)(?<version>\\d+\\.\\d+\\.\\d+)$"
@@ -375,10 +368,7 @@
     },
     {
       matchDatasources: ["custom.grafana-dashboards"],
-      addLabels: ["renovate/grafana-dashboard"],
-      commitMessageTopic: "dashboard {{sourceDirectory}}",
-      semanticCommitScope: "grafana-dashboards",
-      semanticCommitType: "chore"
+      addLabels: ["renovate/grafana-dashboard"]
     },
     {
       matchDatasources: ["custom.linux-kernel"],

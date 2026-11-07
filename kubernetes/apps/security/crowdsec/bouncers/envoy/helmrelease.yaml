@@ -12,23 +12,12 @@ spec:
         tag: 0.8.3
       url: oci://ghcr.io/kdwils/charts/envoy-proxy-bouncer
   interval: 1h
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: Deployment
-              name: *app
-            patch: |-
-              apiVersion: apps/v1
-              kind: Deployment
-              metadata:
-                name: not-used
-                annotations:
-                  reloader.stakater.com/auto: "true"
   values:
     # fullnameOverride pins the Service/Deployment name consumed by
     # kubernetes/apps/network/envoy-gateway/app/envoy.yaml's extAuth backendRef
     fullnameOverride: *app
+    podAnnotations:
+      reloader.stakater.com/auto: "true"
     resources:
       requests:
         cpu: 50m

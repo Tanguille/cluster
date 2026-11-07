@@ -47,7 +47,12 @@ spec:
       auth:
         anonymous:
           enabled: true
-          user: kopiur-lan
+          user: &lanUser kopiur-lan
+      rbac:
+        bindings:
+          - role: viewer
+            users:
+              - *lanUser
       networkPolicy:
         enabled: true
         proxySelector:

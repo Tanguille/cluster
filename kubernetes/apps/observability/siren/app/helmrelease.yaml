@@ -26,7 +26,6 @@ spec:
             env:
               TZ: ${TIMEZONE}
               ALERTMANAGER_BASE_URL: http://vmalertmanager-victoria-metrics.observability.svc.cluster.local:9093
-              PORT: &port 3000
             probes:
               liveness:
                 enabled: true
@@ -34,7 +33,7 @@ spec:
                 spec:
                   httpGet:
                     path: /livez
-                    port: *port
+                    port: &port 3000
                   initialDelaySeconds: 10
                   timeoutSeconds: 5
               readiness:
@@ -89,7 +88,5 @@ spec:
           - name: envoy-internal
             namespace: network
     persistence:
-      tmpfs:
+      tmp:
         type: emptyDir
-        globalMounts:
-          - path: /tmp

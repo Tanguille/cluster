@@ -63,13 +63,6 @@ spec:
                     path: /health
                     port: *port
                   failureThreshold: 30
-            lifecycle:
-              preStop:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - sleep 5
             resources:
               requests:
                 cpu: 100m

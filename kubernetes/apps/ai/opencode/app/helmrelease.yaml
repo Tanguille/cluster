@@ -18,20 +18,26 @@ spec:
         containers:
           app:
             image:
-              repository: ghcr.io/anomalyco/opencode
-              tag: 1.18.35@sha256:ae90ec960c871b0ea6df9abc1c2ec1e6b36464e8eca9b0e71e1ed3b553f47aa2
+              # Same binary as upstream's image, which has no git and runs as root.
+              repository: ghcr.io/joryirving/opencode
+              tag: 2.2.6@sha256:37ffa7afb179207c4e5a2f0368345e47debec7176ec3920142b094df54f1a4a0
             env:
               TZ: ${TIMEZONE}
-              HOME: /home/opencode
+              # Sessions migrated from the VM store absolute paths under this home.
+              HOME: /home/tanguille
               OPENCODE_CONFIG: /config/opencode.jsonc
               LLM_API_KEY: ${LLM_API_KEY}
+            envFrom:
+              - secretRef:
+                  name: opencode-secret
             securityContext:
               allowPrivilegeEscalation: false
-            command:
-              - opencode
-              - web
+            args:
+              - serve
               - --hostname
               - "0.0.0.0"
+              - --port
+              - "4096"
             probes:
               liveness:
                 enabled: true
@@ -64,6 +70,11 @@ spec:
       priorityClassName: homelab-important
       # Runs model-directed bash and in-process npm plugins.
       runtimeClassName: gvisor
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
 
     service:
       app:
@@ -89,7 +100,7 @@ spec:
       home:
         existingClaim: *app
         globalMounts:
-          - path: /home/opencode
+          - path: /home/tanguille
       config-file:
         type: configMap
         name: opencode-config

@@ -6,6 +6,8 @@ metadata:
   name: &app hermes
 spec:
   interval: 30m
+  # Recreate grace plus the startup probe budget exceed Flux's 5m default.
+  timeout: 10m
   chartRef:
     kind: OCIRepository
     name: app-template
@@ -31,7 +33,7 @@ spec:
           app:
             image: &image
               repository: nousresearch/hermes-agent
-              tag: v0.22.6@sha256:d27689bc6e8581ec884a7227c9101fdaebf6c853cff8859020dac14f21452b4d
+              tag: v0.23.0@sha256:adb7890916de63245523492be8f68f9d2095fecbec4e2a6dab7960381f0fc002
             # The image entrypoint starts as root for s6/permission setup, then
             # drops gateway execution to the non-root hermes user.
             securityContext:
@@ -43,15 +45,11 @@ spec:
               TZ: ${TIMEZONE}
               HERMES_DASHBOARD: true
               HERMES_DASHBOARD_PORT: &port 9119
-              # Scheduler inactivity watchdog in seconds.
+              # Inactivity watchdog, seconds; named profiles read their own .env.
               HERMES_CRON_TIMEOUT: "900"
               S6_CMD_RECEIVE_SIGNALS: "1"
               HERMES_RESTART_DRAIN_TIMEOUT: "45"
               S6_SERVICES_GRACETIME: "80000"
-              # Chromium's sandbox can't work under non-root uid 10000, and browser_tool.py's
-              # own bypass detection doesn't recognise a containerd pod. Value matches the one
-              # it injects itself.
-              AGENT_BROWSER_ARGS: "--no-sandbox,--disable-dev-shm-usage"
               # s6 containers never multiplex implicitly; explicit true folds all profiles into this gateway.
               GATEWAY_MULTIPLEX_PROFILES: "true"
               # Profile subprocesses get their own HOME; one cache root keeps uv/HF/pnpm off the PVC.
@@ -70,7 +68,7 @@ spec:
                   initialDelaySeconds: 10
                   periodSeconds: 5
                   timeoutSeconds: 5
-                  failureThreshold: 30
+                  failureThreshold: 60
               liveness:
                 enabled: true
                 custom: true
@@ -118,9 +116,18 @@ spec:
         ports:
           http:
             port: *port
+          webapp:
+            port: 9120
 
     route:
       app:
+        hostnames:
+          - "{{ .Release.Name }}-admin.${SECRET_DOMAIN}"
+        parentRefs: &parentRefs
+          - name: envoy-internal
+            namespace: network
+      # Needs webapp.enabled, host and public_url in the PVC config.yaml.
+      webapp:
         annotations:
           gethomepage.dev/enabled: "true"
           gethomepage.dev/name: Hermes
@@ -129,9 +136,10 @@ spec:
           gethomepage.dev/icon: mdi-robot-outline
         hostnames:
           - "{{ .Release.Name }}.${SECRET_DOMAIN}"
-        parentRefs:
-          - name: envoy-internal
-            namespace: network
+        parentRefs: *parentRefs
+        rules:
+          - backendRefs:
+              - port: webapp
 
     # Agent volumes mount into app only: google-digest holds the token and shares nothing writable with the agents.
     persistence:

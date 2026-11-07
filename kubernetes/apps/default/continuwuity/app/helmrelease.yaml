@@ -1,0 +1,82 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app continuwuity
+spec:
+  interval: 30m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      continuwuity:
+        containers:
+          app:
+            image:
+              repository: forgejo.ellis.link/continuwuation/continuwuity
+              tag: v26.9.1@sha256:c9c62bc5c0a641f3f713945c701b069c7bc30d2612b54d4a5de80a5be19d5420
+            env:
+              TZ: ${TIMEZONE}
+              # Part of every Matrix id; changing this after first boot requires a new database.
+              CONTINUWUITY_SERVER_NAME: matrix.${SECRET_DOMAIN}
+              CONTINUWUITY_DATABASE_PATH: /data
+              CONTINUWUITY_ADDRESS: 0.0.0.0
+              CONTINUWUITY_ALLOW_REGISTRATION: "false"
+              CONTINUWUITY_WELL_KNOWN__CLIENT: https://matrix.${SECRET_DOMAIN}
+              CONTINUWUITY_WELL_KNOWN__SERVER: matrix.${SECRET_DOMAIN}:443
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: &httpGet
+                    path: /_continuwuity/server_version
+                    port: &port 8008
+              readiness: *probe
+              startup:
+                <<: *probe
+                spec:
+                  httpGet: *httpGet
+                  periodSeconds: 5
+                  failureThreshold: 120
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gatus.home-operations.com/endpoint: |-
+            url: https://matrix.${SECRET_DOMAIN}/_matrix/client/versions
+        hostnames:
+          - matrix.${SECRET_DOMAIN}
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+    persistence:
+      data:
+        existingClaim: *app
+      tmp:
+        type: emptyDir

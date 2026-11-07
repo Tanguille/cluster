@@ -1,6 +1,4 @@
 ---
-web:
-  port: $${GATUS_WEB_PORT}
 storage:
   type: postgres
   path: postgres://$${INIT_POSTGRES_USER}:$${INIT_POSTGRES_PASS}@$${INIT_POSTGRES_HOST}:5432/$${INIT_POSTGRES_DBNAME}?sslmode=require
@@ -60,7 +58,7 @@ endpoints:
       - type: discord
 
   # MCP initialize probe: /health and VirtualMCPServer Ready stay green while POST /mcp is unusable (optimizer embedding path exceeds the write deadline).
-  # The optimizer re-embeds every tool per new session: the 30s threshold only catches regression toward the old 32s+ hang, and the 15m interval keeps TEI from re-embedding on every probe.
+  # The optimizer re-embeds every tool per new session: the 30s client timeout only catches regression toward the old 32s+ hang, and the 15m interval keeps the embedder from re-embedding on every probe.
   - name: vmcp-unified
     group: ai
     url: http://vmcp-unified.ai.svc.cluster.local:4483/mcp
@@ -74,6 +72,5 @@ endpoints:
       timeout: 30s
     conditions:
       - "[STATUS] == 200"
-      - "[RESPONSE_TIME] < 30000"
     alerts:
       - type: discord

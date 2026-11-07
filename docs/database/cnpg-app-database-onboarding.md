@@ -79,9 +79,6 @@ secret by hand to match.
    the database; `db:` only when the physical database name differs; `extensions:` if the DB uses
    any).
 
-Monitoring-only roles (e.g. granted `pg_monitor` via `inRoles`) skip touch point 4 — there's
-no app database to own, so no `Database` CR.
-
 ### Gotchas
 
 - **Owner ALTER.** If the live database is owned by `postgres` rather than the app role, the

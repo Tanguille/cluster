@@ -25,11 +25,10 @@ spec:
           app:
             image:
               repository: ghcr.io/home-operations/sonarr
-              tag: 5.0.0.2941@sha256:f7c9347598c4aa1c76e2b39dc13cebe0e9e249d80962e49e08d1310e3961f3d6
+              tag: 5.0.0.2941@sha256:93b0923dd12afd43247739e19dac59d74c52a15ea12e036b7ced264cffb42574
             env:
               SONARR__AUTH__METHOD: External
               SONARR__AUTH__REQUIRED: DisabledForLocalAddresses
-              SONARR__APP__INSTANCENAME: Sonarr
               SONARR__SERVER__PORT: &port 80
               SONARR__SERVER__ALLOWEDHOSTS: "{{ .Release.Name }}.${SECRET_DOMAIN},sonarr.media.svc.cluster.local"
               SONARR__SERVER__TRUSTEDNETWORKS: ${POD_CIDR}
@@ -74,13 +73,6 @@ spec:
               limits:
                 cpu: 2
                 memory: 1Gi
-            lifecycle:
-              preStop:
-                exec:
-                  command:
-                    - /bin/sh
-                    - -c
-                    - sleep 5
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -120,25 +112,9 @@ spec:
           - name: envoy-internal
             namespace: network
 
-    configMaps:
-      krb5:
-        data:
-          # Npgsql tries GSSAPI per connection; krb5 hostname canonicalization calls musl's
-          # non-reentrant gethostbyname, and concurrent calls double-free its buffer (exit 139).
-          krb5.conf: |
-            [libdefaults]
-              dns_canonicalize_hostname = false
-
     persistence:
       config:
         existingClaim: *app
-
-      krb5:
-        type: configMap
-        identifier: krb5
-        globalMounts:
-          - path: /etc/krb5.conf
-            subPath: krb5.conf
 
       tmp:
         type: emptyDir

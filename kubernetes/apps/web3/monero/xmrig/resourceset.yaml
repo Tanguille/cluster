@@ -21,10 +21,6 @@ spec:
         # by flux-operator from a ResourceSet, not rendered by kustomize-controller.
         driftDetection:
           mode: enabled
-          ignore:
-            - paths: ["/spec/replicas"]
-              target:
-                kind: Deployment
         chartRef:
           kind: OCIRepository
           name: app-template
@@ -75,12 +71,6 @@ spec:
                     limits:
                       cpu: 6
                       memory: 3Gi
-          persistence:
-            tmp:
-              type: emptyDir
-              medium: Memory
-              # Memory-backed tmpfs shares the 3Gi limit with the ~2336Mi RandomX dataset, so an unbounded /tmp reaches it.
-              sizeLimit: 64Mi
           defaultPodOptions:
             terminationGracePeriodSeconds: 15
             priorityClassName: low-priority-mining
@@ -92,8 +82,6 @@ spec:
               runAsNonRoot: true
               runAsUser: 1000
               runAsGroup: 1000
-              fsGroup: 1000
-              fsGroupChangePolicy: OnRootMismatch
     - apiVersion: keda.sh/v1alpha1
       kind: ScaledObject
       metadata:
@@ -112,30 +100,12 @@ spec:
           # A VictoriaMetrics/scaler error is unsafe: do not keep miners running on stale state.
           failureThreshold: 1
           replicas: 0
-        advanced:
-          horizontalPodAutoscalerConfig:
-            behavior:
-              # At maxReplicaCount 1 both transitions are KEDA activation rather than HPA
-              # scaling, so this block should be inert. It stays until a measured trip proves
-              # the drain latency: if that assumption is wrong the HPA default is a 300s
-              # scaleDown stabilization, which on its own blows the thermal budget.
-              scaleDown:
-                stabilizationWindowSeconds: 0
-                policies:
-                  - type: Percent
-                    value: 100
-                    periodSeconds: 15
-              scaleUp:
-                stabilizationWindowSeconds: 60
-                policies:
-                  - type: Percent
-                    value: 100
-                    periodSeconds: 60
         triggers:
           - type: prometheus
             metadata:
               serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
               # Ranked surplus share times this node's safety gate: docs/xmrig-solar-mining.md#allocation
+              # The memory terms require the 2Gi request to fit beside live pods, skipping miners so a running one can't gate itself off; a full node also gives up its share.
               query: >-
                 (
                   clamp_min(
@@ -147,6 +117,15 @@ spec:
                       count(
                         (xmrig_guard_safe == 1)
                         and on(node) (xmrig_guard_rank < scalar(xmrig_guard_rank{node="<< inputs.node >>"}))
+                        and on(node) (
+                          (
+                            min by (node) (kube_node_status_allocatable{resource="memory"})
+                            - sum by (node) (
+                              kube_pod_container_resource_requests{resource="memory",pod!~"xmrig-.*"}
+                              * on(namespace, pod) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+                            )
+                          ) >= 2147483648
+                        )
                       ) or vector(0)
                     ),
                     0
@@ -156,6 +135,15 @@ spec:
                     min(xmrig_guard_safe{node="<< inputs.node >>"})
                     * (count(xmrig_guard_safe{node="<< inputs.node >>"}) == bool 1)
                     * (min(timestamp(xmrig_guard_safe{node="<< inputs.node >>"})) >= bool (time() - 120))
+                    * (
+                      (
+                        min(kube_node_status_allocatable{node="<< inputs.node >>",resource="memory"})
+                        - sum(
+                          kube_pod_container_resource_requests{node="<< inputs.node >>",resource="memory",pod!~"xmrig-.*"}
+                          * on(namespace, pod) group_left() (kube_pod_status_phase{phase=~"Pending|Running"} == 1)
+                        )
+                      ) >= bool 2147483648
+                    )
                   )
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)

@@ -17,8 +17,6 @@ spec:
         runAsNonRoot: true
         runAsUser: 568
         runAsGroup: 568
-        fsGroup: 568
-        fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
     controllers:
       bitmagnet:
@@ -40,7 +38,6 @@ spec:
             env:
               # Session mode: pgx prepares statements; the direct -rw VIP can blackhole from the primary's node.
               POSTGRES_HOST: &pg-host pgbouncer-session.database.svc.cluster.local
-              HOME: /tmp
               # Loads /etc/bitmagnet/classifier.yml from the config mount.
               XDG_CONFIG_HOME: /etc
               CLASSIFIER_WORKFLOW: movies_tv
@@ -120,7 +117,7 @@ spec:
             # Deleting through GraphQL blocklists the hashes, so the crawler does not re-add them.
             image:
               repository: python
-              tag: 3.15-slim@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0
+              tag: 3.15-slim@sha256:e97b88e416c3c01eb427b21fd8cd3ebf006e6ee38afcfcc3cae1c54ee2ab0a75
             command: [python3, /prune/prune-delete.py]
             resources: *job-resources
             securityContext: *container-security

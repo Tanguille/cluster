@@ -30,8 +30,8 @@ and exports `xmrig_guard_safe{node}` plus `xmrig_guard_rank{node}`. It treats te
 untrusted: a complete set of fresh samples is required before a node can be safe, and every
 failure path fails closed. Policy is code, so changing a threshold requires a reviewed diff.
 
-`SENSORS` decides which source gates which node. control-1 is a VM with no visible NVMe, so it
-is gated on CPU headroom; the bare-metal mini PCs are gated on NVMe Composite temperature.
+`SENSORS` decides which source gates which node. control-1 is a VM with a properly cooled NVMe the guard
+cannot read, so it is gated on CPU headroom; the bare-metal mini PCs are gated on NVMe Composite temperature.
 
 | node | source | recover | trip | recovery dwell | trip dwell | panic |
 |---|---|---|---|---|---|---|
@@ -122,6 +122,9 @@ Cooling that drive converts directly into safe-time; no threshold change can.
   another node. control-2 and control-3 have 25.6Gi allocatable; memory requests ran near 99% in
   the first 24h, costing 1.69 replica-hours. `preemptionPolicy: Never` on
   `low-priority-mining` means the miner waits rather than evicting real work, which is correct.
+  The KEDA query therefore also requires allocatable memory minus Pending/Running pod requests,
+  excluding the miner itself, to cover the 2Gi request, so a full node scales to 0 instead of
+  leaving a miner Pending.
 - **The miner runs without hugepages.** The 2368Mi static reservation was withheld from every
   node's allocatable memory even at 0 replicas, so it was dropped. The reclaim is 2368Mi while
   idle but only ~320Mi while mining, since xmrig then requests 2Gi of regular pages instead.

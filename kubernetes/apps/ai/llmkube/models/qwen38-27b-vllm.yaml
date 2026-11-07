@@ -149,10 +149,10 @@ spec:
   # radiance in the vllm runtime's own-launcher mode (command set): the ModelRouter maps only llamacpp and vllm.
   runtime: vllm
   command: [radiance]
-  parallelSlots: 7
-  # After a bump, run bench/qualitygate.py and prodshape.py --levels 8 (0 preemptions: a bump can shrink the KV pool
-  # under the 7-slot cap) on an unrouted clone (baseline: docs/llm-hosting/radiance-2026-11.md).
-  image: docker.io/stilldeadcode/radiance:1.16.0@sha256:b1017ce0e615dbd16370f84724aac1f0b999a2cfb769d1b2f49d2dd7c0913cd1
+  # After a bump the owner runs bench/qualitygate.py and prodshape.py --levels 8 (0 preemptions: a bump can shrink the
+  # KV pool under --max-num-seqs); baseline: docs/llm-hosting/radiance-2026-11.md. Never an agent or kanban task: the
+  # card holds one engine, so a bench means stopping production.
+  image: docker.io/stilldeadcode/radiance:1.17.0@sha256:6fb0e99bfb862e17cc15cb7b2f116c7dbdc831df59f82456a0691122e6cf5330
   # Roll only when vllm:num_requests_running is 0, else after 15 min.
   rolloutPolicy:
     waitForIdle: true
@@ -185,24 +185,24 @@ spec:
     - /rad/swift15-27b-w4a16-awq.revision.engine.rad
     - --served-model-name
     - qwen-3.8
-    # With MTP, 8 slots preempt and stall at 8 sessions (docs/llm-hosting/radiance-2026-11.md); 7 queues the 8th.
+    # With MTP, 8 slots fit k6_v4's pool; fp8_v4 preempts and stalls (docs/llm-hosting/radiance-2026-11.md).
     - --max-num-seqs
-    - "7"
+    - "8"
     - --max-model-len
     - "262144"
-    # K in E4M3, V in int4: ~0.78x the fp8 cost per token at the same KL.
+    # K in int6, V in int4: ~0.69x the fp8 cost per token at the same KL.
     - --kv-cache-dtype
-    - fp8_v4
-    # Leaves 2.5 GiB VRAM free for Jellyfin (floor 1.82 GiB); the engine sizes the KV pool from the rest.
+    - k6_v4
+    # Leaves 2 GiB VRAM free for Jellyfin and FileFlows (DgpuVramLow watches it); the engine sizes the KV pool from the rest.
     - --gpu-headroom-mib
-    - "2560"
+    - "2048"
     # Shared card: no weight-prefetch ring.
     - --weight-prefetch
     - "off"
-    # MTP drafts up to 4; the adaptive window picks the depth per step from measured step cost
+    # Ceiling for MTP drafts; the adaptive window picks the depth per step from measured step cost
     # (docs/llm-hosting/radiance-2026-11.md).
     - --num-speculative-tokens
-    - "4"
+    - "6"
     - --draft-window
     - adaptive
     # The 3600 s default drops idle sessions that vLLM kept until the memory was wanted.
@@ -210,13 +210,13 @@ spec:
     - "0"
     # Host KV tier, pinned in node RAM; there is no disk tier.
     - --prefix-cache-mib
-    - "19456"
+    - "16384"
     # One state snapshot per session; the default capped the cache at ~6 sessions of 100K.
     - --checkpoint-policy
     - tip-only
-    # 16 auto slots overflowed (store_full) under 8 agent sessions.
+    # 16 and 32 slots overflowed (store_full) under 8 agent sessions; 48 is 7.06 GiB pinned, none on the card.
     - --checkpoint-slots
-    - "32"
+    - "48"
     # Hits resume on 2048-token chunks (the default batch size); nearest re-prefills up to one chunk less, so a hit is
     # no longer bit-identical to a cold run.
     - --prefix-resume
@@ -245,21 +245,14 @@ spec:
       type: Unconfined
   resources:
     cpu: "2"
-    # Pins 19 tier + 4.7 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); 27.6 GiB working set at 8 sessions.
-    memory: 32Gi
-    # The engine warns when it pins over 80% of the limit (27 of 32 GiB). A ceiling, not a reservation: control-1's
+    # Pins 16 tier + 7.06 checkpoints + 2.4 embedding + 0.9 vision tower GiB (engine log); ~27.4 GiB working set, estimated.
+    memory: 30Gi
+    # The engine warns when it pins over 80% of the limit. A ceiling, not a reservation: control-1's
     # requests are full, and 64Gi would pass its 59 GiB allocatable.
     memoryLimit: 48Gi
   endpoint:
     port: 8000
   probeOverrides:
-    startup:
-      httpGet:
-        path: /health
-        port: 8000
-      initialDelaySeconds: 10
-      periodSeconds: 10
-      failureThreshold: 180
     # No slow-band restart probe: none seen on radiance; LLMDecodeStepLatched pages instead.
     liveness:
       httpGet:

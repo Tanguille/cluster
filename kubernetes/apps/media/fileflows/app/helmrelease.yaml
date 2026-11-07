@@ -50,7 +50,7 @@ spec:
               - sh
               - -c
               - |
-                mkdir -p /app/Data /app/Logs /app/ManuallyAdded /temp
+                mkdir -p /app/Data /temp
                 chown -R 0:0 /app /temp
             securityContext:
               runAsUser: 0
@@ -70,30 +70,19 @@ spec:
             probes:
               liveness: &probe
                 enabled: true
-                custom: true
-                spec:
-                  tcpSocket:
-                    port: 5000
               readiness: *probe
               # The image apt-installs intel-media-va-driver-non-free on every boot before the app
               # listens (any /dev/dri triggers it); liveness alone killed it at ~30s.
               startup:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: 5000
                   failureThreshold: 60
                   periodSeconds: 5
             resources:
               requests:
                 cpu: 100m
                 memory: 512Mi
-                # With no request, usage-over-request ranking made this the
-                # first pod kubelet evicted when control-1 brushed its
-                # ephemeral-storage threshold (2026-08-20 19:40, exit 137),
-                # back when /temp was still an emptyDir.
-                # No limit on purpose: a limit evicts the pod itself mid-transcode.
+                # Without it kubelet evicts this pod first; a limit would evict it mid-transcode.
                 ephemeral-storage: 2Gi
               limits:
                 cpu: 2

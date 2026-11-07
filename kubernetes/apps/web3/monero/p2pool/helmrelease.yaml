@@ -50,7 +50,7 @@ spec:
                     key: address
             securityContext:
               allowPrivilegeEscalation: false
-              # Cache/log/peers use the /home/p2pool PVC; API output and /tmp have their own mounts.
+              # Cache/log/peers use the /home/p2pool PVC; API output has its own mount.
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
@@ -64,23 +64,13 @@ spec:
             probes:
               liveness:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: &stratum 3333
                   periodSeconds: 30
               readiness:
                 enabled: true
-                custom: true
-                spec:
-                  tcpSocket:
-                    port: *stratum
               startup:
                 enabled: true
-                custom: true
                 spec:
-                  tcpSocket:
-                    port: *stratum
                   failureThreshold: 30
                   periodSeconds: 5
     defaultPodOptions:
@@ -100,7 +90,8 @@ spec:
           - ${LAN_CIDR}
         ports:
           stratum:
-            port: *stratum
+            primary: true
+            port: 3333
           p2p:
             port: 37890
     persistence:
@@ -117,5 +108,3 @@ spec:
         size: 1Gi
         globalMounts:
           - path: /var/lib/p2pool/api
-      tmp:
-        type: emptyDir

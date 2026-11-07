@@ -20,6 +20,12 @@
 [![Memory](https://kromgo.tanguille.site/badges/cluster_memory_usage)](https://github.com/home-operations/kromgo)&nbsp;&nbsp;
 [![Alerts](https://kromgo.tanguille.site/badges/cluster_alert_count)](https://github.com/home-operations/kromgo)
 
+<br/>
+
+[![Self-hosted LLM tokens](https://kromgo.tanguille.site/badges/llm_tokens_30d)](docs/llm-hosting/radiance-2026-11.md)&nbsp;&nbsp;
+[![Backups](https://kromgo.tanguille.site/badges/backup_snapshots_30d)](docs/kopiur-restore.md)&nbsp;&nbsp;
+[![Ceph](https://kromgo.tanguille.site/badges/ceph_health)](docs/storage_benchmarks.md)
+
 </div>
 
 ---
@@ -144,7 +150,7 @@ External-Service · SMTP-Relay · Cloudflare-DDNS
 
 Prometheus Operator CRDs · Grafana · Gatus (uptime) · Siren ·
 VictoriaMetrics · VictoriaLogs · KEDA (event-driven scaling) ·
-kube-state-metrics · Kromgo (cluster stats badges) · Silence-operator ·
+kube-state-metrics · Kromgo (cluster stats badges) ·
 Kepler (power metrics) · custom exporters
 
 </details>

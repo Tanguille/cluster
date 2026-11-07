@@ -39,6 +39,17 @@ spec:
       monitor:
         enabled: true
     servers:
+      # Keep backup traffic direct to TrueNAS, independent of the ingress gateways.
+      - zones:
+          - zone: s3.${SECRET_DOMAIN}
+            use_tcp: true
+        port: 53
+        plugins:
+          - name: hosts
+            parameters: /dev/null
+            configBlock: |-
+              ${TRUENAS_IP} s3.${SECRET_DOMAIN}
+              no_reverse
       - zones:
           - zone: ${SECRET_DOMAIN}
             use_tcp: true

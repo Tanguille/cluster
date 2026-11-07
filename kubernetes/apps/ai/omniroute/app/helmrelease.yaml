@@ -22,10 +22,9 @@ spec:
           app:
             image:
               repository: diegosouzapw/omniroute
-              tag: 3.8.52@sha256:b08a12e876baa8a5ccadd1ebbe346fe7267dba3b1c9f4fd6bb02070fae41ab6c
+              tag: 3.8.53@sha256:b52a17661a1aff42ffb78f349f423e986dfc55b57274f28559f8387622ef8ee4
             env:
               TZ: ${TIMEZONE}
-              PORT: &port 20128
               REQUIRE_API_KEY: "false"
               # V8 heap ceiling; chat sheds 503 at 85% of it.
               OMNIROUTE_MEMORY_MB: "1536"
@@ -65,7 +64,7 @@ spec:
       app:
         ports:
           http:
-            port: *port
+            port: 20128
     route:
       app:
         hostnames: ["{{ .Release.Name }}.${SECRET_DOMAIN}"]

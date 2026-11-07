@@ -6,8 +6,7 @@ metadata:
   name: d3-nano
 spec:
   # vllm-sr/d3-nano, vLLM Semantic Router's 2B decision model: llama-server answers its typed questions at
-  # /v1/systemone with per-option probabilities in one forward pass. Revision-pinned; Renovate bumps the sha via
-  # the git-refs manager in .renovaterc.json5, and refreshPolicy makes the bump re-fetch.
+  # /v1/systemone with per-option probabilities in one forward pass.
   source: https://huggingface.co/ggml-org/vllm-d3-nano-GGUF/resolve/50dea2057df10c4b393559a155ab3bf0bc7532c6/vllm-d3-nano-Q8_0.gguf
   refreshPolicy: OnChange
   # Only Q8_0 and BF16 are published.
@@ -19,7 +18,6 @@ spec:
       count: 1
       vendor: amd
       runtime: vulkan
-      layers: -1
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
@@ -29,8 +27,7 @@ metadata:
   name: d3-nano
 spec:
   modelRef: d3-nano
-  # /v1/systemone needs llama.cpp b11361 or later; this digest is b12033.
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:1359b4e1b3896bc922563a1bb4391afaaf41f4607dfd556627187fd689778853
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:406ea043f19533ee7c3c8a2098aa264b72336f5563e2dcdecdae593e0cae06a5
   parallelSlots: 2 # Vulkan warmup hangs at parallel=1 (llama.cpp #24307)
   # Split across the slots; qwen-3.8-auto sends at most ~2000 characters plus the question.
   contextSize: 8192

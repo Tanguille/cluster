@@ -24,13 +24,16 @@ did not move.
 - Cold prefill 2,209 tok/s against 1,250 (vLLM); single-request TTFT at 16K/64K/128K 8.3/43.3/114.5 s against 15.0/81.2/221.8 s on `9cef623`.
 - Single-stream decode at 4K 36.7 tok/s against 33.5.
 - Today's vLLM nightly is no faster than `9cef623` (25.8/42.6/54.4 against 26.0/41.5/54.3 at 1/2/4 sessions).
-- Quality: GSM8K 146/150 on every arm and on vLLM; tools 12/12, vision 2/2. Greedy agreement against `n009` is 26-27% on
+- Quality: GSM8K 146/150 on every arm and on vLLM; tools 12/12, vision 2/2. Greedy agreement against `n009` (baseline in git at `db102e988`) is 26-27% on
   radiance and 63% on vLLM today, so that gate cannot compare engines.
 - Speculation (MTP, DFlash2) roughly doubles decode at 1-4 sessions (DFlash2 63/78/64 agg tok/s at 1/2/4, adaptive window
   85.5 at 4) but stalled at 8 with 8 slots (agg 40-49, itl p90 430-490 ms); see Speculation.
-- GPU: 249 W (the card's 250 W cap), junction 85 C, fan 4.1K rpm under load, idle free VRAM 2.5 GiB (Jellyfin floor 1.82).
+- GPU in the 11-01 runs: 249 W (the card's 250 W cap), junction 85 C, fan 4.1K rpm under load, idle free VRAM 2.5 GiB
+  (observed minimum 1.82 GiB with Jellyfin; not a guaranteed reserve).
 
 ## Speculation
+
+`bench/spectest.py` is the correctness check: the output must quote a long prompt back verbatim.
 
 Production since 2026-11-02: the bold row (flags in the manifest). Live idle-engine runs,
 `bench/prodshape.py --levels N --warmup --runs 2`, median agg tok/s, 0 preemptions unless noted:
@@ -53,21 +56,41 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   the rerun 96.1 at 2,195 tok/s.
 - k6_v4 (int6 K, int4 V, per-32 f16 group scales, no Hadamard) passed the gate against fp8_v4: GSM8K 147 vs 146, tools 12/12,
   vision 2/2, needles 3/3 at 58K and 175K; greedy prefix agreement 62% (fp8_v4 is 100% deterministic warm vs cold), so it
-  flips near-ties. Not adopted: +12% only at 8 sessions, long-session reasoning untested. With 6 slots it fell to 55-72 at 8.
+  flips near-ties. With 6 slots it fell to 55-72 at 8. Adopted 11-03 on 1.16.0 with 8 slots after a KL run on clean docs put
+  it level with fp8_v4 (mean KL 0.004-0.006 against bf16 KV, top-1 97-98%): GSM8K 147/150, 0 preemptions, pool 514,144 tokens,
+  81-90 tok/s at 8 sessions over 3 of 4 runs. The first run after the restart read 42.6 (unexplained, not reproduced).
 - Prompt lookup alone (`--spec-ngram`) is refused for a container that declares a draft head, and on 1.15.1
   `rad-convert --max-spec 0` drops the head's weights but still declares `mtp`, so it is untested. Untested: `--prefill-interleave`.
 - Draft acceptance in production ~52-60% (`radiance:draft_acceptance_ratio`).
+- Ceiling 6 since 2026-11-06, set from production counters, not a bench. At ceiling 4, 91% of verify steps ran at depth 4
+  (`radiance:draft_verify_depth_total`) and the last position still accepted 83%, at 3.21 tokens a step. Upstream's cost prior
+  is 6% a draft, so 6 should give about 17% more tokens for 10% more step time. 8 sequences x 7 rows stays under the 64-row
+  int8 path. Compare with the 4-ceiling baseline from 11-05 09:53Z to 11-06 00:48Z: decode p10/p50/p90 31.8/70.8/94.2 tok/s on
+  replies of 200+ tokens, production pool 537,840 tokens.
 
 ## Cache
 
-- Pool: 464,880 tokens of fp8_v4 KV in VRAM (25 KiB/token) with MTP and 7 slots. vLLM held 469,489 tokens (4-bit,
-  18 KiB/token) plus a 12 GiB CPU tier and a 128 GiB fs tier. Over 7 days 16% of its prompt tokens came from those tiers.
+- Pool: 514,144 tokens of k6_v4 KV in VRAM with MTP and 8 slots at headroom 2560 (fp8_v4 with 7 slots: 464,880). vLLM held
+  469,489 tokens (4-bit, 18 KiB/token) plus a 12 GiB CPU tier and a 128 GiB fs tier. Over 7 days 16% of its prompt tokens came
+  from those tiers.
 - Radiance has no disk tier (`--weights-disk-tier` is weights only). The host tier holds attention blocks only: `--prefix-cache-mib`
-  19456 is 750,032 tokens, about 7 sessions of 100K, pinned in node RAM. It is a mirror, so a tier near the VRAM pool adds nothing.
+  16384 is about 718K tokens pinned in node RAM (19456 was 852,304). It is a mirror, so a tier near the VRAM pool adds nothing.
 - Resume needs a recurrent-state checkpoint. The default policy needs ~9 slots per 100K session and capped the cache at ~6
   sessions (`store_full` evictions); `--checkpoint-policy tip-only` keeps one per session. Its 16 auto-sized slots
-  still overflowed (92 `store_full` in 3 h), so `--checkpoint-slots 32`.
+  still overflowed (92 `store_full` in 3 h), and 32 did too, so `--checkpoint-slots 48`.
 - Sessions beyond that re-prefill cold: 26 s per 55K, ~45 s per 100K. Watch `radiance:prefix_cache_ckpt_evictions_by_reason_total`.
+
+### Memory budget
+
+- Measured on 1.16.0: 30.4 GiB working set, 83 `store_full` evictions in 6 h. A checkpoint is 150.5625 MiB, so 48 pin 7.06 GiB.
+- `--gpu-headroom-mib 2048`: about 22K more KV tokens, estimated. The observed whole-card low at 2560 was 1.735 GiB free, so about
+  1.24 GiB now if media peaks at the same absolute use (arithmetic, not measured), above `DgpuVramLow`'s 1 GiB and enough for a
+  0.85 GB 4K DV transcode. 1536 would sit under the alert for about
+  54 minutes per 36 h.
+- Tier 16384 with a 30Gi request (48Gi limit): about 27.4 GiB working set, estimated. control-1's requests were at 97% of allocatable,
+  leaving 1.6 GiB schedulable, now 3.6. No metric splits host from GPU hits, so the cost shows only as returning-chat TTFT.
+- After a roll, check working set, pool size, whole-card free VRAM during media use, returning-chat TTFT and preemptions. Rollback:
+  headroom 2560, tier 19456 and request 32Gi together.
 
 ## Operations
 
@@ -75,10 +98,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   `radiance:linear_cached_tokens_total` (attention hits without a state snapshot still re-prefill) and its 0.4 threshold is
   provisional.
 - Dashboard: upstream's `deploy/grafana/radiance.json`, pinned to the engine's tag. Renovate versions it by the engine image,
-  so both move in one `radiance` PR, opened only once the release is 3 days old (`internalChecksFilter: strict`).
-- Cutover, once after this migration merges: the live InferenceService carries `kustomize.toolkit.fluxcd.io/reconcile=disabled`
-  from the trial, so Flux skips it. Wait for `qwen38-27b-rad-convert` to finish, then
-  `kubectl -n ai annotate isvc qwen38-27b-vllm kustomize.toolkit.fluxcd.io/reconcile-`; the idle-gated rollout does the rest.
+  so both move in one `radiance` PR, opened as soon as the release appears; merging stays manual.
 - Roll: llmkube's vllm runtime in own-launcher mode (`command: [radiance]`, flags in `extraArgs`) gives idle-gated rollouts
   (`vllm:num_requests_running`, 15 min cap) and keeps the ModelRouter working; `runtime: generic` makes the router refuse
   (`UnsupportedRuntimeInModelRouting`). A restart empties the host tier.
@@ -86,7 +106,7 @@ Production since 2026-11-02: the bold row (flags in the manifest). Live idle-eng
   changes. The `.rad` is named by the checkpoint revision and the engine image digest, which replacements also write into
   `--model`, so a pod that starts first fails until the file exists instead of serving an old checkpoint or another
   engine's container. The Job then deletes the other `.rad` files and the previous checkpoint download.
-- Memory: raise the host tier only with node RAM; the pod's working set is 27.6 GiB of its 32 GiB request (48 GiB limit).
+- Memory: raise the host tier only with node RAM; see Memory budget.
 - Reasoning comes back as `reasoning_content`. Messages, Responses, count_tokens and tokenize are served natively.
 - Rollback: revert the migration commit. The vLLM compile-cache and fs-tier PVCs are pruned by Flux on merge, so a revert
   boots with empty caches.

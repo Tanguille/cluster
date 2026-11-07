@@ -16,9 +16,6 @@ spec:
       count: 1
       vendor: amd
       runtime: vulkan
-      layers: -1
-      # Slot counts live at the device plugin (kube-system/generic-device-plugin);
-      # nodeSelector pins this to the iGPU.
       resourceName: squat.ai/dri
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/inference.llmkube.dev/inferenceservice_v1alpha1.json
@@ -32,7 +29,7 @@ spec:
   # Native upstream GTT-leak mitigation in LLMKube >=0.9.10; lifetime includes
   # startup and model load before this Vulkan embedder is recycled.
   maxPodLifetimeSeconds: 86400
-  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:1359b4e1b3896bc922563a1bb4391afaaf41f4607dfd556627187fd689778853
+  image: ghcr.io/ggml-org/llama.cpp:server-vulkan@sha256:406ea043f19533ee7c3c8a2098aa264b72336f5563e2dcdecdae593e0cae06a5
   # 4 slots: the 194-tool search and memini share one embedder; keeps the
   # 194-item batch from queueing behind memini (bench: 7.43s median for 194
   # 400-char items isolated, 120s is the toolhive timeout). Vulkan warmup hangs
@@ -47,19 +44,11 @@ spec:
   batchSize: 8192
   uBatchSize: 8192
   extraArgs:
-    - "--alias"
-    # served model name memini sends in /v1/embeddings
-    - "embeddinggemma-2"
     # gemma-embedding2 requires mean pooling.
     - "--pooling"
     - "mean"
-    # Host prompt cache (default 8192 MiB) is never released: 100 distinct
-    # embedding requests took anon 0.08 -> 8.06 GiB. One-shot embeddings never
-    # hit it.
-    - "--cache-ram"
-    - "0"
   # Pin to an iGPU node. On the dGPU it took 1.2 GiB of VRAM and left 0.93 GiB
-  # free, under the 1.82 GiB Jellyfin floor.
+  # free, under the then-used 1.82 GiB Jellyfin reserve.
   nodeSelector:
     amd.com/igpu: "true"
   # One iGPU model per node; both sides carry the rule (checked for the moving pod only).

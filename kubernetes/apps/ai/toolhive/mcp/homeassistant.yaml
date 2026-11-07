@@ -4,7 +4,7 @@ kind: MCPServer
 metadata:
   name: homeassistant
 spec:
-  image: ghcr.io/homeassistant-ai/ha-mcp:9.0.0@sha256:0298113732140c9d725171dc3f1dc5b6a53b03815482536ee2236e17e8cd1bdd
+  image: ghcr.io/homeassistant-ai/ha-mcp:9.1.1@sha256:af672ec0957ae6ac53acf633ea30d8337bfe70b75366dcd5da711b9a55e608e7
   transport: streamable-http
   mcpPort: 8086
   groupRef:
@@ -12,8 +12,6 @@ spec:
   env:
     - name: HOMEASSISTANT_URL
       value: http://${HOME_ASSISTANT_IP}:8123
-    - name: TMPDIR
-      value: /tmp
     - name: ENABLE_BETA_FEATURES
       value: "true"
     - name: HAMCP_ENABLE_DASHBOARD_SCREENSHOT
