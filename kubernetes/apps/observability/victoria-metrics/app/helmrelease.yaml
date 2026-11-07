@@ -428,6 +428,10 @@ spec:
         priorityClassName: homelab-critical
         # 180d: 365d retention couldn't fit the 200Gi PVC at current 140GB usage
         retentionPeriod: 180d
+        extraArgs:
+          # Queries wait on Ceph I/O, not CPU, so the CPU-derived 4 slots fill on an OSD stall and queued
+          # rule queries fail with 429. The auto per-query series limit shrinks per slot: ~1.6M at 8.
+          "search.maxConcurrentRequests": "8"
         resources:
           requests:
             cpu: 250m
