@@ -12,35 +12,21 @@ spec:
         tag: 0.3.6
       url: oci://ghcr.io/home-operations/charts/drm-exporter
   interval: 1h
-
   values:
-    podSecurityContext:
-      supplementalGroups:
-        - 44
-        - 226
-      seccompProfile:
-        type: Unconfined
-
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-        squat.ai/dri: 1
-      limits:
-        memory: 128Mi
-        squat.ai/dri: 1
-
+    dra:
+      enabled: true
+      deviceClassName: gpu.amd.com
+    securityContext:
+      capabilities:
+        add:
+          - PERFMON
+    # dra.enabled needs the DRA kubelet plugin, which runs only on amd.com/gpu nodes.
     nodeSelector:
       amd.com/gpu: "true"
-
-    tolerations:
-      - key: amd.com/gpu
-        operator: Exists
-        effect: NoSchedule
-
     monitoring:
       serviceMonitor:
         enabled: true
+        # GpuFanStalled and the dashboards group by kubernetes_node, which the metrics lack.
         relabelings:
           - sourceLabels:
               - __meta_kubernetes_pod_node_name
@@ -52,3 +38,8 @@ spec:
           folder: hardware
           matchLabels:
             grafana.internal/instance: grafana
+    resources:
+      requests:
+        cpu: 10m
+      limits:
+        memory: 128Mi

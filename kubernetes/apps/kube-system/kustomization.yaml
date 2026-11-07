@@ -6,6 +6,18 @@ namespace: kube-system
 components:
   - ../../components/common
   - ../../components/psa-privileged
+# drm-exporter's DRA adminAccess claim needs this label; "not-used" is components/common's placeholder, renamed after patches.
+patches:
+  - target:
+      kind: Namespace
+      name: not-used
+    patch: |-
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: not-used
+        labels:
+          resource.kubernetes.io/admin-access: "true"
 resources:
   - ./amdgpu-undervolt.yaml
   - ./priorityclass.yaml
@@ -13,8 +25,10 @@ resources:
   - ./cilium/ks.yaml
   - ./coredns/ks.yaml
   - ./descheduler/ks.yaml
+  - ./drm-exporter/ks.yaml
   - ./etcd-defrag/ks.yaml
   - ./generic-device-plugin/ks.yaml
+  - ./k8s-gpu-dra-driver/ks.yaml
   - ./metrics-server/ks.yaml
   - ./node-problem-detector/ks.yaml
   - ./reloader/ks.yaml
