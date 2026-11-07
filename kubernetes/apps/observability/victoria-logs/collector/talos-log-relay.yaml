@@ -12,6 +12,8 @@ spec:
     name: app-template
   values:
     controllers:
+      # No Reloader: the chart-made config ConfigMap feeds a checksum/configMaps pod annotation,
+      # so a vector.yaml change already rolls the pod.
       talos-log-relay:
         containers:
           app:
