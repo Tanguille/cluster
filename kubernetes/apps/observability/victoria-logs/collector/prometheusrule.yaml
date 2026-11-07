@@ -9,10 +9,10 @@ spec:
     - name: talos-log-relay.rules
       rules:
         # UDP fails silently, so watch the far end. talos-log-relay is the only jsonline sender;
-        # vlagent uses nativeinsert.
+        # vlagent uses nativeinsert. A missing series counts as zero, so a lost scrape alerts too.
         - alert: TalosLogsNotArriving
           expr: |
-            rate(vl_rows_ingested_total{type="jsonline"}[15m]) == 0
+            (sum(rate(vl_rows_ingested_total{type="jsonline"}[15m])) or vector(0)) == 0
           for: 15m
           annotations:
             summary: >
