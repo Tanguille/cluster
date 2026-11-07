@@ -24,6 +24,8 @@ spec:
               CONTINUWUITY_DATABASE_PATH: /data
               CONTINUWUITY_ADDRESS: 0.0.0.0
               CONTINUWUITY_ALLOW_REGISTRATION: "false"
+              # Cloudflare Free caps request bodies at 100 MB; also limits incoming federated media.
+              CONTINUWUITY_MAX_REQUEST_SIZE: "100000000"
               CONTINUWUITY_WELL_KNOWN__CLIENT: https://matrix.${SECRET_DOMAIN}
               CONTINUWUITY_WELL_KNOWN__SERVER: matrix.${SECRET_DOMAIN}:443
             probes:
