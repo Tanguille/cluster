@@ -12,7 +12,7 @@ spec:
         # vlagent uses nativeinsert.
         - alert: TalosLogsNotArriving
           expr: |
-            rate(vl_rows_ingested_total{job="victoria-logs",type="jsonline"}[15m]) == 0
+            rate(vl_rows_ingested_total{type="jsonline"}[15m]) == 0
           for: 15m
           annotations:
             summary: >
