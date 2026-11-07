@@ -18,6 +18,9 @@ spec:
             image:
               repository: docker.io/timberio/vector
               tag: 0.61.0-distroless-libc@sha256:1a3451978644d5cd4b99a0b28c990791e2f7e1efbea4184122f1c59a56448143
+            env:
+              # Default is one worker per node CPU (12); each idle one costs memory, a few lines/s needs 2.
+              VECTOR_THREADS: "2"
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -42,7 +45,7 @@ spec:
         data:
           vector.yaml: |
             sources:
-              # Service and kernel logs share the port; host is the sender, i.e. the node IP.
+              # Kernel log arrives as talos-service=kernel; host is the sender, i.e. the node IP.
               talos:
                 type: socket
                 mode: udp
@@ -58,17 +61,13 @@ spec:
                 encoding:
                   codec: json
                   except_fields:
-                    - clock
                     - port
-                    - seq
                     - source_type
                     - timestamp
                 # Default for json is one JSON array per request; /insert/jsonline wants one object per line.
                 framing:
                   method: newline_delimited
                 compression: gzip
-                healthcheck:
-                  enabled: false
     service:
       app:
         # Fixed so the Talos machine config can name it.

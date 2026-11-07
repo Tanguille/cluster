@@ -67,6 +67,8 @@ machine:
     servers: [{{ gateway }}]
   # The in-memory log ring held only ~7h of kubelet on control-1. Ship to talos-log-relay
   # (observability); Cilium socket LB serves its ClusterIP to host-namespace senders.
+  # Includes the kernel log as service "kernel", so no KmsgLogConfig (it would send it twice).
+  # A panic's last lines are lost: userspace dies before the send.
   logging:
     destinations:
       - endpoint: udp://{{ log_relay_ip }}:6050/
@@ -157,13 +159,6 @@ rules:
 apiVersion: v1alpha1
 kind: FilesystemScrubConfig
 interval: 168h0m0s
----
-# Kernel log to the same relay. Unlike the talos.logging.kernel arg, applies without a reboot.
-# A panic's last lines are lost: userspace dies before the send.
-apiVersion: v1alpha1
-kind: KmsgLogConfig
-name: victoria-logs
-url: udp://{{ log_relay_ip }}:6050/
 ---
 # Not machine.sysctls (deprecated in 1.14): the two merge with this one winning, so keeping both
 # hides drift.
