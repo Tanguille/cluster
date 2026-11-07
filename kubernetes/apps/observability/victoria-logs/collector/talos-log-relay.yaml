@@ -1,0 +1,87 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+# Talos sends json_lines over UDP; VictoriaLogs ingests JSON over HTTP only. Vector bridges.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: talos-log-relay
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      talos-log-relay:
+        containers:
+          app:
+            image:
+              repository: docker.io/timberio/vector
+              tag: 0.61.0-distroless-libc@sha256:1a3451978644d5cd4b99a0b28c990791e2f7e1efbea4184122f1c59a56448143
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 256Mi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+    configMaps:
+      config:
+        data:
+          vector.yaml: |
+            sources:
+              # Service and kernel logs share the port; host is the sender, i.e. the node IP.
+              talos:
+                type: socket
+                mode: udp
+                address: 0.0.0.0:6050
+                decoding:
+                  codec: json
+            sinks:
+              victoria_logs:
+                type: http
+                inputs:
+                  - talos
+                uri: http://victoria-logs.observability.svc.cluster.local:9428/insert/jsonline?_stream_fields=host,talos-service&_msg_field=msg&_time_field=talos-time
+                encoding:
+                  codec: json
+                  except_fields:
+                    - clock
+                    - port
+                    - seq
+                    - source_type
+                    - timestamp
+                # Default for json is one JSON array per request; /insert/jsonline wants one object per line.
+                framing:
+                  method: newline_delimited
+                compression: gzip
+                healthcheck:
+                  enabled: false
+    service:
+      app:
+        # Fixed so the Talos machine config can name it.
+        clusterIP: ${TALOS_LOG_RELAY_IP}
+        ports:
+          talos:
+            port: 6050
+            protocol: UDP
+    persistence:
+      config:
+        type: configMap
+        identifier: config
+        globalMounts:
+          - path: /etc/vector/vector.yaml
+            subPath: vector.yaml
+            readOnly: true

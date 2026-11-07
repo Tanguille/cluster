@@ -11,13 +11,15 @@ set script-interpreter := ['bash', '-euo', 'pipefail']
 # talosconfig.
 vip := "192.168.0.2"
 gateway := "192.168.0.1"
+# Also TALOS_LOG_RELAY_IP in kubernetes/components/common/cluster-settings.yaml.
+log_relay_ip := "10.43.0.20"
 
 [doc('Render a node full machine config to stdout')]
 render-config node:
     role="$(just talos node-role "{{ node }}")"
     [[ -n "${role}" ]] || { echo "empty role for {{ node }}" >&2; exit 1; }
     # One context for every layer, so any layer may reference any of these.
-    ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}")
+    ctx=(-D "vip={{ vip }}" -D "gateway={{ gateway }}" -D "log_relay_ip={{ log_relay_ip }}")
     # Rendered to variables before talosctl runs, so a failed layer aborts before a single byte
     # reaches stdout. Inline <(just template) dropped the layer silently and still emitted a
     # config, which apply-node pipes straight to a node.
