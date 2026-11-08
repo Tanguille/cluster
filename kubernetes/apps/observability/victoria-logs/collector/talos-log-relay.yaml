@@ -12,8 +12,6 @@ spec:
     name: app-template
   values:
     controllers:
-      # No Reloader: the chart-made config ConfigMap feeds a checksum/configMaps pod annotation,
-      # so a vector.yaml change already rolls the pod.
       talos-log-relay:
         containers:
           app:
@@ -42,12 +40,13 @@ spec:
         runAsGroup: 65534
         seccompProfile:
           type: RuntimeDefault
+    # No Reloader: the chart's checksum/configMaps pod annotation rolls the pod on changes.
     configMaps:
       config:
         data:
           vector.yaml: |
             sources:
-              # Kernel log arrives as talos-service=kernel; host is the sender, i.e. the node IP.
+              # host is the sending node's IP.
               talos:
                 type: socket
                 mode: udp

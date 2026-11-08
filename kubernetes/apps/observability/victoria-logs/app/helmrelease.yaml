@@ -12,8 +12,7 @@ spec:
         tag: 0.13.11
       url: oci://ghcr.io/victoriametrics/helm-charts/victoria-logs-single
   interval: 1h
-  # vlagent ships pod logs and talos-log-relay's Vector exports no metrics, so the chart's vector
-  # dashboard stays empty; the chart can't skip one.
+  # Nothing exports Vector metrics, so the chart's vector dashboard stays empty; the chart can't skip one.
   postRenderers:
     - kustomize:
         patches:

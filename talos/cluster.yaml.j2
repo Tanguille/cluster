@@ -65,10 +65,8 @@ machine:
   time:
     disabled: false
     servers: [{{ gateway }}]
-  # The in-memory log ring held only ~7h of kubelet on control-1. Ship to talos-log-relay
-  # (observability); Cilium socket LB serves its ClusterIP to host-namespace senders.
-  # Includes the kernel log as service "kernel", so no KmsgLogConfig (it would send it twice).
-  # A panic's last lines are lost: userspace dies before the send.
+  # Kernel log rides along as service "kernel", so no KmsgLogConfig (it would send it twice).
+  # Cilium socket LB serves talos-log-relay's ClusterIP to host-network senders.
   logging:
     destinations:
       - endpoint: udp://{{ log_relay_ip }}:6050/
