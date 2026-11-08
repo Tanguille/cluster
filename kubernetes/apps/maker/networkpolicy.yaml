@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: maker-ingress-allowlist
+spec:
+  # Default-deny ingress (egress open; deny-lan-egress still applies).
+  endpointSelector: {}
+  ingress:
+    # ai: ToolHive MCP backends; network: envoy gateways; maker: intra-namespace.
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: maker
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+        - matchLabels:
+            io.kubernetes.pod.namespace: network
