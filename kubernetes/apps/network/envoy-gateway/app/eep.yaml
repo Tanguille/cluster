@@ -18,4 +18,7 @@ spec:
         # never echo request metadata on the public gateway
         showDetails: false
         filterCodes: [404, "500-599"]
+        # Matrix clients and servers parse errcode bodies; an M_NOT_FOUND turned into HTML fails Sable's push rule writes
+        excludeDomains:
+          - "(?i)^matrix\\.${SECRET_DOMAIN}(:[0-9]+)?$"
       failOpen: true
