@@ -12,7 +12,8 @@ spec:
         tag: 0.13.11
       url: oci://ghcr.io/victoriametrics/helm-charts/victoria-logs-single
   interval: 1h
-  # Nothing exports Vector metrics, so the chart's vector dashboard stays empty; the chart can't skip one.
+  # The chart renders its vector dashboard even with vector disabled, and nothing here exports Vector
+  # metrics, so delete it. Drop once VictoriaMetrics/helm-charts#3332 is fixed.
   postRenderers:
     - kustomize:
         patches:
