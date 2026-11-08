@@ -67,8 +67,9 @@ spec:
   telemetryConfigRef:
     name: prometheus
   config:
-    # Filters live here, not on the backends: proxy toolConfigRef strips resultType on
+    # Most filters live here: proxy toolConfigRef strips resultType on
     # MCP 2026-07-28 backends (stacklok/toolhive#6684), and MCPServerEntry has no toolConfigRef field.
+    # OPNsense intentionally filters at both layers; validate its result shape live.
     aggregation:
       tools:
         - workload: flux-operator
@@ -80,6 +81,9 @@ spec:
         - workload: truenas
           toolConfigRef:
             name: truenas
+        - workload: opnsense
+          toolConfigRef:
+            name: opnsense
     # Cold embedding cache takes ~27-35s on the iGPU, past the 30s default.
     # Anchored to embeddingServiceTimeout — same call.
     # `default` covers every backend request, not just session-build;

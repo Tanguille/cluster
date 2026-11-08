@@ -1,0 +1,74 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: opnsense-proxy-isolation
+spec:
+  # Matches proxy AND stdio pod, following observed operator labels.
+  endpointSelector:
+    matchLabels:
+      toolhive-name: opnsense
+  # Deny overrides the namespace's broad ingress allow union. Only unified's
+  # identity may reach the proxy; node-local kubelet health checks remain allowed.
+  ingressDeny:
+    - fromEndpoints:
+        - matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: Exists
+            - key: io.kubernetes.pod.namespace
+              operator: NotIn
+              values: [ai]
+        - matchExpressions:
+            - key: io.kubernetes.pod.namespace
+              operator: Exists
+            - key: toolhive-name
+              operator: NotIn
+              values: [unified]
+    - fromEntities:
+        - world
+        - remote-node
+        - kube-apiserver
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: ai
+            toolhive-name: unified
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    - fromEntities: [host]
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/cilium.io/ciliumnetworkpolicy_v2.json
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: opnsense-backend-egress
+spec:
+  # Only the stdio workload. The ToolHive proxy needs Kubernetes API attach;
+  # do not constrain that controller-facing pod as if it were the backend.
+  endpointSelector:
+    matchLabels:
+      toolhive-basename: opnsense
+  egress:
+    - toCIDR:
+        - 192.168.0.1/32
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

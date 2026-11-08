@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcpserver_v1beta1.json
+---
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPServer
+metadata:
+  name: opnsense
+spec:
+  image: docker.io/uhlenheide/opnsense-mcp-server:0.4.2@sha256:b6d7f23acc60796756b97b6a45fd665d5c866c1f97a0b8d1e4a0266cef9145fb
+  transport: stdio
+  groupRef:
+    name: all
+  # Intentionally filter BOTH proxy and unified: this backend must not expose
+  # stock diagnostics/writes. Live result-shape acceptance is still required.
+  toolConfigRef:
+    name: opnsense
+  env:
+    - name: OPNSENSE_URL
+      value: https://opnsense.${SECRET_DOMAIN}/api
+    - name: OPNSENSE_VERIFY_SSL
+      value: "true"
+    - name: OPNSENSE_ALLOW_WRITES
+      value: "false"
+    - name: OPNSENSE_ALLOW_SENSITIVE
+      value: "false"
+    - name: PYTHONDONTWRITEBYTECODE
+      value: "1"
+    - name: HOME
+      value: /tmp
+  secrets:
+    - name: opnsense-mcp
+      key: OPNSENSE_API_KEY
+    - name: opnsense-mcp
+      key: OPNSENSE_API_SECRET
+  podTemplateSpec:
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      hostAliases:
+        - ip: 192.168.0.1
+          hostnames:
+            - opnsense.${SECRET_DOMAIN}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+      containers:
+        - name: mcp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+  # Proxy health probes are supplied by the operator; stdio has no HTTP probe.
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/toolhive.stacklok.dev/mcptoolconfig_v1beta1.json
+apiVersion: toolhive.stacklok.dev/v1beta1
+kind: MCPToolConfig
+metadata:
+  name: opnsense
+spec:
+  toolsFilter:
+    - opn_list_firewall_aliases
+    - opn_list_firewall_rules
+    - opn_firewall_log
