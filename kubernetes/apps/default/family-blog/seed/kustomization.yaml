@@ -1,0 +1,11 @@
+---
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - job.yaml
+configMapGenerator:
+  - name: family-blog-seed
+    files:
+      - import.py
+generatorOptions:
+  disableNameSuffixHash: true
