@@ -13,6 +13,16 @@ ignore:
   - app: rook-ceph-cluster
     keys:
       - cephImage.repository
+  # Bootstrap only: these fields govern a deliberately disabled route.
+  # v0.2.0-rc.1 incorrectly calls enabled:false redundant; omission activates it.
+  # Reassess this app-specific exception when enabling serving.
+  - app: family-blog
+    keys:
+      - route.app.enabled
+      - route.app.annotations.gatus*/enabled
+      - route.app.annotations.gethomepage*/enabled
+      - route.app.hostnames
+      - route.app.parentRefs
 
 flux:
   # cluster-secrets is SOPS-encrypted; charts that parse URLs fail on a literal ${SECRET_DOMAIN}.
