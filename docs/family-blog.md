@@ -148,6 +148,8 @@ Only after successful import and the privacy checks:
 
 2. Set the family-blog controller's `replicas` to `1` and its route's `enabled`
    to `true` in `app/helmrelease.yaml`. Render/review before approval and rollout.
+   Reassess the bootstrap-only `family-blog` exceptions in `.deadvalues.yaml`
+   and rerun the scan; they must not hide active-route configuration errors.
    Never switch to an external gateway to work around DNS or connectivity.
 
 Readiness requests `/index.html` and requires real content plus `/srv/.ready`.
@@ -182,8 +184,10 @@ or remove a backup to force import to succeed.
 
 ## Local validation
 
-See the [approved implementation plan](superpowers/plans/2026-11-08-family-blog.md)
-for bootstrap/serving render assertions and exact-image runtime checks.
+Render both lifecycle states: bootstrap must have zero server replicas, no route
+and one seed Job; activation must have one server replica, an internal HTTPS route
+and no seed Job. Test NGINX with a read-only root/site as UID 101, including health,
+readiness, blocked methods and paths, and relative directory redirects.
 
 ```bash
 python3 -m unittest discover -s scripts -p 'test_family_blog_seed.py' -v
