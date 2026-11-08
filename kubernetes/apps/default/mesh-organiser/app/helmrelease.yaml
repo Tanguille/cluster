@@ -12,8 +12,8 @@ spec:
   values:
     controllers:
       mesh-organiser:
-        # SQLite allows one writer, and the trash purge runs in-process: one replica, no overlap.
-        strategy: Recreate
+        # The chart's default Recreate strategy is required: SQLite allows one writer, and the
+        # trash purge runs in-process, so two pods must never overlap.
         annotations:
           reloader.stakater.com/auto: "true"
         containers:
