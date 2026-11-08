@@ -14,6 +14,8 @@ spec:
       mesh-organiser:
         # SQLite allows one writer, and the trash purge runs in-process: one replica, no overlap.
         strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
         containers:
           app:
             image:
@@ -23,7 +25,13 @@ spec:
               # config.json, db.sqlite and the model files all live next to the config file.
               APP_CONFIG_PATH: /cfg/config.json
               ENABLE_MCP: "true"
-              # LOCAL_ACCOUNT_PASSWORD is unset: the admin password is random per start and logged.
+              # Admin (local@noemail.com) password; unset, it is random per start and never shown,
+              # which locks out the only account that can create users.
+              LOCAL_ACCOUNT_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: mesh-organiser-secret
+                    key: LOCAL_ACCOUNT_PASSWORD
             probes:
               liveness:
                 enabled: true
