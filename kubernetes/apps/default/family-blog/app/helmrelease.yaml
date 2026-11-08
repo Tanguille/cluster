@@ -13,14 +13,11 @@ spec:
   values:
     controllers:
       family-blog:
-        type: deployment
-        strategy: Recreate
         # Bootstrap only. First remove seed and wait for volume release; then activate.
         replicas: 0
         annotations:
           reloader.stakater.com/auto: "true"
         pod:
-          automountServiceAccountToken: false
           securityContext:
             runAsNonRoot: true
             runAsUser: 101
@@ -65,8 +62,6 @@ spec:
 
     service:
       app:
-        controller: family-blog
-        type: ClusterIP
         ports:
           http:
             port: *port
@@ -74,6 +69,7 @@ spec:
     route:
       app:
         # Activate only after successful import, seed removal and privacy checks.
+        # Required despite deadvalues' redundant finding: omission enables the route.
         enabled: false
         annotations:
           gatus.home-operations.com/enabled: "false"
@@ -84,10 +80,6 @@ spec:
           - name: envoy-internal
             namespace: network
             sectionName: https
-        rules:
-          - backendRefs:
-              - identifier: app
-                port: *port
 
     persistence:
       site:
@@ -105,5 +97,3 @@ spec:
       tmp:
         type: emptyDir
         sizeLimit: 16Mi
-        globalMounts:
-          - path: /tmp
