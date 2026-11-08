@@ -65,6 +65,12 @@ machine:
   time:
     disabled: false
     servers: [{{ gateway }}]
+  # Kernel log rides along as service "kernel", so no KmsgLogConfig (it would send it twice).
+  # Cilium socket LB serves talos-log-relay's ClusterIP to host-network senders.
+  logging:
+    destinations:
+      - endpoint: udp://{{ log_relay_ip }}:6050/
+        format: json_lines
   features:
     diskQuotaSupport: true
     kubePrism:
