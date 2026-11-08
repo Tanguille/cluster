@@ -18,7 +18,7 @@ spec:
     # The tanguille-cluster GitHub App, also installed on rsume, so cluster-runner's secret serves both.
     githubConfigSecret: cluster-runner-secret
     minRunners: 0
-    # ponytail: one runner at a time; a second 2.5Gi pod request does not fit the nodes' memory
+    # One runner at a time; a second 2.5Gi pod request does not fit the nodes' memory
     # requests. Raise once the nodes have headroom.
     maxRunners: 1
     controllerServiceAccount:
@@ -128,8 +128,10 @@ spec:
         volumes:
           - name: work
             emptyDir: {}
+          # Podman's image and container store; one job's images fit well inside this.
           - name: podman-home
-            emptyDir: {}
+            emptyDir:
+              sizeLimit: 8Gi
           - name: podman-sock
             emptyDir: {}
           - name: podman-ids
