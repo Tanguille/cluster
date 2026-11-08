@@ -5,5 +5,7 @@ kind: Kustomization
 namespace: actions-runner-system
 components:
   - ../../components/common
+  # rsume-runner's rootless Podman sidecar needs seccomp Unconfined, which baseline rejects.
+  - ../../components/psa-privileged
 resources:
   - ./actions-runner-controller/ks.yaml
