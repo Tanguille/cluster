@@ -25,13 +25,11 @@ spec:
               # config.json, db.sqlite and the model files all live next to the config file.
               APP_CONFIG_PATH: /cfg/config.json
               ENABLE_MCP: "true"
-              # Admin (local@noemail.com) password; unset, it is random per start and never shown,
-              # which locks out the only account that can create users.
-              LOCAL_ACCOUNT_PASSWORD:
-                valueFrom:
-                  secretKeyRef:
-                    name: mesh-organiser-secret
-                    key: LOCAL_ACCOUNT_PASSWORD
+            # LOCAL_ACCOUNT_PASSWORD: the admin (local@noemail.com) password. Unset, it is random
+            # per start and never shown, which locks out the only account that can create users.
+            envFrom:
+              - secretRef:
+                  name: mesh-organiser-secret
             probes:
               liveness:
                 enabled: true
