@@ -19,10 +19,10 @@ external archive-toolbar badge is also blocked; do not weaken CSP to load it.
   Keep those and original photos intact. Do not mount Nextcloud homes here.
 - No family content, archive names/checksums, credentials or private recovery URLs
   belong in Git, public logs, images or registries.
-- Initial manifests are **bootstrap only**: server replicas `0`, internal HTTPS
-  route configured, temporary seed Job enabled. The route has no backend Pods
-  until the server is started. Committing configuration does not approve importing
-  data or activating the website.
+- The import is complete. The seed manifests, importer and importer tests are
+  removed from the desired state; recovery tooling remains available in Git
+  history. Server replicas stay `0` until seed removal, volume release and privacy
+  checks are confirmed. The internal HTTPS route has no backend Pods until then.
 
 Use GitOps for every resource change. Obtain separate approval before committing,
 pushing, reconciling, importing, restarting, or deleting resources. Do not use
@@ -54,80 +54,23 @@ The namespace ingress allowlist also permits trusted cluster workloads. This is
 network-private hosting, not isolation from cluster administrators or trusted
 workloads. An additional additive NetworkPolicy would not narrow that allowlist.
 
-## 2. Bootstrap and import (separate approval required)
+## 2. Finish cleanup, then activate
 
-1. Obtain the preserved ZIP **and its independently recorded expected SHA256**
-   from the owner's private Nextcloud backup/recovery record. Download to a
-   private local directory outside this repository. Do not rely on the original
-   capture machine's temporary staging directory or publish a Nextcloud share.
-2. Review and deploy the bootstrap GitOps change after approval. Confirm the
-   server has no Pods and the family-blog HTTPRoute attaches only to the internal
-   HTTPS listener. The seed Job must be the only writer to the empty claim. Do not
-   overlap seed and server Pods: this is RWO storage.
-3. Set local shell variables (do not paste private values into Git). Run in Bash:
+Keep cleanup and activation in separate, ordered GitOps changes. A successful
+import does not authorize serving before the privacy checks pass.
 
-   ```bash
-   set -euo pipefail
-   read -r -p 'Private ZIP path: ' ZIP
-   read -r -p 'Expected SHA256 from recovery record: ' EXPECTED_SHA
-   printf '%s  %s\n' "$EXPECTED_SHA" "$ZIP" | sha256sum -c -
-   ```
+1. Approve/push the seed cleanup, keeping server replicas `0`. After reconciliation,
+   confirm the seed Job, Pods and ConfigMap are gone and the volume is released.
+   Never delete the dedicated PVC as part of cleanup.
 
-4. Confirm the seed Pod is running and its FIFO exists. Use the repository-pinned
-   tools via `mise exec` (commands below are read-only until the stream step):
-
-   ```bash
-   mise exec -- kubectl -n default get job family-blog-seed
-   mise exec -- kubectl -n default wait --for=condition=Ready pod \
-     -l job-name=family-blog-seed --timeout=2m
-   mise exec -- kubectl -n default exec job/family-blog-seed -c seed -- \
-     sh -c 'test -p /tmp/archive.fifo'
-   ```
-
-   If the FIFO check fails, inspect the Pod and logs before proceeding. The Job
-   has a 24-hour deadline and no retry or TTL recreation loop. Do not stream into
-   an expired, completed or failed Job, and do not start competing writers.
-
-5. **Only after import approval**, send the checksum line and original ZIP:
-
-   ```bash
-   { printf '%s\n' "$EXPECTED_SHA"; cat -- "$ZIP"; } |
-     mise exec -- kubectl -n default exec -i job/family-blog-seed -c seed -- \
-       sh -c 'cat > /tmp/archive.fifo'
-   mise exec -- kubectl -n default wait --for=condition=complete \
-     job/family-blog-seed --timeout=10m
-   mise exec -- kubectl -n default logs job/family-blog-seed -c seed
-   ```
-
-   A successful pipe is not proof of import: require the Job to complete and the
-   importer log to report success. The importer verifies the whole ZIP before
-   extraction, then exact `offline/` inventory and every file hash. It publishes
-   `site` atomically and writes `.ready` last, outside the document root. The full
-   manifest is archive-root-relative; its raw/metadata entries are never extracted.
-   Compare the logged file count and bytes with the private recovery validation
-   record. A completed Job cannot accept further exec commands.
-
-On timeout/failure, inspect Job/Pod status and logs; do not enable serving. An
-interrupted process may leave staging, and existing `site`, `.ready`, unrelated
-files or abandoned staging are deliberately refused on retry. Never delete them
-automatically. Inspect the state privately and use an approved recovery plan;
-Job recreation/removal is a reviewed GitOps change, with deletion approval.
-
-## 3. Activate in two ordered GitOps changes
-
-Only after successful import and the privacy checks:
-
-1. Remove `../seed` from `app/kustomization.yaml` components, keeping server
-   replicas `0`. Approve/push/reconcile that change and confirm the seed Job and
-   Pods are gone and the volume is released.
-
-   Read-only checks (Job/Pod commands must print nothing; attachment list must
-   be `[]`). Recheck if pruning or CSI detachment is still in progress; do not
+   Read-only checks (Job/Pod/ConfigMap commands must print nothing; attachment list
+   must be `[]`). Recheck if pruning or CSI detachment is still in progress; do not
    delete a VolumeAttachment to force this checkpoint:
 
    ```bash
    mise exec -- kubectl -n default get job family-blog-seed --ignore-not-found -o name
    mise exec -- kubectl -n default get pods -l job-name=family-blog-seed -o name
+   mise exec -- kubectl -n default get configmap family-blog-seed --ignore-not-found -o name
    PV=$(mise exec -- kubectl -n default get pvc family-blog -o jsonpath='{.spec.volumeName}')
    test -n "$PV"
    mise exec -- kubectl get volumeattachments.storage.k8s.io -o json |
@@ -136,7 +79,8 @@ Only after successful import and the privacy checks:
          {name: .metadata.name, attached: .status.attached}]'
    ```
 
-2. Set the family-blog controller's `replicas` to `1` in `app/helmrelease.yaml`.
+2. Only after volume release and all privacy checks, set the family-blog controller's
+   `replicas` to `1` in `app/helmrelease.yaml` through a separately approved change.
    The internal route is already configured; no route change is needed.
    Render/review before approval and rollout.
    Never switch to an external gateway to work around DNS or connectivity.
@@ -168,23 +112,63 @@ refuse it.
 For storage loss, use the private Nextcloud ZIP and expected checksum to rebuild
 on a **fresh empty PVC**, with serving disabled. Retain the old claim for inspection
 if it still exists; a replacement name must be changed consistently in the PVC,
-server and seed references. Revalidate and repeat bootstrap/import/activation.
+server and restored seed references.
 Deleting/replacing a claim needs explicit approval; never clear a volume in place
 or remove a backup to force import to succeed.
 
+The merged bootstrap commit preserves the importer, tests and original runbook:
+`cc2cd762ea223d86fbf08175da0cf81aadebc64e` (PR #6671). On a recovery branch, restore
+only the tooling, not the old application configuration:
+
+```bash
+git restore --source=cc2cd762ea223d86fbf08175da0cf81aadebc64e -- \
+  kubernetes/apps/default/family-blog/seed scripts/test_family_blog_seed.py
+```
+
+Then:
+
+1. Review restored image versions against upstream, run the restored importer
+   tests and add `../seed` as a Component in `app/kustomization.yaml`. Point the
+   seed and server at the approved fresh claim; keep server replicas `0`.
+2. Deploy the reviewed recovery change after approval. Require a single Ready
+   seed Pod, an empty destination (apart from filesystem `lost+found`) and an
+   existing `/tmp/archive.fifo`. Do not overlap seed and serving Pods.
+3. Obtain the original ZIP and independently recorded expected SHA256 from the
+   private Nextcloud recovery record. Verify locally without changing the source.
+   Do not depend on temporary files left on the original capture machine.
+4. **Do not reuse the historical direct-to-FIFO upload command.** A prior exec
+   transfer truncated stdin; checksum rejection prevented extraction. Buffer the
+   complete checksum-line-plus-ZIP frame in bounded memory in the seed container,
+   verify its exact length and frame SHA256, then open the FIFO once and write
+   locally. A rejected transfer must not open the FIFO. Use a reviewed operator
+   procedure with a 64MiB frame cap and measured headroom under the 256MiB
+   container limit. `/tmp` is only 16MiB, and `lost+found` is not an upload staging
+   directory.
+5. Require Job completion and logged file/byte counts matching the private recovery
+   record. The importer verifies the ZIP and every extracted file, publishes `site`
+   atomically, and writes `.ready` last. Only `offline/` content is extracted.
+6. Remove the restored seed Component, manifests and tests through GitOps. Confirm
+   resource removal and volume release, then repeat privacy checks and activation.
+
+On any failure, stop and inspect privately. Do not automatically repeat the
+upload, recreate the Job or remove abandoned staging. A completed Job cannot
+accept another upload; a populated volume must never be reseeded.
+
 ## Local validation
 
-Render all lifecycle states with the same internal HTTPS route: bootstrap has zero
-server replicas and one seed Job; after seed removal both counts are zero;
-activation has one server replica and no seed Job. Test NGINX with a read-only
+Render the cleanup state with zero server replicas and no seed Job/ConfigMap;
+activation must have one server replica, no seed resources and the same internal
+HTTPS route. Test NGINX with a read-only
 root/site as UID 101, including health, readiness, blocked methods and paths, and
 relative directory redirects.
 
 ```bash
-python3 -m unittest discover -s scripts -p 'test_family_blog_seed.py' -v
 mise exec -- kustomize build kubernetes/apps/default/family-blog/app
 git diff --check
 mise exec -- bash .agents/skills/pr-review/scripts/validate-pr.sh
 ```
 
 Local rendering and runtime tests do not substitute for the live privacy checks.
+When restoring the importer for recovery, also run
+`python3 -m unittest discover -s scripts -p 'test_family_blog_seed.py' -v` before
+deploying it.

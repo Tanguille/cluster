@@ -5,9 +5,6 @@ kind: Kustomization
 resources:
   - helmrelease.yaml
   - pvc.yaml
-# Bootstrap only: remove the seed Component and wait for volume release before activation.
-components:
-  - ../seed
 configMapGenerator:
   - name: family-blog-configmap
     files:
