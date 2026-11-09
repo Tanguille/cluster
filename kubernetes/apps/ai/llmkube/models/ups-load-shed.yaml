@@ -1,7 +1,8 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/keda.sh/scaledobject_v1alpha1.json
-# Sheds the LLM when the tech cave UPS (Ellipse ECO 1200, load % of ~960 W) nears overload, e.g. desktop gaming
-# plus the printer. The dGPU is the only large load the cluster can drop (~250 W busy, CPUs 30-60 W per node).
+# Last resort before the tech cave UPS (Ellipse ECO 1200, load % of ~960 W) trips, e.g. desktop gaming plus the
+# printer plus a long GPU job. Earlier stages: xmrig stops at 85 % (web3/monero/xmrig), Home Assistant pushes at 90 %.
+# The LLM idles at ~11 W (7d median), so it is only paused while the dGPU is busy (~250 W).
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -26,18 +27,24 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-        # Running: stay up unless load held above 90 % for a full minute.
-        # Shed: come back only after 15 min under 65 %, since the LLM adds ~23 points when busy.
-        # Missing NUT or kube-state-metrics data falls through to 1.
+        # Running: pause only when load held above 97 % for a full minute AND the dGPU averaged over 100 W.
+        # Paused: resume after 10 min under 70 %, since a busy LLM adds ~25 points.
+        # Missing NUT, GPU or kube-state-metrics data falls through to 1.
         query: >-
           max(
             (
-              (min_over_time(network_ups_tools_ups_load[1m]) <= bool 90)
+              (
+                1 - (
+                  (min_over_time(network_ups_tools_ups_load[1m]) > bool 97)
+                  * on()
+                  (avg_over_time(node_hwmon_power_average_watt{instance="192.168.0.11:9100"}[1m]) > bool 100)
+                )
+              )
               and on() (kube_deployment_spec_replicas{namespace="ai", deployment="qwen38-27b-vllm"} > 0)
             )
             or on()
             (
-              (max_over_time(network_ups_tools_ups_load[15m]) < bool 65)
+              (max_over_time(network_ups_tools_ups_load[10m]) < bool 70)
               and on() (kube_deployment_spec_replicas{namespace="ai", deployment="qwen38-27b-vllm"} == 0)
             )
             or on() vector(1)

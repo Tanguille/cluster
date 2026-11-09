@@ -145,6 +145,12 @@ spec:
                       ) >= bool 2147483648
                     )
                   )
+                  # UPS stage 1: stop mining above 85 % tech cave UPS load (llmkube/models/ups-load-shed.yaml is the last resort).
+                  * on()
+                  (
+                    (max_over_time(network_ups_tools_ups_load[5m]) < bool 85)
+                    or on() vector(1)
+                  )
                 ) or vector(0)
               threshold: "50" # 50W per replica (each miner consumes ~50W)
               # half a miner's draw
