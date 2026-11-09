@@ -1,8 +1,7 @@
 ---
 # yaml-language-server: $schema=https://k8s-schemas.home-operations.com/keda.sh/scaledobject_v1alpha1.json
-# Last resort before the tech cave UPS (Ellipse ECO 1200, load % of ~960 W) trips, e.g. desktop gaming plus the
-# printer plus a long GPU job. Earlier stages: xmrig stops at 85 % (web3/monero/xmrig), Home Assistant pushes at 90 %.
-# The LLM idles at ~11 W (7d median), so it is only paused while the dGPU is busy (~250 W).
+# Last resort before the tech cave UPS (Ellipse ECO 1200) trips; xmrig stops at 85 %, Home Assistant pushes at 90 %.
+# The LLM idles at ~11 W, so it is only paused while the dGPU is busy (~250 W).
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
@@ -12,9 +11,7 @@ spec:
     apiVersion: inference.llmkube.dev/v1alpha1
     kind: InferenceService
     name: qwen38-27b-vllm
-  minReplicaCount: 0
   maxReplicaCount: 1
-  pollingInterval: 30
   # Hysteresis lives in the query, so drop to 0 as soon as it says so.
   cooldownPeriod: 0
   advanced:
@@ -27,9 +24,7 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://vmsingle-victoria-metrics.observability.svc.cluster.local:8428
-        # Running: pause only when load held above 97 % for a full minute AND the dGPU averaged over 100 W.
-        # Paused: resume after 10 min under 70 %, since a busy LLM adds ~25 points.
-        # Missing NUT, GPU or kube-state-metrics data falls through to 1.
+        # 97 % to pause, 70 % to resume: a busy LLM adds ~25 points. Missing data keeps it running.
         query: >-
           max(
             (
@@ -37,7 +32,7 @@ spec:
                 1 - (
                   (min_over_time(network_ups_tools_ups_load[1m]) > bool 97)
                   * on()
-                  (avg_over_time(node_hwmon_power_average_watt{instance="192.168.0.11:9100"}[1m]) > bool 100)
+                  (avg_over_time(node_hwmon_power_average_watt{instance="${CLUSTER_NODE_1_IP}:9100"}[1m]) > bool 100)
                 )
               )
               and on() (kube_deployment_spec_replicas{namespace="ai", deployment="qwen38-27b-vllm"} > 0)
