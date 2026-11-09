@@ -6,6 +6,8 @@ import unittest
 
 
 APPS = Path(__file__).resolve().parents[1] / "kubernetes/apps"
+# Chart defaults are already system-* (verified live 2026-11-09); deadvalues forbids restating them.
+ALLOWLIST = {"kube-system/metrics-server/app", "system-upgrade/tuppr/app"}
 # Operator CRs whose pods a PDB guards; checked per file so one CR's class can't cover another.
 PDB_CRS = re.compile(r"^apiVersion:\s*(postgresql\.cnpg\.io|dragonflydb\.io)/\S+\s*\nkind:\s*(Cluster|Pooler|Dragonfly)\s*$", re.M)
 
@@ -16,6 +18,8 @@ class PdbPriorityTests(unittest.TestCase):
     def test_pdb_declarations_have_a_priority_class(self):
         checked = 0
         for path in sorted(APPS.rglob("*.yaml")):
+            if str(path.parent.relative_to(APPS)) in ALLOWLIST:
+                continue
             text = path.read_text()
             same_file = "podDisruptionBudget:" in text or PDB_CRS.search(text)
             if not (same_file or re.search(r"^kind:\s*PodDisruptionBudget\s*$", text, re.M)):
