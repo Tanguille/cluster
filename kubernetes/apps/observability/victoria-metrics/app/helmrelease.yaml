@@ -482,6 +482,30 @@ spec:
                 for: 5m
                 labels:
                   severity: warning
+      scheduling-rules:
+        groups:
+          - name: scheduling
+            rules:
+              # Fires after manual cordons and failed upgrade jobs alike; nothing uncordons those.
+              - alert: NodeCordonedTooLong
+                annotations:
+                  summary: Node {{ $labels.node }} is still cordoned; its evicted pods stay Pending until it is uncordoned.
+                expr: kube_node_spec_unschedulable == 1
+                for: 45m
+                labels:
+                  severity: warning
+              # The requests join skips pods with no memory request, which preemption never picks.
+              - alert: DaemonSetPodWithoutPriorityClass
+                annotations:
+                  summary: DaemonSet {{ $labels.namespace }}/{{ $labels.created_by_name }} has no priority class; its pods lose to preemption on full nodes and cannot move.
+                expr: |-
+                  count by (namespace, created_by_name) (
+                    kube_pod_info{created_by_kind="DaemonSet", priority_class=""}
+                    and on (namespace, pod) (kube_pod_container_resource_requests{resource="memory"} > 0)
+                  )
+                for: 1h
+                labels:
+                  severity: warning
       node-hardware-rules:
         groups:
           - name: node-hardware
