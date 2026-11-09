@@ -64,4 +64,4 @@ box has no `gh`/`GITHUB_TOKEN`, so there it is the only route.
 - Annotate relevant deployments with Reloader (e.g. `reloader.stakater.com/auto: "true"`) so pods restart when referenced ConfigMaps or Secrets change.
 - For one-shot privileged pods, use a YAML manifest and `kubectl apply -f`; complex `kubectl run --overrides` JSON is unreliable. Delete an existing pod before reapplying because pod specs are largely immutable.
 - Follow KISS principles; avoid init containers or extra complexity unless needed.
-- Drain safety: PDB, DaemonSet, node-pinned and drain-role pods run at `homelab-critical` (why: `kube-system/priorityclass.yaml`), enforced by `scripts/test_pdb_priority.py` and `DaemonSetPodWithoutPriorityClass`.
+- Drain safety: PDB, DaemonSet, node-pinned and drain-role pods run at `homelab-critical` (why: `kube-system/priorityclass.yaml`); the `DaemonSetPodWithoutPriorityClass` alert catches unclassed DaemonSets.
