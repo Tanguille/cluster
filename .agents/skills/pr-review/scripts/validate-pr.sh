@@ -70,7 +70,9 @@ echo ""
 
 # Phase 3: Fail closed on secret-check/parser/test failures. No decryption or private files.
 echo "[3/3] Repository Secret Guardrails..."
-if (cd "${REPO_ROOT}" && python3 scripts/secret-check.py --all && python3 -m unittest discover -s scripts -v); then
+# mise exec puts the real binaries ahead of the shims: a test that runs lefthook from a temp dir
+# outside .mise.toml otherwise hits a shim with no version.
+if (cd "${REPO_ROOT}" && mise exec -- python3 scripts/secret-check.py --all && mise exec -- python3 -m unittest discover -s scripts -v); then
     pass "Secret guardrails and regression tests passed"
 else
     fail "Secret guardrails or regression tests failed (run via mise exec)"

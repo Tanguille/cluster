@@ -13,10 +13,6 @@ import unittest
 
 
 CHECKER = Path(__file__).resolve().parent / "secret-check.py"
-# The temp repo is outside .mise.toml, where the lefthook shim has no version; resolve the binary from the repo.
-LEFTHOOK = subprocess.run(
-    ["mise", "which", "lefthook"], cwd=CHECKER.parents[1], capture_output=True, text=True
-).stdout.strip() or "lefthook"
 ENC = "ENC[AES256_GCM,data:ZmFrZQ==,iv:ZmFrZQ==,tag:ZmFrZQ==,type:str]"
 META = {"mac": ENC, "version": "3.13.3", "age": [{"recipient": "age1public", "enc": "wrapped"}]}
 # Assemble fake tokens so the test source itself contains no identity material.
@@ -212,7 +208,7 @@ sops: {json.dumps(META)}
                 config = {"pre-commit": {"jobs": [fixture(job, name) for job in jobs]}}
                 (self.root / "lefthook.json").write_text(json.dumps(config))
                 result = subprocess.run(
-                    [LEFTHOOK, "run", "pre-commit", "--no-auto-install", "--no-tty"],
+                    ["lefthook", "run", "pre-commit", "--no-auto-install", "--no-tty"],
                     cwd=self.root, input=b"", capture_output=True, timeout=30,
                 )
                 output = (result.stdout + result.stderr).decode()
