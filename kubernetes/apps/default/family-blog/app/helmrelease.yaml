@@ -13,7 +13,7 @@ spec:
   values:
     controllers:
       family-blog:
-        # Bootstrap only. First remove seed and wait for volume release; then activate.
+        # Hold until seed removal, volume release and privacy checks are confirmed.
         replicas: 0
         annotations:
           reloader.stakater.com/auto: "true"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""One /metrics scrape (running/waiting + spec-decode counters) shared by walltime.py,
-toolbench.py and prodshape.py; one call per check because port-forwarded scrapes wedged."""
+"""One /metrics scrape (running/waiting + spec-decode counters) shared by the bench scripts;
+one call per check because port-forwarded scrapes wedged."""
 import time
 import urllib.request
 
