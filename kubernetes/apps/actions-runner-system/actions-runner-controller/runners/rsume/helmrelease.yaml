@@ -73,20 +73,6 @@ spec:
               periodSeconds: 2
               timeoutSeconds: 5
               failureThreshold: 30
-            # Restarts a service that is alive but no longer answers; 5 minutes of slack for busy builds.
-            livenessProbe:
-              exec:
-                command:
-                  [
-                    "podman",
-                    "--remote",
-                    "--url",
-                    "unix:///run/podman/podman.sock",
-                    "info"
-                  ]
-              periodSeconds: 30
-              timeoutSeconds: 10
-              failureThreshold: 10
             # Containers run inside the sidecar's cgroup (rootless, no cgroup delegation), so the
             # app and Playwright count here.
             resources:
