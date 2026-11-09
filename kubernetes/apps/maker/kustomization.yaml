@@ -8,7 +8,12 @@ components:
   - ../../components/common
   - ../../components/deny-apiserver-egress
   - ../../components/deny-lan-egress
+  - ../../components/dragonfly-auth
+  # moonraker-obico runs on hostNetwork.
+  - ../../components/psa-privileged
 
 resources:
   - ./mesh-organiser/ks.yaml
   - ./networkpolicy.yaml
+  - ./obico/ks.yaml
+  - ./spoolman/ks.yaml

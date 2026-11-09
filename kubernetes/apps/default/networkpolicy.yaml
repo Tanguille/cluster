@@ -5,7 +5,7 @@ kind: CiliumNetworkPolicy
 metadata:
   name: default-ingress-allowlist
 spec:
-  # Default-deny ingress (egress open). hostNetwork moonraker-obico has no Cilium endpoint, so no CNP applies to it.
+  # Default-deny ingress (egress open).
   # Allows union, so a per-pod CNP only adds sources not listed here: forgejo (flux-system), satisfactory (world).
   endpointSelector: {}
   ingress:
