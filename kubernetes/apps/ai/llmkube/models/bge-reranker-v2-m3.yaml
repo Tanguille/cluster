@@ -66,9 +66,12 @@ spec:
 
   # Render/video host groups for /dev/dri — the documented Vulkan-runtime
   # path. Mirrored by embeddinggemma-2 / d3-nano.
+  # uid 101 is the model downloader's (llmkube --init-container-user); the root
+  # model-cache-prep init hands /models to group 102, so the server needs no root.
   podSecurityContext:
-    runAsUser: 0
-    runAsGroup: 0
+    runAsUser: 101
+    fsGroup: 102
+    fsGroupChangePolicy: OnRootMismatch
     supplementalGroups:
       - 44
       - 226
