@@ -5,7 +5,7 @@ name: Flate
 on:
   pull_request:
     branches: ["main"]
-    paths: ["kubernetes/**", "flate/**", "flate-supply.yaml"]
+    paths: ["kubernetes/**", "flate-supply.yaml"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
@@ -37,7 +37,7 @@ jobs:
         env:
           FLATE_API_VERSIONS: monitoring.coreos.com/v1,monitoring.coreos.com/v1/ServiceMonitor,grafana.integreatly.org/v1beta1/GrafanaDashboard
           FLATE_OUTPUT: github
-          FLATE_PATH: ./flate
+          # No FLATE_PATH: root discovery, like konflate and validate-pr.sh.
           FLATE_SUPPLY: ./flate-supply.yaml
         # Diffs go to files, not step outputs: the comment action receives an input as one
         # environment variable, and Linux caps a single one at 128 KiB ("Argument list too
@@ -82,9 +82,11 @@ jobs:
           message-path: ${{ runner.temp }}/flate-kustomization.md
 
   pull:
+    # A moved cluster entry lists images as per-cluster objects; image names never contain "{".
     if: >-
       ${{
         needs.flate.outputs.images != '[]' &&
+        !contains(needs.flate.outputs.images, '{') &&
         github.event.pull_request.head.repo.full_name == github.repository
       }}
     needs: flate
