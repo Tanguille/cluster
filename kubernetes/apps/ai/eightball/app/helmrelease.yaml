@@ -14,8 +14,7 @@ spec:
         tag: 0.1.0
       url: oci://ghcr.io/tanguille/charts/eightball
   # The chart's defaults cover the image, security contexts, probes, resources and the Service. They also fix the
-  # mounts this app depends on: ConfigMap eightball-config (configMapGenerator) at /etc/eightball, and the database at
-  # /data/8ball.db, which the kopiur SnapshotPolicy backs up with sourcePathOverride /data.
+  # database at /data/8ball.db, which the kopiur SnapshotPolicy backs up with sourcePathOverride /data.
   values:
     controllers:
       eightball:
@@ -24,12 +23,26 @@ spec:
         containers:
           app:
             env:
+              # The config comes from EIGHTBALL_CONFIG_TOML, which conflicts with the chart's default file path.
+              EIGHTBALL_CONFIG: null
+              EIGHTBALL_CONFIG_TOML: |
+                default = "d3"
+
+                [endpoints.d3]
+                url = "http://d3-nano.ai.svc.cluster.local:8080"
+                kind = "systemone"
+
+                [specs.gitops-investigate]
+                type = "noul"
+                instructions = "Does this candidate warrant investigating for this homelab? The state is JSON data with context (current inventory and recent recommendations) and item (the candidate). Investigate changes plausibly affecting a component we use, including migrations, breakage, or meaningful operational improvements. Routine version bumps and changes limited to components we do not use do not warrant investigation. Judge only the supplied evidence."
               EIGHTBALL_API_KEY:
                 valueFrom:
                   secretKeyRef:
                     name: eightball-secret
                     key: EIGHTBALL_API_KEY
     persistence:
+      config:
+        enabled: false
       data:
         existingClaim: *app
     serviceMonitor:
