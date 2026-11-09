@@ -44,6 +44,8 @@ spec:
       slow: false
       # Server DB is a re-downloadable cache; emptyDir avoids a Ceph PVC.
       storageClassEnabled: false
+      # Debian's ssl-cert placeholder key, generated at image build and public with the image.
+      skipFiles: /etc/ssl/private/ssl-cert-snakeoil.key
       server:
         resources:
           requests:
