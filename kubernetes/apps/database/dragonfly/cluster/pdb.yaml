@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://k8s-schemas.home-operations.com/policy/poddisruptionbudget_v1.json
+# The Dragonfly CRD has no disruption field; this keeps a drain from taking the master and a replica together.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dragonfly
+spec:
+  # 3 replicas hard-spread one per node; maxUnavailable so scaling down never bricks drains.
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dragonfly

@@ -52,6 +52,8 @@ spec:
                 cpu: 1
                 memory: 3Gi
     defaultPodOptions:
+      # Fastresume flush for a large session outlasts the 30s default; SIGKILL loses torrent state.
+      terminationGracePeriodSeconds: 120
       securityContext:
         runAsNonRoot: true
         runAsUser: 568

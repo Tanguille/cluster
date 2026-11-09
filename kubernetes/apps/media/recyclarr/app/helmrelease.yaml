@@ -22,6 +22,8 @@ spec:
           backoffLimit: 1
           # A kept failed Job holds KubeJobFailed until it is deleted.
           ttlSecondsAfterFinished: 3600
+          # Under Forbid a hung run blocks every later tick and CronJobNotScheduled does not see it.
+          activeDeadlineSeconds: 3600
         containers:
           app:
             image:
