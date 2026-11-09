@@ -85,7 +85,7 @@ spec:
           client_body_timeout 300s;
           fastcgi_buffers 64 4K;
           fastcgi_read_timeout 3600s;
-      # A 256Mi limit OOMKilled mid-upload of the nightly HA backup (08-23, 09-04, 09-05); 7d peak 32Mi.
+      # 7d scraped peak 32Mi; upload spikes fall between scrapes, and a 256Mi limit OOMKilled the nightly HA backup (08-23, 09-04, 09-05).
       resources:
         requests:
           cpu: 50m
